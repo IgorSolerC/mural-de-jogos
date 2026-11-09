@@ -374,7 +374,7 @@ describe('página do Kanban', () => {
     expect(gear.getAttribute('aria-expanded')).toBe('true');
     const sheet = await configSheet();
     expect(sheet.querySelector('h2')!.textContent).toBe('Configurações do mural');
-    expect([...sheet.querySelectorAll('.parte-nome')].map((t) => t.textContent!.trim())).toEqual(['Padrões', 'Grupos', 'Assuntos', 'Tags', 'Quadro']);
+    expect([...sheet.querySelectorAll('.parte-nome')].map((t) => t.textContent!.trim())).toEqual(['Padrões', 'Grupos', 'Pastas', 'Tags', 'Quadro']);
     sheet.querySelector<HTMLButtonElement>('#config-aba-quadro')!.click();
     await settle();
     expect(sheet.querySelector('h3')!.textContent).toBe('Quadro');
@@ -443,7 +443,7 @@ describe('página do Kanban', () => {
     document.body.appendChild(solo.nativeElement);
     await solo.whenStable();
     sheet = solo.nativeElement;
-    expect([...sheet.querySelectorAll('.parte-nome')].map((t) => t.textContent!.trim())).toEqual(['Padrões', 'Grupos', 'Assuntos', 'Tags']);
+    expect([...sheet.querySelectorAll('.parte-nome')].map((t) => t.textContent!.trim())).toEqual(['Padrões', 'Grupos', 'Pastas', 'Tags']);
     expect(sheet.querySelector('h3')!.textContent).toBe('Padrões');
     sheet.querySelector('dialog')!.close();
     solo.nativeElement.remove();
@@ -857,12 +857,12 @@ describe('página do Kanban', () => {
     await go(TRAB_URL);
     await openFilters();
     const kicker = column('afazer').querySelector('[data-nota="nlogin01"] .assunto')!;
-    expect(kicker.textContent!.replace('Assunto: ', '').trim()).toBe('Site');
+    expect(kicker.textContent!.replace('Pasta: ', '').trim()).toBe('Site');
     expect(column('afazer').querySelector('[data-nota="nsync001"] .assunto')).toBeNull();
     const radios = () => [...host.querySelectorAll<HTMLInputElement>('app-filter-card .recorte input')];
     const labels = () => [...host.querySelectorAll('app-filter-card .recorte')].map((l) => l.textContent!.replace(/\s+/g, ' ').trim());
     // os recortes da ficha dos filtros, como os do mural: Todos, de A a Z, e "Sem assunto" no fim, com quantas cada um mostra
-    expect(labels()).toEqual(['Todos', 'Site, 1', 'Sem assunto, 1']);
+    expect(labels()).toEqual(['Todos', 'Site, 1', 'Sem pasta, 1']);
     expect(radios()[0].checked).toBeTrue();
     radios()[1].click();
     await settle();

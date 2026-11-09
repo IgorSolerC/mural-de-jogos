@@ -269,7 +269,16 @@
                   <app-group-picker #grupo [category]="noteCategory()" (categoryChange)="pickGroup($event)" [categories]="categoryLib()" />
                 }
                 @case ('assunto') {
-                  <app-subject-picker #assunto [subject]="folderLabel()" (subjectChange)="pickSubject($event)" [subjects]="subjectLib()" [group]="noteCategory()" />
+                  <app-folder-picker
+                    #assunto
+                    [value]="noteFolder()"
+                    (valueChange)="pickFolder($event)"
+                    [tree]="folders.tree()"
+                    [group]="noteGroupKey()"
+                    [groupName]="noteCategory() ?? 'Sem grupo'"
+                    [counts]="folderCounts()"
+                    (create)="createFolder($event)"
+                  />
                 }
                 @case ('tags') {
                   <app-tag-picker #tags [(tags)]="noteTags" [library]="tagLib()" [category]="noteCategory()" />

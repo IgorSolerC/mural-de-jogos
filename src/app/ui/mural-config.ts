@@ -12,7 +12,9 @@ import { AutoTab, CategoryPrefs, GroupSort, GroupView, NotesConfig, arrangedKeys
 import { isPinnedNote, type Audience } from '../core/review';
 import { SharedStore } from '../core/shared-store';
 import { ReviewStore } from '../core/review-store';
-import { LABEL_MAX, SubjectEntry, cleanCategory, cleanNewCategory, cleanSubject, cleanTag } from '../core/note-labels';
+import { LABEL_MAX, cleanCategory, cleanNewCategory, cleanTag } from '../core/note-labels';
+import { NoteFolder, cleanFolderName, siblingNamed } from '../core/folders';
+import { FolderMoveSheet } from './folder-move-sheet';
 import { Settings } from '../core/settings';
 import { BackdropClose } from './backdrop-close';
 import { CategoryLabel } from './category-label';
@@ -32,7 +34,7 @@ import { tabStep } from './focus';
 const SECTIONS = [
   { id: 'padroes', label: 'Padrões', hint: 'Como nasce cada anotação', icon: ICON.ajustar },
   { id: 'categorias', label: 'Grupos', hint: 'Nome, ordem, cor e padrões', icon: ICON.etiquetas },
-  { id: 'assuntos', label: 'Assuntos', hint: 'Por grupo: criar e renomear', icon: ICON.assunto },
+  { id: 'assuntos', label: 'Pastas', hint: 'Por grupo: criar, renomear e mover', icon: ICON.pastaDeNotas },
   { id: 'tags', label: 'Tags', hint: 'Por grupo: nome e cor', icon: ICON.etiqueta },
   { id: 'quadro', label: 'Quadro', hint: 'O quadro deste grupo', icon: ICON.colunas },
   // as dos Estudos: só pela engrenagem dos Estudos (ver `study`)
@@ -94,7 +96,7 @@ const SORTS: readonly { value: GroupSort; label: string; icon: LucideIconData }[
   { value: 'prioridade', label: 'Prioridade', icon: ICON.fixar },
   { value: 'data', label: 'Data', icon: ICON.calendario },
   { value: 'alfabetica', label: 'Título', icon: ICON.porNome },
-  { value: 'assunto', label: 'Assunto', icon: ICON.assunto },
+  { value: 'assunto', label: 'Pasta', icon: ICON.pastaDeNotas },
   { value: 'tag', label: 'Tag', icon: ICON.etiqueta },
   { value: 'criacao', label: 'Criação', icon: ICON.novaNota },
   { value: 'alteracao', label: 'Alteração', icon: ICON.historico },
@@ -109,7 +111,7 @@ const SORT_SAID: Record<GroupSort, string> = {
   prioridade: 'Por prioridade',
   data: 'Por data',
   alfabetica: 'Por título',
-  assunto: 'Por assunto',
+  assunto: 'Por pasta',
   tag: 'Por tag',
   criacao: 'Por criação',
   alteracao: 'Por alteração',
@@ -161,14 +163,14 @@ interface TagGroup {
   tags: CategoryRow[];
 }
 
-/** Os assuntos de um grupo, na parte Assuntos: cada grupo com os seus (também os ainda sem nenhum). */
-interface SubjectGroup {
+/** As pastas de um grupo, na parte Pastas: a árvore inteira, recuada por nível, com quantas anotações cada uma tem. */
+interface FolderGroup {
   /** A chave do grupo ("" para as anotações sem grupo). */
   key: string;
   label: string;
-  /** O grupo como vai para o renomear e a lista dos criados ("" para as sem grupo). */
+  /** O grupo como vai para criar ("" para as sem grupo). */
   category: string;
-  subjects: SubjectEntry[];
+  rows: { folder: NoteFolder; depth: number; n: number }[];
 }
 
 /** O arrastar de uma categoria pela alça: onde ela estava, onde vai cair e quanto andou. */
@@ -196,7 +198,7 @@ interface Drag {
  */
 @Component({
   selector: 'app-mural-config',
-  imports: [BackdropClose, CategoryLabel, CategoryStyle, IconModule, NoteTag, Pin, TagColors],
+  imports: [BackdropClose, CategoryLabel, CategoryStyle, FolderMoveSheet, IconModule, NoteTag, Pin, TagColors],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './mural-config.html',
   styleUrls: ['./mural-config.scss', './mural-config-estudos.scss'],
@@ -215,7 +217,7 @@ export class MuralConfig {
 
   protected readonly settings = inject(Settings);
   private readonly store = inject(ReviewStore);
-  private readonly folders = inject(NoteFolders);
+  protected readonly folders = inject(NoteFolders);
   /** Sem a nuvem, ninguém vê o mural: a privacidade só passa a valer quando a pessoa entrar. */
   protected readonly cloud = inject(Cloud);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
@@ -235,6 +237,9 @@ export class MuralConfig {
   protected readonly DeleteIcon = ICON.apagar;
   protected readonly OkIcon = ICON.pronto;
   protected readonly AddIcon = ICON.adicionar;
+  protected readonly FolderIcon = ICON.pastaDeNotas;
+  protected readonly MoveIcon = ICON.guardarNaPasta;
+  protected readonly DissolveIcon = ICON.desfazerPasta;
   protected readonly labelMax = LABEL_MAX;
   protected readonly ResetBoardIcon = ICON.recomecar;
   /** As partes à mostra: o Quadro só pelo Kanban; nos Estudos, só as deles. */
@@ -314,21 +319,32 @@ export class MuralConfig {
   });
 
   /**
-   * Os assuntos de cada grupo, na ordem dos grupos (a das abas), e os das anotações sem grupo por
-   * último (só quando há algum): os de cada grupo de A a Z, criados aqui e usados (ver `subjectLibrary`).
+   * As pastas de cada grupo, na ordem dos grupos (a das abas), e as das anotações sem grupo por último (só
+   * quando há alguma): a árvore de cada um, de A a Z em cada nível.
    */
-  protected readonly subjectGroups = computed<SubjectGroup[]>(() => {
-    const notes = this.store.notes();
-    // os assuntos são as pastas de cima de cada grupo (PLANO-PASTAS.md)
-    const groups: SubjectGroup[] = this.categories().map((c) => ({ key: c.key, label: c.label, category: c.label, subjects: this.folders.topLibrary(c.label, notes) }));
-    const loose = this.folders.topLibrary(null, notes);
-    if (loose.length) groups.push({ key: '', label: 'Sem grupo', category: '', subjects: loose });
+  protected readonly folderGroups = computed<FolderGroup[]>(() => {
+    const tree = this.folders.tree();
+    const rowsOf = (category: string | null, key: string) => {
+      const counts = this.folders.countsIn(category);
+      const rows: FolderGroup['rows'] = [];
+      const walk = (parent: string | null, depth: number) => {
+        for (const f of tree.kids(key, parent)) {
+          rows.push({ folder: f, depth, n: counts.get(f.id) ?? 0 });
+          walk(f.id, depth + 1);
+        }
+      };
+      walk(null, 0);
+      return rows;
+    };
+    const groups: FolderGroup[] = this.categories().map((c) => ({ key: c.key, label: c.label, category: c.label, rows: rowsOf(c.label, c.key) }));
+    const loose = rowsOf(null, '');
+    if (loose.length) groups.push({ key: '', label: 'Sem grupo', category: '', rows: loose });
     return groups;
   });
 
-  /** Os assuntos do grupo, numa linha para o painel dele em Grupos ("História, Geografia e Matemática"). */
+  /** As pastas de cima do grupo, numa linha para o painel dele em Grupos ("História, Geografia e Matemática"). */
   protected subjectsLine(row: CategoryRow): string {
-    const names = this.subjectGroups().find((g) => g.key === row.key)?.subjects.map((s) => s.label) ?? [];
+    const names = this.folderGroups().find((g) => g.key === row.key)?.rows.filter((r) => r.depth === 0).map((r) => r.folder.name) ?? [];
     if (!names.length) return 'Nenhum ainda.';
     const shown = names.slice(0, 5);
     const rest = names.length - shown.length;
@@ -600,9 +616,9 @@ export class MuralConfig {
     this.notice.set(`${this.where(group)}${row.label} foi apagada ${this.told(r)}`);
   }
 
-  // ===== assuntos =====
+  // ===== pastas (PLANO-PASTAS.md, 4.9) =====
 
-  /** De Grupos para Assuntos, já no grupo e com o foco no "Novo assunto" dele. */
+  /** De Grupos para Pastas, já no grupo e com o foco no "Nova pasta" dele. */
   protected openSubjects(row: CategoryRow): void {
     this.pick('assuntos');
     afterNextRender(
@@ -615,80 +631,111 @@ export class MuralConfig {
     );
   }
 
-  protected subjectId(group: SubjectGroup, s: SubjectEntry): string {
-    return `${group.key}|${lookKey(s.label)}`;
-  }
-
-  /** "em 3 anotações", ou "ainda em nenhuma anotação". */
-  protected subjectUses(s: SubjectEntry): string {
-    return s.n ? plural(s.n, 'anotação', 'anotações') : 'Ainda em nenhuma';
-  }
-
-  /** Um assunto novo para o grupo: fica à mão no editor e no filtro, mesmo antes de alguma anotação usar. */
-  protected addSubject(e: Event, group: SubjectGroup, field: HTMLInputElement): void {
+  /** Uma pasta nova na raiz do grupo: fica à mão no editor e no mural, mesmo antes de alguma anotação ir para ela. */
+  protected addFolder(e: Event, group: FolderGroup, field: HTMLInputElement): void {
     e.preventDefault();
-    const name = cleanSubject(field.value);
+    const name = cleanFolderName(field.value);
     if (!name) return;
-    const twin = group.subjects.find((s) => lookKey(s.label) === lookKey(name));
     field.value = '';
+    const twin = siblingNamed(this.folders.tree(), group.key, null, name);
     if (twin) {
-      this.notice.set(group.category ? `${group.label} já tem o assunto ${twin.label}.` : `As anotações sem grupo já têm o assunto ${twin.label}.`);
+      this.notice.set(group.category ? `${group.label} já tem a pasta ${twin.name}.` : `As anotações sem grupo já têm a pasta ${twin.name}.`);
       return;
     }
-    this.folders.ensureTop(group.category, name);
-    this.notice.set(group.category ? `${name} entrou nos assuntos de ${group.label}.` : `${name} entrou nos assuntos das anotações sem grupo.`);
+    const made = this.folders.create(group.category || null, null, name);
+    this.notice.set(made ? `${made.name} entrou nas pastas ${group.category ? 'de ' + group.label : 'das anotações sem grupo'}.` : 'Não cabe mais nenhuma pasta.');
   }
 
-  protected startSubjectRename(group: SubjectGroup, s: SubjectEntry): void {
-    const id = this.subjectId(group, s);
+  protected startFolderRename(id: string): void {
     this.renamingSubject.set(id);
     afterNextRender(() => this.dialog().nativeElement.querySelector<HTMLInputElement>(`[data-assunto-campo="${CSS.escape(id)}"]`)?.select(), { injector: this.injector });
   }
 
-  /** Fecha o campo do assunto e devolve o foco ao lápis dele. */
+  /** Fecha o campo do nome e devolve o foco ao lápis da pasta. */
   protected stopSubjectRename(id: string): void {
     this.renamingSubject.set(null);
     afterNextRender(() => this.dialog().nativeElement.querySelector<HTMLElement>(`[data-assunto-lapis="${CSS.escape(id)}"]`)?.focus(), { injector: this.injector });
   }
 
-  protected async renameSubject(e: Event, group: SubjectGroup, s: SubjectEntry, field: HTMLInputElement): Promise<void> {
+  /** Renomeia a pasta (nenhuma anotação é regravada); com o nome de uma irmã, pergunta e junta as duas. */
+  protected async renameFolder(e: Event, f: NoteFolder, field: HTMLInputElement): Promise<void> {
     e.preventDefault();
-    const name = cleanSubject(field.value);
-    if (!name || name === s.label) {
-      this.stopSubjectRename(this.subjectId(group, s));
+    const name = cleanFolderName(field.value);
+    if (!name || name === f.name) {
+      this.stopSubjectRename(f.id);
       return;
     }
-    const other = this.edits.existingSubject(name, s.label, group.category);
-    if (other) {
+    const tree = this.folders.tree();
+    const twin = siblingNamed(tree, f.group, tree.parentOf(f.id), name, f.id);
+    if (twin) {
       const sure = await this.confirm.ask({
-        title: `Juntar com ${other}?`,
-        text: `${group.category ? `${group.label} já tem o assunto ${other}` : `As anotações sem grupo já têm o assunto ${other}`}. As anotações de ${s.label} passam para ${other}.`,
-        confirm: `Juntar com ${other}`,
+        title: `Juntar com ${twin.name}?`,
+        text: `Ali já existe a pasta ${twin.name}. O que está em ${f.name} passa para ela, e as duas viram uma só.`,
+        confirm: `Juntar com ${twin.name}`,
         tone: 'neutro',
         icon: null,
       });
       if (!sure) return;
+      this.folders.join(f.id, twin.id);
+      this.stopSubjectRename(twin.id);
+      this.notice.set(`${f.name} entrou em ${twin.name}.`);
+      return;
     }
-    const r = this.edits.renameSubject(s.label, group.category, other ?? name);
-    this.stopSubjectRename(`${group.key}|${lookKey(other ?? name)}`);
-    const where = group.category ? `Em ${group.label}, ` : 'Nas anotações sem grupo, ';
-    this.notice.set(`${where}${s.label} ${other ? `entrou em ${other}` : `virou ${name}`}${s.n ? ` ${this.told(r)}` : '.'}`);
+    this.folders.rename(f.id, name);
+    this.stopSubjectRename(f.id);
+    this.notice.set(`${f.name} virou ${name}.`);
   }
 
-  protected async deleteSubject(group: SubjectGroup, s: SubjectEntry): Promise<void> {
-    if (s.n) {
+  /** Desfaz a pasta: o que tinha dentro sobe para a de cima (pergunta antes, se não estiver vazia). */
+  protected async dissolveFolder(group: FolderGroup, f: NoteFolder): Promise<void> {
+    const { notes, folders } = this.folders.contentsOf(f.id);
+    const up = this.folders.nameOf(this.folders.tree().parentOf(f.id)) ?? group.label;
+    if (notes || folders) {
+      const what = [notes ? plural(notes, 'anotação', 'anotações') : '', folders ? plural(folders, 'pasta', 'pastas') : ''].filter(Boolean).join(' e ');
       const sure = await this.confirm.ask({
-        title: group.category ? `Apagar o assunto ${s.label} de ${group.label}?` : `Apagar o assunto ${s.label}?`,
-        text: `${this.uses(s.n)} este assunto. Elas continuam no mural, no mesmo grupo, sem assunto.`,
-        confirm: 'Apagar o assunto',
-        icon: this.DeleteIcon,
+        title: `Desfazer a pasta ${f.name}?`,
+        text: `${notes + folders > 1 ? 'As' : 'A'} ${what} de dentro ${notes + folders > 1 ? 'vão' : 'vai'} para ${up}. Nenhuma anotação é apagada.`,
+        confirm: 'Desfazer a pasta',
+        icon: this.DissolveIcon,
       });
       if (!sure) return;
     }
     this.renamingSubject.set(null);
-    const r = this.edits.renameSubject(s.label, group.category, null);
-    const where = group.category ? `Em ${group.label}, ` : 'Nas anotações sem grupo, ';
-    this.notice.set(`${where}${s.label} foi apagado${s.n ? ` ${this.told(r)}` : '.'}`);
+    this.folders.dissolve(f.id);
+    this.notice.set(notes || folders ? `A pasta ${f.name} foi desfeita; o que tinha dentro foi para ${up}.` : `A pasta ${f.name} foi desfeita.`);
+  }
+
+  /** A pasta sendo movida pela folha (com o grupo, as contas e as de dentro dela, que não se escolhem). */
+  protected readonly movingFolder = signal<{ folder: NoteFolder; group: FolderGroup; from: string; counts: Map<string, number>; blocked: ReadonlySet<string> } | null>(null);
+
+  protected moveFolder(group: FolderGroup, f: NoteFolder): void {
+    const tree = this.folders.tree();
+    this.movingFolder.set({
+      folder: f,
+      group,
+      from: this.folders.nameOf(tree.parentOf(f.id)) ?? group.label,
+      counts: this.folders.countsIn(group.category || null),
+      blocked: tree.below(f.id),
+    });
+  }
+
+  protected folderMoved(f: NoteFolder, parent: string | null): void {
+    const group = this.movingFolder()?.group.label ?? 'a raiz';
+    this.closeFolderMove(f.id);
+    if (parent === this.folders.tree().parentOf(f.id)) return;
+    const done = this.folders.move(f.id, parent);
+    if (done) this.notice.set(`${f.name} foi para ${this.folders.nameOf(parent) ?? group}.`);
+  }
+
+  protected folderMovedToNew(m: { folder: NoteFolder; group: FolderGroup }, e: { parent: string | null; name: string }): void {
+    const made = this.folders.create(m.group.category || null, e.parent, e.name);
+    if (made) this.folderMoved(m.folder, made.id);
+    else this.closeFolderMove(m.folder.id);
+  }
+
+  protected closeFolderMove(id: string): void {
+    this.movingFolder.set(null);
+    afterNextRender(() => this.dialog().nativeElement.querySelector<HTMLElement>(`[data-assunto-mover="${CSS.escape(id)}"]`)?.focus(), { injector: this.injector });
   }
 
   /** O ícone e a cor do grupo pela chave (na orelha da parte Assuntos). */

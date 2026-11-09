@@ -22,7 +22,7 @@ export interface PdfDoc {
   title: string;
   /** "de Fulano", "Álbum de Radiohead": quem fez a obra (as análises). */
   by?: string;
-  /** A linha das informações, na ordem: o assunto, a data, as horas, a média. */
+  /** A linha das informações, na ordem: a pasta, a data, as horas, a média. */
   meta: readonly string[];
   group?: PdfLabel | null;
   tags?: readonly PdfLabel[];

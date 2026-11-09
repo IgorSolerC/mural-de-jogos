@@ -362,7 +362,7 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     TestBed.inject(Settings).setNotesConfig({ folders: [{ id: 'phistoria01', group: 'estudos', name: 'História', parent: null }] });
     fixture.componentInstance.open(note('n-revol', 'Revolução Francesa', { category: 'Estudos', folder: 'phistoria01' }));
     await settle();
-    expect(words(q('.meta .assunto'))).toBe('Assunto: História');
+    expect(words(q('.meta .assunto'))).toBe('Pasta: História');
     fixture.componentInstance.open(note('n-revol-2', 'Era Vargas', { category: 'Estudos' }));
     await settle();
     expect(q('.meta .assunto')).toBeNull();

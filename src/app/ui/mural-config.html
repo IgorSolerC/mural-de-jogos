@@ -218,11 +218,11 @@
 
                         <app-category-style class="sub-bloco" [id]="'config-estilo-' + i" [category]="c.label" [bare]="true" />
 
-                        <!-- os assuntos do grupo: só a lista, e o caminho para criar e renomear em Assuntos -->
+                        <!-- as pastas de cima do grupo: só a lista, e o caminho para organizar em Pastas -->
                         <div class="sub-bloco assuntos-resumo">
-                          <p class="sub-titulo">Assuntos</p>
+                          <p class="sub-titulo">Pastas</p>
                           <p class="nome-dica">{{ subjectsLine(c) }}</p>
-                          <button type="button" class="link" (click)="openSubjects(c)">Criar e renomear em Assuntos</button>
+                          <button type="button" class="link" (click)="openSubjects(c)">Criar e organizar em Pastas</button>
                         </div>
 
                         <!-- a visualização com que o grupo abre: a última usada (o de sempre) ou uma fixa -->
@@ -386,29 +386,29 @@
           }
 
           @case ('assuntos') {
-            <h3>Assuntos</h3>
-            <p class="lead">O assunto separa as anotações de um grupo por dentro: em Estudos, História e Geografia. Os criados aqui já ficam à mão no editor e no filtro, antes de alguma anotação usar.</p>
+            <h3>Pastas</h3>
+            <p class="lead">As pastas organizam as anotações de cada grupo por dentro, e uma pasta pode ter outras dentro dela. No mural, arraste uma anotação sobre outra para criar uma pasta; aqui, crie, renomeie, mova e desfaça.</p>
             <p class="aviso" role="status">{{ notice() }}</p>
 
-            @for (g of subjectGroups(); track g.key) {
-              <section class="tags-grupo assuntos-grupo" [attr.aria-label]="g.category ? 'Assuntos de ' + g.label : 'Assuntos das anotações sem grupo'">
+            @for (g of folderGroups(); track g.key) {
+              <section class="tags-grupo assuntos-grupo" [attr.aria-label]="g.category ? 'Pastas de ' + g.label : 'Pastas das anotações sem grupo'">
                 <h4 class="tags-cat">
                   @if (g.category) {
                     <span class="orelha" [class.orelha-cor]="!!groupColorOf(g.key)" [style.--cat-cor]="groupColorOf(g.key)"><app-cat-label [label]="g.label" [look]="groupLookOf(g.key)" [iconSize]="14" /></span>
                   } @else {
                     <span class="orelha sem">Sem grupo</span>
                   }
-                  <span class="cat-n">{{ g.subjects.length === 1 ? '1 assunto' : g.subjects.length ? g.subjects.length + ' assuntos' : 'Nenhum assunto' }}</span>
+                  <span class="cat-n">{{ g.rows.length === 1 ? '1 pasta' : g.rows.length ? g.rows.length + ' pastas' : 'Nenhuma pasta' }}</span>
                 </h4>
                 <ul class="tags assuntos">
-                  @for (s of g.subjects; track s.label) {
-                    @let id = subjectId(g, s);
-                    <li class="assunto" [class.renomeando]="renamingSubject() === id">
+                  @for (r of g.rows; track r.folder.id) {
+                    @let id = r.folder.id;
+                    <li class="assunto" [class.renomeando]="renamingSubject() === id" [style.--nivel]="r.depth">
                       @if (renamingSubject() === id) {
-                        <form class="tag-nome" (submit)="renameSubject($event, g, s, nomeAssunto)">
+                        <form class="tag-nome" (submit)="renameFolder($event, r.folder, nomeAssunto)">
                           <span class="campo">
-                            <span class="sr-only">Novo nome do assunto {{ s.label }}{{ g.category ? ' em ' + g.label : '' }}</span>
-                            <input #nomeAssunto type="text" autocomplete="off" spellcheck="false" [attr.data-assunto-campo]="id" [maxLength]="labelMax" [value]="s.label" (keydown.escape)="$event.preventDefault(); stopSubjectRename(id)" />
+                            <span class="sr-only">Novo nome da pasta {{ r.folder.name }}{{ g.category ? ' em ' + g.label : '' }}</span>
+                            <input #nomeAssunto type="text" autocomplete="off" spellcheck="false" [attr.data-assunto-campo]="id" [maxLength]="labelMax" [value]="r.folder.name" (keydown.escape)="$event.preventDefault(); stopSubjectRename(id)" />
                           </span>
                           <button type="submit" class="papel">
                             <lucide-icon [img]="OkIcon" [size]="17" aria-hidden="true" />
@@ -417,25 +417,28 @@
                           <button type="button" class="papel quieto" (click)="stopSubjectRename(id)">Cancelar</button>
                         </form>
                       } @else {
-                        <span class="assunto-nome">{{ s.label }}</span>
-                        <span class="cat-n">{{ subjectUses(s) }}</span>
+                        <span class="assunto-nome"><lucide-icon class="assunto-icone" [img]="FolderIcon" [size]="16" aria-hidden="true" />{{ r.folder.name }}</span>
+                        <span class="cat-n">{{ r.n ? (r.n === 1 ? '1 anotação' : r.n + ' anotações') : 'Vazia' }}</span>
                         <span class="tag-acoes">
-                          <button type="button" class="olho" [attr.data-assunto-lapis]="id" [attr.aria-label]="'Renomear o assunto ' + s.label + (g.category ? ' em ' + g.label : '')" title="Renomear" (click)="startSubjectRename(g, s)">
+                          <button type="button" class="olho" [attr.data-assunto-lapis]="id" [attr.aria-label]="'Renomear a pasta ' + r.folder.name" title="Renomear" (click)="startFolderRename(id)">
                             <lucide-icon [img]="RenameIcon" [size]="18" aria-hidden="true" />
                           </button>
-                          <button type="button" class="olho apagar-tag" [attr.aria-label]="'Apagar o assunto ' + s.label + (g.category ? ' de ' + g.label : '')" title="Apagar" (click)="deleteSubject(g, s)">
-                            <lucide-icon [img]="DeleteIcon" [size]="18" aria-hidden="true" />
+                          <button type="button" class="olho" [attr.data-assunto-mover]="id" aria-haspopup="dialog" [attr.aria-label]="'Mover a pasta ' + r.folder.name" title="Mover para…" (click)="moveFolder(g, r.folder)">
+                            <lucide-icon [img]="MoveIcon" [size]="18" aria-hidden="true" />
+                          </button>
+                          <button type="button" class="olho apagar-tag" [attr.aria-label]="'Desfazer a pasta ' + r.folder.name" title="Desfazer a pasta (o que tem dentro sobe)" (click)="dissolveFolder(g, r.folder)">
+                            <lucide-icon [img]="DissolveIcon" [size]="18" aria-hidden="true" />
                           </button>
                         </span>
                       }
                     </li>
                   }
                 </ul>
-                <!-- um assunto novo, antes de alguma anotação usar -->
-                <form class="novo-assunto" (submit)="addSubject($event, g, novoAssunto)">
+                <!-- uma pasta nova, na raiz do grupo -->
+                <form class="novo-assunto" (submit)="addFolder($event, g, novoAssunto)">
                   <span class="campo">
-                    <span class="sr-only">Novo assunto {{ g.category ? 'em ' + g.label : 'sem grupo' }}</span>
-                    <input #novoAssunto type="text" autocomplete="off" [attr.data-novo-assunto]="g.key" [maxLength]="labelMax" [placeholder]="g.category ? 'Novo assunto em ' + g.label : 'Novo assunto'" />
+                    <span class="sr-only">Nova pasta {{ g.category ? 'em ' + g.label : 'sem grupo' }}</span>
+                    <input #novoAssunto type="text" autocomplete="off" [attr.data-novo-assunto]="g.key" [maxLength]="labelMax" [placeholder]="g.category ? 'Nova pasta em ' + g.label : 'Nova pasta'" />
                   </span>
                   <button type="submit" class="papel">
                     <lucide-icon [img]="AddIcon" [size]="17" aria-hidden="true" />
@@ -444,7 +447,24 @@
                 </form>
               </section>
             } @empty {
-              <p class="vazio">Ainda não há grupos. O assunto fica dentro de um grupo: escolha um grupo no editor de uma anotação e volte aqui para criar os assuntos dele.</p>
+              <p class="vazio">Ainda não há grupos. A pasta fica dentro de um grupo: escolha um grupo no editor de uma anotação e volte aqui para criar as pastas dele.</p>
+            }
+
+            @if (movingFolder(); as m) {
+              <app-folder-move-sheet
+                [title]="'Mover a pasta ' + m.folder.name"
+                [sub]="'Está em ' + m.from"
+                [tree]="folders.tree()"
+                [group]="m.group.key"
+                [groupName]="m.group.label"
+                [counts]="m.counts"
+                [blocked]="m.blocked"
+                [rootLabel]="'Direto em ' + m.group.label"
+                [start]="m.folder.parent"
+                (chosen)="folderMoved(m.folder, $event)"
+                (create)="folderMovedToNew(m, $event)"
+                (closed)="closeFolderMove(m.folder.id)"
+              />
             }
           }
 

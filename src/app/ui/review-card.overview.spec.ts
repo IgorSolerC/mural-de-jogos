@@ -92,7 +92,7 @@ describe('a ficha na Visão geral e a orelha do assunto', () => {
     expect(el.querySelector('.meta .assunto')).toBeNull();
     // o leitor de tela ainda ouve o assunto e o grupo
     const spoken = Array.from(el.querySelectorAll('.categorias .sr-only')).map((n) => n.textContent!.trim());
-    expect(spoken).toContain('Dailys (assunto)');
+    expect(spoken).toContain('Dailys (pasta)');
     expect(spoken).toContain('Trabalho (grupo)');
   });
 

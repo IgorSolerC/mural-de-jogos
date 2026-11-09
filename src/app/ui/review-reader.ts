@@ -1,6 +1,6 @@
 import { Router } from '@angular/router';
 import { NoteFolders } from '../core/note-folders';
-import { NO_FOLDERS, folderNameOf } from '../core/folders';
+import { NO_FOLDERS, pathLabel } from '../core/folders';
 import {
   ApplicationRef,
   ChangeDetectionStrategy,
@@ -22,7 +22,7 @@ import {
 import { BackdropClose } from './backdrop-close';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, ICON_CHOICE, IconModule } from './icons';
-import { cap, g, profileOf } from '../core/kinds';
+import { NOTES, cap, g, profileOf } from '../core/kinds';
 import { BONUS_KIND_LABEL, MUSIC_FORM_LABEL, NO_DAY_LABEL, Review, SCORE_LABEL, VERDICT_LABEL, ratedKeys, scoreOf, weightOf, isMusicReview, isNote, musicFormOf, dayLabel, formatAmount, formatReviewDate, formatReviewDateLong, formatScore, isDarkStock, isPrivate, sortBonuses, timesOf } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { SideBySide } from '../core/side-by-side';
@@ -76,7 +76,7 @@ import { ShareSheet } from './share-sheet';
 import { ConflictSheet } from './conflict-sheet';
 import { LinkSheet } from './link-sheet';
 import { CardConfig } from './card-config';
-import { CALENDAR_PATH, studyPath } from '../core/areas';
+import { CALENDAR_PATH, studyPath, wallPath } from '../core/areas';
 import { LEVEL_LABEL, cardDecks, levelOf, studyGroupId, whenLabel } from '../core/study';
 import { StudyStore } from '../core/study-store';
 import { FichaLinks } from '../core/ficha-link';
@@ -264,9 +264,12 @@ interface ReadingPlace {
                   @if (audience(); as a) {
                     <span class="quem-ve" [title]="a.title"><lucide-icon class="quem-ve-icone" [img]="a.icon" [size]="15" aria-hidden="true" /><span class="sr-only">{{ a.title }}. </span></span>
                   }
-                  <!-- o assunto da anotação (o grupo é a orelha da ficha), primeiro -->
-                  @if (note() && folderName(); as s) {
-                    <span class="assunto"><lucide-icon class="quem-ve-icone" [img]="SubjectIcon" [size]="15" aria-hidden="true" /><span class="sr-only">Assunto: </span>{{ s }}</span><span aria-hidden="true"> · </span>
+                  <!-- a pasta da anotação, o caminho inteiro (o grupo é a orelha da ficha), primeiro: tocar abre a
+                       parede nela (PLANO-PASTAS.md, 4.9) -->
+                  @if (note() && folderPath(); as p) {
+                    <button type="button" class="assunto" [title]="'Abrir a pasta ' + p.name + ' no mural'" (click)="openFolder(p.id)">
+                      <lucide-icon class="quem-ve-icone" [img]="SubjectIcon" [size]="15" aria-hidden="true" /><span class="sr-only">Pasta: </span>{{ p.label }}
+                    </button><span aria-hidden="true"> · </span>
                   }
                   <!-- o lugar da anotação no mural vem antes da data, com ou sem data -->
                   @if (note() && r.noteRank === 'fixada') {
@@ -741,7 +744,7 @@ export class ReviewReader {
   /** O desenho de cada escolha da cartela (o ícone do lembrete, no lugar do calendário). */
   protected readonly choiceIcon = ICON_CHOICE;
   protected readonly TasksIcon = ICON.tarefas;
-  protected readonly SubjectIcon = ICON.assunto;
+  protected readonly SubjectIcon = ICON.pastaDeNotas;
   protected readonly importanceLabel = IMPORTANCE_LABEL;
   protected readonly importanceLevel = IMPORTANCE_LEVEL;
   protected readonly steps = [1, 2, 3, 4, 5];
@@ -928,7 +931,7 @@ export class ReviewReader {
   private pdfDoc(r: Review): PdfDoc {
     const note = isNote(r);
     const meta: string[] = [];
-    if (note && this.folderName()) meta.push(this.folderName()!);
+    if (note && this.folderPath()) meta.push(this.folderPath()!.label);
     if (r.completedAt === null) meta.push(this.noDay);
     else meta.push(note ? this.date() : `${dayLabel(r.kind, r.status)} ${this.date()}`);
     if (this.hours()) meta.push(this.hours());
@@ -1069,12 +1072,22 @@ export class ReviewReader {
   /** As pastas de quem é a ficha: as suas, ou as públicas de quem você visita (a vista da visita). */
   private readonly visitFolders = inject(WallState, { optional: true });
   private readonly ownFolders = inject(NoteFolders);
-  /** O nome da pasta da anotação aberta, ou null solta na raiz. */
-  protected readonly folderName = computed(() => {
+  /** A pasta da anotação aberta (o id, o nome e o caminho, "Programação › Funcional"), ou null solta na raiz. */
+  protected readonly folderPath = computed(() => {
     const r = this.review();
     if (!r || !isNote(r)) return null;
-    return folderNameOf(this.owner() === null ? this.ownFolders.tree() : (this.visitFolders?.folders() ?? NO_FOLDERS), r);
+    const tree = this.owner() === null ? this.ownFolders.tree() : (this.visitFolders?.folders() ?? NO_FOLDERS);
+    const path = tree.path(tree.of(r));
+    const last = path.at(-1);
+    return last ? { id: last.id, name: last.name, label: pathLabel(path) } : null;
   });
+
+  /** Tocou no caminho: a leitura fecha e a parede abre naquela pasta (no seu mural, ou no de quem você visita). */
+  protected openFolder(id: string): void {
+    this.close();
+    if (this.owner() === null) void this.router.navigate([wallPath(NOTES)], { queryParams: { pasta: id } });
+    else this.visitFolders?.openFolderFrom(id);
+  }
   /** O código na nuvem do dono da ficha de outra pessoa (para as reações); null num backup. */
   protected readonly ownerCode = signal<string | null>(null);
   private readonly injector = inject(Injector);

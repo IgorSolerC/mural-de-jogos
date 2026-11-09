@@ -267,12 +267,28 @@ dialog.reader {
   cursor: pointer;
 }
 .parte-de:hover,
-.parte-de:focus-visible {
+.parte-de:focus-visible,
+.assunto:hover,
+.assunto:focus-visible {
   background-color: rgb(255 218 66 / 0.55);
 }
-.parte-de:focus-visible {
+.parte-de:focus-visible,
+.assunto:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 2px;
+}
+
+/* a pasta: o caminho inteiro, que abre a parede nela (o marca-texto do "Parte de") */
+.assunto {
+  padding: 0 1px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .words > .meta:first-child {

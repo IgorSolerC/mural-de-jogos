@@ -1,4 +1,5 @@
 import { NoteFolders } from '../core/note-folders';
+import { pathLabel } from '../core/folders';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -76,7 +77,7 @@ import { pinningFor } from '../core/wall-physics';
 import { BonusPicker } from './bonus';
 import { GroupPicker } from './group-picker';
 import { HeightVar } from './height-var';
-import { SubjectPicker } from './subject-picker';
+import { FolderPicker } from './folder-picker';
 import { TagPicker } from './tag-picker';
 import { KanbanProps } from './kanban-props';
 import { KanbanPlace, KanbanPreview } from './kanban-preview';
@@ -176,7 +177,7 @@ const MIN_YEAR = 1971;
     NgTemplateOutlet,
     BonusPicker,
     GroupPicker,
-    SubjectPicker,
+    FolderPicker,
     TagPicker,
     KanbanProps,
     KanbanPreview,
@@ -296,7 +297,7 @@ export class ReviewEditor {
     if (!focus) return;
     setTimeout(() => {
       if (id === 'grupo') this.groupPicker()?.focus();
-      else if (id === 'assunto') this.subjectPicker()?.focus();
+      else if (id === 'assunto') this.folderPicker()?.focus();
       else if (id === 'tags') this.tagPicker()?.focus();
       else this.dialog().nativeElement.querySelector<HTMLElement>('#editor-parte :is(input:checked, input:not([type=radio]), select, button)')?.focus();
     });
@@ -323,10 +324,16 @@ export class ReviewEditor {
     this.closeProp();
   }
 
-  /** O assunto escolhido na parte Assunto (o nome de uma pasta de cima do grupo; nova, nasce agora): a parte fecha. */
-  protected pickSubject(subject: string | null): void {
-    this.noteFolder.set(subject ? this.folders.ensureTop(this.noteCategory(), subject) : null);
+  /** A pasta escolhida na parte Pasta (o id; null: solta na raiz do grupo): a parte fecha. */
+  protected pickFolder(id: string | null): void {
+    this.noteFolder.set(id);
     this.closeProp();
+  }
+
+  /** "Criar 'Scripts' em Programação" na parte Pasta: a pasta nasce agora, já escolhida. */
+  protected createFolder(e: { parent: string | null; name: string }): void {
+    const made = this.folders.create(this.noteCategory(), e.parent, e.name);
+    if (made) this.pickFolder(made.id);
   }
 
   /** O ícone e a cor do grupo da anotação, na etiqueta (os mesmos da orelha no mural). */
@@ -355,7 +362,7 @@ export class ReviewEditor {
       const c = this.noteCategory();
       out.push({ id: 'grupo', name: 'Grupo', icon: ICON.pasta, value: c ?? 'Grupo', spoken: c ?? 'sem grupo', filled: !!c });
       const s = this.folderLabel();
-      out.push({ id: 'assunto', name: 'Assunto', icon: ICON.assunto, value: s ?? 'Assunto', spoken: s ?? 'sem assunto', filled: !!s });
+      out.push({ id: 'assunto', name: 'Pasta', icon: ICON.pastaDeNotas, value: s ?? 'Pasta', spoken: this.folderPath() ?? 'sem pasta', filled: !!s });
       const tags = this.noteTags();
       out.push({ id: 'tags', name: 'Tags', icon: ICON.etiquetas, value: tags.join(', '), spoken: tags.length ? tags.join(', ') : 'nenhuma', filled: tags.length > 0 });
     }
@@ -567,7 +574,7 @@ export class ReviewEditor {
   private readonly search = viewChild(GameSearch);
   private readonly bonusPicker = viewChild(BonusPicker);
   private readonly groupPicker = viewChild<GroupPicker>('grupo');
-  private readonly subjectPicker = viewChild<SubjectPicker>('assunto');
+  private readonly folderPicker = viewChild<FolderPicker>('assunto');
   private readonly tagPicker = viewChild<TagPicker>('tags');
   // pela marca no template, e não pela classe: os campos chegam por @defer, e citar a classe aqui os traria junto com o editor
   private readonly musicFields = viewChild<MusicFields>('campos');
@@ -848,9 +855,16 @@ export class ReviewEditor {
   protected readonly noteCategory = signal<string | null>(null);
   /** A pasta da anotação (o id), ou null solta na raiz do grupo. */
   protected readonly noteFolder = signal<string | null>(null);
-  private readonly folders = inject(NoteFolders);
-  /** O nome da pasta escolhida (a parte Assunto mostra), ou null. */
+  protected readonly folders = inject(NoteFolders);
+  /** O nome da pasta escolhida (a etiqueta Pasta mostra), ou null; e o caminho dela, para o leitor de tela. */
   protected readonly folderLabel = computed(() => this.folders.nameOf(this.noteFolder()));
+  protected readonly folderPath = computed(() => {
+    const path = this.folders.tree().path(this.noteFolder());
+    return path.length ? pathLabel(path) : null;
+  });
+  /** O grupo da anotação (a chave das pastas) e quantas anotações cada pasta dele tem. */
+  protected readonly noteGroupKey = computed(() => lookKey(this.noteCategory() ?? ''));
+  protected readonly folderCounts = computed(() => this.folders.countsIn(this.noteCategory()));
   protected readonly noteTags = signal<string[]>([]);
   private readonly settings = inject(Settings);
   /** O ícone e a cor das suas categorias, na orelha da prévia. */
@@ -900,7 +914,6 @@ export class ReviewEditor {
     this.visibility.set(v);
   }
 
-  /** Os assuntos à mão: os criados nas configurações e os das outras anotações do mesmo grupo. */
   /**
    * As anotações do mesmo lugar desta (o mural, o Kanban ou os dois): as sugestões de assunto e de tag
    * vêm só delas.
@@ -909,7 +922,6 @@ export class ReviewEditor {
     const board = !!this.kbBoard() && this.kbColumn() !== null;
     return this.kanban.notesAt({ board, wall: !board || this.kbWall() });
   });
-  protected readonly subjectLib = computed(() => this.folders.topLibrary(this.noteCategory(), this.samePlaceNotes()));
 
   /** As tags à mão: as fixas e as das outras anotações da mesma categoria. */
   protected readonly tagLib = computed(() => tagLibrary(this.samePlaceNotes(), this.settings.pinnedTags(), this.noteCategory()));

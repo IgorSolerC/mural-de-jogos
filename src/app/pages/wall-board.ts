@@ -11,7 +11,7 @@ import { WallMotion } from '../core/wall-motion';
 import { pinningFor } from '../core/wall-physics';
 import { FolderInfo, WallGroup, WallState } from '../core/wall-view';
 import { NO_FOLDERS, NoteFolder, siblingNamed } from '../core/folders';
-import type { Review } from '../core/review';
+import { type Review, isNote } from '../core/review';
 import { plural } from '../core/text';
 import { FolderCard } from '../ui/folder-card';
 import { DoneStamp } from '../ui/done-stamp';
@@ -21,6 +21,8 @@ import { ContextMenu, ContextMenuTrigger, MenuItem, MenuSections } from '../ui/c
 import { Confirm } from '../ui/confirm';
 import { Toasts } from '../ui/toast';
 import { FolderActions, WallDrag, WallDragItem, WallDrop } from './wall-drag';
+import { FolderMoveSheet } from '../ui/folder-move-sheet';
+import { lookKey } from '../core/category-looks';
 import { NoteSelection } from '../ui/note-selection';
 import { Pin } from '../ui/pin';
 import { SearchHighlight } from '../ui/search-highlight';
@@ -44,7 +46,7 @@ export type WallAccess = Pick<WallCardProps, 'landingId' | 'picking' | 'picked' 
  */
 @Component({
   selector: 'app-wall-board',
-  imports: [ContextMenu, DoneStamp, FolderCard, IconModule, NoteIndex, NoteMenu, Pin, RouterLink, SearchHighlight, WallCards],
+  imports: [ContextMenu, DoneStamp, FolderCard, FolderMoveSheet, IconModule, NoteIndex, NoteMenu, Pin, RouterLink, SearchHighlight, WallCards],
   providers: [WallCardPool],
   host: { '(keydown)': 'onKey($event)' },
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -216,10 +218,10 @@ export class WallBoard {
   /** Soltou arrastando: guarda, junta numa pasta nova ou põe uma pasta dentro de outra, com o Desfazer. */
   private dropped(item: WallDragItem, to: WallDrop): void {
     const fa = this.folderActions();
-    const group = this.view.folderGroup();
-    if (!fa || group === null) return;
+    if (!fa) return;
     if (to.kind === 'juntar') {
-      if (item.kind !== 'notas') return;
+      const group = this.view.folderGroup();
+      if (item.kind !== 'notas' || group === null) return;
       const ids = [...item.ids, to.with];
       let made: ReturnType<FolderActions['gather']> = null;
       this.motion.run(() => (made = fa.gather(ids, group, this.view.openFolder())));
@@ -338,6 +340,14 @@ export class WallBoard {
         },
         { id: 'nova-pasta', label: 'Nova pasta dentro', icon: ICON.novaPasta, run: () => this.newFolder(f.id) },
         { id: 'renomear', label: 'Renomear', icon: ICON.editar, run: () => this.naming.set(f.id) },
+        {
+          id: 'mover',
+          label: 'Mover para…',
+          icon: ICON.guardarNaPasta,
+          dialog: true,
+          run: () =>
+            this.moving.set({ kind: 'pasta', id: f.id, name: f.name, category: f.group ? this.view.folderGroupLabel() : null, from: this.view.folders().parentOf(f.id), stock: 'branco' }),
+        },
       ],
       [{ id: 'desfazer', label: 'Desfazer a pasta', icon: ICON.desfazerPasta, danger: true, hint: 'O que tem dentro sobe; nenhuma anotação é apagada', run: () => void this.dissolve(f) }],
     ];
@@ -354,21 +364,87 @@ export class WallBoard {
     ];
   }
 
-  /** No menu de uma anotação dentro de uma pasta: tirar dela (sobe um nível). */
+  /**
+   * No menu de uma anotação: "Mover para pasta…" (a folha com a árvore do grupo dela) e, dentro de uma
+   * pasta, "Tirar da pasta" (sobe um nível).
+   */
   protected readonly noteMore = (r: Review): MenuItem[] => {
-    const open = this.view.openFolder();
-    if (!this.folderActions() || open === null || this.view.folders().of(r) !== open) return [];
-    const up = this.view.folders().parentOf(open);
-    return [
+    if (!this.folderActions() || !isNote(r)) return [];
+    const tree = this.view.folders();
+    const items: MenuItem[] = [
       {
+        id: 'mover-pasta',
+        label: 'Mover para pasta…',
+        icon: ICON.guardarNaPasta,
+        dialog: true,
+        run: () => this.moving.set({ kind: 'notas', ids: [r.id], name: r.game.name, category: r.category ?? null, from: tree.of(r), stock: pinningFor(r.id, r.stock).stock }),
+      },
+    ];
+    const open = this.view.openFolder();
+    if (open !== null && tree.of(r) === open) {
+      const up = tree.parentOf(open);
+      items.push({
         id: 'tirar-pasta',
         label: 'Tirar da pasta',
         icon: ICON.tirarDaPasta,
         hint: `Vai para ${this.name(up)}`,
         run: () => this.dropped({ kind: 'notas', lead: r.id, ids: [r.id] }, { kind: 'guardar', folder: up }),
-      },
-    ];
+      });
+    }
+    return items;
   };
+
+  // ===== Mover sem arrastar: a folha com a árvore (PLANO-PASTAS.md, 4.8) =====
+
+  /** O que está sendo movido pela folha: anotações (do grupo delas) ou uma pasta. */
+  protected readonly moving = signal<
+    | { kind: 'notas'; ids: readonly string[]; name: string; category: string | null; from: string | null; stock: string }
+    | { kind: 'pasta'; id: string; name: string; category: string | null; from: string | null; stock: string }
+    | null
+  >(null);
+  /** O que a folha precisa saber: o grupo, as contas e o que não se pode escolher. */
+  protected readonly moveSheet = computed(() => {
+    const m = this.moving();
+    const fa = this.folderActions();
+    if (!m || !fa) return null;
+    const tree = this.view.folders();
+    const groupName = m.category ?? 'Sem grupo';
+    const from = m.from ? (tree.live(m.from)?.name ?? groupName) : groupName;
+    return {
+      title: m.kind === 'pasta' ? `Mover a pasta ${m.name}` : `Mover ${m.name}`,
+      sub: `Está em ${from}`,
+      group: lookKey(m.category ?? ''),
+      groupName,
+      counts: fa.countsIn(m.category),
+      blocked: m.kind === 'pasta' ? tree.below(m.id) : new Set<string>(),
+      rootLabel: m.kind === 'pasta' ? `Direto em ${groupName}` : 'Sem pasta',
+      start: m.from,
+      stock: m.stock,
+    };
+  });
+
+  /** Escolheu na folha: move (as anotações, ou a pasta), com o bilhete e o Desfazer. */
+  protected moveTo(id: string | null): void {
+    const m = this.moving();
+    this.moving.set(null);
+    if (!m || id === m.from) return;
+    if (m.kind === 'pasta') this.dropped({ kind: 'pasta', id: m.id }, { kind: 'guardar', folder: id });
+    else this.dropped({ kind: 'notas', lead: m.ids[0], ids: m.ids }, { kind: 'guardar', folder: id });
+  }
+
+  /** "Criar 'Scripts' em Programação" na folha: a pasta nasce, e o que se move vai para ela. */
+  protected moveToNew(e: { parent: string | null; name: string }): void {
+    const m = this.moving();
+    const fa = this.folderActions();
+    if (!m || !fa) return;
+    const made = fa.create(m.category, e.parent, e.name);
+    if (!made) {
+      this.moving.set(null);
+      this.toasts.show('Não cabe mais nenhuma pasta aqui.');
+      return;
+    }
+    this.moveTo(made.id);
+  }
 
   /** Ctrl+clique marca anotações para copiar o texto delas (ver ui/note-selection.ts). */
   readonly selection: NoteSelection;

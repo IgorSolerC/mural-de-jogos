@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, Signal, computed, inject, input, model, signal } from '@angular/core';
 import { NoteFolders } from '../core/note-folders';
-import { FolderTree } from '../core/folders';
+import { FolderTree, pathLabel } from '../core/folders';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, IconModule } from './icons';
 import { Kind, NOTES } from '../core/kinds';
@@ -13,13 +13,14 @@ import { categoryIcon } from './category-label';
 import { SubjectOption } from './filter-card';
 import { TagChip, TagChips } from './tag-chips';
 import { kindTabs } from './picker-kit';
+import { subjectValuesOf } from '../core/wall-filter';
 
-/** O "Sem assunto" no filtro (como no mural e no Kanban). */
+/** O "Sem pasta" no filtro (como no mural e no Kanban). */
 const NO_SUBJECT = 'sem';
 
-/** A chave da pasta de uma anotação no filtro: o id (pela regra da leitura), ou "sem". */
-function subjectKey(r: Review, tree: FolderTree): string {
-  return tree.of(r) ?? NO_SUBJECT;
+/** As pastas em que a anotação está (a dela e as de cima; ver `subjectValuesOf`), ou "sem". */
+function subjectKeys(r: Review, tree: FolderTree): string[] {
+  return subjectValuesOf(r, tree);
 }
 
 /** As tags de uma anotação, sem acento nem caixa. */
@@ -105,7 +106,7 @@ export class CardFilters {
 
   private bySubject(r: Review): boolean {
     const on = this.subjects();
-    return !on.length || on.includes(subjectKey(r, this.folders.tree()));
+    return !on.length || subjectKeys(r, this.folders.tree()).some((k) => on.includes(k));
   }
 
   private byTags(r: Review): boolean {
@@ -140,9 +141,10 @@ export class CardFilters {
   });
 
   /**
-   * Os assuntos do grupo ligado (ou do fixo), de A a Z e "Sem assunto" no fim, como os do mural.
-   * Sem grupo escolhido não aparecem: o assunto é de cada grupo, e a "História" dos Estudos não é a do
-   * Trabalho.
+   * As pastas do grupo ligado (ou do fixo), as de cima de A a Z e "Sem pasta" no fim; ligada uma pasta, as
+   * de dentro dela aparecem logo depois, com o caminho (PLANO-PASTAS.md, 4.9). Cada uma conta as anotações
+   * dela e das de dentro, que filtrar por ela também pega. Sem grupo escolhido não aparecem: a pasta é de
+   * cada grupo, e a "História" dos Estudos não é a do Trabalho.
    */
   readonly subjectChips = computed<SubjectOption[]>(() => {
     if (!this.notesScope()) return [];
@@ -153,16 +155,24 @@ export class CardFilters {
     const seen = new Map<string, { n: number }>();
     for (const r of this.scope()) {
       if (!this.inGroup(r)) continue;
-      const k = subjectKey(r, tree);
-      const e = seen.get(k) ?? { n: 0 };
-      if (this.found(r) && this.byTags(r)) e.n++;
-      seen.set(k, e);
+      const shows = this.found(r) && this.byTags(r);
+      for (const k of subjectKeys(r, tree)) {
+        const e = seen.get(k) ?? { n: 0 };
+        if (shows) e.n++;
+        seen.set(k, e);
+      }
     }
     if (![...seen.keys()].some((k) => k !== NO_SUBJECT)) return [];
     for (const k of on) if (!seen.has(k)) seen.set(k, { n: 0 });
-    const chips = [...seen].map(([value, e]) => ({
+    // à vista: as de cima, e as de dentro das ligadas (e das de dentro delas que também estão ligadas)
+    const shown = [...seen].filter(([value]) => {
+      if (value === NO_SUBJECT || on.has(value)) return true;
+      const up = tree.parentOf(value);
+      return up === null || on.has(up);
+    });
+    const chips = shown.map(([value, e]) => ({
       value,
-      label: value === NO_SUBJECT ? 'Sem assunto' : (tree.index.get(value)?.name ?? value),
+      label: value === NO_SUBJECT ? 'Sem pasta' : tree.path(value).length ? pathLabel(tree.path(value)) : (tree.index.get(value)?.name ?? value),
       n: e.n,
       on: on.has(value),
     }));
@@ -340,8 +350,8 @@ type KindTab = ReturnType<typeof kindTabs>[number];
 
     @if (f.subjectChips(); as ss) {
       @if (ss.length) {
-        <div class="fileira" role="group" aria-label="Assunto">
-          <span class="rotulo" aria-hidden="true">Assunto</span>
+        <div class="fileira" role="group" aria-label="Pasta">
+          <span class="rotulo" aria-hidden="true">Pasta</span>
           <div class="correr">
             @for (s of ss; track s.value) {
               <button type="button" class="filtro assunto" [class.sem]="s.value === 'sem'" [attr.aria-pressed]="s.on" [title]="s.label" (click)="f.toggleSubject(s.value)">

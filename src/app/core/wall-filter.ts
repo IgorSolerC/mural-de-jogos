@@ -1,5 +1,5 @@
 import { REMINDER_HREFS } from './rich-text';
-import { FolderTree, NO_FOLDERS, folderNameOf } from './folders';
+import { FolderTree, NO_FOLDERS, folderNameOf, pathLabel } from './folders';
 import { KindProfile, isMusic, isNotes } from './kinds';
 import {
   DIFFICULTIES,
@@ -91,6 +91,15 @@ export function subjectValueOf(r: Review, tree: FolderTree = NO_FOLDERS): string
   return tree.of(r) ?? 'sem';
 }
 
+/**
+ * As pastas em que a anotação está, a dela e todas as de cima (os ids), ou 'sem': filtrar por uma pasta
+ * pega também as anotações das pastas de dentro dela.
+ */
+export function subjectValuesOf(r: Review, tree: FolderTree = NO_FOLDERS): string[] {
+  const path = tree.path(tree.of(r));
+  return path.length ? path.map((f) => f.id) : ['sem'];
+}
+
 /** As tags de uma anotação, ou 'sem'. */
 export function tagValuesOf(r: Review): string[] {
   return r.tags?.length ? [...r.tags] : ['sem'];
@@ -116,6 +125,7 @@ export function isDecorated(r: Review): boolean {
 
 /** Os valores da ficha num grupo: um só em todos, menos as tags (várias por anotação). */
 function valuesOf(r: Review, k: FacetKey, tree: FolderTree = NO_FOLDERS): string[] {
+  if (k === 'subject') return subjectValuesOf(r, tree);
   return k === 'tag' ? tagValuesOf(r) : [valueOf(r, k, tree)];
 }
 
@@ -246,7 +256,7 @@ export const FACET_TITLE: Record<FacetKey, string> = {
   difficulty: 'Dificuldade',
   year: 'Ano',
   category: 'Grupo',
-  subject: 'Assunto',
+  subject: 'Pasta',
   tag: 'Tags',
   form: 'Tipo',
 };
@@ -282,7 +292,7 @@ export function optionLabel(k: FacetKey, value: string, profile: KindProfile): s
     case 'category':
       return value === 'sem' ? 'Sem grupo' : value;
     case 'subject':
-      return value === 'sem' ? 'Sem assunto' : value;
+      return value === 'sem' ? 'Sem pasta' : value;
     case 'tag':
       return value === 'sem' ? 'Sem tag' : value;
     case 'form':
@@ -319,9 +329,9 @@ export function facetsOf(list: readonly Review[], f: WallFilter, profile: KindPr
   const bySem = (a: string, b: string) => (a === 'sem' ? 1 : b === 'sem' ? -1 : a.localeCompare(b, 'pt-BR'));
   const cats = spellingsOf(list.map(categoryValueOf), f.category).sort(bySem);
   const tags = spellingsOf(list.flatMap(tagValuesOf), f.tag).sort(bySem);
-  // as pastas pelo id, de A a Z pelo nome
-  const folderLabel = (v: string) => (v === 'sem' ? optionLabel('subject', v, profile) : (tree.index.get(v)?.name ?? v));
-  const subjects = [...new Set([...list.map((r) => subjectValueOf(r, tree)), ...f.subject])].sort((a, b) =>
+  // as pastas pelo id (cada uma e as de cima dela), pelo caminho de A a Z: as de dentro logo depois da de cima
+  const folderLabel = (v: string) => (v === 'sem' ? optionLabel('subject', v, profile) : tree.path(v).length ? pathLabel(tree.path(v)) : (tree.index.get(v)?.name ?? v));
+  const subjects = [...new Set([...list.flatMap((r) => subjectValuesOf(r, tree)), ...f.subject])].sort((a, b) =>
     a === 'sem' ? 1 : b === 'sem' ? -1 : folderLabel(a).localeCompare(folderLabel(b), 'pt-BR'),
   );
 

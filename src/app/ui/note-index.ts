@@ -65,7 +65,7 @@ interface Row {
                  alinham, para correr o olho por elas -->
             @if (r.ear; as e) {
               <span class="orelha" [class.orelha-cor]="!!e.color" [class.do-assunto]="e.subject" [style.--cat-cor]="e.color">
-                <span class="sr-only">, {{ e.subject ? 'assunto' : 'grupo' }} </span>
+                <span class="sr-only">, {{ e.subject ? 'pasta' : 'grupo' }} </span>
                 <app-cat-label [label]="e.label" [look]="e.look" [glyph]="e.subject ? SubjectIcon : null" [iconSize]="12" />
               </span>
             } @else {
@@ -353,7 +353,7 @@ export class NoteIndex {
   protected readonly BoardIcon = ICON.colunas;
   protected readonly StudyIcon = ICON.camadas;
   protected readonly CheckIcon = ICON.pronto;
-  protected readonly SubjectIcon = ICON.assunto;
+  protected readonly SubjectIcon = ICON.pastaDeNotas;
 
   protected readonly rows = computed<Row[]>(() => {
     const tree = this.folders() ?? this.ownFolders.tree();

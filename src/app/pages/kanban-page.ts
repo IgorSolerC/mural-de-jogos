@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, afterNextRender, afterRenderEffect, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { NoteFolders } from '../core/note-folders';
+import { pathLabel } from '../core/folders';
+import { subjectValuesOf } from '../core/wall-filter';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ICON, ICON_CHOICE, IconModule } from '../ui/icons';
@@ -268,14 +270,14 @@ export class KanbanPage {
   protected readonly query = signal('');
   /** As tags ligadas no filtro (sem acento nem caixa): mostra as anotações com qualquer uma delas. */
   protected readonly tagFilter = signal<readonly string[]>([]);
-  /** As pastas ligadas no filtro (o id; 'sem' para as soltas na raiz): qualquer uma delas. */
+  /** As pastas ligadas no filtro (o id; 'sem' para as soltas na raiz): qualquer uma delas, com as de dentro. */
   protected readonly subjectFilter = signal<readonly string[]>([]);
   private readonly noteFolders = inject(NoteFolders);
   /** A anotação passa no filtro da pasta? */
   private readonly bySubject = computed(() => {
     const on = this.subjectFilter();
     const tree = this.noteFolders.tree();
-    return (r: Review) => !on.length || on.includes(tree.of(r) ?? 'sem');
+    return (r: Review) => !on.length || subjectValuesOf(r, tree).some((v) => on.includes(v));
   });
   /**
    * As tags escondidas nesta visita (o clique direito no filtro) e as que o padrão esconde e a pessoa
@@ -395,18 +397,21 @@ export class KanbanPage {
     const out = this.outByTags();
     const tree = this.noteFolders.tree();
     const seen = new Map<string, { n: number }>();
+    // cada pasta conta as anotações dela e das de dentro (filtrar por ela pega todas)
     for (const c of this.live()) {
       const note = this.notes().get(c.note)!;
-      const k = tree.of(note) ?? 'sem';
-      const e = seen.get(k) ?? { n: 0 };
-      if ((!q || fold(note.game.name).includes(q)) && (!tags.length || (note.tags ?? []).some((t) => tags.includes(fold(t)))) && !out(note)) e.n++;
-      seen.set(k, e);
+      const shows = (!q || fold(note.game.name).includes(q)) && (!tags.length || (note.tags ?? []).some((t) => tags.includes(fold(t)))) && !out(note);
+      for (const k of subjectValuesOf(note, tree)) {
+        const e = seen.get(k) ?? { n: 0 };
+        if (shows) e.n++;
+        seen.set(k, e);
+      }
     }
     // sem nenhum assunto no quadro, não há o que filtrar
     if (![...seen.keys()].some((k) => k !== 'sem')) return [];
     for (const k of on) if (!seen.has(k)) seen.set(k, { n: 0 });
     return [...seen]
-      .map(([value, e]) => ({ value, label: value === 'sem' ? 'Sem assunto' : (tree.index.get(value)?.name ?? value), n: e.n, on: on.has(value) }))
+      .map(([value, e]) => ({ value, label: value === 'sem' ? 'Sem pasta' : tree.path(value).length ? pathLabel(tree.path(value)) : (tree.index.get(value)?.name ?? value), n: e.n, on: on.has(value) }))
       .sort((a, b) => (a.value === 'sem' ? 1 : b.value === 'sem' ? -1 : a.label.localeCompare(b.label, 'pt-BR', { sensitivity: 'base' })));
   });
 

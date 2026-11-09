@@ -102,7 +102,7 @@ describe('os filtros do seletor de fichas', () => {
     expect(chips('Grupo').map(text)).toEqual(['Trabalho, 4', 'Estudos, 2', 'Sem grupo, 1']);
     expect(tags().length).toBeGreaterThan(0);
     // o assunto só com um grupo escolhido: é de cada grupo
-    expect(row('Assunto')).toBeNull();
+    expect(row('Pasta')).toBeNull();
   });
 
   it('o grupo é um só: um toque liga, outro desliga; o assunto do grupo aparece e filtra, e trocar de grupo o esquece', async () => {
@@ -114,22 +114,22 @@ describe('os filtros do seletor de fichas', () => {
     expect(names()).toEqual(['Revisar o deploy', 'Tela de login', 'Migrar o banco', 'Menu no celular']);
     expect(chip('Grupo', 'Trabalho').getAttribute('aria-pressed')).toBe('true');
     // os assuntos de A a Z, a grafia mais usada, e "Sem assunto" no fim
-    expect(chips('Assunto').map(text)).toEqual(['Backend, 2', 'Frontend, 1', 'Sem assunto, 1']);
-    chip('Assunto', 'Backend').click();
+    expect(chips('Pasta').map(text)).toEqual(['Backend, 2', 'Frontend, 1', 'Sem pasta, 1']);
+    chip('Pasta', 'Backend').click();
     await stable();
     expect(names()).toEqual(['Revisar o deploy', 'Migrar o banco']);
     // vários assuntos: vale qualquer um
-    chip('Assunto', 'Sem assunto').click();
+    chip('Pasta', 'Sem pasta').click();
     await stable();
     expect(names()).toEqual(['Revisar o deploy', 'Migrar o banco', 'Menu no celular']);
     chip('Grupo', 'Estudos').click();
     await stable();
     expect(names()).toEqual(['Revolução Francesa', 'Rios do Brasil']);
-    expect(chips('Assunto').every((b) => b.getAttribute('aria-pressed') === 'false')).toBeTrue();
+    expect(chips('Pasta').every((b) => b.getAttribute('aria-pressed') === 'false')).toBeTrue();
     chip('Grupo', 'Estudos').click();
     await stable();
     expect(names().length).toBe(7);
-    expect(row('Assunto')).toBeNull();
+    expect(row('Pasta')).toBeNull();
   });
 
   it('as tags: um toque liga (vale qualquer uma), o clique direito esconde a tag; as contagens seguem o grupo', async () => {
@@ -221,8 +221,8 @@ describe('os filtros do seletor de fichas', () => {
   it('o "Buscar nota" do quadro de um grupo: sem as abas dos grupos, com os assuntos dele direto', async () => {
     await open({ onlyKind: 'anotacoes', onlyCategory: 'trabalho', doneOption: true });
     expect(row('Grupo')).toBeNull();
-    expect(chips('Assunto').map(text)).toEqual(['Backend, 2', 'Frontend, 1']);
-    chip('Assunto', 'Frontend').click();
+    expect(chips('Pasta').map(text)).toEqual(['Backend, 2', 'Frontend, 1']);
+    chip('Pasta', 'Frontend').click();
     await stable();
     expect(names()).toEqual(['Tela de login']);
   });
@@ -275,7 +275,7 @@ describe('os filtros no "Escolher fichas" do perfil', () => {
     await fixture.whenStable();
     expect(names()).toEqual(['Revolução Francesa', 'Rios do Brasil']);
     expect(el.querySelector('.item.on .nome')!.textContent).toContain('Revolução Francesa');
-    Array.from(el.querySelectorAll<HTMLButtonElement>('.fileira[aria-label="Assunto"] .filtro')).find((b) => text(b).startsWith('Geografia'))!.click();
+    Array.from(el.querySelectorAll<HTMLButtonElement>('.fileira[aria-label="Pasta"] .filtro')).find((b) => text(b).startsWith('Geografia'))!.click();
     await fixture.whenStable();
     expect(names()).toEqual(['Rios do Brasil']);
     el.remove();

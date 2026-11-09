@@ -178,3 +178,22 @@
 
 <!-- o menu do botão direito numa pasta da parede ou no vão dela (no seu Murall) -->
 <app-context-menu #menuDaPasta [caption]="folderMenu().caption" [sections]="folderMenu().sections" />
+
+<!-- mover sem arrastar: a folha com a árvore do grupo (o "Mover para pasta…" e o "Mover para…" dos menus) -->
+@if (moveSheet(); as m) {
+  <app-folder-move-sheet
+    [title]="m.title"
+    [sub]="m.sub"
+    [tree]="view.folders()"
+    [group]="m.group"
+    [groupName]="m.groupName"
+    [counts]="m.counts"
+    [blocked]="m.blocked"
+    [rootLabel]="m.rootLabel"
+    [start]="m.start"
+    [stock]="m.stock"
+    (chosen)="moveTo($event)"
+    (create)="moveToNew($event)"
+    (closed)="moving.set(null)"
+  />
+}

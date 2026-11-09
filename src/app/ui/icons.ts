@@ -103,7 +103,6 @@ import {
   FolderOpen,
   FolderOutput,
   FolderPlus,
-  FolderTree,
   Frame,
   GalleryVerticalEnd,
   Gamepad2,
@@ -554,8 +553,6 @@ export const ICON = {
   semEstrela: StarOff,
   etiqueta: Tag,
   etiquetas: Tags,
-  /** O assunto de uma anotação: um nível abaixo do grupo (a pasta dentro da pasta). */
-  assunto: FolderTree,
   /** As pastas das anotações (PLANO-PASTAS.md): a pasta, uma nova, guardar numa e desfazer uma. */
   pastaDeNotas: Folder,
   novaPasta: FolderPlus,

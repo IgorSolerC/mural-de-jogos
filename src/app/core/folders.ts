@@ -229,6 +229,17 @@ export function folderNameOf(tree: FolderTree, note: Pick<Review, 'folder' | 'ca
   return id ? (tree.index.get(id)?.name ?? null) : null;
 }
 
+/** O caminho da pasta da anotação, como se lê: "Programação › Funcional" (null: solta na raiz). */
+export function folderPathOf(tree: FolderTree, note: Pick<Review, 'folder' | 'category'>): string | null {
+  const path = tree.path(tree.of(note));
+  return path.length ? pathLabel(path) : null;
+}
+
+/** Um caminho de pastas como se lê: "Programação › Funcional". */
+export function pathLabel(path: readonly Pick<NoteFolder, 'name'>[]): string {
+  return path.map((f) => f.name).join(' › ');
+}
+
 /** O nome da pasta de cima da anotação (a primeira do caminho), ou null solta na raiz. */
 export function topFolderNameOf(tree: FolderTree, note: Pick<Review, 'folder' | 'category'>): string | null {
   return tree.path(tree.of(note))[0]?.name ?? null;

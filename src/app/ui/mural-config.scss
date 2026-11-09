@@ -760,8 +760,10 @@ fieldset.linha {
   }
 }
 
-/* ===== Os assuntos: uma linha por assunto, impresso em tinta (como no filtro da pasta) ===== */
+/* ===== As pastas: uma linha por pasta, impressa em tinta (como no filtro da pasta), recuada por nível ===== */
 .assunto {
+  --nivel: 0;
+  padding-left: calc(var(--nivel) * 22px) !important;
   display: grid;
   grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto;
   align-items: center;
@@ -780,6 +782,9 @@ fieldset.linha {
 }
 
 .assunto-nome {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   min-width: 0;
   font-family: var(--f-label);
   font-weight: 800;
@@ -798,7 +803,14 @@ fieldset.linha {
   margin-top: 12px;
 }
 
-/* no painel do grupo: a lista dos assuntos e o caminho para a parte Assuntos */
+/* no painel do grupo: a lista das pastas de cima e o caminho para a parte Pastas */
+
+.assunto-icone {
+  flex: none;
+  display: inline-flex;
+  color: var(--ink-2);
+}
+
 .assuntos-resumo {
   .nome-dica {
     margin-top: 6px;

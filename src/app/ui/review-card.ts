@@ -234,7 +234,7 @@ export const CARD_TEMPLATE = `
           <p class="meta meta-nota" data-queima>
             <!-- o assunto, primeiro: o grupo está na orelha, o assunto abre a linha -->
             @if (metaSubject(); as s) {
-              <span class="assunto"><lucide-icon class="tarefas-icone" [img]="SubjectIcon" [size]="compact() ? 13 : 14" aria-hidden="true" /><span class="sr-only">Assunto: </span>{{ s }}</span>
+              <span class="assunto"><lucide-icon class="tarefas-icone" [img]="SubjectIcon" [size]="compact() ? 13 : 14" aria-hidden="true" /><span class="sr-only">Pasta: </span>{{ s }}</span>
             }
             <!-- quem vê (o cadeado ou o olho) e a data; sem data, o lugar dela fica vazio (a linha
                  continua, do mesmo tamanho) -->
@@ -318,7 +318,7 @@ export const CARD_TEMPLATE = `
               <li class="sr-only">{{ c.label }} (grupo)</li>
             }
             @if (noteLabels().ear?.subject) {
-              <li class="sr-only">{{ folderName() }} (assunto)</li>
+              <li class="sr-only">{{ folderName() }} (pasta)</li>
             }
             @for (t of noteLabels().tags; track t; let i = $index) {
               <li><app-note-tag [label]="t" [index]="i + 1" [size]="compact() && !overview() ? 'mini' : 'card'" [color]="tagColor(t)" /><span class="sr-only"> (tag)</span></li>
@@ -1691,7 +1691,7 @@ export class ReviewCard {
   });
   protected readonly TasksIcon = ICON.tarefas;
   protected readonly NoTextIcon = ICON.escrever;
-  protected readonly SubjectIcon = ICON.assunto;
+  protected readonly SubjectIcon = ICON.pastaDeNotas;
   /** No quadro (Kanban), a anotação sem texto nenhum, só o título: a linha da data avisa. */
   protected readonly noText = computed(() => this.onBoard && isNote(this.review()) && !this.review().text.trim());
   /** As tarefas do texto da anotação: quantas feitas de quantas (null: sem tarefas). */
@@ -1959,7 +1959,7 @@ export class ReviewCard {
   protected readonly spoken = computed(() => {
     const r = this.review();
     if (isNote(r)) {
-      const cats = [r.category ? `grupo ${r.category}` : '', this.folderName() ? `assunto ${this.folderName()}` : '', ...(r.tags ?? []).map((t) => `tag ${t}`)].filter(Boolean).join(', ');
+      const cats = [r.category ? `grupo ${r.category}` : '', this.folderName() ? `pasta ${this.folderName()}` : '', ...(r.tags ?? []).map((t) => `tag ${t}`)].filter(Boolean).join(', ');
       const when = r.completedAt === null ? NO_DAY_LABEL.toLowerCase() : formatReviewDate(r.completedAt);
       const rank = r.noteRank === 'fixada' ? 'fixada' : '';
       const done = r.doneAt ? `finalizada em ${doneDayLong(r.doneAt)}` : '';

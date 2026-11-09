@@ -159,7 +159,7 @@ describe('as configurações do mural (a folha)', () => {
       'Prioridade',
       'Data',
       'Título',
-      'Assunto',
+      'Pasta',
       'Tag',
       'Criação',
       'Alteração',
@@ -513,12 +513,13 @@ describe('as configurações do mural (a folha)', () => {
       expect(el.querySelector('.aviso')!.textContent).toContain('Em Roadmap site, ideia foi apagada em 1 anotação.');
     });
 
-    describe('os assuntos', () => {
-      const subjectGroup = (label: string) =>
+    describe('as pastas', () => {
+      const folderGroup = (label: string) =>
         Array.from(el.querySelectorAll<HTMLElement>('.assuntos-grupo')).find((g) => g.querySelector('.tags-cat .orelha')!.textContent!.trim() === label)!;
-      const subjectNames = (label: string) => Array.from(subjectGroup(label).querySelectorAll('.assunto-nome')).map((n) => n.textContent!.trim());
-      const subjectRow = (cat: string, label: string) =>
-        Array.from(subjectGroup(cat).querySelectorAll<HTMLElement>('li.assunto')).find((li) => li.querySelector('.assunto-nome')?.textContent!.trim() === label)!;
+      const folderNames = (label: string) => Array.from(folderGroup(label).querySelectorAll('.assunto-nome')).map((n) => n.textContent!.trim());
+      const folderRow = (cat: string, label: string) =>
+        Array.from(folderGroup(cat).querySelectorAll<HTMLElement>('li.assunto')).find((li) => li.querySelector('.assunto-nome')?.textContent!.trim() === label)!;
+      const folders = () => TestBed.inject(NoteFolders);
 
       beforeEach(() => {
         const store = TestBed.inject(ReviewStore);
@@ -527,54 +528,98 @@ describe('as configurações do mural (a folha)', () => {
         store.update({ ...b, subject: 'kanban' }, b);
       });
 
-      it('cada grupo com os seus (também os sem nenhum); criar um novo deixa ele à mão antes de alguma anotação usar', async () => {
+      it('cada grupo com a sua árvore (também os sem nenhuma); criar uma nova deixa ela à mão antes de alguma anotação ir para ela', async () => {
         await go('assuntos');
-        expect(el.querySelector('h3')!.textContent).toBe('Assuntos');
-        expect(subjectNames('Roadmap site')).toEqual(['Kanban']);
-        expect(subjectRow('Roadmap site', 'Kanban').querySelector('.cat-n')!.textContent!.trim()).toBe('2 anotações');
-        expect(subjectNames('Receitas')).toEqual([]);
-        const form = subjectGroup('Receitas').querySelector<HTMLFormElement>('form.novo-assunto')!;
+        expect(el.querySelector('h3')!.textContent).toBe('Pastas');
+        expect(folderNames('Roadmap site')).toEqual(['Kanban']);
+        expect(folderRow('Roadmap site', 'Kanban').querySelector('.cat-n')!.textContent!.trim()).toBe('2 anotações');
+        expect(folderNames('Receitas')).toEqual([]);
+        const form = folderGroup('Receitas').querySelector<HTMLFormElement>('form.novo-assunto')!;
         form.querySelector('input')!.value = '  doces ';
         submit(form);
         await settle();
         const receitas = () => settings.notesConfig().folders.filter((f) => f.group === 'receitas' && !f.gone).map((f) => f.name);
         expect(receitas()).toEqual(['Doces']);
-        expect(subjectNames('Receitas')).toEqual(['Doces']);
-        expect(subjectRow('Receitas', 'Doces').querySelector('.cat-n')!.textContent!.trim()).toBe('Ainda em nenhuma');
-        expect(el.querySelector('.aviso')!.textContent).toContain('Doces entrou nos assuntos de Receitas.');
+        expect(folderNames('Receitas')).toEqual(['Doces']);
+        expect(folderRow('Receitas', 'Doces').querySelector('.cat-n')!.textContent!.trim()).toBe('Vazia');
+        expect(el.querySelector('.aviso')!.textContent).toContain('Doces entrou nas pastas de Receitas.');
         // o mesmo nome de novo não repete
         form.querySelector('input')!.value = 'DOCES';
         submit(form);
         await settle();
         expect(receitas()).toEqual(['Doces']);
-        expect(el.querySelector('.aviso')!.textContent).toContain('Receitas já tem o assunto Doces.');
+        expect(el.querySelector('.aviso')!.textContent).toContain('Receitas já tem a pasta Doces.');
       });
 
-      it('renomear muda as anotações do grupo (as duas grafias); apagar pergunta quando alguma usa', async () => {
+      it('a pasta de dentro aparece recuada embaixo da de cima', async () => {
+        // (o assunto vira pasta sozinho, logo depois de mudar)
+        TestBed.tick();
+        const kanban = folders().tree().all.find((f) => f.name === 'Kanban' && !f.gone)!;
+        folders().create('Roadmap site', kanban.id, 'Bugs');
         await go('assuntos');
-        subjectRow('Roadmap site', 'Kanban').querySelector<HTMLButtonElement>('[data-assunto-lapis]')!.click();
+        expect(folderNames('Roadmap site')).toEqual(['Kanban', 'Bugs']);
+        expect(folderRow('Roadmap site', 'Bugs').style.getPropertyValue('--nivel')).toBe('1');
+      });
+
+      it('renomear muda só o nome da pasta; com o nome de uma irmã, pergunta e junta as duas', async () => {
+        await go('assuntos');
+        folderRow('Roadmap site', 'Kanban').querySelector<HTMLButtonElement>('[data-assunto-lapis]')!.click();
         await settle();
-        const field = subjectGroup('Roadmap site').querySelector<HTMLInputElement>('[data-assunto-campo]')!;
+        let field = folderGroup('Roadmap site').querySelector<HTMLInputElement>('[data-assunto-campo]')!;
         field.value = 'Quadro';
         submit(field.closest('form')!);
         await settle();
-        // o assunto é a pasta: renomear muda o nome dela (as anotações não são regravadas)
-        const inFolder = (name: string) => notes().filter((r) => TestBed.inject(NoteFolders).nameOf(TestBed.inject(NoteFolders).of(r)) === name).length;
+        const inFolder = (name: string) => notes().filter((r) => folders().nameOf(folders().of(r)) === name).length;
         expect(inFolder('Quadro')).toBe(2);
-        expect(el.querySelector('.aviso')!.textContent).toContain('Em Roadmap site, Kanban virou Quadro em 2 anotações.');
-        answer = false;
-        subjectRow('Roadmap site', 'Quadro').querySelector<HTMLButtonElement>('.apagar-tag')!.click();
+        expect(el.querySelector('.aviso')!.textContent).toContain('Kanban virou Quadro.');
+        folders().create('Roadmap site', null, 'Ideias');
         await settle();
-        expect(asked.at(-1)!.title).toBe('Apagar o assunto Quadro de Roadmap site?');
-        expect(inFolder('Quadro')).toBe(2);
-        answer = true;
-        subjectRow('Roadmap site', 'Quadro').querySelector<HTMLButtonElement>('.apagar-tag')!.click();
+        folderRow('Roadmap site', 'Ideias').querySelector<HTMLButtonElement>('[data-assunto-lapis]')!.click();
         await settle();
-        expect(notes().some((r) => TestBed.inject(NoteFolders).of(r) !== null)).toBeFalse();
-        expect(subjectNames('Roadmap site')).toEqual([]);
+        field = folderGroup('Roadmap site').querySelector<HTMLInputElement>('[data-assunto-campo]')!;
+        field.value = 'quadro';
+        submit(field.closest('form')!);
+        await settle();
+        expect(asked.at(-1)!.title).toBe('Juntar com Quadro?');
+        expect(folderNames('Roadmap site')).toEqual(['Quadro']);
       });
 
-      it('no painel do grupo, a lista dos assuntos e o caminho para a parte Assuntos', async () => {
+      it('desfazer a pasta pergunta quando tem algo dentro; as anotações sobem, nenhuma é apagada', async () => {
+        await go('assuntos');
+        answer = false;
+        folderRow('Roadmap site', 'Kanban').querySelector<HTMLButtonElement>('.apagar-tag')!.click();
+        await settle();
+        expect(asked.at(-1)!.title).toBe('Desfazer a pasta Kanban?');
+        expect(asked.at(-1)!.text).toContain('As 2 anotações de dentro vão para Roadmap site.');
+        expect(folderNames('Roadmap site')).toEqual(['Kanban']);
+        answer = true;
+        folderRow('Roadmap site', 'Kanban').querySelector<HTMLButtonElement>('.apagar-tag')!.click();
+        await settle();
+        expect(notes().some((r) => folders().of(r) !== null)).toBeFalse();
+        expect(notes().filter((r) => r.category === 'Roadmap site').length).toBe(2);
+        expect(folderNames('Roadmap site')).toEqual([]);
+      });
+
+      it('mover para… abre a folha com a árvore; a pasta não pode ir para dentro dela mesma', async () => {
+        // (o assunto vira pasta sozinho, logo depois de mudar)
+        TestBed.tick();
+        const kanban = folders().tree().all.find((f) => f.name === 'Kanban' && !f.gone)!;
+        const bugs = folders().create('Roadmap site', kanban.id, 'Bugs')!;
+        folders().create('Roadmap site', null, 'Arquivo');
+        await go('assuntos');
+        folderRow('Roadmap site', 'Kanban').querySelector<HTMLButtonElement>('[data-assunto-mover]')!.click();
+        await settle();
+        const sheet = el.querySelector('app-folder-move-sheet')!;
+        const radio = (name: string) => Array.from(sheet.querySelectorAll<HTMLButtonElement>('[role="radio"]')).find((b) => b.textContent!.includes(name))!;
+        expect(sheet.querySelector('h2')!.textContent).toBe('Mover a pasta Kanban');
+        expect(radio('Kanban').disabled).toBeTrue();
+        radio('Arquivo').click();
+        await settle();
+        expect(folders().tree().path(bugs.id).map((f) => f.name)).toEqual(['Arquivo', 'Kanban', 'Bugs']);
+        expect(el.querySelector('app-folder-move-sheet')).toBeNull();
+      });
+
+      it('no painel do grupo, as pastas de cima e o caminho para a parte Pastas', async () => {
         await go('categorias');
         const row = await openCat('Roadmap site');
         expect(row.querySelector('.assuntos-resumo .nome-dica')!.textContent!.trim()).toBe('Kanban.');

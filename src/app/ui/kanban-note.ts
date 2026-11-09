@@ -191,6 +191,6 @@ export class KanbanNote {
   protected readonly spoken = computed(() => {
     const r = this.review();
     const { importance: imp, status } = this.card();
-    return [r.game.name, this.folderName() ? `assunto ${this.folderName()}` : '', imp ? `importância ${IMPORTANCE_LABEL[imp].toLowerCase()}` : '', status ? `observação ${status}` : '', this.noText() ? 'sem descrição' : '', r.doneAt ? 'finalizada' : ''].filter(Boolean).join(', ');
+    return [r.game.name, this.folderName() ? `pasta ${this.folderName()}` : '', imp ? `importância ${IMPORTANCE_LABEL[imp].toLowerCase()}` : '', status ? `observação ${status}` : '', this.noText() ? 'sem descrição' : '', r.doneAt ? 'finalizada' : ''].filter(Boolean).join(', ');
   });
 }

@@ -27,6 +27,20 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-09-pasta-em-todo-lugar',
+    version: '1.42.1',
+    kind: 'ajustes',
+    date: '2026-11-09',
+    title: 'A pasta no lugar do assunto em todo o Murall',
+    melhorias: [
+      'No editor e na folha de quem só lê a compartilhada, a etiqueta Assunto virou Pasta: a árvore do grupo, recuada por nível, com a busca que acha em qualquer nível e o "Criar" que nasce dentro da pasta escolhida.',
+      'No menu de uma anotação, "Mover para pasta…"; no de uma pasta, "Mover para…": a mesma árvore numa folha, sem precisar arrastar.',
+      'A leitura mostra o caminho inteiro da pasta (Programação › Funcional), e tocar nele abre a parede nela. O PDF leva o caminho também.',
+      'O filtro por pasta, no mural, no Kanban e nos seletores de fichas, pega também as pastas de dentro, e cada opção mostra o caminho.',
+      'Nas configurações do mural, a parte Assuntos virou Pastas: a árvore de cada grupo, com criar, renomear, mover e desfazer.',
+    ],
+  },
+  {
     id: '2026-11-09-pastas-dentro-de-pastas',
     version: '1.42.0',
     kind: 'funcionalidade',

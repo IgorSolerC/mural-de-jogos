@@ -211,6 +211,18 @@ export class NoteFolders {
     return tree.kids(group, null).map((f) => ({ label: f.name, n: top.get(f.id) ?? 0, saved: true }));
   }
 
+  /** Quantas anotações do grupo cada pasta tem, com as de dentro (para a escolha da pasta). */
+  countsIn(category: string | null | undefined): Map<string, number> {
+    const tree = this.tree();
+    const group = lookKey(category ?? '');
+    const out = new Map<string, number>();
+    for (const n of this.store.notes()) {
+      if (lookKey(n.category ?? '') !== group) continue;
+      for (const f of tree.path(tree.of(n))) out.set(f.id, (out.get(f.id) ?? 0) + 1);
+    }
+    return out;
+  }
+
   /** Quantas anotações (as suas, também as compartilhadas) estão na pasta e nas de dentro. */
   countBelow(id: string): number {
     const tree = this.tree();

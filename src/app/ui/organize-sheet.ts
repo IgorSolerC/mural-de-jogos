@@ -13,7 +13,7 @@ import { pinningFor } from '../core/wall-physics';
 import { BackdropClose } from './backdrop-close';
 import { GroupPicker } from './group-picker';
 import { Pin } from './pin';
-import { SubjectPicker } from './subject-picker';
+import { FolderPicker } from './folder-picker';
 import { TagPicker } from './tag-picker';
 
 /**
@@ -24,7 +24,7 @@ import { TagPicker } from './tag-picker';
  */
 @Component({
   selector: 'app-organize-sheet',
-  imports: [BackdropClose, GroupPicker, IconModule, Pin, SubjectPicker, TagPicker],
+  imports: [BackdropClose, FolderPicker, GroupPicker, IconModule, Pin, TagPicker],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet ficha-lugar" aria-labelledby="fl-titulo" aria-describedby="fl-sub" (close)="closed.emit()" (backdropClose)="close()">
@@ -46,9 +46,18 @@ import { TagPicker } from './tag-picker';
               <span class="nome" id="fl-grupo"><lucide-icon [img]="GroupIcon" [size]="16" aria-hidden="true" />Grupo</span>
               <app-group-picker class="valor" [category]="r.category ?? null" (categoryChange)="setGroup($event)" [categories]="groupLib()" />
             </div>
-            <div class="linha" role="group" aria-labelledby="fl-assunto">
-              <span class="nome" id="fl-assunto"><lucide-icon [img]="SubjectIcon" [size]="16" aria-hidden="true" />Assunto</span>
-              <app-subject-picker class="valor" [subject]="folderLabel()" (subjectChange)="setSubject($event)" [subjects]="subjectLib()" [group]="r.category ?? null" />
+            <div class="linha" role="group" aria-labelledby="fl-pasta">
+              <span class="nome" id="fl-pasta"><lucide-icon [img]="SubjectIcon" [size]="16" aria-hidden="true" />Pasta</span>
+              <app-folder-picker
+                class="valor"
+                [value]="folderId()"
+                (valueChange)="setFolder($event)"
+                [tree]="folders.tree()"
+                [group]="groupKey()"
+                [groupName]="r.category ?? 'Sem grupo'"
+                [counts]="folderCounts()"
+                (create)="createFolder($event)"
+              />
             </div>
             <div class="linha" role="group" aria-labelledby="fl-tags">
               <span class="nome" id="fl-tags"><lucide-icon [img]="TagsIcon" [size]="16" aria-hidden="true" />Tags</span>
@@ -74,7 +83,7 @@ export class OrganizeSheet {
   protected readonly CloseIcon = ICON.fechar;
   protected readonly MineIcon = ICON.privada;
   protected readonly GroupIcon = ICON.pasta;
-  protected readonly SubjectIcon = ICON.assunto;
+  protected readonly SubjectIcon = ICON.pastaDeNotas;
   protected readonly TagsIcon = ICON.etiquetas;
 
   private readonly store = inject(ReviewStore);
@@ -92,13 +101,14 @@ export class OrganizeSheet {
   private readonly samePlace = computed(() => this.kanban.notesAt(this.kanban.placeOf(this.noteId())));
   protected readonly groupLib = computed(() => categoryLibrary(this.store.notes()));
   protected readonly tagLib = computed(() => tagLibrary(this.samePlace(), this.settings.pinnedTags(), this.note()?.category ?? null));
-  private readonly folders = inject(NoteFolders);
-  protected readonly subjectLib = computed(() => this.folders.topLibrary(this.note()?.category ?? null, this.samePlace()));
-  /** O nome da pasta da anotação (a parte Assunto mostra), ou null. */
-  protected readonly folderLabel = computed(() => {
+  protected readonly folders = inject(NoteFolders);
+  /** A pasta da anotação (o id; null: solta na raiz do grupo), o grupo dela e quantas anotações cada pasta tem. */
+  protected readonly folderId = computed(() => {
     const r = this.note();
-    return r ? this.folders.nameOf(this.folders.of(r)) : null;
+    return r ? this.folders.of(r) : null;
   });
+  protected readonly groupKey = computed(() => lookKey(this.note()?.category ?? ''));
+  protected readonly folderCounts = computed(() => this.folders.countsIn(this.note()?.category ?? null));
 
   constructor() {
     afterNextRender(() => {
@@ -113,7 +123,7 @@ export class OrganizeSheet {
     if (el.open) el.close();
   }
 
-  /** Outro grupo: o assunto, que é do grupo, sai; um grupo novo ganha uma cor sorteada, como no editor. */
+  /** Outro grupo: a pasta, que é do grupo, sai; um grupo novo ganha uma cor sorteada, como no editor. */
   protected setGroup(category: string | null): void {
     const r = this.note();
     if (!r) return;
@@ -126,13 +136,17 @@ export class OrganizeSheet {
     this.save(withCategory(r, next || null), r);
   }
 
-  /** O assunto (o nome de uma pasta de cima do grupo; nova, nasce agora). */
-  protected setSubject(subject: string | null): void {
+  /** A pasta (o id; null: solta na raiz do grupo). */
+  protected setFolder(id: string | null): void {
     const r = this.note();
-    if (!r) return;
-    const next = subject ? this.folders.ensureTop(r.category ?? null, subject) : null;
-    if (next === this.folders.of(r)) return;
-    this.save(withFolder(r, next), r);
+    if (!r || id === this.folders.of(r)) return;
+    this.save(withFolder(r, id), r);
+  }
+
+  /** "Criar 'Scripts' em Programação": a pasta nasce agora, com a anotação dentro. */
+  protected createFolder(e: { parent: string | null; name: string }): void {
+    const made = this.folders.create(this.note()?.category ?? null, e.parent, e.name);
+    if (made) this.setFolder(made.id);
   }
 
   protected setTags(tags: string[]): void {

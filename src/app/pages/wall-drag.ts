@@ -21,6 +21,7 @@ export interface FolderActions {
   join(from: string, into: string): () => void;
   dissolve(id: string): () => void;
   contentsOf(id: string): { notes: number; folders: number };
+  countsIn(category: string | null | undefined): Map<string, number>;
 }
 
 /** O que se arrasta na parede: anotações (a pega e as marcadas que vão junto) ou uma pasta. */

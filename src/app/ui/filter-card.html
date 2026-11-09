@@ -4,7 +4,7 @@
 @if (subjectRow()) {
   <div class="linha">
     <div class="linha-texto">
-      <p class="linha-titulo" [id]="id + '-assunto'">Assunto</p>
+      <p class="linha-titulo" [id]="id + '-assunto'">Pasta</p>
       <p class="linha-desc">Um por anotação: escolha um para ver só ele.</p>
     </div>
     <div class="recortes" role="radiogroup" [attr.aria-labelledby]="id + '-assunto'">
@@ -54,7 +54,7 @@
 }
 
 @if (!subjectRow() && !tags().length && !shows().length) {
-  <p class="vazio">Nenhum assunto nem tag para filtrar aqui ainda.</p>
+  <p class="vazio">Nenhuma pasta nem tag para filtrar aqui ainda.</p>
 }
 
 <footer class="pe">

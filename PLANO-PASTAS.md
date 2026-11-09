@@ -544,3 +544,13 @@ ver a conversão na build de verdade), BUILD subindo a cada commit.
   por `WallBoard.folderActions`, que só a página do dono passa. O toque longo do menu decide caixa a caixa
   (`ContextMenuTrigger.hold` aceita função): onde segurar arrasta, o menu abre ao soltar parado. Fica para
   a rodada 4: "Mover para pasta…" e "Mover para…" com o seletor da árvore (4.8).
+- **Rodada 4 (09/nov, BUILD 818).** A pasta em todo lugar: `ui/folder-picker.ts` (a árvore do grupo, aberta
+  no caminho da escolhida, a busca em qualquer nível com o caminho, "Criar 'X' em Y" dentro da escolhida,
+  o que não se pode escolher apagado) no lugar de `ui/subject-picker.ts`, no editor (a etiqueta Pasta) e na
+  folha de organizar; `ui/folder-move-sheet.ts` para o "Mover para pasta…" da anotação e o "Mover para…"
+  da pasta, no mural e nas configurações. A leitura mostra o caminho e abre a parede nele (`?pasta=`); o PDF
+  leva o caminho. O filtro por pasta (mural, Kanban e seletores) pega as de dentro (`subjectValuesOf`), com
+  o caminho em cada opção; nos seletores, as de dentro aparecem quando a de cima é ligada. A parte Assuntos
+  das configurações virou Pastas (a árvore, com criar, renomear com Juntar, mover e desfazer). "Assunto"
+  saiu da tela (Pasta, Sem pasta, o ícone de pasta). A nota ligada já nascia na mesma pasta, e a cópia para
+  os Estudos não leva a pasta. Fica para a rodada 5: a API e o MCP (seção 5).

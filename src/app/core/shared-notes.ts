@@ -277,7 +277,7 @@ export const CONFLICT_PART_LABEL: Record<ConflictPart, string> = {
   titulo: 'o título',
   capa: 'a capa',
   texto: 'o texto',
-  categoria: 'o grupo e o assunto',
+  categoria: 'o grupo e a pasta',
   publico: 'quem vê',
   aparencia: 'o papel da ficha',
   data: 'a data',

@@ -175,11 +175,11 @@ describe('o assunto virou pasta', () => {
 
     it('o grupo Assunto do filtro: as pastas de cima, de A a Z, "Sem assunto" no fim', () => {
       const facet = facetsOf(notes, NO_FILTER, NOTES, tree).find((f) => f.key === 'subject')!;
-      expect(facet.title).toBe('Assunto');
+      expect(facet.title).toBe('Pasta');
       expect(facet.options.map((o) => [o.label, o.n])).toEqual([
         ['Geografia', 1],
         ['História', 2],
-        ['Sem assunto', 1],
+        ['Sem pasta', 1],
       ]);
       // sem nenhuma pasta no mural, o grupo não aparece
       expect(facetsOf([note('n9', 'Estudos')], NO_FILTER, NOTES, tree).some((f) => f.key === 'subject')).toBeFalse();

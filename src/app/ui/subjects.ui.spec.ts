@@ -80,9 +80,9 @@ describe('o assunto nas telas do mural', () => {
     const bar = await mountOpen();
     const el: HTMLElement = bar.nativeElement;
     const rows = [...el.querySelectorAll('app-filter-card .linha-titulo')].map((t) => t.textContent!.trim());
-    expect(rows).toEqual(['Assunto']);
+    expect(rows).toEqual(['Pasta']);
     // Todos, de A a Z, "Sem assunto" no fim, com quantas cada um mostra
-    expect(labels(el)).toEqual(['Todos', 'Geografia, 1', 'História, 2', 'Sem assunto, 1']);
+    expect(labels(el)).toEqual(['Todos', 'Geografia, 1', 'História, 2', 'Sem pasta, 1']);
     expect(radios(el)[0].checked).toBeTrue();
     expect(chips(el)).toEqual([]);
     expect(view.newNoteSubject()).toBeNull();
@@ -161,7 +161,7 @@ describe('o assunto nas telas do mural', () => {
     const bar = await mountOpen();
     const el: HTMLElement = bar.nativeElement;
     expect(radios(el).length).toBe(15);
-    expect(labels(el).at(-1)).toBe('Sem assunto, 1');
+    expect(labels(el).at(-1)).toBe('Sem pasta, 1');
   });
 
   it('ordenar pela pasta (o assunto) está no Ordenar das anotações, depois do Grupo', async () => {
@@ -179,7 +179,7 @@ describe('o assunto nas telas do mural', () => {
     const el: HTMLElement = f.nativeElement;
     const line = el.querySelector('.meta-nota')!;
     expect(line.firstElementChild!.classList).toContain('assunto');
-    expect(line.textContent!.replace(/\s+/g, ' ').trim()).toBe('Assunto: História · 1 de out de 2026'.replace('1 de out de 2026', line.querySelector('time')!.textContent!.trim()));
+    expect(line.textContent!.replace(/\s+/g, ' ').trim()).toBe('Pasta: História · 1 de out de 2026'.replace('1 de out de 2026', line.querySelector('time')!.textContent!.trim()));
     expect(el.querySelector('.words')!.firstElementChild!.classList).toContain('title');
     f.componentRef.setInput('capas', true);
     await f.whenStable();

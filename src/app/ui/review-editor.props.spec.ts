@@ -703,7 +703,7 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
     expect(r.stains).toBeUndefined();
   });
 
-  it('o assunto: os do grupo à mão (também os criados), de A a Z; tocar escolhe e fecha; um nome novo com Enter cria; salva na anotação', async () => {
+  it('a pasta: as do grupo à mão (também as criadas), de A a Z; tocar escolhe e fecha; um nome novo com Enter cria dentro da escolhida; salva na anotação', async () => {
     store.add(note('noutra01', { category: 'Estudos', subject: 'Geografia' }));
     store.add(note('noutra02', { category: 'Trabalho', subject: 'Site' }));
     settings.setSavedSubjects('Estudos', ['História']);
@@ -711,10 +711,10 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
     await fixture.whenStable();
     expect(chip('assunto').classList).toContain('vazia');
     let p = await openPart('assunto');
-    const names = () => Array.from(p.querySelectorAll<HTMLElement>('.op .nome')).map((n) => n.textContent!.trim());
+    const names = () => Array.from(p.querySelectorAll<HTMLElement>('.op:not(.raiz):not(.criar) .nome')).map((n) => n.textContent!.trim());
     // o do Trabalho não aparece nos Estudos
     expect(names()).toEqual(['Geografia', 'História']);
-    expect(p.querySelector('.nenhum')!.getAttribute('aria-checked')).toBe('true');
+    expect(p.querySelector('.raiz')!.getAttribute('aria-checked')).toBe('true');
     Array.from(p.querySelectorAll<HTMLButtonElement>('.op')).find((b) => b.textContent!.includes('Geografia'))!.click();
     await fixture.whenStable();
     // escolher fecha a parte, e a etiqueta diz o assunto
@@ -726,7 +726,8 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
     field.value = 'artes';
     field.dispatchEvent(new Event('input'));
     await fixture.whenStable();
-    expect(p.querySelector('.criar')!.textContent).toContain('Criar “Artes”');
+    // (nasce dentro da escolhida)
+    expect(p.querySelector('.criar')!.textContent).toContain('Criar “Artes” em Geografia');
     field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
     await fixture.whenStable();
     expect(chip('assunto').textContent).toContain('Artes');
@@ -736,17 +737,17 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
     await fixture.whenStable();
     await saveAndClose();
     const saved = store.notes().find((r) => r.game.name === 'Pintura moderna')!;
-    // o assunto é a pasta de cima com esse nome
     expect([saved.category, TestBed.inject(NoteFolders).nameOf(saved.folder)]).toEqual(['Estudos', 'Artes']);
+    expect(TestBed.inject(NoteFolders).tree().path(saved.folder).map((f) => f.name)).toEqual(['Geografia', 'Artes']);
   });
 
-  it('o assunto: a anotação nova pedida com um assunto (o filtro do mural) já nasce nele; "Sem assunto" tira', async () => {
+  it('a pasta: a anotação nova pedida numa pasta (a aberta no mural) já nasce nela; "Sem pasta" tira', async () => {
     const historia = TestBed.inject(NoteFolders).ensureTop('Estudos', 'História');
     fixture.componentInstance.openInCategory('Estudos', undefined, historia);
     await fixture.whenStable();
     expect(chip('assunto').textContent).toContain('História');
     const p = await openPart('assunto');
-    p.querySelector<HTMLButtonElement>('.nenhum')!.click();
+    p.querySelector<HTMLButtonElement>('.raiz')!.click();
     await fixture.whenStable();
     expect(chip('assunto').classList).toContain('vazia');
   });
@@ -762,14 +763,14 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
     expect(part()!.querySelector('#editor-data')).not.toBeNull();
     expect(el.querySelector('dialog')!.open).toBeTrue();
   });
-  it('as tags sugeridas são só as das anotações do mesmo lugar (o mural, o Kanban ou os dois); os assuntos são as pastas do grupo', async () => {
+  it('as tags sugeridas são só as das anotações do mesmo lugar (o mural, o Kanban ou os dois); as pastas são as do grupo', async () => {
     store.add(note('nmural01', { category: 'Trabalho', tags: ['App'], subject: 'Deploy' }));
     store.add(note('nquadro1', { category: 'Trabalho', tags: ['Daily'], subject: 'Reunião' }));
     store.add(note('nosdois1', { category: 'Trabalho', tags: ['Planejamento'], subject: 'Sprint' }));
     kanban.state.set({ boards: [board([{ note: 'nquadro1', column: 'afazer', importance: null, at: T0 }, { note: 'nosdois1', column: 'afazer', importance: null, wall: true, at: T0 }])], removed: {}, legacy: [] });
-    const ed = fixture.componentInstance as unknown as { tagLib(): { label: string }[]; subjectLib(): { label: string }[]; kbColumn: { set(v: string | null): void }; setKbWall(w: boolean): void };
+    const ed = fixture.componentInstance as unknown as { tagLib(): { label: string }[]; kbColumn: { set(v: string | null): void }; setKbWall(w: boolean): void };
     const tags = () => ed.tagLib().map((t) => t.label).sort();
-    const subjects = () => ed.subjectLib().map((t) => t.label).sort();
+    const subjects = () => TestBed.inject(NoteFolders).tree().kids('trabalho', null).map((f) => f.name);
     // a nova do mural (sem coluna): as do mural e as que estão nos dois
     fixture.componentInstance.openInCategory('Trabalho');
     await fixture.whenStable();

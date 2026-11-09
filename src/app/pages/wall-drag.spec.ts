@@ -175,7 +175,25 @@ describe('arrastar para organizar as pastas', () => {
     button.dispatchEvent(new MouseEvent('contextmenu', { clientX: at.x, clientY: at.y, bubbles: true, cancelable: true }));
     await settle();
     const items = Array.from(el.querySelectorAll('.menu-contexto:popover-open .escolha .nome')).map((n) => n.textContent!.trim());
-    expect(items).toEqual(['Abrir', 'Nova anotação aqui', 'Nova pasta dentro', 'Renomear', 'Desfazer a pasta']);
+    expect(items).toEqual(['Abrir', 'Nova anotação aqui', 'Nova pasta dentro', 'Renomear', 'Mover para…', 'Desfazer a pasta']);
+  });
+
+  it('"Mover para pasta…" no menu da anotação abre a folha com a árvore, e escolher move', async () => {
+    await mount();
+    const c = await card('nd000001');
+    const at = middle(c);
+    c.querySelector('.hit')!.dispatchEvent(new MouseEvent('contextmenu', { clientX: at.x, clientY: at.y, bubbles: true, cancelable: true }));
+    await settle();
+    const item = Array.from(el.querySelectorAll<HTMLButtonElement>('.menu-contexto:popover-open .escolha')).find((b) => b.textContent!.includes('Mover para pasta'))!;
+    item.click();
+    await settle();
+    const sheet = el.querySelector('app-folder-move-sheet')!;
+    expect(sheet.querySelector('h2')!.textContent).toBe('Mover Revolução');
+    Array.from(sheet.querySelectorAll<HTMLButtonElement>('[role="radio"]')).find((b) => b.textContent!.includes('Programação'))!.click();
+    await settle();
+    expect(folders.of(store.get('nd000001')!)).toBe('pprog000001');
+    expect(TestBed.inject(Toasts).current()!.text).toBe('Revolução guardada em Programação.');
+    expect(el.querySelector('app-folder-move-sheet')).toBeNull();
   });
 
   it('sem as mudanças de pasta (a visita), nada arrasta e a pasta não tem menu', async () => {

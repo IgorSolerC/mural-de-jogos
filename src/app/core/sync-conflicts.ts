@@ -188,7 +188,7 @@ const KEY_LABEL: Record<string, string> = {
   order: 'Ordem à mão',
   categories: 'Grupo',
   hiddenTags: 'Tags escondidas no filtro',
-  subjects: 'Assuntos',
+  subjects: 'Pastas',
   folders: 'Pastas',
   name: 'nome',
   parent: 'lugar',
