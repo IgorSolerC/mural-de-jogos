@@ -564,3 +564,127 @@ ver a conversão na build de verdade), BUILD subindo a cada commit.
   `pasta` (o caminho, as que faltam o site cria em `ApiRequests.folderFor`, ou o id; null tira), e mudar de
   grupo sem a pasta tira a nota dela também por cima. Guia, ferramentas, escopos e `docs/api` falam de
   pastas. Falta o `/code-review high` sobre as cinco rodadas.
+- **Revisão (09/nov).** `/code-review high` sobre as cinco rodadas (`73d579be~1..37e3a77d`): os dez achados
+  estão na seção 11, para corrigir numa rodada própria. Nada foi corrigido ainda.
+
+---
+
+## 11. Achados do `/code-review high` (a corrigir)
+
+Revisão de 09/nov sobre o intervalo `73d579be~1..37e3a77d` (as rodadas 1 a 5). Cada achado diz onde está, o
+que acontece e um caminho de conserto; quem corrigir decide o jeito, desde que o comportamento descrito
+deixe de acontecer e ganhe um teste que falharia antes. Do mais grave para o menos. Ao terminar, marcar cada
+um aqui (corrigido, ou por que não precisou) e seguir o processo de sempre: testes (`npm run test:ci` na
+raiz; em `api/`, `npm run typecheck` e `npm test`), `npx ng build`, Novidades pelas regras de `NOVIDADES.md`,
+BUILD + 1, commit e push.
+
+### 11.1 Desfazer ou juntar uma pasta regrava todas as notas dela no espelho da API (eficiência, grave)
+
+- **Onde:** `src/app/core/api-mirror.ts`, `notaV1` (linha ~83: `pasta: path.length ? { id: path.at(-1)!.id, … }`),
+  e `notaParaOEspelho` em `contrato/api-v1/notas.ts`.
+- **O que acontece:** o site manda ao espelho o id da pasta *resolvido* (`tree.of(r)` sobe a lápide até a viva).
+  Ao desfazer uma pasta (`withDissolvedFolder`) ou juntar duas (`withJoinedFolder`), a anotação continua com o
+  `folder` guardado (a lápide), mas o id resolvido muda para a pasta de cima: a impressão (hash) de cada nota
+  muda e todas são mandadas de novo. Desfazer uma pasta com 300 notas gasta 300 linhas da cota `linhas_dia`, e
+  a seção 6 deste plano promete uma linha só (o contexto).
+- **Conserto sugerido:** mandar no espelho o id *guardado* (`r.folder`, quando é um id de pasta do grupo) e
+  levar as lápides no contexto (`PastaV1` com um campo de desfeita, ou uma lista à parte de lápides com o
+  pai), para a API resolver a lápide até a viva ao montar o caminho (`caminhoDaPasta` / `notaDoEspelho` em
+  `contrato/api-v1/notas.ts`). Conferir também a lápide de grupo errado (a nota que mudou de grupo e ainda
+  aponta para a pasta antiga: a regra da leitura a põe na raiz). O teste: desfazer uma pasta com notas e
+  conferir que só o contexto muda de impressão (`api-mirror.spec.ts`) e que a API mostra as notas na pasta de
+  cima (`api/test/espelho.suite.ts`).
+
+### 11.2 No celular, um toque um pouco demorado não abre mais a ficha (correção)
+
+- **Onde:** `src/app/ui/drag-hold.ts` (`down`, linha ~109: `if (touch) this.holdTimer = setTimeout(() => this.begin(), DRAG_HOLD)`;
+  e `onUp`).
+- **O que acontece:** numa aba de grupo do seu Murall, o dedo que fica entre 280 ms (`DRAG_HOLD`) e 500 ms
+  (`HOLD_MS`) parado começa o arrasto (a ficha levanta e o celular vibra); ao soltar sem ter mexido, `onUp`
+  chama `drop` (sem alvo, não faz nada) e `swallowNextClick` engole o clique: a leitura não abre, e o menu
+  também não (ele pede 500 ms). Antes da rodada 3, esse toque abria a ficha. O Kanban já tinha o mesmo jeito.
+- **Conserto sugerido:** em `onUp`, o dedo que soltou sem ter passado da folga (`!s.moved`) antes de
+  `HOLD_MS` não é arrasto: cancelar (sem `drop` e sem engolir o clique), para o toque valer como toque. Testar
+  em `src/app/ui/drag-hold.spec.ts` (dedo parado 350 ms e soltar: nada de `drop`, o clique passa) e conferir
+  que os testes do Kanban (`src/app/pages/kanban-page.spec.ts`) continuam passando.
+
+### 11.3 A prévia da API mostra o id da pasta como nome (correção)
+
+- **Onde:** `contrato/api-v1/operacoes.ts`, `pastaPedida` (linha ~400:
+  `return c.pasta ? { id: null, caminho: pedacosDoCaminho(c.pasta) } : null`).
+- **O que acontece:** quando a AI manda `pasta` como o id de uma pasta (o que `ver_contexto` mostra), a nota
+  por cima (`overlay`, `notaDoPedido`) vem com `pasta: { id: null, caminho: ['pfunc000001'] }` e
+  `assunto: 'pfunc000001'` até o Murall aplicar; o `GET /ext/v1/notas?pasta=Programação` também não a acha.
+- **Conserto sugerido:** a API tem o índice das pastas (`folderIndexOf` em `api/src/ext/overlay.ts`): ao
+  montar a prévia, se `pasta` é um id do índice (no grupo da nota), usar o id e o caminho de verdade. Passar
+  o índice para `overlay` / `createdNote` (hoje `aplicarNaNotaV1` e `notaDoPedido` não o recebem). Teste em
+  `api/test/pedidos.suite.ts`.
+
+### 11.4 O Desfazer de pasta restaura a lista inteira (correção)
+
+- **Onde:** `src/app/core/note-folders.ts`, `checkpoint` (linha ~79), usado por `gather`, `rename`, `move`,
+  `dissolve` e `join`.
+- **O que acontece:** o Desfazer grava de volta a lista inteira de pastas de antes da ação. Qualquer outra
+  mudança de pasta feita no meio (renomear outra pasta pelo menu, criar uma, a sincronização de outro
+  aparelho) é desfeita junto, sem aviso.
+- **Conserto sugerido:** desfazer com a operação inversa só da pasta mexida: o renomear volta o nome dela; o
+  mover volta o `parent` dela; o desfazer tira o `gone` dela e devolve o `parent` das que subiram (guardar
+  quais eram); o juntar idem; o `gather` desfaz a pasta criada (lápide) depois de devolver as notas. Teste em
+  `src/app/core/note-folders.spec.ts`: ação, outra mudança, Desfazer → a outra mudança fica.
+
+### 11.5 A API aceita ids de pasta mais curtos que o site (correção)
+
+- **Onde:** `api/src/domain/mirror.ts`, `FOLDER_ID_RE` (linha ~151: `/^[a-z][a-z0-9]{4,23}$/`), contra
+  `src/app/core/folders.ts`, `ID_RE` (linha ~43: `/^[ap][0-9a-z]{6,24}$/`).
+- **O que acontece:** um id que o site aceita com 25 letras (`'p'` + 24) é recusado pela API, e
+  `checkContexto` / `checkNota` recusam o envio inteiro (400): o espelho da conta para de atualizar. Os ids
+  que o site cria hoje têm 13 letras, mas os vindos de outro aparelho ou de um backup passam por
+  `sanitizeFolders`, que aceita até 25.
+- **Conserto sugerido:** uma regra só, exportada do contrato (`contrato/api-v1/notas.ts`) e usada nos dois
+  lados. Teste na API com um id de 25 letras.
+
+### 11.6 Pedidos da API criam pastas erradas (correção)
+
+- **Onde:** `src/app/core/api-requests.ts`, `ApiRequests.folderFor` (linha ~566) e o `nota.criar` de
+  `applyNoteRequest`.
+- **O que acontece:** (a) um id de pasta viva de *outro* grupo cai no caminho e cria, no grupo da nota, uma
+  pasta chamada pelo id ("Pfunc000001"); (b) no criar, `folderFor` roda antes de `sanitizeReview`: se o
+  pedido falhar depois, as pastas do caminho ficam criadas e vazias.
+- **Conserto sugerido:** (a) um id de pasta (`isFolderId`) que não é do grupo da nota não vira nome: a nota
+  fica na raiz e o resultado do pedido traz um aviso; (b) resolver a pasta só depois de a nota passar pelas
+  conferências (ou desfazer as pastas criadas quando o pedido falha).
+
+### 11.7 O teste da pasta pedida testa uma cópia (cobertura de teste)
+
+- **Onde:** `src/app/core/api-requests.spec.ts`, a função `folderFor` no topo do arquivo (linha ~54).
+- **O que acontece:** o teste "a pasta pedida" usa uma cópia de `ApiRequests.folderFor` escrita no próprio
+  spec; a de verdade (privada) não é exercitada, então uma mudança nela não quebra o teste.
+- **Conserto sugerido:** tirar a lógica para uma função pura em `core` (por exemplo
+  `folderForPath(folders: NoteFolders, category, pasta)`, perto de `note-folders.ts`), chamada pelo
+  `ApiRequests` e pelo spec. Junto com 11.6, que mexe na mesma função.
+
+### 11.8 A pergunta de desfazer a pasta está escrita duas vezes (reaproveitar)
+
+- **Onde:** `src/app/pages/wall-board.ts`, `dissolve` (linha ~302), e `src/app/ui/mural-config.ts`,
+  `dissolveFolder` (linha ~690).
+- **O que acontece:** os dois contam o que está dentro, montam a frase ("As 2 anotações e 1 pasta de dentro
+  vão para Estudos. Nenhuma anotação é apagada.") e chamam o `Confirm`, com textos que já divergem um pouco.
+- **Conserto sugerido:** uma pergunta só, em `src/app/ui/remove-asking.ts` (`RemoveAsking`, o lugar das
+  perguntas de apagar com Desfazer), usada pelos dois. Cuidado com a regra da visita (CLAUDE.md): a parede
+  (`WallBoard`) não importa o que escreve; ela recebe as mudanças por `folderActions`.
+
+### 11.9 A parte Pastas das configurações percorre as notas uma vez por grupo (eficiência)
+
+- **Onde:** `src/app/ui/mural-config.ts`, `folderGroups` (linha ~328: `this.folders.countsIn(category)` dentro
+  de `rowsOf`, chamado para cada grupo).
+- **O que acontece:** cada `countsIn` percorre todas as notas e monta o caminho de cada uma: O(grupos ×
+  notas) a cada mudança de nota ou de pasta enquanto a folha está aberta.
+- **Conserto sugerido:** uma passada só pelas notas somando por pasta, para todos os grupos (o
+  `countsByFolder` da seção 3.1), e cada grupo lê dali.
+
+### 11.10 `subjectKeys` é só outro nome para `subjectValuesOf` (simplificar)
+
+- **Onde:** `src/app/ui/picker-filters.ts`, `subjectKeys` (linha ~22).
+- **O que acontece:** a função só repassa para `subjectValuesOf` (`src/app/core/wall-filter.ts`); o nome novo
+  esconde que é a mesma regra do mural e do Kanban.
+- **Conserto sugerido:** chamar `subjectValuesOf` direto e apagar `subjectKeys`.
