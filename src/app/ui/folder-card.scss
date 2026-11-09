@@ -1,18 +1,15 @@
-/* A pasta das anotações na parede (PLANO-PASTAS.md, 4.2): manilha em pé, o fundo com a aba, as cartolinas
-   de dentro aparecendo por cima e a frente com o nome. Os mesmos papéis do cofre (`--pasta`), do grão e das
-   cartolinas do mural; a sombra é a das fichas. */
+/* A pasta das anotações na parede (PLANO-PASTAS.md, 4.2): manilha em pé, o fundo com a aba, as anotações
+   de dentro espiando pela boca em miniatura e a frente com o nome. Os mesmos papéis do cofre (`--pasta`),
+   do grão e das cartolinas do mural; a sombra é a das fichas. Um tamanho só, em todas as vistas: quem
+   decide a largura é a grade das pastas (ver .pastas-lista em pages/wall-board.scss). */
+@use 'capas-na-boca' as boca;
 
 :host {
   --pasta: #d6c391;
   --pasta-fundo: #bea873;
-  --pasta-alto: clamp(150px, calc(var(--card-w, 330px) * 0.5), 212px);
+  --pasta-alto: 116px;
   display: block;
-  width: var(--card-w, 330px);
-  max-width: 100%;
-}
-
-:host(.pasta-pequena) {
-  --pasta-alto: clamp(118px, calc(var(--card-w, 180px) * 0.62), 142px);
+  min-width: 0;
 }
 
 .pasta {
@@ -26,9 +23,13 @@
   color: var(--ink);
   text-align: left;
   cursor: pointer;
-  /* a pasta fica um tico torta, como as fichas pregadas */
-  rotate: -0.6deg;
+  /* a pasta fica um tico torta, como as fichas pregadas (cada uma do seu jeito: `--tilt`, dado pela
+     fileira), e se endireita um pouco ao subir */
+  rotate: var(--tilt, -0.6deg);
   -webkit-touch-callout: none;
+  transition:
+    translate var(--t-physical) var(--ease-physical),
+    rotate var(--t-physical) var(--ease-physical);
 
   &:focus-visible {
     outline: 3px solid var(--focus);
@@ -40,8 +41,8 @@
 /* o fundo da pasta, com a aba à esquerda */
 .fundo {
   position: absolute;
-  inset: 18px 0 0 0;
-  border-radius: 4px 9px 7px 7px;
+  inset: 14px 0 0 0;
+  border-radius: 4px 6px 6px 6px;
   background-color: var(--pasta-fundo);
   background-image: var(--paper-grain);
   background-blend-mode: multiply;
@@ -51,49 +52,58 @@
     content: '';
     position: absolute;
     left: 0;
-    top: -17px;
+    top: -13px;
     width: 42%;
-    height: 19px;
-    border-radius: 10px 10px 0 0;
+    height: 15px;
+    border-radius: 6px 6px 0 0;
     background: inherit;
   }
 }
 
-/* as cartolinas de até três anotações de dentro, saindo por cima da frente */
-.tiras {
+/* até três anotações de dentro, em miniatura, enfiadas na boca e saindo por cima da frente, como as capas
+   das pastas dos murais no perfil; aqui de papel, sem o plástico: a cartolina com o título, ou a foto */
+.boca {
+  --capa-w: 50px;
   position: absolute;
-  left: 9%;
-  right: 8%;
-  top: 10px;
-  height: 48%;
-  display: flex;
-  gap: 6px;
+  top: 6px;
+  left: 10px;
+  right: 10px;
+  pointer-events: none;
+}
 
-  /* cada cartolina tem a sua largura: uma sozinha não estica pela pasta inteira */
-  i {
-    flex: 0 0 calc((100% - 12px) / 3);
-    border-radius: 1px;
-    background-color: var(--c);
-    background-image: var(--paper-grain);
-    background-blend-mode: multiply;
-    rotate: var(--r);
-    box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+.espia {
+  @include boca.capa(8px);
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: 1px;
+  background: var(--stock-branco);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+
+  img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 50% 20%;
   }
 }
 
-/* a frente da pasta: abre um pouco (gira para trás pela base) com o mouse em cima */
+@include boca.tortas('.espia');
+
+/* a frente da pasta, por cima das miniaturas: só a altura do nome e da conta (o nome comprido quebra numa
+   segunda linha e a frente cresce para cima). Abre um pouco (gira para trás pela base) com o mouse. */
 .frente {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  top: 32%;
+  min-height: 56px;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  gap: 3px;
-  padding: 14px 18px 16px;
-  border-radius: 3px 3px 7px 7px;
+  gap: 2px;
+  padding: 9px 12px 10px;
+  border-radius: 3px 3px 6px 6px;
   background-color: var(--pasta);
   background-image: var(--paper-grain);
   background-blend-mode: multiply;
@@ -106,134 +116,64 @@
     background-color var(--t-ui) var(--ease-ui);
 }
 
-.pasta:hover .frente {
-  transform: perspective(620px) rotateX(-16deg);
+/* com o mouse: a pasta sobe e se endireita, a frente abre e as miniaturas sobem, uma depois da outra */
+.pasta:not(.nomeando):hover {
+  translate: 0 -2px;
+  rotate: calc(var(--tilt, -0.6deg) * 0.35);
+
+  .frente {
+    transform: perspective(620px) rotateX(-16deg);
+  }
+
+  .espia {
+    translate: 0 -9px;
+  }
 }
 
 .nome {
-  font-family: var(--f-marker);
-  font-size: 1.45rem;
-  line-height: 1.05;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-family: var(--f-marker);
+  font-size: 1.1rem;
+  line-height: 1.08;
+  /* a palavra comprida desce inteira (e a segunda linha termina em reticências) */
+  overflow-wrap: break-word;
 }
 
 .qtd {
   font-family: var(--f-label);
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.78rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
 
-:host(.pasta-pequena) {
-  .nome {
-    font-size: 1.12rem;
-  }
-
-  .qtd {
-    font-size: 0.8rem;
-  }
-
-  .frente {
-    padding: 10px 12px 11px;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
+  .pasta,
+  .espia {
+    transition: none;
+  }
+
   .frente {
     transition: background-color var(--t-ui) var(--ease-ui);
   }
 
-  .pasta:hover .frente {
-    transform: none;
-    background-color: #e0cea0;
-  }
-}
+  .pasta:not(.nomeando):hover {
+    translate: none;
+    rotate: var(--tilt, -0.6deg);
 
-/* ===== Na Lista: uma linha do índice ===== */
-:host(.pasta-em-lista) {
-  width: auto;
-}
+    .frente {
+      transform: none;
+      background-color: #e0cea0;
+    }
 
-.linha-botao {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  min-height: 40px;
-  padding: 6px 12px;
-  border: 0;
-  border-radius: 6px;
-  background-color: var(--pasta);
-  background-image: var(--paper-grain);
-  background-blend-mode: multiply;
-  color: var(--ink);
-  text-align: left;
-  cursor: pointer;
-  box-shadow: 0 1px 1px rgb(0 0 0 / 0.3), 0 4px 10px -4px rgb(0 0 0 / 0.5);
-  transition: background-color var(--t-ui) var(--ease-ui);
-
-  &:hover {
-    background-color: #e0cea0;
-  }
-
-  &:focus-visible {
-    outline: 3px solid var(--focus);
-    outline-offset: 2px;
-  }
-}
-
-.linha-nome {
-  font-family: var(--f-marker);
-  font-size: 1.08rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.linha-qtd {
-  font-family: var(--f-label);
-  font-weight: 700;
-  font-size: 0.86rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
-}
-
-.linha-icone,
-.linha-seta {
-  color: var(--ink-2);
-}
-
-@media (pointer: coarse) {
-  .linha-botao {
-    min-height: 44px;
-  }
-}
-
-/* ===== No celular: duas pastas por fileira (PLANO-PASTAS.md, 4.10), mais baixas ===== */
-@media (max-width: 720px) {
-  :host:not(.pasta-em-lista) {
-    --pasta-alto: 128px;
-    width: 100%;
-  }
-
-  .nome {
-    font-size: 1.12rem;
-  }
-
-  .qtd {
-    font-size: 0.78rem;
-  }
-
-  .frente {
-    padding: 10px 12px 11px;
+    .espia {
+      translate: none;
+    }
   }
 }
 
@@ -247,14 +187,14 @@
 .nome-campo {
   width: 100%;
   min-width: 0;
-  padding: 2px 0 3px;
+  padding: 1px 0 2px;
   border: 0;
   border-bottom: 2px dashed rgb(21 21 21 / 0.45);
   border-radius: 0;
   background: transparent;
   color: var(--ink);
   font-family: var(--f-marker);
-  font-size: 1.45rem;
+  font-size: 1.1rem;
   line-height: 1.1;
   caret-color: var(--ink);
 
@@ -269,38 +209,25 @@
   }
 }
 
-.linha-campo {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  grid-column: 2 / -1;
-
-  .nome-campo {
-    font-size: 1.08rem;
-  }
-}
-
 .aviso {
   color: var(--ink);
   text-transform: none;
   letter-spacing: 0.02em;
 }
 
-:host(.pasta-pequena) .nome-campo {
-  font-size: 1.12rem;
-}
-
 /* ===== Arrastando (ver pages/wall-drag.ts) =====
-   O alvo: a frente abre mais e ganha o tracejado das anotações marcadas, em amarelo de marca-texto. A
-   pasta pega fica apagada no lugar, enquanto a cópia anda com o ponteiro. */
+   O alvo: a frente abre mais, as miniaturas sobem e a pasta ganha o tracejado das anotações marcadas, em
+   amarelo de marca-texto. A pasta pega fica apagada no lugar, enquanto a cópia anda com o ponteiro. */
 :host([data-alvo]) {
   .frente {
     transform: perspective(620px) rotateX(-26deg);
   }
 
-  .pasta,
-  .linha-botao {
+  .espia {
+    translate: 0 -9px;
+  }
+
+  .pasta {
     outline: 3px dashed var(--hi);
     outline-offset: 5px;
     border-radius: 8px;
@@ -312,13 +239,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :host([data-alvo]) .frente {
-    transform: none;
-  }
-}
+  :host([data-alvo]) {
+    .frente {
+      transform: none;
+    }
 
-@media (max-width: 720px) {
-  .nome-campo {
-    font-size: 1.12rem;
+    .espia {
+      translate: none;
+    }
   }
 }

@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { Mural } from '../core/mural';
 import { Kind, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
-import { WallView } from '../core/wall-view';
+import { Density, WallView } from '../core/wall-view';
 import { WallAccess, WallBoard } from './wall-board';
 
 const ACCESS: WallAccess = { landingId: null, picking: false, picked: new Map(), masked: false, secret: new Set(), reactCode: null, checkable: true, looks: {} };
@@ -96,7 +96,7 @@ describe('as vistas do mural de anotações', () => {
       updatedAt: `${day}T10:00:00.000Z`,
     })!;
 
-  async function wall(density: 'simples' | 'lista', tab: string): Promise<HTMLElement> {
+  async function wall(density: Density, tab: string): Promise<HTMLElement> {
     localStorage.clear();
     const v = { sort: 'data', direction: 'desc', density };
     localStorage.setItem('mural-de-jogos:vista:v1', JSON.stringify({ noteViews: { '': v, [tab]: v }, noteTab: tab }));
@@ -129,7 +129,7 @@ describe('as vistas do mural de anotações', () => {
     return Array.from(el.querySelectorAll<HTMLElement>('app-review-card'));
   }
 
-  it('a Visão geral: fichas de relance, a orelha do grupo em Tudo; num grupo, a pasta pequena antes das soltas', async () => {
+  it('a Visão geral: fichas de relance, a orelha do grupo em Tudo; num grupo, a pasta antes das soltas', async () => {
     let el = await wall('simples', '');
     expect(el.querySelector('.wall')!.classList).toContain('geral');
     let all = await cards(el, 4);
@@ -144,8 +144,11 @@ describe('as vistas do mural de anotações', () => {
     expect(all.map((c) => c.querySelector('.aba-cat .nome')?.textContent?.trim() ?? null)).toEqual([null]);
     const pastas = Array.from(el.querySelectorAll('app-folder-card'));
     expect(pastas.map((p) => p.querySelector('.nome')!.textContent!.trim())).toEqual(['Dailys']);
-    expect(pastas[0].classList).toContain('pasta-pequena');
     expect(pastas[0].querySelector('.qtd')!.textContent!.trim()).toBe('2 notas');
+    // as duas espiam pela boca em miniatura: sem capa, a cartolina com o título; de papel, sem o plástico
+    expect(pastas[0].querySelectorAll('.boca .espia').length).toBe(2);
+    expect(pastas[0].querySelectorAll('.boca app-mini-cartolina').length).toBe(2);
+    expect(pastas[0].querySelector('app-cover-sleeve')).toBeNull();
   });
 
   it('procurando num grupo, a parede deixa as pastas e a orelha diz a pasta de cada anotação', async () => {
@@ -156,7 +159,7 @@ describe('as vistas do mural de anotações', () => {
     expect(all.map((c) => c.querySelector('.aba-cat .nome')?.textContent?.trim() ?? null)).toEqual(['Dailys', 'Dailys']);
   });
 
-  it('a lista: a orelhinha diz o grupo em Tudo; num grupo, as pastas em linhas no começo; sem as tags', async () => {
+  it('a lista: a orelhinha diz o grupo em Tudo; num grupo, as mesmas pastas no começo; sem as tags', async () => {
     let el = await wall('lista', '');
     const ears = () => Array.from(el.querySelectorAll('.linha')).map((l) => l.querySelector('.orelha .nome')?.textContent?.trim() ?? null);
     expect(ears()).toEqual(['Trabalho', 'Trabalho', 'Trabalho', 'Casa']);
@@ -165,9 +168,32 @@ describe('as vistas do mural de anotações', () => {
     TestBed.resetTestingModule();
     el = await wall('lista', 'c:trabalho');
     expect(ears()).toEqual([null]);
-    const rows = Array.from(el.querySelectorAll('.pastas-linhas app-folder-card'));
-    expect(rows.map((r) => r.querySelector('.linha-nome')!.textContent!.trim())).toEqual(['Dailys']);
-    expect(rows[0].classList).toContain('pasta-em-lista');
+    const pastas = Array.from(el.querySelectorAll('.pastas-lista app-folder-card'));
+    expect(pastas.map((r) => r.querySelector('.pasta .nome')!.textContent!.trim())).toEqual(['Dailys']);
+  });
+
+  it('a pasta é a mesma em todas as vistas; nas inteiras, fica em cima e as fichas começam embaixo dela', async () => {
+    const sizes: string[] = [];
+    for (const density of ['completa', 'inteira', 'simples', 'lista'] as const) {
+      const el = await wall(density, 'c:trabalho');
+      el.style.cssText = 'display: block; width: 1400px';
+      await cards(el, 1);
+      const pasta = el.querySelector<HTMLElement>('app-folder-card .pasta')!;
+      // o tamanho sem o giro (a caixa girada mede um tico mais)
+      sizes.push(`${pasta.offsetWidth}x${pasta.offsetHeight}`);
+      if (density === 'inteira') {
+        // a pasta tem a fileira dela: nenhuma ficha começa por cima do pé da pasta
+        const bottom = el.querySelector('.pastas')!.getBoundingClientRect().bottom;
+        const tops = Array.from(el.querySelectorAll('.lugar')).map((l) => l.getBoundingClientRect().top);
+        expect(tops.length).toBeGreaterThan(0);
+        expect(tops.every((t) => t >= bottom)).withContext(`pé da pasta ${bottom}, fichas ${tops}`).toBeTrue();
+      }
+      el.remove();
+      TestBed.resetTestingModule();
+    }
+    // oito por fileira numa parede larga
+    expect(new Set(sizes).size).withContext(sizes.join(', ')).toBe(1);
+    expect(parseInt(sizes[0], 10)).toBeCloseTo((1400 - 7 * 22) / 8, -0.5);
   });
 
   it('as setas andam entre as linhas da lista (para baixo, na ordem; End, a última)', async () => {

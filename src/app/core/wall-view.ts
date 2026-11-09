@@ -604,20 +604,33 @@ export abstract class WallState {
     const g = this.folderGroup();
     return g === null || this.seeking() ? [] : this.folders().kids(g, this.openFolder());
   });
-  /** Quantas anotações à mostra (e quantas pastas) cada pasta da parede tem, e as cartolinas de até três. */
+  /**
+   * Quantas anotações à mostra (e quantas pastas) cada pasta da parede tem, e as três que espiam pela boca: as
+   * primeiras que se vê ao abrir a pasta (as que estão direto nela, na ordem da parede; depois as de dentro).
+   */
   readonly folderInfo = computed<ReadonlyMap<string, FolderInfo>>(() => {
     const kids = this.folderKids();
     if (!kids.length) return new Map();
     const tree = this.folders();
-    const out = new Map<string, FolderInfo>(kids.map((f) => [f.id, { notes: 0, folders: tree.kids(f.group, f.id).length, stocks: [] }]));
+    const out = new Map<string, FolderInfo>(kids.map((f) => [f.id, { notes: 0, folders: tree.kids(f.group, f.id).length, peek: [] }]));
     const kidOf = new Map<string, string>();
     for (const f of kids) for (const id of tree.below(f.id)) kidOf.set(id, f.id);
+    const direct = new Map<string, Review[]>();
+    const deep = new Map<string, Review[]>();
     for (const r of this.tabNotes()) {
-      const k = kidOf.get(tree.of(r) ?? '');
+      const at = tree.of(r) ?? '';
+      const k = kidOf.get(at);
       if (!k || !this.shows(r)) continue;
-      const info = out.get(k)!;
-      info.notes++;
-      if (info.stocks.length < 3) (info.stocks as string[]).push(pinningFor(r.id, r.stock).stock);
+      out.get(k)!.notes++;
+      const into = at === k ? direct : deep;
+      const list = into.get(k);
+      if (list) list.push(r);
+      else into.set(k, [r]);
+    }
+    const order = this.order();
+    for (const [k, info] of out) {
+      const first = sortWall(direct.get(k) ?? [], order);
+      info.peek = (first.length >= 3 ? first : [...first, ...sortWall(deep.get(k) ?? [], order)]).slice(0, 3);
     }
     return out;
   });
@@ -1166,11 +1179,14 @@ export function directionLabelOf(sort: SortKey, direction: Direction, profile: K
   }
 }
 
-/** Uma pasta na parede: quantas anotações à mostra ela tem (com as de dentro), quantas pastas logo dentro, e as cartolinas de até três. */
+/**
+ * Uma pasta na parede: quantas anotações à mostra ela tem (com as de dentro), quantas pastas logo dentro, e
+ * as primeiras três anotações dela, que aparecem em miniatura saindo pela boca (a capa ou a cartolina).
+ */
 export interface FolderInfo {
   notes: number;
   folders: number;
-  stocks: readonly string[];
+  peek: readonly Review[];
 }
 
 /** Como o mural está ordenado: serve ao seu mural e ao mural de um colega. */

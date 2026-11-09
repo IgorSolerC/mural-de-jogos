@@ -87,6 +87,28 @@
   </section>
 } @else {
   <h2 class="sr-only">{{ owner() === null ? 'Fichas no mural' : 'Fichas de ' + owner() }}</h2>
+  <!-- as pastas da pasta aberta (ou da raiz do grupo), antes das fichas (PLANO-PASTAS.md, 4.1): fora da
+       parede, numa fileira delas, para serem as mesmas, do mesmo tamanho, em todas as vistas (nas
+       inteiras a parede é uma grade de linhas de 4px, e as fichas passavam por cima da pasta) -->
+  @if (hasFolders()) {
+    <section class="pastas" aria-label="Pastas">
+      <ul class="pastas-lista">
+        @for (f of view.folderKids(); track f.id) {
+          <li>
+            <app-folder-card
+              [folder]="f"
+              [info]="info(f.id) ?? { notes: 0, folders: 0, peek: [] }"
+              [naming]="naming() === f.id"
+              [clash]="naming() === f.id ? clash() : null"
+              (opened)="enter($event)"
+              (draft)="drafted(f, $event)"
+              (named)="named(f, $event)"
+            />
+          </li>
+        }
+      </ul>
+    </section>
+  }
   <div
     class="wall com-menu"
     [class.compact]="view.density() === 'simples'"
@@ -99,28 +121,6 @@
     [appRealceBusca]="view.query()"
     realceEm=".fichas, app-note-index"
   >
-    <!-- as pastas da pasta aberta (ou da raiz do grupo), antes das fichas (PLANO-PASTAS.md, 4.1) -->
-    @if (hasFolders()) {
-      <section class="pastas" aria-label="Pastas">
-        <ul class="pastas-lista" [class.pastas-linhas]="lista()">
-          @for (f of view.folderKids(); track f.id) {
-            <li>
-              <app-folder-card
-                [folder]="f"
-                [info]="info(f.id) ?? { notes: 0, folders: 0, stocks: [] }"
-                [row]="lista()"
-                [small]="overview()"
-                [naming]="naming() === f.id"
-                [clash]="naming() === f.id ? clash() : null"
-                (opened)="enter($event)"
-                (draft)="drafted(f, $event)"
-                (named)="named(f, $event)"
-              />
-            </li>
-          }
-        </ul>
-      </section>
-    }
     @for (g of view.groups(); track g.key) {
       <!-- a etiqueta da seção fecha e abre a seção: fechada, as fichas viram um maço preso com
            elástico, numa linha só; sem etiquetas, nada fecha -->

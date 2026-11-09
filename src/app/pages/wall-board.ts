@@ -516,10 +516,11 @@ export class WallBoard {
       menu: this.noteMenu,
       hold: () => !this.dragOn(),
     });
-    // o botão direito numa pasta da parede ou no vão dela (no seu Murall, numa aba de grupo)
+    // o botão direito numa pasta da parede ou no vão dela (no seu Murall, numa aba de grupo): o vão é o das
+    // fichas e o da fileira das pastas, em cima delas
     this.folderTrigger = new ContextMenuTrigger({
       host: this.el,
-      targets: 'app-folder-card[data-pasta], .wall',
+      targets: 'app-folder-card[data-pasta], .pastas, .wall',
       ignore: `${WALL_NOTES}, .grupo-etiqueta, input`,
       keyOf: (box) => {
         if (box.matches('app-folder-card')) return `pasta:${box.dataset['pasta']}`;

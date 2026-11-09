@@ -586,42 +586,43 @@
 }
 
 /* ===== As pastas (PLANO-PASTAS.md, 4.1) =====
-   Primeiro as pastas, numa fileira só delas que ocupa a parede inteira, depois as seções das anotações.
-   Cada pasta tem a largura de uma ficha da vista aberta (`--card-w`) e o mesmo vão entre elas; o vão de
-   cima deixa a aba da pasta na parede. Na Lista, linhas do índice. */
+   Primeiro as pastas, numa fileira só delas, fora da parede das fichas, depois as fichas. A pasta é a
+   mesma em todas as vistas (Comum, Inteira, Visão geral e Lista): a grade dela não lê a largura das
+   fichas. Oito por fileira numa tela cheia; mais estreita, as que couberem com pelo menos 128px (duas no
+   celular), esticadas até a beirada. */
 .pastas {
-  flex: 1 1 100%;
-  min-width: 0;
+  --pastas-vao: 22px;
+  /* o vão até as fichas é da fileira (padding, não margem): o botão direito nele abre o menu do vão */
+  padding-bottom: 44px;
 }
 
 .pastas-lista {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: var(--in-gap);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(max(128px, calc((100% - 7 * var(--pastas-vao)) / 8)), 1fr));
+  gap: 26px var(--pastas-vao);
   margin: 0;
-  padding: 18px 0 0;
+  padding: 4px 0 0;
   list-style: none;
 }
 
-.pastas-linhas {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(21rem, 100%), 1fr));
-  gap: 8px 22px;
-  padding-top: 0;
+/* cada pasta torta do seu jeito, como as pastas dos murais no perfil */
+.pastas-lista > li:nth-child(2n) {
+  --tilt: 0.5deg;
+}
+
+.pastas-lista > li:nth-child(3n) {
+  --tilt: -0.3deg;
+}
+
+@media (max-width: 559px) {
+  .pastas {
+    --pastas-vao: 14px;
+    padding-bottom: 36px;
+  }
 }
 
 .pasta-vazia h2 {
   overflow-wrap: anywhere;
-}
-
-/* no celular, duas pastas por fileira (a Lista continua em linhas) */
-@media (max-width: 720px) {
-  .pastas-lista:not(.pastas-linhas) {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 22px 14px;
-  }
 }
 
 /* ===== Arrastar para organizar as pastas (ver wall-drag.ts) =====

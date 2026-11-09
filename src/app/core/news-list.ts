@@ -68,7 +68,7 @@ export const NEWS: NewsEntry[] = [
       'Num post do Feed, o menu também reage; numa linha dos Gastos dividida com alguém, ele deixa a fita só com a parte daquela pessoa.',
       'Nos Flashcards de quem você visita, o flashcard vira ao toque, como nos seus; maximizar e ler a anotação ficam na etiqueta do canto, as abas dos grupos ganham o Mais, e o botão direito abre o menu do flashcard e o do baralho (abrir ou copiar).',
       'Os assuntos das anotações passam a ser guardados como pastas, o primeiro passo para as pastas dentro de pastas: tudo continua no mesmo lugar, renomear ou apagar um assunto não regrava mais as anotações dele, e a anotação que muda de grupo sai do assunto, por qualquer caminho.',
-      'Na aba de um grupo, os assuntos aparecem como pastas no começo da parede, com as cores das anotações de dentro: tocar abre a pasta, o caminho na barra volta (e o Voltar do navegador sobe uma), e a busca dentro de uma pasta procura nela e nas de dentro. No mural de quem você visita, igual.',
+      'Na aba de um grupo, os assuntos aparecem como pastas no começo da parede, iguais em todas as vistas e oito por fileira numa tela cheia, com até três anotações de dentro espiando em miniatura (a capa ou a cartolina com o título), que sobem com o mouse em cima: tocar abre a pasta, o caminho na barra volta (e o Voltar do navegador sobe uma), e a busca dentro de uma pasta procura nela e nas de dentro. No mural de quem você visita, igual.',
     ],
     correcoes: ['Nas configurações do mural, o grupo com uma anotação só não diz mais "Muda em a anotação" embaixo do nome.'],
   },

@@ -90,12 +90,21 @@ describe('as pastas na parede (WallState)', () => {
     expect(visit.openFolder()).toBeNull();
     expect(kids()).toEqual(['História', 'Programação', 'Vazia']);
     expect(names(visit.tabbed())).toEqual(['Solta']);
-    // o número conta as de dentro; as cartolinas, até três
+    // o número conta as de dentro; as que espiam pela boca (a capa ou a cartolina) são as próprias anotações
     const info = visit.folderInfo();
     expect(info.get('pprog000001')).toEqual(jasmine.objectContaining({ notes: 2, folders: 2 }));
-    expect(info.get('pprog000001')!.stocks.length).toBe(2);
+    expect(names(info.get('pprog000001')!.peek)).toEqual(['Bash', 'Recursão']);
     expect(info.get('phist000001')).toEqual(jasmine.objectContaining({ notes: 1, folders: 0 }));
-    expect(info.get('pvazi000001')).toEqual({ notes: 0, folders: 0, stocks: [] });
+    expect(names(info.get('phist000001')!.peek)).toEqual(['Revolução Francesa']);
+    expect(info.get('pvazi000001')).toEqual({ notes: 0, folders: 0, peek: [] });
+  });
+
+  it('as que espiam pela boca são as primeiras que se vê ao abrir a pasta: as direto nela, depois as de dentro', () => {
+    selected.set(person({ reviews: [...NOTES, note('n6', 'Big O', 'Estudos', 'pprog000001')] }));
+    visit.setNoteTab('c:estudos');
+    const peek = visit.folderInfo().get('pprog000001')!.peek.map((r) => r.game.name);
+    expect(peek[0]).toBe('Big O');
+    expect(peek.slice(1).sort()).toEqual(['Bash', 'Recursão']);
   });
 
   it('entrar numa pasta mostra só o que está direto nela; o caminho vai da raiz até ela', () => {

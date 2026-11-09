@@ -1,0 +1,32 @@
+// As capas (ou as cartolinas em miniatura) enfiadas na boca de uma pasta, espiando por cima da frente:
+// as dos murais no perfil (ui/profile-walls) e as pastas das anotações (ui/folder-card). Quem usa dá a
+// caixa da boca, a largura (`--capa-w`), quantas aparecem (`--vistas`) e a posição de cada uma (`--j`).
+// Com o mouse em cima da pasta, quem usa as sobe (`translate`), e o atraso de `capa` faz subirem uma
+// depois da outra.
+@use 'sass:list';
+
+// tortas, como fichas enfiadas às pressas: o desnível e o giro de cada uma, pela ordem
+$tortas: (4px -4deg) (-1px 2deg) (3px -2deg) (-2px 4deg) (2px -3deg) (0 3deg) (4px -1deg) (-2px 5deg) (1px -4deg) (-1px 2deg);
+
+// espalhadas pela boca inteira: a primeira encosta na beirada esquerda e a última na direita,
+// encavaladas o quanto precisar; com poucas, um vão de `$folga` entre elas
+@mixin capa($folga) {
+  --passo: min(calc((100% - var(--capa-w)) / max(var(--vistas) - 1, 1)), calc(var(--capa-w) + #{$folga}));
+
+  position: absolute;
+  top: 0;
+  left: calc(var(--j) * var(--passo));
+  width: var(--capa-w);
+  transition: translate var(--t-physical) var(--ease-physical);
+  transition-delay: calc(var(--j) * 25ms);
+}
+
+// cada uma torta do seu jeito (no nível de cima do arquivo: gera um seletor por posição)
+@mixin tortas($seletor, $lista: $tortas) {
+  @for $i from 1 through list.length($lista) {
+    #{$seletor}:nth-child(#{$i}) {
+      top: list.nth(list.nth($lista, $i), 1);
+      rotate: list.nth(list.nth($lista, $i), 2);
+    }
+  }
+}

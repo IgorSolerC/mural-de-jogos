@@ -40,7 +40,7 @@ const PECAS = [
   {
     peca: 'src/app/ui/folder-card.ts',
     usa: 'app-folder-card',
-    marcas: [/<button\b[^>]*class="pasta"/, /class="linha-botao"/],
+    marcas: [/<button\b[^>]*class="pasta"/, /class="boca"[^>]*appPerto/],
     o: 'a pasta das anotações na parede (PLANO-PASTAS.md)',
   },
   {

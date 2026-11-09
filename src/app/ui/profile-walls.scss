@@ -1,5 +1,5 @@
 @use 'profile-board' as board;
-@use 'sass:list';
+@use 'capas-na-boca' as boca;
 
 :host {
   display: block;
@@ -171,16 +171,7 @@
 }
 
 .espia {
-  /* espalhadas pela boca inteira: a primeira encosta na beirada esquerda e a última na direita,
-     encavaladas o quanto precisar; com poucas capas, um vão pequeno entre elas */
-  --passo: min(calc((100% - var(--capa-w)) / max(var(--vistas) - 1, 1)), calc(var(--capa-w) + 14px));
-
-  position: absolute;
-  top: 0;
-  left: calc(var(--j) * var(--passo));
-  width: var(--capa-w);
-  transition: translate var(--t-physical) var(--ease-physical);
-  transition-delay: calc(var(--j) * 25ms);
+  @include boca.capa(14px);
 
   /* as que não cabem (--n) ficam de fora; os @container abaixo põem mais conforme a largura */
   &:nth-child(n + 4) {
@@ -189,13 +180,7 @@
 }
 
 /* tortas, como fichas enfiadas às pressas */
-$tortas: (4px -4deg) (-1px 2deg) (3px -2deg) (-2px 4deg) (2px -3deg) (0 3deg) (4px -1deg) (-2px 5deg) (1px -4deg) (-1px 2deg);
-@for $i from 1 through list.length($tortas) {
-  .espia:nth-child(#{$i}) {
-    top: list.nth(list.nth($tortas, $i), 1);
-    rotate: list.nth(list.nth($tortas, $i), 2);
-  }
-}
+@include boca.tortas('.espia');
 
 /* quantas capas cabem: uma a mais a cada 62px, para o passo entre elas ficar entre ~42 e 62px */
 $cabem: (223px: 4, 285px: 5, 347px: 6, 409px: 7, 471px: 8, 533px: 9, 595px: 10);
@@ -453,27 +438,14 @@ $cabem: (223px: 4, 285px: 5, 347px: 6, 409px: 7, 471px: 8, 533px: 9, 595px: 10);
 }
 
 .capinha {
-  --passo: min(calc((100% - var(--capa-w)) / max(var(--vistas) - 1, 1)), calc(var(--capa-w) + 10px));
-
-  position: absolute;
-  top: 0;
-  left: calc(var(--j) * var(--passo));
-  width: var(--capa-w);
-  transition: translate var(--t-physical) var(--ease-physical);
-  transition-delay: calc(var(--j) * 25ms);
+  @include boca.capa(10px);
 
   &:nth-child(n + 4) {
     display: none;
   }
 }
 
-$capinhas: (3px -4deg) (-1px 3deg) (2px -2deg) (0 4deg) (3px -3deg) (-1px 2deg);
-@for $i from 1 through list.length($capinhas) {
-  .capinha:nth-child(#{$i}) {
-    top: list.nth(list.nth($capinhas, $i), 1);
-    rotate: list.nth(list.nth($capinhas, $i), 2);
-  }
-}
+@include boca.tortas('.capinha', (3px -4deg) (-1px 3deg) (2px -2deg) (0 4deg) (3px -3deg) (-1px 2deg));
 
 /* uma capa a mais a cada 44px de pasta, até seis */
 $cabem-suspensa: (170px: 4, 214px: 5, 258px: 6);
