@@ -14,6 +14,7 @@ import {
   withJoinedFolder,
   withMovedFolder,
   withNewFolder,
+  withFolder,
   withRenamedFolder,
 } from './folders';
 import { Review, isNote } from './review';
@@ -74,6 +75,59 @@ export class NoteFolders {
     return this.tree().of(note);
   }
 
+  /** Como voltar as configurações das pastas ao que são agora (o Desfazer do bilhete). */
+  private checkpoint(): () => void {
+    const before = this.folders;
+    return () => this.settings.setNotesConfig({ folders: [...before] });
+  }
+
+  /**
+   * Guarda as anotações na pasta (null: soltas na raiz do grupo), as que são do grupo dela; as que já estão
+   * lá ficam como estão. Cada uma ganha data nova (vai para os outros aparelhos). Devolve quantas mudaram
+   * e como desfazer (cada uma volta para a pasta de antes).
+   */
+  place(ids: readonly string[], folder: string | null): { moved: number; undo: () => void } {
+    const tree = this.tree();
+    const target = folder ? tree.live(folder) : undefined;
+    if (folder && !target) return { moved: 0, undo: () => undefined };
+    const now = new Date().toISOString();
+    const before: Review[] = [];
+    for (const id of ids) {
+      const r = this.store.get(id);
+      if (!r || !isNote(r)) continue;
+      if (target && lookKey(r.category ?? '') !== target.group) continue;
+      if (tree.of(r) === (target?.id ?? null)) continue;
+      before.push(r);
+      this.store.update({ ...withFolder(r, target?.id ?? null), updatedAt: now }, r);
+    }
+    const undo = () => {
+      const at = new Date().toISOString();
+      for (const b of before) {
+        const r = this.store.get(b.id);
+        if (r) this.store.update({ ...withFolder(r, b.folder ?? null), updatedAt: at }, r);
+      }
+    };
+    return { moved: before.length, undo };
+  }
+
+  /**
+   * Uma pasta nova em `parent` (null: a raiz do grupo), "Nova pasta" (sem repetir as irmãs), com as
+   * anotações dentro: a nota solta sobre outra. Devolve a pasta e como desfazer tudo, ou null sem lugar.
+   */
+  gather(ids: readonly string[], category: string | null | undefined, parent: string | null): { folder: NoteFolder; undo: () => void } | null {
+    const back = this.checkpoint();
+    const folder = this.create(category, parent, '');
+    if (!folder) return null;
+    const { undo } = this.place(ids, folder.id);
+    return {
+      folder,
+      undo: () => {
+        undo();
+        back();
+      },
+    };
+  }
+
   /** Cria uma pasta no grupo (`category`, null: sem grupo), dentro de `parent` (null: na raiz). Devolve a pasta, ou null sem lugar. */
   create(category: string | null | undefined, parent: string | null, name: string): NoteFolder | null {
     const { folders, folder } = withNewFolder(this.folders, lookKey(category ?? ''), parent, name);
@@ -96,22 +150,43 @@ export class NoteFolders {
     return folder.id;
   }
 
-  rename(id: string, name: string): void {
+  /** Muda o nome (devolve como desfazer). */
+  rename(id: string, name: string): () => void {
+    const back = this.checkpoint();
     this.save(withRenamedFolder(this.folders, id, name));
+    return back;
   }
 
-  move(id: string, parent: string | null): void {
-    this.save(withMovedFolder(this.folders, id, parent));
+  /** Põe a pasta dentro de `parent` (null: a raiz); a que não pode ir (ela mesma, uma de dentro) fica. Devolve como desfazer, ou null se nada mudou. */
+  move(id: string, parent: string | null): (() => void) | null {
+    const back = this.checkpoint();
+    const next = withMovedFolder(this.folders, id, parent);
+    if (next.every((f, i) => f === this.folders[i])) return null;
+    this.save(next);
+    return back;
   }
 
-  /** Desfaz a pasta: o que estava dentro sobe (nenhuma anotação é apagada nem regravada). */
-  dissolve(id: string): void {
+  /** Desfaz a pasta: o que estava dentro sobe (nenhuma anotação é apagada nem regravada). Devolve como desfazer. */
+  dissolve(id: string): () => void {
+    const back = this.checkpoint();
     this.save(withDissolvedFolder(this.folders, id, new Date().toISOString()));
+    return back;
   }
 
-  /** Junta `from` em `into` (do mesmo grupo): tudo vai para `into`. */
-  join(from: string, into: string): void {
+  /** Junta `from` em `into` (do mesmo grupo): tudo vai para `into`. Devolve como desfazer. */
+  join(from: string, into: string): () => void {
+    const back = this.checkpoint();
     this.save(withJoinedFolder(this.folders, from, into, new Date().toISOString()));
+    return back;
+  }
+
+  /** Quantas anotações e pastas a pasta tem logo dentro (o que sobe ao desfazê-la). */
+  contentsOf(id: string): { notes: number; folders: number } {
+    const tree = this.tree();
+    const f = tree.live(id);
+    if (!f) return { notes: 0, folders: 0 };
+    const notes = this.store.notes().filter((n) => tree.of(n) === id).length;
+    return { notes, folders: tree.kids(f.group, id).length };
   }
 
   /** As pastas vão com o grupo renomeado, juntado ou apagado (null: para o "Sem grupo"). */

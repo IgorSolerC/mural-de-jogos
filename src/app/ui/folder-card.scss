@@ -236,3 +236,89 @@
     padding: 10px 12px 11px;
   }
 }
+
+/* ===== Dando nome: o campo na própria pasta (PLANO-PASTAS.md, 4.6) =====
+   O nome a marcador, escrito na frente como se fosse à mão, com a linha tracejada embaixo de quem
+   preenche uma etiqueta; a pasta não abre enquanto se escreve. */
+.nomeando {
+  cursor: default;
+}
+
+.nome-campo {
+  width: 100%;
+  min-width: 0;
+  padding: 2px 0 3px;
+  border: 0;
+  border-bottom: 2px dashed rgb(21 21 21 / 0.45);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--f-marker);
+  font-size: 1.45rem;
+  line-height: 1.1;
+  caret-color: var(--ink);
+
+  &::selection {
+    background: var(--hi);
+    color: var(--ink);
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-bottom-color: var(--ink);
+  }
+}
+
+.linha-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  grid-column: 2 / -1;
+
+  .nome-campo {
+    font-size: 1.08rem;
+  }
+}
+
+.aviso {
+  color: var(--ink);
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+:host(.pasta-pequena) .nome-campo {
+  font-size: 1.12rem;
+}
+
+/* ===== Arrastando (ver pages/wall-drag.ts) =====
+   O alvo: a frente abre mais e ganha o tracejado das anotações marcadas, em amarelo de marca-texto. A
+   pasta pega fica apagada no lugar, enquanto a cópia anda com o ponteiro. */
+:host([data-alvo]) {
+  .frente {
+    transform: perspective(620px) rotateX(-26deg);
+  }
+
+  .pasta,
+  .linha-botao {
+    outline: 3px dashed var(--hi);
+    outline-offset: 5px;
+    border-radius: 8px;
+  }
+}
+
+:host([data-arrastada]) {
+  opacity: 0.35;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host([data-alvo]) .frente {
+    transform: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .nome-campo {
+    font-size: 1.12rem;
+  }
+}

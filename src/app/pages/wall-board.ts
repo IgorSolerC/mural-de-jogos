@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterRenderEffect, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ICON, IconModule } from '../ui/icons';
@@ -10,12 +10,17 @@ import { SideBySide } from '../core/side-by-side';
 import { WallMotion } from '../core/wall-motion';
 import { pinningFor } from '../core/wall-physics';
 import { FolderInfo, WallGroup, WallState } from '../core/wall-view';
-import { NO_FOLDERS } from '../core/folders';
+import { NO_FOLDERS, NoteFolder, siblingNamed } from '../core/folders';
+import type { Review } from '../core/review';
 import { plural } from '../core/text';
 import { FolderCard } from '../ui/folder-card';
 import { DoneStamp } from '../ui/done-stamp';
 import { NoteIndex } from '../ui/note-index';
 import { NoteMenu, NoteMenuTrigger, WALL_NOTES, wallNoteId } from '../ui/note-menu';
+import { ContextMenu, ContextMenuTrigger, MenuItem, MenuSections } from '../ui/context-menu';
+import { Confirm } from '../ui/confirm';
+import { Toasts } from '../ui/toast';
+import { FolderActions, WallDrag, WallDragItem, WallDrop } from './wall-drag';
 import { NoteSelection } from '../ui/note-selection';
 import { Pin } from '../ui/pin';
 import { SearchHighlight } from '../ui/search-highlight';
@@ -39,7 +44,7 @@ export type WallAccess = Pick<WallCardProps, 'landingId' | 'picking' | 'picked' 
  */
 @Component({
   selector: 'app-wall-board',
-  imports: [DoneStamp, FolderCard, IconModule, NoteIndex, NoteMenu, Pin, RouterLink, SearchHighlight, WallCards],
+  imports: [ContextMenu, DoneStamp, FolderCard, IconModule, NoteIndex, NoteMenu, Pin, RouterLink, SearchHighlight, WallCards],
   providers: [WallCardPool],
   host: { '(keydown)': 'onKey($event)' },
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -60,6 +65,11 @@ export class WallBoard {
   readonly toggled = output<string>();
   /** "Nova anotação" no cartão de "Tudo finalizado" (só no seu mural). */
   readonly create = output<void>();
+  /**
+   * O que muda as pastas (só a página do dono passa, `NoteFolders`): com elas, arrastar organiza, a pasta
+   * ganha nome e menu, e a anotação de uma pasta pode sair dela. A visita não tem como.
+   */
+  readonly folderActions = input<FolderActions | null>(null);
 
   protected readonly PlusIcon = ICON.adicionar;
   protected readonly ChevronIcon = ICON.abrir;
@@ -172,6 +182,194 @@ export class WallBoard {
   /** O que o leitor de tela ouve depois de um toque que troca a pasta: "Pasta Funcional, 2 anotações". */
   protected readonly folderSaid = signal('');
 
+  // ===== Organizar as pastas (PLANO-PASTAS.md, rodada 3): arrastar, dar nome, os menus =====
+
+  private readonly side = inject(SideBySide);
+  private readonly toasts = inject(Toasts);
+  private readonly confirm = inject(Confirm);
+  /** Arrastar organiza: no seu Murall, numa aba de grupo, sem marcar para o lado a lado. */
+  protected readonly dragOn = computed(
+    () => !!this.folderActions() && this.notes() && this.owner() === null && this.view.folderGroup() !== null && !this.side.picking(),
+  );
+  /** A pasta sendo nomeada (a nova, ou Renomear), e a irmã com o nome que está escrito. */
+  protected readonly naming = signal<string | null>(null);
+  protected readonly clash = signal<string | null>(null);
+  /** O menu do botão direito de uma pasta ou do vão da parede: o nome no alto e as opções. */
+  protected readonly folderMenu = signal<{ caption: string; sections: MenuSections }>({ caption: '', sections: [] });
+  private readonly folderMenuRef = viewChild<ContextMenu>('menuDaPasta');
+  private noteTrigger: NoteMenuTrigger | null = null;
+  private folderTrigger: ContextMenuTrigger | null = null;
+
+  /** O nome de uma pasta (null: o do grupo). */
+  private name(id: string | null): string {
+    return id ? (this.view.folders().live(id)?.name ?? '') : this.view.folderGroupLabel();
+  }
+
+  private noteName(id: string): string {
+    return this.view.wall().find((r) => r.id === id)?.game.name ?? 'A anotação';
+  }
+
+  private undoToast(text: string, undo: () => void): void {
+    this.toasts.show(text, { label: 'Desfazer', run: () => this.motion.run(undo) });
+  }
+
+  /** Soltou arrastando: guarda, junta numa pasta nova ou põe uma pasta dentro de outra, com o Desfazer. */
+  private dropped(item: WallDragItem, to: WallDrop): void {
+    const fa = this.folderActions();
+    const group = this.view.folderGroup();
+    if (!fa || group === null) return;
+    if (to.kind === 'juntar') {
+      if (item.kind !== 'notas') return;
+      const ids = [...item.ids, to.with];
+      let made: ReturnType<FolderActions['gather']> = null;
+      this.motion.run(() => (made = fa.gather(ids, group, this.view.openFolder())));
+      const m = made as ReturnType<FolderActions['gather']>;
+      if (!m) {
+        this.toasts.show('Não cabe mais nenhuma pasta aqui.');
+        return;
+      }
+      this.selection.clear();
+      this.naming.set(m.folder.id);
+      this.undoToast(`Nova pasta com ${ids.length} anotações.`, m.undo);
+      return;
+    }
+    const where = this.name(to.folder);
+    if (item.kind === 'pasta') {
+      const was = this.name(item.id);
+      let undo: (() => void) | null = null;
+      this.motion.run(() => (undo = fa.move(item.id, to.folder)));
+      if (undo) this.undoToast(to.folder ? `${was} guardada em ${where}.` : `${was} foi para ${where}.`, undo);
+      return;
+    }
+    let done: { moved: number; undo: () => void } = { moved: 0, undo: () => undefined };
+    this.motion.run(() => (done = fa.place(item.ids, to.folder)));
+    if (!done.moved) return;
+    const one = done.moved === 1 ? this.noteName(item.lead) : '';
+    const text = to.folder
+      ? done.moved === 1
+        ? `${one} guardada em ${where}.`
+        : `${done.moved} anotações guardadas em ${where}.`
+      : done.moved === 1
+        ? `${one} saiu das pastas.`
+        : `${done.moved} anotações saíram das pastas.`;
+    this.selection.clear();
+    this.undoToast(text, done.undo);
+  }
+
+  /** A cada letra do nome: a irmã que já tem esse nome (o Enter junta as duas). */
+  protected drafted(f: NoteFolder, value: string): void {
+    const tree = this.view.folders();
+    this.clash.set(siblingNamed(tree, f.group, tree.parentOf(f.id), value, f.id)?.name ?? null);
+  }
+
+  /** Acabou de dar nome à pasta: renomeia, ou junta com a irmã de mesmo nome; o foco volta para ela. */
+  protected named(f: NoteFolder, value: string | null): void {
+    this.naming.set(null);
+    this.clash.set(null);
+    const fa = this.folderActions();
+    const clean = value?.trim() ?? '';
+    let focus = f.id;
+    if (fa && clean && clean !== f.name) {
+      const tree = this.view.folders();
+      const twin = siblingNamed(tree, f.group, tree.parentOf(f.id), clean, f.id);
+      if (twin) {
+        let undo: () => void = () => undefined;
+        this.motion.run(() => (undo = fa.join(f.id, twin.id)));
+        this.undoToast(`${f.name} entrou em ${twin.name}: agora é uma pasta só.`, undo);
+        focus = twin.id;
+      } else {
+        fa.rename(f.id, clean);
+      }
+    }
+    this.view.folderFocus.update((x) => ({ to: focus, n: (x?.n ?? 0) + 1 }));
+  }
+
+  /** Uma pasta nova (vazia) em `parent`, já com o campo do nome. */
+  private newFolder(parent: string | null): void {
+    const fa = this.folderActions();
+    const group = this.view.folderGroup();
+    if (!fa || group === null) return;
+    if (parent !== this.view.openFolder()) this.motion.run(() => this.view.enterFolder(parent));
+    let made: NoteFolder | null = null;
+    this.motion.run(() => (made = fa.create(group, parent, '')));
+    if (made) this.naming.set((made as NoteFolder).id);
+    else this.toasts.show('Não cabe mais nenhuma pasta aqui.');
+  }
+
+  /** Desfaz a pasta: o que tinha dentro sobe (pergunta antes, se não estiver vazia), com o Desfazer. */
+  private async dissolve(f: NoteFolder): Promise<void> {
+    const fa = this.folderActions();
+    if (!fa) return;
+    const { notes, folders } = fa.contentsOf(f.id);
+    const up = this.name(this.view.folders().parentOf(f.id));
+    if (notes || folders) {
+      const what = [notes ? (notes === 1 ? '1 anotação' : `${notes} anotações`) : '', folders ? (folders === 1 ? '1 pasta' : `${folders} pastas`) : '']
+        .filter(Boolean)
+        .join(' e ');
+      const many = notes + folders > 1;
+      const yes = await this.confirm.ask({
+        title: `Desfazer a pasta ${f.name}?`,
+        text: `${many ? 'As' : 'A'} ${what} de dentro ${many ? 'vão' : 'vai'} para ${up}. Nenhuma anotação é apagada.`,
+        confirm: 'Desfazer a pasta',
+        cancel: 'Deixar',
+        icon: ICON.desfazerPasta,
+      });
+      if (!yes || !this.view.folders().live(f.id)) return;
+    }
+    let undo: () => void = () => undefined;
+    this.motion.run(() => (undo = fa.dissolve(f.id)));
+    this.undoToast(`A pasta ${f.name} foi desfeita.`, undo);
+  }
+
+  /** As opções do menu de uma pasta da parede. */
+  private folderSections(f: NoteFolder): MenuSections {
+    return [
+      [{ id: 'abrir', label: 'Abrir', icon: ICON.pastaDeNotas, run: () => this.enter(f.id) }],
+      [
+        {
+          id: 'nova-nota',
+          label: 'Nova anotação aqui',
+          icon: ICON.adicionar,
+          dialog: true,
+          run: () => {
+            this.motion.run(() => this.view.enterFolder(f.id));
+            this.create.emit();
+          },
+        },
+        { id: 'nova-pasta', label: 'Nova pasta dentro', icon: ICON.novaPasta, run: () => this.newFolder(f.id) },
+        { id: 'renomear', label: 'Renomear', icon: ICON.editar, run: () => this.naming.set(f.id) },
+      ],
+      [{ id: 'desfazer', label: 'Desfazer a pasta', icon: ICON.desfazerPasta, danger: true, hint: 'O que tem dentro sobe; nenhuma anotação é apagada', run: () => void this.dissolve(f) }],
+    ];
+  }
+
+  /** O menu do vão da parede (numa aba de grupo): escrever ou criar uma pasta ali. */
+  private gapSections(): MenuSections {
+    const open = this.view.openFolder();
+    return [
+      [
+        { id: 'nova-nota', label: 'Nova anotação aqui', icon: ICON.adicionar, dialog: true, run: () => this.create.emit() },
+        { id: 'nova-pasta', label: 'Nova pasta aqui', icon: ICON.novaPasta, run: () => this.newFolder(open) },
+      ],
+    ];
+  }
+
+  /** No menu de uma anotação dentro de uma pasta: tirar dela (sobe um nível). */
+  protected readonly noteMore = (r: Review): MenuItem[] => {
+    const open = this.view.openFolder();
+    if (!this.folderActions() || open === null || this.view.folders().of(r) !== open) return [];
+    const up = this.view.folders().parentOf(open);
+    return [
+      {
+        id: 'tirar-pasta',
+        label: 'Tirar da pasta',
+        icon: ICON.tirarDaPasta,
+        hint: `Vai para ${this.name(up)}`,
+        run: () => this.dropped({ kind: 'notas', lead: r.id, ids: [r.id] }, { kind: 'guardar', folder: up }),
+      },
+    ];
+  };
+
   /** Ctrl+clique marca anotações para copiar o texto delas (ver ui/note-selection.ts). */
   readonly selection: NoteSelection;
   /** O menu do botão direito numa anotação (ver ui/note-menu.ts). */
@@ -228,7 +426,7 @@ export class WallBoard {
           : this.el.querySelector<HTMLElement>(`app-folder-card[data-pasta="${CSS.escape(f.to)}"] button`);
       target?.focus({ preventScroll: f.to === null });
     });
-    const side = inject(SideBySide);
+    const side = this.side;
     const byId = computed(() => new Map(this.view.wall().map((r) => [r.id, r])));
     this.selection = new NoteSelection({
       host: inject<ElementRef<HTMLElement>>(ElementRef).nativeElement,
@@ -246,15 +444,59 @@ export class WallBoard {
     });
     // o botão direito, o dedo segurado ou Shift+F10 numa ficha de qualquer mural (o seu ou o de quem se
     // visita) abre o menu dela (o que ela é diz o que aparece: ver ui/note-menu.ts)
-    new NoteMenuTrigger({
+    // (onde segurar arrasta, o menu abre quando o dedo segura e solta sem mexer: ver WallDrag)
+    this.noteTrigger = new NoteMenuTrigger({
       host: this.el,
       markable: WALL_NOTES,
       idOf: wallNoteId,
       on: () => !side.picking(),
       notes: byId,
       menu: this.noteMenu,
-      hold: true,
+      hold: () => !this.dragOn(),
     });
+    // o botão direito numa pasta da parede ou no vão dela (no seu Murall, numa aba de grupo)
+    this.folderTrigger = new ContextMenuTrigger({
+      host: this.el,
+      targets: 'app-folder-card[data-pasta], .wall',
+      ignore: `${WALL_NOTES}, .grupo-etiqueta, input`,
+      keyOf: (box) => {
+        if (box.matches('app-folder-card')) return `pasta:${box.dataset['pasta']}`;
+        return this.view.folderGroup() !== null ? 'vao' : null;
+      },
+      on: () => !side.picking() && !!this.folderActions() && this.owner() === null && this.notes(),
+      hold: (box) => !box.matches('app-folder-card') || !this.dragOn(),
+      isOpenFor: (key) => !!this.folderMenuRef()?.isOpenFor(key),
+      open: (key, box, x, y, by) => {
+        const f = key.startsWith('pasta:') ? this.view.folders().live(key.slice(6)) : undefined;
+        if (key !== 'vao' && !f) return;
+        this.folderMenu.set(
+          f ? { caption: `Pasta ${f.name}`, sections: this.folderSections(f) } : { caption: this.name(this.view.openFolder()), sections: this.gapSections() },
+        );
+        this.folderMenuRef()?.show({ key, x, y, back: box.matches('app-folder-card') ? box.querySelector<HTMLElement>('button') : null, by });
+      },
+    });
+    // arrastar organiza (PLANO-PASTAS.md, 4.5)
+    const drag = new WallDrag({
+      host: this.el,
+      on: () => this.dragOn() && !this.naming(),
+      marked: () => this.selection.ids(),
+      openFolder: () => this.view.openFolder(),
+      groupName: () => this.view.folderGroupLabel(),
+      folderName: (id) => this.view.folders().live(id)?.name ?? null,
+      folderOf: (id) => {
+        const r = byId().get(id);
+        return r ? this.view.folders().of(r) : null;
+      },
+      below: (id) => this.view.folders().below(id),
+      parentOf: (id) => this.view.folders().parentOf(id),
+      drop: (item, to) => this.dropped(item, to),
+      open: (id) => this.motion.run(() => this.view.enterFolder(id)),
+      menu: (item, box, x, y) => {
+        if (item.kind === 'pasta') this.folderTrigger?.openAt(`pasta:${item.id}`, x, y, box);
+        else this.noteTrigger?.openAt(item.lead, x, y, box);
+      },
+    });
+    inject(DestroyRef).onDestroy(() => drag.off());
     this.pool.props = this.cardProps;
     this.pool.onOpen = (id) => this.opened.emit(id);
     this.pool.onToggle = (id) => this.toggled.emit(id);

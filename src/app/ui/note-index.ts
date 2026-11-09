@@ -245,6 +245,16 @@ interface Row {
       opacity: 0.75;
     }
 
+    /* arrastando para organizar as pastas (ver pages/wall-drag.ts): a pega fica apagada, e a linha alvo
+       (soltar ali cria a pasta com as duas) ganha o tracejado de marca-texto */
+    .linha[data-arrastada] {
+      opacity: 0.35;
+    }
+    .linha[data-alvo] .hit {
+      outline: 3px dashed var(--hi);
+      outline-offset: -3px;
+    }
+
     /* marcada para copiar (Ctrl+clique, ver pages/wall-select.ts): o tracejado a caneta em volta da
        linha e, no fim dela, o adesivo com a ordem em que ela entra na cópia, como nas fichas */
     .linha[data-marcada] {

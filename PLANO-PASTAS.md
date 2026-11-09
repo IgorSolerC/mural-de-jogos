@@ -530,3 +530,17 @@ ver a conversão na build de verdade), BUILD subindo a cada commit.
   vazia. Um mural com um grupo só não tem abas: lá o Tudo é esse grupo, e as pastas dele aparecem. A visita monta as mesmas peças (`PECAS` e `SO_LEEM` em
   `scripts/visita-mesmas-pecas.test.mjs`; `pages/wall-folders.spec.ts` navega na visita). Fica para a
   rodada 3: arrastar, criar e nomear pastas e os menus.
+- **Rodada 3 (09/nov, BUILD 817).** O gesto de arrastar saiu do Kanban para uma peça só, `ui/drag-hold.ts`
+  (`DragHold`: a folga do mouse, o dedo que segura, o Esc, a tela que não rola, o toque longo que vira
+  menu, a rolagem pela beirada); o Kanban passou a usá-la com os testes dele intactos. Na parede,
+  `pages/wall-drag.ts` (`WallDrag`): nota sobre nota cria a pasta com as duas (e com as marcadas), nota
+  sobre pasta ou pedaço do caminho guarda, pasta sobre pasta entra nela, parar 750 ms abre a pasta, a
+  etiqueta amarela diz o que acontece (acima do dedo no celular), a cópia encolhe em direção ao ponteiro.
+  O nome se escreve na própria pasta (`FolderCard.naming`, Enter guarda, Esc deixa, o nome de uma irmã
+  avisa e o Enter junta). Menus: a pasta (Abrir, Nova anotação aqui, Nova pasta dentro, Renomear,
+  Desfazer a pasta com a pergunta do `Confirm` quando não está vazia), o vão (Nova anotação aqui, Nova
+  pasta aqui) e "Tirar da pasta" na anotação (`NoteMenu.more`). Tudo com Desfazer: `NoteFolders.place`,
+  `gather` e as mudanças devolvem como desfazer. A parede não importa o que escreve: as mudanças entram
+  por `WallBoard.folderActions`, que só a página do dono passa. O toque longo do menu decide caixa a caixa
+  (`ContextMenuTrigger.hold` aceita função): onde segurar arrasta, o menu abre ao soltar parado. Fica para
+  a rodada 4: "Mover para pasta…" e "Mover para…" com o seletor da árvore (4.8).

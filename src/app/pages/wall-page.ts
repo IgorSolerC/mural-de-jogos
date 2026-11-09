@@ -4,6 +4,7 @@ import { ICON, IconModule } from '../ui/icons';
 import { Desk } from '../core/desk';
 import { isNotes } from '../core/kinds';
 import { Mural } from '../core/mural';
+import { NoteFolders } from '../core/note-folders';
 import { Reactions } from '../core/reactions';
 import { Settings } from '../core/settings';
 import { SideBySide } from '../core/side-by-side';
@@ -24,6 +25,8 @@ export class WallPage {
   protected readonly mural = inject(Mural);
   protected readonly desk = inject(Desk);
   protected readonly side = inject(SideBySide);
+  /** As pastas das anotações: arrastar, dar nome e os menus delas, só aqui no seu mural (a visita não tem). */
+  protected readonly folders = inject(NoteFolders);
   private readonly settings = inject(Settings);
   private readonly reactions = inject(Reactions);
 

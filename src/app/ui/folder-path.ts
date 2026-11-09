@@ -8,7 +8,8 @@ import { ICON, IconModule } from './icons';
  * sobe uma pasta, e cada pedaço ("Estudos › Programação › Funcional") volta até ele; o último é onde se
  * está, sem link. No celular, com mais de um pedaço no meio, eles viram "…", que abre um menu com eles.
  * Só aparece dentro de uma pasta (na raiz, a orelha aberta já diz o grupo). O seu Murall e o de quem você
- * visita usam a mesma; quem usa diz para onde ir.
+ * visita usam a mesma; quem usa diz para onde ir. Cada pedaço leva `data-caminho` (o id; "" é a raiz): no seu
+ * Murall, arrastar uma anotação ou uma pasta até ele guarda ali (ver pages/wall-drag.ts).
  */
 @Component({
   selector: 'app-folder-path',
@@ -21,7 +22,7 @@ import { ICON, IconModule } from './icons';
       </button>
       <ol class="migalhas" [class.encolhe]="middle().length > 1">
         <li>
-          <button type="button" class="migalha" (click)="go.emit(null)">{{ group() }}</button>
+          <button type="button" class="migalha" data-caminho="" (click)="go.emit(null)">{{ group() }}</button>
         </li>
         @if (middle().length > 1) {
           <li class="reticencias">
@@ -32,13 +33,13 @@ import { ICON, IconModule } from './icons';
         @for (f of middle(); track f.id) {
           <li class="meio">
             <lucide-icon class="sep" [img]="SepIcon" [size]="15" aria-hidden="true" />
-            <button type="button" class="migalha" (click)="go.emit(f.id)">{{ f.name }}</button>
+            <button type="button" class="migalha" [attr.data-caminho]="f.id" (click)="go.emit(f.id)">{{ f.name }}</button>
           </li>
         }
         @if (here(); as f) {
           <li>
             <lucide-icon class="sep" [img]="SepIcon" [size]="15" aria-hidden="true" />
-            <span class="migalha aqui" aria-current="location" tabindex="-1">{{ f.name }}</span>
+            <span class="migalha aqui" aria-current="location" tabindex="-1" [attr.data-caminho]="f.id">{{ f.name }}</span>
           </li>
         }
       </ol>

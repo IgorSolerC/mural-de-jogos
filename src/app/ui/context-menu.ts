@@ -346,9 +346,10 @@ export interface ContextMenuTriggerConfig {
   on?: () => boolean;
   /**
    * O dedo segurado abre o menu. Falso onde segurar já é arrastar (o Kanban): lá a página abre o menu
-   * quando o dedo segura e solta sem mexer (`openAt`).
+   * quando o dedo segura e solta sem mexer (`openAt`). Uma função decide caixa a caixa, na hora (a parede
+   * das anotações, onde segurar arrasta só nas abas de grupo do seu Murall).
    */
-  hold: boolean;
+  hold: boolean | ((box: HTMLElement) => boolean);
   /** Abre o menu do que se clicou, no ponto. */
   open: (key: string, box: HTMLElement, x: number, y: number, by: MenuBy) => void;
   /** O menu já está aberto para isto (o contextmenu que vem atrás da tecla de menu não reabre). */
@@ -436,14 +437,14 @@ export class ContextMenuTrigger {
     // um link de dentro e um trecho selecionado ficam com o menu do navegador (segurando o dedo, a palavra
     // que o próprio toque longo selecionou não conta: o menu abre e tira a seleção)
     const sel = getSelection();
-    const held = this.touching && this.cfg.hold;
+    const held = this.touching && this.holds(hit.box);
     if (this.innerLink(t, hit.box) || (!held && sel && !sel.isCollapsed && hit.box.contains(sel.anchorNode))) return;
     e.preventDefault();
     // aberto pelo teclado agora mesmo (o navegador ainda manda o contextmenu da tecla), ou pelo dedo
     if (this.cfg.isOpenFor(hit.key)) return;
     // segurar o dedo: o Android manda o contextmenu; onde segurar é arrastar (o Kanban), a página decide
     if (this.touching) {
-      if (this.cfg.hold) this.fireHold();
+      if (this.holds(hit.box)) this.fireHold();
       return;
     }
     // sem posição (o contextmenu da tecla de menu, em alguns navegadores): o canto da caixa
@@ -475,7 +476,7 @@ export class ContextMenuTrigger {
     if (!this.touching || !this.cfg.hold || !e.isPrimary) return;
     const hit = this.boxAt(e.target);
     const t = e.target as Element;
-    if (!hit || this.innerLink(t, hit.box) || t.closest('input, textarea, select')) return;
+    if (!hit || !this.holds(hit.box) || this.innerLink(t, hit.box) || t.closest('input, textarea, select')) return;
     this.hold = { box: hit.box, key: hit.key, x: e.clientX, y: e.clientY, pointer: e.pointerId, timer: setTimeout(() => this.fireHold(), HOLD_MS) };
     addEventListener('pointermove', this.move, { passive: true });
     addEventListener('pointerup', this.stop);
@@ -505,6 +506,12 @@ export class ContextMenuTrigger {
     removeEventListener('pointerup', this.stop);
     removeEventListener('pointercancel', this.stop);
     removeEventListener('scroll', this.stop, { capture: true });
+  }
+
+  /** O dedo segurado nesta caixa abre o menu (ver `hold`). */
+  private holds(box: HTMLElement): boolean {
+    const h = this.cfg.hold;
+    return typeof h === 'function' ? h(box) : h;
   }
 
   /** O dedo subiu depois do toque longo: esse clique não abre nada (o toque no menu, sim). */

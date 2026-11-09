@@ -84,6 +84,11 @@ export class NoteMenu {
   readonly selection = input<NoteSelection | null>(null);
   /** Abrir: a leitura da ficha (cada página abre do jeito dela). */
   readonly opened = output<string>();
+  /**
+   * O que a página acrescenta às ações de uma ficha (no seu mural, dentro de uma pasta: "Tirar da pasta").
+   * Só o dono passa: a visita não tem como.
+   */
+  readonly more = input<((r: Review) => MenuItem[]) | null>(null);
 
   private readonly desk = inject(Desk);
   private readonly study = inject(StudyStore);
@@ -163,6 +168,7 @@ export class NoteMenu {
       // dividir com outras pessoas (ou ver quem está, para quem não gere a anotação)
       act.push({ id: 'compartilhar', label: !entry || canManage(entry.papel) ? 'Compartilhar' : 'Pessoas', icon: ICON.pessoas, dialog: true, run: () => this.openShare(id, a.back) });
     }
+    if (mine && !a.board) act.push(...(this.more()?.(r) ?? []));
 
     const end: MenuItem[] = [];
     if (mine) {
@@ -244,9 +250,9 @@ export interface NoteMenuTriggerConfig {
   menu: () => NoteMenu | undefined;
   /**
    * O dedo segurado na ficha abre o menu. Falso onde segurar já é arrastar (o Kanban): lá a página
-   * abre o menu quando o dedo segura e solta sem mexer (`openAt`).
+   * abre o menu quando o dedo segura e solta sem mexer (`openAt`). Uma função decide na hora.
    */
-  hold: boolean;
+  hold: boolean | ((box: HTMLElement) => boolean);
   /** O que o quadro acrescenta ao menu daquela ficha. */
   board?: (id: string) => NoteMenuBoard | null;
 }

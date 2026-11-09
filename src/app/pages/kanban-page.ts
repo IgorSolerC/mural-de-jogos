@@ -29,7 +29,8 @@ import { NearPool, NearScreen } from '../ui/near-screen';
 import { MuralConfig } from '../ui/mural-config';
 import { NoteSelection } from '../ui/note-selection';
 import { ContextMenu, ContextMenuTrigger, MenuItem, MenuSections } from '../ui/context-menu';
-import { HOLD_MS, NoteMenu, NoteMenuBoard, NoteMenuTrigger } from '../ui/note-menu';
+import { NoteMenu, NoteMenuBoard, NoteMenuTrigger } from '../ui/note-menu';
+import { DragHold, DragStart, edgeSpeed } from '../ui/drag-hold';
 import { RemoveAsking } from '../ui/remove-asking';
 import { GroupMenu, backFromList } from '../ui/group-menu';
 import { PageWall } from '../ui/page-wall';
@@ -43,12 +44,8 @@ import { TabMore, TabMoreItem } from '../ui/tab-more';
 import { Toasts } from '../ui/toast';
 import { readText, writeJson, writeText } from '../core/storage';
 import { reducedMotion } from '../core/motion';
-import { focusAfterRender, swallowNextClick } from '../ui/focus';
+import { focusAfterRender } from '../ui/focus';
 
-/** Quanto o ponteiro anda antes de virar arrastar (o mouse); o dedo segura `HOLD` ms parado. */
-const SLOP = 6;
-const HOLD = 280;
-const TOUCH_SLOP = 10;
 /** A faixa perto da beirada onde o quadro (ou a página) rola sozinho enquanto se arrasta. */
 const EDGE = 70;
 /** A faixa perto do alto e do pé de uma coluna onde ela rola sozinha enquanto se arrasta. */
@@ -816,7 +813,7 @@ export class KanbanPage {
     destroy.onDestroy(() => {
       clearTimeout(this.arrivingTimer);
       this.kanban.openBoard.set(null);
-      this.endDrag();
+      this.gesture.cancel();
       this.stopPan?.();
       cancelAnimationFrame(this.edgeFrame);
     });
@@ -1259,87 +1256,39 @@ export class KanbanPage {
     q.scrollTo({ left: Math.max(0, Math.min(left, max)), behavior: still ? 'auto' : 'smooth' });
   }
 
-  // ===== Arrastar: mouse, caneta e dedo =====
+  // ===== Arrastar: mouse, caneta e dedo (o gesto é o de ui/drag-hold.ts, o mesmo do mural) =====
 
-  /** `at`: quando o dedo desceu; `moved`: o dedo já passou da folga alguma vez (arrastou, mesmo que volte). */
-  private start: { x: number; y: number; note: string; column: string; el: HTMLElement; touch: boolean; id: number; at: number; moved: boolean } | null = null;
-  private holdTimer: ReturnType<typeof setTimeout> | undefined;
-  private ghost: HTMLElement | null = null;
   /** Onde o ponteiro pegou a ficha, em relação ao canto dela. */
   private grab = { x: 0, y: 0 };
-  private pointer = { x: 0, y: 0 };
-  private frame = 0;
-  private readonly listeners: (() => void)[] = [];
+  private ghost: HTMLElement | null = null;
+  private readonly gesture = new DragHold<{ note: string; column: string }>({
+    begin: (s) => this.begin(s),
+    move: () => this.follow(),
+    drop: () => {
+      const d = this.drag();
+      if (d) this.drop(d);
+    },
+    end: () => this.endDrag(),
+    // o dedo segurou parado e soltou sem arrastar: o menu da anotação, como no mural
+    hold: (s) => this.menuTrigger.openAt(s.item.note, s.x, s.y),
+    edge: (x, y) => this.edgeScroll(x, y),
+  });
 
   protected onPointerDown(e: PointerEvent, note: string, column: string): void {
-    if (this.drag() || e.button !== 0 || !e.isPrimary) return;
+    if (this.drag()) return;
     const target = e.target as HTMLElement;
     // as etiquetas, o botão delas, o selo das dependências e as caixinhas das tarefas são deles
     if (target.closest('.pe, app-kanban-deps, input, label, a, select, textarea')) return;
-    const el = e.currentTarget as HTMLElement;
-    const touch = e.pointerType === 'touch';
-    this.start = { x: e.clientX, y: e.clientY, note, column, el, touch, id: e.pointerId, at: performance.now(), moved: false };
-    this.pointer = { x: e.clientX, y: e.clientY };
-    const move = (ev: PointerEvent) => this.onPointerMove(ev);
-    const up = (ev: PointerEvent) => this.onPointerUp(ev);
-    const cancel = () => this.endDrag();
-    const key = (ev: KeyboardEvent) => {
-      if (ev.key === 'Escape' && this.drag()) {
-        ev.preventDefault();
-        this.endDrag();
-      }
-    };
-    // enquanto arrasta com o dedo, a tela não rola (o toque segue com o arrastar)
-    const touchmove = (ev: TouchEvent) => {
-      if (this.drag()) ev.preventDefault();
-    };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-    window.addEventListener('pointercancel', cancel);
-    window.addEventListener('keydown', key, true);
-    window.addEventListener('touchmove', touchmove, { passive: false });
-    // segurar o dedo não abre o menu do navegador no meio do arrastar
-    const menu = (ev: Event) => {
-      if (this.drag()) ev.preventDefault();
-    };
-    window.addEventListener('contextmenu', menu);
-    this.listeners.push(() => window.removeEventListener('contextmenu', menu));
-    this.listeners.push(
-      () => window.removeEventListener('pointermove', move),
-      () => window.removeEventListener('pointerup', up),
-      () => window.removeEventListener('pointercancel', cancel),
-      () => window.removeEventListener('keydown', key, true),
-      () => window.removeEventListener('touchmove', touchmove),
-    );
-    if (touch) this.holdTimer = setTimeout(() => this.begin(), HOLD);
-  }
-
-  private onPointerMove(e: PointerEvent): void {
-    const s = this.start;
-    if (!s || e.pointerId !== s.id) return;
-    this.pointer = { x: e.clientX, y: e.clientY };
-    if (Math.hypot(e.clientX - s.x, e.clientY - s.y) > TOUCH_SLOP) s.moved = true;
-    if (!this.drag()) {
-      const dist = Math.hypot(e.clientX - s.x, e.clientY - s.y);
-      // o dedo andou antes de segurar: é rolar a tela, não arrastar
-      if (s.touch) {
-        if (dist > TOUCH_SLOP) this.endDrag();
-        return;
-      }
-      if (dist < SLOP) return;
-      this.begin();
-    }
-    e.preventDefault();
-    this.follow();
+    this.gesture.down(e, { note, column }, e.currentTarget as HTMLElement);
   }
 
   /** Começa a arrastar: a cópia da ficha sai da coluna com o ponteiro, e a vaga fica no lugar dela. */
-  private begin(): void {
-    const s = this.start;
+  private begin(start: DragStart<{ note: string; column: string }>): boolean {
+    const s = { ...start, ...start.item };
     const b = this.board();
-    if (!s || !b || this.drag()) return;
+    if (!b || this.drag()) return false;
     const card = s.el.querySelector<HTMLElement>('app-kanban-note');
-    if (!card) return;
+    if (!card) return false;
     const rect = card.getBoundingClientRect();
     this.grab = { x: s.x - rect.left, y: s.y - rect.top };
     const group = this.groupFor(s.note);
@@ -1357,9 +1306,7 @@ export class KanbanPage {
     const height = group.length ? this.heightOf(group) : rect.height;
     this.drag.set({ note: s.note, from: s.column, over: s.column, index: Math.max(0, index), start: Math.max(0, index), height, group });
     document.documentElement.classList.add('kanban-arrastando');
-    if (s.touch) navigator.vibrate?.(12);
-    this.follow();
-    this.scrollLoop();
+    return true;
   }
 
   /**
@@ -1417,7 +1364,7 @@ export class KanbanPage {
   private follow(): void {
     const d = this.drag();
     if (!d || !this.ghost) return;
-    const { x, y } = this.pointer;
+    const { x, y } = this.gesture.pointer;
     this.ghost.style.translate = `${x - this.grab.x}px ${y - this.grab.y}px`;
     const col = this.columnAt(x);
     if (!col) return;
@@ -1466,75 +1413,48 @@ export class KanbanPage {
     return best;
   }
 
-  /** Perto da beirada, o quadro rola para o lado e a página para cima ou para baixo. */
-  private scrollLoop(): void {
-    cancelAnimationFrame(this.frame);
-    const tick = () => {
-      if (!this.drag()) return;
-      const { x, y } = this.pointer;
-      const q = this.quadro()?.nativeElement;
-      const speed = (d: number) => Math.round(((EDGE - d) / EDGE) * 18);
-      // a coluna embaixo do ponteiro rola para cima ou para baixo perto do alto e do pé dela; então a
-      // página espera
-      const rolo = this.columnAt(x)?.querySelector<HTMLElement>('.rolo');
-      let moved = false;
-      if (rolo) {
-        const r = rolo.getBoundingClientRect();
-        const step = (d: number) => Math.round(((COLUMN_EDGE - d) / COLUMN_EDGE) * 16);
-        if (x >= r.left && x <= r.right && y > r.top - COLUMN_EDGE && y < r.bottom + COLUMN_EDGE) {
-          if (y < r.top + COLUMN_EDGE && rolo.scrollTop > 0) {
-            rolo.scrollTop -= step(Math.max(0, y - r.top));
-            moved = true;
-          } else if (y > r.bottom - COLUMN_EDGE && rolo.scrollTop < rolo.scrollHeight - rolo.clientHeight - 1) {
-            rolo.scrollTop += step(Math.max(0, r.bottom - y));
-            moved = true;
-          }
-        }
-      }
-      const columnMoved = moved;
-      if (q) {
-        const r = q.getBoundingClientRect();
-        if (x < r.left + EDGE && q.scrollLeft > 0) {
-          q.scrollLeft -= speed(Math.max(0, x - r.left));
+  /** Perto da beirada, o quadro rola para o lado e a página para cima ou para baixo; `true` se rolou. */
+  private edgeScroll(x: number, y: number): boolean {
+    const q = this.quadro()?.nativeElement;
+    const speed = (d: number) => edgeSpeed(d, EDGE);
+    // a coluna embaixo do ponteiro rola para cima ou para baixo perto do alto e do pé dela; então a
+    // página espera
+    const rolo = this.columnAt(x)?.querySelector<HTMLElement>('.rolo');
+    let moved = false;
+    if (rolo) {
+      const r = rolo.getBoundingClientRect();
+      const step = (d: number) => edgeSpeed(d, COLUMN_EDGE, 16);
+      if (x >= r.left && x <= r.right && y > r.top - COLUMN_EDGE && y < r.bottom + COLUMN_EDGE) {
+        if (y < r.top + COLUMN_EDGE && rolo.scrollTop > 0) {
+          rolo.scrollTop -= step(y - r.top);
           moved = true;
-        } else if (x > r.right - EDGE && q.scrollLeft < q.scrollWidth - q.clientWidth) {
-          q.scrollLeft += speed(Math.max(0, r.right - x));
+        } else if (y > r.bottom - COLUMN_EDGE && rolo.scrollTop < rolo.scrollHeight - rolo.clientHeight - 1) {
+          rolo.scrollTop += step(r.bottom - y);
           moved = true;
         }
       }
-      if (columnMoved) {
-        // a coluna já rola: a página fica
-      } else if (y < EDGE) {
-        window.scrollBy(0, -speed(Math.max(0, y)));
+    }
+    const columnMoved = moved;
+    if (q) {
+      const r = q.getBoundingClientRect();
+      if (x < r.left + EDGE && q.scrollLeft > 0) {
+        q.scrollLeft -= speed(x - r.left);
         moved = true;
-      } else if (y > innerHeight - EDGE) {
-        window.scrollBy(0, speed(Math.max(0, innerHeight - y)));
+      } else if (x > r.right - EDGE && q.scrollLeft < q.scrollWidth - q.clientWidth) {
+        q.scrollLeft += speed(r.right - x);
         moved = true;
       }
-      if (moved) this.follow();
-      this.frame = requestAnimationFrame(tick);
-    };
-    this.frame = requestAnimationFrame(tick);
-  }
-
-  private onPointerUp(e: PointerEvent): void {
-    const s = this.start;
-    const d = this.drag();
-    if (!s || e.pointerId !== s.id) return;
-    // o dedo segurou parado o tempo do toque longo e soltou sem arrastar: o menu da anotação, como no
-    // mural (a ficha volta para o lugar, nada se move)
-    if (d && s.touch && !s.moved && performance.now() - s.at >= HOLD_MS) {
-      swallowNextClick();
-      this.endDrag();
-      this.menuTrigger.openAt(s.note, s.x, s.y);
-      return;
     }
-    if (d) {
-      // o clique que vem depois de soltar não abre a anotação
-      swallowNextClick();
-      this.drop(d);
+    if (columnMoved) {
+      // a coluna já rola: a página fica
+    } else if (y < EDGE) {
+      window.scrollBy(0, -speed(y));
+      moved = true;
+    } else if (y > innerHeight - EDGE) {
+      window.scrollBy(0, speed(innerHeight - y));
+      moved = true;
     }
-    this.endDrag();
+    return moved;
   }
 
   /** Solta: a posição entre as à mostra vira a posição entre todas da coluna (o filtro esconde algumas). */
@@ -1572,13 +1492,10 @@ export class KanbanPage {
     });
   }
 
+  /** O fim do gesto (soltando ou não): o fantasma sai, e a vaga também. */
   private endDrag(): void {
-    clearTimeout(this.holdTimer);
-    cancelAnimationFrame(this.frame);
-    for (const off of this.listeners.splice(0)) off();
     this.ghost?.remove();
     this.ghost = null;
-    this.start = null;
     if (this.drag()) this.drag.set(null);
     document.documentElement.classList.remove('kanban-arrastando');
   }

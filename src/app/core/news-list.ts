@@ -27,6 +27,18 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-09-pastas-dentro-de-pastas',
+    version: '1.42.0',
+    kind: 'funcionalidade',
+    date: '2026-11-09',
+    title: 'Pastas dentro de pastas nas anotações',
+    items: [
+      'Na aba de um grupo, segure uma anotação e solte sobre outra: nasce uma pasta com as duas, e o nome se escreve na própria pasta. Solte sobre uma pasta, ou sobre um pedaço do caminho na barra, para guardar nela; uma pasta solta sobre outra entra nela, sem limite de níveis.',
+      'Parar o arrasto em cima de uma pasta abre ela, para chegar fundo num gesto só, e uma etiqueta amarela diz o que soltar ali faz. Com várias marcadas (Ctrl+clique), vão todas. No celular, segure a anotação até ela levantar; segurar e soltar sem mexer abre o menu.',
+      'O botão direito numa pasta abre, cria uma anotação ou uma pasta dentro, renomeia e desfaz a pasta (o que tem dentro sobe; nenhuma anotação é apagada). No vão da parede, uma anotação ou uma pasta nova ali; no menu de uma anotação dentro de uma pasta, Tirar da pasta. Tudo com Desfazer.',
+    ],
+  },
+  {
     id: '2026-11-09-pastas-na-parede',
     version: '1.41.2',
     kind: 'ajustes',

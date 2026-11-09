@@ -123,3 +123,11 @@
     line-height: 32px;
   }
 }
+
+/* arrastando uma anotação ou uma pasta até um pedaço (ver pages/wall-drag.ts): o tracejado de marca-texto */
+.migalha[data-alvo] {
+  outline: 3px dashed var(--hi);
+  outline-offset: 1px;
+  background-color: rgb(0 0 0 / 0.07);
+  color: var(--ink);
+}
