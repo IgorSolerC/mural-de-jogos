@@ -1,5 +1,6 @@
 import type { NoteFolder } from '../core/folders';
 import { DragHold, DragStart, edgeSpeed } from '../ui/drag-hold';
+import { dragGroup, dragPile, scopeOf } from '../ui/drag-pile';
 import { WALL_NOTES, wallNoteId } from '../ui/note-menu';
 
 /** Parar o arrasto em cima de uma pasta (ou de um pedaço do caminho) por este tempo abre ela. */
@@ -55,6 +56,19 @@ export interface WallDragConfig {
   open: (id: string | null) => void;
   /** O dedo segurou e soltou sem arrastar: o menu do que se segurou. */
   menu: (item: WallDragItem, box: HTMLElement, x: number, y: number) => void;
+}
+
+/** A cópia do papel de uma ficha para o arrasto: sem a etiqueta das ações (Finalizar, Fixar) e sem os ids. */
+function copyFace(face: HTMLElement): HTMLElement {
+  const copy = face.cloneNode(true) as HTMLElement;
+  for (const el of Array.from(copy.querySelectorAll('.acoes'))) el.remove();
+  for (const el of [copy, ...Array.from(copy.querySelectorAll<HTMLElement>('[data-ficha], [data-lugar], [data-pasta], [id]'))]) {
+    el.removeAttribute('data-ficha');
+    el.removeAttribute('data-lugar');
+    el.removeAttribute('data-pasta');
+    el.removeAttribute('id');
+  }
+  return copy;
 }
 
 /** Um alvo debaixo do ponteiro: o elemento, onde cai, a frase da etiqueta e a pasta que abre se parar ali. */
@@ -134,9 +148,10 @@ export class WallDrag {
     const box = t.closest<HTMLElement>(WALL_NOTES);
     const id = box && this.cfg.host.contains(box) ? wallNoteId(box) : null;
     if (!box || !id) return;
-    const marked = this.cfg.marked();
-    const ids = marked.length > 1 && marked.includes(id) ? marked : [id];
-    this.gesture.down(e, { item: { kind: 'notas', lead: id, ids }, box }, box);
+    // as marcadas vão juntas, na ordem da parede (ui/drag-pile.ts, como no Kanban)
+    const order = Array.from(this.cfg.host.querySelectorAll(WALL_NOTES), (el) => wallNoteId(el) ?? '');
+    const group = dragGroup(id, this.cfg.marked(), order);
+    this.gesture.down(e, { item: { kind: 'notas', lead: id, ids: group.length ? group : [id] }, box }, box);
   }
 
   private begin(s: DragStart<{ item: WallDragItem; box: HTMLElement }>): boolean {
@@ -149,32 +164,23 @@ export class WallDrag {
     this.grab = { x: s.x - rect.left, y: s.y - rect.top };
     // os estilos da parede valem na cópia e na etiqueta, como nas fichas
     const wall = this.cfg.host.querySelector('.wall') ?? this.cfg.host;
-    const scope = Array.from(wall.attributes, (a) => a.name).filter((n) => n.startsWith('_ngcontent-'));
+    const scope = scopeOf(wall);
     const ghost = document.createElement('div');
     for (const n of scope) ghost.setAttribute(n, '');
     ghost.className = 'arrasto-fantasma';
     ghost.setAttribute('aria-hidden', 'true');
-    const copy = face.cloneNode(true) as HTMLElement;
-    // a etiqueta das ações (Finalizar, Fixar) fica na parede: a cópia é só o papel
-    for (const el of Array.from(copy.querySelectorAll('.acoes'))) el.remove();
-    for (const el of [copy, ...Array.from(copy.querySelectorAll<HTMLElement>('[data-ficha], [data-lugar], [data-pasta], [id]'))]) {
-      el.removeAttribute('data-ficha');
-      el.removeAttribute('data-lugar');
-      el.removeAttribute('data-pasta');
-      el.removeAttribute('id');
-    }
-    ghost.append(copy);
+    const n = item.kind === 'notas' ? item.ids.length : 0;
+    if (n > 1 && item.kind === 'notas') {
+      // várias: o maço do Kanban (ui/drag-pile.ts), a pega por cima e mais duas por baixo
+      const under = item.ids
+        .filter((x) => x !== item.lead)
+        .map((x) => this.faceOf(x))
+        .filter((el) => !!el);
+      ghost.append(dragPile(face, under, n, copyFace, scope));
+    } else ghost.append(copyFace(face));
     ghost.style.width = `${rect.width}px`;
     // a cópia encolhe em direção ao ponteiro: o alvo embaixo dela continua à vista
     ghost.style.transformOrigin = `${this.grab.x}px ${this.grab.y}px`;
-    const n = item.kind === 'notas' ? item.ids.length : 0;
-    if (n > 1) {
-      const count = document.createElement('span');
-      for (const a of scope) count.setAttribute(a, '');
-      count.className = 'arrasto-n';
-      count.textContent = String(n);
-      ghost.append(count);
-    }
     this.cfg.host.append(ghost);
     this.ghost = ghost;
     const tip = document.createElement('div');
@@ -190,6 +196,14 @@ export class WallDrag {
     for (const el of this.dimmed) el.setAttribute('data-arrastada', '');
     document.documentElement.classList.add('parede-arrastando');
     return true;
+  }
+
+  /** O papel de uma anotação da parede (a ficha, ou a linha da Lista), se está montado. */
+  private faceOf(id: string): HTMLElement | null {
+    for (const el of this.cfg.host.querySelectorAll<HTMLElement>(WALL_NOTES)) {
+      if (wallNoteId(el) === id) return el.querySelector<HTMLElement>('app-review-card') ?? (el.matches('.linha') ? el : null);
+    }
+    return null;
   }
 
   private follow(x: number, y: number): void {

@@ -165,7 +165,7 @@ describe('menu do botão direito nos Estudos', () => {
     const sol = $('.carta-li[data-carta="nsol"]')!;
     await rightClick(sol);
     expect(panel().querySelector('.legenda')!.textContent).toContain('日');
-    expect(labels()).toEqual(['Virar o flashcard', 'Maximizar', 'Ler a anotação', 'Editar o flashcard', 'Ver o progresso', 'Tirar de Kanjis']);
+    expect(labels()).toEqual(['Virar o flashcard', 'Maximizar', 'Ler a anotação', 'Editar o flashcard', 'Ver o progresso', 'Marcar', 'Tirar de Kanjis']);
     option('Virar o flashcard').click();
     await settle();
     expect(sol.classList).toContain('virada');

@@ -77,6 +77,23 @@
           }
         </div>
 
+        <!-- Marcar anotações para editar, mover ou copiar juntas (no toque, o jeito de marcar sem o Ctrl) -->
+        @if (mine()) {
+          <div class="pasta-grupo">
+            <button
+              type="button"
+              class="tinta"
+              [attr.aria-pressed]="side.picking()"
+              (click)="side.picking.set(!side.picking())"
+              aria-label="Marcar anotações"
+              title="Marcar anotações para editar, mover ou copiar juntas (ou Ctrl+clique e Shift+clique nelas)"
+            >
+              <lucide-icon [img]="MarkIcon" [size]="18" aria-hidden="true" />
+              <span class="marcar-txt" aria-hidden="true">Marcar</span>
+            </button>
+          </div>
+        }
+
         <!-- a engrenagem: as configurações do mural (categorias, ordem, como nasce cada anotação) -->
         @if (mine()) {
           <div class="pasta-grupo">
@@ -176,8 +193,8 @@
               class="tinta"
               [attr.aria-pressed]="side.picking()"
               (click)="side.picking.set(!side.picking())"
-              aria-label="Marcar fichas pra ver lado a lado"
-              title="Marcar fichas pra ver lado a lado"
+              aria-label="Marcar fichas pra ver lado a lado ou editar juntas"
+              title="Marcar fichas pra ver lado a lado ou editar juntas (ou Ctrl+clique e Shift+clique nelas)"
             >
               <lucide-icon [img]="MarkIcon" [size]="18" aria-hidden="true" />
               <span class="marcar-txt" aria-hidden="true">Marcar</span>

@@ -15,7 +15,7 @@ import { SharedStore } from '../core/shared-store';
 import { readText } from '../core/storage';
 import { ContextMenu, ContextMenuTrigger, MenuBy, MenuItem, MenuSections } from './context-menu';
 import { ICON } from './icons';
-import { NoteSelection } from './note-selection';
+import { COPY_KEY, NoteSelection } from './note-selection';
 import { Toasts } from './toast';
 // só usada dentro do @defer do molde, e num import só dela: a folha de compartilhar chega num pedaço à parte
 import { ShareSheet } from './share-sheet';
@@ -23,7 +23,7 @@ import { ShareSheet } from './share-sheet';
 export { HOLD_MS } from './context-menu';
 
 /** O atalho de copiar, como está escrito no teclado de quem usa. */
-const COPY_KEY = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘C' : 'Ctrl+C';
+
 
 /** O que o quadro do Kanban acrescenta ao menu de uma ficha dele. */
 export interface NoteMenuBoard {
@@ -82,6 +82,8 @@ export class NoteMenu {
   readonly secret = input<ReadonlySet<string>>(new Set());
   /** As marcadas da página (Ctrl+clique): no menu de uma delas, copiar todas. */
   readonly selection = input<NoteSelection | null>(null);
+  /** "Editar as marcadas", no menu de uma delas (a página do dono passa: a folha que muda várias de uma vez). */
+  readonly bulkEdit = input<(() => void) | null>(null);
   /** Abrir: a leitura da ficha (cada página abre do jeito dela). */
   readonly opened = output<string>();
   /**
@@ -122,6 +124,16 @@ export class NoteMenu {
     const writes = mine && (!entry || canWrite(entry.papel));
     const first: MenuItem[] = [{ id: 'abrir', label: 'Abrir', icon: ICON.aumentar, dialog: true, run: () => this.opened.emit(id) }];
     if (writes) first.push({ id: 'editar', label: 'Editar', icon: ICON.editar, dialog: true, run: () => this.desk.editReview(id) });
+    // marcar várias para fazer junto (no toque, o jeito de marcar sem o Ctrl): a primeira liga o modo
+    const sel = this.selection();
+    const edit = this.bulkEdit();
+    if (edit && sel?.marking() && sel.has(id) && sel.count() > 1) {
+      first.push({ id: 'editar-marcadas', label: `Editar as ${sel.count()} marcadas…`, icon: ICON.camadas, dialog: true, hint: 'Grupo, pasta, tags, quem vê, cartolina…', run: edit });
+    }
+    if (sel?.canMark(id)) {
+      const on = sel.marking() && sel.has(id);
+      first.push({ id: 'marcar', label: on ? 'Desmarcar' : 'Marcar', icon: on ? ICON.desmarcado : ICON.marcado, hint: on ? undefined : 'Para editar, mover ou copiar várias juntas', run: () => sel.toggle(id) });
+    }
 
     const copy: MenuItem[] = [];
     // a resenha de outra pessoa pode estar coberta (Evitar spoilers): o texto dela não se copia daqui
@@ -129,8 +141,7 @@ export class NoteMenu {
       copy.push({ id: 'copiar', label: 'Copiar o conteúdo', icon: ICON.copiar, hint: 'O título e o texto, sem as marcas', run: () => void this.copy(r) });
     }
     // a anotação é uma das marcadas (Ctrl+clique): copiar todas, como o Ctrl+C
-    const sel = this.selection();
-    const marked = sel?.ids() ?? [];
+    const marked = sel?.marking() ? sel.ids() : [];
     if (sel && marked.length > 1 && marked.includes(id)) {
       copy.push({ id: 'copiar-marcadas', label: `Copiar as ${marked.length} marcadas`, icon: ICON.camadas, keys: COPY_KEY, ariaKeys: COPY_KEY === '⌘C' ? 'Meta+C' : 'Control+C', run: () => void sel.copy() });
     }

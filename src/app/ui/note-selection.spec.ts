@@ -3,13 +3,14 @@ import { TestBed } from '@angular/core/testing';
 import { Mural } from '../core/mural';
 import { sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
+import { SideBySide } from '../core/side-by-side';
 import { WallState } from '../core/wall-view';
 import { Toasts } from './toast';
 import { WallAccess, WallBoard } from '../pages/wall-board';
 
 const ACCESS: WallAccess = { landingId: null, picking: false, picked: new Map(), masked: false, secret: new Set(), reactCode: null, checkable: true, looks: {} };
 
-/** Ctrl+clique marca anotações no mural; Ctrl+C copia o texto delas; Esc ou outro toque desmarca. */
+/** Ctrl+clique ou Shift+clique marca anotações no mural; marcando, o toque marca; Ctrl+C copia; Esc ou o vão desmarca. */
 describe('marcar anotações para copiar (NoteSelection, no mural)', () => {
   let el: HTMLElement;
   let copied: string[];
@@ -53,9 +54,9 @@ describe('marcar anotações para copiar (NoteSelection, no mural)', () => {
   });
 
   const row = (id: string) => el.querySelector<HTMLElement>(`.linha[data-ficha="${id}"]`)!;
-  const ctrlClick = (target: HTMLElement, ctrl = true) => {
-    target.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, ctrlKey: ctrl, button: 0 }));
-    target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: ctrl, button: 0 }));
+  const ctrlClick = (target: HTMLElement, ctrl = true, shift = false) => {
+    target.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, ctrlKey: ctrl, shiftKey: shift, button: 0 }));
+    target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: ctrl, shiftKey: shift, button: 0 }));
   };
   const key = (k: string, ctrl = false) => document.body.dispatchEvent(new KeyboardEvent('keydown', { key: k, ctrlKey: ctrl, bubbles: true, cancelable: true }));
   const marked = () => Array.from(el.querySelectorAll('[data-marcada]'), (e) => e.getAttribute('data-ficha'));
@@ -100,11 +101,57 @@ describe('marcar anotações para copiar (NoteSelection, no mural)', () => {
     expect(marked()).toEqual([]);
   });
 
-  it('qualquer outro toque desmarca tudo', () => {
+  it('um toque no vão da parede desmarca; um fora dela (a pasta do mural, a tira) não', () => {
     ctrlClick(row('rsel0001').querySelector('.hit')!);
     TestBed.tick();
     document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
     TestBed.tick();
+    expect(marked()).toEqual(['rsel0001']);
+    el.querySelector('app-note-index')!.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
+    TestBed.tick();
     expect(marked()).toEqual([]);
+    expect(TestBed.inject(SideBySide).picking()).toBeFalse();
+  });
+
+  it('marcando, um toque comum marca e desmarca sem abrir a leitura; desmarcar a última sai do modo', () => {
+    let opened = 0;
+    el.querySelector('app-note-index')!.addEventListener('click', () => opened++);
+    ctrlClick(row('rsel0001').querySelector('.hit')!);
+    ctrlClick(row('rsel0002').querySelector('.hit')!, false);
+    TestBed.tick();
+    expect(opened).toBe(0);
+    expect(marked()).toEqual(['rsel0002', 'rsel0001']);
+    ctrlClick(row('rsel0002').querySelector('.hit')!, false);
+    ctrlClick(row('rsel0001').querySelector('.hit')!, false);
+    TestBed.tick();
+    expect(marked()).toEqual([]);
+    expect(TestBed.inject(SideBySide).picking()).toBeFalse();
+    // fora do modo, o toque comum abre de novo
+    ctrlClick(row('rsel0001').querySelector('.hit')!, false);
+    expect(opened).toBe(1);
+  });
+
+  it('Shift+clique marca o intervalo da última marcada até a tocada, na ordem da tela', () => {
+    const rows = Array.from(el.querySelectorAll<HTMLElement>('.linha[data-ficha]'));
+    const ids = rows.map((r) => r.getAttribute('data-ficha')!);
+    // sem nada marcado, o Shift+clique marca só ela
+    ctrlClick(rows[0].querySelector('.hit')!, false, true);
+    TestBed.tick();
+    expect(marked()).toEqual([ids[0]]);
+    ctrlClick(rows[1].querySelector('.hit')!, false, true);
+    TestBed.tick();
+    expect(marked().sort()).toEqual([...ids].sort());
+    expect(row(ids[1]).style.getPropertyValue('--marca-n')).toBe('2');
+  });
+
+  it('o botão Marcar liga o modo sem nada marcado: desmarcar a última não sai dele', () => {
+    const side = TestBed.inject(SideBySide);
+    side.picking.set(true);
+    TestBed.tick();
+    ctrlClick(row('rsel0001').querySelector('.hit')!, false);
+    ctrlClick(row('rsel0001').querySelector('.hit')!, false);
+    TestBed.tick();
+    expect(marked()).toEqual([]);
+    expect(side.picking()).toBeTrue();
   });
 });

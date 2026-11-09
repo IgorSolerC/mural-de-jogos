@@ -171,7 +171,7 @@
 }
 
 <!-- o menu do botão direito (e do dedo segurado) numa ficha, em todos os murais -->
-<app-note-menu #menuDaNota [more]="folderActions() ? noteMore : null" [owner]="owner()" [ownerCode]="access().reactCode" [secret]="access().secret" [selection]="owner() === null && notes() ? selection : null" (opened)="opened.emit($event)" />
+<app-note-menu #menuDaNota [more]="folderActions() ? noteMore : null" [owner]="owner()" [ownerCode]="access().reactCode" [secret]="access().secret" [selection]="owner() === null ? selection : null" [bulkEdit]="bulkEdit()" (opened)="opened.emit($event)" />
 
 <!-- trocou de pasta: onde se está, para o leitor de tela -->
 <p class="sr-only" aria-live="polite">{{ folderSaid() }}</p>

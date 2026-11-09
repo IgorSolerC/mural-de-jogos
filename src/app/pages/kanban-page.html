@@ -582,7 +582,26 @@
 }
 
 <!-- o menu do botão direito numa anotação do quadro (e do dedo que segura e solta sem arrastar) -->
-<app-note-menu #menuDaNota [selection]="selection" (opened)="read($event)" />
+<app-note-menu #menuDaNota [selection]="selection" [bulkEdit]="openBulk" (opened)="read($event)" />
+
+<!-- as marcadas (Ctrl+clique, Shift+clique, o Marcar do menu): quantas e o que fazer com elas -->
+@if (selection.marking()) {
+  <app-selection-tray
+    [count]="selection.count()"
+    [hidden]="hiddenMarks()"
+    hint="Toque nas anotações para marcar"
+    label="Anotações marcadas"
+    [actions]="trayActions()"
+    (clear)="clearMarks()"
+    (done)="selection.done()"
+  />
+}
+
+@if (editing(); as ids) {
+  @defer (on immediate) {
+    <app-bulk-edit-sheet [notes]="editingNotes()" place="kanban" (apply)="bulk.run(ids, $event)" (act)="bulk.act(ids, $event)" (closed)="editing.set(null)" />
+  }
+}
 <!-- e o de uma coluna (a etiqueta, o vão entre as anotações e o pé), também com o dedo segurado -->
 <app-context-menu #menuDaColuna [caption]="columnCaption()" [sections]="columnSections()" (closed)="columnMenuOn.set(null)" />
 <!-- e o de uma aba de quadro (e de uma linha do "Mais"): o menu do grupo, o mesmo do mural (ui/group-menu.ts) -->

@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
 import { reducedMotion } from '../core/motion';
-import { Stock } from '../core/review';
+import { Review, Stock } from '../core/review';
+import { NoteSelection } from './note-selection';
 import { CardFace, Deck } from '../core/study';
 import { StudyCard as Card } from './study-card';
 import { StudyCardBack } from './study-card-back';
@@ -65,6 +66,11 @@ export class StudyCardWall {
   readonly editable = input(false);
   /** O que só o dono faz no menu de uma carta (editar, o progresso, tirar do baralho), depois do que todos fazem. */
   readonly ownerMenu = input<((note: string) => MenuSections) | null>(null);
+  /**
+   * As anotações das cartas que se marcam (Ctrl+clique, Shift+clique, o "Marcar" do menu: ver ui/note-selection.ts),
+   * para editar várias de uma vez. Só o seu baralho passa; na visita, nada se marca.
+   */
+  readonly marks = input<ReadonlyMap<string, Review> | null>(null);
   /** Ler a anotação da carta. */
   readonly read = output<string>();
   /** Editar a carta (só com `editable`). */
@@ -76,6 +82,23 @@ export class StudyCardWall {
   protected readonly calm = reducedMotion();
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+
+  /** As cartas marcadas (a página do dono mostra a tira e a folha de editar). */
+  readonly selection = new NoteSelection({
+    host: this.host,
+    markable: '.carta-li[data-carta]',
+    idOf: (el) => el.getAttribute('data-carta'),
+    on: () => !!this.marks(),
+    notes: computed(() => {
+      const all = this.marks();
+      if (!all) return new Map<string, Review>();
+      const here = new Set(this.cards().map((c) => c.note));
+      return new Map([...all].filter(([id]) => here.has(id)));
+    }),
+    // outro baralho: as marcas eram das cartas dele
+    reset: computed(() => this.deck().id),
+    layout: this.cards,
+  });
 
   /** A carta maximizada (o id da anotação). */
   protected readonly focused = signal<string | null>(null);

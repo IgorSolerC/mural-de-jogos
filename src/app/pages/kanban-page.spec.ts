@@ -1169,7 +1169,7 @@ describe('página do Kanban', () => {
     expect(marked()).toEqual([]);
   });
 
-  it('um toque comum fora desmarca', async () => {
+  it('um toque comum no vão do quadro desmarca; fora dele (a tira, o topo) não', async () => {
     kanban.state.set(state(board()));
     await go(TRAB_URL);
     const li = host.querySelector<HTMLElement>('.lugar[data-nota="nlogin01"] .hit')!;
@@ -1178,6 +1178,9 @@ describe('página do Kanban', () => {
     await settle();
     expect(host.querySelectorAll('[data-marcada]').length).toBe(1);
     document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
+    await settle();
+    expect(host.querySelectorAll('[data-marcada]').length).toBe(1);
+    host.querySelector('.quadro')!.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
     await settle();
     expect(host.querySelectorAll('[data-marcada]').length).toBe(0);
   });
@@ -1433,13 +1436,13 @@ describe('página do Kanban', () => {
     expect(isDone(store.get('nprova01')!)).toBeTrue();
     expect(host.querySelector('.kanban-fantasma')).toBeNull();
     expect([...host.querySelectorAll('[data-marcada]')].map((e) => e.getAttribute('data-nota'))).toEqual(['nlogin01', 'nprova01']);
-    // um clique comum numa delas desmarca (e abre a anotação, como sempre)
+    // marcando, um clique comum numa delas desmarca só ela (sem abrir a anotação)
     const plain = card('nlogin01').querySelector<HTMLElement>('.hit')!;
     plain.dispatchEvent(new PointerEvent('pointerdown', at(0, 0)));
     window.dispatchEvent(new PointerEvent('pointerup', at(0, 0)));
     plain.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
     await settle();
-    expect(host.querySelectorAll('[data-marcada]').length).toBe(0);
+    expect([...host.querySelectorAll('[data-marcada]')].map((e) => e.getAttribute('data-nota'))).toEqual(['nprova01']);
   });
 
   describe('ordem da coluna', () => {

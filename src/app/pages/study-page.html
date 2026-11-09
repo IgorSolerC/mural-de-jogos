@@ -214,7 +214,7 @@
     } @else {
       <!-- a parede das cartas, a mesma de quem visita o seu mural (ui/study-card-wall.ts): tocar vira a carta ali
            mesmo; a etiqueta de tinta maximiza, lê a anotação e edita -->
-      <app-study-card-wall [deck]="d" [cards]="cards()" [small]="cardSize() === 'pequenas'" [editable]="true" [ownerMenu]="ownerCardMenu" (read)="open($event)" (edit)="edit($event)" />
+      <app-study-card-wall [deck]="d" [cards]="cards()" [small]="cardSize() === 'pequenas'" [editable]="true" [marks]="ownNotes()" [ownerMenu]="ownerCardMenu" (read)="open($event)" (edit)="edit($event)" />
     }
   } @else if (group(); as g) {
     @if (!g.decks.length) {
@@ -286,6 +286,25 @@
 @if (config()) {
   @defer (on immediate) {
     <app-mural-config [study]="!configGroup()" [group]="configGroup()" (closed)="config.set(false); configGroup.set(null)" />
+  }
+}
+
+<!-- os flashcards marcados (Ctrl+clique, Shift+clique, o Marcar do menu): quantos e o que fazer com eles -->
+@if (marking(); as sel) {
+  <app-selection-tray
+    [count]="sel.count()"
+    hint="Toque nos flashcards para marcar"
+    label="Flashcards marcados"
+    [words]="['marcado', 'marcados']"
+    [actions]="trayActions()"
+    (clear)="clearMarks()"
+    (done)="sel.done()"
+  />
+}
+
+@if (editing(); as ids) {
+  @defer (on immediate) {
+    <app-bulk-edit-sheet [notes]="editingNotes()" place="estudos" (apply)="bulk.run(ids, $event)" (act)="bulk.act(ids, $event)" (closed)="editing.set(null)" />
   }
 }
 

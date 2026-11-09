@@ -72,33 +72,33 @@ describe('marcar anotações: revisão (NoteSelection)', () => {
     expect(marked()).toEqual(['rrev0001', 'rrev0002']);
   });
 
-  it('a busca que tira uma anotação da parede continua desmarcando', async () => {
-    ctrlClick(row('rrev0001').querySelector('.hit')!);
-    await settle();
-    expect(marked()).toEqual(['rrev0001']);
-    TestBed.inject(WallView).query.set('Mercado');
-    await settle();
-    expect(marked()).toEqual([]);
-  });
-
-  it('a anotação marcada que sai do mural (apagada) desmarca', async () => {
+  it('a busca não desmarca: a escondida continua marcada e volta com o tracejado quando a busca sai', async () => {
     ctrlClick(row('rrev0001').querySelector('.hit')!);
     ctrlClick(row('rrev0002').querySelector('.hit')!);
     await settle();
-    store.remove('rrev0002');
+    TestBed.inject(WallView).query.set('Mercado');
     await settle();
-    expect(marked()).toEqual([]);
+    expect(marked()).toEqual(['rrev0001']);
+    TestBed.inject(WallView).query.set('');
+    await settle();
+    expect(marked()).toEqual(['rrev0001', 'rrev0002']);
   });
 
-  it('desmarcar por outro toque tira o bilhete de "N marcadas" (que dizia o Ctrl+C sem nada marcado)', async () => {
-    const toasts = TestBed.inject(Toasts);
+  it('a anotação marcada que sai do mural (apagada) sai das marcas; as outras ficam, sem pular número', async () => {
+    ctrlClick(row('rrev0001').querySelector('.hit')!);
+    ctrlClick(row('rrev0002').querySelector('.hit')!);
+    ctrlClick(row('rrev0003').querySelector('.hit')!);
+    await settle();
+    store.remove('rrev0002');
+    await settle();
+    expect(marked()).toEqual(['rrev0001', 'rrev0003']);
+    expect(row('rrev0003').style.getPropertyValue('--marca-n')).toBe('2');
+  });
+
+  it('marcar não põe bilhete (a tira diz quantas)', async () => {
     ctrlClick(row('rrev0001').querySelector('.hit')!);
     await settle();
-    expect(toasts.current()?.text).toContain('1 anotação marcada');
-    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
-    await settle();
-    expect(marked()).toEqual([]);
-    expect(toasts.current()).toBeNull();
+    expect(TestBed.inject(Toasts).current()).toBeNull();
   });
 
   it('desmarcar não some com o bilhete de outra coisa (o Desfazer de outro lugar)', async () => {

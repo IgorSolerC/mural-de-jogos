@@ -63,8 +63,6 @@ export class WallBoard {
   readonly access = input.required<WallAccess>();
   /** Tocou numa ficha (ou numa linha da lista): o id dela. */
   readonly opened = output<string>();
-  /** Marcando para o lado a lado, tocou numa ficha. */
-  readonly toggled = output<string>();
   /** "Nova anotação" no cartão de "Tudo finalizado" (só no seu mural). */
   readonly create = output<void>();
   /**
@@ -72,6 +70,8 @@ export class WallBoard {
    * ganha nome e menu, e a anotação de uma pasta pode sair dela. A visita não tem como.
    */
   readonly folderActions = input<FolderActions | null>(null);
+  /** "Editar as marcadas" (a folha que muda várias de uma vez): só a página do dono passa. */
+  readonly bulkEdit = input<(() => void) | null>(null);
 
   protected readonly PlusIcon = ICON.adicionar;
   protected readonly ChevronIcon = ICON.abrir;
@@ -157,7 +157,12 @@ export class WallBoard {
     boardOnly: this.shownBoard(),
     studyOnly: this.view.studyOnly(),
     folders: this.cardFolders(),
+    // as anotações marcadas: o adesivo de cada uma diz a ordem (nas análises, a do Lado a lado, da página)
+    ...(this.notes() ? { picked: this.markOrder() } : {}),
   }));
+
+  /** id → posição das anotações marcadas (1, 2, 3…). */
+  private readonly markOrder = computed(() => new Map(this.selection.ids().map((id, i) => [id, i + 1])));
 
   /**
    * As pastas que as fichas leem: dentro de uma pasta, a ficha não repete o nome dela (a parede já diz onde
@@ -189,10 +194,8 @@ export class WallBoard {
   private readonly side = inject(SideBySide);
   private readonly toasts = inject(Toasts);
   private readonly asking = inject(FolderAsking);
-  /** Arrastar organiza: no seu Murall, numa aba de grupo, sem marcar para o lado a lado. */
-  protected readonly dragOn = computed(
-    () => !!this.folderActions() && this.notes() && this.owner() === null && this.view.folderGroup() !== null && !this.side.picking(),
-  );
+  /** Arrastar organiza: no seu Murall, numa aba de grupo (também marcando: arrastar uma marcada leva todas). */
+  protected readonly dragOn = computed(() => !!this.folderActions() && this.notes() && this.owner() === null && this.view.folderGroup() !== null);
   /** A pasta sendo nomeada (a nova, ou Renomear), e a irmã com o nome que está escrito. */
   protected readonly naming = signal<string | null>(null);
   protected readonly clash = signal<string | null>(null);
@@ -230,7 +233,7 @@ export class WallBoard {
         this.toasts.show('Não cabe mais nenhuma pasta aqui.');
         return;
       }
-      this.selection.clear();
+      this.selection.done();
       this.naming.set(m.folder.id);
       this.undoToast(`Nova pasta com ${ids.length} anotações.`, m.undo);
       return;
@@ -254,7 +257,8 @@ export class WallBoard {
       : done.moved === 1
         ? `${one} saiu das pastas.`
         : `${done.moved} anotações saíram das pastas.`;
-    this.selection.clear();
+    // as marcadas foram para a pasta: marcar terminou
+    this.selection.done();
     this.undoToast(text, done.undo);
   }
 
@@ -384,7 +388,7 @@ export class WallBoard {
 
   /** O que está sendo movido pela folha: anotações (do grupo delas) ou uma pasta. */
   protected readonly moving = signal<
-    | { kind: 'notas'; ids: readonly string[]; name: string; category: string | null; from: string | null; stock: string }
+    | { kind: 'notas'; ids: readonly string[]; name: string; category: string | null; from: string | null; stock: string; mixed?: boolean }
     | { kind: 'pasta'; id: string; name: string; category: string | null; from: string | null; stock: string }
     | null
   >(null);
@@ -398,7 +402,7 @@ export class WallBoard {
     const from = m.from ? (tree.live(m.from)?.name ?? groupName) : groupName;
     return {
       title: m.kind === 'pasta' ? `Mover a pasta ${m.name}` : `Mover ${m.name}`,
-      sub: `Está em ${from}`,
+      sub: m.kind === 'notas' && m.mixed ? 'Estão em pastas diferentes' : m.kind === 'notas' && m.ids.length > 1 ? `Estão em ${from}` : `Está em ${from}`,
       group: lookKey(m.category ?? ''),
       groupName,
       counts: fa.countsIn(m.category),
@@ -413,9 +417,40 @@ export class WallBoard {
   protected moveTo(id: string | null): void {
     const m = this.moving();
     this.moving.set(null);
-    if (!m || id === m.from) return;
+    if (!m || (id === m.from && !(m.kind === 'notas' && m.mixed))) return;
     if (m.kind === 'pasta') this.dropped({ kind: 'pasta', id: m.id }, { kind: 'guardar', folder: id });
     else this.dropped({ kind: 'notas', lead: m.ids[0], ids: m.ids }, { kind: 'guardar', folder: id });
+  }
+
+  /** As marcadas, como estão no mural (na ordem em que foram marcadas). */
+  readonly marked = computed(() => {
+    const byId = new Map(this.view.wall().map((r) => [r.id, r]));
+    return this.selection.ids().flatMap((id) => byId.get(id) ?? []);
+  });
+  /** O grupo das marcadas, se é um só (null: sem grupo); undefined: grupos diferentes, ou nenhuma marcada. */
+  readonly markedGroup = computed<string | null | undefined>(() => {
+    const rs = this.marked();
+    if (!rs.length) return undefined;
+    const k = lookKey(rs[0].category ?? '');
+    return rs.every((r) => lookKey(r.category ?? '') === k) ? (rs[0].category ?? null) : undefined;
+  });
+
+  /** "Mover para pasta" da tira: a folha com a árvore do grupo das marcadas. */
+  moveMarked(): void {
+    const rs = this.marked();
+    const group = this.markedGroup();
+    if (!rs.length || group === undefined || !this.folderActions()) return;
+    const tree = this.view.folders();
+    const from = new Set(rs.map((r) => tree.of(r)));
+    this.moving.set({
+      kind: 'notas',
+      ids: rs.map((r) => r.id),
+      name: plural(rs.length, 'anotação', 'anotações'),
+      category: group,
+      from: from.size === 1 ? [...from][0] : null,
+      mixed: from.size > 1,
+      stock: 'branco',
+    });
   }
 
   /** "Criar 'Scripts' em Programação" na folha: a pasta nasce, e o que se move vai para ela. */
@@ -432,8 +467,13 @@ export class WallBoard {
     this.moveTo(made.id);
   }
 
-  /** Ctrl+clique marca anotações para copiar o texto delas (ver ui/note-selection.ts). */
+  /**
+   * Marcar várias (Ctrl+clique, Shift+clique, o botão Marcar; ver ui/note-selection.ts): nas anotações, para
+   * editar, mover, arrastar e copiar juntas; nas análises, as marcas são as do Lado a lado.
+   */
   readonly selection: NoteSelection;
+  /** As anotações marcadas (as das análises moram no Lado a lado, que as guarda por mural). */
+  private readonly noteMarks = signal<readonly string[]>([]);
   /** O menu do botão direito numa anotação (ver ui/note-menu.ts). */
   private readonly noteMenu = viewChild<NoteMenu>('menuDaNota');
 
@@ -490,17 +530,30 @@ export class WallBoard {
     });
     const side = this.side;
     const byId = computed(() => new Map(this.view.wall().map((r) => [r.id, r])));
+    const notes = this.notes;
+    const marks = this.noteMarks;
     this.selection = new NoteSelection({
       host: inject<ElementRef<HTMLElement>>(ElementRef).nativeElement,
       // a caixa da ficha (ver wall-cards.ts) ou a linha da lista (ver ui/note-index.ts)
       markable: WALL_NOTES,
       idOf: wallNoteId,
-      // só no seu mural de anotações, e não enquanto o toque na ficha é para o lado a lado
-      on: () => this.notes() && this.owner() === null && !side.picking(),
-      notes: byId,
-      // a parede mudou (busca, filtro, aba, outro mural): quem está nela, e não a lista, que muda a cada
-      // anotação mexida (a nuvem, uma tarefa marcada, fixar), que não deve desmarcar; nem a ordem
-      reset: computed(() => this.view.visible().map((r) => r.id).sort().join('|')),
+      // só no seu mural
+      on: () => this.owner() === null,
+      // nas análises, as rejogadas não vão para o Lado a lado (lá é uma ficha por obra)
+      notes: computed(() => (notes() ? byId() : new Map([...byId()].filter(([, r]) => !r.revisitOf)))),
+      store: {
+        ids: computed(() => (notes() ? marks() : side.reviews().map((r) => r.id))),
+        set: (ids) => (untracked(notes) ? marks.set(ids) : side.setIds(ids)),
+      },
+      // o botão Marcar da pasta liga o mesmo modo
+      mode: side.picking,
+      // sair do modo deixa as do Lado a lado, para comparar depois
+      keep: () => !notes(),
+      // arrastar uma marcada (para uma pasta) leva todas
+      drags: true,
+      // outro mural (as anotações, as análises, o de outra pessoa): a busca, o filtro e a aba não desmarcam
+      // (dá para procurar e marcar mais), e as marcadas escondidas continuam marcadas (a tira diz quantas)
+      reset: computed(() => `${notes()}|${this.view.music()}|${this.owner()}`),
       // as fichas redesenhadas recebem as marcas de volta
       layout: this.view.visible,
     });
@@ -511,7 +564,7 @@ export class WallBoard {
       host: this.el,
       markable: WALL_NOTES,
       idOf: wallNoteId,
-      on: () => !side.picking(),
+      on: () => true,
       notes: byId,
       menu: this.noteMenu,
       hold: () => !this.dragOn(),
@@ -526,7 +579,7 @@ export class WallBoard {
         if (box.matches('app-folder-card')) return `pasta:${box.dataset['pasta']}`;
         return this.view.folderGroup() !== null ? 'vao' : null;
       },
-      on: () => !side.picking() && !!this.folderActions() && this.owner() === null && this.notes(),
+      on: () => !!this.folderActions() && this.owner() === null && this.notes(),
       hold: (box) => !box.matches('app-folder-card') || !this.dragOn(),
       isOpenFor: (key) => !!this.folderMenuRef()?.isOpenFor(key),
       open: (key, box, x, y, by) => {
@@ -562,7 +615,8 @@ export class WallBoard {
     inject(DestroyRef).onDestroy(() => drag.off());
     this.pool.props = this.cardProps;
     this.pool.onOpen = (id) => this.opened.emit(id);
-    this.pool.onToggle = (id) => this.toggled.emit(id);
+    // (marcando, o toque é da peça de marcar; este é o caminho de reserva da ficha)
+    this.pool.onToggle = (id) => this.selection.toggle(id);
     // a ficha que saiu do mural (filtro, apagada) vai embora; as outras ficam, prontas (e as cópias
     // das seções que ainda existem, ordenando por tag)
     effect(() => {

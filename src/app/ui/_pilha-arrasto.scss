@@ -1,0 +1,41 @@
+// O maço das marcadas que seguem o ponteiro (ui/drag-pile.ts), no Kanban e no mural: a ficha pega por cima e
+// as outras (até duas) por baixo, cada uma saindo um pouco mais para o lado e mais torta, e no canto o adesivo
+// da marcação com quantas vão (o mesmo disco de tinta com o número em amarelo).
+@mixin maco {
+  .pilha {
+    display: grid;
+
+    > :not(.pilha-n) {
+      grid-area: 1 / 1;
+      align-self: start;
+    }
+
+    > .pilha-baixo {
+      translate: calc(var(--k) * 12px) calc(var(--k) * 8px);
+      rotate: calc(var(--k) * 3deg);
+      filter: brightness(0.94);
+    }
+  }
+
+  .pilha-n {
+    grid-area: 1 / 1;
+    justify-self: end;
+    align-self: start;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    margin: -16px -16px 0 0;
+    border: 2.5px solid var(--paper);
+    border-radius: 50%;
+    background: var(--ink);
+    box-shadow: 0 1px 1px rgb(0 0 0 / 0.35);
+    color: var(--hi);
+    font-family: var(--f-marker);
+    font-size: 1.2rem;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    rotate: -8deg;
+  }
+}

@@ -39,6 +39,11 @@ import { StudyGroupTabs, StudyTab } from '../ui/study-group-tabs';
 import { StudyPiles } from '../ui/study-piles';
 import { TabMore, TabMoreItem } from '../ui/tab-more';
 import { Toasts } from '../ui/toast';
+import { BulkEditSheet } from '../ui/bulk-edit-sheet';
+import { SelectionTray, TrayAction } from '../ui/selection-tray';
+import { COPY_KEY } from '../ui/note-selection';
+import { NoteBulk } from '../core/note-bulk';
+import type { Review } from '../core/review';
 import { NOTES } from '../core/kinds';
 
 /** As ordens da parede do baralho. */
@@ -131,7 +136,7 @@ function tiltOf(id: string): number {
  */
 @Component({
   selector: 'app-study-page',
-  imports: [CardPicker, ContextMenu, IconModule, NgTemplateOutlet, Pin, RouterLink, SearchStrip, StudyCardWall, StudyDeckSheet, StudyGroupTabs, StudyPiles, StudyDrillPicker, StudySession, MuralConfig, TabMore],
+  imports: [BulkEditSheet, SelectionTray, CardPicker, ContextMenu, IconModule, NgTemplateOutlet, Pin, RouterLink, SearchStrip, StudyCardWall, StudyDeckSheet, StudyGroupTabs, StudyPiles, StudyDrillPicker, StudySession, MuralConfig, TabMore],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './study-page.html',
   styleUrl: './study-page.scss',
@@ -735,6 +740,39 @@ export class StudyPage {
    * O que só o dono faz no menu de um flashcard da parede, depois do virar, maximizar e ler (que são da parede, iguais
    * na visita): editar e ver o progresso (o editor, na aba Flashcard) e, no fim, tirar deste baralho.
    */
+  // ===== marcar várias (PLANO-SELECAO.md): a tira e a folha "Editar as marcadas" =====
+
+  protected readonly bulk = inject(NoteBulk);
+  private readonly cardWall = viewChild(StudyCardWall);
+  /** As suas anotações (as cartas que se marcam: as compartilhadas de quem só lê também, pelo que é de cada um). */
+  protected readonly ownNotes = computed(() => new Map<string, Review>(this.store.notes().map((r) => [r.id, r])));
+  /** A peça de marcar da parede aberta, enquanto marca. */
+  protected readonly marking = computed(() => {
+    const sel = this.cardWall()?.selection;
+    return sel?.marking() ? sel : null;
+  });
+  protected readonly editing = signal<readonly string[] | null>(null);
+  protected readonly editingNotes = computed(() => (this.editing() ?? []).flatMap((id) => this.ownNotes().get(id) ?? []));
+  private readonly openBulk = () => {
+    const ids = this.cardWall()?.selection.ids() ?? [];
+    if (ids.length) this.editing.set([...ids]);
+  };
+  protected readonly trayActions = computed<TrayAction[]>(() => {
+    const sel = this.marking();
+    if (!sel?.count()) return [];
+    return [
+      { id: 'copiar', label: 'Copiar', icon: ICON.copiar, hint: `O texto das marcadas (${COPY_KEY})`, run: () => void sel.copy() },
+      { id: 'editar', label: 'Editar', icon: ICON.editar, primary: true, hint: 'Onde aparecem, grupo, tags, quem vê, cartolina…', run: this.openBulk },
+    ];
+  });
+  protected clearMarks(): void {
+    const sel = this.cardWall()?.selection;
+    if (!sel) return;
+    const before = [...sel.ids()];
+    sel.clear();
+    if (before.length) this.toasts.show('Seleção limpa', { label: 'Desfazer', run: () => sel.add(before) });
+  }
+
   protected readonly ownerCardMenu = (note: string): MenuSections => {
     const d = this.deck();
     const c = this.cards().find((x) => x.note === note);
@@ -742,6 +780,13 @@ export class StudyPage {
     const edit: MenuItem[] = [{ id: 'editar', label: 'Editar o flashcard', icon: ICON.ajustar, dialog: true, hint: 'A frente, os baralhos e o mural, na aba Flashcard', run: () => this.edit(note) }];
     if (this.study.cardOf().get(note)?.stats.seen) {
       edit.push({ id: 'progresso', label: 'Ver o progresso', icon: ICON.desempenho, dialog: true, hint: 'Quantas vezes foi visto, os acertos e a chance de lembrar agora', run: () => this.desk.editReview(note, 'flashcard', 'progresso') });
+    }
+    // marcar vários: o primeiro liga o modo; num dos marcados, editar todos
+    const sel = this.cardWall()?.selection;
+    if (sel?.canMark(note)) {
+      const on = sel.marking() && sel.has(note);
+      if (on && sel.count() > 1) edit.unshift({ id: 'editar-marcadas', label: `Editar os ${sel.count()} marcados…`, icon: ICON.camadas, dialog: true, run: this.openBulk });
+      edit.push({ id: 'marcar', label: on ? 'Desmarcar' : 'Marcar', icon: on ? ICON.desmarcado : ICON.marcado, hint: on ? undefined : 'Para editar vários de uma vez', run: () => sel.toggle(note) });
     }
     const end: MenuItem[] = [{ id: 'tirar', label: `Tirar de ${d.name}`, icon: ICON.tirar, danger: true, run: () => void this.removal.card(note, d.id, c.title) }];
     return [edit, end];

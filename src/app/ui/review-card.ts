@@ -346,7 +346,7 @@ export const CARD_TEMPLATE = `
       <button
         type="button"
         class="hit"
-        [attr.aria-label]="'Marcar pra ver lado a lado: ' + review().game.name"
+        [attr.aria-label]="(note() ? 'Marcar: ' : 'Marcar pra ver lado a lado: ') + review().game.name"
         [attr.aria-pressed]="pickedAt() !== null"
         (click)="toggled.emit(review().id)"
       ></button>

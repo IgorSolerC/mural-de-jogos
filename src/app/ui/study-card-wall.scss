@@ -313,3 +313,45 @@
   --verso-apaga: linear-gradient(#000 calc(100% - 22px), transparent);
   --verso-pe: 24px;
 }
+
+/* ===== Marcada (Ctrl+clique, Shift+clique, o Marcar do menu: ver ui/note-selection.ts) =====
+   O tracejado de giz em volta da carta, torto com ela, e o adesivo com a ordem, como as fichas marcadas do mural. */
+.carta-li[data-marcada] {
+  counter-reset: marca var(--marca-n);
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -7px;
+    z-index: 0;
+    border: 2.5px dashed var(--wall-ink);
+    border-radius: 8px;
+    rotate: var(--inclina, 0deg);
+    pointer-events: none;
+  }
+
+  &::after {
+    content: counter(marca);
+    position: absolute;
+    top: -16px;
+    right: -14px;
+    z-index: 6;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border: 2.5px solid var(--wall-ink);
+    border-radius: 50%;
+    background: var(--ink);
+    box-shadow:
+      0 1px 1px rgb(0 0 0 / 0.35),
+      0 4px 6px -2px rgb(0 0 0 / 0.4);
+    color: var(--hi);
+    font-family: var(--f-marker);
+    font-size: 1.1rem;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    rotate: -8deg;
+    pointer-events: none;
+  }
+}

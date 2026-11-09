@@ -86,6 +86,11 @@ export class SideBySide {
     this.set([...live, ...ids.filter((id) => !live.includes(id))]);
   }
 
+  /** Troca a seleção inteira (a peça de marcar, ui/note-selection.ts, guarda as marcas das análises aqui). */
+  setIds(ids: readonly string[]): void {
+    this.set([...new Set(ids)]);
+  }
+
   /** Limpa e devolve o que havia, para o Desfazer. */
   clear(): PickSnapshot {
     const before = this.snapshot();

@@ -29,10 +29,14 @@ import { ColumnWheel } from '../ui/column-wheel';
 import { KanbanNote } from '../ui/kanban-note';
 import { NearPool, NearScreen } from '../ui/near-screen';
 import { MuralConfig } from '../ui/mural-config';
-import { NoteSelection } from '../ui/note-selection';
+import { COPY_KEY, NoteSelection } from '../ui/note-selection';
+import { SelectionTray, TrayAction } from '../ui/selection-tray';
+import { BulkEditSheet } from '../ui/bulk-edit-sheet';
+import { NoteBulk } from '../core/note-bulk';
 import { ContextMenu, ContextMenuTrigger, MenuItem, MenuSections } from '../ui/context-menu';
 import { NoteMenu, NoteMenuBoard, NoteMenuTrigger } from '../ui/note-menu';
 import { DragHold, DragStart, edgeSpeed } from '../ui/drag-hold';
+import { dragGroup, dragPile, scopeOf } from '../ui/drag-pile';
 import { RemoveAsking } from '../ui/remove-asking';
 import { GroupMenu, backFromList } from '../ui/group-menu';
 import { PageWall } from '../ui/page-wall';
@@ -135,7 +139,7 @@ interface BoardTab {
  */
 @Component({
   selector: 'app-kanban-page',
-  imports: [CardPicker, CategoryLabel, ColumnWheel, ContextMenu, TabMore, KanbanColumnSheet, KanbanNote, IconModule, MuralConfig, NearScreen, NoteMenu, PageWall, Pin, RouterLink, SearchStrip, FilterCard, FilterTags],
+  imports: [BulkEditSheet, SelectionTray, CardPicker, CategoryLabel, ColumnWheel, ContextMenu, TabMore, KanbanColumnSheet, KanbanNote, IconModule, MuralConfig, NearScreen, NoteMenu, PageWall, Pin, RouterLink, SearchStrip, FilterCard, FilterTags],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './kanban-page.html',
   styleUrl: './kanban-page.scss',
@@ -557,8 +561,9 @@ export class KanbanPage {
   }
 
   /**
-   * Ctrl+clique marca anotações do quadro para copiar o texto delas, e Ctrl+C copia (ver
-   * ui/note-selection.ts). Trocar de quadro, buscar ou filtrar desmarca; mover uma ficha não.
+   * Ctrl+clique ou Shift+clique marca anotações do quadro, para arrastar juntas, copiar e editar (ver
+   * ui/note-selection.ts e a tira, ui/selection-tray.ts). Trocar de quadro desmarca; buscar, filtrar e mover
+   * uma ficha não (dá para buscar e marcar mais).
    */
   readonly selection = new NoteSelection({
     host: this.host,
@@ -569,9 +574,40 @@ export class KanbanPage {
     // só as que estão no quadro: a tirada dele (por outro aparelho ou pela API) sai das marcas
     notes: computed(() => new Map(this.live().map((c) => [c.note, this.notes().get(c.note)!]))),
     // (o id, e não o quadro: mexer nas fichas troca o quadro, e não deve desmarcar)
-    reset: computed(() => [this.board()?.id, this.query(), this.tagFilter().join(','), this.subjectFilter().join(','), this.tagOuts().out.join(','), this.tagOuts().free.join(',')].join('|')),
+    reset: computed(() => this.board()?.id),
     layout: this.view,
   });
+
+  /** As marcadas que a busca ou os filtros escondem agora (continuam marcadas; a tira diz quantas). */
+  protected readonly hiddenMarks = computed(() => {
+    const shown = new Set(this.view().flatMap((v) => v.items.map((it) => it.card.note)));
+    return this.selection.ids().filter((id) => !shown.has(id)).length;
+  });
+
+  /** O que a tira faz com as marcadas (PLANO-SELECAO.md, 1). */
+  protected readonly trayActions = computed<TrayAction[]>(() => {
+    const out: TrayAction[] = [];
+    if (this.selection.count()) out.push({ id: 'copiar', label: 'Copiar', icon: ICON.copiar, hint: `O texto das marcadas (${COPY_KEY})`, run: () => void this.selection.copy() });
+    out.push({ id: 'editar', label: 'Editar', icon: ICON.editar, primary: true, hint: 'Importância, no mural, grupo, tags, quem vê, cartolina…', run: this.openBulk });
+    return out;
+  });
+
+  protected readonly bulk = inject(NoteBulk);
+  /** A folha "Editar as marcadas" aberta, com as que estavam marcadas quando abriu. */
+  protected readonly editing = signal<readonly string[] | null>(null);
+  protected readonly editingNotes = computed(() => (this.editing() ?? []).flatMap((id) => this.notes().get(id) ?? []));
+  /** Abre a folha (a tira e o menu de uma marcada). */
+  protected readonly openBulk = () => {
+    const ids = this.selection.ids();
+    if (ids.length) this.editing.set([...ids]);
+  };
+
+  /** Limpar: desmarca tudo (continua marcando), com o Desfazer. */
+  protected clearMarks(): void {
+    const before = [...this.selection.ids()];
+    this.selection.clear();
+    if (before.length) this.toasts.show('Seleção limpa', { label: 'Desfazer', run: () => this.selection.add(before) });
+  }
 
   /**
    * O menu do botão direito (ou de Shift+F10) numa ficha do quadro (ver ui/note-menu.ts), com o que o
@@ -1316,13 +1352,12 @@ export class KanbanPage {
 
   /**
    * As marcadas que vão junto com a ficha pega, na ordem do quadro (coluna a coluna, de cima para
-   * baixo); vazio quando ela não está marcada ou é a única.
+   * baixo); vazio quando ela não está marcada ou é a única (ui/drag-pile.ts, como no mural).
    */
   private groupFor(note: string): string[] {
     const b = this.board();
-    const marked = new Set(this.selection.ids());
-    if (!b || !marked.has(note) || marked.size < 2) return [];
-    return b.columns.flatMap((col) => this.ordered(b, col).filter((c) => marked.has(c.note))).map((c) => c.note);
+    if (!b) return [];
+    return dragGroup(note, this.selection.ids(), b.columns.flatMap((col) => this.ordered(b, col).map((c) => c.note)));
   }
 
   /** A altura das fichas do grupo empilhadas na coluna, com o vão de entre elas. */
@@ -1333,36 +1368,18 @@ export class KanbanPage {
     return lis.reduce((h, li) => h + li.getBoundingClientRect().height, 0) + gap * Math.max(0, lis.length - 1);
   }
 
-  /**
-   * A pilha que segue o ponteiro quando vão várias: a ficha pega por cima, até duas das outras
-   * marcadas por baixo, saindo de lado como um maço, e o adesivo com quantas vão.
-   */
+  /** O maço que segue o ponteiro quando vão várias (ui/drag-pile.ts, o mesmo do mural). */
   private pile(card: HTMLElement, group: readonly string[], note: string): HTMLElement {
-    const pile = document.createElement('div');
-    // os estilos da página valem nela como nas fichas copiadas
-    const scope = Array.from(card.attributes, (a) => a.name).filter((n) => n.startsWith('_ngcontent-'));
-    for (const name of scope) pile.setAttribute(name, '');
-    pile.classList.add('pilha');
-    const under = group.filter((n) => n !== note).slice(0, 2);
-    // a mais funda primeiro, para a de cima ser pintada por último
-    under.reverse().forEach((n, i) => {
-      const other = this.host.querySelector<HTMLElement>(`.lugar[data-nota="${n}"] app-kanban-note`);
-      if (!other) return;
-      const copy = other.cloneNode(true) as HTMLElement;
-      copy.removeAttribute('data-ficha');
-      copy.classList.add('pilha-baixo');
-      copy.style.setProperty('--k', String(under.length - i));
-      pile.append(copy);
-    });
-    const top = card.cloneNode(true) as HTMLElement;
-    top.removeAttribute('data-ficha');
-    pile.append(top);
-    const count = document.createElement('span');
-    for (const name of scope) count.setAttribute(name, '');
-    count.className = 'pilha-n';
-    count.textContent = String(group.length);
-    pile.append(count);
-    return pile;
+    const under = group
+      .filter((n) => n !== note)
+      .map((n) => this.host.querySelector<HTMLElement>(`.lugar[data-nota="${n}"] app-kanban-note`))
+      .filter((el) => !!el);
+    const copy = (el: HTMLElement) => {
+      const c = el.cloneNode(true) as HTMLElement;
+      c.removeAttribute('data-ficha');
+      return c;
+    };
+    return dragPile(card, under, group.length, copy, scopeOf(card));
   }
 
   /** A cópia segue o ponteiro; a vaga vai para a coluna e a posição embaixo dele. */

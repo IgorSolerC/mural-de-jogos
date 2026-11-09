@@ -129,6 +129,34 @@ describe('arrastar para organizar as pastas', () => {
     expect(folders.of(store.get('nd000001')!)).toBeNull();
   });
 
+  it('arrastar uma das marcadas leva todas para a pasta, com o maço do Kanban (PLANO-SELECAO.md, 2)', async () => {
+    await mount();
+    const ctrl = (id: string) => {
+      const hit = el.querySelector<HTMLElement>(`.lugar[data-lugar="${id}"] .hit`)!;
+      hit.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, ctrlKey: true, button: 0 }));
+      hit.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: true, button: 0 }));
+    };
+    await card('nd000001');
+    await card('nd000002');
+    ctrl('nd000001');
+    ctrl('nd000002');
+    await settle();
+    // o aperto numa marcada não desmarca: é o começo de arrastar todas
+    const from = await card('nd000002');
+    const a = middle(from);
+    from.parentElement!.querySelector('.hit')!.dispatchEvent(pe('pointerdown', a.x, a.y));
+    window.dispatchEvent(pe('pointermove', a.x + 12, a.y + 4));
+    expect(el.querySelector('.arrasto-fantasma .pilha .pilha-n')?.textContent).toBe('2');
+    expect(el.querySelectorAll('.arrasto-fantasma .pilha > app-review-card').length).toBe(2);
+    const b = middle(folderCard('phist000001'));
+    window.dispatchEvent(pe('pointermove', b.x, b.y));
+    window.dispatchEvent(pe('pointerup', b.x, b.y));
+    await settle();
+    expect(folders.of(store.get('nd000001')!)).toBe('phist000001');
+    expect(folders.of(store.get('nd000002')!)).toBe('phist000001');
+    expect(TestBed.inject(Toasts).current()!.text).toBe('2 anotações guardadas em História.');
+  });
+
   it('uma anotação sobre outra: a pasta nova com as duas, e o nome se escreve na própria pasta', async () => {
     await mount();
     const tip = await dragTo(await card('nd000001'), () => el.querySelector('.lugar[data-lugar="nd000002"] app-review-card')!);

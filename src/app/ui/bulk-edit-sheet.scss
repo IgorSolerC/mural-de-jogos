@@ -1,0 +1,332 @@
+@use 'paper-kit' as kit;
+@use 'kanban-kit' as kk;
+
+/* Editar as marcadas (ui/bulk-edit-sheet.ts): a ficha de fichário das folhas do quadro (organize-sheet.scss),
+   mais larga, com uma linha por campo. */
+
+dialog.massa {
+  max-width: min(660px, calc(100vw - 24px));
+}
+
+.vale {
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1.12rem;
+  line-height: 1.25;
+  color: rgb(21 21 21 / 0.78);
+  padding-bottom: 4px;
+}
+
+.valor {
+  gap: 8px;
+  align-content: start;
+  padding-top: 0;
+}
+
+/* a linha mexida: o nome ganha o traço de marca-texto, como o controle ligado na pasta do mural */
+.linha.mexida .nome {
+  color: var(--ink);
+  background: linear-gradient(transparent 52%, var(--hi) 52%, var(--hi) 88%, transparent 88%) no-repeat 0 50% / 100% 100%;
+  background-size: 100% 1.4em;
+  align-self: start;
+  justify-self: start;
+}
+
+.estado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+/* o que está escolhido agora: um botão de papel que abre o seletor embaixo */
+.escolha {
+  @include kit.botao-papel;
+  justify-content: flex-start;
+  max-width: 100%;
+  min-width: 0;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: 0;
+
+  &[aria-expanded='true'] {
+    background-color: var(--ink);
+    background-image: none;
+    color: var(--paper);
+
+    .varios {
+      outline-color: rgb(255 253 248 / 0.6);
+    }
+  }
+}
+
+/* "Vários": o recorte ainda na cartela (tracejado), nada colado */
+.varios {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 2px 8px 1px;
+  border-radius: 2px;
+  outline: 1.5px dashed rgb(21 21 21 / 0.5);
+  outline-offset: -1.5px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.quais {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.sem,
+.pasta-nome {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.9rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+
+  lucide-icon {
+    display: inline-flex;
+    flex: none;
+  }
+}
+
+/* o grupo: o desenho na cor dele e o nome a pincel, como na orelha do mural e na etiqueta do editor */
+.orelha {
+  min-width: 0;
+  font-family: var(--f-marker);
+  font-size: 1rem;
+  line-height: 1.1;
+}
+
+.escolha[aria-expanded='true'] .orelha {
+  color: var(--paper);
+}
+
+/* o seletor aberto: um papel solto embaixo da linha */
+.parte {
+  padding: 12px;
+  border-radius: 2px;
+  background: #fffdf8;
+  box-shadow: var(--papel-solto-sombra);
+}
+
+/* "Deixar como está": discreto, a lápis */
+.volta {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 5px;
+  min-height: 36px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  color: rgb(21 21 21 / 0.72);
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1.02rem;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--ink);
+  }
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+.como,
+.nota {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1.05rem;
+  line-height: 1.25;
+  color: rgb(21 21 21 / 0.78);
+}
+
+/* ===== as escolhas: as etiquetas recortadas na cartela; a escolhida, colada (as da folha do quadro) ===== */
+.ops {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.op {
+  @include kk.imp-opcao;
+  gap: 7px;
+
+  lucide-icon {
+    display: inline-flex;
+  }
+
+  &.colado {
+    border-color: transparent;
+    background: var(--ink);
+    color: var(--paper);
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.35),
+      0 4px 8px -3px rgb(0 0 0 / 0.35);
+  }
+}
+
+.imp {
+  @include kk.imp-opcao;
+}
+
+/* ===== as cores: as amostras de cartolina, as claras numa fileira e as escuras embaixo ===== */
+.cores {
+  display: grid;
+  grid-template-columns: repeat(9, 34px);
+  gap: 8px;
+
+  @container kprops (max-width: 420px) {
+    grid-template-columns: repeat(9, minmax(0, 34px));
+    gap: 6px;
+  }
+}
+
+.cor {
+  aspect-ratio: 1;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background-color: var(--stock);
+  background-image: var(--grao, var(--grao-img));
+  background-size: var(--grao-tam);
+  background-blend-mode: var(--grao-mistura);
+  box-shadow:
+    0 0 0 1px rgb(21 21 21 / 0.14),
+    0 1px 1px rgb(0 0 0 / 0.2);
+  cursor: pointer;
+  transition:
+    rotate var(--t-physical) var(--ease-physical),
+    scale var(--t-physical) var(--ease-physical);
+
+  &:hover {
+    scale: 1.06;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  /* a escolhida: colada torta, com o contorno de tinta */
+  &.colado {
+    rotate: -6deg;
+    scale: 1.12;
+    box-shadow:
+      0 0 0 2.5px var(--ink),
+      0 3px 6px -2px rgb(0 0 0 / 0.45);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &.colado {
+      rotate: 0deg;
+    }
+  }
+}
+
+/* ===== as tags de só algumas: tracejadas, com quantas; tocar põe em todas, o X tira de todas ===== */
+.algumas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.alguma {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 2px;
+  outline: 1.5px dashed rgb(21 21 21 / 0.42);
+  outline-offset: -1.5px;
+}
+
+.por {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 4px 4px 4px 8px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.06);
+  }
+}
+
+.em {
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 0.98rem;
+  white-space: nowrap;
+  color: rgb(21 21 21 / 0.72);
+}
+
+.tirar {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 40px;
+  border: 0;
+  background: none;
+  color: rgb(21 21 21 / 0.72);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--ink);
+    background: rgb(21 21 21 / 0.06);
+  }
+}
+
+/* ===== o que se faz na hora (a última linha) e o pé: Cancelar e Aplicar ===== */
+.agora,
+.fim {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.fim {
+  margin-left: auto;
+}
+
+.papel {
+  @include kit.botao-papel;
+}
+
+.fim .btn-ink:disabled {
+  opacity: 0.4;
+  transform: none;
+}

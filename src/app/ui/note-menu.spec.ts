@@ -95,7 +95,7 @@ describe('menu da anotação no mural (NoteMenu)', () => {
     expect(isOpen()).toBeTrue();
     expect(panel().getAttribute('role')).toBe('menu');
     expect(panel().querySelector('.legenda')!.textContent).toContain('Mercado');
-    expect(menuLabels(el)).toEqual(['Abrir', 'Editar', 'Copiar o conteúdo', 'Fixar no topo', 'Finalizar', 'Transformar em flashcard…', 'Compartilhar', 'Apagar anotação']);
+    expect(menuLabels(el)).toEqual(['Abrir', 'Editar', 'Marcar', 'Copiar o conteúdo', 'Fixar no topo', 'Finalizar', 'Transformar em flashcard…', 'Compartilhar', 'Apagar anotação']);
     const r = box();
     expect(r.left).toBe(62);
     // embaixo do ponteiro; sem lugar embaixo (a janela dos testes é baixa), em cima dele
@@ -146,7 +146,7 @@ describe('menu da anotação no mural (NoteMenu)', () => {
     await settle();
     expect(isOpen()).toBeTrue();
     expect(panel().querySelector('.legenda')!.textContent).toContain('Hades');
-    expect(menuLabels(el)).toEqual(['Abrir', 'Editar', 'Copiar o conteúdo', 'Remover do mural']);
+    expect(menuLabels(el)).toEqual(['Abrir', 'Editar', 'Marcar', 'Copiar o conteúdo', 'Remover do mural']);
     option('Copiar o conteúdo').click();
     await settle();
     expect(copied).toEqual(['TÍTULO: Hades\nDESCRIÇÃO: Muito bom']);
@@ -256,8 +256,8 @@ describe('menu da anotação no mural (NoteMenu)', () => {
     await settle();
     expect(copied).toEqual(['1.\nTÍTULO: Trabalho\nDESCRIÇÃO: Relatório\n\n2.\nTÍTULO: Mercado\nDESCRIÇÃO: Pão e café link']);
     expect(row('rmenu001').hasAttribute('data-marcada')).toBeTrue();
-    // numa que não está marcada, só ela
-    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
+    // desmarcadas (Esc), o menu de uma só copia ela
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
     await settle();
     rightClick(row('rmenu002').querySelector('.hit')!);
     await settle();

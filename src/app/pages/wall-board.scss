@@ -1,4 +1,5 @@
 @use '../ui/a11y';
+@use '../ui/pilha-arrasto' as pilha;
 
 :host {
   display: block;
@@ -536,6 +537,11 @@
 .lugar[data-marcada] > app-review-card {
   counter-reset: marca var(--marca-n);
 
+  /* marcando, a ficha mostra o adesivo dela (o da vaga do Lado a lado, ver review-card.ts): o de cá sobraria */
+  &.picking::after {
+    content: none;
+  }
+
   &:not([data-veu])::before {
     inset: -8px;
     z-index: -5;
@@ -644,26 +650,13 @@
   will-change: translate;
 }
 
-.arrasto-n {
-  position: absolute;
-  top: -30px;
-  right: -30px;
-  display: grid;
-  place-items: center;
-  min-width: 38px;
-  height: 38px;
-  /* (a cópia está pela metade: o adesivo volta ao tamanho de sempre) */
+/* várias marcadas: o maço do Kanban (ui/_pilha-arrasto.scss); a cópia está pela metade, e o adesivo volta
+   ao tamanho de sempre */
+@include pilha.maco;
+
+.arrasto-fantasma .pilha-n {
   scale: 2;
-  padding: 0 8px;
-  border: 2.5px solid var(--wall-ink);
-  border-radius: 999px;
-  background: var(--ink);
-  color: var(--hi);
-  font-family: var(--f-marker);
-  font-size: 1.2rem;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-  rotate: -8deg;
+  transform-origin: 100% 0;
 }
 
 .arrasto-dica {
