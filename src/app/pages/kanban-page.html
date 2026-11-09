@@ -581,3 +581,5 @@
 
 <!-- o menu do botão direito numa anotação do quadro (e do dedo que segura e solta sem arrastar) -->
 <app-note-menu #menuDaNota [selection]="selection" (opened)="read($event)" />
+<!-- e o de uma coluna (a etiqueta, o vão entre as anotações e o pé), também com o dedo segurado -->
+<app-context-menu #menuDaColuna [caption]="columnCaption()" [sections]="columnSections()" (closed)="columnMenuOn.set(null)" />

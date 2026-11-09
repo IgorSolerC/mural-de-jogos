@@ -79,6 +79,21 @@ describe('os Estudos guardados (core/study-store.ts)', () => {
     });
   });
 
+  it('tirar de um baralho só: os outros ficam, e o de outro grupo em que a carta dorme também', () => {
+    const kanji = study.addDeck('Kanjis', 'amarelo', null, undefined, 'Estudos');
+    const verbos = study.addDeck('Verbos', 'verde', null, undefined, 'Estudos');
+    const velho = study.addDeck('Antigo', 'azul', null, undefined, 'Trabalho');
+    study.addCard('nsol', [kanji, verbos]);
+    // a carta dorme num baralho do grupo de antes
+    study.state.update((st) => ({ ...st, cards: st.cards.map((c) => (c.note === 'nsol' ? { ...c, decks: [...c.decks, velho] } : c)) }));
+    study.leaveDeck('nsol', kanji);
+    expect(study.state().cards.find((c) => c.note === 'nsol')!.decks).toEqual([verbos, velho]);
+    study.leaveDeck('nsol', verbos);
+    // à vista em nenhum baralho, mas ainda guardada (dormindo) no do outro grupo
+    expect(study.cardOf().get('nsol')?.decks ?? []).toEqual([]);
+    expect(study.state().cards.find((c) => c.note === 'nsol')!.decks).toEqual([velho]);
+  });
+
   it('apagar o baralho e tirar a carta devolvem o Desfazer', () => {
     const deck = study.addDeck('Kanjis', 'amarelo');
     study.addCard('nsol', [deck]);

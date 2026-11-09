@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterRenderEffect, computed, effect, inject, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterRenderEffect, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -17,7 +17,7 @@ import { LIGHT_STOCKS, LightStock } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { CardFace, CardSize, DECK_NAME_MAX, Deck, LEVEL_LABEL, Level, STUDY_SIZE_KEY, StudyCard as Card, cardFace, frontTitle, groupKey, inGroup, levelOf, studyGroupId, whenLabel } from '../core/study';
 import { readText, writeText } from '../core/storage';
-import { DRILL_KINDS, DRILL_LABEL, DrillKind, DrillPlan, drillCounts, drillPool } from '../core/study-drill';
+import { DRILL_KINDS, DRILL_LABEL, DrillKind, DrillPlan, drillCounts as countDrills, drillPool } from '../core/study-drill';
 import { QueueCounts, StudyScope, allCounts, countTotal, dayQueue, scopeCards } from '../core/study-queue';
 import { StudyStore } from '../core/study-store';
 import { PublicDeckNudge } from '../ui/public-deck-nudge';
@@ -36,6 +36,8 @@ import { StudyDrillPicker } from '../ui/study-drill-picker';
 import type { DrillChoice } from '../ui/study-drill-picker';
 import { MuralConfig } from '../ui/mural-config';
 import { CardPicker } from '../ui/card-picker';
+import { ContextMenu, ContextMenuTrigger, MENU_CLASS, MenuBy, MenuItem, MenuSections } from '../ui/context-menu';
+import { RemoveAsking } from '../ui/remove-asking';
 import { CategoryLabel } from '../ui/category-label';
 import { TabFit } from '../ui/tab-fit';
 import { TabMore, TabMoreItem } from '../ui/tab-more';
@@ -126,6 +128,9 @@ const SCREEN_GAP = 8;
 /** Nada virado. */
 const NO_CARDS: ReadonlySet<string> = new Set();
 
+/** O que o menu do botão direito tem aberto: um baralho (a pilha, ou o nome no alto do baralho aberto) ou um flashcard da parede. */
+type MenuOn = { kind: 'baralho'; id: string; link: string | null } | { kind: 'carta'; note: string };
+
 /** A chave do Tudo na régua das abas. */
 const ALL_TAB = 'tudo';
 
@@ -147,7 +152,7 @@ function tiltOf(id: string): number {
  */
 @Component({
   selector: 'app-study-page',
-  imports: [CardPicker, CategoryLabel, IconModule, NearScreen, NgTemplateOutlet, Pin, RouterLink, SearchStrip, StudyCard, StudyCardBack, StudyCardFocus, StudyDeckSheet, StudyDrillPicker, StudySession, MuralConfig, TabMore],
+  imports: [CardPicker, CategoryLabel, ContextMenu, IconModule, NearScreen, NgTemplateOutlet, Pin, RouterLink, SearchStrip, StudyCard, StudyCardBack, StudyCardFocus, StudyDeckSheet, StudyDrillPicker, StudySession, MuralConfig, TabMore],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './study-page.html',
   styleUrls: ['./study-page.scss', './study-page-flip.scss'],
@@ -168,6 +173,7 @@ export class StudyPage {
   private readonly settings = inject(Settings);
   private readonly wallView = inject(WallView);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+  private readonly removal = inject(RemoveAsking);
 
   protected readonly AllIcon = ICON.camadas;
   protected readonly AddIcon = ICON.adicionar;
@@ -244,7 +250,11 @@ export class StudyPage {
   /** A folha das configurações dos Estudos aberta. */
   protected readonly config = signal(false);
   /** Quantos flashcards cada treino traria aqui (no baralho, no grupo ou em todos). */
-  protected readonly drillCounts = computed(() => drillCounts(this.study.view(), this.now(), this.scope(), this.study.live));
+  protected readonly drillCounts = computed(() => countDrills(this.study.view(), this.now(), this.scope(), this.study.live));
+  /** O remendo do Treinar (o do baralho, do grupo ou de tudo), que o menu de um baralho também abre. */
+  private readonly trainMore = viewChild<TabMore>('treino');
+  /** O "Treinar" do menu de um baralho de fora: o baralho abre com o remendo do Treinar aberto. */
+  private readonly trainAsked = signal(false);
   /**
    * O remendo do Treinar: os tipos de treino com algum flashcard, cada um com quantos traria (o "Escolher
    * quais" escolhe entre todos, sem número).
@@ -281,6 +291,24 @@ export class StudyPage {
   protected readonly calm = reducedMotion();
   /** O seletor de fichas do "Trazer anotações" aberto. */
   protected readonly picking = signal(false);
+  /** O menu do botão direito (ui/context-menu.ts): o que ele tem aberto. */
+  protected readonly menuOn = signal<MenuOn | null>(null);
+  private readonly menu = viewChild<ContextMenu>('menu');
+  /** O nome no alto do menu: o do baralho, ou a frente do flashcard. */
+  protected readonly menuCaption = computed(() => {
+    const m = this.menuOn();
+    if (!m) return '';
+    if (m.kind === 'baralho') return this.study.deck(m.id)?.name ?? '';
+    // a frente pode ser um kanji só: o baralho junto diz de onde ele é
+    const title = this.cards().find((c) => c.note === m.note)?.title ?? '';
+    return title && `${title} · ${this.deck()?.name ?? ''}`;
+  });
+  /** As opções do menu aberto, só as que valem agora. */
+  protected readonly menuSections = computed<MenuSections>(() => {
+    const m = this.menuOn();
+    if (!m) return [];
+    return m.kind === 'baralho' ? this.deckMenu(m.id, m.link) : this.cardMenu(m.note);
+  });
   /** O nome do primeiro baralho, na cartolina da primeira vez. */
   protected readonly firstName = signal('');
   /** O grupo do primeiro baralho de todos (a cartolina de Tudo, sem baralho nenhum); '' é o de sempre. */
@@ -484,9 +512,36 @@ export class StudyPage {
       // a carta pequena crescida pode ter mudado de casa (a ordem, o filtro)
       this.resized();
     });
-    // o "+ Novo baralho" abre nele com a folha aberta: a página é outra depois da navegação (são duas rotas)
-    const asked = (this.router.getCurrentNavigation()?.extras.state as { folha?: string } | undefined)?.folha;
-    if (asked) this.sheet.set({ id: asked, fresh: true });
+    // o "+ Novo baralho" abre nele com a folha aberta, e o "Trazer anotações" do menu de um baralho, com o
+    // seletor: a página é outra depois da navegação (são duas rotas)
+    const state = this.router.getCurrentNavigation()?.extras.state as { folha?: string; trazer?: boolean; treinar?: boolean } | undefined;
+    if (state?.folha) this.sheet.set({ id: state.folha, fresh: true });
+    if (state?.trazer) this.picking.set(true);
+    if (state?.treinar) this.trainAsked.set(true);
+    // o pedido vale uma vez, no baralho aberto: com o remendo à mostra, abre; sem treino nenhum ali, esquece
+    afterRenderEffect(() => {
+      if (!this.trainAsked() || !this.deck()) return;
+      const more = this.trainMore();
+      untracked(() => {
+        this.trainAsked.set(false);
+        more?.show();
+      });
+    });
+    // o botão direito, o dedo segurado ou Shift+F10 num baralho (a pilha, ou o nome no alto dele aberto) ou
+    // num flashcard da parede abre o menu dele
+    new ContextMenuTrigger({
+      host: this.host,
+      targets: '[data-baralho], [data-carta]',
+      keyOf: (box) => {
+        const deck = box.dataset['baralho'];
+        if (deck) return this.study.deck(deck) ? `baralho:${deck}` : null;
+        const note = box.dataset['carta'];
+        return note && this.study.cardOf().has(note) ? `carta:${note}` : null;
+      },
+      hold: true,
+      isOpenFor: (key) => !!this.menu()?.isOpenFor(key),
+      open: (key, box, x, y, by) => this.openMenu(key, box, x, y, by),
+    });
     // o endereço de antes dos grupos (/estudos/:baralho) leva ao baralho no grupo dele; um grupo (ou um
     // baralho) que não existe mais, ao que sobrou. Espera a conversão dos baralhos de antes terminar.
     effect(() => {
@@ -656,14 +711,18 @@ export class StudyPage {
   protected escapeAround(e: Event): void {
     const grown = this.cardSize() === 'pequenas' ? [...this.flipped()][0] : undefined;
     if (!grown || document.querySelector('dialog:modal')) return;
-    if (e.target instanceof Element && e.target.closest('input, textarea, select, app-tab-more')) return;
+    // (o Esc do menu do botão direito fecha só o menu)
+    if (e.target instanceof Element && e.target.closest(`input, textarea, select, app-tab-more, .${MENU_CLASS}`)) return;
     this.turnBack(grown);
   }
 
-  /** A carta pequena crescida fecha com um toque fora dela (na outra carta, é o toque dela que troca). */
+  /**
+   * A carta pequena crescida fecha com um toque fora dela (na outra carta, é o toque dela que troca; no menu
+   * do botão direito, é a escolha que decide).
+   */
   protected clickedAround(e: Event): void {
     const grown = this.cardSize() === 'pequenas' ? [...this.flipped()][0] : undefined;
-    if (!grown || (e.target instanceof Element && e.target.closest('.carta-li.virada, .carta-btn, dialog'))) return;
+    if (!grown || (e.target instanceof Element && e.target.closest(`.carta-li.virada, .carta-btn, dialog, .${MENU_CLASS}`))) return;
     this.turnBack(grown);
   }
 
@@ -759,6 +818,89 @@ export class StudyPage {
     this.firstName.set('');
     this.firstGroup.set('');
     void this.router.navigateByUrl(studyPath(studyGroupId(group), id));
+  }
+
+  /** Abre o menu do baralho ou do flashcard; o foco volta para o botão dele ao fechar. */
+  private openMenu(key: string, box: HTMLElement, x: number, y: number, by: MenuBy): void {
+    const id = key.slice(key.indexOf(':') + 1);
+    const deck = key.startsWith('baralho:');
+    this.menuOn.set(deck ? { kind: 'baralho', id, link: box instanceof HTMLAnchorElement ? box.href : null } : { kind: 'carta', note: id });
+    // a pilha é o próprio link; o alto do baralho aberto, o lápis dele; o flashcard, o botão de virar
+    const back = deck ? (box instanceof HTMLAnchorElement ? box : box.querySelector<HTMLElement>('.ajustes-baralho')) : box.querySelector<HTMLElement>('.carta-btn');
+    this.menu()?.show({ key, x, y, by, back: back ?? null });
+  }
+
+  /**
+   * O menu de um baralho: abrir (e numa aba nova, como no link), estudar, pôr flashcards, os ajustes e, no
+   * fim, apagar. No próprio baralho aberto, sem o abrir.
+   */
+  private deckMenu(id: string, link: string | null): MenuSections {
+    const d = this.study.deck(id);
+    if (!d) return [];
+    const open: MenuItem[] = [];
+    if (this.deck()?.id !== id) {
+      open.push({ id: 'abrir', label: 'Abrir', icon: ICON.ir, run: () => void this.router.navigateByUrl(this.deckPath(d)) });
+      if (link) open.push({ id: 'aba', label: 'Abrir em outra aba', icon: ICON.abrirFora, run: () => void window.open(link, '_blank', 'noopener') });
+    }
+    const today = countTotal(this.counts().byDeck.get(id) ?? NO_COUNTS);
+    const work: MenuItem[] = [];
+    if (today) work.push({ id: 'estudar', label: 'Estudar', icon: ICON.estudar, dialog: true, count: { n: today, say: 'para hoje' }, run: () => this.session.set({ deck: id }) });
+    // sem nada para hoje, é o Treinar que sobra (como na pasta do baralho)
+    const drills = countDrills(this.study.view(), this.now(), id, this.study.live);
+    if (DRILL_KINDS.some((k) => drills[k] > 0)) {
+      work.push({ id: 'treinar', label: 'Treinar', icon: ICON.alvo, hint: 'Passar os flashcards de novo, sem contar no progresso', run: () => this.trainIn(d) });
+    }
+    work.push({ id: 'novo', label: 'Novo flashcard', icon: ICON.adicionar, dialog: true, run: () => this.newCard(id) });
+    work.push({ id: 'trazer', label: 'Trazer anotações', icon: ICON.anotacoes, dialog: true, hint: 'Anotações do grupo, para virar flashcards deste baralho', run: () => this.bringInto(d) });
+    const adjust: MenuItem[] = [{ id: 'ajustes', label: 'Ajustes do baralho', icon: ICON.editar, dialog: true, hint: 'O nome, o desenho, a cor, quem vê e a posição', run: () => this.sheet.set({ id, fresh: false }) }];
+    const end: MenuItem[] = [{ id: 'apagar', label: 'Apagar o baralho', icon: ICON.apagar, danger: true, dialog: true, run: () => void this.removeDeck(id) }];
+    return [open, work, adjust, end];
+  }
+
+  /**
+   * O menu de um flashcard da parede: virar, maximizar e ler a anotação (o que a etiqueta de tinta faz),
+   * editar e ver o progresso (o editor, na aba Flashcard) e, no fim, tirar deste baralho.
+   */
+  private cardMenu(note: string): MenuSections {
+    const d = this.deck();
+    const c = this.cards().find((x) => x.note === note);
+    if (!d || !c) return [];
+    const up = this.flipped().has(note);
+    const look: MenuItem[] = [
+      { id: 'virar', label: up ? 'Virar de volta' : 'Virar o flashcard', icon: up ? ICON.esconder : ICON.ver, hint: up ? 'A frente de novo' : 'Atrás está a anotação', run: () => this.flipFromMenu(note) },
+      { id: 'maximizar', label: 'Maximizar', icon: ICON.aumentar, dialog: true, run: () => this.focused.set(note) },
+      { id: 'ler', label: 'Ler a anotação', icon: ICON.livros, dialog: true, run: () => this.open(note) },
+    ];
+    const edit: MenuItem[] = [{ id: 'editar', label: 'Editar o flashcard', icon: ICON.ajustar, dialog: true, hint: 'A frente, os baralhos e o mural, na aba Flashcard', run: () => this.edit(note) }];
+    if (this.study.cardOf().get(note)?.stats.seen) {
+      edit.push({ id: 'progresso', label: 'Ver o progresso', icon: ICON.desempenho, dialog: true, hint: 'Quantas vezes foi visto, os acertos e a chance de lembrar agora', run: () => this.desk.editReview(note, 'flashcard', 'progresso') });
+    }
+    const end: MenuItem[] = [{ id: 'tirar', label: `Tirar de ${d.name}`, icon: ICON.tirar, danger: true, run: () => void this.removal.card(note, d.id, c.title) }];
+    return [look, edit, end];
+  }
+
+  /** Virar pelo menu: a carta como está agora na parede (ela pode ter sido redesenhada com o menu aberto). */
+  private flipFromMenu(note: string): void {
+    const li = this.host.querySelector<HTMLElement>(`.carta-li[data-carta="${CSS.escape(note)}"]`);
+    if (li) this.flip(note, li);
+  }
+
+  /** "Treinar" de um baralho: o remendo do Treinar dele; de fora, abre o baralho com o remendo aberto. */
+  private trainIn(d: Deck): void {
+    if (this.deck()?.id === d.id) this.trainMore()?.show();
+    else void this.router.navigateByUrl(this.deckPath(d), { state: { treinar: true } });
+  }
+
+  /** "Trazer anotações" de um baralho: aqui mesmo, no aberto; de fora, abre o baralho com o seletor. */
+  private bringInto(d: Deck): void {
+    if (this.deck()?.id === d.id) this.picking.set(true);
+    else void this.router.navigateByUrl(this.deckPath(d), { state: { trazer: true } });
+  }
+
+  /** Apagar o baralho pelo menu: a mesma pergunta da folha; o aberto volta para o grupo. */
+  private async removeDeck(id: string): Promise<void> {
+    const here = this.deck()?.id === id;
+    if ((await this.removal.deck(id)) && here && !this.gone) this.removed();
   }
 
   /** O baralho saiu: volta para o grupo dele (ou para Tudo). */

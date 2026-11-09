@@ -661,6 +661,15 @@ $folga-sombra: 30px;
   padding-bottom: 20px;
 }
 
+/* segurar o dedo na etiqueta de uma coluna abre o menu dela (ui/context-menu.ts): sem o balão e sem
+   selecionar o nome junto */
+@supports selector(:popover-open) {
+  .coluna .etiqueta {
+    -webkit-touch-callout: none;
+    user-select: none;
+  }
+}
+
 .lugar {
   position: relative;
   /* segurar o dedo não abre o menu do navegador nem seleciona texto */

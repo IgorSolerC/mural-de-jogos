@@ -73,14 +73,13 @@
 } @else {
   <h2 class="sr-only">{{ owner() === null ? 'Fichas no mural' : 'Fichas de ' + owner() }}</h2>
   <div
-    class="wall"
+    class="wall com-menu"
     [class.compact]="view.density() === 'simples'"
     [class.geral]="overview()"
     [class.capas]="view.density() === 'capas'"
     [class.inteira]="inteira()"
     [class.lista]="lista()"
     [class.com-orelhas]="ears()"
-    [class.com-menu]="notes()"
     [class.sem-etiquetas]="!labels()"
     [appRealceBusca]="view.query()"
     realceEm=".fichas, app-note-index"
@@ -134,7 +133,5 @@
   </div>
 }
 
-<!-- o menu do botão direito (e do dedo segurado) numa anotação: só no mural de anotações -->
-@if (notes()) {
-  <app-note-menu #menuDaNota [owner]="owner()" [ownerCode]="access().reactCode" [secret]="access().secret" [selection]="owner() === null ? selection : null" (opened)="opened.emit($event)" />
-}
+<!-- o menu do botão direito (e do dedo segurado) numa ficha, em todos os murais -->
+<app-note-menu #menuDaNota [owner]="owner()" [ownerCode]="access().reactCode" [secret]="access().secret" [selection]="owner() === null && notes() ? selection : null" (opened)="opened.emit($event)" />

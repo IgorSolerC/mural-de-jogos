@@ -20,7 +20,6 @@ import {
   nextOccurrence,
   nthLabel,
   nthOf,
-  occurrenceStart,
   rangeLabel,
   repeatSentence,
   repeatShort,
@@ -40,8 +39,8 @@ import { ReviewStore } from '../core/review-store';
 import { pinningFor } from '../core/wall-physics';
 import { BackdropClose } from './backdrop-close';
 import { CardPicker } from './card-picker';
-import { Confirm } from './confirm';
 import { Pin } from './pin';
+import { RemoveAsking } from './remove-asking';
 import { Toasts } from './toast';
 
 const STOCK_LABEL: Record<LightStock, string> = {
@@ -432,8 +431,8 @@ export class ReminderSheet {
   private readonly calendar = inject(CalendarStore);
   private readonly store = inject(ReviewStore);
   private readonly desk = inject(Desk);
-  private readonly confirm = inject(Confirm);
   private readonly toasts = inject(Toasts);
+  private readonly removal = inject(RemoveAsking);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly nome = viewChild<ElementRef<HTMLInputElement>>('nome');
 
@@ -736,38 +735,10 @@ export class ReminderSheet {
     this.close();
   }
 
+  /** Apaga, com a pergunta (num que se repete, só esta vez ou todas) e o Desfazer (ver ui/remove-asking.ts). */
   protected async remove(): Promise<void> {
     const before = this.reminder();
-    if (!before) return;
-    const name = `“${before.title}”`;
-    // a vez aberta: num de vários dias, a que passa pelo dia de onde a folha abriu
-    const day = occurrenceStart(before, this.day());
-    if (before.repeat && day) {
-      const many = spanOf(before) > 1;
-      const which = many ? `a de ${rangeLabel(day, addDays(day, spanOf(before) - 1))}` : `o de ${dayAndMonth(day)}`;
-      const choice = await this.confirm.choose({
-        title: 'Apagar o lembrete?',
-        text: `${name} se repete (${repeatShort(before)}). Apagar só ${which}, ou ${many ? 'todas' : 'todos'}?`,
-        confirm: many ? 'Apagar todas' : 'Apagar todos',
-        secondary: many ? 'Só esta vez' : 'Só neste dia',
-      });
-      if (!choice) return;
-      if (choice === 'secondary') {
-        this.calendar.skipDay(before.id, day);
-        this.toasts.show(many ? `${name} saiu de ${rangeLabel(day, addDays(day, spanOf(before) - 1))}` : `${name} saiu de ${dayAndMonth(day)}`, {
-          label: 'Desfazer',
-          run: () => this.calendar.restore(before),
-        });
-        this.close();
-        return;
-      }
-    } else {
-      const sure = await this.confirm.ask({ title: 'Apagar o lembrete?', text: `${name} sai do calendário. As anotações anexadas continuam no mural.`, confirm: 'Apagar' });
-      if (!sure) return;
-    }
-    this.calendar.remove(before.id);
-    this.toasts.show(`${name} saiu do calendário`, { label: 'Desfazer', run: () => this.calendar.restore(before) });
-    this.close();
+    if (before) await this.removal.reminder(before, this.day(), () => this.close());
   }
 
   close(): void {

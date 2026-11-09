@@ -12,7 +12,7 @@ import { scrollSettled } from '../testing/scroll-settled.spec';
 import { NoteMenu } from './note-menu';
 
 /** As opções à vista no menu aberto, pelo texto. */
-const menuLabels = (root: ParentNode): string[] => Array.from(root.querySelectorAll<HTMLElement>('.menu-da-nota .escolha .nome')).map((x) => x.textContent?.trim() ?? '');
+const menuLabels = (root: ParentNode): string[] => Array.from(root.querySelectorAll<HTMLElement>('.menu-contexto .escolha .nome')).map((x) => x.textContent?.trim() ?? '');
 
 const ACCESS: WallAccess = { landingId: null, picking: false, picked: new Map(), masked: false, secret: new Set(), reactCode: null, checkable: true, looks: {} };
 
@@ -74,7 +74,7 @@ describe('menu da anotação no mural (NoteMenu)', () => {
   });
 
   const row = (id: string) => el.querySelector<HTMLElement>(`.linha[data-ficha="${id}"]`)!;
-  const panel = () => el.querySelector<HTMLElement>('.menu-da-nota')!;
+  const panel = () => el.querySelector<HTMLElement>('.menu-contexto')!;
   const isOpen = () => panel().matches(':popover-open');
   /** O lugar do menu (sem a escala do brotar, que ainda corre). */
   const box = () => ({ left: panel().offsetLeft, top: panel().offsetTop, width: panel().offsetWidth, height: panel().offsetHeight });
@@ -127,7 +127,7 @@ describe('menu da anotação no mural (NoteMenu)', () => {
     expect(panel().querySelector('.legenda')!.textContent).toContain('Trabalho');
   });
 
-  it('um link do texto e um trecho selecionado ficam com o menu do navegador; nos murais de resenhas também', async () => {
+  it('um link do texto e um trecho selecionado ficam com o menu do navegador', async () => {
     await mount('completa');
     await settle();
     const link = el.querySelector<HTMLElement>('.lugar[data-lugar="rmenu001"] a[href]');
@@ -135,13 +135,25 @@ describe('menu da anotação no mural (NoteMenu)', () => {
       expect(rightClick(link).defaultPrevented).toBeFalse();
       expect(isOpen()).toBeFalse();
     }
-    document.querySelectorAll('app-wall-board').forEach((e) => e.remove());
-    store.add(sanitizeReview({ id: 'rjogo001', kind: 'jogos', game: { name: 'Hades', coverUrl: null, source: 'manual' }, scores: { final: 9 }, status: 'finalizado', completedAt: '2026-10-01', createdAt: '2026-10-01T10:00:00.000Z', updatedAt: '2026-10-01T10:00:00.000Z' })!);
+  });
+
+  it('nos murais de resenhas também: abrir, editar, copiar e remover, sem o que é só das anotações', async () => {
+    store.add(sanitizeReview({ id: 'rjogo001', kind: 'jogos', game: { name: 'Hades', coverUrl: null, source: 'manual' }, text: 'Muito bom', scores: { final: 9 }, status: 'finalizado', completedAt: '2026-10-01', createdAt: '2026-10-01T10:00:00.000Z', updatedAt: '2026-10-01T10:00:00.000Z' })!);
     await mount('completa', 'jogos');
     await settle();
     const card = el.querySelector<HTMLElement>('.lugar[data-lugar="rjogo001"]')!;
-    expect(rightClick(card).defaultPrevented).toBeFalse();
-    expect(el.querySelector('.menu-da-nota')).toBeNull();
+    expect(rightClick(card).defaultPrevented).toBeTrue();
+    await settle();
+    expect(isOpen()).toBeTrue();
+    expect(panel().querySelector('.legenda')!.textContent).toContain('Hades');
+    expect(menuLabels(el)).toEqual(['Abrir', 'Editar', 'Copiar o conteúdo', 'Remover do mural']);
+    option('Copiar o conteúdo').click();
+    await settle();
+    expect(copied).toEqual(['TÍTULO: Hades\nDESCRIÇÃO: Muito bom']);
+    rightClick(card);
+    await settle();
+    option('Remover do mural').click();
+    expect(desk.removeReview).toHaveBeenCalledWith('rjogo001');
   });
 
   it('pelo teclado: as setas andam parando nas pontas (como no Mais), Home e End, a letra pula; Esc fecha e o foco volta para a linha', async () => {

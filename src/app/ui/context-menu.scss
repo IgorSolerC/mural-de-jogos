@@ -1,12 +1,13 @@
 @use 'felt';
 
-/* O menu da anotação: o remendo de feltro costurado do "Mais" das abas (ui/tab-more.scss), que veio
-   do "Citar" da leitura e do painel de emojis das reações, aberto ao lado do ponteiro. */
+/* O menu do botão direito (o da anotação, o do baralho, o da coluna…): o remendo de feltro costurado
+   do "Mais" das abas (ui/tab-more.scss), que veio do "Citar" da leitura e do painel de emojis das
+   reações, aberto ao lado do ponteiro. */
 :host {
   display: contents;
 }
 
-.menu-da-nota {
+.menu-contexto {
   position: fixed;
   inset: auto;
   margin: 0;
@@ -41,7 +42,7 @@
 }
 
 /* aberto embaixo do ponto, brota para baixo; em cima, para cima (como o Mais) */
-.menu-da-nota.em-cima:popover-open {
+.menu-contexto.em-cima:popover-open {
   animation-name: brota-em-cima;
 }
 
@@ -61,7 +62,7 @@
   }
 }
 
-/* o nome da anotação, impresso miúdo na cor da linha, numa linha só */
+/* o nome do que se clicou, impresso miúdo na cor da linha, numa linha só */
 .legenda {
   @include felt.legenda;
   overflow: hidden;
@@ -151,7 +152,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .menu-da-nota:popover-open {
+  .menu-contexto:popover-open {
     animation: none;
   }
 }

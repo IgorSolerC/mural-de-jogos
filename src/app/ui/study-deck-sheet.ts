@@ -10,6 +10,7 @@ import { BackdropClose } from './backdrop-close';
 import { Choice, Confirm } from './confirm';
 import { CloudAccount } from '../core/cloud-account';
 import { Pin } from './pin';
+import { RemoveAsking } from './remove-asking';
 import { StudyCard } from './study-card';
 import { Toasts } from './toast';
 
@@ -296,6 +297,7 @@ export class StudyDeckSheet {
   private readonly store = inject(ReviewStore);
   private readonly confirm = inject(Confirm);
   private readonly toasts = inject(Toasts);
+  private readonly removal = inject(RemoveAsking);
   private readonly account = inject(CloudAccount);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly nome = viewChild<ElementRef<HTMLInputElement>>('nome');
@@ -438,27 +440,8 @@ export class StudyDeckSheet {
     if (d) this.study.moveDeck(d.deck.id, d.index + by);
   }
 
-  /**
-   * Apaga o baralho, com a pergunta e o Desfazer: as cartas saem dele, e a que não está em nenhum outro
-   * sai dos Estudos (a anotação continua no mural, com o progresso guardado para o Desfazer).
-   */
+  /** Apaga o baralho, com a pergunta e o Desfazer (ver ui/remove-asking.ts); a página volta para o grupo. */
   protected async remove(): Promise<void> {
-    const d = this.data();
-    if (!d) return;
-    const only = this.study.cards().filter((c) => c.decks.length === 1 && c.decks[0] === d.deck.id && this.study.live(c.note)).length;
-    const yes = await this.confirm.ask({
-      title: `Apagar o baralho ${d.deck.name}?`,
-      text: d.count
-        ? `${d.count === 1 ? 'O flashcard sai' : `Os ${d.count} flashcards saem`} dele${only ? `; ${only === d.count ? (only === 1 ? 'ele não está' : 'eles não estão') : `${only} não ${only === 1 ? 'está' : 'estão'}`} em outro baralho e ${only === 1 ? 'sai' : 'saem'} dos Flashcards, com o progresso` : ''}. Nenhuma anotação é apagada.`
-        : 'Ele está vazio. Nenhuma anotação é apagada.',
-      confirm: 'Apagar o baralho',
-      cancel: 'Deixar',
-      icon: ICON.apagar,
-    });
-    if (!yes) return;
-    this.close();
-    const undo = this.study.removeDeck(d.deck.id);
-    this.removed.emit();
-    if (undo) this.toasts.show(`O baralho ${d.deck.name} foi apagado`, { label: 'Desfazer', run: undo });
+    if (await this.removal.deck(this.deckId(), () => this.close())) this.removed.emit();
   }
 }

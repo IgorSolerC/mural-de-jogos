@@ -37,6 +37,8 @@ import { Settings } from '../core/settings';
 import { readText, writeText } from '../core/storage';
 import { cap } from '../core/text';
 import { CalendarMonth } from '../ui/calendar-month';
+import { ContextMenu, ContextMenuTrigger, MenuItem, MenuSections } from '../ui/context-menu';
+import { RemoveAsking } from '../ui/remove-asking';
 import { GoogleAgenda } from '../core/google-agenda-sync';
 import { GoogleAgendaSheet } from '../ui/google-agenda-sheet';
 import { ClippedReviewCard } from '../ui/calendar-note';
@@ -101,7 +103,7 @@ function tiltOf(id: string): string {
  */
 @Component({
   selector: 'app-calendar-page',
-  imports: [CalendarMonth, ClippedReviewCard, GoogleAgendaSheet, IconModule, ReminderSheet],
+  imports: [CalendarMonth, ClippedReviewCard, ContextMenu, GoogleAgendaSheet, IconModule, ReminderSheet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './calendar-page.html',
   styleUrl: './calendar-page.scss',
@@ -237,7 +239,58 @@ export class CalendarPage {
   /** Nenhum lembrete ainda: a folha do mês ganha a dica de por onde começar. */
   protected readonly empty = computed(() => this.reminders().length === 0);
 
+  /**
+   * O menu do botão direito (ui/context-menu.ts) num lembrete (a tira da semana, a tirinha do mês, o
+   * lembrete do dia) ou num dia (a casa do mês, o alto da coluna da semana): o que ele tem aberto.
+   */
+  protected readonly menuOn = signal<{ reminder: string | null; day: string } | null>(null);
+  private readonly menu = viewChild<ContextMenu>('menu');
+  private readonly removal = inject(RemoveAsking);
+  protected readonly menuCaption = computed(() => {
+    const m = this.menuOn();
+    if (!m) return '';
+    const r = m.reminder ? this.calendar.get(m.reminder) : null;
+    return r ? r.title : cap(`${WEEKDAYS_LONG[weekday(m.day)]}, ${longDay(m.day)}`);
+  });
+  /**
+   * Um lembrete: editar, abrir o dia (fora da página do dia), ler as anotações anexadas e, no fim, apagar (o
+   * evento que só o Google muda, não). Um dia: abri-lo e marcar um lembrete nele.
+   */
+  protected readonly menuSections = computed<MenuSections>(() => {
+    const m = this.menuOn();
+    if (!m) return [];
+    const day = m.day;
+    const openDay: MenuItem[] = this.view() === 'dia' && this.day() === day ? [] : [{ id: 'dia', label: 'Abrir o dia', icon: ICON.calendario, run: () => this.openDay(day) }];
+    const r = m.reminder ? this.calendar.get(m.reminder) : null;
+    if (!r) return [[...openDay, { id: 'novo', label: 'Novo lembrete', icon: ICON.adicionar, dialog: true, run: () => this.create(day) }]];
+    const notes: MenuItem[] = this.notesOf(r)
+      .slice(0, 3)
+      .map((n) => ({ id: `ler-${n.id}`, label: `Ler “${n.game.name}”`, icon: ICON.livros, dialog: true, hint: 'A anotação anexada', run: () => this.read(n.id) }));
+    const end: MenuItem[] = r.google?.lock ? [] : [{ id: 'apagar', label: 'Apagar o lembrete', icon: ICON.apagar, danger: true, dialog: true, run: () => void this.removal.reminder(r, day) }];
+    return [[{ id: 'editar', label: 'Editar', icon: ICON.editar, dialog: true, run: () => this.edit(r, day) }, ...openDay], notes, end];
+  });
+
   constructor() {
+    // o botão direito, o dedo segurado ou Shift+F10 num lembrete ou num dia abre o menu dele
+    new ContextMenuTrigger({
+      host: this.host.nativeElement as HTMLElement,
+      targets: '[data-lembrete], [data-dia]',
+      keyOf: (box) => {
+        const day = box.closest<HTMLElement>('[data-dia]')?.dataset['dia'];
+        const id = box.dataset['lembrete'];
+        if (!day || !isDay(day) || (id && !this.calendar.get(id))) return null;
+        return id ? `${id}|${day}` : `|${day}`;
+      },
+      hold: true,
+      isOpenFor: (key) => !!this.menu()?.isOpenFor(key),
+      open: (key, box, x, y, by) => {
+        const [reminder, day] = key.split('|');
+        this.menuOn.set({ reminder: reminder || null, day });
+        // o foco volta para o botão: a tira, a casa do mês, o lápis do lembrete do dia
+        const back = box.matches('button') ? box : (box.querySelector<HTMLElement>('.editar') ?? box.closest<HTMLElement>('button'));
+        this.menu()?.show({ key, x, y, by, back });
+      },
+    });
     // a última vista fica lembrada neste aparelho
     effect(() => writeText(VIEW_KEY, this.view()));
     // o "Novo lembrete" do topo (e o N): a folha abre no dia aberto (no mês, o do teclado; sem ele, hoje)

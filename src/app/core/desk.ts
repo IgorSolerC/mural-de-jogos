@@ -5,6 +5,8 @@ import { reducedMotion } from './motion';
 
 /** As abas do editor que os ajustes do Kanban e dos Flashcards abrem direto. */
 export type EditorTab = 'kanban' | 'flashcard';
+/** Um pedaço de uma aba que já abre aberto e à vista (o boletim do flashcard, pelo "Ver o progresso"). */
+export type EditorPart = 'progresso';
 
 export interface DeskHandlers {
   newReview(): void;
@@ -25,7 +27,7 @@ export interface DeskHandlers {
   openLoose(review: Review, owner: string, pool: readonly Review[], code: string, signedIn: boolean): void;
   closeReader(): void;
   /** O editor da sua ficha (o "Editar" da leitura e do menu da anotação), ou direto na aba dos ajustes do Kanban e dos Flashcards. */
-  editReview(id: string, tab?: EditorTab): void;
+  editReview(id: string, tab?: EditorTab, part?: EditorPart): void;
   /** Apagar a sua ficha, do jeito da leitura: a pergunta e o Desfazer, ou sair da compartilhada. */
   removeReview(id: string): void;
 }
@@ -87,8 +89,8 @@ export class Desk {
     this.handlers?.closeReader();
   }
 
-  editReview(id: string, tab?: EditorTab): void {
-    this.handlers?.editReview(id, tab);
+  editReview(id: string, tab?: EditorTab, part?: EditorPart): void {
+    this.handlers?.editReview(id, tab, part);
   }
 
   removeReview(id: string): void {

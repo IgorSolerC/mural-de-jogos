@@ -110,7 +110,7 @@
     </div>
 
     @if (studied()) {
-      <details class="bloco progresso">
+      <details #progresso class="bloco progresso" [open]="progressOpen()" (toggle)="progressOpen.set($any($event.target).open)">
         <summary>
           <span class="nome">Progresso</span>
           <span class="resumo">{{ progressLine() }}</span>

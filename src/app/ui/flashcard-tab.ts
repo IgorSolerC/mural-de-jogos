@@ -202,6 +202,25 @@ export class FlashcardTab {
   /** A carta já foi respondida alguma vez: o boletim aparece. */
   protected readonly studied = computed(() => (this.study.cardOf().get(this.noteId())?.stats.seen ?? 0) > 0);
 
+  /** O Progresso aberto (recolhido de começo; o "Ver o progresso" do menu do flashcard abre já nele). */
+  protected readonly progressOpen = signal(false);
+  private readonly progressBox = viewChild<ElementRef<HTMLDetailsElement>>('progresso');
+
+  /** "Ver o progresso" (o menu do flashcard): o boletim aberto, à vista e com o foco no nome dele. */
+  showProgress(): void {
+    this.progressOpen.set(true);
+    // depois do editor, que ao abrir põe o foco na aba (no tempo seguinte) e volta as rolagens para o alto
+    // (no quadro seguinte)
+    setTimeout(() =>
+      requestAnimationFrame(() => {
+        const box = this.progressBox()?.nativeElement;
+        if (!box?.open) return;
+        box.scrollIntoView({ block: 'nearest' });
+        box.querySelector<HTMLElement>('summary')?.focus({ preventScroll: true });
+      }),
+    );
+  }
+
   /** O progresso recolhido, numa linha: o nível e quantas vezes foi visto. */
   protected readonly progressLine = computed(() => {
     const card = this.study.cardOf().get(this.noteId());
@@ -233,6 +252,7 @@ export class FlashcardTab {
    * Devolve se a aba deve abrir sozinha (a "Nova carta" de um baralho).
    */
   reset(id: string, isNew: boolean): boolean {
+    this.progressOpen.set(false);
     this.noteId.set(id);
     this.freshNote.set(isNew);
     this.wallChoice.set(null);

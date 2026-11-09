@@ -7,7 +7,7 @@ import { ICON, IconModule } from './ui/icons';
 import { filter, map } from 'rxjs';
 import { AUTHORIZE_PATH, CALENDAR_PATH, SPENDING_PATH, areaOf, isVisitPath, listOf, pathOf, reviewPath, wallPath } from './core/areas';
 import { Backup } from './core/backup';
-import { Desk, EditorTab } from './core/desk';
+import { Desk, EditorPart, EditorTab } from './core/desk';
 import { keptMessage } from './core/kept-versions';
 import { AppliedItem, ApiRequests, appliedWords, undoable, waitingWords } from './core/api-requests';
 import { NOTES, cap, isNotes, profileOf, revisitCountOf } from './core/kinds';
@@ -244,7 +244,7 @@ export class App {
       },
       openLoose: (review, owner, pool, code, signedIn) => this.reader().openLoose(review, owner, pool, code, signedIn),
       closeReader: () => this.reader().close(),
-      editReview: (id, tab) => this.editReview(id, tab),
+      editReview: (id, tab, part) => this.editReview(id, tab, part),
       removeReview: (id) => void this.removeReview(id),
     });
     // Texturas fotográficas são opcionais: só entram se o arquivo existir.
@@ -363,11 +363,11 @@ export class App {
     if (back) this.reader().open(back);
   }
 
-  protected editReview(id: string, tab?: EditorTab): void {
+  protected editReview(id: string, tab?: EditorTab, part?: EditorPart): void {
     const r = this.store.get(id);
     if (!r) return;
     this.reader().close();
-    this.editor().openAt(r, tab);
+    this.editor().openAt(r, tab, part);
   }
 
   /** "Mudar as dependências" na leitura: a aba Kanban do editor e, ao fechar, de volta à leitura. */

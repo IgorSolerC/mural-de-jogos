@@ -27,12 +27,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-08-traco-dos-icones',
+    id: '2026-11-08-menu-em-todo-lugar',
     version: '1.41.1',
     kind: 'ajustes',
     date: '2026-11-08',
-    title: 'Aba Kanban refeita, ícones pequenos mais finos e Pomodoro sem o seletor de murais',
+    title: 'Botão direito em mais lugares, aba Kanban refeita e ícones pequenos mais finos',
     melhorias: [
+      'O botão direito (ou o dedo segurado, no celular) abre o menu do Murall em mais lugares: nos baralhos e nos flashcards dos Estudos, nas colunas do Kanban, nos lembretes e nos dias do Calendário e nas fichas dos murais de jogos, livros, filmes, séries, animes e músicas.',
+      'No menu de um flashcard, "Ver o progresso" abre o editor já no boletim dele, e "Tirar do baralho" o tira só daquele baralho, com Desfazer.',
       'A aba Kanban do editor foi refeita como a do Flashcard: as colunas, a importância e o resto em toques, com nome à vista, e, ao lado, a anotação dentro da coluna do quadro como vai ficar, entre as vizinhas.',
       'Fora do quadro, a aba mostra só "Transformar em tarefa"; para sair, "Deixar de ser tarefa no Kanban". Levar para uma coluna que finaliza com dependência aberta já avisa na própria aba.',
       'O traço dos ícones acompanha o tamanho deles: o padrão é o das colunas do Kanban, e os menores, como os dos eventos do Calendário e o do baralho nos flashcards, ficam com o traço mais fino na mesma proporção, sem mudar de tamanho. Vale também no cofre.',

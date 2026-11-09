@@ -18,6 +18,7 @@ import { expectEtiquetaPadrao } from '../testing/etiqueta-acoes.spec';
 import { scrollSettled } from '../testing/scroll-settled.spec';
 import { KanbanProps } from '../ui/kanban-props';
 import { NEAR_TUNING, setEverythingNear } from '../ui/near-screen';
+import { Toasts } from '../ui/toast';
 import { KanbanPage } from './kanban-page';
 
 /** A página do Kanban: um quadro por categoria, as colunas com as anotações, mover pelo teclado, o filtro das tags e as folhas. */
@@ -1189,7 +1190,7 @@ describe('página do Kanban', () => {
     hit.dispatchEvent(e);
     await settle();
     expect(e.defaultPrevented).toBeTrue();
-    const menu = host.querySelector<HTMLElement>('.menu-da-nota')!;
+    const menu = host.querySelector<HTMLElement>('.menu-contexto')!;
     expect(menu.matches(':popover-open')).toBeTrue();
     const labels = [...menu.querySelectorAll('.escolha .nome')].map((x) => x.textContent!.trim());
     expect(labels).toContain('Levar para Fazendo');
@@ -1200,6 +1201,78 @@ describe('página do Kanban', () => {
     expect(kanban.boards()[0].cards.find((c) => c.note === 'nlogin01')!.column).toBe('fazendo');
   });
 
+  describe('menu da coluna', () => {
+    const columnMenu = () => host.querySelector<HTMLElement>('app-kanban-page > app-context-menu .menu-contexto')!;
+    const labels = () => [...columnMenu().querySelectorAll('.escolha .nome')].map((x) => x.textContent!.trim());
+    const option = (label: string) => [...columnMenu().querySelectorAll<HTMLButtonElement>('.escolha')].find((b) => b.textContent!.trim() === label)!;
+    const rightClick = async (target: Element) => {
+      const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 30, clientY: 30 });
+      target.dispatchEvent(e);
+      await settle();
+      return e;
+    };
+
+    beforeEach(async () => {
+      kanban.state.set(state(board()));
+      await go(TRAB_URL);
+      await scrollSettled();
+    });
+
+    it('o botão direito na etiqueta abre o menu da coluna: pôr uma anotação, os ajustes, a posição e tirar', async () => {
+      const e = await rightClick(column('fazendo').querySelector('.etiqueta-nome')!);
+      expect(e.defaultPrevented).toBeTrue();
+      expect(columnMenu().matches(':popover-open')).toBeTrue();
+      expect(columnMenu().querySelector('.legenda')!.textContent).toContain('Fazendo');
+      expect(labels()).toEqual(['Nova nota', 'Buscar nota', 'Ajustes da coluna', 'Mover para a esquerda', 'Mover para a direita', 'Tirar a coluna']);
+      // nas pontas, só o lado que dá
+      await rightClick(column('afazer').querySelector('.etiqueta')!);
+      expect(labels()).not.toContain('Mover para a esquerda');
+      expect(labels()).toContain('Mover para a direita');
+    });
+
+    it('numa anotação abre o menu dela, não o da coluna; no vão da coluna e no pé, o da coluna', async () => {
+      await rightClick(host.querySelector('.lugar[data-nota="nlogin01"] .hit')!);
+      expect(columnMenu().matches(':popover-open')).toBeFalse();
+      expect(host.querySelector<HTMLElement>('app-note-menu .menu-contexto')!.matches(':popover-open')).toBeTrue();
+      await rightClick(column('feito').querySelector('.adicionar-btn')!);
+      expect(columnMenu().matches(':popover-open')).toBeTrue();
+      // um menu de cada vez
+      expect(host.querySelector<HTMLElement>('app-note-menu .menu-contexto')!.matches(':popover-open')).toBeFalse();
+      expect(columnMenu().querySelector('.legenda')!.textContent).toContain('Feito');
+    });
+
+    it('a posição muda na hora; os ajustes abrem a folha da coluna; Nova nota abre o editor nela', async () => {
+      await rightClick(column('afazer').querySelector('.etiqueta')!);
+      option('Mover para a direita').click();
+      await settle();
+      expect(kanban.boards()[0].columns.map((c) => c.id)).toEqual(['fazendo', 'afazer', 'feito']);
+      await rightClick(column('feito').querySelector('.etiqueta')!);
+      option('Ajustes da coluna').click();
+      await settle();
+      expect(document.querySelector('app-kanban-column-sheet dialog[open]')).not.toBeNull();
+      document.querySelector<HTMLDialogElement>('app-kanban-column-sheet dialog')!.close();
+      await settle();
+      const newNote = spyOn(TestBed.inject(Desk), 'newNoteIn');
+      await rightClick(column('feito').querySelector('.etiqueta')!);
+      option('Nova nota').click();
+      expect(newNote).toHaveBeenCalled();
+      expect(kanban.pending()).toEqual({ board: TRAB, column: 'feito' });
+    });
+
+    it('tirar a coluna faz a pergunta da folha e leva as anotações para a vizinha, com Desfazer', async () => {
+      const ask = spyOn(TestBed.inject(Confirm), 'ask').and.resolveTo(true);
+      await rightClick(column('afazer').querySelector('.etiqueta')!);
+      option('Tirar a coluna').click();
+      for (let i = 0; i < 10 && kanban.boards()[0].columns.length === 3; i++) await settle();
+      expect(ask.calls.mostRecent().args[0].title).toBe('Tirar a coluna A fazer?');
+      expect(ask.calls.mostRecent().args[0].text).toContain('As 2 anotações dela vão para Fazendo');
+      expect(kanban.boards()[0].columns.map((c) => c.id)).toEqual(['fazendo', 'feito']);
+      expect(kanban.boards()[0].cards.find((c) => c.note === 'nlogin01')!.column).toBe('fazendo');
+      TestBed.inject(Toasts).current()!.action!.run();
+      expect(kanban.boards()[0].columns.map((c) => c.id)).toEqual(['afazer', 'fazendo', 'feito']);
+    });
+  });
+
   it('os "Ajustes no quadro" do menu abrem o editor da anotação, na aba Kanban', async () => {
     kanban.state.set(state(board()));
     await go(TRAB_URL);
@@ -1207,7 +1280,7 @@ describe('página do Kanban', () => {
     const edit = spyOn(TestBed.inject(Desk), 'editReview');
     host.querySelector<HTMLElement>('.lugar[data-nota="nsync001"] .hit')!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 30, clientY: 30 }));
     await settle();
-    const menu = host.querySelector<HTMLElement>('.menu-da-nota')!;
+    const menu = host.querySelector<HTMLElement>('.menu-contexto')!;
     [...menu.querySelectorAll<HTMLButtonElement>('.escolha')].find((b) => b.textContent!.includes('Ajustes no quadro'))!.click();
     await settle();
     expect(edit).toHaveBeenCalledOnceWith('nsync001', 'kanban');
@@ -1227,7 +1300,7 @@ describe('página do Kanban', () => {
     await new Promise((r) => setTimeout(r, 560));
     window.dispatchEvent(new PointerEvent('pointerup', opts(2)));
     await settle();
-    expect(host.querySelector<HTMLElement>('.menu-da-nota')!.matches(':popover-open')).toBeTrue();
+    expect(host.querySelector<HTMLElement>('.menu-contexto')!.matches(':popover-open')).toBeTrue();
     expect(namesIn('afazer')).toEqual(['nlogin01', 'nsync001']);
     expect(document.documentElement.classList).not.toContain('kanban-arrastando');
   });
@@ -1244,7 +1317,7 @@ describe('página do Kanban', () => {
     await new Promise((r) => setTimeout(r, 250));
     window.dispatchEvent(new PointerEvent('pointerup', opts(41)));
     await settle();
-    expect(host.querySelector<HTMLElement>('.menu-da-nota')!.matches(':popover-open')).toBeFalse();
+    expect(host.querySelector<HTMLElement>('.menu-contexto')!.matches(':popover-open')).toBeFalse();
   });
   it('arrastar uma das marcadas leva todas juntas, na ordem do quadro, e elas continuam marcadas', async () => {
     store.update({ ...store.get('nprova01')!, category: 'Trabalho' });

@@ -2,6 +2,7 @@ import { DestroyRef, afterRenderEffect, effect, inject, signal, untracked } from
 import { CopyContexts } from '../core/copy-context';
 import { notesAsText } from '../core/note-copy';
 import { Review } from '../core/review';
+import { MENU_CLASS } from './context-menu';
 import { Toasts } from './toast';
 import { plural } from '../core/text';
 
@@ -112,7 +113,7 @@ export class NoteSelection {
 
   private down(e: PointerEvent): void {
     // o toque no menu da anotação (ver ui/note-menu.ts): copiar as marcadas não pode desmarcá-las antes
-    if (e.target instanceof Element && e.target.closest('.menu-da-nota')) return;
+    if (e.target instanceof Element && e.target.closest(`.${MENU_CLASS}`)) return;
     // o botão direito numa marcada abre o menu dela, com as marcadas ainda marcadas
     if (e.button === 2 && this.onMarked(e)) return;
     if (this.target(e)) {
@@ -156,7 +157,7 @@ export class NoteSelection {
   private key(e: KeyboardEvent): void {
     if (!this.ids().length) return;
     // o Esc do menu da anotação fecha só o menu (ver ui/note-menu.ts)
-    if (e.target instanceof Element && e.target.closest('.menu-da-nota')) return;
+    if (e.target instanceof Element && e.target.closest(`.${MENU_CLASS}`)) return;
     if (e.key === 'Escape') {
       // o Esc que fecha uma tira aberta por cima (a das dependências, o Mais das abas) fecha só ela
       if (document.querySelector('[popover="auto"]:popover-open')) return;

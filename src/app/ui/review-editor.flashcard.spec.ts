@@ -325,6 +325,28 @@ describe('o editor: a aba Flashcard', () => {
     expect(study.cardOf().has('nsol')).toBeFalse();
   });
 
+  it('o "Ver o progresso" (o menu do flashcard) abre a aba com o Progresso aberto e o foco nele; reaberto de outro jeito, recolhido', async () => {
+    store.reviews.set([note('nsol', 'Sol')]);
+    const deck = study.addDeck('Kanjis', 'amarelo');
+    study.addCard('nsol', [deck], { title: '日' }, true);
+    study.answer('nsol', true, deck);
+    fixture.componentInstance.openAt(store.get('nsol')!, 'flashcard', 'progresso');
+    await fixture.whenStable();
+    // o foco chega depois do da aba (no tempo seguinte) e da volta das rolagens (no quadro seguinte)
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => requestAnimationFrame(r));
+    await new Promise((r) => requestAnimationFrame(r));
+    const box = panel().querySelector<HTMLDetailsElement>('details.progresso')!;
+    expect(box.open).toBeTrue();
+    expect(document.activeElement).toBe(box.querySelector('summary'));
+    expect(box.querySelector('app-study-report')).not.toBeNull();
+    el.querySelector<HTMLDialogElement>('dialog')!.close();
+    await fixture.whenStable();
+    fixture.componentInstance.openAt(store.get('nsol')!, 'flashcard');
+    await fixture.whenStable();
+    expect(panel().querySelector<HTMLDetailsElement>('details.progresso')!.open).toBeFalse();
+  });
+
   it('"Deixar de ser flashcard de estudos" salvo avisa com Desfazer, e o evento diz para o aviso de salvar não cobri-lo', async () => {
     store.reviews.set([note('nsol', 'Sol')]);
     const deck = study.addDeck('Kanjis', 'amarelo', null, undefined, 'Estudos');

@@ -107,7 +107,7 @@ import { readText, writeText } from '../core/storage';
 import { reducedMotion } from '../core/motion';
 import { anchorFor, caretY, scrollToShow } from './caret-follow';
 import { SharedStore } from '../core/shared-store';
-import { Desk, type EditorTab } from '../core/desk';
+import { Desk, type EditorPart, type EditorTab } from '../core/desk';
 import { canManage, canWrite, removalOf } from '../core/shared-notes';
 import { ShareSheet } from './share-sheet';
 import { MONTHS_LONG } from '../core/dates';
@@ -1279,11 +1279,12 @@ export class ReviewEditor {
 
   /**
    * Abre a anotação direto numa aba: os ajustes do Kanban e dos Flashcards são as abas deste editor, sem
-   * outra folha para as mesmas coisas.
+   * outra folha para as mesmas coisas. `part`: o pedaço da aba que já abre aberto e à vista (o boletim).
    */
-  openAt(review: Review, tab?: EditorTab): void {
+  openAt(review: Review, tab?: EditorTab, part?: EditorPart): void {
     this.askedTab = tab ?? null;
     this.open(review);
+    if (part === 'progresso' && this.mode() === 'flashcard') this.flashcard().showProgress();
   }
 
   /**

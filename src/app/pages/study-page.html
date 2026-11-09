@@ -111,7 +111,7 @@
 <!-- um baralho como pilha das cartas dele, a próxima por cima, presa com um elástico na cor dele, com o
      papelzinho de quantas vencem hoje; o nome numa tira de papel embaixo -->
 <ng-template #pilha let-d>
-  <a class="pilha" appPerto #perto="perto" [routerLink]="deckPath(d.deck)" [attr.aria-label]="d.deck.name + ', ' + countLabel(d.cards) + (d.deck.public ? ', público' : '') + (d.today ? ', ' + d.today + ' para hoje' : '')">
+  <a class="pilha" appPerto #perto="perto" [routerLink]="deckPath(d.deck)" [attr.data-baralho]="d.deck.id" [attr.aria-label]="d.deck.name + ', ' + countLabel(d.cards) + (d.deck.public ? ', público' : '') + (d.today ? ', ' + d.today + ' para hoje' : '')">
     <span class="monte-cartas" aria-hidden="true" [style.--cor]="'var(--stock-' + d.deck.color + ')'">
       @if (!d.top) {
         <span class="vaga-pilha">Sem flashcards</span>
@@ -159,7 +159,7 @@
   <div class="pasta">
     <div class="pasta-linha linha-estudo">
       @if (deck(); as d) {
-        <div class="trilha">
+        <div class="trilha" [attr.data-baralho]="d.id">
           <!-- o grupo já está na aba aberta logo em cima: à mostra, só "Baralhos" -->
           <a class="tinta voltar" [routerLink]="studyPath(group()!.id)" [title]="'Voltar aos baralhos de ' + group()!.label">
             <lucide-icon [img]="BackIcon" [size]="18" aria-hidden="true" />
@@ -172,7 +172,7 @@
               <span class="sr-only">, público</span>
             }
           </span>
-          <button type="button" class="tinta so-icone" aria-haspopup="dialog" aria-label="Ajustes do baralho" title="Ajustes do baralho" (click)="sheet.set({ id: d.id, fresh: false })">
+          <button type="button" class="tinta so-icone ajustes-baralho" aria-haspopup="dialog" aria-label="Ajustes do baralho" title="Ajustes do baralho" (click)="sheet.set({ id: d.id, fresh: false })">
             <lucide-icon [img]="EditIcon" [size]="18" aria-hidden="true" />
           </button>
         </div>
@@ -314,7 +314,7 @@
           @let up = flipped().has(c.note);
           <!-- só o que está perto da tela é montado: longe, o botão fica (o Tab e o leitor de tela passam por
                todas), com a vaga tracejada do mural no lugar da carta (ver ui/near-screen.ts) -->
-          <li class="carta-li" appPerto #perto="perto" #cartaLi [class.virada]="up" [style.--inclina]="c.tilt + 'deg'" (keydown.escape)="unflip(c.note, cartaLi, $event)">
+          <li class="carta-li" appPerto #perto="perto" #cartaLi [attr.data-carta]="c.note" [class.virada]="up" [style.--inclina]="c.tilt + 'deg'" (keydown.escape)="unflip(c.note, cartaLi, $event)">
             <div class="giro" [class.virada]="up" [class.montada]="turnedOnce().has(c.note)" [class.calma]="calm">
               <!-- pequena, a letra do nível não se lê mais: o nome e o nível na dica do mouse -->
               <button type="button" class="carta-btn" aria-describedby="carta-virar-dica" [attr.aria-pressed]="up" [attr.aria-label]="c.title + ', ' + c.meta + (c.mine ? ', só você vê este flashcard' : '')" [attr.title]="cardSize() === 'pequenas' ? c.title + ', ' + c.meta : null" (click)="flip(c.note, cartaLi)">
@@ -406,7 +406,7 @@
      flashcards cada um traria. O treino não guarda nada (core/study-drill.ts) -->
 <ng-template #treinar>
   @if (drillItems().length) {
-    <app-tab-more class="tinta treinar" [groups]="drillItems()" active="" label="Treinar" groupsLabel="Treinar com" caption="Treinar com quais? Não conta no progresso." (chosen)="train($event)">
+    <app-tab-more #treino class="tinta treinar" [groups]="drillItems()" active="" label="Treinar" groupsLabel="Treinar com" caption="Treinar com quais? Não conta no progresso." (chosen)="train($event)">
       <span class="novo-dentro">
         <lucide-icon [img]="TrainIcon" [size]="18" aria-hidden="true" />
         Treinar
@@ -414,6 +414,9 @@
     </app-tab-more>
   }
 </ng-template>
+
+<!-- o menu do botão direito (e do dedo segurado) num baralho ou num flashcard (ui/context-menu.ts) -->
+<app-context-menu #menu [caption]="menuCaption()" [sections]="menuSections()" (closed)="menuOn.set(null)" />
 
 @if (session(); as s) {
   @defer (on immediate) {

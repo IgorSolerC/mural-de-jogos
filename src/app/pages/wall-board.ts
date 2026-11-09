@@ -162,13 +162,13 @@ export class WallBoard {
       // as fichas redesenhadas recebem as marcas de volta
       layout: this.view.visible,
     });
-    // o botão direito, o dedo segurado ou Shift+F10 numa ficha do mural de anotações (o seu ou o de quem
-    // se visita) abre o menu dela; nos murais de resenhas fica o do navegador
+    // o botão direito, o dedo segurado ou Shift+F10 numa ficha de qualquer mural (o seu ou o de quem se
+    // visita) abre o menu dela (o que ela é diz o que aparece: ver ui/note-menu.ts)
     new NoteMenuTrigger({
       host: this.el,
       markable: WALL_NOTES,
       idOf: wallNoteId,
-      on: () => this.notes() && !side.picking(),
+      on: () => !side.picking(),
       notes: byId,
       menu: this.noteMenu,
       hold: true,

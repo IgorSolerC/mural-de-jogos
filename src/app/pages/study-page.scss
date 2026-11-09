@@ -682,6 +682,19 @@
   }
 }
 
+/* segurar o dedo num baralho ou num flashcard abre o menu dele (ui/context-menu.ts): o balão do iPhone
+   (abrir o link, salvar a imagem) não sai junto; um link do verso fica com o balão dele */
+@supports selector(:popover-open) {
+  .pilha,
+  .carta-li {
+    -webkit-touch-callout: none;
+  }
+
+  .carta-li a[href] {
+    -webkit-touch-callout: default;
+  }
+}
+
 /* o monte: as cartas de baixo aparecendo pela beirada, a de cima, o elástico e a etiqueta */
 .monte-cartas {
   position: relative;

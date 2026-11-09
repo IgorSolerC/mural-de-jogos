@@ -611,4 +611,64 @@ describe('página do Calendário', () => {
       expect(r.google?.at).not.toBe(r.at);
     });
   });
+
+  describe('menu do botão direito', () => {
+    const panel = () => $('app-context-menu .menu-contexto')!;
+    const labels = () => [...panel().querySelectorAll('.escolha .nome')].map(text);
+    const option = (label: string) => [...panel().querySelectorAll<HTMLButtonElement>('.escolha')].find((b) => text(b) === label)!;
+    async function rightClick(target: Element): Promise<MouseEvent> {
+      const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 30, clientY: 30 });
+      target.dispatchEvent(e);
+      await settle();
+      return e;
+    }
+
+    it('a tira de um lembrete na semana: editar, abrir o dia, ler as anotações anexadas e apagar', async () => {
+      await go('/utilidades/calendario?vista=semana&dia=2026-10-21');
+      const tira = $('.tira[data-lembrete="rbolo0001"]')!;
+      expect((await rightClick(tira)).defaultPrevented).toBeTrue();
+      expect(panel().matches(':popover-open')).toBeTrue();
+      expect(text(panel().querySelector('.legenda'))).toContain('Fazer bolo de aniversário');
+      expect(labels()).toEqual(['Editar', 'Abrir o dia', 'Ler “Receita gostosa de bolo”', 'Ler “Calda de chocolate”', 'Apagar o lembrete']);
+      const read = spyOn(desk, 'openReview');
+      option('Ler “Calda de chocolate”').click();
+      expect(read).toHaveBeenCalledWith('ncalda001');
+      await rightClick(tira);
+      option('Editar').click();
+      await settle();
+      expect(sheet()?.open).toBeTrue();
+    });
+
+    it('apagar pelo menu faz a pergunta da folha: no que se repete, só aquele dia', async () => {
+      await go('/utilidades/calendario?vista=dia&dia=2026-10-20');
+      answer = 'secondary';
+      await rightClick($('.lembrete[data-lembrete="rremedio1"] .lembrete-nome')!);
+      // na página do dia, sem o "Abrir o dia"
+      expect(labels()).toEqual(['Editar', 'Apagar o lembrete']);
+      option('Apagar o lembrete').click();
+      for (let i = 0; i < 10 && !calendar.get('rremedio1')!.skip.length; i++) await settle();
+      expect(calendar.get('rremedio1')!.skip).toEqual(['2026-10-20']);
+    });
+
+    it('um dia do mês: abrir o dia e marcar um lembrete nele; a tirinha de um lembrete, o menu dele', async () => {
+      await go('/utilidades/calendario');
+      await rightClick(cell('2026-10-22'));
+      expect(text(panel().querySelector('.legenda'))).toContain('Quinta-feira, 22 de outubro');
+      expect(labels()).toEqual(['Abrir o dia', 'Novo lembrete']);
+      option('Novo lembrete').click();
+      await settle();
+      expect(sheet()?.open).toBeTrue();
+      sheet()!.close();
+      await settle();
+      const chip = cell('2026-10-20').querySelector('[data-lembrete="rbolo0001"]');
+      if (chip) {
+        await rightClick(chip);
+        expect(labels()[0]).toBe('Editar');
+      }
+      await rightClick(cell('2026-10-22'));
+      option('Abrir o dia').click();
+      await settle();
+      expect(router.url).toBe('/utilidades/calendario?vista=dia&dia=2026-10-22');
+    });
+  });
 });

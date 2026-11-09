@@ -6,7 +6,7 @@ import { map } from 'rxjs';
 import { kanbanPath } from '../core/areas';
 import { CategoryLook, categoryColorHex, tagColorHex } from '../core/category-looks';
 import { Desk } from '../core/desk';
-import { DENSE_KEY, KANBAN_LAST_KEY, KanbanBoard, KanbanCard, KanbanColumn, MAX_COLUMNS, addColumn, belongs, boardIdFor, cardsIn, defaultColumns, nextStop, readDense, resetBoard } from '../core/kanban';
+import { DENSE_KEY, KANBAN_LAST_KEY, KanbanBoard, KanbanCard, KanbanColumn, MAX_COLUMNS, addColumn, belongs, boardIdFor, cardsIn, defaultColumns, moveColumn, nextStop, readDense, resetBoard } from '../core/kanban';
 import { KanbanActions } from '../core/kanban-actions';
 import { KanbanDresser } from '../core/kanban-dresser';
 import { sortCards, sortComparator, sortSentence, sortShort, tieRange } from '../core/kanban-sort';
@@ -27,7 +27,9 @@ import { KanbanNote } from '../ui/kanban-note';
 import { NearPool, NearScreen } from '../ui/near-screen';
 import { MuralConfig } from '../ui/mural-config';
 import { NoteSelection } from '../ui/note-selection';
+import { ContextMenu, ContextMenuTrigger, MenuItem, MenuSections } from '../ui/context-menu';
 import { HOLD_MS, NoteMenu, NoteMenuBoard, NoteMenuTrigger } from '../ui/note-menu';
+import { RemoveAsking } from '../ui/remove-asking';
 import { PageWall } from '../ui/page-wall';
 import { Pin } from '../ui/pin';
 import { SearchStrip } from '../ui/search-strip';
@@ -132,7 +134,7 @@ interface BoardTab {
  */
 @Component({
   selector: 'app-kanban-page',
-  imports: [CardPicker, CategoryLabel, ColumnWheel, TabMore, KanbanColumnSheet, KanbanNote, IconModule, MuralConfig, NearScreen, NoteMenu, PageWall, Pin, RouterLink, SearchStrip, FilterCard, FilterTags],
+  imports: [CardPicker, CategoryLabel, ColumnWheel, ContextMenu, TabMore, KanbanColumnSheet, KanbanNote, IconModule, MuralConfig, NearScreen, NoteMenu, PageWall, Pin, RouterLink, SearchStrip, FilterCard, FilterTags],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './kanban-page.html',
   styleUrl: './kanban-page.scss',
@@ -166,6 +168,7 @@ export class KanbanPage {
   private readonly wallView = inject(WallView);
   private readonly desk = inject(Desk);
   private readonly toasts = inject(Toasts);
+  private readonly removal = inject(RemoveAsking);
   private readonly router = inject(Router);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   private readonly injector = inject(Injector);
@@ -578,6 +581,37 @@ export class KanbanPage {
     board: (id) => this.menuBoard(id),
   });
 
+  /**
+   * O menu do botão direito numa coluna (a etiqueta, o vão entre as anotações e o pé; as anotações têm o
+   * delas): pôr uma anotação nela, os ajustes, a posição e tirar a coluna, como a folha dela faz.
+   */
+  private readonly columnMenu = viewChild<ContextMenu>('menuDaColuna');
+  /** A coluna do menu aberto. */
+  protected readonly columnMenuOn = signal<string | null>(null);
+  protected readonly columnCaption = computed(() => this.board()?.columns.find((c) => c.id === this.columnMenuOn())?.name ?? '');
+  protected readonly columnSections = computed<MenuSections>(() => {
+    const b = this.board();
+    const id = this.columnMenuOn();
+    const index = b?.columns.findIndex((c) => c.id === id) ?? -1;
+    if (!b || !id || index < 0) return [];
+    const add: MenuItem[] = [
+      { id: 'nova', label: 'Nova nota', icon: ICON.novaNota, dialog: true, hint: 'Uma anotação nova, já nesta coluna', run: () => this.createNote(id) },
+      { id: 'buscar', label: 'Buscar nota', icon: ICON.buscar, dialog: true, hint: 'Uma anotação que você já tem, para pôr nesta coluna', run: () => this.searchNote(id) },
+    ];
+    const adjust: MenuItem[] = [{ id: 'ajustes', label: 'Ajustes da coluna', icon: ICON.editar, dialog: true, hint: 'O nome, o desenho, a cor, o finalizar, o card padrão e a ordem', run: () => this.columnSheet.set({ id, fresh: false }) }];
+    if (index > 0) adjust.push({ id: 'esquerda', label: 'Mover para a esquerda', icon: ICON.anterior, run: () => this.shiftColumn(id, -1) });
+    if (index < b.columns.length - 1) adjust.push({ id: 'direita', label: 'Mover para a direita', icon: ICON.proximo, run: () => this.shiftColumn(id, 1) });
+    const end: MenuItem[] = b.columns.length > 1 ? [{ id: 'tirar', label: 'Tirar a coluna', icon: ICON.apagar, danger: true, dialog: true, run: () => void this.removal.column(b.id, id) }] : [];
+    return [add, adjust, end];
+  });
+
+  /** Leva a coluna um lugar para o lado (como as setas da folha dela). */
+  private shiftColumn(id: string, by: number): void {
+    const b = this.board();
+    const index = b?.columns.findIndex((c) => c.id === id) ?? -1;
+    if (b && index >= 0) this.kanban.update(b.id, (board, at) => moveColumn(board, id, index + by, at));
+  }
+
   /** O que o quadro põe no menu de uma ficha dele: a seta para a coluna seguinte e os ajustes. */
   private menuBoard(id: string): NoteMenuBoard | null {
     const card = this.board()?.cards.find((c) => c.note === id);
@@ -591,6 +625,22 @@ export class KanbanPage {
   }
 
   constructor() {
+    // o botão direito, o dedo segurado ou Shift+F10 numa coluna abre o menu dela (depois do das anotações,
+    // criado antes: numa anotação, quem atende é o dela)
+    new ContextMenuTrigger({
+      host: this.host,
+      targets: '.coluna[data-coluna]',
+      keyOf: (box) => box.getAttribute('data-coluna'),
+      // as anotações têm o menu delas; o Adicionar aberto, os botões dele
+      ignore: '.lugar, .adicionar-menu',
+      on: () => !this.drag(),
+      hold: true,
+      isOpenFor: (id) => !!this.columnMenu()?.isOpenFor(id),
+      open: (id, box, x, y, by) => {
+        this.columnMenuOn.set(id);
+        this.columnMenu()?.show({ key: id, x, y, by, back: box.querySelector<HTMLElement>('.etiqueta-btn') });
+      },
+    });
     const destroy = inject(DestroyRef);
     // o card padrão das colunas veste as anotações que chegam (ver core/kanban-dresser.ts)
     inject(KanbanDresser);

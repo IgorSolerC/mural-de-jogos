@@ -185,8 +185,11 @@ export class TabMore {
     else if (!was) this.show();
   }
 
-  /** Abre embaixo (ou em cima) da orelha, com o foco na aberta (ou na última, pela seta para cima). */
-  private show(focusLast = false): void {
+  /**
+   * Abre embaixo (ou em cima) da orelha, com o foco na aberta (ou na última, pela seta para cima). Também de
+   * fora: o "Treinar" do menu do botão direito de um baralho abre o remendo do Treinar.
+   */
+  show(focusLast = false): void {
     const list = this.all();
     if (!list.length) return;
     const start = focusLast ? list.at(-1)! : (list.find((x) => x.key === this.active()) ?? list[0]);

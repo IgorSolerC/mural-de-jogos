@@ -269,7 +269,7 @@
   text-shadow: var(--chalk-shadow);
 }
 
-/* No mural de anotações, segurar o dedo numa ficha abre o menu dela (ver ui/note-menu.ts): o balão
+/* Em todo mural, segurar o dedo numa ficha abre o menu dela (ver ui/note-menu.ts): o balão
    do iPhone (salvar a imagem) não sai junto. Herda para as fichas e as linhas da lista; um link do
    texto fica com o balão dele (abrir, copiar o endereço). Sem popover no navegador, não há menu. */
 @supports selector(:popover-open) {

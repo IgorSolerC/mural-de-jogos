@@ -73,7 +73,7 @@ interface Cell {
                   @if (c.chips.length) {
                     <span class="tirinhas" aria-hidden="true">
                       @for (t of c.chips; track t.id) {
-                        <span class="tirinha cartolina" [class.passou]="t.past" [class.emenda-antes]="t.before" [class.emenda-depois]="t.after" [attr.data-cor]="t.color" [style.--stock]="'var(--stock-' + t.color + ')'">
+                        <span class="tirinha cartolina" [attr.data-lembrete]="t.id" [class.passou]="t.past" [class.emenda-antes]="t.before" [class.emenda-depois]="t.after" [attr.data-cor]="t.color" [style.--stock]="'var(--stock-' + t.color + ')'">
                           @if (t.time) {
                             <span class="tirinha-hora">{{ t.time }}</span>
                           }

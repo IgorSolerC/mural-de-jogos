@@ -1,14 +1,14 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, ICON_CHOICE, ICON_CHOICE_LABEL, IconModule } from './icons';
-import { COLUMN_ICONS, ColumnIcon, NAME_MAX, cardsIn, moveColumn, nextStop, removeColumn, sortAllColumns, updateColumn } from '../core/kanban';
+import { COLUMN_ICONS, ColumnIcon, NAME_MAX, cardsIn, moveColumn, nextStop, sortAllColumns, updateColumn } from '../core/kanban';
 import { SORT_DIRS, SORT_KEYS, SORT_LABEL, SortKey, SortRule, sameSort, sortSentence } from '../core/kanban-sort';
 import { KanbanStore } from '../core/kanban-store';
 import { LIGHT_STOCKS, LightStock } from '../core/review';
 import { BackdropClose } from './backdrop-close';
 import { KanbanReviewCard } from './kanban-note';
 import { KanbanTemplateSheet, sampleNote } from './kanban-template-sheet';
-import { Confirm } from './confirm';
+import { RemoveAsking } from './remove-asking';
 import { Pin } from './pin';
 import { Toasts } from './toast';
 
@@ -41,16 +41,6 @@ const SORT_ICON: Record<SortKey, LucideIconData> = {
  * empate, por outro, cada um no seu sentido), a posição e tirar a coluna. Vale na hora; a etiqueta de prévia
  * em cima é a mesma da coluna.
  */
-/**
- * O que tirar a coluna faz com o check das anotações que vão para a vizinha: nada (ir para lá não é
- * arrastar), e a frase diz isso quando a vizinha finaliza e esta não, ou o contrário.
- */
-function keeps(from: boolean, to: boolean): string {
-  if (from && !to) return ', e as finalizadas continuam finalizadas';
-  if (!from && to) return ', e as abertas continuam abertas';
-  return '';
-}
-
 @Component({
   selector: 'app-kanban-column-sheet',
   imports: [BackdropClose, KanbanReviewCard, KanbanTemplateSheet, IconModule, Pin],
@@ -293,7 +283,7 @@ export class KanbanColumnSheet {
   protected readonly nameMax = NAME_MAX;
 
   private readonly kanban = inject(KanbanStore);
-  private readonly confirm = inject(Confirm);
+  private readonly removal = inject(RemoveAsking);
   private readonly toasts = inject(Toasts);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly nome = viewChild<ElementRef<HTMLInputElement>>('nome');
@@ -429,24 +419,8 @@ export class KanbanColumnSheet {
     this.kanban.update(d.board.id, (b, at) => moveColumn(b, d.col.id, d.index + by, at));
   }
 
-  /** Tira a coluna: as anotações dela vão para a vizinha (a da esquerda, ou a da direita), com Desfazer. */
-  protected async remove(): Promise<void> {
-    const d = this.data();
-    if (!d || d.board.columns.length <= 1) return;
-    const into = d.board.columns[d.index - 1] ?? d.board.columns[d.index + 1];
-    const yes = await this.confirm.ask({
-      title: `Tirar a coluna ${d.col.name}?`,
-      text: d.count
-        ? `${d.count === 1 ? 'A anotação dela vai' : `As ${d.count} anotações dela vão`} para ${into.name}. Nenhuma anotação sai do mural${keeps(d.col.finishes, into.finishes)}.`
-        : 'Ela está vazia. Nenhuma anotação sai do mural.',
-      confirm: 'Tirar a coluna',
-      cancel: 'Deixar',
-      icon: ICON.apagar,
-    });
-    if (!yes) return;
-    const before = this.kanban.get(d.board.id);
-    this.close();
-    this.kanban.update(d.board.id, (b, at) => removeColumn(b, d.col.id, into.id, at));
-    if (before) this.toasts.show(`A coluna ${d.col.name} saiu do quadro`, { label: 'Desfazer', run: () => this.kanban.restore(before) });
+  /** Tira a coluna: as anotações dela vão para a vizinha, com a pergunta e o Desfazer (ver ui/remove-asking.ts). */
+  protected remove(): Promise<boolean> {
+    return this.removal.column(this.boardId(), this.columnId(), () => this.close());
   }
 }

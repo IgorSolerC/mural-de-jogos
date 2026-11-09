@@ -306,6 +306,15 @@ export class StudyStore {
   }
 
   /**
+   * Tira a carta de um baralho só, sem mexer nos outros dela, nem nos de outro grupo em que ela dorme (o
+   * "Tirar de" do menu do flashcard). Sem baralho nenhum, ela sai dos Estudos.
+   */
+  leaveDeck(note: string, deck: string): void {
+    const card = this.state().cards.find((c) => c.note === note);
+    if (card) this.set(setDecks(this.state(), note, card.decks.filter((d) => d !== deck), this.stamp()));
+  }
+
+  /**
    * A anotação sem grupo que vai virar carta de `decks` (um pedido da API sem grupo, como a "Nova carta"
    * da tela): ganha o grupo do primeiro baralho. A que já tem grupo fica com o dela.
    */

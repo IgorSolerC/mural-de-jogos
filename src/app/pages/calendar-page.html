@@ -69,7 +69,7 @@
       <ol class="semana">
         @for (c of week(); track c.day) {
           <li class="dia-col" [class.hoje]="c.today" [class.domingo]="c.sunday">
-            <button type="button" class="dia-cab" [attr.aria-label]="c.label + '. Abrir o dia'" [attr.aria-current]="c.today ? 'date' : null" (click)="openDay(c.day)">
+            <button type="button" class="dia-cab" [attr.data-dia]="c.day" [attr.aria-label]="c.label + '. Abrir o dia'" [attr.aria-current]="c.today ? 'date' : null" (click)="openDay(c.day)">
               <span class="dsem" aria-hidden="true">{{ c.short }}</span>
               <span class="dnum" aria-hidden="true">{{ c.n }}</span>
             </button>
@@ -83,6 +83,8 @@
                     <button
                       type="button"
                       class="tira cartolina"
+                      [attr.data-lembrete]="r.id"
+                      [attr.data-dia]="c.day"
                       [class.passou]="passou"
                       [class.emenda-antes]="seg && !seg.first"
                       [class.emenda-depois]="seg && !seg.last"
@@ -169,7 +171,7 @@
               @let passou = past(r, day());
               @let notas = notesOf(r);
               <li class="entrada">
-                <div class="lembrete cartolina" [class.passou]="passou" [class.destaque]="r.id === spotlight()" [attr.data-cor]="r.color" [style.--stock]="'var(--stock-' + r.color + ')'" [style.--giro]="tiltOf(r.id)">
+                <div class="lembrete cartolina" [attr.data-lembrete]="r.id" [attr.data-dia]="day()" [class.passou]="passou" [class.destaque]="r.id === spotlight()" [attr.data-cor]="r.color" [style.--stock]="'var(--stock-' + r.color + ')'" [style.--giro]="tiltOf(r.id)">
                   <div class="lembrete-texto">
                     <p class="lembrete-nome">@if (r.icon) {<lucide-icon class="nome-icone" [img]="choiceIcon[r.icon]" [size]="21" aria-hidden="true" />}{{ r.title }}@if (passou) {<span class="sr-only"> (já passou)</span>}</p>
                     <p class="lembrete-meta">
@@ -215,6 +217,9 @@
     </div>
   }
 }
+
+<!-- o menu do botão direito (e do dedo segurado) num lembrete ou num dia (ui/context-menu.ts) -->
+<app-context-menu #menu [caption]="menuCaption()" [sections]="menuSections()" (closed)="menuOn.set(null)" />
 
 @if (googleOpen()) {
   <app-google-agenda-sheet (closed)="googleOpen.set(false)" />
