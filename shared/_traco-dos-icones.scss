@@ -1,0 +1,24 @@
+@use 'sass:math';
+
+// A grossura do traço dos ícones que o CSS mede (em `em`, `cqi` ou pelo pai), a mesma regra de
+// `shared/traco-dos-icones.ts`: até o padrão (o ícone de 20 px das colunas do Kanban), um décimo do lado;
+// acima dele, os 2 px do padrão. O desenho ocupa a caixa inteira, e o traço sai do tamanho que a caixa
+// tem na tela (`cqmin`), contado em px de tela (`non-scaling-stroke`), e não do `size` do ícone.
+
+/* os mesmos números de `ICONE_PADRAO` e `TRACO_PADRAO` (projects/cofre/regras.test.mjs confere) */
+$padrao: 20px;
+$traco: 2px;
+
+/* no elemento que tem o tamanho do ícone (largura e altura dadas pelo CSS), com o svg dentro */
+@mixin medido {
+  container-type: size;
+
+  svg {
+    width: 100%;
+    height: 100%;
+    stroke-width: min(#{$traco}, #{math.div(100 * $traco, $padrao)}cqmin);
+  }
+  svg * {
+    vector-effect: non-scaling-stroke;
+  }
+}

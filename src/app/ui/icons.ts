@@ -1,4 +1,4 @@
-import { Directive, NgModule, inject } from '@angular/core';
+import { Directive, Input, NgModule, inject } from '@angular/core';
 import {
   Accessibility,
   Activity,
@@ -259,6 +259,9 @@ import {
 } from 'lucide-angular';
 import { CARTELA_DE_ICONES } from '../../../shared/cartela-de-icones';
 import { ICON_CHOICES, IconChoice, isIconChoice } from '../core/icon-choices';
+import { GRADE_DO_ICONE, tracoNaGrade } from '../../../shared/traco-dos-icones';
+
+export { ICONE_PADRAO, TRACO_PADRAO, tracoNaGrade } from '../../../shared/traco-dos-icones';
 
 /**
  * O acervo de ícones do site: todo desenho de interface vem daqui, e cada ideia tem um desenho só
@@ -270,13 +273,11 @@ import { ICON_CHOICES, IconChoice, isIconChoice } from '../core/icon-choices';
  * (a caveira com chifres, os das abas do estojo, o link para outra anotação) seguem o mesmo quadro e
  * o mesmo traço, para ficarem lado a lado com os outros sem destoar.
  *
- * A grossura da linha é uma só, `ICON_STROKE` px, em todo ícone de todo tamanho (ver `IconStroke`):
- * o ícone de 13px da orelha de um grupo e o de 19px da orelha de uma pasta do perfil têm o mesmo
- * traço, como a caneta que desenhou os dois.
+ * A grossura da linha segue o tamanho (ver `IconStroke` e shared/traco-dos-icones.ts): o padrão é o
+ * ícone de 20px da etiqueta de uma coluna do Kanban, com 2px; menor que ele, o traço afina na mesma
+ * proporção (o de 12px de um evento do Calendário risca com 1,2px), e maior fica nos 2px. Quem usa o
+ * ícone escolhe só o tamanho.
  */
-
-/** A grossura do traço de todo ícone, em px de tela (a mesma em qualquer tamanho). */
-export const ICON_STROKE = 2;
 
 /** A caveira do topo da dificuldade (Infernal): a do Lucide, com dois chifres curtos num contorno só. */
 const HORNED_SKULL: LucideIconData = [
@@ -640,7 +641,8 @@ const MASKS = new Map<IconChoice, string>();
 /**
  * O desenho de uma escolha da cartela como `url(...)` de um SVG, para a `mask` do CSS (o desenho na cor da
  * letra, onde um `<lucide-icon>` não entra: o link de lembrete no texto, que desenha o ícone depois das
- * letras). O traço é o do desenho do calendário que ele substitui ali (2,4 no grid de 24). Feito uma vez
+ * letras). O traço é o dos ícones até o padrão (`tracoNaGrade()`, 2,4 no grid de 24): a máscara tem o
+ * tamanho da letra e o traço vai junto, como o do desenho do calendário que ele substitui ali. Feito uma vez
  * por desenho, só quando alguém pede; null para o que não é da cartela.
  */
 export function iconMask(id: IconChoice | null | undefined): string | null {
@@ -648,7 +650,7 @@ export function iconMask(id: IconChoice | null | undefined): string | null {
   let url = MASKS.get(id);
   if (!url) {
     const parts = ICON_CHOICE[id].map(([tag, attrs]) => `<${tag} ${Object.entries(attrs).filter(([k]) => k !== 'key').map(([k, v]) => `${k}="${v}"`).join(' ')}/>`);
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${parts.join('')}</svg>`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="${tracoNaGrade()}" stroke-linecap="round" stroke-linejoin="round">${parts.join('')}</svg>`;
     url = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
     MASKS.set(id, url);
   }
@@ -662,17 +664,23 @@ export function iconChoiceOf(icon: LucideIconData): IconChoice | null {
 }
 
 /**
- * Todo `<lucide-icon>` do site desenha a linha com `ICON_STROKE` px, de qualquer tamanho. A
- * configuração do Lucide não serve para isso (o componente começa com `absoluteStrokeWidth` falso e
- * nunca olha a dela), então a diretiva liga no próprio ícone, antes de ele se desenhar. Quem usa o
- * ícone não escolhe grossura: só o tamanho.
+ * Todo `<lucide-icon>` do site risca a linha pelo tamanho dele (`tracoNaGrade`): 2,4 na grade de 24 até o
+ * padrão de 20px (um décimo do lado na tela) e os 2px do padrão acima dele. A configuração do Lucide não
+ * serve para isso (ela não sabe o tamanho de cada um), então a diretiva lê o mesmo `size` do ícone e
+ * troca o traço antes de ele se desenhar (o `@Input` chega antes do `ngOnChanges` do ícone). Quem usa o
+ * ícone não escolhe grossura: só o tamanho. Sem `size`, o CSS mede o ícone, e os 2,4 acompanham.
  */
 @Directive({ selector: 'lucide-icon, lucide-angular, i-lucide, span-lucide' })
 export class IconStroke {
+  private readonly icon = inject(LucideAngularComponent);
+
   constructor() {
-    const icon = inject(LucideAngularComponent);
-    icon.absoluteStrokeWidth = true;
-    icon.strokeWidth = ICON_STROKE;
+    this.icon.strokeWidth = tracoNaGrade();
+  }
+
+  /** O `size` que some (null) volta aos 24 do Lucide, e o traço vai com ele. */
+  @Input() set size(tamanho: string | number | null | undefined) {
+    this.icon.strokeWidth = tracoNaGrade(Number(tamanho) || GRADE_DO_ICONE);
   }
 }
 

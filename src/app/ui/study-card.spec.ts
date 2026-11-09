@@ -249,4 +249,22 @@ describe('a frente da carta (ui/study-card.ts)', () => {
     show('classica', LEARNING);
     expect(getComputedStyle($('.titulo')!).color).not.toBe(ink);
   });
+
+  it('o ícone do baralho escala com a carta, e o traço com ele: um décimo do lado até 20px, e 2px acima (shared/_traco-dos-icones.scss)', () => {
+    show('selo', null);
+    const medida = (largura: number) => {
+      (el.querySelector('app-study-card') as HTMLElement).style.width = `${largura}px`;
+      const svg = $('.ic svg')!;
+      const lado = svg.getBoundingClientRect().width;
+      const desenho = getComputedStyle(svg.querySelector('path, rect, circle')!);
+      expect(desenho.vectorEffect).toBe('non-scaling-stroke');
+      return { lado, traco: parseFloat(desenho.strokeWidth) };
+    };
+    const pequena = medida(200);
+    expect(pequena.lado).toBeCloseTo(12, 0);
+    expect(pequena.traco).toBeCloseTo(pequena.lado / 10, 1);
+    const grande = medida(500);
+    expect(grande.lado).toBeCloseTo(30, 0);
+    expect(grande.traco).toBeCloseTo(2, 2);
+  });
 });

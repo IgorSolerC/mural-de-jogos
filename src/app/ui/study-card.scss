@@ -1,3 +1,5 @@
+@use '../../../shared/traco-dos-icones' as traco;
+
 /*
  * A carta de estudo: em pé, na proporção das cartas de baralho (5:7). O tamanho vem de quem a põe (a
  * parede do baralho, a pilha, a sessão); tudo dentro escala com a largura dela (`cqi`, 1 = 1% da largura;
@@ -135,11 +137,10 @@
   flex: none;
   width: 6cqi;
   height: 6cqi;
-
-  ::ng-deep svg {
-    width: 100%;
-    height: 100%;
-  }
+}
+/* o ícone do baralho escala com a carta: o traço sai do tamanho dele na tela, como o de todo ícone */
+:host ::ng-deep .ic {
+  @include traco.medido;
 }
 
 /* o nível como selo de tinta (a Clássica e a Orelha) */

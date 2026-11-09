@@ -8,7 +8,7 @@ import { categoryIcon } from './category-label';
 import { AtSign, Baby, BedDouble, Bike, Bus, Cake, Car, Cat, Cctv, ChartLine, Cloud, Code, Coffee, CreditCard, Database, Dices, Dog, Droplet, Dumbbell, FileText, FingerprintPattern, Gamepad2, Gift, Headphones, HeartPulse, House, IdCard, KeyRound, Laptop, Lock, Luggage, Mail, MapPin, MessageCircle, MonitorPlay, Newspaper, PartyPopper, Phone, PiggyBank, Pill, Plug, Printer, Receipt, School, Server, ShieldCheck, ShoppingBag, Smartphone, Sprout, SquareTerminal, Store, Ticket, TreePalm, Tv, UserRound, Utensils, Volleyball, Wallet, Wifi, Wrench } from 'lucide-angular';
 import { CARTELA_DE_ICONES, CORES_DA_CARTELA, CORES_SORTEAVEIS } from '../../../shared/cartela-de-icones';
 import { CATEGORY_COLORS } from '../core/category-looks';
-import { ICON, ICON_CHOICE, ICON_CHOICE_LABEL, ICON_STROKE, IconModule, iconChoiceOf, iconMask } from './icons';
+import { ICON, ICON_CHOICE, ICON_CHOICE_LABEL, ICONE_PADRAO, IconModule, TRACO_PADRAO, iconChoiceOf, iconMask, tracoNaGrade } from './icons';
 
 /** As cartelas de antes, uma de cada lugar: todo id guardado nelas tem de continuar valendo. */
 const OLD_CATEGORY_IDS = [
@@ -29,7 +29,7 @@ const OLD_COLUMN_IDS = [
 })
 class IconHost {
   readonly icon = ICON.fechar;
-  readonly size = signal(13);
+  readonly size = signal<number | null>(13);
 }
 
 describe('O acervo de ícones', () => {
@@ -113,17 +113,37 @@ describe('O acervo de ícones', () => {
     expect(b.columns.map((c) => c.icon)).toEqual(['maleta', 'circulo']);
   });
 
-  it(`todo ícone risca a linha com ${ICON_STROKE}px, de qualquer tamanho`, () => {
+  it('o traço segue o tamanho: um décimo do lado até o ícone das colunas do Kanban (20px, 2px), e 2px acima dele', () => {
     TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
     const f = TestBed.createComponent(IconHost);
-    const px = () => {
+    const svg = () => {
       f.detectChanges();
-      const svg = (f.nativeElement as HTMLElement).querySelector('svg')!;
-      return (Number(svg.getAttribute('stroke-width')) * Number(svg.getAttribute('width'))) / 24;
+      return (f.nativeElement as HTMLElement).querySelector('svg')!;
     };
-    expect(px()).toBeCloseTo(ICON_STROKE, 2);
-    f.componentInstance.size.set(26);
-    expect(px()).toBeCloseTo(ICON_STROKE, 2);
+    /** o traço em px de tela: o da grade de 24 vezes o lado sobre 24 */
+    const px = () => (Number(svg().getAttribute('stroke-width')) * Number(svg().getAttribute('width'))) / 24;
+    expect(ICONE_PADRAO).toBe(20);
+    expect(TRACO_PADRAO).toBe(2);
+    for (const [lado, traco] of [[20, 2], [16, 1.6], [13, 1.3], [12, 1.2], [10, 1], [22, 2], [26, 2], [44, 2]]) {
+      f.componentInstance.size.set(lado);
+      expect(Number(svg().getAttribute('width'))).withContext(`o lado de ${lado}px não muda`).toBe(lado);
+      expect(px()).withContext(`${lado}px`).toBeCloseTo(traco, 2);
+    }
+    // de 20 para baixo, a grade fica nos 2,4: o traço acompanha o ícone mesmo quando o CSS o estica
+    f.componentInstance.size.set(14);
+    expect(svg().getAttribute('stroke-width')).toBe('2.4');
+    // o tamanho que some volta aos 24 do Lucide, com os 2px de cima do padrão
+    f.componentInstance.size.set(null);
+    expect(Number(svg().getAttribute('width'))).toBe(24);
+    expect(px()).toBeCloseTo(2, 2);
+  });
+
+  it('a conta do traço, fora do Angular: 2,4 na grade até 20px (e sem tamanho), e 48 / lado acima', () => {
+    expect(tracoNaGrade()).toBe(2.4);
+    expect(tracoNaGrade(12)).toBe(2.4);
+    expect(tracoNaGrade(20)).toBe(2.4);
+    expect(tracoNaGrade(24)).toBe(2);
+    expect(tracoNaGrade(30)).toBe(1.6);
   });
 });
 

@@ -1,11 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { CARTELA_DE_ICONES, type IdDoIcone } from '../../../../shared/cartela-de-icones';
+import { tracoNaGrade } from '../../../../shared/traco-dos-icones';
 
 type Elemento = readonly ['path', { readonly d: string }] | readonly ['circle', { readonly cx: number; readonly cy: number; readonly r: number }] | readonly ['rect', { readonly x: number; readonly y: number; readonly width: number; readonly height: number; readonly rx: number }];
 
 /**
- * Os desenhos do cofre, copiados dos ícones Lucide (os mesmos traços do acervo do Murall), 24×24 com
- * traço de 2px. Ficam aqui, em dados, porque o cofre não importa nada de fora (nem o lucide-angular) e
+ * Os desenhos do cofre, copiados dos ícones Lucide (os mesmos traços do acervo do Murall), 24×24, com
+ * o traço do tamanho do ícone (shared/_traco-dos-icones.scss). Ficam aqui, em dados, porque o cofre não importa nada de fora (nem o lucide-angular) e
  * não monta HTML a partir de texto.
  */
 export const ICONES = {
@@ -159,7 +160,7 @@ export type NomeDoIcone = keyof typeof ICONES;
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { 'aria-hidden': 'true' },
   template: `
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" [attr.stroke-width]="traco" stroke-linecap="round" stroke-linejoin="round" focusable="false">
       @for (e of desenho(); track $index) {
         @switch (e[0]) {
           @case ('path') {
@@ -187,20 +188,11 @@ export type NomeDoIcone = keyof typeof ICONES;
       }
     </svg>
   `,
-  styles: `
-    :host {
-      display: inline-flex;
-      flex: none;
-      width: 20px;
-      height: 20px;
-    }
-    svg {
-      width: 100%;
-      height: 100%;
-    }
-  `,
+  styleUrl: './icone.scss',
 })
 export class Icone {
+  /** O traço na grade de 24 até o padrão; o `medido` (icone.scss) o troca pelo do tamanho na tela. */
+  protected readonly traco = tracoNaGrade();
   readonly nome = input<NomeDoIcone | null>(null);
   readonly cartela = input<IdDoIcone | null>(null);
   protected readonly desenho = computed<readonly (readonly [string, object])[]>(() => {

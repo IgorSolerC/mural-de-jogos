@@ -1,5 +1,5 @@
 import type { LucideIconData } from 'lucide-angular';
-import { ICON } from '../icons';
+import { ICON, tracoNaGrade } from '../icons';
 
 /**
  * Os botões que moram nas peças do Visual (o widget selecionado, o card do cursor, a tabela do cursor):
@@ -24,11 +24,11 @@ export interface Opcao {
 /** Até quantas escolhas as bolinhas aparecem (mais que isso, elas viram uma fileira que ninguém conta: a conta, "3/9"). */
 const BOLAS_MAX = 5;
 
-/** O desenho de um ícone (o mesmo traço do resto do site), fora do Angular. */
+/** O desenho de um ícone (o mesmo traço do resto do site: o CSS dá o tamanho, e o traço vai junto), fora do Angular. */
 export function desenho(icone: LucideIconData): SVGSVGElement {
   const ns = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(ns, 'svg');
-  const attrs: Record<string, string> = { width: '16', height: '16', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' };
+  const attrs: Record<string, string> = { width: '16', height: '16', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': String(tracoNaGrade()), 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' };
   for (const [k, v] of Object.entries(attrs)) svg.setAttribute(k, v);
   for (const [tag, a] of icone) {
     const el = document.createElementNS(ns, tag);

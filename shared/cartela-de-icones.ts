@@ -6,7 +6,7 @@
  *
  * Os ids ficam guardados (nas configurações do mural, nos quadros e dentro das senhas cifradas), então
  * nunca mudam de nome nem de sentido; um desenho novo entra no fim. Cada desenho são os elementos de um
- * ícone do Lucide (24×24, traço de 2px), copiados como dados: o Murall desenha com o lucide-angular, e o
+ * ícone do Lucide (24×24; o traço segue o tamanho, ver `traco-dos-icones.ts`), copiados como dados: o Murall desenha com o lucide-angular, e o
  * cofre, que não importa nada de fora, com o `<cofre-icone>` dele. O teste `src/app/ui/icons.spec.ts`
  * confere que cada desenho é o do Lucide.
  *

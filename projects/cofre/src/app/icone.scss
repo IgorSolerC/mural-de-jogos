@@ -1,0 +1,10 @@
+@use '../../../../shared/traco-dos-icones' as traco;
+
+/* o tamanho vem de quem usa (20px sem nada); o traço sai dele, como no Murall (shared/traco-dos-icones.ts) */
+:host {
+  display: inline-flex;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  @include traco.medido;
+}

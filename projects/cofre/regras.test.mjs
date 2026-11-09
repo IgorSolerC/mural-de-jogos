@@ -113,6 +113,16 @@ test('o que o cofre divide com o Murall é só dados e desenho: nenhum import, n
   }
 });
 
+test('o traço dos ícones tem os mesmos números no TS e no SCSS (shared/traco-dos-icones)', () => {
+  const ts = readFileSync(join(COMPARTILHADA, 'traco-dos-icones.ts'), 'utf8');
+  const scss = readFileSync(join(COMPARTILHADA, '_traco-dos-icones.scss'), 'utf8');
+  const doTs = (nome) => Number(ts.match(new RegExp(`export const ${nome} = ([\\d.]+);`))?.[1]);
+  const doScss = (nome) => Number(scss.match(new RegExp(`^\\$${nome}: ([\\d.]+)px;`, 'm'))?.[1]);
+  assert.ok(doTs('ICONE_PADRAO') > 0 && doTs('TRACO_PADRAO') > 0);
+  assert.equal(doScss('padrao'), doTs('ICONE_PADRAO'));
+  assert.equal(doScss('traco'), doTs('TRACO_PADRAO'));
+});
+
 test('a parede de eucatex do cofre e a do Murall são o mesmo desenho (shared/_eucatex.scss)', () => {
   const cofre = readFileSync(join(fonte, 'styles.scss'), 'utf8');
   const murall = readFileSync(join(raiz, '..', '..', 'src', 'styles.scss'), 'utf8');
