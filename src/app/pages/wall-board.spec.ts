@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { Mural } from '../core/mural';
 import { Kind, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
+import { WallView } from '../core/wall-view';
 import { WallAccess, WallBoard } from './wall-board';
 
 const ACCESS: WallAccess = { landingId: null, picking: false, picked: new Map(), masked: false, secret: new Set(), reactCode: null, checkable: true, looks: {} };
@@ -128,7 +129,7 @@ describe('as vistas do mural de anotações', () => {
     return Array.from(el.querySelectorAll<HTMLElement>('app-review-card'));
   }
 
-  it('a Visão geral: fichas de relance, a orelha do grupo em Tudo e a do assunto num grupo', async () => {
+  it('a Visão geral: fichas de relance, a orelha do grupo em Tudo; num grupo, a pasta pequena antes das soltas', async () => {
     let el = await wall('simples', '');
     expect(el.querySelector('.wall')!.classList).toContain('geral');
     let all = await cards(el, 4);
@@ -138,11 +139,24 @@ describe('as vistas do mural de anotações', () => {
     el.remove();
     TestBed.resetTestingModule();
     el = await wall('simples', 'c:trabalho');
-    all = await cards(el, 3);
-    expect(all.map((c) => c.querySelector('.aba-cat .nome')?.textContent?.trim() ?? null)).toEqual(['Dailys', 'Dailys', null]);
+    all = await cards(el, 1);
+    // as duas do assunto Dailys estão na pasta: na parede, a pasta e a solta
+    expect(all.map((c) => c.querySelector('.aba-cat .nome')?.textContent?.trim() ?? null)).toEqual([null]);
+    const pastas = Array.from(el.querySelectorAll('app-folder-card'));
+    expect(pastas.map((p) => p.querySelector('.nome')!.textContent!.trim())).toEqual(['Dailys']);
+    expect(pastas[0].classList).toContain('pasta-pequena');
+    expect(pastas[0].querySelector('.qtd')!.textContent!.trim()).toBe('2 notas');
   });
 
-  it('a lista: a orelhinha diz o grupo em Tudo e o assunto num grupo; sem as tags', async () => {
+  it('procurando num grupo, a parede deixa as pastas e a orelha diz a pasta de cada anotação', async () => {
+    const el = await wall('simples', 'c:trabalho');
+    TestBed.inject(WallView).query.set('daily');
+    const all = await cards(el, 2);
+    expect(el.querySelector('app-folder-card')).toBeNull();
+    expect(all.map((c) => c.querySelector('.aba-cat .nome')?.textContent?.trim() ?? null)).toEqual(['Dailys', 'Dailys']);
+  });
+
+  it('a lista: a orelhinha diz o grupo em Tudo; num grupo, as pastas em linhas no começo; sem as tags', async () => {
     let el = await wall('lista', '');
     const ears = () => Array.from(el.querySelectorAll('.linha')).map((l) => l.querySelector('.orelha .nome')?.textContent?.trim() ?? null);
     expect(ears()).toEqual(['Trabalho', 'Trabalho', 'Trabalho', 'Casa']);
@@ -150,7 +164,10 @@ describe('as vistas do mural de anotações', () => {
     el.remove();
     TestBed.resetTestingModule();
     el = await wall('lista', 'c:trabalho');
-    expect(ears()).toEqual(['Dailys', 'Dailys', null]);
+    expect(ears()).toEqual([null]);
+    const rows = Array.from(el.querySelectorAll('.pastas-linhas app-folder-card'));
+    expect(rows.map((r) => r.querySelector('.linha-nome')!.textContent!.trim())).toEqual(['Dailys']);
+    expect(rows[0].classList).toContain('pasta-em-lista');
   });
 
   it('as setas andam entre as linhas da lista (para baixo, na ordem; End, a última)', async () => {

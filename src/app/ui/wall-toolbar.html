@@ -8,6 +8,10 @@
   <app-note-tabs class="cadernos" (adjust)="openConfig($event)" />
 
   <div class="pasta">
+    <!-- dentro de uma pasta do grupo, o caminho de volta (PLANO-PASTAS.md, 4.1) -->
+    @if (view.folderPath().length) {
+      <app-folder-path [group]="folderGroupLabel()" [path]="view.folderPath()" (go)="goFolder($event)" />
+    }
     <div class="pasta-linha">
       <app-search-strip
         class="pasta-busca"
@@ -237,6 +241,11 @@
       @if (view.isFiltered()) {
         <p class="achados" aria-live="polite">
           <span>Mostrando {{ view.visible().length }} de {{ view.pool().length }}</span>
+          <!-- procurando dentro de uma pasta: ela e as de dentro (PLANO-PASTAS.md, 4.4) -->
+          @if (view.seeking() && view.folderPath().at(-1); as f) {
+            <span>em {{ f.name }} e nas pastas de dentro</span>
+            <button type="button" class="tinta-link" (click)="goFolder(null)">Procurar em todo o grupo</button>
+          }
           @if (view.elsewhere(); as n) {
             <button type="button" class="tinta-link" (click)="searchAll()">+{{ n }} em outras abas</button>
           }

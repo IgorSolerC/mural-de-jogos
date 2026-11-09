@@ -1,6 +1,6 @@
-import type { CategoryLooks } from './category-looks';
+import { type CategoryLooks, lookKey } from './category-looks';
 import { NoteFolders } from './note-folders';
-import { FolderTree, folderNameOf } from './folders';
+import { FolderTree, NoteFolder, folderNameOf } from './folders';
 import { Injectable, Signal, WritableSignal, computed, effect, forwardRef, inject, signal } from '@angular/core';
 import { KANBAN_LAST_KEY, boardIdFor } from './kanban';
 import { KanbanStore } from './kanban-store';
@@ -31,7 +31,7 @@ import {
   scoreOf,
   shownFinal,
 } from './review';
-import { ALL_TAB, NoteTab, NoteTabs, PINNED_TAB, SHARED_TAB, NO_TABS, firstStanding, hasTab, isGroupTab, noteTabKey, noteTabsOf, sameTabs, tabsToMore } from './note-tabs';
+import { ALL_TAB, NO_CATEGORY_TAB, NoteTab, NoteTabs, PINNED_TAB, SHARED_TAB, NO_TABS, firstStanding, hasTab, isGroupTab, noteTabKey, noteTabsOf, sameTabs, tabsToMore } from './note-tabs';
 import { NO_TAG_OUTS, TagOuts, excludeTag, hiddenByTags, outByDefault, releaseTag, showAllTags, tagIsOut } from './tag-filter';
 import { FacetKey, GRADE_LABEL, NO_FILTER, WallFilter, facetsOf, filterFor, filterSize, gradeBandOf, matchesFilter, matchesQuery, tagsOf, toggleOption } from './wall-filter';
 import { ONE_DECIMAL as avgFmt } from './review';
@@ -555,17 +555,140 @@ export abstract class WallState {
   }
 
   /** O mural da aba aberta (nos de resenhas e em "Tudo", o mural inteiro), finalizadas também. */
-  readonly tabbed = computed<Review[]>(() => (this.activeTab() === ALL_TAB ? this.wall() : this.wall().filter((r) => this.inTab(r))));
+  readonly tabNotes = computed<Review[]>(() => (this.activeTab() === ALL_TAB ? this.wall() : this.wall().filter((r) => this.inTab(r))));
+
+  // ===== As pastas (PLANO-PASTAS.md) =====
+
+  /** A pasta aberta em cada aba de grupo (a chave da aba → o id), só enquanto a página está aberta. */
+  private readonly openFolders = signal<ReadonlyMap<string, string>>(new Map());
+  /**
+   * Sem abas, com todas as anotações num grupo só (ou todas sem grupo), o Tudo é esse grupo: as pastas dele
+   * valem ali. A chave e o nome dele, ou null.
+   */
+  private readonly loneGroup = computed<{ key: string; label: string } | null>(() => {
+    if (!this.notes() || this.activeTab() !== ALL_TAB || this.noteTabs()?.tabs.length) return null;
+    const all = this.wall();
+    if (!all.length) return null;
+    const key = lookKey(all[0].category ?? '');
+    if (!all.every((r) => lookKey(r.category ?? '') === key)) return null;
+    return { key, label: key ? all[0].category! : 'Sem grupo' };
+  });
+  /**
+   * O grupo das pastas: o da aba de grupo aberta nas anotações (a chave; "" é o Sem grupo), o único grupo
+   * de um mural sem abas, ou null fora deles.
+   */
+  readonly folderGroup = computed<string | null>(() => {
+    if (!this.notes()) return null;
+    const tab = this.activeTab();
+    if (!isGroupTab(tab)) return this.loneGroup()?.key ?? null;
+    return tab === NO_CATEGORY_TAB ? '' : tab.slice(2);
+  });
+  /** O nome do grupo das pastas, o começo do caminho ("Sem grupo" para as sem grupo). */
+  readonly folderGroupLabel = computed(() =>
+    this.activeTab() === NO_CATEGORY_TAB ? 'Sem grupo' : (this.loneGroup()?.label ?? this.activeTabLabel() ?? 'Sem grupo'),
+  );
+  /** A pasta aberta no grupo (viva; a desfeita sobe), ou null na raiz (e fora de um grupo). */
+  readonly openFolder = computed<string | null>(() => {
+    const g = this.folderGroup();
+    return g === null ? null : this.folders().resolve(this.openFolders().get(this.activeTab()), g);
+  });
+  /** O caminho da raiz até a pasta aberta (vazio na raiz). */
+  readonly folderPath = computed<readonly NoteFolder[]>(() => this.folders().path(this.openFolder()));
+  /**
+   * Procurando (a busca ou um filtro ligado): dentro de um grupo, a parede deixa as pastas e mostra tudo o
+   * que há na aberta e nas de dentro, numa lista só (PLANO-PASTAS.md, P6).
+   */
+  readonly seeking = computed(() => this.query().trim() !== '' || filterSize(this.activeFilter()) > 0);
+  /** As pastas logo dentro da aberta, na parede (só num grupo, e não procurando). */
+  readonly folderKids = computed<readonly NoteFolder[]>(() => {
+    const g = this.folderGroup();
+    return g === null || this.seeking() ? [] : this.folders().kids(g, this.openFolder());
+  });
+  /** Quantas anotações à mostra (e quantas pastas) cada pasta da parede tem, e as cartolinas de até três. */
+  readonly folderInfo = computed<ReadonlyMap<string, FolderInfo>>(() => {
+    const kids = this.folderKids();
+    if (!kids.length) return new Map();
+    const tree = this.folders();
+    const out = new Map<string, FolderInfo>(kids.map((f) => [f.id, { notes: 0, folders: tree.kids(f.group, f.id).length, stocks: [] }]));
+    const kidOf = new Map<string, string>();
+    for (const f of kids) for (const id of tree.below(f.id)) kidOf.set(id, f.id);
+    for (const r of this.tabNotes()) {
+      const k = kidOf.get(tree.of(r) ?? '');
+      if (!k || !this.shows(r)) continue;
+      const info = out.get(k)!;
+      info.notes++;
+      if (info.stocks.length < 3) (info.stocks as string[]).push(pinningFor(r.id, r.stock).stock);
+    }
+    return out;
+  });
+
+  /**
+   * Como a pasta mudou por último: tocando numa pasta ou no caminho (`true`: o endereço ganha uma entrada no
+   * histórico, e o Voltar sobe) ou não (trocar de grupo, o Voltar do navegador: o endereço só acompanha).
+   */
+  readonly folderPushed = signal(false);
+  /**
+   * Para onde o foco vai depois de um toque que trocou a pasta (PLANO-PASTAS.md, 4.11): entrando, o último
+   * pedaço do caminho (`to: null`); subindo, a pasta da parede de onde se saiu (o id). `n` muda a cada toque.
+   */
+  readonly folderFocus = signal<{ to: string | null; n: number } | null>(null);
+
+  /** Abre a pasta no grupo aberto (null: volta à raiz). `push`: veio de um toque (ver `folderPushed`). */
+  enterFolder(id: string | null, push = true): void {
+    const tab = this.activeTab();
+    if (this.folderGroup() === null) return;
+    if (push) {
+      // subindo, a pasta do caminho logo abaixo da nova aberta é a que fica na parede
+      const was = this.folderPath();
+      const at = id === null ? -1 : was.findIndex((f) => f.id === id);
+      const to = id === null || at >= 0 ? (was[at + 1]?.id ?? null) : null;
+      this.folderFocus.update((f) => ({ to, n: (f?.n ?? 0) + 1 }));
+    }
+    // (abrir a que já está aberta não muda o endereço: o toque não fica esperando pela próxima troca)
+    this.folderPushed.set(push && id !== this.openFolder());
+    this.openFolders.update((m) => {
+      const next = new Map(m);
+      if (id) next.set(tab, id);
+      else next.delete(tab);
+      return next;
+    });
+  }
+
+  /**
+   * O mural da aba aberta, na pasta aberta: num grupo, só o que está direto nela; procurando, ela e as de
+   * dentro (na raiz, o grupo inteiro). Fora de um grupo, a aba inteira. Finalizadas também.
+   */
+  readonly tabbed = computed<Review[]>(() => {
+    const all = this.tabNotes();
+    if (this.folderGroup() === null || this.seeking()) return this.subtree();
+    const tree = this.folders();
+    const open = this.openFolder();
+    return all.filter((r) => tree.of(r) === open);
+  });
+  /**
+   * A pasta aberta e todas as de dentro (na raiz, o grupo inteiro; fora de um grupo, a aba inteira): onde a
+   * busca e os filtros procuram, e o que o Filtrar conta antes de ligar um filtro.
+   */
+  private readonly subtree = computed<Review[]>(() => {
+    const all = this.tabNotes();
+    const open = this.folderGroup() === null ? null : this.openFolder();
+    if (open === null) return all;
+    const tree = this.folders();
+    const below = tree.below(open);
+    return all.filter((r) => below.has(tree.of(r) ?? ''));
+  });
   /**
    * Ordenando por finalização, as finalizadas aparecem (é delas que a ordem fala), sem mudar o
    * "Mostrar finalizadas" guardado. Só a parede: o número das abas continua o de sempre.
    */
   private readonly doneBySort = computed(() => this.notes() && this.shownSort() === 'finalizacao');
   /** O mural sem as finalizadas escondidas: é o "todo" do mural (da aba), para contar e para o vazio. */
-  readonly pool = computed<Review[]>(() => {
+  readonly pool = computed<Review[]>(() => this.shownOf(this.tabbed()));
+  /** As à mostra de uma lista (sem as finalizadas escondidas; ordenando por finalização, elas também). */
+  private shownOf(list: readonly Review[]): Review[] {
     const done = this.doneBySort();
-    return this.tabbed().filter((r) => this.shows(r) || (done && isDone(r) && this.showsBoard(r)));
-  });
+    return list.filter((r) => this.shows(r) || (done && isDone(r) && this.showsBoard(r)));
+  }
   /** Quantas anotações finalizadas a aba tem (à mostra ou não). */
   readonly doneCount = computed(() => this.tabbed().filter(isDone).length);
   /** As finalizadas que estão fora do mural agora (também as que estão só no Kanban). */
@@ -667,9 +790,14 @@ export abstract class WallState {
 
   /** Os grupos da cartela, com quantas fichas cada opção mostraria. */
   readonly facets = computed(() => {
-    const all = facetsOf(this.searched(), this.activeFilter(), this.mural.profile(), this.folders());
-    // numa aba de categoria, o grupo Categoria só teria ela mesma
-    const inTab = isGroupTab(this.activeTab()) ? all.filter((f) => f.key !== 'category') : all;
+    // dentro de um grupo, sem procurar ainda, a parede mostra só o que está direto na pasta, mas filtrar
+    // procura nela e nas de dentro: a cartela conta essas (sem busca, só as tags escondidas tiram alguma)
+    const out = this.outByTags();
+    const base = this.folderGroup() === null || this.seeking() ? this.searched() : this.shownOf(this.subtree()).filter((r) => !out(r));
+    const all = facetsOf(base, this.activeFilter(), this.mural.profile(), this.folders());
+    // numa aba de categoria, o grupo Categoria só teria ela mesma; e nas anotações, a pasta é o lugar
+    // (a parede entra nela), não um filtro (PLANO-PASTAS.md, 4.4)
+    const inTab = isGroupTab(this.activeTab()) ? all.filter((f) => f.key !== 'category' && !(this.notes() && f.key === 'subject')) : all;
     return this.guarding() ? inTab.filter((f) => !SPOILER_FACETS.includes(f.key)) : inTab;
   });
   /** Os filtros ligados, como etiquetas. */
@@ -830,7 +958,7 @@ export abstract class WallState {
 
   /** O clique na tag riscada: as anotações dela voltam (nesta visita, mesmo as que o padrão esconde). */
   releaseTag(value: string): void {
-    this.tagOuts.update((o) => releaseTag(o, value, outByDefault(value, this.tabbed(), this.defaultTagOuts())));
+    this.tagOuts.update((o) => releaseTag(o, value, outByDefault(value, this.tabNotes(), this.defaultTagOuts())));
   }
 
   /** A tag está riscada no filtro: esconde alguma anotação da aba. */
@@ -839,7 +967,7 @@ export abstract class WallState {
     const outs = this.tagOuts();
     if (outs.out.includes(k)) return true;
     const defaults = this.defaultTagOuts();
-    return this.tabbed().some((r) => !!r.tags?.some((t) => fold(t) === k && tagIsOut(t, r.category, outs, defaults)));
+    return this.tabNotes().some((r) => !!r.tags?.some((t) => fold(t) === k && tagIsOut(t, r.category, outs, defaults)));
   }
 
   clearFacet(key: FacetKey): void {
@@ -872,6 +1000,19 @@ export abstract class WallState {
     this.passingSort.set(null);
     this.showDone.set(false);
     this.showBoard.set(false);
+    this.openFolders.set(new Map());
+  }
+
+  /** Abre a pasta pelo endereço (`?pasta=`): na aba do grupo dela, se for preciso. A que não existe abre a raiz. */
+  openFolderFrom(id: string | null): void {
+    if (!this.notes()) return;
+    const f = id ? this.folders().live(id) : undefined;
+    if (f) {
+      const tab = f.group ? `c:${f.group}` : NO_CATEGORY_TAB;
+      // (sem abas, o Tudo já é o grupo)
+      if (this.activeTab() !== tab && this.noteTabs()?.tabs.some((t) => t.key === tab)) this.setNoteTab(tab);
+    }
+    this.enterFolder(f ? f.id : null, false);
   }
 }
 
@@ -947,8 +1088,13 @@ export class WallView extends WallState {
     return this.notes() && this.activeTab().startsWith('c:') ? this.activeTabLabel() : null;
   }
 
-  /** A pasta (o id) da anotação nova escrita no mural: a única ligada no filtro, se for uma só (e não "Sem assunto"). */
+  /**
+   * A pasta (o id) da anotação nova escrita no mural: a aberta no grupo; fora de uma pasta, a única ligada
+   * no filtro, se for uma só (e não "Sem assunto").
+   */
   newNoteSubject(): string | null {
+    const open = this.openFolder();
+    if (open) return open;
     const on = this.notes() ? this.activeFilter().subject : [];
     return on.length === 1 && on[0] !== 'sem' ? on[0] : null;
   }
@@ -994,7 +1140,7 @@ export function directionLabelOf(sort: SortKey, direction: Direction, profile: K
       if (ordered) return desc ? 'Grupos na sua ordem, de trás para a frente' : 'Grupos na sua ordem';
       return desc ? 'Grupos de Z a A' : 'Grupos de A a Z';
     case 'assunto':
-      return desc ? 'Assuntos de Z a A' : 'Assuntos de A a Z';
+      return desc ? 'Pastas de Z a A' : 'Pastas de A a Z';
     case 'tag':
       return desc ? 'Tags de Z a A' : 'Tags de A a Z';
     case 'prioridade':
@@ -1018,6 +1164,13 @@ export function directionLabelOf(sort: SortKey, direction: Direction, profile: K
     default:
       return desc ? 'Maiores notas primeiro' : 'Menores notas primeiro';
   }
+}
+
+/** Uma pasta na parede: quantas anotações à mostra ela tem (com as de dentro), quantas pastas logo dentro, e as cartolinas de até três. */
+export interface FolderInfo {
+  notes: number;
+  folders: number;
+  stocks: readonly string[];
 }
 
 /** Como o mural está ordenado: serve ao seu mural e ao mural de um colega. */
@@ -1223,7 +1376,7 @@ function groupKeyOf(o: WallOrder): (r: Review) => [string, string] {
     case 'assunto':
       return (r) => {
         const s = folderOfNote(r, o);
-        return s === null ? ['sem-assunto', 'Sem assunto'] : [`s:${fold(s)}`, s];
+        return s === null ? ['sem-assunto', 'Fora das pastas'] : [`s:${fold(s)}`, s];
       };
     case 'tag':
       return (r) => {

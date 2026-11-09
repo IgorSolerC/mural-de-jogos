@@ -1,0 +1,125 @@
+/* O caminho da pasta aberta, na primeira linha da pasta manilha da barra (PLANO-PASTAS.md, 4.1): a seta em
+   tinta (a mesma dos controles e do "Baralhos" dos Flashcards) e os pedaços a marcador, os de cima mais
+   claros; onde se está, em tinta cheia e sem link. O picote embaixo separa o caminho da busca. */
+
+:host {
+  display: block;
+  margin: -4px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px dashed var(--picote, rgb(21 21 21 / 0.18));
+}
+
+.caminho {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+/* a seta na mesma vertical da busca, embaixo (o respiro do botão fica para fora) */
+.subir {
+  flex: none;
+  margin-left: -10px;
+}
+
+.migalhas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 2px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    min-width: 0;
+  }
+}
+
+.sep {
+  flex: none;
+  color: var(--ink-2);
+  opacity: 0.6;
+}
+
+.migalha {
+  display: inline-block;
+  max-width: 16rem;
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: rgb(21 21 21 / 0.68);
+  font-family: var(--f-marker);
+  font-size: 1.12rem;
+  line-height: 24px;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background-color: rgb(0 0 0 / 0.07);
+    color: var(--ink);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 1px;
+  }
+
+  &.aqui {
+    color: var(--ink);
+    cursor: default;
+
+    &:hover {
+      background: none;
+    }
+
+    &:focus {
+      outline: none;
+    }
+
+    &:focus-visible {
+      outline: 3px solid var(--focus);
+    }
+  }
+}
+
+/* o "…" só no celular, com dois ou mais pedaços no meio */
+.reticencias {
+  display: none !important;
+}
+
+@media (max-width: 720px) {
+  .encolhe {
+    .reticencias {
+      display: inline-flex !important;
+    }
+
+    .meio {
+      display: none;
+    }
+  }
+
+  .migalha {
+    max-width: 11rem;
+    font-size: 1.04rem;
+  }
+}
+
+@media (pointer: coarse) {
+  .migalha {
+    min-height: 44px;
+    line-height: 32px;
+  }
+}

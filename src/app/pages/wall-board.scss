@@ -584,3 +584,42 @@
     animation: none;
   }
 }
+
+/* ===== As pastas (PLANO-PASTAS.md, 4.1) =====
+   Primeiro as pastas, numa fileira só delas que ocupa a parede inteira, depois as seções das anotações.
+   Cada pasta tem a largura de uma ficha da vista aberta (`--card-w`) e o mesmo vão entre elas; o vão de
+   cima deixa a aba da pasta na parede. Na Lista, linhas do índice. */
+.pastas {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.pastas-lista {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--in-gap);
+  margin: 0;
+  padding: 18px 0 0;
+  list-style: none;
+}
+
+.pastas-linhas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(21rem, 100%), 1fr));
+  gap: 8px 22px;
+  padding-top: 0;
+}
+
+.pasta-vazia h2 {
+  overflow-wrap: anywhere;
+}
+
+/* no celular, duas pastas por fileira (a Lista continua em linhas) */
+@media (max-width: 720px) {
+  .pastas-lista:not(.pastas-linhas) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 22px 14px;
+  }
+}

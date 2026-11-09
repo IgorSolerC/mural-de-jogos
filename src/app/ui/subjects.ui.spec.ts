@@ -97,9 +97,10 @@ describe('o assunto nas telas do mural', () => {
     // um por vez: escolher outro troca, não soma
     await pick(bar, 1);
     expect(view.visible().map((r) => r.id)).toEqual(['ngeo0001']);
-    // Todos desfaz
+    // Todos desfaz: sem filtro, a parede volta às pastas (um grupo só: o Tudo é ele) e à solta
     await pick(bar, 0);
-    expect(view.visible().length).toBe(4);
+    expect(view.visible().map((r) => r.id)).toEqual(['nsem0001']);
+    expect(view.folderKids().map((f) => f.name)).toEqual(['Geografia', 'História']);
     expect(view.newNoteSubject()).toBeNull();
   });
 
@@ -110,7 +111,7 @@ describe('o assunto nas telas do mural', () => {
     el.querySelector<HTMLButtonElement>('.achados .tinta-link')!.click();
     await bar.whenStable();
     expect(radios(el)[0].checked).toBeTrue();
-    expect(view.visible().length).toBe(4);
+    expect(view.visible().map((r) => r.id)).toEqual(['nsem0001']);
     await pick(bar, 2);
     el.querySelector<HTMLButtonElement>('app-filter-tags .tirar')!.click();
     await bar.whenStable();
@@ -163,11 +164,11 @@ describe('o assunto nas telas do mural', () => {
     expect(labels(el).at(-1)).toBe('Sem assunto, 1');
   });
 
-  it('ordenar por assunto está no Ordenar das anotações', async () => {
+  it('ordenar pela pasta (o assunto) está no Ordenar das anotações, depois do Grupo', async () => {
     const bar = await mount(WallToolbar);
     const options = [...(bar.nativeElement as HTMLElement).querySelectorAll('select[aria-label="Ordenar por"] option')].map((o) => o.textContent!.trim());
-    expect(options).toContain('Assunto');
-    expect(options.indexOf('Assunto')).toBe(options.indexOf('Grupo') + 1);
+    expect(options).toContain('Pasta');
+    expect(options.indexOf('Pasta')).toBe(options.indexOf('Grupo') + 1);
   });
 
   it('a ficha abre a linha da data com o assunto (nada em cima do nome); só capa e nome, não', async () => {

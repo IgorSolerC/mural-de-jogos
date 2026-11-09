@@ -37,6 +37,18 @@ const PECAS = [
     marcas: [/<nav\b[^>]*class="abas-grupos"/],
     o: 'as abas dos grupos dos Flashcards, com o "Mais"',
   },
+  {
+    peca: 'src/app/ui/folder-card.ts',
+    usa: 'app-folder-card',
+    marcas: [/<button\b[^>]*class="pasta"/, /class="linha-botao"/],
+    o: 'a pasta das anotações na parede (PLANO-PASTAS.md)',
+  },
+  {
+    peca: 'src/app/ui/folder-path.ts',
+    usa: 'app-folder-path',
+    marcas: [/aria-label="Caminho da pasta"/],
+    o: 'o caminho da pasta aberta, na barra',
+  },
 ];
 
 /** Os moldes da visita e as peças que precisam aparecer neles. */
@@ -53,6 +65,8 @@ const SO_LEEM = [
   'src/app/ui/study-group-tabs.ts',
   'src/app/ui/study-card-back.ts',
   'src/app/ui/study-card-focus.ts',
+  'src/app/ui/folder-card.ts',
+  'src/app/ui/folder-path.ts',
 ];
 /** O que escreve no seu Murall. */
 const ESCREVE = /from '[./]+(?:core\/)?(study-store|review-store|desk|kanban-store|calendar-store|spending-store)'/;

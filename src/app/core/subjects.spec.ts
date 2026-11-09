@@ -194,16 +194,16 @@ describe('o assunto virou pasta', () => {
       expect(notes.filter((r) => matchesQuery(r, 'geograf', tree)).map((r) => r.id)).toEqual(['n3']);
     });
 
-    it('ordenar por assunto separa o mural em seções pela pasta, "Sem assunto" por último', () => {
+    it('ordenar pela pasta separa o mural em seções por ela, "Fora das pastas" por último', () => {
       expect(sortFor('assunto', NOTES)).toBe('assunto');
       const order = { sort: 'assunto' as const, key: 'final' as const, direction: 'asc' as const, profile: NOTES, folderName: (r: Review) => tree.live(tree.of(r))?.name ?? null };
       const groups = groupWall(sortWall(notes, order), order);
       expect(groups.map((g) => [g.label, g.reviews.length])).toEqual([
         ['Geografia', 1],
         ['História', 2],
-        ['Sem assunto', 1],
+        ['Fora das pastas', 1],
       ]);
-      expect(directionLabelOf('assunto', 'asc', NOTES)).toBe('Assuntos de A a Z');
+      expect(directionLabelOf('assunto', 'asc', NOTES)).toBe('Pastas de A a Z');
     });
   });
 

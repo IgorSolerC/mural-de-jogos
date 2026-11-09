@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ICON, IconModule } from '../ui/icons';
 import { kanbanPath, studyPath } from '../core/areas';
 import { boardIdFor } from '../core/kanban';
@@ -8,7 +9,10 @@ import { Settings } from '../core/settings';
 import { SideBySide } from '../core/side-by-side';
 import { WallMotion } from '../core/wall-motion';
 import { pinningFor } from '../core/wall-physics';
-import { WallGroup, WallState } from '../core/wall-view';
+import { FolderInfo, WallGroup, WallState } from '../core/wall-view';
+import { NO_FOLDERS } from '../core/folders';
+import { plural } from '../core/text';
+import { FolderCard } from '../ui/folder-card';
 import { DoneStamp } from '../ui/done-stamp';
 import { NoteIndex } from '../ui/note-index';
 import { NoteMenu, NoteMenuTrigger, WALL_NOTES, wallNoteId } from '../ui/note-menu';
@@ -35,7 +39,7 @@ export type WallAccess = Pick<WallCardProps, 'landingId' | 'picking' | 'picked' 
  */
 @Component({
   selector: 'app-wall-board',
-  imports: [DoneStamp, IconModule, NoteIndex, NoteMenu, Pin, RouterLink, SearchHighlight, WallCards],
+  imports: [DoneStamp, FolderCard, IconModule, NoteIndex, NoteMenu, Pin, RouterLink, SearchHighlight, WallCards],
   providers: [WallCardPool],
   host: { '(keydown)': 'onKey($event)' },
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -112,8 +116,10 @@ export class WallBoard {
     this.view.wall().reduce<string | null>((max, r) => (r.doneAt && (!max || r.doneAt > max) ? r.doneAt : max), null),
   );
 
-  /** "do mural", "de Trabalho" com uma aba aberta; no mural de alguém, "de Marina". */
+  /** "do mural", "de Trabalho" com uma aba aberta, "de Scripts" numa pasta; no mural de alguém, "de Marina". */
   protected readonly where = computed(() => {
+    const folder = this.view.folderPath().at(-1);
+    if (folder) return `de ${folder.name}`;
     const tab = this.view.activeTabLabel();
     if (this.view.activeTab() === NO_CATEGORY_TAB) return 'sem grupo';
     // as abas especiais (Fixadas, Compartilhadas) juntam os grupos: "das Fixadas"
@@ -138,8 +144,33 @@ export class WallBoard {
     times: this.view.times(),
     boardOnly: this.shownBoard(),
     studyOnly: this.view.studyOnly(),
-    folders: this.view.folders(),
+    folders: this.cardFolders(),
   }));
+
+  /**
+   * As pastas que as fichas leem: dentro de uma pasta, a ficha não repete o nome dela (a parede já diz onde
+   * está); procurando, a lista junta as de várias pastas, e a orelha diz a de cada uma.
+   */
+  protected readonly cardFolders = computed(() => (this.view.folderGroup() !== null && !this.view.seeking() ? NO_FOLDERS : this.view.folders()));
+  /** As pastas na parede, antes das fichas (a aba de um grupo, sem procurar). */
+  protected readonly hasFolders = computed(() => this.view.folderKids().length > 0);
+  /** A pasta aberta não tem nada: nem anotação, nem pasta. */
+  protected readonly folderEmpty = computed(
+    () => this.view.openFolder() !== null && !this.view.seeking() && !this.hasFolders() && !this.view.tabbed().length,
+  );
+  /** O nome da pasta aberta (o cartão da pasta vazia fala dela). */
+  protected readonly openFolderName = computed(() => this.view.folderPath().at(-1)?.name ?? '');
+  protected info(id: string): FolderInfo | undefined {
+    return this.view.folderInfo().get(id);
+  }
+
+  /** Tocou numa pasta da parede: abre (e o Voltar do navegador volta para cá). */
+  protected enter(id: string): void {
+    this.motion.run(() => this.view.enterFolder(id));
+  }
+
+  /** O que o leitor de tela ouve depois de um toque que troca a pasta: "Pasta Funcional, 2 anotações". */
+  protected readonly folderSaid = signal('');
 
   /** Ctrl+clique marca anotações para copiar o texto delas (ver ui/note-selection.ts). */
   readonly selection: NoteSelection;
@@ -147,6 +178,56 @@ export class WallBoard {
   private readonly noteMenu = viewChild<NoteMenu>('menuDaNota');
 
   constructor() {
+    // a pasta aberta mora no endereço (`?pasta=`): o Voltar do navegador e do celular sobe uma pasta, e um
+    // link abre o grupo nela (PLANO-PASTAS.md, P11)
+    const router = inject(Router, { optional: true });
+    const route = inject(ActivatedRoute, { optional: true });
+    if (router && route) {
+      // (voltando ao mural de outra página, o endereço chega sem a pasta: fica a que estava aberta)
+      let first = true;
+      route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((q) => {
+        const id = q.get('pasta');
+        const skip = first && id === null;
+        first = false;
+        if (!skip && id !== untracked(this.view.openFolder)) this.view.openFolderFrom(id);
+      });
+      // (o "veio de um toque" é lido sem ser seguido: apagá-lo não pode navegar de novo, o que trocaria
+      // a entrada nova do histórico por uma substituição)
+      effect(() => {
+        const id = this.view.openFolder();
+        untracked(() => {
+          const push = this.view.folderPushed();
+          this.view.folderPushed.set(false);
+          if ((route.snapshot.queryParamMap.get('pasta') ?? null) === id) return;
+          void router.navigate([], { relativeTo: route, queryParams: { pasta: id }, queryParamsHandling: 'merge', replaceUrl: !push });
+        });
+      });
+    }
+    // trocou de pasta por um toque: o foco não se perde (entrando, vai para onde se está, no caminho;
+    // subindo, para a pasta de onde se saiu), e o leitor de tela ouve onde está (PLANO-PASTAS.md, 4.11)
+    let focused = untracked(this.view.folderFocus)?.n ?? 0;
+    effect(() => {
+      const f = this.view.folderFocus();
+      if (!f || f.n === focused) return;
+      untracked(() => {
+        const here = this.view.folderPath().at(-1);
+        const notes = this.view.visible().length;
+        const folders = this.view.folderKids().length;
+        const parts = [notes ? plural(notes, 'anotação', 'anotações') : '', folders ? plural(folders, 'pasta', 'pastas') : ''].filter(Boolean);
+        const name = here ? `Pasta ${here.name}` : this.view.folderGroupLabel();
+        this.folderSaid.set(`${name}, ${parts.length ? parts.join(' e ') : 'vazia'}`);
+      });
+    });
+    afterRenderEffect(() => {
+      const f = this.view.folderFocus();
+      if (!f || f.n === focused) return;
+      focused = f.n;
+      const target =
+        f.to === null
+          ? document.querySelector<HTMLElement>('app-folder-path .aqui')
+          : this.el.querySelector<HTMLElement>(`app-folder-card[data-pasta="${CSS.escape(f.to)}"] button`);
+      target?.focus({ preventScroll: f.to === null });
+    });
     const side = inject(SideBySide);
     const byId = computed(() => new Map(this.view.wall().map((r) => [r.id, r])));
     this.selection = new NoteSelection({

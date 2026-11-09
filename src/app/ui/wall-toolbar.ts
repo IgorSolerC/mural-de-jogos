@@ -16,6 +16,7 @@ import { NoteTabsBar } from './note-tabs-bar';
 import { NoteFilters } from './note-filters';
 import { ALL_TAB, NO_CATEGORY_TAB, isGroupTab, noteTabKey } from '../core/note-tabs';
 import { SearchStrip } from './search-strip';
+import { FolderPath } from './folder-path';
 
 /** Ordenar é um controle só: data, nome, status ou uma das notas. */
 const SORT_OPTIONS: { value: string; label: string }[] = [
@@ -31,7 +32,7 @@ const NOTE_SORT_OPTIONS: { value: string; label: string }[] = [
   { value: 'data', label: 'Data' },
   { value: 'alfabetica', label: 'Título' },
   { value: 'categoria', label: 'Grupo' },
-  { value: 'assunto', label: 'Assunto' },
+  { value: 'assunto', label: 'Pasta' },
   { value: 'tag', label: 'Tag' },
   { value: 'criacao', label: 'Criação' },
   { value: 'alteracao', label: 'Alteração' },
@@ -44,7 +45,7 @@ const NOTE_SORT_OPTIONS: { value: string; label: string }[] = [
 
 @Component({
   selector: 'app-wall-toolbar',
-  imports: [FilterCard, FilterSheet, FilterTags, IconModule, MuralConfig, NgTemplateOutlet, NoteTabsBar, SearchStrip],
+  imports: [FilterCard, FilterSheet, FilterTags, FolderPath, IconModule, MuralConfig, NgTemplateOutlet, NoteTabsBar, SearchStrip],
   // a folha dos filtros das anotações, o Filtrar e os adesivos ligados leem as mesmas escolhas
   providers: [NoteFilters],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -131,6 +132,9 @@ export class WallToolbar {
   protected readonly artistTabs = computed(() => this.view.music() && !!this.view.noteTabs()?.tabs.length);
   /** "Procurar no mural" (no de alguém, "Procurar no mural de Marina"), ou "Procurar em Trabalho" com uma aba aberta. */
   protected readonly searchLabel = computed(() => {
+    // dentro de uma pasta, a busca procura nela e nas de dentro
+    const folder = this.view.folderPath().at(-1);
+    if (folder) return `Procurar em ${folder.name}`;
     const tab = this.view.activeTabLabel();
     if (this.view.activeTab() === NO_CATEGORY_TAB) return this.view.music() ? 'Procurar nas sem artista' : 'Procurar nas sem grupo';
     if (tab) return `Procurar em ${tab}`;
@@ -226,6 +230,14 @@ export class WallToolbar {
   /** Tira um filtro ligado, pelo X do adesivo na pasta. */
   protected removeTag(t: FilterChip): void {
     this.motion.run(() => this.view.toggle(t.key as FacetKey, t.value));
+  }
+
+  /** O nome do grupo aberto, o começo do caminho da pasta. */
+  protected readonly folderGroupLabel = this.view.folderGroupLabel;
+
+  /** Um pedaço do caminho (ou "Procurar em todo o grupo"): sobe até ele (null: a raiz do grupo). */
+  protected goFolder(id: string | null): void {
+    this.motion.run(() => this.view.enterFolder(id));
   }
 
   /** A busca sai da aba e procura no mural inteiro. */

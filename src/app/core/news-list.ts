@@ -27,11 +27,11 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-09-assuntos-viram-pastas',
+    id: '2026-11-09-pastas-na-parede',
     version: '1.41.2',
     kind: 'ajustes',
     date: '2026-11-09',
-    title: 'Botão direito nos grupos, nos comentários e na Wishlist, e flashcards que viram na visita',
+    title: 'Botão direito nos grupos, nos comentários e na Wishlist, flashcards que viram na visita e as pastas na parede',
     melhorias: [
       'O botão direito (ou o dedo segurado, no celular) também abre o menu do Murall nas abas dos grupos do mural, nas linhas da fita dos Gastos e nos posts do Feed.',
       'Na aba de um grupo: uma anotação nova já nele, o quadro dele no Kanban, os baralhos nos Flashcards, os ajustes do grupo (as configurações do mural abrem já nele) e esconder a aba no Mais, com Desfazer.',
@@ -41,6 +41,7 @@ export const NEWS: NewsEntry[] = [
       'Num post do Feed, o menu também reage; numa linha dos Gastos dividida com alguém, ele deixa a fita só com a parte daquela pessoa.',
       'Nos Flashcards de quem você visita, o flashcard vira ao toque, como nos seus; maximizar e ler a anotação ficam na etiqueta do canto, as abas dos grupos ganham o Mais, e o botão direito abre o menu do flashcard e o do baralho (abrir ou copiar).',
       'Os assuntos das anotações passam a ser guardados como pastas, o primeiro passo para as pastas dentro de pastas: tudo continua no mesmo lugar, renomear ou apagar um assunto não regrava mais as anotações dele, e a anotação que muda de grupo sai do assunto, por qualquer caminho.',
+      'Na aba de um grupo, os assuntos aparecem como pastas no começo da parede, com as cores das anotações de dentro: tocar abre a pasta, o caminho na barra volta (e o Voltar do navegador sobe uma), e a busca dentro de uma pasta procura nela e nas de dentro. No mural de quem você visita, igual.',
     ],
     correcoes: ['Nas configurações do mural, o grupo com uma anotação só não diz mais "Muda em a anotação" embaixo do nome.'],
   },

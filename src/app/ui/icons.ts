@@ -97,7 +97,11 @@ import {
   Flag,
   FlagOff,
   Flame,
+  Folder,
+  FolderInput,
+  FolderMinus,
   FolderOpen,
+  FolderPlus,
   FolderTree,
   Frame,
   GalleryVerticalEnd,
@@ -551,6 +555,11 @@ export const ICON = {
   etiquetas: Tags,
   /** O assunto de uma anotação: um nível abaixo do grupo (a pasta dentro da pasta). */
   assunto: FolderTree,
+  /** As pastas das anotações (PLANO-PASTAS.md): a pasta, uma nova, guardar numa e desfazer uma. */
+  pastaDeNotas: Folder,
+  novaPasta: FolderPlus,
+  guardarNaPasta: FolderInput,
+  desfazerPasta: FolderMinus,
   paleta: Palette,
   coroa: Crown,
   joinha: ThumbsUp,

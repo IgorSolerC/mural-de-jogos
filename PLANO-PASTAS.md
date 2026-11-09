@@ -519,4 +519,14 @@ ver a conversão na build de verdade), BUILD subindo a cada commit.
   espelho e a parte Assuntos das configurações, que renomeia, junta e desfaz a pasta sem regravar
   anotação). A visita, o Feed e o perfil dos outros leem as pastas do mural público. Fica para a rodada 2:
   pastas dentro de pastas na tela.
-
+- **Rodada 2 (09/nov, BUILD 816).** A parede com pastas: `ui/folder-card.ts` (a pasta manilha com as
+  cartolinas de até três anotações de dentro, a frente que abre com o mouse; linha na Lista, pequena na
+  Visão geral, duas por fileira no celular), `ui/folder-path.ts` (o caminho na pasta da barra, com a seta
+  que sobe e o "…" no celular), a navegação no `WallState` (a pasta aberta por grupo na memória da vista,
+  `?pasta=` no endereço com o Voltar subindo uma, o foco que vai para o caminho ao entrar e para a pasta
+  de onde se saiu ao subir, o aviso para o leitor de tela), a busca e os filtros que procuram na pasta e
+  nas de dentro ("Procurar em todo o grupo"; a cartela conta essas, também antes de ligar um filtro), a
+  fileira Assunto fora do Filtrar numa aba de grupo, a ordem "Pasta", Nova dentro da pasta e a pasta
+  vazia. Um mural com um grupo só não tem abas: lá o Tudo é esse grupo, e as pastas dele aparecem. A visita monta as mesmas peças (`PECAS` e `SO_LEEM` em
+  `scripts/visita-mesmas-pecas.test.mjs`; `pages/wall-folders.spec.ts` navega na visita). Fica para a
+  rodada 3: arrastar, criar e nomear pastas e os menus.
