@@ -1,9 +1,10 @@
-import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { ICON, IconModule } from './icons';
 import { MONTHS_SHORT } from '../core/dates';
 import { ME, NEED_LABEL, PAY_LABEL, Row, brl, monthOfDay, peopleOf, shareOf } from '../core/spending';
 import { SpendingStore } from '../core/spending-store';
 import { ContextMenu, ContextMenuTrigger, MenuItem, MenuSections } from './context-menu';
+import { focusAfterRemoval } from './focus';
 import { RemoveAsking } from './remove-asking';
 import { SpendingEditor } from './spending-editor';
 
@@ -149,6 +150,8 @@ export class SpendingTape {
   readonly category = input<string | null>(null);
   /** "Só <categoria>" no menu de uma linha: a fita fica só com ela. */
   readonly onlyCategory = output<string>();
+  /** "Só <pessoa>" no menu de uma linha com mais gente: a fita fica só com a parte dela. */
+  readonly onlyPerson = output<string>();
 
   protected readonly CloseIcon = ICON.fechar;
   protected readonly RepeatIcon = ICON.repetir;
@@ -236,7 +239,6 @@ export class SpendingTape {
   // ===== o menu do botão direito numa linha =====
 
   private readonly asking = inject(RemoveAsking);
-  private readonly injector = inject(Injector);
   private readonly menu = viewChild.required<ContextMenu>('menu');
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   /** A linha com o menu aberto (o id do lançamento). */
@@ -264,7 +266,8 @@ export class SpendingTape {
 
   /**
    * O que dá para fazer com um lançamento sem abrir a folhinha: abri-la, deixar a fita só com a
-   * categoria dele (ou, já filtrada nela, o mês inteiro de novo) e apagar, com a mesma pergunta da folhinha.
+   * categoria dele ou só com uma das pessoas dele (ou, já filtrada nelas, o mês inteiro de novo) e apagar,
+   * com a mesma pergunta da folhinha.
    */
   protected readonly menuSections = computed<MenuSections>(() => {
     const row = this.menuRow();
@@ -273,11 +276,24 @@ export class SpendingTape {
     const cat = this.store.category(e.category);
     const only = this.category() === e.category;
     const open: MenuItem[] = this.open() === e.id ? [] : [{ id: 'editar', label: 'Editar', icon: ICON.editar, hint: 'A folhinha dele, para mudar', run: () => this.open.set(e.id) }];
-    const filter: MenuItem[] = only
-      ? [{ id: 'filtro', label: 'Ver o mês inteiro', icon: ICON.calendario, hint: 'Tirar os filtros da fita', run: () => this.clearFilter.emit() }]
-      : [{ id: 'filtro', label: `Só ${cat?.name ?? 'Sem categoria'}`, icon: ICON.filtrar, hint: 'A fita e o mês a mês só com esta categoria', run: () => this.onlyCategory.emit(e.category) }];
+    const people = peopleOf(e);
+    const person = this.person();
+    // a fita já está só nesta categoria, ou só numa pessoa deste gasto: o mês inteiro de novo
+    const filter: MenuItem[] =
+      only || (person && people.includes(person)) ? [{ id: 'filtro', label: 'Ver o mês inteiro', icon: ICON.calendario, hint: 'Tirar os filtros da fita', run: () => this.clearFilter.emit() }] : [];
+    // com outro filtro ligado, o "Só" se junta a ele (como escolher na cartela dos filtros)
+    const along = this.filtered() ? ', junto do filtro de agora' : '';
+    if (!only) filter.push({ id: 'categoria', label: `Só ${cat?.name ?? 'Sem categoria'}`, icon: ICON.filtrar, hint: `A fita e o mês a mês só com esta categoria${along}`, run: () => this.onlyCategory.emit(e.category) });
+    // cada pessoa com quem o gasto foi (você, não: é a fita de sempre), como no Por pessoa, numa leva só delas
+    const who: MenuItem[] = [];
+    for (const id of e.flow === 'saida' ? people : []) {
+      const name = this.store.person(id)?.name;
+      if (id === ME || id === person || !name) continue;
+      who.push({ id: `pessoa-${id}`, label: `Só ${name}`, icon: ICON.pessoa, hint: `A parte de ${name} em cada gasto${along}`, run: () => this.onlyPerson.emit(id) });
+    }
     return [
       [...open, ...filter],
+      who,
       // o fixo visto depois do mês em que nasceu pergunta antes (de quando em diante); o resto apaga com o Desfazer
       [{ id: 'apagar', label: 'Apagar o lançamento', icon: ICON.apagar, danger: true, dialog: !!e.monthly && this.month() > monthOfDay(e.date), run: () => void this.remove(e.id) }],
     ];
@@ -289,14 +305,6 @@ export class SpendingTape {
     if (this.open() === id) this.open.set(null);
     // a linha saiu da fita (o foco tinha voltado para ela): o foco vai para a de baixo, ou a de cima
     const ids = this.lines().map((l) => l.row.entry.id);
-    const at = ids.indexOf(id);
-    const near = [...ids.slice(at + 1), ...ids.slice(0, Math.max(at, 0)).reverse()];
-    afterNextRender(
-      () => {
-        const next = near.map((n) => this.host.querySelector<HTMLElement>(`.botao[data-lancamento="${CSS.escape(n)}"]`)).find((b) => !!b);
-        (next ?? this.host.querySelector<HTMLElement>('.ordem .tinta-pequena'))?.focus();
-      },
-      { injector: this.injector },
-    );
+    focusAfterRemoval(this.host, ids, id, (n) => `.botao[data-lancamento="${CSS.escape(n)}"]`, '.ordem .tinta-pequena');
   }
 }

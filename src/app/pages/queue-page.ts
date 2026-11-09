@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { ICON, IconModule } from '../ui/icons';
 import { collage, SHELF_ORDERS, shelfColumns, shelfCompare, ShelfOrder } from '../core/clipping';
 import { Desk } from '../core/desk';
@@ -7,7 +7,9 @@ import { Mural } from '../core/mural';
 import { pageHeight } from '../core/notebook';
 import { fold } from '../core/review';
 import { ViewTransitions } from '../core/view-transitions';
+import { ContextMenu, ContextMenuTrigger, MenuSections } from '../ui/context-menu';
 import { DraftCard } from '../ui/draft-card';
+import { focusAfterRemoval } from '../ui/focus';
 import { SearchHighlight } from '../ui/search-highlight';
 import { SearchStrip } from '../ui/search-strip';
 
@@ -20,7 +22,7 @@ import { SearchStrip } from '../ui/search-strip';
  */
 @Component({
   selector: 'app-queue-page',
-  imports: [DraftCard, IconModule, SearchHighlight, SearchStrip],
+  imports: [ContextMenu, DraftCard, IconModule, SearchHighlight, SearchStrip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <!-- o nome e a contagem estão no índice embaixo do topo (ui/area-bar.ts) -->
@@ -96,6 +98,9 @@ import { SearchStrip } from '../ui/search-strip';
         </button>
       </section>
     }
+
+    <!-- o botão direito (o dedo segurado, Shift+F10) numa folha: terminar a resenha ou tirar da fila -->
+    <app-context-menu #menu [caption]="menuDraft()?.game?.name ?? ''" [sections]="menuSections()" (closed)="menuOn.set(null)" />
   `,
   styles: `
     :host {
@@ -124,6 +129,13 @@ import { SearchStrip } from '../ui/search-strip';
       width: calc(var(--largura, 100) * 1%);
       margin-left: calc(var(--desvio, 0) * 1%);
       margin-bottom: var(--vao, 44px);
+    }
+    /* segurar o dedo numa folha abre o menu dela (ui/context-menu.ts): sem o balão do sistema nem a seleção junto */
+    @supports selector(:popover-open) {
+      app-draft-card {
+        -webkit-touch-callout: none;
+        user-select: none;
+      }
     }
 
     /* folha de caderno solta na parede, explicando a fila */
@@ -205,8 +217,38 @@ export class QueuePage {
   protected readonly cols = signal(6);
   protected readonly columns = computed(() => collage(this.visible(), this.cols(), pageHeight));
 
+  private readonly host: HTMLElement;
+  private readonly menu = viewChild.required<ContextMenu>('menu');
+  /** A folha com o menu aberto. */
+  protected readonly menuOn = signal<string | null>(null);
+  protected readonly menuDraft = computed(() => this.mural.drafts().find((d) => d.id === this.menuOn()) ?? null);
+  /** O que o toque na folha faz (terminar a resenha) e, sozinho no fim, tirar da fila, com o Desfazer. */
+  protected readonly menuSections = computed<MenuSections>(() => {
+    const d = this.menuDraft();
+    if (!d) return [];
+    return [
+      [{ id: 'terminar', label: 'Terminar a resenha', icon: ICON.editar, dialog: true, run: () => this.desk.openDraft(d.id) }],
+      [{ id: 'tirar', label: 'Tirar da fila', icon: ICON.apagar, danger: true, run: () => this.remove(d.id) }],
+    ];
+  });
+
   constructor() {
     const host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
+    this.host = host;
+    new ContextMenuTrigger({
+      host,
+      targets: 'app-draft-card[data-ficha]',
+      keyOf: (box) => {
+        const id = box.getAttribute('data-ficha');
+        return id && this.mural.drafts().some((d) => d.id === id) ? id : null;
+      },
+      hold: true,
+      isOpenFor: (id) => this.menu().isOpenFor(id),
+      open: (id, box, x, y, by) => {
+        this.menuOn.set(id);
+        this.menu().show({ key: id, x, y, by, back: box.querySelector<HTMLElement>('.hit') });
+      },
+    });
     const measure = () => this.cols.set(shelfColumns(host.clientWidth, 168, 32));
     // "Ver na lista" ou um item novo chegando: se a busca esconde ele, a busca sai da frente
     effect(() => {
@@ -219,6 +261,12 @@ export class QueuePage {
       ro.observe(host);
       this.destroyRef.onDestroy(() => ro.disconnect());
     });
+  }
+
+  /** Tira da fila (com o Desfazer); o foco vai para a folha vizinha, ou para o "Guardar" da fila vazia. */
+  private remove(id: string): void {
+    focusAfterRemoval(this.host, this.visible().map((d) => d.id), id, (n) => `app-draft-card[data-ficha="${CSS.escape(n)}"] .hit`, '.empty .btn-ink, #busca-fila');
+    this.desk.removeDraft(id);
   }
 
   protected sort(o: ShelfOrder): void {

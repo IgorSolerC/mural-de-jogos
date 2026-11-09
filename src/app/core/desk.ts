@@ -23,6 +23,10 @@ export interface DeskHandlers {
   newDraft(): void;
   /** Começar a resenha de um desejo. */
   openWish(id: string): void;
+  /** Tirar da fila do Pra depois, com o Desfazer (o mesmo do "Tirar da fila" do editor). */
+  removeDraft(id: string): void;
+  /** Tirar da wishlist, com o Desfazer (o mesmo do "Tirar da wishlist" do editor). */
+  removeWish(id: string): void;
   /** A ficha de outra pessoa aberta pelo link: a leitura sem o fechar (ver pages/ficha-page.ts). */
   openLoose(review: Review, owner: string, pool: readonly Review[], code: string, signedIn: boolean): void;
   closeReader(): void;
@@ -79,6 +83,14 @@ export class Desk {
 
   openWish(id: string): void {
     this.handlers?.openWish(id);
+  }
+
+  removeDraft(id: string): void {
+    this.handlers?.removeDraft(id);
+  }
+
+  removeWish(id: string): void {
+    this.handlers?.removeWish(id);
   }
 
   openLoose(review: Review, owner: string, pool: readonly Review[], code: string, signedIn: boolean): void {

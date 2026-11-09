@@ -584,6 +584,84 @@ describe('A folha de comentários (CommentsPanel)', () => {
       fixture.detectChanges();
       expect(el.querySelector(`[data-comentario="${id(3)}"] > .fala`)!.classList).toContain('chegou');
     });
+
+    describe('o menu do botão direito numa fala', () => {
+      const panel = (el: HTMLElement) => el.querySelector<HTMLElement>('.menu-contexto')!;
+      const labels = (el: HTMLElement) => [...panel(el).querySelectorAll('.escolha .nome')].map((x) => x.textContent!.trim());
+      const option = (el: HTMLElement, label: string) => [...panel(el).querySelectorAll<HTMLButtonElement>('.escolha')].find((b) => b.querySelector('.nome')!.textContent!.trim() === label)!;
+      const text = (el: HTMLElement, n: number) => el.querySelector(`[data-comentario="${id(n)}"] > .fala .texto`)!;
+      async function rightClick(fixture: ComponentFixture<unknown>, target: Element): Promise<MouseEvent> {
+        target.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 2, pointerType: 'mouse', clientX: 30, clientY: 30 }));
+        const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 30, clientY: 30 });
+        target.dispatchEvent(e);
+        await settle(fixture);
+        return e;
+      }
+      /** A folha na página (o menu é um popover: só abre nela). */
+      async function openIn(thread: Thread, own = false) {
+        const opened = await open(thread);
+        opened.host.own.set(own);
+        document.body.appendChild(opened.el);
+        attached.push(opened.el);
+        await settle(opened.fixture);
+        // na tela, e a conversa já rolada até o fim (a rolagem que chega depois tira a fala do lugar e fecha o menu)
+        opened.el.scrollIntoView({ block: 'start' });
+        await new Promise((res) => setTimeout(res, 60));
+        await settle(opened.fixture);
+        return opened;
+      }
+      const attached: HTMLElement[] = [];
+      afterEach(() => attached.splice(0).forEach((x) => x.remove()));
+
+      it('responder, reagir, copiar, o perfil e as respostas; sem apagar a fala de outra pessoa na ficha dos outros', async () => {
+        const { fixture, el } = await openIn(TREE);
+        const e = await rightClick(fixture, text(el, 1));
+        expect(e.defaultPrevented).toBeTrue();
+        expect(panel(el).matches(':popover-open')).toBeTrue();
+        expect(panel(el).querySelector('.legenda')!.textContent).toContain('O comentário de Bia');
+        expect(labels(el)).toEqual(['Responder', 'Reagir', 'Copiar o texto', 'Ver o perfil de Bia', 'Recolher as 2 respostas']);
+        option(el, 'Recolher as 2 respostas').click();
+        await settle(fixture);
+        expect(el.querySelectorAll('.comentario.resposta').length).toBe(0);
+        await rightClick(fixture, text(el, 1));
+        expect(labels(el)).toContain('Ver 2 respostas');
+        option(el, 'Ver o perfil de Bia').click();
+        expect(fixture.componentInstance.left).toEqual([['/perfil', 'BBBB-2222']]);
+      });
+
+      it('Responder abre o campo respondendo àquela fala; Reagir abre a fileira de reações dela', async () => {
+        const { fixture, el } = await openIn(TREE);
+        await rightClick(fixture, text(el, 2));
+        option(el, 'Responder').click();
+        await settle(fixture);
+        expect(el.querySelector('.respondendo-a')!.textContent).toContain('Respondendo a Caio');
+        await rightClick(fixture, text(el, 4));
+        option(el, 'Reagir').click();
+        await settle(fixture);
+        expect(el.querySelector(`[data-comentario="${id(4)}"] > .fala app-reaction-picker .fileira`)).not.toBeNull();
+      });
+
+      it('na sua ficha, apagar fica sozinho no fim e faz a mesma pergunta do X; quem não pode comentar só copia e vê', async () => {
+        const { fixture, el } = await openIn(TREE, true);
+        await rightClick(fixture, text(el, 4));
+        expect(labels(el).at(-1)).toBe('Apagar o comentário');
+        option(el, 'Apagar o comentário').click();
+        await new Promise((res) => setTimeout(res, 0));
+        expect(asked.length).toBe(1);
+        expect(fake.removed).toEqual([id(4)]);
+        TestBed.resetTestingModule();
+        const other = await openIn({ ...TREE, pode: false });
+        await rightClick(other.fixture, text(other.el, 4));
+        expect(labels(other.el)).toEqual(['Copiar o texto', 'Ver o perfil de Dan']);
+      });
+
+      it('o apagado fica com o menu do navegador', async () => {
+        const gone = comment(1, '', '', '', { gone: true, autor: { codigo: '', nome: '', foto: null } });
+        const { fixture, el } = await openIn({ ...TREE, comentarios: [gone, ...TREE.comentarios.slice(1)] });
+        const e = await rightClick(fixture, el.querySelector(`[data-comentario="${id(1)}"] > .fala`)!);
+        expect(e.defaultPrevented).toBeFalse();
+      });
+    });
   });
 });
 

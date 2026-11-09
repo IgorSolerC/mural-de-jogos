@@ -90,6 +90,17 @@
   --vao: 10px;
 }
 
+/* segurar o dedo numa fala abre o menu dela (ui/context-menu.ts): sem o balão do sistema junto. O link
+   do texto fica com o do sistema (o menu não abre nele) */
+@supports selector(:popover-open) {
+  .fala {
+    -webkit-touch-callout: none;
+  }
+  .fala a[href] {
+    -webkit-touch-callout: default;
+  }
+}
+
 /* o mouse ou o foco chegou na fala: os botões dela escurecem (os das respostas embaixo, não). No
    toque, só o foco: o :hover de um dedo fica preso depois de tocar */
 .fala:focus-within {

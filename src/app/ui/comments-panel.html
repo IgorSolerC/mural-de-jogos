@@ -184,6 +184,9 @@
   </li>
 </ng-template>
 
+<!-- o botão direito (o dedo segurado, Shift+F10) numa fala: responder, reagir, copiar, o perfil, as respostas, apagar -->
+<app-context-menu #menu [caption]="menuCaption()" [sections]="menuSections()" (closed)="menuOn.set(null)" />
+
 <!-- o pé: escrever, ou o que falta para poder -->
 <div class="escrever" (keydown.control.enter)="send()" (keydown.meta.enter)="send()">
   @switch (door()) {

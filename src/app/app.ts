@@ -246,6 +246,8 @@ export class App {
       closeReader: () => this.reader().close(),
       editReview: (id, tab, part) => this.editReview(id, tab, part),
       removeReview: (id) => void this.removeReview(id),
+      removeDraft: (id) => this.removeDraft(id),
+      removeWish: (id) => this.removeWish(id),
     });
     // Texturas fotográficas são opcionais: só entram se o arquivo existir.
     afterNextRender(() => {

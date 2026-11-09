@@ -433,9 +433,11 @@ export class ContextMenuTrigger {
     const hit = this.boxAt(e.target);
     if (!hit) return;
     const t = e.target as Element;
-    // um link de dentro e um trecho selecionado ficam com o menu do navegador
+    // um link de dentro e um trecho selecionado ficam com o menu do navegador (segurando o dedo, a palavra
+    // que o próprio toque longo selecionou não conta: o menu abre e tira a seleção)
     const sel = getSelection();
-    if (this.innerLink(t, hit.box) || (sel && !sel.isCollapsed && hit.box.contains(sel.anchorNode))) return;
+    const held = this.touching && this.cfg.hold;
+    if (this.innerLink(t, hit.box) || (!held && sel && !sel.isCollapsed && hit.box.contains(sel.anchorNode))) return;
     e.preventDefault();
     // aberto pelo teclado agora mesmo (o navegador ainda manda o contextmenu da tecla), ou pelo dedo
     if (this.cfg.isOpenFor(hit.key)) return;

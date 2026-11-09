@@ -4,17 +4,19 @@ import { ICON, IconModule } from './icons';
 import { CloudError } from '../core/cloud-account';
 import { COMMENT_MAX, Comment, CommentNode, CommentTarget, Comments, QuoteRequest, commentTree, commentWhen, liveCount, spokenComments, withQuote } from '../core/comments';
 import { reducedMotion } from '../core/motion';
-import { focusAfterRender } from './focus';
+import { focusAfterRemoval, focusAfterRender } from './focus';
 import { Follow } from '../core/follow';
 import { initialStock, photoTilt } from '../core/profile-people';
 import { ReactionId } from '../core/reaction-kinds';
 import { spokenReactions, tally } from '../core/reactions';
 import { Stock } from '../core/review';
 import { Busy } from './busy';
+import { ContextMenu, ContextMenuTrigger, MenuItem, MenuSections } from './context-menu';
 import { Confirm } from './confirm';
 import { ReactionPicker } from './reactions';
 import { RichEditor } from './rich-editor';
 import { RichText } from './rich-text';
+import { copyText } from '../core/rich-text';
 import { Toasts } from './toast';
 
 /**
@@ -37,7 +39,7 @@ const MAX_INDENT = 4;
 
 @Component({
   selector: 'app-comments-panel',
-  imports: [Busy, IconModule, NgTemplateOutlet, ReactionPicker, RichEditor, RichText],
+  imports: [Busy, ContextMenu, IconModule, NgTemplateOutlet, ReactionPicker, RichEditor, RichText],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './comments-panel.html',
   styleUrl: './comments-panel.scss',
@@ -112,7 +114,84 @@ export class CommentsPanel {
   /** A ficha da folha: a mesma enquanto a chave é a mesma. */
   private readonly key = computed(() => `${this.target().code}/${this.target().ref}`);
 
+  private readonly menu = viewChild.required<ContextMenu>('menu');
+  /** A fala com o menu aberto. */
+  protected readonly menuOn = signal<string | null>(null);
+  /** Cada fala da árvore pelo id (com as respostas dela). */
+  private readonly nodes = computed(() => {
+    const map = new Map<string, CommentNode>();
+    const walk = (list: readonly CommentNode[]): void => {
+      for (const n of list) {
+        map.set(n.k.id, n);
+        walk(n.kids);
+      }
+    };
+    walk(this.tree());
+    return map;
+  });
+  private readonly menuNode = computed(() => {
+    const id = this.menuOn();
+    const n = id ? this.nodes().get(id) : undefined;
+    return n && !n.k.gone ? n : null;
+  });
+  protected readonly menuCaption = computed(() => {
+    const k = this.menuNode()?.k;
+    return k ? (k.autor.codigo === this.me() ? 'O seu comentário' : `O comentário de ${k.autor.nome}`) : '';
+  });
+  /**
+   * O que dá para fazer com uma fala sem caçar o botão: responder e reagir (quem pode comentar ali);
+   * copiar o texto; o perfil de quem escreveu e as respostas embaixo dela; e, sozinho no fim, apagar
+   * (a mesma pergunta do X), para quem escreveu ou para o dono da ficha.
+   */
+  protected readonly menuSections = computed<MenuSections>(() => {
+    const n = this.menuNode();
+    if (!n) return [];
+    const k = n.k;
+    const mine = k.autor.codigo === this.me();
+    const talk: MenuItem[] = [];
+    if (this.canReact()) {
+      talk.push({ id: 'responder', label: 'Responder', icon: ICON.responder, run: () => this.answer(k) });
+      talk.push({ id: 'reagir', label: this.mineOn(k) ? 'Trocar a reação' : 'Reagir', icon: ICON.reagir, run: () => this.openPicker(k.id) });
+    }
+    const copy: MenuItem[] = [{ id: 'copiar', label: 'Copiar o texto', icon: ICON.copiar, hint: 'Sem as marcas', run: () => void this.copy(k) }];
+    const keep: MenuItem[] = [
+      { id: 'perfil', label: mine ? 'Ver o seu perfil' : `Ver o perfil de ${k.autor.nome}`, icon: ICON.pessoa, run: () => this.leave.emit(['/perfil', k.autor.codigo]) },
+    ];
+    if (n.kids.length) {
+      const folded = this.collapsed().has(k.id);
+      const one = n.size === 1;
+      keep.push({
+        id: 'respostas',
+        label: folded ? (one ? 'Ver 1 resposta' : `Ver ${n.size} respostas`) : one ? 'Recolher a resposta' : `Recolher as ${n.size} respostas`,
+        icon: folded ? ICON.dentro : ICON.recolher,
+        run: () => this.toggle(k.id),
+      });
+    }
+    const end: MenuItem[] = this.canErase(k) ? [{ id: 'apagar', label: 'Apagar o comentário', icon: ICON.apagar, danger: true, dialog: true, run: () => void this.erase(n) }] : [];
+    // como no menu da anotação: o que fazer, a cópia, o resto e, sozinho no fim, apagar
+    return [talk, copy, keep, end];
+  });
+
   constructor() {
+    // o menu de uma fala (o apagado não tem: não há o que fazer com ele)
+    new ContextMenuTrigger({
+      host: this.host,
+      targets: '.comentario > .fala',
+      keyOf: (box) => {
+        const id = box.parentElement?.getAttribute('data-comentario');
+        const n = id ? this.nodes().get(id) : undefined;
+        return n && !n.k.gone ? n.k.id : null;
+      },
+      hold: true,
+      isOpenFor: (id) => this.menu().isOpenFor(id),
+      open: (id, box, x, y, by) => {
+        this.menuOn.set(id);
+        // o foco volta para onde estava na fala (Shift+F10 no Responder); senão, para o nome de quem escreveu
+        const active = document.activeElement;
+        const back = active instanceof HTMLElement && box.contains(active) ? active : box.querySelector<HTMLElement>('.nome');
+        this.menu().show({ key: id, x, y, by, back });
+      },
+    });
     // outra ficha (ou a primeira): a conversa dela, o rascunho que ficou, o campo fechado
     effect(() => {
       this.key();
@@ -283,6 +362,16 @@ export class CommentsPanel {
     return this.comments.mineOn(k);
   }
 
+  /** "Reagir" no menu: a fileira de reações da própria fala abre, como no botão dela. */
+  private openPicker(id: string): void {
+    this.host.querySelector<HTMLElement>(`[data-comentario="${CSS.escape(id)}"] > .fala .fazer app-reaction-picker .reagir`)?.click();
+  }
+
+  /** O texto da fala sem as marcas, para colar fora do site. */
+  private copy(k: Comment): Promise<void> {
+    return this.toasts.copy(copyText(k.texto, { now: Date.now() }).trim(), 'Copiei o texto do comentário.', 'Não deu para copiar. Tente de novo.');
+  }
+
   protected react(k: Comment, reaction: ReactionId | null): void {
     void this.comments.react(this.target(), k.id, reaction);
   }
@@ -327,6 +416,9 @@ export class CommentsPanel {
     });
     if (!ok) return;
     if (this.replyTo()?.id === k.id) this.replyTo.set(null);
+    // a fala sai (ou vira "Comentário apagado"): o foco vai para a vizinha, ou para o campo do pé
+    const ids = [...this.host.querySelectorAll<HTMLElement>('[data-comentario]')].map((li) => li.dataset['comentario']!);
+    focusAfterRemoval(this.host, ids, k.id, (c) => `[data-comentario="${CSS.escape(c)}"] > .fala .nome`, '.escrever .abrir, #comentarios-titulo');
     void this.comments.remove(target, k.id);
   }
 

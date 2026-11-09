@@ -350,6 +350,16 @@ describe('Amigos: a página (MailPage)', () => {
       expect(ids(page)[2]).toEqual(['perfil']);
     });
 
+    it('de quem eu sigo: reagir logo depois de abrir (trocar, se já reagi)', async () => {
+      people.set({ seguindo: [{ ...ana, desde: '2026-10-01T00:00:00.000Z', silenciado: false, rev: 1, meSegue: false }], seguidores: [] });
+      items.set([post(ana, 'rana01', '2026-10-06T10:00:00.000Z')]);
+      cloudWalls.set(ana.codigo, wallOf(ana, [review('rana01', 'Celeste')]));
+      const page = await open();
+      page.postOn.set(posts(page)[0].key);
+      expect(ids(page)[0].slice(0, 3)).toEqual(['abrir', 'reagir', 'comentar']);
+      expect(page.postSections()[0][1].label).toBe('Reagir');
+    });
+
     it('o mural que não veio: tentar de novo e o perfil', async () => {
       items.set([post(ana, 'rana01', '2026-10-06T10:00:00.000Z')]);
       cloudWalls.set(ana.codigo, null);

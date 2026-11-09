@@ -271,11 +271,12 @@ export class MailPage {
     return out;
   });
   private readonly wished = computed(() => new Set(this.store.wishes().map((w) => `${w.kind}:${fold(w.game.name)}`)));
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
   constructor() {
     // o botão direito (ou o dedo segurado) num post abre o menu dele
     new ContextMenuTrigger({
-      host: inject<ElementRef<HTMLElement>>(ElementRef).nativeElement,
+      host: this.host,
       targets: 'app-feed-post[data-post]',
       keyOf: (box) => box.getAttribute('data-post'),
       hold: true,
@@ -631,6 +632,10 @@ export class MailPage {
     if (theirs) {
       read.push({ id: 'abrir', label: 'Abrir a ficha', icon: ICON.aumentar, dialog: true, run: () => this.openPost(p, false) });
       const { code, ref } = p.target;
+      // a fileira de reações do pé do post abre, como no botão dele (só de quem eu sigo, como ele)
+      if (this.reactions.canReact(who.codigo)) {
+        read.push({ id: 'reagir', label: this.reactions.mineOn(code, ref) ? 'Trocar a reação' : 'Reagir', icon: ICON.reagir, run: () => this.openPicker(p.key) });
+      }
       if (!(this.comments.closedOf(code, ref) && code !== this.comments.myCode())) {
         const n = this.comments.countOf(code, ref);
         read.push({ id: 'comentar', label: n ? 'Ler os comentários' : 'Comentar', icon: ICON.comentar, dialog: true, count: n ? { n, say: n === 1 ? 'comentário' : 'comentários' } : undefined, run: () => this.openPost(p, true) });
@@ -650,4 +655,9 @@ export class MailPage {
     // como no menu da anotação: abrir e ler, depois a cópia, depois o resto
     return [read, link, keep];
   });
+
+  /** "Reagir" no menu: a fileira de reações do pé do post abre, como no botão dele. */
+  private openPicker(key: string): void {
+    this.host.querySelector<HTMLElement>(`app-feed-post[data-post="${CSS.escape(key)}"] app-reaction-picker .reagir`)?.click();
+  }
 }

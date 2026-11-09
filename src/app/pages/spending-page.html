@@ -139,6 +139,7 @@
         [attr.data-colagem-segura]="filtered() || null"
         (clearFilter)="clearFilters()"
         (onlyCategory)="pick($event)"
+        (onlyPerson)="pickPerson($event)"
       />
       <app-spending-summary
         class="resumo"

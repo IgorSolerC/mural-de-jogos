@@ -36,7 +36,14 @@ describe('menu do botão direito na fita dos Gastos', () => {
     await settle();
     return e;
   }
-  /** A fita do mês, com os lançamentos de agora (o que a página faria). */
+  /** Espera a linha sair e o foco ir para a vizinha (ui/focus.ts: focusAfterRemoval). */
+  async function frames(n = 8): Promise<void> {
+    for (let i = 0; i < n; i++) {
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
+      TestBed.tick();
+    }
+  }
+    /** A fita do mês, com os lançamentos de agora (o que a página faria). */
   async function draw(): Promise<void> {
     fixture.componentRef.setInput('rows', rowsIn(store.entries(), MONTH));
     await settle();
@@ -90,11 +97,37 @@ describe('menu do botão direito na fita dos Gastos', () => {
     expect(cleared).toBeTrue();
   });
 
+  it('"Só <pessoa>" em cada pessoa do gasto (você, não); já filtrada nela, o mês inteiro de novo', async () => {
+    const bia = store.addPerson('Bia');
+    store.save({ ...uber, id: 'pizza', title: 'Pizza', category: 'comida', people: ['eu', bia.id] });
+    await draw();
+    let who = '';
+    let cleared = false;
+    fixture.componentInstance.onlyPerson.subscribe((p) => (who = p));
+    fixture.componentInstance.clearFilter.subscribe(() => (cleared = true));
+    await rightClick(line('pizza'));
+    expect(labels()).toEqual(['Editar', 'Só Comida', 'Só Bia', 'Apagar o lançamento']);
+    option('Só Bia').click();
+    expect(who).toBe(bia.id);
+    fixture.componentRef.setInput('person', bia.id);
+    await rightClick(line('pizza'));
+    expect(labels()).toEqual(['Editar', 'Ver o mês inteiro', 'Só Comida', 'Apagar o lançamento']);
+    option('Ver o mês inteiro').click();
+    expect(cleared).toBeTrue();
+    // o gasto só seu não tem pessoa para escolher
+    fixture.componentRef.setInput('person', null);
+    await rightClick(line('uber'));
+    expect(labels()).toEqual(['Editar', 'Só Transporte', 'Apagar o lançamento']);
+  });
+
   it('apagar faz a mesma pergunta da folhinha (o fixo: só neste mês ou dali em diante), com o Desfazer', async () => {
     await rightClick(line('uber'));
     option('Apagar o lançamento').click();
     await settle();
     expect(store.entries().some((x) => x.id === 'uber')).toBeFalse();
+    // a página manda a fita sem a linha
+    await draw();
+    await frames();
     const toast = TestBed.inject(Toasts).current()!;
     expect(toast.text).toBe('“Uber” apagado');
     // a linha saiu: o foco vai para a de baixo (ou a de cima)

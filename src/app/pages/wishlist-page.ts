@@ -4,10 +4,12 @@ import { collage, SHELF_ORDERS, shelfColumns, shelfCompare, ShelfOrder } from '.
 import { Desk } from '../core/desk';
 import { g } from '../core/kinds';
 import { Mural } from '../core/mural';
-import { RELEVANCE_RANK, Relevance, Wish, fold, relevanceLabel, relevanceOf } from '../core/review';
+import { RELEVANCES, RELEVANCE_RANK, Relevance, Wish, fold, relevanceLabel, relevanceOf } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { ViewTransitions } from '../core/view-transitions';
 import { Toasts } from '../ui/toast';
+import { ContextMenu, ContextMenuTrigger, MenuItem, MenuSections } from '../ui/context-menu';
+import { focusAfterRemoval } from '../ui/focus';
 import { SearchHighlight } from '../ui/search-highlight';
 import { SearchStrip } from '../ui/search-strip';
 import { WishClip } from '../ui/wish-clip';
@@ -22,7 +24,7 @@ import { reducedMotion } from '../core/motion';
  */
 @Component({
   selector: 'app-wishlist-page',
-  imports: [IconModule, SearchHighlight, SearchStrip, WishClip],
+  imports: [ContextMenu, IconModule, SearchHighlight, SearchStrip, WishClip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '(document:keydown.escape)': 'onEscape()', '[class.com-sorteio]': 'winner()' },
   template: `
@@ -138,6 +140,9 @@ import { reducedMotion } from '../core/motion';
         </button>
       </section>
     }
+
+    <!-- o botão direito (o dedo segurado, Shift+F10) num recorte: começar a resenha, a vontade, tirar da wishlist -->
+    <app-context-menu #menu [caption]="menuWish()?.game?.name ?? ''" [sections]="menuSections()" (closed)="menuOn.set(null)" />
   `,
   styles: `
     :host {
@@ -167,6 +172,14 @@ import { reducedMotion } from '../core/motion';
       width: calc(var(--largura, 100) * 1%);
       margin-left: calc(var(--desvio, 0) * 1%);
       margin-bottom: var(--vao, 40px);
+    }
+    /* segurar o dedo num recorte abre o menu dele (ui/context-menu.ts): sem o balão do sistema (salvar a
+       capa) nem a seleção junto */
+    @supports selector(:popover-open) {
+      app-wish-clip {
+        -webkit-touch-callout: none;
+        user-select: none;
+      }
     }
 
     /* ===== O bilhete do sorteio ===== */
@@ -344,8 +357,50 @@ export class WishlistPage {
   protected readonly columns = computed(() => collage(this.visible(), this.cols()));
   protected readonly winner = computed<Wish | null>(() => this.visible().find((w) => w.id === this.drawn()) ?? null);
 
+  private readonly menu = viewChild.required<ContextMenu>('menu');
+  /** O recorte com o menu aberto. */
+  protected readonly menuOn = signal<string | null>(null);
+  protected readonly menuWish = computed(() => this.mural.wishes().find((w) => w.id === this.menuOn()) ?? null);
+  /**
+   * O que o toque no recorte faz (começar a resenha); as outras vontades do adesivo (Comum é tirar o
+   * adesivo); e, sozinho no fim, tirar da wishlist, com o Desfazer.
+   */
+  protected readonly menuSections = computed<MenuSections>(() => {
+    const w = this.menuWish();
+    if (!w) return [];
+    const rel = relevanceOf(w);
+    const stickers: MenuItem[] = RELEVANCES.filter((r) => r !== rel).map((r) =>
+      r === 'comum'
+        ? { id: 'comum', label: 'Tirar o adesivo', icon: ICON.adesivo, hint: 'Volta a ser Comum, sem adesivo', run: () => this.setRelevance(w, r, false) }
+        : { id: r, label: `Marcar ${relevanceLabel(w.kind, r)}`, icon: ICON.adesivo, hint: 'O adesivo da quina do recorte', run: () => this.setRelevance(w, r, false) },
+    );
+    return [
+      [{ id: 'comecar', label: 'Começar a resenha', icon: ICON.editar, dialog: true, run: () => this.startDrawn(w) }],
+      stickers,
+      [{ id: 'tirar', label: 'Tirar da wishlist', icon: ICON.apagar, danger: true, run: () => this.remove(w.id) }],
+    ];
+  });
+  private readonly host: HTMLElement;
+
   constructor() {
     const host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
+    this.host = host;
+    new ContextMenuTrigger({
+      host,
+      targets: 'app-wish-clip[data-ficha]',
+      keyOf: (box) => {
+        const id = box.getAttribute('data-ficha');
+        return id && this.mural.wishes().some((w) => w.id === id) ? id : null;
+      },
+      hold: true,
+      isOpenFor: (id) => this.menu().isOpenFor(id),
+      open: (id, box, x, y, by) => {
+        this.menuOn.set(id);
+        // o foco volta para onde estava no recorte (Shift+F10 no adesivo); senão, para o recorte
+        const active = document.activeElement;
+        this.menu().show({ key: id, x, y, by, back: active instanceof HTMLElement && box.contains(active) ? active : box.querySelector<HTMLElement>('.hit') });
+      },
+    });
     const measure = () => this.cols.set(shelfColumns(host.clientWidth, 172, 34));
     // "Ver na lista" ou um item novo chegando: se a busca esconde ele, a busca sai da frente
     effect(() => {
@@ -359,15 +414,25 @@ export class WishlistPage {
       this.destroyRef.onDestroy(() => ro.disconnect());
     });
   }
-  /** Trocou a vontade no adesivo: o recorte muda de lugar na colagem, e o teclado vai junto com ele. */
-  protected setRelevance(w: Wish, r: Relevance): void {
+  /**
+   * Trocou a vontade no adesivo (ou no menu): o recorte muda de lugar na colagem, e o teclado vai junto com
+   * ele, no adesivo (do menu, no recorte, de onde o menu abriu).
+   */
+  protected setRelevance(w: Wish, r: Relevance, sticker = true): void {
     this.transitions.run(() => this.store.setRelevance(w.id, r));
     this.toasts.show(`“${w.game.name}” agora é ${r === 'comum' ? 'Comum' : relevanceLabel(w.kind, r)}`);
     setTimeout(() => {
-      const btn = document.querySelector<HTMLElement>(`[data-ficha="${w.id}"] .adesivo-btn`);
+      const btn = document.querySelector<HTMLElement>(`[data-ficha="${w.id}"] ${sticker ? '.adesivo-btn' : '.hit'}`);
       btn?.focus({ preventScroll: true });
       btn?.scrollIntoView({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' });
     }, 140);
+  }
+
+  /** Tira da wishlist (com o Desfazer); o foco vai para o recorte vizinho, ou para o "Adicionar" da wishlist vazia. */
+  private remove(id: string): void {
+    if (this.drawn() === id) this.drawn.set(null);
+    focusAfterRemoval(this.host, this.visible().map((w) => w.id), id, (n) => `app-wish-clip[data-ficha="${CSS.escape(n)}"] .hit`, '.vazio .btn-ink, #busca-desejos');
+    this.desk.removeWish(id);
   }
 
   protected sort(o: ShelfOrder): void {

@@ -50,3 +50,23 @@ export function swallowNextClick(target: EventTarget = window): void {
   target.addEventListener('click', swallow, { capture: true, once: true });
   setTimeout(() => target.removeEventListener('click', swallow, { capture: true }));
 }
+
+/**
+ * O foco depois de tirar um item de uma lista (`ids`, na ordem da tela) pelo menu: o vizinho de baixo, ou
+ * o de cima, achado por `at(id)`; sem vizinho, `fallback`. Espera o item sair da tela (a view transition
+ * troca a página um quadro depois), para o foco não ficar nele.
+ */
+export function focusAfterRemoval(host: HTMLElement, ids: readonly string[], id: string, at: (id: string) => string, fallback: string): void {
+  const i = ids.indexOf(id);
+  const near = [...ids.slice(i + 1), ...ids.slice(0, Math.max(i, 0)).reverse()];
+  let tries = 0;
+  const go = () => {
+    if (host.querySelector(at(id)) && ++tries < 30) {
+      requestAnimationFrame(go);
+      return;
+    }
+    const next = near.map((n) => host.querySelector<HTMLElement>(at(n))).find((b) => !!b) ?? host.querySelector<HTMLElement>(fallback);
+    next?.focus();
+  };
+  requestAnimationFrame(go);
+}

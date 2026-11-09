@@ -1331,11 +1331,16 @@ describe('página do Kanban', () => {
     });
 
     it('a linha do "Mais" (o quadro vazio) tem o mesmo menu, com o endereço do quadro; deixar sempre no Mais; a lista fecha', async () => {
+      // na tela (a página comprida dos testes anteriores: fora da tela, o foco que volta para o Mais rolaria a página, e o menu fecha)
+      host.querySelector('.abas-quadros')!.scrollIntoView({ block: 'start' });
       host.querySelector<HTMLButtonElement>('.abas-quadros app-tab-more .gatilho')!.click();
-      await settle();
+      // a lista aberta (e a janela parada: um aviso de tamanho de um teste anterior fecharia o menu)
+      for (let i = 0; i < 10 && !host.querySelector('.abas-quadros app-tab-more [popover]')!.matches(':popover-open'); i++) await settle();
+      await new Promise((r) => setTimeout(r, 150));
       const row = host.querySelector<HTMLElement>(`.abas-quadros app-tab-more .opcao[data-k="${EST}"]`)!;
       expect(row).not.toBeNull();
       await rightClick(row);
+      expect(tabMenu().matches(':popover-open')).withContext('o menu abriu na linha do Mais').toBeTrue();
       expect(tabMenu().querySelector('.legenda')!.textContent).toContain('Estudos');
       expect(labels()[0]).toBe('Abrir em outra aba');
       expect(labels().slice(-2)).toEqual(['Ajustes do grupo', 'Deixar sempre no Mais']);

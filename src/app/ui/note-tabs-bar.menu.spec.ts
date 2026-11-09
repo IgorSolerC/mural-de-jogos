@@ -86,6 +86,8 @@ describe('menu do botão direito nas abas de grupo', () => {
     settings.setCategoryPrefs('Trabalho', { hidden: true });
     settings.setNotesConfig({ showAll: false });
     await settle();
+    // na tela (a página comprida dos testes anteriores: fora da tela, o foco que volta para o Mais rolaria a página, e o menu fecha)
+    host.scrollIntoView({ block: 'start' });
     host.querySelector<HTMLButtonElement>('app-tab-more .gatilho')!.click();
     // a lista aberta (e a janela parada: um aviso de tamanho de um teste anterior fecharia o menu)
     for (let i = 0; i < 10 && !host.querySelector('app-tab-more [popover]')!.matches(':popover-open'); i++) await settle();
