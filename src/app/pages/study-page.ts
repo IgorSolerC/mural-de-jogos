@@ -12,7 +12,6 @@ import { Settings } from '../core/settings';
 import { WallView } from '../core/wall-view';
 import { Desk } from '../core/desk';
 import { daysBetween, studyDay } from '../core/fsrs';
-import { reducedMotion } from '../core/motion';
 import { LIGHT_STOCKS, LightStock } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { CardFace, CardSize, DECK_NAME_MAX, Deck, LEVEL_LABEL, Level, STUDY_SIZE_KEY, StudyCard as Card, cardFace, frontTitle, groupKey, inGroup, levelOf, studyGroupId, whenLabel } from '../core/study';
@@ -24,12 +23,9 @@ import { PublicDeckNudge } from '../ui/public-deck-nudge';
 import { nameCollator } from '../core/text';
 import { pinningFor } from '../core/wall-physics';
 import { ICON, ICON_CHOICE, IconModule } from '../ui/icons';
-import { NearPool, NearScreen } from '../ui/near-screen';
 import { Pin } from '../ui/pin';
 import { SearchStrip } from '../ui/search-strip';
-import { StudyCard } from '../ui/study-card';
-import { StudyCardBack } from '../ui/study-card-back';
-import { StudyCardFocus } from '../ui/study-card-focus';
+import { StudyCardWall, WallCard } from '../ui/study-card-wall';
 import { StudyDeckSheet } from '../ui/study-deck-sheet';
 import { StudySession } from '../ui/study-session';
 import { StudyDrillPicker } from '../ui/study-drill-picker';
@@ -37,10 +33,10 @@ import type { DrillChoice } from '../ui/study-drill-picker';
 import { MuralConfig } from '../ui/mural-config';
 import { CardPicker } from '../ui/card-picker';
 import { GroupMenu, backFromList } from '../ui/group-menu';
-import { ContextMenu, ContextMenuTrigger, MENU_CLASS, MenuBy, MenuItem, MenuSections } from '../ui/context-menu';
+import { ContextMenu, ContextMenuTrigger, MenuBy, MenuItem, MenuSections } from '../ui/context-menu';
 import { RemoveAsking } from '../ui/remove-asking';
-import { CategoryLabel } from '../ui/category-label';
-import { TabFit } from '../ui/tab-fit';
+import { StudyGroupTabs, StudyTab } from '../ui/study-group-tabs';
+import { StudyPiles } from '../ui/study-piles';
 import { TabMore, TabMoreItem } from '../ui/tab-more';
 import { Toasts } from '../ui/toast';
 import { NOTES } from '../core/kinds';
@@ -64,22 +60,14 @@ const CARD_SIZES: readonly { value: CardSize; label: string; icon: LucideIconDat
 const LEVELS: readonly Level[] = ['desconhecida', 'nova', 'aprendendo', 'dominada'];
 const LEVEL_PLURAL: Record<Level, string> = { desconhecida: 'Desconhecidos', nova: 'Novos', aprendendo: 'Aprendendo', dominada: 'Dominados' };
 
-/** A carta como a parede mostra: a frente, a cartolina da anotação e a linha do pé. */
-interface CardView {
-  note: string;
-  title: string;
-  subtitle?: string;
-  image?: string;
-  stock: ReturnType<ReviewStore['notes']>[number]['stock'];
+/** A carta como a parede mostra (ui/study-card-wall.ts), com o que a ordem e o filtro usam. */
+interface CardView extends WallCard {
   level: Level;
   meta: string;
   /** O progresso, como a frente mostra no desenho do baralho. */
   face: CardFace;
-  /** Num baralho público, a carta de anotação privada: só o dono vê (dito só ao leitor de tela: o cadeado na etiqueta saiu a pedido do dono). */
-  mine: boolean;
   due: string;
   added: string;
-  tilt: number;
 }
 
 /** Um baralho como a fileira e as pilhas mostram. */
@@ -122,18 +110,8 @@ const DRILL_ICON: Record<DrillKind, LucideIconData> = {
   escolhidos: ICON.tarefas,
 };
 
-/** Quanto a carta pequena cresce ao virar: da miniatura ao tamanho das grandes (o --escala de study-page.scss). */
-const SMALL_GROWS = 2.5;
-/** A folga da carta pequena crescida até a beira da tela. */
-const SCREEN_GAP = 8;
-/** Nada virado. */
-const NO_CARDS: ReadonlySet<string> = new Set();
-
-/** O que o menu do botão direito tem aberto: um baralho (a pilha, ou o nome no alto do baralho aberto) ou um flashcard da parede. */
-type MenuOn = { kind: 'baralho'; id: string; link: string | null } | { kind: 'grupo'; id: string; inMore: boolean } | { kind: 'carta'; note: string };
-
-/** A chave do Tudo na régua das abas. */
-const ALL_TAB = 'tudo';
+/** O que o menu do botão direito tem aberto: um baralho (a pilha, ou o nome no alto do baralho aberto) ou uma aba (o do flashcard é da parede). */
+type MenuOn = { kind: 'baralho'; id: string; link: string | null } | { kind: 'grupo'; id: string; inMore: boolean };
 
 /** O giro de cada carta na parede, do id: pequeno, como as fichas da Visão geral. */
 function tiltOf(id: string): number {
@@ -153,15 +131,10 @@ function tiltOf(id: string): number {
  */
 @Component({
   selector: 'app-study-page',
-  imports: [CardPicker, CategoryLabel, ContextMenu, IconModule, NearScreen, NgTemplateOutlet, Pin, RouterLink, SearchStrip, StudyCard, StudyCardBack, StudyCardFocus, StudyDeckSheet, StudyDrillPicker, StudySession, MuralConfig, TabMore],
+  imports: [CardPicker, ContextMenu, IconModule, NgTemplateOutlet, Pin, RouterLink, SearchStrip, StudyCardWall, StudyDeckSheet, StudyGroupTabs, StudyPiles, StudyDrillPicker, StudySession, MuralConfig, TabMore],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './study-page.html',
-  styleUrls: ['./study-page.scss', './study-page-flip.scss'],
-  host: {
-    '(document:click)': 'clickedAround($event)',
-    '(document:keydown.escape)': 'escapeAround($event)',
-    '(window:resize)': 'resized()',
-  },
+  styleUrl: './study-page.scss',
 })
 export class StudyPage {
   protected readonly study = inject(StudyStore);
@@ -176,12 +149,8 @@ export class StudyPage {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   private readonly removal = inject(RemoveAsking);
 
-  protected readonly AllIcon = ICON.camadas;
   protected readonly AddIcon = ICON.adicionar;
   protected readonly EditIcon = ICON.editar;
-  protected readonly AdjustIcon = ICON.ajustar;
-  protected readonly MaximizeIcon = ICON.aumentar;
-  protected readonly ReadIcon = ICON.livros;
   protected readonly PlayIcon = ICON.estudar;
   protected readonly TrainIcon = ICON.alvo;
   protected readonly GearIcon = ICON.configurar;
@@ -191,8 +160,6 @@ export class StudyPage {
   protected readonly BackIcon = ICON.voltar;
   /** O baralho público: as pessoas do "Público" do editor da anotação. */
   protected readonly PublicIcon = ICON.pessoas;
-  protected readonly tabKey = tabKeyOf;
-  protected readonly allTab = ALL_TAB;
   protected readonly notesKind = NOTES;
   protected readonly iconOf = ICON_CHOICE;
   protected readonly sorts = SORTS;
@@ -285,35 +252,23 @@ export class StudyPage {
   });
   /** Onde se treina, na frase do "Escolher quais". */
   protected readonly drillPlace = computed(() => this.deck()?.name ?? this.group()?.label ?? 'todos os baralhos');
-  /** A carta maximizada (o id da anotação). */
-  protected readonly focused = signal<string | null>(null);
-  /** As cartas com o verso à mostra na parede. Fica só na memória da página: virar não é estudar, e nada se guarda. */
-  protected readonly flipped = signal<ReadonlySet<string>>(NO_CARDS);
-  /** As cartas já viradas neste baralho: o verso delas fica montado, para o giro de volta. */
-  protected readonly turnedOnce = signal<ReadonlySet<string>>(NO_CARDS);
-  /** O que a voz do leitor de tela diz ao virar. */
-  protected readonly spoken = signal('');
-  protected readonly calm = reducedMotion();
   /** O seletor de fichas do "Trazer anotações" aberto. */
   protected readonly picking = signal(false);
   /** O menu do botão direito (ui/context-menu.ts): o que ele tem aberto. */
   protected readonly menuOn = signal<MenuOn | null>(null);
   private readonly menu = viewChild<ContextMenu>('menu');
-  /** O nome no alto do menu: o do baralho, ou a frente do flashcard. */
+  /** O nome no alto do menu: o do baralho, ou o do grupo. */
   protected readonly menuCaption = computed(() => {
     const m = this.menuOn();
     if (!m) return '';
     if (m.kind === 'baralho') return this.study.deck(m.id)?.name ?? '';
-    if (m.kind === 'grupo') return this.groups().find((g) => g.id === m.id)?.label ?? '';
-    // a frente pode ser um kanji só: o baralho junto diz de onde ele é
-    const title = this.cards().find((c) => c.note === m.note)?.title ?? '';
-    return title && `${title} · ${this.deck()?.name ?? ''}`;
+    return this.groups().find((g) => g.id === m.id)?.label ?? '';
   });
   /** As opções do menu aberto, só as que valem agora. */
   protected readonly menuSections = computed<MenuSections>(() => {
     const m = this.menuOn();
     if (!m) return [];
-    return m.kind === 'baralho' ? this.deckMenu(m.id, m.link) : m.kind === 'grupo' ? this.groupMenuOf(m.id, m.inMore) : this.cardMenu(m.note);
+    return m.kind === 'baralho' ? this.deckMenu(m.id, m.link) : this.groupMenuOf(m.id, m.inMore);
   });
   /** O nome do primeiro baralho, na cartolina da primeira vez. */
   protected readonly firstName = signal('');
@@ -392,44 +347,24 @@ export class StudyPage {
     () => (this.wallView.hideEmpty() ? new Set(this.groups().flatMap((g) => (g.decks.length ? [] : [tabKeyOf(g.key)]))) : NO_TABS),
     { equal: sameTabs },
   );
-  /**
-   * Quais abas ficam em pé e quais vão para o "Mais", com a régua das abas do mural e do Kanban (ver
-   * ui/tab-fit.ts): o Tudo sempre na frente, os grupos escondidos e os vazios no "Mais" (menos o aberto).
-   */
-  private readonly fit = new TabFit({
-    host: this.host,
-    row: '.abas-grupos .abas:not(.medida)',
-    tabs: () => {
-      const weight = new Map(this.wallTabs().map((t) => [t.key, t]));
-      return this.groups().map((g) => {
-        const w = weight.get(tabKeyOf(g.key));
-        return { key: tabKeyOf(g.key), label: g.label, n: w?.n ?? g.decks.length, total: w?.total ?? g.decks.length };
-      });
-    },
-    active: () => (this.group() ? tabKeyOf(this.group()!.key) : ALL_TAB),
-    ordered: () => !!this.wallView.categoryOrder(),
-    hidden: () => tabsToMore(this.wallView.hiddenTabs(), this.emptyGroups(), this.group() ? tabKeyOf(this.group()!.key) : ''),
-    lead: () => [ALL_TAB],
+  /** As abas (ui/study-group-tabs.ts): cada grupo com quantas para hoje, e o peso da aba do mural na régua. */
+  protected readonly tabs = computed<StudyTab[]>(() => {
+    const weight = new Map(this.wallTabs().map((t) => [t.key, t]));
+    return this.groups().map((g) => {
+      const w = weight.get(tabKeyOf(g.key));
+      // no "Mais", o sem baralho fica sem número: um 0 não diria nada
+      return { ...g, say: g.decks.length ? `${g.today} para hoje` : 'sem baralho', quiet: !g.decks.length, n: w?.n ?? g.decks.length, total: w?.total ?? g.decks.length };
+    });
   });
-  protected readonly shownTabs = computed(() => {
-    const keys = new Set(this.fit.layout().shown.map((t) => t.key));
-    return this.groups().filter((g) => keys.has(tabKeyOf(g.key)));
-  });
-  protected readonly moreTabs = computed(() => {
-    const keys = new Set(this.fit.layout().more.map((t) => t.key));
-    return this.groups().filter((g) => keys.has(tabKeyOf(g.key)));
-  });
-  /** O "Mais": cada grupo com quantas para hoje (o sem baralho, sem número: um 0 não diria nada). */
-  protected readonly moreItems = computed<TabMoreItem[]>(() =>
-    this.moreTabs().map((g) => ({ key: g.id, label: g.label, n: g.today, look: g.look, say: g.decks.length ? `${g.today} para hoje` : 'sem baralho', quiet: !g.decks.length })),
-  );
+  /** As abas na ordem montada à mão (a das configurações do mural): ficam em pé as primeiras. */
+  protected readonly tabsOrdered = computed(() => !!this.wallView.categoryOrder());
+  /** Os grupos escondidos e os vazios vão para o "Mais" (menos o aberto). */
+  protected readonly tabsHidden = computed(() => tabsToMore(this.wallView.hiddenTabs(), this.emptyGroups(), this.group() ? tabKeyOf(this.group()!.key) : ''));
   /**
    * O Novo baralho de Tudo: os grupos, na ordem das abas, só com o desenho e o nome. Todos, até os sem
    * baralho e os escondidos: é neles que o botão mais faz falta (a chave é o nome, que o newDeck recebe).
    */
   protected readonly newDeckItems = computed<TabMoreItem[]>(() => this.groups().map((g) => ({ key: g.label, label: g.label, n: 0, look: g.look, say: '', quiet: true })));
-  /** O grupo aberto é um dos do "Mais": ele mostra o nome dele, como aba aberta. */
-  protected readonly moreOn = computed(() => this.moreTabs().find((g) => g.id === this.group()?.id) ?? null);
   /** Os grupos com baralho, para as seções de Tudo. */
   protected readonly filled = computed(() => this.groups().filter((g) => g.decks.length));
   /** O grupo do primeiro baralho de todos: o escolhido, ou o de sempre. */
@@ -447,9 +382,7 @@ export class StudyPage {
   }
 
   /** O endereço de um baralho, no grupo dele. */
-  protected deckPath(d: Deck): string {
-    return d.group ? studyPath(studyGroupId(d.group), d.id) : studyPath();
-  }
+  protected readonly deckPath = (d: Deck): string => (d.group ? studyPath(studyGroupId(d.group), d.id) : studyPath());
 
   /** Os números da linha de estudo: os do baralho aberto, do grupo aberto, ou os de todos (sem contar duas vezes). */
   protected readonly line = computed<QueueCounts>(() => {
@@ -493,7 +426,10 @@ export class StudyPage {
     for (const c of this.study.cards()) {
       const note = byId.get(c.note);
       if (!note || !c.decks.includes(d.id)) continue;
-      const view = { ...this.view(c, d.id, note.game.name, pinningFor(note.id, note.stock).stock, now), mine: !!d.public && !!note.private };
+      const view = this.view(c, d.id, note.game.name, pinningFor(note.id, note.stock).stock, now);
+      // num baralho público, a carta de anotação privada: só o dono vê (dito só ao leitor de tela: o cadeado na
+      // etiqueta saiu a pedido do dono)
+      if (d.public && note.private) view.label += ', só você vê este flashcard';
       if (lv && view.level !== lv) continue;
       if (q && ![view.title, note.game.name, view.subtitle ?? ''].some((s) => s.toLocaleLowerCase('pt-BR').includes(q))) continue;
       out.push(view);
@@ -508,16 +444,6 @@ export class StudyPage {
   });
 
   constructor() {
-    // outra ordem, outro filtro, outro tamanho: o que está na tela é montado antes da pintura, sem passar
-    // por uma tela de vagas (ver ui/near-screen.ts)
-    const nearPool = inject(NearPool);
-    afterRenderEffect(() => {
-      this.cards();
-      this.cardSize();
-      nearPool.settle();
-      // a carta pequena crescida pode ter mudado de casa (a ordem, o filtro)
-      this.resized();
-    });
     // o "+ Novo baralho" abre nele com a folha aberta, e o "Trazer anotações" do menu de um baralho, com o
     // seletor: a página é outra depois da navegação (são duas rotas)
     const state = this.router.getCurrentNavigation()?.extras.state as { folha?: string; trazer?: boolean; treinar?: boolean } | undefined;
@@ -535,18 +461,16 @@ export class StudyPage {
       });
     });
     // o botão direito, o dedo segurado ou Shift+F10 num baralho (a pilha, ou o nome no alto dele aberto) ou
-    // num flashcard da parede abre o menu dele
+    // numa aba de grupo abre o menu dele (o do flashcard é da parede, ui/study-card-wall.ts)
     new ContextMenuTrigger({
       host: this.host,
       // e as abas dos grupos (e as linhas do "Mais" delas): o menu do grupo, o mesmo do mural e do Kanban
-      targets: '[data-baralho], [data-carta], .abas-grupos .abas:not(.medida) .aba[data-grupo], .abas-grupos app-tab-more .opcao[data-k]',
+      targets: '[data-baralho], .abas-grupos .abas:not(.medida) .aba[data-grupo], .abas-grupos app-tab-more .opcao[data-k]',
       keyOf: (box) => {
         const group = box.dataset['grupo'] ?? (box.matches('.opcao') ? box.dataset['k'] : undefined);
         if (group !== undefined) return this.groups().some((g) => g.id === group) ? `grupo:${group}` : null;
         const deck = box.dataset['baralho'];
-        if (deck) return this.study.deck(deck) ? `baralho:${deck}` : null;
-        const note = box.dataset['carta'];
-        return note && this.study.cardOf().has(note) ? `carta:${note}` : null;
+        return deck && this.study.deck(deck) ? `baralho:${deck}` : null;
       },
       hold: true,
       isOpenFor: (key) => !!this.menu()?.isOpenFor(key),
@@ -563,17 +487,6 @@ export class StudyPage {
         const old = !deck ? this.study.deck(group) : undefined;
         const to = old ? this.deckPath(old) : !g ? studyPath() : deck && !d ? studyPath(g.id) : null;
         if (to) void this.router.navigateByUrl(to, { replaceUrl: true, state: this.router.getCurrentNavigation()?.extras.state });
-      });
-    });
-    // outro baralho (o mesmo, com outro nome ou vindo de outro aparelho, não conta): a parede começa de novo
-    // com as frentes à mostra, e a carta maximizada, que era do outro, fecha
-    const deckId = computed(() => this.deck()?.id);
-    effect(() => {
-      deckId();
-      untracked(() => {
-        this.flipped.set(NO_CARDS);
-        this.turnedOnce.set(NO_CARDS);
-        this.focused.set(null);
       });
     });
     // o grupo aberto aqui fica aberto no mural também (como o do quadro do Kanban): só quando ele muda (as
@@ -594,16 +507,18 @@ export class StudyPage {
   private view(c: Card, deck: string, noteTitle: string, stock: CardView['stock'], now: Date): CardView {
     const level = levelOf(c.srs);
     const meta = level === 'desconhecida' ? LEVEL_LABEL[level] : `${LEVEL_LABEL[level]} · ${whenLabel(c.srs, now)}`;
+    const title = frontTitle(c, noteTitle);
     return {
       note: c.note,
-      title: frontTitle(c, noteTitle),
+      title,
       subtitle: c.front.subtitle,
       image: c.front.image,
       stock,
       level,
       meta,
       face: cardFace(c, now, this.numbers().get(deck)?.get(c.note)),
-      mine: false,
+      label: `${title}, ${meta}`,
+      hint: `${title}, ${meta}`,
       due: c.srs.due,
       added: c.added,
       tilt: tiltOf(c.note),
@@ -675,9 +590,8 @@ export class StudyPage {
     this.desk.editReview(note, 'flashcard');
   }
 
-  /** Troca o tamanho das cartas e guarda neste aparelho. As cartas voltam para a frente: a pequena virada é só uma. */
+  /** Troca o tamanho das cartas e guarda neste aparelho (a parede volta as cartas para a frente). */
   protected setCardSize(size: CardSize): void {
-    if (size !== this.cardSize()) this.flipped.set(NO_CARDS);
     this.cardSize.set(size);
     writeText(STUDY_SIZE_KEY, size);
   }
@@ -685,98 +599,6 @@ export class StudyPage {
   /** Ler a anotação da carta: a anotação como no mural, com o Editar e tudo. */
   protected open(note: string): void {
     this.desk.openReview(note);
-  }
-
-  /**
-   * Tocou na carta: ela vira ali mesmo. Nada conta como estudo. Das grandes, várias ficam viradas, como cartas
-   * na mesa; das pequenas, que crescem por cima das vizinhas, uma de cada vez.
-   */
-  protected flip(note: string, li: HTMLElement): void {
-    const small = this.cardSize() === 'pequenas';
-    const back = !this.flipped().has(note);
-    if (back && small) this.keepOnScreen(li);
-    if (!back) this.keepFocus(li);
-    this.flipped.update((set) => {
-      const next = new Set(small ? [] : set);
-      if (back) next.add(note);
-      else next.delete(note);
-      return next;
-    });
-    if (back && !this.turnedOnce().has(note)) this.turnedOnce.update((set) => new Set(set).add(note));
-    this.say(back ? 'Verso' : 'Frente', note);
-  }
-
-  /** O Esc com o foco na carta virada: ela volta para a frente, e o de fora não mexe em mais nenhuma. */
-  protected unflip(note: string, li: HTMLElement, e: Event): void {
-    if (!this.flipped().has(note)) return;
-    e.stopPropagation();
-    this.keepFocus(li);
-    this.turnBack(note);
-  }
-
-  /**
-   * O Esc com o foco em outro lugar: a carta pequena crescida volta (ela cobre as vizinhas, e o foco pode nem
-   * estar nela). As grandes não cobrem nada: só voltam com o Esc nelas. Os diálogos e os campos têm o Esc deles.
-   */
-  protected escapeAround(e: Event): void {
-    const grown = this.cardSize() === 'pequenas' ? [...this.flipped()][0] : undefined;
-    if (!grown || document.querySelector('dialog:modal')) return;
-    // (o Esc do menu do botão direito fecha só o menu)
-    if (e.target instanceof Element && e.target.closest(`input, textarea, select, app-tab-more, .${MENU_CLASS}`)) return;
-    this.turnBack(grown);
-  }
-
-  /**
-   * A carta pequena crescida fecha com um toque fora dela (na outra carta, é o toque dela que troca; no menu
-   * do botão direito, é a escolha que decide).
-   */
-  protected clickedAround(e: Event): void {
-    const grown = this.cardSize() === 'pequenas' ? [...this.flipped()][0] : undefined;
-    if (!grown || (e.target instanceof Element && e.target.closest(`.carta-li.virada, .carta-btn, dialog, .${MENU_CLASS}`))) return;
-    this.turnBack(grown);
-  }
-
-  /** A janela mudou: a carta pequena crescida é empurrada de novo, para continuar dentro da tela. */
-  protected resized(): void {
-    const li = this.cardSize() === 'pequenas' ? this.host.querySelector<HTMLElement>('.carta-li.virada') : null;
-    if (li) this.keepOnScreen(li);
-  }
-
-  private turnBack(note: string): void {
-    this.flipped.update((set) => {
-      const next = new Set(set);
-      next.delete(note);
-      return next;
-    });
-    this.say('Frente', note);
-  }
-
-  private say(side: 'Frente' | 'Verso', note: string): void {
-    this.spoken.set(`${side} de ${this.cards().find((c) => c.note === note)?.title ?? 'flashcard'}`);
-  }
-
-  /** O foco dentro do verso que vai ficar de costas cairia na página: passa para a carta. */
-  private keepFocus(li: HTMLElement): void {
-    const at = document.activeElement;
-    if (at?.closest('.verso') && li.contains(at)) li.querySelector<HTMLElement>('.carta-btn')?.focus({ preventScroll: true });
-  }
-
-  /**
-   * A carta pequena cresce em volta do meio dela, e o giro a empurra daí: para baixo, com o topo na linha da
-   * miniatura (sem cobrir a régua em cima), e para dentro, se passar da beira da tela.
-   */
-  private keepOnScreen(li: HTMLElement): void {
-    const box = li.getBoundingClientRect();
-    const view = document.documentElement;
-    const push = (size: number, centered: number, wanted: number, screen: number): number => {
-      const grown = size * SMALL_GROWS;
-      const at = Math.max(SCREEN_GAP, Math.min(wanted, screen - SCREEN_GAP - grown));
-      return Math.round(at - (centered - grown / 2));
-    };
-    const x = box.left + box.width / 2;
-    const y = box.top + box.height / 2;
-    li.style.setProperty('--empurra-x', `${push(box.width, x, x - (box.width * SMALL_GROWS) / 2, view.clientWidth)}px`);
-    li.style.setProperty('--empurra-y', `${push(box.height, y, box.top, view.clientHeight)}px`);
   }
 
   /** Uma cor ainda sem baralho (ou a do primeiro, se todas já têm). */
@@ -839,9 +661,10 @@ export class StudyPage {
       this.menu()?.show({ key, x, y, by, back: backFromList(box) });
       return;
     }
-    this.menuOn.set(deck ? { kind: 'baralho', id, link: box instanceof HTMLAnchorElement ? box.href : null } : { kind: 'carta', note: id });
-    // a pilha é o próprio link; o alto do baralho aberto, o lápis dele; o flashcard, o botão de virar
-    const back = deck ? (box instanceof HTMLAnchorElement ? box : box.querySelector<HTMLElement>('.ajustes-baralho')) : box.querySelector<HTMLElement>('.carta-btn');
+    if (!deck) return;
+    this.menuOn.set({ kind: 'baralho', id, link: box instanceof HTMLAnchorElement ? box.href : null });
+    // a pilha é o próprio link; o alto do baralho aberto, o lápis dele
+    const back = box instanceof HTMLAnchorElement ? box : box.querySelector<HTMLElement>('.ajustes-baralho');
     this.menu()?.show({ key, x, y, by, back: back ?? null });
   }
 
@@ -909,32 +732,20 @@ export class StudyPage {
   }
 
   /**
-   * O menu de um flashcard da parede: virar, maximizar e ler a anotação (o que a etiqueta de tinta faz),
-   * editar e ver o progresso (o editor, na aba Flashcard) e, no fim, tirar deste baralho.
+   * O que só o dono faz no menu de um flashcard da parede, depois do virar, maximizar e ler (que são da parede, iguais
+   * na visita): editar e ver o progresso (o editor, na aba Flashcard) e, no fim, tirar deste baralho.
    */
-  private cardMenu(note: string): MenuSections {
+  protected readonly ownerCardMenu = (note: string): MenuSections => {
     const d = this.deck();
     const c = this.cards().find((x) => x.note === note);
     if (!d || !c) return [];
-    const up = this.flipped().has(note);
-    const look: MenuItem[] = [
-      { id: 'virar', label: up ? 'Virar de volta' : 'Virar o flashcard', icon: up ? ICON.esconder : ICON.ver, hint: up ? 'A frente de novo' : 'Atrás está a anotação', run: () => this.flipFromMenu(note) },
-      { id: 'maximizar', label: 'Maximizar', icon: ICON.aumentar, dialog: true, run: () => this.focused.set(note) },
-      { id: 'ler', label: 'Ler a anotação', icon: ICON.livros, dialog: true, run: () => this.open(note) },
-    ];
     const edit: MenuItem[] = [{ id: 'editar', label: 'Editar o flashcard', icon: ICON.ajustar, dialog: true, hint: 'A frente, os baralhos e o mural, na aba Flashcard', run: () => this.edit(note) }];
     if (this.study.cardOf().get(note)?.stats.seen) {
       edit.push({ id: 'progresso', label: 'Ver o progresso', icon: ICON.desempenho, dialog: true, hint: 'Quantas vezes foi visto, os acertos e a chance de lembrar agora', run: () => this.desk.editReview(note, 'flashcard', 'progresso') });
     }
     const end: MenuItem[] = [{ id: 'tirar', label: `Tirar de ${d.name}`, icon: ICON.tirar, danger: true, run: () => void this.removal.card(note, d.id, c.title) }];
-    return [look, edit, end];
-  }
-
-  /** Virar pelo menu: a carta como está agora na parede (ela pode ter sido redesenhada com o menu aberto). */
-  private flipFromMenu(note: string): void {
-    const li = this.host.querySelector<HTMLElement>(`.carta-li[data-carta="${CSS.escape(note)}"]`);
-    if (li) this.flip(note, li);
-  }
+    return [edit, end];
+  };
 
   /** "Treinar" de um baralho: o remendo do Treinar dele; de fora, abre o baralho com o remendo aberto. */
   private trainIn(d: Deck): void {
@@ -973,10 +784,5 @@ export class StudyPage {
 
   protected countLabel(n: number): string {
     return n === 1 ? '1 flashcard' : `${n} flashcards`;
-  }
-
-  /** Quantas camadas a pilha desenha embaixo da de cima: mais cartas, mais grossa (até três). */
-  protected layers(n: number): number[] {
-    return Array.from({ length: n >= 10 ? 3 : n >= 5 ? 2 : n >= 2 ? 1 : 0 }, (_, i) => i);
   }
 }

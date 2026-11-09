@@ -41,7 +41,8 @@ describe('menu do botão direito nos Estudos', () => {
     await settle();
   }
   const $ = (sel: string) => host.querySelector<HTMLElement>(sel);
-  const panel = () => host.querySelector<HTMLElement>('app-study-page .menu-contexto')!;
+  // o menu aberto: o da página (baralho, aba) ou o da parede (flashcard, ui/study-card-wall.ts)
+  const panel = () => [...host.querySelectorAll<HTMLElement>('app-study-page .menu-contexto')].find((m) => m.matches(':popover-open')) ?? host.querySelector<HTMLElement>('app-study-page .menu-contexto')!;
   const isOpen = () => panel().matches(':popover-open');
   const labels = () => [...panel().querySelectorAll('.escolha .nome')].map((x) => x.textContent!.trim());
   const option = (label: string) => [...panel().querySelectorAll<HTMLButtonElement>('.escolha')].find((b) => b.querySelector('.nome')!.textContent!.trim() === label)!;

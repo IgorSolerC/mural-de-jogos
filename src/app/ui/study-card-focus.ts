@@ -1,8 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { reducedMotion } from '../core/motion';
-import { ReviewStore } from '../core/review-store';
 import { Deck, frontTitle } from '../core/study';
-import { StudyStore } from '../core/study-store';
+import { STUDY_SOURCE } from '../core/study-source';
 import { pinningFor } from '../core/wall-physics';
 import { ICON, IconModule } from './icons';
 import { StudyCard } from './study-card';
@@ -10,7 +9,8 @@ import { StudyCardBack } from './study-card-back';
 
 /**
  * A carta maximizada: o botão preto de maximizar da parede do baralho abre a carta em foco e grande, a mesma
- * mesa da sessão de estudo (a mesma folha de estilos, a mesma carta, o mesmo verso), só para ver. Tocar na
+ * mesa da sessão de estudo (a mesma folha de estilos, a mesma carta, o mesmo verso), só para ver, nos seus
+ * Flashcards e nos de quem se visita. Tocar na
  * carta vira, o "Virar a carta" e o Espaço também; sem Errei nem Acertei, e nada aqui conta como estudo.
  */
 @Component({
@@ -70,8 +70,8 @@ export class StudyCardFocus {
   protected readonly CloseIcon = ICON.fechar;
   protected readonly calm = reducedMotion();
 
-  private readonly study = inject(StudyStore);
-  private readonly store = inject(ReviewStore);
+  /** As suas cartas, ou as de quem se visita (core/study-source.ts). */
+  private readonly source = inject(STUDY_SOURCE);
   private readonly dialog = viewChild<ElementRef<HTMLDialogElement>>('dialog');
 
   /** O lado mudado aqui, enquanto a folha está aberta (null: o que a parede mostrava). */
@@ -82,8 +82,8 @@ export class StudyCardFocus {
 
   /** A frente, como na mesa de estudo (sem o progresso, que é da parede). */
   protected readonly card = computed(() => {
-    const card = this.study.cardOf().get(this.note());
-    const note = this.store.get(this.note());
+    const card = this.source.card(this.note());
+    const note = this.source.note(this.note());
     if (!card || !note) return null;
     return { title: frontTitle(card, note.game.name), subtitle: card.front.subtitle, image: card.front.image, stock: pinningFor(note.id, note.stock).stock };
   });

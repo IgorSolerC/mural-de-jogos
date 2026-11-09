@@ -228,9 +228,13 @@ export class ColleagueWallPage {
     this.mural.kind.set(SCORED_KINDS.find((k) => c?.reviews.some((r) => r.kind === k)) ?? 'jogos');
   }
 
-  /** Uma carta dos Estudos dela: a anotação (o verso) na leitura, andando entre as do baralho. */
+  /**
+   * Uma anotação dos Estudos dela (o "Ler a anotação" de uma carta, ou um link do verso): na leitura, andando entre as
+   * do baralho. A ficha colada no verso (o widget Nota) de uma obra que você ainda não resenhou abre em segredo, como
+   * no mural dela.
+   */
   protected openCard(e: { note: Review; pool: Review[] }): void {
-    this.reader().open(e.note, this.name(), e.pool, false, this.visit.code());
+    this.reader().open(e.note, this.name(), e.pool, this.visit.isSecret(e.note.id), this.visit.code());
   }
 
   protected open(id: string): void {

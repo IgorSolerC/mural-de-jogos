@@ -1,0 +1,94 @@
+/* A tira de papel com o nome do baralho, os selos dos montes de hoje e a letra deles: o que a página dos Flashcards
+   (a trilha do baralho aberto, os montes da pasta) e as pilhas (ui/study-piles.ts) desenham igual. */
+
+/* o nome do baralho numa tira de papel embaixo do monte, com a cor do baralho na ponta */
+.nome-baralho {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  padding: 7px 14px 6px 18px;
+  border-radius: 2px;
+  background: var(--paper-grain), var(--papel-ficha);
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.3),
+    0 4px 7px rgb(0 0 0 / 0.3);
+  rotate: -1.2deg;
+  text-align: center;
+
+  /* a ponta pintada na cor do baralho */
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 7px;
+    border-radius: 2px 0 0 2px;
+    background: var(--cor);
+  }
+
+  li:nth-child(even) & {
+    rotate: 1deg;
+  }
+}
+
+.nome-txt {
+  max-width: 100%;
+  font-family: var(--f-marker);
+  font-size: 1.2rem;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+/* o baralho público: o ícone de pessoas do "Público", na linha do número e na tira da pasta */
+.nome-publico {
+  display: inline-flex;
+  vertical-align: -2px;
+}
+
+.nome-n {
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.monte,
+.pz {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.86rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+.selo {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--monte);
+  box-shadow: 0 0 0 1.5px rgb(26 26 26 / 0.18);
+}
+
+[data-monte='novas'] {
+  --monte: #1f4fc4;
+}
+
+[data-monte='aprender'] {
+  --monte: #b24a06;
+}
+
+[data-monte='revisar'] {
+  --monte: #0d6b3c;
+}

@@ -85,7 +85,7 @@ test('nenhum card revela botões com a mão por conta própria: todos passam pel
 });
 
 test('os três cards de hoje usam a peça única, com o et.botao e o et.mostra', () => {
-  for (const file of ['src/app/ui/review-card-acoes.scss', 'src/app/ui/kanban-note.scss', 'src/app/pages/study-page.scss']) {
+  for (const file of ['src/app/ui/review-card-acoes.scss', 'src/app/ui/kanban-note.scss', 'src/app/ui/study-card-wall.scss']) {
     const text = readFileSync(join(root, file), 'utf8');
     assert.match(text, /@include et\.botao/, `${file} sem o et.botao`);
     assert.match(text, /@include et\.mostra/, `${file} sem o et.mostra`);

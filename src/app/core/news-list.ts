@@ -27,11 +27,11 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-09-menu-comentarios-e-wishlist',
+    id: '2026-11-09-flashcards-na-visita',
     version: '1.41.2',
     kind: 'ajustes',
     date: '2026-11-09',
-    title: 'Botão direito nos grupos, nos comentários e na Wishlist',
+    title: 'Botão direito nos grupos, nos comentários e na Wishlist, e flashcards que viram na visita',
     melhorias: [
       'O botão direito (ou o dedo segurado, no celular) também abre o menu do Murall nas abas dos grupos do mural, nas linhas da fita dos Gastos e nos posts do Feed.',
       'Na aba de um grupo: uma anotação nova já nele, o quadro dele no Kanban, os baralhos nos Flashcards, os ajustes do grupo (as configurações do mural abrem já nele) e esconder a aba no Mais, com Desfazer.',
@@ -39,6 +39,7 @@ export const NEWS: NewsEntry[] = [
       'O menu do grupo também aparece nas abas do Kanban e dos Flashcards e nas linhas do Mais: abrir numa aba nova, estudar as de hoje e criar um baralho (nos Flashcards), ir para o mesmo grupo no mural, no Kanban ou nos Flashcards, os ajustes do grupo e esconder a aba no Mais (ou, escondida, mostrar em cima de novo).',
       'Também há menu nos comentários (responder, reagir, copiar o texto, ver o perfil, recolher as respostas e apagar), nas folhas do Pra depois (terminar a resenha ou tirar da fila) e nos recortes da Wishlist (começar a resenha, trocar o adesivo de vontade ou tirar da wishlist), com Desfazer ao tirar.',
       'Num post do Feed, o menu também reage; numa linha dos Gastos dividida com alguém, ele deixa a fita só com a parte daquela pessoa.',
+      'Nos Flashcards de quem você visita, o flashcard vira ao toque, como nos seus; maximizar e ler a anotação ficam na etiqueta do canto, as abas dos grupos ganham o Mais, e o botão direito abre o menu do flashcard e o do baralho (abrir ou copiar).',
     ],
     correcoes: ['Nas configurações do mural, o grupo com uma anotação só não diz mais "Muda em a anotação" embaixo do nome.'],
   },

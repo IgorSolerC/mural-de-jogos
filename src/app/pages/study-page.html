@@ -1,65 +1,9 @@
 <!-- o nome da seção está no índice embaixo do topo (ui/area-bar.ts) -->
 <h1 class="sr-only">Flashcards{{ group() ? ": " + group()!.label : "" }}{{ deck() ? ", " + deck()!.name : "" }}</h1>
 
-<!-- as abas: Tudo e os grupos das anotações, nas mesmas divisórias de manilha do mural e do Kanban, com o
-     ícone e a cor de cada grupo e quantas cartas para hoje; os escondidos (e os que não cabem) no "Mais" -->
-<nav class="abas-grupos" aria-label="Grupos dos Flashcards">
-  <ul class="abas">
-    <li>
-      <a class="aba" [routerLink]="studyPath()" [class.on]="!group()" [attr.aria-current]="!group() ? 'page' : null">
-        <app-cat-label class="rotulo-cat" label="Tudo" [glyph]="AllIcon" [iconSize]="15" />
-      </a>
-    </li>
-    @for (g of shownTabs(); track g.id) {
-      <li>
-        <a
-          class="aba"
-          [attr.data-grupo]="g.id"
-          [routerLink]="studyPath(g.id)"
-          [class.on]="g.id === group()?.id"
-          [class.orelha-cor]="!!g.color"
-          [style.--cat-cor]="g.color"
-          [attr.aria-current]="g.id === group()?.id ? 'page' : null"
-          [title]="g.label"
-        >
-          <app-cat-label class="rotulo-cat" [label]="g.label" [look]="g.look" [iconSize]="15" />
-          @if (g.today) {
-            <span class="aba-n"><span class="sr-only">, </span>{{ g.today }}<span class="sr-only"> para hoje</span></span>
-          }
-        </a>
-      </li>
-    }
-    @if (moreTabs().length) {
-      <li>
-        <!-- o "Mais": a lista de feltro, a mesma das abas do mural e do Kanban (ui/tab-more.ts) -->
-        <app-tab-more class="aba aba-mais" [class.on]="!!moreOn()" [groups]="moreItems()" [active]="group()?.id ?? ''" label="Mais grupos" (chosen)="openGroup($event)">
-          @if (moreOn(); as m) {
-            <app-cat-label class="rotulo-cat" [label]="m.label" [look]="m.look" [iconSize]="15" />
-            @if (m.today) {
-              <span class="aba-n">{{ m.today }}</span>
-            }
-          } @else {
-            <span class="mais-nome">Mais</span>
-          }
-          <lucide-icon class="chev" [img]="ChevronIcon" [size]="15" aria-hidden="true" />
-        </app-tab-more>
-      </li>
-    }
-  </ul>
-  <!-- a régua de medir: todas as abas, escondidas, para saber quantas cabem em pé (ui/tab-fit.ts) -->
-  <div class="abas medida" aria-hidden="true">
-    <span class="aba" [attr.data-k]="allTab"><app-cat-label class="rotulo-cat" label="Tudo" [glyph]="AllIcon" [iconSize]="15" /></span>
-    @for (g of groups(); track g.id) {
-      <span class="aba" [attr.data-k]="tabKey(g.key)">
-        <app-cat-label class="rotulo-cat" [label]="g.label" [look]="g.look" [iconSize]="15" />
-        @if (g.today) {
-          <span class="aba-n">{{ g.today }}</span>
-        }
-      </span>
-    }
-    <span class="aba aba-mais" data-k="mais"><span class="mais-nome">Mais</span></span>
-  </div>
-</nav>
+<!-- as abas: Tudo e os grupos das anotações, as mesmas de quem visita o seu mural (ui/study-group-tabs.ts), com
+     quantas para hoje; os escondidos (e os que não cabem) no "Mais" -->
+<app-study-group-tabs [tabs]="tabs()" [active]="group()?.id ?? null" [path]="studyPath" [ordered]="tabsOrdered()" [hidden]="tabsHidden()" (chosen)="openGroup($event)" />
 
 <!-- a cartolina do primeiro baralho: de um grupo (o nome só), ou de todos (o nome e o grupo) -->
 <ng-template #primeiro let-g>
@@ -107,46 +51,6 @@
       <li class="vaga"></li>
     </ol>
   </section>
-</ng-template>
-
-<!-- um baralho como pilha das cartas dele, a próxima por cima, presa com um elástico na cor dele, com o
-     papelzinho de quantas vencem hoje; o nome numa tira de papel embaixo -->
-<ng-template #pilha let-d>
-  <a class="pilha" appPerto #perto="perto" [routerLink]="deckPath(d.deck)" [attr.data-baralho]="d.deck.id" [attr.aria-label]="d.deck.name + ', ' + countLabel(d.cards) + (d.deck.public ? ', público' : '') + (d.today ? ', ' + d.today + ' para hoje' : '')">
-    <span class="monte-cartas" aria-hidden="true" [style.--cor]="'var(--stock-' + d.deck.color + ')'">
-      @if (!d.top) {
-        <span class="vaga-pilha">Sem flashcards</span>
-      } @else if (!perto.near()) {
-        <!-- longe da tela: só o lugar do monte; as cartas chegam quando a rolagem chega perto -->
-        <span class="vaga-pilha"></span>
-      } @else if (d.top; as top) {
-        @for (l of layers(d.cards); track l) {
-          <app-study-card class="camada" [attr.data-camada]="l" costas title="" [stock]="d.under[l]" [deck]="d.deck" />
-        }
-        <app-study-card class="capa" [title]="top.title" [subtitle]="top.subtitle" [image]="top.image" [stock]="top.stock" [deck]="d.deck" [face]="top.face" />
-        <span class="elastico"></span>
-        <span class="papelzinho">
-          @if (d.today) {
-            <span class="pz" data-monte="novas"><span class="selo"></span>{{ d.counts.novas }}</span>
-            <span class="pz" data-monte="aprender"><span class="selo"></span>{{ d.counts.aprender }}</span>
-            <span class="pz" data-monte="revisar"><span class="selo"></span>{{ d.counts.revisar }}</span>
-          } @else {
-            <span class="pz em-dia-pz">em dia</span>
-          }
-        </span>
-      }
-    </span>
-    <span class="nome-baralho" [style.--cor]="'var(--stock-' + d.deck.color + ')'">
-      <span class="nome-txt">{{ d.deck.name }}</span>
-      <!-- o baralho público: quem visita o seu mural vê (PLANO-BARALHOS-PUBLICOS.md) -->
-      <span class="nome-n">
-        {{ countLabel(d.cards) }}
-        @if (d.deck.public) {
-          · <lucide-icon class="nome-publico" [img]="PublicIcon" [size]="13" aria-hidden="true" /> público
-        }
-      </span>
-    </span>
-  </a>
 </ng-template>
 
 @if (!decks().length && !group()) {
@@ -308,47 +212,9 @@
     } @else if (!cards().length) {
       <p class="nada">Nenhum flashcard com esse filtro.</p>
     } @else {
-      <!-- a parede das cartas, a frente à mostra; tocar vira a carta ali mesmo. Ler a anotação e editar a
-           carta ficam na etiqueta de tinta -->
-      <ul class="cartas" [class.pequenas]="cardSize() === 'pequenas'" [attr.aria-label]="'Flashcards de ' + d.name">
-        @for (c of cards(); track c.note) {
-          @let up = flipped().has(c.note);
-          <!-- só o que está perto da tela é montado: longe, o botão fica (o Tab e o leitor de tela passam por
-               todas), com a vaga tracejada do mural no lugar da carta (ver ui/near-screen.ts) -->
-          <li class="carta-li" appPerto #perto="perto" #cartaLi [attr.data-carta]="c.note" [class.virada]="up" [style.--inclina]="c.tilt + 'deg'" (keydown.escape)="unflip(c.note, cartaLi, $event)">
-            <div class="giro" [class.virada]="up" [class.montada]="turnedOnce().has(c.note)" [class.calma]="calm">
-              <!-- pequena, a letra do nível não se lê mais: o nome e o nível na dica do mouse -->
-              <button type="button" class="carta-btn" aria-describedby="carta-virar-dica" [attr.aria-pressed]="up" [attr.aria-label]="c.title + ', ' + c.meta + (c.mine ? ', só você vê este flashcard' : '')" [attr.title]="cardSize() === 'pequenas' ? c.title + ', ' + c.meta : null" (click)="flip(c.note, cartaLi)">
-                @if (perto.near()) {
-                  <app-study-card [title]="c.title" [subtitle]="c.subtitle" [image]="c.image" [stock]="c.stock" [deck]="d" [face]="c.face" />
-                } @else {
-                  <span class="carta-vaga"></span>
-                }
-              </button>
-              <!-- o verso é o da mesa de estudo; só existe nas cartas já viradas, e fica para o giro de volta -->
-              @if (perto.near() && turnedOnce().has(c.note)) {
-                <article appStudyBack class="verso cartolina" [note]="c.note" [fitMin]="0.75" [attr.inert]="up ? null : ''" [attr.aria-hidden]="up ? null : 'true'" (turn)="flip(c.note, cartaLi)"></article>
-              }
-            </div>
-            @if (perto.near()) {
-              <!-- as etiquetas de tinta de todo card (ui/_etiqueta-acoes.scss), no hover: maximizar a carta, ler a anotação e editar (a aba Flashcard do editor) -->
-              <div class="acoes">
-                <button type="button" class="mexer acao-maximizar" aria-haspopup="dialog" [attr.aria-label]="'Maximizar ' + c.title" title="Maximizar" (click)="focused.set(c.note)">
-                  <lucide-icon [img]="MaximizeIcon" [size]="16" aria-hidden="true" />
-                </button>
-                <button type="button" class="mexer acao-ler" aria-haspopup="dialog" [attr.aria-label]="'Ler a anotação de ' + c.title" title="Ler a anotação" (click)="open(c.note)">
-                  <lucide-icon [img]="ReadIcon" [size]="16" aria-hidden="true" />
-                </button>
-                <button type="button" class="mexer acao-editar" aria-haspopup="dialog" [attr.aria-label]="'Editar o flashcard ' + c.title" title="Editar o flashcard" (click)="edit(c.note)">
-                  <lucide-icon [img]="AdjustIcon" [size]="16" aria-hidden="true" />
-                </button>
-              </div>
-            }
-          </li>
-        }
-      </ul>
-      <p id="carta-virar-dica" hidden>Vira o flashcard. Atrás está a anotação.</p>
-      <p class="sr-only" aria-live="polite">{{ spoken() }}</p>
+      <!-- a parede das cartas, a mesma de quem visita o seu mural (ui/study-card-wall.ts): tocar vira a carta ali
+           mesmo; a etiqueta de tinta maximiza, lê a anotação e edita -->
+      <app-study-card-wall [deck]="d" [cards]="cards()" [small]="cardSize() === 'pequenas'" [editable]="true" [ownerMenu]="ownerCardMenu" (read)="open($event)" (edit)="edit($event)" />
     }
   } @else if (group(); as g) {
     @if (!g.decks.length) {
@@ -356,11 +222,8 @@
       <ng-container *ngTemplateOutlet="primeiro; context: { $implicit: g }" />
     } @else {
       <!-- um grupo: os baralhos dele, cada um uma pilha -->
-      <ul class="pilhas" [attr.aria-label]="'Baralhos de ' + g.label">
-        @for (d of g.decks; track d.deck.id) {
-          <li><ng-container *ngTemplateOutlet="pilha; context: { $implicit: d }" /></li>
-        }
-      </ul>
+      <!-- os baralhos como pilhas, as mesmas de quem visita o seu mural (ui/study-piles.ts) -->
+      <app-study-piles [piles]="g.decks" [label]="'Baralhos de ' + g.label" [link]="deckPath" [publicMark]="true" />
     }
   } @else {
     <!-- Tudo: os baralhos de todos os grupos, uma seção por grupo, com a etiqueta de fita do mural -->
@@ -370,11 +233,8 @@
           <h2 class="tape-label" [id]="'pilhas-' + g.id"><a [routerLink]="studyPath(g.id)" title="Abrir o grupo">{{ g.label }}</a></h2>
           <p class="grupo-sum">{{ groupSummary(g) }}</p>
         </header>
-        <ul class="pilhas" [attr.aria-label]="'Baralhos de ' + g.label">
-          @for (d of g.decks; track d.deck.id) {
-            <li><ng-container *ngTemplateOutlet="pilha; context: { $implicit: d }" /></li>
-          }
-        </ul>
+        <!-- os baralhos como pilhas, as mesmas de quem visita o seu mural (ui/study-piles.ts) -->
+        <app-study-piles [piles]="g.decks" [label]="'Baralhos de ' + g.label" [link]="deckPath" [publicMark]="true" />
       </section>
     }
   }
@@ -395,14 +255,6 @@
   />
 }
 
-@if (focused(); as id) {
-  @if (deck(); as d) {
-    @defer (on immediate) {
-      <app-study-card-focus [note]="id" [deck]="d" [back]="flipped().has(id)" (closed)="focused.set(null)" />
-    }
-  }
-}
-
 <!-- o Treinar: o remendo de feltro do "Novo baralho" (ui/tab-more.ts), com os tipos de treino e quantos
      flashcards cada um traria. O treino não guarda nada (core/study-drill.ts) -->
 <ng-template #treinar>
@@ -416,7 +268,7 @@
   }
 </ng-template>
 
-<!-- o menu do botão direito (e do dedo segurado) num baralho ou num flashcard (ui/context-menu.ts) -->
+<!-- o menu do botão direito (e do dedo segurado) num baralho ou numa aba (ui/context-menu.ts; o do flashcard é da parede) -->
 <app-context-menu #menu [caption]="menuCaption()" [sections]="menuSections()" (closed)="menuOn.set(null)" />
 
 @if (session(); as s) {

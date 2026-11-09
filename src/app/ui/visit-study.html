@@ -1,59 +1,13 @@
 <h2 class="sr-only">Flashcards de {{ colleague().name }}{{ group() ? ": " + group()!.label : "" }}{{ deck() ? ", " + deck()!.deck.name : "" }}</h2>
 
-<!-- as abas: Tudo e os grupos com baralho público, nas divisórias de manilha dos seus Estudos -->
-<nav class="abas-grupos" [attr.aria-label]="'Grupos dos Flashcards de ' + colleague().name">
-  <ul class="abas">
-    <li>
-      <a class="aba" [routerLink]="path()" [class.on]="!group()" [attr.aria-current]="!group() ? 'page' : null">
-        <app-cat-label class="rotulo-cat" label="Tudo" [glyph]="AllIcon" [iconSize]="15" />
-      </a>
-    </li>
-    @for (g of groups(); track g.id) {
-      <li>
-        <a
-          class="aba"
-          [routerLink]="path(g.id)"
-          [class.on]="g.id === group()?.id"
-          [class.orelha-cor]="!!g.color"
-          [style.--cat-cor]="g.color"
-          [attr.aria-current]="g.id === group()?.id ? 'page' : null"
-          [title]="g.label"
-        >
-          <app-cat-label class="rotulo-cat" [label]="g.label" [look]="g.look" [iconSize]="15" />
-        </a>
-      </li>
-    }
-  </ul>
-</nav>
-
-<!-- uma pilha: as cartas do baralho presas com o elástico na cor dele (sem o papelzinho dos montes de hoje:
-     eles são da dona) e o nome na tira de papel -->
-<ng-template #pilha let-d>
-  <a class="pilha" appPerto #perto="perto" [routerLink]="path(d.deck.group ? groupIdOf(d.deck.group) : null, d.deck.id)" [attr.aria-label]="d.deck.name + ', ' + countLabel(d.cards.length)">
-    <span class="monte-cartas" aria-hidden="true" [style.--cor]="'var(--stock-' + d.deck.color + ')'">
-      @if (!d.top) {
-        <span class="vaga-pilha">Sem flashcards</span>
-      } @else if (!perto.near()) {
-        <span class="vaga-pilha"></span>
-      } @else if (d.top; as top) {
-        @for (l of layers(d.cards.length); track l) {
-          <app-study-card class="camada" [attr.data-camada]="l" costas title="" [stock]="d.under[l]" [deck]="d.deck" />
-        }
-        <app-study-card class="capa" [title]="top.title" [subtitle]="top.subtitle" [image]="top.image" [stock]="top.stock" [deck]="d.deck" [face]="top.face" />
-        <span class="elastico"></span>
-      }
-    </span>
-    <span class="nome-baralho" [style.--cor]="'var(--stock-' + d.deck.color + ')'">
-      <span class="nome-txt">{{ d.deck.name }}</span>
-      <span class="nome-n">{{ countLabel(d.cards.length) }}</span>
-    </span>
-  </a>
-</ng-template>
+<!-- as abas: Tudo e os grupos com baralho público, as mesmas dos seus Flashcards (ui/study-group-tabs.ts), com o "Mais"
+     para os que não cabem -->
+<app-study-group-tabs [tabs]="tabs()" [active]="group()?.id ?? null" [path]="path" [label]="'Grupos dos Flashcards de ' + colleague().name" (chosen)="openGroup($event)" />
 
 <div class="pasta">
   <div class="pasta-linha linha-estudo">
     @if (deck(); as d) {
-      <div class="trilha">
+      <div class="trilha" [attr.data-baralho]="d.deck.id">
         <a class="tinta voltar" [routerLink]="path(group()!.id)" [title]="'Voltar aos baralhos de ' + group()!.label">
           <lucide-icon [img]="BackIcon" [size]="18" aria-hidden="true" />
           <span class="voltar-nome">Baralhos</span><span class="sr-only"> de {{ group()!.label }}</span>
@@ -135,26 +89,12 @@
   } @else if (!cards().length) {
     <p class="nada">Nenhum flashcard com esse filtro.</p>
   } @else {
-    <ul class="cartas" [class.pequenas]="cardSize() === 'pequenas'" [attr.aria-label]="'Flashcards de ' + d.deck.name">
-      @for (c of cards(); track c.note.id) {
-        <li class="carta-li" appPerto #perto="perto" [style.--inclina]="c.tilt + 'deg'">
-          <button type="button" class="carta-btn" [attr.aria-label]="meta(c)" [attr.title]="cardSize() === 'pequenas' ? meta(c) : null" (click)="open(c)">
-            @if (perto.near()) {
-              <app-study-card [title]="c.title" [subtitle]="c.subtitle" [image]="c.image" [stock]="c.stock" [deck]="d.deck" [face]="c.face" />
-            } @else {
-              <span class="carta-vaga"></span>
-            }
-          </button>
-        </li>
-      }
-    </ul>
+    <!-- a parede das cartas, a mesma dos seus Flashcards (ui/study-card-wall.ts): tocar vira; sem o editar -->
+    <app-study-card-wall [deck]="d.deck" [cards]="cards()" [small]="cardSize() === 'pequenas'" (read)="open($event)" />
   }
 } @else if (group(); as g) {
-  <ul class="pilhas" [attr.aria-label]="'Baralhos de ' + g.label">
-    @for (d of g.decks; track d.deck.id) {
-      <li><ng-container *ngTemplateOutlet="pilha; context: { $implicit: d }" /></li>
-    }
-  </ul>
+  <!-- os baralhos como pilhas, as mesmas dos seus Flashcards, sem os montes de hoje (são dela) (ui/study-piles.ts) -->
+  <app-study-piles [piles]="piles().get(g.id) ?? []" [label]="'Baralhos de ' + g.label" [link]="deckLink" />
 } @else {
   @for (g of groups(); track g.id) {
     <section class="grupo-pilhas" [attr.aria-labelledby]="'visita-pilhas-' + g.id">
@@ -162,11 +102,8 @@
         <h3 class="tape-label" [id]="'visita-pilhas-' + g.id"><a [routerLink]="path(g.id)" title="Abrir o grupo">{{ g.label }}</a></h3>
         <p class="grupo-sum">{{ groupSummary(g) }}</p>
       </header>
-      <ul class="pilhas" [attr.aria-label]="'Baralhos de ' + g.label">
-        @for (d of g.decks; track d.deck.id) {
-          <li><ng-container *ngTemplateOutlet="pilha; context: { $implicit: d }" /></li>
-        }
-      </ul>
+      <!-- os baralhos como pilhas, as mesmas dos seus Flashcards, sem os montes de hoje (são dela) (ui/study-piles.ts) -->
+      <app-study-piles [piles]="piles().get(g.id) ?? []" [label]="'Baralhos de ' + g.label" [link]="deckLink" />
     </section>
   }
 }
@@ -176,3 +113,6 @@
     <app-study-copy-sheet [request]="c.request" [owner]="colleague().name" [sample]="c.sample" (closed)="copying.set(null)" />
   }
 }
+
+<!-- o menu do botão direito (e do dedo segurado) num baralho (ui/context-menu.ts; o do flashcard é da parede) -->
+<app-context-menu #menu [caption]="menuCaption()" [sections]="menuSections()" (closed)="menuOn.set(null)" />

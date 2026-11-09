@@ -1,11 +1,9 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, output } from '@angular/core';
-import { OwnNoteLinks } from '../core/own-note-links';
 import { lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
 import { Review, artIdOf, isDarkStock } from '../core/review';
-import { ReviewStore } from '../core/review-store';
 import { CardFront, frontTitle, isPhraseTitle } from '../core/study';
-import { StudyStore } from '../core/study-store';
+import { STUDY_SOURCE } from '../core/study-source';
 import { pinningFor } from '../core/wall-physics';
 import { GrowToFit } from './grow-to-fit';
 import { PaperArtLayer } from './paper-layer';
@@ -75,16 +73,15 @@ export class StudyCardBack {
   /** Tocou no papel, não no que o texto tem para tocar: quem deixa, vira a carta. */
   readonly turn = output<void>();
 
-  private readonly study = inject(StudyStore);
-  private readonly store = inject(ReviewStore);
-  private readonly ownLinks = inject(OwnNoteLinks);
+  /** As suas cartas, ou as de quem se visita (core/study-source.ts). */
+  private readonly source = inject(STUDY_SOURCE);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
   protected readonly view = computed(() => {
     const id = this.note();
     const draft = this.draft();
-    const card = draft ? { front: draft.front } : this.study.cardOf().get(id);
-    const note = draft ? draft.note : this.store.get(id);
+    const card = draft ? { front: draft.front } : this.source.card(id);
+    const note = draft ? draft.note : this.source.note(id);
     if (!card || !note) return null;
     // no editor, a anotação nova pode ainda não ter nome: o título da frente, como ela está mostrando
     const title = frontTitle(card, note.game.name) || (draft ? 'Sem nome' : '');
@@ -103,10 +100,10 @@ export class StudyCardBack {
   });
 
   /**
-   * Os links do verso, os mesmos da ficha do mural (core/own-note-links.ts): sem eles, o "[[título|texto]]"
-   * sairia com os colchetes, e o lembrete e a ficha colada não abririam.
+   * Os links do verso, os mesmos da ficha do mural (core/own-note-links.ts; na visita, os da leitura dela): sem eles,
+   * o "[[título|texto]]" sairia com os colchetes, e o lembrete e a ficha colada não abririam.
    */
-  protected readonly links = computed(() => this.ownLinks.of(this.note()));
+  protected readonly links = computed(() => this.source.links(this.note()));
 
   /** O texto volta ao começo: quem troca de carta no mesmo verso (a mesa de estudo) chama antes de mostrar. */
   toTop(): void {

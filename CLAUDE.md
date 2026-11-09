@@ -17,6 +17,25 @@ só por falta de espaço de verdade, como nas miniaturas de flashcard; quem usa 
 (`src/app/testing/etiqueta-acoes.spec.ts`) num teste. `scripts/etiqueta-acoes.test.mjs` falha se alguém revelar
 botões com o mouse por conta própria.
 
+## Visita: as mesmas peças do dono
+
+Pedido do dono do projeto em 09/nov/2026, depois de a carta dos Flashcards virar no mural dele e, na visita,
+abrir como anotação (a visita tinha uma parede só dela, que ficou para trás). **O que funciona no seu Murall
+funciona para quem visita.** Só fica de fora o que é do dono: editar, estudar (o progresso é dele), as
+configurações, os montes de hoje e o que é privado.
+
+1. **Uma peça só.** A visita monta as mesmas peças do dono, nunca uma cópia: no mural, `WallBoard` e
+   `WallToolbar` sobre a vista `VisitView`; nos Flashcards, `StudyGroupTabs`, `StudyPiles` e `StudyCardWall`
+   (`src/app/ui/`). Coisa nova numa peça já aparece na visita.
+2. **Os dados por uma fonte.** A peça lê pelo que quem usa dá: a vista do mural (`WallState`) ou a fonte dos
+   Flashcards (`STUDY_SOURCE`, `src/app/core/study-source.ts`). A peça não importa nada que escreve
+   (`StudyStore`, `ReviewStore`, `Desk`…): o que só o dono faz entra pela página dele, por uma entrada da peça
+   (`editable`, `ownerMenu`, `publicMark`), e a visita não tem nem como chamar.
+3. **Feature nova que a visita também mostra** entra em `PECAS` (e, se for da visita, em `VISITA` e `SO_LEEM`)
+   de `scripts/visita-mesmas-pecas.test.mjs`, que falha se alguém desenhar à mão o que uma peça desenha ou se
+   uma peça da visita importar o que escreve. E ganha um teste que faz na visita o que o dono faz (como em
+   `src/app/ui/visit-study.spec.ts`, "a parede é a mesma dos seus Flashcards").
+
 ## Sair da conta apaga TUDO o que o site guarda no navegador
 
 Pedido do dono do projeto, depois de um incidente em 26/out/2026: o mural de uma conta foi parar em outra

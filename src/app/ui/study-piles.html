@@ -1,0 +1,45 @@
+<ul class="pilhas" [attr.aria-label]="label()">
+  @for (d of piles(); track d.deck.id) {
+    <li>
+      <!-- um baralho como pilha das cartas dele, a próxima por cima, presa com um elástico na cor dele; nos seus, com o
+           papelzinho de quantas vencem hoje; o nome numa tira de papel embaixo -->
+      <a class="pilha" appPerto #perto="perto" [routerLink]="link()(d.deck)" [attr.data-baralho]="d.deck.id" [attr.aria-label]="say(d)">
+        <span class="monte-cartas" aria-hidden="true" [style.--cor]="'var(--stock-' + d.deck.color + ')'">
+          @if (!d.top) {
+            <span class="vaga-pilha">Sem flashcards</span>
+          } @else if (!perto.near()) {
+            <!-- longe da tela: só o lugar do monte; as cartas chegam quando a rolagem chega perto -->
+            <span class="vaga-pilha"></span>
+          } @else if (d.top; as top) {
+            @for (l of layers(d.cards); track l) {
+              <app-study-card class="camada" [attr.data-camada]="l" costas title="" [stock]="d.under[l]" [deck]="d.deck" />
+            }
+            <app-study-card class="capa" [title]="top.title" [subtitle]="top.subtitle" [image]="top.image" [stock]="top.stock" [deck]="d.deck" [face]="top.face" />
+            <span class="elastico"></span>
+            @if (d.counts; as n) {
+              <span class="papelzinho">
+                @if (d.today) {
+                  <span class="pz" data-monte="novas"><span class="selo"></span>{{ n.novas }}</span>
+                  <span class="pz" data-monte="aprender"><span class="selo"></span>{{ n.aprender }}</span>
+                  <span class="pz" data-monte="revisar"><span class="selo"></span>{{ n.revisar }}</span>
+                } @else {
+                  <span class="pz em-dia-pz">em dia</span>
+                }
+              </span>
+            }
+          }
+        </span>
+        <span class="nome-baralho" [style.--cor]="'var(--stock-' + d.deck.color + ')'">
+          <span class="nome-txt">{{ d.deck.name }}</span>
+          <!-- o baralho público: quem visita o seu mural vê (PLANO-BARALHOS-PUBLICOS.md) -->
+          <span class="nome-n">
+            {{ countLabel(d.cards) }}
+            @if (publicMark() && d.deck.public) {
+              · <lucide-icon class="nome-publico" [img]="PublicIcon" [size]="13" aria-hidden="true" /> público
+            }
+          </span>
+        </span>
+      </a>
+    </li>
+  }
+</ul>

@@ -1,0 +1,53 @@
+<!-- a parede das cartas, a frente à mostra; tocar vira a carta ali mesmo. Maximizar, ler a anotação e (no seu baralho)
+     editar ficam na etiqueta de tinta -->
+<ul class="cartas" [class.pequenas]="small()" [attr.aria-label]="'Flashcards de ' + deck().name">
+  @for (c of cards(); track c.note) {
+    @let up = flipped().has(c.note);
+    <!-- só o que está perto da tela é montado: longe, o botão fica (o Tab e o leitor de tela passam por todas), com a
+         vaga tracejada do mural no lugar da carta (ver ui/near-screen.ts) -->
+    <li class="carta-li" appPerto #perto="perto" #cartaLi [attr.data-carta]="c.note" [class.virada]="up" [style.--inclina]="c.tilt + 'deg'" (keydown.escape)="unflip(c.note, cartaLi, $event)">
+      <div class="giro" [class.virada]="up" [class.montada]="turnedOnce().has(c.note)" [class.calma]="calm">
+        <!-- pequena, a letra do nível não se lê mais: o nome e o nível na dica do mouse -->
+        <button type="button" class="carta-btn" aria-describedby="carta-virar-dica" [attr.aria-pressed]="up" [attr.aria-label]="c.label" [attr.title]="small() ? c.hint : null" (click)="flip(c.note, cartaLi)">
+          @if (perto.near()) {
+            <app-study-card [title]="c.title" [subtitle]="c.subtitle" [image]="c.image" [stock]="c.stock" [deck]="deck()" [face]="c.face" />
+          } @else {
+            <span class="carta-vaga"></span>
+          }
+        </button>
+        <!-- o verso é o da mesa de estudo; só existe nas cartas já viradas, e fica para o giro de volta -->
+        @if (perto.near() && turnedOnce().has(c.note)) {
+          <article appStudyBack class="verso cartolina" [note]="c.note" [fitMin]="0.75" [attr.inert]="up ? null : ''" [attr.aria-hidden]="up ? null : 'true'" (turn)="flip(c.note, cartaLi)"></article>
+        }
+      </div>
+      @if (perto.near()) {
+        <!-- as etiquetas de tinta de todo card (ui/_etiqueta-acoes.scss), no hover: maximizar a carta, ler a anotação
+             e, no seu baralho, editar (a aba Flashcard do editor) -->
+        <div class="acoes">
+          <button type="button" class="mexer acao-maximizar" aria-haspopup="dialog" [attr.aria-label]="'Maximizar ' + c.title" title="Maximizar" (click)="focused.set(c.note)">
+            <lucide-icon [img]="MaximizeIcon" [size]="16" aria-hidden="true" />
+          </button>
+          <button type="button" class="mexer acao-ler" aria-haspopup="dialog" [attr.aria-label]="'Ler a anotação de ' + c.title" title="Ler a anotação" (click)="read.emit(c.note)">
+            <lucide-icon [img]="ReadIcon" [size]="16" aria-hidden="true" />
+          </button>
+          @if (editable()) {
+            <button type="button" class="mexer acao-editar" aria-haspopup="dialog" [attr.aria-label]="'Editar o flashcard ' + c.title" title="Editar o flashcard" (click)="edit.emit(c.note)">
+              <lucide-icon [img]="AdjustIcon" [size]="16" aria-hidden="true" />
+            </button>
+          }
+        </div>
+      }
+    </li>
+  }
+</ul>
+<p id="carta-virar-dica" hidden>Vira o flashcard. Atrás está a anotação.</p>
+<p class="sr-only" aria-live="polite">{{ spoken() }}</p>
+
+@if (focused(); as id) {
+  @defer (on immediate) {
+    <app-study-card-focus [note]="id" [deck]="deck()" [back]="flipped().has(id)" (closed)="focused.set(null)" />
+  }
+}
+
+<!-- o menu do botão direito (e do dedo segurado) numa carta (ui/context-menu.ts) -->
+<app-context-menu #menu [caption]="menuCaption()" [sections]="menuSections()" (closed)="menuOn.set(null)" />

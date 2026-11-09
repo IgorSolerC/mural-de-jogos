@@ -1,0 +1,79 @@
+@use 'divisorias' as div;
+
+/* As abas dos Flashcards (ui/study-group-tabs.ts), as mesmas nos seus e nos de quem se visita. */
+:host {
+  display: block;
+}
+
+/* ===== Os grupos: as divisórias de manilha em cima da pasta, as mesmas do mural e do Kanban ===== */
+.abas-grupos {
+  @include div.pasta;
+
+  &::after {
+    @include div.borda-da-pasta;
+  }
+}
+
+.abas {
+  margin: 0;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+  @include div.abas-de-grupo;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  li {
+    flex: none;
+    display: flex;
+  }
+}
+
+.aba {
+  text-decoration: none;
+  @include div.aba-de-grupo('.on', '.rotulo-cat, .mais-nome', '.aba-n');
+}
+
+/* o nome do grupo com o ícone dele (app-cat-label): o mesmo das abas do mural e do Kanban */
+.rotulo-cat {
+  @include div.rotulo-de-grupo;
+}
+
+.aba-n {
+  @include div.numero-de-grupo;
+}
+
+/* a régua de medir (ver ui/tab-fit.ts): no lugar, sem ocupar espaço nem aparecer */
+.medida {
+  position: absolute;
+  inset: 0 auto auto 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* o "Mais", como o do Kanban */
+.aba-mais {
+  @include div.mais-de-grupo;
+
+  .mais-nome {
+    @include div.nome-de-grupo;
+  }
+
+  .chev {
+    transition: rotate var(--t-ui) var(--ease-ui);
+  }
+
+  &.aberto .chev {
+    rotate: 180deg;
+  }
+}
+
+/* segurar o dedo numa aba de grupo abre o menu dele (ui/group-menu.ts): sem o balão do link do sistema */
+@supports selector(:popover-open) {
+  .abas:not(.medida) .aba {
+    -webkit-touch-callout: none;
+    user-select: none;
+  }
+}

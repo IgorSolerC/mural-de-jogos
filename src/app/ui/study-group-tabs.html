@@ -1,0 +1,59 @@
+<!-- as abas: Tudo e os grupos, nas mesmas divisórias de manilha do mural e do Kanban, com o ícone e a cor de cada grupo
+     e, nos seus, quantos para hoje; os escondidos (e os que não cabem) no "Mais" -->
+<nav class="abas-grupos" [attr.aria-label]="label()">
+  <ul class="abas">
+    <li>
+      <a class="aba" [routerLink]="path()()" [class.on]="!open()" [attr.aria-current]="!open() ? 'page' : null">
+        <app-cat-label class="rotulo-cat" label="Tudo" [glyph]="AllIcon" [iconSize]="15" />
+      </a>
+    </li>
+    @for (g of shown(); track g.id) {
+      <li>
+        <a
+          class="aba"
+          [attr.data-grupo]="g.id"
+          [routerLink]="path()(g.id)"
+          [class.on]="g.id === open()?.id"
+          [class.orelha-cor]="!!g.color"
+          [style.--cat-cor]="g.color"
+          [attr.aria-current]="g.id === open()?.id ? 'page' : null"
+          [title]="g.label"
+        >
+          <app-cat-label class="rotulo-cat" [label]="g.label" [look]="g.look" [iconSize]="15" />
+          @if (g.today) {
+            <span class="aba-n"><span class="sr-only">, </span>{{ g.today }}<span class="sr-only"> para hoje</span></span>
+          }
+        </a>
+      </li>
+    }
+    @if (moreItems().length) {
+      <li>
+        <!-- o "Mais": a lista de feltro, a mesma das abas do mural e do Kanban (ui/tab-more.ts) -->
+        <app-tab-more class="aba aba-mais" [class.on]="!!moreOn()" [groups]="moreItems()" [active]="open()?.id ?? ''" label="Mais grupos" (chosen)="choose($event)">
+          @if (moreOn(); as m) {
+            <app-cat-label class="rotulo-cat" [label]="m.label" [look]="m.look" [iconSize]="15" />
+            @if (m.today) {
+              <span class="aba-n">{{ m.today }}</span>
+            }
+          } @else {
+            <span class="mais-nome">Mais</span>
+          }
+          <lucide-icon class="chev" [img]="ChevronIcon" [size]="15" aria-hidden="true" />
+        </app-tab-more>
+      </li>
+    }
+  </ul>
+  <!-- a régua de medir: todas as abas, escondidas, para saber quantas cabem em pé (ui/tab-fit.ts) -->
+  <div class="abas medida" aria-hidden="true">
+    <span class="aba" [attr.data-k]="allTab"><app-cat-label class="rotulo-cat" label="Tudo" [glyph]="AllIcon" [iconSize]="15" /></span>
+    @for (g of tabs(); track g.id) {
+      <span class="aba" [attr.data-k]="tabKey(g.key)">
+        <app-cat-label class="rotulo-cat" [label]="g.label" [look]="g.look" [iconSize]="15" />
+        @if (g.today) {
+          <span class="aba-n">{{ g.today }}</span>
+        }
+      </span>
+    }
+    <span class="aba aba-mais" data-k="mais"><span class="mais-nome">Mais</span></span>
+  </div>
+</nav>
