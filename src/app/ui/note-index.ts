@@ -1,4 +1,6 @@
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
+import { NoteFolders } from '../core/note-folders';
+import { FolderTree, folderNameOf } from '../core/folders';
 import { ICON, IconModule } from './icons';
 import { CategoryLabel } from './category-label';
 import { CategoryLook, CategoryLooks, categoryColorHex, lookKey } from '../core/category-looks';
@@ -328,6 +330,9 @@ export class NoteIndex {
   readonly ear = input<'grupo' | 'assunto'>('grupo');
   /** O desenho e a cor dos grupos do dono do mural. */
   readonly looks = input<CategoryLooks>({});
+  /** As pastas do dono do mural (o nome na orelha do assunto); null, as suas. */
+  readonly folders = input<FolderTree | null>(null);
+  private readonly ownFolders = inject(NoteFolders);
   /** As que estão só no Kanban, à mostra no mural: a linha leva o desenho do quadro. */
   readonly boardOnly = input<ReadonlySet<string>>(new Set());
   /** Das de cima, as fora do mural só por causa dos Estudos. */
@@ -340,11 +345,12 @@ export class NoteIndex {
   protected readonly CheckIcon = ICON.pronto;
   protected readonly SubjectIcon = ICON.assunto;
 
-  protected readonly rows = computed<Row[]>(() =>
-    this.reviews().map((r) => {
+  protected readonly rows = computed<Row[]>(() => {
+    const tree = this.folders() ?? this.ownFolders.tree();
+    return this.reviews().map((r) => {
       const tasks = checkCount(r.text);
       const look = r.category ? (this.looks()[lookKey(r.category)] ?? {}) : {};
-      const label = this.ear() === 'assunto' ? r.subject : r.category;
+      const label = this.ear() === 'assunto' ? folderNameOf(tree, r) : r.category;
       return {
         id: r.id,
         title: r.game.name,
@@ -357,8 +363,8 @@ export class NoteIndex {
         board: this.boardOnly().has(r.id),
         study: this.studyOnly().has(r.id),
       };
-    }),
-  );
+    });
+  });
 }
 
 /** A data da linha, curta como no caderno: 07/10 (o ano só quando não é este), 10/26 só com o mês, 2025 só com o ano. */

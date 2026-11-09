@@ -1,4 +1,5 @@
 import { provideZonelessChangeDetection } from '@angular/core';
+import { convertSubjects } from '../core/folders';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { NOTES_CONFIG_DEFAULT } from '../core/mural-config';
 import { Review, sanitizeReview } from '../core/review';
@@ -257,7 +258,11 @@ describe('os filtros no "Escolher fichas" do perfil', () => {
     localStorage.clear();
     TestBed.configureTestingModule({ imports: [ProfilePicker], providers: [provideZonelessChangeDetection()] });
     const fixture = TestBed.createComponent(ProfilePicker);
-    fixture.componentRef.setInput('cards', seed());
+    // as fichas do seu mural já com as pastas que os assuntos viraram
+    const converted = convertSubjects(seed(), [], {});
+    TestBed.inject(Settings).setNotesConfig({ folders: converted.folders });
+    const byId = new Map(converted.notes.map((n) => [n.id, n]));
+    fixture.componentRef.setInput('cards', seed().map((c) => byId.get(c.id) ?? c));
     fixture.componentRef.setInput('chosen', ['nota05']);
     const el = fixture.nativeElement as HTMLElement;
     document.body.appendChild(el);

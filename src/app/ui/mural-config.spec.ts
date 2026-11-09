@@ -1,4 +1,5 @@
 import { provideZonelessChangeDetection } from '@angular/core';
+import { NoteFolders } from '../core/note-folders';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Review, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
@@ -536,7 +537,8 @@ describe('as configurações do mural (a folha)', () => {
         form.querySelector('input')!.value = '  doces ';
         submit(form);
         await settle();
-        expect(settings.notesConfig().subjects['receitas']).toEqual(['Doces']);
+        const receitas = () => settings.notesConfig().folders.filter((f) => f.group === 'receitas' && !f.gone).map((f) => f.name);
+        expect(receitas()).toEqual(['Doces']);
         expect(subjectNames('Receitas')).toEqual(['Doces']);
         expect(subjectRow('Receitas', 'Doces').querySelector('.cat-n')!.textContent!.trim()).toBe('Ainda em nenhuma');
         expect(el.querySelector('.aviso')!.textContent).toContain('Doces entrou nos assuntos de Receitas.');
@@ -544,7 +546,7 @@ describe('as configurações do mural (a folha)', () => {
         form.querySelector('input')!.value = 'DOCES';
         submit(form);
         await settle();
-        expect(settings.notesConfig().subjects['receitas']).toEqual(['Doces']);
+        expect(receitas()).toEqual(['Doces']);
         expect(el.querySelector('.aviso')!.textContent).toContain('Receitas já tem o assunto Doces.');
       });
 
@@ -556,17 +558,19 @@ describe('as configurações do mural (a folha)', () => {
         field.value = 'Quadro';
         submit(field.closest('form')!);
         await settle();
-        expect(notes().filter((r) => r.subject === 'Quadro').length).toBe(2);
+        // o assunto é a pasta: renomear muda o nome dela (as anotações não são regravadas)
+        const inFolder = (name: string) => notes().filter((r) => TestBed.inject(NoteFolders).nameOf(TestBed.inject(NoteFolders).of(r)) === name).length;
+        expect(inFolder('Quadro')).toBe(2);
         expect(el.querySelector('.aviso')!.textContent).toContain('Em Roadmap site, Kanban virou Quadro em 2 anotações.');
         answer = false;
         subjectRow('Roadmap site', 'Quadro').querySelector<HTMLButtonElement>('.apagar-tag')!.click();
         await settle();
         expect(asked.at(-1)!.title).toBe('Apagar o assunto Quadro de Roadmap site?');
-        expect(notes().filter((r) => r.subject === 'Quadro').length).toBe(2);
+        expect(inFolder('Quadro')).toBe(2);
         answer = true;
         subjectRow('Roadmap site', 'Quadro').querySelector<HTMLButtonElement>('.apagar-tag')!.click();
         await settle();
-        expect(notes().some((r) => !!r.subject)).toBeFalse();
+        expect(notes().some((r) => TestBed.inject(NoteFolders).of(r) !== null)).toBeFalse();
         expect(subjectNames('Roadmap site')).toEqual([]);
       });
 

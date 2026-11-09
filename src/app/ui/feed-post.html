@@ -22,7 +22,7 @@
     }
     @if (p.theirs; as theirs) {
       <!-- sem os remendos na quina: no Feed, as reações e os comentários da ficha moram no pé do post -->
-      <app-review-card [review]="theirs" [preview]="true" [masked]="p.secret" (opened)="opened.emit({ comments: false })" />
+      <app-review-card [review]="theirs" [preview]="true" [masked]="p.secret" [folders]="p.folders ?? null" (opened)="opened.emit({ comments: false })" />
     } @else {
       <!-- sem a ficha: uma cartolina em branco com o nome da obra, dizendo o porquê (a que saiu do
            mural nem chega aqui: o Feed não mostra o post dela) -->

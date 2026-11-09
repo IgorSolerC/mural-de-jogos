@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import type { FolderTree } from '../core/folders';
 import { RouterLink } from '@angular/router';
 import { ICON, IconModule } from './icons';
 import { profileOf } from '../core/kinds';
@@ -30,6 +31,8 @@ export class ProfileSectionView {
   readonly hidden = input<ReadonlySet<string>>(new Set());
   readonly reactCode = input<string | null>(null);
   readonly looks = input<CategoryLooks>({});
+  /** As pastas do dono das fichas; null, as suas. */
+  readonly folders = input<FolderTree | null>(null);
   /** O "Arrumar" e o convite da seção vazia, que levam às Configurações (só no seu perfil, fora da prévia). */
   readonly editable = input(false);
   readonly opened = output<Review>();

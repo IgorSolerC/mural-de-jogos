@@ -269,7 +269,7 @@
                   <app-group-picker #grupo [category]="noteCategory()" (categoryChange)="pickGroup($event)" [categories]="categoryLib()" />
                 }
                 @case ('assunto') {
-                  <app-subject-picker #assunto [subject]="noteSubject()" (subjectChange)="pickSubject($event)" [subjects]="subjectLib()" [group]="noteCategory()" />
+                  <app-subject-picker #assunto [subject]="folderLabel()" (subjectChange)="pickSubject($event)" [subjects]="subjectLib()" [group]="noteCategory()" />
                 }
                 @case ('tags') {
                   <app-tag-picker #tags [(tags)]="noteTags" [library]="tagLib()" [category]="noteCategory()" />

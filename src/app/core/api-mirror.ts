@@ -1,4 +1,6 @@
 import { Injectable, inject } from '@angular/core';
+import { NoteFolders } from './note-folders';
+import { FolderTree, NO_FOLDERS, topFolderNameOf } from './folders';
 import type { AgendaDoMesV1, LembreteV1 } from '../../../contrato/api-v1/calendario';
 import type { ContextoFichasV1, DesejoV1, FichaV1, PraDepoisV1 } from '../../../contrato/api-v1/murais';
 import type { BaralhoV1, CartaV1, ContextoEstudosV1 } from '../../../contrato/api-v1/estudos';
@@ -70,14 +72,15 @@ export interface CardView {
 }
 
 /** A anotação no formato público v1 (o "quem vê" é o de verdade: só no Kanban também é privada). */
-export function notaV1(r: Review, card: CardView | null, boardOnly: ReadonlySet<string>): NotaV1 {
+export function notaV1(r: Review, card: CardView | null, boardOnly: ReadonlySet<string>, tree: FolderTree = NO_FOLDERS): NotaV1 {
   const tasks = checkCount(r.text);
   return {
     id: r.id,
     titulo: r.game.name,
     texto: r.text,
     grupo: r.category?.trim() || null,
-    assunto: r.subject?.trim() || null,
+    // o assunto é a pasta de cima (PLANO-PASTAS.md, P13)
+    assunto: topFolderNameOf(tree, r),
     tags: [...(r.tags ?? [])],
     data: r.completedAt ?? null,
     finalizada_em: r.doneAt ?? null,
@@ -109,7 +112,7 @@ function tagCounts(notes: readonly Review[]): { nome: string; notas: number }[] 
  * O vocabulário das Anotações: os grupos (na ordem das abas, com os assuntos guardados e os usados), as
  * tags de cada grupo e as fixas. É o que a AI usa em vez de inventar nomes.
  */
-export function contextoV1(notes: readonly Review[], subjects: Readonly<Record<string, readonly string[]>>, pinned: readonly string[]): ContextoNotasV1 {
+export function contextoV1(notes: readonly Review[], tree: FolderTree, pinned: readonly string[]): ContextoNotasV1 {
   const byGroup = new Map<string, Review[]>();
   for (const n of notes) {
     const g = n.category?.trim();
@@ -120,7 +123,8 @@ export function contextoV1(notes: readonly Review[], subjects: Readonly<Record<s
   const grupos: GrupoV1[] = boardCategories(notes).map((c) => {
     const mine = byGroup.get(lookKey(c.label)) ?? [];
     const names = new Map<string, string>();
-    for (const s of [...(subjects[lookKey(c.label)] ?? []), ...mine.map((n) => n.subject?.trim() ?? '')]) if (s && !names.has(dobra(s))) names.set(dobra(s), s);
+    // os assuntos são as pastas de cima do grupo
+    for (const f of tree.kids(lookKey(c.label), null)) if (!names.has(dobra(f.name))) names.set(dobra(f.name), f.name);
     return { nome: c.label, notas: c.notes, assuntos: [...names.values()].sort(nameCollator.compare), tags: tagCounts(mine) };
   });
   const loose = notes.filter((n) => !n.category?.trim());
@@ -164,6 +168,7 @@ export class ApiMirror {
   private readonly store = inject(ReviewStore);
   private readonly kanban = inject(KanbanStore);
   private readonly settings = inject(Settings);
+  private readonly folders = inject(NoteFolders);
   private readonly spending = inject(SpendingStore);
   private readonly calendar = inject(CalendarStore);
   private readonly study = inject(StudyStore);
@@ -251,7 +256,7 @@ export class ApiMirror {
       const dados = this.notaOf(n, boardOnly);
       out.push({ tipo: 'nota', id: n.id, hash: await hashOf(dados), dados });
     }
-    const ctx = contextoV1(notes, this.settings.notesConfig().subjects, this.settings.pinnedTags());
+    const ctx = contextoV1(notes, this.folders.tree(), this.settings.pinnedTags());
     out.push({ tipo: 'contexto', id: CONTEXTO_NOTAS, hash: await hashOf(ctx), dados: ctx });
     return out;
   }
@@ -262,7 +267,7 @@ export class ApiMirror {
     const card = found
       ? { coluna: found.board.columns.find((c) => c.id === found.card.column)?.name ?? '', card: found.card, onWall: this.kanban.isOnWall(found.card, n.category) }
       : null;
-    return notaV1(n, card, boardOnly);
+    return notaV1(n, card, boardOnly, this.folders.tree());
   }
 
   private async mirror(rev: number): Promise<void> {

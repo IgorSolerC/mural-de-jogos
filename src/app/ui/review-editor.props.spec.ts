@@ -1,4 +1,5 @@
 import { provideZonelessChangeDetection } from '@angular/core';
+import { NoteFolders } from '../core/note-folders';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Cloud } from '../core/cloud-config';
 import { KanbanBoard, boardIdFor } from '../core/kanban';
@@ -735,11 +736,13 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
     await fixture.whenStable();
     await saveAndClose();
     const saved = store.notes().find((r) => r.game.name === 'Pintura moderna')!;
-    expect([saved.category, saved.subject]).toEqual(['Estudos', 'Artes']);
+    // o assunto é a pasta de cima com esse nome
+    expect([saved.category, TestBed.inject(NoteFolders).nameOf(saved.folder)]).toEqual(['Estudos', 'Artes']);
   });
 
   it('o assunto: a anotação nova pedida com um assunto (o filtro do mural) já nasce nele; "Sem assunto" tira', async () => {
-    fixture.componentInstance.openInCategory('Estudos', undefined, 'História');
+    const historia = TestBed.inject(NoteFolders).ensureTop('Estudos', 'História');
+    fixture.componentInstance.openInCategory('Estudos', undefined, historia);
     await fixture.whenStable();
     expect(chip('assunto').textContent).toContain('História');
     const p = await openPart('assunto');
@@ -759,7 +762,7 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
     expect(part()!.querySelector('#editor-data')).not.toBeNull();
     expect(el.querySelector('dialog')!.open).toBeTrue();
   });
-  it('as tags e os assuntos sugeridos são só os das anotações do mesmo lugar: o mural, o Kanban ou os dois', async () => {
+  it('as tags sugeridas são só as das anotações do mesmo lugar (o mural, o Kanban ou os dois); os assuntos são as pastas do grupo', async () => {
     store.add(note('nmural01', { category: 'Trabalho', tags: ['App'], subject: 'Deploy' }));
     store.add(note('nquadro1', { category: 'Trabalho', tags: ['Daily'], subject: 'Reunião' }));
     store.add(note('nosdois1', { category: 'Trabalho', tags: ['Planejamento'], subject: 'Sprint' }));
@@ -771,11 +774,12 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
     fixture.componentInstance.openInCategory('Trabalho');
     await fixture.whenStable();
     expect(tags()).toEqual(['App', 'Planejamento']);
-    expect(subjects()).toEqual(['Deploy', 'Sprint']);
+    // a pasta é um lugar do grupo: está à mão de qualquer lugar
+    expect(subjects()).toEqual(['Deploy', 'Reunião', 'Sprint']);
     // numa coluna, só no Kanban (o padrão do grupo): as do quadro
     ed.kbColumn.set('afazer');
     expect(tags()).toEqual(['Daily', 'Planejamento']);
-    expect(subjects()).toEqual(['Reunião', 'Sprint']);
+    expect(subjects()).toEqual(['Deploy', 'Reunião', 'Sprint']);
     // no quadro e no mural também: as dos dois
     ed.setKbWall(true);
     expect(tags()).toEqual(['App', 'Daily', 'Planejamento']);

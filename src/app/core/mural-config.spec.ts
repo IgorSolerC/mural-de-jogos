@@ -59,6 +59,7 @@ describe('as configurações do mural de anotações', () => {
       hideEmpty: true,
       autoColors: {},
       subjects: {},
+      folders: [],
       templates: [],
       codeTheme: 'papel',
     });

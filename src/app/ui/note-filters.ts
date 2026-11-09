@@ -45,7 +45,7 @@ export class NoteFilters {
     // as escondidas: as que tiram do mural alguma anotação que a busca acharia
     const needle = fold(this.view.query().trim());
     const out = outTags(
-      this.view.pool().filter((r) => matchesQuery(r, needle)),
+      this.view.pool().filter((r) => matchesQuery(r, needle, this.view.folders())),
       this.view.tagOuts(),
       this.view.defaultTagOuts(),
     );

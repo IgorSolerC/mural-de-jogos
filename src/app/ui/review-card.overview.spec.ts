@@ -1,5 +1,6 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { folderTree } from '../core/folders';
 import { Review, sanitizeReview } from '../core/review';
 import { ReviewCard } from './review-card';
 
@@ -12,7 +13,7 @@ function note(extra: Record<string, unknown> = {}): Review {
     status: 'finalizado',
     stock: 'amarelo',
     category: 'Trabalho',
-    subject: 'Dailys',
+    folder: 'pdailys0001',
     tags: ['urgente', 'reunião', 'time'],
     text: '- [x] Ontem: login\n- [ ] Hoje: testes',
     completedAt: '2026-10-01',
@@ -35,6 +36,8 @@ describe('a ficha na Visão geral e a orelha do assunto', () => {
     fixture = TestBed.createComponent(ReviewCard);
     fixture.componentRef.setInput('review', review);
     fixture.componentRef.setInput('checkable', true);
+    // a pasta Dailys do Trabalho (o assunto de antes)
+    fixture.componentRef.setInput('folders', folderTree([{ id: 'pdailys0001', group: 'trabalho', name: 'Dailys', parent: null }]));
     for (const [k, v] of Object.entries(inputs)) fixture.componentRef.setInput(k, v);
     await fixture.whenStable();
     el = fixture.nativeElement as HTMLElement;
@@ -94,7 +97,7 @@ describe('a ficha na Visão geral e a orelha do assunto', () => {
   });
 
   it('com um grupo aberto, a anotação sem assunto fica sem orelha', async () => {
-    await show(note({ subject: null }), { subjectEar: true, compact: true, overview: true });
+    await show(note({ folder: undefined }), { subjectEar: true, compact: true, overview: true });
     expect(el.querySelector('.aba-cat')).toBeNull();
   });
 

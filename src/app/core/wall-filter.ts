@@ -1,4 +1,5 @@
 import { REMINDER_HREFS } from './rich-text';
+import { FolderTree, NO_FOLDERS, folderNameOf } from './folders';
 import { KindProfile, isMusic, isNotes } from './kinds';
 import {
   DIFFICULTIES,
@@ -85,9 +86,9 @@ export function categoryValueOf(r: Review): string {
   return r.category ?? 'sem';
 }
 
-/** O assunto de uma anotação, ou 'sem'. */
-export function subjectValueOf(r: Review): string {
-  return r.subject ?? 'sem';
+/** A pasta de uma anotação (o id, pela regra da leitura em core/folders.ts), ou 'sem'. */
+export function subjectValueOf(r: Review, tree: FolderTree = NO_FOLDERS): string {
+  return tree.of(r) ?? 'sem';
 }
 
 /** As tags de uma anotação, ou 'sem'. */
@@ -114,16 +115,16 @@ export function isDecorated(r: Review): boolean {
 }
 
 /** Os valores da ficha num grupo: um só em todos, menos as tags (várias por anotação). */
-function valuesOf(r: Review, k: FacetKey): string[] {
-  return k === 'tag' ? tagValuesOf(r) : [valueOf(r, k)];
+function valuesOf(r: Review, k: FacetKey, tree: FolderTree = NO_FOLDERS): string[] {
+  return k === 'tag' ? tagValuesOf(r) : [valueOf(r, k, tree)];
 }
 
-function valueOf(r: Review, k: Exclude<FacetKey, 'tag'>): string {
+function valueOf(r: Review, k: Exclude<FacetKey, 'tag'>, tree: FolderTree): string {
   switch (k) {
     case 'category':
       return categoryValueOf(r);
     case 'subject':
-      return subjectValueOf(r);
+      return subjectValueOf(r, tree);
     case 'verdict':
       return r.verdict ?? 'sem';
     case 'status':
@@ -152,13 +153,13 @@ function keyOf(k: FacetKey, value: string): string {
 }
 
 /** A ficha passa nos filtros? Com `skip`, ignora um grupo (para contar as opções dele). */
-export function matchesFilter(r: Review, f: WallFilter, skip?: FacetKey): boolean {
+export function matchesFilter(r: Review, f: WallFilter, skip?: FacetKey, tree: FolderTree = NO_FOLDERS): boolean {
   for (const k of FACET_KEYS) {
     if (k === skip) continue;
     const chosen = f[k] as readonly string[];
     if (!chosen.length) continue;
     const keys = new Set(chosen.map((c) => keyOf(k, c)));
-    if (!valuesOf(r, k).some((v) => keys.has(keyOf(k, v)))) return false;
+    if (!valuesOf(r, k, tree).some((v) => keys.has(keyOf(k, v)))) return false;
   }
   return true;
 }
@@ -173,7 +174,7 @@ function searchedText(text: string): string {
  * artista, o álbum de onde a música é e a faixa de destaque), sem ligar para acento nem caixa.
  * `needle` já vem dobrado; "#bug" procura só nas tags.
  */
-export function matchesQuery(r: Review, needle: string): boolean {
+export function matchesQuery(r: Review, needle: string, tree: FolderTree = NO_FOLDERS): boolean {
   if (!needle) return true;
   if (needle.startsWith('#')) {
     const tag = needle.slice(1);
@@ -184,7 +185,7 @@ export function matchesQuery(r: Review, needle: string): boolean {
     fold(searchedText(r.text)).includes(needle) ||
     r.bonuses.some((b) => fold(b.label).includes(needle)) ||
     (!!r.category && fold(r.category).includes(needle)) ||
-    (!!r.subject && fold(r.subject).includes(needle)) ||
+    fold(folderNameOf(tree, r) ?? '').includes(needle) ||
     !!r.tags?.some((t) => fold(t).includes(needle)) ||
     (!!r.game.form && [r.game.by, r.game.album, r.game.sampleTitle].some((t) => !!t && fold(t).includes(needle)))
   );
@@ -310,7 +311,7 @@ export function tagLabel(k: FacetKey, value: string, profile: KindProfile): stri
  * grupos como estão. As opções não somem quando zeram (a cartela não muda de forma a cada clique):
  * só o "Sem veredito" e os anos dependem do que o mural tem.
  */
-export function facetsOf(list: readonly Review[], f: WallFilter, profile: KindProfile): Facet[] {
+export function facetsOf(list: readonly Review[], f: WallFilter, profile: KindProfile, tree: FolderTree = NO_FOLDERS): Facet[] {
   const years = [...new Set(list.map(yearOf))].sort((a, b) => (a === 'sem' ? 1 : b === 'sem' ? -1 : b.localeCompare(a)));
   for (const y of f.year) if (!years.includes(y)) years.push(y);
   const anyNoVerdict = list.some((r) => !r.verdict) || f.verdict.includes('sem');
@@ -318,7 +319,11 @@ export function facetsOf(list: readonly Review[], f: WallFilter, profile: KindPr
   const bySem = (a: string, b: string) => (a === 'sem' ? 1 : b === 'sem' ? -1 : a.localeCompare(b, 'pt-BR'));
   const cats = spellingsOf(list.map(categoryValueOf), f.category).sort(bySem);
   const tags = spellingsOf(list.flatMap(tagValuesOf), f.tag).sort(bySem);
-  const subjects = spellingsOf(list.map(subjectValueOf), f.subject).sort(bySem);
+  // as pastas pelo id, de A a Z pelo nome
+  const folderLabel = (v: string) => (v === 'sem' ? optionLabel('subject', v, profile) : (tree.index.get(v)?.name ?? v));
+  const subjects = [...new Set([...list.map((r) => subjectValueOf(r, tree)), ...f.subject])].sort((a, b) =>
+    a === 'sem' ? 1 : b === 'sem' ? -1 : folderLabel(a).localeCompare(folderLabel(b), 'pt-BR'),
+  );
 
   const values: Record<FacetKey, readonly string[]> = {
     verdict: anyNoVerdict ? [...VERDICTS, 'sem'] : VERDICTS,
@@ -338,13 +343,13 @@ export function facetsOf(list: readonly Review[], f: WallFilter, profile: KindPr
     // sem nenhuma tag no mural, o grupo de tags só diria "Sem tag": fica de fora
     .filter((k) => (k !== 'year' || years.length > 0) && (k !== 'category' || cats.length > 0) && (k !== 'tag' || tags.some((t) => t !== 'sem')) && (k !== 'subject' || subjects.some((t) => t !== 'sem')))
     // nas anotações, o visual e o ano só aparecem quando separam alguma coisa (com uma opção só, não filtram nada)
-    .filter((k) => !isNotes(profile.kind) || (k !== 'look' && k !== 'year') || f[k].length > 0 || new Set(list.map((r) => valuesOf(r, k)[0])).size > 1)
+    .filter((k) => !isNotes(profile.kind) || (k !== 'look' && k !== 'year') || f[k].length > 0 || new Set(list.map((r) => valuesOf(r, k, tree)[0])).size > 1)
     .map((key) => {
       const counts = new Map<string, number>();
       for (const r of list) {
-        if (!matchesFilter(r, f, key)) continue;
+        if (!matchesFilter(r, f, key, tree)) continue;
         // uma anotação com "Bug" e "bug" conta uma vez
-        for (const v of new Set(valuesOf(r, key).map((x) => keyOf(key, x)))) counts.set(v, (counts.get(v) ?? 0) + 1);
+        for (const v of new Set(valuesOf(r, key, tree).map((x) => keyOf(key, x)))) counts.set(v, (counts.get(v) ?? 0) + 1);
       }
       const chosen = new Set((f[key] as readonly string[]).map((c) => keyOf(key, c)));
       return {
@@ -352,7 +357,7 @@ export function facetsOf(list: readonly Review[], f: WallFilter, profile: KindPr
         title: FACET_TITLE[key],
         options: values[key].map((value) => ({
           value,
-          label: optionLabel(key, value, profile),
+          label: key === 'subject' ? folderLabel(value) : optionLabel(key, value, profile),
           n: counts.get(keyOf(key, value)) ?? 0,
           on: chosen.has(keyOf(key, value)),
         })),
@@ -367,8 +372,12 @@ export interface FilterTag {
 }
 
 /** Os filtros ligados, na ordem da cartela. */
-export function tagsOf(f: WallFilter, profile: KindProfile): FilterTag[] {
+export function tagsOf(f: WallFilter, profile: KindProfile, tree: FolderTree = NO_FOLDERS): FilterTag[] {
   return FACET_KEYS.flatMap((key) =>
-    (f[key] as readonly string[]).map((value) => ({ key, value, label: tagLabel(key, value, profile) })),
+    (f[key] as readonly string[]).map((value) => ({
+      key,
+      value,
+      label: key === 'subject' && value !== 'sem' ? (tree.index.get(value)?.name ?? value) : tagLabel(key, value, profile),
+    })),
   );
 }

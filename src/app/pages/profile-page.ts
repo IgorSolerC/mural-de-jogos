@@ -1,4 +1,5 @@
 import { wallPath } from '../core/areas';
+import { foldersOfSnapshot } from '../core/folders';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -153,8 +154,15 @@ export class ProfilePage {
   });
   protected readonly profile = computed<Profile>(() => (this.own() ? this.profiles.profile() : (this.colleague()?.profile ?? BLANK)));
   /** As fichas que aparecem: só as públicas e fora das só no Kanban (o seu perfil mostra o que os outros veem). */
+  /** As fichas e as pastas de outra pessoa (o mural público de antes das pastas vira pasta na leitura). */
+  private readonly theirs = computed(() => {
+    const c = this.colleague();
+    return c ? foldersOfSnapshot(c.reviews, c.folders) : null;
+  });
+  /** As pastas de quem é o perfil (o nome da pasta nas anotações); null, as suas. */
+  protected readonly folders = computed(() => (this.own() ? null : (this.theirs()?.tree ?? null)));
   protected readonly cards = computed<readonly Review[]>(() => {
-    if (!this.own()) return this.colleague()?.reviews ?? [];
+    if (!this.own()) return this.theirs()?.reviews ?? [];
     const board = this.kanban.boardOnly();
     return this.store.reviews().filter((r) => shownToOthers(r, board));
   });

@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
+import { NoteFolders } from '../core/note-folders';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, ICON_CHOICE, IconModule } from './icons';
 import { StudyStore } from '../core/study-store';
@@ -7,11 +8,11 @@ import { CategoryLook, categoryColorHex, lookKey, tagColorHex } from '../core/ca
 import { Cloud } from '../core/cloud-config';
 import { KanbanStore } from '../core/kanban-store';
 import { LabelEditResult, LabelEdits } from '../core/label-edits';
-import { AutoTab, CategoryPrefs, GroupSort, GroupView, NotesConfig, arrangedKeys, kanbanOnly, moveKey, prefsOf, savedSubjects, tagHiddenByDefault } from '../core/mural-config';
+import { AutoTab, CategoryPrefs, GroupSort, GroupView, NotesConfig, arrangedKeys, kanbanOnly, moveKey, prefsOf, tagHiddenByDefault } from '../core/mural-config';
 import { isPinnedNote, type Audience } from '../core/review';
 import { SharedStore } from '../core/shared-store';
 import { ReviewStore } from '../core/review-store';
-import { LABEL_MAX, SubjectEntry, cleanCategory, cleanNewCategory, cleanSubject, cleanTag, subjectLibrary } from '../core/note-labels';
+import { LABEL_MAX, SubjectEntry, cleanCategory, cleanNewCategory, cleanSubject, cleanTag } from '../core/note-labels';
 import { Settings } from '../core/settings';
 import { BackdropClose } from './backdrop-close';
 import { CategoryLabel } from './category-label';
@@ -214,6 +215,7 @@ export class MuralConfig {
 
   protected readonly settings = inject(Settings);
   private readonly store = inject(ReviewStore);
+  private readonly folders = inject(NoteFolders);
   /** Sem a nuvem, ninguém vê o mural: a privacidade só passa a valer quando a pessoa entrar. */
   protected readonly cloud = inject(Cloud);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
@@ -317,9 +319,9 @@ export class MuralConfig {
    */
   protected readonly subjectGroups = computed<SubjectGroup[]>(() => {
     const notes = this.store.notes();
-    const cfg = this.config();
-    const groups: SubjectGroup[] = this.categories().map((c) => ({ key: c.key, label: c.label, category: c.label, subjects: subjectLibrary(notes, savedSubjects(cfg, c.label), c.label) }));
-    const loose = subjectLibrary(notes, savedSubjects(cfg, ''), null);
+    // os assuntos são as pastas de cima de cada grupo (PLANO-PASTAS.md)
+    const groups: SubjectGroup[] = this.categories().map((c) => ({ key: c.key, label: c.label, category: c.label, subjects: this.folders.topLibrary(c.label, notes) }));
+    const loose = this.folders.topLibrary(null, notes);
     if (loose.length) groups.push({ key: '', label: 'Sem grupo', category: '', subjects: loose });
     return groups;
   });
@@ -633,7 +635,7 @@ export class MuralConfig {
       this.notice.set(group.category ? `${group.label} já tem o assunto ${twin.label}.` : `As anotações sem grupo já têm o assunto ${twin.label}.`);
       return;
     }
-    this.settings.setSavedSubjects(group.category, [...savedSubjects(this.config(), group.category), name]);
+    this.folders.ensureTop(group.category, name);
     this.notice.set(group.category ? `${name} entrou nos assuntos de ${group.label}.` : `${name} entrou nos assuntos das anotações sem grupo.`);
   }
 

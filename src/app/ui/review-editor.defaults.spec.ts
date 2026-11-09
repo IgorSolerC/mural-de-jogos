@@ -1,4 +1,5 @@
 import { provideZonelessChangeDetection } from '@angular/core';
+import { NoteFolders } from '../core/note-folders';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Cloud } from '../core/cloud-config';
 import { Review, sanitizeReview } from '../core/review';
@@ -209,7 +210,8 @@ describe('o editor segue as configurações do mural', () => {
     const dialogOpen = () => el.querySelector('dialog')!.open;
 
     it('nasce vazia, no grupo e no assunto desta, como o grupo manda (sem o Feed), e o editor continua aberto', async () => {
-      fixture.componentInstance.openInCategory('Viagens!', undefined, 'Roma');
+      const roma = TestBed.inject(NoteFolders).ensureTop('Viagens!', 'Roma');
+      fixture.componentInstance.openInCategory('Viagens!', undefined, roma);
       await fixture.whenStable();
       // a folha do texto sabe criar, e não oferece criar o título desta
       const rich = fixture.debugElement.query(By.directive(RichEditor)).componentInstance as RichEditor;
@@ -224,7 +226,7 @@ describe('o editor segue as configurações do mural', () => {
       expect(n.id).toBe(made.id);
       expect(n.text).toBe('');
       expect(n.category).toBe('Viagens!');
-      expect(n.subject).toBe('Roma');
+      expect(n.folder).toBe(roma!);
       // "Viagens!" publica, mas a anotação vazia não vira post: pública, fora do Feed
       expect(n.private).toBeUndefined();
       expect(n.quiet).toBeTrue();

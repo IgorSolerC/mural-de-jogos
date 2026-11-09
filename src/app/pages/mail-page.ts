@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, Injector, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { FolderTree, foldersOfSnapshot } from '../core/folders';
 import { focusAfterRender, tabStep } from '../ui/focus';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -160,7 +161,8 @@ export class MailPage {
       return { key, item, theirs: null, mine: null, secret: false, target, estado };
     }
     // a anotação não tem nota: nada a comparar nem a esconder
-    if (isNote(theirs)) return { key, item, theirs, mine: null, secret: false, target, estado: 'ficha' };
+    const folders = this.matches().get(item.pessoa.codigo)?.folders;
+    if (isNote(theirs)) return { key, item, theirs, mine: null, secret: false, target, estado: 'ficha', folders };
     const mine = this.mineOf(item.pessoa.codigo, theirs);
     // "Notas dos outros: Evitar spoilers": o que eu ainda não avaliei vem em segredo, até ser revelado
     const secret = !!this.matches().get(item.pessoa.codigo)?.hidden.has(theirs.id) && !this.revealed().has(key);
@@ -257,13 +259,16 @@ export class MailPage {
   private readonly myReviews = computed(() => this.store.reviews().filter((r) => !r.revisitOf));
   /** Por pessoa: as fichas dela pelo id e a minha ficha da mesma obra. */
   private readonly matches = computed(() => {
-    const out = new Map<string, { byId: Map<string, Review>; mine: Map<string, Review>; hidden: ReadonlySet<string> }>();
+    const out = new Map<string, { byId: Map<string, Review>; mine: Map<string, Review>; hidden: ReadonlySet<string>; folders: FolderTree }>();
     const mine = this.myReviews();
     for (const [code, c] of this.walls()) {
       const theirs = c.reviews.filter((r) => !r.revisitOf);
       const { pairs } = compareCollections(mine, theirs);
+      // as pastas da pessoa (o nome da pasta na ficha dela)
+      const { reviews, tree } = foldersOfSnapshot(c.reviews, c.folders);
       out.set(code, {
-        byId: new Map(c.reviews.map((r) => [r.id, r])),
+        folders: tree,
+        byId: new Map(reviews.map((r) => [r.id, r])),
         mine: new Map(pairs.map((p) => [p.theirs.id, p.mine])),
         hidden: this.shield.hiddenIn(c.reviews),
       });

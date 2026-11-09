@@ -1,9 +1,10 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { NoteFolder, convertSubjects, folderTree, subjectFolderId } from './folders';
 import { profileOf } from './kinds';
-import { LabelEdits, configMoved, notesWithSubject, subjectConfigMoved } from './label-edits';
-import { NOTES_CONFIG_DEFAULT, MAX_SAVED_SUBJECTS, sanitizeNotesConfig, savedSubjects, withSavedSubjects } from './mural-config';
-import { cleanSubject, subjectLibrary } from './note-labels';
+import { LabelEdits } from './label-edits';
+import { cleanSubject } from './note-labels';
+import { NoteFolders } from './note-folders';
 import { Review, sanitizeReview } from './review';
 import { ReviewStore } from './review-store';
 import { Settings } from './settings';
@@ -14,7 +15,6 @@ import { directionLabelOf, groupWall, sortFor, sortWall } from './wall-view';
 
 const NOTES = profileOf('anotacoes');
 const T0 = '2026-10-01T10:00:00.000Z';
-const AT = '2026-10-20T10:00:00.000Z';
 
 const note = (id: string, category: string | null, subject: string | null = null, extra: Record<string, unknown> = {}): Review =>
   ({
@@ -31,158 +31,172 @@ const note = (id: string, category: string | null, subject: string | null = null
     id,
   });
 
-/** O assunto: um nível entre o grupo e as tags (Estudos › História › "Cai na prova"). */
-describe('assunto das anotações', () => {
-  describe('o campo', () => {
-    it('é limpo como o grupo e só existe quando foi escrito', () => {
+/** O assunto de antes virou a pasta de cima do grupo (PLANO-PASTAS.md). */
+describe('o assunto virou pasta', () => {
+  describe('o campo de antes', () => {
+    it('ainda é lido (limpo como o grupo), só para a conversão', () => {
       expect(cleanSubject('  história   do  brasil ')).toBe('História do brasil');
       expect(note('n1', 'Estudos', '  história ').subject).toBe('História');
       expect('subject' in note('n2', 'Estudos', '   ')).toBeFalse();
-      expect('subject' in note('n3', 'Estudos')).toBeFalse();
-      // um assunto que não é texto não entra
       expect('subject' in note('n4', 'Estudos', null, { subject: 42 })).toBeFalse();
     });
+  });
 
-    it('a biblioteca do grupo: os criados e os usados, de A a Z, com quantas anotações e se foi criado', () => {
-      const notes = [
-        note('n1', 'Estudos', 'História'),
-        note('n2', 'estudos', 'historia'),
-        note('n3', 'Estudos', 'Geografia'),
-        note('n4', 'Estudos', 'Artes'),
-        note('n5', 'Estudos', 'Geografia'),
-        note('n6', 'Estudos', 'Geografia'),
-        note('n7', 'Trabalho', 'Kanban'),
-        note('n8', null, 'Solto'),
+  describe('a conversão', () => {
+    const notes = [
+      note('n1', 'Estudos', 'História'),
+      note('n2', 'estudos', 'historia'),
+      note('n3', 'Estudos', 'Geografia'),
+      note('n4', 'Trabalho', 'História'),
+      note('n5', null, 'Solto'),
+      note('n6', 'Estudos'),
+    ];
+
+    it('cada assunto vira uma pasta de cima do seu grupo, com a grafia mais usada; a anotação troca o assunto pela pasta', () => {
+      const { folders, notes: changed } = convertSubjects(notes, [], { estudos: ['Matemática', 'HISTÓRIA'] });
+      const tree = folderTree(folders);
+      const names = (group: string) => tree.kids(group, null).map((f) => f.name);
+      expect(names('estudos')).toEqual(['Geografia', 'História', 'Matemática']);
+      expect(names('trabalho')).toEqual(['História']);
+      expect(names('')).toEqual(['Solto']);
+      // a História dos Estudos não é a do Trabalho
+      const byId = new Map(changed.map((n) => [n.id, n]));
+      expect(byId.get('n1')!.folder).toBe(byId.get('n2')!.folder!);
+      expect(byId.get('n1')!.folder).not.toBe(byId.get('n4')!.folder!);
+      // só mudaram as que tinham assunto, sem data nova e sem o campo de antes
+      expect(changed.map((n) => n.id)).toEqual(['n1', 'n2', 'n3', 'n4', 'n5']);
+      for (const n of changed) {
+        expect('subject' in n).toBeFalse();
+        expect(n.updatedAt).toBe(T0);
+      }
+    });
+
+    it('dois aparelhos convertendo sozinhos chegam às mesmas pastas; de novo, nada muda', () => {
+      const a = convertSubjects(notes, [], {});
+      const b = convertSubjects([...notes].reverse(), [], {});
+      expect(new Set(a.folders.map((f) => f.id))).toEqual(new Set(b.folders.map((f) => f.id)));
+      expect(a.folders.find((f) => f.name === 'Geografia')!.id).toBe(subjectFolderId('Estudos', 'geografia'));
+      const again = convertSubjects(a.notes, a.folders, {});
+      expect(again.notes).toEqual([]);
+      expect(again.folders).toEqual(a.folders);
+    });
+
+    it('a pasta de cima que já existe com o nome recebe o assunto; a renomeada não volta ao nome antigo', () => {
+      const existing: NoteFolder[] = [
+        { id: 'phistoria01', group: 'estudos', name: 'história', parent: null },
+        { id: subjectFolderId('estudos', 'Geografia'), group: 'estudos', name: 'Terra', parent: null },
       ];
-      const lib = subjectLibrary(notes, ['Matemática', 'HISTÓRIA'], 'Estudos');
-      expect(lib.map((s) => [s.label, s.n, s.saved])).toEqual([
-        ['Artes', 1, false],
-        ['Geografia', 3, false],
-        // a grafia mais usada nas anotações vale, mesmo para a criada
-        ['História', 2, true],
-        ['Matemática', 0, true],
-      ]);
-      // o assunto é do grupo: o do Trabalho não aparece nos Estudos
-      expect(subjectLibrary(notes, [], 'Trabalho').map((s) => s.label)).toEqual(['Kanban']);
-      expect(subjectLibrary(notes, [], null).map((s) => s.label)).toEqual(['Solto']);
+      const { folders, notes: changed } = convertSubjects(notes.slice(0, 3), existing, {});
+      expect(changed.map((n) => n.folder)).toEqual(['phistoria01', 'phistoria01', subjectFolderId('estudos', 'Geografia')]);
+      expect(folders.length).toBe(2);
+      expect(folders[1].name).toBe('Terra');
     });
   });
 
-  describe('os criados nas configurações', () => {
-    it('ficam por grupo, limpos, sem repetir e com limite; o grupo vazio sai', () => {
-      const cfg = sanitizeNotesConfig({
-        subjects: { Estudos: [' história ', 'HISTÓRIA', 'Geografia', 3, ''], Vazio: [], Ruim: 'x', '': ['Solto'] },
-      });
-      expect(cfg.subjects).toEqual({ estudos: ['História', 'Geografia'], '': ['Solto'] });
-      expect(savedSubjects(cfg, 'ESTUDOS')).toEqual(['História', 'Geografia']);
-      expect(savedSubjects(cfg, null)).toEqual(['Solto']);
-      expect(savedSubjects(cfg, 'Trabalho')).toEqual([]);
-      const many = sanitizeNotesConfig({ subjects: { a: Array.from({ length: MAX_SAVED_SUBJECTS + 5 }, (_, i) => `s${i}`) } });
-      expect(many.subjects['a'].length).toBe(MAX_SAVED_SUBJECTS);
-      expect(withSavedSubjects(cfg, 'Estudos', []).subjects).toEqual({ '': ['Solto'] });
-      expect(withSavedSubjects(NOTES_CONFIG_DEFAULT, 'Trabalho', ['Site']).subjects).toEqual({ trabalho: ['Site'] });
-      // sem o campo (um site antigo), nenhum
-      expect(sanitizeNotesConfig({}).subjects).toEqual({});
-    });
-  });
+  describe('o serviço', () => {
+    let store: ReviewStore;
+    let settings: Settings;
+    let edits: LabelEdits;
+    let folders: NoteFolders;
 
-  describe('renomear e apagar', () => {
-    it('o assunto muda só no grupo; null tira', () => {
-      const notes = [note('n1', 'Estudos', 'História'), note('n2', 'estudos', 'historia'), note('n3', 'Trabalho', 'História'), note('n4', 'Estudos', 'Geografia')];
-      expect(notesWithSubject(notes, 'estudos', 'historia', 'História Geral', AT).map((r) => [r.id, r.subject, r.updatedAt])).toEqual([
-        ['n1', 'História Geral', AT],
-        ['n2', 'História Geral', AT],
-      ]);
-      const out = notesWithSubject(notes, 'estudos', 'geografia', null, AT);
-      expect(out.map((r) => r.id)).toEqual(['n4']);
-      expect('subject' in out[0]).toBeFalse();
+    beforeEach(() => {
+      localStorage.clear();
+      TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+      store = TestBed.inject(ReviewStore);
+      settings = TestBed.inject(Settings);
+      edits = TestBed.inject(LabelEdits);
+      folders = TestBed.inject(NoteFolders);
+      store.reviews.set([note('n1', 'Estudos', 'História'), note('n2', 'Estudos', 'Geografia'), note('n3', 'Trabalho', 'História')]);
+      settings.setSavedSubjects('Estudos', ['Matemática', 'História']);
+      TestBed.tick();
     });
+    afterEach(() => localStorage.clear());
 
-    it('a lista dos criados acompanha; o grupo renomeado leva os assuntos dele (apagado, para as sem grupo)', () => {
-      const cfg = withSavedSubjects(withSavedSubjects(NOTES_CONFIG_DEFAULT, 'Estudos', ['História', 'Geografia']), 'Escola', ['Artes', 'história']);
-      expect(savedSubjects(subjectConfigMoved(cfg, 'Estudos', 'historia', 'História Geral'), 'Estudos')).toEqual(['História Geral', 'Geografia']);
-      expect(savedSubjects(subjectConfigMoved(cfg, 'Estudos', 'geografia', null), 'Estudos')).toEqual(['História']);
-      // juntando os grupos: os da outra primeiro, sem repetir
-      expect(savedSubjects(configMoved(cfg, 'estudos', 'escola'), 'Escola')).toEqual(['Artes', 'História', 'Geografia']);
-      expect(savedSubjects(configMoved(cfg, 'estudos', 'escola'), 'Estudos')).toEqual([]);
-      expect(savedSubjects(configMoved(cfg, 'estudos', null), '')).toEqual(['História', 'Geografia']);
+    const nameOf = (id: string) => folders.nameOf(folders.of(store.get(id)!));
+
+    it('converte sozinho ao abrir: as anotações ganham a pasta, sem data nova, e os criados viram pastas', () => {
+      expect(store.notes().every((n) => !('subject' in n))).toBeTrue();
+      expect(store.notes().every((n) => n.updatedAt === T0)).toBeTrue();
+      expect([nameOf('n1'), nameOf('n2'), nameOf('n3')]).toEqual(['História', 'Geografia', 'História']);
+      expect(settings.notesConfig().subjects).toEqual({});
+      expect(folders.tree().kids('estudos', null).map((f) => f.name)).toEqual(['Geografia', 'História', 'Matemática']);
     });
 
-    describe('o serviço', () => {
-      let store: ReviewStore;
-      let settings: Settings;
-      let edits: LabelEdits;
+    it('conta, acha o outro para juntar e renomeia a pasta sem regravar nenhuma anotação', () => {
+      const before = store.notes();
+      expect(edits.subjectUses('historia', 'Estudos')).toBe(1);
+      expect(edits.existingSubject('GEOGRAFIA', 'História', 'Estudos')).toBe('Geografia');
+      expect(edits.existingSubject('matematica', 'História', 'Estudos')).toBe('Matemática');
+      expect(edits.existingSubject('Artes', 'História', 'Estudos')).toBeNull();
+      expect(edits.renameSubject('História', 'Estudos', ' história geral ')).toEqual({ changed: 1 });
+      expect(store.notes()).toBe(before);
+      expect(nameOf('n1')).toBe('História geral');
+      expect(nameOf('n3')).toBe('História');
+    });
 
-      beforeEach(() => {
-        localStorage.clear();
-        TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
-        store = TestBed.inject(ReviewStore);
-        settings = TestBed.inject(Settings);
-        edits = TestBed.inject(LabelEdits);
-        store.reviews.set([note('n1', 'Estudos', 'História'), note('n2', 'Estudos', 'Geografia'), note('n3', 'Trabalho', 'História')]);
-        settings.setSavedSubjects('Estudos', ['Matemática', 'História']);
-      });
-      afterEach(() => localStorage.clear());
+    it('com o nome de outra, junta as duas; apagar desfaz a pasta e as anotações ficam soltas no grupo', () => {
+      edits.renameSubject('Geografia', 'Estudos', 'história');
+      expect(nameOf('n2')).toBe('História');
+      expect(folders.tree().kids('estudos', null).map((f) => f.name)).toEqual(['História', 'Matemática']);
+      edits.renameSubject('História', 'Estudos', null);
+      expect(folders.of(store.get('n1')!)).toBeNull();
+      expect(folders.of(store.get('n2')!)).toBeNull();
+      expect(nameOf('n3')).toBe('História');
+    });
 
-      it('conta, acha o outro para juntar (também entre os criados) e renomeia nas anotações e na lista', () => {
-        expect(edits.subjectUses('historia', 'Estudos')).toBe(1);
-        expect(edits.existingSubject('GEOGRAFIA', 'História', 'Estudos')).toBe('Geografia');
-        expect(edits.existingSubject('matematica', 'História', 'Estudos')).toBe('Matemática');
-        expect(edits.existingSubject('Artes', 'História', 'Estudos')).toBeNull();
-        expect(edits.renameSubject('História', 'Estudos', ' história geral ')).toEqual({ changed: 1 });
-        expect(store.notes().map((r) => r.subject)).toEqual(['História geral', 'Geografia', 'História']);
-        expect(savedSubjects(settings.notesConfig(), 'Estudos')).toEqual(['Matemática', 'História geral']);
-      });
+    it('o grupo renomeado leva as pastas; apagado, elas vão para o Sem grupo com as anotações', () => {
+      edits.renameCategory('Estudos', 'Escola');
+      expect(store.get('n1')!.category).toBe('Escola');
+      expect(nameOf('n1')).toBe('História');
+      expect(folders.tree().kids('escola', null).map((f) => f.name)).toEqual(['Geografia', 'História', 'Matemática']);
+      edits.renameCategory('Escola', null);
+      expect(store.get('n1')!.category).toBeUndefined();
+      expect(nameOf('n1')).toBe('História');
+    });
 
-      it('apaga das anotações do grupo e da lista; o criado sem anotação só sai da lista', () => {
-        expect(edits.renameSubject('Matemática', 'Estudos', null)).toEqual({ changed: 0 });
-        expect(savedSubjects(settings.notesConfig(), 'Estudos')).toEqual(['História']);
-        edits.renameSubject('Geografia', 'Estudos', null);
-        expect(store.get('n2')!.subject).toBeUndefined();
-        expect(store.get('n3')!.subject).toBe('História');
-      });
+    it('juntando dois grupos, as pastas de cima com o mesmo nome viram uma', () => {
+      edits.renameCategory('Trabalho', 'Estudos');
+      expect(folders.tree().kids('estudos', null).map((f) => f.name)).toEqual(['Geografia', 'História', 'Matemática']);
+      expect(folders.of(store.get('n3')!)).toBe(folders.of(store.get('n1')!));
+    });
 
-      it('a compartilhada muda também: o assunto dela é de cada um', () => {
-        spyOn(TestBed.inject(SharedStore), 'role').and.callFake((id: string) => (id === 'n1' ? 'editor' : null));
-        expect(edits.renameSubject('História', 'Estudos', 'Outra')).toEqual({ changed: 1 });
-        expect(store.get('n1')!.subject).toBe('Outra');
-      });
-
-      it('o grupo renomeado leva os assuntos criados', () => {
-        edits.renameCategory('Estudos', 'Escola');
-        expect(savedSubjects(settings.notesConfig(), 'Escola')).toEqual(['Matemática', 'História']);
-        expect(store.get('n1')!.subject).toBe('História');
-      });
+    it('a compartilhada também: a pasta dela é de cada um', () => {
+      spyOn(TestBed.inject(SharedStore), 'role').and.callFake((id: string) => (id === 'n1' ? 'editor' : null));
+      expect(edits.renameSubject('História', 'Estudos', 'Outra')).toEqual({ changed: 1 });
+      expect(nameOf('n1')).toBe('Outra');
     });
   });
 
   describe('filtro, busca e ordem do mural', () => {
-    const notes = [note('n1', 'Estudos', 'História'), note('n2', 'Estudos', 'historia'), note('n3', 'Estudos', 'Geografia'), note('n4', 'Estudos')];
+    const converted = convertSubjects([note('n1', 'Estudos', 'História'), note('n2', 'Estudos', 'historia'), note('n3', 'Estudos', 'Geografia'), note('n4', 'Estudos')], [], {});
+    const tree = folderTree(converted.folders);
+    const notes = [...converted.notes, note('n4', 'Estudos')];
+    const history = subjectFolderId('estudos', 'história');
 
-    it('o grupo Assunto do filtro: as grafias juntas, de A a Z, "Sem assunto" no fim', () => {
-      const facet = facetsOf(notes, NO_FILTER, NOTES).find((f) => f.key === 'subject')!;
+    it('o grupo Assunto do filtro: as pastas de cima, de A a Z, "Sem assunto" no fim', () => {
+      const facet = facetsOf(notes, NO_FILTER, NOTES, tree).find((f) => f.key === 'subject')!;
       expect(facet.title).toBe('Assunto');
       expect(facet.options.map((o) => [o.label, o.n])).toEqual([
         ['Geografia', 1],
         ['História', 2],
         ['Sem assunto', 1],
       ]);
-      // sem nenhum assunto no mural, o grupo não aparece
-      expect(facetsOf([note('n9', 'Estudos')], NO_FILTER, NOTES).some((f) => f.key === 'subject')).toBeFalse();
+      // sem nenhuma pasta no mural, o grupo não aparece
+      expect(facetsOf([note('n9', 'Estudos')], NO_FILTER, NOTES, tree).some((f) => f.key === 'subject')).toBeFalse();
     });
 
-    it('filtra por qualquer um dos ligados, sem ligar para caixa e acento; "sem" pega as sem assunto', () => {
-      const f = toggleOption(toggleOption(NO_FILTER, 'subject', 'HISTORIA'), 'subject', 'sem');
-      expect(notes.filter((r) => matchesFilter(r, f)).map((r) => r.id)).toEqual(['n1', 'n2', 'n4']);
+    it('filtra por qualquer uma das ligadas; "sem" pega as soltas na raiz', () => {
+      const f = toggleOption(toggleOption(NO_FILTER, 'subject', history), 'subject', 'sem');
+      expect(notes.filter((r) => matchesFilter(r, f, undefined, tree)).map((r) => r.id)).toEqual(['n1', 'n2', 'n4']);
     });
 
-    it('a busca acha pelo assunto', () => {
-      expect(notes.filter((r) => matchesQuery(r, 'geograf')).map((r) => r.id)).toEqual(['n3']);
+    it('a busca acha pelo nome da pasta', () => {
+      expect(notes.filter((r) => matchesQuery(r, 'geograf', tree)).map((r) => r.id)).toEqual(['n3']);
     });
 
-    it('ordenar por assunto separa o mural em seções, "Sem assunto" por último', () => {
+    it('ordenar por assunto separa o mural em seções pela pasta, "Sem assunto" por último', () => {
       expect(sortFor('assunto', NOTES)).toBe('assunto');
-      const order = { sort: 'assunto' as const, key: 'final' as const, direction: 'asc' as const, profile: NOTES };
+      const order = { sort: 'assunto' as const, key: 'final' as const, direction: 'asc' as const, profile: NOTES, folderName: (r: Review) => tree.live(tree.of(r))?.name ?? null };
       const groups = groupWall(sortWall(notes, order), order);
       expect(groups.map((g) => [g.label, g.reviews.length])).toEqual([
         ['Geografia', 1],
@@ -194,9 +208,9 @@ describe('assunto das anotações', () => {
   });
 
   describe('a anotação compartilhada', () => {
-    it('o grupo e o assunto não entram na junção: são de cada pessoa', () => {
-      const o = note('n1', 'Estudos', 'História');
-      const clash = mergeNote(o, { ...o, subject: 'Geografia' }, { ...o, subject: 'Artes', category: 'Outro' });
+    it('o grupo e a pasta não entram na junção: são de cada pessoa', () => {
+      const o = note('n1', 'Estudos', null, { folder: 'phistoria01' });
+      const clash = mergeNote(o, { ...o, folder: 'pgeografia1' }, { ...o, folder: 'partes00001', category: 'Outro' });
       expect(clash.parts).toEqual([]);
     });
   });

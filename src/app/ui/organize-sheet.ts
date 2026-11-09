@@ -1,9 +1,11 @@
 import { KanbanStore } from '../core/kanban-store';
+import { NoteFolders } from '../core/note-folders';
+import { withCategory, withFolder } from '../core/folders';
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, viewChild } from '@angular/core';
 import { ICON, IconModule } from './icons';
 import { lookKey, randomCategoryColor } from '../core/category-looks';
-import { savedSubjects } from '../core/mural-config';
-import { categoryLibrary, cleanCategory, cleanSubject, sanitizeTags, subjectLibrary, tagLibrary } from '../core/note-labels';
+
+import { categoryLibrary, cleanCategory, sanitizeTags, tagLibrary } from '../core/note-labels';
 import { Review, fold } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
@@ -46,7 +48,7 @@ import { TagPicker } from './tag-picker';
             </div>
             <div class="linha" role="group" aria-labelledby="fl-assunto">
               <span class="nome" id="fl-assunto"><lucide-icon [img]="SubjectIcon" [size]="16" aria-hidden="true" />Assunto</span>
-              <app-subject-picker class="valor" [subject]="r.subject ?? null" (subjectChange)="setSubject($event)" [subjects]="subjectLib()" [group]="r.category ?? null" />
+              <app-subject-picker class="valor" [subject]="folderLabel()" (subjectChange)="setSubject($event)" [subjects]="subjectLib()" [group]="r.category ?? null" />
             </div>
             <div class="linha" role="group" aria-labelledby="fl-tags">
               <span class="nome" id="fl-tags"><lucide-icon [img]="TagsIcon" [size]="16" aria-hidden="true" />Tags</span>
@@ -90,9 +92,12 @@ export class OrganizeSheet {
   private readonly samePlace = computed(() => this.kanban.notesAt(this.kanban.placeOf(this.noteId())));
   protected readonly groupLib = computed(() => categoryLibrary(this.store.notes()));
   protected readonly tagLib = computed(() => tagLibrary(this.samePlace(), this.settings.pinnedTags(), this.note()?.category ?? null));
-  protected readonly subjectLib = computed(() => {
-    const category = this.note()?.category ?? null;
-    return subjectLibrary(this.samePlace(), savedSubjects(this.settings.notesConfig(), category), category);
+  private readonly folders = inject(NoteFolders);
+  protected readonly subjectLib = computed(() => this.folders.topLibrary(this.note()?.category ?? null, this.samePlace()));
+  /** O nome da pasta da anotação (a parte Assunto mostra), ou null. */
+  protected readonly folderLabel = computed(() => {
+    const r = this.note();
+    return r ? this.folders.nameOf(this.folders.of(r)) : null;
   });
 
   constructor() {
@@ -117,17 +122,17 @@ export class OrganizeSheet {
     if (next && !this.settings.categoryLook(next).color && !this.store.notes().some((n) => !!n.category && lookKey(n.category) === lookKey(next))) {
       this.settings.setCategoryLook(next, { ...this.settings.categoryLook(next), color: randomCategoryColor() });
     }
-    const { category: _c, subject: _s, ...rest } = r;
-    this.save({ ...rest, ...(next ? { category: next } : {}) } as Review, r);
+    // mudou de grupo, sai da pasta (PLANO-PASTAS.md, P2)
+    this.save(withCategory(r, next || null), r);
   }
 
+  /** O assunto (o nome de uma pasta de cima do grupo; nova, nasce agora). */
   protected setSubject(subject: string | null): void {
     const r = this.note();
     if (!r) return;
-    const next = subject ? cleanSubject(subject) : '';
-    if (next === (r.subject ?? '')) return;
-    const { subject: _, ...rest } = r;
-    this.save({ ...rest, ...(next ? { subject: next } : {}) } as Review, r);
+    const next = subject ? this.folders.ensureTop(r.category ?? null, subject) : null;
+    if (next === this.folders.of(r)) return;
+    this.save(withFolder(r, next), r);
   }
 
   protected setTags(tags: string[]): void {

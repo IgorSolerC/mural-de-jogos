@@ -1,4 +1,5 @@
 import { Component, provideZonelessChangeDetection } from '@angular/core';
+import { scrollSettled } from '../testing/scroll-settled.spec';
 import { TestBed } from '@angular/core/testing';
 import { Router, RouterOutlet, provideRouter } from '@angular/router';
 import { Reminder } from '../core/calendar';
@@ -617,6 +618,8 @@ describe('página do Calendário', () => {
     const labels = () => [...panel().querySelectorAll('.escolha .nome')].map(text);
     const option = (label: string) => [...panel().querySelectorAll<HTMLButtonElement>('.escolha')].find((b) => text(b) === label)!;
     async function rightClick(target: Element): Promise<MouseEvent> {
+      // a rolagem que sobra do teste anterior fecharia o menu logo que ele abre (ver testing/scroll-settled.spec.ts)
+      await scrollSettled();
       const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 30, clientY: 30 });
       target.dispatchEvent(e);
       await settle();

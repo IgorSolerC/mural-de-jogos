@@ -1,4 +1,6 @@
 import type { CategoryLooks } from './category-looks';
+import { NoteFolders } from './note-folders';
+import { FolderTree, folderNameOf } from './folders';
 import { Injectable, Signal, WritableSignal, computed, effect, forwardRef, inject, signal } from '@angular/core';
 import { KANBAN_LAST_KEY, boardIdFor } from './kanban';
 import { KanbanStore } from './kanban-store';
@@ -250,6 +252,8 @@ export abstract class WallState {
   abstract readonly owner: Signal<string | null>;
   /** O ícone e a cor das categorias das anotações do dono do mural (ver core/category-looks.ts). */
   abstract readonly categoryLooks: Signal<CategoryLooks>;
+  /** As pastas das anotações do dono do mural (as suas, ou as públicas de quem você visita; core/folders.ts). */
+  abstract readonly folders: Signal<FolderTree>;
   /**
    * A ordem das categorias montada à mão pelo dono (a engrenagem do mural, ver core/mural-config.ts),
    * pela chave; null, da maior para a menor. Só o seu mural tem: a de quem visita não vem junto.
@@ -627,21 +631,21 @@ export abstract class WallState {
     const needle = fold(this.query().trim());
     const out = this.outByTags();
     // a parede inteira: as fichas e as rejogadas, cada uma no seu lugar (as anotações finalizadas, só à mostra)
-    return this.pool().filter((r) => matchesQuery(r, needle) && !out(r));
+    return this.pool().filter((r) => matchesQuery(r, needle, this.folders()) && !out(r));
   });
 
   /** Quantas fichas que a busca acharia as tags escondidas tiram do mural. */
   readonly tagHidden = computed(() => {
     const needle = fold(this.query().trim());
     const out = this.outByTags();
-    return this.pool().filter((r) => out(r) && matchesQuery(r, needle)).length;
+    return this.pool().filter((r) => out(r) && matchesQuery(r, needle, this.folders())).length;
   });
 
   /** Quantas anotações finalizadas, escondidas, a busca acharia (para o mural dizer que elas existem). */
   readonly doneMatches = computed(() => {
     const needle = fold(this.query().trim());
     if (!needle || this.showDone()) return 0;
-    return this.tabbed().filter((r) => isDone(r) && !this.stamping().has(r.id) && this.showsBoard(r) && matchesQuery(r, needle)).length;
+    return this.tabbed().filter((r) => isDone(r) && !this.stamping().has(r.id) && this.showsBoard(r) && matchesQuery(r, needle, this.folders())).length;
   });
 
   /** Quantas anotações só no Kanban, escondidas, a busca acharia (para o mural dizer que elas existem). */
@@ -650,7 +654,7 @@ export abstract class WallState {
     if (!needle || this.showBoard()) return 0;
     const only = this.boardOnly();
     const out = this.outByTags();
-    return this.tabbed().filter((r) => only.has(r.id) && this.showsDone(r) && matchesQuery(r, needle) && !out(r)).length;
+    return this.tabbed().filter((r) => only.has(r.id) && this.showsDone(r) && matchesQuery(r, needle, this.folders()) && !out(r)).length;
   });
 
   /** Quantas anotações à mostra, nas outras abas, a busca acharia (para oferecer procurar em todas). */
@@ -658,18 +662,18 @@ export abstract class WallState {
     const needle = fold(this.query().trim());
     if (!needle || this.activeTab() === ALL_TAB) return 0;
     const out = this.outByTags();
-    return this.wall().filter((r) => !this.inTab(r) && this.shows(r) && matchesQuery(r, needle) && !out(r)).length;
+    return this.wall().filter((r) => !this.inTab(r) && this.shows(r) && matchesQuery(r, needle, this.folders()) && !out(r)).length;
   });
 
   /** Os grupos da cartela, com quantas fichas cada opção mostraria. */
   readonly facets = computed(() => {
-    const all = facetsOf(this.searched(), this.activeFilter(), this.mural.profile());
+    const all = facetsOf(this.searched(), this.activeFilter(), this.mural.profile(), this.folders());
     // numa aba de categoria, o grupo Categoria só teria ela mesma
     const inTab = isGroupTab(this.activeTab()) ? all.filter((f) => f.key !== 'category') : all;
     return this.guarding() ? inTab.filter((f) => !SPOILER_FACETS.includes(f.key)) : inTab;
   });
   /** Os filtros ligados, como etiquetas. */
-  readonly tags = computed(() => tagsOf(this.activeFilter(), this.mural.profile()));
+  readonly tags = computed(() => tagsOf(this.activeFilter(), this.mural.profile(), this.folders()));
   readonly filterCount = computed(() => filterSize(this.activeFilter()));
 
   readonly isFiltered = computed(() => this.query().trim() !== '' || this.filterCount() > 0 || this.tagHidden() > 0);
@@ -677,7 +681,7 @@ export abstract class WallState {
   readonly visible = computed<Review[]>(() => {
     const f = this.activeFilter();
     return sortWall(
-      this.searched().filter((r) => matchesFilter(r, f)),
+      this.searched().filter((r) => matchesFilter(r, f, undefined, this.folders())),
       this.order(),
     );
   });
@@ -691,6 +695,7 @@ export abstract class WallState {
     categoryOrder: this.notes() ? this.categoryOrder() : null,
     ownerOf: this.ownerOf,
     ownLabel: this.owner() ?? 'Você',
+    folderName: (r) => folderNameOf(this.folders(), r),
   }));
   /** De quem é a anotação: null, do dono do mural; senão, o nome de quem a compartilhou. */
   private readonly ownerOf = (r: Review): string | null => this.sharedWithMe().get(r.id) ?? r.sharedBy?.nome ?? null;
@@ -879,6 +884,7 @@ export class WallView extends WallState {
   readonly guarding = computed(() => this.settings.noSpoilers());
   readonly owner = signal<string | null>(null).asReadonly();
   readonly categoryLooks = this.settings.categoryLooks.asReadonly();
+  readonly folders = inject(NoteFolders).tree;
   override readonly categoryOrder = computed(() => activeOrder(this.settings.notesConfig()));
   override readonly hiddenTabs = computed<ReadonlySet<string>>(() => new Set([...hiddenKeys(this.settings.notesConfig())].map((k) => `c:${k}`)));
   override readonly showAllTab = computed(() => !this.notes() || this.settings.notesConfig().showAll);
@@ -941,7 +947,7 @@ export class WallView extends WallState {
     return this.notes() && this.activeTab().startsWith('c:') ? this.activeTabLabel() : null;
   }
 
-  /** O assunto da anotação nova escrita no mural: o único ligado no filtro, se for um só (e não "Sem assunto"). */
+  /** A pasta (o id) da anotação nova escrita no mural: a única ligada no filtro, se for uma só (e não "Sem assunto"). */
   newNoteSubject(): string | null {
     const on = this.notes() ? this.activeFilter().subject : [];
     return on.length === 1 && on[0] !== 'sem' ? on[0] : null;
@@ -1032,6 +1038,8 @@ export interface WallOrder {
   ownerOf?: (r: Review) => string | null;
   /** Como a seção das anotações do dono do mural se chama ("Você", ou o nome dele na visita). */
   ownLabel?: string;
+  /** O nome da pasta da anotação (ordenando por pasta); sem a função, nenhuma tem pasta. */
+  folderName?: (r: Review) => string | null;
 }
 
 /** As fixadas vêm na frente, numa seção só delas? Na Prioridade sempre; nas outras ordens, só se a pessoa quis. */
@@ -1141,9 +1149,9 @@ function firstCategory(r: Review): string | null {
   return r.category ?? null;
 }
 
-/** O assunto da anotação (a seção dela ordenando por assunto), ou nenhum. */
-function subjectOfNote(r: Review): string | null {
-  return r.subject ?? null;
+/** O nome da pasta da anotação (a seção dela ordenando por pasta), ou nenhuma. */
+function folderOfNote(r: Review, o: WallOrder): string | null {
+  return o.folderName?.(r) ?? null;
 }
 
 /** A primeira tag da anotação (a seção dela ordenando por tag), ou nenhuma. */
@@ -1214,7 +1222,7 @@ function groupKeyOf(o: WallOrder): (r: Review) => [string, string] {
       };
     case 'assunto':
       return (r) => {
-        const s = subjectOfNote(r);
+        const s = folderOfNote(r, o);
         return s === null ? ['sem-assunto', 'Sem assunto'] : [`s:${fold(s)}`, s];
       };
     case 'tag':
@@ -1331,7 +1339,7 @@ function orderOf(o: WallOrder): (a: Review, b: Review) => number {
       };
     }
     case 'assunto':
-      return byLabel(subjectOfNote);
+      return byLabel((r) => folderOfNote(r, o));
     case 'tag':
       // pela primeira tag
       return byLabel(firstTag);

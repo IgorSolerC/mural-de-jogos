@@ -1,4 +1,5 @@
 import { provideZonelessChangeDetection, signal } from '@angular/core';
+import { folderTree } from './folders';
 import { TestBed } from '@angular/core/testing';
 import type { ContextoNotasV1, NotaV1 } from '../../../contrato/api-v1/notas';
 import { ApiMirror, contextoV1, hashOf, lots, notaV1 } from './api-mirror';
@@ -33,13 +34,18 @@ describe('o espelho da API: a nota e o contexto em v1', () => {
     const r = note('rabcd1', 'Plano de estudos', {
       text: 'Começo.\n- [x] ler o capítulo\n- [ ] fazer a lista',
       category: ' Estudos ',
-      subject: 'Cálculo',
+      folder: 'pfuncional01',
       tags: ['prova', 'Sexta'],
       doneAt: '2026-10-05T10:00:00.000Z',
       noteRank: 'fixada',
       game: { name: 'Plano de estudos', coverUrl: 'https://exemplo.com/capa.jpg' },
     });
-    const v = notaV1(r, { coluna: 'Fazendo', card: { importance: 'importante', status: 'esperando' }, onWall: true }, new Set());
+    // o assunto é a pasta de cima (PLANO-PASTAS.md, P13)
+    const tree = folderTree([
+      { id: 'pcalculo001', group: 'estudos', name: 'Cálculo', parent: null },
+      { id: 'pfuncional01', group: 'estudos', name: 'Funcional', parent: 'pcalculo001' },
+    ]);
+    const v = notaV1(r, { coluna: 'Fazendo', card: { importance: 'importante', status: 'esperando' }, onWall: true }, new Set(), tree);
     expect(v).toEqual({
       id: 'rabcd1',
       titulo: 'Plano de estudos',
@@ -73,14 +79,20 @@ describe('o espelho da API: a nota e o contexto em v1', () => {
     expect(plain.finalizada_em).toBeNull();
   });
 
-  it('o contexto: os grupos da mais usada para a menos, os assuntos guardados e os usados, as tags por grupo, as sem grupo e as fixas', () => {
+  it('o contexto: os grupos da mais usada para a menos, os assuntos (as pastas de cima), as tags por grupo, as sem grupo e as fixas', () => {
     const notes = [
-      note('r0001', 'A', { category: 'Trabalho', subject: 'Reuniões', tags: ['urgente', 'cliente'] }),
+      note('r0001', 'A', { category: 'Trabalho', folder: 'preunioes01', tags: ['urgente', 'cliente'] }),
       note('r0002', 'B', { category: 'trabalho', tags: ['Urgente'] }),
-      note('r0003', 'C', { category: 'Estudos', subject: 'calculo' }),
+      note('r0003', 'C', { category: 'Estudos', folder: 'pcalculo001' }),
       note('r0004', 'D', { tags: ['casa'] }),
     ];
-    const ctx = contextoV1(notes, { trabalho: ['Contratos'], estudos: ['Cálculo'] }, ['urgente']);
+    const tree = folderTree([
+      { id: 'preunioes01', group: 'trabalho', name: 'Reuniões', parent: null },
+      { id: 'pcontratos1', group: 'trabalho', name: 'Contratos', parent: null },
+      { id: 'pdentro0001', group: 'trabalho', name: 'Dentro', parent: 'pcontratos1' },
+      { id: 'pcalculo001', group: 'estudos', name: 'Cálculo', parent: null },
+    ]);
+    const ctx = contextoV1(notes, tree, ['urgente']);
     expect(ctx).toEqual({
       grupos: [
         { nome: 'Trabalho', notas: 2, assuntos: ['Contratos', 'Reuniões'], tags: [{ nome: 'urgente', notas: 2 }, { nome: 'cliente', notas: 1 }] },

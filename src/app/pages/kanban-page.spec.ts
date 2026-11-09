@@ -1,4 +1,5 @@
 import { Component, provideZonelessChangeDetection } from '@angular/core';
+import { subjectFolderId } from '../core/folders';
 import { TestBed } from '@angular/core/testing';
 import { Router, RouterOutlet, provideRouter } from '@angular/router';
 import { KanbanBoard, boardIdFor, cardsIn } from '../core/kanban';
@@ -877,7 +878,7 @@ describe('página do Kanban', () => {
     await settle();
     [...column('afazer').querySelectorAll<HTMLButtonElement>('.adicionar-op')].find((b) => b.textContent!.includes('Nova nota'))!.click();
     await settle();
-    expect(spy).toHaveBeenCalledWith('Trabalho', undefined, 'Site');
+    expect(spy).toHaveBeenCalledWith('Trabalho', undefined, subjectFolderId('Trabalho', 'Site'));
     host.querySelector<HTMLButtonElement>('.achados .tinta-link')!.click();
     await settle();
     expect(namesIn('afazer')).toEqual(['nlogin01', 'nsync001']);

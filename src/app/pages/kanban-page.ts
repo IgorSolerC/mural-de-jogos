@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, afterNextRender, afterRenderEffect, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { NoteFolders } from '../core/note-folders';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ICON, ICON_CHOICE, IconModule } from '../ui/icons';
@@ -270,12 +271,14 @@ export class KanbanPage {
   protected readonly query = signal('');
   /** As tags ligadas no filtro (sem acento nem caixa): mostra as anotações com qualquer uma delas. */
   protected readonly tagFilter = signal<readonly string[]>([]);
-  /** Os assuntos ligados no filtro (sem acento nem caixa; 'sem' para as sem assunto): qualquer um deles. */
+  /** As pastas ligadas no filtro (o id; 'sem' para as soltas na raiz): qualquer uma delas. */
   protected readonly subjectFilter = signal<readonly string[]>([]);
-  /** A anotação passa no filtro do assunto? */
+  private readonly noteFolders = inject(NoteFolders);
+  /** A anotação passa no filtro da pasta? */
   private readonly bySubject = computed(() => {
     const on = this.subjectFilter();
-    return (r: Review) => !on.length || on.includes(r.subject ? fold(r.subject) : 'sem');
+    const tree = this.noteFolders.tree();
+    return (r: Review) => !on.length || on.includes(tree.of(r) ?? 'sem');
   });
   /**
    * As tags escondidas nesta visita (o clique direito no filtro) e as que o padrão esconde e a pessoa
@@ -393,20 +396,20 @@ export class KanbanPage {
     const on = new Set(this.subjectFilter());
     const tags = this.tagFilter();
     const out = this.outByTags();
-    const seen = new Map<string, { spell: Map<string, number>; n: number }>();
+    const tree = this.noteFolders.tree();
+    const seen = new Map<string, { n: number }>();
     for (const c of this.live()) {
       const note = this.notes().get(c.note)!;
-      const k = note.subject ? fold(note.subject) : 'sem';
-      const e = seen.get(k) ?? { spell: new Map<string, number>(), n: 0 };
-      if (note.subject) e.spell.set(note.subject, (e.spell.get(note.subject) ?? 0) + 1);
+      const k = tree.of(note) ?? 'sem';
+      const e = seen.get(k) ?? { n: 0 };
       if ((!q || fold(note.game.name).includes(q)) && (!tags.length || (note.tags ?? []).some((t) => tags.includes(fold(t)))) && !out(note)) e.n++;
       seen.set(k, e);
     }
     // sem nenhum assunto no quadro, não há o que filtrar
     if (![...seen.keys()].some((k) => k !== 'sem')) return [];
-    for (const k of on) if (!seen.has(k)) seen.set(k, { spell: new Map(), n: 0 });
+    for (const k of on) if (!seen.has(k)) seen.set(k, { n: 0 });
     return [...seen]
-      .map(([value, e]) => ({ value, label: value === 'sem' ? 'Sem assunto' : e.spell.size ? [...e.spell].reduce((a, x) => (x[1] > a[1] ? x : a))[0] : value, n: e.n, on: on.has(value) }))
+      .map(([value, e]) => ({ value, label: value === 'sem' ? 'Sem assunto' : (tree.index.get(value)?.name ?? value), n: e.n, on: on.has(value) }))
       .sort((a, b) => (a.value === 'sem' ? 1 : b.value === 'sem' ? -1 : a.label.localeCompare(b.label, 'pt-BR', { sensitivity: 'base' })));
   });
 
@@ -971,7 +974,7 @@ export class KanbanPage {
     // com um assunto só ligado no filtro, ela nasce nele
     const on = this.subjectOptions().filter((s) => s.on);
     const look = col?.dresses ? col.look : undefined;
-    if (on.length === 1 && on[0].value !== 'sem') this.desk.newNoteIn(c.label, look, on[0].label);
+    if (on.length === 1 && on[0].value !== 'sem') this.desk.newNoteIn(c.label, look, on[0].value);
     else this.desk.newNoteIn(c.label, look);
   }
 

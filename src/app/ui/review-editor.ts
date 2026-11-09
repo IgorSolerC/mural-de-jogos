@@ -1,3 +1,4 @@
+import { NoteFolders } from '../core/note-folders';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -83,12 +84,12 @@ import { FlashcardPreview } from './flashcard-preview';
 import { FlashcardTab } from './flashcard-tab';
 import { CategoryLabel } from './category-label';
 import { NoteTag } from './note-tag';
-import { categoryLibrary, subjectLibrary, tagLibrary } from '../core/note-labels';
+import { categoryLibrary, tagLibrary } from '../core/note-labels';
 import { Settings } from '../core/settings';
 import { CardKit } from './card-kit';
 import { Confirm } from './confirm';
 import { categoryColorHex, lookKey, randomCategoryColor, tagColorHex } from '../core/category-looks';
-import { asksTag, newNoteAudience, prefsOf, savedSubjects } from '../core/mural-config';
+import { asksTag, newNoteAudience, prefsOf } from '../core/mural-config';
 import { CoverPicker } from './cover-picker';
 import { CoverSleeve } from './cover-sleeve';
 import { DifficultyPicker, Skulls } from './difficulty';
@@ -315,14 +316,16 @@ export class ReviewEditor {
 
   /** O grupo escolhido na parte Grupo: a parte fecha, e o lugar no quadro passa a ser o do grupo novo. */
   protected pickGroup(category: string | null): void {
+    // mudou de grupo, sai da pasta (PLANO-PASTAS.md, P2)
+    if (lookKey(this.noteCategory() ?? '') !== lookKey(category ?? '')) this.noteFolder.set(null);
     this.noteCategory.set(category);
     this.syncBoard();
     this.closeProp();
   }
 
-  /** O assunto escolhido na parte Assunto: a parte fecha. */
+  /** O assunto escolhido na parte Assunto (o nome de uma pasta de cima do grupo; nova, nasce agora): a parte fecha. */
   protected pickSubject(subject: string | null): void {
-    this.noteSubject.set(subject);
+    this.noteFolder.set(subject ? this.folders.ensureTop(this.noteCategory(), subject) : null);
     this.closeProp();
   }
 
@@ -351,7 +354,7 @@ export class ReviewEditor {
     if (note) {
       const c = this.noteCategory();
       out.push({ id: 'grupo', name: 'Grupo', icon: ICON.pasta, value: c ?? 'Grupo', spoken: c ?? 'sem grupo', filled: !!c });
-      const s = this.noteSubject();
+      const s = this.folderLabel();
       out.push({ id: 'assunto', name: 'Assunto', icon: ICON.assunto, value: s ?? 'Assunto', spoken: s ?? 'sem assunto', filled: !!s });
       const tags = this.noteTags();
       out.push({ id: 'tags', name: 'Tags', icon: ICON.etiquetas, value: tags.join(', '), spoken: tags.length ? tags.join(', ') : 'nenhuma', filled: tags.length > 0 });
@@ -843,7 +846,11 @@ export class ReviewEditor {
   protected readonly library = computed(() => this.store.customBonuses()[this.kind()]);
   /** A categoria, o assunto e as tags da anotação (ver core/note-labels.ts). */
   protected readonly noteCategory = signal<string | null>(null);
-  protected readonly noteSubject = signal<string | null>(null);
+  /** A pasta da anotação (o id), ou null solta na raiz do grupo. */
+  protected readonly noteFolder = signal<string | null>(null);
+  private readonly folders = inject(NoteFolders);
+  /** O nome da pasta escolhida (a parte Assunto mostra), ou null. */
+  protected readonly folderLabel = computed(() => this.folders.nameOf(this.noteFolder()));
   protected readonly noteTags = signal<string[]>([]);
   private readonly settings = inject(Settings);
   /** O ícone e a cor das suas categorias, na orelha da prévia. */
@@ -902,7 +909,7 @@ export class ReviewEditor {
     const board = !!this.kbBoard() && this.kbColumn() !== null;
     return this.kanban.notesAt({ board, wall: !board || this.kbWall() });
   });
-  protected readonly subjectLib = computed(() => subjectLibrary(this.samePlaceNotes(), savedSubjects(this.settings.notesConfig(), this.noteCategory()), this.noteCategory()));
+  protected readonly subjectLib = computed(() => this.folders.topLibrary(this.noteCategory(), this.samePlaceNotes()));
 
   /** As tags à mão: as fixas e as das outras anotações da mesma categoria. */
   protected readonly tagLib = computed(() => tagLibrary(this.samePlaceNotes(), this.settings.pinnedTags(), this.noteCategory()));
@@ -993,7 +1000,7 @@ export class ReviewEditor {
       title,
       {
         category,
-        subject: this.notes() ? this.noteSubject() : null,
+        folder: this.notes() ? this.noteFolder() : null,
         audience: newNoteAudience(this.settings.notesConfig(), category),
         shared: !!this.sharedRole(),
       },
@@ -1040,11 +1047,11 @@ export class ReviewEditor {
    * Uma anotação nova escrita dentro de uma aba do mural: já vem com a categoria da aba. Fechar sem
    * mexer em nada não pergunta se quer descartar.
    */
-  openInCategory(category: string, look?: CardLook, subject?: string | null): void {
+  openInCategory(category: string, look?: CardLook, folder?: string | null): void {
     this.open(undefined, undefined, undefined, undefined, 'anotacoes');
     this.noteCategory.set(category);
     // com um assunto só ligado no filtro do mural, a nova já nasce nele
-    if (subject) this.noteSubject.set(subject);
+    if (folder) this.noteFolder.set(this.folders.tree().resolve(folder, lookKey(category)));
     // de uma coluna do Kanban com card padrão: a cartolina dele (o estojo continua mudando)
     if (look) this.setLook(look);
     this.applyDefaultAudience();
@@ -1080,7 +1087,7 @@ export class ReviewEditor {
     // veio de outra anotação: tem o mesmo assunto (de uma resenha, nenhum)
     const fromNote = !!from && isNote(from);
     this.noteCategory.set(fromNote ? (from.category ?? null) : null);
-    this.noteSubject.set(fromNote ? (from.subject ?? null) : null);
+    this.noteFolder.set(fromNote ? this.folders.of(from) : null);
     this.applyDefaultAudience();
     this.syncBoard();
     this.linkTitle = title;
@@ -1104,7 +1111,7 @@ export class ReviewEditor {
       ...(this.notes() && this.noteRank() ? { noteRank: this.noteRank()! } : {}),
       ...(this.notes() && this.noteCategory() ? { category: this.noteCategory()! } : {}),
       ...(this.artistValue() ? { category: this.artistValue() } : {}),
-      ...(this.notes() && this.noteSubject() ? { subject: this.noteSubject()! } : {}),
+      ...(this.notes() && this.noteFolder() ? { folder: this.noteFolder()! } : {}),
       ...(this.notes() && this.noteTags().length ? { tags: [...this.noteTags()] } : {}),
       id: this.id(),
       kind: this.kind(),
@@ -1342,7 +1349,7 @@ export class ReviewEditor {
     // a música que vem da fila, da wishlist ou de uma reescuta já traz o artista: o da original, ou o do catálogo
     const artist = isMusic(kind) && !review ? cleanArtist(rootReview?.category ?? this.game()?.by ?? '') : '';
     this.noteCategory.set(review?.category ?? (artist || null));
-    this.noteSubject.set(review?.subject ?? null);
+    this.noteFolder.set(review && isNote(review) ? this.folders.of(review) : null);
     this.noteTags.set([...(review?.tags ?? [])]);
     this.applyDefaultAudience();
     this.tagPicker()?.reset();
@@ -1905,7 +1912,7 @@ export class ReviewEditor {
       this.weights(),
       this.bonuses().map((b) => b.id),
       this.noteCategory(),
-      this.noteSubject(),
+      this.noteFolder(),
       this.noteTags(),
       this.hours().trim(),
       this.game()?.coverUrl,

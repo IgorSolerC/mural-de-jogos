@@ -1,4 +1,5 @@
 import { CategoryLooks, sanitizeCategoryLooks } from './category-looks';
+import { NoteFolder, sanitizeFolders } from './folders';
 import { Profile, sanitizeProfile } from './profile';
 import { buildOf } from './migrations';
 import { Review, linkSameWorks, sanitizeReview } from './review';
@@ -70,6 +71,11 @@ export interface BackupSnapshot {
   categoryLooks?: CategoryLooks;
   /** O perfil da pessoa (`perfil`, só no mural público da nuvem); null sem perfil, ou num backup. */
   profile?: Profile | null;
+  /**
+   * As pastas das anotações à mostra (`pastas`, no mural público: só as que têm alguma anotação pública
+   * dentro, ver `publicFolders` em core/folders.ts). Sem nada, as anotações ficam soltas na raiz.
+   */
+  folders?: NoteFolder[];
 }
 
 /**
@@ -186,6 +192,7 @@ export function parseBackupSnapshot(text: string | ParsedBackup): BackupSnapshot
     ownerName: ownerNameOf(object),
     categoryLooks: sanitizeCategoryLooks(object?.['categorias']),
     profile: sanitizeProfile(object?.['perfil']),
+    folders: sanitizeFolders(object?.['pastas']),
     exportedAt:
       typeof exportedAt === 'string' && Number.isFinite(Date.parse(exportedAt))
         ? exportedAt

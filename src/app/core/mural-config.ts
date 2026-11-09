@@ -1,4 +1,5 @@
 import type { Audience } from './review';
+import { NoteFolder, sanitizeFolders } from './folders';
 import { CategoryColorId, lookKey, tagLookKey } from './category-looks';
 import { CODE_THEMES, CodeTheme } from './code-langs';
 import { ehCorDaCartela } from '../../../shared/cartela-de-icones';
@@ -114,11 +115,15 @@ export interface NotesConfig {
   /** A cor da etiqueta de cada aba que o mural gera (o nome e o desenho são fixos). Sem a chave, sem cor. */
   autoColors: Partial<Record<AutoTab, CategoryColorId>>;
   /**
-   * Os assuntos criados nas configurações, por grupo (a chave de `lookKey`; "" para as anotações sem
-   * grupo), na ordem em que foram criados: ficam à mão no editor e no filtro mesmo antes de alguma
-   * anotação usar. Os escritos direto numa anotação não entram aqui (vêm das anotações).
+   * Os assuntos criados nas configurações, de antes das pastas, por grupo (a chave de `lookKey`). Só
+   * lidos: a conversão (`convertSubjects`, core/folders.ts) os troca por pastas e esvazia o campo.
    */
   subjects: Record<string, string[]>;
+  /**
+   * As pastas das anotações, de todos os grupos (PLANO-PASTAS.md, core/folders.ts): o nome e o lugar de
+   * cada uma. A anotação guarda só o id (`Review.folder`).
+   */
+  folders: NoteFolder[];
   /**
    * Os templates do texto (o menu "Templates" da régua do editor, ver core/note-templates.ts), na ordem
    * em que foram criados (o menu mostra pelo nome).
@@ -131,7 +136,7 @@ export interface NotesConfig {
   codeTheme: CodeTheme;
 }
 
-export const NOTES_CONFIG_DEFAULT: NotesConfig = { audience: 'privada', orderBy: 'quantidade', order: [], categories: {}, hiddenTags: [], showAll: false, showPinned: false, showShared: false, hideEmpty: true, autoColors: {}, subjects: {}, templates: [], codeTheme: 'papel' };
+export const NOTES_CONFIG_DEFAULT: NotesConfig = { audience: 'privada', orderBy: 'quantidade', order: [], categories: {}, hiddenTags: [], showAll: false, showPinned: false, showShared: false, hideEmpty: true, autoColors: {}, subjects: {}, folders: [], templates: [], codeTheme: 'papel' };
 
 /** Assuntos guardados demais viram lixo: no máximo estes por grupo. */
 export const MAX_SAVED_SUBJECTS = 60;
@@ -165,7 +170,7 @@ const isEmpty = (p: CategoryPrefs) => p.audience === undefined && p.askTag === u
 
 /** O que veio guardado (ou da nuvem): só valores conhecidos, sem as categorias vazias. */
 export function sanitizeNotesConfig(raw: unknown): NotesConfig {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ...NOTES_CONFIG_DEFAULT, order: [], categories: {}, hiddenTags: [], subjects: {}, templates: [] };
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ...NOTES_CONFIG_DEFAULT, order: [], categories: {}, hiddenTags: [], subjects: {}, folders: [], templates: [] };
   const r = raw as Record<string, unknown>;
   const order: string[] = [];
   if (Array.isArray(r['order'])) {
@@ -219,6 +224,7 @@ export function sanitizeNotesConfig(raw: unknown): NotesConfig {
     hideEmpty: r['hideEmpty'] !== false,
     autoColors: sanitizeAutoColors(r['autoColors']),
     subjects,
+    folders: sanitizeFolders(r['folders']),
     templates: sanitizeTemplates(r['templates']),
     codeTheme: (CODE_THEMES as readonly unknown[]).includes(r['codeTheme']) ? (r['codeTheme'] as CodeTheme) : NOTES_CONFIG_DEFAULT.codeTheme,
   };

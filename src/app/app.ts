@@ -1,4 +1,5 @@
 import { CloudSync } from './core/cloud-sync';
+import { NoteFolders } from './core/note-folders';
 import { CloudMurals } from './core/cloud-murals';
 import { ChangeDetectionStrategy, Component, afterNextRender, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -69,6 +70,8 @@ export class App {
   private readonly kanban = inject(KanbanStore);
   private readonly calendar = inject(CalendarStore);
   private readonly study = inject(StudyStore);
+  /** O assunto de antes vira pasta logo ao abrir (ver core/note-folders.ts). */
+  private readonly folders = inject(NoteFolders);
   private readonly publicDeckNudge = inject(PublicDeckNudge);
   private readonly spending = inject(SpendingStore);
   /** O card padrão das colunas do Kanban veste as anotações em qualquer página (o que chega da nuvem também). */
@@ -228,9 +231,9 @@ export class App {
       },
       // da ficha do mural: a nova herda a categoria, e o editor fecha de volta no mural
       newNote: (title, fromId) => this.newNote(title, fromId ?? null, false),
-      newNoteIn: (category, look, subject) => {
+      newNoteIn: (category, look, folder) => {
         this.reader().close();
-        this.editor().openInCategory(category, look, subject);
+        this.editor().openInCategory(category, look, folder);
       },
       openDraft: (id) => {
         const d = this.store.getDraft(id);

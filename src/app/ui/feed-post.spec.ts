@@ -25,6 +25,7 @@ class StubCard {
   readonly preview = input(false);
   readonly masked = input(false);
   readonly reactCode = input<string | null>(null);
+  readonly folders = input<unknown>(null);
   readonly opened = output<string>();
 }
 

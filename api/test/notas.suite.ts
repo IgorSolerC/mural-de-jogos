@@ -300,12 +300,13 @@ export function notasSuite(label: string, getDb: () => Db) {
         expect((await details(ana.token, ['nota-1']))[0].dados.sharedBy).toBeUndefined();
       });
 
-      it('o grupo, o assunto e as tags são de cada pessoa: nunca ficam guardados, e o editor manda qualquer um', async () => {
+      it('o grupo, a pasta (e o assunto de antes) e as tags são de cada pessoa: nunca ficam guardados, e o editor manda qualquer um', async () => {
         const { put, details, ana, bia } = await shared();
-        expect((await put(ana.token, 'nota-1', { base: 1, dados: nota('nota-1', { category: 'Casa', subject: 'Feira', tags: ['a'], noteRank: 'fixada' }) })).status).toBe(200);
+        expect((await put(ana.token, 'nota-1', { base: 1, dados: nota('nota-1', { category: 'Casa', subject: 'Feira', folder: 'pfeira00001', tags: ['a'], noteRank: 'fixada' }) })).status).toBe(200);
         const [d] = await details(bia.token, ['nota-1']);
         expect(d.dados.category).toBeUndefined();
         expect(d.dados.subject).toBeUndefined();
+        expect(d.dados.folder).toBeUndefined();
         expect(d.dados.tags).toBeUndefined();
         expect(d.dados.noteRank).toBeUndefined();
         // um site de antes mandando os da Bia: passa, e também não fica
@@ -314,7 +315,7 @@ export function notasSuite(label: string, getDb: () => Db) {
       });
 
       it('a estrutura é só quem vê: o grupo, o assunto e as tags de uma anotação de antes não contam', () => {
-        expect(structureOf(JSON.stringify({ category: 'Casa', subject: 'Feira', tags: ['b', 'a'] }))).toBe(JSON.stringify({ private: false, quiet: false, publishedAt: null }));
+        expect(structureOf(JSON.stringify({ category: 'Casa', subject: 'Feira', folder: 'pfeira00001', tags: ['b', 'a'] }))).toBe(JSON.stringify({ private: false, quiet: false, publishedAt: null }));
         expect(structureOf(JSON.stringify({ private: true }))).not.toBe(structureOf(JSON.stringify({})));
       });
 

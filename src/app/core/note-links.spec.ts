@@ -144,14 +144,14 @@ describe('links entre anotações', () => {
 describe('a anotação criada por um link (linkedNote)', () => {
   const now = '2026-11-01T12:00:00.000Z';
 
-  it('nasce vazia, só com o título (os espaços a mais saem), no grupo e no assunto de onde veio', () => {
-    const n = linkedNote('  Vender   a TV ', { category: 'Casa', subject: 'Mudança', audience: 'privada' }, 'nova-anotacao', now, '2026-11-01')!;
+  it('nasce vazia, só com o título (os espaços a mais saem), no grupo e na pasta de onde veio', () => {
+    const n = linkedNote('  Vender   a TV ', { category: 'Casa', folder: 'pmudanca001', audience: 'privada' }, 'nova-anotacao', now, '2026-11-01')!;
     expect(n.id).toBe('nova-anotacao');
     expect(n.kind).toBe('anotacoes');
     expect(n.game).toEqual(jasmine.objectContaining({ name: 'Vender a TV', coverUrl: null, source: 'manual' }));
     expect(n.text).toBe('');
     expect(n.category).toBe('Casa');
-    expect(n.subject).toBe('Mudança');
+    expect(n.folder).toBe('pmudanca001');
     expect(n.private).toBeTrue();
     expect(n.completedAt).toBe('2026-11-01');
     expect(n.createdAt).toBe(now);
@@ -162,11 +162,11 @@ describe('a anotação criada por um link (linkedNote)', () => {
     expect(resolveNote([note('n1', 'Outra'), n], 'vender a tv')?.id).toBe('nova-anotacao');
   });
 
-  it('sem grupo (a resenha), nas Anotações sem grupo; o assunto das sem grupo vai junto', () => {
-    const n = linkedNote('Ideias', { category: null, subject: null, audience: 'privada' }, 'nova-anotacao', now, '2026-11-01')!;
+  it('sem grupo (a resenha), nas Anotações sem grupo; a pasta das sem grupo vai junto', () => {
+    const n = linkedNote('Ideias', { category: null, folder: null, audience: 'privada' }, 'nova-anotacao', now, '2026-11-01')!;
     expect(n.category).toBeUndefined();
-    expect(n.subject).toBeUndefined();
-    expect(linkedNote('Ideias', { category: '', subject: 'Soltas', audience: 'privada' }, 'nova-anotacao', now, '2026-11-01')!.subject).toBe('Soltas');
+    expect(n.folder).toBeUndefined();
+    expect(linkedNote('Ideias', { category: '', folder: 'psoltas0001', audience: 'privada' }, 'nova-anotacao', now, '2026-11-01')!.folder).toBe('psoltas0001');
   });
 
   it('quem vê: a do grupo, mas sem ir para o Feed; dentro de uma compartilhada, privada', () => {

@@ -1,6 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { andList } from './api-keys';
 import { plural } from './text';
+import { lookKey } from './category-looks';
 import { dobra } from '../../../contrato/api-v1/escopos';
 import type { NotaV1 } from '../../../contrato/api-v1/notas';
 import {
@@ -141,7 +142,9 @@ function labels(notes: readonly Review[], c: CamposDaNota): Partial<Pick<Review,
     else out.clear.push('category');
   }
   if (c.assunto !== undefined) {
-    const v = c.assunto ? spelled(notes.map((n) => n.subject), c.assunto, cleanSubject) : '';
+    // o assunto é a pasta de cima com esse nome: vai como o assunto de antes, e a conversão
+    // (core/note-folders.ts) acha a pasta (ou cria, com o mesmo id em todo aparelho)
+    const v = c.assunto ? cleanSubject(c.assunto) : '';
     if (v) out.subject = v;
     else out.clear.push('subject');
   }
@@ -162,6 +165,8 @@ function withFields(r: Review, c: CamposDaNota, notes: readonly Review[], now: s
   const { clear, ...l } = labels(notes, c);
   const next: Review = { ...r, ...l };
   for (const k of clear) delete next[k];
+  // mudou de grupo, ou o assunto foi pedido: sai da pasta de antes (PLANO-PASTAS.md, P2)
+  if (c.assunto !== undefined || lookKey(next.category ?? '') !== lookKey(r.category ?? '')) delete next.folder;
   if (l.tags && !l.tags.length) delete next.tags;
   if (c.titulo !== undefined) next.game = { ...next.game, name: c.titulo };
   if (c.capa !== undefined) next.game = { ...next.game, coverUrl: c.capa };

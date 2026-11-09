@@ -9,7 +9,7 @@ import { REF_RE, cleanTitle } from './review';
  * - editor: escreve como se a anotação fosse dele, sem mudar o que é da estrutura (as pessoas e quem vê);
  * - leitor: só lê.
  *
- * O grupo, o assunto e as tags não são da anotação: cada pessoa organiza o próprio mural (o site guarda
+ * O grupo, a pasta (e o assunto de antes) e as tags não são da anotação: cada pessoa organiza o próprio mural (o site guarda
  * os dela no mural privado). O que chega com eles (um site de antes) é guardado sem eles.
  *
  * O servidor guarda a anotação aberta (`dados`, o JSON da ficha como o site grava) e só confere a vez
@@ -41,7 +41,7 @@ export const MAX_NOTE_BODY_CHARS = 2 * MAX_NOTE_CHARS + 4_096;
  * que só o mural público de cada um põe (de quem é a anotação). Guardado, ele viraria um "de outra
  * pessoa" falso no mural público do dono, mandado por qualquer um que escreve.
  */
-const PERSONAL = ['category', 'subject', 'tags', 'noteRank', 'sharedBy'] as const;
+const PERSONAL = ['category', 'subject', 'folder', 'tags', 'noteRank', 'sharedBy'] as const;
 
 /**
  * A anotação que veio do site, pronta para guardar (JSON), sem o que é de cada pessoa (`PERSONAL`).

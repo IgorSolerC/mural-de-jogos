@@ -1,4 +1,6 @@
 import { Type, provideZonelessChangeDetection } from '@angular/core';
+import { subjectFolderId } from '../core/folders';
+import { NoteFolders } from '../core/note-folders';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { Mural } from '../core/mural';
@@ -90,7 +92,8 @@ describe('o assunto nas telas do mural', () => {
     expect(chips(el)).toEqual(['História']);
     expect(filtrar(el).textContent).toContain('1');
     expect(el.querySelector('.achados')!.textContent).toContain('Mostrando 2 de 4');
-    expect(view.newNoteSubject()).toBe('História');
+    // a nova nasce na pasta (o id da pasta que o assunto virou)
+    expect(view.newNoteSubject()).toBe(subjectFolderId('Estudos', 'História'));
     // um por vez: escolher outro troca, não soma
     await pick(bar, 1);
     expect(view.visible().map((r) => r.id)).toEqual(['ngeo0001']);
@@ -168,7 +171,10 @@ describe('o assunto nas telas do mural', () => {
   });
 
   it('a ficha abre a linha da data com o assunto (nada em cima do nome); só capa e nome, não', async () => {
-    const f = await mount(ReviewCard, (x) => x.componentRef.setInput('review', note('nhist001', 'História')));
+    // a ficha da loja, já com a pasta que o assunto virou
+    TestBed.inject(NoteFolders);
+    TestBed.tick();
+    const f = await mount(ReviewCard, (x) => x.componentRef.setInput('review', store.get('nhist001')!));
     const el: HTMLElement = f.nativeElement;
     const line = el.querySelector('.meta-nota')!;
     expect(line.firstElementChild!.classList).toContain('assunto');

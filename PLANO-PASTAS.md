@@ -80,7 +80,9 @@ Recomendadas por mim; o usuário pode mudar qualquer uma antes da rodada 1.
 - **P1. A pasta tem um id; a anotação guarda o id.** O nome mora só na pasta. Renomear, mover e desfazer
   pasta não mexem em anotação nenhuma (seção 6).
 - **P2. A pasta é do grupo.** Cada grupo (e o "Sem grupo") tem a sua árvore. A anotação que muda de grupo
-  sai da pasta e fica solta na raiz do grupo novo.
+  sai da pasta e fica solta na raiz do grupo novo, **por qualquer caminho** (editor, folha de organizar,
+  API, juntar ou apagar grupo, junção entre aparelhos): toda gravação que muda o grupo limpa a pasta, e
+  voltar ao grupo de antes não a devolve à pasta antiga (decidido pelo usuário em 09/nov: "Na raiz").
 - **P3. A conversão não tira nada do lugar.** Cada assunto vira uma pasta de primeiro nível com o mesmo
   nome e as mesmas anotações. O assunto criado nas configurações, sem anotação, vira pasta vazia. A
   anotação sem assunto fica solta na raiz do grupo.
@@ -156,6 +158,13 @@ NotesConfig.folders: NoteFolder[]   // sai `subjects`
 - Isso resolve sem perguntar os casos de dois aparelhos: um desfaz a pasta enquanto o outro guarda uma
   nota nela (a nota sobe com as outras); um muda a nota de grupo enquanto o outro a guarda numa pasta (a
   nota fica na raiz do grupo novo).
+- **Mudou de grupo, a pasta sai (P2).** `sanitizeNote` não sabe das pastas, então a limpeza é de quem
+  grava: `withCategory(note, grupo)` (`core/folders.ts`) troca o grupo e tira `folder` sempre que o grupo
+  muda, e todo caminho que muda o grupo passa por ela (editor, folha de organizar, pedidos da API,
+  `LabelEdits`, a escolha de um conflito). Na junção entre aparelhos, um `folder` que chegue junto de um
+  grupo diferente do da pasta é tirado ao gravar a junção. A regra da leitura fica de rede de segurança:
+  uma nota com `folder` de outro grupo aparece na raiz e, voltando ao grupo antigo, não volta à pasta,
+  porque a próxima gravação dela já tira o campo.
 
 ### 3.3 Desfazer a pasta é uma lápide
 
@@ -499,3 +508,15 @@ ver a conversão na build de verdade), BUILD subindo a cada commit.
 - **Plano (09/nov).** Protótipo dos cinco jeitos em `prototipos/pastas-nas-anotacoes.html` (teste de
   arrasto com mouse e dedo em `.angular/pptr/pastas-proto.mjs`); o usuário escolheu o jeito 1. Esperando a
   aprovação das decisões P1–P17 para começar a rodada 1.
+- **Rodada 1 (09/nov, BUILD 815).** `core/folders.ts` (a árvore, as mudanças puras, a lápide, a conversão
+  com id determinístico, o público podado e `foldersOfSnapshot` para os murais dos outros),
+  `core/note-folders.ts` (`NoteFolders`: a árvore do seu Murall, as mudanças pelas configurações e a
+  conversão sozinha ao abrir, sem data nova nas anotações, por `ReviewStore.replaceMany`), `Review.folder`,
+  `NotesConfig.folders`, SYNC_SCHEMA 54, PUBLIC_RULES 6 (`pastas` no público), a pasta pessoal nas
+  compartilhadas (site e `PERSONAL` da API). Mudou de grupo, sai da pasta por qualquer caminho (`withCategory`
+  na folha de organizar e no editor; os pedidos da API tiram `folder`). A tela continua igual: o "assunto"
+  é a pasta de cima (a escolha, o filtro, a orelha, a ordem, o Kanban, os seletores, a leitura, o PDF, o
+  espelho e a parte Assuntos das configurações, que renomeia, junta e desfaz a pasta sem regravar
+  anotação). A visita, o Feed e o perfil dos outros leem as pastas do mural público. Fica para a rodada 2:
+  pastas dentro de pastas na tela.
+

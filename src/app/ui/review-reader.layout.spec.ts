@@ -1,4 +1,5 @@
 import { studyGroupId } from '../core/study';
+import { Settings } from '../core/settings';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
@@ -357,8 +358,9 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     expect(q('.orelha-grupo')).toBeNull();
   });
 
-  it('o assunto da anotação abre a linha da data (o grupo continua na orelha)', async () => {
-    fixture.componentInstance.open(note('n-revol', 'Revolução Francesa', { category: 'Estudos', subject: 'História' }));
+  it('o assunto da anotação (a pasta) abre a linha da data (o grupo continua na orelha)', async () => {
+    TestBed.inject(Settings).setNotesConfig({ folders: [{ id: 'phistoria01', group: 'estudos', name: 'História', parent: null }] });
+    fixture.componentInstance.open(note('n-revol', 'Revolução Francesa', { category: 'Estudos', folder: 'phistoria01' }));
     await settle();
     expect(words(q('.meta .assunto'))).toBe('Assunto: História');
     fixture.componentInstance.open(note('n-revol-2', 'Era Vargas', { category: 'Estudos' }));

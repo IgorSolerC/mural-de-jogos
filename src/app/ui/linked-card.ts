@@ -1,4 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, InjectionToken, afterNextRender, computed, effect, inject, input, linkedSignal, signal, untracked, viewChild } from '@angular/core';
+import { NoteFolders } from '../core/note-folders';
+import { folderNameOf } from '../core/folders';
 import { ICON, IconModule } from './icons';
 import { CardFinder, FoundCard } from '../core/card-finder';
 import { cap, profileOf } from '../core/kinds';
@@ -632,6 +634,7 @@ export class LinkedCard {
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   private readonly store = inject(ReviewStore);
+  private readonly folders = inject(NoteFolders);
   private readonly shared = inject(SharedStore);
   private readonly noteDone = inject(NoteDone);
   /**
@@ -796,7 +799,7 @@ export class LinkedCard {
    * mural diz de qual ("Jogo", "Livro").
    */
   protected overline(r: Review): string {
-    return isNote(r) ? (r.subject ?? '') : cap(profileOf(r.kind).singular);
+    return isNote(r) ? (folderNameOf(this.folders.tree(), r) ?? '') : cap(profileOf(r.kind).singular);
   }
 
   /** Para o leitor de tela, quando a ficha não abre: o que ela é. */

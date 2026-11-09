@@ -1,4 +1,6 @@
 import { Router } from '@angular/router';
+import { NoteFolders } from '../core/note-folders';
+import { NO_FOLDERS, folderNameOf } from '../core/folders';
 import {
   ApplicationRef,
   ChangeDetectionStrategy,
@@ -60,7 +62,7 @@ import { IMPORTANCE_LEVEL } from './kanban-icons';
 import { NoteDone } from '../core/note-done';
 import { NotePin } from '../core/note-pin';
 import { napWall } from '../core/wall-settle';
-import { WallView } from '../core/wall-view';
+import { WallState, WallView } from '../core/wall-view';
 import { DoneStamp } from './done-stamp';
 import { NoteTag } from './note-tag';
 import { CategoryLabel } from './category-label';
@@ -263,7 +265,7 @@ interface ReadingPlace {
                     <span class="quem-ve" [title]="a.title"><lucide-icon class="quem-ve-icone" [img]="a.icon" [size]="15" aria-hidden="true" /><span class="sr-only">{{ a.title }}. </span></span>
                   }
                   <!-- o assunto da anotação (o grupo é a orelha da ficha), primeiro -->
-                  @if (note() && r.subject; as s) {
+                  @if (note() && folderName(); as s) {
                     <span class="assunto"><lucide-icon class="quem-ve-icone" [img]="SubjectIcon" [size]="15" aria-hidden="true" /><span class="sr-only">Assunto: </span>{{ s }}</span><span aria-hidden="true"> · </span>
                   }
                   <!-- o lugar da anotação no mural vem antes da data, com ou sem data -->
@@ -926,7 +928,7 @@ export class ReviewReader {
   private pdfDoc(r: Review): PdfDoc {
     const note = isNote(r);
     const meta: string[] = [];
-    if (note && r.subject) meta.push(r.subject);
+    if (note && this.folderName()) meta.push(this.folderName()!);
     if (r.completedAt === null) meta.push(this.noDay);
     else meta.push(note ? this.date() : `${dayLabel(r.kind, r.status)} ${this.date()}`);
     if (this.hours()) meta.push(this.hours());
@@ -1064,6 +1066,15 @@ export class ReviewReader {
   protected readonly review = signal<Review | null>(null);
   /** Backups de colegas são somente leitura e nunca acionam as ações do mural pessoal. */
   protected readonly owner = signal<string | null>(null);
+  /** As pastas de quem é a ficha: as suas, ou as públicas de quem você visita (a vista da visita). */
+  private readonly visitFolders = inject(WallState, { optional: true });
+  private readonly ownFolders = inject(NoteFolders);
+  /** O nome da pasta da anotação aberta, ou null solta na raiz. */
+  protected readonly folderName = computed(() => {
+    const r = this.review();
+    if (!r || !isNote(r)) return null;
+    return folderNameOf(this.owner() === null ? this.ownFolders.tree() : (this.visitFolders?.folders() ?? NO_FOLDERS), r);
+  });
   /** O código na nuvem do dono da ficha de outra pessoa (para as reações); null num backup. */
   protected readonly ownerCode = signal<string | null>(null);
   private readonly injector = inject(Injector);

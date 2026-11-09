@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
+import type { FolderTree } from '../core/folders';
 import { ICON, IconModule } from './icons';
 import { Comments, spokenComments } from '../core/comments';
 import { FeedItem, agoLabel, fullWhen } from '../core/follow';
@@ -15,6 +16,8 @@ export interface FeedPostData {
   item: Extract<FeedItem, { tipo: 'resenha' }>;
   theirs: Review | null;
   mine: Review | null;
+  /** As pastas de quem publicou (o nome da pasta na anotação). */
+  folders?: FolderTree;
   /** "Evitar spoilers": a nota e o texto ficam em segredo até eu avaliar (ou revelar). */
   secret: boolean;
   /** A ficha do amigo como alvo das reações e dos comentários. */

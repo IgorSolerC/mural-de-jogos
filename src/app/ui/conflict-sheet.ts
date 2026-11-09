@@ -295,7 +295,7 @@ export function differences(a: Review, b: Review): ConflictPart[] {
   if (a.game.name !== b.game.name) out.push('titulo');
   if ((a.game.coverUrl ?? null) !== (b.game.coverUrl ?? null)) out.push('capa');
   if (a.text !== b.text) out.push('texto');
-  if ((a.category ?? '') !== (b.category ?? '') || (a.subject ?? '') !== (b.subject ?? '')) out.push('categoria');
+  if ((a.category ?? '') !== (b.category ?? '') || (a.subject ?? '') !== (b.subject ?? '') || (a.folder ?? '') !== (b.folder ?? '')) out.push('categoria');
   if (!!a.private !== !!b.private || !!a.quiet !== !!b.quiet) out.push('publico');
   if ((a.completedAt ?? null) !== (b.completedAt ?? null)) out.push('data');
   // todos os campos da aparência (o espaço e o tamanho da estampa, a tinta do rabisco também)

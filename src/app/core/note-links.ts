@@ -131,9 +131,9 @@ export function relinkAfterRename(notes: readonly Review[], before: Review, titl
 
 /** De onde vem a anotação criada por um link (ver `linkedNote`). */
 export interface LinkedNoteFrom {
-  /** O grupo e o assunto da anotação que está sendo escrita (a resenha não passa nenhum). */
+  /** O grupo e a pasta (o id) da anotação que está sendo escrita (a resenha não passa nenhum). */
   category?: string | null;
-  subject?: string | null;
+  folder?: string | null;
   /** Como nasce a anotação nova nesse grupo (os Padrões das configurações do mural). */
   audience: Audience;
   /** Escrita dentro de uma anotação compartilhada: a nova é só sua, privada. */
@@ -160,7 +160,7 @@ export function linkedNote(title: string, from: LinkedNoteFrom, id: string, now:
   const name = linkTitleOf(title);
   if (!name) return null;
   const category = from.category?.trim();
-  const subject = from.subject?.trim();
+  const folder = from.folder?.trim();
   return sanitizeReview(
     {
       id,
@@ -169,7 +169,7 @@ export function linkedNote(title: string, from: LinkedNoteFrom, id: string, now:
       text: '',
       completedAt: today,
       ...(category ? { category } : {}),
-      ...(subject ? { subject } : {}),
+      ...(folder ? { folder } : {}),
       ...audienceFields(linkedAudience(from), null, now),
       createdAt: now,
       updatedAt: now,

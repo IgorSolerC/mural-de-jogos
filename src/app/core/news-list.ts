@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-09-flashcards-na-visita',
+    id: '2026-11-09-assuntos-viram-pastas',
     version: '1.41.2',
     kind: 'ajustes',
     date: '2026-11-09',
@@ -40,6 +40,7 @@ export const NEWS: NewsEntry[] = [
       'Também há menu nos comentários (responder, reagir, copiar o texto, ver o perfil, recolher as respostas e apagar), nas folhas do Pra depois (terminar a resenha ou tirar da fila) e nos recortes da Wishlist (começar a resenha, trocar o adesivo de vontade ou tirar da wishlist), com Desfazer ao tirar.',
       'Num post do Feed, o menu também reage; numa linha dos Gastos dividida com alguém, ele deixa a fita só com a parte daquela pessoa.',
       'Nos Flashcards de quem você visita, o flashcard vira ao toque, como nos seus; maximizar e ler a anotação ficam na etiqueta do canto, as abas dos grupos ganham o Mais, e o botão direito abre o menu do flashcard e o do baralho (abrir ou copiar).',
+      'Os assuntos das anotações passam a ser guardados como pastas, o primeiro passo para as pastas dentro de pastas: tudo continua no mesmo lugar, renomear ou apagar um assunto não regrava mais as anotações dele, e a anotação que muda de grupo sai do assunto, por qualquer caminho.',
     ],
     correcoes: ['Nas configurações do mural, o grupo com uma anotação só não diz mais "Muda em a anotação" embaixo do nome.'],
   },

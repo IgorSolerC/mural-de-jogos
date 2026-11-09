@@ -1,4 +1,6 @@
 import { ChangeDetectionStrategy, Component, Signal, computed, inject, input, model, signal } from '@angular/core';
+import { NoteFolders } from '../core/note-folders';
+import { FolderTree } from '../core/folders';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, IconModule } from './icons';
 import { Kind, NOTES } from '../core/kinds';
@@ -15,9 +17,9 @@ import { kindTabs } from './picker-kit';
 /** O "Sem assunto" no filtro (como no mural e no Kanban). */
 const NO_SUBJECT = 'sem';
 
-/** A chave do assunto de uma anotação no filtro: sem acento nem caixa, ou "sem". */
-function subjectKey(r: Review): string {
-  return r.subject ? fold(r.subject) : NO_SUBJECT;
+/** A chave da pasta de uma anotação no filtro: o id (pela regra da leitura), ou "sem". */
+function subjectKey(r: Review, tree: FolderTree): string {
+  return tree.of(r) ?? NO_SUBJECT;
 }
 
 /** As tags de uma anotação, sem acento nem caixa. */
@@ -55,6 +57,7 @@ export class CardFilters {
   readonly hideDone = signal(false);
 
   private readonly settings = inject(Settings);
+  private readonly folders = inject(NoteFolders);
 
   constructor(
     /** As fichas que podem ser escolhidas, de todos os murais da lista. */
@@ -102,7 +105,7 @@ export class CardFilters {
 
   private bySubject(r: Review): boolean {
     const on = this.subjects();
-    return !on.length || on.includes(subjectKey(r));
+    return !on.length || on.includes(subjectKey(r, this.folders.tree()));
   }
 
   private byTags(r: Review): boolean {
@@ -146,20 +149,20 @@ export class CardFilters {
     const g = this.group();
     if (!this.fixedGroup() && (!g || g === NO_CATEGORY_TAB)) return [];
     const on = new Set(this.subjects());
-    const seen = new Map<string, { spell: Map<string, number>; n: number }>();
+    const tree = this.folders.tree();
+    const seen = new Map<string, { n: number }>();
     for (const r of this.scope()) {
       if (!this.inGroup(r)) continue;
-      const k = subjectKey(r);
-      const e = seen.get(k) ?? { spell: new Map<string, number>(), n: 0 };
-      if (r.subject) e.spell.set(r.subject, (e.spell.get(r.subject) ?? 0) + 1);
+      const k = subjectKey(r, tree);
+      const e = seen.get(k) ?? { n: 0 };
       if (this.found(r) && this.byTags(r)) e.n++;
       seen.set(k, e);
     }
     if (![...seen.keys()].some((k) => k !== NO_SUBJECT)) return [];
-    for (const k of on) if (!seen.has(k)) seen.set(k, { spell: new Map(), n: 0 });
+    for (const k of on) if (!seen.has(k)) seen.set(k, { n: 0 });
     const chips = [...seen].map(([value, e]) => ({
       value,
-      label: value === NO_SUBJECT ? 'Sem assunto' : e.spell.size ? [...e.spell].reduce((a, x) => (x[1] > a[1] ? x : a))[0] : value,
+      label: value === NO_SUBJECT ? 'Sem assunto' : (tree.index.get(value)?.name ?? value),
       n: e.n,
       on: on.has(value),
     }));

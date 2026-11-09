@@ -1,4 +1,5 @@
 import { canonicalJson } from './canonical-json';
+import { isFolderId } from './folders';
 import { normalizeCode } from './cloud-murals';
 import { isEmoji } from './emoji';
 import { mergeText } from './merge3';
@@ -112,7 +113,10 @@ export const SHARED_GROUP = 'Compartilhadas';
 export interface Personal {
   noteRank?: NoteRank;
   category?: string;
+  /** O assunto de antes das pastas: só lido, para a conversão (ver `convertSubjects` em core/folders.ts). */
   subject?: string;
+  /** A pasta desta pessoa (o id, nas configurações do mural dela; core/folders.ts). */
+  folder?: string;
   tags?: string[];
   /**
    * O grupo, o assunto e as tags já são desta pessoa (sem eles, "Sem grupo" e nenhuma tag). Sem a marca,
@@ -123,11 +127,11 @@ export interface Personal {
 }
 
 /** O que cada um organiza do seu jeito, e o lugar inteiro. */
-const PERSONAL_KEYS = ['noteRank', 'category', 'subject', 'tags', 'org'] as const;
+const PERSONAL_KEYS = ['noteRank', 'category', 'subject', 'folder', 'tags', 'org'] as const;
 
 /** Sem o que é de cada um. */
 function withoutPersonal(r: Review): Review {
-  const { noteRank: _r, category: _c, subject: _s, tags: _t, ...rest } = r;
+  const { noteRank: _r, category: _c, subject: _s, folder: _f, tags: _t, ...rest } = r;
   return rest as Review;
 }
 
@@ -138,16 +142,17 @@ export function sharedContent(r: Review): Record<string, unknown> {
 }
 
 /** O grupo, o assunto e as tags da anotação, como de quem está aqui. */
-export function orgOf(r: Pick<Review, 'category' | 'subject' | 'tags'>): Personal {
+export function orgOf(r: Pick<Review, 'category' | 'subject' | 'folder' | 'tags'>): Personal {
   return {
     ...(r.category ? { category: r.category } : {}),
     ...(r.category && r.subject ? { subject: r.subject } : {}),
+    ...(r.folder ? { folder: r.folder } : {}),
     ...(r.tags?.length ? { tags: [...r.tags] } : {}),
     org: true,
   };
 }
 
-export function personalOf(r: Pick<Review, 'noteRank' | 'category' | 'subject' | 'tags'>): Personal {
+export function personalOf(r: Pick<Review, 'noteRank' | 'category' | 'subject' | 'folder' | 'tags'>): Personal {
   return { ...(r.noteRank ? { noteRank: r.noteRank } : {}), ...orgOf(r) };
 }
 
@@ -169,7 +174,7 @@ export const SHARED_GROUP_UNTIL = '2026-10-31T06:00:00.000Z';
  */
 export function outOfSharedGroup(p: Personal, em: string): Personal | null {
   if (!p.category || labelKey(p.category) !== labelKey(SHARED_GROUP) || em >= SHARED_GROUP_UNTIL) return null;
-  const { category: _c, subject: _s, ...rest } = p;
+  const { category: _c, subject: _s, folder: _f, ...rest } = p;
   return rest;
 }
 
@@ -299,7 +304,7 @@ const LOOK_GROUPS: readonly (readonly string[])[] = [
 ];
 const AUDIENCE = ['private', 'quiet', 'publishedAt'] as const;
 /** Os campos que a junção trata um a um; o resto (um campo novo de um site mais novo) vai como um todo. */
-const HANDLED = new Set<string>(['id', 'kind', 'game', 'text', 'tags', 'category', 'subject', 'doneAt', 'completedAt', 'createdAt', 'updatedAt', ...AUDIENCE, ...LOOK_GROUPS.flat()]);
+const HANDLED = new Set<string>(['id', 'kind', 'game', 'text', 'tags', 'category', 'subject', 'folder', 'doneAt', 'completedAt', 'createdAt', 'updatedAt', ...AUDIENCE, ...LOOK_GROUPS.flat()]);
 
 type Obj = Record<string, unknown>;
 const pick = (o: Obj, keys: readonly string[]): Obj => Object.fromEntries(keys.filter((k) => o[k] !== undefined).map((k) => [k, o[k]]));
@@ -389,5 +394,6 @@ export function sanitizePersonal(raw: unknown): Personal {
   if (p['org'] !== true) return out;
   const category = typeof p['category'] === 'string' ? cleanCategory(p['category']) : '';
   const subject = typeof p['subject'] === 'string' ? cleanSubject(p['subject']) : '';
-  return { ...out, ...orgOf({ category: category || undefined, subject: subject || undefined, tags: sanitizeTags(p['tags']) }) };
+  const folder = isFolderId(p['folder']) ? p['folder'] : undefined;
+  return { ...out, ...orgOf({ category: category || undefined, subject: subject || undefined, folder, tags: sanitizeTags(p['tags']) }) };
 }

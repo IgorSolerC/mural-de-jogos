@@ -1,4 +1,5 @@
 import type { CategoryLooks } from '../core/category-looks';
+import { FolderTree } from '../core/folders';
 import {
   ApplicationRef,
   ComponentRef,
@@ -55,6 +56,8 @@ export interface WallCardProps {
   checkable: boolean;
   /** O ícone e a cor das categorias do dono do mural, nas orelhas. */
   looks: CategoryLooks;
+  /** As pastas do dono do mural (os nomes das pastas das anotações); null, as suas. */
+  folders?: FolderTree | null;
   /** As anotações à mostra que estão só no Kanban (ver `WallState.showBoard`): levam a etiqueta. */
   boardOnly: ReadonlySet<string>;
   /** As fora do mural só por causa dos Estudos (a etiqueta diz "Só nos Estudos"). */
@@ -895,6 +898,7 @@ export class WallCardPool implements OnDestroy {
     ref.setInput('reactCode', p.reactCode);
     ref.setInput('checkable', p.checkable);
     ref.setInput('looks', p.looks);
+    ref.setInput('folders', p.folders ?? null);
     ref.setInput('boardOnly', p.boardOnly.has(r.id));
     ref.setInput('studyOnly', !!p.studyOnly?.has(r.id));
   }

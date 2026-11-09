@@ -1,4 +1,5 @@
 import { ApplicationRef, DestroyRef, Injectable, InjectionToken, computed, effect, inject, signal, untracked } from '@angular/core';
+import { folderTree, publicFolders, withLiveFolder } from './folders';
 import { gzip, readBackupFile } from './backup-file';
 import { saveBeforeCloud } from './cloud-before';
 import { Cloud } from './cloud-config';
@@ -206,11 +207,14 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  *     fora ao enviar os Estudos, e o baralho perderia o grupo (e as cartas, até a conversão de novo).
  * 53: o baralho público (`public`) e "Esconder o progresso nos Estudos" (`hideProgress` na configuração),
  *     PLANO-BARALHOS-PUBLICOS.md. Um site da 52 jogaria os dois fora, e o baralho deixaria de ser público.
+ * 54: as pastas das anotações no lugar do assunto (`folder` na anotação e no lugar das compartilhadas,
+ *     `folders` nas configurações do mural; PLANO-PASTAS.md). Um site da 53 jogaria os dois fora e enviaria
+ *     assim, e as anotações sairiam das pastas em todo aparelho.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 53;
+export const SYNC_SCHEMA = 54;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };
@@ -486,8 +490,9 @@ export function boardOnlyNotes(notes: unknown, boardOnly: ReadonlySet<string>): 
  * parte (`soKanban`), fora do mural de quem visita, para o link da ficha. 4: a nota colada perde o
  * título sempre que não está à mostra (também a apagada e a de outra pessoa numa compartilhada) e
  * também no "Sobre mim" do perfil. 5: os baralhos públicos dos Estudos (`estudos`, ver core/public-study.ts).
+ * 6: as pastas das anotações (`pastas`, só as com alguma anotação à mostra; PLANO-PASTAS.md, 3.8).
  */
-export const PUBLIC_RULES = 5;
+export const PUBLIC_RULES = 6;
 
 /**
  * A impressão do público que foi junto com este mural privado (`sync.publico`, ver `publicPrint`):
@@ -1729,10 +1734,14 @@ export class CloudSync {
     const hidden = (id: string) => !shownIds.has(id);
     const reviews = publicReviews(doc.reviews).map((r) => shownCard(r, hidden));
     const musicas = publicReviews(doc.musicas ?? []).map((r) => shownCard(r, hidden));
-    const notas = ownNotes.map((n) => shownCard(n, hidden));
+    // a pasta de cada anotação já resolvida (a lápide sobe até a viva), e só as pastas com alguma à mostra
+    const tree = folderTree(this.settings.notesConfig().folders);
+    const live = <T>(n: T): T => (isNote(n as Review) ? (withLiveFolder(tree, n as Review) as T) : n);
+    const notas = ownNotes.map((n) => live(shownCard(n, hidden)));
     // as só no Kanban: fora do mural, mas o link da ficha as abre (as compartilhadas públicas também)
     const boardShared = this.shared.publicShared().filter((x) => board.has(x.note.id)).map(asShown);
-    const soKanban = [...boardOnlyNotes(doc.notas, board), ...boardShared].map((n) => shownCard(n, hidden));
+    const soKanban = [...boardOnlyNotes(doc.notas, board), ...boardShared].map((n) => live(shownCard(n, hidden)));
+    const pastas = publicFolders(tree, [...notas, ...soKanban] as Review[]);
     // tudo o que os outros veem com nota: as resenhas de sempre e as de música
     const scored = [...reviews, ...musicas];
     // os baralhos públicos, só com as cartas de anotações à mostra (no mural ou só fora dele)
@@ -1753,6 +1762,7 @@ export class CloudSync {
         notas,
         ...(musicas.length ? { musicas } : {}),
         ...(soKanban.length ? { soKanban } : {}),
+        ...(pastas.length ? { pastas } : {}),
         ...(estudosPublicos ? { estudos: estudosPublicos } : {}),
         ...(looks ? { categorias: publicCategoryLooks(looks.mapa, [...notas, ...soKanban, ...studyGroups]) } : {}),
         // o "Sobre mim" também cola notas: a que não está à mostra vai sem o título

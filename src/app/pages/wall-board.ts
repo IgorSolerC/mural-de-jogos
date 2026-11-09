@@ -138,6 +138,7 @@ export class WallBoard {
     times: this.view.times(),
     boardOnly: this.shownBoard(),
     studyOnly: this.view.studyOnly(),
+    folders: this.view.folders(),
   }));
 
   /** Ctrl+clique marca anotações para copiar o texto delas (ver ui/note-selection.ts). */

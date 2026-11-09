@@ -400,6 +400,21 @@ export class ReviewStore {
     return this.settle(review.id);
   }
 
+  /**
+   * Troca várias anotações de uma vez, sem mexer em mais nada nem na data delas (a conversão do assunto em
+   * pasta, ver core/note-folders.ts): as compartilhadas vão pelo lugar de cada uma (`SharedSink`).
+   */
+  replaceMany(changed: readonly Review[]): void {
+    if (!changed.length) return;
+    const shared = this.sharedIds();
+    const own = new Map<string, Review>();
+    for (const r of changed) {
+      if (shared.has(r.id)) this.sharedSink?.save(r, this.get(r.id));
+      else if (this.get(r.id)) own.set(r.id, r);
+    }
+    if (own.size) this.reviews.update((list) => list.map((r) => own.get(r.id) ?? r));
+  }
+
   /** Liga as fichas soltas da mesma obra (ver `linkSameWorks` em review.ts). Sem nada a ligar, a lista fica a mesma. */
   private linkSameWorks(): void {
     const changed = linkSameWorks(this.reviews(), new Date().toISOString());

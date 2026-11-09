@@ -1,4 +1,6 @@
 import { NgTemplateOutlet } from '@angular/common';
+import { NoteFolders } from '../core/note-folders';
+import { folderNameOf } from '../core/folders';
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
 import { ICON, IconModule } from './icons';
 import { IMPORTANCE_LABEL, KanbanCard } from '../core/kanban';
@@ -78,7 +80,7 @@ export class KanbanReviewCard extends ReviewCard {
   template: `
     @if (dense()) {
       <div class="tira cartolina" [attr.data-cor]="pin().stock" [style.--stock]="'var(--stock-' + pin().stock + ')'" [style.--tilt]="pin().tilt">
-        <button type="button" class="hit tira-nome" [attr.aria-label]="spoken()" (click)="opened.emit(review().id)">@if (review().subject; as s) {<span class="tira-assunto">{{ s }}</span>}{{ review().game.name }}</button>
+        <button type="button" class="hit tira-nome" [attr.aria-label]="spoken()" (click)="opened.emit(review().id)">@if (folderName(); as s) {<span class="tira-assunto">{{ s }}</span>}{{ review().game.name }}</button>
         @if (noText()) {
           <!-- só o título, ainda sem descrição: o lápis na tinta da tira, antes da importância -->
           <span class="sem-texto" title="Sem descrição" aria-hidden="true">
@@ -180,12 +182,15 @@ export class KanbanNote {
   protected readonly level = IMPORTANCE_LEVEL;
   protected readonly steps = IMPORTANCE_STEPS;
   protected readonly looks = inject(Settings).categoryLooks;
+  private readonly folders = inject(NoteFolders);
+  /** O nome da pasta da anotação (a tira mostra antes do título), ou null solta na raiz. */
+  protected readonly folderName = computed(() => folderNameOf(this.folders.tree(), this.review()));
   /** A cartolina e a inclinação da ficha no mural: a tira é do mesmo papel. */
   protected readonly pin = computed(() => pinningFor(this.review().id, this.review().stock));
   /** O que o leitor de tela diz da tira: o nome, o assunto, a importância, a observação e se está finalizada. */
   protected readonly spoken = computed(() => {
     const r = this.review();
     const { importance: imp, status } = this.card();
-    return [r.game.name, r.subject ? `assunto ${r.subject}` : '', imp ? `importância ${IMPORTANCE_LABEL[imp].toLowerCase()}` : '', status ? `observação ${status}` : '', this.noText() ? 'sem descrição' : '', r.doneAt ? 'finalizada' : ''].filter(Boolean).join(', ');
+    return [r.game.name, this.folderName() ? `assunto ${this.folderName()}` : '', imp ? `importância ${IMPORTANCE_LABEL[imp].toLowerCase()}` : '', status ? `observação ${status}` : '', this.noText() ? 'sem descrição' : '', r.doneAt ? 'finalizada' : ''].filter(Boolean).join(', ');
   });
 }

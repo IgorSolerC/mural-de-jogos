@@ -330,10 +330,17 @@ export interface Review {
    */
   category?: string;
   /**
-   * Só nas anotações: o assunto, um nível entre o grupo e as tags (no grupo Estudos: História,
-   * Geografia). Um só, escrito à mão ou escolhido entre os do grupo. Sem o campo, sem assunto.
+   * Só nas anotações, e só antes das pastas (PLANO-PASTAS.md): o assunto de antes, um nível entre o grupo
+   * e as tags. Ninguém grava mais: a conversão (`convertSubjects`, core/folders.ts) o troca por `folder`.
+   * Fica lido para a conversão de um backup antigo, de um aparelho que ainda não converteu e dos lugares
+   * das compartilhadas.
    */
   subject?: string;
+  /**
+   * Só nas anotações: o id da pasta, dentro do grupo (core/folders.ts). Sem o campo, solta na raiz do
+   * grupo. O nome mora na pasta, nas configurações do mural (`NotesConfig.folders`).
+   */
+  folder?: string;
   /** Só nas anotações: as tags, escritas à mão ("Bugfix", "Feature"). Sem o campo, nenhuma. */
   tags?: string[];
   /**
@@ -1212,6 +1219,7 @@ export function sanitizeNote(r: Record<string, any>, game: PickedGame): Review {
   const category = cleanCategory(typeof r['category'] === 'string' ? r['category'] : (legacy[0] ?? ''));
   const tags = sanitizeTags('tags' in r ? r['tags'] : legacy.slice(1));
   const subject = cleanSubject(typeof r['subject'] === 'string' ? r['subject'] : '');
+  const folder = typeof r['folder'] === 'string' && /^[ap][0-9a-z]{6,24}$/.test(r['folder']) ? r['folder'] : '';
   // `r` já passou pelas conversões em sanitizeReview
   const base = sanitizeReview({ ...r, kind: 'jogos', bonuses: [], scores: { final: 0 }, revisitOf: undefined, artFrom: undefined, finalOverride: undefined }, BUILD)!;
   const {
@@ -1233,6 +1241,7 @@ export function sanitizeNote(r: Record<string, any>, game: PickedGame): Review {
     bonuses: [],
     ...(category ? { category } : {}),
     ...(subject ? { subject } : {}),
+    ...(folder ? { folder } : {}),
     ...(tags.length ? { tags } : {}),
     hoursPlayed: null,
     // a sub-nota de antes (e o "era sub-nota" da fixada) não existe mais: vira comum

@@ -1,4 +1,6 @@
 import { Injectable, inject } from '@angular/core';
+import { NoteFolders } from './note-folders';
+import { siblingNamed } from './folders';
 import { CategoryLook, CategoryLooks, lookKey, tagKeyPrefix, tagLookKey } from './category-looks';
 import { KanbanStore } from './kanban-store';
 import { NotesConfig, savedSubjects, withSavedSubjects } from './mural-config';
@@ -63,17 +65,6 @@ export function notesWithTag(notes: readonly Review[], category: string, from: s
     if (next.length === tags.length && next.every((t, i) => t === tags[i])) continue;
     const { tags: _t, ...rest } = r;
     out.push({ ...rest, ...(next.length ? { tags: next } : {}), updatedAt: at } as Review);
-  }
-  return out;
-}
-
-/** As anotações da categoria `category` (a chave) com o assunto `from` (pela chave), agora com `to` (null: sem assunto). */
-export function notesWithSubject(notes: readonly Review[], category: string, from: string, to: string | null, at: string): Review[] {
-  const out: Review[] = [];
-  for (const r of notes) {
-    if (!inCategory(r, category) || !r.subject || lookKey(r.subject) !== from || to === r.subject) continue;
-    const { subject: _s, ...rest } = r;
-    out.push({ ...rest, ...(to ? { subject: to } : {}), updatedAt: at } as Review);
   }
   return out;
 }
@@ -187,6 +178,7 @@ export class LabelEdits {
   private readonly settings = inject(Settings);
   private readonly kanban = inject(KanbanStore);
   private readonly study = inject(StudyStore);
+  private readonly folders = inject(NoteFolders);
 
   /** Quantas anotações têm a categoria (pela chave). */
   categoryUses(category: string): number {
@@ -201,35 +193,43 @@ export class LabelEdits {
     return this.store.notes().filter((r) => inCategory(r, cat) && (r.tags ?? []).some((t) => lookKey(t) === key)).length;
   }
 
-  /** Quantas anotações da categoria ("" é a sem categoria) têm o assunto (pela chave). */
-  subjectUses(subject: string, category: string): number {
-    const key = lookKey(subject);
-    const cat = lookKey(category);
-    return this.store.notes().filter((r) => inCategory(r, cat) && !!r.subject && lookKey(r.subject) === key).length;
+  /** A pasta de cima do grupo ("" é a sem grupo) com esse nome (sem caixa e acento). */
+  private topFolder(name: string, category: string): string | null {
+    return siblingNamed(this.folders.tree(), lookKey(category), null, name)?.id ?? null;
   }
 
-  /** O nome de outro assunto da mesma categoria (numa anotação ou entre os criados) que já atende por `name`, para juntar. */
+  /** Quantas anotações estão no assunto (a pasta de cima com esse nome, e as de dentro dela). */
+  subjectUses(subject: string, category: string): number {
+    const id = this.topFolder(subject, category);
+    return id ? this.folders.countBelow(id) : 0;
+  }
+
+  /** O nome de outro assunto (pasta de cima) do mesmo grupo que já atende por `name`, para juntar. */
   existingSubject(name: string, except: string, category: string): string | null {
-    const key = lookKey(name);
-    const cat = lookKey(category);
-    if (key === lookKey(except)) return null;
-    const used = this.store.notes().find((r) => inCategory(r, cat) && !!r.subject && lookKey(r.subject) === key)?.subject;
-    return used ?? savedSubjects(this.settings.notesConfig(), category).find((x) => lookKey(x) === key) ?? null;
+    if (lookKey(name) === lookKey(except)) return null;
+    const id = this.topFolder(name, category);
+    return id ? this.folders.nameOf(id) : null;
   }
 
   /**
-   * Renomeia o assunto nas anotações da categoria ("" é a sem categoria; null no nome: tira dele) e na
-   * lista dos criados nas configurações.
+   * Renomeia o assunto (a pasta de cima com esse nome) do grupo ("" é a sem grupo). Com o nome de outro
+   * que já existe, junta os dois; null no nome desfaz a pasta (as anotações ficam soltas no grupo). Só
+   * as configurações mudam: nenhuma anotação é regravada (ver core/folders.ts).
    */
   renameSubject(subject: string, category: string, name: string | null): LabelEditResult {
-    const from = lookKey(subject);
-    const cat = lookKey(category);
-    const to = name === null ? null : cleanSubject(name);
+    const id = this.topFolder(subject, category);
+    if (!id) return { changed: 0 };
+    const changed = this.folders.countBelow(id);
+    if (name === null) {
+      this.folders.dissolve(id);
+      return { changed };
+    }
+    const to = cleanSubject(name);
     if (to === '') return { changed: 0 };
-    const result = this.save(notesWithSubject(this.store.notes(), cat, from, to, new Date().toISOString()));
-    const cfg = subjectConfigMoved(this.settings.notesConfig(), category, from, to);
-    if (cfg !== this.settings.notesConfig()) this.settings.setNotesConfig(cfg);
-    return result;
+    const twin = siblingNamed(this.folders.tree(), lookKey(category), null, to, id);
+    if (twin) this.folders.join(id, twin.id);
+    else this.folders.rename(id, to);
+    return { changed };
   }
 
   /** O nome de outra categoria que já atende por `name` (sem ligar para caixa e acento), para juntar. */
@@ -258,6 +258,8 @@ export class LabelEdits {
       // apagada, as anotações dela ficam sem categoria, e as tags levam a cor para lá
       this.settings.applyCategoryLooks(tagLooksMoved(looksMoved(this.settings.categoryLooks(), from, toKey), from, toKey ?? ''), new Date().toISOString());
       this.settings.setNotesConfig(configMoved(this.settings.notesConfig(), from, toKey));
+      // as pastas vão com o grupo (apagado: para o "Sem grupo", com as anotações)
+      this.folders.moveGroup(from, toKey);
       this.kanban.moveCategory(from, toKey);
     }
     // os baralhos do grupo vão com ele (também quando só muda a escrita: a caixa, um acento); apagado, saem

@@ -1,4 +1,5 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
+import { NO_FOLDERS, foldersOfSnapshot } from './folders';
 import { ColleagueStore } from './colleague-store';
 import { Review } from './review';
 import { SpoilerShield } from './spoiler-shield';
@@ -26,9 +27,18 @@ export class VisitView extends WallState {
   readonly colleague = this.colleagues.selected;
   readonly owner = computed(() => this.colleague()?.name ?? 'Colega');
   readonly categoryLooks = computed(() => this.colleague()?.categoryLooks ?? {});
+  /**
+   * As fichas e as pastas da pessoa. O mural público de antes das pastas (ainda não reenviado) traz o
+   * assunto: ele vira pasta aqui, na leitura, do mesmo jeito que no aparelho dela.
+   */
+  private readonly converted = computed(() => {
+    const c = this.colleague();
+    return c ? foldersOfSnapshot(c.reviews, c.folders) : { reviews: [] as readonly Review[], tree: NO_FOLDERS };
+  });
+  readonly folders = computed(() => this.converted().tree);
   /** O código na nuvem da pessoa (as fichas mostram as reações); null num backup. */
   readonly code = computed(() => this.colleague()?.codigo ?? null);
-  readonly wall = computed<Review[]>(() => (this.colleague()?.reviews ?? []).filter((r) => r.kind === this.mural.kind()));
+  readonly wall = computed<Review[]>(() => this.converted().reviews.filter((r) => r.kind === this.mural.kind()));
 
   /** "Mostrar notas": de quem (o id da pessoa), para outra pessoa abrir seguindo Ajustes de novo. */
   private readonly revealedFor = signal<string | null>(null);

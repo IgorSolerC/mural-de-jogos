@@ -1,4 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, output, untracked, viewChild } from '@angular/core';
+import { NoteFolders } from '../core/note-folders';
+import { FolderTree, folderNameOf } from '../core/folders';
 import { ICON, IconModule } from './icons';
 import { cap, g, profileOf, revisitCountOf } from '../core/kinds';
 import {
@@ -316,7 +318,7 @@ export const CARD_TEMPLATE = `
               <li class="sr-only">{{ c.label }} (grupo)</li>
             }
             @if (noteLabels().ear?.subject) {
-              <li class="sr-only">{{ review().subject }} (assunto)</li>
+              <li class="sr-only">{{ folderName() }} (assunto)</li>
             }
             @for (t of noteLabels().tags; track t; let i = $index) {
               <li><app-note-tag [label]="t" [index]="i + 1" [size]="compact() && !overview() ? 'mini' : 'card'" [color]="tagColor(t)" /><span class="sr-only"> (tag)</span></li>
@@ -1642,6 +1644,9 @@ export class ReviewCard {
   readonly reactCode = input<string | null>(null);
   /** O ícone e a cor das categorias do dono da ficha (os seus, no seu mural; os da pessoa, no dela). */
   readonly looks = input<CategoryLooks>({});
+  /** As pastas do dono do mural (para o nome da pasta da anotação); null, as suas. */
+  readonly folders = input<FolderTree | null>(null);
+  private readonly ownFolders = inject(NoteFolders);
   readonly opened = output<string>();
   readonly toggled = output<string>();
 
@@ -1820,12 +1825,14 @@ export class ReviewCard {
     const category = r.category && !this.onBoard ? categoryBonus(r.category) : null;
     // com um grupo aberto, a orelha é do assunto (ver `subjectEar`); a da música é sempre o artista
     const ear = this.subjectEar() && this.note() && !this.onBoard
-      ? (r.subject ? { label: r.subject, subject: true } : null)
+      ? (this.folderName() ? { label: this.folderName()!, subject: true } : null)
       : category ? { label: category.label, subject: false } : null;
     return { category, ear, tags: tags.slice(0, max), hidden: Math.max(0, tags.length - max) };
   });
   /** O assunto na linha da data: só quando ele não está na orelha. */
-  protected readonly metaSubject = computed(() => (this.noteLabels().ear?.subject ? null : (this.review().subject ?? null)));
+  protected readonly metaSubject = computed(() => (this.noteLabels().ear?.subject ? null : this.folderName()));
+  /** O nome da pasta da anotação (das pastas do dono do mural; sem elas, as suas), ou null solta na raiz. */
+  protected readonly folderName = computed(() => (this.note() ? folderNameOf(this.folders() ?? this.ownFolders.tree(), this.review()) : null));
 
   /** A cor que o dono deu à tag, ou null (o papel pardo de sempre). */
   protected tagColor(tag: string): string | null {
@@ -1952,7 +1959,7 @@ export class ReviewCard {
   protected readonly spoken = computed(() => {
     const r = this.review();
     if (isNote(r)) {
-      const cats = [r.category ? `grupo ${r.category}` : '', r.subject ? `assunto ${r.subject}` : '', ...(r.tags ?? []).map((t) => `tag ${t}`)].filter(Boolean).join(', ');
+      const cats = [r.category ? `grupo ${r.category}` : '', this.folderName() ? `assunto ${this.folderName()}` : '', ...(r.tags ?? []).map((t) => `tag ${t}`)].filter(Boolean).join(', ');
       const when = r.completedAt === null ? NO_DAY_LABEL.toLowerCase() : formatReviewDate(r.completedAt);
       const rank = r.noteRank === 'fixada' ? 'fixada' : '';
       const done = r.doneAt ? `finalizada em ${doneDayLong(r.doneAt)}` : '';

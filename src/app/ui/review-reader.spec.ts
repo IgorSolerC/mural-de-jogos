@@ -623,7 +623,8 @@ describe('A leitura e os comentários (ReviewReader)', () => {
 
     it('a anotação: a folha com o nome, o grupo, as tags e o texto; o nome do arquivo é o título; a impressão fechada desmonta tudo', async () => {
       const before = document.title;
-      fixture.componentInstance.open(review('nota-1', 'Viagem: Lisboa', { kind: 'anotacoes', category: 'Viagens', subject: 'Portugal', tags: ['roteiro'], text: '# Dia 1\n- [x] Passagens' }));
+      TestBed.inject(Settings).setNotesConfig({ folders: [{ id: 'pportugal01', group: 'viagens', name: 'Portugal', parent: null }] });
+      fixture.componentInstance.open(review('nota-1', 'Viagem: Lisboa', { kind: 'anotacoes', category: 'Viagens', folder: 'pportugal01', tags: ['roteiro'], text: '# Dia 1\n- [x] Passagens' }));
       await settle();
       const got = await printed();
       expect(got.title).toBe('Viagem Lisboa');
