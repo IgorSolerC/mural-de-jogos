@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterRenderEffect, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, afterNextRender, afterRenderEffect, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -36,6 +36,7 @@ import { StudyDrillPicker } from '../ui/study-drill-picker';
 import type { DrillChoice } from '../ui/study-drill-picker';
 import { MuralConfig } from '../ui/mural-config';
 import { CardPicker } from '../ui/card-picker';
+import { GroupMenu, backFromList } from '../ui/group-menu';
 import { ContextMenu, ContextMenuTrigger, MENU_CLASS, MenuBy, MenuItem, MenuSections } from '../ui/context-menu';
 import { RemoveAsking } from '../ui/remove-asking';
 import { CategoryLabel } from '../ui/category-label';
@@ -129,7 +130,7 @@ const SCREEN_GAP = 8;
 const NO_CARDS: ReadonlySet<string> = new Set();
 
 /** O que o menu do botão direito tem aberto: um baralho (a pilha, ou o nome no alto do baralho aberto) ou um flashcard da parede. */
-type MenuOn = { kind: 'baralho'; id: string; link: string | null } | { kind: 'carta'; note: string };
+type MenuOn = { kind: 'baralho'; id: string; link: string | null } | { kind: 'grupo'; id: string; inMore: boolean } | { kind: 'carta'; note: string };
 
 /** A chave do Tudo na régua das abas. */
 const ALL_TAB = 'tudo';
@@ -249,6 +250,10 @@ export class StudyPage {
   protected readonly choosing = signal(false);
   /** A folha das configurações dos Estudos aberta. */
   protected readonly config = signal(false);
+  /** As configurações abertas pelo "Ajustes do grupo" do menu de uma aba: as do mural, já no grupo. */
+  protected readonly configGroup = signal<string | null>(null);
+  private readonly groupMenu = inject(GroupMenu);
+  private readonly injector = inject(Injector);
   /** Quantos flashcards cada treino traria aqui (no baralho, no grupo ou em todos). */
   protected readonly drillCounts = computed(() => countDrills(this.study.view(), this.now(), this.scope(), this.study.live));
   /** O remendo do Treinar (o do baralho, do grupo ou de tudo), que o menu de um baralho também abre. */
@@ -299,6 +304,7 @@ export class StudyPage {
     const m = this.menuOn();
     if (!m) return '';
     if (m.kind === 'baralho') return this.study.deck(m.id)?.name ?? '';
+    if (m.kind === 'grupo') return this.groups().find((g) => g.id === m.id)?.label ?? '';
     // a frente pode ser um kanji só: o baralho junto diz de onde ele é
     const title = this.cards().find((c) => c.note === m.note)?.title ?? '';
     return title && `${title} · ${this.deck()?.name ?? ''}`;
@@ -307,7 +313,7 @@ export class StudyPage {
   protected readonly menuSections = computed<MenuSections>(() => {
     const m = this.menuOn();
     if (!m) return [];
-    return m.kind === 'baralho' ? this.deckMenu(m.id, m.link) : this.cardMenu(m.note);
+    return m.kind === 'baralho' ? this.deckMenu(m.id, m.link) : m.kind === 'grupo' ? this.groupMenuOf(m.id, m.inMore) : this.cardMenu(m.note);
   });
   /** O nome do primeiro baralho, na cartolina da primeira vez. */
   protected readonly firstName = signal('');
@@ -520,7 +526,8 @@ export class StudyPage {
     if (state?.treinar) this.trainAsked.set(true);
     // o pedido vale uma vez, no baralho aberto: com o remendo à mostra, abre; sem treino nenhum ali, esquece
     afterRenderEffect(() => {
-      if (!this.trainAsked() || !this.deck()) return;
+      // (no baralho aberto, ou na pasta do grupo pelo menu da aba dele)
+      if (!this.trainAsked() || !(this.deck() || this.group())) return;
       const more = this.trainMore();
       untracked(() => {
         this.trainAsked.set(false);
@@ -531,8 +538,11 @@ export class StudyPage {
     // num flashcard da parede abre o menu dele
     new ContextMenuTrigger({
       host: this.host,
-      targets: '[data-baralho], [data-carta]',
+      // e as abas dos grupos (e as linhas do "Mais" delas): o menu do grupo, o mesmo do mural e do Kanban
+      targets: '[data-baralho], [data-carta], .abas-grupos .abas:not(.medida) .aba[data-grupo], .abas-grupos app-tab-more .opcao[data-k]',
       keyOf: (box) => {
+        const group = box.dataset['grupo'] ?? (box.matches('.opcao') ? box.dataset['k'] : undefined);
+        if (group !== undefined) return this.groups().some((g) => g.id === group) ? `grupo:${group}` : null;
         const deck = box.dataset['baralho'];
         if (deck) return this.study.deck(deck) ? `baralho:${deck}` : null;
         const note = box.dataset['carta'];
@@ -824,10 +834,51 @@ export class StudyPage {
   private openMenu(key: string, box: HTMLElement, x: number, y: number, by: MenuBy): void {
     const id = key.slice(key.indexOf(':') + 1);
     const deck = key.startsWith('baralho:');
+    if (key.startsWith('grupo:')) {
+      this.menuOn.set({ kind: 'grupo', id, inMore: box.matches('.opcao') });
+      this.menu()?.show({ key, x, y, by, back: backFromList(box) });
+      return;
+    }
     this.menuOn.set(deck ? { kind: 'baralho', id, link: box instanceof HTMLAnchorElement ? box.href : null } : { kind: 'carta', note: id });
     // a pilha é o próprio link; o alto do baralho aberto, o lápis dele; o flashcard, o botão de virar
     const back = deck ? (box instanceof HTMLAnchorElement ? box : box.querySelector<HTMLElement>('.ajustes-baralho')) : box.querySelector<HTMLElement>('.carta-btn');
     this.menu()?.show({ key, x, y, by, back: back ?? null });
+  }
+
+  /** Depois de a fileira das abas mudar: o foco no primeiro que existir (a aba de volta, ou o "Mais"). */
+  private focusTabAfter(...selectors: string[]): void {
+    afterNextRender(() => selectors.map((s) => this.host.querySelector<HTMLElement>(s)).find((el) => !!el)?.focus(), { injector: this.injector });
+  }
+
+  /**
+   * O menu de um grupo (ui/group-menu.ts), com o que só os Flashcards têm: estudar as dele para hoje e um
+   * baralho novo nele. Os ajustes abrem as configurações do mural (não as dos estudos) já no grupo.
+   */
+  private groupMenuOf(id: string, inMore: boolean): MenuSections {
+    const g = this.groups().find((x) => x.id === id);
+    if (!g) return [];
+    const lead: MenuItem[] = [];
+    if (g.today) lead.push({ id: 'estudar', label: 'Estudar', icon: ICON.estudar, dialog: true, count: { n: g.today, say: 'para hoje' }, run: () => this.session.set({ deck: null, group: g.label }) });
+    // sem nada para hoje, é o Treinar que sobra (como na pasta do grupo)
+    const drills = countDrills(this.study.view(), this.now(), g.decks.map((v) => v.deck.id), this.study.live);
+    if (g.decks.length && DRILL_KINDS.some((k) => drills[k] > 0)) {
+      lead.push({ id: 'treinar', label: 'Treinar', icon: ICON.alvo, hint: 'Passar os flashcards de novo, sem contar no progresso', run: () => this.trainGroup(g.id) });
+    }
+    lead.push({ id: 'novo-baralho', label: 'Novo baralho', icon: ICON.adicionar, dialog: true, hint: `Um baralho já em ${g.label}`, run: () => this.newDeck(g.label) });
+    return this.groupMenu.sections({
+      label: g.label,
+      here: 'flashcards',
+      path: studyPath(g.id),
+      inMore,
+      lead,
+      adjust: () => {
+        this.configGroup.set(g.label);
+        this.config.set(true);
+      },
+      // a aba saiu da fileira: o foco vai para o "Mais", onde ela está agora
+      hidden: () => this.focusTabAfter('.abas-grupos app-tab-more button'),
+      shown: () => this.focusTabAfter(`.abas-grupos .abas:not(.medida) .aba[data-grupo="${CSS.escape(g.id)}"]`, '.abas-grupos app-tab-more button'),
+    });
   }
 
   /**
@@ -889,6 +940,12 @@ export class StudyPage {
   private trainIn(d: Deck): void {
     if (this.deck()?.id === d.id) this.trainMore()?.show();
     else void this.router.navigateByUrl(this.deckPath(d), { state: { treinar: true } });
+  }
+
+  /** "Treinar" de um grupo: o remendo do Treinar dele (na pasta do grupo); de fora, abre o grupo com o remendo aberto. */
+  private trainGroup(id: string): void {
+    if (this.group()?.id === id && !this.deck()) this.trainMore()?.show();
+    else void this.router.navigateByUrl(studyPath(id), { state: { treinar: true } });
   }
 
   /** "Trazer anotações" de um baralho: aqui mesmo, no aberto; de fora, abre o baralho com o seletor. */

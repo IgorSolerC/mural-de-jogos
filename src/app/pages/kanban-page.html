@@ -53,6 +53,7 @@
         <li>
           <a
             class="aba"
+            [attr.data-quadro]="q.id"
             [routerLink]="pathOf(q.id)"
             [class.on]="q.id === b.id"
             [class.orelha-cor]="!!q.color"
@@ -571,7 +572,8 @@
   @if (configOpen()) {
     @defer (on immediate) {
       <app-mural-config
-        [board]="b.id"
+        [board]="configBoard() ?? b.id"
+        [group]="configGroup()"
         (closed)="closeConfig()"
         (resetting)="resetBoard($event)"
       />
@@ -583,3 +585,5 @@
 <app-note-menu #menuDaNota [selection]="selection" (opened)="read($event)" />
 <!-- e o de uma coluna (a etiqueta, o vão entre as anotações e o pé), também com o dedo segurado -->
 <app-context-menu #menuDaColuna [caption]="columnCaption()" [sections]="columnSections()" (closed)="columnMenuOn.set(null)" />
+<!-- e o de uma aba de quadro (e de uma linha do "Mais"): o menu do grupo, o mesmo do mural (ui/group-menu.ts) -->
+<app-context-menu #menuDoQuadro [caption]="tabCaption()" [sections]="tabSections()" (closed)="tabMenuOn.set(null)" />

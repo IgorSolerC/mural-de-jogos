@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-09-menu-abas-gastos-feed',
+    id: '2026-11-09-menu-grupo-em-todo-lugar',
     version: '1.41.2',
     kind: 'ajustes',
     date: '2026-11-09',
@@ -36,6 +36,7 @@ export const NEWS: NewsEntry[] = [
       'O botão direito (ou o dedo segurado, no celular) também abre o menu do Murall nas abas dos grupos do mural, nas linhas da fita dos Gastos e nos posts do Feed.',
       'Na aba de um grupo: uma anotação nova já nele, o quadro dele no Kanban, os baralhos nos Flashcards, os ajustes do grupo (as configurações do mural abrem já nele) e esconder a aba no Mais, com Desfazer.',
       'Numa linha dos Gastos: editar, ver só a categoria dela e apagar, com a mesma pergunta da folhinha. Num post do Feed: abrir a ficha, comentar, revelar os spoilers, pôr na wishlist, ver o perfil e copiar o link.',
+      'O menu do grupo também aparece nas abas do Kanban e dos Flashcards e nas linhas do Mais: abrir numa aba nova, estudar as de hoje e criar um baralho (nos Flashcards), ir para o mesmo grupo no mural, no Kanban ou nos Flashcards, os ajustes do grupo e esconder a aba no Mais (ou, escondida, mostrar em cima de novo).',
     ],
     correcoes: ['Nas configurações do mural, o grupo com uma anotação só não diz mais "Muda em a anotação" embaixo do nome.'],
   },

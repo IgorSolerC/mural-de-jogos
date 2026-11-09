@@ -14,6 +14,7 @@
       <li>
         <a
           class="aba"
+          [attr.data-grupo]="g.id"
           [routerLink]="studyPath(g.id)"
           [class.on]="g.id === group()?.id"
           [class.orelha-cor]="!!g.color"
@@ -432,7 +433,7 @@
 
 @if (config()) {
   @defer (on immediate) {
-    <app-mural-config [study]="true" (closed)="config.set(false)" />
+    <app-mural-config [study]="!configGroup()" [group]="configGroup()" (closed)="config.set(false); configGroup.set(null)" />
   }
 }
 

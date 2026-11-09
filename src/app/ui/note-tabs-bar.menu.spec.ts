@@ -81,6 +81,29 @@ describe('menu do botão direito nas abas de grupo', () => {
     expect(panel().matches(':popover-open')).toBeFalse();
   });
 
+  it('uma linha do "Mais": o mesmo menu, e a escondida volta para cima; a lista fecha; o Tudo fica com o do navegador', async () => {
+    const settings = TestBed.inject(Settings);
+    settings.setCategoryPrefs('Trabalho', { hidden: true });
+    settings.setNotesConfig({ showAll: false });
+    await settle();
+    host.querySelector<HTMLButtonElement>('app-tab-more .gatilho')!.click();
+    // a lista aberta (e a janela parada: um aviso de tamanho de um teste anterior fecharia o menu)
+    for (let i = 0; i < 10 && !host.querySelector('app-tab-more [popover]')!.matches(':popover-open'); i++) await settle();
+    await new Promise((r) => setTimeout(r, 150));
+    await rightClick(host.querySelector('app-tab-more .opcao[data-k="c:trabalho"]')!);
+    expect(panel().matches(':popover-open')).withContext('o menu abriu na linha do Mais').toBeTrue();
+    expect(host.querySelector('app-tab-more [popover]')!.matches(':popover-open')).toBeFalse();
+    expect(labels()).toEqual(['Nova anotação', 'Ver no Kanban', 'Ajustes do grupo', 'Mostrar em cima']);
+    option('Mostrar em cima').click();
+    await settle();
+    expect(TestBed.inject(WallState).hiddenTabs().has('c:trabalho')).toBeFalse();
+    expect(TestBed.inject(Toasts).current()!.text).toBe('Trabalho volta para cima quando couber');
+    host.querySelector<HTMLButtonElement>('app-tab-more .gatilho')?.click();
+    await settle();
+    const all = host.querySelector('app-tab-more .opcao[data-k=""]');
+    if (all) expect((await rightClick(all)).defaultPrevented).toBeFalse();
+  });
+
   it('a aba "Sem grupo" fica com o menu do navegador', async () => {
     const e = await rightClick(tab('Sem grupo'));
     expect(e.defaultPrevented).toBeFalse();
@@ -116,7 +139,7 @@ describe('menu do botão direito nas abas de grupo', () => {
     // a aba saiu da fileira: o foco vai para o "Mais", onde ela está agora
     expect(document.activeElement).toBe(host.querySelector('.abas:not(.medida) app-tab-more button'));
     const toast = TestBed.inject(Toasts).current()!;
-    expect(toast.text).toBe('Trabalho foi para o Mais');
+    expect(toast.text).toBe('Trabalho fica sempre no Mais');
     toast.action!.run();
     await settle();
     expect(view.hiddenTabs().has('c:trabalho')).toBeFalse();

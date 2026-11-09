@@ -239,7 +239,9 @@ export class WallToolbar {
     this.configGroup.set(null);
     // aberta pelo menu de uma aba: o foco volta para a aba (renomeada ou escondida, para a engrenagem)
     const key = group ? noteTabKey({ category: group }) : null;
-    const tab = key ? [...this.host.querySelectorAll<HTMLElement>(`app-note-tabs .aba[data-grupo="${CSS.escape(key)}"]`)].find((t) => (typeof t.checkVisibility === 'function' ? t.checkVisibility() : t.offsetParent !== null)) : null;
+    // (a aba no "Mais": a orelha dele; renomeada, a engrenagem)
+    const shown = (t: HTMLElement) => (typeof t.checkVisibility === 'function' ? t.checkVisibility() : t.offsetParent !== null);
+    const tab = key ? [...this.host.querySelectorAll<HTMLElement>(`app-note-tabs .abas:not(.medida) .aba[data-grupo="${CSS.escape(key)}"], app-note-tabs .abas:not(.medida) app-tab-more .gatilho`)].find(shown) : null;
     (tab ?? this.gear()?.nativeElement)?.focus();
   }
 

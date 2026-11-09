@@ -30,6 +30,7 @@ import { NoteSelection } from '../ui/note-selection';
 import { ContextMenu, ContextMenuTrigger, MenuItem, MenuSections } from '../ui/context-menu';
 import { HOLD_MS, NoteMenu, NoteMenuBoard, NoteMenuTrigger } from '../ui/note-menu';
 import { RemoveAsking } from '../ui/remove-asking';
+import { GroupMenu, backFromList } from '../ui/group-menu';
 import { PageWall } from '../ui/page-wall';
 import { Pin } from '../ui/pin';
 import { SearchStrip } from '../ui/search-strip';
@@ -293,6 +294,9 @@ export class KanbanPage {
   protected readonly columnSheet = signal<{ id: string; fresh: boolean } | null>(null);
   /** As configurações do mural abertas pela engrenagem (a folha chega por @defer, ver ui/mural-config.ts). */
   protected readonly configOpen = signal(false);
+  /** Aberta pelo "Ajustes do grupo" do menu de uma aba: o quadro e o grupo dela (senão, o aberto). */
+  protected readonly configBoard = signal<string | null>(null);
+  protected readonly configGroup = signal<string | null>(null);
   private readonly gear = viewChild<ElementRef<HTMLButtonElement>>('gear');
   protected readonly drag = signal<Drag | null>(null);
   /** O que o leitor de tela ouve depois de mover pelo teclado. */
@@ -624,7 +628,55 @@ export class KanbanPage {
     };
   }
 
+  // ===== o menu do botão direito numa aba de quadro (e numa linha do "Mais") =====
+
+  private readonly groupMenu = inject(GroupMenu);
+  private readonly tabMenu = viewChild<ContextMenu>('menuDoQuadro');
+  /** A aba com o menu aberto (o quadro) e o endereço dela, quando é a aba em pé (um link). */
+  protected readonly tabMenuOn = signal<{ id: string; inMore: boolean } | null>(null);
+  private readonly tabMenuTab = computed(() => this.tabs().find((q) => q.id === this.tabMenuOn()?.id) ?? null);
+  protected readonly tabCaption = computed(() => this.tabMenuTab()?.label ?? '');
+  /** O menu de um grupo (ui/group-menu.ts): no Kanban, os ajustes abrem com o quadro da aba. */
+  protected readonly tabSections = computed<MenuSections>(() => {
+    const q = this.tabMenuTab();
+    if (!q) return [];
+    return this.groupMenu.sections({
+      label: q.label,
+      here: 'kanban',
+      path: this.pathOf(q.id),
+      inMore: !!this.tabMenuOn()?.inMore,
+      adjust: () => {
+        this.configBoard.set(q.id);
+        this.configGroup.set(q.label);
+        this.configOpen.set(true);
+      },
+      // a aba saiu da fileira: o foco vai para o "Mais", onde ela está agora
+      hidden: () => this.focusTabAfter('.abas-quadros app-tab-more button'),
+      shown: () => this.focusTabAfter(`.abas-quadros .abas:not(.medida) .aba[data-quadro="${CSS.escape(q.id)}"]`, '.abas-quadros app-tab-more button'),
+    });
+  });
+
+  /** Depois de a fileira das abas mudar: o foco no primeiro que existir (a aba de volta, ou o "Mais"). */
+  private focusTabAfter(...selectors: string[]): void {
+    afterNextRender(() => selectors.map((s) => this.host.querySelector<HTMLElement>(s)).find((el) => !!el)?.focus(), { injector: this.injector });
+  }
+
   constructor() {
+    // o botão direito, o dedo segurado ou Shift+F10 numa aba de quadro (ou numa linha do "Mais") abre o menu do grupo dela
+    new ContextMenuTrigger({
+      host: this.host,
+      targets: '.abas-quadros .abas:not(.medida) .aba[data-quadro], .abas-quadros app-tab-more .opcao[data-k]',
+      keyOf: (box) => {
+        const id = box.getAttribute('data-quadro') ?? box.getAttribute('data-k');
+        return id && this.tabs().some((q) => q.id === id) ? id : null;
+      },
+      hold: true,
+      isOpenFor: (id) => !!this.tabMenu()?.isOpenFor(id),
+      open: (id, box, x, y, by) => {
+        this.tabMenuOn.set({ id, inMore: box.matches('.opcao') });
+        this.tabMenu()?.show({ key: id, x, y, by, back: backFromList(box) });
+      },
+    });
     // o botão direito, o dedo segurado ou Shift+F10 numa coluna abre o menu dela (depois do das anotações,
     // criado antes: numa anotação, quem atende é o dela)
     new ContextMenuTrigger({
@@ -841,8 +893,14 @@ export class KanbanPage {
   }
 
   protected closeConfig(): void {
+    const from = this.configBoard();
     this.configOpen.set(false);
-    this.gear()?.nativeElement.focus();
+    this.configBoard.set(null);
+    this.configGroup.set(null);
+    // aberta pelo menu de uma aba: o foco volta para a aba (escondida ou renomeada, para a engrenagem)
+    // (a aba no "Mais": a orelha dele)
+    const tab = from ? this.host.querySelector<HTMLElement>(`.abas-quadros .abas:not(.medida) .aba[data-quadro="${CSS.escape(from)}"]`) ?? this.host.querySelector<HTMLElement>('.abas-quadros app-tab-more .gatilho') : null;
+    (tab ?? this.gear()?.nativeElement)?.focus();
   }
 
   /** Recomeça o quadro (a folha já perguntou): as três colunas de sempre e nenhuma anotação, com Desfazer. */

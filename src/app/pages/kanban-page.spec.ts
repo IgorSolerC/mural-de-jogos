@@ -1273,6 +1273,79 @@ describe('página do Kanban', () => {
     });
   });
 
+  describe('menu da aba do quadro', () => {
+    const tabMenu = () => [...host.querySelectorAll<HTMLElement>('app-kanban-page > app-context-menu .menu-contexto')][1];
+    const labels = () => [...tabMenu().querySelectorAll('.escolha .nome')].map((x) => x.textContent!.trim());
+    const option = (label: string) => [...tabMenu().querySelectorAll<HTMLButtonElement>('.escolha')].find((b) => b.querySelector('.nome')!.textContent!.trim() === label)!;
+    const rightClick = async (target: Element) => {
+      const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 30, clientY: 30 });
+      target.dispatchEvent(e);
+      await settle();
+      return e;
+    };
+
+    beforeEach(async () => {
+      // no site, o Kanban é das anotações (o mural delas guarda a aba e sabe quais grupos têm o que mostrar)
+      TestBed.inject(Mural).kind.set('anotacoes');
+      kanban.state.set(state(board()));
+      await go(TRAB_URL);
+    });
+
+    it('a aba (um link) troca o menu do navegador pelo do grupo: abrir numa aba nova, o mural, os ajustes e esconder', async () => {
+      const tab = host.querySelector<HTMLAnchorElement>(`.abas-quadros .aba[data-quadro="${TRAB}"]`)!;
+      const e = await rightClick(tab);
+      expect(e.defaultPrevented).toBeTrue();
+      expect(tabMenu().matches(':popover-open')).toBeTrue();
+      expect(tabMenu().querySelector('.legenda')!.textContent).toContain('Trabalho');
+      // as anotações de Trabalho estão só no Kanban: o mural não tem o grupo para mostrar
+      expect(labels()).toEqual(['Abrir em outra aba', 'Ajustes do grupo', 'Esconder no Mais']);
+      // abrir sozinho, como no menu do baralho
+      expect(tabMenu().querySelectorAll('.leva').length).toBe(2);
+      const open = spyOn(window, 'open');
+      option('Abrir em outra aba').click();
+      expect(open).toHaveBeenCalledWith(tab.href, '_blank', 'noopener');
+    });
+
+    it('Ver no mural (o grupo com anotações no mural) abre o mural já nele', async () => {
+      // sem esconder os vazios, o mural abre qualquer grupo (com eles escondidos, depende do que o mural mostra)
+      TestBed.inject(Settings).setNotesConfig({ hideEmpty: false });
+      await settle();
+      TestBed.inject(WallView).setNoteTab('c:trabalho');
+      const nav = spyOn(router, 'navigateByUrl').and.resolveTo(true);
+      await rightClick(host.querySelector(`.abas-quadros .aba[data-quadro="${EST}"]`)!);
+      option('Ver no mural').click();
+      expect(nav).toHaveBeenCalledWith('/anotacoes');
+      expect(TestBed.inject(WallView).activeTab()).toBe('c:estudos');
+    });
+
+    it('Ajustes do grupo abre as configurações do mural no grupo da aba, com o quadro dela', async () => {
+      await rightClick(host.querySelector(`.abas-quadros .aba[data-quadro="${TRAB}"]`)!);
+      option('Ajustes do grupo').click();
+      for (let i = 0; i < 40 && !document.querySelector('app-mural-config dialog[open]'); i++) await settle();
+      const dialog = document.querySelector<HTMLDialogElement>('app-mural-config dialog')!;
+      expect(dialog.open).toBeTrue();
+      for (let i = 0; i < 10 && dialog.querySelector('.cat-abre[aria-expanded="true"]') === null; i++) await settle();
+      expect(dialog.querySelector('.cat-abre[aria-expanded="true"]')!.getAttribute('data-cat')).toBe('trabalho');
+      dialog.close();
+      await settle();
+    });
+
+    it('a linha do "Mais" (o quadro vazio) tem o mesmo menu, com o endereço do quadro; deixar sempre no Mais; a lista fecha', async () => {
+      host.querySelector<HTMLButtonElement>('.abas-quadros app-tab-more .gatilho')!.click();
+      await settle();
+      const row = host.querySelector<HTMLElement>(`.abas-quadros app-tab-more .opcao[data-k="${EST}"]`)!;
+      expect(row).not.toBeNull();
+      await rightClick(row);
+      expect(tabMenu().querySelector('.legenda')!.textContent).toContain('Estudos');
+      expect(labels()[0]).toBe('Abrir em outra aba');
+      expect(labels().slice(-2)).toEqual(['Ajustes do grupo', 'Deixar sempre no Mais']);
+      expect(host.querySelector('.abas-quadros app-tab-more [popover]')!.matches(':popover-open')).toBeFalse();
+      const open = spyOn(window, 'open');
+      option('Abrir em outra aba').click();
+      expect(open.calls.mostRecent().args[0]).toMatch(new RegExp(`/anotacoes/kanban/${EST}$`));
+    });
+  });
+
   it('os "Ajustes no quadro" do menu abrem o editor da anotação, na aba Kanban', async () => {
     kanban.state.set(state(board()));
     await go(TRAB_URL);

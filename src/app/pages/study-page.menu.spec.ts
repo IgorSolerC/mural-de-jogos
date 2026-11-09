@@ -213,4 +213,30 @@ describe('menu do botão direito nos Estudos', () => {
     expect(isOpen()).toBeFalse();
     expect(sol.classList).toContain('virada');
   });
+
+  it('a aba de um grupo: o menu do grupo, com estudar as de hoje e um baralho novo; os ajustes abrem os do mural no grupo', async () => {
+    await go(studyPath(GROUP));
+    const tab = $(`.abas-grupos .aba[data-grupo="${GROUP}"]`) as HTMLAnchorElement;
+    const e = await rightClick(tab);
+    expect(e.defaultPrevented).toBeTrue();
+    expect(panel().querySelector('.legenda')!.textContent).toContain('Estudos');
+    expect(labels()).toEqual(['Abrir em outra aba', 'Estudar', 'Treinar', 'Novo baralho', 'Ver no mural', 'Ver no Kanban', 'Ajustes do grupo', 'Esconder no Mais']);
+    option('Ajustes do grupo').click();
+    for (let i = 0; i < 40 && !document.querySelector('app-mural-config dialog[open]'); i++) await settle();
+    const dialog = document.querySelector<HTMLDialogElement>('app-mural-config dialog')!;
+    // as do mural (com Grupos), não as dos estudos
+    expect(dialog.querySelector('#config-aba-categorias')!.getAttribute('aria-selected')).toBe('true');
+    expect(dialog.querySelector('.cat-abre[aria-expanded="true"]')!.getAttribute('data-cat')).toBe('estudos');
+    dialog.close();
+    await settle();
+  });
+
+  it('Estudar, pelo menu da aba, abre a sessão do grupo', async () => {
+    await go(studyPath(GROUP));
+    await rightClick($(`.abas-grupos .aba[data-grupo="${GROUP}"]`)!);
+    option('Estudar').click();
+    for (let i = 0; i < 40 && !host.querySelector('app-study-session'); i++) await settle();
+    expect(host.querySelector('app-study-session')).not.toBeNull();
+  });
+
 });

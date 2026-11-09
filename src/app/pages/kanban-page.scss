@@ -965,3 +965,11 @@ $folga-sombra: 30px;
     animation: none;
   }
 }
+
+/* segurar o dedo numa aba de grupo abre o menu dele (ui/group-menu.ts): sem o balão do link do sistema */
+@supports selector(:popover-open) {
+  .abas:not(.medida) .aba {
+    -webkit-touch-callout: none;
+    user-select: none;
+  }
+}

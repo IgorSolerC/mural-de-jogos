@@ -212,3 +212,11 @@
     display: none;
   }
 }
+
+/* segurar o dedo numa linha de grupo abre o menu dele (ui/group-menu.ts): sem selecionar o nome junto */
+@supports selector(:popover-open) {
+  .opcao {
+    -webkit-touch-callout: none;
+    user-select: none;
+  }
+}
