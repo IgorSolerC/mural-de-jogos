@@ -205,6 +205,8 @@ export class MuralConfig {
   readonly board = input<string | null>(null);
   /** Aberta pela engrenagem dos Estudos: só as partes deles (Estudo e Baralhos). */
   readonly study = input(false);
+  /** Aberta pelo "Ajustes do grupo" do menu de uma aba: já em Grupos, com o painel dele aberto. */
+  readonly group = input<string | null>(null);
   /** A folha fechou. */
   readonly closed = output<void>();
   /** Recomeçar o quadro: a página recomeça (com o Desfazer) depois da pergunta. */
@@ -349,7 +351,24 @@ export class MuralConfig {
     afterNextRender(() => {
       const el = this.dialog().nativeElement;
       el.showModal();
-      el.querySelector<HTMLElement>('.parte[aria-selected="true"]')?.focus();
+      const group = this.group();
+      if (!group || this.study()) {
+        el.querySelector<HTMLElement>('.parte[aria-selected="true"]')?.focus();
+        return;
+      }
+      // pelo menu da aba: o grupo aberto em Grupos, à vista e com o foco
+      // (sem mudar a parte lembrada: a engrenagem, depois, abre onde a pessoa estava)
+      const key = lookKey(group);
+      this.section.set('categorias');
+      this.open.set(key);
+      afterNextRender(
+        () => {
+          const row = el.querySelector<HTMLElement>(`.cat-abre[data-cat="${CSS.escape(key)}"]`);
+          row?.scrollIntoView({ block: 'start' });
+          (row ?? el.querySelector<HTMLElement>('.parte[aria-selected="true"]'))?.focus({ preventScroll: true });
+        },
+        { injector: this.injector },
+      );
     });
   }
 

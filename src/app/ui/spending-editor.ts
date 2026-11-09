@@ -31,7 +31,7 @@ import {
 } from '../core/spending';
 import { PersonRef, Quick, peopleText } from '../core/spending-quick';
 import { SpendingStore } from '../core/spending-store';
-import { Confirm } from './confirm';
+import { RemoveAsking } from './remove-asking';
 import { SpendingPeoplePicker } from './spending-people-picker';
 import { Toasts } from './toast';
 
@@ -264,7 +264,7 @@ export function seedEntry(q: Quick): Entry {
 })
 export class SpendingEditor {
   protected readonly store = inject(SpendingStore);
-  private readonly confirm = inject(Confirm);
+  private readonly asking = inject(RemoveAsking);
   private readonly toasts = inject(Toasts);
 
   /** O lançamento aberto na fita (para mudar), ou nada: um lançamento novo, que parte de `seed`. */
@@ -571,30 +571,6 @@ export class SpendingEditor {
 
   protected async remove(): Promise<void> {
     const r = this.row();
-    if (!r) return;
-    const e = r.entry;
-    const month = this.month();
-    const name = monthLabel(month).split(' de ')[0];
-    if (e.monthly && month > monthOfDay(e.date)) {
-      const choice = await this.confirm.choose({
-        title: `Apagar “${e.title}”?`,
-        text: 'Ele se repete todo mês. Os meses de antes continuam com ele.',
-        confirm: `De ${name} em diante`,
-        secondary: `Só em ${name}`,
-      });
-      if (!choice) return;
-      const before = { ...e };
-      if (choice === 'confirm') this.store.stopBefore(e.id, month);
-      else this.store.skipMonth(e.id, month);
-      this.toasts.show(choice === 'confirm' ? `“${e.title}” parou em ${monthLabel(shiftMonth(month, -1)).split(' de ')[0]}` : `“${e.title}” saiu de ${name}`, {
-        label: 'Desfazer',
-        run: () => this.store.restore(before),
-      });
-      this.done.emit();
-      return;
-    }
-    const gone = this.store.remove(e.id);
-    if (gone) this.toasts.show(`“${e.title}” apagado`, { label: 'Desfazer', run: () => this.store.restore(gone) });
-    this.done.emit();
+    if (r && (await this.asking.entry(r.entry, this.month()))) this.done.emit();
   }
 }

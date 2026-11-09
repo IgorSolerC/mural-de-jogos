@@ -62,6 +62,7 @@
               @for (p of posts(); track p.key) {
                 <li>
                   <app-feed-post
+                    [attr.data-post]="p.key"
                     [post]="p"
                     [fresh]="isFresh(p.item)"
                     [face]="faces().get(p.item.pessoa.codigo)"
@@ -352,5 +353,8 @@
     }
   }
 }
+
+<!-- o botão direito (ou o dedo segurado) num post do Feed: o menu dele (ui/context-menu.ts) -->
+<app-context-menu #postMenu [caption]="postCaption()" [sections]="postSections()" (closed)="postOn.set(null)" />
 
 <app-review-reader />

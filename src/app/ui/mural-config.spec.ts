@@ -607,3 +607,28 @@ describe('as configurações do mural (a folha)', () => {
     expect(el.querySelector('dialog')!.open).toBeFalse();
   });
 });
+
+/** Aberta pelo "Ajustes do grupo" do menu de uma aba (ui/note-tabs-bar.ts). */
+describe('as configurações do mural abertas num grupo', () => {
+  it('abre em Grupos, com o painel do grupo aberto e o foco nele', async () => {
+    localStorage.clear();
+    TestBed.configureTestingModule({ imports: [MuralConfig], providers: [provideZonelessChangeDetection()] });
+    TestBed.inject(ReviewStore).reviews.set([note('Viagens!'), note('Viagens!'), note('Roadmap site')]);
+    const fixture = TestBed.createComponent(MuralConfig);
+    fixture.componentRef.setInput('group', 'Roadmap site');
+    const el: HTMLElement = fixture.nativeElement;
+    document.body.appendChild(el);
+    await fixture.whenStable();
+    for (let i = 0; i < 3; i++) {
+      await new Promise((r) => setTimeout(r, 0));
+      TestBed.tick();
+    }
+    expect(el.querySelector('#config-aba-categorias')!.getAttribute('aria-selected')).toBe('true');
+    const row = el.querySelector<HTMLElement>('.cat-abre[data-cat="roadmap site"]')!;
+    expect(row.getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe(row);
+    el.querySelector('dialog')?.close();
+    el.remove();
+    localStorage.clear();
+  });
+});

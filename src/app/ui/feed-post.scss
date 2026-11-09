@@ -361,3 +361,11 @@
     transition: none;
   }
 }
+
+/* na página de Amigos, segurar o dedo num post abre o menu dele (ui/context-menu.ts): sem o balão do
+   sistema (salvar a imagem da capa) junto */
+@supports selector(:popover-open) {
+  :host([data-post]) {
+    -webkit-touch-callout: none;
+  }
+}

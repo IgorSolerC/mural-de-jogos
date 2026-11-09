@@ -5,7 +5,7 @@
        traço de marca-texto). Filtrar abre embaixo da pasta a folha dos filtros, como nas resenhas (ver
        ui/filter-card.ts): o assunto, as tags e o "Mostrar também". Depois da linha picotada, os
        filtros ligados (cada um com o seu X) e o que a busca achou. -->
-  <app-note-tabs class="cadernos" />
+  <app-note-tabs class="cadernos" (adjust)="openConfig($event)" />
 
   <div class="pasta">
     <div class="pasta-linha">
@@ -84,7 +84,7 @@
               [attr.aria-expanded]="configOpen()"
               aria-label="Configurações do mural"
               title="Configurações do mural"
-              (click)="configOpen.set(true)"
+              (click)="openConfig(null)"
             >
               <lucide-icon [img]="GearIcon" [size]="18" aria-hidden="true" />
             </button>
@@ -101,7 +101,7 @@
        (cada um com o seu X) e o que a busca achou. No mural de músicas, as divisórias
        voltam: uma por artista, como as categorias das anotações. -->
   @if (artistTabs()) {
-    <app-note-tabs class="cadernos" />
+    <app-note-tabs class="cadernos" (adjust)="openConfig($event)" />
   }
   <div class="pasta" [class.solta]="!artistTabs()">
     <div class="pasta-linha">
@@ -289,6 +289,6 @@
 <!-- as configurações do mural: um pedaço à parte, que só chega quando a engrenagem é tocada -->
 @if (configOpen()) {
   @defer (on immediate) {
-    <app-mural-config (closed)="closeConfig()" />
+    <app-mural-config [group]="configGroup()" (closed)="closeConfig()" />
   }
 }

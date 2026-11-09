@@ -27,6 +27,19 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-09-menu-abas-gastos-feed',
+    version: '1.41.2',
+    kind: 'ajustes',
+    date: '2026-11-09',
+    title: 'Botão direito nas abas dos grupos, nos Gastos e no Feed',
+    melhorias: [
+      'O botão direito (ou o dedo segurado, no celular) também abre o menu do Murall nas abas dos grupos do mural, nas linhas da fita dos Gastos e nos posts do Feed.',
+      'Na aba de um grupo: uma anotação nova já nele, o quadro dele no Kanban, os baralhos nos Flashcards, os ajustes do grupo (as configurações do mural abrem já nele) e esconder a aba no Mais, com Desfazer.',
+      'Numa linha dos Gastos: editar, ver só a categoria dela e apagar, com a mesma pergunta da folhinha. Num post do Feed: abrir a ficha, comentar, revelar os spoilers, pôr na wishlist, ver o perfil e copiar o link.',
+    ],
+    correcoes: ['Nas configurações do mural, o grupo com uma anotação só não diz mais "Muda em a anotação" embaixo do nome.'],
+  },
+  {
     id: '2026-11-08-menu-em-todo-lugar',
     version: '1.41.1',
     kind: 'ajustes',

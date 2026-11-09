@@ -96,6 +96,9 @@ interface Page {
   reveal(p: unknown): void;
   openNotice(n: CardNotice): void;
   onTabKey(e: KeyboardEvent): void;
+  postOn: { set(key: string | null): void };
+  postCaption(): string;
+  postSections(): readonly (readonly { id: string; label: string; run(): void }[])[];
 }
 
 describe('Amigos: a página (MailPage)', () => {
@@ -324,6 +327,35 @@ describe('Amigos: a página (MailPage)', () => {
       page.wish(theirs);
       expect(store.wishes().map((w) => w.game.name)).toEqual(['Celeste']);
       expect(page.isWished(theirs)).toBeTrue();
+    });
+  });
+
+  describe('o menu do botão direito num post', () => {
+    const ids = (page: Page) => page.postSections().map((l) => l.map((x) => x.id));
+
+    it('em segredo: abrir, comentar, revelar, querer e o perfil, sem o link; revelado, o link aparece', async () => {
+      items.set([post(ana, 'rana01', '2026-10-06T10:00:00.000Z')]);
+      cloudWalls.set(ana.codigo, wallOf(ana, [review('rana01', 'Celeste')]));
+      const page = await open();
+      const p = posts(page)[0];
+      page.postOn.set(p.key);
+      expect(page.postCaption()).toBe('Obra rana01 · Ana');
+      expect(ids(page)).toEqual([['abrir', 'comentar', 'revelar'], [], ['querer', 'perfil']]);
+      expect(page.postSections()[2][0].label).toBe('Quero jogar');
+      expect(page.postSections()[2][1].label).toBe('Ver o perfil de Ana');
+      page.postSections()[0][2].run();
+      expect(ids(page)).toEqual([['abrir', 'comentar'], ['link'], ['querer', 'perfil']]);
+      // na wishlist, o "Quero" sai
+      page.postSections()[2][0].run();
+      expect(ids(page)[2]).toEqual(['perfil']);
+    });
+
+    it('o mural que não veio: tentar de novo e o perfil', async () => {
+      items.set([post(ana, 'rana01', '2026-10-06T10:00:00.000Z')]);
+      cloudWalls.set(ana.codigo, null);
+      const page = await open();
+      page.postOn.set(posts(page)[0].key);
+      expect(ids(page)).toEqual([['tentar'], [], ['perfil']]);
     });
   });
 

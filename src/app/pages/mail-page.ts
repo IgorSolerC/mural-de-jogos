@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, Injector, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, Injector, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { focusAfterRender, tabStep } from '../ui/focus';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -27,6 +27,9 @@ import { Desk } from '../core/desk';
 import { ReactionTarget, Reactions } from '../core/reactions';
 import { Comments } from '../core/comments';
 import { FeedPost, FeedPostData } from '../ui/feed-post';
+import { ContextMenu, ContextMenuTrigger, MenuItem, MenuSections } from '../ui/context-menu';
+import { fichaLink, hasLink } from '../core/ficha-link';
+import { profileOf } from '../core/kinds';
 import { NoticeList } from '../ui/notice-list';
 import { PersonFace, PersonPhoto } from '../ui/person-photo';
 import { PineBoard } from '../ui/pine-board';
@@ -64,7 +67,7 @@ const BOARD_FACES = 8;
  */
 @Component({
   selector: 'app-mail-page',
-  imports: [Busy, FeedPost, IconModule, NoticeList, PersonPhoto, Pin, PineBoard, ReviewReader, RouterLink],
+  imports: [Busy, ContextMenu, FeedPost, IconModule, NoticeList, PersonPhoto, Pin, PineBoard, ReviewReader, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './mail-page.html',
   styleUrl: './mail-page.scss',
@@ -270,6 +273,21 @@ export class MailPage {
   private readonly wished = computed(() => new Set(this.store.wishes().map((w) => `${w.kind}:${fold(w.game.name)}`)));
 
   constructor() {
+    // o botão direito (ou o dedo segurado) num post abre o menu dele
+    new ContextMenuTrigger({
+      host: inject<ElementRef<HTMLElement>>(ElementRef).nativeElement,
+      targets: 'app-feed-post[data-post]',
+      keyOf: (box) => box.getAttribute('data-post'),
+      hold: true,
+      isOpenFor: (key) => this.postMenu().isOpenFor(key),
+      open: (key, box, x, y, by) => {
+        this.postOn.set(key);
+        // o foco volta para onde estava no post (Shift+F10 no Comentar); senão, para o nome de quem pregou
+        const at = document.activeElement;
+        const back = at instanceof HTMLElement && at !== box && box.contains(at) ? at : box.querySelector<HTMLElement>('.nome');
+        this.postMenu().show({ key, x, y, by, back });
+      },
+    });
     // ao abrir (e ao entrar na conta com a página aberta): busca tudo, guarda o "visto até" e marca
     effect(() => {
       if (!this.follow.available()) return;
@@ -581,4 +599,55 @@ export class MailPage {
       this.busy.set(null);
     }
   }
+
+  // ===== o menu do botão direito num post do Feed =====
+
+  private readonly postMenu = viewChild.required<ContextMenu>('postMenu');
+  /** O post com o menu aberto (a chave). */
+  protected readonly postOn = signal<string | null>(null);
+  /** O post do menu, como está agora (a ficha pode ter chegado com o menu aberto). */
+  private readonly menuPost = computed(() => {
+    const key = this.postOn();
+    return key ? (this.posts().find((p) => p.key === key) ?? null) : null;
+  });
+  protected readonly postCaption = computed(() => {
+    const p = this.menuPost();
+    return p ? `${p.item.titulo} · ${p.item.pessoa.nome}` : '';
+  });
+
+
+  /**
+   * O que dá para fazer com um post, os mesmos caminhos do pé dele e do nome: abrir a ficha, comentar (ou
+   * ler os comentários), revelar os spoilers, querer a obra, ver o perfil de quem pregou e copiar o link da
+   * ficha (não da que está em segredo).
+   */
+  protected readonly postSections = computed<MenuSections>(() => {
+    const p = this.menuPost();
+    if (!p) return [];
+    const who = p.item.pessoa;
+    const theirs = p.theirs;
+    const read: MenuItem[] = [];
+    const keep: MenuItem[] = [];
+    if (theirs) {
+      read.push({ id: 'abrir', label: 'Abrir a ficha', icon: ICON.aumentar, dialog: true, run: () => this.openPost(p, false) });
+      const { code, ref } = p.target;
+      if (!(this.comments.closedOf(code, ref) && code !== this.comments.myCode())) {
+        const n = this.comments.countOf(code, ref);
+        read.push({ id: 'comentar', label: n ? 'Ler os comentários' : 'Comentar', icon: ICON.comentar, dialog: true, count: n ? { n, say: n === 1 ? 'comentário' : 'comentários' } : undefined, run: () => this.openPost(p, true) });
+      }
+      if (p.secret) read.push({ id: 'revelar', label: 'Revelar spoilers', icon: ICON.ver, hint: 'A nota e o texto desta ficha, só desta vez', run: () => this.reveal(p) });
+      if (p.item.mural !== 'anotacoes' && !p.mine && !this.isWished(theirs)) {
+        keep.push({ id: 'querer', label: `Quero ${profileOf(p.item.mural).verb}`, icon: ICON.querer, hint: 'Pôr na sua wishlist', run: () => this.wish(theirs) });
+      }
+    } else if (p.estado === 'erro') {
+      read.push({ id: 'tentar', label: 'Tentar de novo', icon: ICON.atualizar, hint: `Buscar o mural de ${who.nome} outra vez`, run: () => void this.retryWall(who.codigo) });
+    }
+    keep.push({ id: 'perfil', label: `Ver o perfil de ${who.nome}`, icon: ICON.pessoa, run: () => this.openProfile(who) });
+    const link: MenuItem[] =
+      theirs && hasLink(theirs) && !p.secret
+        ? [{ id: 'link', label: 'Copiar o link', icon: ICON.link, hint: 'O endereço que abre só esta ficha', run: () => void this.toasts.copy(fichaLink(who.codigo, theirs.id), 'Copiei o link da ficha.', 'Não deu para copiar o link. Tente de novo.') }]
+        : [];
+    // como no menu da anotação: abrir e ler, depois a cópia, depois o resto
+    return [read, link, keep];
+  });
 }

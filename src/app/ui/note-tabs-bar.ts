@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, ElementRef, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, inject, output, signal, viewChild } from '@angular/core';
+import { Router } from '@angular/router';
 import { ICON, IconModule } from './icons';
 import { WallMotion } from '../core/wall-motion';
 import { WallState } from '../core/wall-view';
@@ -8,6 +9,14 @@ import { CategoryLook, bandColor, categoryColorHex, lookKey } from '../core/cate
 import { CategoryLabel } from './category-label';
 import { TabMore, TabMoreItem } from './tab-more';
 import { TabFit } from './tab-fit';
+import { ContextMenu, ContextMenuTrigger, MenuBy, MenuSections } from './context-menu';
+import { Desk } from '../core/desk';
+import { KanbanStore } from '../core/kanban-store';
+import { Settings } from '../core/settings';
+import { StudyStore } from '../core/study-store';
+import { studyGroupId } from '../core/study';
+import { kanbanPath, studyPath } from '../core/areas';
+import { Toasts } from './toast';
 
 /** A aba que o mural gera, pela chave da aba ('' é o Tudo). */
 function autoOf(key: string): AutoTab {
@@ -28,7 +37,7 @@ function autoOf(key: string): AutoTab {
  */
 @Component({
   selector: 'app-note-tabs',
-  imports: [IconModule, CategoryLabel, TabMore],
+  imports: [IconModule, CategoryLabel, ContextMenu, TabMore],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (tabs(); as t) {
@@ -69,6 +78,7 @@ function autoOf(key: string): AutoTab {
             [class.orelha-cor]="!!colorOf(x)"
             [style.--cat-cor]="colorOf(x)"
             [attr.aria-pressed]="active() === x.key"
+            [attr.data-grupo]="x.key === NONE ? null : x.key"
             [title]="x.label"
             (click)="choose(x.key)"
           >
@@ -121,6 +131,9 @@ function autoOf(key: string): AutoTab {
         <span class="aba mais" data-k="mais"><span class="nome">Mais</span></span>
       </div>
     }
+
+    <!-- o botão direito (ou o dedo segurado) numa aba de grupo: o menu dele (ui/context-menu.ts) -->
+    <app-context-menu #menu [caption]="menuCaption()" [sections]="menuSections()" (closed)="menuOn.set(null)" />
   `,
   styles: `
     @use 'divisorias' as div;
@@ -182,6 +195,14 @@ function autoOf(key: string): AutoTab {
     /* o "Mais" aberto: a setinha vira */
     .mais.aberto .chev {
       rotate: 180deg;
+    }
+
+    /* segurar o dedo numa aba de grupo abre o menu dela: sem o balão do sistema e sem selecionar o nome */
+    @supports selector(:popover-open) {
+      .aba[data-grupo] {
+        -webkit-touch-callout: none;
+        user-select: none;
+      }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -293,5 +314,76 @@ export class NoteTabsBar {
   protected choose(key: string): void {
     if (key === this.active()) return;
     this.motion.run(() => this.view.setNoteTab(key));
+  }
+
+  // ===== o menu do botão direito numa aba de grupo =====
+
+  /** "Ajustes do grupo": as configurações do mural, abertas em Grupos, nele (quem tem a engrenagem abre). */
+  readonly adjust = output<string>();
+
+  private readonly desk = inject(Desk);
+  private readonly router = inject(Router);
+  private readonly kanban = inject(KanbanStore);
+  private readonly settings = inject(Settings);
+  private readonly study = inject(StudyStore);
+  private readonly toasts = inject(Toasts);
+  private readonly injector = inject(Injector);
+  private readonly menu = viewChild.required<ContextMenu>('menu');
+  /** A aba com o menu aberto. */
+  protected readonly menuOn = signal<NoteTab | null>(null);
+  protected readonly menuCaption = computed(() => this.menuOn()?.label ?? '');
+
+  /** O grupo de uma aba em pé (o "Sem grupo" e as que o mural gera não têm menu). */
+  private tabOf(key: string): NoteTab | undefined {
+    return key === NO_CATEGORY_TAB ? undefined : this.layout().shown.find((x) => x.key === key);
+  }
+
+  constructor() {
+    new ContextMenuTrigger({
+      host: this.host,
+      targets: '.abas:not(.medida) .aba[data-grupo]',
+      keyOf: (box) => box.getAttribute('data-grupo'),
+      // as abas dos artistas não são grupos, e no mural de quem se visita os grupos não são seus: sem menu
+      on: () => !this.music() && this.view.owner() === null,
+      hold: true,
+      isOpenFor: (key) => this.menu().isOpenFor(key),
+      open: (key, box, x, y, by: MenuBy) => {
+        const tab = this.tabOf(key);
+        if (!tab) return;
+        this.menuOn.set(tab);
+        this.menu().show({ key, x, y, by, back: box });
+      },
+    });
+  }
+
+  /**
+   * O que dá para fazer com um grupo, sem abri-lo: uma anotação nova nele, o quadro dele no Kanban, os
+   * baralhos dele nos Flashcards (quando há), os ajustes dele e mandar a aba para o "Mais".
+   */
+  protected readonly menuSections = computed<MenuSections>(() => {
+    const tab = this.menuOn();
+    if (!tab) return [];
+    const label = tab.label;
+    const group = studyGroupId(label);
+    const decks = this.study.decksOfGroup(group).length;
+    return [
+      [
+        { id: 'nova', label: 'Nova anotação', icon: ICON.novaNota, dialog: true, hint: `Uma anotação já em ${label}`, run: () => this.desk.newNoteIn(label) },
+        { id: 'kanban', label: 'Ver no Kanban', icon: ICON.colunas, hint: `O quadro de ${label}`, run: () => void this.router.navigateByUrl(kanbanPath(this.kanban.boardFor(label).id)) },
+        ...(decks ? [{ id: 'flashcards', label: 'Ver nos Flashcards', icon: ICON.camadas, hint: `Os baralhos de ${label}`, run: () => void this.router.navigateByUrl(studyPath(group)) }] : []),
+      ],
+      [
+        { id: 'ajustes', label: 'Ajustes do grupo', icon: ICON.editar, dialog: true, hint: 'O nome, o desenho, a cor e os padrões', run: () => this.adjust.emit(label) },
+        { id: 'esconder', label: 'Esconder no Mais', icon: ICON.esconder, hint: 'A aba sai de cima e fica no Mais', run: () => this.hide(label) },
+      ],
+    ];
+  });
+
+  /** O olho das configurações do mural: a aba vai para o "Mais", com o Desfazer. */
+  private hide(label: string): void {
+    this.settings.setCategoryPrefs(label, { hidden: true });
+    // a aba saiu da fileira (o foco tinha voltado para ela): o foco vai para o "Mais", onde ela está agora
+    afterNextRender(() => this.host.querySelector<HTMLElement>('.abas:not(.medida) app-tab-more button')?.focus(), { injector: this.injector });
+    this.toasts.show(`${label} foi para o Mais`, { label: 'Desfazer', run: () => this.settings.setCategoryPrefs(label, { hidden: undefined }) });
   }
 }

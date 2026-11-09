@@ -166,7 +166,7 @@
                           <lucide-icon [img]="GripIcon" [size]="20" aria-hidden="true" />
                         </button>
                       }
-                      <button type="button" class="cat-abre" [attr.aria-expanded]="aberta" [attr.aria-controls]="'config-cat-' + i" (click)="toggle(c)">
+                      <button type="button" class="cat-abre" [attr.data-cat]="c.key" [attr.aria-expanded]="aberta" [attr.aria-controls]="'config-cat-' + i" (click)="toggle(c)">
                         <span class="orelha" [class.orelha-cor]="!!colorOf(c)" [style.--cat-cor]="colorOf(c)"><app-cat-label [label]="c.label" [look]="lookOf(c)" [iconSize]="14" /></span>
                         <span class="cat-textos">
                           <span class="cat-n">
@@ -213,7 +213,7 @@
                               Renomear
                             </button>
                           </div>
-                          <p class="nome-dica" [id]="'config-nome-dica-' + i">Muda em {{ c.n === 1 ? 'a anotação' : 'todas as ' + c.n + ' anotações' }}. Com o nome de outro grupo, os dois viram um só.</p>
+                          <p class="nome-dica" [id]="'config-nome-dica-' + i">Muda {{ c.n === 1 ? 'na anotação' : 'em todas as ' + c.n + ' anotações' }}. Com o nome de outro grupo, os dois viram um só.</p>
                         </form>
 
                         <app-category-style class="sub-bloco" [id]="'config-estilo-' + i" [category]="c.label" [bare]="true" />

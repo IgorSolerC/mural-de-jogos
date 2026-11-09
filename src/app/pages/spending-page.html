@@ -135,8 +135,10 @@
         [total]="rows().length"
         [person]="personFocus()"
         [refunds]="refunds()"
+        [category]="focus()"
         [attr.data-colagem-segura]="filtered() || null"
         (clearFilter)="clearFilters()"
+        (onlyCategory)="pick($event)"
       />
       <app-spending-summary
         class="resumo"

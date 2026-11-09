@@ -14,7 +14,7 @@ import { FilterCard } from './filter-card';
 import { MuralConfig } from './mural-config';
 import { NoteTabsBar } from './note-tabs-bar';
 import { NoteFilters } from './note-filters';
-import { ALL_TAB, NO_CATEGORY_TAB, isGroupTab } from '../core/note-tabs';
+import { ALL_TAB, NO_CATEGORY_TAB, isGroupTab, noteTabKey } from '../core/note-tabs';
 import { SearchStrip } from './search-strip';
 
 /** Ordenar é um controle só: data, nome, status ou uma das notas. */
@@ -95,9 +95,17 @@ export class WallToolbar {
   protected readonly filterCount = computed(() => (this.notes() ? this.noteFilters.active().length : this.view.filterCount()));
   /** A engrenagem das anotações: o foco volta para ela quando as configurações fecham. */
   private readonly gear = viewChild<ElementRef<HTMLButtonElement>>('gear');
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
   /** As configurações do mural abertas (a folha chega por @defer, ver ui/mural-config.ts). */
   protected readonly configOpen = signal(false);
+  /** Aberta pelo menu de uma aba ("Ajustes do grupo"): já em Grupos, com o dele aberto. */
+  protected readonly configGroup = signal<string | null>(null);
+
+  protected openConfig(group: string | null): void {
+    this.configGroup.set(group);
+    this.configOpen.set(true);
+  }
 
   /** A cartela de filtros aberta embaixo da régua. */
   protected readonly open = linkedSignal({ source: this.mural.kind, computation: () => false });
@@ -226,8 +234,13 @@ export class WallToolbar {
   }
 
   protected closeConfig(): void {
+    const group = this.configGroup();
     this.configOpen.set(false);
-    this.gear()?.nativeElement.focus();
+    this.configGroup.set(null);
+    // aberta pelo menu de uma aba: o foco volta para a aba (renomeada ou escondida, para a engrenagem)
+    const key = group ? noteTabKey({ category: group }) : null;
+    const tab = key ? [...this.host.querySelectorAll<HTMLElement>(`app-note-tabs .aba[data-grupo="${CSS.escape(key)}"]`)].find((t) => (typeof t.checkVisibility === 'function' ? t.checkVisibility() : t.offsetParent !== null)) : null;
+    (tab ?? this.gear()?.nativeElement)?.focus();
   }
 
   protected flip(): void {

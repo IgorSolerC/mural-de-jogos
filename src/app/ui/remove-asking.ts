@@ -3,6 +3,8 @@ import { Reminder, addDays, dayAndMonth, occurrenceStart, rangeLabel, repeatShor
 import { CalendarStore } from '../core/calendar-store';
 import { cardsIn, removeColumn } from '../core/kanban';
 import { KanbanStore } from '../core/kanban-store';
+import { Entry, monthLabel, monthOfDay, shiftMonth } from '../core/spending';
+import { SpendingStore } from '../core/spending-store';
 import { StudyStore } from '../core/study-store';
 import { Confirm } from './confirm';
 import { ICON } from './icons';
@@ -30,6 +32,7 @@ export class RemoveAsking {
   private readonly study = inject(StudyStore);
   private readonly kanban = inject(KanbanStore);
   private readonly calendar = inject(CalendarStore);
+  private readonly spending = inject(SpendingStore);
 
   /**
    * Apaga o baralho: as cartas saem dele, e a que não está em nenhum outro sai dos Estudos (a anotação
@@ -143,6 +146,35 @@ export class RemoveAsking {
     before?.();
     this.calendar.remove(r.id);
     this.toasts.show(`${name} saiu do calendário`, { label: 'Desfazer', run: () => this.calendar.restore(r) });
+    return true;
+  }
+
+  /**
+   * Apaga um lançamento dos Gastos, visto no mês `month`. O fixo, depois do mês em que nasceu, pergunta
+   * se para dali em diante ou sai só daquele mês (os meses de antes continuam com ele); o resto apaga
+   * direto. Sempre com o Desfazer.
+   */
+  async entry(e: Entry, month: string): Promise<boolean> {
+    const name = monthLabel(month).split(' de ')[0];
+    if (e.monthly && month > monthOfDay(e.date)) {
+      const choice = await this.confirm.choose({
+        title: `Apagar “${e.title}”?`,
+        text: 'Ele se repete todo mês. Os meses de antes continuam com ele.',
+        confirm: `De ${name} em diante`,
+        secondary: `Só em ${name}`,
+      });
+      if (!choice) return false;
+      const before = { ...e };
+      if (choice === 'confirm') this.spending.stopBefore(e.id, month);
+      else this.spending.skipMonth(e.id, month);
+      this.toasts.show(choice === 'confirm' ? `“${e.title}” parou em ${monthLabel(shiftMonth(month, -1)).split(' de ')[0]}` : `“${e.title}” saiu de ${name}`, {
+        label: 'Desfazer',
+        run: () => this.spending.restore(before),
+      });
+      return true;
+    }
+    const gone = this.spending.remove(e.id);
+    if (gone) this.toasts.show(`“${e.title}” apagado`, { label: 'Desfazer', run: () => this.spending.restore(gone) });
     return true;
   }
 }

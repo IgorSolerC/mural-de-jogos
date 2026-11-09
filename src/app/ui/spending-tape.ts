@@ -1,8 +1,10 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { ICON, IconModule } from './icons';
 import { MONTHS_SHORT } from '../core/dates';
-import { ME, NEED_LABEL, PAY_LABEL, Row, brl, peopleOf, shareOf } from '../core/spending';
+import { ME, NEED_LABEL, PAY_LABEL, Row, brl, monthOfDay, peopleOf, shareOf } from '../core/spending';
 import { SpendingStore } from '../core/spending-store';
+import { ContextMenu, ContextMenuTrigger, MenuItem, MenuSections } from './context-menu';
+import { RemoveAsking } from './remove-asking';
 import { SpendingEditor } from './spending-editor';
 
 const WEEKDAYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
@@ -34,7 +36,7 @@ interface Line {
  */
 @Component({
   selector: 'app-spending-tape',
-  imports: [IconModule, SpendingEditor],
+  imports: [ContextMenu, IconModule, SpendingEditor],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="cabeca">
@@ -62,6 +64,7 @@ interface Line {
             <button
               type="button"
               class="botao"
+              [attr.data-lancamento]="e.id"
               [attr.aria-expanded]="open() === e.id"
               [attr.aria-label]="label(l)"
               (click)="toggle(e.id)"
@@ -120,6 +123,9 @@ interface Line {
     } @else {
       <p class="vazio">{{ emptyText() }}</p>
     }
+
+    <!-- o botão direito (ou o dedo segurado) numa linha: o menu dela (ui/context-menu.ts) -->
+    <app-context-menu #menu [caption]="menuCaption()" [sections]="menuSections()" (closed)="menuOn.set(null)" />
   `,
   styleUrl: './spending-tape.scss',
 })
@@ -139,6 +145,10 @@ export class SpendingTape {
   /** Quanto já voltou de cada gasto. */
   readonly refunds = input<Map<string, number>>(new Map());
   readonly clearFilter = output<void>();
+  /** A categoria em que a fita está filtrada sozinha (o envelope escolhido), se está. */
+  readonly category = input<string | null>(null);
+  /** "Só <categoria>" no menu de uma linha: a fita fica só com ela. */
+  readonly onlyCategory = output<string>();
 
   protected readonly CloseIcon = ICON.fechar;
   protected readonly RepeatIcon = ICON.repetir;
@@ -221,5 +231,72 @@ export class SpendingTape {
     if (l.people) parts.push(`com ${peopleOf(e).map((id) => this.store.person(id)?.name ?? 'alguém').join(', ')}`);
     if (l.back) parts.push(`voltou ${brl(l.back)}`);
     return parts.join(', ');
+  }
+
+  // ===== o menu do botão direito numa linha =====
+
+  private readonly asking = inject(RemoveAsking);
+  private readonly injector = inject(Injector);
+  private readonly menu = viewChild.required<ContextMenu>('menu');
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+  /** A linha com o menu aberto (o id do lançamento). */
+  protected readonly menuOn = signal<string | null>(null);
+  /** O lançamento da linha com o menu, como está agora. */
+  private readonly menuRow = computed(() => {
+    const id = this.menuOn();
+    return id ? (this.rows().find((r) => r.entry.id === id) ?? null) : null;
+  });
+  protected readonly menuCaption = computed(() => this.menuRow()?.entry.title ?? '');
+
+  constructor() {
+    new ContextMenuTrigger({
+      host: this.host,
+      targets: '.botao[data-lancamento]',
+      keyOf: (box) => box.getAttribute('data-lancamento'),
+      hold: true,
+      isOpenFor: (id) => this.menu().isOpenFor(id),
+      open: (id, box, x, y, by) => {
+        this.menuOn.set(id);
+        this.menu().show({ key: id, x, y, by, back: box });
+      },
+    });
+  }
+
+  /**
+   * O que dá para fazer com um lançamento sem abrir a folhinha: abri-la, deixar a fita só com a
+   * categoria dele (ou, já filtrada nela, o mês inteiro de novo) e apagar, com a mesma pergunta da folhinha.
+   */
+  protected readonly menuSections = computed<MenuSections>(() => {
+    const row = this.menuRow();
+    if (!row) return [];
+    const e = row.entry;
+    const cat = this.store.category(e.category);
+    const only = this.category() === e.category;
+    const open: MenuItem[] = this.open() === e.id ? [] : [{ id: 'editar', label: 'Editar', icon: ICON.editar, hint: 'A folhinha dele, para mudar', run: () => this.open.set(e.id) }];
+    const filter: MenuItem[] = only
+      ? [{ id: 'filtro', label: 'Ver o mês inteiro', icon: ICON.calendario, hint: 'Tirar os filtros da fita', run: () => this.clearFilter.emit() }]
+      : [{ id: 'filtro', label: `Só ${cat?.name ?? 'Sem categoria'}`, icon: ICON.filtrar, hint: 'A fita e o mês a mês só com esta categoria', run: () => this.onlyCategory.emit(e.category) }];
+    return [
+      [...open, ...filter],
+      // o fixo visto depois do mês em que nasceu pergunta antes (de quando em diante); o resto apaga com o Desfazer
+      [{ id: 'apagar', label: 'Apagar o lançamento', icon: ICON.apagar, danger: true, dialog: !!e.monthly && this.month() > monthOfDay(e.date), run: () => void this.remove(e.id) }],
+    ];
+  });
+
+  private async remove(id: string): Promise<void> {
+    const row = this.rows().find((r) => r.entry.id === id);
+    if (!row || !(await this.asking.entry(row.entry, this.month()))) return;
+    if (this.open() === id) this.open.set(null);
+    // a linha saiu da fita (o foco tinha voltado para ela): o foco vai para a de baixo, ou a de cima
+    const ids = this.lines().map((l) => l.row.entry.id);
+    const at = ids.indexOf(id);
+    const near = [...ids.slice(at + 1), ...ids.slice(0, Math.max(at, 0)).reverse()];
+    afterNextRender(
+      () => {
+        const next = near.map((n) => this.host.querySelector<HTMLElement>(`.botao[data-lancamento="${CSS.escape(n)}"]`)).find((b) => !!b);
+        (next ?? this.host.querySelector<HTMLElement>('.ordem .tinta-pequena'))?.focus();
+      },
+      { injector: this.injector },
+    );
   }
 }

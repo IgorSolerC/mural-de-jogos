@@ -385,3 +385,12 @@
   display: inline-flex;
   opacity: 0.65;
 }
+
+/* segurar o dedo numa linha abre o menu dela (ui/context-menu.ts): sem o balão do sistema e sem
+   selecionar o nome junto */
+@supports selector(:popover-open) {
+  .botao {
+    -webkit-touch-callout: none;
+    user-select: none;
+  }
+}
