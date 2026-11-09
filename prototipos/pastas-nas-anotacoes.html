@@ -1,0 +1,1051 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pastas nas anotações</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=Kalam:wght@400;700&family=Permanent+Marker&display=swap" rel="stylesheet">
+<style>
+:root {
+  --wall: #1f1c1a;
+  --hole: #0b0908;
+  --ink: #151515;
+  --wall-ink: #f3efe6;
+  --wall-ink-2: #bdb5a8;
+  --manilha: #ecdcae;
+  --manilha-atras: #ae9a6c;
+  --pasta-corpo: #d9c590;
+  --pasta-fundo: #bea86f;
+  --papel: #fbf9f2;
+  --hi: #ffda42;
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.45 0 0 0 0 0.4 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --marker: 'Permanent Marker', 'Comic Sans MS', cursive;
+  --label: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --mao: 'Kalam', cursive;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--wall);
+  background-image: radial-gradient(circle, var(--hole) 2px, transparent 2.6px);
+  background-size: 26px 26px;
+  color: var(--wall-ink);
+  font-family: var(--label);
+}
+body.arrastando, body.arrastando * { cursor: grabbing !important; }
+.pagina { max-width: 1180px; margin: 0 auto; padding: 22px 16px 80px; }
+svg.i { width: 1em; height: 1em; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+button { font: inherit; color: inherit; }
+button:focus-visible, [tabindex]:focus-visible { outline: 3px solid var(--hi); outline-offset: 2px; }
+
+/* ===== Os jeitos (topo) ===== */
+.jeitos { display: flex; flex-wrap: wrap; gap: 6px 4px; align-items: center; }
+.jeito {
+  border: 0; background: none; cursor: pointer;
+  padding: 6px 12px 5px;
+  font: 700 1.2rem/1 var(--label); letter-spacing: .07em; text-transform: uppercase;
+  color: var(--wall-ink-2);
+}
+.jeito b { font-weight: 700; opacity: .55; margin-right: 4px; }
+.jeito:hover { color: var(--wall-ink); }
+.jeito[aria-pressed="true"] {
+  background: var(--hi); color: var(--ink);
+  clip-path: polygon(1% 10%, 100% 0, 98% 94%, 0 100%);
+}
+.jeito[aria-pressed="true"] b { opacity: .7; }
+.recomecar {
+  margin-left: auto; border: 0; background: none; cursor: pointer;
+  font: 500 1rem var(--label); color: var(--wall-ink-2); text-decoration: underline dotted; text-underline-offset: 4px;
+}
+.sobre { margin: 14px 0 26px; max-width: 78ch; }
+.sobre .como { font: 400 1.12rem/1.35 var(--mao); margin: 0 0 6px; }
+.sobre .pros { display: flex; flex-wrap: wrap; gap: 4px 22px; font: 500 1rem/1.3 var(--label); color: var(--wall-ink-2); margin: 0 0 8px; }
+.sobre .pros strong { color: var(--wall-ink); font-weight: 700; letter-spacing: .05em; text-transform: uppercase; font-size: .86rem; margin-right: 4px; }
+.sobre .todos { font: 500 .98rem/1.35 var(--label); color: var(--wall-ink-2); margin: 0; padding-left: 12px; border-left: 3px solid var(--hi); }
+
+/* ===== A pasta do grupo ===== */
+.grupos { display: flex; gap: 4px; align-items: flex-end; padding-left: 14px; position: relative; z-index: 2; }
+.grupo {
+  border: 0; cursor: pointer;
+  display: inline-flex; align-items: baseline; gap: 8px;
+  padding: 10px 16px 9px; border-radius: 10px 10px 0 0;
+  background: var(--manilha-atras) var(--grain); background-blend-mode: multiply;
+  font: 400 1.08rem var(--marker); color: var(--ink);
+  translate: 0 5px;
+  transition: translate .15s, background-color .15s;
+}
+.grupo small { font: 700 .92rem var(--label); opacity: .62; }
+.grupo:hover:not(.on) { background-color: #c7b385; translate: 0 2px; }
+.grupo.on { background-color: var(--manilha); translate: 0 1px; padding-top: 12px; }
+.painel {
+  position: relative; z-index: 1;
+  background: var(--manilha) var(--grain); background-blend-mode: multiply;
+  color: var(--ink); border-radius: 6px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 16px rgb(0 0 0 / .5);
+  display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center;
+}
+.painel:empty { display: none; }
+.btn-papel {
+  display: inline-flex; align-items: center; gap: 7px;
+  border: 0; cursor: pointer; border-radius: 6px;
+  background: var(--papel) var(--grain); background-blend-mode: multiply;
+  padding: 8px 12px; min-height: 38px;
+  font: 700 .95rem var(--label); letter-spacing: .05em; text-transform: uppercase; color: var(--ink);
+  box-shadow: 0 1px 0 rgb(0 0 0 / .3), 0 2px 5px rgb(0 0 0 / .18);
+  transition: scale .12s;
+}
+.btn-papel:hover { scale: 1.04; }
+.empurra { margin-left: auto; }
+.marcar { display: inline-flex; gap: 7px; align-items: center; font: 700 .95rem var(--label); letter-spacing: .04em; text-transform: uppercase; cursor: pointer; }
+.marcar input { width: 18px; height: 18px; accent-color: var(--ink); }
+
+/* o caminho */
+.trilha { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; min-height: 38px; }
+.migalha {
+  border: 0; background: none; cursor: pointer; border-radius: 6px;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 8px; font: 400 1.05rem var(--marker); color: rgb(21 21 21 / .7);
+}
+.migalha:hover { background: rgb(0 0 0 / .07); color: var(--ink); }
+.migalha.aqui { color: var(--ink); cursor: default; background: none; }
+.trilha .sep { opacity: .45; font-size: .95rem; display: inline-flex; }
+
+/* ===== A parede ===== */
+.parede {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(178px, 1fr));
+  gap: 30px 22px; padding: 30px 6px 20px; align-items: start; min-height: 220px;
+  border-radius: 10px;
+}
+.parede.com-orelhas { row-gap: 46px; padding-top: 44px; }
+.vazio { grid-column: 1 / -1; font: 400 1.15rem var(--mao); color: var(--wall-ink-2); padding: 20px 4px; }
+.titulo-giz {
+  font: 400 1.5rem var(--marker); color: var(--wall-ink); margin: 26px 0 0;
+  display: flex; align-items: center; gap: 10px;
+  text-shadow: 0 1px 0 rgb(0 0 0 / .6);
+}
+.titulo-giz small { font: 700 1rem var(--label); color: var(--wall-ink-2); letter-spacing: .05em; }
+
+/* a nota */
+.nota {
+  position: relative; min-height: 124px;
+  background: var(--stock) var(--grain); background-blend-mode: multiply;
+  color: var(--ink); padding: 24px 14px 14px; border-radius: 2px;
+  rotate: var(--tilt);
+  box-shadow: 0 2px 0 rgb(0 0 0 / .18), 0 10px 18px rgb(0 0 0 / .5);
+  cursor: grab; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  transition: scale .15s, box-shadow .15s, opacity .15s;
+}
+.nota h3 { font: 400 1.12rem/1.08 var(--marker); margin: 0 0 6px; }
+.nota .data { font: 700 .8rem var(--label); letter-spacing: .05em; text-transform: uppercase; margin: 0 0 5px; opacity: .78; }
+.nota .texto { font: 400 .95rem/1.2 var(--mao); margin: 0; opacity: .85; }
+.tacha {
+  position: absolute; top: 7px; left: 50%; translate: -50% 0;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #ff8a88, #e62e2d 55%, #8f1414);
+  box-shadow: 0 2px 2px rgb(0 0 0 / .45);
+}
+.orelha-nota {
+  position: absolute; left: 12px; bottom: 100%; max-width: 78%;
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 10px 4px; border-radius: 8px 8px 0 0;
+  background: var(--manilha) var(--grain); background-blend-mode: multiply;
+  font: 400 .84rem var(--marker); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.orelha-nota span { overflow: hidden; text-overflow: ellipsis; }
+.nota.erguida { scale: 1.06; box-shadow: 0 2px 0 rgb(0 0 0 / .18), 0 22px 30px rgb(0 0 0 / .6); }
+.saindo { opacity: .28; }
+
+/* ===== Jeito 1: pasta manilha na parede ===== */
+.pastinha {
+  position: relative; display: block; height: 140px; padding: 0; border: 0; background: none;
+  cursor: pointer; text-align: left; color: var(--ink);
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.pastinha .fundo {
+  position: absolute; inset: 16px 0 0 0; border-radius: 3px 7px 6px 6px;
+  background: var(--pasta-fundo) var(--grain); background-blend-mode: multiply;
+  box-shadow: 0 10px 18px rgb(0 0 0 / .5);
+}
+.pastinha .fundo::before {
+  content: ''; position: absolute; left: 0; top: -15px; width: 46%; height: 17px;
+  border-radius: 9px 9px 0 0; background: inherit;
+}
+.pastinha .tiras { position: absolute; left: 9%; right: 9%; top: 12px; height: 60px; display: flex; gap: 5px; }
+.pastinha .tiras i {
+  flex: 1; background: var(--c) var(--grain); background-blend-mode: multiply;
+  rotate: var(--r); box-shadow: 0 1px 2px rgb(0 0 0 / .3); border-radius: 1px;
+}
+.pastinha .frente {
+  position: absolute; left: 0; right: 0; bottom: 0; top: 44px;
+  border-radius: 3px 3px 6px 6px; padding: 12px 14px;
+  background: var(--pasta-corpo) var(--grain); background-blend-mode: multiply;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .35), 0 -2px 4px rgb(0 0 0 / .22);
+  display: flex; flex-direction: column; justify-content: flex-end; gap: 2px;
+  transform-origin: 50% 100%; transition: transform .2s;
+}
+.pastinha:hover .frente, .pastinha.alvo .frente { transform: perspective(520px) rotateX(-18deg); }
+.pastinha .nome { font: 400 1.18rem/1.05 var(--marker); display: flex; gap: 7px; align-items: center; }
+.pastinha .qtd { font: 700 .82rem var(--label); letter-spacing: .05em; text-transform: uppercase; opacity: .68; }
+
+/* ===== Jeito 2: árvore ===== */
+.com-arvore { display: flex; gap: 22px; align-items: flex-start; }
+.com-arvore > .lado { flex: 1; min-width: 0; }
+.arvore {
+  flex: none; width: 260px; position: sticky; top: 12px; margin-top: 26px;
+  background: var(--papel) var(--grain); background-blend-mode: multiply;
+  color: var(--ink); border-radius: 6px; padding: 10px 8px;
+  box-shadow: 0 8px 16px rgb(0 0 0 / .5);
+}
+.arvore h4 { margin: 2px 8px 6px; font: 700 .82rem var(--label); letter-spacing: .08em; text-transform: uppercase; color: #8a5a2b; }
+.ramo {
+  display: flex; align-items: center; gap: 4px; min-height: 36px;
+  padding: 0 8px 0 calc(4px + var(--d) * 16px); border-radius: 5px; cursor: pointer;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.ramo:hover { background: rgb(0 0 0 / .06); }
+.ramo.on { background: rgb(255 218 66 / .6); }
+.ramo .nome { font: 400 1rem var(--marker); display: flex; align-items: center; gap: 6px; min-width: 0; }
+.ramo .nome span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ramo small { margin-left: auto; font: 700 .86rem var(--label); opacity: .55; padding-left: 6px; }
+.abrir-ramo {
+  flex: none; width: 24px; height: 24px; border: 0; background: none; cursor: pointer; border-radius: 4px;
+  display: grid; place-items: center; font-size: 1rem; padding: 0;
+}
+.abrir-ramo:hover { background: rgb(0 0 0 / .08); }
+.abrir-ramo.nada { visibility: hidden; }
+
+/* ===== Jeito 3: maços ===== */
+.maco {
+  position: relative; display: block; height: 140px; padding: 0; border: 0; background: none; cursor: pointer;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; color: var(--ink);
+}
+.maco .folhas i {
+  position: absolute; inset: 10px 6px 0 6px; border-radius: 2px;
+  background: var(--c) var(--grain); background-blend-mode: multiply;
+  box-shadow: 0 6px 12px rgb(0 0 0 / .45);
+}
+.maco .folhas i:nth-child(1) { rotate: -5deg; }
+.maco .folhas i:nth-child(2) { rotate: 4deg; }
+.maco .folhas i:nth-child(3) { rotate: -1deg; }
+.maco .elastico {
+  position: absolute; left: -2px; right: -2px; top: 58%; height: 7px; z-index: 3; rotate: -3deg;
+  border-top: 2px solid #e2b21a; border-bottom: 2px solid #f6cd3a;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / .45));
+}
+.maco .etiqueta {
+  position: absolute; z-index: 4; left: 50%; top: 24%; translate: -50% 0; rotate: -2deg;
+  max-width: 88%; display: flex; gap: 6px; align-items: center; white-space: nowrap;
+  background: var(--papel) var(--grain); background-blend-mode: multiply;
+  padding: 6px 10px; box-shadow: 0 1px 3px rgb(0 0 0 / .35);
+  font: 400 1.04rem var(--marker);
+}
+.maco .etiqueta span { overflow: hidden; text-overflow: ellipsis; }
+.maco .etiqueta small { font: 700 .9rem var(--label); opacity: .6; }
+.maco:hover { scale: 1.03; }
+.maco { transition: scale .15s; }
+.aberto {
+  grid-column: 1 / -1; border-radius: 12px; padding: 12px 14px 4px;
+  border: 2px dashed rgb(236 220 174 / .45); background: rgb(236 220 174 / .05);
+}
+.aberto .parede { padding-top: 22px; min-height: 0; }
+.aberto-topo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.aberto-topo .nome {
+  font: 400 1.3rem var(--marker); color: var(--wall-ink); display: flex; align-items: center; gap: 8px;
+  border: 0; background: none; cursor: pointer; padding: 4px 6px; border-radius: 6px;
+}
+.aberto-topo .nome small { font: 700 .95rem var(--label); color: var(--wall-ink-2); }
+.aberto-topo .fechar {
+  margin-left: auto; border: 0; background: none; cursor: pointer;
+  font: 700 .9rem var(--label); letter-spacing: .05em; text-transform: uppercase; color: var(--wall-ink-2);
+  display: inline-flex; gap: 5px; align-items: center; padding: 6px 8px; border-radius: 6px;
+}
+.aberto-topo .fechar:hover { color: var(--wall-ink); background: rgb(255 255 255 / .06); }
+
+/* ===== Jeito 4: orelhas em camadas ===== */
+.camadas { width: 100%; }
+.faixa { background: var(--cor); border-radius: 0 6px 6px 6px; }
+.faixa.n0 { --cor: transparent; }
+.faixa.n1 { --cor: #f5eacb; padding: 10px 10px 8px; }
+.faixa.n2 { --cor: #fbf4de; padding: 10px 10px 8px; }
+.faixa.n3 { --cor: #fffaee; padding: 10px 10px 8px; }
+.faixa.n4, .faixa.n5, .faixa.n6 { --cor: #fffdf6; padding: 10px 10px 8px; }
+.faixa.fim { padding: 0; height: 8px; }
+.orelhas { display: flex; flex-wrap: wrap; gap: 3px; align-items: flex-end; }
+.orelhinha {
+  border: 0; cursor: pointer; border-radius: 9px 9px 0 0;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 12px 7px; min-height: 38px;
+  background: rgb(0 0 0 / .13) var(--grain); background-blend-mode: multiply;
+  font: 400 var(--tam, 1rem) var(--marker); color: var(--ink);
+  translate: 0 3px; transition: translate .12s, background-color .12s;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.orelhinha small { font: 700 .86rem var(--label); opacity: .6; }
+.orelhinha:hover:not(.on) { background-color: rgb(0 0 0 / .2); translate: 0 1px; }
+.orelhinha.on { background: var(--prox); translate: 0 0; }
+.orelhinha.tudo { font-family: var(--label); font-weight: 700; letter-spacing: .05em; text-transform: uppercase; font-size: .9rem; }
+.secao { margin-top: 10px; border-radius: 10px; }
+
+/* ===== Jeito 5: fileira de filtro ===== */
+.fichas { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; width: 100%; }
+.fichas .rotulo { font: 700 .84rem var(--label); letter-spacing: .08em; text-transform: uppercase; opacity: .7; margin-right: 2px; }
+.tinta {
+  border: 0; cursor: pointer; border-radius: 4px;
+  display: inline-flex; gap: 6px; align-items: center;
+  background: var(--ink); color: var(--wall-ink);
+  padding: 7px 11px; min-height: 36px;
+  font: 700 .98rem var(--label); letter-spacing: .03em;
+  rotate: var(--r, -1deg); transition: scale .12s, color .12s;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.tinta small { opacity: .6; font-weight: 500; }
+.tinta:hover { scale: 1.06; color: var(--hi); }
+.tinta.on { background: var(--hi); color: var(--ink); }
+.fichas .nenhuma { font: 400 1rem var(--mao); opacity: .7; }
+
+/* ===== Arrastar ===== */
+.alvo { outline: 3px dashed var(--hi); outline-offset: 5px; }
+.nota.alvo { scale: 1.06; }
+.ramo.alvo, .migalha.alvo, .orelhinha.alvo, .tinta.alvo { outline-offset: 1px; }
+.fantasma {
+  position: fixed; left: 0; top: 0; z-index: 60; pointer-events: none; margin: 0;
+  rotate: 4deg; opacity: .93; scale: 1.03;
+  box-shadow: 0 24px 34px rgb(0 0 0 / .6);
+}
+.dica-arrasto {
+  position: fixed; left: 0; top: 0; z-index: 61; pointer-events: none;
+  background: var(--hi); color: var(--ink); padding: 4px 9px; rotate: -2deg;
+  font: 700 .9rem var(--label); letter-spacing: .04em; text-transform: uppercase;
+  box-shadow: 0 3px 6px rgb(0 0 0 / .45); white-space: nowrap;
+}
+.dica-arrasto[hidden] { display: none; }
+
+/* ===== Menu, bilhete e nome ===== */
+.menu {
+  position: fixed; z-index: 70; min-width: 230px; max-width: min(320px, calc(100vw - 24px));
+  max-height: min(70vh, 520px); overflow: auto;
+  background: #f7f0dd var(--grain); background-blend-mode: multiply; color: var(--ink);
+  border-radius: 12px; padding: 8px; box-shadow: 0 14px 30px rgb(0 0 0 / .55);
+  outline: 1.5px dashed rgb(120 80 40 / .4); outline-offset: -6px;
+}
+.menu[hidden] { display: none; }
+.menu h5 { margin: 6px 10px 4px; font: 700 .82rem var(--label); letter-spacing: .08em; text-transform: uppercase; color: #8a5a2b; }
+.menu button {
+  display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+  border: 0; background: none; cursor: pointer; border-radius: 6px;
+  padding: 7px 10px 7px calc(10px + var(--d, 0) * 16px); min-height: 38px;
+  font: 400 1rem var(--marker);
+}
+.menu button:hover, .menu button:focus-visible { background: rgb(255 218 66 / .55); outline: none; }
+.menu button[aria-current="true"] { opacity: .45; cursor: default; background: none; }
+.menu hr { border: 0; border-top: 1.5px dashed rgb(120 80 40 / .35); margin: 6px 6px; }
+.bilhete {
+  position: fixed; left: 50%; bottom: 22px; translate: -50% 0; z-index: 80;
+  display: flex; gap: 14px; align-items: center; max-width: calc(100vw - 32px);
+  background: var(--papel) var(--grain); background-blend-mode: multiply; color: var(--ink);
+  padding: 10px 12px 10px 16px; rotate: -1deg; box-shadow: 0 10px 22px rgb(0 0 0 / .5);
+  font: 400 1.05rem var(--mao);
+}
+.bilhete[hidden] { display: none; }
+.bilhete button {
+  border: 0; cursor: pointer; background: var(--ink); color: var(--wall-ink); border-radius: 4px;
+  padding: 6px 10px; font: 700 .9rem var(--label); letter-spacing: .05em; text-transform: uppercase;
+}
+dialog.nomear {
+  border: 0; padding: 18px 18px 14px; border-radius: 6px; width: min(380px, calc(100vw - 32px));
+  background: var(--papel) var(--grain); background-blend-mode: multiply; color: var(--ink);
+  box-shadow: 0 20px 40px rgb(0 0 0 / .6); rotate: -.6deg;
+}
+dialog.nomear::backdrop { background: rgb(0 0 0 / .45); }
+dialog.nomear h2 { margin: 0 0 10px; font: 400 1.4rem var(--marker); display: flex; gap: 8px; align-items: center; }
+dialog.nomear input {
+  width: 100%; font: 400 1.3rem var(--mao); padding: 8px 10px; border-radius: 4px;
+  border: 0; border-bottom: 2.5px solid var(--ink); background: rgb(255 255 255 / .7); color: var(--ink);
+}
+dialog.nomear input:focus { outline: 4px solid rgb(21 21 21 / .15); }
+dialog.nomear .acoes { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+dialog.nomear .acoes button {
+  border: 0; cursor: pointer; border-radius: 4px; padding: 8px 14px;
+  font: 700 .95rem var(--label); letter-spacing: .05em; text-transform: uppercase;
+}
+dialog.nomear .pronto { background: var(--ink); color: var(--wall-ink); }
+dialog.nomear .depois { background: none; text-decoration: underline dotted; text-underline-offset: 3px; }
+
+@media (max-width: 720px) {
+  .parede { grid-template-columns: repeat(auto-fill, minmax(146px, 1fr)); gap: 26px 16px; }
+  .com-arvore { flex-direction: column; align-items: stretch; }
+  .arvore { width: auto; position: static; margin-top: 18px; }
+  .jeito { font-size: 1.02rem; padding: 6px 8px 5px; }
+  .recomecar { margin-left: 0; }
+  .nota h3 { font-size: 1.02rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="pagina">
+  <nav class="jeitos" id="jeitos" aria-label="Os cinco jeitos"></nav>
+  <section class="sobre" id="sobre"></section>
+  <div class="grupos" id="grupos"></div>
+  <div class="painel" id="painel"></div>
+  <main id="parede"></main>
+</div>
+<div class="menu" id="menu" role="menu" hidden></div>
+<div class="bilhete" id="bilhete" role="status" hidden><span></span><button type="button">Desfazer</button></div>
+<div class="dica-arrasto" id="dica" hidden></div>
+<dialog class="nomear" id="nomear">
+  <form method="dialog">
+    <h2><svg class="i" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg><span>Nome da pasta</span></h2>
+    <input id="nome-pasta" maxlength="40" autocomplete="off" aria-label="Nome da pasta">
+    <div class="acoes">
+      <button class="depois" value="depois" type="submit">Deixar assim</button>
+      <button class="pronto" value="ok" type="submit">Pronto</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+/* ======= Dados de exemplo (os mesmos nos cinco jeitos) ======= */
+const STOCK = { rosa: '#ff79a8', amarelo: '#ffda42', verde: '#7be986', laranja: '#ffa358', azul: '#70cdff', lilas: '#c4a5fb', cinza: '#c9c3bc' };
+const DATAS = ['09 de nov de 2026', '07 de nov de 2026', '02 de nov de 2026', '28 de out de 2026', '21 de out de 2026', '14 de out de 2026'];
+const INICIO = {
+  groups: [{ id: 'estudos', name: 'Estudos' }, { id: 'trabalho', name: 'Trabalho' }],
+  folders: [
+    { id: 'hist', g: 'estudos', name: 'História', parent: null },
+    { id: 'geo', g: 'estudos', name: 'Geografia', parent: null },
+    { id: 'jap', g: 'estudos', name: 'Japonês', parent: null },
+    { id: 'kanji', g: 'estudos', name: 'Kanji', parent: 'jap' },
+    { id: 'prog', g: 'estudos', name: 'Programação', parent: null },
+    { id: 'func', g: 'estudos', name: 'Programação Funcional', parent: 'prog' },
+    { id: 'scr', g: 'estudos', name: 'Scripts', parent: 'prog' },
+    { id: 'reun', g: 'trabalho', name: 'Reuniões', parent: null },
+  ],
+  notes: [
+    { id: 'n01', g: 'estudos', f: 'hist', t: 'Revolução Francesa', c: 'rosa' },
+    { id: 'n02', g: 'estudos', f: 'hist', t: 'Era Meiji', c: 'laranja' },
+    { id: 'n03', g: 'estudos', f: 'geo', t: 'Placas tectônicas', c: 'verde' },
+    { id: 'n04', g: 'estudos', f: 'jap', t: 'Partículas は e が', c: 'azul' },
+    { id: 'n05', g: 'estudos', f: 'kanji', t: 'Kanji da semana', c: 'lilas' },
+    { id: 'n06', g: 'estudos', f: 'kanji', t: 'Radicais', c: 'amarelo' },
+    { id: 'n07', g: 'estudos', f: 'prog', t: 'Git do dia a dia', c: 'cinza' },
+    { id: 'n08', g: 'estudos', f: 'func', t: 'Mônadas sem medo', c: 'lilas' },
+    { id: 'n09', g: 'estudos', f: 'func', t: 'map, filter, reduce', c: 'verde' },
+    { id: 'n10', g: 'estudos', f: 'scr', t: 'Renomear fotos em lote', c: 'laranja' },
+    { id: 'n11', g: 'estudos', f: null, t: 'Plano de estudos 2027', c: 'amarelo' },
+    { id: 'n12', g: 'estudos', f: null, t: 'Pomodoro: o que funcionou', c: 'rosa' },
+    { id: 'n13', g: 'estudos', f: null, t: 'SQL: funções de janela', c: 'azul' },
+    { id: 'n14', g: 'estudos', f: null, t: 'Docker compose', c: 'cinza' },
+    { id: 't01', g: 'trabalho', f: 'reun', t: 'Daily 09/11', c: 'amarelo' },
+    { id: 't02', g: 'trabalho', f: 'reun', t: 'Retro de outubro', c: 'lilas' },
+    { id: 't03', g: 'trabalho', f: null, t: 'Metas do trimestre', c: 'verde' },
+  ],
+};
+
+const JEITOS = [
+  {
+    nome: 'Pastas na parede',
+    como: 'Como no computador e no Google Drive: as pastas ficam no começo da parede, em pasta manilha com as notas aparecendo por cima. Clique para entrar; o caminho no alto volta. A parede mostra só o que está direto na pasta aberta.',
+    pro: 'Ninguém precisa aprender nada; aguenta qualquer profundidade.',
+    contra: 'Para ver as notas de uma pasta, é preciso entrar nela.',
+  },
+  {
+    nome: 'Árvore ao lado',
+    como: 'Um fichário à esquerda com todas as pastas do grupo, que abrem e fecham. A parede mostra a pasta escolhida; marque “com as subpastas” para ver tudo o que há dentro dela.',
+    pro: 'A estrutura inteira sempre à vista; guardar é soltar num nome.',
+    contra: 'Ocupa uma coluna da parede; no celular vira um bloco em cima.',
+  },
+  {
+    nome: 'Maços na parede',
+    como: 'Sem entrar e sair: cada pasta é um maço preso com elástico, no meio das notas. Clique e ele se abre ali mesmo; as subpastas são maços dentro dele.',
+    pro: 'A parede continua no centro de tudo; é o jeito do papel de verdade.',
+    contra: 'Com vários maços abertos a parede fica longa; pasta funda vira caixa dentro de caixa.',
+  },
+  {
+    nome: 'Orelhas em camadas',
+    como: 'As pastas viram uma segunda fileira de orelhas dentro da pasta do grupo, e uma subpasta abre a terceira. A parede mostra tudo o que há na pasta escolhida, em seções.',
+    pro: 'Continua as orelhas dos grupos; o caminho inteiro fica à vista.',
+    contra: 'Muitas pastas numa fileira ou muitos níveis ocupam o topo (as que sobram iriam para um “Mais”).',
+  },
+  {
+    nome: 'Fileira de filtro',
+    como: 'O mais perto de hoje: a fileira Assunto vira Pasta. Escolher uma pasta filtra a parede (com o que há nas subpastas) e mostra as subpastas numa fileira embaixo. A orelha de cada nota diz a pasta.',
+    pro: 'Muda pouco do que você já usa; a parede segue cheia.',
+    contra: 'A pasta parece um filtro, não um lugar; arrumar as pastas fica menos à vista.',
+  },
+];
+
+const ICON = {
+  pasta: '<svg class="i" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>',
+  pastaAberta: '<svg class="i" viewBox="0 0 24 24"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>',
+  novaPasta: '<svg class="i" viewBox="0 0 24 24"><path d="M12 10v6M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>',
+  direita: '<svg class="i" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>',
+  baixo: '<svg class="i" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>',
+  casa: '<svg class="i" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z"/></svg>',
+  recolher: '<svg class="i" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></svg>',
+};
+
+/* ======= Estado ======= */
+let S;
+let uid = 100;
+function recomecar() {
+  const d = JSON.parse(JSON.stringify(INICIO));
+  S = {
+    mode: S?.mode ?? (Number(location.hash.slice(1)) || 1),
+    group: 'estudos',
+    groups: d.groups, folders: d.folders, notes: d.notes,
+    here: { estudos: null, trabalho: null },
+    open: new Set(['prog']),
+    deep: false,
+  };
+}
+recomecar();
+
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const byName = (a, b) => a.name.localeCompare(b.name, 'pt-BR');
+const folder = (id) => S.folders.find((f) => f.id === id);
+const note = (id) => S.notes.find((n) => n.id === id);
+const kids = (p) => S.folders.filter((f) => f.g === S.group && f.parent === p).sort(byName);
+const notesIn = (p) => S.notes.filter((n) => n.g === S.group && n.f === p);
+function below(p) {
+  const ids = new Set([p]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const f of S.folders) if (f.g === S.group && ids.has(f.parent) && !ids.has(f.id)) { ids.add(f.id); grew = true; }
+  }
+  return ids;
+}
+const notesBelow = (p) => { const ids = below(p); return S.notes.filter((n) => n.g === S.group && ids.has(n.f)); };
+const path = (id) => { const out = []; let f = folder(id); while (f) { out.unshift(f); f = folder(f.parent); } return out; };
+const isInside = (id, anc) => path(id).some((f) => f.id === anc);
+const here = () => S.here[S.group];
+const groupName = () => S.groups.find((g) => g.id === S.group).name;
+const where = (fid) => (fid ? folder(fid).name : 'fora das pastas');
+function tilt(id) { let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) % 997; return ((h % 30) - 15) / 10; }
+function plural(n, um, varios) { return `${n} ${n === 1 ? um : varios}`; }
+function qtdText(fid) {
+  const n = notesBelow(fid).length;
+  const k = kids(fid).length;
+  return plural(n, 'nota', 'notas') + (k ? ` · ${plural(k, 'pasta', 'pastas')}` : '');
+}
+
+/* ======= Desfazer ======= */
+let undoSnap = null;
+function remember() { undoSnap = JSON.stringify({ folders: S.folders, notes: S.notes, here: S.here, open: [...S.open] }); }
+function undo() {
+  if (!undoSnap) return;
+  const o = JSON.parse(undoSnap);
+  S.folders = o.folders; S.notes = o.notes; S.here = o.here; S.open = new Set(o.open);
+  undoSnap = null;
+  render();
+  toast('Desfeito.', false);
+}
+
+/* ======= Ações ======= */
+function go(fid) { S.here[S.group] = fid; render(); }
+function openFolder(fid) {
+  if (S.mode === 2 || S.mode === 3) { for (const f of path(fid)) S.open.add(f.id); }
+  if (S.mode === 3) { render(); return; }
+  go(fid);
+}
+function makeFolder(parent) {
+  const f = { id: 'p' + uid++, g: S.group, name: 'Nova pasta', parent };
+  S.folders.push(f);
+  if (parent) for (const p of path(parent)) S.open.add(p.id);
+  return f;
+}
+function moveNote(nid, fid) {
+  const n = note(nid);
+  if (!n || n.f === fid) return;
+  remember();
+  n.f = fid;
+  render();
+  toast(fid ? `“${n.t}” guardada em ${folder(fid).name}.` : `“${n.t}” saiu das pastas.`, true);
+}
+function moveFolder(id, parent) {
+  const f = folder(id);
+  if (!f || id === parent || (parent && isInside(parent, id)) || f.parent === parent) return;
+  remember();
+  f.parent = parent;
+  if (parent) for (const p of path(parent)) S.open.add(p.id);
+  render();
+  toast(parent ? `${f.name} agora fica dentro de ${folder(parent).name}.` : `${f.name} foi para fora das pastas.`, true);
+}
+function joinNotes(aId, bId) {
+  const a = note(aId), b = note(bId);
+  if (!a || !b || a === b) return;
+  remember();
+  const f = makeFolder(b.f);
+  a.f = f.id; b.f = f.id;
+  render();
+  askName(f, () => toast(`Pasta “${f.name}” criada com as duas notas.`, true));
+}
+function newFolderHere(parent) {
+  remember();
+  const f = makeFolder(parent);
+  render();
+  askName(f, () => toast(`Pasta “${f.name}” criada.`, true));
+}
+function newFolderWith(nid) {
+  const n = note(nid);
+  remember();
+  const f = makeFolder(n.f);
+  n.f = f.id;
+  render();
+  askName(f, () => toast(`Pasta “${f.name}” criada com “${n.t}”.`, true));
+}
+function renameFolder(fid) {
+  const f = folder(fid);
+  const before = f.name;
+  remember();
+  askName(f, () => { if (f.name !== before) toast(`Pasta renomeada para “${f.name}”.`, true); }, 'Renomear a pasta');
+}
+function dissolve(fid) {
+  const f = folder(fid);
+  remember();
+  for (const n of S.notes) if (n.f === fid) n.f = f.parent;
+  for (const x of S.folders) if (x.parent === fid) x.parent = f.parent;
+  S.folders = S.folders.filter((x) => x !== f);
+  if (here() === fid) S.here[S.group] = f.parent;
+  render();
+  toast(`Pasta “${f.name}” desfeita: o que estava nela foi para ${where(f.parent)}.`, true);
+}
+
+/* ======= Nome da pasta ======= */
+const dlg = document.getElementById('nomear');
+const nameInput = document.getElementById('nome-pasta');
+let naming = null;
+function askName(f, done, title = 'Nome da pasta') {
+  naming = { f, done };
+  dlg.querySelector('h2 span').textContent = title;
+  nameInput.value = f.name;
+  dlg.showModal();
+  nameInput.focus();
+  nameInput.select();
+}
+dlg.addEventListener('close', () => {
+  if (!naming) return;
+  const { f, done } = naming;
+  naming = null;
+  if (dlg.returnValue === 'ok') { const v = nameInput.value.trim(); if (v) f.name = v.slice(0, 40); }
+  dlg.returnValue = '';
+  render();
+  done?.();
+});
+
+/* ======= Bilhete ======= */
+const bilhete = document.getElementById('bilhete');
+let toastT = 0;
+function toast(text, canUndo) {
+  bilhete.querySelector('span').textContent = text;
+  bilhete.querySelector('button').hidden = !canUndo;
+  bilhete.hidden = false;
+  clearTimeout(toastT);
+  toastT = setTimeout(() => (bilhete.hidden = true), 6000);
+}
+bilhete.querySelector('button').addEventListener('click', () => { bilhete.hidden = true; undo(); });
+
+/* ======= Desenho ======= */
+function noteHTML(n, opts = {}) {
+  const ear = opts.ear && n.f && n.f !== opts.except
+    ? `<span class="orelha-nota">${ICON.pasta}<span>${esc(folder(n.f).name)}</span></span>` : '';
+  const i = Number(n.id.replace(/\D/g, '')) % DATAS.length;
+  return `<article class="nota" data-note="${n.id}" tabindex="0" style="--stock:${STOCK[n.c]};--tilt:${tilt(n.id)}deg">
+    ${ear}<span class="tacha"></span>
+    <h3>${esc(n.t)}</h3><p class="data">${DATAS[i]}</p><p class="texto">Um texto curto da anotação…</p>
+  </article>`;
+}
+function slips(fid) {
+  const ns = notesBelow(fid).slice(0, 3);
+  const rs = ['-4deg', '3deg', '-1.5deg'];
+  return ns.map((n, i) => `<i style="--c:${STOCK[n.c]};--r:${rs[i]}"></i>`).join('');
+}
+function crumbs(withHome = true) {
+  const p = path(here());
+  const items = [`<button class="migalha ${p.length ? '' : 'aqui'}" data-go="" data-drop-folder="">${ICON.casa}${esc(groupName())}</button>`];
+  p.forEach((f, i) => {
+    const last = i === p.length - 1;
+    items.push(`<span class="sep">${ICON.direita}</span><button class="migalha ${last ? 'aqui' : ''}" ${last ? '' : `data-go="${f.id}"`} data-drop-folder="${f.id}">${esc(f.name)}</button>`);
+  });
+  return `<div class="trilha">${withHome ? items.join('') : items.slice(1).join('')}</div>`;
+}
+const novaPasta = (parent) => `<button class="btn-papel" data-act="nova" data-parent="${parent ?? ''}">${ICON.novaPasta}Nova pasta</button>`;
+const empty = (txt) => `<p class="vazio">${txt}</p>`;
+
+function renderTop() {
+  document.getElementById('jeitos').innerHTML =
+    JEITOS.map((j, i) => `<button class="jeito" data-mode="${i + 1}" aria-pressed="${S.mode === i + 1}"><b>${i + 1}</b>${j.nome}</button>`).join('') +
+    `<button class="recomecar" data-act="recomecar">Recomeçar o exemplo</button>`;
+  const j = JEITOS[S.mode - 1];
+  document.getElementById('sobre').innerHTML = `
+    <p class="como">${j.como}</p>
+    <p class="pros"><span><strong>A favor</strong>${j.pro}</span><span><strong>Contra</strong>${j.contra}</span></p>
+    <p class="todos">Em todos: segure e arraste uma nota sobre outra para criar uma pasta com as duas. Solte sobre uma pasta (ou sobre o caminho) para guardar nela. Pare em cima de uma pasta por um instante e ela se abre. Botão direito, ou o dedo parado e solto, abre o menu (mover, renomear, desfazer a pasta).</p>`;
+  document.getElementById('grupos').innerHTML = S.groups.map((g) =>
+    `<button class="grupo ${g.id === S.group ? 'on' : ''}" data-group="${g.id}">${esc(g.name)}<small>${S.notes.filter((n) => n.g === g.id).length}</small></button>`).join('');
+}
+
+function render() {
+  renderTop();
+  const painel = document.getElementById('painel');
+  const parede = document.getElementById('parede');
+  const h = here();
+  document.body.dataset.jeito = S.mode;
+
+  if (S.mode === 1) {
+    painel.innerHTML = crumbs() + `<span class="empurra">${novaPasta(h)}</span>`;
+    const fs = kids(h), ns = notesIn(h);
+    parede.innerHTML = `<div class="parede" data-drop-folder="${h ?? ''}">
+      ${fs.map((f) => `<button class="pastinha" data-go="${f.id}" data-drop-folder="${f.id}" data-drag-folder="${f.id}" data-spring>
+        <span class="fundo"></span><span class="tiras">${slips(f.id)}</span>
+        <span class="frente"><span class="nome">${esc(f.name)}</span><span class="qtd">${qtdText(f.id)}</span></span>
+      </button>`).join('')}
+      ${ns.map((n) => noteHTML(n)).join('')}
+      ${!fs.length && !ns.length ? empty('Pasta vazia. Arraste notas para cá, ou solte uma nota sobre outra.') : ''}
+    </div>`;
+  }
+
+  if (S.mode === 2) {
+    painel.innerHTML = `${crumbs()}<label class="marcar empurra"><input type="checkbox" data-act="deep" ${S.deep ? 'checked' : ''}>Com as subpastas</label>${novaPasta(h)}`;
+    const rows = [];
+    const walk = (p, d) => {
+      for (const f of kids(p)) {
+        const has = kids(f.id).length > 0;
+        const open = S.open.has(f.id);
+        rows.push(`<div class="ramo ${h === f.id ? 'on' : ''}" style="--d:${d}" data-go="${f.id}" data-drop-folder="${f.id}" data-drag-folder="${f.id}" data-spring tabindex="0">
+          <button class="abrir-ramo ${has ? '' : 'nada'}" data-toggle="${f.id}" aria-label="${open ? 'Fechar' : 'Abrir'} ${esc(f.name)}" tabindex="-1">${open ? ICON.baixo : ICON.direita}</button>
+          <span class="nome">${open && has ? ICON.pastaAberta : ICON.pasta}<span>${esc(f.name)}</span></span><small>${notesBelow(f.id).length}</small></div>`);
+        if (has && open) walk(f.id, d + 1);
+      }
+    };
+    walk(null, 0);
+    const ns = S.deep ? notesBelow(h) : notesIn(h);
+    parede.innerHTML = `<div class="com-arvore">
+      <nav class="arvore" aria-label="Pastas">
+        <h4>Pastas de ${esc(groupName())}</h4>
+        <div class="ramo ${h === null ? 'on' : ''}" style="--d:0" data-go="" data-drop-folder="" tabindex="0">
+          <span class="abrir-ramo nada"></span><span class="nome">${ICON.casa}<span>Fora das pastas</span></span><small>${notesIn(null).length}</small></div>
+        ${rows.join('')}
+      </nav>
+      <div class="lado">
+        <h2 class="titulo-giz">${h ? ICON.pastaAberta : ICON.casa}${esc(h ? folder(h).name : 'Fora das pastas')} <small>${plural(ns.length, 'nota', 'notas')}</small></h2>
+        <div class="parede ${S.deep ? 'com-orelhas' : ''}" data-drop-folder="${h ?? ''}">
+          ${ns.map((n) => noteHTML(n, { ear: S.deep, except: h })).join('')}
+          ${!ns.length ? empty(kids(h).length ? 'Nada solto aqui. Marque “com as subpastas” para ver o que há dentro.' : 'Pasta vazia. Arraste notas para cá.') : ''}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  if (S.mode === 3) {
+    painel.innerHTML = `<span class="trilha"><span class="migalha aqui">${ICON.casa}${esc(groupName())}</span></span>
+      <span class="empurra"></span>
+      <button class="btn-papel" data-act="fechar-todos">${ICON.recolher}Fechar os maços</button>${novaPasta(null)}`;
+    const level = (p) => {
+      const fs = kids(p), ns = notesIn(p);
+      const parts = fs.map((f) => {
+        if (!S.open.has(f.id)) {
+          const cs = notesBelow(f.id).slice(0, 3).map((n) => STOCK[n.c]);
+          while (cs.length < 3) cs.unshift('#e9e4d6');
+          return `<button class="maco" data-toggle="${f.id}" data-drop-folder="${f.id}" data-drag-folder="${f.id}" data-spring aria-expanded="false">
+            <span class="folhas">${cs.map((c) => `<i style="--c:${c}"></i>`).join('')}</span><span class="elastico"></span>
+            <span class="etiqueta">${ICON.pasta}<span>${esc(f.name)}</span><small>${notesBelow(f.id).length}</small></span></button>`;
+        }
+        return `<section class="aberto" data-drop-folder="${f.id}">
+          <div class="aberto-topo">
+            <button class="nome" data-toggle="${f.id}" data-drag-folder="${f.id}" aria-expanded="true">${ICON.pastaAberta}${esc(f.name)} <small>${qtdText(f.id)}</small></button>
+            <button class="fechar" data-toggle="${f.id}">${ICON.recolher}Prender de novo</button>
+          </div>
+          <div class="parede">${level(f.id)}</div>
+        </section>`;
+      });
+      const inner = parts.join('') + ns.map((n) => noteHTML(n)).join('');
+      return inner || empty('Maço vazio. Arraste notas para cá.');
+    };
+    parede.innerHTML = `<div class="parede" data-drop-folder="">${level(null)}</div>`;
+  }
+
+  if (S.mode === 4) {
+    const p = path(h).map((f) => f.id);
+    const lv = ['#f5eacb', '#fbf4de', '#fffaee', '#fffdf6', '#fffdf6', '#fffdf6', '#fffdf6'];
+    const sizes = ['1rem', '.94rem', '.9rem', '.86rem'];
+    const row = (i) => {
+      const parent = i === 0 ? null : p[i - 1];
+      const ks = kids(parent);
+      if (!ks.length) return '';
+      const active = p[i] ?? null;
+      const ears = [`<button class="orelhinha tudo ${active === null ? 'on' : ''}" style="--prox:${lv[i]};--tam:${sizes[Math.min(i, 3)]}" data-go="${parent ?? ''}" data-drop-folder="${parent ?? ''}">Tudo <small>${notesBelow(parent).length}</small></button>`]
+        .concat(ks.map((f) => `<button class="orelhinha ${active === f.id ? 'on' : ''}" style="--prox:${lv[i]};--tam:${sizes[Math.min(i, 3)]}" data-go="${f.id}" data-drop-folder="${f.id}" data-drag-folder="${f.id}" data-spring>${active === f.id ? ICON.pastaAberta : ICON.pasta}${esc(f.name)} <small>${notesBelow(f.id).length}</small></button>`));
+      const next = active ? row(i + 1) : '';
+      return `<div class="orelhas">${ears.join('')}</div><div class="faixa n${i + 1} ${next ? '' : 'fim'}">${next}</div>`;
+    };
+    painel.innerHTML = `<div class="camadas">${row(0) || '<p class="vazio" style="color:inherit;padding:4px">Nenhuma pasta ainda.</p>'}</div>
+      <span class="empurra"></span>${novaPasta(h)}`;
+    // seções: o que está solto aqui, depois cada pasta de dentro
+    const sections = [];
+    const loose = notesIn(h);
+    sections.push({ fid: h, title: h ? folder(h).name : 'Fora das pastas', notes: loose, top: true });
+    const walk = (fid) => { for (const f of kids(fid)) { sections.push({ fid: f.id, title: path(f.id).slice(path(h).length).map((x) => x.name).join(' › '), notes: notesIn(f.id) }); walk(f.id); } };
+    walk(h);
+    parede.innerHTML = sections.map((s) => `<section class="secao" data-drop-folder="${s.fid ?? ''}">
+        ${s.top && !s.notes.length ? '' : `<h2 class="titulo-giz">${s.top ? (h ? ICON.pastaAberta : ICON.casa) : ICON.pasta}${esc(s.title)} <small>${plural(s.notes.length, 'nota', 'notas')}</small></h2>`}
+        ${s.notes.length ? `<div class="parede">${s.notes.map((n) => noteHTML(n)).join('')}</div>` : (s.top ? '' : '<div class="parede" style="min-height:60px">' + empty('Vazia.') + '</div>')}
+      </section>`).join('') || empty('Nada aqui.');
+  }
+
+  if (S.mode === 5) {
+    const ks = kids(h);
+    painel.innerHTML = `<div class="fichas">
+        <span class="rotulo">Pasta</span>
+        ${h ? crumbs() : ''}
+        ${ks.map((f, i) => `<button class="tinta" style="--r:${i % 2 ? '1deg' : '-1deg'}" data-go="${f.id}" data-drop-folder="${f.id}" data-drag-folder="${f.id}" data-spring>${ICON.pasta}${esc(f.name)}<small>${notesBelow(f.id).length}</small>${kids(f.id).length ? ICON.direita : ''}</button>`).join('')}
+        ${!ks.length ? '<span class="nenhuma">sem subpastas</span>' : ''}
+        <span class="empurra"></span>${novaPasta(h)}
+      </div>`;
+    const ns = notesBelow(h);
+    parede.innerHTML = `<div class="parede com-orelhas" data-drop-folder="${h ?? ''}">
+      ${ns.map((n) => noteHTML(n, { ear: true, except: null })).join('')}
+      ${!ns.length ? empty('Pasta vazia. Arraste notas para cá.') : ''}
+    </div>`;
+  }
+}
+
+/* ======= Cliques ======= */
+/* o clique que o navegador manda logo depois de soltar um arrasto não abre nada */
+let dragEndAt = -1e9;
+document.addEventListener('click', (e) => {
+  if (performance.now() - dragEndAt < 350 && !e.target.closest('dialog,.menu,.bilhete')) { e.preventDefault(); e.stopPropagation(); dragEndAt = -1e9; return; }
+  const t = e.target;
+  const m = t.closest('[data-mode]');
+  if (m) { S.mode = Number(m.dataset.mode); history.replaceState(null, '', '#' + S.mode); render(); return; }
+  const g = t.closest('[data-group]');
+  if (g) { S.group = g.dataset.group; render(); return; }
+  const tg = t.closest('[data-toggle]');
+  if (tg) {
+    const id = tg.dataset.toggle;
+    S.open.has(id) ? S.open.delete(id) : S.open.add(id);
+    render();
+    return;
+  }
+  const a = t.closest('[data-act]');
+  if (a) {
+    const act = a.dataset.act;
+    if (act === 'nova') newFolderHere(a.dataset.parent || null);
+    if (act === 'recomecar') { recomecar(); undoSnap = null; bilhete.hidden = true; render(); }
+    if (act === 'fechar-todos') { S.open.clear(); render(); }
+    if (act === 'deep') { S.deep = a.checked; render(); }
+    return;
+  }
+  const gt = t.closest('[data-go]');
+  if (gt) { const id = gt.dataset.go || null; if (S.mode === 2 && id) S.open.add(id); go(id); }
+}, true);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { closeMenu(); return; }
+  const el = document.activeElement;
+  if ((e.key === 'Enter' || e.key === ' ') && el?.classList.contains('ramo')) { e.preventDefault(); el.click(); }
+  if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
+    if (el?.closest('[data-note],[data-drag-folder]')) {
+      e.preventDefault();
+      const r = el.getBoundingClientRect();
+      openMenu(el.closest('[data-note],[data-drag-folder]'), r.left + 20, r.top + 20);
+    }
+  }
+});
+
+/* ======= Menu ======= */
+const menu = document.getElementById('menu');
+function closeMenu() { menu.hidden = true; }
+function openMenu(el, x, y) {
+  let html = '';
+  if (el.dataset.note) {
+    const n = note(el.dataset.note);
+    html += `<h5>Mover “${esc(n.t)}” para</h5>`;
+    html += `<button data-m="mover" data-f="" ${n.f === null ? 'aria-current="true"' : ''}>${ICON.casa}Fora das pastas</button>`;
+    const walk = (p, d) => { for (const f of kids(p)) { html += `<button style="--d:${d}" data-m="mover" data-f="${f.id}" ${n.f === f.id ? 'aria-current="true"' : ''}>${ICON.pasta}${esc(f.name)}</button>`; walk(f.id, d + 1); } };
+    walk(null, 0);
+    html += `<hr><button data-m="nova-com">${ICON.novaPasta}Nova pasta com esta nota</button>`;
+    menu.dataset.note = n.id; delete menu.dataset.folder;
+  } else {
+    const f = folder(el.dataset.dragFolder);
+    html += `<h5>${esc(f.name)}</h5>
+      <button data-m="abrir">${ICON.pastaAberta}Abrir</button>
+      <button data-m="renomear"><svg class="i" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Renomear</button>
+      <button data-m="sub">${ICON.novaPasta}Nova pasta dentro</button>
+      <hr><button data-m="desfazer"><svg class="i" viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg>Desfazer a pasta</button>`;
+    menu.dataset.folder = f.id; delete menu.dataset.note;
+  }
+  menu.innerHTML = html;
+  menu.hidden = false;
+  const r = menu.getBoundingClientRect();
+  menu.style.left = Math.max(12, Math.min(x, innerWidth - r.width - 12)) + 'px';
+  menu.style.top = Math.max(12, Math.min(y, innerHeight - r.height - 12)) + 'px';
+  menu.querySelector('button:not([aria-current="true"])')?.focus();
+}
+menu.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-m]');
+  if (!b || b.getAttribute('aria-current') === 'true') return;
+  e.stopPropagation();
+  closeMenu();
+  const m = b.dataset.m;
+  if (menu.dataset.note) {
+    if (m === 'mover') moveNote(menu.dataset.note, b.dataset.f || null);
+    if (m === 'nova-com') newFolderWith(menu.dataset.note);
+  } else {
+    const fid = menu.dataset.folder;
+    if (m === 'abrir') openFolder(fid);
+    if (m === 'renomear') renameFolder(fid);
+    if (m === 'sub') newFolderHere(fid);
+    if (m === 'desfazer') dissolve(fid);
+  }
+});
+document.addEventListener('pointerdown', (e) => { if (!menu.hidden && !menu.contains(e.target)) closeMenu(); }, true);
+document.addEventListener('contextmenu', (e) => {
+  if (drag && drag.touch) { e.preventDefault(); return; }
+  const el = e.target.closest('[data-note],[data-drag-folder]');
+  if (!el) return;
+  e.preventDefault();
+  openMenu(el, e.clientX, e.clientY);
+});
+
+/* ======= Arrastar (mouse: puxar; dedo: segurar e puxar) ======= */
+let drag = null;
+const dica = document.getElementById('dica');
+document.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0 || !menu.hidden) return;
+  const el = e.target.closest('[data-note],[data-drag-folder]');
+  if (!el || e.target.closest('.abrir-ramo,.fechar')) return;
+  const src = el.dataset.note ? { type: 'note', id: el.dataset.note } : { type: 'folder', id: el.dataset.dragFolder };
+  const touch = e.pointerType !== 'mouse';
+  drag = { src, el, x: e.clientX, y: e.clientY, touch, armed: !touch, active: false, target: null };
+  if (touch) {
+    drag.timer = setTimeout(() => {
+      if (!drag || drag.active) return;
+      drag.armed = true;
+      el.classList.add('erguida');
+      navigator.vibrate?.(12);
+    }, 380);
+  }
+});
+document.addEventListener('touchmove', (e) => { if (drag && drag.armed) e.preventDefault(); }, { passive: false });
+document.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  const d = Math.hypot(e.clientX - drag.x, e.clientY - drag.y);
+  if (!drag.active) {
+    if (!drag.armed) { if (d > 8) cancelDrag(); return; }
+    if (d < 6) return;
+    startDrag(e);
+  }
+  follow(e);
+});
+document.addEventListener('pointerup', (e) => {
+  if (!drag) return;
+  const dr = drag;
+  if (dr.active) {
+    const t = dr.target;
+    finishDrag();
+    dragEndAt = performance.now();
+    if (t) doDrop(dr.src, t);
+  } else {
+    cancelDrag();
+    if (dr.touch && dr.armed) openMenu(dr.el, e.clientX, e.clientY);
+  }
+});
+document.addEventListener('pointercancel', () => { if (drag) { if (drag.active) finishDrag(); else cancelDrag(); } });
+
+function startDrag(e) {
+  drag.active = true;
+  const r = drag.el.getBoundingClientRect();
+  const g = drag.el.cloneNode(true);
+  g.classList.add('fantasma');
+  g.classList.remove('erguida', 'alvo');
+  g.style.width = r.width + 'px';
+  g.style.height = r.height + 'px';
+  drag.dx = e.clientX - r.left; drag.dy = e.clientY - r.top;
+  document.body.appendChild(g);
+  drag.ghost = g;
+  drag.el.classList.remove('erguida');
+  drag.el.classList.add('saindo');
+  document.body.classList.add('arrastando');
+}
+function follow(e) {
+  drag.lx = e.clientX; drag.ly = e.clientY;
+  drag.ghost.style.translate = `${e.clientX - drag.dx}px ${e.clientY - drag.dy}px`;
+  if (e.clientY > innerHeight - 50) scrollBy(0, 14);
+  else if (e.clientY < 50) scrollBy(0, -14);
+  const hit = document.elementFromPoint(e.clientX, e.clientY);
+  const el = hit?.closest('[data-note],[data-drop-folder]');
+  const t = el ? targetFor(el) : null;
+  if (drag.target?.el !== t?.el) {
+    drag.target?.el.classList.remove('alvo');
+    t?.el.classList.add('alvo');
+    clearTimeout(drag.springT);
+    if (t && t.el.hasAttribute('data-spring') && t.fid !== undefined) {
+      drag.springT = setTimeout(() => spring(t.fid), 750);
+    }
+  }
+  drag.target = t;
+  if (t) {
+    dica.textContent = t.hint;
+    dica.hidden = false;
+    dica.style.translate = `${e.clientX + 16}px ${e.clientY + 18}px`;
+  } else dica.hidden = true;
+}
+function spring(fid) {
+  if (!drag?.active || !fid) return;
+  drag.target?.el.classList.remove('alvo');
+  drag.target = null;
+  if (S.mode === 2 || S.mode === 3) { for (const f of path(fid)) S.open.add(f.id); }
+  if (S.mode !== 3) S.here[S.group] = fid;
+  render();
+  const src = document.querySelector(drag.src.type === 'note' ? `[data-note="${drag.src.id}"]` : `[data-drag-folder="${drag.src.id}"]`);
+  src?.classList.add('saindo');
+  drag.sprung = fid;
+  follow({ clientX: drag.lx, clientY: drag.ly });
+}
+function targetFor(el) {
+  const s = drag.src;
+  if (el.dataset.note) {
+    if (s.type !== 'note' || el.dataset.note === s.id) return null;
+    const short = (t) => (t.length > 16 ? t.slice(0, 15) + '…' : t);
+    return { kind: 'juntar', el, id: el.dataset.note, hint: `Nova pasta com “${short(note(s.id).t)}” e “${short(note(el.dataset.note).t)}”` };
+  }
+  const fid = el.dataset.dropFolder || null;
+  if (s.type === 'note') {
+    if (note(s.id).f === fid) return null;
+    return { kind: 'guardar', el, fid, hint: fid ? `Guardar em ${folder(fid).name}` : 'Tirar das pastas' };
+  }
+  const f = folder(s.id);
+  if (fid === s.id || (fid && isInside(fid, s.id)) || f.parent === fid) return null;
+  return { kind: 'guardar', el, fid, hint: fid ? `Pôr dentro de ${folder(fid).name}` : 'Levar para fora das pastas' };
+}
+function doDrop(src, t) {
+  if (t.kind === 'juntar') joinNotes(src.id, t.id);
+  else if (src.type === 'note') moveNote(src.id, t.fid);
+  else moveFolder(src.id, t.fid);
+}
+function finishDrag() {
+  clearTimeout(drag.springT);
+  drag.ghost?.remove();
+  drag.target?.el.classList.remove('alvo');
+  document.querySelectorAll('.saindo').forEach((x) => x.classList.remove('saindo'));
+  document.body.classList.remove('arrastando');
+  dica.hidden = true;
+  drag = null;
+}
+function cancelDrag() {
+  clearTimeout(drag.timer);
+  drag.el.classList.remove('erguida');
+  drag = null;
+}
+
+render();
+</script>
+</body>
+</html>
