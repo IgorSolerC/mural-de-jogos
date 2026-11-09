@@ -1,5 +1,6 @@
-/* A papelaria do Kanban: a etiqueta de importância e o cabeçalho das colunas. Usadas na ficha do
-   quadro (ui/kanban-note.ts), na aba Kanban do editor (ui/kanban-props.ts) e na página. */
+/* A papelaria do Kanban: a etiqueta de importância, a coluna e o cabeçalho dela. Usadas na ficha do
+   quadro (ui/kanban-note.ts), na aba Kanban do editor (ui/kanban-props.ts e o palco dela,
+   ui/kanban-preview.ts) e na página. */
 
 /* As tintas da importância: a listra e a letra da etiqueta (Crítico é a etiqueta inteira em vermelho). */
 @mixin importancia-cores {
@@ -295,5 +296,100 @@
 
   @container kprops (max-width: 420px) {
     min-height: 28px;
+  }
+}
+
+/* ===== A coluna: uma tira comprida de papel pardo na parede, um pouco torta. Quem usa põe o tamanho e o
+   arranjo (a página e o palco da aba Kanban do editor). ===== */
+/* o papel pardo das colunas */
+$kraft: #c6a36b;
+
+@mixin coluna-papel {
+  padding: 0 14px 14px;
+  border-radius: 2px;
+  background-color: var(--kraft, #{$kraft});
+  background-image:
+    repeating-linear-gradient(91deg, rgb(255 255 255 / 0.035) 0 2px, transparent 2px 7px),
+    var(--paper-grain);
+  background-blend-mode: normal, multiply;
+  color: var(--ink);
+  box-shadow: var(--shadow-card);
+  rotate: -0.35deg;
+}
+
+/* O cabeçalho da coluna, no alto dela: o nome entre o desenho e a conta (ver `cabecalho`) */
+@mixin etiqueta-coluna {
+  @include cabecalho;
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  /* embaixo, a etiqueta encosta na caixa das anotações, que leva a folga dela por dentro (ver .rolo) */
+  margin: 20px -6px 0;
+  padding: 11px 9px 10px 15px;
+  rotate: -0.8deg;
+}
+
+@mixin etiqueta-icone {
+  display: inline-flex;
+  color: var(--col-cor);
+}
+
+/* o nome à esquerda, quebrando em quantas linhas precisar; a conta na ponta direita, no meio da altura */
+@mixin etiqueta-nome {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.3rem;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+
+/* quantas: impresso miúdo na ponta da etiqueta, na tinta dela mais rala (como nas abas) */
+@mixin etiqueta-n {
+  flex: none;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.92rem;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  opacity: 0.68;
+  font-variant-numeric: tabular-nums;
+}
+
+/* "Finaliza": um selo de papel colado na beirada de baixo da etiqueta da coluna */
+@mixin carimbo {
+  position: absolute;
+  right: 12px;
+  bottom: -12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px 2px 6px;
+  border-radius: 2px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  box-shadow:
+    inset 0 0 0 1.5px var(--ink),
+    0 1px 1px rgb(0 0 0 / 0.3),
+    0 3px 4px -2px rgb(0 0 0 / 0.3);
+  rotate: 3deg;
+
+  lucide-icon {
+    display: inline-flex;
   }
 }

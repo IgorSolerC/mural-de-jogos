@@ -1,0 +1,130 @@
+@use 'kanban-kit' as kk;
+
+/* A coluna no palco (ver review-editor-palcos.scss): da largura da coluna da página, presa no alto.
+   Com mais anotações embaixo, ela continua até o pé do palco, sumindo aos poucos, como a coluna que rola;
+   sem mais nenhuma, ela acaba logo depois da última */
+:host {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 0;
+  overflow: hidden;
+  padding-top: 8px;
+}
+
+:host(.continua) {
+  mask-image: linear-gradient(#000 calc(100% - 40px), transparent);
+}
+
+.coluna {
+  @include kk.coluna-papel;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(296px, 100%);
+  min-width: 0;
+  /* a altura mínima da coluna da página; a que continua segue até o pé do palco */
+  min-height: min(220px, calc(100% - 8px));
+  transition: filter 0.26s ease-out;
+}
+
+.etiqueta {
+  @include kk.etiqueta-coluna;
+}
+
+.etiqueta-icone {
+  @include kk.etiqueta-icone;
+}
+
+.etiqueta-nome {
+  @include kk.etiqueta-nome;
+  margin: 0;
+}
+
+.etiqueta-n {
+  @include kk.etiqueta-n;
+}
+
+.carimbo {
+  @include kk.carimbo;
+}
+
+/* as fichas: o vão e a folga do alto da coluna da página (ver .rolo e .fichas em kanban-page.scss) */
+.fichas {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0;
+  padding: 22px 0 0;
+  list-style: none;
+}
+
+:host(.titulos) .fichas {
+  gap: 6px;
+  padding-top: 16px;
+}
+
+:host(.continua) .coluna {
+  min-height: calc(100% - 8px);
+}
+
+/* as vizinhas da coluna, só para dar o lugar: apagadas */
+.vizinha {
+  opacity: 0.42;
+}
+
+/* as de cima que não cabem: a beirada de baixo de duas fichas, de papel claro, uma atrás da outra */
+.pilha {
+  display: grid;
+  margin: -10px 4px -4px;
+
+  i {
+    display: block;
+    height: 7px;
+    border-radius: 0 0 2px 2px;
+    background: rgb(247 244 236 / 0.5);
+    box-shadow: 0 2px 3px rgb(0 0 0 / 0.22);
+  }
+
+  i + i {
+    margin: 2px 6px 0;
+  }
+}
+
+/* só a de logo antes escondida: a pilha só aparece onde ela sai (o estreito) */
+.pilha.so-estreito {
+  display: none;
+}
+
+/* sem grupo, sem quadro: só a ficha */
+.sozinha {
+  width: min(296px, 100%);
+  padding: 22px 14px 0;
+  transition: filter 0.26s ease-out;
+}
+
+/* ainda não é tarefa: o desenho do que vai ser (como o flashcard que ainda não é) */
+:host(.ainda-nao) :is(.coluna, .sozinha) {
+  filter: saturate(0.65) brightness(0.55);
+}
+
+/* no palco de cima (o estreito), só cabe o alto da coluna: a vizinha de antes sai, e ela fica à vista */
+@media (max-width: 1023px) {
+  /* o palco baixo sempre corta a coluna: ela some aos poucos no pé dele */
+  :host {
+    mask-image: linear-gradient(#000 calc(100% - 40px), transparent);
+  }
+
+  .antes {
+    display: none;
+  }
+
+  .pilha.so-estreito {
+    display: grid;
+  }
+
+  .coluna,
+  .sozinha {
+    zoom: 0.86;
+  }
+}

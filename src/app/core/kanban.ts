@@ -219,6 +219,19 @@ export function hash64(text: string): string {
  */
 export const KANBAN_LAST_KEY = 'meu-mural:kanban-aberto:v1';
 
+/** Os quadros vistos só pelos títulos neste aparelho (os ids); os outros, nas fichas. */
+export const DENSE_KEY = 'meu-mural:kanban-titulos:v1';
+
+/** Os quadros vistos só pelos títulos (a página e o palco da aba Kanban do editor). */
+export function readDense(): string[] {
+  try {
+    const raw: unknown = JSON.parse(localStorage.getItem(DENSE_KEY) ?? '[]');
+    return Array.isArray(raw) ? raw.filter((id): id is string => typeof id === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
 /** O id do quadro de uma categoria: o mesmo em todo aparelho. */
 export function boardIdFor(category: string): string {
   return `kb${hash64(categoryKey(category))}`;

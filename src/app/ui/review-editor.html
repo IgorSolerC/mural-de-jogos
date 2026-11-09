@@ -4,6 +4,7 @@
   [class.notas]="notes()"
   [class.na-cartolina]="mode() === 'cartolina'"
   [class.na-flashcard]="mode() === 'flashcard'"
+  [class.na-kanban]="mode() === 'kanban'"
   aria-labelledby="editor-titulo"
   (cancel)="requestClose($event)"
   (close)="onClose()"
@@ -421,22 +422,24 @@
           </section>
         </div>
 
-        <!-- ===== Kanban: o lugar da anotação no quadro; só desenhadas nesta aba, e valem ao salvar ===== -->
+        <!-- ===== Kanban: a anotação como tarefa no quadro do grupo (ui/kanban-props.ts); só desenhada nesta aba, e vale ao salvar.
+             A coluna com ela fica no palco ===== -->
         @if (mode() === 'kanban') {
           <div class="kanban-modo">
-            @if (kbBoard(); as b) {
-              <app-kanban-props [board]="b" [noteId]="id()" [title]="noteTitle()" [(column)]="kbColumn" [(importance)]="kbImportance" [(status)]="kbStatus" [(deps)]="kbDeps" [wall]="kbWall()" (wallChange)="setKbWall($event)" />
-            } @else {
-              <!-- cada quadro é de um grupo: sem grupo, o caminho até ele -->
-              <div class="sem-quadro">
-                <p class="sem-quadro-convite">Cada grupo tem o seu quadro, e esta anotação ainda não tem grupo.</p>
-                @if (readOnly()) {
-                  <p class="sem-quadro-convite">Escolha um em Grupo e tags, na leitura da anotação.</p>
-                } @else {
-                  <button type="button" class="escolher-grupo" (click)="chooseGroup()">Escolher o grupo</button>
-                }
-              </div>
-            }
+            <app-kanban-props
+              [board]="kbBoard()"
+              [readOnly]="readOnly()"
+              [firstColumn]="kbFirstColumn()"
+              [noteId]="id()"
+              [title]="noteTitle()"
+              [(column)]="kbColumn"
+              [(importance)]="kbImportance"
+              [(status)]="kbStatus"
+              [(deps)]="kbDeps"
+              [wall]="kbWall()"
+              (wallChange)="setKbWall($event)"
+              (chooseGroup)="chooseGroup()"
+            />
           </div>
         }
 
@@ -466,10 +469,13 @@
            reta. No computador fica sempre à vista, ao lado; no celular, só na aba Cartolina, em cima
            do estojo. No computador, a ficha pode ficar inteira (o texto todo, rolando junto com o
            cursor de quem escreve) -->
-      <aside class="palco parede" [attr.aria-label]="mode() === 'flashcard' ? 'O flashcard: frente e verso' : 'A ficha no mural'">
+      <aside class="palco parede" [attr.aria-label]="mode() === 'flashcard' ? 'O flashcard: frente e verso' : mode() === 'kanban' ? 'A tarefa na coluna do Kanban' : 'A ficha no mural'">
         <!-- na aba Flashcard, o que aparece é o flashcard: a ficha fica montada e escondida, para voltar como estava -->
         @if (mode() === 'flashcard') {
           <app-flashcard-preview [note]="preview()" [front]="flashcard().front()" [stock]="pin().stock" [deck]="flashcard().deck()" [on]="flashcard().on()" [canEditBack]="!readOnly()" (editFront)="flashcard().focusFront()" (editBack)="setMode('escrever')" />
+        } @else if (mode() === 'kanban') {
+          <!-- na aba Kanban, a coluna do quadro com a anotação nela -->
+          <app-kanban-preview [board]="kbBoard()" [note]="preview()" [place]="kbPlace()" [from]="kbFrom()" [firstColumn]="kbFirstColumn()" />
         }
         <div class="palco-topo">
           <button

@@ -1,0 +1,89 @@
+/* As abas de "ser outra coisa" do editor da anotação, Flashcard e Kanban (ui/flashcard-tab.ts e
+   ui/kanban-props.ts): a mesma folha nas duas. Ainda não sendo, o estado no meio da folha e uma ação
+   só; sendo, blocos sem coluna de rótulos (o nome em letra de etiqueta em cima), do que decide para o
+   que quase não muda, um fio tracejado entre eles, e a saída no pé. */
+
+/* ===== Ainda não é: o estado e a ação, no meio da folha ===== */
+@mixin vazia {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 16px;
+  min-height: min(52dvh, 460px);
+  padding: 20px 4px;
+  text-align: center;
+
+  @media (max-width: 1023px) {
+    min-height: 0;
+    padding-block: 28px;
+  }
+}
+
+@mixin estado {
+  margin: 0;
+  max-width: 34ch;
+  font-family: var(--f-hand);
+  font-size: 1.22rem;
+  line-height: 1.35;
+  text-wrap: balance;
+}
+
+/* a ação do vazio: o botão de tinta, grande */
+@mixin virar {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 54px;
+  padding-inline: 24px;
+}
+
+/* ===== É: os blocos ===== */
+@mixin folha {
+  display: grid;
+  padding-top: 6px;
+}
+
+@mixin bloco {
+  min-width: 0;
+  padding: 14px 0 16px;
+
+  & + & {
+    border-top: 1.5px dashed rgb(21 21 21 / 0.18);
+  }
+}
+
+/* o nome do bloco, em letra de etiqueta */
+@mixin nome {
+  margin: 0 0 8px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+/* o bloco de uma linha só (o nome e uma escolha, que fica na ponta direita) */
+@mixin linha-so {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-block: 10px;
+
+  .nome {
+    margin: 0;
+  }
+
+  > :last-child:not(:first-child) {
+    margin-left: auto;
+  }
+}
+
+/* ===== A saída ===== */
+@mixin pe {
+  display: flex;
+  justify-content: flex-start;
+  padding-top: 14px;
+  border-top: 1.5px dashed rgb(21 21 21 / 0.18);
+}

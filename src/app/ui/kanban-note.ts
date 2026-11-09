@@ -7,7 +7,7 @@ import { Review } from '../core/review';
 import { Settings } from '../core/settings';
 import { pinningFor } from '../core/wall-physics';
 import { KanbanDepsBadge } from './kanban-deps';
-import { IMPORTANCE_LEVEL } from './kanban-icons';
+import { IMPORTANCE_LEVEL, IMPORTANCE_STEPS } from './kanban-icons';
 import { CARD_IMPORTS, CARD_STYLES, CARD_TEMPLATE, ReviewCard } from './review-card';
 
 /**
@@ -106,7 +106,9 @@ export class KanbanReviewCard extends ReviewCard {
             }
           </span>
         }
-        <ng-container [ngTemplateOutlet]="adjust" />
+        @if (!still()) {
+          <ng-container [ngTemplateOutlet]="adjust" />
+        }
       </div>
     } @else {
       <app-review-card [review]="review()" [compact]="true" [preview]="true" [checkable]="true" [looks]="looks()" (opened)="opened.emit(review().id)">
@@ -132,7 +134,9 @@ export class KanbanReviewCard extends ReviewCard {
           </div>
         }
       </app-review-card>
-      <ng-container [ngTemplateOutlet]="adjust" />
+      @if (!still()) {
+        <ng-container [ngTemplateOutlet]="adjust" />
+      }
     }
     <ng-template #adjust>
       <!-- as ações da anotação, as etiquetas de tinta de todo card (ui/_etiqueta-acoes.scss): os ajustes e, fora da última coluna, a seta que a leva para a próxima -->
@@ -157,6 +161,8 @@ export class KanbanNote {
   readonly dense = input(false);
   /** O nome da coluna seguinte (a da direita), para a seta que leva a anotação para lá; null na última. */
   readonly next = input<string | null>(null);
+  /** Só o desenho, sem as etiquetas das ações: no palco da aba Kanban do editor (ui/kanban-preview.ts). */
+  readonly still = input(false);
   readonly opened = output<string>();
   readonly details = output<void>();
   /** A seta: levar a anotação para a coluna seguinte. */
@@ -172,7 +178,7 @@ export class KanbanNote {
   protected readonly noText = computed(() => !this.review().text.trim());
   protected readonly label = IMPORTANCE_LABEL;
   protected readonly level = IMPORTANCE_LEVEL;
-  protected readonly steps = [1, 2, 3, 4, 5];
+  protected readonly steps = IMPORTANCE_STEPS;
   protected readonly looks = inject(Settings).categoryLooks;
   /** A cartolina e a inclinação da ficha no mural: a tira é do mesmo papel. */
   protected readonly pin = computed(() => pinningFor(this.review().id, this.review().stock));

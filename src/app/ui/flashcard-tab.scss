@@ -1,4 +1,5 @@
 @use 'paper-kit' as kit;
+@use 'editor-aba' as aba;
 
 :host {
   display: block;
@@ -7,61 +8,28 @@
 
 /* ===== Ainda não é flashcard: o estado e a ação, no meio da folha ===== */
 .vazia {
-  display: grid;
-  align-content: center;
-  justify-items: center;
-  gap: 16px;
-  min-height: min(52dvh, 460px);
-  padding: 20px 4px;
-  text-align: center;
-
-  @media (max-width: 1023px) {
-    min-height: 0;
-    padding-block: 28px;
-  }
+  @include aba.vazia;
 }
 
 .estado {
-  margin: 0;
-  max-width: 34ch;
-  font-family: var(--f-hand);
-  font-size: 1.22rem;
-  line-height: 1.35;
-  text-wrap: balance;
+  @include aba.estado;
 }
 
 .virar {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 54px;
-  padding-inline: 24px;
+  @include aba.virar;
 }
 
 /* ===== É flashcard: blocos sem coluna de rótulos, do que decide para o que quase não muda ===== */
 .fc {
-  display: grid;
-  padding-top: 6px;
+  @include aba.folha;
 }
 
 .bloco {
-  min-width: 0;
-  padding: 14px 0 16px;
-
-  & + & {
-    border-top: 1.5px dashed rgb(21 21 21 / 0.18);
-  }
+  @include aba.bloco;
 }
 
 .nome {
-  margin: 0 0 8px;
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.82rem;
-  letter-spacing: 0.08em;
-  line-height: 1.1;
-  text-transform: uppercase;
-  color: var(--ink-2);
+  @include aba.nome;
 }
 
 /* o que falta, à mão, ao lado do nome: pede sem acusar (o erro só vem ao salvar) */
@@ -194,19 +162,7 @@
 
 /* ===== O verso e o mural: uma linha cada ===== */
 .linha-so {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding-block: 10px;
-
-  .nome {
-    margin: 0;
-  }
-
-  /* o que vem por último fica na ponta direita */
-  > :last-child:not(:first-child) {
-    margin-left: auto;
-  }
+  @include aba.linha-so;
 }
 
 .verso-txt {
@@ -277,10 +233,7 @@
 
 /* ===== A saída ===== */
 .pe {
-  display: flex;
-  justify-content: flex-start;
-  padding-top: 14px;
-  border-top: 1.5px dashed rgb(21 21 21 / 0.18);
+  @include aba.pe;
 }
 
 /* "Pôr no Kana de Idiomas": embaixo da frase do flashcard guardado, antes dos baralhos */

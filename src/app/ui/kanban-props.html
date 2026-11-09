@@ -1,0 +1,173 @@
+@if (!board()) {
+  <!-- cada quadro é de um grupo: sem grupo, o caminho até ele (como na aba Flashcard) -->
+  <div class="vazia">
+    @if (readOnly()) {
+      <p class="estado">Para virar tarefa no Kanban, escolha um grupo em Grupo e tags, na leitura da anotação.</p>
+    } @else {
+      <p class="estado">Para virar tarefa no Kanban, falta o grupo.</p>
+      <button type="button" class="btn-ink virar" (click)="chooseGroup.emit()">Escolher o grupo</button>
+    }
+  </div>
+} @else if (!current()) {
+  <!-- ainda não é tarefa: o estado e uma ação só. O que ela faz está à vista no palco, a coluna onde entraria -->
+  <div class="vazia">
+    <p class="estado">Esta anotação ainda não é uma tarefa no Kanban.</p>
+    <button type="button" class="btn-ink virar" (click)="start()">
+      <lucide-icon [img]="BoardIcon" [size]="18" aria-hidden="true" />
+      Transformar em tarefa
+    </button>
+  </div>
+} @else {
+  <div class="kb">
+    <!-- a etapa vem primeiro: é ela que diz onde a tarefa está. Cada coluna do quadro, na ordem dele;
+         a escolhida é a etiqueta da coluna, colada -->
+    <section class="bloco" [attr.aria-labelledby]="id + '-etapa'">
+      <h3 class="nome" [id]="id + '-etapa'">Etapa</h3>
+      <div class="opcoes" role="radiogroup" [attr.aria-labelledby]="id + '-etapa'" (keydown)="rove($event)">
+        @for (c of board()!.columns; track c.id) {
+          <button
+            type="button"
+            role="radio"
+            class="etapa"
+            [attr.data-coluna]="c.id"
+            [attr.data-cor]="c.color"
+            [attr.aria-checked]="c.id === column()"
+            [attr.tabindex]="c.id === column() ? 0 : -1"
+            (click)="column.set(c.id)"
+          >
+            <lucide-icon [img]="iconOf[c.icon]" [size]="17" aria-hidden="true" />
+            {{ c.name }}
+            @if (c.finishes) {
+              <span class="sr-only">: finaliza a anotação</span>
+            }
+          </button>
+        }
+      </div>
+      <!-- chegar na que finaliza com dependência aberta: ao salvar, a pergunta de sempre (ver KanbanDeps) -->
+      <div aria-live="polite">
+        @if (openWarning(); as w) {
+          <p class="aviso"><lucide-icon [img]="DepsIcon" [size]="15" aria-hidden="true" />{{ w }}</p>
+        }
+      </div>
+    </section>
+
+    <!-- a importância: as etiquetas recortadas na cartela, da mais baixa à mais alta; a escolhida, colada -->
+    <section class="bloco" [attr.aria-labelledby]="id + '-imp'">
+      <h3 class="nome" [id]="id + '-imp'">Importância</h3>
+      <div class="opcoes" role="radiogroup" [attr.aria-labelledby]="id + '-imp'" (keydown)="rove($event)">
+        <button
+          type="button"
+          role="radio"
+          class="imp nenhuma"
+          [class.colado]="!importance()"
+          [attr.aria-checked]="!importance()"
+          [attr.tabindex]="importance() ? -1 : 0"
+          (click)="importance.set(null)"
+        >
+          Nenhuma
+        </button>
+        @for (i of scale; track i) {
+          <button
+            type="button"
+            role="radio"
+            class="imp"
+            [attr.data-imp]="i"
+            [class.colado]="importance() === i"
+            [attr.aria-checked]="importance() === i"
+            [attr.tabindex]="importance() === i ? 0 : -1"
+            (click)="importance.set(i)"
+          >
+            <span class="escala" aria-hidden="true">
+              @for (n of steps; track n) {
+                <i [class.acesa]="n <= level[i]"></i>
+              }
+            </span>
+            {{ impLabel[i] }}
+          </button>
+        }
+      </div>
+    </section>
+
+    <!-- a observação: umas palavras, que vão na ficha ao lado da importância (o status, por dentro) -->
+    <section class="bloco">
+      <label class="nome" [for]="id + '-status'">Observação</label>
+      <span class="campo observacao">
+        <input
+          [id]="id + '-status'"
+          type="text"
+          autocomplete="off"
+          enterkeyhint="done"
+          [maxLength]="statusMax"
+          [value]="draft()"
+          (input)="draft.set($any($event.target).value)"
+          (change)="commit()"
+          (keydown.enter)="$event.preventDefault(); commit(); $any($event.target).blur()"
+        />
+        @if (draft().trim()) {
+          <button type="button" class="tirar" aria-label="Tirar a observação" title="Tirar" (click)="setStatus('')">
+            <lucide-icon [img]="CloseIcon" [size]="15" aria-hidden="true" />
+          </button>
+        }
+      </span>
+    </section>
+
+    <!-- as que precisam estar finalizadas antes: uma lista curta e o botão de pôr outra -->
+    <section class="bloco" [attr.aria-labelledby]="id + '-deps'">
+      <h3 class="nome" [id]="id + '-deps'">Depende de</h3>
+      @if (depRows().length) {
+        <ul class="deps" [attr.aria-labelledby]="id + '-deps'">
+          @for (d of depRows(); track d.note.id) {
+            <li class="dep" [class.feita]="d.done">
+              <span class="dep-texto">
+                <span class="dep-nome">{{ d.note.game.name }}</span>
+                <span class="dep-onde">
+                  @if (d.done) {
+                    <span class="feita-selo"><lucide-icon [img]="DoneIcon" [size]="11" aria-hidden="true" />Finalizada</span>
+                  } @else {
+                    <span class="sr-only">Aberta, </span>
+                  }
+                  {{ d.where }}
+                </span>
+              </span>
+              <button type="button" class="tirar" [attr.aria-label]="'Tirar ' + d.note.game.name + ' das dependências'" title="Tirar" (click)="removeDep(d.note.id)">
+                <lucide-icon [img]="CloseIcon" [size]="15" aria-hidden="true" />
+              </button>
+            </li>
+          }
+        </ul>
+      }
+      <button type="button" class="papel pequeno por-dep" [disabled]="depRows().length >= maxDeps" (click)="picking.set(true)">
+        <lucide-icon [img]="PlusIcon" [size]="15" aria-hidden="true" />
+        {{ depRows().length ? 'Outra dependência' : 'Pôr dependência' }}
+      </button>
+    </section>
+
+    <!-- também no mural, ou só no Kanban (o "também no Feed" das redes): o mesmo da aba Flashcard -->
+    <div class="bloco linha-so">
+      <span class="nome" [id]="id + '-mural'">Mostrar no mural</span>
+      <button type="button" class="interruptor" role="switch" [attr.aria-checked]="wall()" [attr.aria-labelledby]="id + '-mural'" (click)="wall.set(!wall())">
+        <span class="bolinha"></span>
+      </button>
+    </div>
+
+    <!-- a saída, como o "Deixar de ser flashcard de estudos": vale ao salvar -->
+    <div class="pe">
+      <button type="button" class="papel perigo" (click)="leave()">
+        <lucide-icon [img]="LeaveIcon" [size]="15" aria-hidden="true" />
+        Deixar de ser tarefa no Kanban
+      </button>
+    </div>
+  </div>
+}
+
+<app-card-picker
+  [(open)]="picking"
+  [onlyKind]="notesKind"
+  [doneOption]="true"
+  [exclude]="excluded()"
+  heading="Depende de"
+  [hint]="'Uma anotação que precisa estar finalizada antes de “' + (title() || 'esta') + '”. Pode ser de outro grupo.'"
+  footHint="Toque numa anotação para pôr como dependência."
+  emptyText="Não há outra anotação que possa ser dependência desta."
+  (picked)="addDep($event.id)"
+/>

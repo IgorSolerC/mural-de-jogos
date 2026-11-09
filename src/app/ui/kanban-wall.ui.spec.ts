@@ -16,7 +16,7 @@ import { ReviewEditor } from './review-editor';
 import { WallToolbar } from './wall-toolbar';
 
 /**
- * Só no Kanban, nas telas: o interruptor "No mural" das coisas da anotação no quadro (a folha do
+ * Só no Kanban, nas telas: o interruptor "Mostrar no mural" das coisas da anotação no quadro (a folha do
  * quadro e o editor), a linha da pasta do mural, o mural vazio de uma aba com tudo no Kanban, a
  * etiqueta das que aparecem pelo "Mostrar" e a escolha do grupo nas configurações.
  */
@@ -91,19 +91,17 @@ describe('só no Kanban, nas telas', () => {
     localStorage.clear();
   });
 
-  it('o interruptor "No mural" diz o que vale e muda a escolha', async () => {
+  it('o interruptor "Mostrar no mural" muda a escolha', async () => {
     const f = await mount(PropsHost);
     const el: HTMLElement = f.nativeElement;
-    const sw = el.querySelector<HTMLButtonElement>('.mural-linha [role="switch"]')!;
+    const sw = el.querySelector<HTMLButtonElement>('.linha-so [role="switch"]')!;
     expect(sw.getAttribute('aria-checked')).toBe('true');
-    expect(el.querySelector('.mural-diz')!.textContent!.trim()).toBe('Aparece no mural também');
     sw.click();
     await f.whenStable();
     expect(f.componentInstance.wall()).toBeFalse();
     expect(sw.getAttribute('aria-checked')).toBe('false');
-    expect(el.querySelector('.mural-diz')!.textContent!.trim()).toBe('Só no Kanban');
-    // o nome da linha é o rótulo do interruptor
-    expect(document.getElementById(sw.getAttribute('aria-labelledby')!)!.textContent!.trim()).toBe('No mural');
+    // o nome da linha é o rótulo do interruptor, o mesmo da aba Flashcard
+    expect(document.getElementById(sw.getAttribute('aria-labelledby')!)!.textContent!.trim()).toBe('Mostrar no mural');
   });
 
   it('a folha dos filtros conta as que estão só no Kanban, no "Mostrar também", e o interruptor as traz com a etiqueta', async () => {
@@ -182,7 +180,7 @@ describe('só no Kanban, nas telas', () => {
     await f.whenStable();
     el.querySelector<HTMLButtonElement>('#editor-modo-kanban')!.click();
     await f.whenStable();
-    el.querySelector<HTMLButtonElement>('.kanban-modo .mural-linha [role="switch"]')!.click();
+    el.querySelector<HTMLButtonElement>('.kanban-modo .linha-so [role="switch"]')!.click();
     await f.whenStable();
     // nada vale antes de salvar
     expect(kanban.boardOnly().has('ntarefa1')).toBeTrue();
@@ -202,7 +200,7 @@ describe('só no Kanban, nas telas', () => {
     await f.whenStable();
     el.querySelector<HTMLButtonElement>('#editor-modo-kanban')!.click();
     await f.whenStable();
-    el.querySelector<HTMLButtonElement>('.kanban-modo .mural-linha [role="switch"]')!.click();
+    el.querySelector<HTMLButtonElement>('.kanban-modo .linha-so [role="switch"]')!.click();
     await f.whenStable();
     const name = el.querySelector<HTMLTextAreaElement>('#editor-titulo-nota')!;
     name.value = 'Tarefa nova';

@@ -27,11 +27,15 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-08-pomodoro-sem-seletor',
+    id: '2026-11-08-aba-kanban-refeita',
     version: '1.41.1',
     kind: 'ajustes',
     date: '2026-11-08',
-    title: 'Pomodoro sem o seletor de murais',
+    title: 'Aba Kanban refeita e Pomodoro sem o seletor de murais',
+    melhorias: [
+      'A aba Kanban do editor foi refeita como a do Flashcard: as colunas, a importância e o resto em toques, com nome à vista, e, ao lado, a anotação dentro da coluna do quadro como vai ficar, entre as vizinhas.',
+      'Fora do quadro, a aba mostra só "Transformar em tarefa"; para sair, "Deixar de ser tarefa no Kanban". Levar para uma coluna que finaliza com dependência aberta já avisa na própria aba.',
+    ],
     correcoes: ['A página do Pomodoro não mostra mais o seletor de murais (Jogos, Séries…) nem o mural no nome da aba: ela não depende de mural nenhum.'],
   },
   {

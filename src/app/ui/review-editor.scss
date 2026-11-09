@@ -307,8 +307,7 @@
    Ficha inteira, em cima da prévia (a mesma etiqueta da fileira; ligada, a de tinta) */
 .prop,
 .ver-inteira,
-.parte-pronto,
-.escolher-grupo {
+.parte-pronto {
   @include kit.botao-papel;
 }
 
@@ -1350,21 +1349,5 @@ fieldset.quem-ve {
 .flashcard-modo,
 .kanban-modo {
   padding: 4px 22px 22px;
-}
-
-/* ===== Kanban sem grupo: a frase e o caminho até o grupo ===== */
-.sem-quadro {
-  display: grid;
-  gap: 14px;
-  justify-items: start;
-  padding: 26px 4px;
-}
-
-.sem-quadro-convite {
-  margin: 0;
-  max-width: 46ch;
-  font-family: var(--f-hand);
-  font-size: 1.12rem;
-  line-height: 1.45;
 }
 

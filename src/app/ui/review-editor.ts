@@ -4,6 +4,7 @@ import {
   DestroyRef,
   ElementRef,
   computed,
+  linkedSignal,
   effect,
   inject,
   output,
@@ -77,6 +78,7 @@ import { HeightVar } from './height-var';
 import { SubjectPicker } from './subject-picker';
 import { TagPicker } from './tag-picker';
 import { KanbanProps } from './kanban-props';
+import { KanbanPlace, KanbanPreview } from './kanban-preview';
 import { FlashcardPreview } from './flashcard-preview';
 import { FlashcardTab } from './flashcard-tab';
 import { CategoryLabel } from './category-label';
@@ -176,6 +178,7 @@ const MIN_YEAR = 1971;
     SubjectPicker,
     TagPicker,
     KanbanProps,
+    KanbanPreview,
     CategoryLabel,
     NoteTag,
     Skulls,
@@ -197,7 +200,7 @@ const MIN_YEAR = 1971;
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './review-editor.html',
-  styleUrls: ['./review-editor.scss', './review-editor-flashcard.scss'],
+  styleUrls: ['./review-editor.scss', './review-editor-palcos.scss'],
 })
 export class ReviewEditor {
   protected readonly store = inject(ReviewStore);
@@ -428,8 +431,33 @@ export class ReviewEditor {
   protected readonly kbTabLabel = computed(() => {
     const col = this.kbColumnNow();
     if (col) return `Kanban: ${col.name}, no quadro ${this.noteCategory()}${this.kbWall() ? '' : ', só no Kanban'}`;
-    return this.kbBoard() ? 'Kanban: fora do quadro' : 'Kanban: sem grupo';
+    return this.kbBoard() ? 'Kanban: ainda não é tarefa' : 'Kanban: sem grupo';
   });
+
+  /**
+   * Onde "Transformar em tarefa" põe a anotação (e onde o palco a mostra, apagada, antes): de volta à última
+   * coluna escolhida (a de quando abriu, ou a tocada antes de "Deixar de ser tarefa"), ou na de onde a nova foi pedida (a do mesmo quadro); sem nenhuma, na primeira.
+   */
+  protected readonly kbFirstColumn = computed(() => {
+    const spot = this.editing() ? null : this.kanban.pending();
+    return this.kbLastColumn() ?? (spot && spot.board === this.kbBoard()?.id ? spot.column : null);
+  });
+  /** A última coluna escolhida (a de quando abriu, ou a que a pessoa tocou antes de "Deixar de ser tarefa"). */
+  private readonly kbLastColumn = linkedSignal<string | null, string | null>({
+    source: () => this.kbColumn(),
+    computation: (column, before) => column ?? before?.value ?? null,
+  });
+
+  /** A coluna de onde ela parte (a de quando o editor abriu): chegando numa coluna com card padrão, o palco a mostra vestida. */
+  protected readonly kbFrom = signal<string | null>(null);
+
+  /** O lugar como está agora, para o palco: a observação ainda sendo escrita também. */
+  protected readonly kbPlace = computed<KanbanPlace>(() => ({
+    column: this.kbColumnNow()?.id ?? null,
+    importance: this.kbImportance(),
+    status: cleanStatus(this.kanbanProps()?.draft() ?? this.kbStatus()),
+    deps: this.kbDeps(),
+  }));
 
   /** Sem grupo, a aba Kanban leva até o grupo: de volta à aba da anotação, com a etiqueta aberta. */
   protected chooseGroup(): void {
@@ -451,6 +479,9 @@ export class ReviewEditor {
     this.kbDeps.set(card?.deps ?? []);
     this.kbWallChoice.set(null);
     this.kbStart = { column: card?.column ?? null, importance: card?.importance ?? null, status: cleanStatus(card?.status ?? ''), deps: card?.deps ?? [] };
+    this.kbFrom.set(card?.column ?? null);
+    // o editor serve a outra anotação agora: a última coluna é a dela, não a da anterior
+    this.kbLastColumn.set(column);
   }
 
   /**

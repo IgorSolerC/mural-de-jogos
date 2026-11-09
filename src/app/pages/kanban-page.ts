@@ -6,7 +6,7 @@ import { map } from 'rxjs';
 import { kanbanPath } from '../core/areas';
 import { CategoryLook, categoryColorHex, tagColorHex } from '../core/category-looks';
 import { Desk } from '../core/desk';
-import { KANBAN_LAST_KEY, KanbanBoard, KanbanCard, KanbanColumn, MAX_COLUMNS, addColumn, belongs, boardIdFor, cardsIn, defaultColumns, nextStop, resetBoard } from '../core/kanban';
+import { DENSE_KEY, KANBAN_LAST_KEY, KanbanBoard, KanbanCard, KanbanColumn, MAX_COLUMNS, addColumn, belongs, boardIdFor, cardsIn, defaultColumns, nextStop, readDense, resetBoard } from '../core/kanban';
 import { KanbanActions } from '../core/kanban-actions';
 import { KanbanDresser } from '../core/kanban-dresser';
 import { sortCards, sortComparator, sortSentence, sortShort, tieRange } from '../core/kanban-sort';
@@ -40,18 +40,6 @@ import { Toasts } from '../ui/toast';
 import { readText, writeJson, writeText } from '../core/storage';
 import { reducedMotion } from '../core/motion';
 import { focusAfterRender, swallowNextClick } from '../ui/focus';
-
-/** Os quadros vistos só pelos títulos neste aparelho (os ids); os outros, nas fichas. */
-const DENSE_KEY = 'meu-mural:kanban-titulos:v1';
-
-function readDense(): string[] {
-  try {
-    const raw: unknown = JSON.parse(localStorage.getItem(DENSE_KEY) ?? '[]');
-    return Array.isArray(raw) ? raw.filter((id): id is string => typeof id === 'string') : [];
-  } catch {
-    return [];
-  }
-}
 
 /** Quanto o ponteiro anda antes de virar arrastar (o mouse); o dedo segura `HOLD` ms parado. */
 const SLOP = 6;

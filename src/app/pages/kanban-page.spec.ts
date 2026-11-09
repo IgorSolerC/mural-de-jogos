@@ -1815,12 +1815,12 @@ describe('página do Kanban', () => {
       props.componentRef.setInput('deps', ['nsumiu01']);
       await props.whenStable();
       const el: HTMLElement = props.nativeElement;
-      expect(el.querySelectorAll('.deps-linha .dep').length).toBe(0);
+      expect(el.querySelectorAll('.deps .dep').length).toBe(0);
       expect(el.querySelector('.por-dep')!.textContent!.trim()).toBe('Pôr dependência');
       props.componentRef.setInput('deps', ['nsumiu01', 'nsync001']);
       await props.whenStable();
-      expect(el.querySelectorAll('.deps-linha .dep').length).toBe(1);
-      expect(el.querySelector('.por-dep')!.textContent!.trim()).toBe('Outra');
+      expect(el.querySelectorAll('.deps .dep').length).toBe(1);
+      expect(el.querySelector('.por-dep')!.textContent!.trim()).toBe('Outra dependência');
       props.destroy();
     });
   });

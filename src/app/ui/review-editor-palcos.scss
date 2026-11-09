@@ -1,0 +1,71 @@
+/* ===== As abas Flashcard e Kanban do editor: o palco mostra o que a anotação vai ser, no lugar da ficha =====
+   Na Flashcard, a frente e o verso (ui/flashcard-preview.ts); na Kanban, a coluna do quadro com ela
+   (ui/kanban-preview.ts). À parte de review-editor.scss, que está no limite de tamanho. */
+dialog.editor:is(.na-flashcard, .na-kanban) {
+  .palco-topo,
+  .previa-slot {
+    display: none;
+  }
+}
+
+app-flashcard-preview,
+app-kanban-preview {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* ===== Estreito: o palco em cima, sempre à vista de quem escolhe embaixo ===== */
+@media (max-width: 1023px) {
+  dialog.editor:is(.na-flashcard, .na-kanban) .body {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  dialog.editor:is(.na-flashcard, .na-kanban) .conteudo {
+    grid-row: 2;
+  }
+
+  dialog.editor:is(.na-flashcard, .na-kanban) .palco {
+    display: block;
+    grid-row: 1;
+    padding: 4px 16px 10px;
+  }
+
+  app-flashcard-preview,
+  app-kanban-preview {
+    height: clamp(190px, 29dvh, 320px);
+  }
+}
+
+/* tela baixa (o celular deitado): o palco tomaria quase toda a folha */
+@media (max-width: 1023px) and (max-height: 560px) {
+  dialog.editor:is(.na-flashcard, .na-kanban) .palco {
+    display: none;
+  }
+}
+
+/* o teclado do celular aberto: o palco sai (como nas outras abas), e sobra folha para escrever */
+@media (pointer: coarse) and (max-width: 1023px), (pointer: coarse) and (max-height: 500px) {
+  :host-context(html.teclado) dialog.editor:is(.na-flashcard, .na-kanban) .palco {
+    display: none;
+  }
+}
+
+/* ===== Largo: metade para cada lado na Flashcard, para os dois lados caberem e darem para ler ===== */
+@media (min-width: 1024px) {
+  dialog.editor.na-flashcard .body {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  dialog.editor.na-flashcard .palco {
+    padding: 16px 28px 20px;
+  }
+
+  dialog.editor.na-flashcard .flashcard-modo {
+    padding-inline: 28px;
+  }
+
+  /* na Kanban, o palco tem a largura da coluna do quadro, e a coluna sobe do alto dele */
+  dialog.editor.na-kanban .palco {
+    padding: 8px 28px 0;
+  }
+}
