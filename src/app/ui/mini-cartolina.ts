@@ -54,7 +54,8 @@ import { PaperArtLayer } from './paper-layer';
       right: 4%;
       margin: 0;
       font-family: var(--f-marker);
-      font-size: 3.1rem;
+      /* quem usa pode pedir menor (\`--mini-titulo\`: nas pastas das anotações); nas do perfil, 3.1rem */
+      font-size: var(--mini-titulo, 3.1rem);
       line-height: 1;
       overflow-wrap: anywhere;
       rotate: -2deg;
