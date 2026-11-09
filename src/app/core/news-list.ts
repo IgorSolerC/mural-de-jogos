@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-09-pasta-em-todo-lugar',
+    id: '2026-11-09-pastas-na-api',
     version: '1.42.1',
     kind: 'ajustes',
     date: '2026-11-09',
@@ -38,6 +38,7 @@ export const NEWS: NewsEntry[] = [
       'A leitura mostra o caminho inteiro da pasta (Programação › Funcional), e tocar nele abre a parede nela. O PDF leva o caminho também.',
       'O filtro por pasta, no mural, no Kanban e nos seletores de fichas, pega também as pastas de dentro, e cada opção mostra o caminho.',
       'Nas configurações do mural, a parte Assuntos virou Pastas: a árvore de cada grupo, com criar, renomear, mover e desfazer.',
+      'Na API e no MCP, a nota traz a pasta (o id e o caminho), o contexto traz a árvore de cada grupo, criar e editar aceitam a pasta pelo caminho (as que faltam nascem) e listar filtra por ela, com as de dentro. O assunto continua valendo, como a pasta de cima.',
     ],
   },
   {

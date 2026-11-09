@@ -29,7 +29,7 @@
       "get": {
         "operationId": "ver_contexto",
         "summary": "Ver o contexto",
-        "description": "A conta, o dia de hoje no fuso dela, o que esta chave pode, o vocabulário das Anotações (grupos com assuntos e tags, tags fixas), o do Kanban (os quadros e as colunas), o dos Estudos (os baralhos), o dos Gastos (envelopes, pessoas, os meses com lançamento), o do Calendário (as cores e os meses que ver_agenda alcança) e o dos murais (quantos desejos e pra depois há, e as notas de cada mural para escrever fichas). Chame antes de criar ou mudar, e use os nomes que já existem. Permissão: notas:ler ou gastos:ler ou kanban:ler ou kanban:mover ou kanban:colunas ou calendario:ler ou calendario:escrever ou calendario:apagar ou desejos:ler ou desejos:escrever ou pra-depois:ler ou pra-depois:escrever ou fichas:ler ou fichas:escrever ou estudos:ler ou estudos:estudar ou estudos:escrever ou estudos:apagar.",
+        "description": "A conta, o dia de hoje no fuso dela, o que esta chave pode, o vocabulário das Anotações (grupos com as pastas, a árvore inteira, e as tags; tags fixas), o do Kanban (os quadros e as colunas), o dos Estudos (os baralhos), o dos Gastos (envelopes, pessoas, os meses com lançamento), o do Calendário (as cores e os meses que ver_agenda alcança) e o dos murais (quantos desejos e pra depois há, e as notas de cada mural para escrever fichas). Chame antes de criar ou mudar, e use os nomes que já existem. Permissão: notas:ler ou gastos:ler ou kanban:ler ou kanban:mover ou kanban:colunas ou calendario:ler ou calendario:escrever ou calendario:apagar ou desejos:ler ou desejos:escrever ou pra-depois:ler ou pra-depois:escrever ou fichas:ler ou fichas:escrever ou estudos:ler ou estudos:estudar ou estudos:escrever ou estudos:apagar.",
         "responses": {
           "200": {
             "description": "O que foi pedido, em JSON."
@@ -93,10 +93,19 @@
             }
           },
           {
+            "name": "pasta",
+            "in": "query",
+            "required": false,
+            "description": "Só as desta pasta e das de dentro dela: o caminho no grupo (\"Programação/Funcional\", sem ligar para caixa e acento) ou o id.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "assunto",
             "in": "query",
             "required": false,
-            "description": "Só as deste assunto.",
+            "description": "Obsoleto: use pasta. Só as da pasta de cima com este nome (e das de dentro).",
             "schema": {
               "type": "string"
             }
@@ -243,13 +252,21 @@
                     "maxLength": 32,
                     "description": "O grupo (use um de ver_contexto; null tira o grupo)."
                   },
+                  "pasta": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 900,
+                    "description": "A pasta, dentro do grupo: o caminho a partir da raiz dele, com \"/\" entre as pastas (\"Programação/Funcional\"; as que faltam o Murall cria), ou o id de uma pasta (de ver_contexto). null tira a nota da pasta. Mudar o grupo sem dizer a pasta tira a nota da pasta."
+                  },
                   "assunto": {
                     "type": [
                       "string",
                       "null"
                     ],
                     "maxLength": 32,
-                    "description": "O assunto, dentro do grupo (null tira)."
+                    "description": "Obsoleto: use pasta. A pasta de cima com este nome (null tira)."
                   },
                   "tags": {
                     "type": "array",
@@ -476,13 +493,21 @@
                     "maxLength": 32,
                     "description": "O grupo (use um de ver_contexto; null tira o grupo)."
                   },
+                  "pasta": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 900,
+                    "description": "A pasta, dentro do grupo: o caminho a partir da raiz dele, com \"/\" entre as pastas (\"Programação/Funcional\"; as que faltam o Murall cria), ou o id de uma pasta (de ver_contexto). null tira a nota da pasta. Mudar o grupo sem dizer a pasta tira a nota da pasta."
+                  },
                   "assunto": {
                     "type": [
                       "string",
                       "null"
                     ],
                     "maxLength": 32,
-                    "description": "O assunto, dentro do grupo (null tira)."
+                    "description": "Obsoleto: use pasta. A pasta de cima com este nome (null tira)."
                   },
                   "tags": {
                     "type": "array",

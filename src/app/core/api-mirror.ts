@@ -1,13 +1,13 @@
 import { Injectable, inject } from '@angular/core';
 import { NoteFolders } from './note-folders';
-import { FolderTree, NO_FOLDERS, topFolderNameOf } from './folders';
+import { FolderTree, NO_FOLDERS, NoteFolder } from './folders';
 import type { AgendaDoMesV1, LembreteV1 } from '../../../contrato/api-v1/calendario';
 import type { ContextoFichasV1, DesejoV1, FichaV1, PraDepoisV1 } from '../../../contrato/api-v1/murais';
 import type { BaralhoV1, CartaV1, ContextoEstudosV1 } from '../../../contrato/api-v1/estudos';
 import { dobra } from '../../../contrato/api-v1/escopos';
 import type { ContextoGastosV1, LancamentoV1, MesV1 } from '../../../contrato/api-v1/gastos';
 import type { QuadroV1 } from '../../../contrato/api-v1/kanban';
-import { CONTEXTO_NOTAS, ESPELHO_POR_ENVIO, type ContextoNotasV1, type GrupoV1, type NotaV1, type TipoDoEspelho } from '../../../contrato/api-v1/notas';
+import { CONTEXTO_NOTAS, ESPELHO_POR_ENVIO, notaParaOEspelho, type ContextoNotasV1, type GrupoV1, type NotaNoEspelhoV1, type NotaV1, type PastaV1, type TipoDoEspelho } from '../../../contrato/api-v1/notas';
 import { calendarMirror } from './api-mirror-calendar';
 import { muralsMirror } from './api-mirror-murals';
 import { kanbanMirror } from './api-mirror-kanban';
@@ -48,7 +48,7 @@ export interface MirrorItem {
   tipo: TipoDoEspelho;
   id: string;
   hash: string;
-  dados: NotaV1 | ContextoNotasV1 | LancamentoV1 | MesV1 | ContextoGastosV1 | QuadroV1 | LembreteV1 | AgendaDoMesV1 | DesejoV1 | PraDepoisV1 | FichaV1 | ContextoFichasV1 | CartaV1 | BaralhoV1 | ContextoEstudosV1;
+  dados: NotaNoEspelhoV1 | ContextoNotasV1 | LancamentoV1 | MesV1 | ContextoGastosV1 | QuadroV1 | LembreteV1 | AgendaDoMesV1 | DesejoV1 | PraDepoisV1 | FichaV1 | ContextoFichasV1 | CartaV1 | BaralhoV1 | ContextoEstudosV1;
 }
 
 /** As áreas que este site sabe espelhar, e os tipos que se tiram quando somem daqui. */
@@ -74,13 +74,15 @@ export interface CardView {
 /** A anotação no formato público v1 (o "quem vê" é o de verdade: só no Kanban também é privada). */
 export function notaV1(r: Review, card: CardView | null, boardOnly: ReadonlySet<string>, tree: FolderTree = NO_FOLDERS): NotaV1 {
   const tasks = checkCount(r.text);
+  const path = tree.path(tree.of(r));
   return {
     id: r.id,
     titulo: r.game.name,
     texto: r.text,
     grupo: r.category?.trim() || null,
-    // o assunto é a pasta de cima (PLANO-PASTAS.md, P13)
-    assunto: topFolderNameOf(tree, r),
+    pasta: path.length ? { id: path.at(-1)!.id, caminho: path.map((f) => f.name) } : null,
+    // o assunto de antes é a pasta de cima (PLANO-PASTAS.md, P13)
+    assunto: path[0]?.name ?? null,
     tags: [...(r.tags ?? [])],
     data: r.completedAt ?? null,
     finalizada_em: r.doneAt ?? null,
@@ -109,8 +111,26 @@ function tagCounts(notes: readonly Review[]): { nome: string; notas: number }[] 
 }
 
 /**
- * O vocabulário das Anotações: os grupos (na ordem das abas, com os assuntos guardados e os usados), as
- * tags de cada grupo e as fixas. É o que a AI usa em vez de inventar nomes.
+ * As pastas de um grupo (a chave), todas, de cima para baixo e de A a Z em cada nível, cada uma com a de
+ * cima e quantas notas tem (com as de dentro). A API monta o caminho de cada nota por aqui.
+ */
+function pastasDoGrupo(tree: FolderTree, group: string, notes: readonly Review[]): PastaV1[] {
+  const counts = new Map<string, number>();
+  for (const n of notes) for (const f of tree.path(tree.of(n))) counts.set(f.id, (counts.get(f.id) ?? 0) + 1);
+  const out: PastaV1[] = [];
+  const walk = (parent: string | null) => {
+    for (const f of tree.kids(group, parent) as readonly NoteFolder[]) {
+      out.push({ id: f.id, nome: f.name, pai: parent, notas: counts.get(f.id) ?? 0 });
+      walk(f.id);
+    }
+  };
+  walk(null);
+  return out;
+}
+
+/**
+ * O vocabulário das Anotações: os grupos (na ordem das abas, com as pastas de cada um), as tags de cada
+ * grupo e as fixas. É o que a AI usa em vez de inventar nomes.
  */
 export function contextoV1(notes: readonly Review[], tree: FolderTree, pinned: readonly string[]): ContextoNotasV1 {
   const byGroup = new Map<string, Review[]>();
@@ -122,13 +142,13 @@ export function contextoV1(notes: readonly Review[], tree: FolderTree, pinned: r
   }
   const grupos: GrupoV1[] = boardCategories(notes).map((c) => {
     const mine = byGroup.get(lookKey(c.label)) ?? [];
-    const names = new Map<string, string>();
-    // os assuntos são as pastas de cima do grupo
-    for (const f of tree.kids(lookKey(c.label), null)) if (!names.has(dobra(f.name))) names.set(dobra(f.name), f.name);
-    return { nome: c.label, notas: c.notes, assuntos: [...names.values()].sort(nameCollator.compare), tags: tagCounts(mine) };
+    const pastas = pastasDoGrupo(tree, lookKey(c.label), mine);
+    // os assuntos de antes: os nomes das pastas de cima
+    return { nome: c.label, notas: c.notes, pastas, assuntos: pastas.filter((p) => p.pai === null).map((p) => p.nome), tags: tagCounts(mine) };
   });
   const loose = notes.filter((n) => !n.category?.trim());
-  return { grupos, sem_grupo: { notas: loose.length, tags: tagCounts(loose) }, tags_fixas: [...pinned] };
+  const loosePastas = pastasDoGrupo(tree, '', loose);
+  return { grupos, sem_grupo: { notas: loose.length, tags: tagCounts(loose), ...(loosePastas.length ? { pastas: loosePastas } : {}) }, tags_fixas: [...pinned] };
 }
 
 /** A impressão de um item: os primeiros 32 dígitos do SHA-256 do JSON (a ordem dos campos é a da v1). */
@@ -252,8 +272,9 @@ export class ApiMirror {
     const notes = this.store.notes().filter((n) => !shared.has(n.id));
     const boardOnly = this.kanban.boardOnly();
     const out: MirrorItem[] = [];
+    // no espelho, a pasta vai só pelo id (o caminho mora no contexto): mexer numa pasta não regrava as notas
     for (const n of notes) {
-      const dados = this.notaOf(n, boardOnly);
+      const dados = notaParaOEspelho(this.notaOf(n, boardOnly));
       out.push({ tipo: 'nota', id: n.id, hash: await hashOf(dados), dados });
     }
     const ctx = contextoV1(notes, this.folders.tree(), this.settings.pinnedTags());

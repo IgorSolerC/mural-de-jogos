@@ -7,7 +7,7 @@ import { REQUEST_COLUMNS, REQUEST_ID_RE, createRequest, randomBase36, readIdem, 
 import { HttpError } from '../errors';
 import { Deps, SqlValue } from '../ports';
 import { intQuery } from './routes';
-import { createdNote, overlay, pendingOf } from './overlay';
+import { createdNote, overlay, pendingOf, folderIndexOf, noteOfRow } from './overlay';
 import { acharColuna } from '../../../contrato/api-v1/operacoes-kanban';
 import { findBoard } from './kanban-read';
 import { unknownColumn } from './kanban-write';
@@ -37,7 +37,7 @@ export function notesWriteRoutes(app: Hono, deps: Deps): void {
     const row = await deps.db.first<{ dados: string }>("SELECT dados FROM api_espelho WHERE usuario_id = ? AND tipo = 'nota' AND id = ?", [userId, id]);
     const now = deps.now();
     if (row) {
-      const mirrored = JSON.parse(row.dados) as NotaV1;
+      const mirrored = noteOfRow(row.dados, await folderIndexOf(deps, userId));
       return { mirrored, shown: overlay(mirrored, pending.byNote.get(id), now) };
     }
     const created = pending.created.find((r) => r.alvo === id);

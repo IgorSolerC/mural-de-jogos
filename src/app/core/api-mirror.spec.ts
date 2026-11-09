@@ -1,3 +1,4 @@
+import { indiceDasPastas, notaDoEspelho, notaParaOEspelho } from '../../../contrato/api-v1/notas';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { folderTree } from './folders';
 import { TestBed } from '@angular/core/testing';
@@ -40,7 +41,7 @@ describe('o espelho da API: a nota e o contexto em v1', () => {
       noteRank: 'fixada',
       game: { name: 'Plano de estudos', coverUrl: 'https://exemplo.com/capa.jpg' },
     });
-    // o assunto é a pasta de cima (PLANO-PASTAS.md, P13)
+    // a pasta e o caminho; o assunto de antes é a pasta de cima (PLANO-PASTAS.md, P13)
     const tree = folderTree([
       { id: 'pcalculo001', group: 'estudos', name: 'Cálculo', parent: null },
       { id: 'pfuncional01', group: 'estudos', name: 'Funcional', parent: 'pcalculo001' },
@@ -51,6 +52,7 @@ describe('o espelho da API: a nota e o contexto em v1', () => {
       titulo: 'Plano de estudos',
       texto: 'Começo.\n- [x] ler o capítulo\n- [ ] fazer a lista',
       grupo: 'Estudos',
+      pasta: { id: 'pfuncional01', caminho: ['Cálculo', 'Funcional'] },
       assunto: 'Cálculo',
       tags: ['prova', 'Sexta'],
       data: '2026-10-01',
@@ -64,7 +66,13 @@ describe('o espelho da API: a nota e o contexto em v1', () => {
       versao: '2026-10-02T10:00:00.000Z',
     });
     // a ordem dos campos é a da v1 (a impressão depende dela)
-    expect(Object.keys(v)).toEqual(['id', 'titulo', 'texto', 'grupo', 'assunto', 'tags', 'data', 'finalizada_em', 'fixada', 'visibilidade', 'capa', 'tarefas', 'kanban', 'criada_em', 'versao']);
+    expect(Object.keys(v)).toEqual(['id', 'titulo', 'texto', 'grupo', 'pasta', 'assunto', 'tags', 'data', 'finalizada_em', 'fixada', 'visibilidade', 'capa', 'tarefas', 'kanban', 'criada_em', 'versao']);
+    // no espelho, a pasta vai só pelo id (o caminho mora no contexto), no lugar dela
+    const stored = notaParaOEspelho(v);
+    expect(Object.keys(stored)).toEqual(['id', 'titulo', 'texto', 'grupo', 'pasta_id', 'tags', 'data', 'finalizada_em', 'fixada', 'visibilidade', 'capa', 'tarefas', 'kanban', 'criada_em', 'versao']);
+    expect(stored.pasta_id).toBe('pfuncional01');
+    // e a API devolve o mesmo, montando o caminho pelo contexto
+    expect(notaDoEspelho(stored, indiceDasPastas(contextoV1([r], tree, [])))).toEqual(v);
   });
 
   it('o "quem vê" é o de verdade: privada, ou só no Kanban, é privada', () => {
@@ -74,12 +82,13 @@ describe('o espelho da API: a nota e o contexto em v1', () => {
     expect(plain.visibilidade).toBe('publica');
     expect(plain.grupo).toBeNull();
     expect(plain.assunto).toBeNull();
+    expect(plain.pasta).toBeNull();
     expect(plain.kanban).toBeNull();
     expect(plain.fixada).toBeFalse();
     expect(plain.finalizada_em).toBeNull();
   });
 
-  it('o contexto: os grupos da mais usada para a menos, os assuntos (as pastas de cima), as tags por grupo, as sem grupo e as fixas', () => {
+  it('o contexto: os grupos da mais usada para a menos, as pastas (todas, com a de cima e as notas), as tags por grupo, as sem grupo e as fixas', () => {
     const notes = [
       note('r0001', 'A', { category: 'Trabalho', folder: 'preunioes01', tags: ['urgente', 'cliente'] }),
       note('r0002', 'B', { category: 'trabalho', tags: ['Urgente'] }),
@@ -95,8 +104,18 @@ describe('o espelho da API: a nota e o contexto em v1', () => {
     const ctx = contextoV1(notes, tree, ['urgente']);
     expect(ctx).toEqual({
       grupos: [
-        { nome: 'Trabalho', notas: 2, assuntos: ['Contratos', 'Reuniões'], tags: [{ nome: 'urgente', notas: 2 }, { nome: 'cliente', notas: 1 }] },
-        { nome: 'Estudos', notas: 1, assuntos: ['Cálculo'], tags: [] },
+        {
+          nome: 'Trabalho',
+          notas: 2,
+          pastas: [
+            { id: 'pcontratos1', nome: 'Contratos', pai: null, notas: 0 },
+            { id: 'pdentro0001', nome: 'Dentro', pai: 'pcontratos1', notas: 0 },
+            { id: 'preunioes01', nome: 'Reuniões', pai: null, notas: 1 },
+          ],
+          assuntos: ['Contratos', 'Reuniões'],
+          tags: [{ nome: 'urgente', notas: 2 }, { nome: 'cliente', notas: 1 }],
+        },
+        { nome: 'Estudos', notas: 1, pastas: [{ id: 'pcalculo001', nome: 'Cálculo', pai: null, notas: 1 }], assuntos: ['Cálculo'], tags: [] },
       ],
       sem_grupo: { notas: 1, tags: [{ nome: 'casa', notas: 1 }] },
       tags_fixas: ['urgente'],

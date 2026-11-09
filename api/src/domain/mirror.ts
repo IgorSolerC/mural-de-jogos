@@ -62,7 +62,7 @@ import {
   type PraDepoisV1,
 } from '../../../contrato/api-v1/murais';
 import { CARTOES_MAX, COLUNAS_MAX, DEPENDENCIAS_MAX, IMPORTANCIAS, NOME_DA_COLUNA_MAX, STATUS_MAX, type QuadroV1 } from '../../../contrato/api-v1/kanban';
-import { CONTEXTO_NOTAS, ESPELHO_POR_ENVIO, type ContextoNotasV1, type NotaV1, type TipoDoEspelho } from '../../../contrato/api-v1/notas';
+import { CONTEXTO_NOTAS, ESPELHO_POR_ENVIO, type ContextoNotasV1, type NotaNoEspelhoV1, type NotaV1, type TipoDoEspelho } from '../../../contrato/api-v1/notas';
 import { HttpError } from '../errors';
 import { Deps } from '../ports';
 
@@ -147,8 +147,16 @@ const isStrOrNull = (v: unknown, max: number) => v === null || isStr(v, max);
 const isIso = (v: unknown) => typeof v === 'string' && v.length <= 40 && !Number.isNaN(Date.parse(v));
 const strList = (v: unknown, n: number, max: number) => Array.isArray(v) && v.length <= n && v.every((x) => isStr(x, max));
 
-/** A nota v1 tem a forma certa? (O conteúdo é da própria pessoa: confere só a forma e os tamanhos.) */
-function checkNota(n: Record<string, unknown>): NotaV1 {
+/** O id de uma pasta do Murall ('p' ou 'a' + letras e números). */
+const FOLDER_ID_RE = /^[a-z][a-z0-9]{4,23}$/;
+
+/**
+ * A nota v1 tem a forma certa? (O conteúdo é da própria pessoa: confere só a forma e os tamanhos.) O site das
+ * pastas manda a pasta só pelo id (`pasta_id`; a API monta o caminho pelo contexto, PLANO-PASTAS.md, 5.2); o
+ * de antes delas, ainda aberto em algum aparelho, manda o `assunto`, que fica como veio.
+ */
+function checkNota(n: Record<string, unknown>): NotaNoEspelhoV1 | NotaV1 {
+  const byId = 'pasta_id' in n;
   const k = n['kanban'] as Record<string, unknown> | null;
   const t = n['tarefas'] as Record<string, unknown> | null;
   const ok =
@@ -156,7 +164,7 @@ function checkNota(n: Record<string, unknown>): NotaV1 {
     isStr(n['titulo'], 200) &&
     isStr(n['texto'], 20_000) &&
     isStrOrNull(n['grupo'], 32) &&
-    isStrOrNull(n['assunto'], 32) &&
+    (byId ? n['pasta_id'] === null || (typeof n['pasta_id'] === 'string' && FOLDER_ID_RE.test(n['pasta_id'])) : isStrOrNull(n['assunto'], 32)) &&
     strList(n['tags'], 12, 32) &&
     (n['data'] === null || (typeof n['data'] === 'string' && /^\d{4}(-\d{2}(-\d{2})?)?$/.test(n['data']))) &&
     (n['finalizada_em'] === null || isIso(n['finalizada_em'])) &&
@@ -171,13 +179,13 @@ function checkNota(n: Record<string, unknown>): NotaV1 {
     isIso(n['versao']);
   if (!ok) throw bad(`A nota "${String(n['id']).slice(0, 64)}" não tem a forma da v1.`);
   // só os campos da v1, na ordem dela (um campo a mais não entra no espelho)
-  const v = n as unknown as NotaV1;
+  const v = n as unknown as NotaV1 & NotaNoEspelhoV1;
   return {
     id: v.id,
     titulo: v.titulo,
     texto: v.texto,
     grupo: v.grupo,
-    assunto: v.assunto,
+    ...(byId ? { pasta_id: v.pasta_id } : { assunto: v.assunto }),
     tags: v.tags,
     data: v.data,
     finalizada_em: v.finalizada_em,
@@ -188,19 +196,26 @@ function checkNota(n: Record<string, unknown>): NotaV1 {
     kanban: v.kanban && { coluna: v.kanban.coluna, importancia: v.kanban.importancia, status: v.kanban.status, no_mural: v.kanban.no_mural },
     criada_em: v.criada_em,
     versao: v.versao,
-  };
+  } as NotaNoEspelhoV1 | NotaV1;
 }
 
 function checkContexto(c: Record<string, unknown>): ContextoNotasV1 {
   const tagList = (v: unknown) => Array.isArray(v) && v.length <= 2_000 && v.every((t) => t && typeof t === 'object' && isStr((t as { nome: unknown }).nome, 32));
+  // as pastas (o site de antes delas não manda): o id, o nome, a de cima e quantas notas; até 2.000, o teto do Murall
+  const folderList = (v: unknown) =>
+    v === undefined ||
+    (Array.isArray(v) &&
+      v.length <= 2_000 &&
+      v.every((p: Record<string, unknown>) => p && typeof p['id'] === 'string' && FOLDER_ID_RE.test(p['id']) && isStr(p['nome'], 32) && (p['pai'] === null || (typeof p['pai'] === 'string' && FOLDER_ID_RE.test(p['pai']))) && Number.isInteger(p['notas'])));
   const grupos = c['grupos'];
   const semGrupo = c['sem_grupo'] as Record<string, unknown> | null;
   const ok =
     Array.isArray(grupos) &&
     grupos.length <= 500 &&
-    grupos.every((g: Record<string, unknown>) => g && isStr(g['nome'], 32) && strList(g['assuntos'], 500, 32) && tagList(g['tags'])) &&
+    grupos.every((g: Record<string, unknown>) => g && isStr(g['nome'], 32) && strList(g['assuntos'], 500, 32) && folderList(g['pastas']) && tagList(g['tags'])) &&
     !!semGrupo &&
     tagList(semGrupo['tags']) &&
+    folderList(semGrupo['pastas']) &&
     strList(c['tags_fixas'], 40, 32);
   if (!ok) throw bad('O contexto das Anotações não tem a forma da v1.');
   return c as unknown as ContextoNotasV1;

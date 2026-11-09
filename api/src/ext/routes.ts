@@ -1,10 +1,10 @@
 import { Context, Hono } from 'hono';
 import { dobra } from '../../../contrato/api-v1/escopos';
-import { CONTEXTO_NOTAS, resumo, type ContextoNotasV1, type NotaResumoV1, type NotaV1 } from '../../../contrato/api-v1/notas';
+import { CONTEXTO_NOTAS, pastasDoFiltro, pedacosDoCaminho, resumo, type ContextoNotasV1, type NotaResumoV1, type NotaV1 } from '../../../contrato/api-v1/notas';
 import { formatCode } from '../domain/code';
 import { KeyCaller, authenticateKey, keyOut, requireScope } from '../domain/api-key';
 import { todayIn } from '../domain/mirror';
-import { createdNote, overlay, pendingOf, type NotaComPedidos } from './overlay';
+import { createdNote, folderIndexOf, noteOfRow, overlay, pendingOf, type NotaComPedidos } from './overlay';
 import { CALENDAR_SCOPES, calendarContext } from './calendar-read';
 import { KANBAN_SCOPES, kanbanContext } from './kanban-read';
 import { muralsContext, searchMurals } from './murals-read';
@@ -107,10 +107,22 @@ export function extRoutes(app: Hono, deps: Deps): void {
         params.push(dobra(group));
       }
     }
+    // as pastas da conta (o contexto): as notas guardam só o id, e o caminho se monta ao responder
+    const folders = await folderIndexOf(deps, me.key.userId);
+    const inGroupOf = group === undefined ? undefined : group === '-' ? null : group;
+    // a pasta pedida (o caminho, "Programação/Funcional", ou o id) e as de dentro dela
+    const folderWanted = q('pasta');
+    const folderIds = folderWanted ? pastasDoFiltro(folders, folderWanted, inGroupOf) : null;
+    if (folderIds) {
+      where.push("json_extract(dados, '$.pasta_id') IN (SELECT value FROM json_each(?))");
+      params.push(JSON.stringify([...folderIds]));
+    }
+    // o assunto de antes: a pasta de cima com esse nome (e as de dentro), ou o assunto da nota de antes das pastas
     const subject = q('assunto');
+    const subjectIds = subject ? pastasDoFiltro(folders, subject.replace(/[/›>]/g, ' '), inGroupOf) : null;
     if (subject) {
-      where.push("lower(json_extract(dados, '$.assunto')) = lower(?)");
-      params.push(subject);
+      where.push("(json_extract(dados, '$.pasta_id') IN (SELECT value FROM json_each(?)) OR lower(json_extract(dados, '$.assunto')) = lower(?))");
+      params.push(JSON.stringify([...subjectIds!]), subject);
     }
     const tag = q('tag');
     if (tag) {
@@ -150,8 +162,14 @@ export function extRoutes(app: Hono, deps: Deps): void {
       const sinceIso = since ? new Date(since).toISOString() : null;
       const lower = (v: string) => v.toLowerCase();
       const tagWanted = tag ? lower(tag.replace(/^#+/, '')) : null;
+      // (a pasta da nota que ainda não entrou só tem o caminho)
+      const wantedPath = folderWanted ? pedacosDoCaminho(folderWanted).map(dobra) : [];
+      const inFolder = (n: NotaComPedidos) =>
+        !!n.pasta &&
+        ((n.pasta.id !== null && !!folderIds?.has(n.pasta.id)) || (wantedPath.length > 0 && wantedPath.every((p, i) => n.pasta!.caminho[i] !== undefined && dobra(n.pasta!.caminho[i]) === p)));
       const matches = (n: NotaComPedidos) =>
         (!subject || (n.assunto !== null && lower(n.assunto) === lower(subject))) &&
+        (!folderWanted || inFolder(n)) &&
         (tagWanted === null || n.tags.some((t) => lower(t) === tagWanted)) &&
         (done === null || (n.finalizada_em !== null) === done) &&
         (pinned === null || n.fixada === pinned) &&
@@ -170,7 +188,7 @@ export function extRoutes(app: Hono, deps: Deps): void {
       if (taken && chars + row.dados.length > PAGE_MAX_CHARS) break;
       chars += row.dados.length;
       taken++;
-      const n = JSON.parse(row.dados) as NotaV1;
+      const n = noteOfRow(row.dados, folders);
       itens.push(summary(overlay(n, pending.byNote.get(n.id), now)));
     }
     const more = rows.length > taken;
@@ -190,7 +208,7 @@ export function extRoutes(app: Hono, deps: Deps): void {
     ]);
     const pending = await pendingOf(deps, me.key.userId);
     const now = deps.now();
-    if (row) return c.json({ nota: overlay(JSON.parse(row.dados) as NotaV1, pending.byNote.get(id), now) });
+    if (row) return c.json({ nota: overlay(noteOfRow(row.dados, await folderIndexOf(deps, me.key.userId)), pending.byNote.get(id), now) });
     // a nota que só existe num pedido de criar (o Murall ainda não aplicou)
     const created = pending.created.find((r) => r.alvo === id);
     const n = created ? createdNote(created, pending, now) : null;

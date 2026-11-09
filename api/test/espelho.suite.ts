@@ -1,6 +1,6 @@
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair, type CryptoKey, type JWK } from 'jose';
 import { beforeAll, describe, expect, it } from 'vitest';
-import type { ContextoNotasV1, NotaV1 } from '../../contrato/api-v1/notas';
+import { notaParaOEspelho, type ContextoNotasV1, type NotaV1 } from '../../contrato/api-v1/notas';
 import { createApp } from '../src/app';
 import { readConfig } from '../src/config';
 import { cleanup } from '../src/domain/cleanup';
@@ -25,6 +25,7 @@ function nota(id: string, extra: Partial<NotaV1> = {}): NotaV1 {
     titulo: `Nota ${id}`,
     texto: 'Um texto qualquer.',
     grupo: null,
+    pasta: null,
     assunto: null,
     tags: [],
     data: null,
@@ -42,8 +43,8 @@ function nota(id: string, extra: Partial<NotaV1> = {}): NotaV1 {
 
 const CONTEXTO: ContextoNotasV1 = {
   grupos: [
-    { nome: 'Trabalho', notas: 2, assuntos: ['Reuniões'], tags: [{ nome: 'urgente', notas: 1 }] },
-    { nome: 'Estudos', notas: 1, assuntos: ['Cálculo'], tags: [{ nome: 'prova', notas: 1 }] },
+    { nome: 'Trabalho', notas: 2, pastas: [], assuntos: ['Reuniões'], tags: [{ nome: 'urgente', notas: 1 }] },
+    { nome: 'Estudos', notas: 1, pastas: [], assuntos: ['Cálculo'], tags: [{ nome: 'prova', notas: 1 }] },
   ],
   sem_grupo: { notas: 1, tags: [{ nome: 'casa', notas: 1 }] },
   tags_fixas: ['urgente'],
@@ -323,6 +324,100 @@ export function espelhoSuite(label: string, getDb: () => Db) {
       expect(found.itens).toEqual([{ tipo: 'nota', id: 'estu-1', titulo: 'Integrais', grupo: 'Estudos', trecho: 'Revisar a prova de Cálculo na sexta.' }]);
       expect((await t.body(t.ext(secret, '/ext/v1/busca?q=pauta'))).itens[0].trecho).toBe('Levar a ata. - [ ] mandar e-mail');
       expect((await t.ext(secret, '/ext/v1/busca?q=a')).status).toBe(400);
+    });
+  });
+
+  describe(`${label}: as pastas (PLANO-PASTAS.md, seção 5)`, () => {
+    const pastas = (prog = 'Programação'): ContextoNotasV1 => ({
+      grupos: [
+        {
+          nome: 'Estudos',
+          notas: 3,
+          pastas: [
+            { id: 'pprog000001', nome: prog, pai: null, notas: 2 },
+            { id: 'pfunc000001', nome: 'Funcional', pai: 'pprog000001', notas: 1 },
+            { id: 'phist000001', nome: 'História', pai: null, notas: 1 },
+          ],
+          assuntos: ['História', prog],
+          tags: [],
+        },
+      ],
+      sem_grupo: { notas: 0, tags: [] },
+      tags_fixas: [],
+    });
+    /** Uma nota de Estudos como o site das pastas manda: a pasta só pelo id. */
+    const naPasta = (id: string, pasta: string | null, versao: string) =>
+      notaParaOEspelho({ ...nota(id, { grupo: 'Estudos', titulo: `Nota ${id}`, versao }), pasta: pasta ? { id: pasta, caminho: [] } : null });
+    const poe = (dados: unknown, tipo = 'nota') => ({ tipo, id: tipo === 'nota' ? (dados as { id: string }).id : 'notas', hash: 'ab'.repeat(8), dados });
+
+    async function folders(t: Awaited<ReturnType<typeof setup>>) {
+      const me = await t.login('ana');
+      const secret = await t.newKey(me.token);
+      const rev = await t.push(me.token, 0);
+      const notas = [
+        naPasta('f-1', 'pfunc000001', '2026-10-05T10:00:00.000Z'),
+        naPasta('p-1', 'pprog000001', '2026-10-04T10:00:00.000Z'),
+        naPasta('h-1', 'phist000001', '2026-10-03T10:00:00.000Z'),
+        naPasta('r-1', null, '2026-10-02T10:00:00.000Z'),
+      ];
+      const res = await t.mirror(me.token, { rev, poe: [...notas.map((n) => poe(n)), poe(pastas(), 'contexto')] });
+      expect(res.status).toBe(200);
+      return { me, secret, rev };
+    }
+
+    it('a nota guarda só o id da pasta; a API monta o caminho e o assunto (a de cima) pelo contexto', async () => {
+      const t = await setup();
+      const { secret, me } = await folders(t);
+      const n = (await t.body(t.ext(secret, '/ext/v1/notas/f-1'))).nota;
+      expect(n.pasta).toEqual({ id: 'pfunc000001', caminho: ['Programação', 'Funcional'] });
+      expect(n.assunto).toBe('Programação');
+      expect(Object.keys(n).slice(0, 6)).toEqual(['id', 'titulo', 'texto', 'grupo', 'pasta', 'assunto']);
+      expect((await t.body(t.ext(secret, '/ext/v1/notas/r-1'))).nota).toEqual(expect.objectContaining({ pasta: null, assunto: null }));
+      // no espelho, só o id
+      const row = await t.db.first<{ dados: string }>("SELECT dados FROM api_espelho WHERE tipo = 'nota' AND id = 'f-1' AND usuario_id = ?", [me.id]);
+      const stored = JSON.parse(row!.dados);
+      expect(stored.pasta_id).toBe('pfunc000001');
+      expect('pasta' in stored || 'assunto' in stored).toBe(false);
+    });
+
+    it('renomear a pasta muda só o contexto: a nota mostra o nome novo sem ser mandada de novo', async () => {
+      const t = await setup();
+      const { secret, me, rev } = await folders(t);
+      expect((await t.mirror(me.token, { rev, poe: [poe(pastas('Código'), 'contexto')] })).status).toBe(200);
+      expect((await t.body(t.ext(secret, '/ext/v1/notas/f-1'))).nota.pasta.caminho).toEqual(['Código', 'Funcional']);
+      // e o contexto mostra a árvore
+      const ctx = (await t.body(t.ext(secret, '/ext/v1/contexto'))).notas;
+      expect(ctx.grupos[0].pastas.map((p: { nome: string }) => p.nome)).toEqual(['Código', 'Funcional', 'História']);
+    });
+
+    it('?pasta= pelo caminho (sem caixa nem acento) ou pelo id pega também as de dentro; ?assunto= é a de cima', async () => {
+      const t = await setup();
+      const { secret } = await folders(t);
+      const sorted = async (q: string) => (await t.ids(secret, q)).sort();
+      expect(await sorted('?pasta=programacao')).toEqual(['f-1', 'p-1']);
+      expect(await sorted(`?pasta=${encodeURIComponent('Programação/Funcional')}`)).toEqual(['f-1']);
+      expect(await sorted(`?pasta=${encodeURIComponent('Programação › funcional')}`)).toEqual(['f-1']);
+      expect(await sorted('?pasta=pfunc000001')).toEqual(['f-1']);
+      expect(await sorted(`?assunto=${encodeURIComponent('Programação')}`)).toEqual(['f-1', 'p-1']);
+      expect(await sorted('?pasta=Funcional')).toEqual([]);
+      expect(await sorted('?pasta=historia&grupo=Estudos')).toEqual(['h-1']);
+      expect(await sorted('?pasta=historia&grupo=Trabalho')).toEqual([]);
+    });
+
+    it('a nota do site de antes das pastas (com o assunto) continua passando, e o ?assunto= ainda acha', async () => {
+      const t = await setup();
+      const { secret } = await t.ready();
+      expect((await t.body(t.ext(secret, '/ext/v1/notas/estu-1'))).nota).toEqual(expect.objectContaining({ pasta: null, assunto: 'Cálculo' }));
+      expect(await t.ids(secret, `?assunto=${encodeURIComponent('cálculo')}`)).toEqual(['estu-1']);
+    });
+
+    it('a pasta com um id que não é do Murall não entra no espelho', async () => {
+      const t = await setup();
+      const me = await t.login('ana');
+      await t.newKey(me.token);
+      const rev = await t.push(me.token, 0);
+      const bad = { ...naPasta('x-1', null, '2026-10-01T10:00:00.000Z'), pasta_id: 'Nao Vale!' };
+      expect((await t.mirror(me.token, { rev, poe: [poe(bad)] })).status).toBe(400);
     });
   });
 }

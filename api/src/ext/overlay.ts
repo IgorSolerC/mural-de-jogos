@@ -1,5 +1,5 @@
 import { aplicarNaNotaV1, conferirOp, notaDoPedido, type CriarNotaV1, type EstadoDoPedido, type OpNota } from '../../../contrato/api-v1/operacoes';
-import type { NotaV1 } from '../../../contrato/api-v1/notas';
+import { CONTEXTO_NOTAS, indiceDasPastas, notaDoEspelho, type ContextoNotasV1, type NotaNoEspelhoV1, type NotaV1, type PastaNoIndiceV1 } from '../../../contrato/api-v1/notas';
 import { openRequests, stateOf, type RequestRow } from '../domain/requests';
 import { Deps } from '../ports';
 
@@ -22,6 +22,20 @@ export interface Pending {
   byNote: Map<string, RequestRow[]>;
   /** As notas que só existem num pedido de criar (ainda não aplicado). */
   created: RequestRow[];
+}
+
+/**
+ * As pastas da conta pelo id, do contexto das Anotações (uma linha a mais por leitura: ler é barato, e as
+ * notas guardam só o id, então mexer numa pasta regrava uma linha só; PLANO-PASTAS.md, 5.2).
+ */
+export async function folderIndexOf(deps: Deps, userId: string): Promise<Map<string, PastaNoIndiceV1>> {
+  const row = await deps.db.first<{ dados: string }>("SELECT dados FROM api_espelho WHERE usuario_id = ? AND tipo = 'contexto' AND id = ?", [userId, CONTEXTO_NOTAS]);
+  return indiceDasPastas(row ? (JSON.parse(row.dados) as ContextoNotasV1) : null);
+}
+
+/** A nota de uma linha do espelho, como a v1 mostra (com a pasta e o assunto montados). */
+export function noteOfRow(dados: string, folders: ReadonlyMap<string, PastaNoIndiceV1>): NotaV1 {
+  return notaDoEspelho(JSON.parse(dados) as NotaNoEspelhoV1 | NotaV1, folders);
 }
 
 export async function pendingOf(deps: Deps, userId: string): Promise<Pending> {

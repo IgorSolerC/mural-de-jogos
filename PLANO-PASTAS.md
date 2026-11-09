@@ -554,3 +554,13 @@ ver a conversão na build de verdade), BUILD subindo a cada commit.
   das configurações virou Pastas (a árvore, com criar, renomear com Juntar, mover e desfazer). "Assunto"
   saiu da tela (Pasta, Sem pasta, o ícone de pasta). A nota ligada já nascia na mesma pasta, e a cópia para
   os Estudos não leva a pasta. Fica para a rodada 5: a API e o MCP (seção 5).
+- **Rodada 5 (09/nov, BUILD 819).** A API e o MCP (seção 5): `NotaV1.pasta` (`{id, caminho}`; o id é null na
+  nota de um pedido ainda não aplicado) e `assunto` obsoleto (a pasta de cima); `GrupoV1.pastas` (a árvore
+  inteira, com a de cima e as notas) e `sem_grupo.pastas`. O espelho guarda a nota com `pasta_id` só
+  (`NotaNoEspelhoV1`, `notaParaOEspelho` no site), e a API monta a pasta pelo contexto ao responder
+  (`notaDoEspelho`, `folderIndexOf`: uma leitura a mais); a nota do site de antes das pastas, com o
+  `assunto`, continua passando. `?pasta=` (o caminho sem caixa nem acento, ou o id) e `?assunto=` (a de cima)
+  pegam as de dentro, com `json_each(?)` num parâmetro só (sem o teto de 100 do D1). Criar e editar aceitam
+  `pasta` (o caminho, as que faltam o site cria em `ApiRequests.folderFor`, ou o id; null tira), e mudar de
+  grupo sem a pasta tira a nota dela também por cima. Guia, ferramentas, escopos e `docs/api` falam de
+  pastas. Falta o `/code-review high` sobre as cinco rodadas.

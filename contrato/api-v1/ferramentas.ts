@@ -67,7 +67,13 @@ const CAMPOS: Record<string, Esquema> = {
   titulo: { type: 'string', minLength: 1, maxLength: 200, description: 'O título da nota.' },
   texto: { type: 'string', maxLength: 20000, description: 'O texto, no markdown do Murall (veja guia_do_murall).' },
   grupo: rotulo('O grupo (use um de ver_contexto; null tira o grupo).'),
-  assunto: rotulo('O assunto, dentro do grupo (null tira).'),
+  pasta: {
+    type: ['string', 'null'],
+    maxLength: 900,
+    description:
+      'A pasta, dentro do grupo: o caminho a partir da raiz dele, com "/" entre as pastas ("Programação/Funcional"; as que faltam o Murall cria), ou o id de uma pasta (de ver_contexto). null tira a nota da pasta. Mudar o grupo sem dizer a pasta tira a nota da pasta.',
+  },
+  assunto: rotulo('Obsoleto: use pasta. A pasta de cima com este nome (null tira).'),
   tags: { type: 'array', maxItems: 12, items: { type: 'string', maxLength: 32 }, description: 'As tags (até 12, de até 32 letras). Prefira as que já existem.' },
   data: { type: ['string', 'null'], pattern: '^\\d{4}(-\\d{2}(-\\d{2})?)?$', description: 'A data da nota: AAAA, AAAA-MM ou AAAA-MM-DD (null: sem data).' },
   capa: { type: ['string', 'null'], maxLength: 2000, pattern: '^https://', description: 'Uma imagem https para a capa (null tira).' },
@@ -976,7 +982,7 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
     nome: 'ver_contexto',
     titulo: 'Ver o contexto',
     descricao:
-      'A conta, o dia de hoje no fuso dela, o que esta chave pode, o vocabulário das Anotações (grupos com assuntos e tags, tags fixas), o do Kanban (os quadros e as colunas), o dos Estudos (os baralhos), o dos Gastos (envelopes, pessoas, os meses com lançamento), o do Calendário (as cores e os meses que ver_agenda alcança) e o dos murais (quantos desejos e pra depois há, e as notas de cada mural para escrever fichas). Chame antes de criar ou mudar, e use os nomes que já existem.',
+      'A conta, o dia de hoje no fuso dela, o que esta chave pode, o vocabulário das Anotações (grupos com as pastas, a árvore inteira, e as tags; tags fixas), o do Kanban (os quadros e as colunas), o dos Estudos (os baralhos), o dos Gastos (envelopes, pessoas, os meses com lançamento), o do Calendário (as cores e os meses que ver_agenda alcança) e o dos murais (quantos desejos e pra depois há, e as notas de cada mural para escrever fichas). Chame antes de criar ou mudar, e use os nomes que já existem.',
     escopo: [
       'notas:ler',
       'gastos:ler',
@@ -1029,7 +1035,8 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
     destrutiva: false,
     entrada: obj({
       grupo: { type: 'string', description: 'Só as deste grupo ("-" para as sem grupo).' },
-      assunto: { type: 'string', description: 'Só as deste assunto.' },
+      pasta: { type: 'string', description: 'Só as desta pasta e das de dentro dela: o caminho no grupo ("Programação/Funcional", sem ligar para caixa e acento) ou o id.' },
+      assunto: { type: 'string', description: 'Obsoleto: use pasta. Só as da pasta de cima com este nome (e das de dentro).' },
       tag: { type: 'string', description: 'Só as com esta tag.' },
       finalizadas: { type: 'boolean', description: 'true: só as finalizadas; false: só as abertas.' },
       fixadas: { type: 'boolean', description: 'true: só as fixadas no topo.' },

@@ -12,7 +12,7 @@ import { Confirm } from './confirm';
 describe('a folha dos pedidos da API (ApiRequestsSheet)', () => {
   const NOW = new Date().toISOString();
   const nota: NotaV1 = {
-    id: 'r1', titulo: 'Reunião', texto: 'Pauta\n- [ ] Ligar', grupo: 'Trabalho', assunto: null, tags: [], data: null, finalizada_em: null, fixada: false,
+    id: 'r1', titulo: 'Reunião', texto: 'Pauta\n- [ ] Ligar', grupo: 'Trabalho', pasta: null, assunto: null, tags: [], data: null, finalizada_em: null, fixada: false,
     visibilidade: 'privada', capa: null, tarefas: { feitas: 0, total: 1 }, kanban: null, criada_em: NOW, versao: NOW,
   };
   const req = (id: string, op: string, extra: Partial<SiteRequest> = {}): SiteRequest =>

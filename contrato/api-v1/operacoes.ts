@@ -6,7 +6,7 @@
  */
 
 import { dobra, textoLimpo } from './escopos';
-import type { NotaV1 } from './notas';
+import { pedacosDoCaminho, type NotaV1, type PastaDaNotaV1 } from './notas';
 import { lerBaralhos, lerFrente, type FrenteV1 } from './operacoes-estudos';
 import { lerNoQuadro, type NoQuadroV1 } from './operacoes-kanban';
 
@@ -82,6 +82,12 @@ export interface CamposDaNota {
   titulo?: string;
   texto?: string;
   grupo?: string | null;
+  /**
+   * A pasta, dentro do grupo: o caminho a partir da raiz dele ("Programação/Funcional"; as que faltam o
+   * Murall cria) ou o id de uma pasta; null tira a nota da pasta.
+   */
+  pasta?: string | null;
+  /** Obsoleto: a pasta de cima com esse nome (o Murall cria, se não existe). */
   assunto?: string | null;
   tags?: string[];
   data?: string | null;
@@ -125,6 +131,9 @@ export const TITULO_MAX = 200;
 export const TEXTO_MAX = 20_000;
 export const ROTULO_MAX = 32;
 export const TAGS_MAX = 12;
+/** O caminho de uma pasta: até 24 níveis (o teto do Murall), em até 900 letras. */
+export const PASTA_NIVEIS = 24;
+const PASTA_MAX = 900;
 const DATA_RE = /^\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?)?$/;
 
 /** O resultado de conferir: os dados limpos, ou o erro em palavras (com o campo). */
@@ -161,6 +170,16 @@ function lerCampos(raw: Record<string, unknown>, criando: boolean): Conferido<Ca
     const v = textoLimpo(raw[campo], ROTULO_MAX + 1);
     if (v.length > ROTULO_MAX) return falha(campo, `O ${campo} tem até ${ROTULO_MAX} letras.`);
     out[campo] = v || null;
+  }
+  if (raw['pasta'] !== undefined) {
+    if (raw['pasta'] === null || raw['pasta'] === '') out.pasta = null;
+    else {
+      if (typeof raw['pasta'] !== 'string' || raw['pasta'].length > PASTA_MAX) return falha('pasta', 'A pasta é o caminho dentro do grupo ("Programação/Funcional") ou o id dela (ou null para tirar).');
+      const pedacos = pedacosDoCaminho(raw['pasta']).map((p) => textoLimpo(p, ROTULO_MAX + 1));
+      if (pedacos.some((p) => p.length > ROTULO_MAX)) return falha('pasta', `Cada pasta do caminho tem até ${ROTULO_MAX} letras.`);
+      if (pedacos.length > PASTA_NIVEIS) return falha('pasta', `O caminho tem até ${PASTA_NIVEIS} pastas.`);
+      out.pasta = pedacos.filter(Boolean).join('/') || null;
+    }
   }
   if (raw['tags'] !== undefined) {
     if (!Array.isArray(raw['tags']) || raw['tags'].some((t) => typeof t !== 'string')) return falha('tags', 'As tags são uma lista de nomes.');
@@ -345,9 +364,10 @@ export function aplicarNaNotaV1(nota: NotaV1, op: OpNota, dados: DadosDaOp, agor
     case 'nota.apagar':
       return null;
     case 'nota.editar': {
-      const { versao: _v, ...campos } = dados as EditarNotaV1;
+      const { versao: _v, pasta: _p, assunto: _a, ...campos } = dados as EditarNotaV1;
       const n = { ...nota, ...campos } as NotaV1;
-      return { ...n, tarefas: contarTarefas(n.texto) };
+      const pasta = pastaPedida(dados as EditarNotaV1, nota.pasta, nota.grupo);
+      return { ...n, pasta, assunto: pasta?.caminho[0] ?? null, tarefas: contarTarefas(n.texto) };
     }
     case 'nota.acrescentar': {
       const a = dados as AcrescentarV1;
@@ -371,15 +391,29 @@ export function aplicarNaNotaV1(nota: NotaV1, op: OpNota, dados: DadosDaOp, agor
   }
 }
 
+/**
+ * A pasta como vai ficar depois do pedido (a API mostra por cima): a pedida (o caminho; o id, só depois que o
+ * Murall aplicar), o assunto de antes como a pasta de cima, ou nenhuma quando o grupo muda (a nota sai da
+ * pasta, como no Murall).
+ */
+function pastaPedida(c: CamposDaNota, antes: PastaDaNotaV1 | null, grupoAntes: string | null): PastaDaNotaV1 | null {
+  if (c.pasta !== undefined) return c.pasta ? { id: null, caminho: pedacosDoCaminho(c.pasta) } : null;
+  if (c.assunto !== undefined) return c.assunto ? { id: null, caminho: [c.assunto] } : null;
+  if (c.grupo !== undefined && dobra(c.grupo ?? '') !== dobra(grupoAntes ?? '')) return null;
+  return antes;
+}
+
 /** A nota v1 de um pedido de criar, antes de o site aplicar (a API mostra assim, por cima). */
 export function notaDoPedido(id: string, d: CriarNotaV1, agora: string): NotaV1 {
   const texto = d.texto ?? '';
+  const pasta = pastaPedida(d, null, d.grupo ?? null);
   return {
     id,
     titulo: d.titulo,
     texto,
     grupo: d.grupo ?? null,
-    assunto: d.assunto ?? null,
+    pasta,
+    assunto: pasta?.caminho[0] ?? null,
     tags: d.tags ?? [],
     data: d.data ?? null,
     finalizada_em: null,

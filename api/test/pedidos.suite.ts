@@ -24,6 +24,7 @@ function nota(id: string, extra: Partial<NotaV1> = {}): NotaV1 {
     titulo: `Nota ${id}`,
     texto: 'Começo.\n- [ ] mandar a ata\n- [x] reservar a sala',
     grupo: 'Trabalho',
+    pasta: null,
     assunto: null,
     tags: [],
     data: null,
@@ -41,8 +42,8 @@ function nota(id: string, extra: Partial<NotaV1> = {}): NotaV1 {
 
 const CONTEXTO: ContextoNotasV1 = {
   grupos: [
-    { nome: 'Trabalho', notas: 1, assuntos: [], tags: [] },
-    { nome: 'Estudos', notas: 1, assuntos: [], tags: [] },
+    { nome: 'Trabalho', notas: 1, pastas: [], assuntos: [], tags: [] },
+    { nome: 'Estudos', notas: 1, pastas: [], assuntos: [], tags: [] },
   ],
   sem_grupo: { notas: 0, tags: [] },
   tags_fixas: [],
@@ -133,6 +134,23 @@ export function pedidosSuite(label: string, getDb: () => Db) {
       expect((await t.body(t.ai(secret, 'GET', `/ext/v1/notas/${b.pedido.alvo}`))).nota.titulo).toBe('Reunião com o time');
       // no grupo de outro: não aparece
       expect((await t.body(t.ai(secret, 'GET', '/ext/v1/notas?grupo=Estudos'))).itens.map((n: { id: string }) => n.id)).toEqual(['estu-1']);
+    });
+
+    it('criar e editar com a pasta: o caminho aparece por cima antes de o Murall aplicar (o id, depois)', async () => {
+      const t = await setup();
+      const { secret } = await t.ready();
+      const b = await t.body(t.ai(secret, 'POST', '/ext/v1/notas', { titulo: 'Mônadas', grupo: 'Estudos', pasta: ' Programação / Funcional ' }));
+      expect(b.nota.pasta).toEqual({ id: null, caminho: ['Programação', 'Funcional'] });
+      expect(b.nota.assunto).toBe('Programação');
+      expect((await t.body(t.ai(secret, 'GET', '/ext/v1/notas?pasta=programacao'))).itens.map((n: { id: string }) => n.id)).toEqual([b.pedido.alvo]);
+      // mudar de grupo sem dizer a pasta tira a nota dela, como no Murall
+      const lida = (await t.body(t.ai(secret, 'GET', '/ext/v1/notas/trab-1'))).nota;
+      const e = await t.body(t.ai(secret, 'PATCH', '/ext/v1/notas/trab-1', { versao: lida.versao, pasta: 'Atas' }));
+      expect(e.nota.pasta).toEqual({ id: null, caminho: ['Atas'] });
+      const g = await t.body(t.ai(secret, 'PATCH', '/ext/v1/notas/trab-1', { versao: lida.versao, grupo: 'Estudos' }));
+      expect(g.nota.pasta).toBeNull();
+      // uma pasta do caminho comprida demais não passa
+      expect((await t.ai(secret, 'POST', '/ext/v1/notas', { titulo: 'x', pasta: 'a'.repeat(40) })).status).toBe(400);
     });
 
     it('o mesmo Idempotency-Key devolve o mesmo pedido; usado noutra operação, recusa', async () => {

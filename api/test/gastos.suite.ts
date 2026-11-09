@@ -215,7 +215,7 @@ export function gastosSuite(label: string, getDb: () => Db) {
       const spending = await t.newKey(me.token, ['gastos:ler']);
       const rev = await t.push(me.token, 0);
       const nota: NotaV1 = {
-        id: 'n1', titulo: 'Nota', texto: '', grupo: null, assunto: null, tags: [], data: null, finalizada_em: null, fixada: false, visibilidade: 'privada', capa: null,
+        id: 'n1', titulo: 'Nota', texto: '', grupo: null, pasta: null, assunto: null, tags: [], data: null, finalizada_em: null, fixada: false, visibilidade: 'privada', capa: null,
         tarefas: { feitas: 0, total: 0 }, kanban: null, criada_em: '2026-10-01T10:00:00.000Z', versao: '2026-10-01T10:00:00.000Z',
       };
       expect((await t.mirror(me.token, { rev, poe: [...t.gastos(), t.item('nota', 'n1', nota)] })).status).toBe(200);

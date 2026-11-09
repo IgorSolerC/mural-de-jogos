@@ -3,7 +3,9 @@ import { andList } from './api-keys';
 import { plural } from './text';
 import { lookKey } from './category-looks';
 import { dobra } from '../../../contrato/api-v1/escopos';
-import type { NotaV1 } from '../../../contrato/api-v1/notas';
+import { pedacosDoCaminho, type NotaV1 } from '../../../contrato/api-v1/notas';
+import { NoteFolders } from './note-folders';
+import { siblingNamed } from './folders';
 import {
   OPS_DE_NOTA,
   TEXTO_MAX,
@@ -123,6 +125,11 @@ export interface ApplyContext {
   place?(r: Review, k: NoQuadroV1): string | null;
   /** A nota nova já vira carta dos baralhos (o `estudos` de `nota.criar`); devolve o aviso, se houver. */
   study?(r: Review, e: CartaNovaV1): string | null;
+  /**
+   * A pasta pedida (o `pasta` de criar e editar), no grupo da nota: o id de uma pasta dele, ou o caminho a
+   * partir da raiz, criando as que faltam. Null: não coube (o teto de pastas) e a nota fica na raiz.
+   */
+  folder?(category: string | null, pasta: string): string | null;
 }
 
 /** O nome como já existe no mural (sem ligar para caixa e acento), ou o novo, limpo. */
@@ -161,12 +168,20 @@ function seenAs(v: 'privada' | 'publica', prev: Review | null, now: string): Pic
 }
 
 /** A anotação com os campos do pedido (sem carimbar a hora: quem chama carimba). */
-function withFields(r: Review, c: CamposDaNota, notes: readonly Review[], now: string): Review {
+function withFields(r: Review, c: CamposDaNota, notes: readonly Review[], now: string, folder?: ApplyContext['folder']): Review {
   const { clear, ...l } = labels(notes, c);
   const next: Review = { ...r, ...l };
   for (const k of clear) delete next[k];
   // mudou de grupo, ou o assunto foi pedido: sai da pasta de antes (PLANO-PASTAS.md, P2)
-  if (c.assunto !== undefined || lookKey(next.category ?? '') !== lookKey(r.category ?? '')) delete next.folder;
+  if (c.assunto !== undefined || c.pasta !== undefined || lookKey(next.category ?? '') !== lookKey(r.category ?? '')) delete next.folder;
+  // a pasta pedida, no grupo de agora (vale mais que o assunto de antes)
+  if (c.pasta && folder) {
+    const id = folder(next.category ?? null, c.pasta);
+    if (id) {
+      next.folder = id;
+      delete next.subject;
+    }
+  }
   if (l.tags && !l.tags.length) delete next.tags;
   if (c.titulo !== undefined) next.game = { ...next.game, name: c.titulo };
   if (c.capa !== undefined) next.game = { ...next.game, coverUrl: c.capa };
@@ -210,6 +225,8 @@ export function applyNoteRequest(
     if (there) return { estado: 'aplicado', resultado: { nota: ctx.v1(there) }, antes: null };
     const d = checked.dados as CriarNotaV1;
     const { clear: _c, ...l } = labels(notes, d);
+    // a pasta pedida (o caminho, criando as que faltam, ou o id), no grupo da nota nova
+    const folder = d.pasta && ctx.folder ? ctx.folder(l.category ?? null, d.pasta) : null;
     const note = sanitizeReview(
       {
         id: req.alvo,
@@ -218,6 +235,7 @@ export function applyNoteRequest(
         text: d.texto ?? '',
         completedAt: d.data === undefined ? ctx.today : d.data,
         ...l,
+        ...(folder ? { folder, subject: undefined } : {}),
         ...(d.fixada ? { noteRank: 'fixada' } : {}),
         // nasce privada: só a chave com `publicar` diz outra coisa (o padrão do grupo é da tela)
         ...seenAs(d.visibilidade ?? 'privada', null, now),
@@ -263,7 +281,7 @@ export function applyNoteRequest(
         };
       }
       const { versao: _v, ...campos } = e;
-      const next = withFields(before, campos, notes, now);
+      const next = withFields(before, campos, notes, now, ctx.folder);
       if (campos.titulo !== undefined && campos.titulo !== before.game.name) {
         // os [[links]] das outras anotações (e das resenhas) seguem o título novo, como no editor
         const others = store.reviews().filter((r) => !isNote(r));
@@ -336,7 +354,8 @@ const FIELD_WORDS: Record<string, string> = {
   titulo: 'o título',
   texto: 'o texto',
   grupo: 'o grupo',
-  assunto: 'o assunto',
+  pasta: 'a pasta',
+  assunto: 'a pasta',
   tags: 'as tags',
   data: 'a data',
   capa: 'a capa',
@@ -451,7 +470,7 @@ export function fieldChanges(before: NotaV1 | null, after: NotaV1): FieldChange[
   const show: [string, (n: NotaV1) => string | null][] = [
     ['Título', (n) => n.titulo],
     ['Grupo', (n) => n.grupo],
-    ['Assunto', (n) => n.assunto],
+    ['Pasta', (n) => (n.pasta ? n.pasta.caminho.join(' › ') : (n.assunto ?? null))],
     ['Tags', (n) => (n.tags.length ? n.tags.join(', ') : null)],
     ['Data', (n) => (n.data ? formatReviewDateLong(n.data) : null)],
     ['Quem vê', (n) => (n.visibilidade === 'publica' ? 'Pública' : 'Privada')],
@@ -515,6 +534,7 @@ export class ApiRequests {
   private readonly calendar = inject(CalendarStore);
   private readonly study = inject(StudyStore);
   private readonly lookup = inject(GameLookup);
+  private readonly folders = inject(NoteFolders);
 
   /** Os pedidos abertos que a nuvem contou na última conversa: pendentes (para aplicar) e para aprovar. */
   readonly counts = signal({ pendentes: 0, aprovar: 0 });
@@ -536,6 +556,29 @@ export class ApiRequests {
     const changed = counts.aprovar !== this.counts().aprovar;
     this.counts.set(counts);
     if (changed && this.account.account()?.api) void this.list();
+  }
+
+  /**
+   * A pasta que um pedido pede, no grupo da nota: o id de uma pasta viva dele, ou o caminho a partir da raiz
+   * ("Programação/Funcional"), com as que faltam criadas (como o "Criar" da escolha da pasta). No teto de
+   * pastas, fica na última que deu.
+   */
+  private folderFor(category: string | null, pasta: string): string | null {
+    const group = lookKey(category ?? '');
+    const byId = this.folders.tree().live(pasta);
+    if (byId && byId.group === group) return byId.id;
+    let parent: string | null = null;
+    for (const name of pedacosDoCaminho(pasta)) {
+      const found = siblingNamed(this.folders.tree(), group, parent, name);
+      if (found) {
+        parent = found.id;
+        continue;
+      }
+      const made = this.folders.create(category, parent, name);
+      if (!made) return parent;
+      parent = made.id;
+    }
+    return parent;
   }
 
   /** O relógio de 60 s confere agora? Só com a API liberada, e na aba escondida só até 2 h sem nada novo. */
@@ -582,6 +625,7 @@ export class ApiRequests {
             v1: (r) => this.mirror.notaOf(r),
             place: (r, k) => placeNewNote(this.kanban, this.store, r, k, now),
             study: (r, e) => placeInDecks(this.study, r.id, e),
+            folder: (category, pasta) => this.folderFor(category, pasta),
           })
         : isKanbanOp(req.op)
           ? applyKanbanRequest(this.kanban, this.store, req, now)

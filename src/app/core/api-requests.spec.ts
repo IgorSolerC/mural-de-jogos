@@ -1,3 +1,7 @@
+import { NoteFolders } from './note-folders';
+import { siblingNamed } from './folders';
+import { lookKey } from './category-looks';
+import { pedacosDoCaminho } from '../../../contrato/api-v1/notas';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { StudyStore } from './study-store';
@@ -46,6 +50,20 @@ const note = (id: string, title: string, extra: Record<string, unknown> = {}): R
 
 const NOW = '2026-10-27T15:00:00.000Z';
 
+/** A pasta pedida, como o ApiRequests resolve (o id de uma do grupo, ou o caminho, criando as que faltam). */
+function folderFor(category: string | null, pasta: string): string | null {
+  const folders = TestBed.inject(NoteFolders);
+  const group = lookKey(category ?? '');
+  const byId = folders.tree().live(pasta);
+  if (byId && byId.group === group) return byId.id;
+  let parent: string | null = null;
+  for (const name of pedacosDoCaminho(pasta)) {
+    const found = siblingNamed(folders.tree(), group, parent, name);
+    parent = found ? found.id : (folders.create(category, parent, name)?.id ?? parent);
+  }
+  return parent;
+}
+
 describe('os pedidos da API: aplicar nas Anotações', () => {
   let store: ReviewStore;
   let ctx: ApplyContext;
@@ -56,11 +74,31 @@ describe('os pedidos da API: aplicar nas Anotações', () => {
     store = TestBed.inject(ReviewStore);
     store.add(note('r0001', 'Reunião', { category: 'Trabalho', subject: 'Time', tags: ['Urgente'], text: 'Pauta\n- [ ] Ligar\n- [ ] Mandar ata' }));
     store.add(note('r0002', 'Compras', { text: 'Ver [[Reunião]]' }));
-    ctx = { now: NOW, today: '2026-10-27', stamps: new Map(), v1: (r) => TestBed.inject(ApiMirror).notaOf(r) };
+    ctx = { now: NOW, today: '2026-10-27', stamps: new Map(), v1: (r) => TestBed.inject(ApiMirror).notaOf(r), folder: (c, p) => folderFor(c, p) };
   });
   afterEach(() => localStorage.clear());
 
   const apply = (op: string, alvo: string, dados: unknown = {}) => applyNoteRequest(store, { op, alvo, dados }, ctx);
+
+  it('a pasta pedida: o caminho no grupo da nota, com as que faltam criadas (sem caixa nem acento), ou o id', () => {
+    const out = apply('nota.criar', 'rnovaid0000000001', { titulo: 'Atas', grupo: 'trabalho', pasta: 'Reunioes / Semanais' });
+    expect(out.estado).toBe('aplicado');
+    const folders = TestBed.inject(NoteFolders);
+    const n = store.get('rnovaid0000000001')!;
+    expect(folders.tree().path(folders.of(n)).map((f) => f.name)).toEqual(['Reunioes', 'Semanais']);
+    expect((out.resultado as { nota: NotaV1 }).nota.pasta).toEqual({ id: folders.of(n), caminho: ['Reunioes', 'Semanais'] });
+    // a mesma, de outro jeito de escrever: não repete
+    apply('nota.criar', 'rnovaid0000000002', { titulo: 'Outra', grupo: 'Trabalho', pasta: 'reuniões›semanais' });
+    expect(folders.tree().kids('trabalho', null).length).toBe(1);
+    expect(folders.of(store.get('rnovaid0000000002')!)).toBe(folders.of(n));
+    // pelo id; e null tira da pasta
+    const top = folders.tree().kids('trabalho', null)[0].id;
+    const r = store.get('r0001')!;
+    expect(apply('nota.editar', 'r0001', { versao: r.updatedAt, pasta: top }).estado).toBe('aplicado');
+    expect(folders.of(store.get('r0001')!)).toBe(top);
+    expect(apply('nota.editar', 'r0001', { versao: store.get('r0001')!.updatedAt, pasta: null }).estado).toBe('aplicado');
+    expect(folders.of(store.get('r0001')!)).toBeNull();
+  });
 
   it('criar: nasce privada, com o id da API, a data de hoje e os nomes como o mural já escreve', () => {
     const out = apply('nota.criar', 'rnovaid0000000000', { titulo: 'Ideia', texto: 'Algo', grupo: 'trabalho', assunto: 'time', tags: ['urgente', 'Nova'] });
@@ -427,7 +465,7 @@ describe('os pedidos da API: em palavras e o que muda', () => {
 
   it('os campos que mudam; na nota nova, os que vêm preenchidos', () => {
     const n: NotaV1 = {
-      id: 'r1', titulo: 'A', texto: '', grupo: 'Trabalho', assunto: null, tags: [], data: '2026-10-27', finalizada_em: null, fixada: false,
+      id: 'r1', titulo: 'A', texto: '', grupo: 'Trabalho', pasta: null, assunto: null, tags: [], data: '2026-10-27', finalizada_em: null, fixada: false,
       visibilidade: 'privada', capa: null, tarefas: { feitas: 0, total: 0 }, kanban: null, criada_em: NOW, versao: NOW,
     };
     expect(fieldChanges(n, { ...n, titulo: 'B', grupo: null, fixada: true })).toEqual([

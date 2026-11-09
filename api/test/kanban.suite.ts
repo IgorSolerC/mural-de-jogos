@@ -66,6 +66,7 @@ export function nota(id: string, extra: Partial<NotaV1> = {}): NotaV1 {
     titulo: `Nota ${id}`,
     texto: '',
     grupo: null,
+    pasta: null,
     assunto: null,
     tags: [],
     data: null,
