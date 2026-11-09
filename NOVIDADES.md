@@ -86,6 +86,11 @@ Sim se a mudança cria **pelo menos uma destas**, que não existia em lugar nenh
 - Refazer no mesmo dia uma mudança que já está na entrada de ajustes de hoje reescreve o item dela para
   dizer como ficou (a entrada conta como o dia terminou), sem trocar o `id`: a entrada não cresceu. A
   moldura Adesivo (1.36.2) perdeu o papel branco no mesmo dia, e o item só diz a foto picotada.
+- Consertar no mesmo dia o que entrou hoje (numa funcionalidade ou nos ajustes de hoje) não vira item de
+  correção: a entrada conta como o dia terminou, e o item dela já diz como devia ser. Só se reescreve o
+  item quando ele não diz mais o que ficou. Os dez achados da revisão das pastas (09/nov/2026, BUILD 821),
+  como o toque demorado no celular e o Desfazer da pasta, foram consertados no dia das pastas (1.42.0 e
+  1.42.1), e as Novidades não mudaram.
 
 ---
 

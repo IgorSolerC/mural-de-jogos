@@ -176,7 +176,7 @@ export function extRoutes(app: Hono, deps: Deps): void {
         (sinceIso === null || n.versao > sinceIso) &&
         (!text || dobra(`${n.titulo}\n${n.texto}`).includes(dobra(text)));
       for (const r of pending.created) {
-        const n = createdNote(r, pending, now);
+        const n = createdNote(r, pending, now, folders);
         const allowed = !me.key.groups?.length || (n.grupo !== null && me.key.groups.some((g) => dobra(g) === dobra(n.grupo!)));
         const inGroup = group === undefined || (group === '-' ? n.grupo === null : n.grupo !== null && dobra(n.grupo) === dobra(group));
         if (allowed && inGroup && matches(n)) itens.push(summary(n));
@@ -189,7 +189,7 @@ export function extRoutes(app: Hono, deps: Deps): void {
       chars += row.dados.length;
       taken++;
       const n = noteOfRow(row.dados, folders);
-      itens.push(summary(overlay(n, pending.byNote.get(n.id), now)));
+      itens.push(summary(overlay(n, pending.byNote.get(n.id), now, folders)));
     }
     const more = rows.length > taken;
     return c.json({ itens, ...(more ? { depois: String(offset + taken) } : {}), espelho: await mirrorState(deps, me.key.userId) });
@@ -208,10 +208,11 @@ export function extRoutes(app: Hono, deps: Deps): void {
     ]);
     const pending = await pendingOf(deps, me.key.userId);
     const now = deps.now();
-    if (row) return c.json({ nota: overlay(noteOfRow(row.dados, await folderIndexOf(deps, me.key.userId)), pending.byNote.get(id), now) });
+    const folders = await folderIndexOf(deps, me.key.userId);
+    if (row) return c.json({ nota: overlay(noteOfRow(row.dados, folders), pending.byNote.get(id), now, folders) });
     // a nota que só existe num pedido de criar (o Murall ainda não aplicou)
     const created = pending.created.find((r) => r.alvo === id);
-    const n = created ? createdNote(created, pending, now) : null;
+    const n = created ? createdNote(created, pending, now, folders) : null;
     if (!n || (me.key.groups?.length && (n.grupo === null || !me.key.groups.some((g) => dobra(g) === dobra(n.grupo!))))) throw notFound();
     return c.json({ nota: n });
   });
@@ -228,7 +229,9 @@ export function extRoutes(app: Hono, deps: Deps): void {
         CONTEXTO_NOTAS,
       ]);
       if (row) {
-        notas = JSON.parse(row.dados) as ContextoNotasV1;
+        // as desfeitas são só do espelho (para montar o caminho das notas que ainda as guardam)
+        const { desfeitas: _d, ...shown } = JSON.parse(row.dados) as ContextoNotasV1;
+        notas = shown;
         const groups = me.key.groups;
         if (groups?.length) {
           // a chave limitada vê só os grupos dela: nem os nomes dos outros, nem as tags das notas deles

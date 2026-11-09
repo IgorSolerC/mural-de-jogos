@@ -565,11 +565,13 @@ ver a conversão na build de verdade), BUILD subindo a cada commit.
   grupo sem a pasta tira a nota dela também por cima. Guia, ferramentas, escopos e `docs/api` falam de
   pastas. Falta o `/code-review high` sobre as cinco rodadas.
 - **Revisão (09/nov).** `/code-review high` sobre as cinco rodadas (`73d579be~1..37e3a77d`): os dez achados
-  estão na seção 11, para corrigir numa rodada própria. Nada foi corrigido ainda.
+  estão na seção 11, para corrigir numa rodada própria.
+- **Correções da revisão (09/nov, BUILD 821).** Os dez achados da seção 11 corrigidos, cada um com o teste que
+  falharia antes (marcados abaixo). As Novidades não mudaram: tudo entrou hoje (desempate novo em NOVIDADES.md).
 
 ---
 
-## 11. Achados do `/code-review high` (a corrigir)
+## 11. Achados do `/code-review high` (corrigidos em 09/nov, BUILD 821)
 
 Revisão de 09/nov sobre o intervalo `73d579be~1..37e3a77d` (as rodadas 1 a 5). Cada achado diz onde está, o
 que acontece e um caminho de conserto; quem corrigir decide o jeito, desde que o comportamento descrito
@@ -594,6 +596,13 @@ BUILD + 1, commit e push.
   aponta para a pasta antiga: a regra da leitura a põe na raiz). O teste: desfazer uma pasta com notas e
   conferir que só o contexto muda de impressão (`api-mirror.spec.ts`) e que a API mostra as notas na pasta de
   cima (`api/test/espelho.suite.ts`).
+- **Corrigido.** O site manda o id *guardado* na nota (`storedFolderOf`, em `core/api-mirror.ts`: o da pasta,
+  viva ou lápide, quando é do grupo da nota; senão null), e o contexto leva `desfeitas` (`PastaDesfeitaV1`: o id
+  de cada lápide que alguma nota guarda e a viva para onde ela leva, null na raiz). A API resolve pelo índice
+  (`IndiceDasPastas`, com `vivas` e `desfeitas`; `pastaViva`), no caminho, no `?pasta=` (as desfeitas que levam
+  a uma das achadas entram) e no `?pasta=<id de uma desfeita>`; o `ver_contexto` não mostra as `desfeitas`.
+  Testes: `api-mirror.spec.ts` ("desfazer ou juntar uma pasta muda só o contexto") e `espelho.suite.ts`
+  ("desfazer uma pasta muda só o contexto").
 
 ### 11.2 No celular, um toque um pouco demorado não abre mais a ficha (correção)
 
@@ -607,6 +616,9 @@ BUILD + 1, commit e push.
   `HOLD_MS` não é arrasto: cancelar (sem `drop` e sem engolir o clique), para o toque valer como toque. Testar
   em `src/app/ui/drag-hold.spec.ts` (dedo parado 350 ms e soltar: nada de `drop`, o clique passa) e conferir
   que os testes do Kanban (`src/app/pages/kanban-page.spec.ts`) continuam passando.
+- **Corrigido** como sugerido, em `onUp`: o dedo que levantou a ficha e soltou dentro da folga antes de
+  `HOLD_MS` cancela, sem `drop` e sem engolir o clique. Teste em `drag-hold.spec.ts`; os do Kanban e da parede
+  passam sem mudança.
 
 ### 11.3 A prévia da API mostra o id da pasta como nome (correção)
 
@@ -619,6 +631,11 @@ BUILD + 1, commit e push.
   montar a prévia, se `pasta` é um id do índice (no grupo da nota), usar o id e o caminho de verdade. Passar
   o índice para `overlay` / `createdNote` (hoje `aplicarNaNotaV1` e `notaDoPedido` não o recebem). Teste em
   `api/test/pedidos.suite.ts`.
+- **Corrigido.** `pastaDoPedido` (contrato/api-v1/operacoes.ts) resolve o id pelo índice: o da conta (a
+  desfeita pela viva) vem com o id e o caminho de verdade; o de outro grupo, na raiz (como o site aplica, 11.6);
+  o resto é caminho. `aplicarNaNotaV1` e `notaDoPedido` recebem o índice; na API, `overlay` e `createdNote` o
+  exigem; no site, a prévia da folha dos pedidos usa `indiceDaArvore`. Testes em `pedidos.suite.ts` e
+  `api-requests.spec.ts`.
 
 ### 11.4 O Desfazer de pasta restaura a lista inteira (correção)
 
@@ -631,6 +648,10 @@ BUILD + 1, commit e push.
   mover volta o `parent` dela; o desfazer tira o `gone` dela e devolve o `parent` das que subiram (guardar
   quais eram); o juntar idem; o `gather` desfaz a pasta criada (lápide) depois de devolver as notas. Teste em
   `src/app/core/note-folders.spec.ts`: ação, outra mudança, Desfazer → a outra mudança fica.
+- **Corrigido** com a operação inversa sobre a lista de agora (`undoWith`, `undoGone`): renomear volta o nome
+  se ninguém deu outro; mover volta o lugar (pela conferência de mover) se ainda está onde foi posta; desfazer e
+  juntar tiram a lápide e devolvem só as que subiram e ainda estão onde subiram; o `gather` devolve as notas e
+  desfaz a pasta criada (lápide). Teste "o Desfazer volta só a pasta mexida".
 
 ### 11.5 A API aceita ids de pasta mais curtos que o site (correção)
 
@@ -642,6 +663,8 @@ BUILD + 1, commit e push.
   `sanitizeFolders`, que aceita até 25.
 - **Conserto sugerido:** uma regra só, exportada do contrato (`contrato/api-v1/notas.ts`) e usada nos dois
   lados. Teste na API com um id de 25 letras.
+- **Corrigido.** `PASTA_ID_RE` mora em `contrato/api-v1/notas.ts`; `isFolderId` (site) e o espelho (API, também
+  nas `desfeitas`) usam ela. Teste em `espelho.suite.ts` (25 letras passa; 26, ou outra letra na frente, não).
 
 ### 11.6 Pedidos da API criam pastas erradas (correção)
 
@@ -653,6 +676,10 @@ BUILD + 1, commit e push.
 - **Conserto sugerido:** (a) um id de pasta (`isFolderId`) que não é do grupo da nota não vira nome: a nota
   fica na raiz e o resultado do pedido traz um aviso; (b) resolver a pasta só depois de a nota passar pelas
   conferências (ou desfazer as pastas criadas quando o pedido falha).
+- **Corrigido.** (a) `NoteFolders.forRequest`: um id que está nas suas pastas vale por ela (a desfeita pela
+  viva); de outro grupo, a nota fica na raiz e o resultado traz o aviso; só o que não é id de pasta sua é
+  caminho. No teto de pastas, o aviso também. (b) No criar, a pasta só se resolve depois de a nota passar por
+  `sanitizeReview`. Testes em `api-requests.spec.ts`.
 
 ### 11.7 O teste da pasta pedida testa uma cópia (cobertura de teste)
 
@@ -662,6 +689,7 @@ BUILD + 1, commit e push.
 - **Conserto sugerido:** tirar a lógica para uma função pura em `core` (por exemplo
   `folderForPath(folders: NoteFolders, category, pasta)`, perto de `note-folders.ts`), chamada pelo
   `ApiRequests` e pelo spec. Junto com 11.6, que mexe na mesma função.
+- **Corrigido.** A lógica é `NoteFolders.forRequest`, que o `ApiRequests` e o spec chamam; a cópia saiu do spec.
 
 ### 11.8 A pergunta de desfazer a pasta está escrita duas vezes (reaproveitar)
 
@@ -672,6 +700,9 @@ BUILD + 1, commit e push.
 - **Conserto sugerido:** uma pergunta só, em `src/app/ui/remove-asking.ts` (`RemoveAsking`, o lugar das
   perguntas de apagar com Desfazer), usada pelos dois. Cuidado com a regra da visita (CLAUDE.md): a parede
   (`WallBoard`) não importa o que escreve; ela recebe as mudanças por `folderActions`.
+- **Corrigido** numa peça própria, `ui/folder-asking.ts` (`FolderAsking.dissolve`), e não no `RemoveAsking`:
+  ele injeta as lojas que escrevem, e a parede é a mesma peça da visita. A peça só pergunta (com o `Confirm`);
+  quem chama desfaz. Teste em `folder-asking.spec.ts`.
 
 ### 11.9 A parte Pastas das configurações percorre as notas uma vez por grupo (eficiência)
 
@@ -681,6 +712,8 @@ BUILD + 1, commit e push.
   notas) a cada mudança de nota ou de pasta enquanto a folha está aberta.
 - **Conserto sugerido:** uma passada só pelas notas somando por pasta, para todos os grupos (o
   `countsByFolder` da seção 3.1), e cada grupo lê dali.
+- **Corrigido.** `NoteFolders.countsByFolder` (computed, uma passada para todos os grupos), lido pelas
+  configurações. Teste em `note-folders.spec.ts` (dá o mesmo que `countsIn` grupo a grupo).
 
 ### 11.10 `subjectKeys` é só outro nome para `subjectValuesOf` (simplificar)
 
@@ -688,3 +721,4 @@ BUILD + 1, commit e push.
 - **O que acontece:** a função só repassa para `subjectValuesOf` (`src/app/core/wall-filter.ts`); o nome novo
   esconde que é a mesma regra do mural e do Kanban.
 - **Conserto sugerido:** chamar `subjectValuesOf` direto e apagar `subjectKeys`.
+- **Corrigido** como sugerido (sem teste novo: o comportamento é o mesmo, e os testes dos seletores passam).

@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, Signal, computed, inject, input, model, signal } from '@angular/core';
 import { NoteFolders } from '../core/note-folders';
-import { FolderTree, pathLabel } from '../core/folders';
+import { pathLabel } from '../core/folders';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, IconModule } from './icons';
 import { Kind, NOTES } from '../core/kinds';
@@ -17,11 +17,6 @@ import { subjectValuesOf } from '../core/wall-filter';
 
 /** O "Sem pasta" no filtro (como no mural e no Kanban). */
 const NO_SUBJECT = 'sem';
-
-/** As pastas em que a anotação está (a dela e as de cima; ver `subjectValuesOf`), ou "sem". */
-function subjectKeys(r: Review, tree: FolderTree): string[] {
-  return subjectValuesOf(r, tree);
-}
 
 /** As tags de uma anotação, sem acento nem caixa. */
 function tagKeys(r: Review): string[] {
@@ -106,7 +101,7 @@ export class CardFilters {
 
   private bySubject(r: Review): boolean {
     const on = this.subjects();
-    return !on.length || subjectKeys(r, this.folders.tree()).some((k) => on.includes(k));
+    return !on.length || subjectValuesOf(r, this.folders.tree()).some((k) => on.includes(k));
   }
 
   private byTags(r: Review): boolean {
@@ -156,7 +151,7 @@ export class CardFilters {
     for (const r of this.scope()) {
       if (!this.inGroup(r)) continue;
       const shows = this.found(r) && this.byTags(r);
-      for (const k of subjectKeys(r, tree)) {
+      for (const k of subjectValuesOf(r, tree)) {
         const e = seen.get(k) ?? { n: 0 };
         if (shows) e.n++;
         seen.set(k, e);

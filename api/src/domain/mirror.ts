@@ -62,7 +62,7 @@ import {
   type PraDepoisV1,
 } from '../../../contrato/api-v1/murais';
 import { CARTOES_MAX, COLUNAS_MAX, DEPENDENCIAS_MAX, IMPORTANCIAS, NOME_DA_COLUNA_MAX, STATUS_MAX, type QuadroV1 } from '../../../contrato/api-v1/kanban';
-import { CONTEXTO_NOTAS, ESPELHO_POR_ENVIO, type ContextoNotasV1, type NotaNoEspelhoV1, type NotaV1, type TipoDoEspelho } from '../../../contrato/api-v1/notas';
+import { CONTEXTO_NOTAS, ESPELHO_POR_ENVIO, PASTA_ID_RE, type ContextoNotasV1, type NotaNoEspelhoV1, type NotaV1, type TipoDoEspelho } from '../../../contrato/api-v1/notas';
 import { HttpError } from '../errors';
 import { Deps } from '../ports';
 
@@ -147,8 +147,8 @@ const isStrOrNull = (v: unknown, max: number) => v === null || isStr(v, max);
 const isIso = (v: unknown) => typeof v === 'string' && v.length <= 40 && !Number.isNaN(Date.parse(v));
 const strList = (v: unknown, n: number, max: number) => Array.isArray(v) && v.length <= n && v.every((x) => isStr(x, max));
 
-/** O id de uma pasta do Murall ('p' ou 'a' + letras e números). */
-const FOLDER_ID_RE = /^[a-z][a-z0-9]{4,23}$/;
+/** O id de uma pasta do Murall: a mesma regra do site (um id que o site aceita e a API não travava o espelho inteiro). */
+const isFolderId = (v: unknown): v is string => typeof v === 'string' && PASTA_ID_RE.test(v);
 
 /**
  * A nota v1 tem a forma certa? (O conteúdo é da própria pessoa: confere só a forma e os tamanhos.) O site das
@@ -164,7 +164,7 @@ function checkNota(n: Record<string, unknown>): NotaNoEspelhoV1 | NotaV1 {
     isStr(n['titulo'], 200) &&
     isStr(n['texto'], 20_000) &&
     isStrOrNull(n['grupo'], 32) &&
-    (byId ? n['pasta_id'] === null || (typeof n['pasta_id'] === 'string' && FOLDER_ID_RE.test(n['pasta_id'])) : isStrOrNull(n['assunto'], 32)) &&
+    (byId ? n['pasta_id'] === null || isFolderId(n['pasta_id']) : isStrOrNull(n['assunto'], 32)) &&
     strList(n['tags'], 12, 32) &&
     (n['data'] === null || (typeof n['data'] === 'string' && /^\d{4}(-\d{2}(-\d{2})?)?$/.test(n['data']))) &&
     (n['finalizada_em'] === null || isIso(n['finalizada_em'])) &&
@@ -206,7 +206,10 @@ function checkContexto(c: Record<string, unknown>): ContextoNotasV1 {
     v === undefined ||
     (Array.isArray(v) &&
       v.length <= 2_000 &&
-      v.every((p: Record<string, unknown>) => p && typeof p['id'] === 'string' && FOLDER_ID_RE.test(p['id']) && isStr(p['nome'], 32) && (p['pai'] === null || (typeof p['pai'] === 'string' && FOLDER_ID_RE.test(p['pai']))) && Number.isInteger(p['notas'])));
+      v.every((p: Record<string, unknown>) => p && isFolderId(p['id']) && isStr(p['nome'], 32) && (p['pai'] === null || isFolderId(p['pai'])) && Number.isInteger(p['notas'])));
+  // as desfeitas que alguma nota ainda guarda, com a viva de cada uma (o site de antes delas não manda)
+  const goneList = (v: unknown) =>
+    v === undefined || (Array.isArray(v) && v.length <= 2_000 && v.every((d: Record<string, unknown>) => d && isFolderId(d['id']) && (d['viva'] === null || isFolderId(d['viva']))));
   const grupos = c['grupos'];
   const semGrupo = c['sem_grupo'] as Record<string, unknown> | null;
   const ok =
@@ -216,7 +219,8 @@ function checkContexto(c: Record<string, unknown>): ContextoNotasV1 {
     !!semGrupo &&
     tagList(semGrupo['tags']) &&
     folderList(semGrupo['pastas']) &&
-    strList(c['tags_fixas'], 40, 32);
+    strList(c['tags_fixas'], 40, 32) &&
+    goneList(c['desfeitas']);
   if (!ok) throw bad('O contexto das Anotações não tem a forma da v1.');
   return c as unknown as ContextoNotasV1;
 }

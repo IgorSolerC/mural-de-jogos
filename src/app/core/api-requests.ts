@@ -3,9 +3,8 @@ import { andList } from './api-keys';
 import { plural } from './text';
 import { lookKey } from './category-looks';
 import { dobra } from '../../../contrato/api-v1/escopos';
-import { pedacosDoCaminho, type NotaV1 } from '../../../contrato/api-v1/notas';
+import type { NotaV1 } from '../../../contrato/api-v1/notas';
 import { NoteFolders } from './note-folders';
-import { siblingNamed } from './folders';
 import {
   OPS_DE_NOTA,
   TEXTO_MAX,
@@ -37,7 +36,7 @@ import { ColumnNames, KanbanResult, applyKanbanRequest, boardById, columnNames, 
 import { KanbanStore } from './kanban-store';
 import { StudyResult, applyStudyRequest, deckNames, isStudyOp, placeInDecks, studyTitle, studyWords, undoStudy } from './api-requests-study';
 import { StudyStore } from './study-store';
-import { ApiMirror } from './api-mirror';
+import { ApiMirror, indiceDaArvore } from './api-mirror';
 import { type RequestStamps, SpendingResult, applySpendingRequest, onlyOwnSince, spendingTitle, spendingWords, undoSpending } from './api-requests-spending';
 import { SpendingStore } from './spending-store';
 import { BUILD } from './build';
@@ -127,9 +126,10 @@ export interface ApplyContext {
   study?(r: Review, e: CartaNovaV1): string | null;
   /**
    * A pasta pedida (o `pasta` de criar e editar), no grupo da nota: o id de uma pasta dele, ou o caminho a
-   * partir da raiz, criando as que faltam. Null: não coube (o teto de pastas) e a nota fica na raiz.
+   * partir da raiz, criando as que faltam (`NoteFolders.forRequest`). Id null: a nota fica na raiz; o aviso
+   * vai no resultado do pedido.
    */
-  folder?(category: string | null, pasta: string): string | null;
+  folder?(category: string | null, pasta: string): { id: string | null; aviso?: string };
 }
 
 /** O nome como já existe no mural (sem ligar para caixa e acento), ou o novo, limpo. */
@@ -167,18 +167,24 @@ function seenAs(v: 'privada' | 'publica', prev: Review | null, now: string): Pic
   return audienceFields(v === 'publica' ? 'publicar' : 'privada', prev, now);
 }
 
-/** A anotação com os campos do pedido (sem carimbar a hora: quem chama carimba). */
-function withFields(r: Review, c: CamposDaNota, notes: readonly Review[], now: string, folder?: ApplyContext['folder']): Review {
+/**
+ * A anotação com os campos do pedido (sem carimbar a hora: quem chama carimba), e o aviso da pasta pedida.
+ * A pasta só se resolve aqui, então quem chama já passou pelas conferências: um pedido que falha não deixa
+ * pasta criada à toa.
+ */
+function withFields(r: Review, c: CamposDaNota, notes: readonly Review[], now: string, folder?: ApplyContext['folder']): { next: Review; aviso: string | null } {
   const { clear, ...l } = labels(notes, c);
   const next: Review = { ...r, ...l };
+  let aviso: string | null = null;
   for (const k of clear) delete next[k];
   // mudou de grupo, ou o assunto foi pedido: sai da pasta de antes (PLANO-PASTAS.md, P2)
   if (c.assunto !== undefined || c.pasta !== undefined || lookKey(next.category ?? '') !== lookKey(r.category ?? '')) delete next.folder;
   // a pasta pedida, no grupo de agora (vale mais que o assunto de antes)
   if (c.pasta && folder) {
-    const id = folder(next.category ?? null, c.pasta);
-    if (id) {
-      next.folder = id;
+    const got = folder(next.category ?? null, c.pasta);
+    aviso = got.aviso ?? null;
+    if (got.id) {
+      next.folder = got.id;
       delete next.subject;
     }
   }
@@ -193,7 +199,7 @@ function withFields(r: Review, c: CamposDaNota, notes: readonly Review[], now: s
     delete next.publishedAt;
     Object.assign(next, seenAs(c.visibilidade, r, now));
   }
-  return next;
+  return { next, aviso };
 }
 
 const failed = (erro: string, nota?: NotaV1) => ({ estado: 'falhou' as const, resultado: nota ? { erro, nota } : { erro } });
@@ -225,9 +231,7 @@ export function applyNoteRequest(
     if (there) return { estado: 'aplicado', resultado: { nota: ctx.v1(there) }, antes: null };
     const d = checked.dados as CriarNotaV1;
     const { clear: _c, ...l } = labels(notes, d);
-    // a pasta pedida (o caminho, criando as que faltam, ou o id), no grupo da nota nova
-    const folder = d.pasta && ctx.folder ? ctx.folder(l.category ?? null, d.pasta) : null;
-    const note = sanitizeReview(
+    const base = sanitizeReview(
       {
         id: req.alvo,
         kind: 'anotacoes',
@@ -235,7 +239,6 @@ export function applyNoteRequest(
         text: d.texto ?? '',
         completedAt: d.data === undefined ? ctx.today : d.data,
         ...l,
-        ...(folder ? { folder, subject: undefined } : {}),
         ...(d.fixada ? { noteRank: 'fixada' } : {}),
         // nasce privada: só a chave com `publicar` diz outra coisa (o padrão do grupo é da tela)
         ...seenAs(d.visibilidade ?? 'privada', null, now),
@@ -244,13 +247,21 @@ export function applyNoteRequest(
       },
       BUILD,
     );
-    if (!note || note.id !== req.alvo) return { ...failed('A nota não pôde ser criada.'), antes: null };
+    if (!base || base.id !== req.alvo) return { ...failed('A nota não pôde ser criada.'), antes: null };
+    // só agora a pasta pedida (o caminho, criando as que faltam, ou o id), no grupo da nota nova: o pedido
+    // que não passou nas conferências não deixa pasta vazia para trás
+    const got = d.pasta && ctx.folder ? ctx.folder(base.category ?? null, d.pasta) : null;
+    let note = base;
+    if (got?.id) {
+      const { subject: _s, ...rest } = base;
+      note = { ...rest, folder: got.id };
+    }
     store.add(note);
     // já no quadro do grupo, na coluna pedida (como o "Nova nota" de dentro de uma coluna)
     const placed = d.kanban && ctx.place ? ctx.place(store.get(note.id) ?? note, d.kanban) : null;
     // já carta dos baralhos pedidos (como o "Nova carta" de dentro de um baralho)
     const carded = d.estudos && ctx.study ? ctx.study(store.get(note.id) ?? note, d.estudos) : null;
-    const aviso = [placed, carded].filter(Boolean).join(' ') || null;
+    const aviso = [got?.aviso, placed, carded].filter(Boolean).join(' ') || null;
     const born = store.get(note.id) ?? note;
     return { estado: 'aplicado', resultado: { nota: ctx.v1(born), ...(aviso ? { aviso } : {}) }, antes: null, carimbo: born.updatedAt, desde: null };
   }
@@ -259,12 +270,12 @@ export function applyNoteRequest(
   if (!before) return { ...failed('A nota não existe mais (foi apagada, ou virou compartilhada).'), antes: null };
   const antes = storedNote(before);
   /** Grava a anotação mudada (com a hora de agora), e o resultado. */
-  const save = (next: Review) => {
+  const save = (next: Review, aviso: string | null = null) => {
     // pelas conferências de sempre, como se viesse do armazenamento (uma data no futuro volta para hoje)
     const stamped = sanitizeReview({ ...next, updatedAt: now }, BUILD) ?? { ...next, updatedAt: now };
     store.update(stamped, before);
     const after = store.get(before.id) ?? stamped;
-    return { estado: 'aplicado' as const, resultado: { nota: ctx.v1(after) }, antes, carimbo: after.updatedAt, desde: before.updatedAt };
+    return { estado: 'aplicado' as const, resultado: { nota: ctx.v1(after), ...(aviso ? { aviso } : {}) }, antes, carimbo: after.updatedAt, desde: before.updatedAt };
   };
   /** Nada a mudar (já finalizada, já fixada): aplicado, sem carimbo nem antes. */
   const same = () => ({ estado: 'aplicado' as const, resultado: { nota: ctx.v1(before) }, antes: null });
@@ -281,16 +292,16 @@ export function applyNoteRequest(
         };
       }
       const { versao: _v, ...campos } = e;
-      const next = withFields(before, campos, notes, now, ctx.folder);
+      const { next, aviso } = withFields(before, campos, notes, now, ctx.folder);
       if (campos.titulo !== undefined && campos.titulo !== before.game.name) {
         // os [[links]] das outras anotações (e das resenhas) seguem o título novo, como no editor
         const others = store.reviews().filter((r) => !isNote(r));
         const relinked = relinkAfterRename(notes, before, campos.titulo, now, others);
-        const out = save(next);
+        const out = save(next, aviso);
         for (const n of relinked) store.update(n);
         return out;
       }
-      return save(next);
+      return save(next, aviso);
     }
     case 'nota.acrescentar': {
       const a = checked.dados as AcrescentarV1;
@@ -558,29 +569,6 @@ export class ApiRequests {
     if (changed && this.account.account()?.api) void this.list();
   }
 
-  /**
-   * A pasta que um pedido pede, no grupo da nota: o id de uma pasta viva dele, ou o caminho a partir da raiz
-   * ("Programação/Funcional"), com as que faltam criadas (como o "Criar" da escolha da pasta). No teto de
-   * pastas, fica na última que deu.
-   */
-  private folderFor(category: string | null, pasta: string): string | null {
-    const group = lookKey(category ?? '');
-    const byId = this.folders.tree().live(pasta);
-    if (byId && byId.group === group) return byId.id;
-    let parent: string | null = null;
-    for (const name of pedacosDoCaminho(pasta)) {
-      const found = siblingNamed(this.folders.tree(), group, parent, name);
-      if (found) {
-        parent = found.id;
-        continue;
-      }
-      const made = this.folders.create(category, parent, name);
-      if (!made) return parent;
-      parent = made.id;
-    }
-    return parent;
-  }
-
   /** O relógio de 60 s confere agora? Só com a API liberada, e na aba escondida só até 2 h sem nada novo. */
   watching(visible: boolean, now = Date.now()): boolean {
     if (!this.account.account()?.api) return false;
@@ -625,7 +613,7 @@ export class ApiRequests {
             v1: (r) => this.mirror.notaOf(r),
             place: (r, k) => placeNewNote(this.kanban, this.store, r, k, now),
             study: (r, e) => placeInDecks(this.study, r.id, e),
-            folder: (category, pasta) => this.folderFor(category, pasta),
+            folder: (category, pasta) => this.folders.forRequest(category, pasta),
           })
         : isKanbanOp(req.op)
           ? applyKanbanRequest(this.kanban, this.store, req, now)
@@ -794,11 +782,13 @@ export class ApiRequests {
     const now = new Date().toISOString();
     const checked = conferirOp(r.op as OpNota, r.dados);
     if (!checked.ok) return { before: null, after: null };
-    if (r.op === 'nota.criar') return { before: null, after: notaDoPedido(r.alvo, checked.dados as CriarNotaV1, now) };
+    // a pasta pedida pelo id aparece com o nome e o caminho de verdade, como vai ficar
+    const folders = indiceDaArvore(this.folders.tree());
+    if (r.op === 'nota.criar') return { before: null, after: notaDoPedido(r.alvo, checked.dados as CriarNotaV1, now, folders) };
     const cur = this.store.get(r.alvo);
     if (!cur || !isNote(cur)) return { before: null, after: null };
     const before = this.mirror.notaOf(cur);
-    return { before, after: aplicarNaNotaV1(before, r.op as OpNota, checked.dados, now) };
+    return { before, after: aplicarNaNotaV1(before, r.op as OpNota, checked.dados, now, folders) };
   }
 
   /** Os nomes das colunas de um pedido do Kanban (para as frases da folha e do histórico). */

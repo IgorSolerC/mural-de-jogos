@@ -36,12 +36,13 @@ export function notesWriteRoutes(app: Hono, deps: Deps): void {
     const pending = await pendingOf(deps, userId);
     const row = await deps.db.first<{ dados: string }>("SELECT dados FROM api_espelho WHERE usuario_id = ? AND tipo = 'nota' AND id = ?", [userId, id]);
     const now = deps.now();
+    const folders = await folderIndexOf(deps, userId);
     if (row) {
-      const mirrored = noteOfRow(row.dados, await folderIndexOf(deps, userId));
-      return { mirrored, shown: overlay(mirrored, pending.byNote.get(id), now) };
+      const mirrored = noteOfRow(row.dados, folders);
+      return { mirrored, shown: overlay(mirrored, pending.byNote.get(id), now, folders) };
     }
     const created = pending.created.find((r) => r.alvo === id);
-    return created ? { mirrored: null, shown: createdNote(created, pending, now) } : null;
+    return created ? { mirrored: null, shown: createdNote(created, pending, now, folders) } : null;
   }
 
   /** O grupo existe nas Anotações? Sem o contexto no espelho ainda, não dá para saber: passa. */

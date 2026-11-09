@@ -183,6 +183,12 @@ export class DragHold<T> {
       this.config.hold(start);
       return;
     }
+    // o dedo levantou a ficha, mas soltou parado antes do toque longo: foi um toque um pouco demorado, não
+    // um arrasto (nada cai, e o clique passa e abre a ficha, como antes de a ficha poder ser arrastada)
+    if (this.dragging && s.touch && !s.moved && Date.now() - s.at < HOLD_MS) {
+      this.cancel();
+      return;
+    }
     if (this.dragging) {
       // o clique que vem depois de soltar não abre o que se soltou
       swallowNextClick();

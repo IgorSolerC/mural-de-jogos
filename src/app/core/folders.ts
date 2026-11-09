@@ -1,3 +1,4 @@
+import { PASTA_ID_RE } from '../../../contrato/api-v1/notas';
 import { lookKey } from './category-looks';
 import { LABEL_MAX } from './note-labels';
 import { Review } from './review';
@@ -40,10 +41,9 @@ export const TOMBSTONE_DAYS = 60;
 /** O nome de uma pasta nova (as seguintes, "Nova pasta 2"…). */
 export const NEW_FOLDER_NAME = 'Nova pasta';
 
-const ID_RE = /^[ap][0-9a-z]{6,24}$/;
-
+/** O id de uma pasta: a mesma regra da API (o espelho recusa o que não passa nela). */
 export function isFolderId(v: unknown): v is string {
-  return typeof v === 'string' && ID_RE.test(v);
+  return typeof v === 'string' && PASTA_ID_RE.test(v);
 }
 
 /** "  scripts   de casa " → "scripts de casa", até 32 letras (como o grupo e a tag). */

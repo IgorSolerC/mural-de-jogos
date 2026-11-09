@@ -18,7 +18,7 @@ import { DoneStamp } from '../ui/done-stamp';
 import { NoteIndex } from '../ui/note-index';
 import { NoteMenu, NoteMenuTrigger, WALL_NOTES, wallNoteId } from '../ui/note-menu';
 import { ContextMenu, ContextMenuTrigger, MenuItem, MenuSections } from '../ui/context-menu';
-import { Confirm } from '../ui/confirm';
+import { FolderAsking } from '../ui/folder-asking';
 import { Toasts } from '../ui/toast';
 import { FolderActions, WallDrag, WallDragItem, WallDrop } from './wall-drag';
 import { FolderMoveSheet } from '../ui/folder-move-sheet';
@@ -188,7 +188,7 @@ export class WallBoard {
 
   private readonly side = inject(SideBySide);
   private readonly toasts = inject(Toasts);
-  private readonly confirm = inject(Confirm);
+  private readonly asking = inject(FolderAsking);
   /** Arrastar organiza: no seu Murall, numa aba de grupo, sem marcar para o lado a lado. */
   protected readonly dragOn = computed(
     () => !!this.folderActions() && this.notes() && this.owner() === null && this.view.folderGroup() !== null && !this.side.picking(),
@@ -302,22 +302,8 @@ export class WallBoard {
   private async dissolve(f: NoteFolder): Promise<void> {
     const fa = this.folderActions();
     if (!fa) return;
-    const { notes, folders } = fa.contentsOf(f.id);
     const up = this.name(this.view.folders().parentOf(f.id));
-    if (notes || folders) {
-      const what = [notes ? (notes === 1 ? '1 anotação' : `${notes} anotações`) : '', folders ? (folders === 1 ? '1 pasta' : `${folders} pastas`) : '']
-        .filter(Boolean)
-        .join(' e ');
-      const many = notes + folders > 1;
-      const yes = await this.confirm.ask({
-        title: `Desfazer a pasta ${f.name}?`,
-        text: `${many ? 'As' : 'A'} ${what} de dentro ${many ? 'vão' : 'vai'} para ${up}. Nenhuma anotação é apagada.`,
-        confirm: 'Desfazer a pasta',
-        cancel: 'Deixar',
-        icon: ICON.desfazerPasta,
-      });
-      if (!yes || !this.view.folders().live(f.id)) return;
-    }
+    if (!(await this.asking.dissolve(f.name, fa.contentsOf(f.id), up)) || !this.view.folders().live(f.id)) return;
     let undo: () => void = () => undefined;
     this.motion.run(() => (undo = fa.dissolve(f.id)));
     this.undoToast(`A pasta ${f.name} foi desfeita.`, undo);

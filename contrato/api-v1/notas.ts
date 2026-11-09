@@ -84,7 +84,25 @@ export interface ContextoNotasV1 {
   sem_grupo: { notas: number; tags: { nome: string; notas: number }[]; pastas?: PastaV1[] };
   /** As tags fixas (Ajustes): ficam à mão mesmo sem nota usando. */
   tags_fixas: string[];
+  /**
+   * As pastas desfeitas (ou juntadas em outra) para onde alguma nota ainda aponta, cada uma com a viva para
+   * onde as notas dela foram (null: a raiz do grupo). A nota guarda o id que tinha: desfazer uma pasta muda
+   * só esta linha, e a API resolve ao responder. Fica só no espelho; o `ver_contexto` não mostra.
+   */
+  desfeitas?: PastaDesfeitaV1[];
 }
+
+/** Uma pasta desfeita no contexto: o id e a viva que vale no lugar dela (null: a raiz do grupo). */
+export interface PastaDesfeitaV1 {
+  id: string;
+  viva: string | null;
+}
+
+/**
+ * O id de uma pasta do Murall: 'p' (criada à mão) ou 'a' (vinda de um assunto ou de um nome) e letras e
+ * números. O site (`isFolderId`) e a API (o espelho) usam esta mesma regra.
+ */
+export const PASTA_ID_RE = /^[ap][0-9a-z]{6,24}$/;
 
 /** O tamanho do resumo na lista. */
 export const RESUMO_MAX = 280;
@@ -124,23 +142,41 @@ export interface PastaNoIndiceV1 {
   grupo: string | null;
 }
 
-/** As pastas do contexto pelo id (sem o contexto, nenhuma). */
-export function indiceDasPastas(ctx: Pick<ContextoNotasV1, 'grupos' | 'sem_grupo'> | null): Map<string, PastaNoIndiceV1> {
-  const out = new Map<string, PastaNoIndiceV1>();
-  if (!ctx) return out;
-  for (const g of ctx.grupos) for (const p of g.pastas ?? []) out.set(p.id, { nome: p.nome, pai: p.pai, grupo: g.nome });
-  for (const p of ctx.sem_grupo.pastas ?? []) out.set(p.id, { nome: p.nome, pai: p.pai, grupo: null });
-  return out;
+/** As pastas do contexto pelo id: as vivas, e as desfeitas à parte, com a viva de cada uma. */
+export interface IndiceDasPastas {
+  vivas: ReadonlyMap<string, PastaNoIndiceV1>;
+  desfeitas: ReadonlyMap<string, string | null>;
 }
 
-/** O caminho da pasta, da de cima até ela (null: a pasta não está no contexto). */
-export function caminhoDaPasta(indice: ReadonlyMap<string, PastaNoIndiceV1>, id: string | null): string[] | null {
+/** As pastas do contexto pelo id (sem o contexto, nenhuma). */
+export function indiceDasPastas(ctx: Pick<ContextoNotasV1, 'grupos' | 'sem_grupo' | 'desfeitas'> | null): IndiceDasPastas {
+  const vivas = new Map<string, PastaNoIndiceV1>();
+  const desfeitas = new Map<string, string | null>();
+  if (ctx) {
+    for (const g of ctx.grupos) for (const p of g.pastas ?? []) vivas.set(p.id, { nome: p.nome, pai: p.pai, grupo: g.nome });
+    for (const p of ctx.sem_grupo.pastas ?? []) vivas.set(p.id, { nome: p.nome, pai: p.pai, grupo: null });
+    for (const d of ctx.desfeitas ?? []) if (!vivas.has(d.id)) desfeitas.set(d.id, d.viva);
+  }
+  return { vivas, desfeitas };
+}
+
+/** A pasta viva que vale pelo id guardado na nota (a desfeita leva à viva dela); null: a raiz, ou fora do contexto. */
+export function pastaViva(indice: IndiceDasPastas, guardada: string | null): string | null {
+  if (!guardada) return null;
+  if (indice.vivas.has(guardada)) return guardada;
+  const viva = indice.desfeitas.get(guardada);
+  return viva && indice.vivas.has(viva) ? viva : null;
+}
+
+/** O caminho da pasta, da de cima até ela (null: a pasta não está no contexto). A desfeita dá o da viva dela. */
+export function caminhoDaPasta(indice: IndiceDasPastas, guardada: string | null): string[] | null {
+  const id = pastaViva(indice, guardada);
   if (!id) return null;
   const out: string[] = [];
   let cur: string | null = id;
   // (o pai que voltaria para trás é cortado: o caminho tem no máximo 32 níveis)
   for (let i = 0; cur && i < 32; i++) {
-    const p = indice.get(cur);
+    const p = indice.vivas.get(cur);
     if (!p) return out.length ? out : null;
     out.unshift(p.nome);
     cur = p.pai;
@@ -149,11 +185,11 @@ export function caminhoDaPasta(indice: ReadonlyMap<string, PastaNoIndiceV1>, id:
 }
 
 /** A nota do espelho como a v1 mostra: a pasta e o assunto montados pelo contexto (a de antes das pastas passa como está). */
-export function notaDoEspelho(raw: NotaNoEspelhoV1 | NotaV1, indice: ReadonlyMap<string, PastaNoIndiceV1>): NotaV1 {
+export function notaDoEspelho(raw: NotaNoEspelhoV1 | NotaV1, indice: IndiceDasPastas): NotaV1 {
   if (!('pasta_id' in raw)) return { ...raw, pasta: raw.pasta ?? null } as NotaV1;
   const { pasta_id, ...rest } = raw;
   const caminho = caminhoDaPasta(indice, pasta_id);
-  const pasta = caminho?.length ? { id: pasta_id, caminho } : null;
+  const pasta = caminho?.length ? { id: pastaViva(indice, pasta_id), caminho } : null;
   // na ordem da v1
   return {
     id: rest.id,
@@ -175,15 +211,19 @@ export function notaDoEspelho(raw: NotaNoEspelhoV1 | NotaV1, indice: ReadonlyMap
   };
 }
 
-/** A nota v1 como o espelho guarda (o site manda assim): a pasta só pelo id. */
-export function notaParaOEspelho(n: NotaV1): NotaNoEspelhoV1 {
-  const { pasta, assunto: _a, ...rest } = n;
+/**
+ * A nota v1 como o espelho guarda (o site manda assim): a pasta só pelo id. O site passa em `guardada` o id
+ * escrito na nota, que pode ser de uma pasta desfeita (`ContextoNotasV1.desfeitas`): assim desfazer ou juntar
+ * uma pasta não muda a impressão das notas dela. Sem ele, vale o da pasta viva.
+ */
+export function notaParaOEspelho(n: NotaV1, guardada: string | null = n.pasta?.id ?? null): NotaNoEspelhoV1 {
+  const { pasta: _p, assunto: _a, ...rest } = n;
   return {
     id: rest.id,
     titulo: rest.titulo,
     texto: rest.texto,
     grupo: rest.grupo,
-    pasta_id: pasta?.id ?? null,
+    pasta_id: guardada,
     tags: rest.tags,
     data: rest.data,
     finalizada_em: rest.finalizada_em,
@@ -209,14 +249,17 @@ export function pedacosDoCaminho(caminho: string): string[] {
  * As pastas que um filtro pede, com as de dentro de cada uma (os ids): pelo id, ou pelo caminho a partir da
  * raiz do grupo ("Programação/Funcional", sem caixa nem acento). Sem `grupo`, vale em todos.
  */
-export function pastasDoFiltro(indice: ReadonlyMap<string, PastaNoIndiceV1>, pedido: string, grupo?: string | null): Set<string> {
+export function pastasDoFiltro(indice: IndiceDasPastas, pedido: string, grupo?: string | null): Set<string> {
   const achadas = new Set<string>();
   const dentro = (g: string | null) => grupo === undefined || (grupo === null ? g === null : g !== null && dobra(g) === dobra(grupo));
-  if (indice.has(pedido) && dentro(indice.get(pedido)!.grupo)) achadas.add(pedido);
-  else {
+  // pelo id (o de uma desfeita vale pela viva dela)
+  const porId = indice.vivas.has(pedido) || indice.desfeitas.has(pedido) ? pastaViva(indice, pedido) : undefined;
+  if (porId !== undefined) {
+    if (porId && dentro(indice.vivas.get(porId)!.grupo)) achadas.add(porId);
+  } else {
     const pedacos = pedacosDoCaminho(pedido).map(dobra);
     if (!pedacos.length) return achadas;
-    for (const [id, p] of indice) {
+    for (const [id, p] of indice.vivas) {
       if (!dentro(p.grupo)) continue;
       const caminho = caminhoDaPasta(indice, id);
       if (caminho && caminho.length === pedacos.length && caminho.every((c, i) => dobra(c) === pedacos[i])) achadas.add(id);
@@ -224,7 +267,7 @@ export function pastasDoFiltro(indice: ReadonlyMap<string, PastaNoIndiceV1>, ped
   }
   // e as de dentro
   const filhas = new Map<string, string[]>();
-  for (const [id, p] of indice) if (p.pai) filhas.set(p.pai, [...(filhas.get(p.pai) ?? []), id]);
+  for (const [id, p] of indice.vivas) if (p.pai) filhas.set(p.pai, [...(filhas.get(p.pai) ?? []), id]);
   const fila = [...achadas];
   while (fila.length) {
     for (const f of filhas.get(fila.pop()!) ?? []) {
@@ -233,5 +276,7 @@ export function pastasDoFiltro(indice: ReadonlyMap<string, PastaNoIndiceV1>, ped
       fila.push(f);
     }
   }
+  // e as desfeitas que levam a uma delas: as notas guardam o id que tinham (o filtro compara o guardado)
+  for (const [id, viva] of indice.desfeitas) if (viva && achadas.has(viva)) achadas.add(id);
   return achadas;
 }

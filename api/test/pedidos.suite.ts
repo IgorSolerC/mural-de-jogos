@@ -153,6 +153,42 @@ export function pedidosSuite(label: string, getDb: () => Db) {
       expect((await t.ai(secret, 'POST', '/ext/v1/notas', { titulo: 'x', pasta: 'a'.repeat(40) })).status).toBe(400);
     });
 
+    it('a pasta pedida pelo id aparece por cima com o caminho de verdade; a de outro grupo deixa a nota na raiz', async () => {
+      const t = await setup();
+      const { secret, me } = await t.ready();
+      const ctx: ContextoNotasV1 = {
+        ...CONTEXTO,
+        grupos: [
+          { nome: 'Trabalho', notas: 1, pastas: [{ id: 'patas000001', nome: 'Atas', pai: null, notas: 0 }], assuntos: ['Atas'], tags: [] },
+          {
+            nome: 'Estudos',
+            notas: 1,
+            pastas: [
+              { id: 'pprog000001', nome: 'Programação', pai: null, notas: 0 },
+              { id: 'pfunc000001', nome: 'Funcional', pai: 'pprog000001', notas: 0 },
+            ],
+            assuntos: ['Programação'],
+            tags: [],
+          },
+        ],
+        desfeitas: [{ id: 'pvelha00001', viva: 'pprog000001' }],
+      };
+      const item = { tipo: 'contexto', id: 'notas', hash: 'cd'.repeat(8), dados: ctx };
+      expect((await t.json('POST', '/v1/eu/espelho', { rev: 1, poe: [item] }, me.token)).status).toBe(200);
+      const b = await t.body(t.ai(secret, 'POST', '/ext/v1/notas', { titulo: 'Mônadas', grupo: 'Estudos', pasta: 'pfunc000001' }));
+      expect(b.nota.pasta).toEqual({ id: 'pfunc000001', caminho: ['Programação', 'Funcional'] });
+      expect(b.nota.assunto).toBe('Programação');
+      expect((await t.body(t.ai(secret, 'GET', '/ext/v1/notas?pasta=programacao'))).itens.map((n: { id: string }) => n.id)).toEqual([b.pedido.alvo]);
+      expect((await t.body(t.ai(secret, 'GET', `/ext/v1/notas/${b.pedido.alvo}`))).nota.pasta.caminho).toEqual(['Programação', 'Funcional']);
+      // a desfeita vale pela viva dela
+      const lida = (await t.body(t.ai(secret, 'GET', '/ext/v1/notas/estu-1'))).nota;
+      expect((await t.body(t.ai(secret, 'PATCH', '/ext/v1/notas/estu-1', { versao: lida.versao, pasta: 'pvelha00001' }))).nota.pasta).toEqual({ id: 'pprog000001', caminho: ['Programação'] });
+      // a pasta de Trabalho numa nota de Estudos: a nota fica na raiz (o Murall avisa ao aplicar)
+      const x = await t.body(t.ai(secret, 'POST', '/ext/v1/notas', { titulo: 'Fora', grupo: 'Estudos', pasta: 'patas000001' }));
+      expect(x.nota.pasta).toBeNull();
+      expect(x.nota.assunto).toBeNull();
+    });
+
     it('o mesmo Idempotency-Key devolve o mesmo pedido; usado noutra operação, recusa', async () => {
       const t = await setup();
       const { secret } = await t.ready();

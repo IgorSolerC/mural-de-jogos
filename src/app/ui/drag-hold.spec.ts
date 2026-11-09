@@ -91,6 +91,28 @@ describe('o gesto de arrastar (DragHold)', () => {
     expect(holdTo).toEqual(jasmine.objectContaining({ item: 'a', x: 40, y: 40, touch: true }));
   });
 
+  it('o dedo que segura um instante (a ficha levanta) e solta parado antes do toque longo é um toque: nada cai, e o clique passa', () => {
+    down(40, 40, 'touch');
+    jasmine.clock().tick(350);
+    expect(drag.active).toBeTrue();
+    // um tremido do dedo, dentro da folga, ainda é parado
+    move(44, 42, 'touch');
+    up(44, 42, 'touch');
+    expect(calls).toEqual(['begin:a', 'move:40,40', 'move:44,42', 'end']);
+    expect(drag.pending).toBeFalse();
+    const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+    el.dispatchEvent(click);
+    expect(click.defaultPrevented).toBeFalse();
+    // e o dedo que andou e voltou ao lugar arrastou: cai
+    calls = [];
+    down(40, 40, 'touch');
+    jasmine.clock().tick(350);
+    move(90, 40, 'touch');
+    move(40, 40, 'touch');
+    up(40, 40, 'touch');
+    expect(calls).toContain('drop');
+  });
+
   it('o Esc cancela no meio, e o que vier depois não cai', () => {
     down(0, 0);
     move(20, 0);

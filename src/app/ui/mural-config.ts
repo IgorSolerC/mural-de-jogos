@@ -20,6 +20,7 @@ import { BackdropClose } from './backdrop-close';
 import { CategoryLabel } from './category-label';
 import { CategoryStyle } from './category-style';
 import { Confirm } from './confirm';
+import { FolderAsking } from './folder-asking';
 import { NoteTag } from './note-tag';
 import { Pin } from './pin';
 import { TagColors } from './tag-colors';
@@ -225,6 +226,7 @@ export class MuralConfig {
   private readonly injector = inject(Injector);
   private readonly edits = inject(LabelEdits);
   private readonly confirm = inject(Confirm);
+  private readonly asking = inject(FolderAsking);
   private readonly kanban = inject(KanbanStore);
 
   protected readonly CloseIcon = ICON.fechar;
@@ -324,8 +326,9 @@ export class MuralConfig {
    */
   protected readonly folderGroups = computed<FolderGroup[]>(() => {
     const tree = this.folders.tree();
-    const rowsOf = (category: string | null, key: string) => {
-      const counts = this.folders.countsIn(category);
+    // as contas de todos os grupos numa passada só pelas anotações (e não uma por grupo)
+    const counts = this.folders.countsByFolder();
+    const rowsOf = (key: string) => {
       const rows: FolderGroup['rows'] = [];
       const walk = (parent: string | null, depth: number) => {
         for (const f of tree.kids(key, parent)) {
@@ -336,8 +339,8 @@ export class MuralConfig {
       walk(null, 0);
       return rows;
     };
-    const groups: FolderGroup[] = this.categories().map((c) => ({ key: c.key, label: c.label, category: c.label, rows: rowsOf(c.label, c.key) }));
-    const loose = rowsOf(null, '');
+    const groups: FolderGroup[] = this.categories().map((c) => ({ key: c.key, label: c.label, category: c.label, rows: rowsOf(c.key) }));
+    const loose = rowsOf('');
     if (loose.length) groups.push({ key: '', label: 'Sem grupo', category: '', rows: loose });
     return groups;
   });
@@ -690,16 +693,7 @@ export class MuralConfig {
   protected async dissolveFolder(group: FolderGroup, f: NoteFolder): Promise<void> {
     const { notes, folders } = this.folders.contentsOf(f.id);
     const up = this.folders.nameOf(this.folders.tree().parentOf(f.id)) ?? group.label;
-    if (notes || folders) {
-      const what = [notes ? plural(notes, 'anotação', 'anotações') : '', folders ? plural(folders, 'pasta', 'pastas') : ''].filter(Boolean).join(' e ');
-      const sure = await this.confirm.ask({
-        title: `Desfazer a pasta ${f.name}?`,
-        text: `${notes + folders > 1 ? 'As' : 'A'} ${what} de dentro ${notes + folders > 1 ? 'vão' : 'vai'} para ${up}. Nenhuma anotação é apagada.`,
-        confirm: 'Desfazer a pasta',
-        icon: this.DissolveIcon,
-      });
-      if (!sure) return;
-    }
+    if (!(await this.asking.dissolve(f.name, { notes, folders }, up)) || !this.folders.tree().live(f.id)) return;
     this.renamingSubject.set(null);
     this.folders.dissolve(f.id);
     this.notice.set(notes || folders ? `A pasta ${f.name} foi desfeita; o que tinha dentro foi para ${up}.` : `A pasta ${f.name} foi desfeita.`);

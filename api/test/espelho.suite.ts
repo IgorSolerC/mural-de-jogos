@@ -411,6 +411,46 @@ export function espelhoSuite(label: string, getDb: () => Db) {
       expect(await t.ids(secret, `?assunto=${encodeURIComponent('cálculo')}`)).toEqual(['estu-1']);
     });
 
+    it('desfazer uma pasta muda só o contexto: a nota que guarda a desfeita aparece na viva e no filtro dela', async () => {
+      const t = await setup();
+      const { secret, me, rev } = await folders(t);
+      // Funcional desfeita: as notas dela sobem para Programação, sem ser mandadas de novo
+      const ctx = pastas();
+      ctx.grupos[0]!.pastas = ctx.grupos[0]!.pastas.filter((p) => p.id !== 'pfunc000001');
+      ctx.desfeitas = [{ id: 'pfunc000001', viva: 'pprog000001' }];
+      expect((await t.mirror(me.token, { rev, poe: [poe(ctx, 'contexto')] })).status).toBe(200);
+      const n = (await t.body(t.ext(secret, '/ext/v1/notas/f-1'))).nota;
+      expect(n.pasta).toEqual({ id: 'pprog000001', caminho: ['Programação'] });
+      expect(n.assunto).toBe('Programação');
+      expect((await t.ids(secret, '?pasta=programacao')).sort()).toEqual(['f-1', 'p-1']);
+      expect((await t.ids(secret, '?pasta=pprog000001')).sort()).toEqual(['f-1', 'p-1']);
+      // o id da desfeita vale pela viva
+      expect((await t.ids(secret, '?pasta=pfunc000001')).sort()).toEqual(['f-1', 'p-1']);
+      // a desfeita que leva à raiz: a nota fica sem pasta
+      ctx.desfeitas = [{ id: 'pfunc000001', viva: null }];
+      expect((await t.mirror(me.token, { rev, poe: [poe(ctx, 'contexto')] })).status).toBe(200);
+      expect((await t.body(t.ext(secret, '/ext/v1/notas/f-1'))).nota).toEqual(expect.objectContaining({ pasta: null, assunto: null }));
+      expect(await t.ids(secret, '?pasta=programacao')).toEqual(['p-1']);
+      // e o ver_contexto não mostra as desfeitas (são só do espelho)
+      expect('desfeitas' in (await t.body(t.ext(secret, '/ext/v1/contexto'))).notas).toBe(false);
+    });
+
+    it('o id de pasta vale pela mesma regra do site (até 25 letras), e o que o site não aceita a API também não', async () => {
+      const t = await setup();
+      const me = await t.login('ana');
+      await t.newKey(me.token);
+      const rev = await t.push(me.token, 0);
+      const longo = 'p' + 'a'.repeat(24);
+      expect((await t.mirror(me.token, { rev, poe: [poe(naPasta('x-1', longo, '2026-10-01T10:00:00.000Z'))] })).status).toBe(200);
+      const ctx = pastas();
+      ctx.grupos[0]!.pastas.push({ id: longo, nome: 'Longa', pai: null, notas: 1 });
+      expect((await t.mirror(me.token, { rev, poe: [poe(ctx, 'contexto')] })).status).toBe(200);
+      // um a mais, ou começando com outra letra, não é id do Murall
+      expect((await t.mirror(me.token, { rev, poe: [poe(naPasta('x-2', longo + 'a', '2026-10-01T10:00:00.000Z'))] })).status).toBe(400);
+      expect((await t.mirror(me.token, { rev, poe: [poe(naPasta('x-3', 'xabcdef1', '2026-10-01T10:00:00.000Z'))] })).status).toBe(400);
+      expect((await t.mirror(me.token, { rev, poe: [poe({ ...pastas(), desfeitas: [{ id: 'Nao Vale', viva: null }] }, 'contexto')] })).status).toBe(400);
+    });
+
     it('a pasta com um id que não é do Murall não entra no espelho', async () => {
       const t = await setup();
       const me = await t.login('ana');

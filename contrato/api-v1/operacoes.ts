@@ -6,7 +6,7 @@
  */
 
 import { dobra, textoLimpo } from './escopos';
-import { pedacosDoCaminho, type NotaV1, type PastaDaNotaV1 } from './notas';
+import { caminhoDaPasta, pastaViva, pedacosDoCaminho, type IndiceDasPastas, type NotaV1, type PastaDaNotaV1 } from './notas';
 import { lerBaralhos, lerFrente, type FrenteV1 } from './operacoes-estudos';
 import { lerNoQuadro, type NoQuadroV1 } from './operacoes-kanban';
 
@@ -357,16 +357,17 @@ export function contarTarefas(texto: string): { feitas: number; total: number } 
 /**
  * A nota como vai ficar depois do pedido (a API mostra por cima do espelho; o site aplica de verdade).
  * Devolve null quando o pedido apaga a nota; com erro (uma tarefa que não existe), a nota fica como
- * estava. `agora` carimba o que tem hora (finalizar).
+ * estava. `agora` carimba o que tem hora (finalizar). `pastas` (as da conta) deixa a pasta pedida pelo
+ * id já com o caminho de verdade.
  */
-export function aplicarNaNotaV1(nota: NotaV1, op: OpNota, dados: DadosDaOp, agora: string): NotaV1 | null {
+export function aplicarNaNotaV1(nota: NotaV1, op: OpNota, dados: DadosDaOp, agora: string, pastas?: IndiceDasPastas): NotaV1 | null {
   switch (op) {
     case 'nota.apagar':
       return null;
     case 'nota.editar': {
       const { versao: _v, pasta: _p, assunto: _a, ...campos } = dados as EditarNotaV1;
       const n = { ...nota, ...campos } as NotaV1;
-      const pasta = pastaPedida(dados as EditarNotaV1, nota.pasta, nota.grupo);
+      const pasta = pastaPedida(dados as EditarNotaV1, nota.pasta, nota.grupo, pastas);
       return { ...n, pasta, assunto: pasta?.caminho[0] ?? null, tarefas: contarTarefas(n.texto) };
     }
     case 'nota.acrescentar': {
@@ -396,17 +397,33 @@ export function aplicarNaNotaV1(nota: NotaV1, op: OpNota, dados: DadosDaOp, agor
  * Murall aplicar), o assunto de antes como a pasta de cima, ou nenhuma quando o grupo muda (a nota sai da
  * pasta, como no Murall).
  */
-function pastaPedida(c: CamposDaNota, antes: PastaDaNotaV1 | null, grupoAntes: string | null): PastaDaNotaV1 | null {
-  if (c.pasta !== undefined) return c.pasta ? { id: null, caminho: pedacosDoCaminho(c.pasta) } : null;
+function pastaPedida(c: CamposDaNota, antes: PastaDaNotaV1 | null, grupoAntes: string | null, pastas?: IndiceDasPastas): PastaDaNotaV1 | null {
+  if (c.pasta !== undefined) return c.pasta ? pastaDoPedido(c.pasta, c.grupo !== undefined ? c.grupo : grupoAntes, pastas) : null;
   if (c.assunto !== undefined) return c.assunto ? { id: null, caminho: [c.assunto] } : null;
   if (c.grupo !== undefined && dobra(c.grupo ?? '') !== dobra(grupoAntes ?? '')) return null;
   return antes;
 }
 
+/**
+ * A pasta que o `pasta` de um pedido pede, numa nota do `grupo`, como o Murall vai aplicar: o id de uma pasta
+ * da conta (o que o `ver_contexto` mostra) vale por ela, com o caminho de verdade (a desfeita, pela viva dela);
+ * o de uma pasta de outro grupo deixa a nota na raiz (o Murall avisa no resultado). O resto é o caminho a partir
+ * da raiz do grupo, com o id só depois que o Murall aplicar (ele cria as que faltam).
+ */
+export function pastaDoPedido(pedido: string, grupo: string | null, pastas?: IndiceDasPastas): PastaDaNotaV1 | null {
+  if (pastas && (pastas.vivas.has(pedido) || pastas.desfeitas.has(pedido))) {
+    const id = pastaViva(pastas, pedido);
+    const p = id ? pastas.vivas.get(id) : undefined;
+    if (!id || !p || dobra(p.grupo ?? '') !== dobra(grupo ?? '')) return null;
+    return { id, caminho: caminhoDaPasta(pastas, id) ?? [p.nome] };
+  }
+  return { id: null, caminho: pedacosDoCaminho(pedido) };
+}
+
 /** A nota v1 de um pedido de criar, antes de o site aplicar (a API mostra assim, por cima). */
-export function notaDoPedido(id: string, d: CriarNotaV1, agora: string): NotaV1 {
+export function notaDoPedido(id: string, d: CriarNotaV1, agora: string, pastas?: IndiceDasPastas): NotaV1 {
   const texto = d.texto ?? '';
-  const pasta = pastaPedida(d, null, d.grupo ?? null);
+  const pasta = pastaPedida(d, null, d.grupo ?? null, pastas);
   return {
     id,
     titulo: d.titulo,

@@ -1,9 +1,9 @@
-import { indiceDasPastas, notaDoEspelho, notaParaOEspelho } from '../../../contrato/api-v1/notas';
+import { indiceDasPastas, notaDoEspelho, notaParaOEspelho, pastasDoFiltro } from '../../../contrato/api-v1/notas';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
-import { folderTree } from './folders';
+import { folderTree, withDissolvedFolder, withJoinedFolder } from './folders';
 import { TestBed } from '@angular/core/testing';
 import type { ContextoNotasV1, NotaV1 } from '../../../contrato/api-v1/notas';
-import { ApiMirror, contextoV1, hashOf, lots, notaV1 } from './api-mirror';
+import { ApiMirror, contextoV1, hashOf, lots, notaV1, storedFolderOf } from './api-mirror';
 import { CloudAccount, CloudError } from './cloud-account';
 import { KanbanStore } from './kanban-store';
 import { Review, sanitizeReview } from './review';
@@ -73,6 +73,48 @@ describe('o espelho da API: a nota e o contexto em v1', () => {
     expect(stored.pasta_id).toBe('pfuncional01');
     // e a API devolve o mesmo, montando o caminho pelo contexto
     expect(notaDoEspelho(stored, indiceDasPastas(contextoV1([r], tree, [])))).toEqual(v);
+  });
+
+  it('desfazer ou juntar uma pasta muda só o contexto: as notas dela vão ao espelho iguais, e a API as mostra na viva', async () => {
+    const folders = [
+      { id: 'pcalculo001', group: 'estudos', name: 'Cálculo', parent: null },
+      { id: 'pfuncional01', group: 'estudos', name: 'Funcional', parent: 'pcalculo001' },
+      { id: 'phistoria01', group: 'estudos', name: 'História', parent: null },
+    ];
+    const notes = [
+      note('r0001', 'A', { category: 'Estudos', folder: 'pfuncional01' }),
+      note('r0002', 'B', { category: 'Estudos', folder: 'pfuncional01' }),
+      note('r0003', 'C', { category: 'Estudos', folder: 'phistoria01' }),
+    ];
+    const mirrored = (tree: ReturnType<typeof folderTree>) => notes.map((n) => notaParaOEspelho(notaV1(n, null, new Set(), tree), storedFolderOf(tree, n)));
+    const hashes = async (tree: ReturnType<typeof folderTree>) => Promise.all(mirrored(tree).map((d) => hashOf(d)));
+    const before = folderTree(folders);
+    const was = await hashes(before);
+    // desfeita: as notas sobem para Cálculo, e a impressão delas é a mesma
+    const dissolved = folderTree(withDissolvedFolder(folders, 'pfuncional01', '2026-11-09T10:00:00.000Z'));
+    expect(await hashes(dissolved)).toEqual(was);
+    const ctx = contextoV1(notes, dissolved, []);
+    expect(ctx.desfeitas).toEqual([{ id: 'pfuncional01', viva: 'pcalculo001' }]);
+    expect(await hashOf(ctx)).not.toBe(await hashOf(contextoV1(notes, before, [])));
+    const shown = notaDoEspelho(mirrored(dissolved)[0], indiceDasPastas(ctx));
+    expect(shown.pasta).toEqual({ id: 'pcalculo001', caminho: ['Cálculo'] });
+    expect(shown.assunto).toBe('Cálculo');
+    // e o filtro pela de cima acha as que ainda guardam a desfeita
+    expect([...pastasDoFiltro(indiceDasPastas(ctx), 'Cálculo')].sort()).toEqual(['pcalculo001', 'pfuncional01']);
+    // juntada em História: o mesmo
+    const joined = folderTree(withJoinedFolder(folders, 'pfuncional01', 'phistoria01', '2026-11-09T10:00:00.000Z'));
+    expect(await hashes(joined)).toEqual(was);
+    const jctx = contextoV1(notes, joined, []);
+    expect(notaDoEspelho(mirrored(joined)[1], indiceDasPastas(jctx)).pasta).toEqual({ id: 'phistoria01', caminho: ['História'] });
+    // uma de cima desfeita leva à raiz: a nota fica sem pasta, sem ser mandada de novo
+    const top = folderTree(withDissolvedFolder(folders, 'phistoria01', '2026-11-09T10:00:00.000Z'));
+    expect(await hashes(top)).toEqual(was);
+    const tctx = contextoV1(notes, top, []);
+    expect(tctx.desfeitas).toEqual([{ id: 'phistoria01', viva: null }]);
+    expect(notaDoEspelho(mirrored(top)[2], indiceDasPastas(tctx))).toEqual(jasmine.objectContaining({ pasta: null, assunto: null }));
+    // a pasta de outro grupo (a nota que mudou de grupo sem passar por withCategory) não vai: a nota está na raiz
+    expect(storedFolderOf(before, { category: 'Trabalho', folder: 'pfuncional01' })).toBeNull();
+    expect(storedFolderOf(before, { category: 'Estudos', folder: 'pdesconhec1' })).toBeNull();
   });
 
   it('o "quem vê" é o de verdade: privada, ou só no Kanban, é privada', () => {

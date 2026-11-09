@@ -1,7 +1,4 @@
 import { NoteFolders } from './note-folders';
-import { siblingNamed } from './folders';
-import { lookKey } from './category-looks';
-import { pedacosDoCaminho } from '../../../contrato/api-v1/notas';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { StudyStore } from './study-store';
@@ -50,20 +47,6 @@ const note = (id: string, title: string, extra: Record<string, unknown> = {}): R
 
 const NOW = '2026-10-27T15:00:00.000Z';
 
-/** A pasta pedida, como o ApiRequests resolve (o id de uma do grupo, ou o caminho, criando as que faltam). */
-function folderFor(category: string | null, pasta: string): string | null {
-  const folders = TestBed.inject(NoteFolders);
-  const group = lookKey(category ?? '');
-  const byId = folders.tree().live(pasta);
-  if (byId && byId.group === group) return byId.id;
-  let parent: string | null = null;
-  for (const name of pedacosDoCaminho(pasta)) {
-    const found = siblingNamed(folders.tree(), group, parent, name);
-    parent = found ? found.id : (folders.create(category, parent, name)?.id ?? parent);
-  }
-  return parent;
-}
-
 describe('os pedidos da API: aplicar nas Anotações', () => {
   let store: ReviewStore;
   let ctx: ApplyContext;
@@ -74,7 +57,8 @@ describe('os pedidos da API: aplicar nas Anotações', () => {
     store = TestBed.inject(ReviewStore);
     store.add(note('r0001', 'Reunião', { category: 'Trabalho', subject: 'Time', tags: ['Urgente'], text: 'Pauta\n- [ ] Ligar\n- [ ] Mandar ata' }));
     store.add(note('r0002', 'Compras', { text: 'Ver [[Reunião]]' }));
-    ctx = { now: NOW, today: '2026-10-27', stamps: new Map(), v1: (r) => TestBed.inject(ApiMirror).notaOf(r), folder: (c, p) => folderFor(c, p) };
+    // a pasta pedida pelo mesmo caminho do ApiRequests (NoteFolders.forRequest), não uma cópia
+    ctx = { now: NOW, today: '2026-10-27', stamps: new Map(), v1: (r) => TestBed.inject(ApiMirror).notaOf(r), folder: (c, p) => TestBed.inject(NoteFolders).forRequest(c, p) };
   });
   afterEach(() => localStorage.clear());
 
@@ -98,6 +82,51 @@ describe('os pedidos da API: aplicar nas Anotações', () => {
     expect(folders.of(store.get('r0001')!)).toBe(top);
     expect(apply('nota.editar', 'r0001', { versao: store.get('r0001')!.updatedAt, pasta: null }).estado).toBe('aplicado');
     expect(folders.of(store.get('r0001')!)).toBeNull();
+  });
+
+  it('a pasta pedida pelo id de outro grupo não vira nome: a nota fica na raiz, com o aviso', () => {
+    const folders = TestBed.inject(NoteFolders);
+    const estudos = folders.create('Estudos', null, 'Programação')!;
+    const out = apply('nota.criar', 'rnovaid0000000003', { titulo: 'Atas', grupo: 'Trabalho', pasta: estudos.id });
+    expect(out.estado).toBe('aplicado');
+    expect(folders.of(store.get('rnovaid0000000003')!)).toBeNull();
+    expect((out.resultado as { aviso?: string }).aviso).toContain('é de outro grupo');
+    // e nenhuma pasta com o nome do id
+    expect(folders.tree().kids('trabalho', null).map((f) => f.name)).not.toContain(jasmine.stringMatching(/^p/i));
+    expect(folders.tree().kids('trabalho', null).length).toBe(0);
+    // no editar, o mesmo
+    const r = store.get('r0001')!;
+    const e = apply('nota.editar', 'r0001', { versao: r.updatedAt, pasta: estudos.id });
+    expect(folders.of(store.get('r0001')!)).toBeNull();
+    expect((e.resultado as { aviso?: string }).aviso).toContain('é de outro grupo');
+    // a desfeita do grupo vale pela viva
+    const dentro = folders.create('Estudos', estudos.id, 'Funcional')!;
+    folders.dissolve(dentro.id);
+    apply('nota.criar', 'rnovaid0000000004', { titulo: 'Mônadas', grupo: 'Estudos', pasta: dentro.id });
+    expect(folders.of(store.get('rnovaid0000000004')!)).toBe(estudos.id);
+  });
+
+  it('o criar que não passa nas conferências não deixa pastas criadas', () => {
+    const folders = TestBed.inject(NoteFolders);
+    const before = folders.tree().all.length;
+    const out = apply('nota.criar', 'id inválido!', { titulo: 'Atas', grupo: 'Trabalho', pasta: 'Reuniões/Semanais' });
+    expect(out.estado).toBe('falhou');
+    expect(folders.tree().all.length).toBe(before);
+  });
+
+  it('a prévia do pedido mostra a pasta pedida pelo id com o caminho de verdade', () => {
+    const folders = TestBed.inject(NoteFolders);
+    const top = folders.create('Trabalho', null, 'Reuniões')!;
+    const sub = folders.create('Trabalho', top.id, 'Semanais')!;
+    const requests = TestBed.inject(ApiRequests);
+    const criar = requests.preview({ op: 'nota.criar', alvo: 'rnovaid0000000005', dados: { titulo: 'Ata', grupo: 'Trabalho', pasta: sub.id } });
+    expect(criar.after!.pasta).toEqual({ id: sub.id, caminho: ['Reuniões', 'Semanais'] });
+    expect(criar.after!.assunto).toBe('Reuniões');
+    const r = store.get('r0001')!;
+    const editar = requests.preview({ op: 'nota.editar', alvo: 'r0001', dados: { versao: r.updatedAt, pasta: top.id } });
+    expect(editar.after!.pasta).toEqual({ id: top.id, caminho: ['Reuniões'] });
+    // de outro grupo: na raiz, como vai ficar
+    expect(requests.preview({ op: 'nota.criar', alvo: 'rnovaid0000000006', dados: { titulo: 'X', grupo: 'Estudos', pasta: sub.id } }).after!.pasta).toBeNull();
   });
 
   it('criar: nasce privada, com o id da API, a data de hoje e os nomes como o mural já escreve', () => {

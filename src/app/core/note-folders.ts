@@ -1,8 +1,10 @@
 import { Injectable, computed, effect, inject, untracked } from '@angular/core';
+import { pedacosDoCaminho } from '../../../contrato/api-v1/notas';
 import { SubjectEntry } from './note-labels';
 import { lookKey } from './category-looks';
 import {
   FolderTree,
+  MAX_FOLDERS,
   NoteFolder,
   convertSubjects,
   folderTree,
@@ -75,10 +77,36 @@ export class NoteFolders {
     return this.tree().of(note);
   }
 
-  /** Como voltar as configurações das pastas ao que são agora (o Desfazer do bilhete). */
-  private checkpoint(): () => void {
-    const before = this.folders;
-    return () => this.settings.setNotesConfig({ folders: [...before] });
+  /**
+   * O Desfazer de uma mudança de pasta: só o que ela mexeu volta, na lista de agora (o resto que mudou no meio,
+   * aqui ou vindo de outro aparelho, fica). `patch` diz, pasta a pasta, como ela volta; a que não deve voltar
+   * (mexida de novo depois) devolve ela mesma.
+   */
+  private undoWith(patch: (f: NoteFolder) => NoteFolder): () => void {
+    return () => {
+      const now = this.folders;
+      const next = now.map(patch);
+      if (next.some((f, i) => f !== now[i])) this.save(next);
+    };
+  }
+
+  /**
+   * Como voltar o que `withDissolvedFolder` ou `withJoinedFolder` fizeram: a pasta deixa de ser lápide, com a
+   * de cima de antes, e as que subiram dela voltam para dentro (as que ainda estão onde subiram).
+   */
+  private undoGone(before: readonly NoteFolder[], after: readonly NoteFolder[], id: string): () => void {
+    const was = before.find((f) => f.id === id);
+    if (!was) return () => undefined;
+    const lifted = new Map<string, string | null>();
+    const old = new Map(before.map((f) => [f.id, f]));
+    for (const f of after) if (f.id !== id && old.get(f.id)?.parent === id && f.parent !== id) lifted.set(f.id, f.parent);
+    return this.undoWith((f) => {
+      if (f.id === id && f.gone) {
+        const { gone: _g, ...alive } = f;
+        return { ...alive, parent: was.parent };
+      }
+      return lifted.has(f.id) && f.parent === lifted.get(f.id) ? { ...f, parent: id } : f;
+    });
   }
 
   /**
@@ -115,15 +143,15 @@ export class NoteFolders {
    * anotações dentro: a nota solta sobre outra. Devolve a pasta e como desfazer tudo, ou null sem lugar.
    */
   gather(ids: readonly string[], category: string | null | undefined, parent: string | null): { folder: NoteFolder; undo: () => void } | null {
-    const back = this.checkpoint();
     const folder = this.create(category, parent, '');
     if (!folder) return null;
     const { undo } = this.place(ids, folder.id);
     return {
       folder,
       undo: () => {
+        // as anotações voltam, e a pasta criada vira lápide (o que entrou nela depois sobe, nada se perde)
         undo();
-        back();
+        if (this.tree().live(folder.id)) this.save(withDissolvedFolder(this.folders, folder.id, new Date().toISOString()));
       },
     };
   }
@@ -150,34 +178,74 @@ export class NoteFolders {
     return folder.id;
   }
 
-  /** Muda o nome (devolve como desfazer). */
-  rename(id: string, name: string): () => void {
-    const back = this.checkpoint();
-    this.save(withRenamedFolder(this.folders, id, name));
-    return back;
+  /**
+   * A pasta que um pedido da API pede (o `pasta` de criar e editar), numa anotação do grupo `category`: o id
+   * de uma pasta sua (a desfeita vale pela viva dela), ou o caminho a partir da raiz ("Programação/Funcional",
+   * sem caixa nem acento), com as que faltam criadas, como o "Criar" da escolha da pasta. O id de uma pasta de
+   * outro grupo nunca vira nome: a anotação fica na raiz, com o aviso. No teto de pastas, fica na última que deu.
+   * A mesma regra da prévia da API (`pastaDoPedido`, contrato/api-v1/operacoes.ts).
+   */
+  forRequest(category: string | null, pasta: string): { id: string | null; aviso?: string } {
+    const group = lookKey(category ?? '');
+    const known = this.tree().index.get(pasta);
+    if (known) {
+      if (known.group !== group) return { id: null, aviso: `A pasta "${known.name}" é de outro grupo: a nota ficou solta na raiz${category ? ` de ${category}` : ''}.` };
+      return { id: this.tree().resolve(pasta, group) };
+    }
+    let parent: string | null = null;
+    for (const name of pedacosDoCaminho(pasta)) {
+      const found = siblingNamed(this.tree(), group, parent, name);
+      if (found) {
+        parent = found.id;
+        continue;
+      }
+      const made = this.create(category, parent, name);
+      if (!made) return { id: parent, aviso: `Não coube mais pasta (o teto é de ${MAX_FOLDERS}): a nota ficou ${parent ? `em ${this.nameOf(parent)}` : 'solta na raiz'}.` };
+      parent = made.id;
+    }
+    return { id: parent };
   }
 
-  /** Põe a pasta dentro de `parent` (null: a raiz); a que não pode ir (ela mesma, uma de dentro) fica. Devolve como desfazer, ou null se nada mudou. */
+  /** Muda o nome. Devolve como desfazer: o nome de antes volta, se ninguém deu outro nome no meio. */
+  rename(id: string, name: string): () => void {
+    const was = this.tree().live(id)?.name;
+    this.save(withRenamedFolder(this.folders, id, name));
+    const now = this.tree().live(id)?.name;
+    if (was === undefined || now === was) return () => undefined;
+    return this.undoWith((f) => (f.id === id && !f.gone && f.name === now ? { ...f, name: was } : f));
+  }
+
+  /**
+   * Põe a pasta dentro de `parent` (null: a raiz); a que não pode ir (ela mesma, uma de dentro) fica. Devolve
+   * como desfazer (ela volta para onde estava, se ainda está onde foi posta), ou null se nada mudou.
+   */
   move(id: string, parent: string | null): (() => void) | null {
-    const back = this.checkpoint();
+    const was = this.folders.find((f) => f.id === id)?.parent ?? null;
     const next = withMovedFolder(this.folders, id, parent);
     if (next.every((f, i) => f === this.folders[i])) return null;
     this.save(next);
-    return back;
+    return () => {
+      if (this.folders.find((f) => f.id === id)?.parent !== parent) return;
+      // pela mesma conferência de mover (nunca para dentro dela mesma, se a de antes foi parar lá dentro)
+      const back = withMovedFolder(this.folders, id, was);
+      if (back.some((f, i) => f !== this.folders[i])) this.save(back);
+    };
   }
 
   /** Desfaz a pasta: o que estava dentro sobe (nenhuma anotação é apagada nem regravada). Devolve como desfazer. */
   dissolve(id: string): () => void {
-    const back = this.checkpoint();
-    this.save(withDissolvedFolder(this.folders, id, new Date().toISOString()));
-    return back;
+    const before = this.folders;
+    const after = withDissolvedFolder(before, id, new Date().toISOString());
+    this.save(after);
+    return this.undoGone(before, after, id);
   }
 
   /** Junta `from` em `into` (do mesmo grupo): tudo vai para `into`. Devolve como desfazer. */
   join(from: string, into: string): () => void {
-    const back = this.checkpoint();
-    this.save(withJoinedFolder(this.folders, from, into, new Date().toISOString()));
-    return back;
+    const before = this.folders;
+    const after = withJoinedFolder(before, from, into, new Date().toISOString());
+    this.save(after);
+    return this.undoGone(before, after, from);
   }
 
   /** Quantas anotações e pastas a pasta tem logo dentro (o que sobe ao desfazê-la). */
@@ -222,6 +290,18 @@ export class NoteFolders {
     }
     return out;
   }
+
+  /**
+   * Quantas anotações cada pasta tem, com as de dentro, de todos os grupos de uma vez: uma passada só pelas
+   * anotações (a pasta é de um grupo só, e a anotação só conta nas do grupo dela). Para quem mostra as
+   * pastas de todos os grupos juntas, como a parte Pastas das configurações.
+   */
+  readonly countsByFolder = computed<ReadonlyMap<string, number>>(() => {
+    const tree = this.tree();
+    const out = new Map<string, number>();
+    for (const n of this.store.notes()) for (const f of tree.path(tree.of(n))) out.set(f.id, (out.get(f.id) ?? 0) + 1);
+    return out;
+  });
 
   /** Quantas anotações (as suas, também as compartilhadas) estão na pasta e nas de dentro. */
   countBelow(id: string): number {

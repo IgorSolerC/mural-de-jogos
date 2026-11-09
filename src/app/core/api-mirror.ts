@@ -7,7 +7,7 @@ import type { BaralhoV1, CartaV1, ContextoEstudosV1 } from '../../../contrato/ap
 import { dobra } from '../../../contrato/api-v1/escopos';
 import type { ContextoGastosV1, LancamentoV1, MesV1 } from '../../../contrato/api-v1/gastos';
 import type { QuadroV1 } from '../../../contrato/api-v1/kanban';
-import { CONTEXTO_NOTAS, ESPELHO_POR_ENVIO, notaParaOEspelho, type ContextoNotasV1, type GrupoV1, type NotaNoEspelhoV1, type NotaV1, type PastaV1, type TipoDoEspelho } from '../../../contrato/api-v1/notas';
+import { CONTEXTO_NOTAS, ESPELHO_POR_ENVIO, notaParaOEspelho, type ContextoNotasV1, type GrupoV1, type IndiceDasPastas, type NotaNoEspelhoV1, type PastaNoIndiceV1, type NotaV1, type PastaDesfeitaV1, type PastaV1, type TipoDoEspelho } from '../../../contrato/api-v1/notas';
 import { calendarMirror } from './api-mirror-calendar';
 import { muralsMirror } from './api-mirror-murals';
 import { kanbanMirror } from './api-mirror-kanban';
@@ -148,7 +148,48 @@ export function contextoV1(notes: readonly Review[], tree: FolderTree, pinned: r
   });
   const loose = notes.filter((n) => !n.category?.trim());
   const loosePastas = pastasDoGrupo(tree, '', loose);
-  return { grupos, sem_grupo: { notas: loose.length, tags: tagCounts(loose), ...(loosePastas.length ? { pastas: loosePastas } : {}) }, tags_fixas: [...pinned] };
+  const desfeitas = desfeitasDasNotas(tree, notes);
+  return {
+    grupos,
+    sem_grupo: { notas: loose.length, tags: tagCounts(loose), ...(loosePastas.length ? { pastas: loosePastas } : {}) },
+    tags_fixas: [...pinned],
+    ...(desfeitas.length ? { desfeitas } : {}),
+  };
+}
+
+/**
+ * O id de pasta que o espelho guarda na nota: o escrito nela, mesmo que a pasta tenha sido desfeita ou
+ * juntada em outra (o contexto diz para onde ela leva). Assim desfazer uma pasta com 300 notas regrava uma
+ * linha, o contexto, e não as 300 (PLANO-PASTAS.md, seção 6). A pasta que não está nas suas configurações,
+ * ou é de outro grupo, fica de fora: a nota está na raiz, pela regra da leitura (`FolderTree.of`).
+ */
+export function storedFolderOf(tree: FolderTree, r: Pick<Review, 'folder' | 'category'>): string | null {
+  const f = r.folder ? tree.index.get(r.folder) : undefined;
+  return f && f.group === lookKey(r.category ?? '') ? f.id : null;
+}
+
+/**
+ * As pastas do seu Murall como a API as lê do contexto (`indiceDasPastas`): para o site mostrar a prévia de um
+ * pedido com a mesma regra da API (`pastaDoPedido`). O grupo vai pela chave, que a comparação (`dobra`) lê igual.
+ */
+export function indiceDaArvore(tree: FolderTree): IndiceDasPastas {
+  const vivas = new Map<string, PastaNoIndiceV1>();
+  const desfeitas = new Map<string, string | null>();
+  for (const f of tree.all) {
+    if (f.gone) desfeitas.set(f.id, tree.resolve(f.id, f.group));
+    else vivas.set(f.id, { nome: f.name, pai: tree.parentOf(f.id), grupo: f.group || null });
+  }
+  return { vivas, desfeitas };
+}
+
+/** As pastas desfeitas que alguma nota ainda guarda, cada uma com a viva que vale (em ordem de id: a impressão não muda à toa). */
+function desfeitasDasNotas(tree: FolderTree, notes: readonly Review[]): PastaDesfeitaV1[] {
+  const out = new Map<string, string | null>();
+  for (const n of notes) {
+    const id = storedFolderOf(tree, n);
+    if (id && tree.index.get(id)!.gone && !out.has(id)) out.set(id, tree.of(n));
+  }
+  return [...out].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([id, viva]) => ({ id, viva }));
 }
 
 /** A impressão de um item: os primeiros 32 dígitos do SHA-256 do JSON (a ordem dos campos é a da v1). */
@@ -272,12 +313,14 @@ export class ApiMirror {
     const notes = this.store.notes().filter((n) => !shared.has(n.id));
     const boardOnly = this.kanban.boardOnly();
     const out: MirrorItem[] = [];
-    // no espelho, a pasta vai só pelo id (o caminho mora no contexto): mexer numa pasta não regrava as notas
+    // no espelho, a pasta vai só pelo id guardado na nota (o caminho e as desfeitas moram no contexto):
+    // renomear, mover, desfazer ou juntar uma pasta não regrava as notas
+    const tree = this.folders.tree();
     for (const n of notes) {
-      const dados = notaParaOEspelho(this.notaOf(n, boardOnly));
+      const dados = notaParaOEspelho(this.notaOf(n, boardOnly), storedFolderOf(tree, n));
       out.push({ tipo: 'nota', id: n.id, hash: await hashOf(dados), dados });
     }
-    const ctx = contextoV1(notes, this.folders.tree(), this.settings.pinnedTags());
+    const ctx = contextoV1(notes, tree, this.settings.pinnedTags());
     out.push({ tipo: 'contexto', id: CONTEXTO_NOTAS, hash: await hashOf(ctx), dados: ctx });
     return out;
   }

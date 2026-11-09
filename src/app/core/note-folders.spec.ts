@@ -92,6 +92,67 @@ describe('organizar as pastas (NoteFolders)', () => {
     expect(at('n1')).toBe('pfunc000001');
   });
 
+  it('o Desfazer volta só a pasta mexida: o que mudou no meio (aqui ou vindo de outro aparelho) fica', () => {
+    // renomear; no meio, outra pasta ganha nome e uma nova nasce
+    const unrename = folders.rename('phist000001', 'Histórias');
+    folders.rename('pfunc000001', 'Funções');
+    const nova = folders.create('Estudos', null, 'Química')!;
+    unrename();
+    expect(folders.nameOf('phist000001')).toBe('História');
+    expect(folders.nameOf('pfunc000001')).toBe('Funções');
+    expect(folders.tree().live(nova.id)).toBeDefined();
+    // mover; no meio, outra pasta muda de lugar
+    const unmove = folders.move('phist000001', 'pprog000001')!;
+    folders.move(nova.id, 'pprog000001');
+    unmove();
+    expect(folders.tree().parentOf('phist000001')).toBeNull();
+    expect(folders.tree().parentOf(nova.id)).toBe('pprog000001');
+    // desfazer a pasta; no meio, uma pasta chega da nuvem (outro aparelho) e outra ganha nome
+    folders.place(['n1'], 'pfunc000001');
+    const undissolve = folders.dissolve('pprog000001');
+    expect(folders.tree().parentOf('pfunc000001')).toBeNull();
+    settings.setNotesConfig({ folders: [...settings.notesConfig().folders, f('poutro00001', 'De outro aparelho')] });
+    folders.rename('phist000001', 'Hist');
+    undissolve();
+    expect(folders.tree().live('pprog000001')).toBeDefined();
+    expect(folders.tree().parentOf('pfunc000001')).toBe('pprog000001');
+    expect(folders.tree().parentOf(nova.id)).toBe('pprog000001');
+    expect(folders.nameOf('poutro00001')).toBe('De outro aparelho');
+    expect(folders.nameOf('phist000001')).toBe('Hist');
+    expect(at('n1')).toBe('pfunc000001');
+    // juntar; no meio, uma pasta nova
+    const unjoin = folders.join('pfunc000001', 'phist000001');
+    const depois = folders.create('Estudos', null, 'Depois')!;
+    unjoin();
+    expect(at('n1')).toBe('pfunc000001');
+    expect(folders.tree().live(depois.id)).toBeDefined();
+    // a pasta movida de novo no meio não volta à força (o Desfazer não passa por cima)
+    const unmove2 = folders.move('phist000001', 'pprog000001')!;
+    folders.move('phist000001', null);
+    folders.move('phist000001', nova.id);
+    unmove2();
+    expect(folders.tree().parentOf('phist000001')).toBe(nova.id);
+    // nota sobre nota: o Desfazer tira as notas e a pasta, e o resto fica
+    const made = folders.gather(['n2'], 'Estudos', null)!;
+    const mais = folders.create('Estudos', null, 'Mais uma')!;
+    made.undo();
+    expect(at('n2')).toBeNull();
+    expect(folders.tree().live(made.folder.id)).toBeUndefined();
+    expect(folders.tree().live(mais.id)).toBeDefined();
+  });
+
+  it('as contas de todas as pastas numa passada só dão o mesmo que contar grupo a grupo', () => {
+    settings.setNotesConfig({ folders: [...settings.notesConfig().folders, f('preuniao001', 'Reuniões', null, 'trabalho')] });
+    folders.place(['n1'], 'pfunc000001');
+    folders.place(['n4'], 'preuniao001');
+    const all = folders.countsByFolder();
+    expect(Object.fromEntries(all)).toEqual({ phist000001: 1, pprog000001: 1, pfunc000001: 1, preuniao001: 1 });
+    for (const g of ['Estudos', 'Trabalho']) for (const [id, n] of folders.countsIn(g)) expect(all.get(id)).toBe(n);
+    // a nota guardada numa pasta de outro grupo não conta nela
+    store.update({ ...store.get('n2')!, folder: 'preuniao001' });
+    expect(folders.countsByFolder().get('preuniao001')).toBe(1);
+  });
+
   it('renomear e juntar devolvem como desfazer', () => {
     const back = folders.rename('phist000001', 'Histórias');
     expect(folders.nameOf('phist000001')).toBe('Histórias');
