@@ -9,7 +9,7 @@ import { CategoryLook, categoryColorHex, lookKey, tagColorHex } from '../core/ca
 import { Cloud } from '../core/cloud-config';
 import { KanbanStore } from '../core/kanban-store';
 import { LabelEditResult, LabelEdits } from '../core/label-edits';
-import { AutoTab, CategoryPrefs, GroupSort, GroupView, NotesConfig, arrangedKeys, kanbanOnly, moveKey, prefsOf, tagHiddenByDefault } from '../core/mural-config';
+import { AutoTab, CategoryPrefs, GroupSort, GroupView, NotesConfig, WALL_SHOWS, WallShow, arrangedKeys, kanbanOnly, moveKey, prefsOf, tagHiddenByDefault } from '../core/mural-config';
 import { isPinnedNote, type Audience } from '../core/review';
 import { SharedStore } from '../core/shared-store';
 import { ReviewStore } from '../core/review-store';
@@ -74,6 +74,13 @@ const VIEWS: readonly { value: GroupView; label: string; icon: LucideIconData }[
 /** Como o resumo da linha do grupo diz a visualização ("Abre em lista"). */
 const VIEW_SAID: Record<GroupView, string> = { completa: 'fichas comuns', inteira: 'fichas inteiras', simples: 'visão geral', lista: 'lista' };
 
+/** O "Mostrar também" do Filtrar, com os mesmos nomes, para o grupo abrir com eles ligados. */
+const SHOWS: readonly { value: WallShow; label: string; said: string }[] = [
+  { value: 'finalizadas', label: 'Finalizadas', said: 'as finalizadas' },
+  { value: 'kanban', label: 'Só no Kanban', said: 'as do Kanban' },
+  { value: 'flashcards', label: 'Só nos Flashcards', said: 'as dos Flashcards' },
+];
+
 /** As abas que o mural gera, na lista dos grupos: o nome e o desenho fixos, e o que cada uma junta. */
 const AUTO_ROWS: readonly { key: AutoTab; label: string; icon: LucideIconData; what: string }[] = [
   { key: 'tudo', label: 'Tudo', icon: ICON.camadas, what: 'O mural inteiro, de todos os grupos' },
@@ -123,6 +130,11 @@ const SORT_SAID: Record<GroupSort, string> = {
   quem: 'Por quem vê',
   dono: 'Por dono',
 };
+
+/** "a", "a e b", "a, b e c". */
+function listWords(list: readonly string[]): string {
+  return list.length < 2 ? (list[0] ?? '') : `${list.slice(0, -1).join(', ')} e ${list.at(-1)}`;
+}
 
 /** Uma categoria ou uma tag das anotações, na lista da folha. */
 interface CategoryRow {
@@ -261,6 +273,7 @@ export class MuralConfig {
   protected readonly audienceLabel = AUDIENCE_LABEL;
   protected readonly views = VIEWS;
   protected readonly sorts = SORTS;
+  protected readonly showOptions = SHOWS;
   private readonly shared = inject(SharedStore);
 
   /** A parte aberta da última vez, menos o Quadro pela engrenagem do mural (lá ele não existe). */
@@ -807,6 +820,7 @@ export class MuralConfig {
     if (p.view) parts.push(`Abre em ${VIEW_SAID[p.view]}`);
     if (p.sort) parts.push(SORT_SAID[p.sort]);
     if (p.kanbanOnly === false) parts.push('Kanban no mural também');
+    if (p.shows?.length) parts.push(`Mostra ${listWords(SHOWS.filter((o) => p.shows!.includes(o.value)).map((o) => o.said))}`);
     return parts.join(' · ');
   }
 
@@ -859,7 +873,20 @@ export class MuralConfig {
   }
 
   protected resetPrefs(row: CategoryRow): void {
-    this.settings.setCategoryPrefs(row.label, { audience: undefined, askTag: undefined, kanbanOnly: undefined });
+    this.settings.setCategoryPrefs(row.label, { audience: undefined, askTag: undefined, kanbanOnly: undefined, shows: undefined });
+  }
+
+  /** O grupo abre com isto do "Mostrar também" ligado? */
+  protected showsOn(p: CategoryPrefs, value: WallShow): boolean {
+    return !!p.shows?.includes(value);
+  }
+
+  /** Liga ou desliga no padrão do grupo uma parte do "Mostrar também" (o mural aberto nele já segue). */
+  protected toggleShow(row: CategoryRow, value: WallShow): void {
+    const on = new Set(this.prefsOf(row).shows ?? []);
+    if (on.has(value)) on.delete(value);
+    else on.add(value);
+    this.settings.setCategoryPrefs(row.label, { shows: WALL_SHOWS.filter((k) => on.has(k)) });
   }
 
   /** Pela quantidade ou na ordem montada; a montada começa da ordem de agora e nunca se perde. */

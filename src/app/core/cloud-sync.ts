@@ -212,11 +212,14 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  * 54: as pastas das anotações no lugar do assunto (`folder` na anotação e no lugar das compartilhadas,
  *     `folders` nas configurações do mural; PLANO-PASTAS.md). Um site da 53 jogaria os dois fora e enviaria
  *     assim, e as anotações sairiam das pastas em todo aparelho.
+ * 55: o que cada grupo mostra também ao abrir no mural (`shows`, nas configurações do mural: as finalizadas, as
+ *     só no Kanban, as só nos Flashcards). Um site da 54 jogaria o campo fora e enviaria assim, e o grupo
+ *     voltaria a abrir sem elas em todo aparelho.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 54;
+export const SYNC_SCHEMA = 55;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };

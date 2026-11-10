@@ -265,6 +265,28 @@
                           <p class="nome-dica">{{ p.sort ? 'O grupo sempre abre nesta ordem. Trocar no Ordenar do mural vale até sair dele.' : 'O grupo abre na ordem em que você o deixou da última vez.' }}</p>
                         </fieldset>
 
+                        <!-- o "Mostrar também" do Filtrar já ligado quando o grupo abre no mural -->
+                        <fieldset class="sub-bloco">
+                          <legend class="sub-titulo">Ao abrir, mostrar também</legend>
+                          <div class="chaves">
+                            @for (o of showOptions; track o.value) {
+                              <label class="chave">
+                                <button type="button" role="switch" class="interruptor" [attr.aria-checked]="showsOn(p, o.value)" (click)="toggleShow(c, o.value)">
+                                  <span class="bolinha"></span>
+                                </button>
+                                <span class="chave-nome">{{ o.label }}</span>
+                              </label>
+                            }
+                          </div>
+                          <p class="nome-dica">
+                            {{
+                              p.shows?.length
+                                ? 'O grupo sempre abre com elas à mostra no mural, como no Filtrar. Mudar no Filtrar vale até sair dele.'
+                                : 'O grupo abre só com o que está no mural. As outras aparecem pelo Filtrar, até sair dele.'
+                            }}
+                          </p>
+                        </fieldset>
+
                         <fieldset class="sub-bloco">
                           <legend class="sub-titulo">Anotação nova nasce</legend>
                           <div class="segmentos quatro">

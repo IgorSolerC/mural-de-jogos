@@ -15,7 +15,7 @@ import { TagChip } from './tag-chips';
  * anotações mostraria com o resto do filtro como está; as tags mais usadas na aba primeiro, na cor de
  * cada uma, e as escondidas (riscadas, com quantas anotações cada uma tira do mural; ver
  * core/tag-filter.ts). E o que fica fora do mural até a pessoa pedir: as finalizadas e as que estão
- * só no Kanban. A régua do mural (WallToolbar) dá um destes para o Filtrar, a folha e os adesivos ligados.
+ * só no Kanban ou só nos Flashcards. A régua do mural (WallToolbar) dá um destes para o Filtrar, a folha e os adesivos ligados.
  */
 @Injectable()
 export class NoteFilters {
@@ -61,18 +61,17 @@ export class NoteFilters {
     return chips.sort((a, b) => used(b.value) - used(a.value) || a.label.localeCompare(b.label, 'pt-BR'));
   });
 
-  /** As finalizadas e as que estão só no Kanban: cada uma só quando existe (ou está à mostra). */
+  /**
+   * As finalizadas, as que estão só no Kanban e as que estão só nos Flashcards: cada uma só quando a aba tem
+   * alguma (a que está no Kanban e nos Flashcards conta nas duas). A aba abre no padrão do grupo (ver
+   * `CategoryPrefs.shows`).
+   */
   readonly shows = computed<FilterShow[]>(() => {
+    const v = this.view;
     const list: FilterShow[] = [];
-    if (this.view.doneCount() || this.view.showDone()) {
-      list.push({ key: 'finalizadas', label: 'Finalizadas', n: this.view.doneCount(), on: this.view.showDone(), summary: 'Com as finalizadas' });
-    }
-    if (this.view.boardCount()) {
-      const place = this.view.boardPlace();
-      const label = place === 'estudos' ? 'Só nos Flashcards' : place === 'ambos' ? 'Só no Kanban ou nos Flashcards' : 'Só no Kanban';
-      const summary = place === 'estudos' ? 'Com as dos Flashcards' : place === 'ambos' ? 'Com as do Kanban e dos Flashcards' : 'Com as do Kanban';
-      list.push({ key: 'kanban', label, n: this.view.boardCount(), on: this.view.showBoard(), summary });
-    }
+    if (v.doneCount()) list.push({ key: 'finalizadas', label: 'Finalizadas', n: v.doneCount(), on: v.showDone(), summary: 'Com as finalizadas' });
+    if (v.kanbanCount()) list.push({ key: 'kanban', label: 'Só no Kanban', n: v.kanbanCount(), on: v.showBoard(), summary: 'Com as do Kanban' });
+    if (v.studyCount()) list.push({ key: 'flashcards', label: 'Só nos Flashcards', n: v.studyCount(), on: v.showStudy(), summary: 'Com as dos Flashcards' });
     return list;
   });
 
@@ -93,12 +92,11 @@ export class NoteFilters {
     this.motion.run(() => this.view.excludeTag(value));
   }
 
-  /**
-   * "Mostrar também": as finalizadas (fica guardado, como a ordem) ou as que estão só no Kanban (só
-   * nesta visita) entram no mural, ou saem, deslizando.
-   */
+  /** "Mostrar também": as finalizadas, as só no Kanban ou as só nos Flashcards entram no mural, ou saem, deslizando. */
   toggleShow(key: string): void {
-    this.motion.run(() => (key === 'kanban' ? this.view.showBoard.update((v) => !v) : this.view.showDone.update((v) => !v)));
+    const v = this.view;
+    const flag = key === 'kanban' ? v.showBoard : key === 'flashcards' ? v.showStudy : v.showDone;
+    this.motion.run(() => flag.update((on) => !on));
   }
 
   /** O X de um adesivo ligado: o mesmo toque que o ligou. */
@@ -112,6 +110,7 @@ export class NoteFilters {
       this.view.clearChoices();
       this.view.showDone.set(false);
       this.view.showBoard.set(false);
+      this.view.showStudy.set(false);
     });
   }
 }

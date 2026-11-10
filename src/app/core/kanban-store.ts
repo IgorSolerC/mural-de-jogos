@@ -124,6 +124,14 @@ export class KanbanStore {
 
   /** As anotações fora do mural só por causa dos Estudos (para dizer "Só nos Estudos" em vez de "Só no Kanban"). */
   readonly studyOnly = computed<ReadonlySet<string>>(() => new Set([...this.boardOnly()].filter((id) => !this.onBoard().has(id))));
+  /**
+   * As anotações fora do mural que são flashcards (só nos Flashcards, ou nos Flashcards e no Kanban): as que o
+   * "Só nos Flashcards" do Filtrar traz de volta. As que estão num quadro são as do "Só no Kanban".
+   */
+  readonly deckOff = computed<ReadonlySet<string>>(() => {
+    const votes = this.study.votes();
+    return new Set([...this.boardOnly()].filter((id) => votes.has(id)));
+  });
 
   /** As anotações que estão em algum quadro (pelo id), só no Kanban ou também no mural. */
   readonly onBoard = computed<ReadonlySet<string>>(() => {

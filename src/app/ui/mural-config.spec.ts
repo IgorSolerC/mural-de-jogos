@@ -148,6 +148,31 @@ describe('as configurações do mural (a folha)', () => {
     expect(settings.notesConfig().categories).toEqual({});
   });
 
+  it('o grupo abre com o "Mostrar também" que escolher: os mesmos três do Filtrar, e o resumo diz quais', async () => {
+    await go('categorias');
+    const first = el.querySelector('.cat')!;
+    first.querySelector<HTMLButtonElement>('.cat-abre')!.click();
+    await fixture.whenStable();
+    const bloco = Array.from(first.querySelectorAll('.cat-painel fieldset')).find((f) => f.querySelector('legend')!.textContent!.includes('Ao abrir, mostrar também'))!;
+    const chaves = Array.from(bloco.querySelectorAll<HTMLElement>('.chave'));
+    expect(chaves.map((c) => c.querySelector('.chave-nome')!.textContent!.trim())).toEqual(['Finalizadas', 'Só no Kanban', 'Só nos Flashcards']);
+    const sw = (i: number) => chaves[i].querySelector<HTMLButtonElement>('[role="switch"]')!;
+    expect(chaves.map((_, i) => sw(i).getAttribute('aria-checked'))).toEqual(['false', 'false', 'false']);
+    expect(bloco.querySelector('.nome-dica')!.textContent).toContain('só com o que está no mural');
+    sw(2).click();
+    // o nome também liga (o interruptor está dentro dele)
+    chaves[0].querySelector<HTMLElement>('.chave-nome')!.click();
+    await fixture.whenStable();
+    expect(settings.notesConfig().categories['viagens!']).toEqual({ shows: ['finalizadas', 'flashcards'] });
+    expect(sw(0).getAttribute('aria-checked')).toBe('true');
+    expect(first.querySelector('.cat-resumo')!.textContent!.trim()).toBe('Mostra as finalizadas e as dos Flashcards');
+    expect(bloco.querySelector('.nome-dica')!.textContent).toContain('sempre abre com elas à mostra');
+    // "Voltar a seguir o mural" desliga também
+    first.querySelector<HTMLButtonElement>('.voltar')!.click();
+    await fixture.whenStable();
+    expect(settings.notesConfig().categories).toEqual({});
+  });
+
   it('a ordenação padrão do grupo: a última usada até escolher uma; o resumo diz qual', async () => {
     await go('categorias');
     const first = el.querySelector('.cat')!;

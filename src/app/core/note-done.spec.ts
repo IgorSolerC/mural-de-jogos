@@ -63,7 +63,7 @@ describe('anotação finalizada', () => {
 
     const shown = () => view.visible().map((r) => r.game.name);
 
-    it('a finalizada fica fora (e fora da conta); "Mostrar finalizadas" traz de volta e fica guardado', () => {
+    it('a finalizada fica fora (e fora da conta); "Mostrar finalizadas" traz de volta, sem ficar guardado', () => {
       expect(shown()).toEqual(['A fazeres']);
       expect([view.pool().length, view.doneCount(), view.hiddenDone()]).toEqual([1, 1, 1]);
       expect(view.isFiltered()).toBeFalse();
@@ -71,7 +71,8 @@ describe('anotação finalizada', () => {
       expect(shown()).toEqual(['A fazeres', 'Mercado']);
       expect(view.hiddenDone()).toBe(0);
       TestBed.tick();
-      expect(JSON.parse(localStorage.getItem('mural-de-jogos:vista:v1')!).showDone).toBeTrue();
+      // a aba abre no padrão dela: o "Mostrar também" não passa de uma visita a outra
+      expect(JSON.parse(localStorage.getItem('mural-de-jogos:vista:v1')!).showDone).toBeUndefined();
     });
 
     it('o check fica no mural o tempo do carimbo; Desfazer devolve a anotação sem o check', () => {

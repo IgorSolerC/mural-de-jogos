@@ -1,14 +1,14 @@
 import { type CategoryLooks, lookKey } from './category-looks';
 import { NoteFolders } from './note-folders';
 import { FolderTree, NoteFolder, folderNameOf } from './folders';
-import { Injectable, Signal, WritableSignal, computed, effect, forwardRef, inject, signal } from '@angular/core';
+import { Injectable, Signal, WritableSignal, computed, effect, forwardRef, inject, signal, untracked } from '@angular/core';
 import { KANBAN_LAST_KEY, boardIdFor } from './kanban';
 import { KanbanStore } from './kanban-store';
 import { SharedStore } from './shared-store';
 import { Kind, KindProfile, countOf, hasTabs, isMusic, isNotes, revisitCountOf } from './kinds';
 import { Mural } from './mural';
 import { Settings } from './settings';
-import { AutoTab, GROUP_VIEWS, activeOrder, groupSorts, groupViews, hiddenKeys, noteDensity } from './mural-config';
+import { AutoTab, GROUP_VIEWS, WallShow, activeOrder, groupShows, groupSorts, groupViews, hiddenKeys, noteDensity } from './mural-config';
 import type { CategoryColorId } from './category-looks';
 import {
   NO_DAY_LABEL,
@@ -99,6 +99,15 @@ export interface NoteView {
   density: Density;
 }
 
+/** O "Mostrar também" do Filtrar: as finalizadas, as só no Kanban e as só nos Flashcards à mostra. */
+interface ShowToggles {
+  done: boolean;
+  kanban: boolean;
+  study: boolean;
+}
+const NO_TOGGLES: ShowToggles = { done: false, kanban: false, study: false };
+const NO_IDS: ReadonlySet<string> = new Set();
+
 /** A vista de sempre do mural de anotações: Prioridade, as mais recentes primeiro, fichas completas. */
 const NOTE_VIEW: NoteView = { sort: 'prioridade', direction: 'desc', density: 'completa' };
 
@@ -113,8 +122,6 @@ interface ViewPrefs {
    * não tem a dela começa como a de Tudo.
    */
   noteViews: Record<string, NoteView>;
-  /** O mural de anotações mostra as finalizadas também. */
-  showDone: boolean;
   /**
    * No mural de anotações, as fixadas ficam no topo também nas outras ordens (Data, Título, Categoria,
    * Tag). Sem isso, só a Prioridade separa as fixadas; as outras ordens as tratam como as outras.
@@ -167,9 +174,9 @@ function readNoteView(raw: unknown, base: NoteView): NoteView | null {
   };
 }
 
-/** Com `whole` falso (a visita), a aba, as seções fechadas e as finalizadas à mostra começam do zero. */
+/** Com `whole` falso (a visita), a aba e as seções fechadas começam do zero. */
 function readPrefs(key: string, whole: boolean): ViewPrefs {
-  const fallback: ViewPrefs = { sort: 'data', scoreKey: 'final', direction: 'desc', density: 'completa', noteViews: { [ALL_TAB]: NOTE_VIEW }, showDone: false, pinnedFirst: false, noteTab: ALL_TAB, musicTab: ALL_TAB, collapsed: [] };
+  const fallback: ViewPrefs = { sort: 'data', scoreKey: 'final', direction: 'desc', density: 'completa', noteViews: { [ALL_TAB]: NOTE_VIEW }, pinnedFirst: false, noteTab: ALL_TAB, musicTab: ALL_TAB, collapsed: [] };
   try {
     const raw = JSON.parse(localStorage.getItem(key) ?? 'null');
     if (!raw) return fallback;
@@ -197,7 +204,6 @@ function readPrefs(key: string, whole: boolean): ViewPrefs {
       direction: raw.direction === 'asc' ? 'asc' : 'desc',
       density,
       noteViews,
-      showDone: whole && raw.showDone === true,
       pinnedFirst: raw.pinnedFirst === true,
       noteTab: whole && typeof raw.noteTab === 'string' ? raw.noteTab.slice(0, 80) : ALL_TAB,
       musicTab: whole && typeof raw.musicTab === 'string' ? raw.musicTab.slice(0, 80) : ALL_TAB,
@@ -344,8 +350,20 @@ export abstract class WallState {
   readonly boardOnly: Signal<ReadonlySet<string>> = signal(new Set<string>());
   /** Das de cima, as fora do mural só por causa dos Estudos (ver `KanbanStore.studyOnly`). */
   readonly studyOnly: Signal<ReadonlySet<string>> = signal(new Set<string>());
-  /** "Mostrar as do Kanban": as que estão só no Kanban aparecem no mural. Só nesta visita, não fica guardado. */
+  /** Das de cima, as que são flashcards (só nos Flashcards, ou nos Flashcards e no Kanban; ver `KanbanStore.deckOff`). */
+  readonly deckOff: Signal<ReadonlySet<string>> = signal(new Set<string>());
+  /**
+   * O que cada grupo mostra também ao abrir (pela chave da aba, ver `CategoryPrefs.shows`): só no seu mural,
+   * pelas configurações; no de quem visita, nada (as abas abrem só com o que está no mural).
+   */
+  readonly groupShows: Signal<ReadonlyMap<string, ReadonlySet<WallShow>>> = signal(new Map<string, ReadonlySet<WallShow>>());
+  /**
+   * "Só no Kanban", no Filtrar: as que estão num quadro e fora do mural aparecem nele. Não fica guardado: a aba
+   * abre no padrão dela (ver `applyTabShows`), como as outras duas.
+   */
   readonly showBoard = signal(false);
+  /** "Só nos Flashcards", no Filtrar: os flashcards que estão fora do mural aparecem nele (ver `showBoard`). */
+  readonly showStudy = signal(false);
   /** O mural aberto no cartaz (jogos, livros… ou anotações): o do dono e o de quem visita são o mesmo. */
   readonly profile = computed(() => this.mural.profile());
   /** O mural de anotações: abas, tags e a lista; sem nota, veredito nem status. */
@@ -382,8 +400,8 @@ export abstract class WallState {
   /** A direção da ordem e o tipo de ficha nos murais de resenhas. */
   readonly reviewDirection: WritableSignal<Direction>;
   readonly reviewDensity: WritableSignal<Density>;
-  /** "Mostrar finalizadas": as anotações com check continuam no mural. Fica guardado, como a ordem. */
-  readonly showDone: WritableSignal<boolean>;
+  /** "Finalizadas", no Filtrar: as anotações com check continuam no mural (ver `showBoard`). */
+  readonly showDone = signal(false);
   /** As fixadas no topo também fora da Prioridade (ver `ViewPrefs.pinnedFirst`). Fica guardado. */
   readonly pinnedFirst: WritableSignal<boolean>;
   /**
@@ -392,18 +410,53 @@ export abstract class WallState {
    */
   readonly stamping = signal<ReadonlySet<string>>(new Set());
 
+  /** O "Mostrar também" de agora, na aba aberta. */
+  private readonly toggles = computed<ShowToggles>(() => ({ done: this.showDone(), kanban: this.showBoard(), study: this.showStudy() }));
+
+  /** O "Mostrar também" com que a aba abre: o do grupo (ver `CategoryPrefs.shows`); nas outras, nada ligado. */
+  protected tabShows(key: string): ShowToggles {
+    const on = this.notes() ? this.groupShows().get(key) : undefined;
+    return on ? { done: on.has('finalizadas'), kanban: on.has('kanban'), study: on.has('flashcards') } : NO_TOGGLES;
+  }
+
+  /** O "Mostrar também" de uma aba: o de agora, se é a escolhida; senão, o padrão dela. */
+  private togglesOf(key: string): ShowToggles {
+    return key === this.noteTab() ? this.toggles() : this.tabShows(key);
+  }
+
   /**
-   * A anotação entra no mural agora? A finalizada, só mostrando as finalizadas ou durante o carimbo; a
-   * que está só no Kanban, só mostrando as do Kanban.
+   * Abre a aba no padrão dela (ver `tabShows`): ao trocar de aba e ao voltar ao mural de outra página. Ao voltar
+   * para a aba de antes, ela também abre no padrão dela, e não como foi deixada.
    */
-  private shows(r: Review): boolean {
-    return this.showsDone(r) && this.showsBoard(r);
+  protected applyTabShows(): void {
+    const active = this.activeTab();
+    // sem a aba Tudo em pé, o mural abre no primeiro grupo sem ele ter sido escolhido: ele passa a ser o
+    // escolhido, para o número da aba e o padrão das configurações valerem nele (ver `togglesOf`)
+    if (this.notes() && this.noteTab() !== active) this.noteTab.set(active);
+    const t = this.tabShows(active);
+    this.showDone.set(t.done);
+    this.showBoard.set(t.kanban);
+    this.showStudy.set(t.study);
   }
-  private showsDone(r: Review): boolean {
-    return !isDone(r) || this.showDone() || this.stamping().has(r.id);
+
+  /**
+   * A anotação entra no mural agora (com `t`, o "Mostrar também" de outra aba)? A finalizada, só mostrando as
+   * finalizadas ou durante o carimbo; a que está fora do mural, só mostrando as do lugar dela (no Kanban, nos
+   * Flashcards; a que está nos dois, com qualquer um).
+   */
+  private shows(r: Review, t: ShowToggles = this.toggles()): boolean {
+    return this.showsDone(r, t) && this.showsBoard(r, t);
   }
-  private showsBoard(r: Review): boolean {
-    return this.showBoard() || !this.boardOnly().has(r.id);
+  private showsDone(r: Review, t: ShowToggles = this.toggles()): boolean {
+    return !isDone(r) || t.done || this.stamping().has(r.id);
+  }
+  private showsBoard(r: Review, t: ShowToggles = this.toggles()): boolean {
+    if (!this.boardOnly().has(r.id)) return true;
+    return (t.kanban && !this.studyOnly().has(r.id)) || (t.study && this.deckOff().has(r.id));
+  }
+  /** Está fora do mural por estar num quadro (só no Kanban, ou no Kanban e nos Flashcards). */
+  private inKanbanOff(r: Review): boolean {
+    return this.boardOnly().has(r.id) && !this.studyOnly().has(r.id);
   }
   /**
    * A aba escolhida no mural de anotações (ver core/note-tabs.ts). Fica guardada: o mural abre na
@@ -422,7 +475,12 @@ export abstract class WallState {
    */
   readonly noteTabs = computed<NoteTabs | null>(() => {
     const kind = this.mural.kind();
-    if (isNotes(kind)) return noteTabsOf(this.wall(), (r) => this.shows(r), undefined, this.categoryOrder());
+    if (isNotes(kind)) {
+      // cada aba conta o que mostraria ao abrir (o padrão dela), e a escolhida, com o Filtrar de agora. A
+      // escolhida, e não `activeTab`, que depende destas abas
+      const tabs = noteTabsOf(this.wall(), (r) => this.shows(r, this.togglesOf(noteTabKey(r))), undefined, this.categoryOrder());
+      return { ...tabs, all: this.wall().filter((r) => this.shows(r, this.togglesOf(ALL_TAB))).length };
+    }
     return isMusic(kind) ? noteTabsOf(this.wall(), undefined, 'Sem artista') : null;
   });
   /**
@@ -453,12 +511,12 @@ export abstract class WallState {
     {
       // como os grupos, ela fica enquanto tem alguma, mesmo com todas finalizadas e escondidas
       const list = wall.filter(isPinnedNote);
-      if (list.length) out.push({ key: PINNED_TAB, label: 'Fixadas', n: list.filter((r) => this.shows(r)).length, total: list.length });
+      if (list.length) out.push({ key: PINNED_TAB, label: 'Fixadas', n: list.filter((r) => this.shows(r, this.togglesOf(PINNED_TAB))).length, total: list.length });
     }
     const shared = this.sharedWithMe();
     if (shared.size) {
       const list = wall.filter((r) => shared.has(r.id));
-      if (list.length) out.push({ key: SHARED_TAB, label: 'Compartilhadas', n: list.filter((r) => this.shows(r)).length, total: list.length });
+      if (list.length) out.push({ key: SHARED_TAB, label: 'Compartilhadas', n: list.filter((r) => this.shows(r, this.togglesOf(SHARED_TAB))).length, total: list.length });
     }
     return out;
   });
@@ -706,30 +764,57 @@ export abstract class WallState {
   readonly doneCount = computed(() => this.tabbed().filter(isDone).length);
   /** As finalizadas que estão fora do mural agora (também as que estão só no Kanban). */
   readonly hiddenDone = computed(() => (this.doneBySort() ? 0 : this.tabbed().filter((r) => !this.showsDone(r)).length));
-  /** As anotações da aba que estão só no Kanban (as finalizadas, só com as finalizadas à mostra). */
+  /** As anotações da aba que estão fora do mural, no Kanban ou nos Flashcards (as finalizadas, só com as finalizadas à mostra). */
   readonly boardCount = computed(() => {
     const only = this.boardOnly();
     return only.size ? this.tabbed().filter((r) => only.has(r.id) && this.showsDone(r)).length : 0;
   });
-  /** As que estão fora do mural agora só por estarem no Kanban (para o vazio dizer onde elas estão). */
-  readonly hiddenBoard = computed(() => (this.showBoard() ? 0 : this.boardCount()));
+  /** Delas, as que estão num quadro (o "Só no Kanban" do Filtrar). */
+  readonly kanbanCount = computed(() => (this.boardOnly().size ? this.tabbed().filter((r) => this.inKanbanOff(r) && this.showsDone(r)).length : 0));
+  /** Delas, as que são flashcards (o "Só nos Flashcards" do Filtrar; a que está nos dois conta nos dois). */
+  readonly studyCount = computed(() => {
+    const deck = this.deckOff();
+    return deck.size ? this.tabbed().filter((r) => deck.has(r.id) && this.showsDone(r)).length : 0;
+  });
+  /** As que estão fora do mural agora por estarem no Kanban ou nos Flashcards (para o vazio dizer onde elas estão). */
+  readonly hiddenBoard = computed(() => (this.boardOnly().size ? this.tabbed().filter((r) => !this.showsBoard(r) && this.showsDone(r)).length : 0));
   /**
-   * Onde moram as fora do mural da aba: no Kanban, nos Estudos ou nos dois (PLANO-ESTUDOS.md, 6.9). As
-   * palavras do Filtrar, do vazio e da busca seguem daqui.
+   * As fora do mural que estão à mostra agora (pelo "Só no Kanban" ou pelo "Só nos Flashcards"): levam a
+   * etiqueta na ficha.
+   */
+  readonly shownOff = computed<ReadonlySet<string>>(() => {
+    const only = this.boardOnly();
+    if (!only.size || (!this.showBoard() && !this.showStudy())) return NO_IDS;
+    return new Set([...only].filter((id) => (this.showBoard() && !this.studyOnly().has(id)) || (this.showStudy() && this.deckOff().has(id))));
+  });
+  /**
+   * Onde moram as fora do mural da aba, as escondidas agora (sem nenhuma escondida, todas): no Kanban, nos
+   * Estudos ou nos dois (PLANO-ESTUDOS.md, 6.9). As palavras do vazio e da busca seguem daqui.
    */
   readonly boardPlace = computed<'kanban' | 'estudos' | 'ambos'>(() => {
     const only = this.boardOnly();
     const study = this.studyOnly();
     if (!study.size) return 'kanban';
+    const off = this.tabbed().filter((r) => only.has(r.id));
+    const hidden = off.filter((r) => !this.showsBoard(r));
     let k = false;
     let s = false;
-    for (const r of this.tabbed()) {
-      if (!only.has(r.id)) continue;
+    for (const r of hidden.length ? hidden : off) {
       if (study.has(r.id)) s = true;
       else k = true;
     }
     return k && s ? 'ambos' : s ? 'estudos' : 'kanban';
   });
+
+  /**
+   * "Mostrar aqui" (o vazio e a busca): as fora do mural escondidas na aba voltam, ligando o "Só no Kanban" e o
+   * "Só nos Flashcards" de quem as tem.
+   */
+  showOff(): void {
+    const hidden = this.tabbed().filter((r) => this.boardOnly().has(r.id) && !this.showsBoard(r));
+    if (hidden.some((r) => this.inKanbanOff(r))) this.showBoard.set(true);
+    if (hidden.some((r) => this.deckOff().has(r.id))) this.showStudy.set(true);
+  }
 
   /**
    * A ordem que vale de fato. Sem spoilers, ordenar por nota entregaria o ranking mesmo com as notas
@@ -787,10 +872,9 @@ export abstract class WallState {
   /** Quantas anotações só no Kanban, escondidas, a busca acharia (para o mural dizer que elas existem). */
   readonly boardMatches = computed(() => {
     const needle = fold(this.query().trim());
-    if (!needle || this.showBoard()) return 0;
-    const only = this.boardOnly();
+    if (!needle || !this.boardOnly().size) return 0;
     const out = this.outByTags();
-    return this.tabbed().filter((r) => only.has(r.id) && this.showsDone(r) && matchesQuery(r, needle, this.folders()) && !out(r)).length;
+    return this.tabbed().filter((r) => !this.showsBoard(r) && this.showsDone(r) && matchesQuery(r, needle, this.folders()) && !out(r)).length;
   });
 
   /** Quantas anotações à mostra, nas outras abas, a busca acharia (para oferecer procurar em todas). */
@@ -857,12 +941,12 @@ export abstract class WallState {
     this.scoreKey = signal(prefs.scoreKey);
     this.reviewDirection = signal(prefs.direction);
     this.reviewDensity = signal(prefs.density);
-    this.showDone = signal(prefs.showDone);
     this.pinnedFirst = signal(prefs.pinnedFirst);
     this.noteTab = signal(prefs.noteTab);
     this.musicTab = signal(prefs.musicTab);
     this.collapsed = signal(new Set(prefs.collapsed));
-    // na visita, só a ordem e o tipo de ficha ficam guardados: a aba, as seções e as finalizadas são de cada mural
+    // na visita, só a ordem e o tipo de ficha ficam guardados: a aba e as seções são de cada mural (o "Mostrar
+    // também" não fica guardado: cada aba abre no padrão dela, ver `applyTabShows`)
     effect(() => {
       const kept: Partial<ViewPrefs> = {
         sort: this.sort(),
@@ -871,9 +955,19 @@ export abstract class WallState {
         density: this.reviewDensity(),
         noteViews: this.noteViews(),
         pinnedFirst: this.pinnedFirst(),
-        ...(memory.whole ? { showDone: this.showDone(), noteTab: this.noteTab(), musicTab: this.musicTab(), collapsed: [...this.collapsed()].slice(-MAX_COLLAPSED) } : {}),
+        ...(memory.whole ? { noteTab: this.noteTab(), musicTab: this.musicTab(), collapsed: [...this.collapsed()].slice(-MAX_COLLAPSED) } : {}),
       };
       writeJson(memory.key, kept);
+    });
+    // o padrão da aba escolhida mudou (nas configurações, com ela aberta): ela passa a estar nele. Trocar de aba
+    // já abre no padrão (ver `setNoteTab`): só a mudança do padrão da mesma aba conta aqui
+    let last: { key: string; t: ShowToggles } | null = null;
+    effect(() => {
+      const key = this.noteTab();
+      const t = this.tabShows(key);
+      const changed = !!last && last.key === key && (last.t.done !== t.done || last.t.kanban !== t.kanban || last.t.study !== t.study);
+      last = { key, t };
+      if (changed) untracked(() => this.applyTabShows());
     });
   }
 
@@ -905,6 +999,18 @@ export abstract class WallState {
     tab.set(key);
     this.filter.set(NO_FILTER);
     this.tagOuts.set(NO_TAG_OUTS);
+    this.applyTabShows();
+  }
+
+  /**
+   * De volta ao mural de anotações, vindo de outra página: a aba aberta abre no padrão dela, como se acabasse de
+   * ser escolhida (sem pasta nem tags do filtro, com o "Mostrar também" do grupo); a busca fica.
+   */
+  enterWall(): void {
+    if (!this.notes()) return;
+    this.filter.set(NO_FILTER);
+    this.tagOuts.set(NO_TAG_OUTS);
+    this.applyTabShows();
   }
 
   /** Muda a vista da aba aberta do mural de anotações (só ela: as outras abas ficam como estão). */
@@ -1011,8 +1117,7 @@ export abstract class WallState {
     this.collapsed.set(new Set());
     this.passingDensity.set(null);
     this.passingSort.set(null);
-    this.showDone.set(false);
-    this.showBoard.set(false);
+    this.applyTabShows();
     this.openFolders.set(new Map());
   }
 
@@ -1057,6 +1162,8 @@ export class WallView extends WallState {
   override readonly defaultTagOuts = this.settings.hiddenTagKeys;
   override readonly boardOnly = inject(KanbanStore).boardOnly;
   override readonly studyOnly = inject(KanbanStore).studyOnly;
+  override readonly deckOff = inject(KanbanStore).deckOff;
+  override readonly groupShows = computed(() => groupShows(this.settings.notesConfig()));
 
   constructor() {
     super({ key: KEY, whole: true });
@@ -1085,6 +1192,7 @@ export class WallView extends WallState {
     this.noteTab.set(key);
     this.filter.set(NO_FILTER);
     this.tagOuts.set(NO_TAG_OUTS);
+    this.applyTabShows();
   }
 
   /**

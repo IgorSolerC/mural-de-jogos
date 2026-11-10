@@ -49,6 +49,12 @@ export type GroupSort = (typeof GROUP_SORTS)[number];
  * uma anotação, e o nome e o desenho são fixos; nas configurações, elas têm o olho e a cor.
  */
 export const AUTO_TABS = ['tudo', 'fixadas', 'compartilhadas'] as const;
+/**
+ * O que fica fora do mural de anotações até a pessoa pedir (o "Mostrar também" do Filtrar): as
+ * finalizadas, as que estão só no Kanban e as que estão só nos Flashcards.
+ */
+export const WALL_SHOWS = ['finalizadas', 'kanban', 'flashcards'] as const;
+export type WallShow = (typeof WALL_SHOWS)[number];
 export type AutoTab = (typeof AUTO_TABS)[number];
 
 /** O que uma categoria muda em cima do mural. Sem o campo: segue o mural. */
@@ -76,6 +82,12 @@ export interface CategoryPrefs {
    * grupo esquece a última escolhida na régua, e mudar na régua vale só até sair do grupo.
    */
   sort?: GroupSort;
+  /**
+   * O que o grupo mostra também ao abrir no mural (o "Mostrar também" do Filtrar já ligado): cada vez que a
+   * aba dele abre, e ao voltar ao mural de outra página. Mudar no Filtrar vale até sair do grupo. Guardado
+   * só com algum, na ordem de `WALL_SHOWS`.
+   */
+  shows?: WallShow[];
 }
 
 export interface NotesConfig {
@@ -155,7 +167,7 @@ export const MAX_CONFIG_CATEGORIES = 200;
 function sanitizePrefs(raw: unknown): CategoryPrefs {
   const out: CategoryPrefs = {};
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
-  const { audience, askTag, hidden, kanbanOnly, view, sort } = raw as Record<string, unknown>;
+  const { audience, askTag, hidden, kanbanOnly, view, sort, shows } = raw as Record<string, unknown>;
   if (AUDIENCES.includes(audience as Audience)) out.audience = audience as Audience;
   const shown = noteDensity(view);
   if (GROUP_VIEWS.includes(shown as GroupView)) out.view = shown as GroupView;
@@ -163,10 +175,13 @@ function sanitizePrefs(raw: unknown): CategoryPrefs {
   if (typeof askTag === 'boolean') out.askTag = askTag;
   if (hidden === true) out.hidden = true;
   if (kanbanOnly === false) out.kanbanOnly = false;
+  const on = Array.isArray(shows) ? WALL_SHOWS.filter((k) => shows.includes(k)) : [];
+  if (on.length) out.shows = on;
   return out;
 }
 
-const isEmpty = (p: CategoryPrefs) => p.audience === undefined && p.askTag === undefined && !p.hidden && p.kanbanOnly === undefined && p.view === undefined && p.sort === undefined;
+const isEmpty = (p: CategoryPrefs) =>
+  p.audience === undefined && p.askTag === undefined && !p.hidden && p.kanbanOnly === undefined && p.view === undefined && p.sort === undefined && !p.shows?.length;
 
 /** O que veio guardado (ou da nuvem): só valores conhecidos, sem as categorias vazias. */
 export function sanitizeNotesConfig(raw: unknown): NotesConfig {
@@ -303,7 +318,8 @@ export function withPrefs(cfg: NotesConfig, category: string, patch: CategoryPre
   if (!key) return cfg;
   const { [key]: old, ...rest } = cfg.categories;
   const merged: CategoryPrefs = { ...old, ...patch };
-  for (const k of Object.keys(merged) as (keyof CategoryPrefs)[]) if (merged[k] === undefined || (k === 'hidden' && !merged[k]) || (k === 'kanbanOnly' && merged[k] !== false)) delete merged[k];
+  for (const k of Object.keys(merged) as (keyof CategoryPrefs)[]) if (merged[k] === undefined || (k === 'hidden' && !merged[k]) || (k === 'kanbanOnly' && merged[k] !== false) || (k === 'shows' && !merged.shows?.length)) delete merged[k];
+  if (merged.shows) merged.shows = WALL_SHOWS.filter((k) => merged.shows!.includes(k));
   return { ...cfg, categories: isEmpty(merged) ? rest : { ...rest, [key]: merged } };
 }
 
@@ -348,6 +364,13 @@ export function groupViews(cfg: NotesConfig): ReadonlyMap<string, GroupView> {
 export function groupSorts(cfg: NotesConfig): ReadonlyMap<string, GroupSort> {
   const out = new Map<string, GroupSort>();
   for (const [k, p] of Object.entries(cfg.categories)) if (p.sort) out.set(`c:${k}`, p.sort);
+  return out;
+}
+
+/** O que cada grupo mostra também ao abrir (pela chave da aba, como `groupViews`): só os que ligaram algum. */
+export function groupShows(cfg: NotesConfig): ReadonlyMap<string, ReadonlySet<WallShow>> {
+  const out = new Map<string, ReadonlySet<WallShow>>();
+  for (const [k, p] of Object.entries(cfg.categories)) if (p.shows?.length) out.set(`c:${k}`, new Set(p.shows));
   return out;
 }
 

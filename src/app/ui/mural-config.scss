@@ -509,6 +509,12 @@ fieldset.linha {
   }
 }
 
+/* o padrão do "Mostrar também": os interruptores do Filtrar (o `.interruptor` já vem lá de cima) */
+.sub-bloco .chaves {
+  @include kit.chaves(false);
+  margin-top: 6px;
+}
+
 .sub-titulo {
   padding: 0;
   font-family: var(--f-label);

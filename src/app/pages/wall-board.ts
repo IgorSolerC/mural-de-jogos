@@ -32,7 +32,6 @@ import { stepFocus } from './wall-keys';
 /** As ordens por um dia que não é a data da ficha: ela mostra esse dia (ver ReviewCard.dateFrom). */
 const DATE_SORTS = ['criacao', 'alteracao', 'finalizacao'] as const;
 
-const NONE: ReadonlySet<string> = new Set();
 const NO_PICKS: ReadonlyMap<string, number> = new Map();
 
 /** O que muda nas fichas conforme quem olha o mural (o dono ou quem visita); o resto vem da vista. */
@@ -140,8 +139,8 @@ export class WallBoard {
     return this.owner() === null ? 'do mural' : `de ${this.owner()}`;
   });
 
-  /** As que estão só no Kanban e à mostra no mural agora: levam a etiqueta (nenhuma, escondidas). */
-  protected readonly shownBoard = computed(() => (this.view.showBoard() ? this.view.boardOnly() : NONE));
+  /** As que estão só no Kanban (ou nos Flashcards) e à mostra no mural agora: levam a etiqueta. */
+  protected readonly shownBoard = this.view.shownOff;
 
   /** O que todas as fichas da parede recebem igual (ver WallCardPool). */
   private readonly cardProps = computed<WallCardProps>(() => ({
@@ -698,9 +697,9 @@ export class WallBoard {
     this.motion.run(() => this.view.setNoteTab(ALL_TAB));
   }
 
-  /** "Mostrar as do Kanban": as que estão só no Kanban entram no mural, nesta visita. */
+  /** "Mostrar aqui": as que estão só no Kanban (ou nos Flashcards) entram no mural, até sair da aba. */
   protected showBoard(): void {
-    this.motion.run(() => this.view.showBoard.set(true));
+    this.motion.run(() => this.view.showOff());
   }
 
   protected showDone(): void {

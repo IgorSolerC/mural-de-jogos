@@ -113,6 +113,8 @@ export class WallPage {
   });
 
   constructor() {
+    // de volta de outra página, a aba aberta abre no padrão dela (os filtros e o "Mostrar também" do grupo)
+    this.view.enterWall();
     // sair do mural encerra a marcação
     inject(DestroyRef).onDestroy(() => this.side.picking.set(false));
   }

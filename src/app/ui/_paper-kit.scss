@@ -470,6 +470,47 @@
   }
 }
 
+/* Interruptores lado a lado, cada um com o nome (e quantas são): o "Mostrar também" do Filtrar das
+   anotações e o padrão de cada grupo nas configurações do mural. Dentro, `.chave` (o label) com o
+   `.interruptor`, o `.chave-nome` e, se houver, o `.chave-n`. Quem já desenha o `.interruptor` passa
+   `$interruptor: false`. */
+@mixin chaves($interruptor: true) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 30px;
+
+  .chave {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 44px;
+    cursor: pointer;
+  }
+
+  @if $interruptor {
+    .interruptor {
+      @include interruptor;
+    }
+  }
+
+  .chave-nome {
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.92rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .chave-n {
+    margin-left: -4px;
+    font-family: var(--f-label);
+    font-weight: 600;
+    font-size: 0.92rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-2);
+  }
+}
+
 /* O interruptor: desligado, o recorte da trilha ainda na cartela (tracejado, a bolinha de tinta numa
    ponta); ligado, a trilha de tinta colada e a bolinha amarela na outra. Dentro, um `.bolinha`. */
 @mixin interruptor {

@@ -478,10 +478,14 @@ describe('WallView: "Esconder os grupos vazios"', () => {
     expect([...view.tabsInMore()].sort()).toEqual([key('Leituras'), key('Viagem')].sort());
     // o grupo continua existindo, com o 0, para abrir pelo "Mais"
     expect(view.noteTabs()!.tabs.find((t) => t.key === key('Viagem'))).toEqual(jasmine.objectContaining({ n: 0, total: 2 }));
-    // mostrando as finalizadas (ou as do Kanban), o grupo deixa de estar vazio
+    // o Filtrar da aba aberta (o Tudo) não muda os outros grupos: cada um conta o que mostraria ao abrir
     view.showDone.set(true);
-    expect([...view.emptyTabs()]).toEqual([key('Viagem')]);
     view.showBoard.set(true);
+    expect([...view.emptyTabs()].sort()).toEqual([key('Leituras'), key('Viagem')].sort());
+    // o grupo que abre com as finalizadas (ou as do Kanban) à mostra deixa de estar vazio
+    settings.setCategoryPrefs('Leituras', { shows: ['finalizadas'] });
+    expect([...view.emptyTabs()]).toEqual([key('Viagem')]);
+    settings.setCategoryPrefs('Viagem', { shows: ['kanban'] });
     expect(view.emptyTabs().size).toBe(0);
   });
 
