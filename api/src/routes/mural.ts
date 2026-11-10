@@ -173,8 +173,8 @@ export function muralRoutes(app: Hono, deps: Deps): void {
 
   app.get('/v1/eu/mural', async (c) => {
     const s = await sessionOf(deps, c);
-    const head = await deps.db.first<{ rev: number; pendentes: number; aprovar: number }>(
-      'SELECT rev, ' +
+    const head = await deps.db.first<{ rev: number; pendentes: number; aprovar: number; quadros: number | null }>(
+      'SELECT rev, (SELECT quadros_versao FROM usuarios WHERE id = murais.usuario_id) AS quadros, ' +
         "(SELECT COUNT(*) FROM api_pedidos WHERE usuario_id = murais.usuario_id AND estado = 'pendente' AND expira_em > ?) AS pendentes, " +
         "(SELECT COUNT(*) FROM api_pedidos WHERE usuario_id = murais.usuario_id AND estado = 'aguardando-aprovacao' AND expira_em > ?) AS aprovar " +
         'FROM murais WHERE usuario_id = ?',
@@ -182,6 +182,8 @@ export function muralRoutes(app: Hono, deps: Deps): void {
     );
     if (!head) throw new HttpError(404, 'sem-mural', 'Ainda não há mural na nuvem.');
     c.header('Mural-Rev', String(head.rev));
+    // os quadros do Quadro livre: o site pede a lista só quando o número muda (PLANO-QUADRO-LIVRE.md, 7.3)
+    c.header('Quadros-Versao', String(head.quadros ?? 0));
     // os pedidos da API das AIs esperando (PLANO-API.md, 3.2): o site aplica sem precisar perguntar
     if (head.pendentes) c.header('Mural-Pedidos', String(head.pendentes));
     if (head.aprovar) c.header('Mural-Pedidos-Aprovar', String(head.aprovar));

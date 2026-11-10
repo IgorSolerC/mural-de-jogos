@@ -65,6 +65,8 @@ export interface Config {
   imagesTotalBytes: number;
   imagesUserBytes: number;
   imagesPerDay: number;
+  /** Quanto os quadros do Quadro livre de todas as contas guardam no banco do mural (PLANO-QUADRO-LIVRE.md, 7.1). */
+  boardsTotalBytes: number;
 }
 
 /** As chaves do site nos catálogos (secrets do Worker). Vazia: aquele catálogo fica sem a chave do site. */

@@ -38,6 +38,7 @@ import { ApiMirror } from './api-mirror';
 import { ApiRequests } from './api-requests';
 import { ImageStore } from './image-store';
 import { FreeBoardStore } from './free-board-store';
+import { FreeBoardSync } from './free-board-sync';
 import { ImageSync, shortReason } from './image-sync';
 import { ColleagueStore } from './colleague-store';
 import { localImageIds } from './images';
@@ -730,6 +731,8 @@ export class CloudSync {
   private readonly imageSync = inject(ImageSync);
   /** Os quadros do Quadro livre (PLANO-QUADRO-LIVRE.md): documentos à parte, fora do mural; aqui só contam como conteúdo e pelas imagens que usam. */
   private readonly freeBoards = inject(FreeBoardStore);
+  /** Os quadros do Quadro livre sobem e descem um por um, à parte (core/free-board-sync.ts). */
+  private readonly freeBoardSync = inject(FreeBoardSync);
   /** Os murais dos amigos guardados aqui: os abertos antes de entrar não vão para a conta (ver `firstSync`). */
   private readonly colleagues = inject(ColleagueStore);
   /** Os conflitos da junção que esperam a pessoa (vão no mural privado da nuvem). */
@@ -1671,6 +1674,8 @@ export class CloudSync {
     }
     this.noteClock(res);
     this.requests.noteHeads(res.headers);
+    // algum quadro do Quadro livre mudou em outro aparelho: a lista deles é pedida (sem isso, nenhum pedido a mais)
+    this.freeBoardSync.noteVersion(res.headers.get('Quadros-Versao'));
     if (res.status === 204) return { kind: 'same' };
     const remoteRev = Number(res.headers.get('Mural-Rev'));
     const text = await readBackupFile(await res.blob());

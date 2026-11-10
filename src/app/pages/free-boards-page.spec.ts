@@ -6,6 +6,7 @@ import { freeBoardPath } from '../core/areas';
 import { FreeBoard, boardInGroup, sanitizeFreeBoard } from '../core/free-board';
 import { Camera } from '../core/free-board-geometry';
 import { FreeBoardStore } from '../core/free-board-store';
+import { FreeBoardSync } from '../core/free-board-sync';
 import { studyGroupId } from '../core/study';
 import { Confirm } from '../ui/confirm';
 import { FreeBoardsPage } from './free-boards-page';
@@ -100,6 +101,7 @@ describe('a página do Quadro livre', () => {
         provideZonelessChangeDetection(),
         provideRouter([{ matcher: freeBoardMatcher, component: FreeBoardsPage }]),
         { provide: FreeBoardStore, useValue: store },
+        { provide: FreeBoardSync, useValue: { flush: async () => undefined, noteVersion: () => undefined } },
         { provide: Confirm, useValue: { ask: async () => true } },
       ],
     });

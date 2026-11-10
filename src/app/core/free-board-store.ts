@@ -280,6 +280,73 @@ export class FreeBoardStore {
     }
   }
 
+  // ===== a nuvem (core/free-board-sync.ts, rodada 5) =====
+
+  /** Os registros com mudança daqui que a nuvem ainda não tem (os quadros e as lápides). */
+  async dirty(): Promise<BoardRecord[]> {
+    await this.ready;
+    return [...this.records.values()].filter((r) => r.sujo);
+  }
+
+  /** Todos os registros (para conferir com a lista da nuvem). */
+  async all(): Promise<BoardRecord[]> {
+    await this.ready;
+    return [...this.records.values()];
+  }
+
+  /**
+   * A nuvem guardou `sent` na versão `rev`: ela vira a base. Se o quadro daqui ainda é o enviado (ninguém mexeu
+   * enquanto ia), não há mais o que mandar.
+   */
+  markSynced(id: string, rev: number, sent: FreeBoard): Promise<BoardRecord | null> {
+    return this.write(id, (stored) => {
+      if (!stored?.quadro) return stored ?? null;
+      const same = canonicalJson(stored.quadro) === canonicalJson(sent);
+      return { ...stored, base: sent, rev, sujo: !same };
+    });
+  }
+
+  /**
+   * O quadro `remote` da nuvem, na versão `rev`: sem mudança daqui, ele entra como está; com mudança, junta em
+   * três vias (a base é o que a nuvem viu por último) e fica para enviar. Um quadro que não abre não entra.
+   */
+  applyRemote(id: string, remote: FreeBoard, rev: number): Promise<BoardRecord | null> {
+    const clean = sanitizeFreeBoard(remote);
+    if (!clean || clean.id !== id) return Promise.resolve(this.records.get(id) ?? null);
+    return this.write(id, (stored) => {
+      if (stored && stored.rev >= rev && !stored.sujo) return stored;
+      if (!stored?.quadro || !stored.sujo) return { id, quadro: clean, base: clean, rev, sujo: false, marca: newMark() };
+      const merged = mergeFreeBoard(stored.base, stored.quadro, clean);
+      const same = canonicalJson(merged) === canonicalJson(clean);
+      return { id, quadro: merged, base: clean, rev, sujo: !same, marca: newMark() };
+    });
+  }
+
+  /** Tira o registro de vez (a lápide que a nuvem já sabe, ou o quadro apagado em outro aparelho). */
+  dropRecord(id: string): Promise<BoardRecord | null> {
+    return this.write(id, () => null);
+  }
+
+  /** A nuvem não tem mais este quadro (a lápide saiu depois de 30 dias): ele sobe de novo, como novo. */
+  resetRev(id: string): Promise<BoardRecord | null> {
+    return this.write(id, (stored) => (stored ? { ...stored, rev: 0, base: null, sujo: !!stored.quadro, marca: newMark() } : null));
+  }
+
+  /**
+   * O quadro foi apagado em outro aparelho enquanto este mexia nele: o que estava aqui vira um quadro novo
+   * ("cópia"), e o de antes sai. Devolve a cópia.
+   */
+  async keepCopy(id: string): Promise<FreeBoard | null> {
+    await this.ready;
+    const stored = this.records.get(id);
+    if (!stored?.quadro) return null;
+    const copy = newFreeBoard(freeBoardName(this.boards(), stored.quadro.grupo, `${stored.quadro.nome} (cópia)`), stored.quadro.grupo, new Date().toISOString());
+    if (!copy) return null;
+    const saved = await this.save({ ...copy, n: stored.quadro.n, e: stored.quadro.e });
+    await this.dropRecord(id);
+    return saved;
+  }
+
   // ===== por dentro =====
 
   /**

@@ -57,6 +57,8 @@ async function images(deps: Deps, now: Date): Promise<void> {
 async function housekeeping(deps: Deps, now: Date): Promise<void> {
   await deps.db.batch([
     { sql: 'DELETE FROM sessoes WHERE expira_em < ?', params: [now.toISOString()] },
+    // as lápides dos quadros do Quadro livre com mais de 30 dias (o aparelho que ficou fora esse tempo reenvia como novo)
+    { sql: 'DELETE FROM quadros WHERE apagado_em IS NOT NULL AND apagado_em < ?', params: [new Date(now.getTime() - 30 * DAY_MS).toISOString()] },
     { sql: 'DELETE FROM atividades WHERE criado_em < ?', params: [new Date(now.getTime() - 90 * DAY_MS).toISOString()] },
     { sql: 'DELETE FROM uso_diario WHERE dia < ?', params: [utcDay(new Date(now.getTime() - 30 * DAY_MS))] },
     // o uso das APIs externas: mais de um ano para comparar meses, e as falhas por 30 dias e até 500

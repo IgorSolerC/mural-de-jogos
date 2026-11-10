@@ -937,3 +937,30 @@ Decidido no caminho (pode mudar):
   existem. Fica para quando você pedir.
 - O Widget pergunta o tipo num menu antes da folha (a folha das anotações abre já num widget).
 - No toque, a edição usa o mesmo menu de segurar o dedo do resto do site.
+
+### Rodada 5: a nuvem (09/nov, BUILD 832)
+
+Feito:
+
+- API: a migração `0024_quadros.sql` (as tabelas `quadros` e `quadro_imagens`, o contador `usuarios.quadros_versao`;
+  a coluna `publico` já entra para a rodada 6) e `api/src/routes/boards.ts`: a lista sem os dados, o quadro com
+  `?rev=` → 204 (e 410 para a lápide), o PUT com `Quadro-Rev-Base` (409 com a versão de agora, e com o apagado
+  quando é lápide), 256 KB por quadro, 200 quadros e 5 MB por conta, `QUADROS_MB_TOTAL` (100 MB) para a nuvem
+  inteira, 2 s entre envios do mesmo quadro, a cota do dia contando só as imagens que entraram ou saíram, e o
+  DELETE que vira lápide. O GET do mural traz o `Quadros-Versao`. As imagens de `quadro_imagens` nunca ficam
+  soltas nem saem na limpeza; apagar a conta leva os quadros; a limpeza diária tira as lápides de mais de 30 dias;
+  o Uso das APIs mostra os quadros guardados. Testes nos dois bancos (`api/test/quadros.suite.ts`).
+- Site: `core/free-board-sync.ts` (`FreeBoardSync`): envia 4 s depois da última mudança, no Pronto e ao esconder
+  a aba (`keepalive` até 60 KB); 409 baixa, junta em três vias e manda de novo (até 3 vezes); a lápide sobe como
+  DELETE; a lista só é pedida quando o `Quadros-Versao` muda (o último conferido em `meu-mural:quadros-versao`,
+  que sai na limpeza do Sair); o primeiro login traz os quadros da nuvem (4 de cada vez); apagado em outro aparelho
+  sem mudança aqui sai daqui, e com mudança vira uma cópia ("Mansão (cópia)"); o que a nuvem esqueceu (lápide de
+  mais de 30 dias) sobe de novo como novo.
+- Novidades: um item na 1.43.0 de hoje.
+
+Decidido no caminho (pode mudar):
+
+- O aviso "Este quadro foi apagado em outro aparelho" com "Guardar uma cópia" (4.6) virou automático: a cópia é
+  guardada sem perguntar (perder trabalho é pior), e ela aparece na lista com "(cópia)" no nome.
+- O e2e com dois aparelhos de verdade ficou no teste do site com uma nuvem de mentira que segue as regras da API
+  (`core/free-board-sync.spec.ts`), e a API tem os testes dela nos dois bancos.

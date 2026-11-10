@@ -41,6 +41,8 @@ export function readConfig(env: Record<string, unknown>): Config {
     imagesTotalBytes: mb('IMAGENS_MB_TOTAL'),
     imagesUserBytes: mb('IMAGENS_MB_PESSOA'),
     imagesPerDay: count('IMAGENS_POR_DIA'),
+    // os quadros (PLANO-QUADRO-LIVRE.md, 7.1): sem a variável, 100 MB (o banco do mural tem 500)
+    boardsTotalBytes: text('QUADROS_MB_TOTAL') ? mb('QUADROS_MB_TOTAL') : 100 * 1024 * 1024,
   };
 }
 

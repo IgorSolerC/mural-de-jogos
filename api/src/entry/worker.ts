@@ -41,6 +41,7 @@ interface Env {
   IMAGENS_MB_TOTAL?: string;
   IMAGENS_MB_PESSOA?: string;
   IMAGENS_POR_DIA?: string;
+  QUADROS_MB_TOTAL?: string;
   /** Secrets (`wrangler secret put`), nunca no wrangler.toml: as chaves do site na busca. */
   TMDB_KEY?: string;
   RAWG_KEY?: string;

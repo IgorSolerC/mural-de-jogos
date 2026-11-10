@@ -16,6 +16,7 @@ import { DEFAULT_TABLE_LOOK, readTable, tableText } from '../core/tables';
 import { WidgetSize, parseWidgetLine, widgetDef, widgetLines } from '../core/widgets';
 import { Camera } from '../core/free-board-geometry';
 import { FreeBoardProblem, FreeBoardStore } from '../core/free-board-store';
+import { FreeBoardSync } from '../core/free-board-sync';
 import { KanbanStore } from '../core/kanban-store';
 import { NO_TABS, NoteTab, sameTabs, tabKeyOf, tabsToMore } from '../core/note-tabs';
 import { Settings } from '../core/settings';
@@ -186,6 +187,7 @@ export class FreeBoardsPage {
   private readonly reviews = inject(ReviewStore);
   private readonly images = inject(ImageStore);
   private readonly desk = inject(Desk);
+  private readonly boardSync = inject(FreeBoardSync);
   protected readonly notesKind = NOTES;
   protected readonly picking = signal(false);
   protected readonly pickGroup = signal<string | null>(null);
@@ -284,7 +286,11 @@ export class FreeBoardsPage {
 
   protected setEditing(on: boolean): void {
     this.editing.set(on);
-    if (!on) void this.saving.then(() => this.working.set(null));
+    // o Pronto manda o quadro para a nuvem na hora (sem esperar os 4 s)
+    if (!on) void this.saving.then(() => {
+      this.working.set(null);
+      void this.boardSync.flush();
+    });
   }
 
   constructor() {

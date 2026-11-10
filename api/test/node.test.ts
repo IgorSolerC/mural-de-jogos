@@ -17,6 +17,7 @@ import { estudosSuite } from './estudos.suite';
 import { apiSuite } from './suite';
 import { notasSuite } from './notas.suite';
 import { imagensSuite } from './imagens.suite';
+import { quadrosSuite } from './quadros.suite';
 
 const sqlite = new DatabaseSync(':memory:');
 migrate(sqlite, fileURLToPath(new URL('../migrations', import.meta.url)));
@@ -41,3 +42,4 @@ calendarioSuite('Node + SQLite', () => db);
 muraisSuite('Node + SQLite', () => db);
 estudosSuite('Node + SQLite', () => db);
 imagensSuite('Node + SQLite', () => db, () => imagesDb);
+quadrosSuite('Node + SQLite', () => db);

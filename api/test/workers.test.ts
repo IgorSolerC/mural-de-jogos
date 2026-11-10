@@ -18,6 +18,7 @@ import { estudosSuite } from './estudos.suite';
 import { apiSuite } from './suite';
 import { notasSuite } from './notas.suite';
 import { imagensSuite } from './imagens.suite';
+import { quadrosSuite } from './quadros.suite';
 
 const bindings = env as unknown as { DB: D1Database; IMAGENS: D1Database; TEST_MIGRATIONS: D1Migration[]; TEST_MIGRATIONS_IMAGENS: D1Migration[] };
 
@@ -42,3 +43,4 @@ calendarioSuite('Cloudflare D1', () => d1Db(bindings.DB));
 muraisSuite('Cloudflare D1', () => d1Db(bindings.DB));
 estudosSuite('Cloudflare D1', () => d1Db(bindings.DB));
 imagensSuite('Cloudflare D1', () => d1Db(bindings.DB), () => d1Db(bindings.IMAGENS));
+quadrosSuite('Cloudflare D1', () => d1Db(bindings.DB));

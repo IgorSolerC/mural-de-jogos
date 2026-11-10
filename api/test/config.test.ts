@@ -5,12 +5,12 @@ describe('readConfig', () => {
   it('lê os valores do wrangler.toml', () => {
     expect(
       readConfig({ MODO: 'ligado', ORIGENS: 'https://a.io/, http://localhost:4200', COTA_LINHAS_DIA: '60000', GOOGLE_CLIENT_ID: ' x ' }),
-    ).toEqual({ mode: 'ligado', allowedOrigins: ['https://a.io', 'http://localhost:4200'], dailyRowBudget: 60000, googleClientId: 'x', publicMurals: 'logados', apiCodes: [], adminUsers: [], site: '', imagesTotalBytes: 0, imagesUserBytes: 0, imagesPerDay: 0 });
+    ).toEqual({ mode: 'ligado', allowedOrigins: ['https://a.io', 'http://localhost:4200'], dailyRowBudget: 60000, googleClientId: 'x', publicMurals: 'logados', apiCodes: [], adminUsers: [], site: '', imagesTotalBytes: 0, imagesUserBytes: 0, imagesPerDay: 0, boardsTotalBytes: 100 * 1024 * 1024 });
     expect(readConfig({ VER_MURAIS: 'todos' }).publicMurals).toBe('todos');
   });
 
   it('na dúvida, desliga e zera a cota', () => {
-    expect(readConfig({})).toEqual({ mode: 'desligado', allowedOrigins: [], dailyRowBudget: 0, googleClientId: '', publicMurals: 'logados', apiCodes: [], adminUsers: [], site: '', imagesTotalBytes: 0, imagesUserBytes: 0, imagesPerDay: 0 });
+    expect(readConfig({})).toEqual({ mode: 'desligado', allowedOrigins: [], dailyRowBudget: 0, googleClientId: '', publicMurals: 'logados', apiCodes: [], adminUsers: [], site: '', imagesTotalBytes: 0, imagesUserBytes: 0, imagesPerDay: 0, boardsTotalBytes: 100 * 1024 * 1024 });
     expect(readConfig({ ADMIN_USUARIOS: ' abc , ,def ' }).adminUsers).toEqual(['abc', 'def']);
     expect(readConfig({ API_CODIGOS: ' k7qf-m2xa , *,, ' }).apiCodes).toEqual(['K7QFM2XA', '*']);
     expect(readConfig({ VER_MURAIS: 'Todos' }).publicMurals).toBe('logados');

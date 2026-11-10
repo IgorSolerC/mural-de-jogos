@@ -47,7 +47,14 @@ export interface ApiUsage {
   contandoDesde: string | null;
   linhas: UsageLine[];
   falhas: UsageFailure[];
-  proprias: { dia: string; linhasGravadas: number; cotaLinhas: number; imagens: { imagens: number; bytes: number; cota: number } | null };
+  proprias: {
+    dia: string;
+    linhasGravadas: number;
+    cotaLinhas: number;
+    imagens: { imagens: number; bytes: number; cota: number } | null;
+    /** Os quadros do Quadro livre guardados na nuvem (sem as lápides). */
+    quadros?: { quadros: number; bytes: number; cota: number } | null;
+  };
 }
 
 /** O uso oficial na Cloudflare (a rota à parte): hoje e ontem, e cada Worker só hoje. */
@@ -82,7 +89,7 @@ export function parseUsage(raw: unknown): ApiUsage {
     contandoDesde: typeof r['contandoDesde'] === 'string' ? r['contandoDesde'] : null,
     linhas,
     falhas,
-    proprias: { dia: own.dia ?? '', linhasGravadas: own.linhasGravadas ?? 0, cotaLinhas: own.cotaLinhas ?? 0, imagens: own.imagens ?? null },
+    proprias: { dia: own.dia ?? '', linhasGravadas: own.linhasGravadas ?? 0, cotaLinhas: own.cotaLinhas ?? 0, imagens: own.imagens ?? null, quadros: own.quadros ?? null },
   };
 }
 
@@ -210,6 +217,7 @@ export function quotasOf(usage: ApiUsage, now: Date, cf: CloudflareReport | null
     ...(own.cotaLinhas > 0 ? [quota({ id: 'linhas', nome: 'Cota de gravações do Murall', onde: 'na cota de gravações', chamado: 'a cota de gravações', janela: 'dia', usado: own.linhasGravadas, total: own.cotaLinhas, unidade: 'linhas' })] : []),
     ...(cf?.estado === 'ok' ? cf.bancos.map((b) => quota({ id: `banco-${b.nome}`, nome: `Banco ${b.nome}`, onde: `no banco ${b.nome}`, chamado: `o banco ${b.nome}`, janela: 'sempre', usado: b.bytes, total: PLANO_GRATIS.bytesPorBanco, unidade: 'bytes' })) : []),
     ...(own.imagens && own.imagens.cota > 0 ? [quota({ id: 'imagens', nome: 'Imagens guardadas', onde: 'no espaço das imagens', chamado: 'o espaço das imagens', janela: 'sempre', usado: own.imagens.bytes, total: own.imagens.cota, unidade: 'bytes' })] : []),
+    ...(own.quadros && own.quadros.cota > 0 ? [quota({ id: 'quadros', nome: 'Quadros guardados', onde: 'no espaço dos quadros', chamado: 'o espaço dos quadros', janela: 'sempre', usado: own.quadros.bytes, total: own.quadros.cota, unidade: 'bytes' })] : []),
   ];
 }
 

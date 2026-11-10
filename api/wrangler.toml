@@ -32,6 +32,9 @@ ADMIN_USUARIOS = "1e4a3307-852a-45c4-8110-ed336dda8e63"
 IMAGENS_MB_TOTAL = "400"
 IMAGENS_MB_PESSOA = "60"
 IMAGENS_POR_DIA = "100"
+# Os quadros do Quadro livre (PLANO-QUADRO-LIVRE.md, 7.1): um por linha no banco do mural, 256 KB cada no
+# máximo, 5 MB por conta; a nuvem inteira para em 100 MB (o banco tem 500).
+QUADROS_MB_TOTAL = "100"
 # O endereço do site: o OAuth dos conectores manda a pessoa para a página Autorizar dele.
 SITE = "https://murall.igorsc.com.br"
 # Público (vai também no site); é o `aud` que o login confere.

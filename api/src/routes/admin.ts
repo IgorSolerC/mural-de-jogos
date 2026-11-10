@@ -48,7 +48,7 @@ export function adminRoutes(app: Hono, deps: Deps): void {
   app.get('/v1/admin/uso', async (c) => {
     await requireAdmin(deps, c);
     const now = deps.now();
-    const [lines, failures, since, today, images, connected] = await Promise.all([
+    const [lines, failures, since, today, images, connected, boards] = await Promise.all([
       deps.db.all<Record<string, SqlValue>>('SELECT dia, servico, operacao, medido_em, desfecho, pedidos, ms_total, ms_max, ultimo_em FROM uso_apis WHERE dia >= ? ORDER BY dia DESC LIMIT ?', [usageFrom(now), MAX_LINES]),
       deps.db.all<{ em: string; servico: string; operacao: string; medido_em: string; desfecho: string; status: number | null; repeticoes: number }>(
         'SELECT em, servico, operacao, medido_em, desfecho, status, repeticoes FROM uso_apis_falhas ORDER BY em DESC, id DESC LIMIT ?',
@@ -58,6 +58,8 @@ export function adminRoutes(app: Hono, deps: Deps): void {
       usageToday(deps),
       usageOf(deps.db, ALL),
       deps.db.first<{ n: number }>('SELECT COUNT(*) AS n FROM agenda_google'),
+      // os quadros do Quadro livre guardados (PLANO-QUADRO-LIVRE.md, 7.7): quantos e quanto, sem as lápides
+      deps.db.first<{ n: number; bytes: number }>('SELECT COUNT(*) AS n, COALESCE(SUM(bytes), 0) AS bytes FROM quadros WHERE apagado_em IS NULL'),
     ]);
     return c.json({
       geradoEm: now.toISOString(),
@@ -70,6 +72,7 @@ export function adminRoutes(app: Hono, deps: Deps): void {
         linhasGravadas: today.rowsWritten,
         cotaLinhas: deps.config.dailyRowBudget,
         imagens: room(images, deps.config.imagesTotalBytes),
+        quadros: { quadros: boards?.n ?? 0, bytes: boards?.bytes ?? 0, cota: deps.config.boardsTotalBytes },
       },
       agenda: { contasLigadas: connected?.n ?? 0 },
     });

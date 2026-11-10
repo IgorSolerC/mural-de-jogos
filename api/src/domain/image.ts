@@ -205,13 +205,15 @@ export function looseStatements(userId: string, used: readonly string[], now: Da
       sql:
         'UPDATE imagens SET solta_desde = ? WHERE dono_id = ? AND solta_desde IS NULL AND criada_em < ? ' +
         'AND id NOT IN (SELECT value FROM json_each(?)) AND id NOT IN (SELECT imagem_id FROM nota_imagens) ' +
+        // a que só um quadro do Quadro livre usa nunca fica solta (PLANO-QUADRO-LIVRE.md, 7.6)
+        'AND id NOT IN (SELECT imagem_id FROM quadro_imagens) ' +
         `AND EXISTS (${guard.sql})`,
       params: [now.toISOString(), userId, new Date(now.getTime() - LOOSE_GRACE_MS).toISOString(), list, ...guard.params],
     },
     {
       sql:
         'UPDATE imagens SET solta_desde = NULL WHERE dono_id = ? AND solta_desde IS NOT NULL ' +
-        `AND (id IN (SELECT value FROM json_each(?)) OR id IN (SELECT imagem_id FROM nota_imagens)) AND EXISTS (${guard.sql})`,
+        `AND (id IN (SELECT value FROM json_each(?)) OR id IN (SELECT imagem_id FROM nota_imagens) OR id IN (SELECT imagem_id FROM quadro_imagens)) AND EXISTS (${guard.sql})`,
       params: [userId, list, ...guard.params],
     },
   ];
@@ -220,7 +222,8 @@ export function looseStatements(userId: string, used: readonly string[], now: Da
 /** Quantas imagens do dono `looseStatements` muda (para contar na cota só o que muda). */
 export async function looseChanges(db: Db, userId: string, used: readonly string[], now: Date): Promise<number> {
   const rows = await db.all<{ id: string; solta_desde: string | null; criada_em: string; na_nota: number }>(
-    'SELECT id, solta_desde, criada_em, EXISTS (SELECT 1 FROM nota_imagens ni WHERE ni.imagem_id = imagens.id) AS na_nota FROM imagens WHERE dono_id = ?',
+    'SELECT id, solta_desde, criada_em, (EXISTS (SELECT 1 FROM nota_imagens ni WHERE ni.imagem_id = imagens.id) OR ' +
+      'EXISTS (SELECT 1 FROM quadro_imagens qi WHERE qi.imagem_id = imagens.id)) AS na_nota FROM imagens WHERE dono_id = ?',
     [userId],
   );
   const set = new Set(used);
@@ -244,7 +247,8 @@ export async function missingOf(db: Db, used: readonly string[]): Promise<string
  */
 export async function dropLoose(deps: Deps, now: Date): Promise<number> {
   const old = await deps.db.all<{ id: string; dono_id: string; bytes: number }>(
-    'SELECT id, dono_id, bytes FROM imagens WHERE solta_desde IS NOT NULL AND solta_desde < ? AND id NOT IN (SELECT imagem_id FROM nota_imagens) LIMIT 500',
+    'SELECT id, dono_id, bytes FROM imagens WHERE solta_desde IS NOT NULL AND solta_desde < ? AND id NOT IN (SELECT imagem_id FROM nota_imagens) ' +
+      'AND id NOT IN (SELECT imagem_id FROM quadro_imagens) LIMIT 500',
     [new Date(now.getTime() - LOOSE_DAYS * DAY_MS).toISOString()],
   );
   if (old.length === 0) return 0;
@@ -282,6 +286,7 @@ export function dropStatements(images: readonly { id: string; dono_id: string; b
     // quem a mostrava e as anotações que a usavam
     { sql: 'DELETE FROM imagem_publica WHERE imagem_id = ?', params: [img.id] },
     { sql: 'DELETE FROM nota_imagens WHERE imagem_id = ?', params: [img.id] },
+    { sql: 'DELETE FROM quadro_imagens WHERE imagem_id = ?', params: [img.id] },
   ]);
 }
 

@@ -46,6 +46,7 @@ export const NEWS: NewsEntry[] = [
       'O botão direito num quadro abre, renomeia, duplica, muda de grupo ou apaga, com Desfazer.',
       'Editar monta o quadro: molduras de feltro com título para separar as regiões, bilhetes escritos à mão, as suas anotações, imagens (escolhidas, coladas ou soltas em cima do quadro) e os widgets das anotações, como o contador, o vídeo, o áudio e a tabela.',
       'Setas a giz ligam uma peça na outra: puxe uma das bolinhas que aparecem nos lados da peça, e escreva um rótulo nela com dois cliques.',
+      'Com a conta, cada quadro vai para a nuvem sozinho, só ele (mexer num quadro não reenvia o mural), e aparece nos seus outros aparelhos; mexendo no mesmo quadro em dois lugares, as mudanças se juntam.',
       'Arrastar no fundo seleciona várias; as peças encaixam nos furos da parede (Alt solta), a moldura leva o que está dentro dela, e Ctrl+G junta peças para andarem juntas. Cor, jeito, trazer para frente, duplicar e apagar ficam numa etiqueta em cima da seleção e no botão direito, com desfazer (Ctrl+Z) e os atalhos no "?".',
     ],
     notice: 'Novo: o Quadro livre, nas Anotações. Uma parede sem fim para imagens, anotações, bilhetes e setas, por grupo.',

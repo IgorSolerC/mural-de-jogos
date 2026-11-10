@@ -1,3 +1,4 @@
+import { BOARDS_VERSION_KEY } from './free-board-sync';
 import { ACCOUNT_KEY, SESSION_KEY } from './cloud-account';
 import { BEFORE_CLOUD_DB, readBeforeCloud, saveBeforeCloud } from './cloud-before';
 import { BrowserReset, COVERS_CACHE, ERASE_KEY, OWNER_KEY, RESET_KEY, SITE_CACHE, resetOnBoot, takeReset, watchOtherTabs, wipeBrowser } from './browser-reset';
@@ -58,6 +59,13 @@ describe('limpar o navegador (sair da conta)', () => {
     localStorage.setItem('meu-mural:volume', '0.5');
     localStorage.setItem('outro-site:coisa', 'fica');
   }
+
+  it('o último Quadros-Versao conferido (a nuvem do Quadro livre) sai na limpeza', async () => {
+    signedInBrowser();
+    localStorage.setItem(BOARDS_VERSION_KEY, '12');
+    await wipeBrowser();
+    expect(localStorage.getItem(BOARDS_VERSION_KEY)).toBeNull();
+  });
 
   it('a bandeira de admin mora na conta guardada e sai na limpeza', async () => {
     signedInBrowser();
