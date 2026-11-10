@@ -16,16 +16,19 @@ const note = (id: string, extra: Record<string, unknown> = {}): Review => ({
 describe('editar as marcadas (BulkEditSheet)', () => {
   let el: HTMLElement;
   let applied: BulkPatch[];
+  let acted: string[];
   let instance: { createFolder(e: { parent: string | null; name: string }): void };
 
   async function mount(notes: Review[], place: 'mural' | 'kanban' | 'estudos' = 'mural'): Promise<void> {
     localStorage.clear();
     applied = [];
+    acted = [];
     TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
     const fixture = TestBed.createComponent(BulkEditSheet);
     fixture.componentRef.setInput('notes', notes);
     fixture.componentRef.setInput('place', place);
     fixture.componentInstance.apply.subscribe((p) => applied.push(p));
+    fixture.componentInstance.act.subscribe((a) => acted.push(a));
     instance = fixture.componentInstance as unknown as typeof instance;
     document.body.appendChild(fixture.nativeElement);
     await fixture.whenStable();
@@ -107,6 +110,34 @@ describe('editar as marcadas (BulkEditSheet)', () => {
     expect(applied).toEqual([{ tags: { all: ['Prova', 'Resumo'], drop: ['Código'] } }]);
   });
 
+  it('apagar fica no pé, à esquerda, como no editor: diz quantas e vale mesmo com mudanças por aplicar', async () => {
+    await mount([note('nfol00013'), note('nfol00014'), note('nfol00015')]);
+    const del = () => el.querySelector<HTMLButtonElement>('.foot > .apagar');
+    expect(del()!.textContent!.trim()).toBe('Apagar as 3 anotações');
+    expect(del()!.classList).toContain('danger');
+    // o primeiro do pé, antes do Cancelar e do Aplicar
+    expect(el.querySelector('.foot')!.firstElementChild).toBe(del());
+    // a linha Agora não tem mais o apagar
+    expect([...el.querySelectorAll('.agora button')].map((b) => b.textContent!.trim())).toEqual(['Finalizar todas']);
+    op('Público').click();
+    await tick();
+    expect(del()!.disabled).toBeFalse();
+    del()!.click();
+    await tick();
+    expect(acted).toEqual(['apagar']);
+    expect(applied).toEqual([]);
+  });
+
+  it('o apagar de uma só diz "a anotação"', async () => {
+    await mount([note('nfol00016')]);
+    expect(el.querySelector('.foot > .apagar')!.textContent!.trim()).toBe('Apagar a anotação');
+  });
+
+  it('o apagar de duas diz "as duas"', async () => {
+    await mount([note('nfol00017'), note('nfol00018')]);
+    expect(el.querySelector('.foot > .apagar')!.textContent!.trim()).toBe('Apagar as duas anotações');
+  });
+
   it('nos Flashcards: a fala no masculino; sem apagar a anotação inteira', async () => {
     await mount([note('nfol00007'), note('nfol00008')], 'estudos');
     expect(el.querySelector('h2')!.textContent).toContain('Editar 2 flashcards');
@@ -138,6 +169,8 @@ describe('editar as marcadas (BulkEditSheet)', () => {
     await mount([r('gfol00001'), r('gfol00002')]);
     expect(el.querySelector('h2')!.textContent).toContain('Editar 2 fichas');
     const names = [...el.querySelectorAll('.linha .nome')].map((n) => n.textContent!.trim());
-    expect(names).toEqual(['Quem vê', 'Cartolina', 'Agora']);
+    // a linha Agora é de finalizar e reabrir (das anotações); o apagar fica no pé
+    expect(names).toEqual(['Quem vê', 'Cartolina']);
+    expect(el.querySelector('.foot > .apagar')!.textContent!.trim()).toBe('Apagar as duas fichas');
   });
 });

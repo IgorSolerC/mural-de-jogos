@@ -333,3 +333,8 @@ dialog.massa {
   opacity: 0.45;
   cursor: default;
 }
+
+/* apagar as marcadas, no canto esquerdo do pé: a tinta vermelha do apagar do editor, sem fundo */
+.apagar {
+  color: var(--red-deep);
+}

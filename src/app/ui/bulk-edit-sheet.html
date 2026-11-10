@@ -358,9 +358,9 @@
         </div>
       }
 
-      <!-- o que acontece na hora, sem esperar o Aplicar (com o Desfazer de sempre). Nos Flashcards, apagar levaria a
-           anotação inteira, e não só o flashcard: fica de fora -->
-      @if (isNotes() || place() !== 'estudos') {
+      <!-- o que acontece na hora, sem esperar o Aplicar (com o Desfazer de sempre): finalizar e abrir de novo. Apagar
+           fica no pé, como no editor -->
+      @if (isNotes()) {
         <div class="linha agora-linha">
           <span class="nome" [id]="id + '-agora'"><lucide-icon [img]="NowIcon" [size]="16" aria-hidden="true" />Agora</span>
           <div class="valor">
@@ -375,11 +375,6 @@
                   <lucide-icon [img]="ReopenIcon" [size]="16" aria-hidden="true" />Reabrir
                 </button>
               }
-              @if (place() !== 'estudos') {
-                <button type="button" class="papel perigo" [disabled]="touched() > 0" (click)="doAct('apagar')">
-                  <lucide-icon [img]="DeleteIcon" [size]="16" aria-hidden="true" />Apagar {{ allShort() }}
-                </button>
-              }
             </div>
             <p class="como">{{ touched() ? 'Aplique as mudanças (ou deixe como está) antes.' : 'Sem esperar o Aplicar, com o Desfazer de sempre.' }}</p>
           </div>
@@ -388,6 +383,14 @@
     </div>
 
     <footer class="foot">
+      <!-- apagar as marcadas, no canto esquerdo do pé, longe do Aplicar: o mesmo do editor. Nos Flashcards, apagar
+           levaria a anotação inteira, e não só o flashcard: fica de fora -->
+      @if (removable()) {
+        <button type="button" class="btn-quiet danger apagar" (click)="remove()">
+          <lucide-icon [img]="DeleteIcon" [size]="17" aria-hidden="true" />
+          {{ removeLabel() }}
+        </button>
+      }
       <div class="fim">
         <button type="button" class="btn-quiet" (click)="leave()">Cancelar</button>
         <!-- sem nada mexido, o botão diz isso, quieto, em vez de um botão de tinta apagado -->

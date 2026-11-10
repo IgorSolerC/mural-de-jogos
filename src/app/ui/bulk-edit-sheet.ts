@@ -9,6 +9,7 @@ import { categoryLibrary, tagLibrary } from '../core/note-labels';
 import { Review, STOCKS, STOCK_LABEL, Stock, isDone, isNote, isPinnedNote } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
+import { SharedStore } from '../core/shared-store';
 import { StudyStore } from '../core/study-store';
 import { studyOnWall } from '../core/study';
 import { plural } from '../core/text';
@@ -104,6 +105,7 @@ export class BulkEditSheet {
   private readonly dialog = { el: null as HTMLDialogElement | null };
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   private readonly confirm = inject(Confirm);
+  private readonly shared = inject(SharedStore);
 
   /** Anotações (e não análises): grupo, pasta, tags, fixar e finalizar. */
   protected readonly isNotes = computed(() => this.notes().every(isNote));
@@ -452,10 +454,32 @@ export class BulkEditSheet {
     this.close();
   }
 
-  protected doAct(a: BulkAct): void {
+  /** A linha Agora: finalizar ou abrir de novo (apagar fica no pé, ver `remove`). */
+  protected doAct(a: Exclude<BulkAct, 'apagar'>): void {
     // (com mudanças por aplicar, a linha Agora fica desligada: elas não se perdem num toque)
     if (this.touched()) return;
     this.act.emit(a);
+    this.close();
+  }
+
+  /**
+   * As marcadas que dá para apagar daqui: as suas (a compartilhada sai por Compartilhar, ver `NoteBulk.act`).
+   * Nos Flashcards, nenhuma: apagar levaria a anotação inteira, e não só o flashcard.
+   */
+  protected readonly removable = computed(() => (this.place() === 'estudos' ? 0 : this.notes().filter((r) => !this.shared.get(r.id)).length));
+  /** "Apagar a anotação", "Apagar as duas anotações", "Apagar as 5 fichas": quantas vão, como no Aplicar. */
+  protected readonly removeLabel = computed(() => {
+    const k = this.removable();
+    const what = this.isNotes() ? (k === 1 ? 'anotação' : 'anotações') : k === 1 ? 'ficha' : 'fichas';
+    return k === 1 ? `Apagar a ${what}` : k === 2 ? `Apagar as duas ${what}` : `Apagar as ${k} ${what}`;
+  });
+
+  /**
+   * Apagar, no pé: vale mesmo com mudanças por aplicar (elas iriam junto com as anotações). Quem abriu pergunta
+   * antes, com o Desfazer de sempre.
+   */
+  protected remove(): void {
+    this.act.emit('apagar');
     this.close();
   }
 

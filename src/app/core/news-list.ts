@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-10-mostrar-ao-abrir',
+    id: '2026-11-10-apagar-as-marcadas',
     version: '1.43.2',
     kind: 'ajustes',
     date: '2026-11-10',
@@ -51,6 +51,7 @@ export const NEWS: NewsEntry[] = [
       'O verso do flashcard mostra no alto o nome da anotação (antes, o título da frente), e o japonês dele não quebra mais no meio da palavra.',
       'No Filtrar do mural de anotações, "Só no Kanban" e "Só nos Flashcards" viraram dois interruptores, e o que você ligar nele (as Finalizadas também) vale até sair da aba: cada aba abre no padrão dela, também ao voltar ao mural de outra página.',
       'Cada grupo pode abrir com as finalizadas, as só no Kanban ou as só nos Flashcards à mostra, em Configurações do mural › Grupos › Ao abrir, mostrar também.',
+      'Na folha "Editar as marcadas", o Apagar foi para o canto esquerdo do pé, como no editor, e diz quantas vão (Apagar as 3 anotações).',
     ],
     correcoes: [
       'Pôr uma anotação no quadro livre achava quase nada: agora aparecem todas, de qualquer grupo, as finalizadas e as que só estão no Kanban ou nos Flashcards, com os mesmos filtros do resto do site.',
