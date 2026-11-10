@@ -409,3 +409,8 @@
   margin-left: 8px;
   color: var(--ink-2);
 }
+
+/* a tira das marcadas cobre o pé da tela: a última carta precisa poder subir acima dela */
+:host-context(body.has-tray) {
+  padding-bottom: 90px;
+}

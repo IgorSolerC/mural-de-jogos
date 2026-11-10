@@ -1,4 +1,11 @@
-<dialog class="sheet ficha-lugar massa" [attr.aria-labelledby]="id + '-t'" [attr.aria-describedby]="id + '-vale'" (close)="closed.emit()" (backdropClose)="close()">
+<dialog
+  class="sheet ficha-lugar massa"
+  [attr.aria-labelledby]="id + '-t'"
+  [attr.aria-describedby]="id + '-vale'"
+  (close)="closed.emit()"
+  (cancel)="leave($event)"
+  (backdropClose)="leave()"
+>
   <div class="ficha cartolina" [style.--stock]="'var(--stock-' + headStock() + ')'" [attr.data-cor]="headStock()">
     <app-pin class="pin" />
     <header class="head">
@@ -6,13 +13,126 @@
         <h2 [id]="id + '-t'">{{ title() }}</h2>
         <p class="sub"><lucide-icon [img]="isNotes() ? GroupIcon : StockIcon" [size]="14" aria-hidden="true" />{{ sub() }}</p>
       </div>
-      <button type="button" class="icon-btn fecha" aria-label="Fechar" (click)="close()">
+      <button type="button" class="icon-btn fecha" aria-label="Fechar" (click)="leave()">
         <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
       </button>
     </header>
 
     <div class="body">
       <p class="vale" [id]="id + '-vale'">O que você mudar aqui vale para {{ allOf() }}. O resto de {{ masc() ? 'cada um' : 'cada uma' }} fica como está.</p>
+
+      <!-- primeiro, o "Mostrar no mural" das abas Flashcard e Kanban do editor (onde quer que a folha abra, das
+           marcadas que são flashcards ou estão no quadro) e a importância no quadro -->
+      @if (cards().length) {
+        <!-- o interruptor da aba Flashcard, para todos de uma vez -->
+        <div class="linha" [class.mexida]="studyWall() !== undefined">
+          <span class="nome" [id]="id + '-emural'"><lucide-icon [img]="StudyIcon" [size]="16" aria-hidden="true" />Flashcard</span>
+          <div class="valor">
+            <div class="ops" role="radiogroup" [attr.aria-labelledby]="id + '-emural'" (keydown)="rove($event)">
+              @for (o of studyWalls; track o.label) {
+                <button
+                  type="button"
+                  role="radio"
+                  class="op"
+                  [class.colado]="studyShown() === o.value"
+                  [attr.aria-checked]="studyShown() === o.value"
+                  [attr.tabindex]="tabFor(studyShown(), o.value, null)"
+                  (click)="studyWall.set(o.value)"
+                >
+                  {{ o.label }}
+                </button>
+              }
+            </div>
+            @if (studyWall() === undefined && studyWallNow().mixed) {
+              <p class="como"><span class="varios">Vários</span> uns no mural, outros só como flashcard</p>
+            }
+            @if (cards().length < n()) {
+              <p class="nota">{{ cards().length === 1 ? 'Vale para a única que é flashcard.' : 'Vale para as ' + cards().length + ' que são flashcards.' }}</p>
+            }
+            @if (studyWall() !== undefined) {
+              <button type="button" class="volta" (click)="reset('emural')"><lucide-icon [img]="UndoIcon" [size]="14" aria-hidden="true" />Deixar como está</button>
+            }
+          </div>
+        </div>
+      }
+
+      @if (onBoard().length) {
+        <!-- no quadro: a importância (as etiquetas da ficha do quadro) e se aparecem no mural também -->
+        <div class="linha" [class.mexida]="importance() !== undefined">
+          <span class="nome" [id]="id + '-imp'"><lucide-icon [img]="BoardIcon" [size]="16" aria-hidden="true" />Importância</span>
+          <div class="valor">
+            <div class="ops" role="radiogroup" [attr.aria-labelledby]="id + '-imp'" (keydown)="rove($event)">
+              <button
+                type="button"
+                role="radio"
+                class="imp nenhuma"
+                [class.colado]="impShown() === ''"
+                [attr.aria-checked]="impShown() === ''"
+                [attr.tabindex]="tabFor(impShown(), '', '')"
+                (click)="importance.set(null)"
+              >
+                Nenhuma
+              </button>
+              @for (i of scale; track i) {
+                <button
+                  type="button"
+                  role="radio"
+                  class="imp"
+                  [attr.data-imp]="i"
+                  [class.colado]="impShown() === i"
+                  [attr.aria-checked]="impShown() === i"
+                  [attr.tabindex]="tabFor(impShown(), i, '')"
+                  (click)="importance.set(i)"
+                >
+                  <span class="escala" aria-hidden="true">
+                    @for (s of steps; track s) {
+                      <i [class.acesa]="s <= level[i]"></i>
+                    }
+                  </span>
+                  {{ impLabel[i] }}
+                </button>
+              }
+            </div>
+            @if (importance() === undefined && importanceNow().mixed) {
+              <p class="como"><span class="varios">Vários</span> cada uma com a sua</p>
+            }
+            @if (importance() !== undefined) {
+              <button type="button" class="volta" (click)="reset('imp')"><lucide-icon [img]="UndoIcon" [size]="14" aria-hidden="true" />Deixar como está</button>
+            }
+          </div>
+        </div>
+
+        <div class="linha" [class.mexida]="boardWall() !== undefined">
+          <span class="nome" [id]="id + '-kmural'"><lucide-icon [img]="BoardIcon" [size]="16" aria-hidden="true" />Kanban</span>
+          <div class="valor">
+            <div class="ops" role="radiogroup" [attr.aria-labelledby]="id + '-kmural'" (keydown)="rove($event)">
+              @for (o of boardWalls; track o.label) {
+                <button
+                  type="button"
+                  role="radio"
+                  class="op"
+                  [class.colado]="shown(boardWall(), boardWallNow().value) === o.value"
+                  [attr.aria-checked]="shown(boardWall(), boardWallNow().value) === o.value"
+                  [attr.tabindex]="tabFor(shown(boardWall(), boardWallNow().value), o.value, true)"
+                  (click)="boardWall.set(o.value)"
+                >
+                  {{ o.label }}
+                </button>
+              }
+            </div>
+            @if (boardWall() === undefined && boardWallNow().mixed) {
+              <p class="como"><span class="varios">Vários</span> umas no mural, outras só no Kanban</p>
+            }
+            @if (onBoard().length < n()) {
+              <p class="nota">{{ onBoard().length === 1 ? 'Vale para a única que está no quadro.' : 'Vale para as ' + onBoard().length + ' que estão no quadro.' }}</p>
+            }
+            @if (boardWall() !== undefined) {
+              <button type="button" class="volta" (click)="reset('kmural')"><lucide-icon [img]="UndoIcon" [size]="14" aria-hidden="true" />Deixar como está</button>
+            }
+          </div>
+        </div>
+      }
+
 
       @if (isNotes()) {
         <!-- o grupo: o de todas, ou "Vários" com quais; tocar abre as orelhas dos grupos, como no editor -->
@@ -43,16 +163,23 @@
                 <button type="button" class="volta" (click)="reset('grupo')"><lucide-icon [img]="UndoIcon" [size]="14" aria-hidden="true" />Deixar como está</button>
               }
             </div>
+            <!-- o baralho e o quadro são de um grupo: mudar de grupo tira daqui (o editor avisa o mesmo) -->
+            @if (category() !== undefined && place() === 'estudos') {
+              <p class="nota">Saem dos baralhos deste grupo, com o progresso guardado: voltam se voltarem ao grupo.</p>
+            }
+            @if (category() !== undefined && place() === 'kanban') {
+              <p class="nota">O quadro é do grupo: saem deste quadro e voltam para o mural.</p>
+            }
             @if (open() === 'grupo') {
               <div class="parte" [id]="id + '-grupo-parte'">
-                <app-group-picker [category]="pickerGroup()" (categoryChange)="pickGroup($event)" [categories]="categoryLib()" />
+                <app-group-picker [category]="pickerGroup()" [none]="pickerNone()" (categoryChange)="pickGroup($event)" [categories]="categoryLib()" />
               </div>
             }
           </div>
         </div>
 
         <!-- a pasta: só no grupo de todas (a pasta é de um grupo) -->
-        <div class="linha" [class.mexida]="folder() !== undefined">
+        <div class="linha" [class.mexida]="folder() !== undefined || !!newFolder()">
           <span class="nome" [id]="id + '-pasta'"><lucide-icon [img]="FolderIcon" [size]="16" aria-hidden="true" />Pasta</span>
           <div class="valor">
             @if (finalGroup() === null) {
@@ -75,7 +202,7 @@
                     <span class="sem">Direto em {{ finalGroup() || 'Sem grupo' }}</span>
                   }
                 </button>
-                @if (folder() !== undefined) {
+                @if (folder() !== undefined || newFolder()) {
                   <button type="button" class="volta" (click)="reset('pasta')"><lucide-icon [img]="UndoIcon" [size]="14" aria-hidden="true" />Deixar como está</button>
                 }
               </div>
@@ -152,7 +279,14 @@
             </p>
           }
           @if (audience() === 'publica') {
-            <p class="nota">Ficam no seu mural público, sem aviso no Feed de quem segue.</p>
+            @if (audienceNow().privadas) {
+              <p class="nota">
+                {{ audienceNow().privadas === 1 ? 'A privada fica' : 'As ' + audienceNow().privadas + ' privadas ficam' }} no seu mural público, sem aviso no Feed de quem segue.
+              </p>
+            }
+          }
+          @if (audience() === 'privada' && audienceNow().publicas) {
+            <p class="nota">{{ audienceNow().publicas === 1 ? 'A pública passa a ser só sua.' : 'As ' + audienceNow().publicas + ' públicas passam a ser só suas.' }}</p>
           }
           @if (sharedCount() && audience() !== undefined) {
             <p class="nota">
@@ -169,12 +303,12 @@
       <div class="linha" [class.mexida]="stock() !== undefined">
         <span class="nome" [id]="id + '-cor'"><lucide-icon [img]="StockIcon" [size]="16" aria-hidden="true" />Cartolina</span>
         <div class="valor">
-          <div class="cores" role="radiogroup" [attr.aria-labelledby]="id + '-cor'" (keydown)="rove($event)">
+          <div class="amostras-cor" role="radiogroup" [attr.aria-labelledby]="id + '-cor'" (keydown)="rove($event)">
             @for (s of stocks; track s) {
               <button
                 type="button"
                 role="radio"
-                class="cor"
+                class="amostra-cor"
                 [class.colado]="shown(stock(), stockNow().value) === s"
                 [attr.aria-checked]="shown(stock(), stockNow().value) === s"
                 [attr.aria-label]="stockLabels[s]"
@@ -194,7 +328,7 @@
         </div>
       </div>
 
-      @if (isNotes() && place() !== 'kanban') {
+      @if (isNotes() && place() === 'mural') {
         <!-- no topo do mural ou com as outras -->
         <div class="linha" [class.mexida]="pinned() !== undefined">
           <span class="nome" [id]="id + '-fixar'"><lucide-icon [img]="PinIcon" [size]="16" aria-hidden="true" />No mural</span>
@@ -224,110 +358,6 @@
         </div>
       }
 
-      @if (place() === 'kanban' && onBoard().length) {
-        <!-- no quadro: a importância (as etiquetas da ficha do quadro) e se aparecem no mural também -->
-        <div class="linha" [class.mexida]="importance() !== undefined">
-          <span class="nome" [id]="id + '-imp'"><lucide-icon [img]="BoardIcon" [size]="16" aria-hidden="true" />Importância</span>
-          <div class="valor">
-            <div class="ops" role="radiogroup" [attr.aria-labelledby]="id + '-imp'" (keydown)="rove($event)">
-              <button
-                type="button"
-                role="radio"
-                class="imp nenhuma"
-                [class.colado]="impShown() === ''"
-                [attr.aria-checked]="impShown() === ''"
-                [attr.tabindex]="tabFor(impShown(), '', '')"
-                (click)="importance.set(null)"
-              >
-                Nenhuma
-              </button>
-              @for (i of scale; track i) {
-                <button
-                  type="button"
-                  role="radio"
-                  class="imp"
-                  [attr.data-imp]="i"
-                  [class.colado]="impShown() === i"
-                  [attr.aria-checked]="impShown() === i"
-                  [attr.tabindex]="tabFor(impShown(), i, '')"
-                  (click)="importance.set(i)"
-                >
-                  <span class="escala" aria-hidden="true">
-                    @for (s of steps; track s) {
-                      <i [class.acesa]="s <= level[i]"></i>
-                    }
-                  </span>
-                  {{ impLabel[i] }}
-                </button>
-              }
-            </div>
-            @if (importance() === undefined && importanceNow().mixed) {
-              <p class="como"><span class="varios">Vários</span> cada uma com a sua</p>
-            }
-            @if (importance() !== undefined) {
-              <button type="button" class="volta" (click)="reset('imp')"><lucide-icon [img]="UndoIcon" [size]="14" aria-hidden="true" />Deixar como está</button>
-            }
-          </div>
-        </div>
-
-        <div class="linha" [class.mexida]="boardWall() !== undefined">
-          <span class="nome" [id]="id + '-kmural'"><lucide-icon [img]="PinIcon" [size]="16" aria-hidden="true" />No mural</span>
-          <div class="valor">
-            <div class="ops" role="radiogroup" [attr.aria-labelledby]="id + '-kmural'" (keydown)="rove($event)">
-              @for (o of boardWalls; track o.label) {
-                <button
-                  type="button"
-                  role="radio"
-                  class="op"
-                  [class.colado]="shown(boardWall(), boardWallNow().value) === o.value"
-                  [attr.aria-checked]="shown(boardWall(), boardWallNow().value) === o.value"
-                  [attr.tabindex]="tabFor(shown(boardWall(), boardWallNow().value), o.value, true)"
-                  (click)="boardWall.set(o.value)"
-                >
-                  {{ o.label }}
-                </button>
-              }
-            </div>
-            @if (boardWall() === undefined && boardWallNow().mixed) {
-              <p class="como"><span class="varios">Vários</span> umas no mural, outras só no Kanban</p>
-            }
-            @if (boardWall() !== undefined) {
-              <button type="button" class="volta" (click)="reset('kmural')"><lucide-icon [img]="UndoIcon" [size]="14" aria-hidden="true" />Deixar como está</button>
-            }
-          </div>
-        </div>
-      }
-
-      @if (place() === 'estudos' && cards().length) {
-        <!-- onde os flashcards aparecem: a escolha da aba Flashcard do editor, para todos de uma vez -->
-        <div class="linha" [class.mexida]="studyWall() !== undefined">
-          <span class="nome" [id]="id + '-emural'"><lucide-icon [img]="StudyIcon" [size]="16" aria-hidden="true" />Onde aparece</span>
-          <div class="valor">
-            <div class="ops" role="radiogroup" [attr.aria-labelledby]="id + '-emural'" (keydown)="rove($event)">
-              @for (o of studyWalls; track o.label) {
-                <button
-                  type="button"
-                  role="radio"
-                  class="op"
-                  [class.colado]="studyShown() === o.value"
-                  [attr.aria-checked]="studyShown() === o.value"
-                  [attr.tabindex]="tabFor(studyShown(), o.value, null)"
-                  (click)="studyWall.set(o.value)"
-                >
-                  {{ o.label }}
-                </button>
-              }
-            </div>
-            @if (studyWall() === undefined && studyWallNow().mixed) {
-              <p class="como"><span class="varios">Vários</span> cada um num lugar</p>
-            }
-            @if (studyWall() !== undefined) {
-              <button type="button" class="volta" (click)="reset('emural')"><lucide-icon [img]="UndoIcon" [size]="14" aria-hidden="true" />Deixar como está</button>
-            }
-          </div>
-        </div>
-      }
-
       <!-- o que acontece na hora, sem esperar o Aplicar (com o Desfazer de sempre). Nos Flashcards, apagar levaria a
            anotação inteira, e não só o flashcard: fica de fora -->
       @if (isNotes() || place() !== 'estudos') {
@@ -336,18 +366,22 @@
           <div class="valor">
             <div class="agora" role="group" [attr.aria-labelledby]="id + '-agora'">
               @if (isNotes() && doneCount() < n()) {
-                <button type="button" class="papel" (click)="doAct('finalizar')"><lucide-icon [img]="DoneIcon" [size]="16" aria-hidden="true" />Finalizar {{ allShort() }}</button>
+                <button type="button" class="papel" [disabled]="touched() > 0" (click)="doAct('finalizar')">
+                  <lucide-icon [img]="DoneIcon" [size]="16" aria-hidden="true" />Finalizar {{ allShort() }}
+                </button>
               }
               @if (isNotes() && doneCount()) {
-                <button type="button" class="papel" (click)="doAct('reabrir')"><lucide-icon [img]="ReopenIcon" [size]="16" aria-hidden="true" />Reabrir</button>
+                <button type="button" class="papel" [disabled]="touched() > 0" (click)="doAct('reabrir')">
+                  <lucide-icon [img]="ReopenIcon" [size]="16" aria-hidden="true" />Reabrir
+                </button>
               }
               @if (place() !== 'estudos') {
-                <button type="button" class="papel perigo" (click)="doAct('apagar')">
+                <button type="button" class="papel perigo" [disabled]="touched() > 0" (click)="doAct('apagar')">
                   <lucide-icon [img]="DeleteIcon" [size]="16" aria-hidden="true" />Apagar {{ allShort() }}
                 </button>
               }
             </div>
-            <p class="como">Sem esperar o Aplicar, com o Desfazer de sempre.</p>
+            <p class="como">{{ touched() ? 'Aplique as mudanças (ou deixe como está) antes.' : 'Sem esperar o Aplicar, com o Desfazer de sempre.' }}</p>
           </div>
         </div>
       }
@@ -355,9 +389,10 @@
 
     <footer class="foot">
       <div class="fim">
-        <button type="button" class="btn-quiet" (click)="close()">Cancelar</button>
-        <button type="button" class="btn-ink" data-acao="aplicar" [disabled]="!touched()" (click)="applyNow()">
-          {{ applyLabel() }}
+        <button type="button" class="btn-quiet" (click)="leave()">Cancelar</button>
+        <!-- sem nada mexido, o botão diz isso, quieto, em vez de um botão de tinta apagado -->
+        <button type="button" [class.btn-ink]="touched() > 0" [class.btn-quiet]="!touched()" class="aplicar" data-acao="aplicar" [disabled]="!touched()" (click)="applyNow()">
+          {{ touched() ? applyLabel() : 'Nada mudou ainda' }}
         </button>
       </div>
     </footer>

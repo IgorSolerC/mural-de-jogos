@@ -10,8 +10,10 @@ import { Review, STOCKS, STOCK_LABEL, Stock, isDone, isNote, isPinnedNote } from
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { StudyStore } from '../core/study-store';
+import { studyOnWall } from '../core/study';
 import { plural } from '../core/text';
 import { BackdropClose } from './backdrop-close';
+import { Confirm } from './confirm';
 import { CategoryLabel } from './category-label';
 import { FolderPicker } from './folder-picker';
 import { roveRadios } from './focus';
@@ -44,9 +46,6 @@ function common<T>(list: readonly T[], key: (x: T) => string = String): Shared<T
 }
 
 let uid = 0;
-
-/** O "grupo" que não é nenhum: com grupos diferentes, o seletor abre sem nenhum colado. */
-const MIXED = '\u200b';
 
 /**
  * Editar as marcadas (PLANO-SELECAO.md, 3): a ficha de fichário com uma linha por campo, como a folha do
@@ -104,6 +103,7 @@ export class BulkEditSheet {
 
   private readonly dialog = { el: null as HTMLDialogElement | null };
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+  private readonly confirm = inject(Confirm);
 
   /** Anotações (e não análises): grupo, pasta, tags, fixar e finalizar. */
   protected readonly isNotes = computed(() => this.notes().every(isNote));
@@ -142,7 +142,7 @@ export class BulkEditSheet {
   protected readonly pinned = signal<boolean | undefined>(undefined);
   protected readonly importance = signal<Importance | null | undefined>(undefined);
   protected readonly boardWall = signal<boolean | undefined>(undefined);
-  protected readonly studyWall = signal<boolean | null | undefined>(undefined);
+  protected readonly studyWall = signal<boolean | undefined>(undefined);
   /** A linha aberta (o seletor do grupo ou da pasta). */
   protected readonly open = signal<'grupo' | 'pasta' | null>(null);
 
@@ -178,11 +178,15 @@ export class BulkEditSheet {
   /** A pasta que a linha mostra: a escolhida, ou a de todas (mudar de grupo tira da pasta). */
   protected readonly folderShown = computed<Shared<string>>(() => {
     const f = this.folder();
-    if (f !== undefined) return { value: f ?? '', mixed: false };
+    if (f !== undefined || this.newFolder()) return { value: f ?? '', mixed: false };
     if (this.category() !== undefined && lookKey(this.category() ?? '') !== lookKey(this.groupNow().value ?? '\u0000')) return { value: '', mixed: false };
     return this.folderNow();
   });
+  /** A pasta nova escrita no seletor ("Criar"): nasce só no Aplicar, e não fica vazia se a folha fechar sem aplicar. */
+  protected readonly newFolder = signal<{ parent: string | null; name: string } | null>(null);
   protected readonly folderName = computed(() => {
+    const fresh = this.newFolder();
+    if (fresh) return fresh.name;
     const v = this.folderShown().value;
     return v ? (this.folders.nameOf(v) ?? 'Uma pasta') : null;
   });
@@ -208,7 +212,11 @@ export class BulkEditSheet {
     const drop = new Set(this.tagsDrop().map(lookKey));
     return [...this.tagCounts().values()].filter((t) => t.n < this.n() && !all.has(lookKey(t.label)) && !drop.has(lookKey(t.label)));
   });
-  protected readonly tagLib = computed(() => tagLibrary(this.store.notes(), this.settings.pinnedTags(), this.finalGroup() ?? undefined));
+  /** As sugestões do seletor de tags, sem as de só algumas (elas já estão logo acima, com em quantas estão). */
+  protected readonly tagLib = computed(() => {
+    const partial = new Set(this.tagsPartial().map((t) => lookKey(t.label)));
+    return tagLibrary(this.store.notes(), this.settings.pinnedTags(), this.finalGroup() ?? undefined).filter((e) => !partial.has(lookKey(e.label)));
+  });
   protected readonly tagsTouched = computed(() => this.tagsAll() !== undefined || this.tagsDrop().length > 0);
   protected tagColor(t: string): string | null {
     return tagColorHex(this.settings.categoryLooks(), t, this.finalGroup() ?? '');
@@ -252,14 +260,13 @@ export class BulkEditSheet {
   protected readonly boardWallNow = computed(() => common(this.onBoard().map((c) => c.wall)));
   /** As que são flashcards, e onde cada uma aparece (undefined: como o baralho). */
   protected readonly cards = computed(() => this.notes().flatMap((r) => (this.study.cardOf().has(r.id) ? [this.study.cardOf().get(r.id)!] : [])));
-  protected readonly studyWallNow = computed(() => common(this.cards().map((c) => (c.wall === undefined ? 'baralho' : String(c.wall)))));
-  /** O que a linha mostra colado: o escolhido, ou o de todos (`varios`: cada um num lugar). */
-  protected readonly studyShown = computed<boolean | null | 'varios'>(() => {
-    const w = this.studyWall();
-    if (w !== undefined) return w;
-    const v = this.studyWallNow().value;
-    return v === null ? 'varios' : v === 'baralho' ? null : v === 'true';
+  /** Se cada flashcard aparece no mural, como diz o interruptor da aba Flashcard (guardado fora dos baralhos: no mural). */
+  protected readonly studyWallNow = computed(() => {
+    const decks = this.study.decks();
+    return common(this.cards().map((c) => studyOnWall(c, decks) ?? true));
   });
+  /** O que a linha mostra colado: o escolhido, ou o de todos (`varios`: uns no mural, outros não). */
+  protected readonly studyShown = computed<boolean | 'varios'>(() => this.studyWall() ?? this.studyWallNow().value ?? 'varios');
 
   // ===== as escolhas de cada linha =====
 
@@ -271,14 +278,14 @@ export class BulkEditSheet {
     { value: true, label: 'Fixadas no topo' },
     { value: false, label: 'Com as outras' },
   ];
+  /** O "Mostrar no mural" das abas Kanban e Flashcard do editor, como duas escolhas (a folha mostra o "Vários"). */
   protected readonly boardWalls = [
-    { value: true, label: 'Também no mural' },
+    { value: true, label: 'Mostrar no mural' },
     { value: false, label: 'Só no Kanban' },
   ];
   protected readonly studyWalls = [
+    { value: true, label: 'Mostrar no mural' },
     { value: false, label: 'Só como flashcard' },
-    { value: true, label: 'No mural e como flashcard' },
-    { value: null, label: 'Como o baralho' },
   ];
 
   /** Numa fileira de escolhas, só a colada (ou a primeira, sem nenhuma) entra pelo Tab; as setas andam. */
@@ -292,13 +299,12 @@ export class BulkEditSheet {
     const names = this.groupNames();
     return names.length <= 3 ? names.join(', ') : `${names.slice(0, 2).join(', ')} e mais ${names.length - 2}`;
   });
-  /** O grupo marcado no seletor: o escolhido, o de todas, ou nenhum (com grupos diferentes). */
+  /** O grupo marcado no seletor: o escolhido, ou o de todas (com grupos diferentes, nenhum: `pickerNone`). */
   protected readonly pickerGroup = computed(() => {
     const c = this.category();
-    if (c !== undefined) return c;
-    const g = this.groupNow();
-    return g.mixed ? MIXED : g.value || null;
+    return c !== undefined ? c : this.groupNow().value || null;
   });
+  protected readonly pickerNone = computed(() => this.category() === undefined && this.groupNow().mixed);
   protected readonly groupKey = computed(() => lookKey(this.finalGroup() ?? ''));
   protected readonly impShown = computed(() => {
     const i = this.importance();
@@ -334,7 +340,7 @@ export class BulkEditSheet {
     return p;
   });
   /** Quantas linhas mudam (o botão diz). */
-  protected readonly touched = computed(() => Object.keys(this.patch()).length);
+  protected readonly touched = computed(() => Object.keys(this.patch()).length + (this.newFolder() ? 1 : 0));
 
   constructor() {
     afterNextRender(() => {
@@ -353,17 +359,21 @@ export class BulkEditSheet {
     this.category.set(c);
     // a pasta escolhida era do grupo de antes
     this.folder.set(undefined);
+    this.newFolder.set(null);
     this.open.set(null);
   }
 
   protected pickFolder(id: string | null): void {
     this.folder.set(id);
+    this.newFolder.set(null);
     this.open.set(null);
   }
 
+  /** "Criar" no seletor: a pasta fica guardada para o Aplicar (cancelando, ela não nasce). */
   protected createFolder(e: { parent: string | null; name: string }): void {
-    const made = this.folders.create(this.finalGroup(), e.parent, e.name);
-    if (made) this.pickFolder(made.id);
+    this.folder.set(undefined);
+    this.newFolder.set(e);
+    this.open.set(null);
   }
 
   /** O TagPicker mexeu nas que todas têm: a que saiu de lá sai de todas. */
@@ -393,9 +403,11 @@ export class BulkEditSheet {
       case 'grupo':
         this.category.set(undefined);
         this.folder.set(undefined);
+        this.newFolder.set(null);
         break;
       case 'pasta':
         this.folder.set(undefined);
+        this.newFolder.set(null);
         break;
       case 'tags':
         this.tagsAll.set(undefined);
@@ -429,12 +441,39 @@ export class BulkEditSheet {
 
   protected applyNow(): void {
     if (!this.touched()) return;
-    this.apply.emit(this.patch());
+    let patch = this.patch();
+    // a pasta nova nasce agora, no grupo de todas, e as marcadas vão para ela
+    const fresh = this.newFolder();
+    if (fresh) {
+      const made = this.folders.create(this.finalGroup(), fresh.parent, fresh.name);
+      if (made) patch = { ...patch, folder: made.id };
+    }
+    this.apply.emit(patch);
     this.close();
   }
 
   protected doAct(a: BulkAct): void {
+    // (com mudanças por aplicar, a linha Agora fica desligada: elas não se perdem num toque)
+    if (this.touched()) return;
     this.act.emit(a);
+    this.close();
+  }
+
+  /** Cancelar, o X, o Esc e o toque fora: com mudanças por aplicar, pergunta antes de jogá-las fora. */
+  protected async leave(e?: Event): Promise<void> {
+    e?.preventDefault();
+    const n = this.touched();
+    if (n) {
+      const sure = await this.confirm.ask({
+        title: 'Sair sem aplicar?',
+        text: n === 1 ? 'A mudança desta folha não vai valer.' : `As ${n} mudanças desta folha não vão valer.`,
+        confirm: 'Sair sem aplicar',
+        cancel: 'Continuar editando',
+        icon: null,
+        tone: 'neutro',
+      });
+      if (!sure) return;
+    }
     this.close();
   }
 

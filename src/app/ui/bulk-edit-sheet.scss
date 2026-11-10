@@ -60,15 +60,11 @@ dialog.massa {
   }
 }
 
-/* "Vários": o recorte ainda na cartela (tracejado), nada colado */
+/* "Vários": escrito a lápis, sem caixa (não é botão), antes de como está */
 .varios {
   display: inline-flex;
   align-items: center;
-  min-height: 26px;
-  padding: 2px 8px 1px;
-  border-radius: 2px;
-  outline: 1.5px dashed rgb(21 21 21 / 0.5);
-  outline-offset: -1.5px;
+  color: rgb(21 21 21 / 0.68);
   font-family: var(--f-label);
   font-weight: 800;
   font-size: 0.78rem;
@@ -131,7 +127,7 @@ dialog.massa {
   align-items: center;
   justify-self: start;
   gap: 5px;
-  min-height: 36px;
+  min-height: 44px;
   padding: 4px 6px;
   border: 0;
   border-radius: 2px;
@@ -197,7 +193,7 @@ dialog.massa {
 }
 
 /* ===== as cores: as amostras de cartolina, as claras numa fileira e as escuras embaixo ===== */
-.cores {
+.amostras-cor {
   display: grid;
   grid-template-columns: repeat(9, 34px);
   gap: 8px;
@@ -208,7 +204,7 @@ dialog.massa {
   }
 }
 
-.cor {
+.amostra-cor {
   aspect-ratio: 1;
   width: 100%;
   padding: 0;
@@ -326,7 +322,14 @@ dialog.massa {
   @include kit.botao-papel;
 }
 
-.fim .btn-ink:disabled {
-  opacity: 0.4;
-  transform: none;
+/* sem nada mexido: "Nada mudou ainda", quieto e legível */
+.aplicar.btn-quiet:disabled {
+  opacity: 1;
+  color: rgb(21 21 21 / 0.62);
+  cursor: default;
+}
+
+.papel:disabled {
+  opacity: 0.45;
+  cursor: default;
 }

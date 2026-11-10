@@ -319,6 +319,11 @@
 .carta-li[data-marcada] {
   counter-reset: marca var(--marca-n);
 
+  /* marcando, o toque marca: as etiquetas de hover sairiam por cima do adesivo com o número */
+  .acoes {
+    display: none;
+  }
+
   &::before {
     content: "";
     position: absolute;

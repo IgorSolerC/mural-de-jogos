@@ -537,9 +537,15 @@
 .lugar[data-marcada] > app-review-card {
   counter-reset: marca var(--marca-n);
 
-  /* marcando, a ficha mostra o adesivo dela (o da vaga do Lado a lado, ver review-card.ts): o de cá sobraria */
+  /* marcando, a ficha mostra a vaga tracejada do adesivo (a do Lado a lado, ver review-card.ts): o número da
+     marcada é colado em cima dela, do mesmo tamanho e no mesmo lugar, como o adesivo das análises marcadas */
   &.picking::after {
-    content: none;
+    top: -12px;
+    right: -12px;
+    width: 42px;
+    height: 42px;
+    border-color: var(--ink);
+    font-size: 1.35rem;
   }
 
   &:not([data-veu])::before {

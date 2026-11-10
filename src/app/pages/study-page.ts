@@ -41,7 +41,7 @@ import { TabMore, TabMoreItem } from '../ui/tab-more';
 import { Toasts } from '../ui/toast';
 import { BulkEditSheet } from '../ui/bulk-edit-sheet';
 import { SelectionTray, TrayAction } from '../ui/selection-tray';
-import { COPY_KEY } from '../ui/note-selection';
+import { SelectionFlow } from '../ui/selection-flow';
 import { NoteBulk } from '../core/note-bulk';
 import type { Review } from '../core/review';
 import { NOTES } from '../core/kinds';
@@ -751,27 +751,25 @@ export class StudyPage {
     const sel = this.cardWall()?.selection;
     return sel?.marking() ? sel : null;
   });
-  protected readonly editing = signal<readonly string[] | null>(null);
-  protected readonly editingNotes = computed(() => (this.editing() ?? []).flatMap((id) => this.ownNotes().get(id) ?? []));
-  private readonly openBulk = () => {
-    const ids = this.cardWall()?.selection.ids() ?? [];
-    if (ids.length) this.editing.set([...ids]);
-  };
-  protected readonly trayActions = computed<TrayAction[]>(() => {
-    const sel = this.marking();
-    if (!sel?.count()) return [];
-    return [
-      { id: 'copiar', label: 'Copiar', icon: ICON.copiar, hint: `O texto das marcadas (${COPY_KEY})`, run: () => void sel.copy() },
-      { id: 'editar', label: 'Editar', icon: ICON.editar, primary: true, hint: 'Onde aparecem, grupo, tags, quem vê, cartolina…', run: this.openBulk },
-    ];
-  });
-  protected clearMarks(): void {
+  protected readonly MarkIcon = ICON.marcado;
+  /** O botão Marcar: liga o modo (o toque marca) ou sai dele. */
+  protected toggleMarking(): void {
     const sel = this.cardWall()?.selection;
     if (!sel) return;
-    const before = [...sel.ids()];
-    sel.clear();
-    if (before.length) this.toasts.show('Seleção limpa', { label: 'Desfazer', run: () => sel.add(before) });
+    if (sel.marking()) sel.done();
+    else sel.start();
   }
+  /** A folha "Editar as marcadas", o Limpar e o Copiar e Editar da tira (ui/selection-flow.ts, igual nas três páginas). */
+  protected readonly flow = new SelectionFlow(() => this.cardWall()?.selection, this.ownNotes);
+  protected readonly trayActions = computed<TrayAction[]>(() => {
+    const copy = this.flow.copyAction();
+    return copy ? [copy, this.flow.editAction('Onde aparecem, grupo, tags, quem vê, cartolina…')] : [];
+  });
+  /** As marcadas que a busca ou o filtro do baralho escondem agora (continuam marcadas; a tira diz quantas). */
+  protected readonly hiddenMarks = computed(() => {
+    const shown = new Set(this.cards().map((c) => c.note));
+    return (this.marking()?.ids() ?? []).filter((id) => !shown.has(id)).length;
+  });
 
   protected readonly ownerCardMenu = (note: string): MenuSections => {
     const d = this.deck();
@@ -785,7 +783,7 @@ export class StudyPage {
     const sel = this.cardWall()?.selection;
     if (sel?.canMark(note)) {
       const on = sel.marking() && sel.has(note);
-      if (on && sel.count() > 1) edit.unshift({ id: 'editar-marcadas', label: `Editar os ${sel.count()} marcados…`, icon: ICON.camadas, dialog: true, run: this.openBulk });
+      if (on && sel.count() > 1) edit.unshift({ id: 'editar-marcadas', label: `Editar os ${sel.count()} marcados…`, icon: ICON.camadas, dialog: true, run: this.flow.open });
       edit.push({ id: 'marcar', label: on ? 'Desmarcar' : 'Marcar', icon: on ? ICON.desmarcado : ICON.marcado, hint: on ? undefined : 'Para editar vários de uma vez', run: () => sel.toggle(note) });
     }
     const end: MenuItem[] = [{ id: 'tirar', label: `Tirar de ${d.name}`, icon: ICON.tirar, danger: true, run: () => void this.removal.card(note, d.id, c.title) }];

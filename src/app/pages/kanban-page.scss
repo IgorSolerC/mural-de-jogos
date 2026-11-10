@@ -937,3 +937,13 @@ $folga-sombra: 30px;
     user-select: none;
   }
 }
+
+/* marcando, o toque marca: as etiquetas de hover da ficha marcada sairiam por cima do adesivo com o número */
+.lugar[data-marcada] ::ng-deep app-kanban-note .acoes {
+  display: none;
+}
+
+/* a tira das marcadas cobre o pé da tela: o fim do quadro precisa poder subir acima dela */
+:host-context(body.has-tray) {
+  padding-bottom: 90px;
+}

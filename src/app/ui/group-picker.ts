@@ -34,7 +34,7 @@ import { roveRadios } from './focus';
     </label>
     <div class="orelhas" role="radiogroup" [attr.aria-label]="groupLabel()" (keydown)="rove($event)">
       @if (!query().trim() && !required()) {
-        <button type="button" role="radio" class="op nenhum" [attr.aria-checked]="!category()" (click)="choose(null)">Sem grupo</button>
+        <button type="button" role="radio" class="op nenhum" [attr.aria-checked]="!category() && !none()" (click)="choose(null)">Sem grupo</button>
       }
       @for (g of shown(); track g.key) {
         <button type="button" role="radio" class="op" [attr.aria-checked]="g.on" (click)="choose(g.label)">
@@ -59,6 +59,8 @@ export class GroupPicker {
   readonly categories = input<readonly Bonus[]>([]);
   /** Sem a opção "Sem grupo". */
   readonly required = input(false);
+  /** Nenhum colado, nem o "Sem grupo" (várias anotações de grupos diferentes, na folha "Editar as marcadas"). */
+  readonly none = input(false);
   /** O nome da lista para o leitor de tela. */
   readonly groupLabel = input('Grupo da anotação');
 

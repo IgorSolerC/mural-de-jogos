@@ -27,14 +27,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-09-editar-marcadas',
+    id: '2026-11-09-codigo-na-pauta',
     version: '1.42.1',
     kind: 'ajustes',
     date: '2026-11-09',
     title: 'Editar várias de uma vez e a pasta no lugar do assunto',
     melhorias: [
-      'Editar as marcadas: no mural, no Kanban e nos Flashcards, a folha muda de uma vez o grupo, a pasta, as tags, quem vê, a cartolina e o fixar (no Kanban, a importância e o "no mural"; nos Flashcards, onde eles aparecem). O que as marcadas têm diferente aparece como "Vários", as tags de só algumas mostram em quantas estão, e tudo volta com um Desfazer só.',
-      'Marcar ficou igual em todo lugar: Ctrl+clique ou Shift+clique (que marca o intervalo até a tocada), o botão Marcar da pasta (agora também nas anotações) ou o Marcar do menu de uma ficha. Marcando, o toque marca em vez de abrir, e uma tira no pé da tela diz quantas e o que fazer: editar, mover para pasta, copiar. Nas análises, marcar é o mesmo do Lado a lado.',
+      'Editar as marcadas: no mural, no Kanban e nos Flashcards, a folha muda de uma vez o grupo, a pasta, as tags, quem vê, a cartolina e o fixar , e o "Mostrar no mural" das que são flashcards ou estão no Kanban (50 flashcards de um baralho no mural de uma vez), com a importância no quadro. O que as marcadas têm diferente aparece como "Vários", as tags de só algumas mostram em quantas estão, e tudo volta com um Desfazer só.',
+      'Marcar ficou igual em todo lugar: Ctrl+clique ou Shift+clique (que marca o intervalo até a tocada), o botão Marcar (agora também nas anotações e nos Flashcards) ou o Marcar do menu de uma ficha. Marcando, o toque marca em vez de abrir, e uma tira no pé da tela diz quantas e o que fazer: editar, mover para pasta, copiar. Nas análises, marcar é o mesmo do Lado a lado.',
       'No editor e na folha de quem só lê a compartilhada, a etiqueta Assunto virou Pasta: a árvore do grupo, recuada por nível, com a busca que acha em qualquer nível e o "Criar" que nasce dentro da pasta escolhida.',
       'No menu de uma anotação, "Mover para pasta…"; no de uma pasta, "Mover para…": a mesma árvore numa folha, sem precisar arrastar.',
       'A leitura mostra o caminho inteiro da pasta (Programação › Funcional), e tocar nele abre a parede nela. O PDF leva o caminho também.',
@@ -42,6 +42,7 @@ export const NEWS: NewsEntry[] = [
       'Nas configurações do mural, a parte Assuntos virou Pastas: a árvore de cada grupo, com criar, renomear, mover e desfazer.',
       'Na API e no MCP, a nota traz a pasta (o id e o caminho), o contexto traz a árvore de cada grupo, criar e editar aceitam a pasta pelo caminho (as que faltam nascem) e listar filtra por ela, com as de dentro. O assunto continua valendo, como a pasta de cima.',
     ],
+    correcoes: ['O código na linha das folhas com pauta encosta de verdade na linha de baixo, sem o fio de papel branco entre os dois.'],
   },
   {
     id: '2026-11-09-pastas-dentro-de-pastas',

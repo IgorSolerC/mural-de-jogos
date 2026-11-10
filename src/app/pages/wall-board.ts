@@ -33,6 +33,7 @@ import { stepFocus } from './wall-keys';
 const DATE_SORTS = ['criacao', 'alteracao', 'finalizacao'] as const;
 
 const NONE: ReadonlySet<string> = new Set();
+const NO_PICKS: ReadonlyMap<string, number> = new Map();
 
 /** O que muda nas fichas conforme quem olha o mural (o dono ou quem visita); o resto vem da vista. */
 export type WallAccess = Pick<WallCardProps, 'landingId' | 'picking' | 'picked' | 'masked' | 'secret' | 'reactCode' | 'checkable' | 'looks'>;
@@ -157,12 +158,10 @@ export class WallBoard {
     boardOnly: this.shownBoard(),
     studyOnly: this.view.studyOnly(),
     folders: this.cardFolders(),
-    // as anotações marcadas: o adesivo de cada uma diz a ordem (nas análises, a do Lado a lado, da página)
-    ...(this.notes() ? { picked: this.markOrder() } : {}),
+    // nas anotações, o número das marcadas é pintado só nelas (ver NoteSelection.paint e o .picking::after do
+    // wall-board.scss): marcar uma não refaz as entradas de todas as fichas da parede
+    ...(this.notes() ? { picked: NO_PICKS } : {}),
   }));
-
-  /** id → posição das anotações marcadas (1, 2, 3…). */
-  private readonly markOrder = computed(() => new Map(this.selection.ids().map((id, i) => [id, i + 1])));
 
   /**
    * As pastas que as fichas leem: dentro de uma pasta, a ficha não repete o nome dela (a parede já diz onde

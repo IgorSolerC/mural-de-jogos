@@ -43,8 +43,9 @@ Uma folha "Editar N marcadas", aberta pela tira e pelo menu de uma marcada. As e
   de cada anotação se perde (sobrescrever tudo apagaria as tags de cada uma).
 - **Campos:** anotações: Grupo, Pasta (no grupo comum; mudar o grupo tira das pastas, como no editor), Tags,
   Quem vê (Público/Privado), Cor da cartolina, Fixada. Análises: Quem vê e Cor da cartolina. No Kanban, mais
-  Coluna, Importância e "No mural". Nos Flashcards, mais "Onde aparece" (Só como flashcard / No mural e como
-  flashcard / Como o baralho).
+  Importância e o "Mostrar no mural" do Kanban (das que estão no quadro). E o "Mostrar no mural" do flashcard (das que
+  são flashcards), o mesmo interruptor da aba Flashcard do editor, onde quer que a folha abra: o pedido era poder
+  mostrar 50 flashcards de um baralho no mural de uma vez.
 - **Agora** (a última linha, porque não espera o Aplicar): Finalizar/Reabrir e Apagar (com a pergunta de sempre e o
   Desfazer). Nos Flashcards não há Apagar: levaria a anotação inteira, e não só o flashcard.
 - **Gravar:** um Aplicar só, um bilhete só com um Desfazer só. A regra de cada campo é a mesma da API
@@ -64,5 +65,5 @@ Uma folha "Editar N marcadas", aberta pela tira e pelo menu de uma marcada. As e
 
 - [x] Rodada 1 (Shift, toque marcando, análises no Lado a lado, a tira, Marcar nas anotações e no menu, arrastar várias)
 - [x] Rodada 2 (a folha no mural e no Kanban; as ações de agora numa linha "Agora", não no pé)
-- [x] Rodada 3 (nos Flashcards: Onde aparece, sem Apagar, no masculino)
+- [x] Rodada 3 (nos Flashcards: o Mostrar no mural, o botão Marcar, sem Apagar, no masculino)
 - [ ] Rodada 4

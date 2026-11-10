@@ -29,7 +29,8 @@ import { ColumnWheel } from '../ui/column-wheel';
 import { KanbanNote } from '../ui/kanban-note';
 import { NearPool, NearScreen } from '../ui/near-screen';
 import { MuralConfig } from '../ui/mural-config';
-import { COPY_KEY, NoteSelection } from '../ui/note-selection';
+import { NoteSelection } from '../ui/note-selection';
+import { SelectionFlow } from '../ui/selection-flow';
 import { SelectionTray, TrayAction } from '../ui/selection-tray';
 import { BulkEditSheet } from '../ui/bulk-edit-sheet';
 import { NoteBulk } from '../core/note-bulk';
@@ -587,27 +588,15 @@ export class KanbanPage {
   /** O que a tira faz com as marcadas (PLANO-SELECAO.md, 1). */
   protected readonly trayActions = computed<TrayAction[]>(() => {
     const out: TrayAction[] = [];
-    if (this.selection.count()) out.push({ id: 'copiar', label: 'Copiar', icon: ICON.copiar, hint: `O texto das marcadas (${COPY_KEY})`, run: () => void this.selection.copy() });
-    out.push({ id: 'editar', label: 'Editar', icon: ICON.editar, primary: true, hint: 'Importância, no mural, grupo, tags, quem vê, cartolina…', run: this.openBulk });
+    const copy = this.flow.copyAction();
+    if (copy) out.push(copy);
+    out.push(this.flow.editAction('Importância, no mural, grupo, tags, quem vê, cartolina…'));
     return out;
   });
 
   protected readonly bulk = inject(NoteBulk);
-  /** A folha "Editar as marcadas" aberta, com as que estavam marcadas quando abriu. */
-  protected readonly editing = signal<readonly string[] | null>(null);
-  protected readonly editingNotes = computed(() => (this.editing() ?? []).flatMap((id) => this.notes().get(id) ?? []));
-  /** Abre a folha (a tira e o menu de uma marcada). */
-  protected readonly openBulk = () => {
-    const ids = this.selection.ids();
-    if (ids.length) this.editing.set([...ids]);
-  };
-
-  /** Limpar: desmarca tudo (continua marcando), com o Desfazer. */
-  protected clearMarks(): void {
-    const before = [...this.selection.ids()];
-    this.selection.clear();
-    if (before.length) this.toasts.show('Seleção limpa', { label: 'Desfazer', run: () => this.selection.add(before) });
-  }
+  /** A folha "Editar as marcadas", o Limpar e o Copiar e Editar da tira (ui/selection-flow.ts, igual nas três páginas). */
+  protected readonly flow = new SelectionFlow(() => this.selection, this.notes);
 
   /**
    * O menu do botão direito (ou de Shift+F10) numa ficha do quadro (ver ui/note-menu.ts), com o que o

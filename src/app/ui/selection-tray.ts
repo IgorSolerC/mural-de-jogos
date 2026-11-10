@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, input, output } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
-import { IconModule } from './icons';
+import { ICON, IconModule } from './icons';
 
 /** Uma ação da tira sobre as marcadas: a principal é o botão de tinta; as outras, discretas. */
 export interface TrayAction {
@@ -36,6 +36,8 @@ export interface TrayAction {
           }
         } @else {
           {{ hint() }}
+          <!-- no mouse, o atalho de quem já sabe: o Shift marca o intervalo -->
+          <span class="atalho">Ctrl+clique marca; Shift+clique, o intervalo</span>
         }
       </p>
       <div class="acoes">
@@ -50,7 +52,11 @@ export interface TrayAction {
         @if (count()) {
           <button type="button" class="btn-quiet" data-acao="limpar" (click)="clear.emit()">Limpar</button>
         }
-        <button type="button" class="btn-quiet" data-acao="pronto" (click)="done.emit()" aria-keyshortcuts="Escape">Pronto</button>
+        <!-- no celular, o Pronto vira o X no canto da tira (os outros cabem numa linha) -->
+        <button type="button" class="btn-quiet pronto" data-acao="pronto" (click)="done.emit()" aria-keyshortcuts="Escape" aria-label="Pronto">
+          <lucide-icon class="pronto-x" [img]="CloseIcon" [size]="20" aria-hidden="true" />
+          <span class="pronto-txt" aria-hidden="true">Pronto</span>
+        </button>
         <!-- sem nada marcado, a principal não tem o que fazer: a frase diz como marcar -->
         @if (count() && main(); as a) {
           <button type="button" class="btn-ink principal" [attr.data-acao]="a.id" [disabled]="a.disabled" [attr.title]="a.hint ?? null" (click)="a.run()">
@@ -142,6 +148,25 @@ export interface TrayAction {
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      min-height: 44px;
+    }
+    .pronto-x {
+      display: none;
+    }
+    .atalho {
+      display: none;
+      margin-left: 10px;
+      font-family: var(--f-hand);
+      font-weight: 700;
+      font-size: 1.02rem;
+      letter-spacing: 0;
+      text-transform: none;
+      color: rgb(21 21 21 / 0.72);
+    }
+    @media (pointer: fine) and (min-width: 561px) {
+      .atalho {
+        display: inline;
+      }
     }
     .principal {
       margin-left: 6px;
@@ -181,6 +206,27 @@ export interface TrayAction {
       .btn-quiet {
         padding-inline: 8px;
       }
+      /* sem os desenhos, as ações discretas cabem numa linha */
+      .acoes .btn-quiet:not(.pronto) lucide-icon {
+        display: none;
+      }
+      .conta {
+        padding-right: 44px;
+      }
+      .pronto {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        width: 44px;
+        justify-content: center;
+        padding: 0;
+      }
+      .pronto .pronto-x {
+        display: inline-flex;
+      }
+      .pronto-txt {
+        display: none;
+      }
       .principal {
         flex: 1 1 100%;
         justify-content: center;
@@ -196,6 +242,7 @@ export class SelectionTray {
   readonly hidden = input(0);
   /** O que a tira diz sem nada marcado ("Toque nas fichas que vão pro lado a lado"). */
   readonly hint = input('Toque nas fichas para marcar');
+  protected readonly CloseIcon = ICON.fechar;
   /** O nome da tira, para o leitor de tela. */
   readonly label = input('Marcadas');
   /** "marcada" e "marcadas" (nos Flashcards, "marcado" e "marcados"). */

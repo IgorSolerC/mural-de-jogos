@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, viewChild } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { ICON, IconModule } from '../ui/icons';
 import { reviewPath } from '../core/areas';
@@ -11,11 +11,10 @@ import { Reactions } from '../core/reactions';
 import { Settings } from '../core/settings';
 import { SideBySide } from '../core/side-by-side';
 import { WallView } from '../core/wall-view';
-import { COPY_KEY } from '../ui/note-selection';
+import { SelectionFlow } from '../ui/selection-flow';
 import { BulkEditSheet } from '../ui/bulk-edit-sheet';
 import { Pin } from '../ui/pin';
 import { SelectionTray, TrayAction } from '../ui/selection-tray';
-import { Toasts } from '../ui/toast';
 import { WallToolbar } from '../ui/wall-toolbar';
 import { WallAccess, WallBoard } from './wall-board';
 
@@ -37,23 +36,11 @@ export class WallPage {
   private readonly reactions = inject(Reactions);
   private readonly view = inject(WallView);
   private readonly router = inject(Router);
-  private readonly toasts = inject(Toasts);
   protected readonly bulk = inject(NoteBulk);
   protected readonly board = viewChild(WallBoard);
-  /** A folha "Editar as marcadas" aberta, com as que estavam marcadas quando abriu. */
-  protected readonly editing = signal<readonly string[] | null>(null);
-  /** As marcadas da folha aberta, como estão agora. */
-  protected readonly editingNotes = computed(() => {
-    const ids = this.editing();
-    if (!ids) return [];
-    const byId = new Map(this.mural.reviews().map((r) => [r.id, r]));
-    return ids.flatMap((id) => byId.get(id) ?? []);
-  });
-  /** Abre a folha (a tira e o menu de uma marcada). */
-  protected readonly openBulk = () => {
-    const ids = this.marks();
-    if (ids.length) this.editing.set([...ids]);
-  };
+  private readonly byId = computed(() => new Map(this.mural.reviews().map((r) => [r.id, r])));
+  /** A folha "Editar as marcadas", o Limpar e o Copiar e Editar da tira (ui/selection-flow.ts, igual nas três páginas). */
+  protected readonly flow = new SelectionFlow(() => this.board()?.selection, this.byId);
 
   protected readonly PlusIcon = ICON.adicionar;
   /** O mural de anotações: o vazio fala de anotação, não de resenha. */
@@ -98,14 +85,9 @@ export class WallPage {
     }
     const n = this.marks().length;
     if (this.notes()) {
+      const copy = this.flow.copyAction();
+      if (copy) out.push(copy);
       if (n) {
-        out.push({
-          id: 'copiar',
-          label: 'Copiar',
-          icon: ICON.copiar,
-          hint: `O texto das marcadas (${COPY_KEY})`,
-          run: () => void this.board()?.selection.copy(),
-        });
         const one = this.board()?.markedGroup() !== undefined;
         out.push({
           id: 'pasta',
@@ -116,23 +98,9 @@ export class WallPage {
           run: () => this.board()?.moveMarked(),
         });
       }
-      out.push({
-        id: 'editar',
-        label: 'Editar',
-        icon: ICON.editar,
-        primary: true,
-        hint: 'Grupo, pasta, tags, quem vê, cartolina…',
-        run: this.openBulk,
-      });
+      out.push(this.flow.editAction('Grupo, pasta, tags, quem vê, cartolina…'));
     } else {
-      if (n)
-        out.push({
-          id: 'editar',
-          label: 'Editar',
-          icon: ICON.editar,
-          hint: 'Quem vê e a cartolina',
-          run: this.openBulk,
-        });
+      if (n) out.push(this.flow.editAction('Quem vê e a cartolina', false));
       out.push({
         id: 'lado-a-lado',
         label: 'Ver lado a lado',
@@ -147,19 +115,6 @@ export class WallPage {
   constructor() {
     // sair do mural encerra a marcação
     inject(DestroyRef).onDestroy(() => this.side.picking.set(false));
-  }
-
-  /** Limpar: desmarca tudo (continua marcando), com o Desfazer. */
-  protected clearMarks(): void {
-    const sel = this.board()?.selection;
-    if (!sel) return;
-    const before = [...sel.ids()];
-    sel.clear();
-    if (before.length)
-      this.toasts.show('Seleção limpa', {
-        label: 'Desfazer',
-        run: () => sel.add(before),
-      });
   }
 
   private openSide(): void {

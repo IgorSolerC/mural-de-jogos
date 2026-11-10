@@ -89,12 +89,9 @@ export class StudyCardWall {
     markable: '.carta-li[data-carta]',
     idOf: (el) => el.getAttribute('data-carta'),
     on: () => !!this.marks(),
-    notes: computed(() => {
-      const all = this.marks();
-      if (!all) return new Map<string, Review>();
-      const here = new Set(this.cards().map((c) => c.note));
-      return new Map([...all].filter(([id]) => here.has(id)));
-    }),
+    // todas as suas anotações, e não só as cartas à mostra: a busca do baralho não desmarca (a tira diz quantas
+    // ficaram fora da vista); trocar de baralho, sim
+    notes: computed(() => this.marks() ?? new Map<string, Review>()),
     // outro baralho: as marcas eram das cartas dele
     reset: computed(() => this.deck().id),
     layout: this.cards,

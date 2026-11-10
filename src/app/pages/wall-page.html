@@ -24,7 +24,7 @@
   </section>
 } @else {
   <app-wall-toolbar class="toolbar" />
-  <app-wall-board [access]="access()" [folderActions]="folders" [bulkEdit]="openBulk" (opened)="desk.openReview($event)" (create)="desk.newReview()" />
+  <app-wall-board [access]="access()" [folderActions]="folders" [bulkEdit]="flow.open" (opened)="desk.openReview($event)" (create)="desk.newReview()" />
 
   @if (side.picking()) {
     <app-selection-tray
@@ -33,14 +33,14 @@
       [hint]="notes() ? 'Toque nas anotações para marcar' : 'Toque nas fichas que vão pro lado a lado'"
       [label]="notes() ? 'Anotações marcadas' : 'Marcando fichas pra ver lado a lado'"
       [actions]="trayActions()"
-      (clear)="clearMarks()"
+      (clear)="flow.clear()"
       (done)="board()?.selection?.done()"
     />
   }
 
-  @if (editing(); as ids) {
+  @if (flow.editing(); as ids) {
     @defer (on immediate) {
-      <app-bulk-edit-sheet [notes]="editingNotes()" place="mural" (apply)="bulk.run(ids, $event)" (act)="bulk.act(ids, $event)" (closed)="editing.set(null)" />
+      <app-bulk-edit-sheet [notes]="flow.editingNotes()" place="mural" (apply)="bulk.run(ids, $event)" (act)="bulk.act(ids, $event)" (closed)="flow.editing.set(null)" />
     }
   }
 }

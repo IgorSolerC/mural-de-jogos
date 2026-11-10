@@ -3,11 +3,12 @@ import { lookKey } from './category-looks';
 import { Importance, KanbanCard, setImportance, setWall } from './kanban';
 import { KanbanStore } from './kanban-store';
 import { sanitizeTags } from './note-labels';
-import { Review, Stock, audienceFields, isNote, isPinnedNote, withPin } from './review';
+import { Review, Stock, audienceFields, fold, isNote, isPinnedNote, withPin } from './review';
 import { ReviewStore } from './review-store';
 import { canWrite } from './shared-notes';
 import { SharedStore } from './shared-store';
 import { StudyStore } from './study-store';
+import { studyOnWall } from './study';
 import { KanbanDeps } from './kanban-deps';
 import { NoteDone } from './note-done';
 import { plural } from './text';
@@ -33,7 +34,7 @@ export interface BulkPatch {
   /** No quadro (só as que estão nele): a importância (null: nenhuma) e se aparecem no mural também. */
   board?: { importance?: Importance | null; wall?: boolean };
   /** Nos Flashcards (só as que são flashcards): onde aparecem; null: como o baralho pede. */
-  study?: { wall: boolean | null };
+  study?: { wall: boolean };
 }
 
 /** Como ficou: quantas mudaram, as que ficaram de fora e por quê, e o Desfazer de tudo. */
@@ -45,7 +46,7 @@ export interface BulkResult {
 }
 
 /** A mesma tag em outra grafia ("bug" e "Bug") é a mesma tag. */
-const tagKey = (t: string) => lookKey(t);
+const tagKey = (t: string) => fold(t);
 
 /**
  * A anotação com o que a folha pede (sem carimbar a hora). `can`: o que ela deixa mudar (numa compartilhada,
@@ -84,6 +85,17 @@ export function patched(r: Review, p: BulkPatch, now: string, can: { audience: b
   return next;
 }
 
+/** Os campos que `next` mudou em `r` (fora a hora), com o valor de antes (undefined: não tinha). */
+function changedFields(r: Review, next: Review): Partial<Record<keyof Review, unknown>> {
+  const out: Partial<Record<keyof Review, unknown>> = {};
+  const keys = new Set([...Object.keys(r), ...Object.keys(next)] as (keyof Review)[]);
+  for (const k of keys) {
+    if (k === 'updatedAt') continue;
+    if (JSON.stringify(r[k]) !== JSON.stringify(next[k])) out[k] = r[k];
+  }
+  return out;
+}
+
 /** O que mudou de verdade (fora a hora). */
 function same(a: Review, b: Review): boolean {
   const { updatedAt: _a, ...x } = a;
@@ -104,12 +116,12 @@ export class NoteBulk {
   private readonly motion = inject(WallMotion);
 
   /** O Aplicar da folha: muda, e o bilhete diz quantas, com o Desfazer de todas. */
-  run(ids: readonly string[], p: BulkPatch): void {
+  run(ids: readonly string[], p: BulkPatch, words?: readonly [string, string]): void {
     let res: BulkResult = { changed: 0, skipped: 0, undo: () => undefined };
     this.motion.run(() => (res = this.apply(ids, p)));
     const r = res as BulkResult;
     const notes = ids.map((id) => this.store.get(id)).filter((x) => !!x);
-    const word = notes.every(isNote) ? ['anotação mudou', 'anotações mudaram'] : ['ficha mudou', 'fichas mudaram'];
+    const word = words ?? (notes.every(isNote) ? ['anotação mudou', 'anotações mudaram'] : ['ficha mudou', 'fichas mudaram']);
     const out = r.skipped ? ` (${r.skipped === 1 ? '1 compartilhada ficou como estava' : `${r.skipped} compartilhadas ficaram como estavam`})` : '';
     if (!r.changed) {
       this.toasts.show(r.skipped ? `Nada mudou${out}.` : 'Nada mudou: elas já estavam assim.');
@@ -183,7 +195,8 @@ export class NoteBulk {
   /** Muda as anotações `ids` com o que a folha pediu, com um Desfazer só. */
   apply(ids: readonly string[], p: BulkPatch): BulkResult {
     const now = new Date().toISOString();
-    const before: Review[] = [];
+    /** Cada anotação mudada e os campos dela como eram (só os que mudaram: o Desfazer não mexe no resto). */
+    const before: { id: string; was: Partial<Record<keyof Review, unknown>> }[] = [];
     let skipped = 0;
     for (const id of ids) {
       const r = this.store.get(id);
@@ -191,10 +204,12 @@ export class NoteBulk {
       const entry = this.shared.get(id);
       // a compartilhada: quem vê muda em Compartilhar; a cartolina, só quem escreve nela
       const can = { audience: !entry, stock: !entry || canWrite(entry.papel) };
-      if ((p.audience !== undefined && !can.audience) || (p.stock && !can.stock)) skipped++;
+      // (só conta como "ficou de fora" a que mudaria)
+      const held = (p.audience !== undefined && !can.audience && !!r.private !== (p.audience === 'privada')) || (!!p.stock && !can.stock && (r.stock ?? 'branco') !== p.stock);
+      if (held) skipped++;
       const next = patched(r, p, now, can);
       if (same(next, r)) continue;
-      before.push(r);
+      before.push({ id, was: changedFields(r, next) });
       this.store.update({ ...next, updatedAt: now }, r);
     }
     const boardUndo = p.board ? this.applyBoard(ids, p.board) : null;
@@ -205,9 +220,16 @@ export class NoteBulk {
       skipped,
       undo: () => {
         const back = new Date().toISOString();
-        for (const r of before) {
-          const live = this.store.get(r.id);
-          if (live) this.store.update({ ...r, updatedAt: back }, live);
+        // só os campos que a folha mexeu voltam: o que mudou depois (o texto, outra tag) fica
+        for (const { id, was } of before) {
+          const live = this.store.get(id);
+          if (!live) continue;
+          const restored: Record<string, unknown> = { ...live, updatedAt: back };
+          for (const [k, v] of Object.entries(was)) {
+            if (v === undefined) delete restored[k];
+            else restored[k] = v;
+          }
+          this.store.update(restored as unknown as Review, live);
         }
         boardUndo?.undo();
         studyUndo?.undo();
@@ -240,16 +262,22 @@ export class NoteBulk {
     };
   }
 
-  /** Onde os flashcards aparecem (null: como o baralho pede). */
-  private applyStudy(ids: readonly string[], wall: boolean | null): { ids: string[]; undo: () => void } {
+  /**
+   * O "Mostrar no mural" dos flashcards, como o interruptor da aba Flashcard do editor: o que vale é o de cada um
+   * (`studyOnWall`; guardado fora dos baralhos, no mural), e a escolha igual à dos baralhos não é guardada (volta a
+   * seguir os baralhos).
+   */
+  private applyStudy(ids: readonly string[], wall: boolean): { ids: string[]; undo: () => void } {
     const cards = this.study.cardOf();
+    const decks = this.study.decks();
     const was: { note: string; wall: boolean | undefined }[] = [];
-    const want = wall ?? undefined;
     for (const id of ids) {
       const c = cards.get(id);
-      if (!c || c.wall === want) continue;
+      if (!c) continue;
+      const byDecks = studyOnWall({ decks: c.decks }, decks);
+      if ((c.wall ?? byDecks ?? true) === wall) continue;
       was.push({ note: id, wall: c.wall });
-      this.study.setWall(id, want);
+      this.study.setWall(id, wall === byDecks ? undefined : wall);
     }
     return {
       ids: was.map((w) => w.note),

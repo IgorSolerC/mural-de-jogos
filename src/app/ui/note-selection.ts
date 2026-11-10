@@ -240,11 +240,13 @@ export class NoteSelection {
 
   /** As fichas da tela de `from` até `to`, na ordem em que aparecem (null: `from` não está à vista). */
   private between(from: string, to: string): string[] | null {
-    const order: string[] = [];
+    // (a mesma ficha pode aparecer duas vezes, ordenando por tag: vale a primeira)
+    const seen = new Set<string>();
     for (const el of this.cfg.host.querySelectorAll(this.cfg.markable)) {
       const id = this.cfg.idOf(el);
-      if (id && !order.includes(id)) order.push(id);
+      if (id) seen.add(id);
     }
+    const order = [...seen];
     const a = order.indexOf(from);
     const b = order.indexOf(to);
     if (a < 0 || b < 0) return null;

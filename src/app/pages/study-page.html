@@ -188,6 +188,20 @@
               </select>
             </label>
           </div>
+          <!-- marcar vários flashcards para editar juntos (o mesmo Marcar da pasta do mural; no toque, o jeito sem o Ctrl) -->
+          <div class="pasta-grupo">
+            <button
+              type="button"
+              class="tinta"
+              [attr.aria-pressed]="!!marking()"
+              aria-label="Marcar flashcards"
+              title="Marcar flashcards para editar vários de uma vez (ou Ctrl+clique e Shift+clique neles)"
+              (click)="toggleMarking()"
+            >
+              <lucide-icon [img]="MarkIcon" [size]="18" aria-hidden="true" />
+              Marcar
+            </button>
+          </div>
           <!-- o tamanho das cartas: os mesmos botões de tinta do "Tipo de ficha" dos murais -->
           <div class="pasta-grupo" role="group" aria-label="Tamanho dos flashcards">
             @for (s of cardSizes; track s.value) {
@@ -297,14 +311,15 @@
     label="Flashcards marcados"
     [words]="['marcado', 'marcados']"
     [actions]="trayActions()"
-    (clear)="clearMarks()"
+    [hidden]="hiddenMarks()"
+    (clear)="flow.clear()"
     (done)="sel.done()"
   />
 }
 
-@if (editing(); as ids) {
+@if (flow.editing(); as ids) {
   @defer (on immediate) {
-    <app-bulk-edit-sheet [notes]="editingNotes()" place="estudos" (apply)="bulk.run(ids, $event)" (act)="bulk.act(ids, $event)" (closed)="editing.set(null)" />
+    <app-bulk-edit-sheet [notes]="flow.editingNotes()" place="estudos" (apply)="bulk.run(ids, $event, ['flashcard mudou', 'flashcards mudaram'])" (act)="bulk.act(ids, $event)" (closed)="flow.editing.set(null)" />
   }
 }
 

@@ -582,7 +582,7 @@
 }
 
 <!-- o menu do botão direito numa anotação do quadro (e do dedo que segura e solta sem arrastar) -->
-<app-note-menu #menuDaNota [selection]="selection" [bulkEdit]="openBulk" (opened)="read($event)" />
+<app-note-menu #menuDaNota [selection]="selection" [bulkEdit]="flow.open" (opened)="read($event)" />
 
 <!-- as marcadas (Ctrl+clique, Shift+clique, o Marcar do menu): quantas e o que fazer com elas -->
 @if (selection.marking()) {
@@ -592,14 +592,14 @@
     hint="Toque nas anotações para marcar"
     label="Anotações marcadas"
     [actions]="trayActions()"
-    (clear)="clearMarks()"
+    (clear)="flow.clear()"
     (done)="selection.done()"
   />
 }
 
-@if (editing(); as ids) {
+@if (flow.editing(); as ids) {
   @defer (on immediate) {
-    <app-bulk-edit-sheet [notes]="editingNotes()" place="kanban" (apply)="bulk.run(ids, $event)" (act)="bulk.act(ids, $event)" (closed)="editing.set(null)" />
+    <app-bulk-edit-sheet [notes]="flow.editingNotes()" place="kanban" (apply)="bulk.run(ids, $event)" (act)="bulk.act(ids, $event)" (closed)="flow.editing.set(null)" />
   }
 }
 <!-- e o de uma coluna (a etiqueta, o vão entre as anotações e o pé), também com o dedo segurado -->

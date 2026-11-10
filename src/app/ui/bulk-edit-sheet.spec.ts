@@ -3,6 +3,8 @@ import { TestBed } from '@angular/core/testing';
 import { BulkPatch } from '../core/note-bulk';
 import { Review, sanitizeReview } from '../core/review';
 import { BulkEditSheet } from './bulk-edit-sheet';
+import { Confirm } from './confirm';
+import { NoteFolders } from '../core/note-folders';
 
 const T0 = '2026-10-01T10:00:00.000Z';
 const note = (id: string, extra: Record<string, unknown> = {}): Review => ({
@@ -14,6 +16,7 @@ const note = (id: string, extra: Record<string, unknown> = {}): Review => ({
 describe('editar as marcadas (BulkEditSheet)', () => {
   let el: HTMLElement;
   let applied: BulkPatch[];
+  let instance: { createFolder(e: { parent: string | null; name: string }): void };
 
   async function mount(notes: Review[], place: 'mural' | 'kanban' | 'estudos' = 'mural'): Promise<void> {
     localStorage.clear();
@@ -23,6 +26,7 @@ describe('editar as marcadas (BulkEditSheet)', () => {
     fixture.componentRef.setInput('notes', notes);
     fixture.componentRef.setInput('place', place);
     fixture.componentInstance.apply.subscribe((p) => applied.push(p));
+    instance = fixture.componentInstance as unknown as typeof instance;
     document.body.appendChild(fixture.nativeElement);
     await fixture.whenStable();
     el = fixture.nativeElement as HTMLElement;
@@ -71,9 +75,28 @@ describe('editar as marcadas (BulkEditSheet)', () => {
     expect(applied).toEqual([{ audience: 'privada' }]);
   });
 
+  it('sair com mudanças por aplicar pergunta antes; a linha Agora espera o Aplicar', async () => {
+    await mount([note('nfol00009', { private: true }), note('nfol00010')]);
+    const confirm = TestBed.inject(Confirm);
+    // sem nada mexido, Cancelar fecha direto
+    expect(el.querySelector<HTMLButtonElement>('.agora .papel')!.disabled).toBeFalse();
+    op('Público').click();
+    await tick();
+    expect(el.querySelector<HTMLButtonElement>('.agora .papel')!.disabled).toBeTrue();
+    [...el.querySelectorAll<HTMLButtonElement>('.fim .btn-quiet')].find((b) => b.textContent!.trim() === 'Cancelar')!.click();
+    await tick();
+    expect(confirm.current()?.title).toBe('Sair sem aplicar?');
+    expect(el.querySelector('dialog')!.open).toBeTrue();
+    confirm.current()!.resolve(null);
+    await tick();
+    expect(el.querySelector('dialog')!.open).toBeTrue();
+    expect(applied).toEqual([]);
+  });
+
   it('as tags de só algumas aparecem com quantas; tocar põe em todas, o X tira de todas', async () => {
     await mount([note('nfol00005', { tags: ['Prova', 'Resumo'] }), note('nfol00006', { tags: ['Prova', 'Código'] })]);
-    const partial = () => [...el.querySelectorAll('.alguma')].map((li) => `${li.querySelector('app-note-tag')!.textContent!.trim()} ${li.querySelector('.em')!.textContent!.trim()}`);
+    const partial = () =>
+      [...el.querySelectorAll('.alguma')].map((li) => `${li.querySelector('app-note-tag')!.textContent!.trim()} ${li.querySelector('.em')!.textContent!.trim()}`);
     expect(partial()).toEqual(['Resumo em 1 de 2', 'Código em 1 de 2']);
     el.querySelector<HTMLButtonElement>('.alguma .por')!.click();
     await tick();
@@ -84,12 +107,30 @@ describe('editar as marcadas (BulkEditSheet)', () => {
     expect(applied).toEqual([{ tags: { all: ['Prova', 'Resumo'], drop: ['Código'] } }]);
   });
 
-  it('nos Flashcards: "Onde aparece" e a fala no masculino; sem apagar a anotação inteira', async () => {
+  it('nos Flashcards: a fala no masculino; sem apagar a anotação inteira', async () => {
     await mount([note('nfol00007'), note('nfol00008')], 'estudos');
     expect(el.querySelector('h2')!.textContent).toContain('Editar 2 flashcards');
     expect(el.textContent).toContain('vale para os dois');
     expect(el.textContent).not.toContain('Apagar');
+    // o fixar no topo é do mural
+    expect([...el.querySelectorAll('.linha .nome')].map((x) => x.textContent!.trim())).not.toContain('No mural');
+    expect(apply().textContent!.trim()).toBe('Nada mudou ainda');
+    op('Privado').click();
+    await tick();
     expect(apply().textContent!.trim()).toBe('Aplicar aos dois');
+  });
+
+  it('a pasta criada no seletor só nasce no Aplicar (cancelando, nenhuma pasta vazia fica)', async () => {
+    await mount([note('nfol00011', { category: 'Estudos' }), note('nfol00012', { category: 'Estudos' })]);
+    const folders = TestBed.inject(NoteFolders);
+    instance.createFolder({ parent: null, name: 'Scripts' });
+    await tick();
+    expect(folders.tree().kids('estudos', null).some((f) => f.name === 'Scripts')).toBeFalse();
+    expect(el.textContent).toContain('Scripts');
+    apply().click();
+    const made = folders.tree().kids('estudos', null).find((f) => f.name === 'Scripts');
+    expect(made).toBeDefined();
+    expect(applied).toEqual([{ folder: made!.id }]);
   });
 
   it('nas análises: só quem vê e a cartolina', async () => {

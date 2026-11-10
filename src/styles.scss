@@ -1834,10 +1834,18 @@ img.revelada {
 }
 
 /* O código na linha numa folha pautada (a folha diz o --cod-pauta-alfa da linha dela; ver ui/_formatado.scss):
-   o fundo é a cor da linha no papel, opaca, a letra é azul-marinho, e a peça desce até a linha, para as
-   duas virarem uma coisa só. Sem pauta, as três ficam inválidas (o alfa não existe) e valem as de sempre */
+   o fundo é a cor da linha no papel, opaca, e a letra é azul-marinho. Sem pauta, as duas ficam inválidas (o alfa
+   não existe) e valem as de sempre */
 .cod {
   --cod-pauta: color-mix(in srgb, rgb(64 110 190) var(--cod-pauta-alfa), var(--papel-ficha));
   --cod-pauta-tinta: color-mix(in srgb, #1a2b4c var(--cod-pauta-alfa), #1a2b4c);
-  --cod-desce: calc(var(--cod-pauta-alfa) * 0 + 2px);
+}
+
+/* e a peça desce até a linha da pauta, para as duas virarem uma coisa só, sem o fio de papel entre elas. Um
+   comprimento puro, dito nas folhas pautadas (a leitura, o Visual, a folha do widget): o truque de antes, o alfa
+   vezes zero mais 2px, dava calc(0% + 2px), e a porcentagem num top de peça na linha vale auto (não descia nada) */
+app-review-reader .text,
+.vis-folha > .ProseMirror,
+app-widget-sheet .folha-aberta {
+  --cod-desce: 2px;
 }
