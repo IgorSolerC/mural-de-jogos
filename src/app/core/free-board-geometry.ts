@@ -306,7 +306,7 @@ const round = (v: number) => Math.round(v * 10) / 10;
  * jeito no outro. Os pontos de controle ficam a uma distância que cresce com a distância entre as pontas
  * (de 40 a 300 px), então peças perto têm uma curva curta e peças longe, uma curva larga.
  */
-export function edgePath(a: Rect, b: Rect, sides: { as?: FbSide; bs?: FbSide } = {}): EdgePath {
+export function edgePath(a: Rect, b: Rect, sides: { as?: FbSide; bs?: FbSide } = {}, bend = 0): EdgePath {
   const auto = autoSides(a, b);
   const as = sides.as ?? auto.as;
   const bs = sides.bs ?? auto.bs;
@@ -314,13 +314,43 @@ export function edgePath(a: Rect, b: Rect, sides: { as?: FbSide; bs?: FbSide } =
   const to = anchor(b, bs);
   const dist = Math.hypot(to.x - from.x, to.y - from.y);
   const k = Math.min(300, Math.max(40, dist * 0.45));
-  const c1 = { x: from.x + NORMAL[as].x * k, y: from.y + NORMAL[as].y * k };
-  const c2 = { x: to.x + NORMAL[bs].x * k, y: to.y + NORMAL[bs].y * k };
+  // `bend`: a curva empurrada para um lado (perpendicular à reta entre as pontas), para contornar as peças
+  const nx = dist ? -(to.y - from.y) / dist : 0;
+  const ny = dist ? (to.x - from.x) / dist : 0;
+  const c1 = { x: from.x + NORMAL[as].x * k + nx * bend, y: from.y + NORMAL[as].y * k + ny * bend };
+  const c2 = { x: to.x + NORMAL[bs].x * k + nx * bend, y: to.y + NORMAL[bs].y * k + ny * bend };
   const mid = bezier(from, c1, c2, to, 0.5);
   const d = `M${round(from.x)} ${round(from.y)} C${round(c1.x)} ${round(c1.y)} ${round(c2.x)} ${round(c2.y)} ${round(to.x)} ${round(to.y)}`;
   // a curva fica dentro da caixa dos quatro pontos (propriedade da Bézier)
   const box = boundsOf([from, c1, c2, to].map((p) => ({ x: p.x, y: p.y, w: 0, h: 0 })))!;
   return { d, from, to, c1, c2, mid, endAngle: Math.atan2(to.y - c2.y, to.x - c2.x), startAngle: Math.atan2(from.y - c1.y, from.x - c1.x), box };
+}
+
+/**
+ * A curva de `a` até `b` que não passa por baixo de outra peça: a seta reta que cruzaria um bilhete no meio do
+ * caminho dizia ligar três peças onde liga duas. Tenta a curva de sempre e, se ela cruza uma peça (as molduras
+ * não contam: a seta passa por cima delas), empurra a curva para um lado e para o outro, cada vez mais, até
+ * achar um caminho livre; sem nenhum, fica a de sempre. `around` dá as peças que encostam numa caixa.
+ */
+export function routedEdgePath(a: Rect, b: Rect, sides: { as?: FbSide; bs?: FbSide }, around: (box: Rect) => Iterable<Rect>): EdgePath {
+  const first = edgePath(a, b, sides);
+  const step = Math.max(80, Math.min(400, Math.max(a.h, b.h, a.w * 0.5, b.w * 0.5)));
+  const blocked = (p: EdgePath): boolean => {
+    const others = [...around(p.box)].filter((r) => r !== a && r !== b && !(contains(r, a) || contains(r, b)));
+    if (!others.length) return false;
+    // as pontas ficam de fora: a curva sai e chega encostada nas peças das pontas
+    for (let k = 2; k <= 22; k++) {
+      const q = bezier(p.from, p.c1, p.c2, p.to, k / 24);
+      if (others.some((r) => q.x > r.x && q.x < r.x + r.w && q.y > r.y && q.y < r.y + r.h)) return true;
+    }
+    return false;
+  };
+  if (!blocked(first)) return first;
+  for (const m of [1, -1, 2, -2, 3, -3]) {
+    const p = edgePath(a, b, sides, m * step);
+    if (!blocked(p)) return p;
+  }
+  return first;
 }
 
 /** O ponto `t` (0 a 1) da Bézier cúbica. */

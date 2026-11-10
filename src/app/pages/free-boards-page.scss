@@ -139,78 +139,7 @@
   inset: 0;
 }
 
-.topo-esq,
-.topo-dir {
-  position: absolute;
-  top: 14px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.topo-esq {
-  left: 16px;
-  max-width: calc(100% - 120px);
-}
-
-.topo-dir {
-  right: 16px;
-}
-
-.voltar {
-  display: inline-grid;
-  place-items: center;
-  min-width: 48px;
-  min-height: 44px;
-  border: 0;
-  cursor: pointer;
-
-  &:focus-visible {
-    outline: 3px solid var(--focus);
-    outline-offset: 3px;
-  }
-}
-
-/* o nome do quadro, a pincel na fita: o mesmo papel da etiqueta de voltar, mas parado */
-.nome-quadro {
-  margin: 0;
-  padding: 6px 16px 4px;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  background-color: var(--paper);
-  background-image: var(--paper-grain);
-  background-blend-mode: multiply;
-  color: var(--ink);
-  font: 400 1.35rem / 1.15 var(--f-marker);
-  rotate: 0.8deg;
-  box-shadow: 0 1px 1px rgb(0 0 0 / 0.35), 0 6px 10px -4px rgb(0 0 0 / 0.5);
-}
-
-.tela-btn {
-  display: inline-grid;
-  place-items: center;
-  width: 46px;
-  height: 46px;
-  border: 0;
-  border-radius: 4px;
-  background: linear-gradient(to bottom, #b9b4ab, #9c978e 55%, #8b867d);
-  color: var(--ink);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.4),
-    inset 0 -2px 0 rgb(0 0 0 / 0.22),
-    0 6px 10px -3px rgb(0 0 0 / 0.6);
-  cursor: pointer;
-
-  &:hover {
-    filter: brightness(1.08);
-  }
-
-  &:focus-visible {
-    outline: 3px solid var(--focus);
-    outline-offset: 2px;
-  }
-}
+/* o topo do quadro aberto (voltar, nome, tela cheia) é a peça ui/free-board/board-top.ts, a mesma na visita */
 
 .aviso {
   position: absolute;

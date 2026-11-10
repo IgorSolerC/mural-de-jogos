@@ -1,5 +1,7 @@
 import { indiceDasPastas, notaDoEspelho, notaParaOEspelho, pastasDoFiltro } from '../../../contrato/api-v1/notas';
-import { provideZonelessChangeDetection, signal } from '@angular/core';
+import { computed, provideZonelessChangeDetection, signal } from '@angular/core';
+import { FreeBoard, sanitizeFreeBoard } from './free-board';
+import { FreeBoardStore } from './free-board-store';
 import { folderTree, withDissolvedFolder, withJoinedFolder } from './folders';
 import { TestBed } from '@angular/core/testing';
 import type { ContextoNotasV1, NotaV1 } from '../../../contrato/api-v1/notas';
@@ -187,6 +189,7 @@ describe('o espelho da API: o serviço (ApiMirror)', () => {
   let api: boolean;
   let notes: ReturnType<typeof signal<Review[]>>;
   let shared: ReturnType<typeof signal<ReadonlySet<string>>>;
+  let boards: ReturnType<typeof signal<FreeBoard[]>>;
 
   function setup(): ApiMirror {
     calls = [];
@@ -195,6 +198,7 @@ describe('o espelho da API: o serviço (ApiMirror)', () => {
     remote = { areas: ['notas'], rev: null, hashes: { nota: {}, contexto: {} } };
     notes = signal([note('r0001', 'A', { category: 'Trabalho' }), note('r0002', 'B')]);
     shared = signal<ReadonlySet<string>>(new Set());
+    boards = signal<FreeBoard[]>([]);
     const account = {
       account: () => ({ codigo: 'G11T-G00D', nome: 'Igor', ...(api ? { api: true } : {}) }),
       request: async (path: string, init: { method?: string; body?: any } = {}) => {
@@ -218,6 +222,7 @@ describe('o espelho da API: o serviço (ApiMirror)', () => {
         { provide: KanbanStore, useValue: { boardOnly: signal(new Set()), cardOf: () => null, isOnWall: () => false } },
         { provide: Settings, useValue: { notesConfig: signal({ subjects: {} }), pinnedTags: signal([]) } },
         { provide: SpendingStore, useValue: { state: signal(EMPTY_SPENDING) } },
+        { provide: FreeBoardStore, useValue: { ready: Promise.resolve(), boards, version: computed(() => boards().length) } },
       ],
     });
     return TestBed.inject(ApiMirror);
@@ -304,6 +309,21 @@ describe('o espelho da API: o serviço (ApiMirror)', () => {
     await m.afterSync(3);
     expect(posts().map((p) => p.body.poe.length)).withContext('o primeiro recusado, os outros dois vão').toEqual([50, 50, 21]);
     expect(Object.keys(remote.hashes['nota']!).length).toBe(70);
+  });
+
+  it('mudar um quadro confere só os quadros: as notas e o contexto não são refeitos nem mandados', async () => {
+    const m = setup();
+    await m.afterSync(3);
+    calls = [];
+    boards.set([sanitizeFreeBoard({ v: 1, id: 'abcdefghijklmnopqrstuv', nome: 'Mansão', grupo: 'Jogos', em: '2026-11-09T00:00:00.000Z', n: [], e: [] })!]);
+    await m.boardsOnly();
+    expect(posts().length).toBe(1);
+    expect(posts()[0]!.body.poe.map((i: { tipo: string }) => i.tipo)).toEqual(['quadro-livre']);
+    expect(posts()[0]!.body.tira).toEqual([]);
+    // o quadro que não mudou não vai de novo
+    calls = [];
+    await m.boardsOnly();
+    expect(posts()).toEqual([]);
   });
 
   it('uma chave nova faz conferir de novo na rev de agora', async () => {

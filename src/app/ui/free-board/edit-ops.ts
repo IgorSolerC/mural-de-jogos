@@ -1,5 +1,5 @@
 import { FbColor, FbEdge, FbNode, FbSide, FreeBoard, addPieces, idsOf, knownNode, newNodeId, shownNodes, withGroups } from '../../core/free-board';
-import { HOLE, Point, Rect, boundsOf, contains, distanceToPath, edgePath, grow, insideFrame, intersects, paintOrder, snap } from '../../core/free-board-geometry';
+import { GridIndex, HOLE, Point, Rect, boundsOf, contains, distanceToPath, grow, insideFrame, intersects, paintOrder, routedEdgePath, snap } from '../../core/free-board-geometry';
 import { parseVideo, parseWidgetLine, widgetDef } from '../../core/widgets';
 
 /**
@@ -33,13 +33,23 @@ export function hitPiece(nodes: readonly FbNode[], p: Point, z: number): FbNode 
 
 /** A seta mais perto do ponto, se está a menos de `tol` (no mundo). */
 export function hitEdge(board: Pick<FreeBoard, 'n' | 'e'>, p: Point, tol: number): FbEdge | null {
-  const byId = new Map(shownNodes(board).map((n) => [n.i, n]));
+  const shown = shownNodes(board);
+  const byId = new Map(shown.map((n) => [n.i, n]));
+  // o mesmo caminho que a tela desenha (contornando as peças); o índice só é montado se alguma seta está perto
+  let index: GridIndex | null = null;
+  const around = (box: Rect) => {
+    index ??= new GridIndex(shown.filter((n) => n.t !== 'm'));
+    return [...index.query(box)].map((id) => byId.get(id)!);
+  };
   let best: { e: FbEdge; d: number } | null = null;
   for (const e of board.e) {
     const a = byId.get(e.a);
     const b = byId.get(e.b);
     if (!a || !b) continue;
-    const path = edgePath(a, b, { as: e.as as FbSide | undefined, bs: e.bs as FbSide | undefined });
+    const straight = boundsOf([a, b])!;
+    // a curva contornada fica perto da caixa das duas pontas (no máximo três passos de 400 para o lado)
+    if (!intersects(grow(straight, 1500 + tol), { x: p.x, y: p.y, w: 0, h: 0 })) continue;
+    const path = routedEdgePath(a, b, { as: e.as as FbSide | undefined, bs: e.bs as FbSide | undefined }, around);
     if (!intersects(grow(path.box, tol), { x: p.x, y: p.y, w: 0, h: 0 })) continue;
     const d = distanceToPath(p, path);
     if (d <= tol && (!best || d < best.d)) best = { e, d };
@@ -292,6 +302,16 @@ export class History {
     this.past.push(before);
     if (this.past.length > HISTORY_MAX) this.past.shift();
     this.future.length = 0;
+  }
+
+  /** O quadro do último passo (o de antes da última mudança), sem voltar. */
+  last(): FreeBoard | undefined {
+    return this.past.at(-1);
+  }
+
+  /** Esquece o último passo (a mudança que se desfez sozinha, sem virar passo novo). */
+  dropLast(): void {
+    this.past.pop();
   }
 
   get canUndo(): boolean {

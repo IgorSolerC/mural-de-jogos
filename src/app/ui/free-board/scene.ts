@@ -1,5 +1,5 @@
 import { FbEdge, FbNode, FbSide, FreeBoard, shownEdges, shownNodes } from '../../core/free-board';
-import { Camera, EdgePath, GridIndex, Point, Rect, edgePath, grow, intersects, paintOrder, viewRect } from '../../core/free-board-geometry';
+import { Camera, EdgePath, GridIndex, Point, Rect, grow, intersects, paintOrder, routedEdgePath, viewRect } from '../../core/free-board-geometry';
 import { localImageId } from '../../core/images';
 import { parseWidgetLine, readMedia } from '../../core/widgets';
 
@@ -98,6 +98,7 @@ export class Scene {
   private readonly edges: FbEdge[];
   /** As setas de cada peça (para achar as que tocam a tela sem olhar todas). */
   private readonly edgesOf = new Map<string, FbEdge[]>();
+  private readonly paths = new Map<string, EdgePath | null>();
 
   constructor(readonly board: FreeBoard) {
     const shown = shownNodes(board);
@@ -183,12 +184,23 @@ export class Scene {
     };
   }
 
-  /** A curva da seta (null se uma ponta não está no quadro). */
+  /** A curva da seta, contornando as peças do caminho (null se uma ponta não está no quadro); feita uma vez por cena. */
   pathOf(e: FbEdge): EdgePath | null {
+    const known = this.paths.get(e.i);
+    if (known !== undefined) return known;
     const a = this.nodes.get(e.a);
     const b = this.nodes.get(e.b);
-    if (!a || !b) return null;
-    return edgePath(a, b, { as: e.as as FbSide | undefined, bs: e.bs as FbSide | undefined });
+    const path = a && b ? routedEdgePath(a, b, { as: e.as as FbSide | undefined, bs: e.bs as FbSide | undefined }, (box) => this.piecesIn(box)) : null;
+    this.paths.set(e.i, path);
+    return path;
+  }
+
+  /** As peças (não as molduras) que encostam na caixa. */
+  private *piecesIn(box: Rect): Iterable<FbNode> {
+    for (const id of this.index.query(box)) {
+      const n = this.nodes.get(id)!;
+      if (n.t !== 'm') yield n;
+    }
   }
 }
 

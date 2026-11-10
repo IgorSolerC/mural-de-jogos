@@ -100,6 +100,49 @@ function publicBoardRoutes(app: Hono, deps: Deps): void {
   });
 }
 
+/** O contador dos quadros da conta depois de uma gravação (o site anota e não pede a lista à toa). */
+async function versionOf(deps: Deps, userId: string): Promise<number> {
+  return (await deps.db.first<{ v: number }>('SELECT quadros_versao AS v FROM usuarios WHERE id = ?', [userId]))?.v ?? 0;
+}
+
+/**
+ * O corpo do envio: o quadro compactado e as imagens que ele usa. Em partes (multipart: `quadro`, o gzip, e
+ * `imagens`, a lista em JSON), porque a lista de um quadro grande não cabe num cabeçalho; o site de antes manda o
+ * gzip puro com a lista no cabeçalho `Quadro-Imagens`.
+ */
+async function readBoardBody(c: Context): Promise<{ body: Uint8Array<ArrayBuffer>; images: string[] }> {
+  const big = () => new HttpError(413, 'quadro-grande-demais', 'O quadro ficou grande demais para a nuvem (passa de 256 KB compactado).');
+  const type = c.req.header('Content-Type') ?? '';
+  if (!type.startsWith('multipart/form-data')) {
+    const body = await readBody(c, MAX_BOARD_BYTES, big);
+    if (!isGzip(body)) throw new HttpError(400, 'quadro-invalido', 'O quadro não veio compactado em gzip.');
+    return { body, images: imagesOf(c.req.header('Quadro-Imagens')) };
+  }
+  const raw = await readBody(c, MAX_BOARD_BYTES + 64_000, big);
+  let form: FormData;
+  try {
+    form = await new Response(raw, { headers: { 'Content-Type': type } }).formData();
+  } catch {
+    throw new HttpError(400, 'quadro-invalido', 'O envio do quadro veio quebrado.');
+  }
+  const part = form.get('quadro');
+  if (!part || typeof part === 'string') throw new HttpError(400, 'quadro-invalido', 'Faltou a parte "quadro" do envio.');
+  if (part.size > MAX_BOARD_BYTES) throw big();
+  const body = new Uint8Array(await part.arrayBuffer());
+  if (!isGzip(body)) throw new HttpError(400, 'quadro-invalido', 'O quadro não veio compactado em gzip.');
+  let images: string[] = [];
+  const list = form.get('imagens');
+  if (typeof list === 'string' && list.length <= 60_000) {
+    try {
+      const parsed = JSON.parse(list) as unknown;
+      if (Array.isArray(parsed)) images = imagesOf(parsed.filter((x) => typeof x === 'string').join(','));
+    } catch {
+      throw new HttpError(400, 'quadro-invalido', 'A lista das imagens do quadro não serve.');
+    }
+  }
+  return { body, images };
+}
+
 export function boardRoutes(app: Hono, deps: Deps): void {
   publicBoardRoutes(app, deps);
 
@@ -131,9 +174,7 @@ export function boardRoutes(app: Hono, deps: Deps): void {
     const s = await sessionOf(deps, c);
     const id = boardId(c);
     const base = baseOf(c);
-    const body = await readBody(c, MAX_BOARD_BYTES, () => new HttpError(413, 'quadro-grande-demais', 'O quadro ficou grande demais para a nuvem (passa de 256 KB compactado).'));
-    if (!isGzip(body)) throw new HttpError(400, 'quadro-invalido', 'O quadro não veio compactado em gzip.');
-    const images = imagesOf(c.req.header('Quadro-Imagens'));
+    const { body, images } = await readBoardBody(c);
     // público: quem visita o mural vê (rodada 6); sem o cabeçalho (um site de antes), fica como estava
     const pub = c.req.header('Quadro-Publico');
     const publico = pub === '1' ? 1 : pub === '0' ? 0 : null;
@@ -206,7 +247,7 @@ export function boardRoutes(app: Hono, deps: Deps): void {
       const current = await deps.db.first<{ rev: number }>('SELECT rev FROM quadros WHERE id = ?', [id]);
       return c.json({ erro: 'conflito', mensagem: 'Outro aparelho gravou antes. Juntando e tentando de novo.', rev: current?.rev ?? 0 }, 409);
     }
-    return c.json({ rev: here ? base + 1 : 1 });
+    return c.json({ rev: here ? base + 1 : 1, versao: await versionOf(deps, s.userId) });
   });
 
   app.delete('/v1/eu/quadros/:id', async (c) => {
@@ -216,6 +257,11 @@ export function boardRoutes(app: Hono, deps: Deps): void {
     // nunca subiu (ou já saiu): nada a fazer
     if (!here) return c.json({ rev: 0 });
     if (here.apagado_em) return c.json({ rev: here.rev, apagado: here.apagado_em });
+    // outro aparelho mexeu depois da versão que este viu: a mexida vence a apagada (D10), e o site traz o de lá
+    const rawBase = c.req.header('Quadro-Rev-Base')?.trim();
+    if (rawBase !== undefined && /^\d{1,16}$/.test(rawBase) && Number(rawBase) !== here.rev) {
+      return c.json({ erro: 'conflito', mensagem: 'Outro aparelho mexeu neste quadro depois. Ele fica.', rev: here.rev }, 409);
+    }
     const at = deps.now().toISOString();
     const n = await deps.db.first<{ n: number }>('SELECT COUNT(*) AS n FROM quadro_imagens WHERE quadro_id = ?', [id]);
     const mark = `${at}:${crypto.randomUUID()}`;
@@ -231,6 +277,6 @@ export function boardRoutes(app: Hono, deps: Deps): void {
       ],
       3 + (n?.n ?? 0),
     );
-    return c.json({ rev: result?.changes ? here.rev + 1 : here.rev, apagado: at });
+    return c.json({ rev: result?.changes ? here.rev + 1 : here.rev, apagado: at, versao: await versionOf(deps, s.userId) });
   });
 }

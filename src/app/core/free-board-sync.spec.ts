@@ -38,22 +38,26 @@ class FakeCloud {
       if (m[2] && Number(m[2]) === here!.rev) return new Response(null, { status: 204 });
       return new Response(await gzip(here!.data!), { headers: { 'Quadro-Rev': String(here!.rev) } });
     }
+    const base = Number(init.headers?.['Quadro-Rev-Base']);
     if (method === 'DELETE') {
       if (here && !here.apagado) {
+        // outro aparelho mexeu depois: a mexida vence a apagada
+        if (here.rev !== base) fail(409, { erro: 'conflito', rev: here.rev });
         here.rev++;
         here.data = null;
         here.apagado = '2026-11-10T00:00:00.000Z';
         this.versao++;
       }
-      return new Response(JSON.stringify({ rev: here?.rev ?? 0 }));
+      return new Response(JSON.stringify({ rev: here?.rev ?? 0, versao: this.versao }));
     }
-    const base = Number(init.headers?.['Quadro-Rev-Base']);
     if ((here && here.rev !== base) || (!here && base !== 0)) fail(409, { erro: 'conflito', rev: here?.rev ?? 0, ...(here?.apagado ? { apagado: here.apagado } : {}) });
-    const data = await readBackupFile(init.body as Blob);
-    const imagens = (init.headers?.['Quadro-Imagens'] ?? '').split(',').filter(Boolean);
+    // em partes, como o site manda: o quadro em gzip e a lista das imagens
+    const form = init.body as FormData;
+    const data = await readBackupFile(form.get('quadro') as Blob);
+    const imagens = JSON.parse(String(form.get('imagens') ?? '[]')) as string[];
     this.boards.set(id, { rev: (here?.rev ?? 0) + 1, data, imagens });
     this.versao++;
-    return new Response(JSON.stringify({ rev: (here?.rev ?? 0) + 1 }));
+    return new Response(JSON.stringify({ rev: (here?.rev ?? 0) + 1, versao: this.versao }));
   }
 
   /** Outro aparelho grava o quadro (o que já está, mudado por `change`). */
@@ -80,6 +84,7 @@ describe('Quadro livre: a nuvem no site', () => {
     });
     store = TestBed.inject(FreeBoardStore);
     sync = TestBed.inject(FreeBoardSync);
+    sync.afterConflictMs = 0;
     await store.ready;
   });
 
@@ -161,6 +166,30 @@ describe('Quadro livre: a nuvem no site', () => {
     sync.noteVersion(String(cloud.versao));
     await sync.flush();
     expect(store.get(b.id)).toBeNull();
+  });
+
+  it('apagado aqui, mexido lá depois: o DELETE volta 409 e o quadro de lá volta para cá (mexida vence apagada)', async () => {
+    const b = await store.create('Mansão', 'Jogos');
+    await sync.flush();
+    await store.remove(b.id);
+    cloud.edit(b.id, (x) => ({ ...x, n: [text('outro', 'de lá')] }));
+    await sync.flush();
+    expect(cloud.boards.get(b.id)!.apagado).toBeUndefined();
+    expect(store.get(b.id)?.n.map((n) => n.i)).toEqual(['outro']);
+    expect(store.record(b.id)).toEqual(jasmine.objectContaining({ rev: 2, sujo: false }));
+  });
+
+  it('o envio deste aparelho anota o contador novo: a lista não é pedida à toa depois', async () => {
+    const b = await store.create('Mansão', 'Jogos');
+    sync.noteVersion(String(cloud.versao));
+    await sync.flush();
+    expect(localStorage.getItem(BOARDS_VERSION_KEY)).toBe(String(cloud.versao));
+    await store.save({ ...store.get(b.id)!, n: [text('a')] });
+    await sync.flush();
+    cloud.calls = [];
+    sync.noteVersion(String(cloud.versao));
+    await sync.flush();
+    expect(cloud.calls).toEqual([]);
   });
 
   it('apagado lá enquanto este mexia: o que estava aqui vira uma cópia (mexida vence apagada)', async () => {

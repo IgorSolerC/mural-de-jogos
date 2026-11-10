@@ -1,12 +1,12 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, effect, inject, input } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { visitBoardPath } from '../core/areas';
 import { FreeBoard, boardInGroup } from '../core/free-board';
 import { groupKey, studyGroupId } from '../core/study';
 import { VisitBoards } from '../core/visit-boards';
 import { FreeBoardCard } from './free-board/board-card';
+import { FreeBoardTop } from './free-board/board-top';
 import { FreeBoardView } from './free-board/free-board-view';
-import { ICON, IconModule } from './icons';
 import { StudyGroupTabs, StudyTab } from './study-group-tabs';
 
 /**
@@ -16,7 +16,7 @@ import { StudyGroupTabs, StudyTab } from './study-group-tabs';
  */
 @Component({
   selector: 'app-visit-boards',
-  imports: [FreeBoardCard, FreeBoardView, IconModule, RouterLink, StudyGroupTabs],
+  imports: [FreeBoardCard, FreeBoardTop, FreeBoardView, RouterLink, StudyGroupTabs],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '(document:keydown.escape)': 'escape($any($event))' },
   template: `
@@ -25,6 +25,9 @@ import { StudyGroupTabs, StudyTab } from './study-group-tabs';
       <p class="resumo">
         @if (visit.loading()) {
           Trazendo os quadros…
+        } @else if (visit.failed()) {
+          Os quadros de {{ name() }} não vieram agora (sem internet?).
+          <button type="button" class="btn-quiet" (click)="retry()">Tentar de novo</button>
         } @else {
           <strong>{{ shown().length }} {{ shown().length === 1 ? "quadro público" : "quadros públicos" }}</strong>
           {{ group() ? "em " + group()!.label : "de " + name() }}
@@ -40,13 +43,7 @@ import { StudyGroupTabs, StudyTab } from './study-group-tabs';
       <div class="tela-cheia" role="dialog" aria-modal="true" [attr.aria-label]="open() ? 'Quadro ' + open()!.nome : 'Quadro'">
         @if (open(); as b) {
           <app-free-board class="quadro" [board]="b" [autofocus]="true" />
-          <div class="topo-esq">
-            <a class="tape-label voltar" [routerLink]="groupPath(group()?.id)" title="Voltar para a lista (Esc)">
-              <lucide-icon [img]="BackIcon" [size]="18" aria-hidden="true" />
-              <span class="sr-only">Voltar para a lista</span>
-            </a>
-            <h2 class="nome-quadro">{{ b.nome }}</h2>
-          </div>
+          <app-free-board-top [name]="b.nome" [backPath]="groupPath(group()?.id)" />
         } @else if (visit.loading()) {
           <p class="aviso">Trazendo o quadro…</p>
         } @else {
@@ -67,7 +64,19 @@ export class VisitBoardsView {
 
   protected readonly visit = inject(VisitBoards);
   private readonly router = inject(Router);
-  protected readonly BackIcon = ICON.voltar;
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+  private readonly injector = inject(Injector);
+  /** Fechou o quadro: o foco volta para a folha dele na lista (como no seu Quadro livre). */
+  private openedBoard: string | null = null;
+  private readonly focusBack = effect(() => {
+    const id = this.boardId();
+    const closed = this.openedBoard;
+    this.openedBoard = id;
+    if (id || !closed) return;
+    afterNextRender(() => this.host.querySelector<HTMLElement>(`[data-quadro="${closed}"]`)?.focus(), { injector: this.injector });
+  });
+  /** A seção apareceu: confere a lista de novo (passados uns minutos; só os quadros mudados descem). */
+  private readonly refresh = void this.visit.load(this.visit.code());
   protected readonly groupPath = (g?: string | null): string => visitBoardPath(g);
 
   private readonly groups = computed(() => {
@@ -98,6 +107,10 @@ export class VisitBoardsView {
     const id = this.boardId();
     return id ? (this.visit.boards().find((b) => b.id === id) ?? null) : null;
   });
+
+  protected retry(): void {
+    void this.visit.load(this.visit.code(), true);
+  }
 
   protected boardPath(b: FreeBoard): string {
     return visitBoardPath(studyGroupId(b.grupo), b.id);

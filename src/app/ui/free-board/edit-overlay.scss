@@ -72,6 +72,17 @@
   }
 }
 
+/* no dedo, a alça e a bolinha pegam um quadrado de 40 px em volta (o desenho continua pequeno) */
+@media (pointer: coarse) {
+  .alca::before,
+  .bolinha::before {
+    content: '';
+    position: absolute;
+    inset: -14px;
+    border-radius: 50%;
+  }
+}
+
 /* fora da borda, para não cair em cima da alça do meio do lado */
 .bolinha[data-lado='t'] {
   translate: 0 calc(-22px * var(--iz));
@@ -189,6 +200,12 @@
   bottom: 38px;
   left: 0;
   @include et.grupo;
+}
+
+/* embaixo da seleção (em cima, ela cobriria o título de uma moldura) */
+.acoes.embaixo {
+  bottom: auto;
+  top: 38px;
 }
 
 .botao {

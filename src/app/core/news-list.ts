@@ -33,9 +33,16 @@ export const NEWS: NewsEntry[] = [
     date: '2026-11-10',
     title: 'Quadro livre público, em lista e na API',
     melhorias: [
-      'O botão direito num quadro livre o deixa público: quem visita o seu mural vê o quadro, com as imagens dele, numa aba Quadro livre ao lado do mural e dos Flashcards (só para ver).',
-      'Ver em lista (L, ou o botão direito no fundo do quadro): o quadro como texto, com as molduras como títulos, as peças dentro delas e as setas; tocar num item leva até a peça.',
+      'O botão direito num quadro livre o deixa público: quem visita o seu mural vê o quadro, com as imagens dele, numa aba Quadro livre ao lado do mural e dos Flashcards (só para ver, com a tela cheia).',
+      'Ver em lista (o botão ao lado do zoom, ou L): o quadro como texto, com as molduras como títulos, as peças dentro delas e as setas; tocar num item leva até a peça.',
       'Na API e no MCP, ver_quadros e ler_quadro leem os quadros em texto, e criar_quadro, acrescentar_no_quadro e ligar_no_quadro põem quadros, bilhetes, anotações, setas e molduras, com as permissões das Anotações.',
+      'As setas do quadro livre contornam as peças que estão no caminho, em vez de passar por baixo delas.',
+      'No celular, a régua do editar fica em dois andares, com Desfazer e Refazer sempre à vista; no teclado, o Enter seleciona a peça com o foco.',
+    ],
+    correcoes: [
+      'Apagar um quadro livre num aparelho não apaga mais o que outro aparelho mudou nele depois: o quadro volta, com a mudança.',
+      'Os quadros livres com muitas imagens sobem para a nuvem (antes, um quadro com centenas delas ficava só no aparelho).',
+      'No celular, encostar um segundo dedo enquanto move uma peça não arrasta mais o quadro junto.',
     ],
   },
   {

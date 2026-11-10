@@ -2,7 +2,7 @@ import { QUADRO_TEXTO_MAX, type QuadroLivreV1 } from '../../../contrato/api-v1/q
 import { FreeBoard, pieceCount, shownEdges } from './free-board';
 import { FreeBoardStore } from './free-board-store';
 import { boardAsText } from './free-board-text';
-import { Injectable, effect, inject, untracked } from '@angular/core';
+import { DestroyRef, Injectable, effect, inject, untracked } from '@angular/core';
 import { NoteFolders } from './note-folders';
 import { FolderTree, NO_FOLDERS, NoteFolder } from './folders';
 import type { AgendaDoMesV1, LembreteV1 } from '../../../contrato/api-v1/calendario';
@@ -238,15 +238,21 @@ export class ApiMirror {
   private readonly calendar = inject(CalendarStore);
   private readonly study = inject(StudyStore);
   private readonly freeBoards = inject(FreeBoardStore);
-  /** O Quadro livre muda sem o mural mudar: o espelho confere de novo (5 s depois da última mudança). */
+  /**
+   * O Quadro livre muda sem o mural mudar: o espelho confere de novo só os quadros (5 s depois da última
+   * mudança), sem refazer as notas, os gastos e o resto.
+   */
   private boardsTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly boardsWatch = effect(() => {
     this.freeBoards.version();
     untracked(() => {
       clearTimeout(this.boardsTimer);
-      this.boardsTimer = setTimeout(() => void this.kick(), 5_000);
+      this.boardsTimer = setTimeout(() => void this.boardsOnly(), 5_000);
     });
   });
+  private readonly boardsTimerOff = inject(DestroyRef).onDestroy(() => clearTimeout(this.boardsTimer));
+  /** O quadro em v1 com a impressão, por quadro guardado (o quadro que não mudou não é refeito nem recontado). */
+  private readonly boardMemo = new WeakMap<FreeBoard, MirrorItem>();
   /**
    * Os Estudos do último espelho, com as impressões: as filas pedem uma volta em todas as cartas por
    * baralho, e a maior parte das sincronizações não mexe nos Estudos (nem nas anotações, nem no dia).
@@ -264,6 +270,17 @@ export class ApiMirror {
     if (!this.account.account()?.api || rev < 1 || rev === this.doneRev) return Promise.resolve();
     // uma rodada por vez: a que chega no meio espera e roda com a rev mais nova
     const run = (this.running ?? Promise.resolve()).then(() => this.mirror(this.seenRev ?? rev));
+    this.running = run.finally(() => {
+      if (this.running === run) this.running = null;
+    });
+    return run;
+  }
+
+  /** Só os quadros do Quadro livre, na rev de agora (a vez deles na fila das rodadas). */
+  boardsOnly(): Promise<void> {
+    const rev = this.seenRev;
+    if (!this.account.account()?.api || rev === null || rev < 1) return Promise.resolve();
+    const run = (this.running ?? Promise.resolve()).then(() => this.mirror(this.seenRev ?? rev, true));
     this.running = run.finally(() => {
       if (this.running === run) this.running = null;
     });
@@ -327,8 +344,13 @@ export class ApiMirror {
     await this.freeBoards.ready;
     const out: MirrorItem[] = [];
     for (const b of this.freeBoards.boards()) {
-      const dados = quadroLivreV1(b);
-      out.push({ tipo: 'quadro-livre', id: b.id, hash: await hashOf(dados), dados });
+      let item = this.boardMemo.get(b);
+      if (!item) {
+        const dados = quadroLivreV1(b);
+        item = { tipo: 'quadro-livre', id: b.id, hash: await hashOf(dados), dados };
+        this.boardMemo.set(b, item);
+      }
+      out.push(item);
     }
     return out;
   }
@@ -360,21 +382,24 @@ export class ApiMirror {
     return notaV1(n, card, boardOnly, this.folders.tree());
   }
 
-  private async mirror(rev: number): Promise<void> {
-    if (rev === this.doneRev) return;
+  /** `boardsOnly`: só os quadros do Quadro livre (eles mudam sem o mural mudar). */
+  private async mirror(rev: number, boardsOnly = false): Promise<void> {
+    if (rev === this.doneRev && !boardsOnly) return;
     try {
       const remote = await this.account.request<RemoteMirror>('/v1/eu/espelho');
-      const areas = AREAS.filter((a) => remote.areas.includes(a));
+      let areas = AREAS.filter((a) => remote.areas.includes(a));
+      if (boardsOnly) areas = areas.filter((a) => a === 'notas');
       if (!areas.length) {
-        this.doneRev = rev;
+        if (!boardsOnly) this.doneRev = rev;
         return;
       }
-      const local = await this.items(areas);
+      const local = boardsOnly ? await this.boardItems() : await this.items(areas);
+      const droppable = (a: (typeof AREAS)[number]) => (boardsOnly ? (['quadro-livre'] as const) : DROPPABLE[a]);
       const put = local.filter((i) => remote.hashes[i.tipo]?.[i.id] !== i.hash);
       // o que está lá e sumiu daqui (a nota apagada, o lançamento apagado, o mês que saiu da janela, o
       // quadro do grupo que ficou sem nota, o lembrete apagado)
       const drop = areas.flatMap((a) =>
-        DROPPABLE[a].flatMap((tipo) => {
+        droppable(a).flatMap((tipo) => {
           const ids = new Set(local.filter((i) => i.tipo === tipo).map((i) => i.id));
           return Object.keys(remote.hashes[tipo] ?? {})
             .filter((id) => !ids.has(id))
@@ -384,7 +409,7 @@ export class ApiMirror {
       const fuso = Intl.DateTimeFormat().resolvedOptions().timeZone;
       // tirar não pesa: vai junto com o primeiro lote (ou sozinho, quando não há o que pôr)
       const batches = lots<MirrorItem | { tipo: TipoDoEspelho; id: string }>([...drop, ...put], (i) => ('dados' in i ? JSON.stringify(i.dados).length : 40));
-      if (!batches.length && remote.rev !== rev) batches.push([]);
+      if (!batches.length && remote.rev !== rev && !boardsOnly) batches.push([]);
       for (const batch of batches) {
         try {
           await this.account.request('/v1/eu/espelho', {
@@ -399,7 +424,7 @@ export class ApiMirror {
           console.warn('o espelho da API recusou um lote', err.message);
         }
       }
-      this.doneRev = rev;
+      if (!boardsOnly) this.doneRev = rev;
     } catch (err) {
       // a rev mudou no meio (a próxima sincronização refaz), a cota do dia acabou, sem rede: fica para depois
       if (!(err instanceof CloudError)) console.warn('o espelho da API não subiu', err);

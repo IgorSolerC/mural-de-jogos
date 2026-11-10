@@ -96,7 +96,7 @@
 
 <!-- o quadro aberto: a tela inteira, só para ver -->
 @if (wantedBoard()) {
-  <div class="tela-cheia" role="dialog" aria-modal="true" [attr.aria-label]="open() ? 'Quadro ' + open()!.nome : 'Quadro'" (fullscreenchange)="onFullscreenChange()">
+  <div class="tela-cheia" role="dialog" aria-modal="true" [attr.aria-label]="open() ? 'Quadro ' + open()!.nome : 'Quadro'">
     @if (open(); as b) {
       @if (camera() !== undefined) {
         <app-free-board
@@ -113,14 +113,7 @@
           (notice)="toasts.show($event)"
         />
       }
-      <div class="topo-esq">
-        <button type="button" class="tape-label voltar" (click)="close()" title="Voltar para a lista (Esc)">
-          <lucide-icon [img]="Icons.voltar" [size]="18" aria-hidden="true" />
-          <span class="sr-only">Voltar para a lista</span>
-        </button>
-        <h2 class="nome-quadro">{{ b.nome }}</h2>
-      </div>
-      <div class="topo-dir">
+      <app-free-board-top [name]="b.nome" (back)="close()">
         @if (editing()) {
           <button type="button" class="btn-ink pronto" (click)="setEditing(false)" title="Sair do editar (E)">Pronto</button>
         } @else {
@@ -129,11 +122,7 @@
             Editar
           </button>
         }
-        <button type="button" class="tela-btn" (click)="toggleFullscreen()" [attr.aria-pressed]="fullscreen()" [title]="fullscreen() ? 'Sair da tela cheia' : 'Tela cheia de verdade (esconde as barras do navegador)'">
-          <lucide-icon [img]="fullscreen() ? Icons.sair : Icons.cheia" [size]="20" aria-hidden="true" />
-          <span class="sr-only">{{ fullscreen() ? "Sair da tela cheia" : "Tela cheia" }}</span>
-        </button>
-      </div>
+      </app-free-board-top>
     } @else if (!loaded()) {
       <p class="aviso">Trazendo o quadro…</p>
     } @else {

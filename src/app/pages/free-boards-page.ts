@@ -27,6 +27,7 @@ import { ContextMenu, ContextMenuTrigger, MenuBy, MenuItem, MenuSections } from 
 import { FreeBoardOwner } from '../ui/free-board/owner-tools';
 import { WidgetDone, WidgetSheet } from '../ui/widget-sheet';
 import { FreeBoardCard } from '../ui/free-board/board-card';
+import { FreeBoardTop } from '../ui/free-board/board-top';
 import { FreeBoardView } from '../ui/free-board/free-board-view';
 import { ICON, IconModule } from '../ui/icons';
 import { RemoveAsking } from '../ui/remove-asking';
@@ -51,7 +52,7 @@ interface BoardGroup {
  */
 @Component({
   selector: 'app-free-boards-page',
-  imports: [CardPicker, ContextMenu, FreeBoardCard, WidgetSheet, FreeBoardView, IconModule, StudyGroupTabs],
+  imports: [CardPicker, ContextMenu, FreeBoardCard, FreeBoardTop, WidgetSheet, FreeBoardView, IconModule, StudyGroupTabs],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './free-boards-page.html',
   styleUrl: './free-boards-page.scss',
@@ -69,7 +70,7 @@ export class FreeBoardsPage {
   private readonly injector = inject(Injector);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
-  protected readonly Icons = { novo: ICON.adicionar, voltar: ICON.voltar, cheia: ICON.telaCheia, sair: ICON.diminuir, editar: ICON.editar };
+  protected readonly Icons = { novo: ICON.adicionar, editar: ICON.editar };
   protected readonly nameMax = FB_NAME_MAX;
   protected readonly path = freeBoardPath;
 
@@ -139,6 +140,15 @@ export class FreeBoardsPage {
   private editNext: string | null = null;
   private saving: Promise<unknown> = Promise.resolve();
   protected readonly wantedBoard = computed(() => this.params().board);
+  /** Fechou o quadro (o Voltar, o Esc, o voltar do navegador): o foco volta para a folha dele na lista. */
+  private openedBoard: string | null = null;
+  private readonly focusBack = effect(() => {
+    const id = this.wantedBoard() ?? null;
+    const closed = this.openedBoard;
+    this.openedBoard = id;
+    if (id || !closed) return;
+    afterNextRender(() => this.host.querySelector<HTMLElement>(`[data-quadro="${closed}"]`)?.focus({ preventScroll: false }), { injector: this.injector });
+  });
   /** A câmera guardada do quadro aberto: `undefined` enquanto lê (a tela espera, para não abrir em outro lugar). */
   protected readonly camera = signal<Camera | null | undefined>(undefined);
 
@@ -449,8 +459,6 @@ export class FreeBoardsPage {
 
   // ===== a tela cheia =====
 
-  protected readonly fullscreen = signal(false);
-
   protected saveCamera(id: string, cam: Camera): void {
     void this.store.setCamera(id, cam);
   }
@@ -460,18 +468,6 @@ export class FreeBoardsPage {
     const b = this.open();
     this.exitFullscreen();
     void this.router.navigateByUrl(freeBoardPath(this.params().group ?? (b ? studyGroupId(b.grupo) : null)));
-  }
-
-  /** A tela cheia do navegador (esconde também as barras dele). */
-  protected toggleFullscreen(): void {
-    const el = this.host.querySelector<HTMLElement>('.tela-cheia');
-    if (!el) return;
-    if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
-    else void el.requestFullscreen?.().catch(() => undefined);
-  }
-
-  protected onFullscreenChange(): void {
-    this.fullscreen.set(!!document.fullscreenElement);
   }
 
   private exitFullscreen(): void {

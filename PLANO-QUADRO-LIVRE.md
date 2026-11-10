@@ -996,3 +996,57 @@ Decidido no caminho (pode mudar):
 - A visita traz cada quadro público inteiro (4 de cada vez) para desenhar a miniatura; a lista da nuvem não leva o
   nome (o servidor não abre o quadro).
 - Novidades: a parte de hoje virou uma entrada de ajustes (1.43.2), porque a funcionalidade é de ontem.
+
+### Revisão final (10/nov, BUILD 834)
+
+`/code-review high` sobre `5069cff4..HEAD` (as seis rodadas): 10 achados, todos corrigidos.
+
+1. **Apagar passava por cima da mudança de outro aparelho** (`api/src/routes/boards.ts`, DELETE). O DELETE agora
+   leva `Quadro-Rev-Base`; se outro aparelho gravou depois, volta 409 com a versão de agora, e o site traz o quadro de
+   lá no lugar da lápide (D10: mexida vence apagada). `FreeBoardSync.remove`; testes nos dois lados.
+2. **A lista das imagens num cabeçalho** (`Quadro-Imagens`, até ~46 KB num quadro grande, acima do que a Cloudflare
+   aceita). O envio vai em partes (multipart: `quadro`, o gzip, e `imagens`, a lista em JSON); a rota ainda aceita o
+   jeito de antes (o site velho em cache). Teste com 1.500 imagens.
+3. **Depois do 409, o reenvio batia no "devagar"** (2 s entre envios do mesmo quadro) e esperava um minuto. O site
+   espera 2,2 s antes de mandar o juntado, e o 429 tenta de novo em 3 s, não em 60.
+4. **O segundo dedo andava a câmera enquanto o primeiro movia uma peça** (`board-editing.ts`). Um gesto por vez: o
+   dedo que move é guardado (`editPointer`), e os outros não andam a câmera nem começam outro gesto.
+5. **O bilhete vazio descartado deixava um passo no desfazer** (`board-editor.ts`, `write`). Quando o último passo é
+   o de criar aquele bilhete, ele sai do desfazer junto (`History.last`/`dropLast`), e Ctrl+Z não traz o vazio de volta.
+6. **`criar_quadro` sem o contexto no espelho aceitava qualquer grupo** (`api/src/ext/boards-ext.ts`). Sem o contexto,
+   a API confere pelos grupos das notas espelhadas; e o site, ao aplicar, usa a grafia do mural e recusa o grupo que
+   não existe (`applyBoardRequest`, com a lista dos grupos no erro).
+7. **Mudar um quadro refazia o espelho inteiro** (notas, gastos, Kanban, Estudos). Agora a mudança de quadro confere
+   só os quadros (`ApiMirror.boardsOnly`), e cada quadro guarda a sua impressão (o que não mudou não é refeito).
+8. **O envio deste aparelho fazia pedir a lista à toa.** O PUT e o DELETE devolvem o `versao` novo; se ele é o de
+   antes mais um (só este aparelho mexeu), o site anota e não pede a lista na próxima leitura do mural.
+9. **Os quadros da visita nunca se atualizavam e eram baixados inteiros a cada vez.** A seção confere a lista de
+   novo ao aparecer (passados 2 minutos), e só baixa os quadros novos ou mudados (pela versão de cada um); os outros
+   ficam da memória. A miniatura da lista continua desenhada com os dados (por isso o quadro desce inteiro uma vez).
+10. **Fechar o menu "Qual widget?" sem escolher deixava a seta solta esperando para sempre.** O menu avisa que fechou
+    (`(closed)` na peça do menu); sem escolha, a resposta é "nada".
+
+**Crítica e auditoria do Impeccable sobre a seção inteira** (duas avaliações separadas: o olhar de design, 27/40
+nas heurísticas, e o detector com a auditoria técnica; registro em `.impeccable/critique/`). Corrigido:
+
+- **A seta que passava por baixo das peças** parecia ligar três onde ligava duas (Dormir → Senha cruzava Quarto e
+  Capela). Agora ela contorna as peças do caminho (`routedEdgePath`: a curva de sempre e, se cruza uma peça, empurrada
+  para um lado e para o outro até achar caminho livre; as molduras não contam). O clique na seta usa o mesmo caminho.
+- **A régua no celular escondia Desfazer, Refazer e os atalhos** (rolava de lado, sem sinal). Abaixo de 640 px ela
+  fica em dois andares, com o picote deitado entre eles.
+- **O teclado no editar**: o Enter (ou o Espaço) seleciona a peça com o foco, e a tecla de menu abre o menu dela, no
+  meio dela.
+- **As alças e as bolinhas no dedo** pegam 40 px em volta; as teclas do zoom ficam com 44 px no toque.
+- **O foco volta para a folha do quadro** ao fechar (no seu e na visita), e o painel dos atalhos recebe o foco ao abrir.
+- **"Ver em lista" à vista**: um botão na régua do zoom, e o texto do leitor de tela fala do L.
+- **O topo do quadro aberto virou uma peça só** (`ui/free-board/board-top.ts`): o voltar, o nome e a tela cheia,
+  a mesma no dono e na visita (que ganhou a tela cheia), em `PECAS` da regra da visita. Uma fileira só: o nome encolhe
+  com reticências e nunca passa por baixo do Editar.
+- **A etiqueta da seleção vira para baixo** quando, em cima, cobriria o título de uma moldura.
+- **O anel de foco nas réguas de alumínio** é de tinta (o amarelo sumia, 1,5:1).
+- **A visita sem rede** diz que os quadros não vieram, com "Tentar de novo".
+- Menores: a seta da lista com o "leva a" escondido de verdade, e o quadro vazio do dono lembra do Editar (E).
+
+Ficou de fora (anotado): ligar seta pelo teclado; travar o foco no quadro aberto (`inert` na página de trás); um sinal
+de "guardado" no quadro aberto; os tons de kraft, alumínio e fita-crepe virarem tokens; a etiqueta de 34 px (é a peça
+única dos cards, de aparência aprovada); a Imagem da régua anunciada como diálogo.

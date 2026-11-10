@@ -10,6 +10,10 @@ import { readText, writeText } from './storage';
 export const PUSH_AFTER_MS = 4_000;
 /** Depois de uma falha (sem rede, a cota do dia, devagar), quando tenta de novo. */
 const RETRY_MS = 60_000;
+/** Depois do "devagar" da nuvem (2 s entre envios do mesmo quadro), quando tenta de novo. */
+const SLOW_RETRY_MS = 3_000;
+/** Quanto espera antes de mandar o juntado depois de um 409 (o outro aparelho acabou de gravar o mesmo quadro). */
+export const AFTER_CONFLICT_MS = 2_200;
 /** Quantas vezes junta e tenta de novo depois de um 409. */
 const MAX_TRIES = 3;
 /** O último `Quadros-Versao` que este aparelho conferiu (sai na limpeza do Sair: começa com `meu-mural:`). */
@@ -38,6 +42,8 @@ export class FreeBoardSync {
   private running: Promise<void> | null = null;
   private again = false;
   private pullWanted: string | null = null;
+  /** A espera depois de um 409 (os testes a encurtam). */
+  afterConflictMs = AFTER_CONFLICT_MS;
 
   constructor() {
     // uma mudança daqui: o envio espera 4 s parado
@@ -88,7 +94,8 @@ export class FreeBoardSync {
         await this.push(keepalive);
       } catch (e) {
         // sem rede, a cota do dia, a nuvem fora: tudo continua neste aparelho e tenta de novo depois
-        if (!(e instanceof CloudError) || e.status !== 401) this.schedule(RETRY_MS);
+        // (o "devagar" da nuvem passa logo: tenta de novo em segundos, não em um minuto)
+        if (!(e instanceof CloudError) || e.status !== 401) this.schedule(e instanceof CloudError && e.status === 429 ? SLOW_RETRY_MS : RETRY_MS);
       } finally {
         this.running = null;
         if (this.again) {
@@ -153,34 +160,57 @@ export class FreeBoardSync {
   private async push(keepalive: boolean): Promise<void> {
     for (const rec of await this.store.dirty()) {
       if (!rec.quadro) {
-        await this.account.requestRaw(`/v1/eu/quadros/${rec.id}`, { method: 'DELETE', keepalive });
-        await this.store.dropRecord(rec.id);
+        await this.remove(rec, keepalive);
         continue;
       }
       await this.send(rec, keepalive, 0);
     }
   }
 
+  /**
+   * A lápide sobe como DELETE, com a versão que este aparelho viu: se outro mexeu depois (409), a mexida vence
+   * (D10) e o quadro de lá volta para cá no lugar da lápide.
+   */
+  private async remove(rec: BoardRecord, keepalive: boolean): Promise<void> {
+    try {
+      const res = await this.account.requestRaw(`/v1/eu/quadros/${rec.id}`, { method: 'DELETE', keepalive, headers: { 'Quadro-Rev-Base': String(rec.rev) } });
+      this.noteOwnVersion((await res.json().catch(() => null)) as { versao?: number } | null);
+      await this.store.dropRecord(rec.id);
+    } catch (e) {
+      if (!(e instanceof CloudError) || e.status !== 409) throw e;
+      const rev = (e.body as { rev?: number } | null)?.rev;
+      if (typeof rev === 'number') await this.fetchInto(rec.id, rev, null);
+    }
+  }
+
+  /** O envio mudou o contador da conta só por causa deste aparelho: anota, para a lista não ser pedida à toa. */
+  private noteOwnVersion(out: { versao?: number } | null): void {
+    const seen = readText(BOARDS_VERSION_KEY);
+    if (typeof out?.versao === 'number' && seen !== null && Number(seen) === out.versao - 1) writeText(BOARDS_VERSION_KEY, String(out.versao));
+  }
+
   private async send(rec: BoardRecord, keepalive: boolean, tries: number): Promise<void> {
     const board = rec.quadro!;
-    const body = await gzip(JSON.stringify(board));
-    const images = localImageIds(boardSources(board));
+    const quadro = await gzip(JSON.stringify(board));
+    // o quadro e a lista das imagens em partes: a lista de um quadro grande não cabe num cabeçalho
+    const form = new FormData();
+    form.append('quadro', new Blob([quadro], { type: 'application/gzip' }));
+    form.append('imagens', JSON.stringify(localImageIds(boardSources(board))));
     try {
       const res = await this.account.requestRaw(`/v1/eu/quadros/${rec.id}`, {
         method: 'PUT',
         // `keepalive` aceita até 64 KB: o quadro maior vai na próxima rodada
-        keepalive: keepalive && body.size < 60_000,
+        keepalive: keepalive && quadro.size < 56_000,
         headers: {
-          'Content-Type': 'application/gzip',
           'Quadro-Rev-Base': String(rec.rev),
           // público: quem visita o mural vê o quadro e as imagens dele (rodada 6)
           'Quadro-Publico': board.publico ? '1' : '0',
-          ...(images.length ? { 'Quadro-Imagens': images.join(',') } : {}),
         },
-        body,
+        body: form,
       });
-      const out = (await res.json().catch(() => null)) as { rev?: number } | null;
+      const out = (await res.json().catch(() => null)) as { rev?: number; versao?: number } | null;
       if (typeof out?.rev === 'number') await this.store.markSynced(rec.id, out.rev, board);
+      this.noteOwnVersion(out);
     } catch (e) {
       if (!(e instanceof CloudError) || e.status !== 409 || tries >= MAX_TRIES) throw e;
       const conflict = e.body as { rev?: number; apagado?: string } | null;
@@ -192,7 +222,10 @@ export class FreeBoardSync {
       if (typeof conflict?.rev === 'number' && conflict.rev > 0) await this.fetchInto(rec.id, conflict.rev, { ...rec, rev: 0 });
       else await this.store.resetRev(rec.id);
       const next = (await this.store.dirty()).find((r) => r.id === rec.id);
-      if (next?.quadro) await this.send(next, keepalive, tries + 1);
+      // a nuvem recusa dois envios do mesmo quadro em menos de 2 s: espera o do outro aparelho assentar
+      if (!next?.quadro) return;
+      await new Promise((r) => setTimeout(r, this.afterConflictMs));
+      await this.send(next, keepalive, tries + 1);
     }
   }
 }

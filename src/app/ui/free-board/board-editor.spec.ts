@@ -116,6 +116,8 @@ describe('Quadro livre: o editor', () => {
     expect(w.kind).toBe('bilhete');
     t.ed.write(w, '');
     expect(t.board.n.length).toBe(0);
+    // o bilhete que não chegou a existir não deixa passo no desfazer
+    expect(t.ed.canUndo()).toBeFalse();
     const n = t.ed.newNote({ x: 0, y: 0 })!;
     t.ed.write({ kind: 'bilhete', id: n.i }, 'Senha?');
     expect((t.board.n[0] as FbNode & { txt: string }).txt).toBe('Senha?');

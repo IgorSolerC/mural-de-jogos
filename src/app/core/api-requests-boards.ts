@@ -5,6 +5,7 @@ import {
   type CriarQuadroV1,
   type QuadroLivreV1,
 } from '../../../contrato/api-v1/quadros-livres';
+import { dobra } from '../../../contrato/api-v1/escopos';
 import { quadroLivreV1 } from './api-mirror';
 import { FbEdge, FbNode, FreeBoard, connect, idsOf, newNodeId, removePieces, shownNodes } from './free-board';
 import { HOLE, Rect, boundsOf, intersects, snap } from './free-board-geometry';
@@ -28,6 +29,8 @@ export type BoardApplied = { estado: 'aplicado' | 'falhou'; resultado: BoardResu
 export interface BoardApplyContext {
   /** O título da anotação do id (só as suas), ou undefined. */
   noteTitle(id: string): string | undefined;
+  /** Os grupos das Anotações, como o mural os escreve (o quadro novo entra num deles, nunca num grupo novo). */
+  groups?(): readonly string[];
 }
 
 export const isBoardOp = ehOpQuadro;
@@ -46,7 +49,10 @@ export async function applyBoardRequest(store: FreeBoardStore, req: { op: string
       // já entrou (aplicado aqui antes, numa aba que fechou sem concluir): o mesmo quadro
       const here = store.get(req.alvo);
       if (here) return { estado: 'aplicado', resultado: { quadro: quadroLivreV1(here) }, antes: null };
-      const made = await store.create(d.nome, d.grupo, req.alvo);
+      const groups = ctx.groups?.() ?? [];
+      const group = groups.find((g) => dobra(g) === dobra(d.grupo));
+      if (groups.length && !group) return failed(`Não há o grupo "${d.grupo}" nas Anotações. Os grupos: ${groups.join(', ')}.`);
+      const made = await store.create(d.nome, group ?? d.grupo, req.alvo);
       return { estado: 'aplicado', resultado: { quadro: quadroLivreV1(made) }, antes: null };
     }
     const board = store.get(req.alvo);

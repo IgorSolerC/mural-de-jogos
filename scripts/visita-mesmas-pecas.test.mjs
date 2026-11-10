@@ -56,6 +56,12 @@ const PECAS = [
     o: 'a folha kraft de um quadro do Quadro livre, com a miniatura',
   },
   {
+    peca: 'src/app/ui/free-board/board-top.ts',
+    usa: 'app-free-board-top',
+    marcas: [/<h2 [^>]*class="nome-quadro"/, /class="tela-btn"/],
+    o: 'o topo do quadro aberto (voltar, o nome na fita, a tela cheia)',
+  },
+  {
     peca: 'src/app/ui/folder-path.ts',
     usa: 'app-folder-path',
     marcas: [/aria-label="Caminho da pasta"/],
@@ -67,7 +73,7 @@ const PECAS = [
 const VISITA = [
   { molde: 'src/app/ui/visit-study.html', pecas: ['app-study-card-wall', 'app-study-piles', 'app-study-group-tabs'] },
   { molde: 'src/app/pages/colleague-wall-page.html', pecas: ['app-wall-board', 'app-wall-toolbar', 'app-review-reader', 'app-visit-study', 'app-visit-boards'] },
-  { molde: 'src/app/ui/visit-boards.ts', pecas: ['app-study-group-tabs', 'app-free-board-card', 'app-free-board'] },
+  { molde: 'src/app/ui/visit-boards.ts', pecas: ['app-study-group-tabs', 'app-free-board-card', 'app-free-board', 'app-free-board-top'] },
 ];
 
 /** As peças que a visita monta e que só leem: nada delas pode importar o que escreve. */
@@ -85,6 +91,7 @@ const SO_LEEM = [
   'src/app/ui/free-board/scene.ts',
   'src/app/ui/free-board/thumbs.ts',
   'src/app/ui/free-board/board-card.ts',
+  'src/app/ui/free-board/board-top.ts',
   'src/app/ui/free-board/board-sketch.ts',
   'src/app/ui/visit-boards.ts',
   'src/app/core/visit-boards.ts',

@@ -84,7 +84,9 @@ export function boardsExtRoutes(app: Hono, deps: Deps): void {
     const d = r.dados as CriarQuadroV1;
     // o grupo é um dos das Anotações (um nome escrito errado não vira grupo novo)
     const row = await deps.db.first<{ dados: string }>("SELECT dados FROM api_espelho WHERE usuario_id = ? AND tipo = 'contexto' AND id = ?", [me.key.userId, CONTEXTO_NOTAS]);
-    const groups = row ? (JSON.parse(row.dados) as ContextoNotasV1).grupos.map((g) => g.nome) : [];
+    let groups = row ? (JSON.parse(row.dados) as ContextoNotasV1).grupos.map((g) => g.nome) : [];
+    // sem o contexto no espelho (a chave que não lê), os grupos das notas espelhadas: a conferência vale do mesmo jeito
+    if (!row) groups = (await deps.db.all<{ grupo: string }>("SELECT DISTINCT grupo FROM api_espelho WHERE usuario_id = ? AND tipo = 'nota' AND grupo IS NOT NULL AND grupo != ''", [me.key.userId])).map((g) => g.grupo);
     const found = groups.find((g) => dobra(g) === dobra(d.grupo));
     if (groups.length && !found) throw new HttpError(422, 'grupo-desconhecido', `Não há o grupo "${d.grupo}" nas Anotações. Os grupos: ${groups.filter((g) => inKeyGroups(me, g)).join(', ')}.`);
     if (!inKeyGroups(me, found ?? d.grupo)) throw new HttpError(403, 'fora-dos-grupos', 'Esta chave só alcança alguns grupos das Anotações, e este não é um deles.');

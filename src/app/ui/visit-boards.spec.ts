@@ -48,7 +48,7 @@ describe('a visita no Quadro livre (as mesmas peças do dono)', () => {
       providers: [
         provideZonelessChangeDetection(),
         provideRouter([{ path: '**', component: Raiz }]),
-        { provide: VisitBoards, useValue: { boards: signal<readonly FreeBoard[]>([BOARD]), loading: signal(false), code: signal('ANA00001') } },
+        { provide: VisitBoards, useValue: { boards: signal<readonly FreeBoard[]>([BOARD]), loading: signal(false), code: signal('ANA00001'), failed: signal(false), load: () => Promise.resolve() } },
       ],
     });
   });

@@ -62,6 +62,11 @@ export class BoardEditor {
 
   constructor(private readonly host: EditorHost) {}
 
+  /** O zoom de agora (a etiqueta da seleção mede o que ela cobre). */
+  zoom(): number {
+    return this.host.zoom();
+  }
+
   /** O quadro como aparece (com o arrasto no meio). */
   shown(): FreeBoard {
     return this.preview() ?? this.host.board();
@@ -382,7 +387,13 @@ export class BoardEditor {
     if (w.kind === 'bilhete') {
       if (!text.trim() && n.t === 'x' && !n.txt.trim()) {
         // o bilhete que nasceu e ficou vazio não fica (sem passo a mais no desfazer: some o de criar)
-        this.change((x) => removePieces(x, new Set([n.i]), now()));
+        const gone = removePieces(b, new Set([n.i]), now());
+        const last = this.history.last();
+        if (last && !last.n.some((x) => x.i === n.i)) {
+          this.history.dropLast();
+          this.historyTick.update((v) => v + 1);
+          this.host.commit(gone, b);
+        } else this.change(() => gone);
         this.clearSelection();
         return;
       }

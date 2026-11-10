@@ -20,8 +20,8 @@ export interface EditingHost {
   visor(): HTMLElement;
   /** O meio da tela, no mundo (onde entra o que não tem lugar). */
   middle(): Point;
-  /** Abre o menu no ponto da tela. */
-  menu(key: string, caption: string, sections: MenuSections, x: number, y: number, by: 'mouse' | 'toque' | 'teclado'): void;
+  /** Abre o menu no ponto da tela; `onClose` roda quando ele fecha (escolhendo ou não). */
+  menu(key: string, caption: string, sections: MenuSections, x: number, y: number, by: 'mouse' | 'toque' | 'teclado', onClose?: () => void): void;
   say(text: string): void;
   /** Liga ou desliga o editar (o E, o "Editar o quadro" do menu, o Esc sem seleção). */
   toggleEdit(on: boolean): void;
@@ -61,6 +61,8 @@ export class BoardEditing {
   /** O recorte desta aba (o navegador pode não guardar o tipo próprio na área de transferência). */
   private clip: Clip | null = null;
   private hold: { timer: ReturnType<typeof setTimeout>; x: number; y: number } | null = null;
+  /** O dedo (ou o mouse) que está movendo, escolhendo ou ligando no editar: outro dedo não anda a câmera junto. */
+  private editPointer: number | null = null;
 
   constructor(private readonly h: EditingHost) {}
 
@@ -80,7 +82,10 @@ export class BoardEditing {
       on('pointerdown', (e) => this.down(e)),
       on('pointermove', (e) => this.move(e)),
       on('pointerup', (e) => this.up(e)),
-      on('pointercancel', () => this.cancelHold()),
+      on('pointercancel', (e) => {
+        this.cancelHold();
+        if (e.pointerId === this.editPointer) this.editPointer = null;
+      }),
       on('dblclick', (e) => this.dbl(e)),
       on('contextmenu', (e) => this.contextMenu(e)),
       on('click', (e) => this.tap(e)),
@@ -121,6 +126,8 @@ export class BoardEditing {
     const hit = hitPiece(this.nodes(), this.world(e), this.h.camera().z);
     if (e.ctrlKey || e.metaKey) return !hit;
     if (e.pointerType === 'touch') {
+      // o primeiro dedo move uma peça: o segundo não vira um arrasto da câmera ao mesmo tempo
+      if (this.editPointer !== null && this.editPointer !== e.pointerId) return false;
       if (this.ed.tool() !== 'selecionar') return false;
       if (hit && this.ed.selected().has(hit.i)) return false;
       if (!hit && this.ed.multi()) return false;
@@ -135,6 +142,9 @@ export class BoardEditing {
     this.lastPoint = this.world(e);
     if (e.pointerType === 'touch') this.startHold(e);
     if (!this.h.editing() || e.button !== 0 || this.own(e.target) || this.shouldPan(e)) return;
+    // um gesto por vez: o segundo dedo não começa outro no meio do primeiro
+    if (this.editPointer !== null && this.editPointer !== e.pointerId) return;
+    this.editPointer = e.pointerId;
     const t = e.target instanceof Element ? e.target : null;
     const alca = t?.closest<HTMLElement>('[data-alca]')?.dataset['alca'];
     const bolinha = t?.closest<HTMLElement>('[data-bolinha]')?.dataset['bolinha'];
@@ -156,6 +166,7 @@ export class BoardEditing {
   }
 
   private move(e: PointerEvent): void {
+    if (this.editPointer !== null && e.pointerId !== this.editPointer) return;
     this.lastPoint = this.world(e);
     if (this.hold && Math.hypot(e.clientX - this.hold.x, e.clientY - this.hold.y) > 10) this.cancelHold();
     if (!this.h.editing()) return;
@@ -163,6 +174,8 @@ export class BoardEditing {
   }
 
   private up(e: PointerEvent): void {
+    if (this.editPointer !== null && e.pointerId !== this.editPointer) return;
+    this.editPointer = null;
     this.cancelHold();
     if (!this.h.editing()) return;
     const r = this.h.visor().getBoundingClientRect();
@@ -272,6 +285,8 @@ export class BoardEditing {
     const owner = this.h.owner();
     if (!owner) return Promise.resolve([]);
     return new Promise((resolve) => {
+      // fechar o menu sem escolher também responde (nada), e o que espera por ele (a seta solta) não fica pendurado
+      let chosen = false;
       const kinds: [string, string, MenuItem['icon']][] = [
         ['contador', 'Contador', ICON.ampulheta],
         ['video', 'Vídeo', ICON.video],
@@ -285,12 +300,17 @@ export class BoardEditing {
           label,
           icon,
           dialog: true,
-          run: () =>
-            void owner.editWidget(`{{${name}}}`).then((line) => resolve(line?.trim() ? this.addLines([{ line }], at) : [])),
+          run: () => {
+            chosen = true;
+            void owner.editWidget(`{{${name}}}`).then((line) => resolve(line?.trim() ? this.addLines([{ line }], at) : []));
+          },
         }),
       );
       const r = this.h.visor().getBoundingClientRect();
-      this.h.menu('widget-novo', 'Qual widget?', [items], r.left + r.width / 2, r.top + r.height - 120, 'teclado');
+      // o menu avisa que fechou antes de rodar a escolha: a resposta vazia espera a escolha ter chance
+      this.h.menu('widget-novo', 'Qual widget?', [items], r.left + r.width / 2, r.top + r.height - 120, 'teclado', () =>
+        queueMicrotask(() => !chosen && resolve([])),
+      );
     });
   }
 
@@ -488,6 +508,14 @@ export class BoardEditing {
     if (this.own(e.target)) return;
     e.preventDefault();
     this.cancelHold();
+    // a tecla de menu (ou Shift+F10) na peça com o foco: o menu dela, no meio dela, aberto pelo teclado
+    const piece = e.target instanceof Element ? e.target.closest<HTMLElement>('app-free-board-piece') : null;
+    if (piece && !(e as PointerEvent).pointerType) {
+      const r = piece.getBoundingClientRect();
+      const x = r.left + r.width / 2;
+      const y = r.top + r.height / 2;
+      return this.openMenuAt(this.world({ clientX: x, clientY: y }), x, y, 'teclado', e.target);
+    }
     this.openMenuAt(this.world(e), e.clientX, e.clientY, 'mouse', e.target);
   }
 
@@ -744,7 +772,15 @@ export class BoardEditing {
         this.ed.nudge(dx, dy);
         return true;
       }
-      case 'Enter': {
+      case 'Enter':
+      case ' ': {
+        // a peça com o foco (o Tab anda por elas) e ainda não selecionada: o Enter a seleciona, como o clique
+        const focused = (e.target as HTMLElement | null)?.closest<HTMLElement>('app-free-board-piece')?.dataset['peca'];
+        if (focused && !this.ed.selected().has(focused)) {
+          this.ed.select([focused]);
+          return true;
+        }
+        if (e.key === ' ') return false;
         const [n] = this.ed.selectedNodes();
         if (this.ed.selected().size === 1 && n) {
           this.edit(n);

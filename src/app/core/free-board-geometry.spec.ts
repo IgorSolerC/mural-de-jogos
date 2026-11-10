@@ -15,6 +15,7 @@ import {
   paintOrder,
   readingOrder,
   rectBetween,
+  routedEdgePath,
   snap,
   toWorld,
   viewRect,
@@ -157,5 +158,22 @@ describe('Quadro livre: geometria', () => {
     expect(view.y + view.h / 2).toBeCloseTo(500, 6);
     expect(fitRect({ x: 0, y: 0, w: 10, h: 10 }, 1000, 600).z).toBe(1);
     expect(fitRect(null, 1000, 600)).toEqual({ x: -500, y: -300, z: 1 });
+  });
+
+  it('a seta contorna a peça que está no caminho (e passa por cima das molduras)', () => {
+    const a = box('a', 0, 0, 200, 100);
+    const b = box('b', 1200, 0, 200, 100);
+    const mid = box('m', 560, 0, 200, 100);
+    const frame = box('f', -50, -50, 1500, 300, 'm');
+    const pieces = [a, b, mid];
+    const around = (r: { x: number; y: number; w: number; h: number }) => pieces.filter((n) => intersects(n, r));
+    const straight = edgePath(a, b);
+    const routed = routedEdgePath(a, b, {}, around);
+    // a reta cruza o bilhete do meio; a contornada passa longe dele
+    expect(distanceToPath({ x: 660, y: 50 }, straight)).toBeLessThan(10);
+    expect(distanceToPath({ x: 660, y: 50 }, routed)).toBeGreaterThan(50);
+    expect([routed.from, routed.to]).toEqual([straight.from, straight.to]);
+    // sem nada no caminho (a moldura não conta), a curva é a de sempre
+    expect(routedEdgePath(a, b, {}, (r) => [a, b, frame].filter((n) => intersects(n, r)))).toEqual(straight);
   });
 });

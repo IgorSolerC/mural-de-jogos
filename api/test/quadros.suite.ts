@@ -111,14 +111,14 @@ export function quadrosSuite(label: string, getDb: () => Db) {
       const { login, put, call, auth, list, board } = await setup();
       const ana = await login('ana');
       const sent = board(ID(1));
-      expect((await put(ana.token, ID(1), 0, sent)).body).toEqual({ rev: 1 });
+      expect((await put(ana.token, ID(1), 0, sent)).body).toEqual({ rev: 1, versao: 1 });
       const got = await call(`/v1/eu/quadros/${ID(1)}`, { headers: auth(ana.token) });
       expect(got.status).toBe(200);
       expect(got.headers.get('Quadro-Rev')).toBe('1');
       expect(await gunzip(await got.arrayBuffer())).toBe(sent);
       // a mesma versão: nada desce
       expect((await call(`/v1/eu/quadros/${ID(1)}?rev=1`, { headers: auth(ana.token) })).status).toBe(204);
-      expect((await put(ana.token, ID(1), 1, board(ID(1), 'Mansão 2'))).body).toEqual({ rev: 2 });
+      expect((await put(ana.token, ID(1), 1, board(ID(1), 'Mansão 2'))).body).toEqual({ rev: 2, versao: 2 });
       const l = await list(ana.token);
       expect(l.body.quadros).toEqual([jasmineLike({ id: ID(1), rev: 2 })]);
     });
@@ -279,6 +279,11 @@ export function quadrosSuite(label: string, getDb: () => Db) {
       expect((await t.ext(k.segredo, 'POST', `/ext/v1/quadros/${ID(1)}/setas`, { setas: [{ de: 'a', para: 'a' }] })).status).toBe(400);
       expect((await t.ext(k.segredo, 'POST', '/ext/v1/quadros/Outro/pecas', add)).status).toBe(404);
       expect((await t.ext(k.segredo, 'POST', '/ext/v1/quadros', { nome: 'Sem grupo' })).status).toBe(400);
+      // sem o contexto no espelho, os grupos das notas espelhadas conferem: o nome errado não vira grupo novo
+      await t.db.batch([{ sql: "INSERT INTO api_espelho (usuario_id, tipo, id, hash, grupo, dados) VALUES (?, 'nota', 'n1', 'ab', 'jogos', '{}')", params: [ana.id] }]);
+      const typo = await t.ext(k.segredo, 'POST', '/ext/v1/quadros', { nome: 'X', grupo: 'Jogoz' });
+      expect([typo.status, ((await typo.json()) as any).erro]).toEqual([422, 'grupo-desconhecido']);
+      expect((await t.ext(k.segredo, 'POST', '/ext/v1/quadros', { nome: 'X', grupo: 'JOGOS' })).status).toBe(202);
       // só leitura não cria
       const reader = await t.newKey(ana.token, ['notas:ler']);
       expect((await t.ext(reader.segredo, 'POST', '/ext/v1/quadros', { nome: 'X', grupo: 'Jogos' })).status).toBe(403);
@@ -286,6 +291,31 @@ export function quadrosSuite(label: string, getDb: () => Db) {
       const tools = (scopes: string[]) => FERRAMENTAS.filter((f) => f.nome.includes('quadro') && alcanca(f, scopes)).map((f) => f.nome);
       expect(tools(['notas:ler'])).toEqual(['ver_quadros', 'ler_quadro']);
       expect(tools(['notas:criar'])).toEqual(['criar_quadro', 'acrescentar_no_quadro', 'ligar_no_quadro']);
+    });
+
+    it('o envio em partes (o quadro e a lista das imagens, que não cabe num cabeçalho) e o contador na resposta', async () => {
+      const { db, login, call, auth, board } = await setup();
+      const ana = await login('ana');
+      const imgs = Array.from({ length: 1500 }, (_, k) => IMG(k));
+      const form = new FormData();
+      form.append('quadro', new Blob([await gzip(board(ID(1)))], { type: 'application/gzip' }));
+      form.append('imagens', JSON.stringify(imgs));
+      const res = await call(`/v1/eu/quadros/${ID(1)}`, { method: 'PUT', headers: { ...auth(ana.token), 'Quadro-Rev-Base': '0' }, body: form });
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ rev: 1, versao: 1 });
+      expect((await db.first<{ n: number }>('SELECT COUNT(*) AS n FROM quadro_imagens'))!.n).toBe(1500);
+    });
+
+    it('apagar com a versão de antes não apaga o que outro aparelho mexeu depois (a mexida vence)', async () => {
+      const { login, put, call, auth } = await setup();
+      const ana = await login('ana');
+      await put(ana.token, ID(1), 0);
+      await put(ana.token, ID(1), 1);
+      const stale = await call(`/v1/eu/quadros/${ID(1)}`, { method: 'DELETE', headers: { ...auth(ana.token), 'Quadro-Rev-Base': '1' } });
+      expect(stale.status).toBe(409);
+      expect(((await stale.json()) as any).rev).toBe(2);
+      const ok = await call(`/v1/eu/quadros/${ID(1)}`, { method: 'DELETE', headers: { ...auth(ana.token), 'Quadro-Rev-Base': '2' } });
+      expect(((await ok.json()) as any).rev).toBe(3);
     });
 
     it('a limpeza diária tira as lápides de mais de 30 dias; apagar a conta leva os quadros', async () => {

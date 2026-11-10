@@ -96,8 +96,9 @@ export type RulerAsk = 'anotacao' | 'imagem' | 'widget' | 'atalhos';
       color: rgb(21 21 21 / 0.38);
       cursor: default;
     }
+    /* no alumínio, o amarelo do foco some (1,5:1): o anel é de tinta */
     .ferramenta:focus-visible {
-      outline: 3px solid var(--focus);
+      outline: 3px solid var(--ink);
       outline-offset: 1px;
     }
     /* a ligada: o traço de marca-texto embaixo do nome */
@@ -124,6 +125,31 @@ export type RulerAsk = 'anotacao' | 'imagem' | 'widget' | 'atalhos';
     @media (hover: none) {
       .so-toque {
         display: inline-flex;
+      }
+    }
+    /* no celular estreito, a régua em dois andares: as ferramentas em cima e, depois do picote deitado,
+       Vários, Desfazer, Refazer e os atalhos (rolando de lado, eles ficavam fora da tela sem sinal) */
+    @media (max-width: 640px) {
+      .regua {
+        flex-wrap: wrap;
+        justify-content: center;
+        overflow: visible;
+      }
+      .ferramenta {
+        flex: 1 1 0;
+        min-width: 44px;
+        padding-inline: 2px;
+      }
+      .ferramenta.icone,
+      .so-toque {
+        flex: 0 0 auto;
+        min-width: 56px;
+      }
+      .picote {
+        flex-basis: 100%;
+        width: auto;
+        height: 1px;
+        margin: 2px 6px;
       }
     }
     @media (prefers-reduced-motion: reduce) {

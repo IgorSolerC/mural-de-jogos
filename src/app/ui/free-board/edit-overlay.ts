@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, input, output, viewChild } from '@angular/core';
 import { FB_FRAME_TITLE_MAX, FB_LABEL_MAX, FB_TEXT_MAX, FbNode, FbSide, FB_SIDES } from '../../core/free-board';
-import { anchor, boundsOf } from '../../core/free-board-geometry';
+import { anchor, boundsOf, intersects } from '../../core/free-board-geometry';
 import { ICON, IconModule } from '../icons';
 import { BoardEditor, Writing } from './board-editor';
 import { handlesFor, sizeRule } from './edit-ops';
@@ -88,7 +88,7 @@ export type SelectionAction = 'cor' | 'jeito' | 'rotulo' | 'frente' | 'tras' | '
       <!-- a etiqueta da seleção: a peça única dos botões dos cards (ui/_etiqueta-acoes.scss), à vista enquanto há
            seleção (não com a mão em cima), num tamanho de tela -->
       <div class="etiqueta-ancora" [style.left.px]="t.x" [style.top.px]="t.y">
-        <div class="acoes" role="toolbar" aria-label="O que fazer com a seleção">
+        <div class="acoes" [class.embaixo]="t.below" role="toolbar" aria-label="O que fazer com a seleção">
           @if (t.color) {
             <button type="button" class="botao cor" aria-label="Cor" title="Cor" (pointerdown)="$event.stopPropagation()" (click)="act.emit('cor')">
               <lucide-icon [img]="Icons.cor" [size]="16" aria-hidden="true" />
@@ -198,10 +198,17 @@ export class FreeBoardEditOverlay {
     if (sel.length) {
       const box = boundsOf(sel)!;
       const colorable = sel.some((n) => n.t !== 'w');
-      return { x: box.x, y: box.y, color: colorable, look: sel.length === 1 ? this.lookLabel() : null, label: false, stack: true };
+      // em cima da seleção, a etiqueta cobriria o título de uma moldura (a fita Dymo do canto): vai para baixo
+      const z = ed.zoom();
+      const over = { x: box.x, y: box.y - 96 / z, w: 340 / z, h: 96 / z };
+      const ids = new Set(sel.map((n) => n.i));
+      const below = [...this.nodes().values()].some(
+        (n) => n.t === 'm' && !ids.has(n.i) && !!n.nome && intersects(over, { x: n.x + 26, y: n.y + 22, w: Math.min(n.w - 52, 28 + n.nome.length * 16), h: 30 }),
+      );
+      return { x: box.x, y: below ? box.y + box.h : box.y, below, color: colorable, look: sel.length === 1 ? this.lookLabel() : null, label: false, stack: true };
     }
     const m = ed.selectedEdge() ? this.edgeMid() : null;
-    if (m) return { x: m.x, y: m.y - 24, color: true, look: null, label: true, stack: false };
+    if (m) return { x: m.x, y: m.y - 24, below: false, color: true, look: null, label: true, stack: false };
     return null;
   });
 

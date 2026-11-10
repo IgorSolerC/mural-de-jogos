@@ -173,9 +173,16 @@
     scale: 0.96;
   }
 
+  /* no alumínio, o amarelo do foco some: o anel é de tinta */
   &:focus-visible {
-    outline: 3px solid var(--focus);
+    outline: 3px solid var(--ink);
     outline-offset: 1px;
+  }
+
+  /* no dedo, as teclas do zoom com 44 px */
+  @media (pointer: coarse) {
+    min-width: 44px;
+    min-height: 44px;
   }
 }
 
@@ -187,7 +194,17 @@
 .tudo {
   padding: 0 12px;
   border-left: 1px solid rgb(0 0 0 / 0.18);
+  border-radius: 0;
+}
+
+/* "Ver em lista": o quadro em texto, à vista (antes só pelo L e pelo menu do fundo) */
+.em-lista {
+  border-left: 1px solid rgb(0 0 0 / 0.18);
   border-radius: 0 3px 3px 0;
+
+  &[aria-pressed='true'] {
+    background: rgb(255 255 255 / 0.32);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

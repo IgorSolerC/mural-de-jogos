@@ -611,7 +611,10 @@ export class ApiRequests {
       const stamps: RequestStamps = new Map(items.filter((i) => i.carimbo).map((i) => [`${i.alvo}@${i.carimbo}`, i.desde ?? null]));
       const now = new Date().toISOString();
       const out = isBoardOp(req.op)
-        ? await applyBoardRequest(this.freeBoards, req, { noteTitle: (id) => (this.ownNote(id) ? this.store.get(id)!.game.name : undefined) })
+        ? await applyBoardRequest(this.freeBoards, req, {
+            noteTitle: (id) => (this.ownNote(id) ? this.store.get(id)!.game.name : undefined),
+            groups: () => [...new Set(this.store.notes().map((n) => n.category).filter((g): g is string => !!g))],
+          })
         : req.op.startsWith('nota.')
         ? applyNoteRequest(this.store, req, {
             now,

@@ -88,6 +88,15 @@ describe('Quadro livre: os pedidos da API das AIs', () => {
       expect(store.get(id)?.nome).toBe('Blue Prince');
       expect((await applyBoardRequest(store, { op: 'quadro-livre.criar', alvo: id, dados: { nome: 'Blue Prince', grupo: 'Jogos' } }, ctx)).estado).toBe('aplicado');
       expect(store.count()).toBe(1);
+      // o grupo com a grafia do mural; um que não existe não vira grupo novo
+      const withGroups = { ...ctx, groups: () => ['Jogos', 'Trabalho'] };
+      const spelledId = 'pedidoQuadroLivre00002';
+      expect((await applyBoardRequest(store, { op: 'quadro-livre.criar', alvo: spelledId, dados: { nome: 'Agenda', grupo: 'trabalho' } }, withGroups)).estado).toBe('aplicado');
+      expect(store.get(spelledId)?.grupo).toBe('Trabalho');
+      await undoBoard(store, { op: 'quadro-livre.criar', alvo: spelledId });
+      const wrong = await applyBoardRequest(store, { op: 'quadro-livre.criar', alvo: 'pedidoQuadroLivre00003', dados: { nome: 'X', grupo: 'Jogoz' } }, withGroups);
+      expect(wrong.estado).toBe('falhou');
+      expect(wrong.resultado.erro).toContain('Jogos, Trabalho');
       const added = await applyBoardRequest(store, { op: 'quadro-livre.acrescentar', alvo: id, dados: { pecas: [{ bilhete: 'Senha?' }, { bilhete: 'Email' }], setas: [{ de: 'nova1', para: 'nova2' }] } }, ctx);
       expect(added.estado).toBe('aplicado');
       expect(store.get(id)!.n.length).toBe(2);

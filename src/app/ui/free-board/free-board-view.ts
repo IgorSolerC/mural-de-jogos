@@ -117,24 +117,24 @@ interface EdgeLabel {
         @if (editing()) {
           <p class="vazio">Arraste imagens para cá, ou escolha uma ferramenta embaixo.</p>
         } @else {
-          <p class="vazio">Este quadro está vazio.</p>
+          <p class="vazio">Este quadro está vazio.@if (owner()) { Editar (E) põe a primeira peça.}</p>
         }
       }
-      <p id="fb-como" class="sr-only">Arraste para andar, role para dar zoom. Tab passa pelas peças; as setas do teclado andam; + e − dão zoom; 0 mostra tudo.</p>
+      <p id="fb-como" class="sr-only">Arraste para andar, role para dar zoom. Tab passa pelas peças; as setas do teclado andam; + e − dão zoom; 0 mostra tudo; L mostra o quadro em texto.</p>
     </div>
     <span #fim tabindex="-1" class="sr-only">Fim do quadro</span>
     @if (editing()) {
       <app-free-board-tools class="ferramentas" [editor]="editor" (ask)="rulerAsk($event)" />
     }
     @if (helpOpen()) {
-      <div class="atalhos" role="dialog" aria-modal="false" aria-labelledby="fb-atalhos-titulo" (keydown.escape)="$event.stopPropagation(); helpOpen.set(false)">
+      <div class="atalhos" role="dialog" tabindex="-1" aria-modal="false" aria-labelledby="fb-atalhos-titulo" (keydown.escape)="$event.stopPropagation(); closeHelp()">
         <h2 id="fb-atalhos-titulo">Atalhos do quadro</h2>
         <dl>
           @for (a of shortcuts; track a[0]) {
             <div><dt>{{ a[0] }}</dt><dd>{{ a[1] }}</dd></div>
           }
         </dl>
-        <button type="button" class="btn-quiet" (click)="helpOpen.set(false)">Fechar</button>
+        <button type="button" class="btn-quiet" (click)="closeHelp()">Fechar</button>
       </div>
     }
     @if (listOpen()) {
@@ -163,13 +163,13 @@ interface EdgeLabel {
           <h3>Setas</h3>
           <ul class="lista-setas">
             @for (a of outline().arrows; track a.id) {
-              <li>{{ a.from }} <span aria-label="leva a">→</span> {{ a.to }}@if (a.label) {<span class="lista-rotulo"> ({{ a.label }})</span>}</li>
+              <li>{{ a.from }} <span aria-hidden="true">→</span><span class="sr-only">leva a</span> {{ a.to }}@if (a.label) {<span class="lista-rotulo"> ({{ a.label }})</span>}</li>
             }
           </ul>
         }
       </section>
     }
-    <app-context-menu #menu [caption]="menuCaption()" [sections]="menuSections()" />
+    <app-context-menu #menu [caption]="menuCaption()" [sections]="menuSections()" (closed)="menuClosed()" />
     <div class="regua" role="toolbar" aria-label="Zoom do quadro">
       <button type="button" class="tecla" (click)="zoomStep(1 / 1.25)" aria-label="Afastar" title="Afastar (−)">
         <lucide-icon [img]="Icons.menos" [size]="18" aria-hidden="true" />
@@ -181,6 +181,9 @@ interface EdgeLabel {
         <lucide-icon [img]="Icons.mais" [size]="18" aria-hidden="true" />
       </button>
       <button type="button" class="tecla tudo" (click)="fitAll()" title="Ver tudo (0)">Ver tudo</button>
+      <button type="button" class="tecla em-lista" (click)="listOpen() ? closeList() : openList()" [attr.aria-pressed]="listOpen()" aria-label="Ver em lista" title="Ver em lista (L)">
+        <lucide-icon [img]="Icons.lista" [size]="18" aria-hidden="true" />
+      </button>
     </div>
   `,
 })
@@ -204,7 +207,7 @@ export class FreeBoardView implements RigHost {
   /** Um aviso curto (o quadro cheio): sobe para quem mostra os avisos do site. */
   readonly notice = output<string>();
 
-  protected readonly Icons = { mais: ICON.adicionar, menos: ICON.tirar };
+  protected readonly Icons = { mais: ICON.adicionar, menos: ICON.tirar, lista: ICON.lista };
 
   private readonly visor = viewChild.required<ElementRef<HTMLElement>>('visor');
   private readonly back = viewChild.required<ElementRef<HTMLElement>>('back');
@@ -239,10 +242,14 @@ export class FreeBoardView implements RigHost {
     camera: () => this.rig?.camera ?? { x: 0, y: 0, z: 1 },
     visor: () => this.visor().nativeElement,
     middle: () => toWorld(this.rig?.camera ?? { x: 0, y: 0, z: 1 }, { x: this.dims.w / 2, y: this.dims.h / 2 }),
-    menu: (key, caption, sections, x, y, by) => this.openMenu(key, caption, sections, x, y, by),
+    menu: (key, caption, sections, x, y, by, onClose) => this.openMenu(key, caption, sections, x, y, by, onClose),
     say: (text) => this.notice.emit(text),
     toggleEdit: (on) => this.editToggle.emit(on),
-    showHelp: () => this.helpOpen.set(true),
+    showHelp: () => {
+      this.helpOpen.set(true);
+      // o painel recebe o foco (o leitor de tela fica sabendo que abriu; o Esc fecha e devolve ao quadro)
+      afterNextRender(() => this.visor().nativeElement.parentElement?.querySelector<HTMLElement>('.atalhos')?.focus(), { injector: this.injector });
+    },
     showList: () => this.openList(),
     fitAll: () => this.fitAll(),
     goTo: (p) => this.goTo(p),
@@ -544,6 +551,11 @@ export class FreeBoardView implements RigHost {
   // ===== "Ver em lista" =====
 
   /** Abre a lista, com o foco nela. */
+  protected closeHelp(): void {
+    this.helpOpen.set(false);
+    this.visor().nativeElement.focus({ preventScroll: true });
+  }
+
   openList(): void {
     this.listOpen.set(true);
     afterNextRender(() => this.visor().nativeElement.parentElement?.querySelector<HTMLElement>('.lista-pecas button, .lista button')?.focus(), { injector: this.injector });
@@ -573,7 +585,10 @@ export class FreeBoardView implements RigHost {
     this.edits.act(a, { x: r?.left ?? 0, y: (r?.bottom ?? 0) + 4 });
   }
 
-  private openMenu(key: string, caption: string, sections: MenuSections, x: number, y: number, by: 'mouse' | 'toque' | 'teclado'): void {
+  private openMenu(key: string, caption: string, sections: MenuSections, x: number, y: number, by: 'mouse' | 'toque' | 'teclado', onClose?: () => void): void {
+    // o menu de antes (se ainda estava aberto) dá lugar a este: quem esperava por ele fica sabendo
+    this.menuClosed();
+    this.menuOnClose = onClose ?? null;
     this.menuCaption.set(caption);
     this.menuSections.set(sections);
     // o menu desenha as opções novas antes de abrir (ele mede o tamanho para não sair da tela)
@@ -585,6 +600,14 @@ export class FreeBoardView implements RigHost {
     if (!this.rig) return;
     const z = Math.max(this.rig.camera.z, 0.6);
     this.rig.flyTo({ x: p.x - this.dims.w / 2 / z, y: p.y - this.dims.h / 2 / z, z });
+  }
+
+  private menuOnClose: (() => void) | null = null;
+
+  protected menuClosed(): void {
+    const done = this.menuOnClose;
+    this.menuOnClose = null;
+    done?.();
   }
 
   // ===== desenhar =====
