@@ -45,7 +45,7 @@ describe('o título do tamanho do espaço (ui/fit-title.ts)', () => {
     fixture.detectChanges();
     for (const f of fixture.componentInstance.fits()) f.fit();
     const els = [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.titulo')];
-    return { els, size: (i: number) => parseFloat(els[i].style.fontSize), done: () => fixture.nativeElement.remove() };
+    return { els, fits: fixture.componentInstance.fits(), size: (i: number) => parseFloat(els[i].style.fontSize), done: () => fixture.nativeElement.remove() };
   }
 
   it('um caractere fica enorme, uma palavra grande, uma frase menor', () => {
@@ -53,6 +53,28 @@ describe('o título do tamanho do espaço (ui/fit-title.ts)', () => {
     expect(size(0)).toBeGreaterThan(size(1));
     expect(size(1)).toBeGreaterThan(size(2));
     expect(size(0)).toBeGreaterThan(100);
+    done();
+  });
+
+  it('a letra que chega depois refaz a conta guardada (a Klee One é mais larga que a de reserva: a linha quebrava e o fim saía cortado)', () => {
+    const { els, fits, size, done } = mount(['Fotossíntese'], [180]);
+    const el = els[0];
+    const area = el.parentElement!;
+    // uma letra do sistema, que já está aqui: a conta fica guardada
+    el.style.fontFamily = 'Arial';
+    fits[0].fit();
+    const before = size(0);
+    // a letra mais larga, sem mudar nada do que a conta guardada olha (o texto, a família, a área)
+    el.style.letterSpacing = '0.15em';
+    fits[0].fit();
+    expect(size(0)).toBe(before);
+    expect(el.scrollHeight > area.clientHeight + 1 || el.scrollWidth > area.clientWidth + 1).withContext('a guardada não serve mais').toBeTrue();
+    // chegou uma leva de letra: a conta é refeita, e nada sai da área
+    document.fonts.dispatchEvent(new Event('loadingdone'));
+    fits[0].fit();
+    expect(size(0)).toBeLessThan(before);
+    expect(el.scrollWidth).toBeLessThanOrEqual(area.clientWidth + 1);
+    expect(el.scrollHeight).toBeLessThanOrEqual(area.clientHeight + 1);
     done();
   });
 

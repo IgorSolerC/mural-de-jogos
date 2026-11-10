@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-10-setas-que-se-ajeitam',
+    id: '2026-11-10-flashcard-que-cortava',
     version: '1.43.2',
     kind: 'ajustes',
     date: '2026-11-10',
@@ -48,6 +48,7 @@ export const NEWS: NewsEntry[] = [
       'As setas do quadro livre contornam as peças que estão no caminho, em vez de passar por baixo delas.',
       'As setas do quadro livre voltam a se ajeitar sozinhas no lado mais perto quando as peças andam. A ponta de uma seta escolhida se puxa para outro lado ou outra peça, e o cadeado da seta (na etiqueta ou no botão direito) a prende nos lados que ela tem.',
       'No celular, a régua do editar fica em dois andares, com Desfazer e Refazer sempre à vista; no teclado, o Enter seleciona a peça com o foco.',
+      'O verso do flashcard mostra no alto o nome da anotação (antes, o título da frente), e o japonês dele não quebra mais no meio da palavra.',
     ],
     correcoes: [
       'Pôr uma anotação no quadro livre achava quase nada: agora aparecem todas, de qualquer grupo, as finalizadas e as que só estão no Kanban ou nos Flashcards, com os mesmos filtros do resto do site.',
@@ -59,6 +60,7 @@ export const NEWS: NewsEntry[] = [
       'Apagar um quadro livre num aparelho não apaga mais o que outro aparelho mudou nele depois: o quadro volta, com a mudança.',
       'Os quadros livres com muitas imagens sobem para a nuvem (antes, um quadro com centenas delas ficava só no aparelho).',
       'No celular, encostar um segundo dedo enquanto move uma peça não arrasta mais o quadro junto.',
+      'A frente de um flashcard em japonês não sai mais cortada: o tamanho da letra é refeito quando a letra escrita à mão termina de chegar.',
     ],
   },
   {

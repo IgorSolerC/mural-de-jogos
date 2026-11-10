@@ -34,7 +34,7 @@
   }
 }
 
-/* no alto do verso, o título da frente, para comparar com o que se pensou: na letra da frente (a frase, à mão) */
+/* no alto do verso, o nome da anotação, para comparar com o que se pensou: na letra da frente (a frase, à mão) */
 .verso-titulo {
   margin: 0 0 12px;
   padding-bottom: 8px;
@@ -44,6 +44,10 @@
   font-size: 1.6rem;
   line-height: 1.15;
   text-wrap: balance;
+  /* o japonês não quebra no meio da palavra ("見ませんでし / た"): a linha vira nos espaços, e só o que não cabe
+     inteiro quebra onde precisar */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 
   &.frase {
     font-family: var(--f-hand), 'Klee One', cursive;
@@ -56,15 +60,6 @@
     font-size: 1.05rem;
     color: var(--ink-2);
   }
-}
-
-/* a anotação sem texto, de título próprio: o nome dela é a resposta */
-.verso-nome {
-  margin: 0;
-  font-family: var(--f-marker), 'Klee One', cursive;
-  font-size: 1.55rem;
-  line-height: 1.1;
-  text-wrap: balance;
 }
 
 /* em volta do texto, sem zoom: é o que diz quanto ele mede enquanto cresce (ui/grow-to-fit.ts) */

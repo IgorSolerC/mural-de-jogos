@@ -41,12 +41,10 @@ const DRAG_PX = 6;
     @if (view(); as c) {
       <app-paper-art class="verso-papel-arte" [id]="c.look.artId" [paper]="c.look.paper" [paperSeed]="c.look.paperSeed" [glitter]="c.look.paper === 'glitter'" [dark]="c.look.dark" />
       <div class="verso-conteudo">
-        <!-- o título é o da frente, uma vez só; o nome da anotação só aparece quando é tudo o que ela tem -->
+        <!-- o título é o da anotação (a frente já mostrou o dela), uma vez só, com o subtítulo da frente ao lado -->
         <h3 class="verso-titulo" [class.frase]="c.phrase" lang="und">{{ c.title }}@if (c.subtitle) {<span> · {{ c.subtitle }}</span>}</h3>
         @if (c.text) {
           <div class="verso-resposta" [inert]="still()" [appGrowToFit]="c.text" [appGrowToFitMin]="fitMin()"><div class="verso-texto"><app-rich-text [text]="c.text" [fold]="true" [foldKey]="c.noteId" [links]="links()" /></div></div>
-        } @else if (c.noteTitle !== c.title) {
-          <p class="verso-nome">{{ c.noteTitle }}</p>
         } @else {
           <p class="verso-vazio">Esta anotação não tem texto.</p>
         }
@@ -83,8 +81,9 @@ export class StudyCardBack {
     const card = draft ? { front: draft.front } : this.source.card(id);
     const note = draft ? draft.note : this.source.note(id);
     if (!card || !note) return null;
-    // no editor, a anotação nova pode ainda não ter nome: o título da frente, como ela está mostrando
-    const title = frontTitle(card, note.game.name) || (draft ? 'Sem nome' : '');
+    // o nome da anotação, não o da frente (pedido do usuário: a frente "来なかった", o verso "来なかった · Não vim");
+    // sem nome (a anotação nova, no editor), o título da frente, como ela está mostrando
+    const title = note.game.name.trim() || frontTitle(card, note.game.name) || (draft ? 'Sem nome' : '');
     // a cartolina da anotação como o mural a desenha (sem cor escolhida, a sorteada pelo id)
     const stock = pinningFor(note.id, note.stock).stock;
     const dark = isDarkStock(stock);
@@ -94,7 +93,6 @@ export class StudyCardBack {
       subtitle: card.front.subtitle,
       look: { stock, dark, artId: artIdOf(note), paper: note.paper, paperSeed: note.paperSeed, vars: paperVars(note.paper, note.pattern, lookOf(note), note.patternSeed, dark, note.id) },
       noteId: note.id,
-      noteTitle: note.game.name || title,
       text: note.text,
     };
   });

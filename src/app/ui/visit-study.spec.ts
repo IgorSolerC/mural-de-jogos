@@ -147,7 +147,7 @@ describe('Os Estudos de quem se visita (VisitStudy)', () => {
       expect(opened).toBe(0);
       expect(li.classList).toContain('virada');
       const back = li.querySelector<HTMLElement>('.verso')!;
-      expect(text(back.querySelector('.verso-titulo'))).toContain('日');
+      expect(text(back.querySelector('.verso-titulo'))).toBe('Sol');
       expect(text(back.querySelector('app-rich-text'))).toContain('Nichi.');
       back.querySelector<HTMLElement>('.verso-titulo')!.click();
       await settle(fixture);

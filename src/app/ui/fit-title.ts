@@ -19,6 +19,24 @@ const MEMORY = new Map<string, { px: number; anywhere: boolean; clamp: number }>
 const MEMORY_MAX = 600;
 
 /**
+ * Quantas levas de letra já chegaram. A Klee One vem em fatias, só as dos caracteres que aparecem, e chega
+ * depois da primeira conta: a letra de reserva do Windows é ~1% mais estreita, então o tamanho achado com ela
+ * fazia "せんで" passar da borda na Klee One, a linha quebrava em quatro e o fim saía cortado (pedido do usuário:
+ * "Os textos estão cortando nesse flashcard"). A conta guardada leva este número, e cada leva refaz as cartas.
+ */
+let fontRound = 0;
+const fontWaiters = new Set<() => void>();
+let watchingFonts = false;
+function watchFonts(): void {
+  if (watchingFonts || typeof document === 'undefined' || !document.fonts) return;
+  watchingFonts = true;
+  document.fonts.addEventListener('loadingdone', () => {
+    fontRound++;
+    for (const again of fontWaiters) again();
+  });
+}
+
+/**
  * O título da frente da carta com a letra do tamanho do espaço que sobra (PLANO-ESTUDOS.md, 6.1; pedido do
  * usuário: "A ideia é sempre ocupar uma quantidade semelhante de espaço", e o mesmo com subtítulo e imagem).
  * Não são degraus fixos: um caractere só fica enorme, uma frase de duas linhas fica menor, e o título sozinho
@@ -41,6 +59,7 @@ export class FitTitle {
   private frame = 0;
 
   constructor() {
+    watchFonts();
     effect(() => {
       this.appFitTitle();
       this.appFitTitleMax();
@@ -49,10 +68,13 @@ export class FitTitle {
     afterNextRender(() => {
       const observer = new ResizeObserver(() => this.schedule());
       observer.observe(this.host.nativeElement);
-      // a letra manuscrita chega depois: o tamanho medido com a de reserva seria outro
-      void document.fonts?.ready.then(() => this.schedule());
+      // a letra manuscrita chega depois (e a Klee One, aos pedaços): o tamanho medido com a de reserva seria outro
+      const again = () => this.schedule();
+      fontWaiters.add(again);
+      void document.fonts?.ready.then(again);
       this.destroy.onDestroy(() => {
         observer.disconnect();
+        fontWaiters.delete(again);
         cancelAnimationFrame(this.frame);
       });
     });
@@ -77,7 +99,10 @@ export class FitTitle {
     const width = area.clientWidth;
     const height = area.clientHeight;
     if (!width || !height) return;
-    const key = `${text.textContent}|${getComputedStyle(text).fontFamily}|${width}|${height}|${this.appFitTitleMax()}`;
+    const style = getComputedStyle(text);
+    const key = `${text.textContent}|${style.fontFamily}|${fontRound}|${width}|${height}|${this.appFitTitleMax()}`;
+    // a letra destes caracteres ainda não chegou: a conta vale até ela chegar (o loadingdone refaz)
+    const pending = !fontsHere(style, text.textContent ?? '');
     const known = MEMORY.get(key);
     if (known) {
       text.style.overflowWrap = known.anywhere ? 'anywhere' : '';
@@ -85,7 +110,7 @@ export class FitTitle {
       clamp(text, known.clamp);
       return;
     }
-    const lineHeight = parseFloat(getComputedStyle(text).lineHeight) / parseFloat(getComputedStyle(text).fontSize) || 1.1;
+    const lineHeight = parseFloat(style.lineHeight) / parseFloat(style.fontSize) || 1.1;
     const top = Math.max(FIT_MIN_PX, Math.floor(height * this.appFitTitleMax()));
     const search = (maxLines: number, min = FIT_MIN_PX): number | null => {
       const fits = (px: number): boolean => {
@@ -121,8 +146,26 @@ export class FitTitle {
     }
     text.style.fontSize = `${px}px`;
     clamp(text, lines);
+    if (pending) return;
     if (MEMORY.size >= MEMORY_MAX) MEMORY.delete(MEMORY.keys().next().value!);
     MEMORY.set(key, { px, anywhere, clamp: lines });
+  }
+}
+
+/**
+ * A letra destes caracteres já está aqui? Senão, pede (a fatia certa da Klee One) e responde que não: a conta
+ * feita agora é com a de reserva e não fica guardada.
+ */
+function fontsHere(style: CSSStyleDeclaration, chars: string): boolean {
+  const fonts = typeof document === 'undefined' ? undefined : document.fonts;
+  if (!fonts || !chars) return true;
+  const font = `${style.fontStyle} ${style.fontWeight} 16px ${style.fontFamily}`;
+  try {
+    if (fonts.check(font, chars)) return true;
+    void fonts.load(font, chars).catch(() => undefined);
+    return false;
+  } catch {
+    return true;
   }
 }
 

@@ -256,12 +256,12 @@ describe('a sessão de estudo (ui/study-session.ts)', () => {
       await settle();
       expect(frontTitle()).toBe('月');
       expect($('.giro')!.classList).not.toContain('virada');
-      expect(versoTitle()).toBe('日');
+      expect(versoTitle()).toBe('Sol (日)');
       expect(text($('.verso-texto'))).toContain('nichi');
       expect(text($('.verso-texto'))).not.toContain('getsu');
       turn.release();
       await settle();
-      expect(versoTitle()).toBe('月');
+      expect(versoTitle()).toBe('Lua (月)');
       expect(text($('.verso-texto'))).toContain('getsu');
     });
 
@@ -271,11 +271,11 @@ describe('a sessão de estudo (ui/study-session.ts)', () => {
       await settle();
       key('2');
       await settle();
-      expect(versoTitle()).toBe('日');
+      expect(versoTitle()).toBe('Sol (日)');
       key(' ');
       await settle();
       expect(frontTitle()).toBe('月');
-      expect(versoTitle()).toBe('月');
+      expect(versoTitle()).toBe('Lua (月)');
       expect(text($('.verso-texto'))).toContain('getsu');
     });
 
@@ -287,14 +287,14 @@ describe('a sessão de estudo (ui/study-session.ts)', () => {
       await settle();
       key(' ');
       await settle();
-      expect(versoTitle()).toBe('月');
+      expect(versoTitle()).toBe('Lua (月)');
       key('z');
       await settle();
       expect(frontTitle()).toBe('日');
-      expect(versoTitle()).toBe('月');
+      expect(versoTitle()).toBe('Lua (月)');
       turn.release();
       await settle();
-      expect(versoTitle()).toBe('日');
+      expect(versoTitle()).toBe('Sol (日)');
     });
 
     it('o segundo clique no Acertei não vira a próxima carta, que ainda nem foi vista', async () => {
@@ -553,12 +553,11 @@ describe('a sessão de estudo (ui/study-session.ts)', () => {
     });
 
     describe('o título, uma vez só', () => {
-      it('é o da frente, e o nome da anotação não repete', async () => {
+      it('é o nome da anotação, não o da frente (a frente já mostrou o dela)', async () => {
         await reveal('Leitura: nichi.');
         const titles = dialog()!.querySelectorAll('.verso h3');
         expect(titles.length).toBe(1);
-        expect(text(titles[0])).toBe('日');
-        expect(text($('.verso'))).not.toContain('Sol (日)');
+        expect(text(titles[0])).toBe('Sol (日)');
       });
 
       it('em negrito, maior que o texto, na tinta da carta', async () => {
@@ -569,23 +568,26 @@ describe('a sessão de estudo (ui/study-session.ts)', () => {
         expect(css.color).toBe(getComputedStyle($('.verso')!).color);
       });
 
-      it('o subtítulo da frente continua ao lado dele; a pergunta comprida é escrita à mão, como na frente', async () => {
+      it('o subtítulo da frente continua ao lado dele; o nome comprido é escrito à mão, como na frente', async () => {
         study.updateFront('nsol', { title: 'Qual astro nasce no leste?', subtitle: 'um só' });
         await reveal('O Sol.');
         const title = $('.verso-titulo')!;
-        expect(text(title)).toBe('Qual astro nasce no leste? · um só');
+        expect(text(title)).toBe('Sol (日) · um só');
+        expect(title.classList).not.toContain('frase');
+        TestBed.inject(ReviewStore).reviews.update((list) => list.map((r) => (r.id === 'nsol' ? { ...r, game: { ...r.game, name: 'O astro que nasce no leste' } } : r)));
+        await settle();
+        expect(text(title)).toBe('O astro que nasce no leste · um só');
         expect(title.classList).toContain('frase');
       });
 
-      it('a anotação sem texto: o nome dela é a resposta, se a frente tem outro título; se é o mesmo, o aviso', async () => {
+      it('a anotação sem texto: o nome dela no alto e o aviso; sem nome, o título da frente', async () => {
+        study.updateFront('nsol', { title: '日' });
         await reveal('');
-        expect(text($('.verso-nome'))).toBe('Sol (日)');
-        expect($('.verso-vazio')).toBeNull();
-        study.updateFront('nsol', {});
-        await settle();
         expect(text($('.verso-titulo'))).toBe('Sol (日)');
-        expect($('.verso-nome')).toBeNull();
         expect($('.verso-vazio')).not.toBeNull();
+        TestBed.inject(ReviewStore).reviews.update((list) => list.map((r) => (r.id === 'nsol' ? { ...r, game: { ...r.game, name: '' } } : r)));
+        await settle();
+        expect(text($('.verso-titulo'))).toBe('日');
       });
     });
 

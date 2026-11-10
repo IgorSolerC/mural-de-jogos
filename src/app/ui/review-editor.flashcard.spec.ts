@@ -465,7 +465,8 @@ describe('o editor: a aba Flashcard', () => {
     // o que se escreve na aba chega à frente e ao verso na hora
     await type('fc-titulo', '月');
     expect(stage()!.querySelector('app-study-card .titulo')!.textContent!.trim()).toBe('月');
-    expect(stage()!.querySelector('article .verso-titulo')!.textContent).toContain('月');
+    // o verso fica com o nome da anotação, não com o título da frente
+    expect(stage()!.querySelector('article .verso-titulo')!.textContent!.trim()).toBe('Sol');
     // nada do verso pega o toque nem o foco: os links levariam para fora do editor
     expect(stage()!.querySelector<HTMLElement>('article .verso-resposta')!.inert).toBeTrue();
     // saindo da aba, a ficha volta
