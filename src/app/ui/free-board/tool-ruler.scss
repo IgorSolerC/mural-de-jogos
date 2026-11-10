@@ -1,0 +1,121 @@
+@use '../etiqueta-acoes' as et;
+
+/* A régua das ferramentas do Quadro livre: cada botão é uma etiqueta de tinta separada, a peça única dos
+   botões do site (ui/_etiqueta-acoes.scss: o Fixar e o Finalizar do mural), em três grupos tortos como
+   colados à mão. Só as etiquetas pegam o clique: o vão entre elas continua sendo do quadro. */
+
+:host {
+  display: block;
+  max-width: 100%;
+  pointer-events: none;
+}
+
+.regua {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 12px 18px;
+}
+
+.grupo {
+  @include et.grupo;
+}
+
+.por {
+  rotate: 1deg;
+}
+
+.historia {
+  rotate: -0.7deg;
+}
+
+.ferramenta {
+  @include et.botao;
+  @include et.mostra;
+}
+
+/* a cor que o desenho ganha com a mão em cima: amarelo no que a mão faz e nos ajustes, verde no que entra
+   no quadro, lilás no que abre para ler */
+.ferramenta.modo,
+.ferramenta.icone {
+  @include et.cor-na-mao(var(--etiqueta-amarelo));
+}
+
+.ferramenta.por {
+  @include et.cor-na-mao(var(--etiqueta-verde));
+}
+
+.ferramenta.ajuda {
+  @include et.cor-na-mao(var(--etiqueta-lilas));
+}
+
+/* o tamanho de uma ferramenta: o nome embaixo do desenho, e pelo menos 44 px para o dedo (depois do botão
+   da peça, que é a etiqueta de 30 px dos cards) */
+.ferramenta {
+  flex-direction: column;
+  gap: 4px;
+  width: auto;
+  min-width: 62px;
+  height: auto;
+  min-height: 54px;
+  padding: 8px 9px 6px;
+  font: 800 0.68rem / 1 var(--f-label);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+
+  &.icone {
+    min-width: 46px;
+    padding-inline: 0;
+  }
+}
+
+/* a ligada: a etiqueta amarela, a regra do amarelo de estado */
+.ferramenta[aria-pressed='true'] {
+  background: var(--etiqueta-amarelo);
+  color: var(--etiqueta);
+}
+
+.ferramenta:disabled {
+  color: rgb(241 241 236 / 0.32);
+  cursor: default;
+}
+
+@media (hover: hover) {
+  .ferramenta[aria-pressed='true']:hover {
+    color: var(--etiqueta);
+  }
+
+  .ferramenta:disabled:hover {
+    scale: none;
+    color: rgb(241 241 236 / 0.32);
+  }
+}
+
+/* "Selecionar vários" só no toque: no mouse, a caixa já é arrastar no fundo */
+.ferramenta.so-toque {
+  display: none;
+}
+
+@media (hover: none) {
+  .ferramenta.so-toque {
+    display: inline-flex;
+  }
+}
+
+/* no celular estreito: o que a mão faz e o que entra no quadro numa fileira, o resto na de baixo */
+@media (max-width: 640px) {
+  .regua {
+    gap: 10px 12px;
+  }
+
+  .ferramenta {
+    min-width: 48px;
+    padding-inline: 3px;
+    letter-spacing: 0.04em;
+
+    &.icone {
+      min-width: 44px;
+    }
+  }
+}

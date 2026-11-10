@@ -360,6 +360,31 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
       expect(changes.at(-1)!.n.find((n) => n.i === id)?.['txt']).toBe('Senha nova\nNo quarto 46');
     });
 
+    it('a régua das ferramentas e o zoom são etiquetas de tinta separadas, em grupos tortos; a ligada é a amarela', async () => {
+      await edit(MANSION);
+      const grupo = (c: string) => el.querySelector<HTMLElement>(`app-free-board-tools .grupo.${c}`)!;
+      const nomes = (c: string) => [...grupo(c).querySelectorAll('button')].filter((b) => getComputedStyle(b).display !== 'none').map((b) => b.textContent!.trim() || b.getAttribute('aria-label'));
+      expect(nomes('modos')).toEqual(['Selecionar', 'Moldura', 'Texto']);
+      expect(nomes('por')).toEqual(['Anotação', 'Imagem', 'Widget']);
+      expect(nomes('historia')).toEqual(['Desfazer', 'Refazer', 'Atalhos']);
+      const opts = { semMedida: true, ligadaAmarela: true };
+      expectEtiquetaPadrao(grupo('modos'), opts);
+      expectEtiquetaPadrao(grupo('por'), { ...opts, rotate: '1deg' });
+      expectEtiquetaPadrao(grupo('historia'), { ...opts, rotate: '-0.7deg' });
+      // o vão entre os grupos é do quadro: a régua não pega o clique, só as etiquetas
+      expect(getComputedStyle(el.querySelector('app-free-board-tools .regua')!).pointerEvents).toBe('none');
+      const zoom = [...el.querySelectorAll<HTMLElement>('.grupo-zoom')];
+      expect(zoom.length).toBe(2);
+      expectEtiquetaPadrao(zoom[0], { semMedida: true });
+      expectEtiquetaPadrao(zoom[1], { ...opts, rotate: '1deg' });
+      expect(getComputedStyle(zoom[0].parentElement!).pointerEvents).toBe('none');
+      // trocar a ferramenta passa o amarelo adiante
+      key('m');
+      await settle();
+      expect(getComputedStyle(grupo('modos').querySelectorAll('button')[1]).backgroundColor).toBe('rgb(255, 218, 66)');
+      expect(getComputedStyle(grupo('modos').querySelectorAll('button')[0]).backgroundColor).toBe('rgb(21, 21, 21)');
+    });
+
     it('as ferramentas pelo teclado e pela régua; Esc sem nada selecionado pede para sair do editar', async () => {
       await edit(MANSION);
       expect(el.querySelector('app-free-board-tools')).not.toBeNull();

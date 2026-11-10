@@ -116,9 +116,12 @@
       }
       <app-free-board-top [name]="b.nome" (back)="close()">
         @if (editing()) {
-          <button type="button" class="btn-ink pronto" (click)="setEditing(false)" title="Sair do editar (E)">Pronto</button>
+          <button type="button" class="etiqueta-topo pronto" (click)="setEditing(false)" title="Sair do editar (E)">
+            <lucide-icon [img]="Icons.pronto" [size]="18" aria-hidden="true" />
+            Pronto
+          </button>
         } @else {
-          <button type="button" class="btn-cartolina editar" (click)="setEditing(true)" title="Editar o quadro (E)">
+          <button type="button" class="etiqueta-topo editar" (click)="setEditing(true)" title="Editar o quadro (E)">
             <lucide-icon [img]="Icons.editar" [size]="18" aria-hidden="true" />
             Editar
           </button>

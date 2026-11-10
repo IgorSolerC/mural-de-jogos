@@ -1,4 +1,5 @@
 @use '../ui/paper-kit' as kit;
+@use '../ui/etiqueta-acoes' as et;
 
 :host {
   display: block;
@@ -140,6 +141,32 @@
 }
 
 /* o topo do quadro aberto (voltar, nome, tela cheia) é a peça ui/free-board/board-top.ts, a mesma na visita */
+
+/* o Editar e o Pronto do dono, dentro do topo: etiquetas de tinta com o nome, como o voltar e a tela cheia
+   (a peça ui/_etiqueta-acoes.scss; as cores vêm do grupo do topo) */
+.etiqueta-topo {
+  @include et.botao;
+  @include et.mostra;
+  @include et.com-nome;
+}
+
+.etiqueta-topo.editar {
+  @include et.cor-na-mao(var(--etiqueta-amarelo));
+}
+
+.etiqueta-topo.pronto {
+  @include et.cor-na-mao(var(--etiqueta-verde));
+}
+
+/* 44 px para o dedo, e o nome fica também no toque (o com-nome da peça o tira para caber num card) */
+.etiqueta-topo {
+  width: auto;
+  height: 44px;
+  padding: 0 16px 0 12px;
+  gap: 7px;
+  font-size: 0.92rem;
+  letter-spacing: 0.12em;
+}
 
 .aviso {
   position: absolute;

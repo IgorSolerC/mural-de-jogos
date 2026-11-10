@@ -72,7 +72,7 @@ export class FreeBoardsPage {
   private readonly injector = inject(Injector);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
-  protected readonly Icons = { novo: ICON.adicionar, editar: ICON.editar };
+  protected readonly Icons = { novo: ICON.adicionar, editar: ICON.editar, pronto: ICON.pronto };
   protected readonly nameMax = FB_NAME_MAX;
   protected readonly path = freeBoardPath;
 

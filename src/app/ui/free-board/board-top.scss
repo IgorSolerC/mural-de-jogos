@@ -1,0 +1,100 @@
+@use '../etiqueta-acoes' as et;
+
+/* O topo do quadro aberto (ver board-top.ts): o voltar e a tela cheia são etiquetas de tinta, a peça única
+   dos botões do site (ui/_etiqueta-acoes.scss), como as ferramentas e o zoom; o nome é a fita de papel. */
+
+:host {
+  display: contents;
+}
+
+/* uma fileira por cima do quadro; o vão entre os dois lados continua sendo do quadro (arrastar anda) */
+.topo {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.topo-esq {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  pointer-events: auto;
+}
+
+/* o voltar sozinho num grupo da peça (as cores e o giro dela) */
+.grupo-voltar {
+  @include et.grupo;
+  flex: none;
+}
+
+/* o lado direito é um grupo de etiquetas: as variáveis de cor da peça valem também para o Editar e o Pronto
+   que quem usa põe dentro, e só as etiquetas pegam o clique */
+.topo-dir {
+  @include et.grupo;
+  flex: none;
+  gap: 6px;
+  rotate: -1deg;
+}
+
+.voltar,
+.tela-btn {
+  @include et.botao;
+  @include et.mostra;
+}
+
+.voltar {
+  @include et.cor-na-mao(var(--etiqueta-amarelo));
+}
+
+.tela-btn {
+  @include et.cor-na-mao(var(--etiqueta-azul));
+}
+
+/* o tamanho: 44 px para o dedo (depois do botão da peça, que é a etiqueta de 30 px dos cards) */
+.voltar,
+.tela-btn {
+  flex: none;
+  width: 46px;
+  height: 44px;
+}
+
+.voltar {
+  text-decoration: none;
+}
+
+/* o nome do quadro, a pincel na fita: papel, porque não é botão */
+.nome-quadro {
+  min-width: 0;
+  margin: 0;
+  padding: 6px 16px 4px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  background-color: var(--paper);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  font: 400 1.35rem / 1.15 var(--f-marker);
+  rotate: 0.8deg;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.35),
+    0 6px 10px -4px rgb(0 0 0 / 0.5);
+}
+
+@media (max-width: 420px) {
+  .topo-esq {
+    gap: 8px;
+  }
+
+  .nome-quadro {
+    padding-inline: 10px;
+    font-size: 1.15rem;
+  }
+}

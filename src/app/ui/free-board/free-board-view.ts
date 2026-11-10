@@ -177,19 +177,23 @@ interface EdgeLabel {
     }
     <app-context-menu #menu [caption]="menuCaption()" [sections]="menuSections()" (closed)="menuClosed()" />
     <div class="regua" role="toolbar" aria-label="Zoom do quadro">
-      <button type="button" class="tecla" (click)="zoomStep(1 / 1.25)" aria-label="Afastar" title="Afastar (−)">
-        <lucide-icon [img]="Icons.menos" [size]="18" aria-hidden="true" />
-      </button>
-      <button type="button" class="tecla zoom" (click)="actualSize()" [attr.aria-label]="'Zoom ' + zoomText() + ', voltar a 100%'" title="Voltar a 100% (1)">
-        {{ zoomText() }}
-      </button>
-      <button type="button" class="tecla" (click)="zoomStep(1.25)" aria-label="Aproximar" title="Aproximar (+)">
-        <lucide-icon [img]="Icons.mais" [size]="18" aria-hidden="true" />
-      </button>
-      <button type="button" class="tecla tudo" (click)="fitAll()" title="Ver tudo (0)">Ver tudo</button>
-      <button type="button" class="tecla em-lista" (click)="listOpen() ? closeList() : openList()" [attr.aria-pressed]="listOpen()" aria-label="Ver em lista" title="Ver em lista (L)">
-        <lucide-icon [img]="Icons.lista" [size]="18" aria-hidden="true" />
-      </button>
+      <div class="grupo-zoom">
+        <button type="button" class="tecla" (click)="zoomStep(1 / 1.25)" aria-label="Afastar" title="Afastar (−)">
+          <lucide-icon [img]="Icons.menos" [size]="18" aria-hidden="true" />
+        </button>
+        <button type="button" class="tecla zoom" (click)="actualSize()" [attr.aria-label]="'Zoom ' + zoomText() + ', voltar a 100%'" title="Voltar a 100% (1)">
+          {{ zoomText() }}
+        </button>
+        <button type="button" class="tecla" (click)="zoomStep(1.25)" aria-label="Aproximar" title="Aproximar (+)">
+          <lucide-icon [img]="Icons.mais" [size]="18" aria-hidden="true" />
+        </button>
+      </div>
+      <div class="grupo-zoom">
+        <button type="button" class="tecla tudo" (click)="fitAll()" title="Ver tudo (0)">Ver tudo</button>
+        <button type="button" class="tecla em-lista" (click)="listOpen() ? closeList() : openList()" [attr.aria-pressed]="listOpen()" aria-label="Ver em lista" title="Ver em lista (L)">
+          <lucide-icon [img]="Icons.lista" [size]="18" aria-hidden="true" />
+        </button>
+      </div>
     </div>
   `,
 })

@@ -10,6 +10,7 @@ import { FreeBoardSync } from '../core/free-board-sync';
 import { studyGroupId } from '../core/study';
 import { Confirm } from '../ui/confirm';
 import { FreeBoardsPage } from './free-boards-page';
+import { expectEtiquetaPadrao } from '../testing/etiqueta-acoes.spec';
 import { Desk } from '../core/desk';
 import { FreeBoardNoteAsk } from '../core/free-board-note-ask';
 import { sanitizeReview } from '../core/review';
@@ -170,6 +171,19 @@ describe('a página do Quadro livre', () => {
     await settle(10);
     expect(router.url).toBe(freeBoardPath(studyGroupId('Jogos')));
     expect($('.tela-cheia')).toBeNull();
+  });
+
+  it('o topo do quadro aberto são etiquetas de tinta separadas, como as ferramentas: voltar, Editar ou Pronto e a tela cheia', async () => {
+    await go(freeBoardPath(studyGroupId('Jogos'), store.boards()[0].id));
+    await settle(10);
+    expectEtiquetaPadrao($('.grupo-voltar')!, { semMedida: true });
+    const dir = $('.topo-dir')!;
+    expect([...dir.querySelectorAll('button')].map((b) => text(b) || b.querySelector('.sr-only')?.textContent?.trim())).toEqual(['Editar', 'Tela cheia']);
+    expectEtiquetaPadrao(dir, { rotate: '-1deg', gap: '6px', semMedida: true, comNome: ['editar'] });
+    $<HTMLButtonElement>('.etiqueta-topo.editar')!.click();
+    await settle(10);
+    expect(text($('.etiqueta-topo.pronto'))).toBe('Pronto');
+    expectEtiquetaPadrao(dir, { rotate: '-1deg', gap: '6px', semMedida: true, comNome: ['pronto'] });
   });
 
   it('o quadro que não está aqui diz isso, com o caminho de volta', async () => {
