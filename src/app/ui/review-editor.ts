@@ -1059,8 +1059,10 @@ export class ReviewEditor {
    * Uma anotação nova escrita dentro de uma aba do mural: já vem com a categoria da aba. Fechar sem
    * mexer em nada não pergunta se quer descartar.
    */
-  openInCategory(category: string, look?: CardLook, folder?: string | null): void {
+  openInCategory(category: string, look?: CardLook, folder?: string | null, title?: string): void {
     this.open(undefined, undefined, undefined, undefined, 'anotacoes');
+    // o título já escrito (o "Nova anotação" do seletor do Quadro livre leva o que se procurava)
+    if (title?.trim()) this.setNoteTitle(title.trim());
     this.noteCategory.set(category);
     // com um assunto só ligado no filtro do mural, a nova já nasce nele
     if (folder) this.noteFolder.set(this.folders.tree().resolve(folder, lookKey(category)));

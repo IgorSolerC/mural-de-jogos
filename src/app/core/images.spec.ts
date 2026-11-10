@@ -1,4 +1,4 @@
-import { ImageProblem, MAX_BYTES, MAX_SIDE, TARGET_BYTES, fitSize, imageFileOf, localImageId, localImageUrl, newImageId, shrinkImage, sizeLabel } from './images';
+import { ImageProblem, MAX_BYTES, hasTransparency, MAX_SIDE, TARGET_BYTES, fitSize, imageFileOf, localImageId, localImageUrl, newImageId, shrinkImage, sizeLabel } from './images';
 
 /** Uma imagem de verdade, desenhada num canvas: um degradê com um pouco de ruído, como uma foto. */
 export async function samplePng(width: number, height: number, alpha = false): Promise<Blob> {
@@ -100,5 +100,11 @@ describe('as imagens coladas (core/images.ts)', () => {
     expect(sizeLabel(52 * 1024)).toBe('52 KB');
     expect(sizeLabel(100)).toBe('1 KB');
     expect(sizeLabel(1.25 * 1024 * 1024)).toBe('1,3 MB');
+  });
+
+  it('a imagem com partes transparentes (o PNG sem fundo) é reconhecida; a inteira, não', async () => {
+    expect(await hasTransparency(await samplePng(40, 30, true))).toBeTrue();
+    expect(await hasTransparency(await samplePng(40, 30, false))).toBeFalse();
+    expect(await hasTransparency(new Blob(['nada'], { type: 'image/png' }))).toBeFalse();
   });
 });

@@ -1,4 +1,4 @@
-import { Component, provideZonelessChangeDetection, signal } from '@angular/core';
+import { Component, getDebugNode, provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, RouterOutlet, provideRouter } from '@angular/router';
 import { freeBoardMatcher } from '../app.routes';
@@ -10,6 +10,10 @@ import { FreeBoardSync } from '../core/free-board-sync';
 import { studyGroupId } from '../core/study';
 import { Confirm } from '../ui/confirm';
 import { FreeBoardsPage } from './free-boards-page';
+import { Desk } from '../core/desk';
+import { FreeBoardNoteAsk } from '../core/free-board-note-ask';
+import { sanitizeReview } from '../core/review';
+import { ReviewStore } from '../core/review-store';
 
 @Component({ selector: 'app-raiz', imports: [RouterOutlet], template: '<router-outlet />' })
 class Raiz {}
@@ -188,5 +192,44 @@ describe('a página do Quadro livre', () => {
     $<HTMLFormElement>('form.renomear')!.requestSubmit();
     await settle();
     expect(store.boards()[0].nome).toBe('Mansão velha');
+  });
+
+  it('a miniatura de um quadro mais alto que largo cabe na folha (antes, esticava a folha e empurrava o nome para fora)', async () => {
+    const tall = sanitizeFreeBoard({
+      v: 1, id: 'torreTorreTorreTorre01', nome: 'Torre', grupo: 'Jogos', em: '2026-11-10T20:00:00.000Z',
+      n: [{ i: 'm', t: 'm', x: 0, y: 0, w: 300, h: 2000 }, { i: 'x', t: 'x', x: 20, y: 1900, w: 200, h: 80, txt: 'Embaixo' }],
+      e: [],
+    })!;
+    store.boards.set([tall, ...store.boards()]);
+    await go(freeBoardPath());
+    const card = $$('app-free-board-card').find((c) => text(c.querySelector('.nome')) === 'Torre')!;
+    const folha = card.querySelector('.folha')!.getBoundingClientRect();
+    const mini = card.querySelector('.miniatura')!.getBoundingClientRect();
+    const pe = card.querySelector('.pe')!.getBoundingClientRect();
+    expect(mini.width).toBeLessThanOrEqual(folha.width);
+    expect(mini.height).toBeLessThan(folha.width);
+    expect(pe.bottom).toBeLessThanOrEqual(folha.bottom + 0.5);
+  });
+
+  it('pôr uma anotação: o seletor mostra as de qualquer grupo, as finalizadas também; "Nova anotação" abre o editor no grupo do quadro e a salva vai para o quadro', async () => {
+    const reviews = TestBed.inject(ReviewStore);
+    const mk = (id: string, name: string, category: string, extra: Record<string, unknown> = {}) =>
+      sanitizeReview({ id, kind: 'anotacoes', game: { name, coverUrl: null, source: 'manual' }, category, text: '', createdAt: '2026-11-01T10:00:00.000Z', updatedAt: '2026-11-01T10:00:00.000Z', ...extra })!;
+    reviews.reviews.set([mk('n1', 'Senhas', 'Jogos'), mk('n2', 'Daily', 'Trabalho'), mk('n3', 'Chefe final', 'Jogos', { completedAt: '2026-11-02T10:00:00.000Z' })]);
+    await go(freeBoardPath(studyGroupId('Jogos'), 'mansao'));
+    // o dono pede pelo quadro (a peça chama `owner.pickNote`)
+    const instance = getDebugNode(host.querySelector('app-free-boards-page')!)!.componentInstance as FreeBoardsPage;
+    const asked = instance.owner.pickNote('Jogos');
+    await settle();
+    const names = $$('dialog.escolher .escolha .nome').map(text);
+    expect(names).toEqual(jasmine.arrayWithExactContents(['Senhas', 'Daily', 'Chefe final']));
+    const desk = TestBed.inject(Desk);
+    const opened = spyOn(desk, 'newNoteIn');
+    $<HTMLButtonElement>('dialog.escolher .criar')!.click();
+    await settle();
+    expect(opened).toHaveBeenCalledWith('Jogos', undefined, undefined, '');
+    // o editor salvou a nova: ela vai para o quadro
+    expect(TestBed.inject(FreeBoardNoteAsk).claim('n9', 'Ideia')).toBeTrue();
+    expect(await asked).toEqual({ id: 'n9', title: 'Ideia' });
   });
 });

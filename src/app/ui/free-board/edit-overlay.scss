@@ -97,6 +97,17 @@
   translate: calc(22px * var(--iz)) 0;
 }
 
+/* a peça onde a seta puxada vai chegar: o anel tracejado de giz amarelo, por fora dela */
+.alvo {
+  position: absolute;
+  pointer-events: none;
+  box-sizing: border-box;
+  outline: calc(2.5px * var(--iz)) dashed var(--hi);
+  outline-offset: calc(6px * var(--iz));
+  border-radius: calc(4px * var(--iz));
+  background: rgb(255 218 66 / 0.08);
+}
+
 .caixa {
   position: absolute;
   pointer-events: none;
@@ -158,11 +169,15 @@
 }
 
 .escrever.bilhete {
-  padding: 14px 14px 10px;
-  background-color: var(--paper);
-  background-image: var(--paper-grain);
-  background-blend-mode: multiply;
+  /* o papel do card que está sendo escrito (o [data-jeito] de styles.scss) */
+  padding: 0.55em 0.85em;
+  background: var(--c-papel, var(--paper));
+  color: #1b1916;
   font: 400 1.15rem / 1.35 var(--f-hand);
+
+  &::placeholder {
+    color: rgb(27 25 22 / 0.5);
+  }
 }
 
 .escrever.titulo {

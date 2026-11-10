@@ -31,6 +31,35 @@ export function hitPiece(nodes: readonly FbNode[], p: Point, z: number): FbNode 
   return null;
 }
 
+/**
+ * A peça onde a seta puxada vai chegar: a de cima no ponto, ou a que está a menos de `slack` px de tela dele (soltar
+ * rente à borda, ou um pouco fora dela, também liga). Nunca `from`, de onde a seta sai.
+ */
+export function linkTarget(nodes: readonly FbNode[], p: Point, z: number, from: string, slack = 18): FbNode | null {
+  const hit = hitPiece(nodes, p, z);
+  if (hit && hit.i !== from) return hit;
+  const pad = slack / z;
+  const order = paintOrder(nodes);
+  for (let k = order.length - 1; k >= 0; k--) {
+    const n = order[k];
+    if (n.i === from) continue;
+    if (p.x < n.x - pad || p.y < n.y - pad || p.x > n.x + n.w + pad || p.y > n.y + n.h + pad) continue;
+    // a moldura: só perto da borda (dentro dela é o vazio, onde a seta solta pergunta o que nasce ali)
+    if (n.t === 'm' && p.x > n.x + pad && p.x < n.x + n.w - pad && p.y > n.y + Math.max(pad, FRAME_HEAD) && p.y < n.y + n.h - pad) continue;
+    return n;
+  }
+  return null;
+}
+
+/**
+ * A peça das bolinhas continua a mesma enquanto o ponteiro está perto dela: as bolinhas ficam fora da borda, e ir
+ * até uma delas não pode tirar o ponteiro de cima da peça (as bolinhas sumiam no caminho). `reach`: px de tela.
+ */
+export function keepsHover(n: FbNode, p: Point, z: number, reach = 40): boolean {
+  const pad = reach / z;
+  return p.x >= n.x - pad && p.y >= n.y - pad && p.x <= n.x + n.w + pad && p.y <= n.y + n.h + pad;
+}
+
 /** A seta mais perto do ponto, se está a menos de `tol` (no mundo). */
 export function hitEdge(board: Pick<FreeBoard, 'n' | 'e'>, p: Point, tol: number): FbEdge | null {
   const shown = shownNodes(board);
@@ -47,7 +76,7 @@ export function hitEdge(board: Pick<FreeBoard, 'n' | 'e'>, p: Point, tol: number
     const b = byId.get(e.b);
     if (!a || !b) continue;
     const straight = boundsOf([a, b])!;
-    // a curva contornada fica perto da caixa das duas pontas (no máximo três passos de 400 para o lado)
+    // a curva contornada fica perto da caixa das duas pontas (o desvio vai até 400 para o lado)
     if (!intersects(grow(straight, 1500 + tol), { x: p.x, y: p.y, w: 0, h: 0 })) continue;
     const path = routedEdgePath(a, b, { as: e.as as FbSide | undefined, bs: e.bs as FbSide | undefined }, around);
     if (!intersects(grow(path.box, tol), { x: p.x, y: p.y, w: 0, h: 0 })) continue;
@@ -85,12 +114,16 @@ export function snappedDelta(lead: Point, dx: number, dy: number, snapOn: boolea
 export type Handle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
 export const ALL_HANDLES: readonly Handle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
 
-/** Como a peça muda de tamanho (decisão D9): livre (moldura, bilhete), na proporção (imagem) ou só a largura (widgets). */
+/**
+ * Como a peça muda de tamanho (decisão D9): livre (moldura, texto), na proporção (a imagem e o vídeo, que crescem
+ * pelos quatro lados sem deformar) ou só a largura (os outros widgets, com a altura do conteúdo).
+ */
 export type SizeRule = 'livre' | 'proporcao' | 'largura';
 
 export function sizeRule(node: FbNode): SizeRule {
   if (node.t !== 'w') return 'livre';
-  return parseWidgetLine(node.src)?.name === 'imagem' ? 'proporcao' : 'largura';
+  const name = parseWidgetLine(node.src)?.name;
+  return name === 'imagem' || name === 'video' ? 'proporcao' : 'largura';
 }
 
 /** As alças de cada regra: os widgets só dos lados (a altura vem do conteúdo). */
@@ -161,6 +194,29 @@ export function sizeForLine(line: string, image?: { w: number; h: number }): { w
   }
   if (name === 'contador' || name === 'video' || name === 'audio' || name === 'tabela' || name === 'nota' || name === 'imagem') return defaultSize(name);
   return defaultSize('widget');
+}
+
+/**
+ * O lugar livre mais perto de `box` (em volta dele, em anéis de dois furos), sem encostar em nada de `taken` (com
+ * meio furo de vão). As molduras não contam: dentro delas é lugar de pôr. Sem lugar em uns 2.000 px, fica onde estava.
+ */
+export function freeSpot(taken: readonly Rect[], box: Rect): Rect {
+  const near = taken.filter((t) => intersects(grow(box, 2200), t));
+  const fits = (r: Rect) => !near.some((t) => intersects(grow(r, HOLE / 2), t));
+  if (fits(box)) return box;
+  const step = HOLE * 2;
+  for (let ring = 1; ring <= 40; ring++) {
+    const around: Rect[] = [];
+    for (let dx = -ring; dx <= ring; dx++) {
+      for (let dy = -ring; dy <= ring; dy++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) === ring) around.push({ ...box, x: box.x + dx * step, y: box.y + dy * step });
+      }
+    }
+    around.sort((a, b) => Math.hypot(a.x - box.x, a.y - box.y) - Math.hypot(b.x - box.x, b.y - box.y));
+    const spot = around.find(fits);
+    if (spot) return spot;
+  }
+  return box;
 }
 
 /**

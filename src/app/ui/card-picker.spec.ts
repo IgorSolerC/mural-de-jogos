@@ -109,4 +109,29 @@ describe('escolher a ficha da Nota', () => {
     el.querySelectorAll<HTMLButtonElement>('.escolha')[2].click();
     expect(picked.map((r) => r.game.name)).toEqual(['Comprar um console']);
   });
+
+  it('"Nova anotação" (o Quadro livre): leva o que se procurava como título e fecha; sem o pedido, o botão não aparece', async () => {
+    await open();
+    expect(el.querySelector('.criar')).toBeNull();
+    el.remove();
+    fixture.destroy();
+    fixture = TestBed.createComponent(CardPicker);
+    fixture.componentRef.setInput('createLabel', 'Nova anotação');
+    const created: string[] = [];
+    fixture.componentInstance.create.subscribe((t) => created.push(t));
+    el = fixture.nativeElement as HTMLElement;
+    document.body.appendChild(el);
+    fixture.componentInstance.open.set(true);
+    await fixture.whenStable();
+    const search = el.querySelector<HTMLInputElement>('input[type="search"]')!;
+    search.value = 'Sala 46';
+    search.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    // sem nenhuma com o nome: o atalho de criar já com ele
+    expect(el.querySelector('.nada-link')?.textContent).toContain('Criar “Sala 46”');
+    el.querySelector<HTMLButtonElement>('.criar')!.click();
+    await fixture.whenStable();
+    expect(created).toEqual(['Sala 46']);
+    expect(fixture.componentInstance.open()).toBeFalse();
+  });
 });

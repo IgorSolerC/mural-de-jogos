@@ -1,4 +1,5 @@
-import { FbColor, FbNode } from '../../core/free-board';
+import { FbColor, FbNode, noteColor, noteLook } from '../../core/free-board';
+import { CalloutPaper, calloutPaper } from '../../core/callouts';
 import { Rect } from '../../core/free-board-geometry';
 import { PieceInfo, SceneEdge } from './scene';
 
@@ -39,9 +40,23 @@ export const FELT_HEX: Readonly<Record<FbColor, string>> = {
   branco: '#57534c',
 };
 
-/** A cor de cada peça quando não se escolhe uma (a moldura cinza; o bilhete, o papel do bloquinho). */
+/** Os papéis do card do texto (os `[data-jeito]` de styles.scss), para o canvas; o da cartolina, fora dela, é o cinza. */
+export const CALLOUT_HEX: Readonly<Record<CalloutPaper, string>> = {
+  nota: '#ecdcb3',
+  info: '#dce8f7',
+  dica: '#d6efe6',
+  feito: '#deefd3',
+  pergunta: '#faeea4',
+  aviso: '#fbdfc2',
+  perigo: '#f7d9d4',
+  exemplo: '#e6dcf5',
+  citacao: '#e7e4de',
+  rosa: '#fadce7',
+  cartolina: '#e7e4de',
+};
+
+/** A cor de cada peça quando não se escolhe uma (a moldura cinza). */
 export const DEFAULT_FRAME: FbColor = 'cinza';
-const NOTEPAD = '#f7f4ec';
 const INDEX_CARD = '#fbf9f2';
 const WIDGET = '#e4ddcf';
 const PHOTO = '#5d5954';
@@ -53,7 +68,7 @@ export function farColor(node: FbNode, info: PieceInfo): string {
     case 'moldura':
       return FELT_HEX[node.c ?? DEFAULT_FRAME];
     case 'bilhete':
-      return node.c ? STOCK_HEX[node.c] : NOTEPAD;
+      return node.t === 'x' ? CALLOUT_HEX[calloutPaper(noteLook(node), noteColor(node))] : CALLOUT_HEX.nota;
     case 'nota':
       return INDEX_CARD;
     case 'imagem':

@@ -81,16 +81,17 @@
   [open]="picking()"
   (openChange)="onPickerOpen($event)"
   [onlyKind]="notesKind"
-  [onlyCategory]="pickGroup()"
   [doneOption]="false"
   heading="Pôr uma anotação no quadro"
-  [hint]="'Uma anotação' + (pickGroup() ? ' de ' + pickGroup() : '') + ', como o widget Nota. Ela continua no mural.'"
+  hint="Qualquer anotação sua, de qualquer grupo, como o widget Nota. Ela continua onde está."
   footHint="Toque numa anotação para pôr no quadro."
+  createLabel="Nova anotação"
   (picked)="onPicked($event)"
+  (create)="onCreateNote($event)"
 />
 @if (sheetStart(); as st) {
   @defer (on immediate) {
-    <app-widget-sheet [start]="st" [swap]="false" [onCard]="false" (done)="onSheetDone($event)" (removed)="onSheetRemoved()" (closed)="onSheetClosed()" />
+    <app-widget-sheet [start]="st" [swap]="sheetEditing()" [onCard]="false" [inBoard]="true" (done)="onSheetDone($event)" (removed)="onSheetRemoved()" (closed)="onSheetClosed()" />
   }
 }
 

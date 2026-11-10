@@ -40,6 +40,7 @@ import { SharedStore } from './core/shared-store';
 import { SyncConflicts, splitTarget } from './core/sync-conflicts';
 import { KanbanStore } from './core/kanban-store';
 import { CalendarStore } from './core/calendar-store';
+import { FreeBoardNoteAsk } from './core/free-board-note-ask';
 import { StudyStore } from './core/study-store';
 import { PublicDeckNudge } from './ui/public-deck-nudge';
 import { SpendingStore } from './core/spending-store';
@@ -69,6 +70,7 @@ export class App {
   protected readonly desk = inject(Desk);
   private readonly kanban = inject(KanbanStore);
   private readonly calendar = inject(CalendarStore);
+  private readonly boardNoteAsk = inject(FreeBoardNoteAsk);
   private readonly study = inject(StudyStore);
   /** O assunto de antes vira pasta logo ao abrir (ver core/note-folders.ts). */
   private readonly folders = inject(NoteFolders);
@@ -231,9 +233,9 @@ export class App {
       },
       // da ficha do mural: a nova herda a categoria, e o editor fecha de volta no mural
       newNote: (title, fromId) => this.newNote(title, fromId ?? null, false),
-      newNoteIn: (category, look, folder) => {
+      newNoteIn: (category, look, folder, title) => {
         this.reader().close();
-        this.editor().openInCategory(category, look, folder);
+        this.editor().openInCategory(category, look, folder, title);
       },
       openDraft: (id) => {
         const d = this.store.getDraft(id);
@@ -361,6 +363,8 @@ export class App {
     this.kanban.pending.set(null);
     // nem a pedida pela folha de um lembrete
     this.calendar.pendingNote.set(null);
+    // nem a pedida pelo seletor do Quadro livre
+    this.boardNoteAsk.cancel();
     // nem a carta nova pedida de um baralho dos Flashcards
     this.study.pending.set(null);
     const back = this.returnTo && this.store.get(this.returnTo);
@@ -489,6 +493,12 @@ export class App {
     const saved = this.store.get(e.id);
     const name = saved?.game.name ?? '';
     if (e.isNew && saved && isNotes(saved.kind) && this.landOnBoard(saved.id, name, saved.category)) return;
+    // pedida pelo seletor do Quadro livre ("Nova anotação"): ela vai para o quadro, e a tela fica nele
+    if (e.isNew && saved && isNotes(saved.kind) && this.boardNoteAsk.claim(saved.id, name)) {
+      this.toasts.show(`“${name}” pregada no mural e posta no quadro`);
+      void this.backup.protect();
+      return;
+    }
     // pedida pela folha de um lembrete ("Escrever uma nota nova"): ela é anexada lá, e a tela fica no Calendário
     if (e.isNew && saved && isNotes(saved.kind) && this.calendar.claimNote(saved.id)) {
       this.toasts.show(`“${name}” pregada no mural e anexada ao lembrete`);

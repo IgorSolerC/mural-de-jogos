@@ -1,3 +1,5 @@
+@use '../formatado';
+
 /* Uma peça do Quadro livre (ver free-board-piece.ts). Tudo em px do mundo: a câmera escala o mundo inteiro. */
 
 :host {
@@ -93,49 +95,66 @@
   visibility: hidden;
 }
 
-/* ===== O bilhete: papel de bloquinho rasgado em cima, escrito à caneta ===== */
+/* ===== O texto: o card das anotações (ui/_formatado.scss, as mesmas peças da leitura e do Visual): o papel do
+   jeito ou da cor com a fibra e a sombra de papel colado, o desenho e o título a pincel em cima, o pé rasgado.
+   O papel enche a peça (o rasgo cabe nos 7px de baixo) ===== */
 
-:host([data-tipo='bilhete']) {
-  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 6px 8px rgb(0 0 0 / 0.3));
-}
-:host([data-tipo='bilhete'][data-nivel='meio']) {
-  filter: none;
-}
-
-.bloco {
+.cartao {
+  @include formatado.cartao-papel;
   position: absolute;
-  inset: 0;
-  overflow: hidden;
+  inset: 0 0 7px;
+  display: flex;
+  flex-direction: column;
   box-sizing: border-box;
-  padding: 14px 14px 10px;
-  background-color: var(--paper);
-  background-image: var(--paper-grain);
-  background-blend-mode: multiply;
-  font-family: var(--f-hand);
-  font-size: 1.15rem;
-  line-height: 1.35;
-  color: var(--ink);
+  padding: 0.55em formatado.$cartao-lado;
+  border-radius: 2px 2px 0 0;
+  font: 400 1.15rem / 1.35 var(--f-hand);
+  --line: 1.5em;
 }
 
-:host([data-cor]) .bloco {
-  background-color: var(--peca-cor);
+.cartao::after {
+  @include formatado.cartao-rasgo;
 }
 
-.bloco.liso {
+/* no meio, sem a sombra e sem a fibra (são muitas peças pequenas na tela) */
+.cartao.liso {
+  filter: none;
   background-image: none;
 }
 
-.escrito {
-  display: block;
-  font: inherit;
-  --line: 1.35em;
+.cartao-topo {
+  @include formatado.cartao-topo;
+  flex: none;
+  align-items: flex-start;
+  font-size: 1.12em;
 }
 
-.primeira {
-  margin: 0;
+/* o título quebra como nas anotações (até três linhas; o resto do texto fica embaixo) */
+.cartao-titulo {
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
   overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+}
+
+.cartao-icone {
+  @include formatado.cartao-icone;
+  /* no meio da primeira linha do título, que pode quebrar */
+  margin-top: calc((var(--line) - 1.02em) / 2);
+}
+
+/* no meio, o título numa linha só (a peça está pequena na tela) */
+.cartao.liso .cartao-titulo {
+  -webkit-line-clamp: 1;
+}
+
+.cartao-corpo {
+  display: block;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  font: inherit;
 }
 
 /* ===== Os widgets: a mesma peça das anotações; no meio, a versão leve ===== */
@@ -162,7 +181,8 @@ app-note-widget,
 
 .miniatura {
   object-fit: cover;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.5);
+  /* a sombra segue o contorno (a miniatura guarda a transparência do PNG sem fundo) */
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.5));
 }
 
 .esperando {

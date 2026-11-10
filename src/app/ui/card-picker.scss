@@ -57,3 +57,16 @@
 .foot .conta {
   color: var(--ink-2);
 }
+
+/* "Nova anotação" (o Quadro livre): ao lado do Cancelar, na tinta, com o desenho da folha nova */
+.foot .actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.criar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

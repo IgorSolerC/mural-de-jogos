@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { FbNode } from '../../core/free-board';
+import { FbNode, noteColor, noteLook, noteParts } from '../../core/free-board';
+import { calloutFallbackTitle, calloutPaper } from '../../core/callouts';
+import { CALLOUT_ICON } from '../callout-looks';
 import { NoteLinks } from '../../core/note-links';
 import { plainText } from '../../core/rich-text';
 import { WIDGET_LINES, parseWidgetLine, readCardRef, widgetDef, widgetSpoken } from '../../core/widgets';
@@ -46,13 +48,21 @@ import { PieceInfo } from './scene';
         }
       }
       @case ('bilhete') {
-        @if (level() === 'perto') {
-          <div class="bloco" [style.clip-path]="torn()">
-            <app-rich-text class="escrito" [text]="text()" [links]="links()" />
-          </div>
-        } @else {
-          <div class="bloco liso"><p class="primeira">{{ firstLine() }}</p></div>
-        }
+        <!-- o texto é o card das anotações (core/callouts.ts): o papel do jeito ou da cor, o desenho e o título em
+             cima (a primeira linha), o resto embaixo e o pé rasgado. No meio, só o papel e o título -->
+        <div class="cartao" [attr.data-jeito]="paper()" [class.liso]="level() === 'meio'">
+          @if (cardTitle2(); as t) {
+            <div class="cartao-topo">
+              @if (cardIcon(); as ic) {
+                <span class="cartao-icone" aria-hidden="true"><lucide-icon [img]="ic" [size]="18" /></span>
+              }
+              <span class="cartao-titulo">{{ t }}</span>
+            </div>
+          }
+          @if (level() === 'perto' && parts().body.trim()) {
+            <app-rich-text class="cartao-corpo" [text]="parts().body" [links]="links()" />
+          }
+        </div>
       }
       @default {
         @if (level() === 'perto') {
@@ -132,7 +142,18 @@ export class FreeBoardPiece {
     return Math.max(6, this.node().h / (WIDGET_LINES[w.size] ?? WIDGET_LINES.medio));
   });
 
-  protected readonly firstLine = computed(() => plainText(this.text()).split('\n').find((l) => l.trim()) ?? '');
+  /** O texto como card: o jeito, o papel, o título (sem um, o nome do jeito) e o que tem dentro. */
+  protected readonly look = computed(() => {
+    const n = this.node();
+    return n.t === 'x' ? noteLook(n) : 'nota';
+  });
+  protected readonly paper = computed(() => {
+    const n = this.node();
+    return n.t === 'x' ? calloutPaper(this.look(), noteColor(n)) : null;
+  });
+  protected readonly parts = computed(() => noteParts(this.text()));
+  protected readonly cardTitle2 = computed(() => plainText(this.parts().title).trim() || calloutFallbackTitle(this.look()));
+  protected readonly cardIcon = computed(() => CALLOUT_ICON[this.look()]);
   protected readonly cardTitle = computed(() => {
     const w = this.widget();
     return w ? readCardRef(w.args).title || 'Anotação' : 'Anotação';
@@ -153,7 +174,7 @@ export class FreeBoardPiece {
     }
   });
 
-  /** O nome falado (seção 4.9): "Moldura Roxo (Quartos), 12 peças", "Bilhete: Senha?", "Imagem". */
+  /** O nome falado (seção 4.9): "Moldura Roxo (Quartos), 12 peças", "Texto: Senha?", "Imagem". */
   protected readonly spoken = computed(() => {
     switch (this.info().kind) {
       case 'moldura': {
@@ -161,7 +182,7 @@ export class FreeBoardPiece {
         return `Moldura ${this.title() || 'sem título'}, ${n} ${n === 1 ? 'peça' : 'peças'}`;
       }
       case 'bilhete':
-        return `Bilhete: ${plainText(this.text()).replace(/\s+/g, ' ').trim().slice(0, 120)}`;
+        return `Texto: ${plainText(this.text()).replace(/\s+/g, ' ').trim().slice(0, 120)}`;
       default: {
         const w = this.widget();
         return w ? widgetSpoken(w.name, w.args) : 'Widget';
@@ -169,24 +190,4 @@ export class FreeBoardPiece {
     }
   });
 
-  /** A borda de cima do bilhete, rasgada do bloquinho: dentes irregulares, sempre os mesmos para a mesma peça. */
-  protected readonly torn = computed(() => tornTop(this.node().i));
-}
-
-/** O recorte do papel rasgado em cima (`clip-path`), sorteado pelo id da peça. */
-export function tornTop(id: string): string {
-  let seed = 0;
-  for (const ch of id) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
-  const rnd = () => {
-    seed = (seed * 1664525 + 1013904223) >>> 0;
-    return seed / 2 ** 32;
-  };
-  const teeth = 22;
-  const pts: string[] = [];
-  for (let k = 0; k <= teeth; k++) {
-    const x = (k / teeth) * 100;
-    const y = k % 2 ? 1 + rnd() * 3.5 : rnd() * 1.2;
-    pts.push(`${x.toFixed(2)}% ${y.toFixed(2)}px`);
-  }
-  return `polygon(${pts.join(', ')}, 100% 100%, 0 100%)`;
 }

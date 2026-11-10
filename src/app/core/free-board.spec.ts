@@ -15,6 +15,9 @@ import {
   moveNodes,
   newFreeBoard,
   newNodeId,
+  noteColor,
+  noteLook,
+  noteParts,
   patchEdge,
   pieceCount,
   removePieces,
@@ -233,5 +236,26 @@ describe('Quadro livre: a lista e os grupos', () => {
     const gone = boardsMovedGroup(list, 'Jogos', null, AT);
     expect(gone.boards.map((b) => b.nome)).toEqual(['Dois']);
     expect(gone.removed.map((b) => b.nome)).toEqual(['Um']);
+  });
+
+  it('o texto como card: o jeito e a cor que valem ficam, os outros saem; a primeira linha é o título', () => {
+    const b = board([
+      { ...note('a'), k: 'aviso', kc: 'azul' },
+      { ...note('b'), k: 'inventado', kc: 'roxo-neon' },
+      { ...note('c'), c: 'verde' },
+      { ...note('d'), c: 'branco' },
+    ]);
+    const [a, bb, c, d] = b.n as FbNode[];
+    expect(a).toEqual(jasmine.objectContaining({ k: 'aviso', kc: 'azul' }));
+    expect(bb['k']).toBeUndefined();
+    expect(bb['kc']).toBeUndefined();
+    expect(noteLook(bb as never)).toBe('nota');
+    // o texto de antes dos cards fica com a cartolina dele, se ela é uma cor de card
+    expect(noteColor(c as never)).toBe('verde');
+    expect(noteColor(d as never)).toBe('');
+    expect(noteParts('# Senha?\nA do cofre\n- lupa')).toEqual({ title: 'Senha?', body: 'A do cofre\n- lupa' });
+    expect(noteParts('- lupa\n- chave')).toEqual({ title: '', body: '- lupa\n- chave' });
+    expect(noteParts('Só o título')).toEqual({ title: 'Só o título', body: '' });
+    expect(noteParts('Título\n\nCorpo')).toEqual({ title: 'Título', body: 'Corpo' });
   });
 });

@@ -33,6 +33,7 @@ import { BoardSketch } from './board-sketch';
     .folha {
       position: relative;
       display: grid;
+      grid-template-columns: minmax(0, 1fr);
       grid-template-rows: auto auto auto;
       gap: 10px;
       padding: 22px 16px 14px;
@@ -64,7 +65,7 @@ import { BoardSketch } from './board-sketch';
     /* a miniatura: um pedaço da parede, o quadro em ponto pequeno */
     .miniatura {
       aspect-ratio: 16 / 10;
-      padding: 8px;
+      --sketch-respiro: 10px;
       background-color: var(--wall);
       box-shadow: inset 0 1px 3px rgb(0 0 0 / 0.6);
     }

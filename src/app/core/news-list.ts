@@ -27,12 +27,19 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-10-quadro-livre-publico',
+    id: '2026-11-10-quadro-livre-cards-e-cores',
     version: '1.43.2',
     kind: 'ajustes',
     date: '2026-11-10',
-    title: 'Quadro livre público, em lista e na API',
+    title: 'Quadro livre: cards no lugar dos bilhetes, cores de verdade e público',
     melhorias: [
+      'O texto do quadro livre virou o card das anotações: os mesmos jeitos, com o desenho de cada um (Nota, Info, Dica, Aviso, Pergunta...), as mesmas dez cores, e a primeira linha como título.',
+      'As cores no quadro livre (do card, da moldura e da seta) são amostras de cor, com a escolhida marcada, em vez de uma lista de nomes.',
+      'Pôr uma anotação no quadro ganhou o "Nova anotação": o editor abre no grupo do quadro, com o que você procurava de título, e a anotação salva vai direto para o quadro.',
+      'Puxando uma seta, a peça onde ela vai chegar ganha um contorno, e soltar rente a ela (um pouco fora) também liga.',
+      'A peça nova (anotação, imagem, widget) entra no lugar livre mais perto, em vez de cair por cima de outra.',
+      'A imagem sem fundo (um PNG recortado) entra no quadro como Recorte, sem o papel branco da foto em volta.',
+      'A folha de um widget aberta no quadro não mostra mais o Tamanho: lá o tamanho é o das alças.',
       'O botão direito num quadro livre o deixa público: quem visita o seu mural vê o quadro, com as imagens dele, numa aba Quadro livre ao lado do mural e dos Flashcards (só para ver, com a tela cheia).',
       'Ver em lista (o botão ao lado do zoom, ou L): o quadro como texto, com as molduras como títulos, as peças dentro delas e as setas; tocar num item leva até a peça.',
       'Na API e no MCP, ver_quadros e ler_quadro leem os quadros em texto, e criar_quadro, acrescentar_no_quadro e ligar_no_quadro põem quadros, bilhetes, anotações, setas e molduras, com as permissões das Anotações.',
@@ -40,6 +47,12 @@ export const NEWS: NewsEntry[] = [
       'No celular, a régua do editar fica em dois andares, com Desfazer e Refazer sempre à vista; no teclado, o Enter seleciona a peça com o foco.',
     ],
     correcoes: [
+      'Pôr uma anotação no quadro livre achava quase nada: agora aparecem todas, de qualquer grupo, as finalizadas e as que só estão no Kanban ou nos Flashcards, com os mesmos filtros do resto do site.',
+      'Escrever no quadro livre e clicar fora não apaga mais o texto: clicar fora guarda, e o Esc desiste, como em todo campo. O card cresce com o texto, em vez de cortá-lo embaixo.',
+      'As bolinhas de puxar uma seta não somem mais quando o mouse vai até elas.',
+      'O vídeo no quadro livre cresce pelas alças em todos os lados, sem deformar (antes só ficava mais largo).',
+      'A sombra da imagem recortada segue o contorno dela, em vez de ser a de um quadrado.',
+      'A miniatura de um quadro mais alto que largo não estoura mais a folha na lista, e o nome e as peças aparecem.',
       'Apagar um quadro livre num aparelho não apaga mais o que outro aparelho mudou nele depois: o quadro volta, com a mudança.',
       'Os quadros livres com muitas imagens sobem para a nuvem (antes, um quadro com centenas delas ficava só no aparelho).',
       'No celular, encostar um segundo dedo enquanto move uma peça não arrasta mais o quadro junto.',

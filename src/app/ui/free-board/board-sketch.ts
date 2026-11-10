@@ -53,14 +53,21 @@ interface Shape {
     }
   `,
   styles: `
+    /* o desenho nunca manda no tamanho de quem o mostra: um quadro mais alto que largo esticava a folha e
+       empurrava o nome para fora dela. O SVG fica por cima, do tamanho da caixa (menos o respiro dela) */
     :host {
+      position: relative;
       display: grid;
       place-items: center;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
     }
     svg {
-      width: 100%;
-      height: 100%;
-      overflow: visible;
+      position: absolute;
+      inset: var(--sketch-respiro, 0px);
+      width: calc(100% - 2 * var(--sketch-respiro, 0px));
+      height: calc(100% - 2 * var(--sketch-respiro, 0px));
     }
     .pesponto {
       fill: none;

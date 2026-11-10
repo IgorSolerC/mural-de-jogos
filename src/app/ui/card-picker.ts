@@ -107,6 +107,9 @@ const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anota
                     <button type="button" class="nada-link" (click)="filters.clear()">Limpar os filtros</button>
                   } @else if (query().trim()) {
                     Nenhuma ficha com “{{ query().trim() }}”@if (kind(); as k) { em {{ kindLabel(k) }}}.
+                    @if (createLabel()) {
+                      <button type="button" class="nada-link" (click)="createNew()">Criar “{{ query().trim() }}”</button>
+                    }
                   } @else if (filters.hideDone()) {
                     Aqui só há anotações finalizadas.
                     <button type="button" class="nada-link" (click)="filters.hideDone.set(false)">Mostrar as finalizadas</button>
@@ -122,6 +125,12 @@ const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anota
             <p class="conta">{{ footHint() }}</p>
             <div class="actions">
               <button type="button" class="btn-quiet" (click)="open.set(false)">Cancelar</button>
+              @if (createLabel(); as label) {
+                <button type="button" class="btn-ink criar" [title]="query().trim() ? 'Uma anotação nova chamada “' + query().trim() + '”' : 'Uma anotação nova'" (click)="createNew()">
+                  <lucide-icon [img]="NewIcon" [size]="16" aria-hidden="true" />
+                  {{ label }}
+                </button>
+              }
             </div>
           </footer>
         </div>
@@ -152,10 +161,17 @@ export class CardPicker {
    */
   readonly doneOption = input(false);
   readonly emptyText = input('Você ainda não tem outras fichas. Pregue uma no mural e ela aparece aqui.');
+  /**
+   * Um botão para escrever uma anotação nova em vez de escolher (o "Nova anotação" do Quadro livre): o texto
+   * dele, ou null (sem o botão). Tocado, `create` leva o que se procurava (o título dela) e a folha fecha.
+   */
+  readonly createLabel = input<string | null>(null);
+  readonly create = output<string>();
 
   protected readonly CloseIcon = ICON.fechar;
   protected readonly SearchIcon = ICON.buscar;
   protected readonly CheckIcon = ICON.pronto;
+  protected readonly NewIcon = ICON.novaNota;
   protected readonly LockIcon = ICON.privada;
   protected readonly NoteIcon = KIND_ICON.anotacoes;
   protected readonly isNote = isNote;
@@ -211,6 +227,12 @@ export class CardPicker {
 
   protected pick(r: Review): void {
     this.picked.emit(r);
+    this.open.set(false);
+  }
+
+  /** "Nova anotação": quem usa abre o editor (com o que se procurava de título), e a folha fecha. */
+  protected createNew(): void {
+    this.create.emit(this.query().trim());
     this.open.set(false);
   }
 

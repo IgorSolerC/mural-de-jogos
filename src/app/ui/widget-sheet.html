@@ -9,7 +9,7 @@
           <lucide-icon class="titulo-icone" [img]="iconOf(d.name)" [size]="26" aria-hidden="true" />
           {{ d.label }}
         </h2>
-        <p class="sub">{{ swap() ? 'Mexendo no widget do texto' : d.body ? 'Widget novo, com as linhas que quiser' : 'Widget novo, numa linha só dele' }}</p>
+        <p class="sub">{{ swap() ? (inBoard() ? 'Mexendo no widget do quadro' : 'Mexendo no widget do texto') : inBoard() ? 'Widget novo no quadro' : d.body ? 'Widget novo, com as linhas que quiser' : 'Widget novo, numa linha só dele' }}</p>
       </div>
       <button type="button" class="icon-btn" aria-label="Fechar" (click)="close()">
         <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
@@ -287,8 +287,8 @@
                 }
               </fieldset>
             }
-            @if (d.unsized) {
-              <!-- sem tamanho nenhum (a tabela): a parte não aparece -->
+            @if (d.unsized || inBoard()) {
+              <!-- sem tamanho nenhum (a tabela), ou onde o tamanho é outro (o Quadro livre: o da peça): a parte não aparece -->
             } @else if (fixedSize(); as fixo) {
               <!-- o jeito que tem a altura do que mostra: no lugar do tamanho, a frase que diz isso -->
               <div class="bloco">

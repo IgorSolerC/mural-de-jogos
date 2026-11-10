@@ -1,6 +1,8 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, input, output, viewChild } from '@angular/core';
-import { FB_FRAME_TITLE_MAX, FB_LABEL_MAX, FB_TEXT_MAX, FbNode, FbSide, FB_SIDES } from '../../core/free-board';
-import { anchor, boundsOf, intersects } from '../../core/free-board-geometry';
+import { FB_FRAME_TITLE_MAX, FB_LABEL_MAX, FB_TEXT_MAX, FbNode, FbSide, FB_SIDES, noteColor, noteLook } from '../../core/free-board';
+import { calloutPaper } from '../../core/callouts';
+import { CALLOUT_ICON } from '../callout-looks';
+import { anchor, boundsOf, intersects, nearestSide } from '../../core/free-board-geometry';
 import { ICON, IconModule } from '../icons';
 import { BoardEditor, Writing } from './board-editor';
 import { handlesFor, sizeRule } from './edit-ops';
@@ -46,6 +48,10 @@ export type SelectionAction = 'cor' | 'jeito' | 'rotulo' | 'frente' | 'tras' | '
     @if (editor().drawing(); as r) {
       <div class="desenhando" [style.left.px]="r.x" [style.top.px]="r.y" [style.width.px]="r.w" [style.height.px]="r.h"></div>
     }
+    @if (linkTargetNode(); as t) {
+      <!-- a peça onde a seta vai chegar, se soltar agora: o anel tracejado em volta dela -->
+      <div class="alvo" [style.left.px]="t.x" [style.top.px]="t.y" [style.width.px]="t.w" [style.height.px]="t.h"></div>
+    }
     @if (linkLine(); as l) {
       <svg class="puxando" width="1" height="1" aria-hidden="true"><path [attr.d]="l" /></svg>
     }
@@ -55,7 +61,9 @@ export type SelectionAction = 'cor' | 'jeito' | 'rotulo' | 'frente' | 'tras' | '
           #campo
           class="escrever bilhete"
           [attr.data-escrevendo]="w.id"
-          aria-label="O texto do bilhete"
+          aria-label="O texto do card: a primeira linha é o título"
+          placeholder="Título na primeira linha; o resto embaixo"
+          [attr.data-jeito]="w.paper"
           [maxLength]="textMax"
           [style.left.px]="w.x"
           [style.top.px]="w.y"
@@ -63,6 +71,7 @@ export type SelectionAction = 'cor' | 'jeito' | 'rotulo' | 'frente' | 'tras' | '
           [style.height.px]="w.h"
           [value]="w.text"
           (keydown)="keys($event, w.writing)"
+          (input)="typed(w.writing, $event)"
           (blur)="done(w.writing, $event)"
         ></textarea>
       } @else {
@@ -80,6 +89,7 @@ export type SelectionAction = 'cor' | 'jeito' | 'rotulo' | 'frente' | 'tras' | '
           [style.width.px]="w.w"
           [value]="w.text"
           (keydown)="keys($event, w.writing)"
+          (input)="typed(w.writing, $event)"
           (blur)="done(w.writing, $event)"
         />
       }
@@ -96,7 +106,7 @@ export type SelectionAction = 'cor' | 'jeito' | 'rotulo' | 'frente' | 'tras' | '
           }
           @if (t.look) {
             <button type="button" class="botao jeito" [attr.aria-label]="t.look" [title]="t.look" (pointerdown)="$event.stopPropagation()" (click)="act.emit('jeito')">
-              <lucide-icon [img]="Icons.jeito" [size]="16" aria-hidden="true" />
+              <lucide-icon [img]="lookIcon() ?? Icons.jeito" [size]="16" aria-hidden="true" />
             </button>
           }
           @if (t.label) {
@@ -135,6 +145,11 @@ export class FreeBoardEditOverlay {
   readonly edgeText = input('');
   /** O nome do "Jeito da peça" da seleção (null: ela não tem). */
   readonly lookLabel = input<string | null>(null);
+  /** O desenho do botão do jeito: o do jeito do card, quando é um texto (null: o de sempre). */
+  protected readonly lookIcon = computed(() => {
+    const sel = this.selectedNodes();
+    return sel.length === 1 && sel[0].t === 'x' ? (CALLOUT_ICON[noteLook(sel[0])] ?? null) : null;
+  });
   readonly act = output<SelectionAction>();
 
   protected readonly Icons = { cor: ICON.paleta, jeito: ICON.moldura, rotulo: ICON.etiqueta, frente: ICON.frente, tras: ICON.tras, duplicar: ICON.copiar, apagar: ICON.apagar };
@@ -167,12 +182,21 @@ export class FreeBoardEditOverlay {
     return { id: n.i, points: FB_SIDES.map((side: FbSide) => ({ side, ...anchor(n, side) })) };
   });
 
+  /** A peça onde a seta puxada chega se soltar agora (ela ganha o anel). */
+  protected readonly linkTargetNode = computed(() => {
+    const t = this.editor().linking()?.target;
+    return t ? (this.nodes().get(t) ?? null) : null;
+  });
+
+  /** A seta sendo puxada: de onde sai até o ponteiro, ou até o lado da peça onde ela vai chegar. */
   protected readonly linkLine = computed(() => {
     const l = this.editor().linking();
     const from = l ? this.nodes().get(l.from) : null;
     if (!l || !from) return null;
     const a = anchor(from, l.side);
-    return `M${a.x} ${a.y} L${l.to.x} ${l.to.y}`;
+    const t = this.linkTargetNode();
+    const b = t ? anchor(t, nearestSide(t, l.to)) : l.to;
+    return `M${a.x} ${a.y} L${b.x} ${b.y}`;
   });
 
   /** O campo de escrever no lugar, onde ele fica no mundo. */
@@ -182,12 +206,13 @@ export class FreeBoardEditOverlay {
     if (w.kind === 'seta') {
       const m = this.edgeMid();
       if (!m) return null;
-      return { kind: 'seta' as const, id: w.id, writing: w, x: m.x - 120, y: m.y - 18, w: 240, h: 36, text: this.edgeText() };
+      return { kind: 'seta' as const, id: w.id, writing: w, x: m.x - 120, y: m.y - 18, w: 240, h: 36, text: this.edgeText(), paper: null };
     }
     const n = this.nodes().get(w.id);
     if (!n) return null;
-    if (w.kind === 'moldura') return { kind: 'moldura' as const, id: w.id, writing: w, x: n.x + 26, y: n.y + 18, w: Math.max(160, Math.min(n.w - 52, 520)), h: 38, text: n.t === 'm' ? (n.nome ?? '') : '' };
-    return { kind: 'bilhete' as const, id: w.id, writing: w, x: n.x, y: n.y, w: n.w, h: Math.max(n.h, 104), text: n.t === 'x' ? n.txt : '' };
+    if (w.kind === 'moldura') return { kind: 'moldura' as const, id: w.id, writing: w, x: n.x + 26, y: n.y + 18, w: Math.max(160, Math.min(n.w - 52, 520)), h: 38, text: n.t === 'm' ? (n.nome ?? '') : '', paper: null };
+    const paper = n.t === 'x' ? calloutPaper(noteLook(n), noteColor(n)) : 'nota';
+    return { kind: 'bilhete' as const, id: w.id, writing: w, x: n.x, y: n.y, w: n.w, h: Math.max(n.h, 104), text: n.t === 'x' ? n.txt : '', paper };
   });
 
   /** A etiqueta da seleção: em cima à esquerda da seleção, com os botões que valem para ela. */
@@ -231,23 +256,42 @@ export class FreeBoardEditOverlay {
     return h.includes('n') ? n.y : h.includes('s') ? n.y + n.h : n.y + n.h / 2;
   }
 
-  /** Enter guarda o título e o rótulo; no bilhete, Ctrl+Enter (o Enter é linha nova); Esc guarda também. */
+  /**
+   * Enter guarda o título e o rótulo; no bilhete, Ctrl+Enter (o Enter é linha nova). Clicar fora também guarda. O
+   * Esc desiste do que foi escrito, como em todo campo.
+   */
   protected keys(e: KeyboardEvent, w: Writing): void {
     e.stopPropagation();
     const el = e.target as HTMLInputElement | HTMLTextAreaElement;
-    if (e.key === 'Escape' || (e.key === 'Enter' && (w.kind !== 'bilhete' || e.ctrlKey || e.metaKey))) {
+    if (e.key === 'Escape') {
       e.preventDefault();
-      this.finish(w, el.value);
+      this.editor().cancelWriting(w);
+      return;
+    }
+    if (e.key === 'Enter' && (w.kind !== 'bilhete' || e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      this.finish(w, el.value, el instanceof HTMLTextAreaElement ? el.scrollHeight : undefined);
     }
   }
 
-  protected done(w: Writing, e: FocusEvent): void {
-    this.finish(w, (e.target as HTMLInputElement).value);
+  /**
+   * Cada letra: o editor sabe o que está no campo (o clique fora guarda isto) e, no card, a altura que o texto pede
+   * (o campo cresce junto, e o card guardado fica com ela: nada do texto some cortado embaixo).
+   */
+  protected typed(w: Writing, e: Event): void {
+    const el = e.target as HTMLInputElement | HTMLTextAreaElement;
+    if (el instanceof HTMLTextAreaElement && el.scrollHeight > el.clientHeight) el.style.height = `${el.scrollHeight}px`;
+    this.editor().draft = { writing: w, text: el.value, ...(el instanceof HTMLTextAreaElement ? { height: el.scrollHeight } : {}) };
   }
 
-  private finish(w: Writing, text: string): void {
+  protected done(w: Writing, e: FocusEvent): void {
+    const el = e.target as HTMLInputElement | HTMLTextAreaElement;
+    this.finish(w, el.value, el instanceof HTMLTextAreaElement ? el.scrollHeight : undefined);
+  }
+
+  private finish(w: Writing, text: string, height?: number): void {
     const now = this.editor().writing();
     if (!now || now.id !== w.id || now.kind !== w.kind) return;
-    this.editor().write(w, text);
+    this.editor().write(w, text, height);
   }
 }

@@ -8,6 +8,7 @@ import { CategoryLook, categoryColorHex } from '../core/category-looks';
 import { FB_NAME_MAX, FreeBoard, boardInGroup } from '../core/free-board';
 import { Desk } from '../core/desk';
 import { ImageStore } from '../core/image-store';
+import { hasTransparency } from '../core/images';
 import { NOTES } from '../core/kinds';
 import { NoteLinks } from '../core/note-links';
 import { Review } from '../core/review';
@@ -17,6 +18,7 @@ import { WidgetSize, parseWidgetLine, widgetDef, widgetLines } from '../core/wid
 import { Camera } from '../core/free-board-geometry';
 import { FreeBoardProblem, FreeBoardStore } from '../core/free-board-store';
 import { FreeBoardSync } from '../core/free-board-sync';
+import { FreeBoardNoteAsk } from '../core/free-board-note-ask';
 import { KanbanStore } from '../core/kanban-store';
 import { NO_TABS, NoteTab, sameTabs, tabKeyOf, tabsToMore } from '../core/note-tabs';
 import { Settings } from '../core/settings';
@@ -205,11 +207,14 @@ export class FreeBoardsPage {
   private readonly images = inject(ImageStore);
   private readonly desk = inject(Desk);
   private readonly boardSync = inject(FreeBoardSync);
+  private readonly noteAsk = inject(FreeBoardNoteAsk);
   protected readonly notesKind = NOTES;
   protected readonly picking = signal(false);
   protected readonly pickGroup = signal<string | null>(null);
   private picked: ((r: { id: string; title: string } | null) => void) | null = null;
   protected readonly sheetStart = signal<{ name: string; values: Record<string, string> } | null>(null);
+  /** A folha mexe num widget que já está no quadro (o Tirar aparece; tirado, a peça sai). */
+  protected readonly sheetEditing = signal(false);
   private sheetDone: ((line: string | null) => void) | null = null;
   private sheetResult: string | null = null;
   /** Os links das notas coladas no quadro: tocar numa abre a leitura dela. */
@@ -232,11 +237,11 @@ export class FreeBoardsPage {
       return n ? { id: n.id, title: n.game.name } : null;
     },
     storeImages: async (files) => {
-      const out: { id: string; w: number; h: number }[] = [];
+      const out: { id: string; w: number; h: number; alpha?: boolean }[] = [];
       for (const f of files) {
         try {
-          const img = await this.images.add(f);
-          out.push({ id: img.id, w: img.largura, h: img.altura });
+          const [img, alpha] = await Promise.all([this.images.add(f), hasTransparency(f)]);
+          out.push({ id: img.id, w: img.largura, h: img.altura, ...(alpha ? { alpha } : {}) });
         } catch {
           this.toasts.show('Uma imagem não pôde ser guardada.');
         }
@@ -250,6 +255,8 @@ export class FreeBoardsPage {
         if (!start) return resolve(null);
         this.sheetDone = resolve;
         this.sheetResult = null;
+        // só o nome (`{{contador}}`): um widget novo; com o resto da linha, um que já está no quadro
+        this.sheetEditing.set(!/^\{\{\s*[\p{L}-]+\s*\}\}$/u.test(line.trim()));
         this.sheetStart.set(start);
       }),
     openNote: (id) => this.desk.openReview(id),
@@ -260,6 +267,19 @@ export class FreeBoardsPage {
     this.picked = null;
     this.picking.set(false);
     done?.({ id: r.id, title: r.game.name });
+  }
+
+  /**
+   * "Nova anotação" no seletor: o editor abre no grupo do quadro (com o que se procurava de título) e, salva, a
+   * anotação vai para o quadro no lugar pedido. Fechar o editor sem salvar responde nada.
+   */
+  protected onCreateNote(title: string): void {
+    const done = this.picked;
+    this.picked = null;
+    this.picking.set(false);
+    if (!done) return;
+    void this.noteAsk.ask().then(done);
+    this.desk.newNoteIn(this.pickGroup() ?? this.open()?.grupo ?? '', undefined, undefined, title);
   }
 
   protected onPickerOpen(open: boolean): void {

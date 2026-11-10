@@ -1,8 +1,9 @@
 import { computed, signal } from '@angular/core';
-import { FB_MAX_NODES, FbColor, FbEdge, FbEnds, FbNode, FbSide, FreeBoard, connect, moveNodes, patchEdge, patchNodes, removePieces, shownNodes, withGroups } from '../../core/free-board';
+import { CALLOUT_PAPERS } from '../../core/callouts';
+import { FB_MAX_NODES, FbColor, FbEdge, FbEnds, FbNode, FbNote, FbSide, FreeBoard, connect, moveNodes, patchEdge, patchNodes, removePieces, shownNodes, withGroups } from '../../core/free-board';
 import { Point, Rect, boundsOf, nearestSide, rectBetween } from '../../core/free-board-geometry';
 import { DRAG_SLOP } from './camera-rig';
-import { Handle, History, boxSelect, dragSet, hitEdge, hitPiece, newNode, resized, sizeRule, snappedDelta } from './edit-ops';
+import { Handle, History, boxSelect, dragSet, hitEdge, hitPiece, keepsHover, linkTarget, newNode, resized, sizeRule, snappedDelta } from './edit-ops';
 
 /** As ferramentas da régua (seção 4.4): a seta não é ferramenta, sai das bolinhas da peça. */
 export type Tool = 'selecionar' | 'moldura' | 'texto';
@@ -50,6 +51,11 @@ export class BoardEditor {
   readonly linking = signal<{ from: string; side: FbSide; to: Point; target: string | null } | null>(null);
   readonly hover = signal<string | null>(null);
   readonly writing = signal<Writing | null>(null);
+  /**
+   * O que está escrito no campo agora (o campo conta a cada letra): o clique fora do campo guarda isto antes de
+   * qualquer outra coisa, sem depender da ordem em que o navegador avisa que o campo perdeu o foco.
+   */
+  draft: { writing: Writing; text: string; height?: number } | null = null;
   /** "Selecionar vários" (no celular, arrastar no fundo passa a fazer a caixa). */
   readonly multi = signal(false);
   readonly history = new History();
@@ -154,10 +160,16 @@ export class BoardEditor {
     const edge = this.selectedEdge();
     this.change((b) => {
       let out = b;
-      if (sel.size) out = patchNodes(out, sel, (n) => withColor(n, c), now());
+      if (sel.size) out = patchNodes(out, sel, (n) => (n.t === 'x' ? withCardColor(n, c && CALLOUT_PAPERS.some((d) => d.word === c) ? c : '') : withColor(n, c)), now());
       if (edge) out = patchEdge(out, edge, (e) => withColor(e, c), now());
       return out;
     });
+  }
+
+  /** A cor do card nos textos selecionados ("": a do jeito). */
+  paintCard(word: string): void {
+    const ids = new Set(this.selectedNodes().filter((n) => n.t === 'x').map((n) => n.i));
+    if (ids.size) this.change((b) => patchNodes(b, ids, (n) => (n.t === 'x' ? withCardColor(n, word) : n), now()));
   }
 
   /** As pontas da seta selecionada. */
@@ -195,7 +207,8 @@ export class BoardEditor {
    * tamanho ou a bolinha de seta debaixo do ponteiro (o desenho delas está no overlay).
    */
   down(p: Point, mods: { shift: boolean; ctrl: boolean }, target: { handle?: { id: string; handle: Handle }; dot?: { id: string; side: FbSide } } = {}): void {
-    this.writing.set(null);
+    // escrevendo e tocou fora do campo: o escrito fica (só o Esc desiste)
+    this.flushWriting();
     const board = this.host.board();
     if (target.dot) {
       this.gesture = { kind: 'ligar', from: target.dot.id, side: target.dot.side, start: p };
@@ -279,8 +292,8 @@ export class BoardEditor {
         this.drawing.set(rectBetween(g.start, p));
         return;
       case 'ligar': {
-        const target = hitPiece(shownNodes(this.host.board()), p, z);
-        this.linking.set({ from: g.from, side: g.side, to: p, target: target && target.i !== g.from ? target.i : null });
+        const target = linkTarget(shownNodes(this.host.board()), p, z, g.from);
+        this.linking.set({ from: g.from, side: g.side, to: p, target: target?.i ?? null });
         return;
       }
       case 'clique':
@@ -374,9 +387,38 @@ export class BoardEditor {
     return node;
   }
 
-  /** Guarda o texto escrito no lugar (o bilhete, o título, o rótulo); vazio, o bilhete novo sai. */
-  write(w: Writing, text: string): void {
+  /** O texto de agora do que está sendo escrito (o do bilhete, o título da moldura, o rótulo da seta). */
+  private writtenNow(w: Writing): string {
+    const b = this.host.board();
+    if (w.kind === 'seta') return b.e.find((e) => e.i === w.id)?.txt ?? '';
+    const n = b.n.find((x) => x.i === w.id);
+    if (!n) return '';
+    return w.kind === 'moldura' ? (typeof n['nome'] === 'string' ? n['nome'] : '') : typeof n['txt'] === 'string' ? n['txt'] : '';
+  }
+
+  /** Guarda o que está no campo (o clique fora, o Pronto, outra ferramenta). Sem campo aberto, nada. */
+  flushWriting(): void {
+    const w = this.writing();
+    if (!w) return;
+    const d = this.draft;
+    const mine = d && d.writing.id === w.id && d.writing.kind === w.kind ? d : null;
+    this.write(w, mine ? mine.text : this.writtenNow(w), mine?.height);
+  }
+
+  /** O Esc no campo: desiste do que escreveu (o bilhete que nasceu agora e ficou vazio sai). */
+  cancelWriting(w: Writing): void {
+    const now = this.writing();
+    if (!now || now.id !== w.id || now.kind !== w.kind) return;
+    this.write(w, this.writtenNow(w));
+  }
+
+  /**
+   * Guarda o texto escrito no lugar (o bilhete, o título, o rótulo); vazio, o bilhete novo sai. `height`: a altura
+   * que o texto do card pediu no campo (o card cresce até ela, em furos; nunca encolhe sozinho).
+   */
+  write(w: Writing, text: string, height?: number): void {
     this.writing.set(null);
+    this.draft = null;
     const b = this.host.board();
     if (w.kind === 'seta') {
       this.change((x) => patchEdge(x, w.id, (e) => withText(e, text), now()));
@@ -397,7 +439,9 @@ export class BoardEditor {
         this.clearSelection();
         return;
       }
-      this.change((x) => patchNodes(x, new Set([n.i]), (y) => (y.t === 'x' ? { ...y, txt: text.slice(0, 4000) } : y), now()));
+      // o card desenhado tem o título maior e o pé rasgado: um furo a mais que o campo
+      const need = height ? Math.ceil((height + 26) / 26) * 26 : 0;
+      this.change((x) => patchNodes(x, new Set([n.i]), (y) => (y.t === 'x' ? { ...y, txt: text.slice(0, 4000), ...(need > y.h ? { h: need } : {}) } : y), now()));
       return;
     }
     this.change((x) =>
@@ -416,7 +460,13 @@ export class BoardEditor {
 
   private hoverAt(p: Point): void {
     if (this.tool() !== 'selecionar') return this.hover.set(null);
-    const hit = hitPiece(shownNodes(this.host.board()), p, this.host.zoom());
+    const nodes = shownNodes(this.host.board());
+    const z = this.host.zoom();
+    const hit = hitPiece(nodes, p, z);
+    // indo até uma bolinha (fora da borda), a peça continua a de antes: só outra peça debaixo do ponteiro a troca
+    const now = this.hover() ? nodes.find((n) => n.i === this.hover()) : undefined;
+    if (!hit && now && keepsHover(now, p, z)) return;
+    if (hit && now && hit.i !== now.i && hit.t === 'm' && keepsHover(now, p, z)) return;
     const id = hit?.i ?? null;
     if (id !== this.hover()) this.hover.set(id);
   }
@@ -434,6 +484,12 @@ function snapRect(r: Rect): Rect {
 function withColor<T extends { c?: FbColor }>(x: T, c: FbColor | null): T {
   const { c: _, ...rest } = x;
   return (c ? { ...rest, c } : rest) as T;
+}
+
+/** A cor do card no texto: a palavra (`kc`), e a cartolina de antes dos cards (`c`) sai. */
+function withCardColor(n: FbNote, word: string): FbNote {
+  const { c: _, kc: __, ...rest } = n;
+  return word ? { ...rest, kc: word } : rest;
 }
 
 function withText(e: FbEdge, text: string): FbEdge {

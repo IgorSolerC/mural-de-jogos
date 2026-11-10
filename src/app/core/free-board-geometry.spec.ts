@@ -176,4 +176,26 @@ describe('Quadro livre: geometria', () => {
     // sem nada no caminho (a moldura não conta), a curva é a de sempre
     expect(routedEdgePath(a, b, {}, (r) => [a, b, frame].filter((n) => intersects(n, r)))).toEqual(straight);
   });
+
+  it('o desvio da seta é o menor que libera o caminho, sem laço, e ignora a peça em cima de uma ponta', () => {
+    const a = box('a', 0, 0, 200, 100);
+    const b = box('b', 1200, 0, 200, 100);
+    const mid = box('m', 660, 30, 60, 40);
+    const pieces = [a, b, mid];
+    const around = (r: { x: number; y: number; w: number; h: number }) => pieces.filter((n) => intersects(n, r));
+    const routed = routedEdgePath(a, b, {}, around);
+    // um obstáculo pequeno pede um desvio pequeno: a curva passa perto dele, não a 400 px
+    const off = Math.abs(routed.mid.y - 50);
+    expect(off).toBeGreaterThan(20);
+    expect(off).toBeLessThan(120);
+    // a figurinha colada na beira da peça de onde a seta sai não conta (não há como sair sem passar por ela)
+    const sticker = box('s', 190, 30, 40, 40);
+    const withSticker = [a, b, sticker];
+    expect(routedEdgePath(a, b, {}, (r) => withSticker.filter((n) => intersects(n, r)))).toEqual(edgePath(a, b));
+    // perto e com uma peça grande no meio: sem caminho dentro do teto, a curva de sempre (nada de laço)
+    const near = box('n', 300, 0, 200, 100);
+    const wall = box('w', 220, -2000, 40, 4100);
+    const close = [a, near, wall];
+    expect(routedEdgePath(a, near, {}, (r) => close.filter((n) => intersects(n, r)))).toEqual(edgePath(a, near));
+  });
 });

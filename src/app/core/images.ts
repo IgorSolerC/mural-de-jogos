@@ -161,3 +161,26 @@ export function sizeLabel(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1).replace('.', ',')} MB`;
 }
+
+/**
+ * A imagem tem partes transparentes (um PNG sem fundo, um recorte)? Lê uma cópia pequena dela; sem como ler (o
+ * navegador sem `createImageBitmap`, o arquivo quebrado), não. O Quadro livre cola essas já no Recorte, sem o
+ * papel branco da foto em volta.
+ */
+export async function hasTransparency(blob: Blob): Promise<boolean> {
+  if (blob.type === 'image/jpeg' || typeof createImageBitmap !== 'function' || typeof OffscreenCanvas === 'undefined') return false;
+  try {
+    const bitmap = await createImageBitmap(blob);
+    const { width, height } = fitSize(bitmap.width, bitmap.height, 96);
+    const canvas = new OffscreenCanvas(Math.max(1, width), Math.max(1, height));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return false;
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    for (let i = 3; i < data.length; i += 4) if (data[i] < 250) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}

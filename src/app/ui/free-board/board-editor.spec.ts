@@ -175,4 +175,80 @@ describe('Quadro livre: o editor', () => {
     t.click(10, 10);
     expect([...t.ed.selected()].sort()).toEqual(['a', 'b']);
   });
+
+  it('clicar fora do texto guarda o que foi escrito (antes, o clique apagava); o Esc desiste', () => {
+    const t = setup(board([note('a', 0, 0), note('b', 600, 0)]));
+    t.ed.writing.set({ kind: 'bilhete', id: 'a' });
+    t.ed.draft = { writing: { kind: 'bilhete', id: 'a' }, text: 'Senha da porta' };
+    t.click(1000, 1000);
+    expect(t.ed.writing()).toBeNull();
+    expect(t.board.n.find((n) => n.i === 'a')?.['txt']).toBe('Senha da porta');
+    // o Esc: o que estava no campo não fica
+    t.ed.writing.set({ kind: 'bilhete', id: 'a' });
+    t.ed.draft = { writing: { kind: 'bilhete', id: 'a' }, text: 'outra coisa' };
+    t.ed.cancelWriting({ kind: 'bilhete', id: 'a' });
+    expect(t.ed.writing()).toBeNull();
+    expect(t.board.n.find((n) => n.i === 'a')?.['txt']).toBe('Senha da porta');
+    // o título da moldura e o rótulo da seta também ficam com o clique fora
+    t.ed.writing.set({ kind: 'bilhete', id: 'b' });
+    t.ed.draft = { writing: { kind: 'bilhete', id: 'b' }, text: 'b2' };
+    t.ed.down({ x: 700, y: 30 }, { shift: false, ctrl: false });
+    expect(t.board.n.find((n) => n.i === 'b')?.['txt']).toBe('b2');
+  });
+
+  it('o texto novo que ficou vazio sai no Esc e no clique fora, sem passo a mais no desfazer', () => {
+    const t = setup(board([]));
+    const n = t.ed.newNote({ x: 100, y: 100 })!;
+    t.ed.cancelWriting({ kind: 'bilhete', id: n.i });
+    expect(t.board.n.length).toBe(0);
+    expect(t.ed.canUndo()).toBeFalse();
+    const m = t.ed.newNote({ x: 100, y: 100 })!;
+    t.click(900, 900);
+    expect(t.board.n.some((x) => x.i === m.i)).toBeFalse();
+  });
+
+  it('o card cresce até a altura que o texto pediu no campo (em furos), e nunca encolhe sozinho', () => {
+    const t = setup(board([note('a', 0, 0, 208, 104)]));
+    t.ed.writing.set({ kind: 'bilhete', id: 'a' });
+    t.ed.write({ kind: 'bilhete', id: 'a' }, 'um\ndois\ntrês\nquatro\ncinco', 200);
+    expect(t.board.n[0].h).toBe(234);
+    t.ed.writing.set({ kind: 'bilhete', id: 'a' });
+    t.ed.write({ kind: 'bilhete', id: 'a' }, 'um', 40);
+    expect(t.board.n[0].h).toBe(234);
+  });
+
+  it('a cor do card: a palavra no kc, e a cartolina de antes dos cards sai; a cor da moldura no texto junto vira a do card', () => {
+    const t = setup(board([{ ...note('a', 0, 0), c: 'verde' }, frame('m', 0, 300, 400, 300)]));
+    t.ed.select(['a']);
+    t.ed.paintCard('azul');
+    expect(t.board.n[0]).toEqual(jasmine.objectContaining({ kc: 'azul' }));
+    expect(t.board.n[0].c).toBeUndefined();
+    t.ed.select(['a', 'm']);
+    t.ed.paint('lilas');
+    expect(t.board.n.find((n) => n.i === 'a')).toEqual(jasmine.objectContaining({ kc: 'lilas' }));
+    expect(t.board.n.find((n) => n.i === 'm')?.c).toBe('lilas');
+    // o branco não é cor de card: o texto volta à do jeito
+    t.ed.paint('branco');
+    expect(t.board.n.find((n) => n.i === 'a')?.['kc']).toBeUndefined();
+  });
+
+  it('a seta liga soltando rente à peça, um pouco fora dela (antes, só em cima)', () => {
+    const t = setup(board([note('a', 0, 0), note('b', 400, 0)]));
+    t.drag([208 + 22, 52], [392, 52], undefined, { dot: { id: 'a', side: 'r' } });
+    expect(t.board.e.length).toBe(1);
+    expect(t.board.e[0]).toEqual(jasmine.objectContaining({ a: 'a', b: 'b' }));
+    expect(t.dropped.length).toBe(0);
+  });
+
+  it('as bolinhas da peça não somem no caminho até elas (fora da borda); outra peça debaixo do ponteiro troca', () => {
+    const t = setup(board([note('a', 0, 0), note('b', 400, 0)]));
+    t.ed.move({ x: 100, y: 52 }, { alt: false, shift: false });
+    expect(t.ed.hover()).toBe('a');
+    t.ed.move({ x: 208 + 22, y: 52 }, { alt: false, shift: false });
+    expect(t.ed.hover()).toBe('a');
+    t.ed.move({ x: 450, y: 52 }, { alt: false, shift: false });
+    expect(t.ed.hover()).toBe('b');
+    t.ed.move({ x: 2000, y: 2000 }, { alt: false, shift: false });
+    expect(t.ed.hover()).toBeNull();
+  });
 });

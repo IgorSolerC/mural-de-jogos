@@ -62,6 +62,11 @@ export class WidgetSheet {
   readonly swap = input(false);
   /** O texto aparece na ficha do mural (a anotação): o palco mostra "Na ficha" e "Aberta". */
   readonly onCard = input(true);
+  /**
+   * A folha aberta pelo Quadro livre: sem o Tamanho (lá o tamanho é o da peça, puxado pelas alças, e o daqui seria
+   * desfeito por ele; o que a linha já tinha fica como está), e falando do quadro, não do texto.
+   */
+  readonly inBoard = input(false);
   /** A cartolina da anotação, para a prévia na ficha. */
   readonly stock = input<string | null>(null);
   readonly links = input<NoteLinks | null>(null);

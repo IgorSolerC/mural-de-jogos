@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterRenderEffect, computed, inject, input, output, signal, untracked, viewChild, viewChildren } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
 import { fold } from '../core/text';
-import { IconModule } from './icons';
+import { ICON, IconModule } from './icons';
 
 /** Quantos menus já nasceram (o id de cada um). */
 let menus = 0;
@@ -33,6 +33,13 @@ export interface MenuItem {
   hint?: string;
   /** Um número impresso miúdo na ponta, como a contagem do Mais ("Estudar · 5"), com o que ele diz por extenso. */
   count?: { n: number; say: string };
+  /**
+   * Uma cor (o valor do CSS): a opção vira uma amostra dessa cor, e a leva em que todas são amostras vira uma
+   * paleta, em grade, com o nome no toque do mouse e no leitor de tela (o "Cor" do Quadro livre).
+   */
+  swatch?: string;
+  /** A escolhida agora (a amostra ganha o tique). */
+  on?: boolean;
 }
 
 /** As levas de opções, separadas pela costura (as vazias não aparecem). */
@@ -87,8 +94,30 @@ export interface MenuAt {
       @if (at()) {
         <p class="legenda" [id]="menuId + '-nome'"><span class="sr-only">Ações de </span>{{ caption() }}</p>
         @for (leva of levas(); track $index) {
-          <div role="group" class="leva" [class.costurada]="!$first">
+          @let paleta = isPalette(leva);
+          <div role="group" class="leva" [class.costurada]="!$first" [class.paleta]="paleta">
             @for (x of leva; track x.id) {
+              @if (paleta) {
+                <!-- uma amostra: o retalho da cor, com o tique na escolhida; o nome no title e no leitor de tela -->
+                <button
+                  #opcao
+                  type="button"
+                  role="menuitemradio"
+                  class="escolha amostra"
+                  [class.on]="x.on"
+                  [attr.data-k]="x.id"
+                  [attr.aria-checked]="x.on ? 'true' : 'false'"
+                  [attr.aria-label]="x.label"
+                  [attr.title]="x.hint ?? x.label"
+                  [style.--amostra]="x.swatch"
+                  tabindex="-1"
+                  (click)="choose(x)"
+                >
+                  @if (x.on) {
+                    <lucide-icon class="tique" [img]="CheckIcon" [size]="16" aria-hidden="true" />
+                  }
+                </button>
+              } @else {
               <button
                 #opcao
                 type="button"
@@ -104,12 +133,15 @@ export interface MenuAt {
               >
                 <lucide-icon class="ico" [img]="x.icon" [size]="18" aria-hidden="true" />
                 <span class="nome">{{ x.label }}</span>
-                @if (x.keys) {
+                @if (x.on) {
+                  <lucide-icon class="atalho marcada" [img]="CheckIcon" [size]="16" aria-hidden="true" /><span class="sr-only">(o de agora)</span>
+                } @else if (x.keys) {
                   <kbd class="atalho" aria-hidden="true">{{ x.keys }}</kbd>
                 } @else if (x.count; as c) {
                   <span class="atalho"><span class="sr-only">, </span>{{ c.n }}<span class="sr-only"> {{ c.say }}</span></span>
                 }
               </button>
+              }
             }
           </div>
         }
@@ -129,6 +161,7 @@ export class ContextMenu {
   /** O que se clicou (e onde o menu abriu). */
   protected readonly at = signal<MenuAt | null>(null);
   protected readonly levas = computed(() => this.sections().filter((l) => l.length));
+  protected readonly CheckIcon = ICON.pronto;
   protected readonly menuId = `menu-contexto-${++menus}`;
   private readonly panel = viewChild.required<ElementRef<HTMLElement>>('cardapio');
   private readonly options = viewChildren<ElementRef<HTMLButtonElement>>('opcao');
@@ -175,6 +208,11 @@ export class ContextMenu {
       if (!a) return;
       untracked(() => this.place(a));
     });
+  }
+
+  /** A leva em que todas as opções são cores: a paleta. */
+  protected isPalette(leva: readonly MenuItem[]): boolean {
+    return leva.every((x) => !!x.swatch);
   }
 
   /** O menu está aberto para isto. */
@@ -300,6 +338,8 @@ export class ContextMenu {
     // como no Mais das abas: as setas param nas pontas
     if (e.key === 'ArrowDown') next = at < 0 ? 0 : Math.min(list.length - 1, at + 1);
     else if (e.key === 'ArrowUp') next = at < 0 ? list.length - 1 : Math.max(0, at - 1);
+    // na paleta, as setas dos lados andam entre as amostras
+    else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && list[at]?.classList.contains('amostra')) next = Math.max(0, Math.min(list.length - 1, at + (e.key === 'ArrowRight' ? 1 : -1)));
     else if (e.key === 'Home') next = 0;
     else if (e.key === 'End') next = list.length - 1;
     else if (e.key.length === 1 && /\S/.test(e.key)) {
@@ -307,7 +347,7 @@ export class ContextMenu {
       const k = fold(e.key);
       for (let i = 1; i <= list.length; i++) {
         const j = (Math.max(at, -1) + i + list.length) % list.length;
-        if (fold(list[j].textContent?.trim() ?? '').startsWith(k)) {
+        if (fold((list[j].getAttribute('aria-label') ?? list[j].textContent)?.trim() ?? '').startsWith(k)) {
           next = j;
           break;
         }

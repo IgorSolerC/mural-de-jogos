@@ -3,6 +3,7 @@ import { groupKey } from './study';
 import { cleanCategory } from './note-labels';
 import { cleanLabel } from './text';
 import { newImageId } from './images';
+import { CALLOUTS, CALLOUT_PAPERS, CalloutLook } from './callouts';
 
 /**
  * O Quadro livre (PLANO-QUADRO-LIVRE.md): um quadro infinito de um grupo das anotações, com molduras,
@@ -56,8 +57,12 @@ export interface FbFrame extends FbBase {
 
 export interface FbNote extends FbBase {
   t: 'x';
-  /** O texto do bilhete, com a formatação das anotações. */
+  /** O texto, com a formatação das anotações: a primeira linha é o título do card, o resto, o que tem dentro. */
   txt: string;
+  /** O jeito do card (o mesmo do card das anotações, core/callouts.ts). Omitido, a Nota. */
+  k?: CalloutLook;
+  /** A cor do card (uma das dez das anotações, `[!nota|azul]`). Omitida, a do jeito. */
+  kc?: string;
 }
 
 export interface FbWidget extends FbBase {
@@ -182,7 +187,7 @@ function extras(raw: Record<string, unknown>, known: ReadonlySet<string>): Recor
   return out;
 }
 
-const NODE_KEYS = new Set(['i', 't', 'x', 'y', 'w', 'h', 'c', 'g', 'nome', 'txt', 'src']);
+const NODE_KEYS = new Set(['i', 't', 'x', 'y', 'w', 'h', 'c', 'g', 'nome', 'txt', 'src', 'k', 'kc']);
 const EDGE_KEYS = new Set(['i', 'a', 'b', 'as', 'bs', 'p', 'c', 'txt']);
 const BOARD_KEYS = new Set(['v', 'id', 'nome', 'grupo', 'em', 'publico', 'n', 'e']);
 
@@ -210,8 +215,11 @@ export function sanitizeNode(raw: unknown): FbNode | FbUnknownNode | null {
       const nome = line(r['nome'], FB_FRAME_TITLE_MAX);
       return { ...base, t: 'm', ...(nome ? { nome } : {}) };
     }
-    case 'x':
-      return { ...base, t: 'x', txt: text(r['txt'], FB_TEXT_MAX) };
+    case 'x': {
+      const k = CALLOUTS.find((d) => d.look === r['k'])?.look;
+      const kc = CALLOUT_PAPERS.find((d) => d.word === r['kc'])?.word;
+      return { ...base, t: 'x', txt: text(r['txt'], FB_TEXT_MAX), ...(k ? { k } : {}), ...(kc ? { kc } : {}) };
+    }
     case 'w': {
       const src = text(r['src'], FB_SRC_MAX).trim();
       // um widget sem linha não mostra nada: não é guardado
@@ -488,6 +496,31 @@ export function withGroups(board: Pick<FreeBoard, 'n'>, ids: ReadonlySet<string>
   const out = new Set(ids);
   if (groups.size) for (const n of board.n) if (n.g && groups.has(n.g)) out.add(n.i);
   return out;
+}
+
+// ===== o texto como card (o callout das anotações) =====
+
+/** O jeito do card do texto (sem um, a Nota, como o card novo das anotações). */
+export function noteLook(n: Pick<FbNote, 'k'>): CalloutLook {
+  return n.k ?? 'nota';
+}
+
+/**
+ * A cor do card do texto: a escolhida ou, num texto de antes dos cards, a da cartolina dele quando ela é uma das
+ * cores dos cards (o branco vira o do jeito). "": a do jeito.
+ */
+export function noteColor(n: Pick<FbNote, 'kc' | 'c'>): string {
+  if (n.kc) return n.kc;
+  return n.c && CALLOUT_PAPERS.some((d) => d.word === n.c) ? n.c : '';
+}
+
+/** O título e o que tem dentro: a primeira linha (sem o # de título) é o título, se for texto e não lista, tabela ou widget. */
+export function noteParts(txt: string): { title: string; body: string } {
+  const lines = txt.split('\n');
+  const first = lines[0] ?? '';
+  const rest = (t: string) => t.replace(/^\s*\n/, '');
+  if (!first.trim() || /^\s*([-*+>|]|\d+[.)]\s|\[[ xX]?\]|\{\{)/.test(first)) return { title: '', body: rest(txt) };
+  return { title: first.replace(/^\s*#+\s*/, '').trim(), body: rest(lines.slice(1).join('\n')) };
 }
 
 // ===== o que o quadro usa =====

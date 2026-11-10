@@ -198,6 +198,11 @@ import { cutSticker, letterScale } from './sticker-edge';
       padding: 0;
       background: transparent;
     }
+    /* o recorte rente: a sombra segue o contorno da imagem (um PNG sem fundo não ganha a sombra de um quadrado) */
+    .moldura-recorte .foto:not(.quebrada, .revelando) {
+      box-shadow: none;
+      filter: drop-shadow(0 1px 0.5px rgb(0 0 0 / 0.32)) drop-shadow(0 3px 2.5px rgb(0 0 0 / 0.22));
+    }
     /* a impressão (a foto e o brilho dela) só existe no adesivo: nas outras, os filhos são da foto */
     .impressao {
       display: contents;

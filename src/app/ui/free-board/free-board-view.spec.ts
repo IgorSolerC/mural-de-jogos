@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FbEdge, FbNode, FreeBoard, sanitizeFreeBoard } from '../../core/free-board';
 import { Camera } from '../../core/free-board-geometry';
 import { FreeBoardView } from './free-board-view';
-import { tornTop } from './free-board-piece';
+import { FreeBoardPiece } from './free-board-piece';
 import { expectEtiquetaPadrao } from '../../testing/etiqueta-acoes.spec';
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -74,19 +74,20 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
   it('cada peça tem o nome falado: a moldura com quantas peças tem dentro, o bilhete com o que diz', async () => {
     await open(MANSION);
     expect(piece('roxo')!.getAttribute('aria-label')).toBe('Moldura Roxo (Quartos), 3 peças');
-    expect(piece('senha')!.getAttribute('aria-label')).toBe('Bilhete: Senha?');
-    expect(piece('email')!.getAttribute('aria-label')).toBe('Bilhete: Ler email no escritório');
+    expect(piece('senha')!.getAttribute('aria-label')).toBe('Texto: Senha?');
+    expect(piece('email')!.getAttribute('aria-label')).toBe('Texto: Ler email no escritório');
     expect(piece('conta')!.getAttribute('aria-label')).toContain('Contador');
   });
 
-  it('as peças de verdade de perto: o feltro com o título em Dymo, o bilhete rasgado com a formatação, o widget', async () => {
+  it('as peças de verdade de perto: o feltro com o título em Dymo, o texto como card com a formatação, o widget', async () => {
     await open(MANSION);
     expect(piece('roxo')!.querySelector('.feltro')).not.toBeNull();
     expect(piece('roxo')!.querySelector('.dymo')!.textContent!.trim()).toBe('Roxo (Quartos)');
     expect(piece('roxo')!.dataset['cor']).toBe('lilas');
-    const bloco = piece('email')!.querySelector<HTMLElement>('.bloco')!;
-    expect(bloco.style.clipPath).toContain('polygon');
-    expect(bloco.querySelector('.negrito')?.textContent).toBe('email');
+    // o texto de uma linha só é o título do card (sem corpo); o papel é o do jeito (a Nota)
+    const card = piece('email')!.querySelector<HTMLElement>('.cartao')!;
+    expect(card.dataset['jeito']).toBe('nota');
+    expect(card.querySelector('.cartao-titulo')?.textContent).toBe('Ler email no escritório');
     expect(piece('conta')!.querySelector('app-note-widget')).not.toBeNull();
     expect(piece('email')!.dataset['nivel']).toBe('perto');
   });
@@ -102,7 +103,7 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
   it('afastando, as peças viram a versão leve, e de longe saem do DOM (vão para o canvas)', async () => {
     await open(MANSION, { x: -20, y: -20, z: 0.4 });
     expect(piece('senha')!.dataset['nivel']).toBe('meio');
-    expect(piece('senha')!.querySelector('.primeira')!.textContent).toBe('Senha?');
+    expect(piece('senha')!.querySelector('.cartao.liso .cartao-titulo')!.textContent).toBe('Senha?');
     // de longe, o título da moldura vai para o canvas (o Dymo some) e o bilhete sai do DOM
     expect(el.querySelector('.visor')!.classList).toContain('rotulos-na-tela');
     fixture.destroy();
@@ -239,7 +240,7 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
       expect(el.querySelectorAll('.anel').length).toBe(1);
       expect(el.querySelectorAll('[data-alca]').length).toBe(8);
       const acoes = el.querySelector<HTMLElement>('.acoes')!;
-      expect([...acoes.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual(['Cor', 'Trazer para frente', 'Mandar para trás', 'Duplicar', 'Apagar']);
+      expect([...acoes.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual(['Cor', 'Jeito do card: Nota', 'Trazer para frente', 'Mandar para trás', 'Duplicar', 'Apagar']);
       expectEtiquetaPadrao(acoes);
     });
 
@@ -261,18 +262,39 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
       expect(changes.at(-1)!.n.some((n) => n.i === 'senha')).toBeTrue();
     });
 
-    it('duplo clique no fundo é um bilhete novo, já escrevendo; o Esc guarda o texto', async () => {
+    it('duplo clique no fundo é um texto novo, já escrevendo; clicar fora guarda, Ctrl+Enter também, e o Esc desiste', async () => {
       await edit(MANSION);
       visor().dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true, clientX: 1000, clientY: 400 }));
       await settle();
-      const area = el.querySelector<HTMLTextAreaElement>('textarea.escrever')!;
+      let area = el.querySelector<HTMLTextAreaElement>('textarea.escrever')!;
       expect(document.activeElement).toBe(area);
       area.value = 'Senha nova';
+      area.dispatchEvent(new Event('input', { bubbles: true }));
+      // o clique fora, no fundo: o texto fica (antes, o clique apagava o que foi escrito)
+      ptr('pointerdown', 1200, 700);
+      ptr('pointerup', 1200, 700);
+      await settle();
+      expect(changes.at(-1)!.n.some((n) => n.t === 'x' && n.txt === 'Senha nova')).toBeTrue();
+      expect(el.querySelector('textarea.escrever')).toBeNull();
+      // de novo: Ctrl+Enter guarda
+      const id = changes.at(-1)!.n.find((n) => n.t === 'x' && n.txt === 'Senha nova')!.i;
+      visor().dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true, clientX: 1000, clientY: 400 }));
+      await settle();
+      area = el.querySelector<HTMLTextAreaElement>('textarea.escrever')!;
+      area.value = 'Senha nova\nNo quarto 46';
+      area.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true, cancelable: true }));
+      await settle();
+      expect(changes.at(-1)!.n.find((n) => n.i === id)?.['txt']).toBe('Senha nova\nNo quarto 46');
+      // e o Esc desiste do que foi escrito
+      visor().dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true, clientX: 1000, clientY: 400 }));
+      await settle();
+      area = el.querySelector<HTMLTextAreaElement>('textarea.escrever')!;
+      area.value = 'não era isso';
+      area.dispatchEvent(new Event('input', { bubbles: true }));
       area.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
       await settle();
-      const last = changes.at(-1)!;
-      expect(last.n.some((n) => n.t === 'x' && n.txt === 'Senha nova')).toBeTrue();
       expect(el.querySelector('textarea.escrever')).toBeNull();
+      expect(changes.at(-1)!.n.find((n) => n.i === id)?.['txt']).toBe('Senha nova\nNo quarto 46');
     });
 
     it('as ferramentas pelo teclado e pela régua; Esc sem nada selecionado pede para sair do editar', async () => {
@@ -322,8 +344,21 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
     expect(outside).not.toHaveBeenCalled();
   });
 
-  it('a borda rasgada do bilhete é sempre a mesma para a mesma peça', () => {
-    expect(tornTop('senha')).toBe(tornTop('senha'));
-    expect(tornTop('senha')).not.toBe(tornTop('email'));
+  it('o texto é o card das anotações: o jeito, a cor, o desenho e a primeira linha como título', () => {
+    const fixture = TestBed.createComponent(FreeBoardPiece);
+    fixture.componentRef.setInput('node', { i: 'tx', t: 'x', x: 0, y: 0, w: 260, h: 156, txt: '# Senha?\nA do cofre', k: 'aviso', kc: 'azul' });
+    fixture.componentRef.setInput('info', { kind: 'bilhete', image: null });
+    fixture.componentRef.setInput('level', 'perto');
+    fixture.detectChanges();
+    const card = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.cartao')!;
+    expect(card.dataset['jeito']).toBe('info');
+    expect(card.querySelector('.cartao-titulo')?.textContent?.trim()).toBe('Senha?');
+    expect(card.querySelector('.cartao-icone lucide-icon')).not.toBeNull();
+    expect(card.querySelector('.cartao-corpo')?.textContent).toContain('A do cofre');
+    // sem cor própria: o papel do jeito; o texto de antes dos cards, com a cartolina dele
+    fixture.componentRef.setInput('node', { i: 'tx', t: 'x', x: 0, y: 0, w: 260, h: 156, txt: '- uma lista', c: 'verde' });
+    fixture.detectChanges();
+    expect(card.dataset['jeito']).toBe('feito');
+    expect(card.querySelector('.cartao-titulo')?.textContent?.trim()).toBe('Nota');
   });
 });

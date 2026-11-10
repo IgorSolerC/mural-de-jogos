@@ -329,29 +329,40 @@ export function edgePath(a: Rect, b: Rect, sides: { as?: FbSide; bs?: FbSide } =
 /**
  * A curva de `a` até `b` que não passa por baixo de outra peça: a seta reta que cruzaria um bilhete no meio do
  * caminho dizia ligar três peças onde liga duas. Tenta a curva de sempre e, se ela cruza uma peça (as molduras
- * não contam: a seta passa por cima delas), empurra a curva para um lado e para o outro, cada vez mais, até
- * achar um caminho livre; sem nenhum, fica a de sempre. `around` dá as peças que encostam numa caixa.
+ * não contam: a seta passa por cima delas), empurra a curva para um lado e para o outro em passos pequenos, e fica
+ * com o menor desvio que deixa o caminho livre: a curva muda pouco quando as peças andam um pouco (antes o passo
+ * era do tamanho da peça, e o primeiro desvio já dava uma volta enorme). O desvio tem teto pela distância entre as
+ * pontas: melhor passar por cima de uma peça do que dar um laço. A peça em cima de uma ponta (uma figurinha colada
+ * na beira da foto) não conta: não há como sair sem passar por ela. Sem caminho livre, fica a de sempre.
+ * `around` dá as peças que encostam numa caixa.
  */
 export function routedEdgePath(a: Rect, b: Rect, sides: { as?: FbSide; bs?: FbSide }, around: (box: Rect) => Iterable<Rect>): EdgePath {
   const first = edgePath(a, b, sides);
-  const step = Math.max(80, Math.min(400, Math.max(a.h, b.h, a.w * 0.5, b.w * 0.5)));
+  const at = (r: Rect, p: Point, m: number) => p.x > r.x - m && p.x < r.x + r.w + m && p.y > r.y - m && p.y < r.y + r.h + m;
   const blocked = (p: EdgePath): boolean => {
-    const others = [...around(p.box)].filter((r) => r !== a && r !== b && !(contains(r, a) || contains(r, b)));
+    const others = [...around(p.box)].filter((r) => r !== a && r !== b && !(contains(r, a) || contains(r, b)) && !at(r, p.from, 12) && !at(r, p.to, 12));
     if (!others.length) return false;
     // as pontas ficam de fora: a curva sai e chega encostada nas peças das pontas
-    for (let k = 2; k <= 22; k++) {
-      const q = bezier(p.from, p.c1, p.c2, p.to, k / 24);
+    for (let k = 2; k <= 46; k++) {
+      const q = bezier(p.from, p.c1, p.c2, p.to, k / 48);
       if (others.some((r) => q.x > r.x && q.x < r.x + r.w && q.y > r.y && q.y < r.y + r.h)) return true;
     }
     return false;
   };
   if (!blocked(first)) return first;
-  for (const m of [1, -1, 2, -2, 3, -3]) {
-    const p = edgePath(a, b, sides, m * step);
-    if (!blocked(p)) return p;
+  const dist = Math.hypot(first.to.x - first.from.x, first.to.y - first.from.y);
+  const most = Math.min(400, Math.max(120, dist * 0.75));
+  for (let bend = ROUTE_STEP; bend <= most; bend += ROUTE_STEP) {
+    for (const m of [bend, -bend]) {
+      const p = edgePath(a, b, sides, m);
+      if (!blocked(p)) return p;
+    }
   }
   return first;
 }
+
+/** O passo do desvio da seta (px do mundo): pequeno, para o desvio ser só o que precisa. */
+export const ROUTE_STEP = 30;
 
 /** O ponto `t` (0 a 1) da Bézier cúbica. */
 export function bezier(p0: Point, p1: Point, p2: Point, p3: Point, t: number): Point {

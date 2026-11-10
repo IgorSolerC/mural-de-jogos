@@ -7,6 +7,9 @@ import {
   copyPieces,
   dragSet,
   fitFrame,
+  freeSpot,
+  keepsHover,
+  linkTarget,
   handlesFor,
   hitEdge,
   hitPiece,
@@ -66,6 +69,9 @@ describe('Quadro livre: a edição (funções puras)', () => {
   it('o tamanho: livre, na proporção (a imagem) e só a largura (os widgets)', () => {
     expect(sizeRule(note('a', 0, 0))).toBe('livre');
     expect(sizeRule(img)).toBe('proporcao');
+    // o vídeo também: cresce pelos quatro lados sem deformar (antes só ficava mais largo, sem crescer)
+    expect(sizeRule({ ...count, src: '{{video: https://youtu.be/abc}}' })).toBe('proporcao');
+    expect(handlesFor(sizeRule({ ...count, src: '{{video: https://youtu.be/abc}}' }))).toHaveSize(8);
     expect(sizeRule(count)).toBe('largura');
     expect(handlesFor('largura')).toEqual(['e', 'w']);
     expect(resized({ x: 0, y: 0, w: 208, h: 104 }, 'se', 52, 26, 'livre')).toEqual({ x: 0, y: 0, w: 260, h: 130 });
@@ -138,4 +144,36 @@ describe('Quadro livre: a edição (funções puras)', () => {
     while (h.undo(b0)) n++;
     expect(n).toBe(100);
   });
+
+  it('a seta chega na peça soltando rente a ela; dentro da moldura é o vazio; nunca na peça de onde sai', () => {
+    const nodes = [note('a', 0, 0), note('b', 400, 0), frame('f', 0, 300, 600, 400)];
+    expect(linkTarget(nodes, { x: 390, y: 50 }, 1, 'a')?.i).toBe('b');
+    expect(linkTarget(nodes, { x: 360, y: 50 }, 1, 'a')).toBeNull();
+    expect(linkTarget(nodes, { x: 100, y: 50 }, 1, 'a')).toBeNull();
+    expect(linkTarget(nodes, { x: 300, y: 295 }, 1, 'a')?.i).toBe('f');
+    expect(linkTarget(nodes, { x: 300, y: 500 }, 1, 'a')).toBeNull();
+    // a folga é de tela: de longe (zoom 0,5) ela vale o dobro no mundo
+    expect(linkTarget(nodes, { x: 370, y: 50 }, 0.5, 'a')?.i).toBe('b');
+  });
+
+  it('a peça das bolinhas continua a mesma perto dela (as bolinhas ficam fora da borda)', () => {
+    const a = note('a', 0, 0);
+    expect(keepsHover(a, { x: 230, y: 52 }, 1)).toBeTrue();
+    expect(keepsHover(a, { x: 260, y: 52 }, 1)).toBeFalse();
+    expect(keepsHover(a, { x: 260, y: 52 }, 0.5)).toBeTrue();
+  });
+
+  it('a peça nova vai para o lugar livre mais perto, sem cobrir outra (a moldura não conta)', () => {
+    const taken = [note('a', 0, 0, 208, 104)];
+    const box = { x: 52, y: 26, w: 208, h: 104 };
+    const spot = freeSpot(taken, box);
+    expect(spot.w).toBe(208);
+    expect(intersectsAny(spot, taken)).toBeFalse();
+    expect(Math.hypot(spot.x - box.x, spot.y - box.y)).toBeLessThan(300);
+    expect(freeSpot([], box)).toEqual(box);
+  });
 });
+
+function intersectsAny(r: { x: number; y: number; w: number; h: number }, list: readonly { x: number; y: number; w: number; h: number }[]): boolean {
+  return list.some((t) => r.x < t.x + t.w && t.x < r.x + r.w && r.y < t.y + t.h && t.y < r.y + r.h);
+}
