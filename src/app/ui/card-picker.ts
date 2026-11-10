@@ -9,8 +9,9 @@ import { BackdropClose } from './backdrop-close';
 import { CoverSleeve } from './cover-sleeve';
 import { KIND_ICON } from './kind-switcher';
 import { Pin } from './pin';
-import { kindTabs } from './picker-kit';
 import { CardFilters, PickerFilters } from './picker-filters';
+import { NoteFolders } from '../core/note-folders';
+import { localDay } from '../core/dates';
 
 /** As abas dos murais: as anotações primeiro (é delas que mais se cola), depois os de resenhas. */
 const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anotacoes')];
@@ -45,81 +46,78 @@ const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anota
             </button>
           </header>
 
-          <div class="ferramentas">
-            <app-picker-filters [filters]="filters" [kinds]="onlyKind() ? null : kinds()" [total]="cards().length" [(kind)]="kind">
-              <label class="busca">
-                <lucide-icon [img]="SearchIcon" [size]="18" aria-hidden="true" />
-                <span class="sr-only">Procurar pelo nome</span>
-                <input
-                  #search
-                  type="search"
-                  autocomplete="off"
-                  placeholder="Procurar pelo nome"
-                  [value]="query()"
-                  (input)="query.set($any($event.target).value)"
-                  (keydown.enter)="$event.preventDefault(); pickFirst()"
-                  (keydown.arrowdown)="$event.preventDefault(); focusItem(0)"
-                />
-              </label>
-            </app-picker-filters>
-          </div>
-
-          <div class="body">
-            <ul #lista class="lista" aria-label="Suas fichas" (keydown)="onListKey($event)">
-              @for (r of shown(); track r.id) {
-                @let on = r.id === chosen();
-                <li>
-                  <button type="button" class="item escolha" [class.on]="on" [attr.aria-current]="on ? 'true' : null" (click)="pick(r)">
-                    @if (r.game.coverUrl || !isNote(r)) {
-                      <app-cover-sleeve class="capa" size="thumb" [game]="r.game" [decorative]="true" />
-                    } @else {
-                      <!-- a anotação sem capa: um pedacinho da cartolina dela, na cor do mural -->
-                      <span class="capa folhinha" [style.--stock]="'var(--stock-' + stockOf(r) + ')'" [attr.data-cor]="stockOf(r)" aria-hidden="true">
-                        <lucide-icon [img]="NoteIcon" [size]="18" aria-hidden="true" />
+          <app-picker-filters [filters]="filters" [(kind)]="kind">
+            <label class="busca">
+              <lucide-icon [img]="SearchIcon" [size]="18" aria-hidden="true" />
+              <span class="sr-only">Procurar pelo nome</span>
+              <input
+                #search
+                type="search"
+                autocomplete="off"
+                placeholder="Procurar pelo nome"
+                [value]="query()"
+                (input)="query.set($any($event.target).value)"
+                (keydown.enter)="$event.preventDefault(); pickFirst()"
+                (keydown.arrowdown)="$event.preventDefault(); focusItem(0)"
+              />
+            </label>
+            <div class="body">
+              <ul #lista class="lista" aria-label="Suas fichas" (keydown)="onListKey($event)">
+                @for (r of shown(); track r.id) {
+                  @let on = r.id === chosen();
+                  <li>
+                    <button type="button" class="item escolha" [class.on]="on" [attr.aria-current]="on ? 'true' : null" (click)="pick(r)">
+                      @if (r.game.coverUrl || !isNote(r)) {
+                        <app-cover-sleeve class="capa" size="thumb" [game]="r.game" [decorative]="true" />
+                      } @else {
+                        <!-- a anotação sem capa: um pedacinho da cartolina dela, na cor do mural -->
+                        <span class="capa folhinha" [style.--stock]="'var(--stock-' + stockOf(r) + ')'" [attr.data-cor]="stockOf(r)" aria-hidden="true">
+                          <lucide-icon [img]="NoteIcon" [size]="18" aria-hidden="true" />
+                        </span>
+                      }
+                      <span class="texto">
+                        <span class="nome">{{ r.game.name }}</span>
+                        <span class="meta">
+                          <lucide-icon class="mural-icone" [img]="iconOf(r.kind)" [size]="13" aria-hidden="true" />
+                          {{ metaOf(r) }}
+                          @if (isPrivate(r) && !isNote(r)) {
+                            · <lucide-icon class="cadeado" [img]="LockIcon" [size]="13" aria-hidden="true" /> privada: quem visita não vê qual é
+                          }
+                        </span>
                       </span>
-                    }
-                    <span class="texto">
-                      <span class="nome">{{ r.game.name }}</span>
-                      <span class="meta">
-                        <lucide-icon class="mural-icone" [img]="iconOf(r.kind)" [size]="13" aria-hidden="true" />
-                        {{ metaOf(r) }}
-                        @if (isPrivate(r) && !isNote(r)) {
-                          · <lucide-icon class="cadeado" [img]="LockIcon" [size]="13" aria-hidden="true" /> privada: quem visita não vê qual é
+                      <span class="marca" aria-hidden="true">
+                        @if (on) {
+                          <lucide-icon [img]="CheckIcon" [size]="16" aria-hidden="true" />
                         }
                       </span>
-                    </span>
-                    <span class="marca" aria-hidden="true">
                       @if (on) {
-                        <lucide-icon [img]="CheckIcon" [size]="16" aria-hidden="true" />
+                        <span class="sr-only">(a escolhida agora)</span>
                       }
-                    </span>
-                    @if (on) {
-                      <span class="sr-only">(a escolhida agora)</span>
+                    </button>
+                  </li>
+                } @empty {
+                  <li class="nada">
+                    @if (!cards().length) {
+                      {{ emptyText() }}
+                    } @else if (filters.onlyOpenOn() && !query().trim()) {
+                      Aqui só há anotações finalizadas.
+                      <button type="button" class="nada-link" (click)="filters.state.set('todas')">Mostrar as finalizadas</button>
+                    } @else if (filters.active()) {
+                      {{ filters.notesScope() ? 'Nenhuma anotação' : 'Nenhuma ficha' }} com esses filtros@if (query().trim()) { e “{{ query().trim() }}”}.
+                      <button type="button" class="nada-link" (click)="filters.clear()">Limpar os filtros</button>
+                    } @else if (query().trim()) {
+                      Nenhuma ficha com “{{ query().trim() }}”@if (kind(); as k) { em {{ kindLabel(k) }}}.
+                      @if (createLabel()) {
+                        <button type="button" class="nada-link" (click)="createNew()">Criar “{{ query().trim() }}”</button>
+                      }
+                    } @else {
+                      {{ emptyText() }}
                     }
-                  </button>
-                </li>
-              } @empty {
-                <li class="nada">
-                  @if (!cards().length) {
-                    {{ emptyText() }}
-                  } @else if (filters.active()) {
-                    Nenhuma anotação com esses filtros@if (query().trim()) { e “{{ query().trim() }}”}.
-                    <button type="button" class="nada-link" (click)="filters.clear()">Limpar os filtros</button>
-                  } @else if (query().trim()) {
-                    Nenhuma ficha com “{{ query().trim() }}”@if (kind(); as k) { em {{ kindLabel(k) }}}.
-                    @if (createLabel()) {
-                      <button type="button" class="nada-link" (click)="createNew()">Criar “{{ query().trim() }}”</button>
-                    }
-                  } @else if (filters.hideDone()) {
-                    Aqui só há anotações finalizadas.
-                    <button type="button" class="nada-link" (click)="filters.hideDone.set(false)">Mostrar as finalizadas</button>
-                  } @else {
-                    {{ emptyText() }}
-                  }
-                </li>
-              }
-            </ul>
-          </div>
+                  </li>
+                }
+              </ul>
+            </div>
+          </app-picker-filters>
 
           <footer class="foot">
             <p class="conta">{{ footHint() }}</p>
@@ -191,19 +189,20 @@ export class CardPicker {
     const cat = this.onlyCategory();
     return this.store.reviews().filter((r) => r.id !== self && !out.has(r.id) && (!only || r.kind === only) && (!cat || belongs({ category: cat }, r)));
   });
-  /** O mural da lista: a aba escolhida, ou o único (o "Buscar nota" do Kanban). */
+  /** O mural da lista: o escolhido no "Onde", ou o único (o "Buscar nota" do Kanban). */
   private readonly listKind = computed(() => this.onlyKind() ?? this.kind());
-  /** O grupo, o assunto, as tags e as finalizadas (ver ui/picker-filters.ts). */
-  protected readonly filters = new CardFilters(this.cards, this.listKind, this.query, this.onlyCategory);
-  /** Os murais que têm alguma ficha, com quantas. */
-  protected readonly kinds = computed(() => kindTabs(this.cards(), ORDER));
+  /** Os murais do "Onde" (num mural só, nenhum: a árvore começa nos grupos). */
+  private readonly kindOrder = computed(() => (this.onlyKind() ? null : ORDER));
+  /** O lugar, as tags, o estado, as marcas, o quando e a ordem (ver ui/picker-filters.ts). */
+  protected readonly filters = new CardFilters(this.cards, this.listKind, this.query, this.onlyCategory, this.kindOrder);
+  private readonly folders = inject(NoteFolders);
   /** A escolhida quando a folha abriu: ela vem primeiro, e nada pula enquanto se procura. */
   private readonly before = signal('');
-  /** A escolhida primeiro, depois as mexidas mais recentemente. */
+  /** A escolhida primeiro, depois na ordem escolhida (de começo, as mexidas mais recentemente). */
   protected readonly shown = computed(() => {
     const before = this.before();
     const list = [...this.filters.matching()];
-    return list.sort((a, b) => Number(b.id === before) - Number(a.id === before) || b.updatedAt.localeCompare(a.updatedAt) || a.game.name.localeCompare(b.game.name, 'pt-BR'));
+    return list.sort((a, b) => Number(b.id === before) - Number(a.id === before) || this.filters.compare(a, b));
   });
 
   constructor() {
@@ -216,7 +215,7 @@ export class CardPicker {
       if (open && !wasOpen) {
         this.before.set(this.chosen());
         this.query.set('');
-        this.filters.reset(this.doneOption());
+        this.filters.reset({ onlyOpen: this.doneOption() });
         // já tem uma escolhida: abre no mural dela (trocar costuma ser por outra parecida)
         this.kind.set(this.store.get(this.chosen())?.kind ?? null);
         this.search()?.nativeElement.focus();
@@ -274,10 +273,26 @@ export class CardPicker {
     return pinningFor(r.id, r.stock).stock;
   }
 
-  /** O mural e o que diz dela: a categoria e a data da anotação; a média da resenha. */
+  /**
+   * A data da anotação que conta para a ordem da lista: quando foi mexida, quando foi criada, ou (de A a Z)
+   * a data dela. Assim a lista "Mexidas há pouco" não parece fora de ordem.
+   */
+  private dateOf(r: Review): string {
+    const order = this.filters.order();
+    if (order === 'az') return r.completedAt ? formatReviewDate(r.completedAt) : '';
+    const at = new Date(order === 'criadas' ? r.createdAt : r.updatedAt);
+    if (Number.isNaN(at.getTime())) return '';
+    return `${order === 'criadas' ? 'criada' : 'mexida'} em ${formatReviewDate(localDay(at))}`;
+  }
+
+  /** O mural e o que diz dela: o grupo, a pasta e a data da anotação; a média da resenha. */
   protected metaOf(r: Review): string {
     const kind = cap(profileOf(r.kind).singular);
-    if (isNote(r)) return [kind, r.category, r.completedAt ? formatReviewDate(r.completedAt) : ''].filter(Boolean).join(' · ');
+    if (isNote(r)) {
+      const tree = this.folders.tree();
+      const where = [r.category, ...tree.path(tree.of(r)).map((f) => f.name)].filter(Boolean).join(' › ');
+      return [kind, where, this.dateOf(r)].filter(Boolean).join(' · ');
+    }
     return r.scores.final !== null ? `${kind} · média ${formatScore(r.scores.final)}` : kind;
   }
 }

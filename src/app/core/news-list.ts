@@ -27,12 +27,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-10-quadro-livre-cards-e-cores',
+    id: '2026-11-10-seletor-de-anotacoes',
     version: '1.43.2',
     kind: 'ajustes',
     date: '2026-11-10',
-    title: 'Quadro livre: cards no lugar dos bilhetes, cores de verdade e público',
+    title: 'Quadro livre com cards, cores e público; o seletor de anotações refeito',
     melhorias: [
+      'O seletor de anotações (pôr no quadro livre, Buscar nota e Depende de no Kanban, Trazer anotações nos Flashcards, Anexar nota no Calendário, o widget Nota e Escolher fichas no perfil) foi refeito: os filtros ficam num índice ao lado da lista, e a lista fica sempre à vista. No celular, os filtros abrem por cima da lista no botão Filtros, e os ligados ficam como adesivos com X.',
+      'No seletor, o grupo e as pastas viraram uma árvore só (Onde, com as pastas de dentro), e entraram filtros novos: abertas ou finalizadas, só as fixadas, as privadas ou as com tarefa por fazer, e quando foram mexidas; a lista também escolhe a ordem (mexidas há pouco, criadas há pouco ou de A a Z).',
       'O texto do quadro livre virou o card das anotações: os mesmos jeitos, com o desenho de cada um (Nota, Info, Dica, Aviso, Pergunta...), as mesmas dez cores, e a primeira linha como título.',
       'As cores no quadro livre (do card, da moldura e da seta) são amostras de cor, com a escolhida marcada, em vez de uma lista de nomes.',
       'Pôr uma anotação no quadro ganhou o "Nova anotação": o editor abre no grupo do quadro, com o que você procurava de título, e a anotação salva vai direto para o quadro.',

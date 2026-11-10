@@ -17,7 +17,6 @@ import { Review, formatScore, isNote, isPrivate } from '../core/review';
 import { BackdropClose } from './backdrop-close';
 import { CoverSleeve } from './cover-sleeve';
 import { Pin } from './pin';
-import { kindTabs } from './picker-kit';
 import { CardFilters, PickerFilters } from './picker-filters';
 
 /**
@@ -44,65 +43,59 @@ import { CardFilters, PickerFilters } from './picker-filters';
             </button>
           </header>
 
-          <div class="ferramentas">
-            <app-picker-filters [filters]="filters" [kinds]="kinds()" [total]="cards().length" [(kind)]="kind">
-              <label class="busca">
-                <lucide-icon [img]="SearchIcon" [size]="18" aria-hidden="true" />
-                <span class="sr-only">Procurar pelo nome</span>
-                <input #search type="search" autocomplete="off" placeholder="Procurar pelo nome" [value]="query()" (input)="query.set($any($event.target).value)" />
-              </label>
-            </app-picker-filters>
-          </div>
-
-          <div class="body">
-            <ul class="lista" aria-label="Suas fichas">
-              @for (r of shown(); track r.id) {
-                @let at = chosen().indexOf(r.id);
-                @let locked = isPrivate(r) || boardOnly().has(r.id);
-                <li>
-                  <label class="item" [class.on]="at >= 0" [class.off]="locked || (at < 0 && full())">
-                    <input
-                      type="checkbox"
-                      [checked]="at >= 0"
-                      [disabled]="locked || (at < 0 && full())"
-                      (change)="toggle(r.id)"
-                    />
-                    <app-cover-sleeve class="capa" size="thumb" [game]="r.game" [decorative]="true" />
-                    <span class="texto">
-                      <span class="nome">{{ r.game.name }}</span>
-                      <span class="meta">
-                        {{ kindLabel(r.kind) }}@if (!isNote(r) && r.scores.final !== null) { · média {{ score(r) }} }
-                        @if (locked) { · <lucide-icon class="cadeado" [img]="LockIcon" [size]="13" aria-hidden="true" /> {{ isPrivate(r) ? 'privada' : 'só no Kanban' }}: não aparece }
+          <app-picker-filters [filters]="filters" [(kind)]="kind">
+            <label class="busca">
+              <lucide-icon [img]="SearchIcon" [size]="18" aria-hidden="true" />
+              <span class="sr-only">Procurar pelo nome</span>
+              <input #search type="search" autocomplete="off" placeholder="Procurar pelo nome" [value]="query()" (input)="query.set($any($event.target).value)" />
+            </label>
+            <div class="body">
+              <ul class="lista" aria-label="Suas fichas">
+                @for (r of shown(); track r.id) {
+                  @let at = chosen().indexOf(r.id);
+                  @let locked = isPrivate(r) || boardOnly().has(r.id);
+                  <li>
+                    <label class="item" [class.on]="at >= 0" [class.off]="locked || (at < 0 && full())">
+                      <input
+                        type="checkbox"
+                        [checked]="at >= 0"
+                        [disabled]="locked || (at < 0 && full())"
+                        (change)="toggle(r.id)"
+                      />
+                      <app-cover-sleeve class="capa" size="thumb" [game]="r.game" [decorative]="true" />
+                      <span class="texto">
+                        <span class="nome">{{ r.game.name }}</span>
+                        <span class="meta">
+                          {{ kindLabel(r.kind) }}@if (!isNote(r) && r.scores.final !== null) { · média {{ score(r) }} }
+                          @if (locked) { · <lucide-icon class="cadeado" [img]="LockIcon" [size]="13" aria-hidden="true" /> {{ isPrivate(r) ? 'privada' : 'só no Kanban' }}: não aparece }
+                        </span>
                       </span>
-                    </span>
-                    <span class="marca" aria-hidden="true">
-                      @if (at >= 0) {
-                        {{ at + 1 }}
-                      } @else if (!locked) {
-                        <lucide-icon [img]="CheckIcon" [size]="16" aria-hidden="true" />
-                      }
-                    </span>
-                  </label>
-                </li>
-              } @empty {
-                <li class="nada">
-                  @if (!cards().length) {
-                    Você ainda não tem fichas no mural. Pregue a primeira e ela aparece aqui.
-                  } @else if (filters.active()) {
-                    Nenhuma anotação com esses filtros@if (query().trim()) { e “{{ query().trim() }}”}.
-                    <button type="button" class="nada-link" (click)="filters.clear()">Limpar os filtros</button>
-                  } @else if (query().trim()) {
-                    Nenhuma ficha com “{{ query().trim() }}”.
-                  } @else if (filters.hideDone()) {
-                    Aqui só há anotações finalizadas.
-                    <button type="button" class="nada-link" (click)="filters.hideDone.set(false)">Mostrar as finalizadas</button>
-                  } @else {
-                    Você ainda não tem fichas no mural. Pregue a primeira e ela aparece aqui.
-                  }
-                </li>
-              }
-            </ul>
-          </div>
+                      <span class="marca" aria-hidden="true">
+                        @if (at >= 0) {
+                          {{ at + 1 }}
+                        } @else if (!locked) {
+                          <lucide-icon [img]="CheckIcon" [size]="16" aria-hidden="true" />
+                        }
+                      </span>
+                    </label>
+                  </li>
+                } @empty {
+                  <li class="nada">
+                    @if (!cards().length) {
+                      Você ainda não tem fichas no mural. Pregue a primeira e ela aparece aqui.
+                    } @else if (filters.active()) {
+                      {{ filters.notesScope() ? 'Nenhuma anotação' : 'Nenhuma ficha' }} com esses filtros@if (query().trim()) { e “{{ query().trim() }}”}.
+                      <button type="button" class="nada-link" (click)="filters.clear()">Limpar os filtros</button>
+                    } @else if (query().trim()) {
+                      Nenhuma ficha com “{{ query().trim() }}”.
+                    } @else {
+                      Você ainda não tem fichas no mural. Pregue a primeira e ela aparece aqui.
+                    }
+                  </li>
+                }
+              </ul>
+            </div>
+          </app-picker-filters>
 
           <footer class="foot">
             <p class="conta" aria-live="polite">
@@ -143,13 +136,11 @@ export class ProfilePicker {
   private readonly search = viewChild<ElementRef<HTMLInputElement>>('search');
 
   protected readonly full = computed(() => this.chosen().length >= this.max);
-  /** Os murais que têm alguma ficha, com quantas. */
-  protected readonly kinds = computed(() => kindTabs(this.cards(), KINDS));
-  /** O grupo, o assunto, as tags e as finalizadas (ver ui/picker-filters.ts). */
-  protected readonly filters = new CardFilters(this.cards, this.kind, this.query);
+  /** O lugar, as tags, o estado, as marcas, o quando e a ordem (ver ui/picker-filters.ts), com os murais no "Onde". */
+  protected readonly filters = new CardFilters(this.cards, this.kind, this.query, signal(null), signal(KINDS));
   /** As que já estavam escolhidas quando a folha abriu: elas vêm primeiro, e nada pula enquanto se marca. */
   private readonly before = signal<readonly string[]>([]);
-  /** As escolhidas de antes primeiro (na ordem), depois as outras de A a Z. */
+  /** As escolhidas de antes primeiro (na ordem), depois as outras na ordem escolhida (de começo, de A a Z). */
   protected readonly shown = computed(() => {
     const before = this.before();
     const list = [...this.filters.matching()];
@@ -157,7 +148,7 @@ export class ProfilePicker {
       const at = before.indexOf(r.id);
       return at < 0 ? Infinity : at;
     };
-    return list.sort((a, b) => rank(a) - rank(b) || a.game.name.localeCompare(b.game.name, 'pt-BR'));
+    return list.sort((a, b) => rank(a) - rank(b) || this.filters.compare(a, b));
   });
 
   constructor() {
@@ -171,7 +162,7 @@ export class ProfilePicker {
         this.before.set([...this.chosen()]);
         this.query.set('');
         this.kind.set(null);
-        this.filters.reset(false);
+        this.filters.reset({ order: 'az' });
         this.search()?.nativeElement.focus();
       }
       wasOpen = open;

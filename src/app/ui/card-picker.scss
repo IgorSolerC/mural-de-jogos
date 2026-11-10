@@ -18,6 +18,18 @@
   &.on {
     background: rgb(21 21 21 / 0.08);
   }
+
+  /* um toque já escolhe: sem o círculo vazio do "marcar várias" do perfil, só o tique na escolhida */
+  &:not(.on) .marca {
+    outline-color: transparent;
+  }
+}
+
+/* no celular, o título da folha já diz o que o toque faz: o pé fica só com os botões */
+@media (max-width: 720px) {
+  .foot .conta {
+    display: none;
+  }
 }
 
 /* a anotação sem capa: um pedacinho da cartolina dela, torto, com a folhinha do mural */

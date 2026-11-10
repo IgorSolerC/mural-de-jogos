@@ -1,36 +1,158 @@
-/* Os filtros dos seletores de fichas (ver picker-filters.ts), na folha amarela da busca: cada fileira
-   é uma linha da grade de .ferramentas (o host não ocupa caixa). */
+@use 'paper-kit' as kit;
+
+/* A folha de escolher fichas, entre o cabeçalho e o pé de quem usa (ver picker-filters.ts): a busca em
+   cima, e embaixo o índice dos filtros e a lista lado a lado, cada um com a sua rolagem. O host ocupa o
+   meio da ficha (uma coluna flex) inteiro. */
 
 :host {
-  display: contents;
-}
-
-.murais {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
-/* o filtro do mural: o recorte picotado; o escolhido, o adesivo de tinta colado */
-.filtro {
-  display: inline-flex;
+/* ===== A busca, fixa em cima (no celular, com o "Filtros" ao lado) ===== */
+.ferramentas {
+  display: flex;
   align-items: center;
-  gap: 5px;
-  min-height: 34px;
-  padding: 5px 10px 4px;
+  gap: 10px;
+  padding: 16px 24px 14px;
+  border-bottom: 2px dashed rgb(21 21 21 / 0.22);
+}
+
+/* o "Filtros" só existe no celular: no computador o índice está sempre à vista */
+.abre-filtros {
+  display: none;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  min-height: 46px;
+  padding: 0 14px;
   border: 0;
   border-radius: 2px;
   background: transparent;
-  color: rgb(21 21 21 / 0.78);
-  outline: 1.5px dashed rgb(21 21 21 / 0.42);
+  color: var(--ink);
+  outline: 1.5px dashed rgb(21 21 21 / 0.5);
   outline-offset: -1.5px;
   font-family: var(--f-label);
   font-weight: 800;
-  font-size: 0.86rem;
+  font-size: 0.9rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.07);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  /* aberto: o adesivo de tinta */
+  &[aria-expanded='true'] {
+    background: var(--ink);
+    color: var(--paper);
+    outline-color: transparent;
+  }
+}
+
+.tinta-n {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: 11px;
+  background: var(--ink);
+  color: var(--hi);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+
+  [aria-expanded='true'] > & {
+    background: var(--hi);
+    color: var(--ink);
+  }
+}
+
+/* ===== O índice e a lista ===== */
+.corpo {
+  position: relative;
+  display: grid;
+  grid-template-columns: 252px minmax(0, 1fr);
+  flex: 1 1 auto;
+  min-height: 0;
+
+  &.sem-indice {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* o índice: uma coluna do papel da ficha, separada da lista pelo picote */
+.indice {
+  display: grid;
+  align-content: start;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 10px 14px 22px 16px;
+  border-right: 2px dashed rgb(21 21 21 / 0.22);
+  scrollbar-width: thin;
+  scrollbar-color: rgb(21 21 21 / 0.35) transparent;
+}
+
+.secao {
+  min-width: 0;
+  padding: 12px 0 14px;
+
+  & + & {
+    border-top: 1.5px dashed rgb(21 21 21 / 0.18);
+  }
+}
+
+.secao-titulo {
+  margin: 0 0 6px 8px;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.opcoes {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* uma escolha do índice: o desenho, o nome e quantas; a escolhida, o adesivo de tinta colado, torto */
+.idx {
+  position: relative;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 8px 5px calc(8px + var(--nivel, 0) * 14px);
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: rgb(21 21 21 / 0.82);
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.86rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    rotate var(--t-physical) var(--ease-physical);
 
   &:hover {
     background: rgb(21 21 21 / 0.07);
@@ -39,108 +161,170 @@
 
   &:focus-visible {
     outline: 3px solid var(--ink);
-    outline-offset: 2px;
+    outline-offset: 1px;
   }
 
   &[aria-pressed='true'] {
     background: var(--ink);
     color: var(--paper);
-    outline-color: transparent;
-    rotate: -1.5deg;
+    rotate: -1deg;
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.35),
+      0 4px 8px -3px rgb(0 0 0 / 0.35);
+
+    .idx-n {
+      color: var(--hi);
+      opacity: 1;
+    }
   }
 
-  .n {
-    opacity: 0.62;
-    font-variant-numeric: tabular-nums;
+  /* no caminho da escolhida (o grupo da pasta escolhida): a tinta cheia, sem o adesivo */
+  &.caminho {
+    color: var(--ink);
+    font-weight: 800;
+  }
+
+  /* não deixaria nenhuma: desbota, como na ficha dos filtros (a letra ainda lê: 5:1 no papel) */
+  &.zero {
+    color: rgb(21 21 21 / 0.6);
+
+    lucide-icon {
+      opacity: 0.5;
+    }
+  }
+
+  /* "+5 pastas vazias": recolhidas enquanto se filtra; um toque as mostra */
+  &.vazias {
+    color: var(--ink-2);
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0.02em;
+    text-decoration: underline dotted 1.5px rgb(21 21 21 / 0.45);
+    text-underline-offset: 4px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &[aria-pressed='true'] {
+      rotate: 0deg;
+    }
   }
 }
 
-/* a busca e, ao lado, "Esconder finalizadas" (no celular, embaixo dela) */
-.linha-busca {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 12px;
-}
-
-.finalizadas {
-  flex: none;
-}
-
-/* O grupo e o assunto: o rótulo na frente, como o "Assunto" da pasta, e os recortes depois */
-.fileira {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  min-width: 0;
-}
-
-.rotulo {
-  flex: none;
-  min-width: 4.6em;
-  font-family: var(--f-label);
-  font-weight: 600;
-  font-size: 0.86rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  line-height: 1;
-  color: var(--ink-2);
-  /* na altura da primeira fileira de recortes, quando eles quebram */
-  padding-top: 10px;
-}
-
-.correr {
-  display: flex;
-  flex: 1;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-/* o desenho do grupo na cor dele (escurecida, para o amarelo aparecer na folha amarela); no adesivo
-   de tinta, a cor de verdade */
-.grupo .icone {
+/* a primeira coluna existe mesmo sem desenho: os nomes ficam alinhados */
+.idx-ico {
   display: inline-flex;
-  flex: none;
+  width: 18px;
+  justify-content: center;
 }
 
-.grupo .icone.colorido {
+/* o desenho do grupo na cor dele (escurecida, para aparecer no papel); no adesivo de tinta, a cor de verdade */
+.lugar.cor lucide-icon.idx-ico {
   color: color-mix(in srgb, var(--cat-cor) 70%, var(--ink));
 }
 
-.grupo[aria-pressed='true'] .icone.colorido {
+.lugar.cor[aria-pressed='true'] lucide-icon.idx-ico {
   color: var(--cat-cor);
 }
 
-.nome {
-  max-width: 16ch;
+.idx-nome {
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-/* "Sem grupo" e "Sem assunto" são o resto: a mesma letra, mais leve */
-.sem .nome {
+/* a pasta que tem outras dentro: a setinha diz que abre ao escolher */
+lucide-icon.idx-mais {
+  display: inline-flex;
+  opacity: 0.55;
+}
+
+.idx-n {
+  grid-column: 4;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
-/* as tags: as etiquetas do mural, sem rótulo (a etiqueta já diz o que é) */
-.tags {
-  display: block;
+/* "Só as": os interruptores das Configurações, o nome e quantas */
+.chaves {
+  gap: 4px;
 }
 
-/* "Mostrando 3 de 12 · Limpar": o que os filtros deixaram e como desfazer */
+.chave {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 8px;
+
+  &.zero {
+    color: rgb(21 21 21 / 0.6);
+
+    .interruptor {
+      opacity: 0.6;
+    }
+  }
+
+  .idx-n {
+    grid-column: auto;
+    font-family: var(--f-label);
+    font-size: 0.86rem;
+    color: var(--ink-2);
+    opacity: 1;
+  }
+}
+
+.interruptor {
+  @include kit.interruptor;
+}
+
+.chave-nome {
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.86rem;
+  letter-spacing: 0.05em;
+  line-height: 1.15;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+app-tag-chips {
+  padding: 0 4px;
+}
+
+/* o pé da gaveta (só no celular) */
+.indice-pe {
+  display: none;
+}
+
+/* ===== A lista: quantas, a ordem e os filtros ligados em cima; as fichas (de quem usa) embaixo ===== */
+.lado-lista {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.lista-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 14px;
+  padding: 10px 24px 4px;
+}
+
+/* "Mostrando 3 de 12 · Limpar", ou só quantas são */
 .achados {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: 4px;
-  margin: -4px 0 0;
-  min-height: 32px;
+  margin: 0;
+  min-height: 34px;
   font-family: var(--f-label);
   font-weight: 700;
-  font-size: 0.88rem;
+  font-size: 0.86rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-2);
@@ -172,32 +356,136 @@
   }
 }
 
-/* no celular, o grupo, o assunto e as tags numa linha só cada um, que corre de lado (quebrando, a
-   folha ficava sem lugar para a lista), como na pasta do mural */
+/* Ordenar: o campo impresso da pasta do mural ("Ordenar: Data"), com o <select> nativo, invisível, por cima */
+.ordem {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 0 26px 0 8px;
+  border-radius: 2px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--ink);
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.07);
+  }
+
+  &:has(select:focus-visible) {
+    outline: 3px solid var(--ink);
+    outline-offset: 1px;
+  }
+
+  select {
+    @include kit.select-por-cima;
+  }
+}
+
+.ordem-pre {
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.ordem-val {
+  text-decoration: underline dotted 2px rgb(21 21 21 / 0.45);
+  text-underline-offset: 4px;
+}
+
+lucide-icon.ordem-chev {
+  position: absolute;
+  right: 6px;
+  top: calc(50% - 7.5px);
+  display: inline-flex;
+}
+
+/* os filtros ligados, como os adesivos com X embaixo da pasta do mural: o que está ligado fica à vista
+   mesmo quando a parte dele rolou para fora do índice */
+.ligados {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 24px 10px;
+}
+
+/* ===== No celular: o índice vira uma gaveta por cima da lista ===== */
 @media (max-width: 720px) {
-  .correr {
+  .ferramentas {
+    padding: 14px 16px 12px;
+  }
+
+  .abre-filtros {
+    display: inline-flex;
+  }
+
+  .corpo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .indice {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    padding: 6px 16px 0;
+    border-right: 0;
+    background-color: var(--paper);
+  }
+
+  .gaveta .indice {
+    display: grid;
+    animation: gaveta var(--t-ui) var(--ease-ui);
+  }
+
+  .indice-pe {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    justify-content: flex-end;
+    margin: 0 -16px;
+    padding: 12px 16px 14px;
+    border-top: 2px dashed rgb(21 21 21 / 0.25);
+    background-color: var(--paper);
+  }
+
+  .lista-topo {
+    padding: 8px 16px 2px;
+  }
+
+  /* as linhas do índice com o alvo do dedo */
+  .idx {
+    min-height: 44px;
+  }
+
+  .ligados {
     flex-wrap: nowrap;
     overflow-x: auto;
     scrollbar-width: none;
-    /* corre até a beirada da folha, e o foco e o adesivo torto não são cortados */
-    margin: -6px -16px -6px -6px;
-    padding: 6px 16px 6px 6px;
+    /* o adesivo torto e a sombra não são cortados */
+    padding: 8px 16px 10px;
 
     &::-webkit-scrollbar {
       display: none;
     }
-
-    > * {
-      flex: none;
-    }
   }
+}
 
-  .rotulo {
-    min-width: 0;
+@keyframes gaveta {
+  from {
+    opacity: 0;
+    translate: 0 8px;
   }
+}
 
-
-  .rotulo {
-    padding-top: 14px;
+@media (prefers-reduced-motion: reduce) {
+  .gaveta .indice {
+    animation: none;
   }
 }

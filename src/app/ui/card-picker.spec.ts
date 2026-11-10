@@ -36,7 +36,9 @@ describe('escolher a ficha da Nota', () => {
   }
 
   const names = () => Array.from(el.querySelectorAll('.escolha .nome')).map((n) => n.textContent!.trim());
-  const filters = () => Array.from(el.querySelectorAll<HTMLButtonElement>('.filtro'));
+  /** As linhas do "Onde" (os murais, na raiz). */
+  const filters = () => Array.from(el.querySelectorAll<HTMLButtonElement>('.indice button.lugar'));
+  const rowText = (b: Element) => `${b.querySelector('.idx-nome')!.textContent!.trim()} ${b.querySelector('.idx-n')!.textContent!.replace(/[^\d]/g, '')}`;
 
   beforeEach(() => {
     localStorage.clear();
@@ -59,8 +61,8 @@ describe('escolher a ficha da Nota', () => {
     await open('', 'rnota2');
     expect(el.querySelector('dialog')!.open).toBeTrue();
     expect(names()).toEqual(['O Hobbit', 'Comprar um console', 'Hollow Knight']);
-    // as anotações primeiro nas abas, com quantas
-    expect(filters().map((f) => f.textContent!.replace(/\s+/g, ' ').trim())).toEqual(['Todos 3', 'Anotações 1', 'Jogos 1', 'Livros 1']);
+    // os murais no "Onde", as anotações primeiro, com quantas
+    expect(filters().map(rowText)).toEqual(['Todos os murais 3', 'Anotações 1', 'Jogos 1', 'Livros 1']);
     expect(document.activeElement).toBe(el.querySelector('input[type="search"]'));
   });
 
@@ -73,7 +75,7 @@ describe('escolher a ficha da Nota', () => {
     expect(meta('Hollow Knight')).not.toContain('privada');
   });
 
-  it('a busca e as abas filtram; Enter na busca escolhe a primeira e fecha', async () => {
+  it('a busca e os murais filtram; Enter na busca escolhe a primeira e fecha', async () => {
     await open();
     filters()[2].click();
     await fixture.whenStable();

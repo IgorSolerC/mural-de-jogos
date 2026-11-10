@@ -5,8 +5,9 @@
   display: contents;
 }
 
+/* larga: o índice dos filtros à esquerda e a lista à direita (ver picker-filters.ts) */
 dialog.escolher {
-  max-width: min(620px, calc(100vw - 24px));
+  max-width: min(900px, calc(100vw - 24px));
   height: min(760px, calc(100dvh - 24px));
 }
 
@@ -29,16 +30,10 @@ dialog.escolher {
   overflow-wrap: anywhere;
 }
 
-/* a busca e os murais, fixos em cima da lista */
-.ferramentas {
-  display: grid;
-  gap: 12px;
-  padding: 16px 24px 12px;
-  border-bottom: 2px dashed rgb(21 21 21 / 0.22);
-}
-
+/* a busca (fica na fileira de cima da folha de escolher, ver picker-filters.scss) */
 .busca {
-  flex: 1 1 260px;
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -72,10 +67,10 @@ dialog.escolher {
   }
 }
 
-/* os filtros (o mural, as finalizadas, o grupo, o assunto e as tags) ficam em picker-filters.scss */
+/* os filtros (o lugar, o estado, as marcas, o quando e as tags) e a ordem ficam em picker-filters.scss */
 
 .body {
-  padding-top: 8px;
+  padding-top: 4px;
 }
 
 .lista {
@@ -223,8 +218,14 @@ dialog.escolher {
   font-size: 1.08rem;
 }
 
-@media (max-width: 560px) {
-  .ferramentas {
-    padding: 14px 16px 10px;
+@media (max-width: 720px) {
+  .body {
+    padding-inline: 12px;
+  }
+
+  /* com a gaveta dos filtros aberta, o "Ver N" dela é a única saída: o pé da folha some (só aqui: a
+     gaveta que ficou aberta ao alargar a janela não esconde o pé no computador) */
+  .ficha:has(> app-picker-filters.com-gaveta) .foot {
+    display: none;
   }
 }

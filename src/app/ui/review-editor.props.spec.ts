@@ -577,7 +577,7 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
       }
       // nem ela mesma, nem a que depende dela; de qualquer grupo; a finalizada fica atrás do filtro
       expect(listed()).toEqual(['Nota nsolta02']);
-      panel().querySelector<HTMLButtonElement>('app-card-picker .filtro[aria-pressed="true"]')!.click();
+      panel().querySelector<HTMLButtonElement>('app-card-picker .indice .idx[aria-pressed="true"]:not(.lugar)')!.click();
       await fixture.whenStable();
       expect(listed()).toEqual(['Nota nprova02', 'Nota nsolta02']);
       panel().querySelector<HTMLButtonElement>('app-card-picker .escolha')!.click();
