@@ -108,6 +108,8 @@ interface EdgeLabel {
             [edgeD]="edgeOn()?.d ?? null"
             [edgeMid]="edgeOn()?.mid ?? null"
             [edgeText]="edgeOn()?.txt ?? ''"
+            [edgeEnds]="edgeOn()?.ends ?? null"
+            [edgeLocked]="!!edgeOn()?.fx"
             [lookLabel]="lookLabel()"
             (act)="selectionAct($event)"
           />
@@ -265,9 +267,10 @@ export class FreeBoardView implements RigHost {
   protected readonly edgeOn = computed(() => {
     const w = this.editor.writing();
     const id = w?.kind === 'seta' ? w.id : this.editor.selectedEdge();
-    const e = id ? this.current().e.find((x) => x.i === id) : null;
+    // com a ponta sendo puxada, a seta da prévia (a que sai do quadro no vazio não tem o realce)
+    const e = id ? (this.editor.preview() ?? this.current()).e.find((x) => x.i === id) : null;
     const path = e ? this.scene().pathOf(e) : null;
-    return e && path ? { d: path.d, mid: path.mid, txt: e.txt ?? '' } : null;
+    return e && path ? { d: path.d, mid: path.mid, txt: e.txt ?? '', ends: { from: path.from, to: path.to }, fx: !!e.fx } : null;
   });
   protected readonly lookLabel = computed(() => {
     const sel = this.editor.selected();

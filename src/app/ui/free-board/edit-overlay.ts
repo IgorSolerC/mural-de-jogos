@@ -8,7 +8,7 @@ import { BoardEditor, Writing } from './board-editor';
 import { handlesFor, sizeRule } from './edit-ops';
 
 /** O que a etiqueta da seleção pede (a peça do quadro faz). */
-export type SelectionAction = 'cor' | 'jeito' | 'rotulo' | 'frente' | 'tras' | 'duplicar' | 'apagar';
+export type SelectionAction = 'cor' | 'jeito' | 'rotulo' | 'cadeado' | 'frente' | 'tras' | 'duplicar' | 'apagar';
 
 /**
  * A camada da edição do Quadro livre (PLANO-QUADRO-LIVRE.md, 4.4 e seção 11): no mundo, por cima das peças, o
@@ -36,6 +36,11 @@ export type SelectionAction = 'cor' | 'jeito' | 'rotulo' | 'frente' | 'tras' | '
       @for (h of s.handles; track h) {
         <span class="alca" [attr.data-alca]="s.node.i + ':' + h" [attr.data-pos]="h" [style.left.px]="handleX(s.node, h)" [style.top.px]="handleY(s.node, h)"></span>
       }
+    }
+    @if (endsOf(); as e) {
+      <!-- as pontas da seta escolhida: puxar uma leva a ponta para outro lado, ou para outra peça -->
+      <span class="ponta" [attr.data-ponta]="e.id + ':a'" [style.left.px]="e.from.x" [style.top.px]="e.from.y" title="Puxe para mudar de onde a seta sai"></span>
+      <span class="ponta" [attr.data-ponta]="e.id + ':b'" [style.left.px]="e.to.x" [style.top.px]="e.to.y" title="Puxe para mudar onde a seta chega"></span>
     }
     @if (dotsOf(); as d) {
       @for (p of d.points; track p.side) {
@@ -113,6 +118,17 @@ export type SelectionAction = 'cor' | 'jeito' | 'rotulo' | 'frente' | 'tras' | '
             <button type="button" class="botao rotulo" aria-label="Rótulo" title="Rótulo" (pointerdown)="$event.stopPropagation()" (click)="act.emit('rotulo')">
               <lucide-icon [img]="Icons.rotulo" [size]="16" aria-hidden="true" />
             </button>
+            <button
+              type="button"
+              class="botao cadeado"
+              [attr.aria-pressed]="edgeLocked()"
+              aria-label="Prender nos lados"
+              [title]="edgeLocked() ? 'Presa nos lados (tocar solta: ela volta a se ajeitar sozinha)' : 'Prender nos lados de agora'"
+              (pointerdown)="$event.stopPropagation()"
+              (click)="act.emit('cadeado')"
+            >
+              <lucide-icon [img]="edgeLocked() ? Icons.presa : Icons.solta" [size]="16" aria-hidden="true" />
+            </button>
           }
           @if (t.stack) {
             <button type="button" class="botao frente" aria-label="Trazer para frente" title="Trazer para frente (])" (pointerdown)="$event.stopPropagation()" (click)="act.emit('frente')">
@@ -143,6 +159,10 @@ export class FreeBoardEditOverlay {
   readonly edgeMid = input<{ x: number; y: number } | null>(null);
   /** O rótulo de agora da seta selecionada. */
   readonly edgeText = input('');
+  /** As pontas da seta selecionada (onde ela sai e onde chega). */
+  readonly edgeEnds = input<{ from: { x: number; y: number }; to: { x: number; y: number } } | null>(null);
+  /** A seta selecionada está presa nos lados (o cadeado)? */
+  readonly edgeLocked = input(false);
   /** O nome do "Jeito da peça" da seleção (null: ela não tem). */
   readonly lookLabel = input<string | null>(null);
   /** O desenho do botão do jeito: o do jeito do card, quando é um texto (null: o de sempre). */
@@ -152,7 +172,7 @@ export class FreeBoardEditOverlay {
   });
   readonly act = output<SelectionAction>();
 
-  protected readonly Icons = { cor: ICON.paleta, jeito: ICON.moldura, rotulo: ICON.etiqueta, frente: ICON.frente, tras: ICON.tras, duplicar: ICON.copiar, apagar: ICON.apagar };
+  protected readonly Icons = { cor: ICON.paleta, jeito: ICON.moldura, rotulo: ICON.etiqueta, presa: ICON.setaPresa, solta: ICON.setaSolta, frente: ICON.frente, tras: ICON.tras, duplicar: ICON.copiar, apagar: ICON.apagar };
   protected readonly textMax = FB_TEXT_MAX;
   protected readonly titleMax = FB_FRAME_TITLE_MAX;
   protected readonly labelMax = FB_LABEL_MAX;
@@ -170,6 +190,15 @@ export class FreeBoardEditOverlay {
     if (sel.length !== 1 || this.editor().writing()) return null;
     const node = sel[0];
     return { node, handles: handlesFor(sizeRule(node)) };
+  });
+
+  /** As pontas da seta selecionada, para puxar (não no meio de um gesto nem escrevendo o rótulo). */
+  protected readonly endsOf = computed(() => {
+    const ed = this.editor();
+    const id = ed.selectedEdge();
+    const ends = this.edgeEnds();
+    if (!id || !ends || ed.writing() || ed.preview() || ed.linking()) return null;
+    return { id, ...ends };
   });
 
   /** As bolinhas de seta na peça debaixo do mouse (ou na selecionada sozinha), nos meios dos lados. */
@@ -192,7 +221,7 @@ export class FreeBoardEditOverlay {
   protected readonly linkLine = computed(() => {
     const l = this.editor().linking();
     const from = l ? this.nodes().get(l.from) : null;
-    if (!l || !from) return null;
+    if (!l || !from || l.curve) return null;
     const a = anchor(from, l.side);
     const t = this.linkTargetNode();
     const b = t ? anchor(t, nearestSide(t, l.to)) : l.to;

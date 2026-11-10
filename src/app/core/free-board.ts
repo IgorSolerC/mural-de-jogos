@@ -83,9 +83,14 @@ export interface FbEdge {
   /** De onde sai e onde chega (ids de peças). */
   a: string;
   b: string;
-  /** Os lados; omitidos, a seta escolhe os mais perto (ver core/free-board-geometry.ts). */
+  /**
+   * Os lados; omitidos, a seta escolhe os mais perto (ver core/free-board-geometry.ts). Numa seta solta (sem `fx`)
+   * eles valem até uma das peças andar ou mudar de tamanho: aí saem, e a seta volta a se ajeitar sozinha.
+   */
   as?: FbSide;
   bs?: FbSide;
+  /** Presa (o cadeado): os lados ficam onde estão, mesmo com as peças andando. */
+  fx?: true;
   p?: FbEnds;
   c?: FbColor;
   /** O rótulo, no pedaço de fita crepe. */
@@ -188,7 +193,7 @@ function extras(raw: Record<string, unknown>, known: ReadonlySet<string>): Recor
 }
 
 const NODE_KEYS = new Set(['i', 't', 'x', 'y', 'w', 'h', 'c', 'g', 'nome', 'txt', 'src', 'k', 'kc']);
-const EDGE_KEYS = new Set(['i', 'a', 'b', 'as', 'bs', 'p', 'c', 'txt']);
+const EDGE_KEYS = new Set(['i', 'a', 'b', 'as', 'bs', 'fx', 'p', 'c', 'txt']);
 const BOARD_KEYS = new Set(['v', 'id', 'nome', 'grupo', 'em', 'publico', 'n', 'e']);
 
 /** Uma peça, cortada para caber; null se não tem o que guardar (sem id, sem tipo). */
@@ -245,6 +250,7 @@ export function sanitizeEdge(raw: unknown): FbEdge | null {
   const out: FbEdge = { ...extras(r, EDGE_KEYS), i, a, b };
   if ((FB_SIDES as readonly unknown[]).includes(r['as'])) out.as = r['as'] as FbSide;
   if ((FB_SIDES as readonly unknown[]).includes(r['bs'])) out.bs = r['bs'] as FbSide;
+  if (r['fx'] === true) out.fx = true;
   if ((FB_ENDS as readonly unknown[]).includes(r['p'])) out.p = r['p'] as FbEnds;
   const c = color(r['c']);
   if (c) out.c = c;
@@ -419,17 +425,35 @@ export function removePieces(board: FreeBoard, ids: ReadonlySet<string>, at: str
   return { ...board, em: at, n, e };
 }
 
-/** Muda campos de peças (posição, tamanho, cor, texto...): `patch(peça)` devolve a peça nova, ou a mesma. */
+/**
+ * Muda campos de peças (posição, tamanho, cor, texto...): `patch(peça)` devolve a peça nova, ou a mesma. A peça
+ * que andou ou mudou de tamanho solta os lados das setas dela que não estão presas (elas se ajeitam sozinhas).
+ */
 export function patchNodes(board: FreeBoard, ids: ReadonlySet<string>, patch: (node: FbNode) => FbNode, at: string): FreeBoard {
   let changed = false;
+  const moved = new Set<string>();
   const n = board.n.map((x) => {
     if (!ids.has(x.i) || !knownNode(x)) return x;
     const next = sanitizeNode(patch(x));
     if (!next || next.i !== x.i || next.t !== x.t) return x;
     changed ||= JSON.stringify(next) !== JSON.stringify(x);
+    if (next.x !== x.x || next.y !== x.y || next.w !== x.w || next.h !== x.h) moved.add(x.i);
     return next;
   });
-  return changed ? { ...board, em: at, n } : board;
+  if (!changed) return board;
+  return { ...board, em: at, n, e: moved.size ? looseSides(board.e, moved) : board.e };
+}
+
+/** As setas soltas (sem cadeado) que tocam as peças `moved` perdem os lados guardados: voltam a escolher sozinhas. */
+function looseSides(edges: FbEdge[], moved: ReadonlySet<string>): FbEdge[] {
+  let touched = false;
+  const out = edges.map((e) => {
+    if (e.fx || (!e.as && !e.bs) || (!moved.has(e.a) && !moved.has(e.b))) return e;
+    touched = true;
+    const { as: _, bs: __, ...rest } = e;
+    return rest as FbEdge;
+  });
+  return touched ? out : edges;
 }
 
 /** Anda com as peças `ids` (dx, dy no mundo). */

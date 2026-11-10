@@ -145,6 +145,8 @@ import {
   ListMusic,
   ListOrdered,
   LockKeyhole,
+  Lock,
+  LockOpen,
   LogOut,
   LucideAngularComponent,
   LucideAngularModule,
@@ -465,6 +467,9 @@ export const ICON = {
   moldura: Frame,
   // ===== O Quadro livre: a régua das ferramentas e a etiqueta da seleção =====
   ponteiro: MousePointer2,
+  /** A seta do Quadro livre presa nos lados que tem (e a solta, que se ajeita sozinha). */
+  setaPresa: Lock,
+  setaSolta: LockOpen,
   frente: BringToFront,
   tras: SendToBack,
   capas: Images,

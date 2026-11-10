@@ -19,6 +19,7 @@ import {
   noteLook,
   noteParts,
   patchEdge,
+  patchNodes,
   pieceCount,
   removePieces,
   restack,
@@ -169,6 +170,29 @@ describe('Quadro livre: mexer nas peças', () => {
       [50, 50],
     ]);
     expect(moveNodes(b, new Set(['a1']), 0, 0, AT)).toBe(b);
+  });
+
+  it('a seta solta volta a se ajeitar quando uma das peças anda ou muda de tamanho; a presa (cadeado) fica', () => {
+    const b = board(
+      [note('a1', 'a', 0, 0), note('b2', 'b', 400, 0), note('c3', 'c', 0, 400)],
+      [
+        { i: 'e1', a: 'a1', b: 'b2', as: 't', bs: 't' },
+        { i: 'e2', a: 'a1', b: 'b2', as: 'b', bs: 'b', fx: true },
+        { i: 'e3', a: 'c3', b: 'b2', as: 'r', bs: 'b' },
+      ],
+    );
+    expect(b.e[1].fx).toBeTrue();
+    const r = moveNodes(b, new Set(['a1']), 26, 0, AT);
+    expect(r.e[0].as).toBeUndefined();
+    expect(r.e[0].bs).toBeUndefined();
+    expect(r.e[1]).toEqual(jasmine.objectContaining({ as: 'b', bs: 'b', fx: true }));
+    // a seta que não toca a peça que andou fica como estava
+    expect(r.e[2]).toBe(b.e[2]);
+    // mudar de tamanho também; mudar só o texto, não
+    const grown = patchNodes(b, new Set(['b2']), (n) => ({ ...n, w: n.w + 26 }), AT);
+    expect(grown.e[2].bs).toBeUndefined();
+    const typed = patchNodes(b, new Set(['b2']), (n) => ({ ...n, txt: 'outro' }), AT);
+    expect(typed.e).toBe(b.e);
   });
 
   it('ligar duas peças cria a seta; ligar a mesma ou uma que não existe, não', () => {

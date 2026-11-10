@@ -1,7 +1,7 @@
 import { computed, signal } from '@angular/core';
 import { CALLOUT_PAPERS } from '../../core/callouts';
 import { FB_MAX_NODES, FbColor, FbEdge, FbEnds, FbNode, FbNote, FbSide, FreeBoard, connect, moveNodes, patchEdge, patchNodes, removePieces, shownNodes, withGroups } from '../../core/free-board';
-import { Point, Rect, boundsOf, nearestSide, rectBetween } from '../../core/free-board-geometry';
+import { Point, Rect, autoSides, boundsOf, nearestSide, rectBetween } from '../../core/free-board-geometry';
 import { DRAG_SLOP } from './camera-rig';
 import { Handle, History, boxSelect, dragSet, hitEdge, hitPiece, keepsHover, linkTarget, newNode, resized, sizeRule, snappedDelta } from './edit-ops';
 
@@ -18,7 +18,11 @@ type Gesture =
   | { kind: 'caixa'; start: Point; keep: Set<string> }
   | { kind: 'moldura'; start: Point }
   | { kind: 'ligar'; from: string; side: FbSide; start: Point }
+  | { kind: 'ponta'; edge: string; end: EdgeEnd; start: Point }
   | { kind: 'clique'; start: Point; id: string | null; toggle: boolean };
+
+/** Uma ponta da seta: `a`, de onde ela sai; `b`, onde chega. */
+export type EdgeEnd = 'a' | 'b';
 
 /** O que o editor precisa de quem o monta (a peça do quadro). */
 export interface EditorHost {
@@ -48,7 +52,11 @@ export class BoardEditor {
   readonly preview = signal<FreeBoard | null>(null);
   readonly box = signal<Rect | null>(null);
   readonly drawing = signal<Rect | null>(null);
-  readonly linking = signal<{ from: string; side: FbSide; to: Point; target: string | null } | null>(null);
+  /**
+   * A seta sendo puxada: de uma bolinha, ou a ponta de uma seta que já existe sendo levada para outro lugar.
+   * `curve`: a prévia já desenha a seta de verdade (a ponta em cima de uma peça), sem o tracejado.
+   */
+  readonly linking = signal<{ from: string; side: FbSide; to: Point; target: string | null; curve?: true } | null>(null);
   readonly hover = signal<string | null>(null);
   readonly writing = signal<Writing | null>(null);
   /**
@@ -188,6 +196,29 @@ export class BoardEditor {
     );
   }
 
+  /**
+   * O cadeado da seta: presa, os lados de agora ficam (os que ela escolhia sozinha viram os dela) mesmo com as
+   * peças andando; solta, ela volta a se ajeitar sozinha na hora. `on` omitido: troca.
+   */
+  lockEdge(id = this.selectedEdge(), on?: boolean): void {
+    if (!id) return;
+    this.change((b) =>
+      patchEdge(
+        b,
+        id,
+        (e) => {
+          if (!(on ?? !e.fx)) {
+            const { fx: _, as: __, bs: ___, ...rest } = e;
+            return rest as FbEdge;
+          }
+          const auto = sidesNow(b, e);
+          return { ...e, as: e.as ?? auto?.as, bs: e.bs ?? auto?.bs, fx: true };
+        },
+        now(),
+      ),
+    );
+  }
+
   /** Põe uma peça nova (o quadro cheio avisa e não põe). */
   add(node: FbNode, select = true): FbNode | null {
     const b = this.host.board();
@@ -206,10 +237,20 @@ export class BoardEditor {
    * O ponteiro desceu (o botão esquerdo, ou um dedo, já sabendo que não é para andar). `handle`/`dot`: a alça de
    * tamanho ou a bolinha de seta debaixo do ponteiro (o desenho delas está no overlay).
    */
-  down(p: Point, mods: { shift: boolean; ctrl: boolean }, target: { handle?: { id: string; handle: Handle }; dot?: { id: string; side: FbSide } } = {}): void {
+  down(
+    p: Point,
+    mods: { shift: boolean; ctrl: boolean },
+    target: { handle?: { id: string; handle: Handle }; dot?: { id: string; side: FbSide }; end?: { id: string; end: EdgeEnd } } = {},
+  ): void {
     // escrevendo e tocou fora do campo: o escrito fica (só o Esc desiste)
     this.flushWriting();
     const board = this.host.board();
+    if (target.end && board.e.some((e) => e.i === target.end!.id)) {
+      this.selected.set(new Set());
+      this.selectedEdge.set(target.end.id);
+      this.gesture = { kind: 'ponta', edge: target.end.id, end: target.end.end, start: p };
+      return;
+    }
     if (target.dot) {
       this.gesture = { kind: 'ligar', from: target.dot.id, side: target.dot.side, start: p };
       return;
@@ -296,6 +337,19 @@ export class BoardEditor {
         this.linking.set({ from: g.from, side: g.side, to: p, target: target?.i ?? null });
         return;
       }
+      case 'ponta': {
+        const board = this.host.board();
+        const e = board.e.find((x) => x.i === g.edge);
+        if (!e) return;
+        const other = g.end === 'a' ? e.b : e.a;
+        const target = linkTarget(shownNodes(board), p, z, other);
+        const fixed = sidesNow(board, e);
+        const side = (g.end === 'a' ? e.bs : e.as) ?? (g.end === 'a' ? fixed?.bs : fixed?.as) ?? 'r';
+        // em cima de uma peça, a prévia é a seta de verdade ligada nela; no vazio, a seta sai e fica o tracejado
+        this.preview.set(target ? withEnd(board, e, g.end, target, p) : { ...board, e: board.e.filter((x) => x.i !== e.i) });
+        this.linking.set({ from: other, side, to: p, target: target?.i ?? null, ...(target ? { curve: true as const } : {}) });
+        return;
+      }
       case 'clique':
         return;
     }
@@ -350,6 +404,16 @@ export class BoardEditor {
         } else {
           this.host.dropArrow(link.from, link.side, p, screen);
         }
+        return;
+      }
+      case 'ponta': {
+        // soltou numa peça: a ponta fica nela (perto da borda, no lado mais perto; no meio, no que a seta escolher);
+        // no vazio, nada muda
+        const next = this.preview();
+        const link = this.linking();
+        this.preview.set(null);
+        this.linking.set(null);
+        if (moved && next && link?.target) this.change(() => next);
         return;
       }
       case 'clique': {
@@ -473,6 +537,38 @@ export class BoardEditor {
 }
 
 const now = () => new Date().toISOString();
+
+/** Os lados que a seta usa agora (os dela ou, sem eles, os que ela escolhe sozinha). */
+function sidesNow(board: FreeBoard, e: FbEdge): { as: FbSide; bs: FbSide } | null {
+  const a = board.n.find((n) => n.i === e.a);
+  const b = board.n.find((n) => n.i === e.b);
+  if (!a || !b) return null;
+  const auto = autoSides(a, b);
+  return { as: e.as ?? auto.as, bs: e.bs ?? auto.bs };
+}
+
+/**
+ * A seta com a ponta `end` levada para a peça `target`, solta no ponto `p`: perto da borda, o lado mais perto
+ * do ponteiro; no meio da peça, o lado que a seta escolher (na presa, o que ela escolhe agora, que fica).
+ */
+function withEnd(board: FreeBoard, e: FbEdge, end: EdgeEnd, target: FbNode, p: Point): FreeBoard {
+  const key = end === 'a' ? 'as' : 'bs';
+  const inner = { x: target.x + target.w * 0.25, y: target.y + target.h * 0.25, w: target.w * 0.5, h: target.h * 0.5 };
+  const inMiddle = p.x > inner.x && p.x < inner.x + inner.w && p.y > inner.y && p.y < inner.y + inner.h;
+  return patchEdge(
+    board,
+    e.i,
+    (x) => {
+      const { [key]: _, ...rest } = x;
+      const moved = { ...rest, [end]: target.i } as FbEdge;
+      if (!inMiddle) return { ...moved, [key]: nearestSide(target, p) };
+      if (!x.fx) return moved;
+      const auto = sidesNow({ ...board, e: [] }, moved);
+      return auto ? { ...moved, [key]: auto[key] } : moved;
+    },
+    now(),
+  );
+}
 
 function snapRect(r: Rect): Rect {
   const s = (v: number) => Math.round(v / 26) * 26;

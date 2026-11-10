@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-10-seletor-de-anotacoes',
+    id: '2026-11-10-setas-que-se-ajeitam',
     version: '1.43.2',
     kind: 'ajustes',
     date: '2026-11-10',
@@ -46,6 +46,7 @@ export const NEWS: NewsEntry[] = [
       'Ver em lista (o botão ao lado do zoom, ou L): o quadro como texto, com as molduras como títulos, as peças dentro delas e as setas; tocar num item leva até a peça.',
       'Na API e no MCP, ver_quadros e ler_quadro leem os quadros em texto, e criar_quadro, acrescentar_no_quadro e ligar_no_quadro põem quadros, bilhetes, anotações, setas e molduras, com as permissões das Anotações.',
       'As setas do quadro livre contornam as peças que estão no caminho, em vez de passar por baixo delas.',
+      'As setas do quadro livre voltam a se ajeitar sozinhas no lado mais perto quando as peças andam. A ponta de uma seta escolhida se puxa para outro lado ou outra peça, e o cadeado da seta (na etiqueta ou no botão direito) a prende nos lados que ela tem.',
       'No celular, a régua do editar fica em dois andares, com Desfazer e Refazer sempre à vista; no teclado, o Enter seleciona a peça com o foco.',
     ],
     correcoes: [

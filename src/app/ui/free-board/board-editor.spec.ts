@@ -4,7 +4,7 @@ import { BoardEditor, EditorHost } from './board-editor';
 const note = (i: string, x: number, y: number, w = 208, h = 104): FbNode => ({ i, t: 'x', x, y, w, h, txt: i });
 const frame = (i: string, x: number, y: number, w: number, h: number): FbNode => ({ i, t: 'm', x, y, w, h, nome: i });
 
-function board(n: FbNode[], e: { i: string; a: string; b: string }[] = []): FreeBoard {
+function board(n: FbNode[], e: { i: string; a: string; b: string; [k: string]: unknown }[] = []): FreeBoard {
   return sanitizeFreeBoard({ v: 1, id: 'abcdefghijklmnopqrstuv', nome: 'T', grupo: 'Jogos', em: '2026-11-09T00:00:00.000Z', n, e })!;
 }
 
@@ -134,6 +134,55 @@ describe('Quadro livre: o editor', () => {
     expect(t.board.e[1].as).toBeUndefined();
     t.drag([208, 52], [400, 400], undefined, { dot: { id: 'a', side: 'r' } });
     expect(t.dropped.length).toBe(1);
+  });
+
+  it('puxar a ponta da seta muda o lado (perto da borda) ou leva a ponta para outra peça; no vazio, nada muda', () => {
+    const t = setup(board([note('a', 0, 0), note('b', 600, 0), note('c', 600, 400)], [{ i: 'e', a: 'a', b: 'b' }]));
+    // a ponta de chegada, no lado de cima de b
+    t.drag([600, 52], [700, 4], undefined, { end: { id: 'e', end: 'b' } });
+    expect(t.board.e[0]).toEqual(jasmine.objectContaining({ a: 'a', b: 'b', bs: 't' }));
+    expect(t.ed.selectedEdge()).toBe('e');
+    // para outra peça, no meio dela: a ponta vai e o lado se escolhe sozinho
+    t.drag([700, 0], [700, 452], undefined, { end: { id: 'e', end: 'b' } });
+    expect(t.board.e[0].b).toBe('c');
+    expect(t.board.e[0].bs).toBeUndefined();
+    // a ponta de saída, no lado de baixo de a
+    t.drag([208, 52], [100, 100], undefined, { end: { id: 'e', end: 'a' } });
+    expect(t.board.e[0]).toEqual(jasmine.objectContaining({ a: 'a', as: 'b' }));
+    // no vazio, ou na peça da outra ponta: nada muda
+    const before = t.board;
+    t.drag([104, 104], [2000, 2000], undefined, { end: { id: 'e', end: 'a' } });
+    t.drag([104, 104], [700, 452], undefined, { end: { id: 'e', end: 'a' } });
+    expect(t.board).toBe(before);
+    expect(t.ed.preview()).toBeNull();
+    expect(t.ed.linking()).toBeNull();
+  });
+
+  it('o cadeado prende a seta nos lados de agora (mesmo andando as peças) e, solto, ela volta a se ajeitar', () => {
+    const t = setup(board([note('a', 0, 0), note('b', 600, 0)], [{ i: 'e', a: 'a', b: 'b' }]));
+    t.ed.selectedEdge.set('e');
+    t.ed.lockEdge();
+    // os lados que ela escolhia sozinha viram os dela
+    expect(t.board.e[0]).toEqual(jasmine.objectContaining({ as: 'r', bs: 'l', fx: true }));
+    t.ed.select(['b']);
+    t.ed.nudge(0, 600);
+    expect(t.board.e[0]).toEqual(jasmine.objectContaining({ as: 'r', bs: 'l', fx: true }));
+    t.ed.lockEdge('e');
+    expect(t.board.e[0].fx).toBeUndefined();
+    expect(t.board.e[0].as).toBeUndefined();
+    expect(t.board.e[0].bs).toBeUndefined();
+    // solta, o lado puxado à mão vale até a peça andar
+    t.ed.selectedEdge.set('e');
+    t.drag([208, 52], [100, 100], undefined, { end: { id: 'e', end: 'a' } });
+    expect(t.board.e[0].as).toBe('b');
+    t.ed.select(['a']);
+    t.ed.nudge(26, 0);
+    expect(t.board.e[0].as).toBeUndefined();
+    // presa, levar a ponta para o meio de uma peça guarda o lado que ela escolhe ali
+    t.ed.lockEdge('e', true);
+    t.drag([234, 52], [700, 652], undefined, { end: { id: 'e', end: 'b' } });
+    expect(t.board.e[0].fx).toBeTrue();
+    expect(t.board.e[0].bs).toBeDefined();
   });
 
   it('o rótulo da seta, as pontas, a cor e apagar a seta', () => {

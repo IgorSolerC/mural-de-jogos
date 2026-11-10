@@ -7,7 +7,7 @@ import { Camera, Point, Rect, center, insideFrame, toWorld } from '../../core/fr
 import { parseWidgetLine, widgetCycles, widgetDef, widgetLines, withChoice } from '../../core/widgets';
 import { ICON } from '../icons';
 import { MenuItem, MenuSections } from '../context-menu';
-import { BoardEditor } from './board-editor';
+import { BoardEditor, EdgeEnd } from './board-editor';
 import { CLIP_TYPE, Clip, classifyPaste, copyPieces, fitFrame, freeSpot, hitEdge, hitPiece, newNode, noteLine, pasteClip, placeGrid, readClip, sizeForLine } from './edit-ops';
 import { SelectionAction } from './edit-overlay';
 import { FreeBoardOwner } from './owner-tools';
@@ -125,7 +125,7 @@ export class BoardEditing {
     if (this.own(e.target)) return false;
     if (this.space) return true;
     const t = e.target instanceof Element ? e.target : null;
-    if (t?.closest('[data-alca], [data-bolinha]')) return false;
+    if (t?.closest('[data-alca], [data-bolinha], [data-ponta]')) return false;
     const hit = hitPiece(this.nodes(), this.world(e), this.h.camera().z);
     if (e.ctrlKey || e.metaKey) return !hit;
     if (e.pointerType === 'touch') {
@@ -151,6 +151,7 @@ export class BoardEditing {
     const t = e.target instanceof Element ? e.target : null;
     const alca = t?.closest<HTMLElement>('[data-alca]')?.dataset['alca'];
     const bolinha = t?.closest<HTMLElement>('[data-bolinha]')?.dataset['bolinha'];
+    const ponta = t?.closest<HTMLElement>('[data-ponta]')?.dataset['ponta'];
     const split = (v: string) => [v.slice(0, v.lastIndexOf(':')), v.slice(v.lastIndexOf(':') + 1)] as const;
     this.ed.down(
       this.world(e),
@@ -158,6 +159,7 @@ export class BoardEditing {
       {
         ...(alca ? { handle: { id: split(alca)[0], handle: split(alca)[1] as never } } : {}),
         ...(bolinha ? { dot: { id: split(bolinha)[0], side: split(bolinha)[1] as FbSide } } : {}),
+        ...(ponta ? { end: { id: split(ponta)[0], end: split(ponta)[1] as EdgeEnd } } : {}),
       },
     );
     try {
@@ -372,6 +374,8 @@ export class BoardEditing {
         if (id) this.ed.writing.set({ kind: 'seta', id });
         return;
       }
+      case 'cadeado':
+        return this.ed.lockEdge();
       case 'jeito': {
         const [node] = this.ed.selectedNodes();
         if (node?.t === 'x') return this.h.menu('jeito', 'Jeito do card', [this.cardLookItems(node)], anchor.x, anchor.y, 'mouse');
@@ -708,6 +712,7 @@ export class BoardEditing {
   }
 
   private edgeMenu(id: string): MenuSections {
+    const locked = !!this.h.board().e.find((e) => e.i === id)?.fx;
     const ends: [string, string, '-' | '<' | '<>' | null][] = [
       ['seta-fim', 'Ponta no fim (→)', null],
       ['seta-comeco', 'Ponta no começo (←)', '<'],
@@ -720,6 +725,11 @@ export class BoardEditing {
         { id: 'cor', label: 'Cor…', icon: ICON.paleta, dialog: true, run: () => this.reopenColors() },
       ],
       ends.map(([k, label, p]): MenuItem => ({ id: k, label, icon: ICON.ponteiro, run: () => this.ed.ends(p, id) })),
+      [
+        locked
+          ? { id: 'soltar', label: 'Soltar dos lados (ela se ajeita sozinha)', icon: ICON.setaSolta, run: () => this.ed.lockEdge(id, false) }
+          : { id: 'prender', label: 'Prender nos lados de agora', icon: ICON.setaPresa, run: () => this.ed.lockEdge(id, true) },
+      ],
       [{ id: 'apagar', label: 'Apagar a seta', icon: ICON.apagar, danger: true, keys: 'Delete', run: () => this.ed.removeSelected() }],
     ];
   }
