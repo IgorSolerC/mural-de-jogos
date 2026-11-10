@@ -76,12 +76,42 @@
 
 <app-context-menu #menu [caption]="menuCaption()" [sections]="menuSections()" (closed)="menuOn.set(null)" />
 
+<!-- o que só o dono faz no quadro (a peça pede, ver ui/free-board/owner-tools.ts): a anotação e a folha do widget -->
+<app-card-picker
+  [open]="picking()"
+  (openChange)="onPickerOpen($event)"
+  [onlyKind]="notesKind"
+  [onlyCategory]="pickGroup()"
+  [doneOption]="false"
+  heading="Pôr uma anotação no quadro"
+  [hint]="'Uma anotação' + (pickGroup() ? ' de ' + pickGroup() : '') + ', como o widget Nota. Ela continua no mural.'"
+  footHint="Toque numa anotação para pôr no quadro."
+  (picked)="onPicked($event)"
+/>
+@if (sheetStart(); as st) {
+  @defer (on immediate) {
+    <app-widget-sheet [start]="st" [swap]="false" [onCard]="false" (done)="onSheetDone($event)" (removed)="onSheetRemoved()" (closed)="onSheetClosed()" />
+  }
+}
+
 <!-- o quadro aberto: a tela inteira, só para ver -->
 @if (wantedBoard()) {
   <div class="tela-cheia" role="dialog" aria-modal="true" [attr.aria-label]="open() ? 'Quadro ' + open()!.nome : 'Quadro'" (fullscreenchange)="onFullscreenChange()">
     @if (open(); as b) {
       @if (camera() !== undefined) {
-        <app-free-board class="quadro" [board]="b" [camera]="camera() ?? null" (cameraChange)="saveCamera(b.id, $event)" />
+        <app-free-board
+          class="quadro"
+          [board]="shownBoard() ?? b"
+          [camera]="camera() ?? null"
+          [editing]="editing()"
+          [owner]="owner"
+          [links]="boardLinks"
+          [autofocus]="true"
+          (cameraChange)="saveCamera(b.id, $event)"
+          (changed)="save($event)"
+          (editToggle)="setEditing($event)"
+          (notice)="toasts.show($event)"
+        />
       }
       <div class="topo-esq">
         <button type="button" class="tape-label voltar" (click)="close()" title="Voltar para a lista (Esc)">
@@ -91,6 +121,14 @@
         <h2 class="nome-quadro">{{ b.nome }}</h2>
       </div>
       <div class="topo-dir">
+        @if (editing()) {
+          <button type="button" class="btn-ink pronto" (click)="setEditing(false)" title="Sair do editar (E)">Pronto</button>
+        } @else {
+          <button type="button" class="btn-cartolina editar" (click)="setEditing(true)" title="Editar o quadro (E)">
+            <lucide-icon [img]="Icons.editar" [size]="18" aria-hidden="true" />
+            Editar
+          </button>
+        }
         <button type="button" class="tela-btn" (click)="toggleFullscreen()" [attr.aria-pressed]="fullscreen()" [title]="fullscreen() ? 'Sair da tela cheia' : 'Tela cheia de verdade (esconde as barras do navegador)'">
           <lucide-icon [img]="fullscreen() ? Icons.sair : Icons.cheia" [size]="20" aria-hidden="true" />
           <span class="sr-only">{{ fullscreen() ? "Sair da tela cheia" : "Tela cheia" }}</span>

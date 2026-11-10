@@ -87,6 +87,9 @@ Sim se a mudança cria **pelo menos uma destas**, que não existia em lugar nenh
   não entra: o item vem com a rodada que a mostra. Assim foram as rodadas 1 e 2 dos Estudos (02/nov/2026)
   a rodada 1 do Quadro livre (09/nov/2026), que só guarda e junta os quadros no aparelho, e a rodada 2 dele (o motor de ver), que
   só aparece numa página de teste escondida, sem link.
+- Uma funcionalidade que fica pronta em rodadas no mesmo dia é uma entrada só: cada rodada acrescenta os itens
+  dela na entrada de funcionalidade daquele dia, sem trocar o `id` (o Quadro livre, 09/nov/2026: a seção na
+  rodada 3, o editar na rodada 4). A faixa (`notice`) entra quando a funcionalidade já serve para alguma coisa.
 - Refazer no mesmo dia uma mudança que já está na entrada de ajustes de hoje reescreve o item dela para
   dizer como ficou (a entrada conta como o dia terminou), sem trocar o `id`: a entrada não cresceu. A
   moldura Adesivo (1.36.2) perdeu o papel branco no mesmo dia, e o item só diz a foto picotada.

@@ -898,3 +898,42 @@ Decidido no caminho (pode mudar):
 
 - Editar ainda não aparece na tela cheia (chega na rodada 4, no mesmo lugar do topo, à direita).
 - Renomear é no lugar da folha (a mesma folha kraft do Novo quadro), não numa folha à parte.
+
+### Rodada 4: editar (09/nov, BUILD 831)
+
+Feito:
+
+- `ui/free-board/edit-ops.ts` (puro): acertar a peça (a moldura só pela borda e pelo título; dentro dela o
+  clique é do fundo), acertar a seta, a caixa (inteiras; Alt, as que encosta), o que anda junto (a moldura leva
+  o que está dentro, o Ctrl+G vai inteiro), o encaixe nos furos, o tamanho por regra (livre, na proporção da
+  foto, só a largura dos widgets), a grade das peças novas, copiar e colar com tipo próprio, o que um texto
+  colado vira (vídeo, imagem por link, a linha de um widget, a tabela, `[[Título]]`, bilhete), ajustar a moldura
+  ao conteúdo e o desfazer de 100 passos.
+- `ui/free-board/board-editor.ts`: a ferramenta, a seleção, a prévia do arrasto (uma gravação e um passo do
+  desfazer por gesto), desenhar a moldura (já pedindo o título), o Texto, puxar a seta das bolinhas (soltar perto
+  da borda escolhe o lado; no meio, ele se escolhe sozinho; no vazio, o menu do que nasce ali, já ligado),
+  escrever no lugar (o bilhete vazio que acabou de nascer não fica), cor, pontas, apagar.
+- `ui/free-board/board-editing.ts`: os eventos (a câmera fica com Ctrl, espaço e o botão do meio; no toque, o
+  fundo anda, a peça selecionada move, "Vários" faz a caixa, segurar abre o menu), o duplo clique, os menus do
+  botão direito no ver e no editar (peça, moldura, seta, fundo), colar e soltar arquivos, os atalhos (V M T N I
+  W, Ctrl+A/C/X/V/D/Z/Y/G, Delete, ] [, setas, Enter, Esc, E, ?).
+- `ui/free-board/edit-overlay.ts`: o anel amarelo, as alças, as bolinhas de giz fora da borda, a caixa
+  tracejada, o campo de escrever no lugar e a etiqueta da seleção (a peça única `_etiqueta-acoes.scss`, à vista
+  enquanto há seleção; `expectEtiquetaPadrao` no teste). `ui/free-board/tool-ruler.ts`: a régua das ferramentas.
+- O que só o dono faz entra por `owner` (`ui/free-board/owner-tools.ts`): o seletor de fichas, guardar as imagens
+  (`ImageStore`), a folha do widget (`WidgetSheet`, com a escolha do tipo antes), abrir a nota (`Desk`). A peça
+  continua sem importar nada que escreve (regra da visita).
+- A página: Editar (cartolina rosa) e Pronto, o quadro novo abre já no editar, as gravações em fila com a junção
+  da loja (a tela não volta para trás enquanto a gravação anda), o E e o Esc. O quadro recebe o foco ao abrir.
+- Novidades: a edição entrou na 1.43.0 de hoje (desempate novo: uma funcionalidade em rodadas no mesmo dia é uma
+  entrada só), com a faixa do topo até 23/nov.
+
+Decidido no caminho (pode mudar):
+
+- O arrasto refaz a cena a cada movimento (o plano pedia mover só por `transform`): o tipo de cada peça fica
+  guardado por objeto, então só as que andaram são relidas. Num quadro de 2.000 peças o arrasto pesa mais que
+  andar; fica para medir na rodada 6.
+- "Nova anotação" dentro do seletor (criar a nota pelo quadro) ficou de fora: o seletor escolhe as que já
+  existem. Fica para quando você pedir.
+- O Widget pergunta o tipo num menu antes da folha (a folha das anotações abre já num widget).
+- No toque, a edição usa o mesmo menu de segurar o dedo do resto do site.

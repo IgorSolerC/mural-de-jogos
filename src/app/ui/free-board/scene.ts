@@ -32,7 +32,19 @@ export interface PieceInfo {
   image: string | null;
 }
 
+/**
+ * O que cada peça é, guardado pelo objeto da peça: no arrasto, o quadro é refeito a cada movimento, mas só as
+ * peças que andaram são objetos novos (as outras não leem a linha do widget de novo).
+ */
+const infos = new WeakMap<FbNode, PieceInfo>();
+
 export function pieceInfo(node: FbNode): PieceInfo {
+  let info = infos.get(node);
+  if (!info) infos.set(node, (info = readInfo(node)));
+  return info;
+}
+
+function readInfo(node: FbNode): PieceInfo {
   if (node.t === 'm') return { kind: 'moldura', image: null };
   if (node.t === 'x') return { kind: 'bilhete', image: null };
   const parsed = parseWidgetLine(node.src);

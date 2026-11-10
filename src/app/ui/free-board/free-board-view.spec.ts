@@ -4,6 +4,7 @@ import { FbEdge, FbNode, FreeBoard, sanitizeFreeBoard } from '../../core/free-bo
 import { Camera } from '../../core/free-board-geometry';
 import { FreeBoardView } from './free-board-view';
 import { tornTop } from './free-board-piece';
+import { expectEtiquetaPadrao } from '../../testing/etiqueta-acoes.spec';
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const frames = async (n = 3) => {
@@ -204,6 +205,101 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
   it('o quadro vazio diz que está vazio', async () => {
     await open(board([], [], 'Novo'));
     expect(el.querySelector('.vazio')!.textContent).toContain('Este quadro está vazio');
+  });
+
+  describe('no editar', () => {
+    let changes: FreeBoard[];
+    let toggles: boolean[];
+
+    async function edit(b: FreeBoard): Promise<void> {
+      await open(b);
+      changes = [];
+      toggles = [];
+      fixture.componentInstance.changed.subscribe((c) => changes.push(c.board));
+      fixture.componentInstance.editToggle.subscribe((on) => toggles.push(on));
+      fixture.componentRef.setInput('editing', true);
+      await fixture.whenStable();
+    }
+    const visor = () => el.querySelector<HTMLElement>('.visor')!;
+    // a câmera em (-20, -20) e zoom 1: o ponto do mundo (x, y) está na tela em (x + 20, y + 20)
+    const ptr = (type: string, x: number, y: number, extra: PointerEventInit = {}) =>
+      visor().dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, clientX: x + 20, clientY: y + 20, pointerId: 3, pointerType: 'mouse', button: 0, ...extra }));
+    const key = (k: string, extra: KeyboardEventInit = {}) => visor().dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...extra }));
+    const settle = async () => {
+      await fixture.whenStable();
+      await frames(2);
+      await fixture.whenStable();
+    };
+
+    it('clicar seleciona a peça: o anel amarelo, as alças e a etiqueta da seleção no padrão dos botões do site', async () => {
+      await edit(MANSION);
+      ptr('pointerdown', 60, 110);
+      ptr('pointerup', 60, 110);
+      await settle();
+      expect(el.querySelectorAll('.anel').length).toBe(1);
+      expect(el.querySelectorAll('[data-alca]').length).toBe(8);
+      const acoes = el.querySelector<HTMLElement>('.acoes')!;
+      expect([...acoes.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual(['Cor', 'Trazer para frente', 'Mandar para trás', 'Duplicar', 'Apagar']);
+      expectEtiquetaPadrao(acoes);
+    });
+
+    it('arrastar move nos furos (uma mudança só), Delete apaga e Ctrl+Z desfaz', async () => {
+      await edit(MANSION);
+      ptr('pointerdown', 60, 110);
+      ptr('pointermove', 80, 120);
+      ptr('pointermove', 90, 140);
+      ptr('pointerup', 90, 140);
+      await settle();
+      expect(changes.length).toBe(1);
+      expect(changes[0].n.find((n) => n.i === 'senha')).toEqual(jasmine.objectContaining({ x: 78, y: 130 }));
+      key('Delete');
+      await settle();
+      expect(changes.at(-1)!.n.some((n) => n.i === 'senha')).toBeFalse();
+      expect(changes.at(-1)!.e.length).toBe(0);
+      key('z', { ctrlKey: true });
+      await settle();
+      expect(changes.at(-1)!.n.some((n) => n.i === 'senha')).toBeTrue();
+    });
+
+    it('duplo clique no fundo é um bilhete novo, já escrevendo; o Esc guarda o texto', async () => {
+      await edit(MANSION);
+      visor().dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true, clientX: 1000, clientY: 400 }));
+      await settle();
+      const area = el.querySelector<HTMLTextAreaElement>('textarea.escrever')!;
+      expect(document.activeElement).toBe(area);
+      area.value = 'Senha nova';
+      area.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      await settle();
+      const last = changes.at(-1)!;
+      expect(last.n.some((n) => n.t === 'x' && n.txt === 'Senha nova')).toBeTrue();
+      expect(el.querySelector('textarea.escrever')).toBeNull();
+    });
+
+    it('as ferramentas pelo teclado e pela régua; Esc sem nada selecionado pede para sair do editar', async () => {
+      await edit(MANSION);
+      expect(el.querySelector('app-free-board-tools')).not.toBeNull();
+      key('m');
+      await settle();
+      expect(el.querySelector('.ferramenta[aria-pressed="true"]')!.textContent).toContain('Moldura');
+      key('v');
+      key('Escape');
+      expect(toggles).toEqual([false]);
+    });
+
+    it('fora do editar, o E pede para editar e o botão direito abre o menu de ver', async () => {
+      await open(MANSION);
+      toggles = [];
+      fixture.componentInstance.editToggle.subscribe((on) => toggles.push(on));
+      fixture.componentRef.setInput('owner', { pickNote: async () => null, findNote: () => null, storeImages: async () => [], editWidget: async () => null, openNote: () => undefined });
+      await fixture.whenStable();
+      key('e');
+      expect(toggles).toEqual([true]);
+      visor().dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 1000, clientY: 400 }));
+      await settle();
+      const items = [...document.querySelectorAll<HTMLElement>('.menu-contexto [role="menuitem"]')].map((b) => b.textContent!.replace(/\s+/g, ' ').trim());
+      expect(items.some((t) => t.startsWith('Ver tudo'))).toBeTrue();
+      expect(items.some((t) => t.startsWith('Editar o quadro'))).toBeTrue();
+    });
   });
 
   it('a borda rasgada do bilhete é sempre a mesma para a mesma peça', () => {

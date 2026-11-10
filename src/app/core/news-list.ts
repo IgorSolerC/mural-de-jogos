@@ -44,7 +44,12 @@ export const NEWS: NewsEntry[] = [
       'Uma aba nova nas Anotações, o Quadro livre: em cada grupo, quantos quadros você quiser, cada um com nome, numa folha kraft com a miniatura do que tem dentro.',
       'O quadro abre na tela inteira: uma parede sem fim. Arraste para andar, role para dar zoom (no trackpad, dois dedos andam e a pinça aproxima), e o + − e o Ver tudo ficam numa régua no canto. No celular, um dedo anda e dois dão zoom. O quadro abre onde você parou.',
       'O botão direito num quadro abre, renomeia, duplica, muda de grupo ou apaga, com Desfazer.',
+      'Editar monta o quadro: molduras de feltro com título para separar as regiões, bilhetes escritos à mão, as suas anotações, imagens (escolhidas, coladas ou soltas em cima do quadro) e os widgets das anotações, como o contador, o vídeo, o áudio e a tabela.',
+      'Setas a giz ligam uma peça na outra: puxe uma das bolinhas que aparecem nos lados da peça, e escreva um rótulo nela com dois cliques.',
+      'Arrastar no fundo seleciona várias; as peças encaixam nos furos da parede (Alt solta), a moldura leva o que está dentro dela, e Ctrl+G junta peças para andarem juntas. Cor, jeito, trazer para frente, duplicar e apagar ficam numa etiqueta em cima da seleção e no botão direito, com desfazer (Ctrl+Z) e os atalhos no "?".',
     ],
+    notice: 'Novo: o Quadro livre, nas Anotações. Uma parede sem fim para imagens, anotações, bilhetes e setas, por grupo.',
+    until: '2026-11-23',
   },
   {
     id: '2026-11-09-codigo-na-pauta',

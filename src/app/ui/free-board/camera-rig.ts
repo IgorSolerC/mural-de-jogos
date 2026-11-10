@@ -19,6 +19,11 @@ export interface RigHost {
   apply(camera: Camera, moving: boolean): void;
   /** O gesto parou. */
   settle(camera: Camera): void;
+  /**
+   * O ponteiro que desceu é da câmera? Sem isto, todo arrasto anda (o ver). No editar, a peça responde: o
+   * arrasto no fundo seleciona e na peça move, e andar fica com Ctrl, o espaço e o botão do meio.
+   */
+  shouldPan?(e: PointerEvent): boolean;
 }
 
 /** Quantos px o ponteiro anda antes de o clique virar arrasto (seção 4.3). */
@@ -189,6 +194,7 @@ export class CameraRig {
   private down(e: PointerEvent): void {
     // o botão direito fica para o menu (rodada 4); o do meio anda na hora
     if (e.button === 2 || (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 1)) return;
+    if (e.button !== 1 && this.host.shouldPan && !this.host.shouldPan(e)) return;
     this.stopFlight();
     this.pointers.set(e.pointerId, this.local(e));
     this.swallowClick = false;

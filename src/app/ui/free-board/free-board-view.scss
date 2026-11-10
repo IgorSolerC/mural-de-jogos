@@ -195,3 +195,85 @@
     transition: none;
   }
 }
+
+/* ===== O editar (rodada 4) ===== */
+
+/* no editar, o toque é da edição (selecionar, mover): as peças não tocam o som nem abrem a foto */
+.visor.editando {
+  cursor: default;
+
+  .mundo app-free-board-piece {
+    pointer-events: none;
+  }
+}
+
+.visor.editando[data-ferramenta='moldura'],
+.visor.editando[data-ferramenta='texto'] {
+  cursor: crosshair;
+}
+
+.sobre {
+  z-index: 1;
+}
+
+/* a régua das ferramentas: embaixo, no meio (no celular, ocupa a largura e rola de lado) */
+.ferramentas {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  translate: -50% 0;
+  max-width: calc(100% - 32px);
+
+  @media (max-width: 860px) {
+    left: 12px;
+    right: 12px;
+    bottom: 76px;
+    translate: none;
+    max-width: none;
+  }
+}
+
+/* os atalhos: um bilhete do bloquinho, preso no canto */
+.atalhos {
+  position: absolute;
+  right: 16px;
+  bottom: 76px;
+  width: min(420px, calc(100% - 32px));
+  max-height: calc(100% - 160px);
+  overflow: auto;
+  padding: 18px 20px 12px;
+  background: var(--paper) var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  box-shadow: var(--shadow-lift);
+  rotate: -0.6deg;
+
+  h2 {
+    margin: 0 0 10px;
+    font: 400 1.4rem / 1.1 var(--f-marker);
+  }
+
+  dl {
+    display: grid;
+    gap: 6px;
+    margin: 0 0 8px;
+  }
+
+  div {
+    display: grid;
+    grid-template-columns: minmax(0, 11rem) minmax(0, 1fr);
+    gap: 10px;
+    align-items: baseline;
+  }
+
+  dt {
+    font: 800 0.8rem / 1.2 var(--f-label);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  dd {
+    margin: 0;
+    font: 400 1rem / 1.3 var(--f-hand);
+  }
+}

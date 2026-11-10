@@ -260,6 +260,9 @@ import {
   Workflow,
   X,
   Zap,
+  BringToFront,
+  MousePointer2,
+  SendToBack,
 } from 'lucide-angular';
 import { CARTELA_DE_ICONES } from '../../../shared/cartela-de-icones';
 import { ICON_CHOICES, IconChoice, isIconChoice } from '../core/icon-choices';
@@ -460,6 +463,10 @@ export const ICON = {
   dependencias: Workflow,
   parede: BrickWall,
   moldura: Frame,
+  // ===== O Quadro livre: a régua das ferramentas e a etiqueta da seleção =====
+  ponteiro: MousePointer2,
+  frente: BringToFront,
+  tras: SendToBack,
   capas: Images,
   imagem: Image,
   semImagem: ImageOff,

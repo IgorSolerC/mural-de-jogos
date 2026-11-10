@@ -6,6 +6,14 @@ import { map } from 'rxjs';
 import { freeBoardPath } from '../core/areas';
 import { CategoryLook, categoryColorHex } from '../core/category-looks';
 import { FB_NAME_MAX, FreeBoard, boardInGroup } from '../core/free-board';
+import { Desk } from '../core/desk';
+import { ImageStore } from '../core/image-store';
+import { NOTES } from '../core/kinds';
+import { NoteLinks } from '../core/note-links';
+import { Review } from '../core/review';
+import { ReviewStore } from '../core/review-store';
+import { DEFAULT_TABLE_LOOK, readTable, tableText } from '../core/tables';
+import { WidgetSize, parseWidgetLine, widgetDef, widgetLines } from '../core/widgets';
 import { Camera } from '../core/free-board-geometry';
 import { FreeBoardProblem, FreeBoardStore } from '../core/free-board-store';
 import { KanbanStore } from '../core/kanban-store';
@@ -13,7 +21,10 @@ import { NO_TABS, NoteTab, sameTabs, tabKeyOf, tabsToMore } from '../core/note-t
 import { Settings } from '../core/settings';
 import { groupKey, studyGroupId } from '../core/study';
 import { WallView } from '../core/wall-view';
+import { CardPicker } from '../ui/card-picker';
 import { ContextMenu, ContextMenuTrigger, MenuBy, MenuItem, MenuSections } from '../ui/context-menu';
+import { FreeBoardOwner } from '../ui/free-board/owner-tools';
+import { WidgetDone, WidgetSheet } from '../ui/widget-sheet';
 import { FreeBoardCard } from '../ui/free-board/board-card';
 import { FreeBoardView } from '../ui/free-board/free-board-view';
 import { ICON, IconModule } from '../ui/icons';
@@ -39,7 +50,7 @@ interface BoardGroup {
  */
 @Component({
   selector: 'app-free-boards-page',
-  imports: [ContextMenu, FreeBoardCard, FreeBoardView, IconModule, StudyGroupTabs],
+  imports: [CardPicker, ContextMenu, FreeBoardCard, WidgetSheet, FreeBoardView, IconModule, StudyGroupTabs],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './free-boards-page.html',
   styleUrl: './free-boards-page.scss',
@@ -51,13 +62,13 @@ export class FreeBoardsPage {
   private readonly settings = inject(Settings);
   private readonly wallView = inject(WallView);
   private readonly router = inject(Router);
-  private readonly toasts = inject(Toasts);
+  protected readonly toasts = inject(Toasts);
   private readonly removal = inject(RemoveAsking);
   private readonly title = inject(Title);
   private readonly injector = inject(Injector);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
-  protected readonly Icons = { novo: ICON.adicionar, voltar: ICON.voltar, cheia: ICON.telaCheia, sair: ICON.diminuir };
+  protected readonly Icons = { novo: ICON.adicionar, voltar: ICON.voltar, cheia: ICON.telaCheia, sair: ICON.diminuir, editar: ICON.editar };
   protected readonly nameMax = FB_NAME_MAX;
   protected readonly path = freeBoardPath;
 
@@ -109,8 +120,23 @@ export class FreeBoardsPage {
   /** O quadro aberto em tela cheia. */
   protected readonly open = computed(() => {
     const id = this.params().board;
-    return id ? this.store.get(id) : null;
+    return id ? (this.store.boards().find((b) => b.id === id) ?? null) : null;
   });
+  /**
+   * O quadro na tela: o guardado ou, no editar, o último que a tela mandou (enquanto a gravação anda, o
+   * guardado de antes não volta por cima da mudança nova).
+   */
+  protected readonly working = signal<FreeBoard | null>(null);
+  protected readonly shownBoard = computed(() => {
+    const w = this.working();
+    const b = this.open();
+    return w && b && w.id === b.id ? w : b;
+  });
+  /** O editar (rodada 4): Editar e Pronto no alto, o E e o Esc. */
+  protected readonly editing = signal(false);
+  /** O quadro recém-criado abre já no editar (está vazio: não há o que ver). */
+  private editNext: string | null = null;
+  private saving: Promise<unknown> = Promise.resolve();
   protected readonly wantedBoard = computed(() => this.params().board);
   /** A câmera guardada do quadro aberto: `undefined` enquanto lê (a tela espera, para não abrir em outro lugar). */
   protected readonly camera = signal<Camera | null | undefined>(undefined);
@@ -156,8 +182,124 @@ export class FreeBoardsPage {
   });
   private lastMenu: { x: number; y: number; back: HTMLElement | null } | null = null;
 
+  // ===== o que só o dono faz, para a peça do quadro =====
+  private readonly reviews = inject(ReviewStore);
+  private readonly images = inject(ImageStore);
+  private readonly desk = inject(Desk);
+  protected readonly notesKind = NOTES;
+  protected readonly picking = signal(false);
+  protected readonly pickGroup = signal<string | null>(null);
+  private picked: ((r: { id: string; title: string } | null) => void) | null = null;
+  protected readonly sheetStart = signal<{ name: string; values: Record<string, string> } | null>(null);
+  private sheetDone: ((line: string | null) => void) | null = null;
+  private sheetResult: string | null = null;
+  /** Os links das notas coladas no quadro: tocar numa abre a leitura dela. */
+  protected readonly boardLinks: NoteLinks = {
+    resolve: (title) => this.reviews.notes().find((r) => r.game.name.trim().toLocaleLowerCase('pt-BR') === title.trim().toLocaleLowerCase('pt-BR')) ?? null,
+    open: (note) => this.desk.openReview(note.id),
+    openCard: (card) => this.desk.openReview(card.id),
+  };
+  readonly owner: FreeBoardOwner = {
+    pickNote: (group) =>
+      new Promise((resolve) => {
+        this.picked?.(null);
+        this.picked = resolve;
+        this.pickGroup.set(group);
+        this.picking.set(true);
+      }),
+    findNote: (title) => {
+      const key = title.trim().toLocaleLowerCase('pt-BR');
+      const n = this.reviews.notes().find((r) => r.game.name.trim().toLocaleLowerCase('pt-BR') === key);
+      return n ? { id: n.id, title: n.game.name } : null;
+    },
+    storeImages: async (files) => {
+      const out: { id: string; w: number; h: number }[] = [];
+      for (const f of files) {
+        try {
+          const img = await this.images.add(f);
+          out.push({ id: img.id, w: img.largura, h: img.altura });
+        } catch {
+          this.toasts.show('Uma imagem não pôde ser guardada.');
+        }
+      }
+      return out;
+    },
+    editWidget: (line) =>
+      new Promise((resolve) => {
+        this.sheetDone?.(null);
+        const start = sheetStartOf(line);
+        if (!start) return resolve(null);
+        this.sheetDone = resolve;
+        this.sheetResult = null;
+        this.sheetStart.set(start);
+      }),
+    openNote: (id) => this.desk.openReview(id),
+  };
+
+  protected onPicked(r: Review): void {
+    const done = this.picked;
+    this.picked = null;
+    this.picking.set(false);
+    done?.({ id: r.id, title: r.game.name });
+  }
+
+  protected onPickerOpen(open: boolean): void {
+    this.picking.set(open);
+    if (!open && this.picked) {
+      const done = this.picked;
+      this.picked = null;
+      done(null);
+    }
+  }
+
+  protected onSheetDone(d: WidgetDone): void {
+    this.sheetResult = widgetLines(d.name, d.args, d.size, d.body).join('\n');
+  }
+
+  protected onSheetRemoved(): void {
+    this.sheetResult = '';
+  }
+
+  protected onSheetClosed(): void {
+    const done = this.sheetDone;
+    this.sheetDone = null;
+    this.sheetStart.set(null);
+    done?.(this.sheetResult);
+  }
+
+  // ===== o editar =====
+
+  protected save(ev: { board: FreeBoard; from: FreeBoard }): void {
+    this.working.set(ev.board);
+    this.saving = this.saving.then(async () => {
+      try {
+        const saved = await this.store.save(ev.board, ev.from);
+        // juntou com o que outra aba gravou no meio: a tela passa a mostrar o juntado (se não mudou de novo)
+        if (saved !== ev.board && this.working() === ev.board) this.working.set(saved);
+      } catch (e) {
+        this.toasts.show(e instanceof FreeBoardProblem ? e.message : 'Não deu para guardar a mudança no quadro.');
+      }
+    });
+  }
+
+  protected setEditing(on: boolean): void {
+    this.editing.set(on);
+    if (!on) void this.saving.then(() => this.working.set(null));
+  }
+
   constructor() {
     void this.store.ready.then(() => this.loaded.set(true));
+    // o quadro que acabou de nascer abre no editar; ao fechar o quadro, o editar desliga
+    effect(() => {
+      const b = this.open();
+      untracked(() => {
+        if (b && b.id === this.editNext) {
+          this.editNext = null;
+          this.editing.set(true);
+        }
+        if (!this.wantedBoard() && this.editing()) this.setEditing(false);
+      });
+    });
     // a câmera do quadro aberto, lida antes de montar a tela
     effect((onCleanup) => {
       const id = this.wantedBoard();
@@ -225,6 +367,7 @@ export class FreeBoardsPage {
     try {
       const b = await this.store.create(name, this.newGroupValue());
       this.creating.set(false);
+      this.editNext = b.id;
       void this.router.navigateByUrl(this.boardPath(b));
     } catch (e) {
       this.toasts.show(e instanceof FreeBoardProblem ? e.message : 'Não deu para criar o quadro.');
@@ -318,10 +461,32 @@ export class FreeBoardsPage {
   }
 
   protected escape(e: KeyboardEvent): void {
-    if (!this.wantedBoard() || e.defaultPrevented) return;
+    // no editar, o Esc é do quadro (tira a seleção; sem nada, sai do editar)
+    if (!this.wantedBoard() || e.defaultPrevented || this.editing()) return;
     // o Esc de um menu, de uma folha ou da ampliação de uma foto é dela
     if (document.querySelector(':popover-open, dialog[open]')) return;
+    if (e.target instanceof Element && e.target.closest('.menu-contexto, dialog, app-context-menu')) return;
     e.preventDefault();
     this.close();
   }
+}
+
+/**
+ * O começo da folha do widget a partir da linha dele (ou só do nome, `{{contador}}`, para um novo): os valores como
+ * a folha lê. A tabela mora em várias linhas: o jeito na marca (se tiver) e o markdown embaixo.
+ */
+export function sheetStartOf(line: string): { name: string; values: Record<string, string> } | null {
+  const lines = line.split('\n');
+  const parsed = parseWidgetLine(lines[0]);
+  if (!parsed && !line.trim().startsWith('|')) return null;
+  const name = parsed?.name ?? 'tabela';
+  const def = widgetDef(name);
+  if (!def) return null;
+  if (name === 'tabela') {
+    const body = parsed ? lines.slice(1) : lines;
+    const look = parsed?.args[0] ?? DEFAULT_TABLE_LOOK;
+    return { name, values: { look, table: body.length ? tableText(readTable(body)) : '' } };
+  }
+  const size: WidgetSize = parsed?.size ?? 'medio';
+  return { name, values: { ...def.read(parsed?.args ?? []), size } };
 }
