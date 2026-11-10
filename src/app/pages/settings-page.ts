@@ -34,6 +34,7 @@ import { CloudAccount, CloudError, eraseDayLabel } from '../core/cloud-account';
 import { CloudSync } from '../core/cloud-sync';
 import { BeforeCloudCopy, KEEP_DAYS, readBeforeCloud } from '../core/cloud-before';
 import { ImageStore, StoredImage } from '../core/image-store';
+import { FreeBoardStore } from '../core/free-board-store';
 import { GoogleButton } from '../ui/google-button';
 import { muralLink, normalizeCode } from '../core/cloud-murals';
 import { News } from '../core/news';
@@ -220,6 +221,7 @@ export class SettingsPage {
   protected readonly backup = inject(Backup);
   private readonly reset = inject(BrowserReset);
   private readonly images = inject(ImageStore);
+  private readonly freeBoards = inject(FreeBoardStore);
   protected readonly ownerNameMax = OWNER_NAME_MAX;
   /** Como o próximo backup vai se chamar, com o nome digitado. */
   protected readonly fileNamePreview = computed(() =>
@@ -902,6 +904,8 @@ export class SettingsPage {
       const res = this.store.importJson(text, replace ? 'replace' : 'merge');
       // as imagens coladas que vieram no arquivo (as que já estão aqui ficam como estão)
       const images = await this.images.fromBackup(JSON.parse(text)).catch(() => 0);
+      // os quadros livres do arquivo (os daqui mais novos ficam)
+      const boards = await this.freeBoards.fromBackup(JSON.parse(text)).catch(() => 0);
       // o seu próprio backup num navegador novo: o nome volta junto, se ainda não há um aqui
       if (!this.settings.ownerName().trim() && owner) this.settings.ownerName.set(owner.slice(0, OWNER_NAME_MAX));
       const parts = [plural(res.added, 'resenha nova', 'resenhas novas')];
@@ -911,6 +915,7 @@ export class SettingsPage {
       if (res.drafts) parts.push(`${res.drafts} pra depois`);
       if (res.wishes) parts.push(`${res.wishes} na wishlist`);
       if (images) parts.push(plural(images, 'imagem', 'imagens'));
+      if (boards) parts.push(plural(boards, 'quadro livre', 'quadros livres'));
       this.importMsg.set({ text: `Backup restaurado: ${parts.join(', ')}.`, error: false });
       const total = res.added + res.updated;
       if (total) this.toasts.show(`${plural(total, 'resenha voltou', 'resenhas voltaram')} para os murais`);

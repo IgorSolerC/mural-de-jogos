@@ -3,6 +3,7 @@ import { ACCOUNT_KEY, SESSION_KEY } from './cloud-account';
 import { COLLEAGUES_DB } from './colleague-store';
 import { DATA_DB } from './local-data';
 import { IMAGES_DB } from './image-store';
+import { BOARDS_DB } from './free-board-store';
 import { NEWS_SEEN_KEY } from './news';
 import { PROFILE_KEY } from './profile-store';
 import { SETTINGS_KEY } from './settings';
@@ -21,8 +22,8 @@ import { SETTINGS_KEY } from './settings';
 export const PREFIXES = ['mural-de-jogos:', 'meu-mural:'];
 /** Os ajustes, o perfil, o login na nuvem e as novidades vistas. */
 const KEEP = new Set([SETTINGS_KEY, PROFILE_KEY, SESSION_KEY, ACCOUNT_KEY, NEWS_SEEN_KEY]);
-/** Os bancos do IndexedDB: as listas, os backups de colegas, a cópia de antes da nuvem e as imagens coladas. */
-const DATABASES = [DATA_DB, COLLEAGUES_DB, BEFORE_CLOUD_DB, IMAGES_DB];
+/** Os bancos do IndexedDB: as listas, os backups de colegas, a cópia de antes da nuvem, as imagens coladas e os quadros livres. */
+const DATABASES = [DATA_DB, COLLEAGUES_DB, BEFORE_CLOUD_DB, IMAGES_DB, BOARDS_DB];
 /** Na sessão: o save acabou de ser apagado, para Ajustes avisar depois de recarregar. */
 const ERASED = 'meu-mural:save-apagado';
 

@@ -3,6 +3,7 @@ import { NoteFolders } from '../core/note-folders';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, ICON_CHOICE, IconModule } from './icons';
 import { StudyStore } from '../core/study-store';
+import { FreeBoardStore } from '../core/free-board-store';
 import { MAX_NEW_PER_DAY, MAX_REVIEWS_CAP, inGroup } from '../core/study';
 import { CategoryLook, categoryColorHex, lookKey, tagColorHex } from '../core/category-looks';
 import { Cloud } from '../core/cloud-config';
@@ -249,6 +250,7 @@ export class MuralConfig {
     this.study() ? SECTIONS.filter((s) => STUDY_SECTIONS.includes(s.id)) : SECTIONS.filter((s) => !STUDY_SECTIONS.includes(s.id) && (s.id !== 'quadro' || !!this.board())),
   );
   protected readonly studyStore = inject(StudyStore);
+  private readonly freeBoards = inject(FreeBoardStore);
   protected readonly retentions = RETENTIONS;
   protected readonly maxNew = MAX_NEW_PER_DAY;
   protected readonly maxReviews = MAX_REVIEWS_CAP;
@@ -544,15 +546,29 @@ export class MuralConfig {
     return `${list} dos Flashcards${what}`;
   }
 
+  /**
+   * Os quadros do Quadro livre que vão embora com o grupo (PLANO-QUADRO-LIVRE.md, decisão D12), para a
+   * pergunta de apagar: "Os quadros livres Blue Prince e Rotas também vão embora.", ou '' sem quadro.
+   */
+  private boardsGoing(group: string): string {
+    const names = this.freeBoards.goingWithGroup(group).map((b) => b.nome);
+    if (!names.length) return '';
+    if (names.length === 1) return `O quadro livre ${names[0]} também vai embora.`;
+    return `Os quadros livres ${names.slice(0, -1).join(', ')} e ${names[names.length - 1]} também vão embora.`;
+  }
+
   protected async deleteCategory(row: CategoryRow): Promise<void> {
     const decks = this.decksGoing(row.label);
+    const boards = this.boardsGoing(row.label);
     const sure = await this.confirm.ask({
       title: `Apagar o grupo ${row.label}?`,
-      // com baralhos nos Estudos, o que vai embora (e não volta) vem primeiro
+      // com baralhos nos Estudos ou quadros livres, o que vai embora (e não volta) vem primeiro
       text: decks
-        ? `Vão embora o ícone, a cor, os padrões, o quadro do Kanban e ${decks}. ${this.uses(row.n)} este grupo: elas continuam no mural, sem grupo.`
-        : `${this.uses(row.n)} este grupo. Elas continuam no mural, sem grupo; o ícone, a cor, os padrões e o quadro do Kanban dele vão embora.`,
-      confirm: decks ? 'Apagar o grupo e os baralhos' : 'Apagar o grupo',
+        ? `Vão embora o ícone, a cor, os padrões, o quadro do Kanban e ${decks}. ${boards ? boards + ' ' : ''}${this.uses(row.n)} este grupo: elas continuam no mural, sem grupo.`
+        : boards
+          ? `${boards} Vão embora também o ícone, a cor, os padrões e o quadro do Kanban. ${this.uses(row.n)} este grupo: elas continuam no mural, sem grupo.`
+          : `${this.uses(row.n)} este grupo. Elas continuam no mural, sem grupo; o ícone, a cor, os padrões e o quadro do Kanban dele vão embora.`,
+      confirm: decks && boards ? 'Apagar o grupo, os baralhos e os quadros' : decks ? 'Apagar o grupo e os baralhos' : boards ? 'Apagar o grupo e os quadros' : 'Apagar o grupo',
       icon: this.DeleteIcon,
     });
     if (!sure) return;

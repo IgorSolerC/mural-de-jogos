@@ -2,8 +2,11 @@ import { ACCOUNT_KEY, SESSION_KEY } from './cloud-account';
 import { BEFORE_CLOUD_DB, readBeforeCloud, saveBeforeCloud } from './cloud-before';
 import { BrowserReset, COVERS_CACHE, ERASE_KEY, OWNER_KEY, RESET_KEY, SITE_CACHE, resetOnBoot, takeReset, watchOtherTabs, wipeBrowser } from './browser-reset';
 import { DATA_DB } from './local-data';
-import { takeErased } from './erase-save';
+import { eraseSave, takeErased } from './erase-save';
 import { IMAGES_DB, ImageStore } from './image-store';
+import { BOARDS_DB, FreeBoardStore } from './free-board-store';
+import { provideZonelessChangeDetection } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
 import { APPLIED_KEY } from './api-requests';
 import { freezeStorage, thawStorage, writeJson, writeText } from './storage';
 import { LINK_START_KEY } from '../ui/link-sheet';
@@ -360,6 +363,36 @@ describe('limpar o navegador (sair da conta)', () => {
     expect(await resetOnBoot()).toBeTrue();
     expect(await databases()).not.toContain(IMAGES_DB);
     expect(await new ImageStore().get(id)).toBeNull();
+  });
+
+  it('os quadros livres (o banco deles) saem junto, mesmo com a conexão aberta nesta aba (PLANO-QUADRO-LIVRE.md)', async () => {
+    signedInBrowser();
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+    const store = TestBed.inject(FreeBoardStore);
+    const board = await store.create('Blue Prince', 'Jogos');
+    await store.setCamera(board.id, { x: 0, y: 0, z: 1 });
+    expect(await databases()).toContain(BOARDS_DB);
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.setItem(RESET_KEY, JSON.stringify({ keep: [], motivo: 'saiu' }));
+    expect(await resetOnBoot()).toBeTrue();
+    expect(await databases()).not.toContain(BOARDS_DB);
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+    const again = TestBed.inject(FreeBoardStore);
+    await again.ready;
+    expect(again.get(board.id)).toBeNull();
+    expect(await again.camera(board.id)).toBeNull();
+    TestBed.resetTestingModule();
+  });
+
+  it('"Apagar o save" leva os quadros livres também', async () => {
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+    const store = TestBed.inject(FreeBoardStore);
+    await store.create('Rascunho', 'Estudos');
+    expect(await databases()).toContain(BOARDS_DB);
+    TestBed.resetTestingModule();
+    await eraseSave();
+    expect(await databases()).not.toContain(BOARDS_DB);
   });
 
   it('enquanto a página recarrega para limpar, nenhuma imagem é guardada', async () => {

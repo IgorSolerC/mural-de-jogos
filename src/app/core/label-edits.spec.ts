@@ -8,6 +8,7 @@ import { Review, sanitizeReview } from './review';
 import { ReviewStore } from './review-store';
 import { Settings } from './settings';
 import { SharedStore } from './shared-store';
+import { FreeBoardStore } from './free-board-store';
 
 const T0 = '2026-10-01T10:00:00.000Z';
 const AT = '2026-10-17T10:00:00.000Z';
@@ -206,6 +207,15 @@ describe('renomear e apagar categorias e tags', () => {
       edits.renameCategory('Trabalho', 'Projeto');
       expect(settings.tagColor('bug', 'Projeto')).toBe('rosa');
       expect(settings.categoryLooks()['##trabalho#bug']).toBeUndefined();
+    });
+
+    it('o grupo renomeado leva os quadros livres dele (PLANO-QUADRO-LIVRE.md, D12)', async () => {
+      const boards = TestBed.inject(FreeBoardStore);
+      const b = await boards.create('Sprint', 'Trabalho');
+      edits.renameCategory('Trabalho', 'Projeto');
+      for (let i = 0; i < 20 && boards.get(b.id)?.grupo !== 'Projeto'; i++) await new Promise((r) => setTimeout(r, 10));
+      expect(boards.get(b.id)?.grupo).toBe('Projeto');
+      await boards.remove(b.id);
     });
 
     it('um nome vazio não muda nada', () => {

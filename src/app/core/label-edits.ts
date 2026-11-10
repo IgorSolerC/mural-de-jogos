@@ -9,6 +9,7 @@ import { Review } from './review';
 import { ReviewStore } from './review-store';
 import { Settings } from './settings';
 import { StudyStore } from './study-store';
+import { FreeBoardStore } from './free-board-store';
 
 /**
  * Renomear e apagar uma categoria, um assunto ou uma tag das anotações, pelas Configurações do mural. O nome mora
@@ -178,6 +179,7 @@ export class LabelEdits {
   private readonly settings = inject(Settings);
   private readonly kanban = inject(KanbanStore);
   private readonly study = inject(StudyStore);
+  private readonly freeBoards = inject(FreeBoardStore);
   private readonly folders = inject(NoteFolders);
 
   /** Quantas anotações têm a categoria (pela chave). */
@@ -264,6 +266,8 @@ export class LabelEdits {
     }
     // os baralhos do grupo vão com ele (também quando só muda a escrita: a caixa, um acento); apagado, saem
     this.study.moveGroup(category, to);
+    // os quadros livres do grupo também (apagado, saem com ele: PLANO-QUADRO-LIVRE.md, decisão D12)
+    void this.freeBoards.moveGroup(category, to);
     return result;
   }
 

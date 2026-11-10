@@ -83,6 +83,9 @@ Sim se a mudança cria **pelo menos uma destas**, que não existia em lugar nenh
 - Uma tela que só a conta de admin vê (o Uso das APIs, 05/nov/2026) não entra nas Novidades: elas são para
   quem usa o site, e ninguém mais abre aquilo. O que ela faz mudar para os outros entra normalmente: a contagem
   que os navegadores passam a mandar é uma melhoria (M6), dita às claras.
+- A base de uma funcionalidade que ainda não aparece no site (as rodadas de dados de um plano, sem tela)
+  não entra: o item vem com a rodada que a mostra. Assim foram as rodadas 1 e 2 dos Estudos (02/nov/2026)
+  e a rodada 1 do Quadro livre (09/nov/2026), que só guarda e junta os quadros no aparelho.
 - Refazer no mesmo dia uma mudança que já está na entrada de ajustes de hoje reescreve o item dela para
   dizer como ficou (a entrada conta como o dia terminou), sem trocar o `id`: a entrada não cresceu. A
   moldura Adesivo (1.36.2) perdeu o papel branco no mesmo dia, e o item só diz a foto picotada.

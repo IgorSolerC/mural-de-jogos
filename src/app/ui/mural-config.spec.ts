@@ -6,6 +6,7 @@ import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { Confirm, ConfirmOptions } from './confirm';
 import { MuralConfig } from './mural-config';
+import { FreeBoardStore } from '../core/free-board-store';
 
 let seq = 0;
 const note = (category: string | null, tags: string[] = []): Review =>
@@ -440,6 +441,26 @@ describe('as configurações do mural (a folha)', () => {
       expect(settings.categoryLooks()['roadmap site']).toBeUndefined();
       expect(rows()).toEqual(['Viagens!', 'Receitas']);
       expect(el.querySelector('.aviso')!.textContent).toContain('Roadmap site foi apagado em 2 anotações.');
+    });
+
+    it('apagar o grupo com quadros livres diz quais vão embora junto, e eles vão (PLANO-QUADRO-LIVRE.md, D12)', async () => {
+      const boards = TestBed.inject(FreeBoardStore);
+      const a = await boards.create('Blue Prince', 'Roadmap site');
+      const b = await boards.create('Rotas', 'roadmap site');
+      const other = await boards.create('Mapa', 'Receitas');
+      await go('categorias');
+      const row = await openCat('Roadmap site');
+      row.querySelector<HTMLButtonElement>('.apagar')!.click();
+      await settle();
+      // os dois, na ordem da lista (o mais novo primeiro; no mesmo instante, pelo nome)
+      expect(asked[0].text).toMatch(/Os quadros livres (Rotas e Blue Prince|Blue Prince e Rotas) também vão embora\./);
+      expect(asked[0].confirm).toBe('Apagar o grupo e os quadros');
+      await boards.ready;
+      for (let i = 0; i < 20 && boards.get(a.id); i++) await new Promise((r) => setTimeout(r, 10));
+      expect(boards.get(a.id)).toBeNull();
+      expect(boards.get(b.id)).toBeNull();
+      expect(boards.get(other.id)?.grupo).toBe('Receitas');
+      await boards.remove(other.id);
     });
 
     const group = (label: string) => Array.from(el.querySelectorAll<HTMLElement>('.tags-grupo')).find((g) => g.querySelector('.tags-cat .orelha')!.textContent!.trim() === label)!;

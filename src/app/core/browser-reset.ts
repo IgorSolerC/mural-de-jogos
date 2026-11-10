@@ -4,6 +4,7 @@ import { ACCOUNT_KEY, SESSION_KEY, readAccount, readToken } from './cloud-accoun
 import { COLLEAGUES_DB } from './colleague-store';
 import { DATA_DB } from './local-data';
 import { IMAGES_DB } from './image-store';
+import { BOARDS_DB } from './free-board-store';
 import { PREFIXES, deleteDatabase, eraseSave } from './erase-save';
 import { freezeStorage } from './storage';
 
@@ -91,7 +92,7 @@ export async function wipeBrowser(keep: readonly ResetKeep[] = []): Promise<void
   } catch {
     /* sem sessionStorage, idem */
   }
-  const databases = [DATA_DB, COLLEAGUES_DB, IMAGES_DB, ...(keep.includes('copia') ? [] : [BEFORE_CLOUD_DB])];
+  const databases = [DATA_DB, COLLEAGUES_DB, IMAGES_DB, BOARDS_DB, ...(keep.includes('copia') ? [] : [BEFORE_CLOUD_DB])];
   await Promise.all(databases.map(deleteDatabase));
   try {
     // todos, e não só os de agora: na dúvida, apaga (um cache de uma versão do site de antes também sai)

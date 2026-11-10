@@ -791,4 +791,34 @@ rodada 3 (com a nuvem chegando na 5). Se preferir a nuvem antes da edição, a 5
 
 ## 15. Andamento
 
-Nada implementado ainda.
+### Rodada 1: dados no aparelho (09/nov, BUILD 828)
+
+Feito, só testes, sem tela:
+
+- `core/free-board.ts`: o modelo (`FreeBoard`, peças `m`/`x`/`w`, setas), `sanitizeFreeBoard` (corta, guarda
+  os campos e as peças de um site mais novo sem mostrá-los), os limites, os ids, as funções puras que a
+  rodada 4 vai usar (pôr, tirar, andar, ligar, empilhar, Ctrl+G) e os grupos (`boardsMovedGroup`).
+- `core/free-board-geometry.ts`: furos de 26 px, caixas, o índice em grade (`GridIndex`), o dono de cada
+  peça entre as molduras, a ordem de desenhar e a de leitura, a curva das setas e a câmera (zoom no ponteiro,
+  "Ver tudo"). A rodada 2 desenha a partir daqui.
+- `core/free-board-merge.ts`: a junção em três vias (seção 7.5), usada já entre abas e, na rodada 5, com a
+  nuvem.
+- `core/free-board-store.ts` (`FreeBoardStore`): banco `meu-mural:quadros` (quadros e câmeras), uma
+  gravação por vez, aviso às outras abas, lápide para o que já subiu, criar, renomear, mover de grupo,
+  duplicar, apagar com Desfazer, backup, imagens usadas.
+- Ligado: `wipeBrowser` e "Apagar o save" levam o banco; `localHasContent` conta os quadros; o envio do
+  mural manda as imagens dos quadros nas `usadas`; renomear ou apagar um grupo leva os quadros
+  (`LabelEdits`) e a pergunta de apagar o grupo diz quais vão; o arquivo de backup leva os quadros
+  (`quadros`) e Ajustes › Backup os traz de volta.
+
+Decidido no caminho (pode mudar):
+
+- **`save(quadro, de)`**: a gravação recebe a versão de onde a mudança partiu. Sem isso, se a outra aba
+  avisasse antes de esta gravar, a gravação daqui passaria por cima da de lá. A tela da rodada 4 passa a
+  versão que tinha e usa a devolvida.
+- **Sem o registro `indice`** da seção 6.1: os quadros são pequenos e ler todos ao abrir a seção custa
+  pouco. Volta se a lista ficar lenta com muitos quadros.
+- **A loja lê o banco ao ser criada** (como as imagens), não só quando a seção abre: a sincronização
+  precisa saber se há quadros (`localHasContent`) e quais imagens eles usam.
+- As Novidades não mudam nesta rodada (desempate novo em NOVIDADES.md: a base sem tela entra com a
+  rodada que a mostra).

@@ -37,6 +37,7 @@ import { planBlock, planBoards, planFichas, stampAfter } from './sync-merge';
 import { ApiMirror } from './api-mirror';
 import { ApiRequests } from './api-requests';
 import { ImageStore } from './image-store';
+import { FreeBoardStore } from './free-board-store';
 import { ImageSync, shortReason } from './image-sync';
 import { ColleagueStore } from './colleague-store';
 import { localImageIds } from './images';
@@ -727,6 +728,8 @@ export class CloudSync {
   private readonly reset = inject(BrowserReset);
   private readonly images = inject(ImageStore);
   private readonly imageSync = inject(ImageSync);
+  /** Os quadros do Quadro livre (PLANO-QUADRO-LIVRE.md): documentos à parte, fora do mural; aqui só contam como conteúdo e pelas imagens que usam. */
+  private readonly freeBoards = inject(FreeBoardStore);
   /** Os murais dos amigos guardados aqui: os abertos antes de entrar não vão para a conta (ver `firstSync`). */
   private readonly colleagues = inject(ColleagueStore);
   /** Os conflitos da junção que esperam a pessoa (vão no mural privado da nuvem). */
@@ -985,6 +988,8 @@ export class CloudSync {
         // outra aba colou depois de esta abrir
         await this.images.ready;
         await this.images.recount();
+        // os quadros livres daqui também (a loja lê o banco dela ao subir, sem esperar o app)
+        await this.freeBoards.ready;
         state = await this.firstSync(accountId);
         if (!state) return;
       }
@@ -1206,7 +1211,8 @@ export class CloudSync {
       this.study.state().decks.length > 0 ||
       this.kanban.state().boards.some((b) => b.cards.length > 0) ||
       BLOCK_KINDS.some((kind) => this.blockAt(kind) !== null) ||
-      this.images.count() > 0
+      this.images.count() > 0 ||
+      this.freeBoards.count() > 0
     );
   }
 
@@ -1793,8 +1799,9 @@ export class CloudSync {
     // estão (as só no Kanban estão, pelo link)
     form.append('fichas', JSON.stringify([...new Set([...shownIds, ...boardIds])]));
     // as imagens coladas: as que estão à mostra (a nuvem as entrega a quem visita) e todas as que o mural
-    // usa (as outras ficam soltas e saem da nuvem em 30 dias)
-    form.append('imagens', JSON.stringify({ publicas: localImageIds(publicText), usadas: localImageIds(privateText + publicText) }));
+    // usa, com as dos quadros livres, que moram fora do mural (as outras ficam soltas e saem da nuvem em 30 dias)
+    const usadas = [...new Set([...localImageIds(privateText + publicText), ...(await this.freeBoards.imageIds())])];
+    form.append('imagens', JSON.stringify({ publicas: localImageIds(publicText), usadas }));
     const res = await this.account.requestRaw('/v1/eu/mural', { method: 'PUT', headers: { 'Mural-Rev-Base': String(base) }, body: form });
     // só o envio que a nuvem gravou conta para a válvula: sem rede, o 409, o 429 ou a nuvem fora do ar já
     // esperam do jeito deles, e contá-los trocava o "sem conexão" por "envios demais" depois de 3 tentativas

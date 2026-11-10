@@ -1,4 +1,6 @@
 import { EnvironmentInjector, createEnvironmentInjector, provideZonelessChangeDetection } from '@angular/core';
+import { BOARDS_DB, FreeBoardStore } from './free-board-store';
+import { addPieces } from './free-board';
 import { TestBed } from '@angular/core/testing';
 import { ACCOUNT_KEY, CloudAccount, SESSION_KEY } from './cloud-account';
 import { readBeforeCloud } from './cloud-before';
@@ -232,6 +234,8 @@ describe('sincronização com a nuvem', () => {
     // o banco é um só na página, e outros testes guardam nele: uma imagem que sobrou é mural de ninguém
     // (ver `localHasContent`), e o aparelho "vazio" perguntaria
     await deleteDatabase(IMAGES_DB);
+    // o mesmo para os quadros livres (PLANO-QUADRO-LIVRE.md): um quadro que sobrou também é mural de ninguém
+    await deleteDatabase(BOARDS_DB);
     localStorage.clear();
     localStorage.setItem(SESSION_KEY, TOKEN);
     localStorage.setItem(ACCOUNT_KEY, JSON.stringify(ACCOUNT));
@@ -1548,6 +1552,17 @@ describe('sincronização com a nuvem', () => {
     await a.sync.syncNow();
     // as usadas: todas as do mural, as privadas também (as outras ficam soltas na nuvem)
     expect(JSON.parse(cloud.published!)).toEqual({ publicas: [pub], usadas: jasmine.arrayWithExactContents([pub, priv]) });
+  });
+
+  it('o envio do mural conta como usadas as imagens dos quadros livres, que moram fora dele (senão a nuvem as apagaria como soltas)', async () => {
+    const a = device();
+    const id = 'R'.repeat(22);
+    const boards = TestBed.inject(FreeBoardStore);
+    const b = await boards.create('Fotos', 'Jogos');
+    await boards.update(b.id, (x) => addPieces(x, [{ i: 'w1', t: 'w', x: 0, y: 0, w: 240, h: 180, src: `{{imagem: murall://imagem/${id} | foto}}` }], [], new Date().toISOString()).board);
+    await a.sync.syncNow();
+    expect(JSON.parse(cloud.published!)).toEqual({ publicas: [], usadas: [id] });
+    await boards.remove(b.id);
   });
 
   it('a imagem que o mural usa e a nuvem perdeu sobe de novo deste aparelho', async () => {
