@@ -12,7 +12,7 @@ import { LabImages, bigBoard, mansionBoard } from './free-board-lab-data';
  * O laboratório do Quadro livre (`/laboratorio/quadro-livre`, PLANO-QUADRO-LIVRE.md, rodada 2): o motor de ver
  * com a mansão montada à mão e, com `?quadro=grande`, o quadro gerado de 2.000 peças, para medir e fotografar
  * antes de a seção existir. Escondida: nenhum link leva até aqui. Não grava nada: os quadros e as imagens
- * (`LabImages`) ficam só na memória da página.
+ * (`LabImages`) ficam só na memória da página. Com `editar=1`, o editar ligado (as mudanças ficam só na tela).
  */
 @Component({
   selector: 'app-free-board-lab-page',
@@ -22,7 +22,7 @@ import { LabImages, bigBoard, mansionBoard } from './free-board-lab-data';
   template: `
     <div class="lab">
       @if (board(); as b) {
-        <app-free-board [board]="b" />
+        <app-free-board [board]="b" [editing]="editing()" />
       } @else {
         <p class="desenhando">Desenhando os cômodos…</p>
       }
@@ -71,7 +71,9 @@ import { LabImages, bigBoard, mansionBoard } from './free-board-lab-data';
 export class FreeBoardLabPage {
   private readonly images = inject(ImageStore) as unknown as LabImages;
   private readonly store = inject(ReviewStore);
-  protected readonly big = toSignal(inject(ActivatedRoute).queryParamMap.pipe(map((q) => q.get('quadro') === 'grande')), { initialValue: false });
+  private readonly query = inject(ActivatedRoute).queryParamMap;
+  protected readonly big = toSignal(this.query.pipe(map((q) => q.get('quadro') === 'grande')), { initialValue: false });
+  protected readonly editing = toSignal(this.query.pipe(map((q) => q.get('editar') === '1')), { initialValue: false });
   private readonly drawn = signal<string[] | null>(null);
   protected readonly board = computed<FreeBoard | null>(() => {
     const ids = this.drawn();

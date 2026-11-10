@@ -53,7 +53,7 @@ import { cutSticker, letterScale } from './sticker-edge';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @let m = media();
-    <figure #colagem class="colagem" data-papel-proprio data-ergue-justo [class]="'colagem moldura-' + m.frame" [class.tocando]="playing()" [class.e-video]="kind() === 'video'" [style.--giro.deg]="tilt()">
+    <figure #colagem class="colagem" data-papel-proprio data-ergue-justo [class]="'colagem moldura-' + m.frame" [class.tocando]="playing()" [class.e-video]="kind() === 'video'" [style.--giro.deg]="tilt()" data-sem-medida [attr.data-sem-medida]="settled() ? null : ''">
       <span #foto class="foto" data-colado data-ergue-giro data-ergue-largura data-ergue-canto [class.video]="kind() === 'video'" [class.som]="!!video() && !broken()" [class.amplia]="!broken()" [class.quebrada]="broken()" [class.revelando]="kind() === 'imagem' && !loaded() && !broken()" [attr.data-esperando]="seeking() ? '' : null" [style.--prop]="ratio()">
         <!-- .impressao: a foto e o brilho dela (no adesivo, cortados pela tesoura de picotar e com a
              sombra que segue os dentes; nas outras molduras, display: contents, como se não estivesse
@@ -233,6 +233,10 @@ import { cutSticker, letterScale } from './sticker-edge';
     .colagem.e-video,
     .colagem:has(> .revelando) {
       width: auto;
+    }
+    /* no Quadro livre, a figura do vídeo fica do tamanho da foto: a peça mede o desenho e o amplia até a caixa */
+    :host-context(app-free-board-piece) .colagem.e-video {
+      width: fit-content;
     }
     .tocando .foto {
       rotate: 0deg;
@@ -537,6 +541,11 @@ export class GluedMedia {
     return '';
   });
   protected readonly host = computed(() => (this.localId() ? '' : hostOf(this.media().url)));
+  /**
+   * O tamanho já é o de verdade: a foto chegou e abriu (o vídeo é sempre 16:9). Antes, o lugar dela tem outro
+   * tamanho, e o Quadro livre não acerta a caixa da peça por ele (`data-sem-medida`).
+   */
+  protected readonly settled = computed(() => !this.broken() && (this.kind() === 'video' || this.loaded()));
 
   /** O giro da foto, do link: entre 0,6 e 1,8 grau, para um lado ou para o outro. */
   protected readonly tilt = computed(() => {

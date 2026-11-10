@@ -5,7 +5,7 @@ import { CALLOUT_ICON } from '../callout-looks';
 import { anchor, boundsOf, intersects, nearestSide } from '../../core/free-board-geometry';
 import { ICON, IconModule } from '../icons';
 import { BoardEditor, Writing } from './board-editor';
-import { handlesFor, sizeRule } from './edit-ops';
+import { ALL_HANDLES } from './edit-ops';
 
 /** O que a etiqueta da seleção pede (a peça do quadro faz). */
 export type SelectionAction = 'cor' | 'jeito' | 'rotulo' | 'cadeado' | 'frente' | 'tras' | 'duplicar' | 'apagar';
@@ -27,7 +27,7 @@ export type SelectionAction = 'cor' | 'jeito' | 'rotulo' | 'cadeado' | 'frente' 
   styleUrl: './edit-overlay.scss',
   template: `
     @for (n of selectedNodes(); track n.i) {
-      <div class="anel" [style.left.px]="n.x" [style.top.px]="n.y" [style.width.px]="n.w" [style.height.px]="n.h"></div>
+      <div class="anel" [class.moldura]="n.t === 'm'" [style.left.px]="n.x" [style.top.px]="n.y" [style.width.px]="n.w" [style.height.px]="n.h"></div>
     }
     @if (edgeD(); as d) {
       <svg class="seta-escolhida" width="1" height="1" aria-hidden="true"><path [attr.d]="d" /></svg>
@@ -184,12 +184,11 @@ export class FreeBoardEditOverlay {
     return [...this.editor().selected()].map((id) => nodes.get(id)).filter((n): n is FbNode => !!n);
   });
 
-  /** Uma peça só selecionada (e nada sendo escrito): as alças de tamanho dela. */
+  /** Uma peça só selecionada (e nada sendo escrito): as alças de tamanho dela, nos cantos e no meio dos lados. */
   protected readonly single = computed(() => {
     const sel = this.selectedNodes();
     if (sel.length !== 1 || this.editor().writing()) return null;
-    const node = sel[0];
-    return { node, handles: handlesFor(sizeRule(node)) };
+    return { node: sel[0], handles: ALL_HANDLES };
   });
 
   /** As pontas da seta selecionada, para puxar (não no meio de um gesto nem escrevendo o rótulo). */

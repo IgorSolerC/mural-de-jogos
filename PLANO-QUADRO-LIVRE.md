@@ -225,9 +225,9 @@ A caixa é tracejada em amarelo, com o fundo bem leve.
 andam um furo (Shift: 1 px). Arrastar uma moldura leva o que está **inteiro dentro dela** no começo do
 arrasto (como no Obsidian); a moldura de dentro de outra vai junto com o que tem dentro.
 
-**Tamanho:** alças nos cantos e no meio dos lados. Imagens mantêm a proporção (Shift solta). Anotação,
-vídeo, áudio, contador e tabela mudam a **largura**, e a altura vem do próprio conteúdo (medida e guardada
-para o motor saber onde a peça está; ver D9). Área e bilhete mudam livres.
+**Tamanho:** alças nos cantos e no meio dos lados, em toda peça. Os widgets (imagem, vídeo, áudio,
+contador, anotação) são desenhos em escala: crescem por igual, e a caixa tem a proporção do desenho medido.
+A tabela se reorganiza na caixa (livre, nunca menor que o conteúdo). Área e bilhete mudam livres (ver D9).
 
 **Setas:** passando o mouse numa peça no editar, aparecem quatro bolinhas de giz no meio dos lados.
 Arrastar de uma bolinha até outra peça liga as duas (o lado de chegada é o mais perto do ponteiro;
@@ -736,8 +736,10 @@ textos que leem a peça (`aria-label`) existem em todos os níveis.
 - **D7.** A câmera fica só no aparelho; a primeira abertura é "Ver tudo".
 - **D8.** Notas criadas pelo quadro são anotações comuns (aparecem no mural). "Só no quadro", como o "Só no
   Kanban", fica para quando você pedir.
-- **D9.** Widgets e notas têm a altura do próprio conteúdo; só a largura muda à mão. Área e bilhete mudam
-  livres. Imagem mantém a proporção.
+- **D9.** (Refeita em 10/nov, "Corrigir hitbox".) A caixa é o desenho: o widget é desenhado num tamanho de
+  base (480 px de largura, a linha do furo) e ampliado por igual até a caixa; a peça mede o desenho e a caixa
+  guardada fica na proporção dele (dentro dela, no canto de cima à esquerda). A medida da foto que ainda carrega
+  ou não abriu não muda a caixa. A tabela é livre e se reorganiza. Área e bilhete mudam livres.
 - **D10.** Junção sem pergunta, campo a campo; mexida vence apagada (7.5).
 - **D11.** A lista ordena pelos mexidos por último.
 - **D12.** Apagar o grupo leva os quadros, avisando na pergunta; renomear leva junto (8).

@@ -12,12 +12,19 @@
 
 }
 
+/* o anel encosta na borda da peça, por fora (o traço inteiro na parede: numa peça amarela ele não some), e as
+   alças ficam nele: o que está marcado é exatamente o que a peça ocupa */
 .anel {
   position: absolute;
   pointer-events: none;
   outline: calc(2.5px * var(--iz)) solid var(--hi);
-  outline-offset: calc(5px * var(--iz));
+  outline-offset: 0;
   border-radius: 2px;
+}
+
+/* a moldura tem os cantos macios do feltro: o anel também */
+.anel.moldura {
+  border-radius: 18px;
 }
 
 /* as alças: quadradinhos de papel com a borda amarela, do tamanho de tela */

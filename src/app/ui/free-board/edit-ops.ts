@@ -115,29 +115,30 @@ export type Handle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
 export const ALL_HANDLES: readonly Handle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
 
 /**
- * Como a peça muda de tamanho (decisão D9): livre (moldura, texto), na proporção (a imagem e o vídeo, que crescem
- * pelos quatro lados sem deformar) ou só a largura (os outros widgets, com a altura do conteúdo).
+ * Como a peça muda de tamanho: livre (a moldura, o texto e a tabela, que se reorganiza na caixa) ou na proporção
+ * (os outros widgets: o desenho cresce por igual, e a caixa tem sempre a proporção dele, ver `fitMeasured`).
  */
-export type SizeRule = 'livre' | 'proporcao' | 'largura';
+export type SizeRule = 'livre' | 'proporcao';
 
 export function sizeRule(node: FbNode): SizeRule {
-  if (node.t !== 'w') return 'livre';
-  const name = parseWidgetLine(node.src)?.name;
-  return name === 'imagem' || name === 'video' ? 'proporcao' : 'largura';
+  return node.t === 'w' && !reflows(node) ? 'proporcao' : 'livre';
 }
 
-/** As alças de cada regra: os widgets só dos lados (a altura vem do conteúdo). */
-export function handlesFor(rule: SizeRule): readonly Handle[] {
-  return rule === 'largura' ? ['e', 'w'] : ALL_HANDLES;
+/** O widget que se reorganiza na caixa (a tabela, que mora em várias linhas): os outros são desenhos em escala. */
+export function reflows(node: FbNode): boolean {
+  if (node.t !== 'w') return false;
+  const parsed = parseWidgetLine(node.src.split('\n')[0]);
+  return parsed ? !!widgetDef(parsed.name)?.body : !!node.src.trim();
 }
 
-const MIN = { livre: 52, proporcao: 52, largura: 130 };
+const MIN = 52;
 
 /**
- * A caixa nova ao puxar a alça `h` de `dx`, `dy` (no mundo). Na proporção, a largura manda (Shift a solta,
- * `free`); só a largura, a altura fica. Com encaixe, a borda que anda cai num furo.
+ * A caixa nova ao puxar a alça `h` de `dx`, `dy` (no mundo). Na proporção, a largura manda (no meio de cima ou de
+ * baixo, a altura, e a peça cresce para os dois lados), e o desenho não deforma. Com encaixe, a borda que anda cai
+ * num furo.
  */
-export function resized(start: Rect, h: Handle, dx: number, dy: number, rule: SizeRule, opts: { free?: boolean; snapOn?: boolean } = {}): Rect {
+export function resized(start: Rect, h: Handle, dx: number, dy: number, rule: SizeRule, opts: { snapOn?: boolean } = {}): Rect {
   let x0 = start.x;
   let y0 = start.y;
   let x1 = start.x + start.w;
@@ -145,22 +146,80 @@ export function resized(start: Rect, h: Handle, dx: number, dy: number, rule: Si
   const s = (v: number) => (opts.snapOn ? snap(v) : Math.round(v));
   if (h.includes('w')) x0 = s(x0 + dx);
   if (h.includes('e')) x1 = s(x1 + dx);
-  if (rule !== 'largura') {
-    if (h.includes('n')) y0 = s(y0 + dy);
-    if (h.includes('s')) y1 = s(y1 + dy);
-  }
-  const min = MIN[rule];
-  if (x1 - x0 < min) h.includes('w') ? (x0 = x1 - min) : (x1 = x0 + min);
-  if (y1 - y0 < Math.min(min, start.h)) h.includes('n') ? (y0 = y1 - Math.min(min, start.h)) : (y1 = y0 + Math.min(min, start.h));
+  if (h.includes('n')) y0 = s(y0 + dy);
+  if (h.includes('s')) y1 = s(y1 + dy);
+  if (x1 - x0 < MIN) h.includes('w') ? (x0 = x1 - MIN) : (x1 = x0 + MIN);
+  if (y1 - y0 < Math.min(MIN, start.h)) h.includes('n') ? (y0 = y1 - Math.min(MIN, start.h)) : (y1 = y0 + Math.min(MIN, start.h));
   let out = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
-  if (rule === 'proporcao' && !opts.free) {
+  if (rule === 'proporcao') {
     const ratio = start.w / Math.max(1, start.h);
-    const sideOnly = h === 'n' || h === 's';
-    const w = sideOnly ? Math.round(out.h * ratio) : out.w;
-    const hh = Math.round(w / ratio);
-    out = { x: h.includes('w') ? x1 - w : x0, y: h.includes('n') ? y1 - hh : y0, w, h: hh };
+    // no canto, manda o lado que andou mais (puxar o canto só para baixo também cresce); no meio de um lado, ele
+    const byHeight = h === 'n' || h === 's' || (h.length === 2 && Math.abs(out.h / start.h - 1) > Math.abs(out.w / start.w - 1));
+    const w = Math.max(MIN, byHeight ? Math.round(out.h * ratio) : out.w);
+    const hh = Math.max(1, Math.round(w / ratio));
+    // o eixo que ninguém puxou cresce para os dois lados, no lugar
+    const x = h === 'n' || h === 's' ? Math.round(start.x + (start.w - w) / 2) : h.includes('w') ? x1 - w : x0;
+    const y = h === 'e' || h === 'w' ? Math.round(start.y + (start.h - hh) / 2) : h.includes('n') ? y1 - hh : y0;
+    out = { x, y, w, h: hh };
   }
   return out;
+}
+
+/**
+ * O que a peça mediu do widget dela (free-board-piece.ts), para a linha `src`: `r`, a proporção do desenho em
+ * escala (largura sobre altura); na tabela, `minH`, a altura que o conteúdo pede na largura `w`. A caixa guardada
+ * fora disso deixava uma sobra em volta do desenho (ou o conteúdo para fora dela), e a caixa é o que se seleciona,
+ * se puxa e recebe as setas.
+ */
+export type PieceMeasure = { src: string; r: number } | { src: string; w: number; minH: number };
+
+/** As duas medidas dizem o mesmo (a proporção, até dois milésimos)? */
+export function sameMeasure(a: PieceMeasure, b: PieceMeasure): boolean {
+  if (a.src !== b.src) return false;
+  if ('r' in a && 'r' in b) return Math.abs(a.r - b.r) / b.r < 0.002;
+  return 'minH' in a && 'minH' in b && a.w === b.w && a.minH === b.minH;
+}
+
+/**
+ * A caixa na proporção `r`, dentro da guardada e presa no canto de cima à esquerda: é onde o desenho já aparecia
+ * (do tamanho que cabia, nesse canto). Até 1,5 px, ou 1% do lado, de diferença é arredondamento (ou a letra de outro
+ * aparelho, que mede uns décimos diferente: a caixa não fica sendo regravada por isso).
+ */
+export function fitRatio(box: Rect, r: number): Rect {
+  const near = (a: number, b: number) => Math.abs(a - b) <= Math.max(1.5, b * 0.01);
+  if (!(r > 0) || near(box.w, box.h * r) || near(box.h, box.w / r)) return box;
+  return box.w / box.h > r ? { ...box, w: Math.max(8, Math.round(box.h * r)) } : { ...box, h: Math.max(8, Math.round(box.w / r)) };
+}
+
+const fitted = new WeakMap<FbNode, { m: PieceMeasure; out: FbNode }>();
+
+/** A caixa do widget pela medida: na proporção do desenho, ou, na tabela, ao menos da altura do conteúdo. */
+function fitBox(box: Rect, m: PieceMeasure): Rect {
+  if ('r' in m) return fitRatio(box, m.r);
+  // (a medida de outra largura não vale: a altura do conteúdo muda com ela)
+  return m.w === box.w && m.minH > box.h ? { ...box, h: Math.ceil(m.minH) } : box;
+}
+
+/**
+ * O quadro com cada widget medido na caixa do desenho dele (`fitBox`, sempre a partir da caixa guardada). Só as
+ * caixas mudam: nem a data do quadro nem as setas. Nada a acertar, o mesmo quadro (o mesmo objeto).
+ */
+export function fitMeasured(board: FreeBoard, measures: ReadonlyMap<string, PieceMeasure>): FreeBoard {
+  if (!measures.size) return board;
+  let changed = false;
+  const n = board.n.map((node) => {
+    const m = measures.get(node.i);
+    if (!m || !knownNode(node) || node.t !== 'w' || node.src !== m.src) return node;
+    let hit = fitted.get(node);
+    if (hit?.m !== m) {
+      const box = fitBox(node, m);
+      hit = { m, out: box.w === node.w && box.h === node.h ? node : { ...node, w: box.w, h: box.h } };
+      fitted.set(node, hit);
+    }
+    changed ||= hit.out !== node;
+    return hit.out;
+  });
+  return changed ? { ...board, n } : board;
 }
 
 // ===== as peças novas =====

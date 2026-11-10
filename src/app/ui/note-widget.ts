@@ -39,7 +39,7 @@ import { GluedMedia } from './glued-media';
         @defer (on immediate) {
           <app-countdown [args]="args()" [editavel]="editavel()" />
         } @placeholder {
-          <div class="esperando"></div>
+          <div class="esperando" data-sem-medida></div>
         }
       }
       <!-- a foto colada também vem à parte (ela carrega a imagem depois, de qualquer jeito) -->
@@ -47,14 +47,14 @@ import { GluedMedia } from './glued-media';
         @defer (on immediate) {
           <app-glued-media kind="imagem" [args]="args()" [editavel]="editavel()" />
         } @placeholder {
-          <div class="esperando"></div>
+          <div class="esperando" data-sem-medida></div>
         }
       }
       @case ('video') {
         @defer (on immediate) {
           <app-glued-media kind="video" [args]="args()" [editavel]="editavel()" />
         } @placeholder {
-          <div class="esperando"></div>
+          <div class="esperando" data-sem-medida></div>
         }
       }
       @case ('audio') {
@@ -62,7 +62,7 @@ import { GluedMedia } from './glued-media';
         @defer (on immediate) {
           <app-audio-track [args]="args()" [editavel]="editavel()" />
         } @placeholder {
-          <div class="esperando"></div>
+          <div class="esperando" data-sem-medida></div>
         }
       }
       @case ('nota') {
@@ -72,7 +72,7 @@ import { GluedMedia } from './glued-media';
         @if (linkedCard(); as card) {
           <ng-container *ngComponentOutlet="card; inputs: { args: args(), links: links(), lines: lines() }" />
         } @else {
-          <div class="esperando"></div>
+          <div class="esperando" data-sem-medida></div>
         }
       }
     }

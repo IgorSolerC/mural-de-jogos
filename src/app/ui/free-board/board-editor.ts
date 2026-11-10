@@ -74,6 +74,11 @@ export class BoardEditor {
 
   private gesture: Gesture | null = null;
 
+  /** Um gesto no meio (o ponteiro desceu e ainda não subiu). */
+  get busy(): boolean {
+    return !!this.gesture;
+  }
+
   constructor(private readonly host: EditorHost) {}
 
   /** O zoom de agora (a etiqueta da seleção mede o que ela cobre). */
@@ -318,7 +323,7 @@ export class BoardEditor {
       case 'tamanho': {
         const n = g.base.n.find((x) => x.i === g.id) as FbNode | undefined;
         if (!n) return;
-        const r = resized(g.box, g.handle, p.x - g.start.x, p.y - g.start.y, sizeRule(n), { free: mods.shift, snapOn: !mods.alt });
+        const r = resized(g.box, g.handle, p.x - g.start.x, p.y - g.start.y, sizeRule(n), { snapOn: !mods.alt });
         this.preview.set(patchNodes(g.base, new Set([g.id]), (x) => ({ ...x, ...r }), now()));
         return;
       }

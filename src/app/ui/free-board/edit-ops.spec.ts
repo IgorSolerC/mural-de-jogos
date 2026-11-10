@@ -10,7 +10,8 @@ import {
   freeSpot,
   keepsHover,
   linkTarget,
-  handlesFor,
+  fitMeasured,
+  fitRatio,
   hitEdge,
   hitPiece,
   noteLine,
@@ -66,21 +67,59 @@ describe('Quadro livre: a edição (funções puras)', () => {
     expect(snappedDelta({ x: 5, y: 0 }, 30, 14, false)).toEqual({ x: 30, y: 14 });
   });
 
-  it('o tamanho: livre, na proporção (a imagem) e só a largura (os widgets)', () => {
+  it('o tamanho: livre (moldura, texto, tabela) e na proporção (os outros widgets, por qualquer alça)', () => {
     expect(sizeRule(note('a', 0, 0))).toBe('livre');
     expect(sizeRule(img)).toBe('proporcao');
-    // o vídeo também: cresce pelos quatro lados sem deformar (antes só ficava mais largo, sem crescer)
     expect(sizeRule({ ...count, src: '{{video: https://youtu.be/abc}}' })).toBe('proporcao');
-    expect(handlesFor(sizeRule({ ...count, src: '{{video: https://youtu.be/abc}}' }))).toHaveSize(8);
-    expect(sizeRule(count)).toBe('largura');
-    expect(handlesFor('largura')).toEqual(['e', 'w']);
+    // o contador, a nota, o som: antes só ficavam mais largos, sem crescer o desenho
+    expect(sizeRule(count)).toBe('proporcao');
+    expect(sizeRule({ ...count, src: '{{nota: #abc | Lupa}}' })).toBe('proporcao');
+    // a tabela se reorganiza na caixa: livre
+    expect(sizeRule({ ...count, src: '| a | b |\n|---|---|\n| 1 | 2 |' })).toBe('livre');
     expect(resized({ x: 0, y: 0, w: 208, h: 104 }, 'se', 52, 26, 'livre')).toEqual({ x: 0, y: 0, w: 260, h: 130 });
     const r = resized({ x: 0, y: 0, w: 260, h: 195 }, 'se', 100, 0, 'proporcao');
     expect(r.w).toBe(360);
     expect(r.h).toBe(270);
-    expect(resized({ x: 0, y: 0, w: 312, h: 156 }, 'e', 104, 300, 'largura')).toEqual({ x: 0, y: 0, w: 416, h: 156 });
+    // pelo meio de baixo: a altura manda, e a peça cresce para os dois lados, no lugar
+    expect(resized({ x: 0, y: 0, w: 312, h: 156 }, 's', 0, 52, 'proporcao')).toEqual({ x: -52, y: 0, w: 416, h: 208 });
+    // pelo meio de um lado: a largura manda, e a altura vem junto, para os dois lados
+    expect(resized({ x: 0, y: 0, w: 312, h: 156 }, 'e', 104, 300, 'proporcao')).toEqual({ x: 0, y: -26, w: 416, h: 208 });
+    // pelo canto, só para baixo: a altura manda (antes, nada mudava)
+    expect(resized({ x: 0, y: 0, w: 312, h: 156 }, 'se', 0, 52, 'proporcao')).toEqual({ x: 0, y: 0, w: 416, h: 208 });
     // nunca menor que o mínimo
-    expect(resized({ x: 0, y: 0, w: 312, h: 156 }, 'w', 400, 0, 'largura').w).toBe(130);
+    expect(resized({ x: 0, y: 0, w: 312, h: 156 }, 'w', 400, 0, 'proporcao').w).toBe(52);
+  });
+
+  it('a caixa do widget fica na proporção do desenho medido, dentro da guardada e no canto de cima à esquerda', () => {
+    // a foto em pé numa caixa deitada (a imagem trocada): a caixa encolhe na largura
+    expect(fitRatio({ x: 10, y: 20, w: 400, h: 200 }, 0.5)).toEqual({ x: 10, y: 20, w: 100, h: 200 });
+    // o desenho deitado numa caixa alta: encolhe na altura
+    expect(fitRatio({ x: 0, y: 0, w: 260, h: 260 }, 2)).toEqual({ x: 0, y: 0, w: 260, h: 130 });
+    // arredondamento não mexe
+    const box = { x: 0, y: 0, w: 261, h: 130 };
+    expect(fitRatio(box, 2)).toBe(box);
+  });
+
+  it('o quadro com as medidas: só as caixas dos widgets medidos, sem mudar a data nem as setas', () => {
+    const b = board([img, count, note('t', 0, 400)], [{ i: 's', a: 'img', b: 'ct' }]);
+    expect(fitMeasured(b, new Map())).toBe(b);
+    const m = new Map([['img', { src: img.src, r: 1 }], ['t', { src: '', r: 1 }]]);
+    const out = fitMeasured(b, m);
+    expect(out.n.find((n) => n.i === 'img')).toEqual(jasmine.objectContaining({ x: 0, y: 0, w: 195, h: 195 }));
+    expect(out.n.find((n) => n.i === 't')).toBe(b.n.find((n) => n.i === 't')!);
+    expect(out.em).toBe(b.em);
+    expect(out.e).toBe(b.e);
+    // a mesma medida, o mesmo resultado (as peças não viram objetos novos a cada conta)
+    expect(fitMeasured(b, m).n[0]).toBe(out.n[0]);
+    // a tabela: nunca menor que a altura do conteúdo na largura dela; mais alta, fica (as fileiras esticam)
+    const tb: FbNode = { i: 'tb', t: 'w', x: 0, y: 0, w: 416, h: 100, src: '| a |\n|---|\n| 1 |' };
+    const tables = board([tb]);
+    expect(fitMeasured(tables, new Map([['tb', { src: tb.src, w: 416, minH: 140.4 }]])).n[0].h).toBe(141);
+    expect(fitMeasured(tables, new Map([['tb', { src: tb.src, w: 416, minH: 60 }]]))).toBe(tables);
+    // medida noutra largura (no meio de puxar a alça): não vale até medir de novo
+    expect(fitMeasured(tables, new Map([['tb', { src: tb.src, w: 300, minH: 200 }]]))).toBe(tables);
+    // a medida de outra linha (a imagem trocada, medida de novo depois) não vale
+    expect(fitMeasured(b, new Map([['img', { src: '{{imagem: https://exemplo.com/b.png}}', r: 1 }]]))).toBe(b);
   });
 
   it('as peças novas entram em grade a partir do ponto, nos furos', () => {

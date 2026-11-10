@@ -1,15 +1,27 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, input, output, untracked, viewChild } from '@angular/core';
 import { FbNode, noteColor, noteLook, noteParts } from '../../core/free-board';
 import { calloutFallbackTitle, calloutPaper } from '../../core/callouts';
 import { CALLOUT_ICON } from '../callout-looks';
 import { NoteLinks } from '../../core/note-links';
 import { plainText } from '../../core/rich-text';
-import { WIDGET_LINES, parseWidgetLine, readCardRef, widgetDef, widgetSpoken } from '../../core/widgets';
+import { parseWidgetLine, readCardRef, widgetDef, widgetSpoken } from '../../core/widgets';
+import { HOLE } from '../../core/free-board-geometry';
 import { ICON, IconModule } from '../icons';
 import { NoteWidget } from '../note-widget';
 import { RichText } from '../rich-text';
 import { DEFAULT_FRAME } from './far-layer';
 import { PieceInfo } from './scene';
+import { PieceMeasure, sameMeasure } from './edit-ops';
+
+/**
+ * O widget no quadro é desenhado nesta largura (a de uma coluna de leitura: o que enche a linha fica com ela) e
+ * com a linha da pauta do tamanho do furo da parede, e depois ampliado ou reduzido por igual até encher a caixa.
+ */
+export const WIDGET_BASE_W = 480;
+export const WIDGET_BASE_LINE = HOLE;
+
+/** O que a peça mediu do widget dela (ver `PieceMeasure`), e se já é a medida de verdade (a foto chegou, abriu). */
+export type PieceMeasured = PieceMeasure & { id: string; settled: boolean };
 
 /**
  * Uma peça do Quadro livre (PLANO-QUADRO-LIVRE.md, seções 3, 4.5 e 9.3), no nível de detalhe que a câmera
@@ -34,9 +46,7 @@ import { PieceInfo } from './scene';
     '[style.left.px]': 'node().x',
     '[style.top.px]': 'node().y',
     '[style.width.px]': 'node().w',
-    '[style.height.px]': 'fixedHeight()',
-    '[style.min-height.px]': 'fixedHeight() === null ? node().h : null',
-    '[style.--line.px]': 'line()',
+    '[style.height.px]': 'node().h',
   },
   styleUrl: './free-board-piece.scss',
   template: `
@@ -68,9 +78,13 @@ import { PieceInfo } from './scene';
         @if (level() === 'perto') {
           @if (widget(); as w) {
             @if (w.body) {
-              <app-rich-text class="tabela" [text]="src()" [links]="links()" />
+              <!-- a tabela enche a caixa: as linhas quebram na largura e as fileiras esticam até a altura dela -->
+              <app-rich-text #tabela class="tabela encher" [text]="src()" [links]="links()" />
             } @else {
-              <app-note-widget [name]="w.name" [args]="w.args" [size]="w.size" [links]="links()" />
+              <!-- o widget desenhado no tamanho de base e ampliado por igual até encher a caixa (ver measure) -->
+              <div #escala class="escala" [style.width.px]="baseW" [style.--line.px]="baseLine">
+                <app-note-widget [name]="w.name" [args]="w.args" [size]="w.size" [links]="links()" />
+              </div>
             }
           }
         } @else if (info().kind === 'imagem') {
@@ -125,23 +139,6 @@ export class FreeBoardPiece {
     return { ...parsed, body: !!widgetDef(parsed.name)?.body };
   });
 
-  /** A moldura e o bilhete têm a altura guardada; o widget, a do próprio conteúdo (decisão D9). */
-  protected readonly fixedHeight = computed(() => {
-    const kind = this.info().kind;
-    if (kind === 'moldura' || kind === 'bilhete' || this.level() === 'meio') return this.node().h;
-    return null;
-  });
-
-  /**
-   * A linha da pauta que o widget usa para medir o tamanho dele (`--widget-alto` = linhas × linha): no
-   * quadro não há pauta, então a linha sai da altura guardada, e o widget enche a caixa dele.
-   */
-  protected readonly line = computed(() => {
-    const w = this.info().kind === 'moldura' || this.info().kind === 'bilhete' ? null : this.widget();
-    if (!w || w.body) return null;
-    return Math.max(6, this.node().h / (WIDGET_LINES[w.size] ?? WIDGET_LINES.medio));
-  });
-
   /** O texto como card: o jeito, o papel, o título (sem um, o nome do jeito) e o que tem dentro. */
   protected readonly look = computed(() => {
     const n = this.node();
@@ -190,4 +187,170 @@ export class FreeBoardPiece {
     }
   });
 
+  /** O desenho do widget mediu outra proporção (o quadro acerta a caixa por ela; ver edit-ops.ts, `fitMeasured`). */
+  readonly measured = output<PieceMeasured>();
+  protected readonly baseW = WIDGET_BASE_W;
+  protected readonly baseLine = WIDGET_BASE_LINE;
+
+  private readonly escala = viewChild<ElementRef<HTMLElement>>('escala');
+  private readonly table = viewChild('tabela', { read: ElementRef<HTMLElement> });
+  /** O desenho medido: o tamanho dele e onde ele começa dentro da escala (o widget tem respiro em volta). */
+  private drawn: { w: number; h: number; x: number; y: number } | null = null;
+  private told: PieceMeasured | null = null;
+  /** A proporção do quadro de animação anterior: a medida só vale quando se repete (ver `measure`). */
+  private lastRatio = 0;
+
+  constructor() {
+    // a escala apareceu (o widget perto) ou a linha mudou (o texto do widget, que nem sempre muda o tamanho):
+    // mede do zero, e de novo quando o desenho chega, muda de tamanho ou fica pronto
+    effect((onCleanup) => {
+      const box = this.escala()?.nativeElement;
+      this.src();
+      this.drawn = null;
+      this.told = null;
+      this.lastRatio = 0;
+      if (!box) return;
+      onCleanup(watchDrawing(box, (again) => this.measure(box, again)));
+    });
+    // a tabela: a altura que o conteúdo pede na largura da caixa (quando a largura muda, o texto muda ou chega)
+    effect((onCleanup) => {
+      const host = this.table()?.nativeElement;
+      this.src();
+      this.told = null;
+      if (!host) return;
+      onCleanup(watchDrawing(host, () => this.measureTable(host)));
+    });
+    // a caixa mudou (o tamanho, a proporção acertada): a mesma medida, na escala nova
+    effect(() => {
+      this.node();
+      untracked(() => this.place());
+    });
+  }
+
+  private measure(box: HTMLElement, again: () => void): void {
+    const piece = drawingIn(box);
+    if (!piece || !piece.offsetWidth || !piece.offsetHeight) return;
+    const at = offsetIn(piece, box);
+    this.drawn = { w: piece.offsetWidth, h: piece.offsetHeight, ...at };
+    // só o desenho pega o ponteiro: a escala é mais larga que a caixa, e a sobra dela cobriria as peças vizinhas
+    piece.style.pointerEvents = 'auto';
+    this.place();
+    // o que ainda não é o desenho de verdade (a foto revelando, o que não abriu, a que acabou de chegar e ainda não
+    // tem altura) não acerta a caixa guardada
+    const ready = !box.querySelector('[data-sem-medida]') && [...piece.querySelectorAll('img')].every((img) => img.offsetHeight > 0 || getComputedStyle(img).display === 'none');
+    // ... nem o widget que acabou de ser montado e ainda não recebeu o que mostra (sem as classes, sem a foto): a
+    // medida só vale quando é a mesma no quadro seguinte (se mudou, mede de novo nele)
+    const r = this.drawn.w / this.drawn.h;
+    const steady = Math.abs(r - this.lastRatio) / r < 0.002;
+    this.lastRatio = r;
+    if (ready && !steady) again();
+    this.tell({ src: untracked(this.src), r }, ready && steady);
+  }
+
+  /** A tabela sem esticar, por um instante (a classe `medindo` de ui/rich-text.ts): a altura do conteúdo. */
+  private measureTable(host: HTMLElement): void {
+    // puxar só a altura não mede de novo: na mesma largura e com o mesmo texto, o conteúdo só pede outra altura se
+    // passou da caixa (a letra que chegou depois quebrou mais linhas)
+    const w = host.offsetWidth;
+    const t = this.told;
+    if (t && 'w' in t && t.w === w && t.src === untracked(this.src) && host.scrollHeight <= host.clientHeight + 1) return;
+    host.classList.add('medindo');
+    const minH = host.offsetHeight;
+    host.classList.remove('medindo');
+    if (minH) this.tell({ src: untracked(this.src), w, minH }, true);
+  }
+
+  /** Avisa o quadro da medida, se ela é outra (os décimos da proporção não contam). */
+  private tell(m: PieceMeasure, settled: boolean): void {
+    const t = this.told;
+    if (t && t.src === m.src && t.settled === settled && sameMeasure(t, m)) return;
+    this.told = { ...m, id: untracked(this.node).i, settled };
+    this.measured.emit(this.told);
+  }
+
+  /** Amplia o desenho até encher a caixa (na proporção acertada, enche certinho; antes disso, cabe nela). */
+  private place(): void {
+    const el = this.escala()?.nativeElement;
+    const d = this.drawn;
+    if (!el || !d) return;
+    const n = untracked(this.node);
+    const s = Math.min(n.w / d.w, n.h / d.h);
+    el.style.transform = `scale(${s}) translate(${-d.x}px, ${-d.y}px)`;
+    el.style.visibility = 'visible';
+  }
+}
+
+/**
+ * O desenho do widget dentro de `root`: desce enquanto há um filho só no fluxo (o host do widget, o embrulho dele, o
+ * lugar com folga em volta do cartão do contador) e para onde há mais de um (a foto com o broche e a imagem; a foto
+ * e a legenda; o texto inteiro de uma nota, que enche a linha). Não desce para um filho com escala própria (o tamanho
+ * dele no layout não é o que aparece).
+ */
+export function drawingIn(root: HTMLElement): HTMLElement | null {
+  let el = root;
+  for (let depth = 0; depth < 10; depth++) {
+    const kids = flowKids(el);
+    if (kids.length !== 1) break;
+    const kid = kids[0];
+    const cs = getComputedStyle(kid);
+    if (cs.transform !== 'none' || cs.scale !== 'none') break;
+    el = kid;
+  }
+  return el === root ? null : el;
+}
+
+/** Os filhos no fluxo (sem os soltos por cima nem os escondidos); os de um embrulho `display: contents` contam. */
+function flowKids(el: Element): HTMLElement[] {
+  return [...el.children].flatMap((kid) => {
+    if (!(kid instanceof HTMLElement)) return [];
+    const cs = getComputedStyle(kid);
+    if (cs.display === 'contents') return flowKids(kid);
+    return kid.offsetParent && cs.position !== 'absolute' && cs.position !== 'fixed' ? [kid] : [];
+  });
+}
+
+/** Onde `el` começa dentro de `root` (o caminho dos `offsetParent`, sem as transformações). */
+function offsetIn(el: HTMLElement, root: HTMLElement): { x: number; y: number } {
+  let x = 0;
+  let y = 0;
+  let at: HTMLElement | null = el;
+  while (at && at !== root) {
+    x += at.offsetLeft;
+    y += at.offsetTop;
+    const up: Element | null = at.offsetParent;
+    at = up instanceof HTMLElement && root.contains(up) ? up : null;
+  }
+  return { x, y };
+}
+
+/**
+ * Chama `measure` (no quadro de animação seguinte) quando o desenho dentro de `box` chega, troca, muda de tamanho
+ * ou fica pronto (sai o `data-sem-medida`). Devolve o que desliga tudo.
+ */
+function watchDrawing(box: HTMLElement, measure: (again: () => void) => void): () => void {
+  let frame = 0;
+  let watched: Element | null = null;
+  const later = () => {
+    if (!frame) frame = requestAnimationFrame(run);
+  };
+  const ro = new ResizeObserver(later);
+  const run = () => {
+    frame = 0;
+    const now = drawingIn(box);
+    if (now !== watched) {
+      if (watched) ro.unobserve(watched);
+      if (now) ro.observe(now);
+      watched = now;
+    }
+    measure(later);
+  };
+  ro.observe(box);
+  const mo = new MutationObserver(later);
+  mo.observe(box, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-sem-medida'] });
+  later();
+  return () => {
+    cancelAnimationFrame(frame);
+    ro.disconnect();
+    mo.disconnect();
+  };
 }

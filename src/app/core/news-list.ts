@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-10-apagar-as-marcadas',
+    id: '2026-11-10-hitbox-do-quadro',
     version: '1.43.2',
     kind: 'ajustes',
     date: '2026-11-10',
@@ -52,8 +52,10 @@ export const NEWS: NewsEntry[] = [
       'No Filtrar do mural de anotações, "Só no Kanban" e "Só nos Flashcards" viraram dois interruptores, e o que você ligar nele (as Finalizadas também) vale até sair da aba: cada aba abre no padrão dela, também ao voltar ao mural de outra página.',
       'Cada grupo pode abrir com as finalizadas, as só no Kanban ou as só nos Flashcards à mostra, em Configurações do mural › Grupos › Ao abrir, mostrar também.',
       'Na folha "Editar as marcadas", o Apagar foi para o canto esquerdo do pé, como no editor, e diz quantas vão (Apagar as 3 anotações).',
+      'Os widgets do quadro livre (o contador, o som, a anotação, a imagem, o vídeo) crescem pelas oito alças sem deformar. A tabela se reorganiza na largura e na altura da caixa, nunca menor que o conteúdo, e sem o papel branco atrás dela.',
     ],
     correcoes: [
+      'No quadro livre, o contorno amarelo da seleção, as alças, o clique e as setas ficam do tamanho do que a peça mostra: antes sobrava espaço em volta dos widgets, e a imagem trocada continuava com a caixa da anterior.',
       'Pôr uma anotação no quadro livre achava quase nada: agora aparecem todas, de qualquer grupo, as finalizadas e as que só estão no Kanban ou nos Flashcards, com os mesmos filtros do resto do site.',
       'Escrever no quadro livre e clicar fora não apaga mais o texto: clicar fora guarda, e o Esc desiste, como em todo campo. O card cresce com o texto, em vez de cortá-lo embaixo.',
       'As bolinhas de puxar uma seta não somem mais quando o mouse vai até elas.',

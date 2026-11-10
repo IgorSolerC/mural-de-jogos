@@ -432,6 +432,46 @@ import { ZoomKnob } from './zoom-knob';
     .tabela th {
       @include formatado.tabela-cabeca;
     }
+    /* A tabela que enche a caixa (\`encher\`, a peça do Quadro livre): o papel ocupa a caixa inteira, as linhas
+       quebram na largura dela e as fileiras se esticam até a altura dela; a larga rola de lado. Com \`medindo\`,
+       por um instante, nada estica: quem usa lê a altura que o conteúdo pede (a caixa nunca fica menor) */
+    :host(.encher) {
+      display: flex;
+      flex-direction: column;
+    }
+    :host(.encher) .tabela-peca,
+    :host(.encher) .tabela-rolo,
+    :host(.encher) .tabela-papel {
+      display: flex;
+      flex-direction: column;
+      flex: 1 0 auto;
+      width: auto;
+      min-width: 0;
+      max-width: none;
+    }
+    /* nada rola dentro da peça (a barra brigaria com o arrasto dela): a célula estreita quebra a palavra */
+    :host(.encher) .tabela-rolo {
+      overflow: visible;
+    }
+    :host(.encher) .tabela {
+      flex: 1 0 auto;
+    }
+    /* esticada, a fileira tem o texto no meio dela (no alto, a sobra embaixo parecia um buraco) */
+    :host(.encher) .tabela th,
+    :host(.encher) .tabela td {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      vertical-align: middle;
+    }
+    :host(.encher.medindo) {
+      height: auto;
+    }
+    :host(.encher.medindo) .tabela-peca,
+    :host(.encher.medindo) .tabela-rolo,
+    :host(.encher.medindo) .tabela-papel,
+    :host(.encher.medindo) .tabela {
+      flex-grow: 0;
+    }
 
     /* --- Branca: a folha de impresso colada na cartolina, o cabeçalho sobre um fio de tinta --- */
     .jeito-branca .tabela-papel,

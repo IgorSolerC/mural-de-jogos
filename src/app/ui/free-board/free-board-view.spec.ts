@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FbEdge, FbNode, FreeBoard, sanitizeFreeBoard } from '../../core/free-board';
 import { Camera } from '../../core/free-board-geometry';
 import { FreeBoardView } from './free-board-view';
-import { FreeBoardPiece } from './free-board-piece';
+import { FreeBoardPiece, drawingIn } from './free-board-piece';
 import { expectEtiquetaPadrao } from '../../testing/etiqueta-acoes.spec';
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -69,6 +69,69 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
     const [back, , front] = Array.from(el.querySelectorAll('.mundo'));
     expect(back.contains(piece('roxo'))).toBeTrue();
     expect(front.contains(piece('senha'))).toBeTrue();
+  });
+
+  it('o widget enche a caixa: a caixa fica na proporção do desenho medido, e o desenho, do tamanho dela', async () => {
+    // a caixa guardada alta demais para o contador (a sobra embaixo era o que se selecionava)
+    await open(board([{ i: 'conta', t: 'w', x: 0, y: 0, w: 312, h: 260, src: '{{contador: 24/12/2026 | Fim do inverno}}' }]));
+    const host = piece('conta')!;
+    let drawing: HTMLElement | null = null;
+    for (let k = 0; k < 40 && !drawing; k++) {
+      await frames(1);
+      await fixture.whenStable();
+      drawing = host.querySelector<HTMLElement>('.escala [style*="pointer-events"]');
+    }
+    await frames(2);
+    await fixture.whenStable();
+    const shown = fixture.componentInstance.shown().n[0];
+    expect(shown.w).toBe(312);
+    expect(shown.h).toBeLessThan(200);
+    expect(host.style.height).toBe(`${shown.h}px`);
+    // o desenho na tela: do tamanho da caixa (um pixel de folga pelo arredondamento)
+    const a = host.getBoundingClientRect();
+    const b = drawing!.getBoundingClientRect();
+    expect(Math.abs(a.width - b.width)).toBeLessThanOrEqual(1.5);
+    expect(Math.abs(a.height - b.height)).toBeLessThanOrEqual(1.5);
+    // a caixa guardada não muda só por ver: só o editar a guarda assim
+    expect(fixture.componentInstance.current().n[0].h).toBe(260);
+  });
+
+  it('no editar do dono, a caixa acertada pela medida (a imagem trocada) fica guardada sozinha, sem passo no desfazer', async () => {
+    await open(board([{ i: 'conta', t: 'w', x: 0, y: 0, w: 312, h: 260, src: '{{contador: 24/12/2026 | Fim do inverno}}' }]));
+    const saved: FreeBoard[] = [];
+    fixture.componentInstance.changed.subscribe((c) => saved.push(c.board));
+    fixture.componentRef.setInput('owner', {});
+    fixture.componentRef.setInput('editing', true);
+    for (let k = 0; k < 60 && !saved.length; k++) {
+      await sleep(50);
+      await fixture.whenStable();
+    }
+    expect(saved.length).toBe(1);
+    expect(saved[0].n[0].h).toBeLessThan(200);
+    // ninguém mexeu: o quadro não sobe na lista dos mexidos
+    expect(saved[0].em).toBe('2026-11-09T00:00:00.000Z');
+    expect(fixture.componentInstance.current()).toBe(saved[0]);
+    expect(fixture.componentInstance.editor.history.canUndo).toBeFalse();
+  });
+
+  it('a tabela enche a caixa, sem papel por baixo, e a caixa nunca fica menor que o conteúdo', async () => {
+    const src = '| Cômodo | Chave |\n| --- | --- |\n| Cofre | Senha |\n| Adega | Chave de ferro |\n| Torre | Lupa |';
+    await open(board([{ i: 'tb', t: 'w', x: 0, y: 0, w: 416, h: 40, src }]));
+    const host = piece('tb')!;
+    for (let k = 0; k < 20 && fixture.componentInstance.shown().n[0].h === 40; k++) {
+      await frames(1);
+      await fixture.whenStable();
+    }
+    const h = fixture.componentInstance.shown().n[0].h;
+    expect(h).toBeGreaterThan(80);
+    expect(host.style.height).toBe(`${h}px`);
+    const paper = host.querySelector<HTMLElement>('.tabela-papel')!.getBoundingClientRect();
+    const box = host.getBoundingClientRect();
+    expect(Math.abs(paper.width - box.width)).toBeLessThanOrEqual(1);
+    expect(paper.bottom).toBeLessThanOrEqual(box.bottom + 1);
+    // a peça não põe outro papel atrás da tabela
+    expect(getComputedStyle(host.querySelector('app-rich-text')!).backgroundImage).toBe('none');
+    expect(getComputedStyle(host.querySelector('app-rich-text')!).backgroundColor).toBe('rgba(0, 0, 0, 0)');
   });
 
   it('cada peça tem o nome falado: a moldura com quantas peças tem dentro, o bilhete com o que diz', async () => {
@@ -360,5 +423,49 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
     fixture.detectChanges();
     expect(card.dataset['jeito']).toBe('feito');
     expect(card.querySelector('.cartao-titulo')?.textContent?.trim()).toBe('Nota');
+  });
+});
+
+describe('Quadro livre: o desenho do widget (drawingIn)', () => {
+  let root: HTMLElement;
+  afterEach(() => root?.remove());
+
+  function mount(html: string): HTMLElement {
+    root = document.createElement('div');
+    root.style.cssText = 'position:absolute;left:0;top:0;width:480px';
+    root.innerHTML = html;
+    document.body.appendChild(root);
+    return root;
+  }
+
+  it('desce pelos embrulhos da largura toda e para no desenho, do tamanho dele', () => {
+    // o som: o host com respiro, o embrulho (.peca) da largura toda e a faixa do tamanho dela
+    mount('<div style="padding:7px 0 10px"><div class="peca"><div id="d" style="width:300px;height:120px"></div></div></div>');
+    expect(drawingIn(root)?.id).toBe('d');
+  });
+
+  it('o que está fora do fluxo (o broche, o player escondido) não conta', () => {
+    mount('<div><div id="d" style="width:200px;height:80px"></div><span style="position:absolute;top:0">x</span><audio></audio></div>');
+    expect(drawingIn(root)?.id).toBe('d');
+  });
+
+  it('a foto estreita é o desenho; dentro dela, a imagem num embrulho sem caixa conta junto com o broche', () => {
+    mount('<figure style="margin:0;width:fit-content"><span id="d" style="display:grid"><span style="display:contents"><i style="display:block;width:200px;height:150px"></i></span><b style="position:relative;width:30px">+</b></span></figure>');
+    expect(drawingIn(root)?.id).toBe('d');
+  });
+
+  it('com dois filhos (a foto e a legenda), o desenho é o que tem os dois', () => {
+    mount('<figure id="d" style="margin:0;width:fit-content"><div style="width:240px;height:160px"></div><figcaption>Legenda</figcaption></figure>');
+    expect(drawingIn(root)?.id).toBe('d');
+  });
+
+  it('o que enche a linha (o texto inteiro de uma nota) é o desenho, na largura de base', () => {
+    mount('<div id="d"><p>Um</p><p>Dois</p></div>');
+    expect(drawingIn(root)?.id).toBe('d');
+  });
+
+  it('sem nada dentro, nada', () => {
+    mount('');
+    expect(drawingIn(root)).toBeNull();
   });
 });

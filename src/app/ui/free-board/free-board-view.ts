@@ -28,12 +28,16 @@ import { FreeBoardEditOverlay, SelectionAction } from './edit-overlay';
 import { FreeBoardOwner } from './owner-tools';
 import { FreeBoardTools, RulerAsk } from './tool-ruler';
 import { drawFar, farDensity } from './far-layer';
-import { FreeBoardPiece } from './free-board-piece';
+import { FreeBoardPiece, PieceMeasured } from './free-board-piece';
+import { PieceMeasure, fitMeasured, sameMeasure } from './edit-ops';
 import { NEAR_PX, Scene, SceneFrame, needsRecount } from './scene';
 import { FreeBoardThumbs } from './thumbs';
 
 /** Abaixo deste zoom, o título da moldura fica pequeno demais no Dymo dela: o canvas desenha um do tamanho da tela. */
 export const LABELS_ON_CANVAS_BELOW = 0.5;
+
+/** Quanto tempo a caixa acertada por uma medida espera para ser guardada (as medidas chegam juntas, ao abrir). */
+const MEASURED_KEEP_MS = 800;
 
 /** Quanto as setas do teclado andam (px da tela); com Shift, cinco vezes isso. */
 const KEY_STEP = 80;
@@ -92,7 +96,7 @@ interface EdgeLabel {
       <div #farLayer class="mundo" aria-hidden="true"><canvas #far class="longe"></canvas></div>
       <div #front class="mundo">
         @for (p of pieces(); track p.node.i) {
-          <app-free-board-piece [node]="p.node" [info]="p.info" [level]="p.level" [thumb]="thumbOf(p.info.image, p.level)" [links]="links()" />
+          <app-free-board-piece [node]="p.node" [info]="p.info" [level]="p.level" [thumb]="thumbOf(p.info.image, p.level)" [links]="links()" (measured)="measured($event)" />
         }
         <!-- o rótulo da seta é fita colada por cima de tudo: nunca some debaixo de uma foto -->
         @for (e of labels(); track e.id) {
@@ -225,13 +229,24 @@ export class FreeBoardView implements RigHost {
 
   /** O quadro como está (o que chegou, com as mudanças do editar por cima até a página devolver o guardado). */
   readonly current = linkedSignal(() => this.board());
+  /** O que as peças mediram dos widgets: a proporção do desenho de cada um (só a de verdade; ver `measured`). */
+  private readonly measures = signal<ReadonlyMap<string, PieceMeasure>>(new Map());
+  /**
+   * O quadro como se vê: cada widget medido na caixa do desenho dele (edit-ops.ts, `fitMeasured`). É este que se
+   * seleciona, se puxa, se liga e se desenha; a mudança seguinte do editar o guarda assim.
+   */
+  readonly shown = computed(() => fitMeasured(this.current(), this.measures()));
   /** A edição: a ferramenta, a seleção, o arrasto no meio e o desfazer. */
   readonly editor = new BoardEditor({
-    board: () => this.current(),
+    board: () => this.shown(),
     zoom: () => this.rig?.camera.z ?? 1,
-    commit: (next, before) => {
-      this.current.set(next);
-      this.changed.emit({ board: next, from: before });
+    // a versão de partida é a que chegou; a mudança vai com as caixas acertadas pelas medidas (a tabela puxada
+    // para menos que o conteúdo guarda a altura dele)
+    commit: (next) => {
+      const from = this.current();
+      const board = fitMeasured(next, this.measures());
+      this.current.set(board);
+      this.changed.emit({ board, from });
     },
     say: (text) => this.notice.emit(text),
     dropArrow: (from, side, at, screen) => this.edits.dropArrow(from, side, at, screen),
@@ -240,7 +255,7 @@ export class FreeBoardView implements RigHost {
     editor: this.editor,
     editing: () => this.editing(),
     owner: () => this.owner(),
-    board: () => this.current(),
+    board: () => this.shown(),
     camera: () => this.rig?.camera ?? { x: 0, y: 0, z: 1 },
     visor: () => this.visor().nativeElement,
     middle: () => toWorld(this.rig?.camera ?? { x: 0, y: 0, z: 1 }, { x: this.dims.w / 2, y: this.dims.h / 2 }),
@@ -256,7 +271,11 @@ export class FreeBoardView implements RigHost {
     fitAll: () => this.fitAll(),
     goTo: (p) => this.goTo(p),
   });
-  protected readonly scene = computed(() => new Scene(this.editor.preview() ?? this.current()));
+  protected readonly scene = computed(() => {
+    const preview = this.editor.preview();
+    // no meio do gesto, também com as medidas: a tabela não fica menor que o conteúdo nem enquanto é puxada
+    return new Scene(preview ? fitMeasured(preview, this.measures()) : this.shown());
+  });
   protected readonly menuCaption = signal('');
   protected readonly menuSections = signal<MenuSections>([]);
   protected readonly helpOpen = signal(false);
@@ -332,6 +351,8 @@ export class FreeBoardView implements RigHost {
   );
 
   private rig: CameraRig | null = null;
+  /** A tela saiu (nada mais é guardado por ela). */
+  private gone = false;
   private dims = { w: 0, h: 0 };
   private dpr = 1;
   private moving = false;
@@ -345,6 +366,7 @@ export class FreeBoardView implements RigHost {
 
   constructor() {
     const destroy = inject(DestroyRef);
+    destroy.onDestroy(() => (this.gone = true));
     afterNextRender(() => {
       const el = this.visor().nativeElement;
       const start = untracked(this.camera);
@@ -377,6 +399,14 @@ export class FreeBoardView implements RigHost {
         this.editor.writing.set(null);
         this.editor.tool.set('selecionar');
       });
+    });
+    // no editar do dono, a caixa acertada por uma medida nova (a imagem trocada que chegou, o widget que mudou de
+    // tamanho) fica guardada sozinha, um instante depois e fora de um gesto: sem passo no desfazer (ninguém a fez)
+    effect((onCleanup) => {
+      const shown = this.shown();
+      if (!this.editing() || !this.owner() || shown === this.current() || this.editor.preview() || this.editor.writing()) return;
+      const timer = setTimeout(() => this.keepMeasured(), MEASURED_KEEP_MS);
+      onCleanup(() => clearTimeout(timer));
     });
     // uma miniatura ficou pronta: a camada de longe a desenha
     effect(() => {
@@ -508,7 +538,7 @@ export class FreeBoardView implements RigHost {
    * o foco). Depois da última, o foco sai do quadro; antes da primeira, volta para o quadro.
    */
   private tab(e: KeyboardEvent): void {
-    const order = readingOrder(this.current());
+    const order = readingOrder(this.shown());
     if (!order.length) return;
     const visor = this.visor().nativeElement;
     const from = document.activeElement;
@@ -618,6 +648,51 @@ export class FreeBoardView implements RigHost {
 
   protected countOf(id: string): number {
     return this.counts().get(id) ?? 0;
+  }
+
+  /**
+   * Uma peça mediu o desenho do widget dela. Só a medida de verdade (a foto que chegou e abriu) acerta a caixa: a de
+   * enquanto carrega, ou do que não abriu, mudaria o quadro por um problema de rede.
+   */
+  protected measured(m: PieceMeasured): void {
+    if (!m.settled) return;
+    const was = this.pendingMeasures?.get(m.id) ?? this.measures().get(m.id);
+    if (was && sameMeasure(was, m)) return;
+    const { id, settled: _, ...measure } = m;
+    // as medidas chegam juntas (todas as peças medem no mesmo quadro de animação): o mapa novo sai uma vez só
+    if (!this.pendingMeasures) {
+      this.pendingMeasures = new Map();
+      queueMicrotask(() => this.flushMeasures());
+    }
+    this.pendingMeasures.set(id, measure);
+  }
+
+  private pendingMeasures: Map<string, PieceMeasure> | null = null;
+
+  private flushMeasures(): void {
+    const pending = this.pendingMeasures;
+    this.pendingMeasures = null;
+    if (!pending?.size || this.gone) return;
+    // (as das peças que saíram do quadro saem junto)
+    const ids = new Set(this.current().n.map((n) => n.i));
+    const next = new Map([...this.measures()].filter(([id]) => ids.has(id)));
+    for (const [id, m] of pending) next.set(id, m);
+    this.measures.set(next);
+  }
+
+  /** Guarda as caixas acertadas pelas medidas (ver o construtor); no meio de um gesto ou escrevendo, depois deles. */
+  private keepMeasured(): void {
+    const from = this.current();
+    const shown = this.shown();
+    if (shown === from || !this.editing() || this.gone || this.editor.preview() || this.editor.writing()) return;
+    // o ponteiro desceu numa peça e ainda não andou: espera ele subir
+    if (this.editor.busy) {
+      setTimeout(() => this.keepMeasured(), MEASURED_KEEP_MS);
+      return;
+    }
+    // (a data do quadro fica: ninguém mexeu nele, e ele não sobe na lista dos mexidos)
+    this.current.set(shown);
+    this.changed.emit({ board: shown, from });
   }
 
   /** A miniatura da imagem para a peça do meio (pedida aqui, se ainda não tem). */

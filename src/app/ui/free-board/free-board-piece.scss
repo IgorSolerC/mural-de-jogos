@@ -25,10 +25,15 @@
   --feltro: #57534c;
 }
 
-/* o foco do teclado (Tab anda pelas peças): o anel amarelo na parede, em volta da peça */
+/* o foco do teclado (Tab anda pelas peças): o anel amarelo encostado na borda da peça, como o da seleção */
 :host(:focus-visible) {
   outline: 3px solid var(--focus);
-  outline-offset: 6px;
+  outline-offset: 0;
+}
+
+/* no editar, a peça se arruma (as alças ficam nos cantos): o broche de ampliar do widget sai do caminho */
+:host-context(.editando) ::ng-deep app-zoom-knob {
+  visibility: hidden;
 }
 
 /* ===== A moldura: uma folha de feltro de cantos macios, com o pesponto claro rente à borda ===== */
@@ -159,17 +164,28 @@
 
 /* ===== Os widgets: a mesma peça das anotações; no meio, a versão leve ===== */
 
+/* o widget em escala: desenhado na largura e na linha de base (as duas vêm de free-board-piece.ts) e ampliado por
+   igual até encher a caixa. Escondido até a primeira medida; a sobra da largura de base não pega o ponteiro */
+.escala {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 app-note-widget,
 .tabela {
   display: block;
   width: 100%;
 }
 
+/* a tabela enche a caixa (o modo `encher` de ui/rich-text.ts), no papel do jeito dela, sem outro papel por baixo.
+   A Caneta, sem papel, é giz na parede */
 .tabela {
-  padding: 10px 12px;
-  box-sizing: border-box;
-  background: var(--papel-ficha);
-  box-shadow: var(--shadow-card);
+  height: 100%;
+  color: var(--wall-ink);
 }
 
 .miniatura,

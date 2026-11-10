@@ -172,7 +172,7 @@ const EAR_GAP = 0.2;
       }
     } @else {
       <!-- sumiu: o pedaço de papel que ficou colado, com o nome dela (ou, a privada, o cadeado) -->
-      <div class="perdida" [class.privada]="ref().hidden" data-colado role="note">
+      <div class="perdida" [class.privada]="ref().hidden" data-colado data-sem-medida role="note">
         @if (ref().hidden) {
           <lucide-icon class="perdida-icone" [img]="PrivateIcon" [size]="22" aria-hidden="true" />
           <span class="perdida-texto">

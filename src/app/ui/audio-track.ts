@@ -69,7 +69,7 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
     @let a = info();
     <div class="peca">
     @if (problem(); as why) {
-      <span class="falha">
+      <span class="falha" data-sem-medida>
         <lucide-icon [img]="MuteIcon" [size]="22" aria-hidden="true" />
         <span class="falha-nome">{{ why }}</span>
         @if (host()) {
