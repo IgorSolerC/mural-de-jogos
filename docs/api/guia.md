@@ -55,6 +55,12 @@ Uma nota nova nasce privada. Um grupo que não existe é recusado (422 `grupo-no
 - Baralho: `id`, `nome`, `grupo` (o das anotações dele; não muda por `editar_baralho`), `cor`, `icone` (só se escolhe no app), `novas_por_dia`, `no_mural`, `estilo` (o desenho da frente), `posicao`, `cartas`, `por_nivel`. A configuração (`retencao`, `revisoes_por_dia`, `ordem_das_novas`) só se lê.
 - `tirar_dos_estudos`, `recomecar_carta` e `apagar_baralho` perdem progresso (com Desfazer no histórico): pergunte antes. Apagar um baralho tira dos Estudos a carta que só estava nele; nenhuma anotação é apagada. As anotações compartilhadas não viram carta pela API, e a chave limitada a alguns grupos só vê as cartas das notas deles e os baralhos deles.
 
+## O Quadro livre
+
+- O **Quadro livre** são paredes sem fim, uma por quadro, dentro de um grupo das Anotações: **molduras** com título (as regiões), **bilhetes** (texto curto), as **anotações** coladas (o widget Nota), imagens, os widgets das anotações e **setas** entre as peças, com rótulo.
+- `ver_quadros` lista; `ler_quadro` traz o quadro em texto, com o id de cada peça entre colchetes. Para pôr algo: `criar_quadro` (vazio, num grupo), `acrescentar_no_quadro` (bilhetes e anotações, cada um perto de uma peça ou à direita de tudo, setas e uma moldura em volta de peças) e `ligar_no_quadro` (só setas). Nas setas e na moldura, as peças novas do mesmo pedido são `nova1`, `nova2`...
+- Mover, mudar e apagar peças (e apagar o quadro) só a pessoa faz, no Murall. Os pedidos entram quando o Murall abre, como os outros.
+
 ## O Calendário
 
 - Cada **lembrete** guarda o primeiro `dia` e como se repete (`repete`); o app é quem abre as repetições. Para saber o que acontece num dia ou numa semana, use `ver_agenda` (`de`/`ate`): ela traz cada vez de cada lembrete, já com a semana de vários dias, "a terceira terça", o dia 31 nos meses curtos e os dias tirados. Não refaça essas contas a partir da lista. Vai de 3 meses antes do atual a 12 depois (em `ver_contexto`, `calendario.janela`).
@@ -126,6 +132,11 @@ Sempre JSON: `{"erro": "codigo", "mensagem": "em português"}`. 400 (a forma err
 - `criar_baralho` (estudos:escrever): Cria um baralho num grupo das Anotações (no fim da fileira): só as anotações desse grupo viram cartas nele. Já dá para pôr cartas nele antes de o pedido entrar. Um nome que já existe no mesmo grupo volta 409 com o baralho de agora; o mesmo nome em outro grupo pode.
 - `editar_baralho` (estudos:escrever): Muda o nome, a cor, as novas por dia, o "no mural", o estilo ou o lugar do baralho na fileira. Mande só o que muda. O grupo do baralho não muda (para outro grupo, crie um baralho nele).
 - `apagar_baralho` (estudos:apagar): Apaga o baralho: as cartas saem dele, e a que só estava nele sai dos Estudos com o progresso (a anotação nunca é apagada e volta ao mural). A pessoa pode desfazer pelo histórico. Pergunte ao usuário antes.
+- `ver_quadros` (notas:ler): Os quadros do Quadro livre (paredes sem fim com molduras, bilhetes, anotações, imagens e setas), com o grupo, quantas peças e setas, e quando mudaram. Com grupo, só os dele.
+- `ler_quadro` (notas:ler): Um quadro em texto: as molduras como títulos, as peças dentro delas na ordem de leitura (de cima para baixo, da esquerda para a direita), cada uma com o id entre colchetes, e as setas no fim ("A → B (rótulo)"). Use os ids para acrescentar_no_quadro e ligar_no_quadro.
+- `criar_quadro` (notas:criar): Um quadro novo e vazio num grupo das Anotações (veja ver_contexto). Ele nasce privado. Devolve o id, que já vale para acrescentar_no_quadro.
+- `acrescentar_no_quadro` (notas:criar): Põe peças novas num quadro: bilhetes (texto curto) e anotações (pelo id), cada uma ao lado de uma peça que já está lá (perto) ou à direita de tudo; setas entre peças (as de lá pelo id, as novas por novaN); e uma moldura com título em volta de peças. Não move nem apaga nada.
+- `ligar_no_quadro` (notas:criar): Setas novas entre peças que já estão no quadro (pelos ids de ler_quadro), com rótulo opcional.
 - `ver_agenda` (calendario:ler): O que acontece entre dois dias, como o Calendário do app mostra: cada vez de cada lembrete, com as repetições já abertas (a semana com vários dias, "a terceira terça", os dias tirados). Sem de, de hoje a um mês. Vai de 3 meses antes do atual a 12 depois; para mais longe, use listar_lembretes. O que ainda não entrou vem em pedidos_abertos.
 - `listar_lembretes` (calendario:ler): Os lembretes como estão guardados (cada um com a repetição, em palavras também), do primeiro dia mais novo para o mais antigo. de/ate olham o primeiro dia; para o que acontece num dia, use ver_agenda. Pagine com depois.
 - `ler_lembrete` (calendario:ler): Um lembrete inteiro, com a versao (para mudar ou apagar).

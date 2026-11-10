@@ -34,6 +34,8 @@ import { GameLookup } from './game-lookup';
 import { fold } from './text';
 import { ColumnNames, KanbanResult, applyKanbanRequest, boardById, columnNames, kanbanTitle, kanbanWords, placeNewNote, undoKanban } from './api-requests-kanban';
 import { KanbanStore } from './kanban-store';
+import { BoardResult, applyBoardRequest, boardTitle, boardWords, isBoardOp, undoBoard } from './api-requests-boards';
+import { FreeBoardStore } from './free-board-store';
 import { StudyResult, applyStudyRequest, deckNames, isStudyOp, placeInDecks, studyTitle, studyWords, undoStudy } from './api-requests-study';
 import { StudyStore } from './study-store';
 import { ApiMirror, indiceDaArvore } from './api-mirror';
@@ -92,7 +94,7 @@ export interface SiteRequest {
 export type Concluded = 'aplicado' | 'conflito' | 'falhou';
 
 /** O que a AI lê depois: a nota como ficou (null: apagada), ou o porquê de não ter entrado. */
-export type RequestResult = { nota: NotaV1 | null; aviso?: string } | { erro: string; nota?: NotaV1 } | SpendingResult | KanbanResult | CalendarResult | MuralResult | StudyResult;
+export type RequestResult = { nota: NotaV1 | null; aviso?: string } | { erro: string; nota?: NotaV1 } | SpendingResult | KanbanResult | CalendarResult | MuralResult | StudyResult | BoardResult;
 
 /** Um pedido aplicado aqui, pronto para concluir na nuvem. */
 export interface AppliedItem {
@@ -389,6 +391,8 @@ export function requestWords(op: string, dados: unknown, title: string, past = f
   if (mural) return mural;
   const study = studyWords(op, dados, title, past, cols);
   if (study) return study;
+  const board = boardWords(op, dados, title, past);
+  if (board) return board;
   const t = `“${title}”`;
   const d = (dados ?? {}) as Record<string, unknown>;
   const v = (now: string, then: string) => (past ? then : now);
@@ -544,6 +548,7 @@ export class ApiRequests {
   private readonly kanban = inject(KanbanStore);
   private readonly calendar = inject(CalendarStore);
   private readonly study = inject(StudyStore);
+  private readonly freeBoards = inject(FreeBoardStore);
   private readonly lookup = inject(GameLookup);
   private readonly folders = inject(NoteFolders);
 
@@ -605,7 +610,9 @@ export class ApiRequests {
       const items = this.readItems();
       const stamps: RequestStamps = new Map(items.filter((i) => i.carimbo).map((i) => [`${i.alvo}@${i.carimbo}`, i.desde ?? null]));
       const now = new Date().toISOString();
-      const out = req.op.startsWith('nota.')
+      const out = isBoardOp(req.op)
+        ? await applyBoardRequest(this.freeBoards, req, { noteTitle: (id) => (this.ownNote(id) ? this.store.get(id)!.game.name : undefined) })
+        : req.op.startsWith('nota.')
         ? applyNoteRequest(this.store, req, {
             now,
             today: todayISO(),
@@ -715,6 +722,10 @@ export class ApiRequests {
       undoStudy(this.study, t);
       return;
     }
+    if (isBoardOp(t.op)) {
+      await undoBoard(this.freeBoards, t);
+      return;
+    }
     if (isMuralOp(t.op)) {
       undoMural(this.store, t);
       return;
@@ -763,6 +774,7 @@ export class ApiRequests {
   titleOf(t: Pick<SiteRequest, 'op' | 'alvo' | 'dados'> & { resultado?: unknown; antes?: unknown }): string {
     if (isKanbanOp(t.op)) return kanbanTitle(this.kanban, this.store, t);
     if (isCalendarOp(t.op)) return calendarTitle(this.calendar, t);
+    if (isBoardOp(t.op)) return boardTitle(this.freeBoards, t);
     if (isStudyOp(t.op)) return studyTitle(this.study, (id) => (this.ownNote(id) ? this.store.get(id)!.game.name : undefined), t);
     if (isMuralOp(t.op)) return muralTitle(this.store, t);
     if (!t.op.startsWith('nota.')) return spendingTitle(this.spending, t);

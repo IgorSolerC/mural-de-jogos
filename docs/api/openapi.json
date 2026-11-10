@@ -2157,6 +2157,332 @@
         }
       }
     },
+    "/ext/v1/quadros": {
+      "get": {
+        "operationId": "ver_quadros",
+        "summary": "Ver os quadros livres",
+        "description": "Os quadros do Quadro livre (paredes sem fim com molduras, bilhetes, anotações, imagens e setas), com o grupo, quantas peças e setas, e quando mudaram. Com grupo, só os dele. Permissão: notas:ler.",
+        "parameters": [
+          {
+            "name": "grupo",
+            "in": "query",
+            "required": false,
+            "description": "Opcional: só os quadros deste grupo das Anotações.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "O que foi pedido, em JSON."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      },
+      "post": {
+        "operationId": "criar_quadro",
+        "summary": "Criar um quadro livre",
+        "description": "Um quadro novo e vazio num grupo das Anotações (veja ver_contexto). Ele nasce privado. Devolve o id, que já vale para acrescentar_no_quadro. Permissão: notas:criar.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nome": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 60,
+                    "description": "O nome do quadro."
+                  },
+                  "grupo": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80,
+                    "description": "O grupo das Anotações."
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "nome",
+                  "grupo"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/quadros/{id}": {
+      "get": {
+        "operationId": "ler_quadro",
+        "summary": "Ler um quadro livre",
+        "description": "Um quadro em texto: as molduras como títulos, as peças dentro delas na ordem de leitura (de cima para baixo, da esquerda para a direita), cada uma com o id entre colchetes, e as setas no fim (\"A → B (rótulo)\"). Use os ids para acrescentar_no_quadro e ligar_no_quadro. Permissão: notas:ler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 60,
+              "description": "O quadro: o id do quadro (22 letras, de ver_quadros) ou o nome dele."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "O que foi pedido, em JSON."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/quadros/{id}/pecas": {
+      "post": {
+        "operationId": "acrescentar_no_quadro",
+        "summary": "Acrescentar no quadro livre",
+        "description": "Põe peças novas num quadro: bilhetes (texto curto) e anotações (pelo id), cada uma ao lado de uma peça que já está lá (perto) ou à direita de tudo; setas entre peças (as de lá pelo id, as novas por novaN); e uma moldura com título em volta de peças. Não move nem apaga nada. Permissão: notas:criar.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 60,
+              "description": "O quadro: o id do quadro (22 letras, de ver_quadros) ou o nome dele."
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "pecas": {
+                    "type": "array",
+                    "maxItems": 30,
+                    "description": "As peças novas, na ordem (a primeira é nova1).",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "bilhete": {
+                          "type": "string",
+                          "maxLength": 4000,
+                          "description": "Um bilhete: o texto (com a formatação das anotações)."
+                        },
+                        "nota": {
+                          "type": "string",
+                          "pattern": "^[\\w-]{1,64}$",
+                          "description": "Ou uma anotação: o id dela (vira o widget Nota)."
+                        },
+                        "perto": {
+                          "type": "string",
+                          "pattern": "^([A-Za-z0-9_-]{1,24}|nova\\d{1,2})$",
+                          "description": "O id de uma peça do quadro (o que vem entre colchetes em ler_quadro), ou novaN: a N-ésima peça nova deste mesmo pedido."
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "setas": {
+                    "type": "array",
+                    "maxItems": 30,
+                    "description": "As setas, de uma peça para outra.",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "de": {
+                          "type": "string",
+                          "pattern": "^([A-Za-z0-9_-]{1,24}|nova\\d{1,2})$",
+                          "description": "O id de uma peça do quadro (o que vem entre colchetes em ler_quadro), ou novaN: a N-ésima peça nova deste mesmo pedido."
+                        },
+                        "para": {
+                          "type": "string",
+                          "pattern": "^([A-Za-z0-9_-]{1,24}|nova\\d{1,2})$",
+                          "description": "O id de uma peça do quadro (o que vem entre colchetes em ler_quadro), ou novaN: a N-ésima peça nova deste mesmo pedido."
+                        },
+                        "rotulo": {
+                          "type": "string",
+                          "maxLength": 120,
+                          "description": "Opcional: o rótulo, na fita-crepe no meio da seta."
+                        }
+                      },
+                      "required": [
+                        "de",
+                        "para"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "moldura": {
+                    "type": "object",
+                    "properties": {
+                      "titulo": {
+                        "type": "string",
+                        "maxLength": 80,
+                        "description": "O título, na fita Dymo."
+                      },
+                      "pecas": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 200,
+                        "items": {
+                          "type": "string",
+                          "pattern": "^([A-Za-z0-9_-]{1,24}|nova\\d{1,2})$",
+                          "description": "O id de uma peça do quadro (o que vem entre colchetes em ler_quadro), ou novaN: a N-ésima peça nova deste mesmo pedido."
+                        },
+                        "description": "As peças que a moldura cerca."
+                      }
+                    },
+                    "required": [
+                      "pecas"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/quadros/{id}/setas": {
+      "post": {
+        "operationId": "ligar_no_quadro",
+        "summary": "Ligar peças no quadro livre",
+        "description": "Setas novas entre peças que já estão no quadro (pelos ids de ler_quadro), com rótulo opcional. Permissão: notas:criar.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 60,
+              "description": "O quadro: o id do quadro (22 letras, de ver_quadros) ou o nome dele."
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "setas": {
+                    "type": "array",
+                    "maxItems": 30,
+                    "description": "As setas, de uma peça para outra.",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "de": {
+                          "type": "string",
+                          "pattern": "^([A-Za-z0-9_-]{1,24}|nova\\d{1,2})$",
+                          "description": "O id de uma peça do quadro (o que vem entre colchetes em ler_quadro), ou novaN: a N-ésima peça nova deste mesmo pedido."
+                        },
+                        "para": {
+                          "type": "string",
+                          "pattern": "^([A-Za-z0-9_-]{1,24}|nova\\d{1,2})$",
+                          "description": "O id de uma peça do quadro (o que vem entre colchetes em ler_quadro), ou novaN: a N-ésima peça nova deste mesmo pedido."
+                        },
+                        "rotulo": {
+                          "type": "string",
+                          "maxLength": 120,
+                          "description": "Opcional: o rótulo, na fita-crepe no meio da seta."
+                        }
+                      },
+                      "required": [
+                        "de",
+                        "para"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "setas"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
     "/ext/v1/agenda": {
       "get": {
         "operationId": "ver_agenda",

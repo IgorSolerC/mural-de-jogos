@@ -177,6 +177,13 @@ export class FreeBoardsPage {
         { id: 'renomear', label: 'Renomear', icon: ICON.editar, run: () => this.startRename(b) },
         { id: 'duplicar', label: 'Duplicar', icon: ICON.copiar, run: () => void this.duplicate(b.id) },
         ...(this.groups().length > 1 ? [{ id: 'mover', label: 'Mover para o grupo…', icon: ICON.pasta, dialog: true, run: () => this.reopenForMove(b.id) }] : []),
+        {
+          id: 'publico',
+          label: b.publico ? 'Tornar privado' : 'Tornar público',
+          icon: ICON.mundo,
+          hint: b.publico ? 'Só você vê o quadro' : 'Quem visita o seu mural vê o quadro, com as imagens dele',
+          run: () => void this.setPublic(b.id, !b.publico),
+        },
       ],
       [{ id: 'apagar', label: 'Apagar', icon: ICON.apagar, danger: true, dialog: true, run: () => void this.removal.board(b.id) }],
     ];
@@ -403,6 +410,11 @@ export class FreeBoardsPage {
     const moved = await this.store.moveToGroup(id, group);
     if (!moved || !before) return;
     this.toasts.show(`${moved.nome} foi para ${moved.grupo}`, { label: 'Desfazer', run: () => void this.store.moveToGroup(id, before.grupo) });
+  }
+
+  private async setPublic(id: string, on: boolean): Promise<void> {
+    const b = await this.store.setPublic(id, on);
+    if (b) this.toasts.show(on ? `${b.nome} ficou público: quem visita o seu mural vê` : `${b.nome} ficou só seu`, { label: 'Desfazer', run: () => void this.store.setPublic(id, !on) });
   }
 
   private async duplicate(id: string): Promise<void> {

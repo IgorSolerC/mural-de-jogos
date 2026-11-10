@@ -21,7 +21,7 @@ import { BoardSketch } from './board-sketch';
       <app-board-sketch class="miniatura" [board]="board()" />
       <span class="nome">{{ board().nome }}</span>
       <span class="pe" aria-hidden="true">
-        <span>{{ countText() }}</span>
+        <span>{{ countText() }}@if (board().publico) {<span class="publico"> · público</span>}</span>
         <span [title]="whenFull()">{{ when() }}</span>
       </span>
     </a>
@@ -108,5 +108,5 @@ export class FreeBoardCard {
   protected readonly countText = computed(() => `${this.count()} ${this.count() === 1 ? 'peça' : 'peças'}`);
   protected readonly when = computed(() => agoLabel(this.board().em));
   protected readonly whenFull = computed(() => fullWhen(this.board().em));
-  protected readonly spoken = computed(() => `Quadro ${this.board().nome}, ${this.countText()}, mudou ${this.when()}`);
+  protected readonly spoken = computed(() => `Quadro ${this.board().nome}, ${this.countText()}${this.board().publico ? ', público' : ''}, mudou ${this.when()}`);
 }

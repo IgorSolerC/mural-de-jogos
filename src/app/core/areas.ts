@@ -95,6 +95,11 @@ export function visitStudyPath(group?: string | null, deck?: string | null): str
   return '/comparar/mural/estudos' + (group ? `/${group}` + (deck ? `/${deck}` : '') : '');
 }
 
+/** O Quadro livre de quem se visita (PLANO-QUADRO-LIVRE.md, 4.8): os quadros públicos da pessoa, por grupo. */
+export function visitBoardPath(group?: string | null, board?: string | null): string {
+  return '/comparar/mural/quadro-livre' + (group ? `/${group}` + (board ? `/${board}` : '') : '');
+}
+
 /**
  * O Calendário, nas Utilidades desde 02/nov/2026 (`/anotacoes/calendario`, o endereço de antes,
  * redireciona para cá com a query: o dia e o lembrete dos links continuam abrindo).

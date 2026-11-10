@@ -124,11 +124,11 @@ export class FreeBoardStore {
   // ===== criar e mudar =====
 
   /** Um quadro novo no grupo, já guardado. Sem nome, "Quadro"; o nome repetido no grupo ganha um número. */
-  async create(nome: string, grupo: string): Promise<FreeBoard> {
+  async create(nome: string, grupo: string, id?: string): Promise<FreeBoard> {
     await this.ready;
     if (this.count() >= FB_MAX_BOARDS) throw new FreeBoardProblem(`Cabem ${FB_MAX_BOARDS} quadros. Apague um para criar outro.`);
     const group = cleanCategory(grupo);
-    const board = newFreeBoard(freeBoardName(this.boards(), group, nome), group, new Date().toISOString());
+    const board = newFreeBoard(freeBoardName(this.boards(), group, nome), group, new Date().toISOString(), id);
     if (!board) throw new FreeBoardProblem('O quadro precisa de um grupo.');
     return this.save(board);
   }
@@ -166,6 +166,15 @@ export class FreeBoardStore {
     const name = cleanBoardName(nome);
     if (!name) return this.get(id);
     return this.update(id, (b) => (b.nome === name ? b : { ...b, nome: name, em: new Date().toISOString() }));
+  }
+
+  /** Público (quem visita o seu mural vê) ou só seu. */
+  async setPublic(id: string, on: boolean): Promise<FreeBoard | null> {
+    return this.update(id, (b) => {
+      if (!!b.publico === on) return b;
+      const { publico: _, ...rest } = b;
+      return { ...(on ? { ...rest, publico: true as const } : rest), em: new Date().toISOString() } as FreeBoard;
+    });
   }
 
   /** Muda o quadro de grupo ("Mover para o grupo..."). */

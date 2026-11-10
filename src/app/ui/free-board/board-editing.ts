@@ -26,6 +26,8 @@ export interface EditingHost {
   /** Liga ou desliga o editar (o E, o "Editar o quadro" do menu, o Esc sem seleção). */
   toggleEdit(on: boolean): void;
   showHelp(): void;
+  /** "Ver em lista": o quadro como texto (seção 4.9). */
+  showList(): void;
   fitAll(): void;
   /** Leva a câmera até o ponto (o "Ir até aqui"). */
   goTo(p: Point): void;
@@ -531,7 +533,10 @@ export class BoardEditing {
       first.push({ id: 'ir', label: 'Ir até aqui', icon: ICON.alvo, run: () => this.h.goTo(center(hit)) });
       sections.push(first);
     } else {
-      sections.push([{ id: 'ver-tudo', label: 'Ver tudo', icon: ICON.aumentar, keys: '0', run: () => this.h.fitAll() }]);
+      sections.push([
+        { id: 'ver-tudo', label: 'Ver tudo', icon: ICON.aumentar, keys: '0', run: () => this.h.fitAll() },
+        { id: 'lista', label: 'Ver em lista', icon: ICON.lista, keys: 'L', dialog: true, run: () => this.h.showList() },
+      ]);
     }
     if (this.h.owner()) sections.push([{ id: 'editar', label: 'Editar o quadro', icon: ICON.editar, keys: 'E', run: () => this.h.toggleEdit(true) }]);
     this.h.menu(hit ? `ver:${hit.i}` : 'ver:fundo', hit ? this.captionOf(hit) : 'O quadro', sections, x, y, by);
@@ -634,6 +639,7 @@ export class BoardEditing {
       [
         { id: 'tudo', label: 'Selecionar tudo', icon: ICON.semDesenho, keys: 'Ctrl+A', run: () => this.ed.selectAll() },
         { id: 'ver-tudo', label: 'Ver tudo', icon: ICON.aumentar, keys: '0', run: () => this.h.fitAll() },
+        { id: 'lista', label: 'Ver em lista', icon: ICON.lista, keys: 'L', dialog: true, run: () => this.h.showList() },
       ],
     ];
   }
@@ -678,6 +684,10 @@ export class BoardEditing {
   /** Os atalhos do editar; devolve se a tecla foi usada. */
   key(e: KeyboardEvent): boolean {
     if (e.key === ' ' && !e.repeat) this.space = true;
+    if ((e.key === 'l' || e.key === 'L') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      this.h.showList();
+      return true;
+    }
     if (!this.h.editing()) {
       if ((e.key === 'e' || e.key === 'E') && !e.ctrlKey && !e.metaKey && !e.altKey && this.h.owner()) {
         this.h.toggleEdit(true);

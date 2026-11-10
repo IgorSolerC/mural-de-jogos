@@ -89,6 +89,12 @@ Uma nota nova nasce privada. Um grupo que não existe é recusado (422 \`grupo-n
 - Baralho: \`id\`, \`nome\`, \`grupo\` (o das anotações dele; não muda por \`editar_baralho\`), \`cor\`, \`icone\` (só se escolhe no app), \`novas_por_dia\`, \`no_mural\`, \`estilo\` (o desenho da frente), \`posicao\`, \`cartas\`, \`por_nivel\`. A configuração (\`retencao\`, \`revisoes_por_dia\`, \`ordem_das_novas\`) só se lê.
 - \`tirar_dos_estudos\`, \`recomecar_carta\` e \`apagar_baralho\` perdem progresso (com Desfazer no histórico): pergunte antes. Apagar um baralho tira dos Estudos a carta que só estava nele; nenhuma anotação é apagada. As anotações compartilhadas não viram carta pela API, e a chave limitada a alguns grupos só vê as cartas das notas deles e os baralhos deles.
 
+## O Quadro livre
+
+- O **Quadro livre** são paredes sem fim, uma por quadro, dentro de um grupo das Anotações: **molduras** com título (as regiões), **bilhetes** (texto curto), as **anotações** coladas (o widget Nota), imagens, os widgets das anotações e **setas** entre as peças, com rótulo.
+- \`ver_quadros\` lista; \`ler_quadro\` traz o quadro em texto, com o id de cada peça entre colchetes. Para pôr algo: \`criar_quadro\` (vazio, num grupo), \`acrescentar_no_quadro\` (bilhetes e anotações, cada um perto de uma peça ou à direita de tudo, setas e uma moldura em volta de peças) e \`ligar_no_quadro\` (só setas). Nas setas e na moldura, as peças novas do mesmo pedido são \`nova1\`, \`nova2\`...
+- Mover, mudar e apagar peças (e apagar o quadro) só a pessoa faz, no Murall. Os pedidos entram quando o Murall abre, como os outros.
+
 ## O Calendário
 
 - Cada **lembrete** guarda o primeiro \`dia\` e como se repete (\`repete\`); o app é quem abre as repetições. Para saber o que acontece num dia ou numa semana, use \`ver_agenda\` (\`de\`/\`ate\`): ela traz cada vez de cada lembrete, já com a semana de vários dias, "a terceira terça", o dia 31 nos meses curtos e os dias tirados. Não refaça essas contas a partir da lista. Vai de 3 meses antes do atual a 12 depois (em \`ver_contexto\`, \`calendario.janela\`).

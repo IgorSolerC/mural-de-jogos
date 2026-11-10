@@ -132,7 +132,7 @@ export function espelhoSuite(label: string, getDb: () => Db) {
       const t = await setup();
       const me = await t.login('ana');
       await t.newKey(me.token);
-      expect(await t.body(t.json('GET', '/v1/eu/espelho', undefined, me.token))).toEqual({ areas: ['notas'], rev: null, hashes: { nota: {}, contexto: {} } });
+      expect(await t.body(t.json('GET', '/v1/eu/espelho', undefined, me.token))).toEqual({ areas: ['notas'], rev: null, hashes: { nota: {}, contexto: {}, 'quadro-livre': {} } });
       // sem mural na nuvem, nenhuma rev serve
       expect((await t.body(t.mirror(me.token, { rev: 1, poe: [t.item(NOTAS[0]!)] }))).erro).toBe('espelho-atrasado');
       const rev = await t.push(me.token, 0);

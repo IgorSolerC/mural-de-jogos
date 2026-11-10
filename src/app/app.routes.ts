@@ -17,6 +17,7 @@ export function visitMatcher(segments: UrlSegment[]): UrlMatchResult | null {
   const [a, b, secao, grupo, baralho, ...rest] = segments;
   if (a?.path !== 'comparar' || b?.path !== 'mural' || rest.length) return null;
   if (!secao) return { consumed: segments, posParams: {} };
+  if (secao.path === 'quadro-livre') return { consumed: segments, posParams: { secao, ...(grupo ? { grupo } : {}), ...(baralho ? { quadro: baralho } : {}) } };
   if (secao.path !== 'estudos') return null;
   return { consumed: segments, posParams: { secao, ...(grupo ? { grupo } : {}), ...(baralho ? { baralho } : {}) } };
 }

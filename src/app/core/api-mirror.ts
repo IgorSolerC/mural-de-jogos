@@ -1,4 +1,8 @@
-import { Injectable, inject } from '@angular/core';
+import { QUADRO_TEXTO_MAX, type QuadroLivreV1 } from '../../../contrato/api-v1/quadros-livres';
+import { FreeBoard, pieceCount, shownEdges } from './free-board';
+import { FreeBoardStore } from './free-board-store';
+import { boardAsText } from './free-board-text';
+import { Injectable, effect, inject, untracked } from '@angular/core';
 import { NoteFolders } from './note-folders';
 import { FolderTree, NO_FOLDERS, NoteFolder } from './folders';
 import type { AgendaDoMesV1, LembreteV1 } from '../../../contrato/api-v1/calendario';
@@ -48,13 +52,13 @@ export interface MirrorItem {
   tipo: TipoDoEspelho;
   id: string;
   hash: string;
-  dados: NotaNoEspelhoV1 | ContextoNotasV1 | LancamentoV1 | MesV1 | ContextoGastosV1 | QuadroV1 | LembreteV1 | AgendaDoMesV1 | DesejoV1 | PraDepoisV1 | FichaV1 | ContextoFichasV1 | CartaV1 | BaralhoV1 | ContextoEstudosV1;
+  dados: NotaNoEspelhoV1 | ContextoNotasV1 | LancamentoV1 | MesV1 | ContextoGastosV1 | QuadroV1 | LembreteV1 | AgendaDoMesV1 | DesejoV1 | PraDepoisV1 | FichaV1 | ContextoFichasV1 | CartaV1 | BaralhoV1 | ContextoEstudosV1 | QuadroLivreV1;
 }
 
 /** As áreas que este site sabe espelhar, e os tipos que se tiram quando somem daqui. */
 const AREAS = ['notas', 'gastos', 'kanban', 'calendario', 'desejos', 'pra-depois', 'fichas', 'estudos'] as const;
 const DROPPABLE: Record<(typeof AREAS)[number], readonly TipoDoEspelho[]> = {
-  notas: ['nota'],
+  notas: ['nota', 'quadro-livre'],
   gastos: ['lancamento', 'visao'],
   kanban: ['quadro'],
   calendario: ['lembrete', 'agenda'],
@@ -233,6 +237,16 @@ export class ApiMirror {
   private readonly spending = inject(SpendingStore);
   private readonly calendar = inject(CalendarStore);
   private readonly study = inject(StudyStore);
+  private readonly freeBoards = inject(FreeBoardStore);
+  /** O Quadro livre muda sem o mural mudar: o espelho confere de novo (5 s depois da última mudança). */
+  private boardsTimer: ReturnType<typeof setTimeout> | undefined;
+  private readonly boardsWatch = effect(() => {
+    this.freeBoards.version();
+    untracked(() => {
+      clearTimeout(this.boardsTimer);
+      this.boardsTimer = setTimeout(() => void this.kick(), 5_000);
+    });
+  });
   /**
    * Os Estudos do último espelho, com as impressões: as filas pedem uma volta em todas as cartas por
    * baralho, e a maior parte das sincronizações não mexe nos Estudos (nem nas anotações, nem no dia).
@@ -308,6 +322,17 @@ export class ApiMirror {
     return items;
   }
 
+  /** Os quadros do Quadro livre em texto (o "Ver em lista"), um por quadro (PLANO-QUADRO-LIVRE.md, 7.8). */
+  private async boardItems(): Promise<MirrorItem[]> {
+    await this.freeBoards.ready;
+    const out: MirrorItem[] = [];
+    for (const b of this.freeBoards.boards()) {
+      const dados = quadroLivreV1(b);
+      out.push({ tipo: 'quadro-livre', id: b.id, hash: await hashOf(dados), dados });
+    }
+    return out;
+  }
+
   private async noteItems(): Promise<MirrorItem[]> {
     const shared = this.store.sharedIds();
     const notes = this.store.notes().filter((n) => !shared.has(n.id));
@@ -322,6 +347,7 @@ export class ApiMirror {
     }
     const ctx = contextoV1(notes, tree, this.settings.pinnedTags());
     out.push({ tipo: 'contexto', id: CONTEXTO_NOTAS, hash: await hashOf(ctx), dados: ctx });
+    out.push(...(await this.boardItems()));
     return out;
   }
 
@@ -379,4 +405,9 @@ export class ApiMirror {
       if (!(err instanceof CloudError)) console.warn('o espelho da API não subiu', err);
     }
   }
+}
+
+/** Um quadro do Quadro livre no formato v1: o texto do "Ver em lista", com o id de cada peça. */
+export function quadroLivreV1(b: FreeBoard): QuadroLivreV1 {
+  return { id: b.id, nome: b.nome, grupo: b.grupo, em: b.em, pecas: pieceCount(b), setas: shownEdges(b).length, publico: !!b.publico, texto: boardAsText(b).slice(0, QUADRO_TEXTO_MAX) };
 }

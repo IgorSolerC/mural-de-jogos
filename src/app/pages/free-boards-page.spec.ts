@@ -179,7 +179,7 @@ describe('a página do Quadro livre', () => {
     link.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 40 }));
     await settle();
     const items = [...document.querySelectorAll<HTMLElement>('.menu-contexto [role="menuitem"]')].map(text);
-    expect(items).toEqual(['Abrir', 'Renomear', 'Duplicar', 'Mover para o grupo…', 'Apagar']);
+    expect(items).toEqual(['Abrir', 'Renomear', 'Duplicar', 'Mover para o grupo…', 'Tornar público', 'Apagar']);
     [...document.querySelectorAll<HTMLElement>('.menu-contexto [role="menuitem"]')][1].click();
     await settle();
     const input = $<HTMLInputElement>('.renomear input')!;

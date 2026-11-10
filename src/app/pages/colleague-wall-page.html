@@ -88,16 +88,36 @@
     <nav class="secoes" [attr.aria-label]="'Anotações de ' + c.name">
       <ul>
         <li>
-          <a class="secao" routerLink="/comparar/mural" [class.on]="!studying()" [attr.aria-current]="!studying() ? 'page' : null">Mural</a>
+          <a class="secao" routerLink="/comparar/mural" [class.on]="!studying() && !boarding()" [attr.aria-current]="!studying() && !boarding() ? 'page' : null">Mural</a>
         </li>
-        <li>
-          <a class="secao" [routerLink]="visitStudyPath()" [class.on]="studying()" [attr.aria-current]="studying() ? 'page' : null">Flashcards</a>
-        </li>
+        @if (hasStudy() || studying()) {
+          <li>
+            <a class="secao" [routerLink]="visitStudyPath()" [class.on]="studying()" [attr.aria-current]="studying() ? 'page' : null">Flashcards</a>
+          </li>
+        }
+        @if (hasBoards() || boarding()) {
+          <li>
+            <a class="secao" [routerLink]="visitBoardPath()" [class.on]="boarding()" [attr.aria-current]="boarding() ? 'page' : null">Quadro livre</a>
+          </li>
+        }
       </ul>
     </nav>
   }
 
-  @if (studying()) {
+  @if (boarding()) {
+    @if (hasBoards() || visitBoards.loading()) {
+      @defer (on immediate) {
+        <app-visit-boards [name]="c.name" [groupId]="studyGroup()" [boardId]="boardId()" />
+      }
+    } @else {
+      <section class="vazio cartolina" aria-labelledby="vazio-titulo">
+        <span class="fita-vazio" aria-hidden="true"></span>
+        <h2 id="vazio-titulo">{{ c.name }} não tem quadros públicos</h2>
+        <p>Os quadros de {{ c.name }} ficam só com {{ c.name }}. As anotações públicas estão no mural.</p>
+        <a class="btn-ink" routerLink="/comparar/mural">Ver o mural</a>
+      </section>
+    }
+  } @else if (studying()) {
     @if (hasStudy()) {
       @defer (on immediate) {
         <app-visit-study [colleague]="c" [groupId]="studyGroup()" [deckId]="studyDeck()" (opened)="openCard($event)" />

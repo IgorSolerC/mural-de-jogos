@@ -277,3 +277,114 @@
     font: 400 1rem / 1.3 var(--f-hand);
   }
 }
+
+/* ===== "Ver em lista": uma folha de caderno presa à direita, com o quadro como texto ===== */
+
+.lista {
+  position: absolute;
+  top: 72px;
+  right: 16px;
+  bottom: 84px;
+  width: min(380px, calc(100% - 32px));
+  overflow: auto;
+  padding: 16px 18px 14px;
+  background: var(--paper) var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  box-shadow: var(--shadow-lift);
+
+  h2 {
+    margin: 0;
+    font: 400 1.4rem / 1.1 var(--f-marker);
+  }
+
+  h3 {
+    margin: 16px 0 6px;
+    font: 800 0.8rem / 1 var(--f-label);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+}
+
+.lista-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.lista-pecas,
+.lista-setas {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lista-pecas li {
+  padding-left: calc(var(--fundo, 0) * 16px);
+
+  button {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    width: 100%;
+    min-height: 36px;
+    padding: 4px 6px;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover {
+      background: rgb(255 218 66 / 0.35);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ink);
+      outline-offset: 1px;
+    }
+  }
+}
+
+.lista-pecas li.titulo button {
+  margin-top: 8px;
+  font: 400 1.1rem / 1.2 var(--f-marker);
+}
+
+.lista-tipo {
+  flex: none;
+  font: 800 0.7rem / 1 var(--f-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.lista-pecas li.titulo .lista-tipo {
+  display: none;
+}
+
+.lista-nome {
+  font: 400 1rem / 1.3 var(--f-hand);
+  overflow-wrap: anywhere;
+}
+
+.lista-pecas li.titulo .lista-nome {
+  font: inherit;
+}
+
+.lista-setas li {
+  padding: 3px 6px;
+  font: 400 1rem / 1.35 var(--f-hand);
+}
+
+.lista-rotulo {
+  color: var(--ink-2);
+}
+
+.lista-vazia {
+  margin: 8px 0;
+  font: 400 1rem var(--f-hand);
+}

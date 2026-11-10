@@ -1,3 +1,4 @@
+import { ESCOPO_DA_OP_QUADRO } from '../../../contrato/api-v1/quadros-livres';
 import type { Aprovacao } from '../../../contrato/api-v1/escopos';
 import { ESCOPO_DA_OP, opMuda, type EstadoDoPedido } from '../../../contrato/api-v1/operacoes';
 import { ESCOPO_DA_OP_LEMBRETE } from '../../../contrato/api-v1/operacoes-calendario';
@@ -161,7 +162,8 @@ export function scopesOfRequest(op: string, dados: unknown): string[] {
     (ESCOPO_DA_OP_GASTO as Record<string, string>)[op] ??
     (ESCOPO_DA_OP_LEMBRETE as Record<string, string>)[op] ??
     (ESCOPO_DA_OP_MURAL as Record<string, string>)[op] ??
-    (ESCOPO_DA_OP_ESTUDO as Record<string, string>)[op];
+    (ESCOPO_DA_OP_ESTUDO as Record<string, string>)[op] ??
+    (ESCOPO_DA_OP_QUADRO as Record<string, string>)[op];
   const out = new Set<string>(base ? [base] : []);
   if (d['visibilidade'] !== undefined) out.add('publicar');
   if (op === 'nota.criar' && d['kanban']) out.add('kanban:mover');

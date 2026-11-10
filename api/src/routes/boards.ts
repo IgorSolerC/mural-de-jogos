@@ -2,6 +2,7 @@ import { Context, Hono } from 'hono';
 import { write } from '../domain/quota';
 import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
+import { normalizeCode } from '../domain/code';
 import { readBody, sessionOf } from './http';
 import { toBytes } from './mural';
 
@@ -71,7 +72,37 @@ interface Row {
   apagado_em: string | null;
 }
 
+/**
+ * Os quadros públicos de outra pessoa, pelo código do mural (a visita, PLANO-QUADRO-LIVRE.md 4.8): a lista e cada
+ * quadro, só os públicos e nunca as lápides. Como o mural público: com VER_MURAIS=logados, só quem entrou.
+ */
+function publicBoardRoutes(app: Hono, deps: Deps): void {
+  const owner = async (c: Context): Promise<string> => {
+    if (deps.config.publicMurals === 'logados') await sessionOf(deps, c);
+    const code = normalizeCode(c.req.param('codigo') ?? '');
+    const row = code ? await deps.db.first<{ id: string }>('SELECT id FROM usuarios WHERE codigo = ?', [code]) : null;
+    if (!row) throw new HttpError(404, 'mural-nao-encontrado', 'Não achei mural com esse código.');
+    return row.id;
+  };
+  app.get('/v1/murais/:codigo/quadros', async (c) => {
+    const userId = await owner(c);
+    const rows = await deps.db.all<Row>('SELECT id, rev, bytes, atualizado_em FROM quadros WHERE usuario_id = ? AND publico = 1 AND apagado_em IS NULL ORDER BY atualizado_em DESC', [userId]);
+    return c.json({ quadros: rows.map((r) => ({ id: r.id, rev: r.rev, atualizadoEm: r.atualizado_em })) });
+  });
+  app.get('/v1/murais/:codigo/quadros/:id', async (c) => {
+    const userId = await owner(c);
+    const id = boardId(c);
+    const row = await deps.db.first<{ rev: number; dados: unknown }>('SELECT rev, dados FROM quadros WHERE id = ? AND usuario_id = ? AND publico = 1 AND apagado_em IS NULL', [id, userId]);
+    if (!row?.dados) throw new HttpError(404, 'quadro-nao-encontrado', 'Esse quadro não é público.');
+    c.header('Quadro-Rev', String(row.rev));
+    if (c.req.query('rev') === String(row.rev)) return c.body(null, 204);
+    return gzipBody(c, row.dados);
+  });
+}
+
 export function boardRoutes(app: Hono, deps: Deps): void {
+  publicBoardRoutes(app, deps);
+
   app.get('/v1/eu/quadros', async (c) => {
     const s = await sessionOf(deps, c);
     const user = await deps.db.first<{ quadros_versao: number }>('SELECT quadros_versao FROM usuarios WHERE id = ?', [s.userId]);
@@ -103,6 +134,9 @@ export function boardRoutes(app: Hono, deps: Deps): void {
     const body = await readBody(c, MAX_BOARD_BYTES, () => new HttpError(413, 'quadro-grande-demais', 'O quadro ficou grande demais para a nuvem (passa de 256 KB compactado).'));
     if (!isGzip(body)) throw new HttpError(400, 'quadro-invalido', 'O quadro não veio compactado em gzip.');
     const images = imagesOf(c.req.header('Quadro-Imagens'));
+    // público: quem visita o mural vê (rodada 6); sem o cabeçalho (um site de antes), fica como estava
+    const pub = c.req.header('Quadro-Publico');
+    const publico = pub === '1' ? 1 : pub === '0' ? 0 : null;
     const now = deps.now();
     const at = now.toISOString();
 
@@ -143,12 +177,16 @@ export function boardRoutes(app: Hono, deps: Deps): void {
     const statements: Statement[] = [
       here
         ? {
-            sql: 'UPDATE quadros SET rev = rev + 1, dados = ?, bytes = ?, atualizado_em = ?, apagado_em = NULL, gravacao = ? WHERE id = ? AND usuario_id = ? AND rev = ?',
-            params: [body, body.length, at, mark, id, s.userId, base],
+            sql:
+              'UPDATE quadros SET rev = rev + 1, dados = ?, bytes = ?, atualizado_em = ?, apagado_em = NULL, gravacao = ?, publico = COALESCE(?, publico) ' +
+              'WHERE id = ? AND usuario_id = ? AND rev = ?',
+            params: [body, body.length, at, mark, publico, id, s.userId, base],
           }
         : {
-            sql: 'INSERT INTO quadros (id, usuario_id, rev, dados, bytes, atualizado_em, gravacao) SELECT ?, ?, 1, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM quadros WHERE id = ?)',
-            params: [id, s.userId, body, body.length, at, mark, id],
+            sql:
+              'INSERT INTO quadros (id, usuario_id, rev, dados, bytes, atualizado_em, gravacao, publico) SELECT ?, ?, 1, ?, ?, ?, ?, ? ' +
+              'WHERE NOT EXISTS (SELECT 1 FROM quadros WHERE id = ?)',
+            params: [id, s.userId, body, body.length, at, mark, publico ?? 0, id],
           },
       { sql: `UPDATE usuarios SET quadros_versao = quadros_versao + 1 WHERE id = ? AND EXISTS (${ours})`, params: [s.userId, id, mark] },
       ...(changes

@@ -302,6 +302,26 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
     });
   });
 
+  it('Ver em lista: o L abre o quadro em texto; tocar num item leva até a peça; o Esc fecha só a lista', async () => {
+    await open(MANSION);
+    const visor = el.querySelector<HTMLElement>('.visor')!;
+    visor.dispatchEvent(new KeyboardEvent('keydown', { key: 'l', bubbles: true, cancelable: true }));
+    await fixture.whenStable();
+    await frames(2);
+    const items = [...el.querySelectorAll<HTMLElement>('.lista-pecas li')].map((li) => li.textContent!.replace(/\s+/g, ' ').trim());
+    expect(items[0]).toContain('Roxo (Quartos)');
+    expect(items).toContain('Bilhete: Senha?');
+    expect(el.querySelector('.lista-setas')!.textContent).toContain('Precisa da lupa');
+    const outside = jasmine.createSpy('esc fora');
+    document.addEventListener('keydown', outside);
+    const first = el.querySelector<HTMLButtonElement>('.lista-pecas button')!;
+    first.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    document.removeEventListener('keydown', outside);
+    await fixture.whenStable();
+    expect(el.querySelector('.lista')).toBeNull();
+    expect(outside).not.toHaveBeenCalled();
+  });
+
   it('a borda rasgada do bilhete é sempre a mesma para a mesma peça', () => {
     expect(tornTop('senha')).toBe(tornTop('senha'));
     expect(tornTop('senha')).not.toBe(tornTop('email'));

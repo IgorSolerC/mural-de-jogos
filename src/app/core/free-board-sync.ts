@@ -170,7 +170,13 @@ export class FreeBoardSync {
         method: 'PUT',
         // `keepalive` aceita até 64 KB: o quadro maior vai na próxima rodada
         keepalive: keepalive && body.size < 60_000,
-        headers: { 'Content-Type': 'application/gzip', 'Quadro-Rev-Base': String(rec.rev), ...(images.length ? { 'Quadro-Imagens': images.join(',') } : {}) },
+        headers: {
+          'Content-Type': 'application/gzip',
+          'Quadro-Rev-Base': String(rec.rev),
+          // público: quem visita o mural vê o quadro e as imagens dele (rodada 6)
+          'Quadro-Publico': board.publico ? '1' : '0',
+          ...(images.length ? { 'Quadro-Imagens': images.join(',') } : {}),
+        },
         body,
       });
       const out = (await res.json().catch(() => null)) as { rev?: number } | null;

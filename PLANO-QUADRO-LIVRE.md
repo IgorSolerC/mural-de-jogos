@@ -964,3 +964,35 @@ Decidido no caminho (pode mudar):
   guardada sem perguntar (perder trabalho é pior), e ela aparece na lista com "(cópia)" no nome.
 - O e2e com dois aparelhos de verdade ficou no teste do site com uma nuvem de mentira que segue as regras da API
   (`core/free-board-sync.spec.ts`), e a API tem os testes dela nos dois bancos.
+
+### Rodada 6: as pontas (10/nov, BUILD 833)
+
+Feito:
+
+- **Ver em lista** (4.9): `core/free-board-text.ts` (`boardOutline`, `boardAsText`) e o painel de caderno na peça do
+  quadro (L, ou o menu do fundo no ver e no editar): as molduras como títulos, as peças dentro delas na ordem de
+  leitura, as setas como "A → B (rótulo)"; tocar num item leva a câmera até a peça e dá o foco nela.
+- **Público e a visita** (4.8): `publico` no quadro (junta como os outros campos), "Tornar público/privado" no menu
+  do quadro com Desfazer e "· público" na folha; o envio manda `Quadro-Publico` e a coluna `publico` guarda; as
+  rotas `GET /v1/murais/:codigo/quadros[/:id]` (só os públicos, nunca as lápides; com `VER_MURAIS=logados`, só quem
+  entrou); a imagem de um quadro público é vista por quem visita (`imageAccess`). Na visita, a aba Quadro livre
+  aparece quando a pessoa tem quadro público: `core/visit-boards.ts` traz os quadros (só na memória da página) e
+  `ui/visit-boards.ts` monta as mesmas abas, folhas e a mesma peça do quadro, sem `owner` (sem editar). Entrou em
+  `PECAS`, `VISITA` e `SO_LEEM` de `scripts/visita-mesmas-pecas.test.mjs`, com o teste `ui/visit-boards.spec.ts`.
+- **API das AIs e MCP** (7.8): o contrato `contrato/api-v1/quadros-livres.ts`; o espelho ganha o tipo
+  `quadro-livre` (o texto do "Ver em lista", um registro por quadro, conferido de novo 5 s depois de um quadro mudar);
+  `api/src/ext/boards-ext.ts` com `GET /ext/v1/quadros[/:id]`, `POST /ext/v1/quadros`, `POST /ext/v1/quadros/:id/pecas`
+  e `/setas`; as ferramentas `ver_quadros`, `ler_quadro`, `criar_quadro`, `acrescentar_no_quadro` e
+  `ligar_no_quadro`, e um parágrafo no guia. O site aplica os pedidos (`core/api-requests-boards.ts`: as peças novas
+  ao lado da pedida, sem cobrir nada, ou à direita de tudo; setas por id ou `novaN`; a moldura em volta), com o
+  Desfazer do histórico.
+- Estados (4.6): o quadro cheio avisa (rodada 4), o vazio tem o bilhete do editar e o do ver, o apagado em outro
+  aparelho vira cópia (rodada 5); o movimento reduzido pula em vez de deslizar (rodada 2).
+
+Decidido no caminho (pode mudar):
+
+- As ferramentas usam as permissões das Anotações (ler = `notas:ler`; criar e acrescentar = `notas:criar`), sem uma
+  área nova nas chaves: o quadro mora nas Anotações e a chave limitada a grupos já o alcança pelo grupo.
+- A visita traz cada quadro público inteiro (4 de cada vez) para desenhar a miniatura; a lista da nuvem não leva o
+  nome (o servidor não abre o quadro).
+- Novidades: a parte de hoje virou uma entrada de ajustes (1.43.2), porque a funcionalidade é de ontem.

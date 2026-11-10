@@ -1,3 +1,4 @@
+import { conferirQuadroLivre } from '../../../contrato/api-v1/quadros-livres';
 import {
   CADAS,
   CORES,
@@ -114,7 +115,7 @@ export const SCOPES_OF_AREA: Record<string, readonly string[]> = {
 
 /** Os tipos de linha de cada área. */
 export const TYPES_OF: Record<string, readonly TipoDoEspelho[]> = {
-  notas: ['nota', 'contexto'],
+  notas: ['nota', 'contexto', 'quadro-livre'],
   gastos: ['lancamento', 'visao', 'contexto-gastos'],
   kanban: ['quadro'],
   calendario: ['lembrete', 'agenda'],
@@ -824,6 +825,12 @@ export function readMirrorBody(body: Record<string, unknown>, areas: readonly st
     if (item['tipo'] === 'visao') {
       const v = checkVisao(dados, item['id']);
       return { tipo: 'visao', id: item['id'], versao: null, hash: item['hash'], grupo: null, data: v.mes, busca: null, dados: JSON.stringify(v) };
+    }
+    if (item['tipo'] === 'quadro-livre') {
+      const q = conferirQuadroLivre(dados);
+      if (!q || q.id !== item['id']) throw bad('O quadro livre do espelho não serve.');
+      // o grupo sem acento, como o das notas: o limite de grupos da chave vale igual
+      return { tipo: 'quadro-livre', id: q.id, versao: null, hash: item['hash'], grupo: dobra(q.grupo), data: q.em.slice(0, 10), busca: dobra(`${q.nome}\n${q.texto}`), dados: JSON.stringify(q) };
     }
     if (item['tipo'] === 'quadro') {
       const q = checkQuadro(dados, item['id']);

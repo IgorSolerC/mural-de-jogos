@@ -7,7 +7,8 @@ import { googleVerifier } from '../src/domain/google';
 import { DAY_MS } from '../src/domain/quota';
 import { MAX_BOARD_BYTES } from '../src/routes/boards';
 import { Config, Db, Deps } from '../src/ports';
-import { BASE_ENV, NOW, TABLES, eraseNow, gunzip, gzip } from './harness';
+import { FERRAMENTAS, alcanca } from '../../contrato/api-v1/ferramentas';
+import { BASE_ENV, NOW, TABLES, eraseNow, gunzip, gzip, jsonCaller } from './harness';
 
 /**
  * O Quadro livre na nuvem (PLANO-QUADRO-LIVRE.md, rodada 5): um quadro por linha, a versão por quadro, o 409 de
@@ -15,7 +16,7 @@ import { BASE_ENV, NOW, TABLES, eraseNow, gunzip, gzip } from './harness';
  * limpeza das soltas não apaga, os tetos, apagar a conta e a limpeza diária.
  */
 
-const ENV = { ...BASE_ENV, COTA_LINHAS_DIA: '100000', IMAGENS_MB_TOTAL: '400', IMAGENS_MB_PESSOA: '25', IMAGENS_POR_DIA: '30' };
+const ENV = { ...BASE_ENV, COTA_LINHAS_DIA: '100000', IMAGENS_MB_TOTAL: '400', IMAGENS_MB_PESSOA: '25', IMAGENS_POR_DIA: '30', API_CODIGOS: '*' };
 const ID = (k: number) => `quadro${String(k).padStart(4, '0')}`.padEnd(22, 'q');
 const IMG = (k: number) => `imagem${String(k).padStart(4, '0')}`.padEnd(22, 'i');
 
@@ -49,14 +50,20 @@ export function quadrosSuite(label: string, getDb: () => Db) {
         .sign(key);
       const res = await call('/v1/auth/google', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ credential }) });
       const b = (await res.json()) as any;
-      return { token: b.token as string, id: b.conta.id as string };
+      return { token: b.token as string, id: b.conta.id as string, codigo: b.conta.codigo as string };
     };
     const board = (id: string, nome = 'Mansão') => JSON.stringify({ v: 1, id, nome, grupo: 'Jogos', em: new Date(clock.t).toISOString(), n: [], e: [] });
-    const put = async (token: string, id: string, base: number, body?: Uint8Array<ArrayBuffer> | string, images: string[] = []) => {
+    const put = async (token: string, id: string, base: number, body?: Uint8Array<ArrayBuffer> | string, images: string[] = [], publico?: boolean) => {
       const bytes = typeof body === 'string' || body === undefined ? await gzip(body ?? board(id)) : body;
       const res = await call(`/v1/eu/quadros/${id}`, {
         method: 'PUT',
-        headers: { ...auth(token), 'Content-Type': 'application/gzip', 'Quadro-Rev-Base': String(base), ...(images.length ? { 'Quadro-Imagens': images.join(',') } : {}) },
+        headers: {
+          ...auth(token),
+          'Content-Type': 'application/gzip',
+          'Quadro-Rev-Base': String(base),
+          ...(images.length ? { 'Quadro-Imagens': images.join(',') } : {}),
+          ...(publico === undefined ? {} : { 'Quadro-Publico': publico ? '1' : '0' }),
+        },
         body: bytes,
       });
       clock.t += 3_000;
@@ -80,7 +87,23 @@ export function quadrosSuite(label: string, getDb: () => Db) {
       return (await call('/v1/eu/mural', { headers: auth(token) })).headers.get('Quadros-Versao');
     };
     const advance = (ms: number) => void (clock.t += ms);
-    return { db, deps, call, auth, login, put, list, del, muralHead, advance, board };
+    const json = jsonCaller(call);
+    const newKey = async (token: string, escopos: string[], extra: Record<string, unknown> = {}) =>
+      (await (await json('POST', '/v1/eu/chaves', { nome: 'Claude', escopos, validade: 30, aprovacao: 'nunca', ...extra }, token)).json()) as { segredo: string };
+    /** O espelho com o quadro em texto, como o site manda (core/api-mirror.ts). */
+    const mirrorBoards = async (token: string, quadros: unknown[]) => {
+      const pulled = await call('/v1/eu/mural', { headers: auth(token) });
+      let rev = Number(pulled.headers.get('Mural-Rev') ?? 0);
+      if (!rev) {
+        await muralHead(token);
+        rev = Number((await call('/v1/eu/mural', { headers: auth(token) })).headers.get('Mural-Rev'));
+      }
+      const res = await json('POST', '/v1/eu/espelho', { rev, poe: quadros.map((q) => ({ tipo: 'quadro-livre', id: (q as { id: string }).id, hash: 'ab'.repeat(8), dados: q })) }, token);
+      return res;
+    };
+    const ext = (secret: string, method: string, path: string, data?: unknown) =>
+      call(path, { method, headers: { Authorization: `Bearer ${secret}`, ...(data ? { 'Content-Type': 'application/json' } : {}) }, ...(data ? { body: JSON.stringify(data) } : {}) });
+    return { db, deps, call, auth, login, put, list, del, muralHead, advance, board, newKey, mirrorBoards, ext };
   }
 
   describe(`Quadro livre: a nuvem (${label})`, () => {
@@ -181,6 +204,88 @@ export function quadrosSuite(label: string, getDb: () => Db) {
       const left = (await db.all<{ id: string }>('SELECT id FROM imagens ORDER BY id')).map((r) => r.id);
       expect(left).toEqual([IMG(1)]);
       expect((await db.all<{ imagem_id: string }>('SELECT imagem_id FROM quadro_imagens')).map((r) => r.imagem_id)).toEqual([IMG(1)]);
+    });
+
+    it('o quadro público: quem visita vê a lista e o quadro (os privados e as lápides, não), e as imagens dele', async () => {
+      const { db, login, put, call, auth, del } = await setup();
+      const ana = await login('ana');
+      const bia = await login('bia');
+      const old = new Date(NOW.getTime() - 2 * DAY_MS).toISOString();
+      await db.batch([
+        { sql: "INSERT INTO imagens (id, dono_id, tipo, bytes, largura, altura, pronta, criada_em, gravacao) VALUES (?, ?, 'image/webp', 10, 1, 1, 1, ?, 'x')", params: [IMG(5), ana.id, old] },
+      ]);
+      await put(ana.token, ID(1), 0, undefined, [IMG(5)], true);
+      await put(ana.token, ID(2), 0, undefined, [], false);
+      await put(ana.token, ID(3), 0, undefined, [], true);
+      await del(ana.token, ID(3));
+      const list = (await (await call(`/v1/murais/${ana.codigo}/quadros`, { headers: auth(bia.token) })).json()) as any;
+      expect(list.quadros.map((q: { id: string }) => q.id)).toEqual([ID(1)]);
+      expect((await call(`/v1/murais/${ana.codigo}/quadros/${ID(1)}`, { headers: auth(bia.token) })).status).toBe(200);
+      expect((await call(`/v1/murais/${ana.codigo}/quadros/${ID(2)}`, { headers: auth(bia.token) })).status).toBe(404);
+      expect((await call(`/v1/murais/${ana.codigo}/quadros/${ID(3)}`, { headers: auth(bia.token) })).status).toBe(404);
+      // a imagem do quadro público: quem visita vê; o quadro volta a privado (sem o cabeçalho, nada muda)
+      const { imageAccess } = await import('../src/domain/image');
+      expect((await imageAccess(db, IMG(5), bia.id))?.publica).toBeTruthy();
+      await put(ana.token, ID(1), 1, undefined, [IMG(5)]);
+      expect((await imageAccess(db, IMG(5), bia.id))?.publica).toBeTruthy();
+      await put(ana.token, ID(1), 2, undefined, [IMG(5)], false);
+      expect((await imageAccess(db, IMG(5), bia.id))?.publica).toBeFalsy();
+      expect((await call(`/v1/murais/${ana.codigo}/quadros/${ID(1)}`, { headers: auth(bia.token) })).status).toBe(404);
+      expect((await call('/v1/murais/XXXXXXXX/quadros', { headers: auth(bia.token) })).status).toBe(404);
+    });
+
+    it('a API das AIs: o espelho leva o quadro em texto, ver_quadros e ler_quadro leem, só dos grupos da chave', async () => {
+      const t = await setup();
+      const ana = await t.login('ana');
+      const k = await t.newKey(ana.token, ['notas:ler']);
+      const q = { id: ID(1), nome: 'Mansão', grupo: 'Jogos', em: '2026-11-09T00:00:00.000Z', pecas: 2, setas: 1, publico: false, texto: '# Mansão\n- Bilhete: Senha? [k3f9]\n' };
+      expect((await t.mirrorBoards(ana.token, [q, { ...q, id: ID(2), nome: 'Verbos', grupo: 'Estudos' }])).status).toBe(200);
+      expect((await t.mirrorBoards(ana.token, [{ ...q, pecas: -1 }])).status).toBe(400);
+      const list = (await (await t.ext(k.segredo, 'GET', '/ext/v1/quadros')).json()) as any;
+      expect(list.quadros.map((x: { nome: string }) => x.nome).sort()).toEqual(['Mansão', 'Verbos']);
+      expect(list.quadros[0].texto).toBeUndefined();
+      const one = (await (await t.ext(k.segredo, 'GET', '/ext/v1/quadros/mansao')).json()) as any;
+      expect(one.quadro.texto).toContain('Senha? [k3f9]');
+      expect((await t.ext(k.segredo, 'GET', '/ext/v1/quadros/nenhum')).status).toBe(404);
+      // a chave limitada a um grupo só vê o quadro dele
+      const only = await t.newKey(ana.token, ['notas:ler'], { grupos: ['Estudos'] });
+      const limited = (await (await t.ext(only.segredo, 'GET', '/ext/v1/quadros')).json()) as any;
+      expect(limited.quadros.map((x: { nome: string }) => x.nome)).toEqual(['Verbos']);
+      // sem notas:ler, nada
+      const blind = await t.newKey(ana.token, ['gastos:ler']);
+      expect((await t.ext(blind.segredo, 'GET', '/ext/v1/quadros')).status).toBe(403);
+    });
+
+    it('a API das AIs pede quadros e peças novas (o site aplica); o que não serve é recusado', async () => {
+      const t = await setup();
+      const ana = await t.login('ana');
+      const k = await t.newKey(ana.token, ['notas:ler', 'notas:criar']);
+      await t.mirrorBoards(ana.token, [{ id: ID(1), nome: 'Mansão', grupo: 'Jogos', em: '2026-11-09T00:00:00.000Z', pecas: 0, setas: 0, publico: false, texto: '# Mansão\n' }]);
+      const made = await t.ext(k.segredo, 'POST', '/ext/v1/quadros', { nome: 'Blue Prince', grupo: 'Jogos' });
+      expect(made.status).toBe(202);
+      const b = (await made.json()) as any;
+      expect(b.quadro.id).toMatch(/^[A-Za-z0-9_-]{22}$/);
+      expect(b.pedido.estado).toBe('pendente');
+      const list = (await (await t.ext(k.segredo, 'GET', '/ext/v1/quadros')).json()) as any;
+      expect(list.chegando.map((x: { nome: string }) => x.nome)).toEqual(['Blue Prince']);
+      // acrescentar no que existe (pelo nome) e no que está chegando (pelo id do pedido de criar)
+      const add = { pecas: [{ bilhete: 'Senha?' }, { bilhete: 'Ler email', perto: 'nova1' }], setas: [{ de: 'nova1', para: 'nova2', rotulo: 'precisa' }], moldura: { titulo: 'Roxo', pecas: ['nova1', 'nova2'] } };
+      expect((await t.ext(k.segredo, 'POST', '/ext/v1/quadros/Mansão/pecas', add)).status).toBe(202);
+      expect((await t.ext(k.segredo, 'POST', `/ext/v1/quadros/${b.quadro.id}/pecas`, add)).status).toBe(202);
+      expect((await t.ext(k.segredo, 'POST', `/ext/v1/quadros/${ID(1)}/setas`, { setas: [{ de: 'a1', para: 'b2' }] })).status).toBe(202);
+      // o que não serve
+      expect((await t.ext(k.segredo, 'POST', `/ext/v1/quadros/${ID(1)}/pecas`, {})).status).toBe(400);
+      expect((await t.ext(k.segredo, 'POST', `/ext/v1/quadros/${ID(1)}/pecas`, { pecas: [{ bilhete: 'x', nota: 'n1' }] })).status).toBe(400);
+      expect((await t.ext(k.segredo, 'POST', `/ext/v1/quadros/${ID(1)}/setas`, { setas: [{ de: 'a', para: 'a' }] })).status).toBe(400);
+      expect((await t.ext(k.segredo, 'POST', '/ext/v1/quadros/Outro/pecas', add)).status).toBe(404);
+      expect((await t.ext(k.segredo, 'POST', '/ext/v1/quadros', { nome: 'Sem grupo' })).status).toBe(400);
+      // só leitura não cria
+      const reader = await t.newKey(ana.token, ['notas:ler']);
+      expect((await t.ext(reader.segredo, 'POST', '/ext/v1/quadros', { nome: 'X', grupo: 'Jogos' })).status).toBe(403);
+      // as ferramentas do MCP: ler com notas:ler; criar e acrescentar com notas:criar
+      const tools = (scopes: string[]) => FERRAMENTAS.filter((f) => f.nome.includes('quadro') && alcanca(f, scopes)).map((f) => f.nome);
+      expect(tools(['notas:ler'])).toEqual(['ver_quadros', 'ler_quadro']);
+      expect(tools(['notas:criar'])).toEqual(['criar_quadro', 'acrescentar_no_quadro', 'ligar_no_quadro']);
     });
 
     it('a limpeza diária tira as lápides de mais de 30 dias; apagar a conta leva os quadros', async () => {

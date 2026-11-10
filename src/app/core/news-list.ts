@@ -27,6 +27,18 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-10-quadro-livre-publico',
+    version: '1.43.2',
+    kind: 'ajustes',
+    date: '2026-11-10',
+    title: 'Quadro livre público, em lista e na API',
+    melhorias: [
+      'O botão direito num quadro livre o deixa público: quem visita o seu mural vê o quadro, com as imagens dele, numa aba Quadro livre ao lado do mural e dos Flashcards (só para ver).',
+      'Ver em lista (L, ou o botão direito no fundo do quadro): o quadro como texto, com as molduras como títulos, as peças dentro delas e as setas; tocar num item leva até a peça.',
+      'Na API e no MCP, ver_quadros e ler_quadro leem os quadros em texto, e criar_quadro, acrescentar_no_quadro e ligar_no_quadro põem quadros, bilhetes, anotações, setas e molduras, com as permissões das Anotações.',
+    ],
+  },
+  {
     id: '2026-11-09-limite-das-imagens',
     version: '1.43.1',
     kind: 'ajustes',

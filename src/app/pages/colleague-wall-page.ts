@@ -2,7 +2,8 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, u
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs';
-import { visitStudyPath } from '../core/areas';
+import { visitBoardPath, visitStudyPath } from '../core/areas';
+import { VisitBoards } from '../core/visit-boards';
 import { ICON, IconModule } from '../ui/icons';
 import { CloudAccount } from '../core/cloud-account';
 import { CloudMurals } from '../core/cloud-murals';
@@ -21,6 +22,7 @@ import { ReviewReader } from '../ui/review-reader';
 import { Toasts } from '../ui/toast';
 import { WallToolbar } from '../ui/wall-toolbar';
 import { VisitStudy } from '../ui/visit-study';
+import { VisitBoardsView } from '../ui/visit-boards';
 import { WallAccess, WallBoard } from './wall-board';
 import { ONE_DECIMAL as avgFmt } from '../core/review';
 import { plural } from '../core/text';
@@ -41,7 +43,7 @@ const NO_PICKS: ReadonlyMap<string, number> = new Map();
  */
 @Component({
   selector: 'app-colleague-wall-page',
-  imports: [Busy, IconModule, PersonPhoto, ReviewReader, RouterLink, VisitStudy, WallBoard, WallToolbar],
+  imports: [Busy, IconModule, PersonPhoto, ReviewReader, RouterLink, VisitBoardsView, VisitStudy, WallBoard, WallToolbar],
   providers: [VisitView, { provide: WallState, useExisting: VisitView }],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './colleague-wall-page.html',
@@ -62,6 +64,11 @@ export class ColleagueWallPage {
   protected readonly ProfileIcon = ICON.pessoa;
 
   protected readonly colleague = this.visit.colleague;
+  /** Os quadros públicos da pessoa aberta, trazidos uma vez por código (só na memória da página). */
+  private readonly boardsLoad = effect(() => {
+    const code = this.colleague()?.codigo ?? null;
+    untracked(() => void this.visitBoards.load(code));
+  });
   protected readonly name = this.visit.owner;
   protected readonly profile = this.mural.profile;
 
@@ -98,15 +105,31 @@ export class ColleagueWallPage {
   /** Os Estudos da pessoa (`/comparar/mural/estudos/...`): os baralhos públicos dela no lugar do mural. */
   private readonly route = inject(ActivatedRoute);
   private readonly params = toSignal(
-    this.route.paramMap.pipe(map((p) => ({ studying: p.get('secao') === 'estudos', group: p.get('grupo'), deck: p.get('baralho') }))),
-    { initialValue: { studying: this.route.snapshot.paramMap.get('secao') === 'estudos', group: null, deck: null } },
+    this.route.paramMap.pipe(
+      map((p) => ({ studying: p.get('secao') === 'estudos', boards: p.get('secao') === 'quadro-livre', group: p.get('grupo'), deck: p.get('baralho'), board: p.get('quadro') })),
+    ),
+    {
+      initialValue: {
+        studying: this.route.snapshot.paramMap.get('secao') === 'estudos',
+        boards: this.route.snapshot.paramMap.get('secao') === 'quadro-livre',
+        group: null,
+        deck: null,
+        board: null,
+      },
+    },
   );
+  /** O Quadro livre da pessoa (`/comparar/mural/quadro-livre/...`): os quadros públicos dela (PLANO-QUADRO-LIVRE.md, 4.8). */
+  protected readonly visitBoards = inject(VisitBoards);
+  protected readonly boarding = computed(() => this.params().boards);
+  protected readonly boardId = computed(() => this.params().board);
+  protected readonly hasBoards = computed(() => this.visitBoards.boards().length > 0);
+  protected readonly visitBoardPath = visitBoardPath;
   protected readonly studying = computed(() => this.params().studying);
   protected readonly studyGroup = computed(() => this.params().group);
   protected readonly studyDeck = computed(() => this.params().deck);
   /** A pessoa tem baralho público: nas Anotações, as seções Mural e Estudos. */
   protected readonly hasStudy = computed(() => !!this.colleague()?.estudos?.decks.length);
-  protected readonly sections = computed(() => (this.hasStudy() && isNotes(this.mural.kind())) || this.studying());
+  protected readonly sections = computed(() => ((this.hasStudy() || this.hasBoards()) && isNotes(this.mural.kind())) || this.studying() || this.boarding());
   protected readonly visitStudyPath = visitStudyPath;
   private readonly from: 'perfil' | 'amigos' | 'comparar' = this.prevUrl.startsWith('/perfil/')
     ? 'perfil'

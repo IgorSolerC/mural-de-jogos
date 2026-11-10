@@ -29,6 +29,7 @@ import { kanbanWriteRoutes } from './ext/kanban-write';
 import { spendingReadRoutes } from './ext/spending-read';
 import { spendingWriteRoutes } from './ext/spending-write';
 import { boardRoutes } from './routes/boards';
+import { boardsExtRoutes } from './ext/boards-ext';
 import { muralRoutes } from './routes/mural';
 import { noteRoutes } from './routes/notes';
 import { reactionRoutes } from './routes/reactions';
@@ -74,7 +75,7 @@ export function createApp(deps: Deps): Hono {
       // cabeçalho, sem cookie
       origin: (origin, c) => (isOpenPath(c.req.path) ? '*' : config.allowedOrigins.includes(origin) ? origin : null),
       allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowHeaders: ['Authorization', 'Content-Type', 'Mural-Rev-Base', 'Quadro-Rev-Base', 'Quadro-Imagens', 'Idempotency-Key', 'Mcp-Protocol-Version'],
+      allowHeaders: ['Authorization', 'Content-Type', 'Mural-Rev-Base', 'Quadro-Rev-Base', 'Quadro-Imagens', 'Quadro-Publico', 'Idempotency-Key', 'Mcp-Protocol-Version'],
       exposeHeaders: ['Mural-Rev', 'Mural-Agora', 'Mural-Codigo', 'Mural-Pedidos', 'Mural-Pedidos-Aprovar', 'Imagem-Sua', 'Quadros-Versao', 'Quadro-Rev'],
       // O Chrome limita a 2 horas, o Firefox a 1 dia: menos pré-consultas, menos requisições na cota.
       maxAge: 86_400,
@@ -149,6 +150,7 @@ export function createApp(deps: Deps): Hono {
   kanbanWriteRoutes(app, deps);
   studyReadRoutes(app, deps);
   studyWriteRoutes(app, deps);
+  boardsExtRoutes(app, deps);
   spendingWriteRoutes(app, deps);
   notesWriteRoutes(app, deps);
   mcpRoutes(app, deps);

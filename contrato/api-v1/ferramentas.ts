@@ -436,6 +436,108 @@ const CAMPOS_DO_BARALHO: Record<string, Esquema> = {
   estilo: { type: 'string', enum: ESTILOS_ENUM, description: 'O desenho da frente das cartas (o padrão: classica).' },
 };
 
+/** O Quadro livre (PLANO-QUADRO-LIVRE.md, 7.8): ler os quadros em texto e pedir quadros e peças novas. */
+const quadroArg = (o: string): Esquema => ({ type: 'string', minLength: 1, maxLength: 60, description: `${o}: o id do quadro (22 letras, de ver_quadros) ou o nome dele.` });
+const refDePeca: Esquema = { type: 'string', pattern: '^([A-Za-z0-9_-]{1,24}|nova\\d{1,2})$', description: 'O id de uma peça do quadro (o que vem entre colchetes em ler_quadro), ou novaN: a N-ésima peça nova deste mesmo pedido.' };
+const setasArg: Esquema = {
+  type: 'array',
+  maxItems: 30,
+  description: 'As setas, de uma peça para outra.',
+  items: obj({ de: refDePeca, para: refDePeca, rotulo: { type: 'string', maxLength: 120, description: 'Opcional: o rótulo, na fita-crepe no meio da seta.' } }, ['de', 'para']),
+};
+
+export const FERRAMENTAS_DO_QUADRO_LIVRE: readonly Ferramenta[] = [
+  {
+    nome: 'ver_quadros',
+    titulo: 'Ver os quadros livres',
+    descricao:
+      'Os quadros do Quadro livre (paredes sem fim com molduras, bilhetes, anotações, imagens e setas), com o grupo, quantas peças e setas, e quando mudaram. Com grupo, só os dele.',
+    escopo: 'notas:ler',
+    somenteLeitura: true,
+    destrutiva: false,
+    entrada: obj({ grupo: { type: 'string', minLength: 1, maxLength: 80, description: 'Opcional: só os quadros deste grupo das Anotações.' } }),
+    metodo: 'GET',
+    caminho: '/ext/v1/quadros',
+  },
+  {
+    nome: 'ler_quadro',
+    titulo: 'Ler um quadro livre',
+    descricao:
+      'Um quadro em texto: as molduras como títulos, as peças dentro delas na ordem de leitura (de cima para baixo, da esquerda para a direita), cada uma com o id entre colchetes, e as setas no fim ("A → B (rótulo)"). Use os ids para acrescentar_no_quadro e ligar_no_quadro.',
+    escopo: 'notas:ler',
+    somenteLeitura: true,
+    destrutiva: false,
+    entrada: obj({ id: quadroArg('O quadro') }, ['id']),
+    metodo: 'GET',
+    caminho: '/ext/v1/quadros/:id',
+  },
+  {
+    nome: 'criar_quadro',
+    titulo: 'Criar um quadro livre',
+    descricao: 'Um quadro novo e vazio num grupo das Anotações (veja ver_contexto). Ele nasce privado. Devolve o id, que já vale para acrescentar_no_quadro.',
+    escopo: 'notas:criar',
+    somenteLeitura: false,
+    destrutiva: false,
+    entrada: obj(
+      {
+        nome: { type: 'string', minLength: 1, maxLength: 60, description: 'O nome do quadro.' },
+        grupo: { type: 'string', minLength: 1, maxLength: 80, description: 'O grupo das Anotações.' },
+        chave_idempotencia: idem,
+      },
+      ['nome', 'grupo'],
+    ),
+    metodo: 'POST',
+    caminho: '/ext/v1/quadros',
+  },
+  {
+    nome: 'acrescentar_no_quadro',
+    titulo: 'Acrescentar no quadro livre',
+    descricao:
+      'Põe peças novas num quadro: bilhetes (texto curto) e anotações (pelo id), cada uma ao lado de uma peça que já está lá (perto) ou à direita de tudo; setas entre peças (as de lá pelo id, as novas por novaN); e uma moldura com título em volta de peças. Não move nem apaga nada.',
+    escopo: 'notas:criar',
+    somenteLeitura: false,
+    destrutiva: false,
+    entrada: obj(
+      {
+        id: quadroArg('O quadro'),
+        pecas: {
+          type: 'array',
+          maxItems: 30,
+          description: 'As peças novas, na ordem (a primeira é nova1).',
+          items: obj({
+            bilhete: { type: 'string', maxLength: 4000, description: 'Um bilhete: o texto (com a formatação das anotações).' },
+            nota: { type: 'string', pattern: '^[\\w-]{1,64}$', description: 'Ou uma anotação: o id dela (vira o widget Nota).' },
+            perto: refDePeca,
+          }),
+        },
+        setas: setasArg,
+        moldura: obj(
+          {
+            titulo: { type: 'string', maxLength: 80, description: 'O título, na fita Dymo.' },
+            pecas: { type: 'array', minItems: 1, maxItems: 200, items: refDePeca, description: 'As peças que a moldura cerca.' },
+          },
+          ['pecas'],
+        ),
+        chave_idempotencia: idem,
+      },
+      ['id'],
+    ),
+    metodo: 'POST',
+    caminho: '/ext/v1/quadros/:id/pecas',
+  },
+  {
+    nome: 'ligar_no_quadro',
+    titulo: 'Ligar peças no quadro livre',
+    descricao: 'Setas novas entre peças que já estão no quadro (pelos ids de ler_quadro), com rótulo opcional.',
+    escopo: 'notas:criar',
+    somenteLeitura: false,
+    destrutiva: false,
+    entrada: obj({ id: quadroArg('O quadro'), setas: setasArg, chave_idempotencia: idem }, ['id', 'setas']),
+    metodo: 'POST',
+    caminho: '/ext/v1/quadros/:id/setas',
+  },
+];
+
 /** A nota nova que já nasce carta (o `estudos` de criar_nota). */
 const NOS_ESTUDOS: Esquema = {
   type: 'object',
@@ -1194,6 +1296,7 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
   },
   ...FERRAMENTAS_DO_KANBAN,
   ...FERRAMENTAS_DOS_ESTUDOS,
+  ...FERRAMENTAS_DO_QUADRO_LIVRE,
   ...FERRAMENTAS_DO_CALENDARIO,
   ...FERRAMENTAS_DOS_GASTOS,
   ...FERRAMENTAS_DOS_MURAIS,

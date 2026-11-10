@@ -16,6 +16,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { FbNode, FreeBoard } from '../../core/free-board';
+import { boardOutline } from '../../core/free-board-text';
 import { ContextMenu, MenuSections } from '../context-menu';
 import { Camera, Point, Rect, contains, fitRect, framesOf, readingOrder, toWorld, viewRect, zoomAt } from '../../core/free-board-geometry';
 import { NoteLinks } from '../../core/note-links';
@@ -126,7 +127,7 @@ interface EdgeLabel {
       <app-free-board-tools class="ferramentas" [editor]="editor" (ask)="rulerAsk($event)" />
     }
     @if (helpOpen()) {
-      <div class="atalhos" role="dialog" aria-modal="false" aria-labelledby="fb-atalhos-titulo" (keydown.escape)="helpOpen.set(false)">
+      <div class="atalhos" role="dialog" aria-modal="false" aria-labelledby="fb-atalhos-titulo" (keydown.escape)="$event.stopPropagation(); helpOpen.set(false)">
         <h2 id="fb-atalhos-titulo">Atalhos do quadro</h2>
         <dl>
           @for (a of shortcuts; track a[0]) {
@@ -135,6 +136,38 @@ interface EdgeLabel {
         </dl>
         <button type="button" class="btn-quiet" (click)="helpOpen.set(false)">Fechar</button>
       </div>
+    }
+    @if (listOpen()) {
+      <!-- "Ver em lista" (seção 4.9): o quadro como texto, para o leitor de tela e para achar algo depressa no
+           celular; tocar num item leva a câmera até a peça -->
+      <section class="lista" role="dialog" aria-modal="false" aria-labelledby="fb-lista-titulo" (keydown.escape)="$event.stopPropagation(); closeList()">
+        <header class="lista-topo">
+          <h2 id="fb-lista-titulo">{{ board().nome }}</h2>
+          <button type="button" class="btn-quiet" (click)="closeList()">Fechar</button>
+        </header>
+        @if (outline().items.length) {
+          <ul class="lista-pecas">
+            @for (it of outline().items; track it.id) {
+              <li [style.--fundo]="it.depth" [class.titulo]="it.frame">
+                <button type="button" (click)="goToPiece(it.id)">
+                  <span class="lista-tipo">{{ it.kind }}<span class="sr-only">: </span></span>
+                  <span class="lista-nome">{{ it.label }}</span>
+                </button>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="lista-vazia">Nada no quadro ainda.</p>
+        }
+        @if (outline().arrows.length) {
+          <h3>Setas</h3>
+          <ul class="lista-setas">
+            @for (a of outline().arrows; track a.id) {
+              <li>{{ a.from }} <span aria-label="leva a">→</span> {{ a.to }}@if (a.label) {<span class="lista-rotulo"> ({{ a.label }})</span>}</li>
+            }
+          </ul>
+        }
+      </section>
     }
     <app-context-menu #menu [caption]="menuCaption()" [sections]="menuSections()" />
     <div class="regua" role="toolbar" aria-label="Zoom do quadro">
@@ -210,6 +243,7 @@ export class FreeBoardView implements RigHost {
     say: (text) => this.notice.emit(text),
     toggleEdit: (on) => this.editToggle.emit(on),
     showHelp: () => this.helpOpen.set(true),
+    showList: () => this.openList(),
     fitAll: () => this.fitAll(),
     goTo: (p) => this.goTo(p),
   });
@@ -217,6 +251,9 @@ export class FreeBoardView implements RigHost {
   protected readonly menuCaption = signal('');
   protected readonly menuSections = signal<MenuSections>([]);
   protected readonly helpOpen = signal(false);
+  /** "Ver em lista" aberto. */
+  protected readonly listOpen = signal(false);
+  protected readonly outline = computed(() => (this.listOpen() ? boardOutline(this.current()) : { items: [], arrows: [] }));
   /** A seta selecionada (ou ganhando o rótulo): o caminho dela, o meio e o rótulo de agora. */
   protected readonly edgeOn = computed(() => {
     const w = this.editor.writing();
@@ -247,6 +284,7 @@ export class FreeBoardView implements RigHost {
     ['Duplo clique', 'Escrever, renomear, editar; no fundo, um bilhete'],
     ['+ − 0 1', 'Zoom, Ver tudo, 100%'],
     ['Esc', 'Tirar a seleção; sem nada, sair do editar'],
+    ['L', 'Ver o quadro em lista'],
   ];
   /** O que está montado agora (a última conta da cena). */
   private readonly view = signal<SceneFrame | null>(null);
@@ -397,6 +435,12 @@ export class FreeBoardView implements RigHost {
     const target = e.target as HTMLElement;
     // dentro de um campo do widget (a tarefa do texto), as teclas são dele
     if (target.closest('input, textarea, select, [contenteditable="true"], app-context-menu')) return;
+    if (e.key === 'Escape' && this.listOpen()) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.closeList();
+      return;
+    }
     if (e.key === 'Escape' && this.helpOpen()) {
       e.preventDefault();
       this.helpOpen.set(false);
@@ -495,6 +539,27 @@ export class FreeBoardView implements RigHost {
       else if (tries) requestAnimationFrame(() => focus(tries - 1));
     };
     afterNextRender(() => focus(10), { injector: this.injector });
+  }
+
+  // ===== "Ver em lista" =====
+
+  /** Abre a lista, com o foco nela. */
+  openList(): void {
+    this.listOpen.set(true);
+    afterNextRender(() => this.visor().nativeElement.parentElement?.querySelector<HTMLElement>('.lista-pecas button, .lista button')?.focus(), { injector: this.injector });
+  }
+
+  protected closeList(): void {
+    this.listOpen.set(false);
+    this.visor().nativeElement.focus({ preventScroll: true });
+  }
+
+  /** O item da lista: a câmera vai até a peça, que ganha o foco (a lista fica aberta no computador). */
+  protected goToPiece(id: string): void {
+    const node = this.scene().nodes.get(id);
+    if (!node) return;
+    if (matchMedia('(max-width: 720px)').matches) this.listOpen.set(false);
+    this.showPiece(node);
   }
 
   // ===== o editar =====

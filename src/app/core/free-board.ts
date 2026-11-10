@@ -97,6 +97,8 @@ export interface FreeBoard {
   grupo: string;
   /** Quando mudou por último (a ordem da lista e o desempate da junção). */
   em: string;
+  /** Público: quem visita o seu mural vê o quadro (rodada 6). Omitido, só você. */
+  publico?: true;
   n: (FbNode | FbUnknownNode)[];
   e: FbEdge[];
   [extra: string]: unknown;
@@ -182,7 +184,7 @@ function extras(raw: Record<string, unknown>, known: ReadonlySet<string>): Recor
 
 const NODE_KEYS = new Set(['i', 't', 'x', 'y', 'w', 'h', 'c', 'g', 'nome', 'txt', 'src']);
 const EDGE_KEYS = new Set(['i', 'a', 'b', 'as', 'bs', 'p', 'c', 'txt']);
-const BOARD_KEYS = new Set(['v', 'id', 'nome', 'grupo', 'em', 'n', 'e']);
+const BOARD_KEYS = new Set(['v', 'id', 'nome', 'grupo', 'em', 'publico', 'n', 'e']);
 
 /** Uma peça, cortada para caber; null se não tem o que guardar (sem id, sem tipo). */
 export function sanitizeNode(raw: unknown): FbNode | FbUnknownNode | null {
@@ -279,7 +281,7 @@ export function sanitizeFreeBoard(raw: unknown): FreeBoard | null {
     taken.add(edge.i);
     e.push(edge);
   }
-  return { ...extras(r, BOARD_KEYS), v: 1, id: r['id'] as string, nome, grupo, em, n, e };
+  return { ...extras(r, BOARD_KEYS), v: 1, id: r['id'] as string, nome, grupo, em, ...(r['publico'] === true ? { publico: true as const } : {}), n, e };
 }
 
 /** A peça é de um tipo que este site mostra? */
