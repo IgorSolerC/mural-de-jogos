@@ -558,6 +558,9 @@
   }
 
   &::after {
+    /* colado por cima, o adesivo é de tinta preta também na cartolina escura (onde a tinta da ficha é clara),
+       como o adesivo do Lado a lado (ver o "material de fundo" em src/styles.scss) */
+    --ink: #151515;
     content: counter(marca);
     position: absolute;
     top: -26px;
