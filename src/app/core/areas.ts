@@ -80,6 +80,14 @@ export function studyPath(group?: string | null, deck?: string | null): string {
 }
 
 /**
+ * O Quadro livre (PLANO-QUADRO-LIVRE.md): Tudo, um grupo (`group`, o id do grupo, o mesmo dos Flashcards:
+ * `studyGroupId`) ou um quadro aberto em tela cheia.
+ */
+export function freeBoardPath(group?: string | null, board?: string | null): string {
+  return '/anotacoes/quadro-livre' + (group ? `/${group}` + (board ? `/${board}` : '') : '');
+}
+
+/**
  * Os Estudos de quem se visita (PLANO-BARALHOS-PUBLICOS.md): os baralhos públicos da pessoa aberta no mural
  * do colega, por grupo e baralho como os seus.
  */

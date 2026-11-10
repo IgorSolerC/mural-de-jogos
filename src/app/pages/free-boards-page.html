@@ -1,0 +1,108 @@
+<!-- o nome da seção está no índice embaixo do topo (ui/area-bar.ts) -->
+<h1 class="sr-only">Quadro livre{{ group() ? ": " + group()!.label : "" }}</h1>
+
+<!-- as abas: Tudo e os grupos das anotações, as mesmas dos Flashcards (ui/study-group-tabs.ts), com quantos quadros -->
+<app-study-group-tabs label="Grupos do Quadro livre" [tabs]="tabs()" [active]="group()?.id ?? null" [path]="groupPath" [ordered]="tabsOrdered()" [hidden]="tabsHidden()" (chosen)="openGroup($event)" />
+
+<div class="pasta">
+  <div class="pasta-linha">
+    <p class="resumo">
+      @if (shown().length) {
+        <strong>{{ shown().length }} {{ shown().length === 1 ? "quadro" : "quadros" }}</strong>
+        {{ group() ? "em " + group()!.label : "em todos os grupos" }}
+      } @else {
+        Nenhum quadro {{ group() ? "em " + group()!.label : "" }} ainda.
+      }
+    </p>
+    <p class="dica">Um quadro livre é uma parede sem fim para imagens, anotações, bilhetes e setas. O botão direito num quadro (ou o dedo segurando) renomeia, duplica, muda de grupo ou apaga.</p>
+  </div>
+</div>
+
+<ul class="folhas" role="list" aria-label="Quadros">
+  <!-- o Novo quadro: a primeira folha. Antes, um contorno a giz com o +; tocado, a folha kraft com o nome -->
+  <li class="folha-novo">
+    @if (creating()) {
+      <form class="novo" (submit)="$event.preventDefault(); create()">
+        <h2 class="novo-titulo">Novo quadro</h2>
+        <label class="campo novo-nome">
+          <span class="sr-only">Nome do quadro</span>
+          <input type="text" autocomplete="off" placeholder="Nome do quadro" [maxLength]="nameMax" [value]="newName()" (input)="newName.set($any($event.target).value)" (keydown.escape)="$event.stopPropagation(); creating.set(false)" />
+        </label>
+        @if (!group()) {
+          <label class="campo novo-grupo">
+            <span class="novo-pre">Grupo</span>
+            <select [value]="newGroupValue()" (change)="newGroup.set($any($event.target).value)">
+              @for (g of groups(); track g.id) {
+                <option [value]="g.label" [selected]="g.label === newGroupValue()">{{ g.label }}</option>
+              }
+              @if (!groups().length) {
+                <option value="Geral" selected>Geral</option>
+              }
+            </select>
+          </label>
+        }
+        <div class="novo-botoes">
+          <button type="button" class="btn-quiet" (click)="creating.set(false)">Cancelar</button>
+          <button type="submit" class="btn-ink" [disabled]="!newName().trim()">Criar o quadro</button>
+        </div>
+      </form>
+    } @else {
+      <button type="button" class="vaga" (click)="startCreate()">
+        <lucide-icon [img]="Icons.novo" [size]="30" aria-hidden="true" />
+        <span>Novo quadro{{ group() ? " em " + group()!.label : "" }}</span>
+      </button>
+    }
+  </li>
+  @for (b of shown(); track b.id) {
+    <li>
+      @if (renaming() === b.id) {
+        <form class="novo renomear" (submit)="$event.preventDefault(); finishRename(true)">
+          <h2 class="novo-titulo">Renomear</h2>
+          <label class="campo">
+            <span class="sr-only">Nome do quadro</span>
+            <input type="text" autocomplete="off" [maxLength]="nameMax" [value]="renameText()" (input)="renameText.set($any($event.target).value)" (keydown.escape)="$event.stopPropagation(); finishRename(false)" />
+          </label>
+          <div class="novo-botoes">
+            <button type="button" class="btn-quiet" (click)="finishRename(false)">Cancelar</button>
+            <button type="submit" class="btn-ink" [disabled]="!renameText().trim()">Salvar</button>
+          </div>
+        </form>
+      } @else {
+        <app-free-board-card [board]="b" [path]="boardPath(b)" [style.--torto.deg]="($index % 3) - 1 || -0.6" />
+      }
+    </li>
+  }
+</ul>
+
+<app-context-menu #menu [caption]="menuCaption()" [sections]="menuSections()" (closed)="menuOn.set(null)" />
+
+<!-- o quadro aberto: a tela inteira, só para ver -->
+@if (wantedBoard()) {
+  <div class="tela-cheia" role="dialog" aria-modal="true" [attr.aria-label]="open() ? 'Quadro ' + open()!.nome : 'Quadro'" (fullscreenchange)="onFullscreenChange()">
+    @if (open(); as b) {
+      @if (camera() !== undefined) {
+        <app-free-board class="quadro" [board]="b" [camera]="camera() ?? null" (cameraChange)="saveCamera(b.id, $event)" />
+      }
+      <div class="topo-esq">
+        <button type="button" class="tape-label voltar" (click)="close()" title="Voltar para a lista (Esc)">
+          <lucide-icon [img]="Icons.voltar" [size]="18" aria-hidden="true" />
+          <span class="sr-only">Voltar para a lista</span>
+        </button>
+        <h2 class="nome-quadro">{{ b.nome }}</h2>
+      </div>
+      <div class="topo-dir">
+        <button type="button" class="tela-btn" (click)="toggleFullscreen()" [attr.aria-pressed]="fullscreen()" [title]="fullscreen() ? 'Sair da tela cheia' : 'Tela cheia de verdade (esconde as barras do navegador)'">
+          <lucide-icon [img]="fullscreen() ? Icons.sair : Icons.cheia" [size]="20" aria-hidden="true" />
+          <span class="sr-only">{{ fullscreen() ? "Sair da tela cheia" : "Tela cheia" }}</span>
+        </button>
+      </div>
+    } @else if (!loaded()) {
+      <p class="aviso">Trazendo o quadro…</p>
+    } @else {
+      <div class="aviso">
+        <p>Este quadro não está aqui. Ele pode ter sido apagado.</p>
+        <button type="button" class="btn-ink" (click)="close()">Voltar para a lista</button>
+      </div>
+    }
+  </div>
+}

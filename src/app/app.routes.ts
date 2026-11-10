@@ -22,6 +22,16 @@ export function visitMatcher(segments: UrlSegment[]): UrlMatchResult | null {
 }
 
 /**
+ * O Quadro livre: `/anotacoes/quadro-livre[/:grupo[/:quadro]]` (PLANO-QUADRO-LIVRE.md, 4.1). Uma rota com três
+ * endereços, como a visita: abrir e fechar um quadro não refaz a página (a lista fica onde estava).
+ */
+export function freeBoardMatcher(segments: UrlSegment[]): UrlMatchResult | null {
+  const [a, b, grupo, quadro, ...rest] = segments;
+  if (a?.path !== 'anotacoes' || b?.path !== 'quadro-livre' || rest.length) return null;
+  return { consumed: segments, posParams: { ...(grupo ? { grupo } : {}), ...(quadro ? { quadro } : {}) } };
+}
+
+/**
  * O site em quatro partes (ver core/areas.ts): as Anotações, as Análises, com o mural de resenhas no
  * endereço (`/analises/livros/pra-depois`), as Utilidades e os Extras. O mural aberto sai do endereço; nos Extras,
  * do seletor da própria página. O título de cada página ganha o mural (ver core/title.ts).
@@ -38,6 +48,7 @@ export const routes: Routes = [
   { path: 'anotacoes/estudos/:grupo', title: 'Flashcards', canActivate: [enterNotes], loadComponent: study },
   { path: 'anotacoes/estudos/:grupo/:baralho', title: 'Flashcards', canActivate: [enterNotes], loadComponent: study },
   // o Calendário morava aqui até 02/nov/2026: o endereço de antes vai para o novo com a query (dia, lembrete)
+  { matcher: freeBoardMatcher, title: 'Quadro livre', canActivate: [enterNotes], loadComponent: () => import('./pages/free-boards-page').then((m) => m.FreeBoardsPage) },
   { path: 'anotacoes/calendario', redirectTo: toCalendar },
   { path: 'analises', pathMatch: 'full', redirectTo: toReviews() },
   {

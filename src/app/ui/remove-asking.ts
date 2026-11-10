@@ -3,6 +3,8 @@ import { Reminder, addDays, dayAndMonth, occurrenceStart, rangeLabel, repeatShor
 import { CalendarStore } from '../core/calendar-store';
 import { cardsIn, removeColumn } from '../core/kanban';
 import { KanbanStore } from '../core/kanban-store';
+import { pieceCount } from '../core/free-board';
+import { FreeBoardStore } from '../core/free-board-store';
 import { Entry, monthLabel, monthOfDay, shiftMonth } from '../core/spending';
 import { SpendingStore } from '../core/spending-store';
 import { StudyStore } from '../core/study-store';
@@ -33,6 +35,29 @@ export class RemoveAsking {
   private readonly kanban = inject(KanbanStore);
   private readonly calendar = inject(CalendarStore);
   private readonly spending = inject(SpendingStore);
+  private readonly boards = inject(FreeBoardStore);
+
+  /**
+   * Apaga o quadro do Quadro livre (PLANO-QUADRO-LIVRE.md, 4.2), com o Desfazer. As anotações que estão nele
+   * são referências: continuam no mural.
+   */
+  async board(id: string, before?: () => void): Promise<boolean> {
+    const board = this.boards.get(id);
+    if (!board) return false;
+    const n = pieceCount(board);
+    const yes = await this.confirm.ask({
+      title: `Apagar o quadro ${board.nome}?`,
+      text: `${n ? (n === 1 ? 'A peça sai junto' : `As ${n} peças saem junto`) : 'Ele está vazio'}. Nenhuma anotação é apagada.`,
+      confirm: 'Apagar o quadro',
+      cancel: 'Deixar',
+      icon: ICON.apagar,
+    });
+    if (!yes || !this.boards.get(id)) return false;
+    before?.();
+    const gone = await this.boards.remove(id);
+    if (gone) this.toasts.show(`O quadro ${gone.nome} foi apagado`, { label: 'Desfazer', run: () => void this.boards.restore(gone) });
+    return true;
+  }
 
   /**
    * Apaga o baralho: as cartas saem dele, e a que não está em nenhum outro sai dos Estudos (a anotação

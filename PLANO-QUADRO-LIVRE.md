@@ -875,3 +875,26 @@ Decidido no caminho (pode mudar):
 - O título da moldura de longe é colado meio para fora da borda de cima (dentro, as peças do alto o cobriam).
 - O plano B da 9.8 (mandar mais para o canvas) não foi preciso.
 - Novidades sem mudança: a página é escondida (desempate em NOVIDADES.md).
+
+### Rodada 3: a seção (09/nov, BUILD 830)
+
+Feito:
+
+- A aba **Quadro livre** depois de Flashcards (`SECOES_DAS_ANOTACOES`), com `cofre-hashes.json` refeito: **o cofre
+  precisa ser publicado por você** (cofre.yml) para o topo dele mostrar a aba nova; até lá o vigia do cofre acusa a
+  diferença.
+- Rota com um `matcher` só (`freeBoardMatcher`: `/anotacoes/quadro-livre[/:grupo[/:quadro]]`) e `freeBoardPath`.
+- `pages/free-boards-page.*`: as abas dos grupos (a peça dos Flashcards, com quantos quadros), o resumo na pasta, as
+  folhas kraft (`ui/free-board/board-card.ts`, com a miniatura desenhada dos dados em `board-sketch.ts`), o "Novo
+  quadro" como a primeira folha (o contorno a giz vira a folha com o nome e, em Tudo, o grupo), o menu do botão
+  direito e do dedo segurando (Abrir, Renomear no lugar da folha, Duplicar, Mover para o grupo…, Apagar pelo
+  `RemoveAsking.board` com Desfazer) e o quadro em tela cheia: Voltar (e Esc), o nome, a tela cheia do navegador,
+  a câmera guardada neste aparelho, "Trazendo o quadro…" e "Este quadro não está aqui".
+- Q3: `IMAGENS_POR_DIA = 100` e `IMAGENS_MB_PESSOA = 60` (`api/wrangler.toml`). Ajustes não diz os números (mostra o
+  que a nuvem responde): nada a mudar lá.
+- Novidades 1.43.0 (o Quadro livre) e 1.43.1 (o espaço das imagens, M7).
+
+Decidido no caminho (pode mudar):
+
+- Editar ainda não aparece na tela cheia (chega na rodada 4, no mesmo lugar do topo, à direita).
+- Renomear é no lugar da folha (a mesma folha kraft do Novo quadro), não numa folha à parte.

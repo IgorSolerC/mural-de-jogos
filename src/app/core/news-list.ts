@@ -27,6 +27,26 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-09-limite-das-imagens',
+    version: '1.43.1',
+    kind: 'ajustes',
+    date: '2026-11-09',
+    title: 'Mais espaço para imagens',
+    melhorias: ['As imagens coladas sobem até 100 por dia (eram 30), e cada conta guarda até 60 MB delas (eram 25): um quadro cheio de prints cabe de uma vez.'],
+  },
+  {
+    id: '2026-11-09-quadro-livre',
+    version: '1.43.0',
+    kind: 'funcionalidade',
+    date: '2026-11-09',
+    title: 'Quadro livre nas anotações',
+    items: [
+      'Uma aba nova nas Anotações, o Quadro livre: em cada grupo, quantos quadros você quiser, cada um com nome, numa folha kraft com a miniatura do que tem dentro.',
+      'O quadro abre na tela inteira: uma parede sem fim. Arraste para andar, role para dar zoom (no trackpad, dois dedos andam e a pinça aproxima), e o + − e o Ver tudo ficam numa régua no canto. No celular, um dedo anda e dois dão zoom. O quadro abre onde você parou.',
+      'O botão direito num quadro abre, renomeia, duplica, muda de grupo ou apaga, com Desfazer.',
+    ],
+  },
+  {
     id: '2026-11-09-codigo-na-pauta',
     version: '1.42.1',
     kind: 'ajustes',

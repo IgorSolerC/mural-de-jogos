@@ -68,7 +68,7 @@ interface Summary {
           <app-kind-switcher class="mural" [kinds]="ks" />
         }
         @if (tabs().length) {
-          <nav class="secoes" [attr.aria-label]="navLabel()">
+          <nav class="secoes" [class.quatro]="tabs().length >= 4" [attr.aria-label]="navLabel()">
             <ul>
               @for (t of tabs(); track t.label) {
                 <li>
@@ -397,6 +397,23 @@ interface Summary {
        seções chegam mais perto) */
     .cofre .cadeado {
       display: none;
+    }
+    /* quatro seções (as Anotações, com o Quadro livre): no celular estreito, as letras se apertam para caber numa fileira */
+    @container indice (max-width: 389px) {
+      .secoes.quatro .secao {
+        padding: 0 5px;
+        font-size: 0.9rem;
+        letter-spacing: 0.04em;
+      }
+    }
+    @container indice (max-width: 329px) {
+      .secoes.quatro .secao {
+        min-width: 42px;
+        justify-content: center;
+        padding: 0 3px;
+        font-size: 0.8rem;
+        letter-spacing: 0.02em;
+      }
     }
     @container indice (max-width: 341px) {
       .indice:has(.cofre) .secao {

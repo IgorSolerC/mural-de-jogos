@@ -26,11 +26,12 @@ API_CODIGOS = "G11TG00D"
 # por vírgula; vazio, ninguém; não existe "*". O id não é segredo. Este é o da conta G11T-G00D, do dono.
 ADMIN_USUARIOS = "1e4a3307-852a-45c4-8110-ed336dda8e63"
 # As imagens (PLANO-IMAGENS.md): o banco mural-imagens tem 500 MB no plano grátis; a nuvem para em 400
-# (o resto é a folga do próprio banco), cada conta guarda até 25 MB (umas 300 imagens de 900 px) e manda
-# até 30 por dia. Zero (ou um valor que não é número) recusa todo envio.
+# (o resto é a folga do próprio banco), cada conta guarda até 60 MB (umas 900 imagens de 900 px) e manda
+# até 100 por dia (subiram com o Quadro livre, PLANO-QUADRO-LIVRE.md, Q3: um quadro de jogo tem uns 75 prints).
+# Zero (ou um valor que não é número) recusa todo envio.
 IMAGENS_MB_TOTAL = "400"
-IMAGENS_MB_PESSOA = "25"
-IMAGENS_POR_DIA = "30"
+IMAGENS_MB_PESSOA = "60"
+IMAGENS_POR_DIA = "100"
 # O endereço do site: o OAuth dos conectores manda a pessoa para a página Autorizar dele.
 SITE = "https://murall.igorsc.com.br"
 # Público (vai também no site); é o `aud` que o login confere.

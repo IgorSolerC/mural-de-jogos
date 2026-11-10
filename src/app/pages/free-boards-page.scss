@@ -1,0 +1,241 @@
+@use '../ui/paper-kit' as kit;
+
+:host {
+  display: block;
+}
+
+.pasta-linha {
+  flex-direction: column;
+  align-items: flex-start !important;
+  gap: 4px !important;
+}
+
+.resumo {
+  margin: 0;
+  font: 400 1.15rem / 1.3 var(--f-hand);
+
+  strong {
+    font-family: var(--f-marker);
+    font-weight: 400;
+    font-size: 1.3rem;
+  }
+}
+
+.dica {
+  margin: 0;
+  max-width: 70ch;
+  font: 400 0.98rem / 1.4 var(--f-hand);
+  color: var(--ink-2);
+}
+
+/* ===== As folhas: a grade das pastas, as que couberem (duas no celular) ===== */
+
+.folhas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 248px), 1fr));
+  gap: 38px 28px;
+  margin: 36px 0 60px;
+  padding: 0;
+  list-style: none;
+
+  @media (max-width: 560px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 30px 14px;
+  }
+}
+
+/* o Novo quadro antes de tocar: o contorno a giz de uma folha que ainda não existe, com o + */
+.vaga {
+  width: 100%;
+  height: 100%;
+  min-height: 230px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  border: 2px dashed rgb(243 239 230 / 0.42);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--wall-ink);
+  font: 400 1.15rem / 1.2 var(--f-hand);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color var(--t-ui) var(--ease-ui),
+    background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    border-color: rgb(243 239 230 / 0.8);
+    background-color: rgb(243 239 230 / 0.05);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 4px;
+  }
+}
+
+/* o Novo quadro (e o Renomear): a folha kraft com o campo de papel */
+.novo {
+  position: relative;
+  display: grid;
+  gap: 12px;
+  padding: 20px 16px 16px;
+  background-color: #c9a472;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  rotate: -0.6deg;
+  box-shadow: var(--shadow-card);
+
+  .campo {
+    @include kit.campo;
+  }
+
+  select {
+    appearance: none;
+    border: 0;
+    padding: 0 18px 0 0;
+    background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23151515' stroke-width='2'/%3E%3C/svg%3E") right center / 12px 8px no-repeat;
+    color: var(--ink);
+    font: 400 1.1rem / 1.2 var(--f-hand);
+    cursor: pointer;
+  }
+
+  select:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+}
+
+.novo-titulo {
+  margin: 0;
+  font: 400 1.35rem / 1.1 var(--f-marker);
+}
+
+.novo-pre {
+  @include kit.linha-titulo;
+  margin-right: 6px;
+}
+
+.novo-botoes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ===== O quadro aberto: a parede inteira, por cima do site ===== */
+
+.tela-cheia {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: var(--wall);
+}
+
+.quadro {
+  position: absolute;
+  inset: 0;
+}
+
+.topo-esq,
+.topo-dir {
+  position: absolute;
+  top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.topo-esq {
+  left: 16px;
+  max-width: calc(100% - 120px);
+}
+
+.topo-dir {
+  right: 16px;
+}
+
+.voltar {
+  display: inline-grid;
+  place-items: center;
+  min-width: 48px;
+  min-height: 44px;
+  border: 0;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 3px;
+  }
+}
+
+/* o nome do quadro, a pincel na fita: o mesmo papel da etiqueta de voltar, mas parado */
+.nome-quadro {
+  margin: 0;
+  padding: 6px 16px 4px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  background-color: var(--paper);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  font: 400 1.35rem / 1.15 var(--f-marker);
+  rotate: 0.8deg;
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.35), 0 6px 10px -4px rgb(0 0 0 / 0.5);
+}
+
+.tela-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 0;
+  border-radius: 4px;
+  background: linear-gradient(to bottom, #b9b4ab, #9c978e 55%, #8b867d);
+  color: var(--ink);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.4),
+    inset 0 -2px 0 rgb(0 0 0 / 0.22),
+    0 6px 10px -3px rgb(0 0 0 / 0.6);
+  cursor: pointer;
+
+  &:hover {
+    filter: brightness(1.08);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 2px;
+  }
+}
+
+.aviso {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+  margin: 0;
+  padding: 20px 26px 18px;
+  background: var(--paper) var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  font: 400 1.2rem / 1.35 var(--f-hand);
+  box-shadow: var(--shadow-card);
+  rotate: -0.8deg;
+
+  p {
+    margin: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vaga {
+    transition: none;
+  }
+}

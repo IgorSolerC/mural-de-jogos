@@ -117,7 +117,7 @@ describe('as quatro partes do site', () => {
     it('o Calendário mora nas Utilidades, e o endereço de antes leva para lá com o dia e o lembrete', async () => {
       expect(CALENDAR_PATH).toBe('/utilidades/calendario');
       expect(sectionOf(CALENDAR_PATH, UTILITY_SECTIONS)?.label).toBe('Calendário');
-      expect(NOTE_SECTIONS.map((s) => s.label)).toEqual(['Mural', 'Kanban', 'Flashcards']);
+      expect(NOTE_SECTIONS.map((s) => s.label)).toEqual(['Mural', 'Kanban', 'Flashcards', 'Quadro livre']);
       await router.navigateByUrl('/anotacoes/calendario?vista=dia&dia=2026-11-02&lembrete=rk2x9abc');
       expect(router.url).toBe('/utilidades/calendario?vista=dia&dia=2026-11-02&lembrete=rk2x9abc');
       await router.navigateByUrl('/anotacoes/calendario');

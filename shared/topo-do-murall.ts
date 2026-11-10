@@ -46,11 +46,12 @@ export interface SecaoDasAnotacoes {
   readonly label: string;
 }
 
-/** Mural, Kanban e Estudos, nesta ordem (o Calendário mudou para as Utilidades). */
+/** Mural, Kanban, Estudos e o Quadro livre, nesta ordem (o Calendário mudou para as Utilidades). */
 export const SECOES_DAS_ANOTACOES: readonly SecaoDasAnotacoes[] = [
   { slug: '', label: 'Mural' },
   { slug: 'kanban', label: 'Kanban' },
   { slug: 'estudos', label: 'Flashcards' },
+  { slug: 'quadro-livre', label: 'Quadro livre' },
 ];
 
 /**
