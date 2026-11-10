@@ -822,3 +822,56 @@ Decidido no caminho (pode mudar):
   precisa saber se há quadros (`localHasContent`) e quais imagens eles usam.
 - As Novidades não mudam nesta rodada (desempate novo em NOVIDADES.md: a base sem tela entra com a
   rodada que a mostra).
+
+### Rodada 2: o motor (09/nov, BUILD 829)
+
+Feito, só para ver, numa página de teste escondida (`/#/laboratorio/quadro-livre`, sem link; `?quadro=grande`
+abre o quadro gerado):
+
+- `ui/free-board/camera-rig.ts`: a câmera fora do Angular (arrastar depois de 4 px, botão do meio, roda = zoom no
+  ponteiro, Shift+roda de lado, trackpad anda e a pinça dá zoom, um dedo anda e dois dão zoom, o clique que fecha
+  um arrasto não chega à peça, "Ver tudo" e 100% deslizando, ou pulando com movimento reduzido).
+- `ui/free-board/scene.ts`: o que fica montado (a tela e meia tela de folga, teto de 300), o nível de cada peça
+  (perto, meio, longe; a imagem só vem inteira quando aparece grande) e as setas da área.
+- `ui/free-board/free-board-view.ts` (`app-free-board`): a peça de ver, que a visita vai montar. O eucatex sem
+  fim, as molduras atrás, um canvas no mundo (as peças de longe, as setas a giz e, de longe, o título das molduras
+  numa fita Dymo do tamanho da tela) e as peças e as fitas dos rótulos na frente. Teclado (setas, + −, 0, 1, Tab
+  pelas peças na ordem de leitura com a câmera indo junto, Enter usa a peça), nomes falados ("Moldura Roxo
+  (Quartos), 12 peças", "Bilhete: Senha?"), a régua de alumínio do zoom embaixo à direita.
+- `ui/free-board/free-board-piece.ts`: as peças de verdade (o widget das anotações, o feltro com pesponto e Dymo,
+  o bilhete rasgado à caneta com a formatação das anotações) e as leves do meio (a miniatura da foto, a tira com o
+  título da nota, o ícone e o nome do widget, o papel liso com a primeira linha).
+- `ui/free-board/thumbs.ts`: as miniaturas de 256 px, só na memória, uma loja por tela de quadro.
+- A peça entrou em `PECAS` e `SO_LEEM` de `scripts/visita-mesmas-pecas.test.mjs` (não importa nada que escreve).
+
+Medição (`.angular/pptr/quadro-livre-perf.mjs`, build de produção, 1920×1080, o quadro de 2.000 peças e 1.500
+setas; o p95 é o tempo de quadro de 95% deles):
+
+| Cena | p95 | Quadros acima de 33 ms |
+|---|---|---|
+| Abrir o quadro grande (até o primeiro quadro pintado) | 84 ms no total | — |
+| Ver tudo (11%), andar 2,5 s | 16,5 ms | 2 |
+| Zoom de longe até 223% com a roda (3 s) | 16,7 ms | 6 (as peças de verdade sendo montadas) |
+| Perto, andar | 8,6 ms | 0 |
+| Meio (67%, 300 montadas), andar | 8,5 ms | 0 |
+| Afastar com a roda até 5% | 16,7 ms | 4 |
+| Aparelho fraco (CPU 4×, sem placa de vídeo), a mansão: andar e dar zoom | 16,8 ms | 0 a 5 por cena |
+
+O que a medição ensinou (e ficou no código):
+
+- **Nada muda no visor por quadro.** A primeira versão punha os furos da parede em variáveis CSS no visor, e toda
+  peça dentro dele herdava: o estilo das 300 peças era refeito a cada quadro (p95 de 58 a 240 ms). A parede virou
+  uma camada à parte que só desliza.
+- **O canvas mora no mundo.** Redesenhado só na conta da cena (um quarto de tela, 15% de zoom), ele anda com a
+  câmera como as peças; teto de 4 milhões de pixels; um preenchimento por cor.
+- **As setas saíram do SVG.** O grão do giz tracejado no SVG era repintado a cada mudança de escala (o zoom
+  travava); no canvas, o grão é um padrão de pixels.
+- **Nítido de novo só parado 400 ms.** Cada dente da roda girada devagar parava o gesto, e cada parada repintava
+  tudo na escala nova; a conta da cena continua nos 150 ms.
+
+Decidido no caminho (pode mudar):
+
+- A régua do zoom (−, porcentagem, +, Ver tudo) faz parte da peça, não da página: a visita a ganha igual.
+- O título da moldura de longe é colado meio para fora da borda de cima (dentro, as peças do alto o cobriam).
+- O plano B da 9.8 (mandar mais para o canvas) não foi preciso.
+- Novidades sem mudança: a página é escondida (desempate em NOVIDADES.md).

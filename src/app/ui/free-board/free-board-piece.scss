@@ -1,0 +1,203 @@
+/* Uma peça do Quadro livre (ver free-board-piece.ts). Tudo em px do mundo: a câmera escala o mundo inteiro. */
+
+:host {
+  position: absolute;
+  display: block;
+  box-sizing: border-box;
+  font-size: 16px;
+  color: var(--ink);
+  outline: none;
+  /* a cartolina da peça (data-cor): o neon de styles.scss */
+  --peca-cor: var(--stock-cinza);
+  --feltro: var(--stock-cinza-escuro);
+}
+
+@each $cor in (vermelho, laranja, amarelo, verde, azul, lilas, rosa, cinza) {
+  :host([data-cor='#{$cor}']) {
+    --peca-cor: var(--stock-#{$cor});
+    --feltro: var(--stock-#{$cor}-escuro);
+  }
+}
+:host([data-cor='branco']) {
+  --peca-cor: var(--stock-branco);
+  --feltro: #57534c;
+}
+
+/* o foco do teclado (Tab anda pelas peças): o anel amarelo na parede, em volta da peça */
+:host(:focus-visible) {
+  outline: 3px solid var(--focus);
+  outline-offset: 6px;
+}
+
+/* ===== A moldura: uma folha de feltro de cantos macios, com o pesponto claro rente à borda ===== */
+
+.feltro {
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  background-color: var(--feltro);
+  /* a trama do feltro, na luz que vem de cima */
+  background-image:
+    radial-gradient(rgb(255 255 255 / 0.05) 0.9px, transparent 1.3px),
+    linear-gradient(to bottom, rgb(255 250 235 / 0.05), transparent 220px);
+  background-size:
+    5px 5px,
+    100% 100%;
+  /* o pesponto: a linha da cor da cartolina, tracejada, por dentro */
+  outline: 2px dashed color-mix(in srgb, var(--peca-cor) 62%, transparent);
+  outline-offset: -11px;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.45),
+    0 8px 18px -8px rgb(0 0 0 / 0.55);
+}
+
+:host([data-tipo='moldura'][data-nivel='meio']) .feltro {
+  background-image: none;
+  box-shadow: none;
+}
+
+/* o título: uma fita Dymo da cor da cartolina, com as letras de tinta em relevo, colada no canto de cima */
+.dymo {
+  position: absolute;
+  top: 22px;
+  left: 26px;
+  max-width: calc(100% - 52px);
+  height: 30px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  overflow: hidden;
+  rotate: -1deg;
+  border-radius: 3px;
+  background:
+    linear-gradient(to bottom, rgb(255 255 255 / 0.32), rgb(255 255 255 / 0.08) 46%, rgb(0 0 0 / 0) 54%, rgb(0 0 0 / 0.1)),
+    var(--peca-cor);
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.4),
+    0 4px 8px -4px rgb(0 0 0 / 0.5);
+  font: 800 17px / 1 var(--f-label);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink);
+  /* o relevo: a borda de cima da letra pega luz, a de baixo faz sombra */
+  text-shadow:
+    0 1px 0 rgb(255 255 255 / 0.45),
+    0 -1px 0 rgb(0 0 0 / 0.25);
+}
+
+/* de longe o título fica pequeno demais: o canvas desenha um do tamanho da tela (far-layer.ts) */
+:host-context(.rotulos-na-tela) .dymo {
+  visibility: hidden;
+}
+
+/* ===== O bilhete: papel de bloquinho rasgado em cima, escrito à caneta ===== */
+
+:host([data-tipo='bilhete']) {
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 6px 8px rgb(0 0 0 / 0.3));
+}
+:host([data-tipo='bilhete'][data-nivel='meio']) {
+  filter: none;
+}
+
+.bloco {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: 14px 14px 10px;
+  background-color: var(--paper);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  font-family: var(--f-hand);
+  font-size: 1.15rem;
+  line-height: 1.35;
+  color: var(--ink);
+}
+
+:host([data-cor]) .bloco {
+  background-color: var(--peca-cor);
+}
+
+.bloco.liso {
+  background-image: none;
+}
+
+.escrito {
+  display: block;
+  font: inherit;
+  --line: 1.35em;
+}
+
+.primeira {
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ===== Os widgets: a mesma peça das anotações; no meio, a versão leve ===== */
+
+app-note-widget,
+.tabela {
+  display: block;
+  width: 100%;
+}
+
+.tabela {
+  padding: 10px 12px;
+  box-sizing: border-box;
+  background: var(--papel-ficha);
+  box-shadow: var(--shadow-card);
+}
+
+.miniatura,
+.esperando {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.miniatura {
+  object-fit: cover;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.5);
+}
+
+.esperando {
+  background: #5d5954;
+}
+
+/* a nota no meio: a tira do "Só o título", o papel de ficha com o título a caneta */
+.tira {
+  height: 100%;
+  box-sizing: border-box;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  background: var(--papel-ficha);
+  font: 700 1.2rem / 1.2 var(--f-hand);
+
+  span {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+}
+
+/* o widget no meio: o ícone e o nome, impressos */
+.leve {
+  height: 100%;
+  box-sizing: border-box;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #e4ddcf;
+  color: var(--ink-2);
+  font: 800 1rem / 1 var(--f-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}

@@ -44,6 +44,12 @@ const PECAS = [
     o: 'a pasta das anotações na parede (PLANO-PASTAS.md)',
   },
   {
+    peca: 'src/app/ui/free-board/free-board-view.ts',
+    usa: 'app-free-board',
+    marcas: [/aria-roledescription="quadro livre"/],
+    o: 'o Quadro livre na tela (PLANO-QUADRO-LIVRE.md): a câmera, as peças e as setas',
+  },
+  {
     peca: 'src/app/ui/folder-path.ts',
     usa: 'app-folder-path',
     marcas: [/aria-label="Caminho da pasta"/],
@@ -67,6 +73,10 @@ const SO_LEEM = [
   'src/app/ui/study-card-focus.ts',
   'src/app/ui/folder-card.ts',
   'src/app/ui/folder-path.ts',
+  'src/app/ui/free-board/free-board-view.ts',
+  'src/app/ui/free-board/free-board-piece.ts',
+  'src/app/ui/free-board/scene.ts',
+  'src/app/ui/free-board/thumbs.ts',
 ];
 /** O que escreve no seu Murall. */
 const ESCREVE = /from '[./]+(?:core\/)?(study-store|review-store|desk|kanban-store|calendar-store|spending-store)'/;

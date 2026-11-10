@@ -140,7 +140,9 @@ export const routes: Routes = [
   { path: 'ficha/:codigo/:id', title: 'Ficha', loadComponent: () => import('./pages/ficha-page').then((m) => m.FichaPage) },
   // um conector (claude.ai, Claude Code) pedindo acesso pelo OAuth (PLANO-API.md, 11.2)
   { path: 'autorizar', title: 'Autorizar', loadComponent: () => import('./pages/authorize-page').then((m) => m.AuthorizePage) },
-  { path: 'novidades', title: 'Novidades', loadComponent: () => import('./pages/news-page').then((m) => m.NewsPage) },
+  // o laboratório do Quadro livre (PLANO-QUADRO-LIVRE.md, rodada 2): escondido, nenhum link leva até ele
+  { path: 'laboratorio/quadro-livre', title: 'Quadro livre', loadComponent: () => import('./pages/free-board-lab-page').then((m) => m.FreeBoardLabPage) },
+  { path: 'novidades', title: 'Novidades',loadComponent: () => import('./pages/news-page').then((m) => m.NewsPage) },
   // um endereço que não existe (ou uma seção que um mural não tem): a última parede aberta. Pela função, e
   // não por '' (que redireciona de novo): o Router não segue a segunda e a página ficava em branco em "/"
   { path: '**', redirectTo: toLastWall },
