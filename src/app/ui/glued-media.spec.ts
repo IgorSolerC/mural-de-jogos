@@ -334,6 +334,39 @@ describe('a foto colada na anotação', () => {
       fixture.destroy();
     });
 
+    it('o recorte não tem o brilho do papel fotográfico, nem colado nem ampliado (num PNG sem fundo, a faixa clara cruzava o vazio); as outras molduras têm', async () => {
+      const { fixture, el } = await photo(['https://i.imgur.com/sem-fundo.png', 'recorte']);
+      el.querySelector('img')!.dispatchEvent(new Event('load'));
+      await fixture.whenStable();
+      expect(el.querySelector('.colagem')!.classList).toContain('moldura-recorte');
+      expect(el.querySelector('.reflexo')).toBeNull();
+      el.querySelector<HTMLButtonElement>('.ampliar button')!.click();
+      const dialog = await viewer();
+      expect(dialog.querySelector('.colagem')!.classList).toContain('moldura-recorte');
+      expect(dialog.querySelector('img')).not.toBeNull();
+      expect(dialog.querySelector('.reflexo')).toBeNull();
+      // ampliada, nem o bege de esperar atrás do vazio nem a sombra de um quadrado: a sombra segue o contorno
+      expect(getComputedStyle(dialog.querySelector('img')!).backgroundColor).toBe('rgba(0, 0, 0, 0)');
+      const big = getComputedStyle(dialog.querySelector('.foto')!);
+      expect(big.boxShadow).toBe('none');
+      expect(big.filter).toContain('drop-shadow');
+      dialog.querySelector<HTMLButtonElement>('button.fechar')!.click();
+      await gone();
+      // o vídeo no recorte também fica sem ele
+      fixture.componentRef.setInput('kind', 'video');
+      fixture.componentRef.setInput('args', ['https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'recorte']);
+      await fixture.whenStable();
+      expect(el.querySelector('.impressao img.capa')).not.toBeNull();
+      expect(el.querySelector('.reflexo')).toBeNull();
+      for (const frame of ['foto', 'polaroide', 'adesivo']) {
+        fixture.componentRef.setInput('kind', 'imagem');
+        fixture.componentRef.setInput('args', ['https://i.imgur.com/foto.jpg', frame]);
+        await fixture.whenStable();
+        expect(el.querySelector('.impressao > .reflexo')).withContext(frame).not.toBeNull();
+      }
+      fixture.destroy();
+    });
+
     it('o adesivo ampliado: a mesma moldura, a própria foto picotada no tamanho dela e a sombra seguindo os dentes', async () => {
       const { fixture, el } = await photo(['https://i.imgur.com/foto.jpg', 'adesivo', 'Na praia']);
       el.querySelector('img')!.dispatchEvent(new Event('load'));

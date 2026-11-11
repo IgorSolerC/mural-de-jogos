@@ -19,7 +19,8 @@ import { cutSticker, letterScale } from './sticker-edge';
  * Os widgets IMAGEM e VÍDEO (ver core/widgets.ts): uma foto revelada colada na cartolina, levemente
  * torta (o giro vem do link, então é sempre o mesmo), com o brilho do papel fotográfico. A moldura é
  * a borda branca da foto, a polaroide (a legenda escrita na faixa de baixo), o recorte rente ou o
- * adesivo; nas sem faixa, a legenda vai numa etiqueta de papel colada no pé da foto.
+ * adesivo; nas sem faixa, a legenda vai numa etiqueta de papel colada no pé da foto. O recorte não tem
+ * papel fotográfico, então não tem o brilho: num PNG sem fundo, a faixa clara cruzava o vazio em volta.
  *
  * O adesivo é o recorte picotado da wishlist (ui/wish-clip.ts) virado adesivo: a própria foto,
  * impressa em couché (a retícula e o brilho, ui/_meio-tom.scss), cortada em volta com a tesoura de
@@ -72,7 +73,9 @@ import { cutSticker, letterScale } from './sticker-edge';
             @if (src()) {
               <img [src]="src()" [alt]="m.caption || 'Imagem colada na anotação'" referrerpolicy="no-referrer" decoding="async" (load)="onLoad($event)" (error)="failed.set(true)" />
             }
-            <span class="reflexo" aria-hidden="true"></span>
+            @if (m.frame !== 'recorte') {
+              <span class="reflexo" aria-hidden="true"></span>
+            }
           </span>
           @if (loaded()) {
             <app-zoom-knob class="ampliar" [label]="'Ampliar a imagem' + (m.caption ? ': ' + m.caption : '')" (pressed)="zoom()" />
@@ -100,7 +103,9 @@ import { cutSticker, letterScale } from './sticker-edge';
               } @else {
                 <span class="sem-capa" aria-hidden="true"><lucide-icon [img]="VideoIcon" [size]="34" aria-hidden="true" /></span>
               }
-              <span class="reflexo" aria-hidden="true"></span>
+              @if (m.frame !== 'recorte') {
+                <span class="reflexo" aria-hidden="true"></span>
+              }
             </span>
             <!-- o adesivo redondo de tocar, colado no meio da foto -->
             <button type="button" class="tocar tocavel" [attr.aria-label]="'Tocar o vídeo' + (m.caption ? ': ' + m.caption : '')" (click)="play($event)">

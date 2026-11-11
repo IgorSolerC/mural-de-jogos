@@ -55,7 +55,9 @@ const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
                display: contents); o broche do X fica fora -->
           <span class="impressao">
             <img [src]="v.url" [alt]="v.caption || 'Imagem colada na anotação'" referrerpolicy="no-referrer" decoding="async" />
-            <span class="reflexo" aria-hidden="true"></span>
+            @if (v.frame !== 'recorte') {
+              <span class="reflexo" aria-hidden="true"></span>
+            }
           </span>
           @if (v.frame === 'polaroid') {
             <figcaption class="legenda-polaroide">{{ v.caption }}</figcaption>
@@ -145,8 +147,15 @@ const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
     .moldura-polaroid .foto {
       padding: 18px 18px 0;
     }
+    /* o recorte rente, como o colado: sem papel, sem o bege de esperar atrás do PNG sem fundo, e a sombra
+       seguindo o contorno da imagem (não a de um quadrado) */
     .moldura-recorte .foto {
       padding: 0;
+      background: transparent;
+      box-shadow: none;
+      filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.4)) drop-shadow(0 24px 30px rgb(0 0 0 / 0.5));
+    }
+    .moldura-recorte img {
       background: transparent;
     }
     .impressao {
@@ -268,8 +277,8 @@ export class ImageViewer {
     // a colada some (a foto, a etiqueta e o broche): é a mesma foto, que saiu dali
     this.glued(from).style.opacity = '0';
     if (!flight) return;
-    // a sombra sai da rente de colada (o adesivo tem a dele na impressão, que segue os dentes)
-    const start: Keyframe = this.view().frame === 'adesivo' ? { transform: flight } : { transform: flight, boxShadow: '0 1px 1px rgb(0 0 0 / 0.32)' };
+    // a sombra sai da rente de colada (o adesivo e o recorte têm a deles, que segue os dentes ou o contorno)
+    const start: Keyframe = this.view().frame === 'adesivo' || this.view().frame === 'recorte' ? { transform: flight } : { transform: flight, boxShadow: '0 1px 1px rgb(0 0 0 / 0.32)' };
     this.photo().nativeElement.animate([start, { transform: 'none' }], { duration: DURATION, easing: EASE });
     // a etiqueta é colada quando a foto chega
     this.label()?.nativeElement.animate([{ opacity: 0 }, { opacity: 1 }], { duration: FADE, delay: DURATION - FADE, easing: 'linear', fill: 'backwards' });

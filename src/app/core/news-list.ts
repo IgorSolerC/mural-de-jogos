@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-10-botoes-do-quadro',
+    id: '2026-11-10-recorte-sem-brilho',
     version: '1.43.2',
     kind: 'ajustes',
     date: '2026-11-10',
@@ -62,6 +62,7 @@ export const NEWS: NewsEntry[] = [
       'As bolinhas de puxar uma seta não somem mais quando o mouse vai até elas.',
       'O vídeo no quadro livre cresce pelas alças em todos os lados, sem deformar (antes só ficava mais largo).',
       'A sombra da imagem recortada segue o contorno dela, em vez de ser a de um quadrado.',
+      'A imagem com a moldura Recorte não tem mais o brilho de papel fotográfico, que num PNG sem fundo virava uma faixa clara atravessando o vazio; ampliada, ela fica sem o fundo bege atrás e com a sombra seguindo o contorno.',
       'A miniatura de um quadro mais alto que largo não estoura mais a folha na lista, e o nome e as peças aparecem.',
       'Apagar um quadro livre num aparelho não apaga mais o que outro aparelho mudou nele depois: o quadro volta, com a mudança.',
       'Os quadros livres com muitas imagens sobem para a nuvem (antes, um quadro com centenas delas ficava só no aparelho).',
