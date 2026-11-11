@@ -1136,13 +1136,23 @@ dialog.sheet {
    aberta, que é papel creme, só a faixa do cabeçalho (não o cabeçalho de uma ficha colada no texto
    dela, que é de outra cartolina). A caneta vermelha que risca a nota da ordem acende um pouco (e
    onde a cartolina já é vermelha, quem risca é a própria tinta). */
-.cartolina:is([data-cor$='-escuro'], [data-cor='preto']):not(.ficha),
-.ficha:is([data-cor$='-escuro'], [data-cor='preto']) .head:not(app-review-card .head) {
+@mixin tinta-clara {
   --ink: var(--ink-claro);
   --ink-2: var(--ink-claro-2);
   --pen: #ff7a68;
   --focus: var(--ink);
   color: var(--ink);
+}
+.cartolina:is([data-cor$='-escuro'], [data-cor='preto']):not(.ficha) {
+  @include tinta-clara;
+}
+/* A faixa é só a da própria ficha: a folha aberta de dentro dela (os bônus do editor, a cartela de
+   ícones, o modelo de card da coluna do Kanban) é outra ficha, da cartolina dela, e o título da folha
+   clara ficava em tinta clara, sumido. A folha mais perto manda (@scope … to (.ficha)). */
+@scope (.ficha:is([data-cor$='-escuro'], [data-cor='preto'])) to (.ficha) {
+  :scope .head:not(app-review-card .head) {
+    @include tinta-clara;
+  }
 }
 .cartolina:is([data-cor='vermelho-escuro'], [data-cor='rosa-escuro'], [data-cor='laranja-escuro']):not(.ficha) {
   --pen: var(--ink-claro);

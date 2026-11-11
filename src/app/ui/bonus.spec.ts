@@ -170,4 +170,27 @@ describe('os bônus da ficha', () => {
     expect(sheet()).toBeNull();
     expect(document.activeElement).toBe(el.querySelector('.toggle'));
   });
+
+  it('aberta de dentro de uma ficha escura, a folha branca escreve em tinta escura (a faixa clara é só da ficha)', async () => {
+    await make();
+    // o editor de uma ficha de cartolina preta, com a faixa dele e os bônus no corpo
+    const ficha = document.createElement('form');
+    ficha.className = 'ficha cartolina';
+    ficha.dataset['cor'] = 'preto';
+    ficha.style.setProperty('--stock', 'var(--stock-preto)');
+    const faixa = document.createElement('header');
+    faixa.className = 'head';
+    faixa.textContent = 'Clair Obscur';
+    ficha.append(faixa, el);
+    document.body.appendChild(ficha);
+    const d = await open();
+    const luz = (c: string) => {
+      const [r, g, b] = c.match(/\d+(\.\d+)?/g)!.map(Number);
+      return (r + g + b) / 3;
+    };
+    expect(luz(getComputedStyle(faixa).color)).withContext('a faixa da ficha escura').toBeGreaterThan(180);
+    expect(luz(getComputedStyle(d.querySelector('h2')!).color)).withContext('o título da folha').toBeLessThan(60);
+    expect(luz(getComputedStyle(d.querySelector('.coluna-titulo')!).color)).withContext('a coluna').toBeLessThan(60);
+    ficha.remove();
+  });
 });
