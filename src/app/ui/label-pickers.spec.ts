@@ -73,3 +73,41 @@ describe('a parte Grupo: a busca e o grupo novo', () => {
     expect(fixture.componentInstance.category()).toBe('Viagens');
   });
 });
+
+describe('as partes Grupo e Tags em linhas', () => {
+  afterEach(() => localStorage.clear());
+
+  it('Tags: cada uma numa linha, com a caixinha, em quantas anotações está e a estrela; todas, sem teto', async () => {
+    localStorage.clear();
+    TestBed.configureTestingModule({ imports: [TagPicker], providers: [provideZonelessChangeDetection()] });
+    const fixture = TestBed.createComponent(TagPicker);
+    const library = Array.from({ length: 40 }, (_, i) => ({ label: `Tag ${i + 1}`, n: 40 - i, pinned: false }));
+    fixture.componentRef.setInput('tags', ['Bug']);
+    fixture.componentRef.setInput('library', library);
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    const rows = Array.from(el.querySelectorAll('.tag-li .op'));
+    expect(rows.length).toBe(41);
+    expect(el.querySelector('.mais')).toBeNull();
+    // a desta anotação primeiro, marcada
+    expect(rows[0].textContent).toContain('Bug');
+    expect(rows[0].getAttribute('aria-pressed')).toBe('true');
+    expect(rows[0].querySelector('.caixa svg')).not.toBeNull();
+    expect(rows[1].querySelector('.n')!.textContent).toContain('40');
+    expect(el.querySelectorAll('.tag-li .estrela').length).toBe(41);
+  });
+
+  it('Grupo: em ordem alfabética, cada um com quantas anotações tem; Sem grupo na frente', async () => {
+    localStorage.clear();
+    TestBed.configureTestingModule({ imports: [GroupPicker], providers: [provideZonelessChangeDetection()] });
+    const fixture = TestBed.createComponent(GroupPicker);
+    fixture.componentRef.setInput('categories', ['Viagens', 'Trabalho', 'Estudos', 'Receitas'].map(categoryBonus));
+    fixture.componentRef.setInput('category', 'Receitas');
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    const ops = Array.from(el.querySelectorAll('.lista .op'));
+    expect(ops[0].textContent!.trim()).toBe('Sem grupo');
+    expect(ops.slice(1).map((o) => o.querySelector('app-cat-label')!.textContent!.trim())).toEqual(['Estudos', 'Receitas', 'Trabalho', 'Viagens']);
+    expect(ops[2].getAttribute('aria-checked')).toBe('true');
+  });
+});

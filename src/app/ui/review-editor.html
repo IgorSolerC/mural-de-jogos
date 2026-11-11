@@ -365,7 +365,7 @@
                 <p class="field-error">Todas as categorias estão como “Não tem”. Deixe ao menos uma contar na média.</p>
               }
               <div class="campo bonus">
-                <app-bonus-picker [(value)]="bonuses" [catalog]="profile().bonuses" [library]="library()" [final]="final()" [shift]="shift()" />
+                <app-bonus-picker [(value)]="bonuses" [catalog]="profile().bonuses" [library]="library()" [use]="bonusUse()" [heading]="game()?.name ?? ''" [final]="final()" [shift]="shift()" />
               </div>
               <!-- a nota final na mão: fechada, vale a média; aberta, a nota escrita vai no lugar dela -->
               <div class="campo nota-mao">

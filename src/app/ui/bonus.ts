@@ -1,6 +1,8 @@
-import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, model, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, inject, input, model, signal, viewChild } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
+import { BackdropClose } from './backdrop-close';
 import { ICON, IconModule } from './icons';
+import { Pin } from './pin';
 import {
   BONUS_KINDS,
   BONUS_KIND_LABEL,
@@ -357,13 +359,16 @@ export class BonusTally {
 let uid = 0;
 
 /**
- * Cartela de adesivos de bônus. Fechada, mostra o que já está colado na ficha; aberta, é a cartela
- * inteira: cada adesivo é o recorte picotado até ser colado. No fim de cada lado dá para escrever um
- * bônus novo, que volta nas próximas fichas.
+ * Os bônus da ficha, no editor. Na ficha, só o que está colado (ou uma linha dizendo a regra) e o botão
+ * "Colar bônus". A escolha abre por cima, numa ficha de prós e contras: as duas colunas lado a lado (A favor,
+ * Contra), cada bônus numa linha só, em ordem alfabética, com o adesivo (o recorte picotado ou colado), a
+ * caixinha de marcar e em quantas fichas do mural ele já foi usado; a busca no alto filtra as duas e, se o
+ * escrito não for bônus nenhum, oferece colar em cada lado; no fim de cada coluna, "Escrever outro". A média
+ * ao vivo fica no cabeçalho. No celular, as colunas viram duas abas. Cada toque cola ou descola na hora.
  */
 @Component({
   selector: 'app-bonus-picker',
-  imports: [IconModule, BonusSticker, BonusTally],
+  imports: [BackdropClose, IconModule, Pin, BonusSticker, BonusTally],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { role: 'group', '[attr.aria-labelledby]': 'uid + "-t"' },
   template: `
@@ -372,78 +377,13 @@ let uid = 0;
       @if (value().length) {
         <app-bonus-tally [bonuses]="value()" />
       }
-      <!-- com a cartela aberta a estrela sai de vista: a média viaja junto, aqui no alto -->
-      @if (open() && final() !== null) {
-        <span class="ao-vivo" aria-hidden="true">
-          Média <b>{{ fmt(final()) }}</b>
-          @if (shift()) {
-            <span class="delta">({{ shift() }})</span>
-          }
-        </span>
-      }
-      <button
-        type="button"
-        class="toggle"
-        [attr.aria-expanded]="open()"
-        [attr.aria-controls]="uid + '-cartela'"
-        (click)="setOpen(!open())"
-      >
-        <lucide-icon [img]="open() ? CloseIcon : StickerIcon" [size]="17" aria-hidden="true" />
-        {{ open() ? 'Fechar cartela' : value().length ? 'Mexer nos bônus' : 'Colar bônus' }}
+      <button #trigger type="button" class="toggle" aria-haspopup="dialog" (click)="openSheet()">
+        <lucide-icon [img]="StickerIcon" [size]="17" aria-hidden="true" />
+        {{ value().length ? 'Mexer nos bônus' : 'Colar bônus' }}
       </button>
     </div>
 
-    @if (open()) {
-      <div class="cartela" [id]="uid + '-cartela'">
-        @for (k of kinds; track k) {
-          <div class="lado" role="group" [attr.aria-labelledby]="uid + '-' + k">
-            <p class="lado-label" [id]="uid + '-' + k">
-              <span>{{ kindLabels[k] }}</span>
-              <span class="lado-conta">até {{ k === 'favor' ? '+0,25' : '−0,25' }} cada</span>
-            </p>
-            <div class="slots">
-              @for (b of options()[k]; track b.id) {
-                <button
-                  type="button"
-                  class="slot"
-                  [class.favor]="b.kind === 'favor'"
-                  [attr.aria-pressed]="chosen().has(b.id)"
-                  (click)="toggle(b)"
-                >
-                  <app-bonus-sticker [bonus]="b" [ghost]="!chosen().has(b.id)" [index]="chosen().has(b.id) ? $index : null" />
-                </button>
-              }
-              @if (writing() === k) {
-                <input
-                  #write
-                  class="write"
-                  [class]="k"
-                  type="text"
-                  autocomplete="off"
-                  enterkeyhint="done"
-                  [maxLength]="maxLabel"
-                  placeholder="Nome do bônus"
-                  [attr.aria-label]="'Novo bônus ' + kindLabels[k].toLowerCase() + '. Enter cola na ficha.'"
-                  (keydown)="onKey($event, k)"
-                  (blur)="commit(k, $any($event.target))"
-                />
-              } @else {
-                <button
-                  type="button"
-                  class="slot write-btn"
-                  [attr.data-write]="k"
-                  [attr.aria-label]="'Escrever outro bônus ' + kindLabels[k].toLowerCase()"
-                  (click)="startWriting(k)"
-                >
-                  <lucide-icon [img]="PlusIcon" [size]="15" aria-hidden="true" />
-                  Escrever outro
-                </button>
-              }
-            </div>
-          </div>
-        }
-      </div>
-    } @else if (value().length) {
+    @if (value().length) {
       <ul class="colados" aria-label="Bônus colados na ficha">
         @for (b of sorted(); track b.id; let i = $index) {
           <li>
@@ -455,242 +395,137 @@ let uid = 0;
     } @else {
       <p class="hint">{{ examples() }} Cada um mexe na média como uma nota a mais (10 a favor, 0 contra), no máximo um quarto de ponto.</p>
     }
-  `,
-  styles: `
-    :host {
-      display: block;
-    }
-    .top {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 6px 10px;
-      min-height: 40px;
-    }
-    .label {
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 1rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-    /* a média ao vivo, impressa como a conta ao lado da estrela */
-    .ao-vivo {
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 0.84rem;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: var(--ink-2);
-      font-variant-numeric: tabular-nums;
-      white-space: nowrap;
-    }
-    .ao-vivo b {
-      color: var(--ink);
-      font-style: italic;
-      font-size: 1.08rem;
-      letter-spacing: -0.01em;
-    }
-    .ao-vivo .delta {
-      margin-left: 5px;
-      color: var(--ink);
-      font-size: 0.92rem;
-      letter-spacing: 0.01em;
-    }
-    /* o mesmo risco de pincel dos outros atalhos da ficha ("Trocar jogo", "Usar hoje") */
-    .toggle {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      margin: 0 -8px 0 auto;
-      min-height: 40px;
-      padding: 6px 8px;
-      border: 0;
-      border-radius: 4px;
-      background: transparent;
-      color: var(--ink);
-      font-family: var(--f-marker);
-      font-size: 1rem;
-      text-decoration: underline 2px;
-      text-underline-offset: 5px;
-      transition: background-color var(--t-ui) var(--ease-ui);
-    }
-    .toggle:hover {
-      background: rgb(21 21 21 / 0.05);
-    }
-    .toggle lucide-icon {
-      display: inline-flex;
-    }
 
-    .colados {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px 7px;
-      margin: 6px 0 0;
-      padding: 0;
-      list-style: none;
-    }
-    .colados li {
-      display: flex;
-      align-items: center;
-      max-width: 100%;
-    }
-    .hint {
-      margin-top: 2px;
-      max-width: 52ch;
-      font-size: 0.92rem;
-      color: var(--ink-2);
-    }
+    @if (open()) {
+      <dialog
+        #dialog
+        class="sheet folha-bonus"
+        [attr.aria-labelledby]="uid + '-titulo'"
+        (close)="closed()"
+        (backdropClose)="close()"
+        (keydown.escape)="$event.stopPropagation()"
+      >
+        <div class="ficha cartolina" style="--stock: var(--stock-branco)" data-cor="branco">
+          <app-pin class="pin" />
+          <header class="head">
+            <div class="titulos">
+              <h2 [id]="uid + '-titulo'">Bônus{{ heading() ? ' de ' + heading() : '' }}</h2>
+              <p class="sub">
+                @if (final() !== null) {
+                  <span class="media">Média <b>{{ fmt(final()) }}</b>@if (shift()) {<span class="delta"> ({{ shift() }} dos bônus)</span>}</span>
+                }
+                <span>{{ countLine() }}</span>
+              </p>
+            </div>
+            <button type="button" class="icon-btn fecha" aria-label="Fechar" (click)="close()">
+              <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
+            </button>
+          </header>
 
-    /* A cartela: uma folha de adesivos mais branca que a ficha, pousada em cima dela */
-    .cartela {
-      display: grid;
-      gap: 16px;
-      margin-top: 8px;
-      padding: 14px 14px 12px;
-      border-radius: 2px;
-      background: #fdfcf8;
-      box-shadow:
-        inset 0 0 0 1.5px rgb(21 21 21 / 0.14),
-        0 1px 2px rgb(0 0 0 / 0.12),
-        0 6px 12px -8px rgb(0 0 0 / 0.3);
-      animation: cartela-in var(--t-physical) var(--ease-physical);
-    }
-    @keyframes cartela-in {
-      from {
-        opacity: 0;
-        translate: 0 -6px;
-      }
-    }
-    .lado-label {
-      display: flex;
-      align-items: baseline;
-      gap: 8px;
-      margin-bottom: 6px;
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 0.9rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-    .lado-conta {
-      font-weight: 600;
-      letter-spacing: 0.03em;
-      text-transform: none;
-      color: var(--ink-2);
-    }
-    .slots {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 3px 6px;
-    }
-    .slot {
-      display: inline-grid;
-      place-items: center;
-      max-width: 100%;
-      min-height: 34px;
-      padding: 0 1px;
-      border: 0;
-      border-radius: 4px;
-      background: transparent;
-      color: var(--ink);
-    }
-    .slot app-bonus-sticker {
-      min-width: 0;
-    }
-    /* na cartela o recorte fica mais apagado, para o colado se destacar dele */
-    .slot app-bonus-sticker.ghost {
-      color: rgb(21 21 21 / 0.62);
-      outline-color: rgb(21 21 21 / 0.34);
-    }
-    .slot:hover app-bonus-sticker.ghost {
-      background: rgb(21 21 21 / 0.06);
-      color: var(--ink);
-      outline-color: rgb(21 21 21 / 0.62);
-    }
-    /* colado: sai da cartela um pouco maior e torto, como adesivo que acabou de grudar */
-    .slot[aria-pressed='true'] app-bonus-sticker {
-      scale: 1.04;
-      box-shadow: 0 2px 3px rgb(0 0 0 / 0.3);
-    }
-    /* o a favor colado: papel sobre papel, então a sombra é mais funda e um fio rala desenha a beirada */
-    .slot.favor[aria-pressed='true'] app-bonus-sticker {
-      box-shadow:
-        0 0 0 1px rgb(21 21 21 / 0.2),
-        0 2px 3px rgb(0 0 0 / 0.3),
-        0 6px 10px -4px rgb(0 0 0 / 0.35);
-    }
-    /* dedo não é cursor: no toque, alvos maiores e mais folga entre os adesivos */
-    @media (pointer: coarse) {
-      .slots {
-        gap: 6px;
-      }
-      .slot {
-        min-height: 40px;
-      }
-    }
-    .slot:focus-visible {
-      outline: 3px solid var(--ink);
-      outline-offset: 0;
-    }
-    .write-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 0 8px;
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 0.88rem;
-      letter-spacing: 0.015em;
-      color: var(--ink);
-      text-decoration: underline 1.5px;
-      text-underline-offset: 4px;
-      transition: background-color var(--t-ui) var(--ease-ui);
-    }
-    .write-btn:hover {
-      background: rgb(21 21 21 / 0.06);
-    }
-    .write-btn lucide-icon {
-      display: inline-flex;
-    }
-    /* o adesivo em branco, sendo escrito */
-    .write {
-      width: min(22ch, 100%);
-      height: 32px;
-      margin: 4px 0;
-      padding: 0 9px;
-      border: 0;
-      border-radius: 2px;
-      background: var(--paper);
-      color: var(--ink);
-      caret-color: var(--red);
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 0.92rem;
-      letter-spacing: 0.015em;
-      outline: none;
-      box-shadow: var(--campo-sombra-foco);
-    }
-    .write.contra {
-      background: var(--ink);
-      color: var(--paper);
-      caret-color: var(--hi);
-      box-shadow: 0 0 0 3px rgb(21 21 21 / 0.18);
-    }
-    .write::placeholder {
-      color: rgb(21 21 21 / 0.5);
-      font-weight: 600;
-    }
-    .write.contra::placeholder {
-      color: rgb(247 244 236 / 0.62);
-    }
-    @media (max-width: 480px) {
-      .cartela {
-        padding: 12px 10px 10px;
-      }
+          <div class="busca-linha">
+            <label class="busca">
+              <lucide-icon class="lupa" [img]="SearchIcon" [size]="18" aria-hidden="true" />
+              <input
+                #search
+                type="search"
+                autocomplete="off"
+                enterkeyhint="search"
+                [maxLength]="maxLabel"
+                placeholder="Procurar: bugs, trilha, final…"
+                aria-label="Procurar bônus"
+                [value]="query()"
+                (input)="query.set($any($event.target).value)"
+                (keydown.enter)="$event.preventDefault(); enter()"
+                (keydown.escape)="clear($event)"
+              />
+            </label>
+            <!-- no celular, uma coluna por vez -->
+            <div class="abas" role="tablist" aria-label="Lado">
+              @for (k of kinds; track k) {
+                <button type="button" role="tab" class="aba" [attr.aria-selected]="side() === k" [attr.aria-controls]="uid + '-col-' + k" (click)="side.set(k)">
+                  {{ kindLabels[k] }}
+                  @if (count()[k]) {
+                    <span class="aba-n">{{ count()[k] }}</span>
+                  }
+                </button>
+              }
+            </div>
+          </div>
+
+          <div class="body">
+            <div class="colunas">
+              @for (k of kinds; track k) {
+                <section class="coluna" [class]="k" [class.aberta]="side() === k" [id]="uid + '-col-' + k" [attr.aria-labelledby]="uid + '-' + k">
+                  <h3 class="coluna-titulo" [id]="uid + '-' + k">
+                    <span>{{ kindLabels[k] }}</span>
+                    <span class="regra">até {{ k === 'favor' ? '+0,25' : '−0,25' }} cada</span>
+                  </h3>
+                  <ul class="linhas">
+                    @for (b of rows()[k]; track b.id) {
+                      <li>
+                        <button type="button" class="linha" [attr.aria-pressed]="chosen().has(b.id)" (click)="toggle(b)">
+                          <span class="caixa" aria-hidden="true">
+                            @if (chosen().has(b.id)) {
+                              <lucide-icon [img]="CheckIcon" [size]="14" />
+                            }
+                          </span>
+                          <app-bonus-sticker [bonus]="b" [ghost]="!chosen().has(b.id)" />
+                          @if (use().get(b.id); as n) {
+                            <span class="uso">{{ n }} {{ n === 1 ? 'ficha' : 'fichas' }}</span>
+                          }
+                        </button>
+                      </li>
+                    }
+                    @if (fresh()[k]; as f) {
+                      <li>
+                        <button type="button" class="linha escrever" (click)="create(k, f)">
+                          <lucide-icon [img]="PlusIcon" [size]="16" aria-hidden="true" />
+                          <span>Colar “{{ f }}” {{ k === 'favor' ? 'a favor' : 'contra' }}</span>
+                        </button>
+                      </li>
+                    } @else if (!query().trim()) {
+                      <li>
+                        @if (writing() === k) {
+                          <input
+                            #write
+                            class="write"
+                            [class]="k"
+                            type="text"
+                            autocomplete="off"
+                            enterkeyhint="done"
+                            [maxLength]="maxLabel"
+                            placeholder="Nome do bônus"
+                            [attr.aria-label]="'Novo bônus ' + kindLabels[k].toLowerCase() + '. Enter cola na ficha.'"
+                            (keydown)="onKey($event, k)"
+                            (blur)="commit(k, $any($event.target))"
+                          />
+                        } @else {
+                          <button type="button" class="linha escrever" [attr.data-write]="k" (click)="startWriting(k)">
+                            <lucide-icon [img]="PlusIcon" [size]="16" aria-hidden="true" />
+                            <span>Escrever outro</span>
+                          </button>
+                        }
+                      </li>
+                    } @else if (!rows()[k].length) {
+                      <li class="nada">Nenhum {{ k === 'favor' ? 'a favor' : 'contra' }} com “{{ query().trim() }}”.</li>
+                    }
+                  </ul>
+                </section>
+              }
+            </div>
+          </div>
+
+          <footer class="foot">
+            <p class="pe-dica">Cada bônus conta como mais uma nota na média e mexe nela no máximo um quarto de ponto.</p>
+            <div class="actions">
+              <button type="button" class="btn-ink" (click)="close()">Pronto</button>
+            </div>
+          </footer>
+        </div>
+      </dialog>
     }
   `,
+  styleUrl: './bonus-picker.scss',
 })
 export class BonusPicker {
   readonly value = model<Bonus[]>([]);
@@ -698,32 +533,55 @@ export class BonusPicker {
   readonly catalog = input.required<readonly Bonus[]>();
   /** Os bônus que a pessoa já escreveu em outras fichas do mural. */
   readonly library = input<readonly Bonus[]>([]);
-  /** A média com os bônus e quanto eles mexeram, para a cartela aberta mostrar ao vivo. */
+  /** Em quantas fichas deste mural cada bônus está (pelo id). */
+  readonly use = input<ReadonlyMap<string, number>>(new Map());
+  /** O nome do jogo (do livro, do filme…), para o título da ficha dos bônus. */
+  readonly heading = input('');
+  /** A média com os bônus e quanto eles mexeram, ao vivo no cabeçalho. */
   readonly final = input<number | null>(null);
   readonly shift = input('');
   protected readonly fmt = formatScore;
 
   protected readonly StickerIcon = ICON.adesivo;
-  protected readonly CloseIcon = ICON.recolher;
+  protected readonly CloseIcon = ICON.fechar;
+  protected readonly SearchIcon = ICON.buscar;
+  protected readonly CheckIcon = ICON.pronto;
   protected readonly PlusIcon = ICON.adicionar;
   protected readonly kinds = BONUS_KINDS;
   protected readonly kindLabels = BONUS_KIND_LABEL;
   protected readonly maxLabel = BONUS_MAX_LABEL;
   protected readonly uid = `bonus-${++uid}`;
 
-  /** Sempre começa fechada: a cartela inteira só aparece para quem vai colar. */
   protected readonly open = signal(false);
+  protected readonly query = signal('');
+  /** A coluna à vista no celular. */
+  protected readonly side = signal<BonusKind>('favor');
   /** Qual lado está com o adesivo em branco aberto para escrever. */
   protected readonly writing = signal<BonusKind | null>(null);
-  /** Escritos nesta ficha: continuam na cartela mesmo se forem descolados antes de salvar. */
+  /** Escritos nesta ficha: continuam na lista mesmo se forem descolados antes de salvar. */
   private readonly written = signal<Bonus[]>([]);
   private readonly writeInput = viewChild<ElementRef<HTMLInputElement>>('write');
+  private readonly search = viewChild<ElementRef<HTMLInputElement>>('search');
+  private readonly dialog = viewChild<ElementRef<HTMLDialogElement>>('dialog');
+  private readonly trigger = viewChild.required<ElementRef<HTMLButtonElement>>('trigger');
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
 
   protected readonly chosen = computed(() => new Set(this.value().map((b) => b.id)));
   protected readonly sorted = computed(() => sortBonuses(this.value()));
+  protected readonly count = computed(() => ({
+    favor: this.value().filter((b) => b.kind === 'favor').length,
+    contra: this.value().filter((b) => b.kind === 'contra').length,
+  }));
+  /** "2 a favor e 1 contra colados" / "Nenhum colado ainda". */
+  protected readonly countLine = computed(() => {
+    const { favor, contra } = this.count();
+    if (!favor && !contra) return 'Nenhum colado ainda';
+    const parts = [favor ? `${favor} a favor` : '', contra ? `${contra} contra` : ''].filter(Boolean);
+    return `${parts.join(' e ')} ${favor + contra === 1 ? 'colado' : 'colados'}`;
+  });
 
-  /** A cartela pronta primeiro, sempre no mesmo lugar; os escritos à mão depois. */
+  /** Todos os de cada lado: a cartela pronta, os escritos em outras fichas e nesta, e os colados. */
   protected readonly options = computed<Record<BonusKind, Bonus[]>>(() => {
     const all = new Map<string, Bonus>();
     for (const b of [...this.catalog(), ...this.library(), ...this.written(), ...this.value()]) {
@@ -731,6 +589,35 @@ export class BonusPicker {
     }
     const list = [...all.values()];
     return { favor: list.filter((b) => b.kind === 'favor'), contra: list.filter((b) => b.kind === 'contra') };
+  });
+
+  /** As linhas de cada coluna, em ordem alfabética; procurando, só as que batem (cada palavra começa uma do nome). */
+  protected readonly rows = computed<Record<BonusKind, Bonus[]>>(() => {
+    const words = fold(this.query().trim()).split(/\s+/).filter(Boolean);
+    const out = {} as Record<BonusKind, Bonus[]>;
+    for (const k of BONUS_KINDS) {
+      const list = [...this.options()[k]].sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
+      out[k] = words.length
+        ? list.filter((b) => {
+            const keys = fold(b.label).split(/[\s-]+/);
+            return words.every((w) => keys.some((key) => key.startsWith(w)));
+          })
+        : list;
+    }
+    return out;
+  });
+
+  /** O escrito, em cada lado onde ele ainda não é bônus nenhum: "Colar 'Chato no começo' contra". */
+  protected readonly fresh = computed<Record<BonusKind, string | null>>(() => {
+    const label = cleanBonusLabel(this.query());
+    const out: Record<BonusKind, string | null> = { favor: null, contra: null };
+    if (!label) return out;
+    // o escrito que já é um bônus, de qualquer lado, não vira outro: colar "Muitos bugs" a favor quase sempre
+    // é engano, e a linha que existe já está à vista na coluna dela
+    const exists = BONUS_KINDS.some((k) => this.options()[k].some((b) => b.id === customBonusId(label, k) || fold(b.label) === fold(label)));
+    if (exists) return out;
+    for (const k of BONUS_KINDS) out[k] = label;
+    return out;
   });
 
   /** "Trilha sonora incrível, muitos bugs…": o primeiro de cada lado da cartela. */
@@ -744,16 +631,74 @@ export class BonusPicker {
   reset(): void {
     this.written.set([]);
     this.writing.set(null);
-    this.open.set(false);
+    this.close();
   }
 
-  protected setOpen(open: boolean): void {
-    this.open.set(open);
-    if (!open) this.writing.set(null);
+  /** O botão da ficha: a folha dos bônus entra na página e, desenhada, vai para a camada de cima. */
+  protected openSheet(): void {
+    this.open.set(true);
+    afterNextRender(
+      {
+        write: () => {
+          const el = this.dialog()?.nativeElement;
+          if (!el || el.open) return;
+          el.showModal();
+          // no mouse o foco vai para a busca; no dedo fica no X do cabeçalho (o teclado não cobre a lista)
+          if (matchMedia('(pointer: fine)').matches) this.search()?.nativeElement.focus();
+        },
+      },
+      { injector: this.injector },
+    );
+  }
+
+  close(): void {
+    const el = this.dialog()?.nativeElement;
+    if (el?.open) el.close();
+    // o evento "close" do <dialog> só chega numa tarefa depois: a folha sai já
+    this.closed();
+  }
+
+  /** Fechou (o Pronto, o X, o Esc ou o fundo): a busca e o adesivo em branco voltam ao começo. Uma vez só. */
+  protected closed(): void {
+    if (!this.open()) return;
+    this.open.set(false);
+    this.query.set('');
+    this.writing.set(null);
+    this.trigger().nativeElement.focus();
   }
 
   protected toggle(b: Bonus): void {
     this.value.update((list) => (list.some((x) => x.id === b.id) ? list.filter((x) => x.id !== b.id) : [...list, b]));
+  }
+
+  /** O "Colar" da busca: cola o escrito naquele lado, e a busca volta vazia para o próximo. */
+  protected create(kind: BonusKind, label: string): void {
+    this.add(kind, label);
+    this.query.set('');
+    this.side.set(kind);
+    this.search()?.nativeElement.focus();
+  }
+
+  /**
+   * Enter na busca (a folha mora dentro do formulário do editor: sem isto, o Enter salvaria a ficha): cola
+   * o primeiro que bate, na coluna à vista no celular (no computador, A favor antes de Contra); o escrito
+   * que não é bônus nenhum não cola sem a pessoa dizer o lado.
+   */
+  protected enter(): void {
+    if (!this.query().trim()) return;
+    const order: BonusKind[] = this.side() === 'contra' ? ['contra', 'favor'] : ['favor', 'contra'];
+    const first = order.map((k) => this.rows()[k][0]).find((b) => !!b);
+    if (!first) return;
+    if (!this.chosen().has(first.id)) this.toggle(first);
+    this.query.set('');
+  }
+
+  /** Esc com algo escrito limpa a busca (e não fecha a folha); vazia, o Esc fecha. */
+  protected clear(e: Event): void {
+    if (!this.query()) return;
+    e.preventDefault();
+    e.stopPropagation();
+    this.query.set('');
   }
 
   protected startWriting(kind: BonusKind): void {
@@ -769,7 +714,7 @@ export class BonusPicker {
       this.add(kind, el.value);
       el.value = '';
     } else if (e.key === 'Escape') {
-      // Esc larga o adesivo em branco, sem fechar a ficha inteira
+      // Esc larga o adesivo em branco, sem fechar a folha
       e.preventDefault();
       e.stopPropagation();
       el.value = '';

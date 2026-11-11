@@ -293,3 +293,179 @@ export function ehCorDaCartela(id: unknown): id is IdDaCor {
 export function hexDaCor(id: string | null | undefined): string | null {
   return CORES_DA_CARTELA.find((c) => c.id === id)?.hex ?? null;
 }
+
+/**
+ * As gavetas da cartela: os 110 desenhos por assunto, cada um numa gaveta só, para a escolha mostrar uma
+ * gaveta por vez (como as gavetas dos emojis das reações) em vez da cartela inteira. Mudar um desenho de
+ * gaveta não muda nada guardado (os ids continuam os mesmos); um desenho novo entra na gaveta dele.
+ */
+export const GAVETAS_DE_ICONES = [
+  {
+    id: 'andamento',
+    label: 'Andamento',
+    icones: ['circulo', 'lista', 'lapis', 'martelo', 'engrenagem', 'olho', 'ampulheta', 'pausa', 'bloqueio', 'check', 'bandeira', 'alvo', 'chama', 'raio', 'inseto', 'foguete', 'relogio', 'calendario', 'sino', 'megafone'],
+  },
+  { id: 'destaques', label: 'Destaques', icones: ['estrela', 'coracao', 'trofeu', 'coroa', 'brilho', 'lampada', 'cerebro', 'quebra-cabeca', 'etiqueta', 'pasta', 'caixa'] },
+  { id: 'estudo', label: 'Estudo', icones: ['capelo', 'escola', 'caderno', 'livro', 'marcador', 'pena', 'microscopio', 'jornal'] },
+  {
+    id: 'tecnologia',
+    label: 'Tecnologia',
+    icones: ['email', 'arroba', 'mensagem', 'telefone', 'celular', 'computador', 'wifi', 'nuvem', 'servidor', 'codigo', 'terminal', 'banco-de-dados', 'chip', 'impressora'],
+  },
+  { id: 'seguranca', label: 'Segurança', icones: ['chave', 'cadeado', 'escudo', 'digital', 'seguranca', 'documento', 'arquivo'] },
+  { id: 'dinheiro', label: 'Dinheiro', icones: ['moedas', 'cartao', 'carteira', 'cofrinho', 'grafico', 'recibo', 'loja', 'sacola', 'carrinho', 'maleta', 'predio'] },
+  { id: 'lazer', label: 'Lazer', icones: ['musica', 'filme', 'camera', 'paleta', 'jogos', 'dados', 'festa', 'bolo', 'presente', 'ingresso', 'tv', 'streaming', 'fones', 'esporte'] },
+  { id: 'casa', label: 'Casa e comida', icones: ['casa', 'ferramenta', 'energia', 'agua', 'planta', 'comida', 'cafe', 'chapeu'] },
+  { id: 'viagem', label: 'Viagem', icones: ['aviao', 'mundo', 'lugar', 'mala', 'hotel', 'praia', 'carro', 'onibus', 'bicicleta'] },
+  { id: 'gente', label: 'Gente e saúde', icones: ['pessoas', 'pessoa', 'bebe', 'cachorro', 'gato', 'saude', 'remedio', 'academia'] },
+] as const satisfies readonly { readonly id: string; readonly label: string; readonly icones: readonly IdDoIcone[] }[];
+
+export type IdDaGaveta = (typeof GAVETAS_DE_ICONES)[number]['id'];
+
+/** A gaveta de um desenho (a primeira, se algum dia ele estiver em duas). */
+export function gavetaDoIcone(id: IdDoIcone): IdDaGaveta {
+  return (GAVETAS_DE_ICONES.find((g) => (g.icones as readonly string[]).includes(id)) ?? GAVETAS_DE_ICONES[0]).id;
+}
+
+/**
+ * As outras palavras de cada desenho, para a busca da cartela achar pelo que a pessoa quer marcar e não
+ * só pelo nome do desenho ("dinheiro" acha as moedas, o cofrinho, a carteira…). Sem acento: a busca dobra
+ * o acento e a caixa dos dois lados.
+ */
+export const PALAVRAS_DOS_ICONES: { readonly [id in IdDoIcone]: string } = {
+  circulo: 'bola redondo vazio afazer pendente comecar',
+  lista: 'tarefas checklist afazeres todo itens',
+  lapis: 'escrever editar fazendo rascunho',
+  martelo: 'construir obra fazendo trabalho',
+  engrenagem: 'configurar ajustes processo sistema',
+  olho: 'revisao ver olhar visto conferir',
+  ampulheta: 'esperando aguardando tempo prazo',
+  pausa: 'parado pausado espera',
+  bloqueio: 'bloqueado proibido impedido cancelado',
+  check: 'feito pronto concluido finalizado ok',
+  bandeira: 'meta marco objetivo chegada',
+  alvo: 'meta objetivo foco mira',
+  chama: 'urgente fogo quente prioridade',
+  raio: 'rapido energia urgente flash',
+  inseto: 'bug correcao erro defeito',
+  foguete: 'lancamento deploy publicar projeto',
+  relogio: 'hora horario tempo',
+  calendario: 'data agenda dia mes evento',
+  sino: 'aviso lembrete alerta notificacao',
+  megafone: 'anuncio divulgar marketing comunicado',
+  estrela: 'favorito destaque especial',
+  coracao: 'amor favorito gosto carinho',
+  trofeu: 'premio conquista vitoria campeao',
+  coroa: 'rei rainha melhor top',
+  brilho: 'magia novo especial',
+  lampada: 'ideia ideias inspiracao',
+  cerebro: 'mente pensar memoria',
+  'quebra-cabeca': 'puzzle peca desafio',
+  etiqueta: 'tag rotulo preco marca',
+  pasta: 'arquivos organizar documentos',
+  caixa: 'pacote entrega encomenda produto',
+  capelo: 'formatura faculdade universidade curso',
+  escola: 'colegio aula ensino',
+  caderno: 'anotacoes notas diario',
+  livro: 'leitura ler biblioteca',
+  marcador: 'pagina salvo bookmark leitura',
+  pena: 'escrita poesia texto autor',
+  microscopio: 'ciencia laboratorio pesquisa biologia',
+  jornal: 'noticias revista artigo',
+  email: 'correio carta mensagem',
+  arroba: 'email conta usuario rede',
+  mensagem: 'conversa chat comentario',
+  telefone: 'ligar ligacao contato',
+  celular: 'smartphone telefone aplicativo app',
+  computador: 'notebook laptop pc',
+  wifi: 'internet rede conexao',
+  nuvem: 'online backup sincronizar',
+  servidor: 'hospedagem infraestrutura rede',
+  codigo: 'programacao dev desenvolvimento software',
+  terminal: 'comando console programacao',
+  'banco-de-dados': 'database sql tabela',
+  chip: 'hardware processador eletronico',
+  impressora: 'imprimir papel escritorio',
+  chave: 'senha acesso abrir',
+  cadeado: 'senha seguro privado trancado',
+  escudo: 'protecao seguro',
+  digital: 'biometria dedo identidade',
+  seguranca: 'camera vigilancia alarme',
+  documento: 'identidade rg cnh',
+  arquivo: 'pdf papel contrato',
+  moedas: 'dinheiro troco grana',
+  cartao: 'credito debito banco pagamento',
+  carteira: 'dinheiro bolso pagamento',
+  cofrinho: 'poupanca economia guardar dinheiro',
+  grafico: 'investimento acoes crescimento relatorio',
+  recibo: 'conta nota fiscal boleto pagamento',
+  loja: 'comercio mercado compra',
+  sacola: 'compras shopping roupa',
+  carrinho: 'compras mercado supermercado',
+  maleta: 'trabalho emprego negocios escritorio',
+  predio: 'empresa banco instituicao governo',
+  musica: 'som cancao banda album',
+  filme: 'cinema video',
+  camera: 'foto fotografia imagem',
+  paleta: 'arte pintura desenho cor',
+  jogos: 'videogame game controle',
+  dados: 'tabuleiro sorte rpg jogo',
+  festa: 'comemorar celebrar evento',
+  bolo: 'aniversario festa doce',
+  presente: 'gift surpresa aniversario',
+  ingresso: 'show evento cinema teatro',
+  tv: 'televisao serie programa',
+  streaming: 'video youtube assistir',
+  fones: 'audio musica podcast ouvir',
+  esporte: 'bola futebol volei jogo',
+  casa: 'lar moradia aluguel',
+  ferramenta: 'conserto reparo manutencao',
+  energia: 'luz eletricidade tomada conta',
+  agua: 'conta gota chuva',
+  planta: 'jardim natureza verde',
+  comida: 'restaurante almoco jantar refeicao garfo',
+  cafe: 'cafeteria caneca manha bebida',
+  chapeu: 'cozinha receita cozinheiro chef',
+  aviao: 'voo viagem aeroporto',
+  mundo: 'globo planeta internacional pais',
+  lugar: 'mapa endereco local',
+  mala: 'viagem bagagem ferias',
+  hotel: 'hospedagem cama dormir',
+  praia: 'ferias verao mar',
+  carro: 'automovel dirigir transporte',
+  onibus: 'transporte publico',
+  bicicleta: 'bike pedalar',
+  pessoas: 'grupo equipe familia amigos time',
+  pessoa: 'usuario perfil contato',
+  bebe: 'crianca filho familia',
+  cachorro: 'pet cao bicho animal',
+  gato: 'pet bicho animal',
+  saude: 'medico hospital',
+  remedio: 'farmacia pilula medicamento',
+  academia: 'treino exercicio musculacao peso',
+};
+
+/**
+ * Os desenhos que batem com a busca: cada palavra escrita tem de começar uma palavra do nome, das outras
+ * palavras ou do nome da gaveta. Primeiro os que batem pelo nome, depois pelas outras palavras, por fim
+ * só pela gaveta; dentro de cada um, a ordem da cartela. `dobrar` tira acento e caixa (cada lado passa o
+ * seu, já que este arquivo não importa nada). Vazia, nada.
+ */
+export function procurarIcones(texto: string, dobrar: (s: string) => string): IdDoIcone[] {
+  const palavras = dobrar(texto.trim()).split(/\s+/).filter(Boolean);
+  if (!palavras.length) return [];
+  const bate = (texto: string) => {
+    const chaves = dobrar(texto).split(/[\s()-]+/);
+    return palavras.every((p) => chaves.some((c) => c.startsWith(p)));
+  };
+  const nivel = (i: (typeof CARTELA_DE_ICONES)[number]): number => {
+    if (bate(i.label)) return 0;
+    if (bate(`${i.label} ${PALAVRAS_DOS_ICONES[i.id]}`)) return 1;
+    const gaveta = GAVETAS_DE_ICONES.find((g) => g.id === gavetaDoIcone(i.id))?.label ?? '';
+    return bate(`${i.label} ${PALAVRAS_DOS_ICONES[i.id]} ${gaveta}`) ? 2 : 3;
+  };
+  return CARTELA_DE_ICONES.map((i) => ({ id: i.id, n: nivel(i) }))
+    .filter((x) => x.n < 3)
+    .sort((a, b) => a.n - b.n)
+    .map((x) => x.id);
+}

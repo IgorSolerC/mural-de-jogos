@@ -6,14 +6,12 @@ import { randomCategoryColor, tagColorHex, tagHasLook } from '../core/category-l
 import { Settings } from '../core/settings';
 import { NoteTag } from './note-tag';
 
-/** Sem busca, quantas tags aparecem de uma vez (as da anotação sempre aparecem). */
-const SHOWN = 24;
-
 /**
- * As tags da anotação, no editor (a parte Tags): todas à mão,
- * cada uma a etiqueta para tocar (amarrada na anotação, ou só o contorno). As desta anotação
- * primeiro, depois as fixas e as mais usadas no grupo. A busca filtra e, com um nome novo, cria;
- * Enter amarra a primeira. A estrela deixa a tag sempre à mão (fixa), em toda anotação.
+ * As tags da anotação, no editor (a parte Tags): todas, em linhas e em colunas, como as pastas e os grupos
+ * das partes do lado (ui/_indice.scss), e marcadas como os bônus: a caixinha, a etiqueta (amarrada na
+ * anotação, ou só o contorno) e em quantas anotações do grupo ela está. As desta anotação primeiro, depois
+ * as fixas e as mais usadas no grupo. A busca filtra e, com um nome novo, cria; Enter amarra a primeira.
+ * A estrela, no fim da linha, deixa a tag sempre à mão (fixa), em toda anotação.
  */
 @Component({
   selector: 'app-tag-picker',
@@ -39,11 +37,19 @@ const SHOWN = 24;
         <span class="conta" [class.cheia]="full()">{{ tags().length }} de {{ maxTags }} tags</span>
       }
     </div>
-    <ul class="tags" aria-label="Tags">
-      @for (t of shown(); track t.key; let i = $index) {
+    <ul class="lista" aria-label="Tags">
+      @for (t of ordered(); track t.key) {
         <li class="tag-li" [class.fixa]="t.pinned">
-          <button type="button" class="tag-op" [attr.aria-pressed]="t.on" [disabled]="!t.on && full()" (click)="toggle(t.label)">
-            <app-note-tag [label]="t.label" [ghost]="!t.on" [index]="t.on ? i : null" [color]="colorOf(t.label)" />
+          <button type="button" class="op" [attr.aria-pressed]="t.on" [disabled]="!t.on && full()" (click)="toggle(t.label)">
+            <span class="caixa" aria-hidden="true">
+              @if (t.on) {
+                <lucide-icon [img]="CheckIcon" [size]="14" />
+              }
+            </span>
+            <app-note-tag [label]="t.label" [ghost]="!t.on" [color]="colorOf(t.label)" />
+            @if (t.n) {
+              <span class="n"><span class="sr-only">, </span>{{ t.n }}<span class="sr-only"> {{ t.n === 1 ? 'anotação' : 'anotações' }}</span></span>
+            }
           </button>
           <button
             type="button"
@@ -58,16 +64,11 @@ const SHOWN = 24;
         </li>
       }
       @if (fresh(); as f) {
-        <li>
-          <button type="button" class="tag-op criar" [disabled]="full()" (click)="toggle(f)">
+        <li class="tag-li">
+          <button type="button" class="op criar" [disabled]="full()" (click)="toggle(f)">
             <lucide-icon [img]="PlusIcon" [size]="15" aria-hidden="true" />
             Criar “{{ f }}”
           </button>
-        </li>
-      }
-      @if (hidden(); as n) {
-        <li>
-          <button type="button" class="mais quieto" (click)="all.set(true)">Mais {{ n }}</button>
         </li>
       }
     </ul>
@@ -92,30 +93,23 @@ export class TagPicker {
   protected readonly SearchIcon = ICON.buscar;
   protected readonly PlusIcon = ICON.adicionar;
   protected readonly StarIcon = ICON.estrela;
+  protected readonly CheckIcon = ICON.pronto;
   protected readonly query = signal('');
-  /** "Mais N" foi tocado: todas à mostra. */
-  protected readonly all = signal(false);
   protected readonly full = computed(() => this.tags().length >= MAX_TAGS);
 
   /** Todas, na ordem: as desta anotação, depois as da cartela (as fixas primeiro), filtradas pela busca. */
-  private readonly ordered = computed(() => {
+  protected readonly ordered = computed(() => {
     const pins = new Set(this.settings.pinnedTags().map(fold));
-    const out = new Map<string, { key: string; label: string; on: boolean; pinned: boolean }>();
-    for (const t of this.tags()) out.set(fold(t), { key: fold(t), label: t, on: true, pinned: pins.has(fold(t)) });
-    for (const e of this.library()) if (!out.has(fold(e.label))) out.set(fold(e.label), { key: fold(e.label), label: e.label, on: false, pinned: pins.has(fold(e.label)) });
+    const uses = new Map(this.library().map((e) => [fold(e.label), e.n]));
+    const out = new Map<string, { key: string; label: string; on: boolean; pinned: boolean; n: number }>();
+    for (const t of this.tags()) out.set(fold(t), { key: fold(t), label: t, on: true, pinned: pins.has(fold(t)), n: uses.get(fold(t)) ?? 0 });
+    for (const e of this.library())
+      if (!out.has(fold(e.label))) out.set(fold(e.label), { key: fold(e.label), label: e.label, on: false, pinned: pins.has(fold(e.label)), n: e.n });
     const q = fold(cleanTag(this.query()));
     const list = [...out.values()];
     if (!q) return list;
     return [...list.filter((t) => t.key.startsWith(q)), ...list.filter((t) => !t.key.startsWith(q) && t.key.includes(q))];
   });
-
-  protected readonly shown = computed(() => {
-    const list = this.ordered();
-    if (this.all() || this.query().trim()) return list;
-    return list.slice(0, Math.max(SHOWN, this.tags().length));
-  });
-
-  protected readonly hidden = computed(() => this.ordered().length - this.shown().length);
 
   /** O escrito, quando ainda não é tag nenhuma: "Criar “Urgente”". */
   protected readonly fresh = computed(() => {
@@ -172,9 +166,8 @@ export class TagPicker {
     this.host.nativeElement.querySelector<HTMLInputElement>('input')?.focus();
   }
 
-  /** Outra anotação: a busca e o "Mais" voltam ao começo. */
+  /** Outra anotação: a busca volta ao começo. */
   reset(): void {
     this.query.set('');
-    this.all.set(false);
   }
 }

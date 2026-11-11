@@ -331,42 +331,45 @@ describe('página do Calendário', () => {
       expect($$('.lembrete-nome')[0].querySelector('.nome-icone')).toBeNull();
     });
 
-    it('a folha escolhe na cartela das colunas (fechada até pedir), salva com o lembrete e tira com o Sem ícone', async () => {
+    it('a folha escolhe o ícone na cartela inteira, numa ficha por cima, salva com o lembrete e tira com o Sem ícone', async () => {
       await go('/utilidades/calendario?vista=dia&dia=2026-10-20');
       $$('.entrada')[1].querySelector<HTMLButtonElement>('.editar')!.click();
       await settle();
-      const s = sheet()!;
-      const btn = s.querySelector<HTMLButtonElement>('.icones-btn')!;
-      expect(text(s.querySelector('#lb-icone'))).toBe('Sem ícone');
-      expect(s.querySelector('.icone-previa')!.classList).toContain('vazio');
-      expect(s.querySelector('#lb-icones')).toBeNull();
-      expect(btn.getAttribute('aria-expanded')).toBe('false');
+      const chart = sheet()!.querySelector('app-icon-chart')!;
+      const btn = chart.querySelector<HTMLButtonElement>('.linha .papel')!;
+      expect(text(chart.querySelector('.linha-nome'))).toBe('Sem ícone');
+      expect(chart.querySelector('.previa')!.classList).toContain('vazio');
+      expect(text(btn)).toBe('Escolher');
+      expect(chart.querySelector('dialog')).toBeNull();
       btn.click();
       await settle();
-      const ops = [...s.querySelectorAll<HTMLButtonElement>('#lb-icones .op')];
-      expect(ops.length).toBe(1 + ICON_CHOICES.length);
-      expect(ops[0].getAttribute('aria-label')).toBe('Sem ícone');
-      expect(ops[0].getAttribute('aria-checked')).toBe('true');
-      s.querySelector<HTMLButtonElement>('#lb-icones .op[aria-label="Aniversário"]')!.click();
+      const ficha = chart.querySelector<HTMLDialogElement>('dialog.cartela-de-icones')!;
+      expect(ficha.open).toBeTrue();
+      // a cartela inteira de uma vez
+      expect(ficha.querySelectorAll('.op').length).toBe(ICON_CHOICES.length);
+      expect(ficha.querySelector('.sem')!.getAttribute('aria-pressed')).toBe('true');
+      ficha.querySelector<HTMLButtonElement>('.op[aria-label="Aniversário"]')!.click();
       await settle();
-      expect(text(s.querySelector('#lb-icone'))).toBe('Aniversário');
-      expect(s.querySelector('.icone-previa svg')).not.toBeNull();
-      expect(s.querySelector('#lb-icones .op[aria-label="Aniversário"]')!.getAttribute('aria-checked')).toBe('true');
+      // escolher fecha a ficha e mostra o escolhido na linha
+      expect(chart.querySelector('dialog')).toBeNull();
+      expect(text(chart.querySelector('.linha-nome'))).toBe('Aniversário');
+      expect(chart.querySelector('.previa svg')).not.toBeNull();
       // nada muda no calendário até salvar
       expect(calendar.reminders().find((r) => r.id === 'rbolo0001')!.icon).toBeUndefined();
-      s.querySelector<HTMLButtonElement>('.btn-ink')!.click();
+      sheet()!.querySelector<HTMLButtonElement>('.btn-ink')!.click();
       await settle();
       expect(calendar.reminders().find((r) => r.id === 'rbolo0001')!.icon).toBe('bolo');
-      // de novo: o Sem ícone tira
+      // de novo: o Sem ícone, no pé da ficha, tira
       $$('.entrada')[1].querySelector<HTMLButtonElement>('.editar')!.click();
       await settle();
-      const s2 = sheet()!;
-      expect(text(s2.querySelector('.icones-btn'))).toBe('Trocar');
-      s2.querySelector<HTMLButtonElement>('.icones-btn')!.click();
+      const chart2 = sheet()!.querySelector('app-icon-chart')!;
+      expect(text(chart2.querySelector('.linha .papel'))).toBe('Trocar');
+      chart2.querySelector<HTMLButtonElement>('.linha .papel')!.click();
       await settle();
-      s2.querySelector<HTMLButtonElement>('#lb-icones .sem-icone')!.click();
+      expect(chart2.querySelector('.op[aria-label="Aniversário"]')!.getAttribute('aria-checked')).toBe('true');
+      chart2.querySelector<HTMLButtonElement>('dialog .sem')!.click();
       await settle();
-      s2.querySelector<HTMLButtonElement>('.btn-ink')!.click();
+      sheet()!.querySelector<HTMLButtonElement>('.btn-ink')!.click();
       await settle();
       expect('icon' in calendar.reminders().find((r) => r.id === 'rbolo0001')!).toBeFalse();
     });

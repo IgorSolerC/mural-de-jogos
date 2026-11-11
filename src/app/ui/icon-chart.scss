@@ -1,0 +1,242 @@
+@use 'sheet';
+@use 'paper-kit' as kit;
+
+/* A escolha do ícone (ver icon-chart.ts): na folha, uma linha; o "Trocar" abre a cartela inteira numa
+   ficha por cima */
+:host {
+  display: block;
+  min-width: 0;
+}
+
+/* A linha: o escolhido à vista ao lado do nome dele, e o botão de papel */
+.linha {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.linha-texto {
+  flex: 1;
+  min-width: 0;
+}
+
+.linha-nome {
+  margin: 0;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.linha-desc {
+  margin: 3px 0 0;
+  color: var(--ink-2);
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.papel {
+  @include kit.botao-papel;
+  flex: none;
+}
+
+/* o escolhido: o adesivo de tinta torto (o das colunas do Kanban); nenhum, o recorte vazio com o risco */
+.previa {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 2px;
+  background: var(--ink);
+  color: var(--hi);
+  rotate: -3deg;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.35),
+    0 4px 8px -3px rgb(0 0 0 / 0.35);
+
+  &.vazio {
+    color: var(--ink);
+    background: transparent;
+    rotate: none;
+    box-shadow: none;
+    outline: 1.5px dashed rgb(21 21 21 / 0.36);
+    outline-offset: -1.5px;
+  }
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+.previa.vazio::before,
+.risco {
+  content: '';
+  display: inline-block;
+  width: 22px;
+  height: 1.5px;
+  border-radius: 1px;
+  background: currentColor;
+  rotate: -45deg;
+  opacity: 0.55;
+}
+
+/* ===== A ficha da cartela ===== */
+/* a altura não muda com a busca: a ficha fica parada e só o miolo rola */
+dialog.cartela-de-icones {
+  max-width: min(640px, calc(100vw - 24px));
+  height: min(820px, calc(100dvh - 24px));
+}
+
+.ficha {
+  position: relative;
+  height: 100%;
+}
+
+.head {
+  align-items: center;
+  margin-bottom: 0;
+}
+
+.titulos {
+  @include sheet.titulos;
+}
+
+.sub {
+  @include sheet.sub;
+}
+
+/* a busca fica parada em cima enquanto a cartela rola embaixo dela */
+.busca-linha {
+  padding: 16px 24px 12px;
+  border-bottom: 1.5px dashed rgb(21 21 21 / 0.2);
+}
+
+.busca {
+  @include kit.campo;
+  min-height: 46px;
+  padding-left: 12px;
+
+  input {
+    height: 44px;
+  }
+
+  /* o X do navegador não é do papel: o Esc limpa */
+  input::-webkit-search-cancel-button {
+    display: none;
+  }
+}
+
+.lupa {
+  flex: none;
+  display: inline-flex;
+  margin-right: 6px;
+  color: var(--ink-2);
+}
+
+.body {
+  gap: 18px;
+  padding-top: 16px;
+}
+
+/* cada gaveta: o nome impresso, como os títulos das partes das folhas, e os desenhos embaixo */
+.gaveta {
+  display: grid;
+  gap: 10px;
+}
+
+/* o nome da seção fica preso no alto enquanto os desenhos dela rolam: sempre se sabe onde se está */
+.gaveta-nome {
+  @include kit.grupo-titulo;
+  position: sticky;
+  top: -16px;
+  z-index: 1;
+  margin: 0;
+  padding-top: 8px;
+  background: var(--paper);
+}
+
+/* A grade: os recortes tracejados ainda na cartela; o escolhido, o adesivo de tinta torto */
+.grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 44px);
+  justify-content: space-between;
+  gap: 8px 6px;
+}
+
+.op {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--ink);
+  outline: 1.5px dashed rgb(21 21 21 / 0.36);
+  outline-offset: -1.5px;
+  cursor: pointer;
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    box-shadow var(--t-ui) var(--ease-ui),
+    rotate var(--t-physical) var(--ease-physical);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.07);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  &[aria-checked='true'] {
+    outline-color: transparent;
+    background: var(--ink);
+    color: var(--hi);
+    rotate: -3deg;
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.35),
+      0 4px 8px -3px rgb(0 0 0 / 0.35);
+  }
+
+  &[aria-checked='true']:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+.nada {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.95rem;
+}
+
+/* o pé: tirar o ícone, o recorte vazio com o risco em forma de botão de papel */
+.foot {
+  justify-content: flex-start;
+}
+
+.sem {
+  gap: 10px;
+}
+
+.sem[aria-pressed='true'] {
+  font-weight: 800;
+}
+
+@media (max-width: 560px) {
+  .busca-linha {
+    padding: 12px 16px 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .op {
+    transition: none;
+  }
+}

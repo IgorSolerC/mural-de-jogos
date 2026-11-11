@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
-import { ICON, ICON_CHOICE, ICON_CHOICE_LABEL, IconModule } from './icons';
-import { ICON_CHOICES, IconChoice } from '../core/icon-choices';
+import { IconChart } from './icon-chart';
+import { ICON, ICON_CHOICE, IconModule } from './icons';
+import { IconChoice } from '../core/icon-choices';
 import { LIGHT_STOCKS, LightStock } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { CARD_LOOKS, CARD_LOOK_LABEL, CardLook, DECK_NAME_MAX, cardFace, deckLook, frontTitle } from '../core/study';
@@ -36,7 +37,7 @@ const STOCK_LABEL: Record<LightStock, string> = {
  */
 @Component({
   selector: 'app-study-deck-sheet',
-  imports: [BackdropClose, IconModule, Pin, StudyCard],
+  imports: [BackdropClose, IconChart, IconModule, Pin, StudyCard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet coluna-ajustes baralho-ajustes" aria-labelledby="ba-titulo" (close)="closed.emit()" (backdropClose)="close()">
@@ -128,14 +129,7 @@ const STOCK_LABEL: Record<LightStock, string> = {
             </section>
             <section class="grupo" aria-labelledby="ba-icone-t">
               <h3 class="grupo-titulo" id="ba-icone-t">Ícone</h3>
-              <div class="ops" role="radiogroup" aria-labelledby="ba-icone-t">
-                <button type="button" role="radio" class="op icone sem-icone" [attr.aria-checked]="!d.deck.icon" aria-label="Sem ícone" title="Sem ícone" (click)="set({ icon: null })"></button>
-                @for (i of icons; track i) {
-                  <button type="button" role="radio" class="op icone" [attr.aria-checked]="d.deck.icon === i" [attr.aria-label]="iconLabel[i]" [title]="iconLabel[i]" (click)="set({ icon: i })">
-                    <lucide-icon [img]="iconOf[i]" [size]="19" aria-hidden="true" />
-                  </button>
-                }
-              </div>
+              <app-icon-chart [value]="d.deck.icon" none="Sem ícone" [heading]="'Ícone do baralho ' + d.deck.name" [hint]="d.deck.icon ? 'Antes do nome do baralho, na fileira.' : 'O baralho aparece só com o nome.'" (pick)="set({ icon: $event })" />
             </section>
 
           </div>
@@ -211,18 +205,6 @@ const STOCK_LABEL: Record<LightStock, string> = {
       color: var(--ink-2);
     }
 
-    .op.sem-icone::before {
-      content: '';
-      width: 22px;
-      height: 1.5px;
-      border-radius: 1px;
-      background: currentColor;
-      rotate: -45deg;
-      opacity: 0.55;
-    }
-    .op.sem-icone[aria-checked='true']::before {
-      opacity: 1;
-    }
 
     /* o estilo das cartas: a primeira carta do baralho em miniatura (desenhada a 120px e reduzida, para a
        letra miúda do desenho continuar do tamanho dela), com o nome embaixo; a escolhida, o adesivo de tinta */
@@ -284,9 +266,7 @@ export class StudyDeckSheet {
   protected readonly TrashIcon = ICON.apagar;
   protected readonly PublicIcon = ICON.pessoas;
   protected readonly PrivateIcon = ICON.privada;
-  protected readonly icons = ICON_CHOICES;
   protected readonly iconOf = ICON_CHOICE;
-  protected readonly iconLabel = ICON_CHOICE_LABEL;
   protected readonly stocks = LIGHT_STOCKS;
   protected readonly stockLabel = STOCK_LABEL;
   protected readonly nameMax = DECK_NAME_MAX;

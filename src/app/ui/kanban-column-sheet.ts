@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
-import { ICON, ICON_CHOICE, ICON_CHOICE_LABEL, IconModule } from './icons';
-import { COLUMN_ICONS, ColumnIcon, NAME_MAX, cardsIn, moveColumn, nextStop, sortAllColumns, updateColumn } from '../core/kanban';
+import { IconChart } from './icon-chart';
+import { ICON, ICON_CHOICE, IconModule } from './icons';
+import { ColumnIcon, NAME_MAX, cardsIn, moveColumn, nextStop, sortAllColumns, updateColumn } from '../core/kanban';
 import { SORT_DIRS, SORT_KEYS, SORT_LABEL, SortKey, SortRule, sameSort, sortSentence } from '../core/kanban-sort';
 import { KanbanStore } from '../core/kanban-store';
 import { LIGHT_STOCKS, LightStock } from '../core/review';
@@ -43,7 +44,7 @@ const SORT_ICON: Record<SortKey, LucideIconData> = {
  */
 @Component({
   selector: 'app-kanban-column-sheet',
-  imports: [BackdropClose, KanbanReviewCard, KanbanTemplateSheet, IconModule, Pin],
+  imports: [BackdropClose, IconChart, KanbanReviewCard, KanbanTemplateSheet, IconModule, Pin],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet coluna-ajustes" aria-labelledby="ca-titulo" (close)="closed.emit()" (backdropClose)="close()">
@@ -199,13 +200,7 @@ const SORT_ICON: Record<SortKey, LucideIconData> = {
 
             <section class="grupo" aria-labelledby="ca-icone-t">
               <h3 class="grupo-titulo" id="ca-icone-t">Ícone</h3>
-              <div class="ops" role="radiogroup" aria-labelledby="ca-icone-t">
-                @for (i of icons; track i) {
-                  <button type="button" role="radio" class="op icone" [attr.aria-checked]="d.col.icon === i" [attr.aria-label]="iconLabel[i]" [title]="iconLabel[i]" (click)="set({ icon: i })">
-                    <lucide-icon [img]="iconOf[i]" [size]="19" aria-hidden="true" />
-                  </button>
-                }
-              </div>
+              <app-icon-chart [value]="d.col.icon" [heading]="'Ícone da coluna ' + d.col.name" hint="No título da coluna, no quadro." (pick)="pickIcon($event)" />
             </section>
 
             <section class="grupo" aria-labelledby="ca-cor-t">
@@ -275,9 +270,7 @@ export class KanbanColumnSheet {
   protected readonly sortLabel = SORT_LABEL;
   protected readonly sortDirs = SORT_DIRS;
   protected readonly sortIcon = SORT_ICON;
-  protected readonly icons = COLUMN_ICONS;
   protected readonly iconOf = ICON_CHOICE;
-  protected readonly iconLabel = ICON_CHOICE_LABEL;
   protected readonly stocks = LIGHT_STOCKS;
   protected readonly stockLabel = STOCK_LABEL;
   protected readonly nameMax = NAME_MAX;
@@ -346,6 +339,11 @@ export class KanbanColumnSheet {
     if (input && input.value !== this.data()?.col.name) this.rename(input.value);
     const el = this.dialog().nativeElement;
     if (el.open) el.close();
+  }
+
+  /** O ícone escolhido na cartela (a coluna sempre tem um: a cartela daqui não oferece tirar). */
+  protected pickIcon(icon: ColumnIcon | null): void {
+    if (icon) this.set({ icon });
   }
 
   protected set(patch: { icon?: ColumnIcon; color?: LightStock; finishes?: boolean; skip?: true }): void {

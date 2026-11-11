@@ -851,6 +851,12 @@ export class ReviewEditor {
   protected readonly headPaper = computed(() => paperVars(this.paper(), this.pattern() ?? undefined, this.patternLook(), this.patternSeed(), isDarkStock(this.stock()), this.editing()?.id));
   protected readonly pin = computed(() => pinningFor(this.id(), this.stock()));
   protected readonly library = computed(() => this.store.customBonuses()[this.kind()]);
+  /** Quantas fichas deste mural usam cada bônus: a cartela deixa os mais usados à mão. */
+  protected readonly bonusUse = computed(() => {
+    const use = new Map<string, number>();
+    for (const r of this.store.reviews()) if (r.kind === this.kind()) for (const b of r.bonuses) use.set(b.id, (use.get(b.id) ?? 0) + 1);
+    return use;
+  });
   /** A categoria, o assunto e as tags da anotação (ver core/note-labels.ts). */
   protected readonly noteCategory = signal<string | null>(null);
   /** A pasta da anotação (o id), ou null solta na raiz do grupo. */

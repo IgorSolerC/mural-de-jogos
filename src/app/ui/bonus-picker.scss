@@ -1,0 +1,403 @@
+@use 'sheet';
+@use 'paper-kit' as kit;
+@use 'indice';
+
+/* Os bônus da ficha (ver BonusPicker em bonus.ts): na ficha, a linha do título e os colados; a escolha,
+   numa folha de prós e contras por cima */
+:host {
+  display: block;
+}
+
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  min-height: 40px;
+}
+.label {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+/* o mesmo risco de pincel dos outros atalhos da ficha ("Trocar jogo", "Usar hoje") */
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 -8px 0 auto;
+  min-height: 40px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--f-marker);
+  font-size: 1rem;
+  text-decoration: underline 2px;
+  text-underline-offset: 5px;
+  transition: background-color var(--t-ui) var(--ease-ui);
+}
+.toggle:hover {
+  background: rgb(21 21 21 / 0.05);
+}
+.toggle lucide-icon {
+  display: inline-flex;
+}
+
+.colados {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 7px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.colados li {
+  display: flex;
+  align-items: center;
+  max-width: 100%;
+}
+.hint {
+  margin-top: 2px;
+  max-width: 52ch;
+  font-size: 0.92rem;
+  color: var(--ink-2);
+}
+
+/* ===== A folha dos bônus: prós e contras ===== */
+/* a altura não muda com a busca: a folha fica parada e só as colunas rolam */
+dialog.folha-bonus {
+  max-width: min(820px, calc(100vw - 24px));
+  height: min(760px, calc(100dvh - 24px));
+}
+
+.ficha {
+  position: relative;
+  height: 100%;
+}
+
+.head {
+  align-items: center;
+  margin-bottom: 0;
+
+  h2 {
+    overflow-wrap: anywhere;
+  }
+}
+
+.titulos {
+  @include sheet.titulos;
+}
+
+/* a média ao vivo e quantos estão colados, impressos embaixo do título */
+.sub {
+  @include sheet.sub;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.media b {
+  font-style: italic;
+  font-size: 1.12rem;
+  letter-spacing: -0.01em;
+}
+
+.busca-linha {
+  display: grid;
+  gap: 12px;
+  padding: 16px 24px 12px;
+  border-bottom: 1.5px dashed rgb(21 21 21 / 0.2);
+}
+
+.busca {
+  @include kit.campo;
+  min-height: 46px;
+  max-width: 460px;
+  padding-left: 12px;
+
+  input {
+    height: 44px;
+  }
+
+  input::-webkit-search-cancel-button {
+    display: none;
+  }
+}
+
+.lupa {
+  flex: none;
+  display: inline-flex;
+  margin-right: 6px;
+  color: var(--ink-2);
+}
+
+/* as abas do celular: as duas colunas, uma por vez; no computador ficam lado a lado e as abas somem */
+.abas {
+  display: none;
+}
+
+.body {
+  padding-top: 14px;
+}
+
+/* as duas colunas, separadas por um fio tracejado no meio, como uma folha de prós e contras */
+.colunas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+}
+
+.coluna {
+  min-width: 0;
+  padding: 0 18px 0 0;
+
+  & + & {
+    padding: 0 0 0 18px;
+    border-left: 1.5px dashed rgb(21 21 21 / 0.22);
+  }
+}
+
+.coluna-titulo {
+  @include kit.grupo-titulo;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 6px;
+  color: var(--ink);
+}
+
+.regra {
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: none;
+  color: var(--ink-2);
+}
+
+.linhas {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* cada bônus numa linha: a caixinha, o adesivo (o recorte, ou colado) e em quantas fichas ele está */
+.linha {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 42px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.05);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: -1px;
+  }
+
+  app-bonus-sticker {
+    min-width: 0;
+    transition: scale var(--t-physical) var(--ease-physical);
+  }
+
+  &:hover app-bonus-sticker.ghost {
+    color: var(--ink);
+    outline-color: rgb(21 21 21 / 0.62);
+  }
+
+  /* colado: o adesivo sai do recorte um pouco maior, com a sombra de quem acabou de grudar */
+  &[aria-pressed='true'] app-bonus-sticker {
+    scale: 1.04;
+  }
+}
+
+.caixa {
+  @include indice.caixa;
+}
+
+.linha[aria-pressed='true'] .caixa {
+  @include indice.caixa-marcada;
+}
+
+.uso {
+  flex: none;
+  color: var(--ink-2);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* "Escrever outro" e "Colar 'Chato no começo' contra": o risco de pincel dos atalhos da ficha */
+.escrever {
+  gap: 8px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.9rem;
+  letter-spacing: 0.015em;
+
+  span {
+    text-decoration: underline 1.5px;
+    text-underline-offset: 4px;
+  }
+
+  lucide-icon {
+    display: inline-flex;
+    width: 20px;
+    justify-content: center;
+  }
+}
+
+/* o adesivo em branco, sendo escrito: papel a favor, tinta contra */
+.write {
+  width: min(26ch, 100%);
+  height: 34px;
+  margin: 4px 0 4px 36px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 2px;
+  background: var(--paper);
+  color: var(--ink);
+  caret-color: var(--red);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.92rem;
+  letter-spacing: 0.015em;
+  outline: none;
+  box-shadow: var(--campo-sombra-foco);
+
+  &.contra {
+    background: var(--ink);
+    color: var(--paper);
+    caret-color: var(--hi);
+    box-shadow: 0 0 0 3px rgb(21 21 21 / 0.18);
+  }
+
+  &::placeholder {
+    color: rgb(21 21 21 / 0.5);
+    font-weight: 600;
+  }
+
+  &.contra::placeholder {
+    color: rgb(247 244 236 / 0.62);
+  }
+}
+
+.pe-dica {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.9rem;
+}
+
+/* no celular: uma coluna por vez, escolhida nas abas embaixo da busca */
+@media (max-width: 640px) {
+  .busca-linha {
+    padding: 12px 16px 0;
+    border-bottom: 0;
+  }
+
+  .abas {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-bottom: 1.5px solid rgb(21 21 21 / 0.2);
+  }
+
+  .aba {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 44px;
+    border: 0;
+    background: none;
+    color: var(--ink-2);
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.92rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+
+    &[aria-selected='true'] {
+      color: var(--ink);
+    }
+
+    /* a aberta: o risco de tinta embaixo, emendado no fio */
+    &[aria-selected='true']::after {
+      content: '';
+      position: absolute;
+      right: 12px;
+      bottom: -1.5px;
+      left: 12px;
+      height: 3px;
+      border-radius: 2px;
+      background: var(--ink);
+    }
+
+    &:focus-visible {
+      outline: 2.5px solid var(--ink);
+      outline-offset: -2px;
+    }
+  }
+
+  .aba-n {
+    min-width: 20px;
+    padding: 1px 5px;
+    border-radius: 2px;
+    background: var(--ink);
+    color: var(--hi);
+    font-size: 0.8rem;
+    letter-spacing: 0;
+  }
+
+  .colunas {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .coluna,
+  .coluna + .coluna {
+    padding: 0;
+    border-left: 0;
+  }
+
+  .coluna:not(.aberta) {
+    display: none;
+  }
+
+  .coluna-titulo {
+    display: none;
+  }
+
+  .pe-dica {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .linha app-bonus-sticker {
+    transition: none;
+  }
+}
+
+/* a coluna sem nada que bata com a busca: uma linha a lápis, no lugar das linhas */
+.nada {
+  padding: 10px 6px;
+  color: var(--ink-2);
+  font-size: 0.92rem;
+}

@@ -227,7 +227,7 @@ describe('as configurações do mural (a folha)', () => {
     autos[2].querySelector<HTMLButtonElement>('.cat-abre')!.click();
     await fixture.whenStable();
     const painel = autos[2].querySelector('.cat-painel')!;
-    expect(painel.querySelector('.op.icone')).toBeNull();
+    expect(painel.querySelector('app-icon-chart')).toBeNull();
     expect(painel.querySelector('.apagar')).toBeNull();
     painel.querySelector<HTMLButtonElement>('.op.cor[aria-label="Azul"]')!.click();
     await fixture.whenStable();

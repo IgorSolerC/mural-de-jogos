@@ -1,0 +1,149 @@
+/* As escolhas em linhas, como um índice impresso: a Pasta (ui/folder-picker.ts), o Grupo
+   (ui/group-picker.ts), as Tags da anotação (ui/tag-picker.ts) e os bônus (BonusPicker em ui/bonus.ts).
+   Cada opção numa linha (o desenho, o nome em letra de rótulo, quantas anotações tem); a escolhida de
+   uma escolha só ganha o traço de marca-texto, e a de várias, a caixinha marcada. */
+
+/* A lista: rola dentro dela quando passa da altura; com `$colunas`, as linhas correm em colunas. */
+@mixin lista($colunas: false) {
+  display: grid;
+  gap: 2px;
+  max-height: min(48vh, 22rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 4px 2px 0;
+  margin: 0;
+  list-style: none;
+
+  @if $colunas {
+    grid-template-columns: repeat(auto-fill, minmax(min(210px, 100%), 1fr));
+    gap: 2px 14px;
+    align-content: start;
+  }
+}
+
+/* Uma linha: o botão inteiro é o alvo */
+@mixin op {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 34px;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.98rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.1;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.07);
+  }
+
+  &:focus-visible {
+    outline: 2.5px solid var(--ink);
+    outline-offset: 1px;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.42;
+
+    &:hover {
+      background: none;
+    }
+  }
+
+  @media (pointer: coarse) {
+    min-height: 44px;
+  }
+}
+
+/* A escolhida de uma escolha só (aria-checked): o traço de marca-texto (o mesmo dos controles da pasta) */
+@mixin marca-texto {
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 4px 2px;
+    z-index: -1;
+    border-radius: 3px 8px 4px 9px;
+    background: var(--hi);
+    rotate: -1.2deg;
+    opacity: 0;
+    scale: 0.6 1;
+    transform-origin: left center;
+    transition:
+      opacity var(--t-ui) var(--ease-ui),
+      scale var(--t-ui) var(--ease-ui);
+  }
+
+  &[aria-checked='true']::before {
+    opacity: 1;
+    scale: 1 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &::before {
+      transition: none;
+    }
+  }
+}
+
+/* Quantas anotações (ou fichas) a opção tem */
+@mixin n {
+  font-weight: 600;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+/* "Sem pasta", "Sem grupo" e o "Criar": o recorte tracejado, ainda sem tinta */
+@mixin recorte {
+  outline: 1.5px dashed rgb(21 21 21 / 0.42);
+  outline-offset: -1.5px;
+  font-size: 0.86rem;
+  letter-spacing: 0.06em;
+  color: rgb(21 21 21 / 0.74);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.06);
+    color: var(--ink);
+  }
+
+  &[aria-checked='true'] {
+    outline-color: rgb(21 21 21 / 0.72);
+    color: var(--ink);
+  }
+}
+
+/* A caixinha das escolhas de várias: um quadradinho impresso a tinta fina (o tracejado fica só para o
+   recorte da etiqueta ao lado, para os dois não parecerem dois campos vazios); marcada, a tinta torta com
+   o visto amarelo. */
+@mixin caixa {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1.5px rgb(21 21 21 / 0.5);
+  color: var(--hi);
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+@mixin caixa-marcada {
+  box-shadow: none;
+  background: var(--ink);
+  rotate: -3deg;
+}

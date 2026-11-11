@@ -20,7 +20,6 @@ const FORA_DO_PADRAO = [
   ['src/app/ui/rich-text-codigo.scss', '.codigo-copiar', 'o Copiar do bloco de código, dentro do texto'],
   ['src/app/ui/wish-clip.ts', '.adesivo-btn', 'o lugar vazio do adesivo no recorte da Wishlist: é o próprio adesivo, não um botão de tinta'],
   ['src/app/ui/cover-picker.ts', '.foto', 'a capa escolhida no seletor de capas clareia'],
-  ['src/app/ui/group-picker.scss', '.orelha', 'a orelha no seletor de grupos clareia'],
   ['src/app/ui/rich-text.ts', '.cartao-seta', 'a seta do card recolhível, dentro do texto'],
   ['src/app/ui/flashcard-preview.scss', 'lucide-icon', 'o desenho do próprio botão clareia'],
   ['src/app/pages/wall-board.scss', '.dobra', 'a dobra de abrir o grupo: faz parte da pasta'],

@@ -1,4 +1,5 @@
 @use 'paper-kit' as kit;
+@use 'indice';
 
 :host {
   display: grid;
@@ -38,47 +39,29 @@
   }
 }
 
-/* As tags: amarradas (com a cor delas) ou só o contorno */
-.tags {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 2px 4px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+/* As tags em linhas e em colunas: a caixinha, a etiqueta (amarrada, com a cor dela, ou só o contorno), em
+   quantas anotações está, e a estrela no fim */
+.lista {
+  @include indice.lista($colunas: true);
 }
 
 .tag-li {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  min-width: 0;
 }
 
-.tag-op {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 44px;
-  padding: 0 4px;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--ink);
-  cursor: pointer;
-  transition: background-color var(--t-ui) var(--ease-ui);
+.op {
+  @include indice.op;
+  flex: 1;
+  gap: 10px;
 
-  &:hover:not(:disabled) {
-    background-color: rgb(21 21 21 / 0.06);
+  &[aria-pressed='true'] .caixa {
+    @include indice.caixa-marcada;
   }
 
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.45;
-  }
-
-  &:focus-visible {
-    outline: 3px solid var(--ink);
-    outline-offset: 0;
+  app-note-tag {
+    min-width: 0;
   }
 
   lucide-icon {
@@ -86,13 +69,22 @@
   }
 }
 
-/* criar: só o nome, com o + na frente, na letra de etiqueta */
+.caixa {
+  @include indice.caixa;
+}
+
+.n {
+  @include indice.n;
+}
+
+/* a estrela fica no fim da linha */
+.tag-li .estrela {
+  margin-left: auto;
+}
+
+/* criar: o recorte tracejado, com o + na frente */
 .criar {
-  padding: 0 10px;
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.82rem;
-  letter-spacing: 0.05em;
+  @include indice.recorte;
 }
 
 /* A estrela da fixa: quieta (a 30%), acende no mouse ou no foco; a fixa fica sempre acesa, cheia */
@@ -102,7 +94,7 @@
   position: relative;
   width: 30px;
   height: 40px;
-  margin-left: -4px;
+  margin-left: 0;
   padding: 0;
   border: 0;
   border-radius: 4px;
@@ -138,12 +130,6 @@
       fill: currentColor;
     }
   }
-}
-
-.mais {
-  @include kit.botao-papel;
-  min-height: 36px;
-  font-size: 0.82rem;
 }
 
 .legenda {

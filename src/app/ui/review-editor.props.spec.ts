@@ -139,7 +139,7 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
     fixture.componentInstance.openInCategory('Trabalho');
     await fixture.whenStable();
     const p = await openPart('tags');
-    const tag = () => Array.from(p.querySelectorAll<HTMLButtonElement>('.tag-op')).find((b) => b.textContent!.includes('Correção'))!;
+    const tag = () => Array.from(p.querySelectorAll<HTMLButtonElement>('.tag-li .op')).find((b) => b.textContent!.includes('Correção'))!;
     expect(tag().getAttribute('aria-pressed')).toBe('false');
     tag().click();
     await fixture.whenStable();

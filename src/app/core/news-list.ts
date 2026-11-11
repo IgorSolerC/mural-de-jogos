@@ -27,12 +27,15 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-11-kanban-filtrar-altura',
+    id: '2026-11-11-seletores',
     version: '1.44.1',
     kind: 'ajustes',
     date: '2026-11-11',
-    title: 'Pixel art no Quadro livre e a prancheta mais clara',
+    title: 'Ícones, bônus, grupos e tags mais fáceis de escolher; Pixel art no Quadro livre',
     melhorias: [
+      'A escolha de ícone (dos grupos, das colunas do Kanban, dos baralhos, dos lembretes e do cofre) virou uma linha com o escolhido e o Trocar, que abre os 110 desenhos separados por assunto, com uma busca pelo nome e pelo que o desenho quer dizer ("dinheiro" acha as moedas e o cofrinho).',
+      'Os bônus das fichas abrem numa folha de prós e contras: A favor e Contra lado a lado, um por linha, com em quantas fichas cada um já foi usado, a média ao vivo e uma busca que também cola um bônus novo. No celular, os dois lados viram abas.',
+      'Nas anotações, as partes Grupo e Tags mostram tudo em linhas, como as pastas: cada grupo com quantas anotações tem, e cada tag com a caixinha de marcar, a contagem e a estrela de sempre à mão.',
       'A Pixel art também entra no Quadro livre, pelo Widget da régua, e as AIs ligadas pela API e pelo MCP sabem escrever uma.',
       'Na prancheta da Pixel art: os tamanhos de grade 8, 16, 24 e 32 num toque, o aviso dos pontos que ficam de fora quando a grade diminui, o Espelho escrito em cima do eixo, um lápis na cor escolhida dizendo que ela se troca, e o "Trazer de uma imagem" com nome, embaixo da prancheta.',
       'A linha da Pixel art no texto ficou mais curta: cinco ou mais pontos iguais seguidos vão abreviados, com a quantidade em dois algarismos (0*12 são doze transparentes). As linhas de antes continuam valendo.',

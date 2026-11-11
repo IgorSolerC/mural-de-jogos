@@ -1,9 +1,10 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
-import { CATEGORY_COLORS, CATEGORY_ICONS, CategoryColorId, CategoryIconId, CategoryLook, categoryColorHex } from '../core/category-looks';
+import { CATEGORY_COLORS, CategoryColorId, CategoryIconId, CategoryLook, categoryColorHex } from '../core/category-looks';
 import type { AutoTab } from '../core/mural-config';
 import { Settings } from '../core/settings';
 import { CategoryLabel, categoryIcon } from './category-label';
-import { ICON_CHOICE, ICON_CHOICE_LABEL, IconModule, iconChoiceOf } from './icons';
+import { IconChart } from './icon-chart';
+import { iconChoiceOf } from './icons';
 
 /**
  * A folha do ícone e da cor de uma categoria das anotações, no editor (ver core/category-looks.ts):
@@ -12,7 +13,7 @@ import { ICON_CHOICE, ICON_CHOICE_LABEL, IconModule, iconChoiceOf } from './icon
  */
 @Component({
   selector: 'app-category-style',
-  imports: [IconModule, CategoryLabel],
+  imports: [IconChart, CategoryLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[attr.id]': 'id()', '[class.solta]': 'bare()' },
   template: `
@@ -24,14 +25,8 @@ import { ICON_CHOICE, ICON_CHOICE_LABEL, IconModule, iconChoiceOf } from './icon
     }
     <!-- a aba que o mural gera: o desenho é dela, só a cor muda -->
     @if (!auto()) {
-      <p class="sub" [id]="id() + '-icones'">Ícone</p>
-      <div class="ops" role="group" [attr.aria-labelledby]="id() + '-icones'">
-        @for (i of icons; track i) {
-          <button type="button" class="op icone" [attr.aria-pressed]="iconId() === i" [attr.aria-label]="iconLabel[i]" [title]="iconLabel[i]" (click)="setIcon(i)">
-            <lucide-icon [img]="iconOf[i]" [size]="19" aria-hidden="true" />
-          </button>
-        }
-      </div>
+      <p class="sub" aria-hidden="true">Ícone</p>
+      <app-icon-chart [value]="iconId()" [heading]="'Ícone de ' + category()" (pick)="setIcon($event)" />
     }
     <p class="sub" [id]="id() + '-cores'">Cor da etiqueta</p>
     <div class="ops" role="group" [attr.aria-labelledby]="id() + '-cores'">
@@ -151,12 +146,6 @@ import { ICON_CHOICE, ICON_CHOICE_LABEL, IconModule, iconChoiceOf } from './icon
       background-position: center;
       background-size: 100% 100%;
     }
-    .icone[aria-pressed='true'] {
-      background: rgb(255 218 66 / 0.55);
-    }
-    .op lucide-icon {
-      display: inline-flex;
-    }
     /* a cor: a orelha em miniatura, a borda colorida por dentro do manilha */
     .cor::before {
       content: '';
@@ -211,9 +200,6 @@ export class CategoryStyle {
   readonly auto = input<AutoTab | null>(null);
 
   private readonly settings = inject(Settings);
-  protected readonly icons = CATEGORY_ICONS;
-  protected readonly iconOf = ICON_CHOICE;
-  protected readonly iconLabel = ICON_CHOICE_LABEL;
   protected readonly colors = CATEGORY_COLORS;
 
   /** O ícone e a cor escolhidos para a categoria. */
@@ -230,7 +216,8 @@ export class CategoryStyle {
   });
 
   /** Troca o ícone; o de sempre não fica guardado (assim "Voltar ao de sempre" some se só ele mudou). */
-  protected setIcon(icon: CategoryIconId): void {
+  protected setIcon(icon: CategoryIconId | null): void {
+    if (!icon) return;
     const same = iconChoiceOf(categoryIcon(this.category())) === icon;
     this.settings.setCategoryLook(this.category(), { ...this.look(), icon: same ? undefined : icon });
   }

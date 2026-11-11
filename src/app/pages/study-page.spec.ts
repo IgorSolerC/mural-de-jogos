@@ -1264,8 +1264,12 @@ describe('página dos Estudos', () => {
     expect(dialog.open).toBeTrue();
     dialog.querySelector<HTMLButtonElement>('.op.cor[aria-label="Rosa"]')!.click();
     expect(study.deck(kanji)!.color).toBe('rosa');
-    dialog.querySelector<HTMLButtonElement>('.op.sem-icone')!.click();
+    // o ícone: a linha do escolhido abre a cartela inteira por cima, e o pé dela tira
+    dialog.querySelector<HTMLButtonElement>('app-icon-chart .linha .papel')!.click();
+    await settle();
+    dialog.querySelector<HTMLButtonElement>('dialog.cartela-de-icones .sem')!.click();
     expect(study.deck(kanji)!.icon).toBeNull();
+    await settle();
     dialog.querySelector<HTMLButtonElement>('.papel.perigo')!.click();
     await settle();
     await settle();

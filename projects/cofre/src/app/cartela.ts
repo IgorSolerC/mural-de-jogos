@@ -1,5 +1,5 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
-import { CARTELA_DE_ICONES, CORES_DA_CARTELA, type IdDaCor, type IdDoIcone } from '../../../../shared/cartela-de-icones';
+import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
+import { CARTELA_DE_ICONES, CORES_DA_CARTELA, GAVETAS_DE_ICONES, procurarIcones, type IdDaCor, type IdDoIcone } from '../../../../shared/cartela-de-icones';
 import { CORES_DO_SELO, type CorDoSelo } from '../core/selo';
 import { Icone, type NomeDoIcone } from './icone';
 
@@ -16,6 +16,17 @@ import { Icone, type NomeDoIcone } from './icone';
   imports: [Icone],
   template: `
     <p class="sub" [id]="id() + '-icones'">Ícone</p>
+    <input
+      class="busca"
+      type="search"
+      autocomplete="off"
+      enterkeyhint="search"
+      placeholder="Procurar: casa, dinheiro, jogo…"
+      aria-label="Procurar ícone"
+      [value]="busca()"
+      (input)="busca.set($any($event.target).value)"
+      (keydown.escape)="limpar($event)"
+    />
     <div class="ops" role="group" [attr.aria-labelledby]="id() + '-icones'">
       <button type="button" class="op icone de-sempre" [attr.aria-pressed]="!icone()" [attr.aria-label]="deSempre()" [title]="deSempre()" (click)="escolherIcone.emit('')">
         @if (letra(); as l) {
@@ -24,12 +35,20 @@ import { Icone, type NomeDoIcone } from './icone';
           <cofre-icone [nome]="iconeDeSempre()" />
         }
       </button>
-      @for (i of icones; track i.id) {
-        <button type="button" class="op icone" [attr.aria-pressed]="icone() === i.id" [attr.aria-label]="i.label" [title]="i.label" (click)="escolherIcone.emit(i.id)">
-          <cofre-icone [cartela]="i.id" />
-        </button>
-      }
     </div>
+    <!-- a cartela inteira, separada pelas gavetas do Murall (shared/cartela-de-icones.ts); procurando, só o que bate -->
+    @for (g of gavetas(); track g.id) {
+      <p class="gaveta" [id]="id() + '-' + g.id">{{ g.label }}</p>
+      <div class="ops" role="group" [attr.aria-labelledby]="id() + '-' + g.id">
+        @for (i of g.icones; track i) {
+          <button type="button" class="op icone" [attr.aria-pressed]="icone() === i" [attr.aria-label]="nomes[i]" [title]="nomes[i]" (click)="escolherIcone.emit(i)">
+            <cofre-icone [cartela]="i" />
+          </button>
+        }
+      </div>
+    } @empty {
+      <p class="nada">Nenhum ícone com “{{ busca().trim() }}”.</p>
+    }
     @if (corDoNome(); as doNome) {
       <p class="sub" [id]="id() + '-selo'">Cor do quadradinho</p>
       <div class="ops" role="group" [attr.aria-labelledby]="id() + '-selo'">
@@ -65,6 +84,38 @@ import { Icone, type NomeDoIcone } from './icone';
       display: flex;
       flex-wrap: wrap;
       gap: 4px;
+    }
+    /* a busca: a tira de papel com a linha de caneta dos campos do cofre */
+    .busca {
+      width: 100%;
+      min-height: 44px;
+      padding: 0 14px;
+      border: 0;
+      border-radius: 2px;
+      background: var(--campo-fundo);
+      box-shadow: var(--campo-sombra);
+      color: var(--tinta);
+      font: inherit;
+      outline: none;
+    }
+    .busca:focus {
+      background: var(--campo-fundo-foco);
+      box-shadow: var(--campo-sombra-foco);
+    }
+    .busca::-webkit-search-cancel-button {
+      display: none;
+    }
+    /* o nome de cada gaveta, miúdo, como o Ícone de cima */
+    .gaveta {
+      margin: 6px 0 0;
+      font: 800 0.72rem/1.1 var(--f-rotulo);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--tinta-2);
+    }
+    .nada {
+      margin: 0;
+      color: var(--tinta-2);
     }
     .op {
       position: relative;
@@ -181,7 +232,27 @@ export class Cartela {
   readonly corDoSelo = input<CorDoSelo | ''>('');
   readonly escolherCorDoSelo = output<CorDoSelo | ''>();
 
-  protected readonly icones = CARTELA_DE_ICONES;
+  protected readonly nomes = Object.fromEntries(CARTELA_DE_ICONES.map((i) => [i.id, i.label])) as Record<IdDoIcone, string>;
+  protected readonly busca = signal('');
+  /** As gavetas, todas à vista; procurando, só o que bate em cada uma (e as vazias saem). */
+  protected readonly gavetas = computed(() => {
+    if (!this.busca().trim()) return GAVETAS_DE_ICONES;
+    const achados = new Set<string>(procurarIcones(this.busca(), dobrar));
+    return GAVETAS_DE_ICONES.map((g) => ({ ...g, icones: g.icones.filter((i) => achados.has(i)) })).filter((g) => g.icones.length);
+  });
+
+  /** Esc com algo escrito limpa a busca (e não fecha a folha); vazia, o Esc segue. */
+  protected limpar(e: Event): void {
+    if (!this.busca()) return;
+    e.preventDefault();
+    e.stopPropagation();
+    this.busca.set('');
+  }
   protected readonly cores = CORES_DA_CARTELA;
   protected readonly coresDoSelo = CORES_DO_SELO;
+}
+
+/** Sem acento e sem caixa, para a busca. */
+function dobrar(texto: string): string {
+  return texto.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 }

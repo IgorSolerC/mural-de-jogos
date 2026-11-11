@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, effect, inject, input, linkedSignal, output, signal, untracked, viewChild } from '@angular/core';
-import { ICON, ICON_CHOICE, ICON_CHOICE_LABEL, IconModule } from './icons';
+import { IconChart } from './icon-chart';
+import { ICON, IconModule } from './icons';
 import {
   MAX_COUNT,
   MAX_NOTES,
@@ -30,7 +31,7 @@ import {
   weekday,
 } from '../core/calendar';
 import { MONTHS_LONG } from '../core/dates';
-import { ICON_CHOICES, IconChoice } from '../core/icon-choices';
+import { IconChoice } from '../core/icon-choices';
 import { CalendarStore } from '../core/calendar-store';
 import { Desk } from '../core/desk';
 import { NOTES } from '../core/kinds';
@@ -79,7 +80,7 @@ type EndMode = 'nunca' | 'dia' | 'vezes';
  */
 @Component({
   selector: 'app-reminder-sheet',
-  imports: [BackdropClose, CardPicker, IconModule, Pin],
+  imports: [BackdropClose, CardPicker, IconChart, IconModule, Pin],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet lembrete" aria-labelledby="lb-titulo" (close)="closed.emit()" (backdropClose)="close()">
@@ -281,35 +282,17 @@ type EndMode = 'nunca' | 'dia' | 'vezes';
             }
           </section>
 
-          <!-- o ícone: a cartela das colunas do Kanban (e dos grupos), fechada até a pessoa pedir; o
-               escolhido fica à vista ao lado do nome dele. Num evento travado do Google também: é só daqui -->
+          <!-- o ícone: a linha com o escolhido e o "Trocar", que abre a cartela inteira numa ficha por cima
+               (ui/icon-chart.ts). Num evento travado do Google também: é só daqui -->
           <section class="grupo" aria-labelledby="lb-icone-t">
             <h3 class="grupo-titulo" id="lb-icone-t">Ícone</h3>
-            <div class="linha">
-              <span class="icone-previa" [class.vazio]="!d.icon" aria-hidden="true">
-                @if (d.icon) {
-                  <lucide-icon [img]="iconOf[d.icon]" [size]="19" />
-                }
-              </span>
-              <div class="linha-texto">
-                <p class="linha-nome" id="lb-icone">{{ d.icon ? iconLabel[d.icon] : 'Sem ícone' }}</p>
-                <p class="linha-desc">{{ d.icon ? 'Antes do nome, no calendário e no link do texto.' : 'O lembrete aparece só com o nome.' }}</p>
-              </div>
-              <button type="button" class="papel icones-btn" [attr.aria-expanded]="iconsOpen()" aria-controls="lb-icones" (click)="iconsOpen.set(!iconsOpen())">
-                <lucide-icon [img]="iconsOpen() ? CloseIcon : IconsIcon" [size]="16" aria-hidden="true" />
-                {{ iconsOpen() ? 'Fechar' : d.icon ? 'Trocar' : 'Escolher' }}
-              </button>
-            </div>
-            @if (iconsOpen()) {
-              <div class="ops cartela-icones" id="lb-icones" role="radiogroup" aria-labelledby="lb-icone-t">
-                <button type="button" role="radio" class="op icone sem-icone" [attr.aria-checked]="!d.icon" aria-label="Sem ícone" title="Sem ícone" (click)="setIcon(undefined)"></button>
-                @for (i of icons; track i) {
-                  <button type="button" role="radio" class="op icone" [attr.aria-checked]="d.icon === i" [attr.aria-label]="iconLabel[i]" [title]="iconLabel[i]" (click)="setIcon(i)">
-                    <lucide-icon [img]="iconOf[i]" [size]="19" aria-hidden="true" />
-                  </button>
-                }
-              </div>
-            }
+            <app-icon-chart
+              [value]="d.icon"
+              none="Sem ícone"
+              heading="Ícone do lembrete"
+              [hint]="d.icon ? 'Antes do nome, no calendário e no link do texto.' : 'O lembrete aparece só com o nome.'"
+              (pick)="setIcon($event ?? undefined)"
+            />
           </section>
 
           <section class="grupo" aria-labelledby="lb-cor-t">
@@ -413,10 +396,6 @@ export class ReminderSheet {
   protected readonly CustomIcon = ICON.ajustar;
   protected readonly BellIcon = ICON.avisos;
   protected readonly QuietIcon = ICON.silenciar;
-  protected readonly IconsIcon = ICON.adesivo;
-  protected readonly icons = ICON_CHOICES;
-  protected readonly iconOf = ICON_CHOICE;
-  protected readonly iconLabel = ICON_CHOICE_LABEL;
   protected readonly weekdaysShort = WEEKDAYS_SHORT;
   protected readonly weekdaysLong = WEEKDAYS_LONG;
   protected readonly maxCount = MAX_COUNT;
@@ -449,7 +428,6 @@ export class ReminderSheet {
   protected readonly isNew = computed(() => !this.reminder());
   protected readonly picking = signal(false);
   /** A cartela dos ícones aberta (começa fechada: são mais de cem desenhos). */
-  protected readonly iconsOpen = signal(false);
   /** Tentou salvar sem nome. */
   protected readonly tried = signal(false);
   protected readonly missing = computed(() => this.tried() && !this.draft().title.trim());
