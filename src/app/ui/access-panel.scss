@@ -1,0 +1,10 @@
+@use 'quem-ve' as quem;
+
+/* A peça Quem vê: os pedaços um embaixo do outro, com o mesmo respiro do corpo da folha que a monta. */
+:host {
+  display: grid;
+  gap: 26px;
+  min-width: 0;
+}
+
+@include quem.quem-ve;

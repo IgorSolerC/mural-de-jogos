@@ -370,7 +370,7 @@ describe('página do Kanban', () => {
     const gear = host.querySelector<HTMLButtonElement>('button[aria-label="Configurações do mural"]')!;
     // sozinha no grupo dela, do tamanho da do mural
     expect(gear.parentElement!.classList).toContain('pasta-grupo');
-    expect(gear.parentElement!.children.length).toBe(1);
+    expect(gear.parentElement!.querySelectorAll('button').length).toBe(1);
     expect(gear.querySelector('svg')!.getAttribute('width')).toBe('18');
     expect(host.querySelector('button[aria-label="Ajustes do quadro"]')).toBeNull();
     gear.click();
@@ -378,7 +378,7 @@ describe('página do Kanban', () => {
     expect(gear.getAttribute('aria-expanded')).toBe('true');
     const sheet = await configSheet();
     expect(sheet.querySelector('h2')!.textContent).toBe('Configurações do mural');
-    expect([...sheet.querySelectorAll('.parte-nome')].map((t) => t.textContent!.trim())).toEqual(['Padrões', 'Grupos', 'Pastas', 'Tags', 'Quadro']);
+    expect([...sheet.querySelectorAll('.parte-nome')].map((t) => t.textContent!.trim())).toEqual(['Compartilhar', 'Padrões', 'Grupos', 'Pastas', 'Tags', 'Quadro']);
     sheet.querySelector<HTMLButtonElement>('#config-aba-quadro')!.click();
     await settle();
     expect(sheet.querySelector('h3')!.textContent).toBe('Quadro');
@@ -447,7 +447,7 @@ describe('página do Kanban', () => {
     document.body.appendChild(solo.nativeElement);
     await solo.whenStable();
     sheet = solo.nativeElement;
-    expect([...sheet.querySelectorAll('.parte-nome')].map((t) => t.textContent!.trim())).toEqual(['Padrões', 'Grupos', 'Pastas', 'Tags']);
+    expect([...sheet.querySelectorAll('.parte-nome')].map((t) => t.textContent!.trim())).toEqual(['Compartilhar', 'Padrões', 'Grupos', 'Pastas', 'Tags']);
     expect(sheet.querySelector('h3')!.textContent).toBe('Padrões');
     sheet.querySelector('dialog')!.close();
     solo.nativeElement.remove();

@@ -205,6 +205,8 @@
         </div>
         <!-- a engrenagem: as mesmas configurações do mural (grupos, tags, padrões), com o quadro deste grupo -->
         <div class="pasta-grupo">
+          <!-- quem vê o grupo deste quadro, quando ele não é só seu (PLANO-COMPARTILHAR.md, 4.3) -->
+          <app-access-tag [name]="boardGroupName()" (open)="openShare()" />
           <button
             #gear
             type="button"
@@ -574,6 +576,7 @@
       <app-mural-config
         [board]="configBoard() ?? b.id"
         [group]="configGroup()"
+        [start]="configStart()"
         (closed)="closeConfig()"
         (resetting)="resetBoard($event)"
       />

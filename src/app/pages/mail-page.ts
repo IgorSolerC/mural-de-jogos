@@ -1,3 +1,6 @@
+import { SharedGroupsStore } from '../core/shared-groups-store';
+import { WallView } from '../core/wall-view';
+import { noteTabKey } from '../core/note-tabs';
 import { ChangeDetectionStrategy, Component, ElementRef, Injector, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { FolderTree, foldersOfSnapshot } from '../core/folders';
 import { focusAfterRender, tabStep } from '../ui/focus';
@@ -520,12 +523,38 @@ export class MailPage {
   }
 
   protected openShared(n: SharedNotice): void {
+    if (n.item.grupo) {
+      // o grupo: a aba dele no mural
+      const name = this.sharedGroups.names().get(n.item.ref);
+      if (!name) {
+        void this.sharedGroups.sync();
+        return;
+      }
+      void this.router.navigate(['/anotacoes']).then(() => this.wallView.setNoteTab(noteTabKey({ category: name })));
+      return;
+    }
     if (this.store.get(n.item.ref)) this.desk.openReview(n.item.ref);
     else this.shared.refreshSoon();
   }
+  private readonly sharedGroups = inject(SharedGroupsStore);
+  private readonly wallView = inject(WallView);
 
   /** Sair da anotação que compartilharam com você, direto do aviso: ela some do seu mural (e o aviso, daqui). */
   protected async leaveShared(n: SharedNotice): Promise<void> {
+    if (n.item.grupo) {
+      const sure = await this.confirm.ask({
+        title: 'Sair deste grupo?',
+        text: `O grupo “${n.item.titulo}” sai do seu mural, com tudo o que está nele, até o que você escreveu. Ele continua com ${n.item.pessoa.nome}; para voltar, alguém precisa chamar você de novo.`,
+        confirm: 'Sair do grupo',
+      });
+      if (!sure) return;
+      await this.run(`${n.item.ref}:sair`, async () => {
+        await this.sharedGroups.leave(n.item.ref);
+        this.follow.forget((i) => i.tipo === 'compartilhou' && i.ref === n.item.ref);
+        this.toasts.show(`Você saiu do grupo “${n.item.titulo}”`);
+      });
+      return;
+    }
     const sure = await this.confirm.ask({
       title: 'Sair desta anotação?',
       text: `“${n.item.titulo}” sai do seu mural. Ela continua com ${n.item.pessoa.nome} e com quem mais está nela; para voltar, alguém precisa chamar você de novo.`,

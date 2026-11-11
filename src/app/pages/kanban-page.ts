@@ -28,6 +28,7 @@ import { KanbanColumnSheet } from '../ui/kanban-column-sheet';
 import { ColumnWheel } from '../ui/column-wheel';
 import { KanbanNote } from '../ui/kanban-note';
 import { NearPool, NearScreen } from '../ui/near-screen';
+import { AccessTag } from '../ui/access-tag';
 import { MuralConfig } from '../ui/mural-config';
 import { NoteSelection } from '../ui/note-selection';
 import { SelectionFlow } from '../ui/selection-flow';
@@ -140,7 +141,7 @@ interface BoardTab {
  */
 @Component({
   selector: 'app-kanban-page',
-  imports: [BulkEditSheet, SelectionTray, CardPicker, CategoryLabel, ColumnWheel, ContextMenu, TabMore, KanbanColumnSheet, KanbanNote, IconModule, MuralConfig, NearScreen, NoteMenu, PageWall, Pin, RouterLink, SearchStrip, FilterCard, FilterTags],
+  imports: [AccessTag, BulkEditSheet, SelectionTray, CardPicker, CategoryLabel, ColumnWheel, ContextMenu, TabMore, KanbanColumnSheet, KanbanNote, IconModule, MuralConfig, NearScreen, NoteMenu, PageWall, Pin, RouterLink, SearchStrip, FilterCard, FilterTags],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './kanban-page.html',
   styleUrl: './kanban-page.scss',
@@ -304,6 +305,19 @@ export class KanbanPage {
   /** Aberta pelo "Ajustes do grupo" do menu de uma aba: o quadro e o grupo dela (senão, o aberto). */
   protected readonly configBoard = signal<string | null>(null);
   protected readonly configGroup = signal<string | null>(null);
+  /** A parte em que a engrenagem abre (a etiqueta Quem vê abre em Compartilhar). */
+  protected readonly configStart = signal<'compartilhar' | null>(null);
+  /** O nome do grupo do quadro aberto, como no mural (a etiqueta Quem vê). */
+  protected readonly boardGroupName = computed(() => {
+    const b = this.board();
+    return b ? (this.kanban.labelOf(b) ?? b.category) : null;
+  });
+
+  /** A etiqueta Quem vê: a engrenagem na parte Compartilhar. */
+  protected openShare(): void {
+    this.configStart.set('compartilhar');
+    this.configOpen.set(true);
+  }
   private readonly gear = viewChild<ElementRef<HTMLButtonElement>>('gear');
   protected readonly drag = signal<Drag | null>(null);
   /** O que o leitor de tela ouve depois de mover pelo teclado. */
@@ -935,6 +949,7 @@ export class KanbanPage {
     this.configOpen.set(false);
     this.configBoard.set(null);
     this.configGroup.set(null);
+    this.configStart.set(null);
     // aberta pelo menu de uma aba: o foco volta para a aba (escondida ou renomeada, para a engrenagem)
     // (a aba no "Mais": a orelha dele)
     const tab = from ? this.host.querySelector<HTMLElement>(`.abas-quadros .abas:not(.medida) .aba[data-quadro="${CSS.escape(from)}"]`) ?? this.host.querySelector<HTMLElement>('.abas-quadros app-tab-more .gatilho') : null;

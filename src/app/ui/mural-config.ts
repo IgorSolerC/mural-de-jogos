@@ -27,6 +27,10 @@ import { Pin } from './pin';
 import { TagColors } from './tag-colors';
 import { nameCollator, plural } from '../core/text';
 import { tabStep } from './focus';
+import { GroupShare } from './group-share';
+import { SharedGroupsStore } from '../core/shared-groups-store';
+import { accessSummary } from '../core/access';
+import { CloudAccount } from '../core/cloud-account';
 
 /**
  * As partes da folha, uma por vez, como as partes dos Ajustes. Para crescer, uma entrada aqui e o
@@ -34,6 +38,8 @@ import { tabStep } from './focus';
  * folha abre pela engrenagem do Kanban (ver `board`).
  */
 const SECTIONS = [
+  // quem vê e quem edita o grupo aberto (PLANO-COMPARTILHAR.md, 4.2): a primeira, porque é a que mais se procura
+  { id: 'compartilhar', label: 'Compartilhar', hint: 'Quem vê e quem edita este grupo', icon: ICON.pessoas },
   { id: 'padroes', label: 'Padrões', hint: 'Como nasce cada anotação', icon: ICON.ajustar },
   { id: 'categorias', label: 'Grupos', hint: 'Nome, ordem, cor e padrões', icon: ICON.etiquetas },
   { id: 'assuntos', label: 'Pastas', hint: 'Por grupo: criar, renomear e mover', icon: ICON.pastaDeNotas },
@@ -212,7 +218,7 @@ interface Drag {
  */
 @Component({
   selector: 'app-mural-config',
-  imports: [BackdropClose, CategoryLabel, CategoryStyle, FolderMoveSheet, IconModule, NoteTag, Pin, TagColors],
+  imports: [BackdropClose, CategoryLabel, CategoryStyle, FolderMoveSheet, GroupShare, IconModule, NoteTag, Pin, TagColors],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './mural-config.html',
   styleUrls: ['./mural-config.scss', './mural-config-estudos.scss'],
@@ -224,6 +230,10 @@ export class MuralConfig {
   readonly study = input(false);
   /** Aberta pelo "Ajustes do grupo" do menu de uma aba: já em Grupos, com o painel dele aberto. */
   readonly group = input<string | null>(null);
+  /** O grupo aberto na página (a aba do mural, o quadro do Kanban): o da parte Compartilhar. */
+  readonly here = input<string | null>(null);
+  /** A parte em que a folha abre (a etiqueta Quem vê da pasta abre em Compartilhar). */
+  readonly start = input<SectionId | null>(null);
   /** A folha fechou. */
   readonly closed = output<void>();
   /** Recomeçar o quadro: a página recomeça (com o Desfazer) depois da pergunta. */
@@ -278,6 +288,38 @@ export class MuralConfig {
 
   /** A parte aberta da última vez, menos o Quadro pela engrenagem do mural (lá ele não existe). */
   protected readonly section = signal<SectionId>(lastSection === 'quadro' && !this.board() ? 'padroes' : lastSection);
+
+  /** Aberta numa parte pedida (a etiqueta Quem vê da pasta): ela, uma vez. */
+  private readonly startAt = effect(() => {
+    const s = this.start();
+    if (s) this.section.set(s);
+  });
+
+  // ===== Compartilhar (PLANO-COMPARTILHAR.md, 4.2) =====
+  private readonly sharedGroups = inject(SharedGroupsStore);
+  private readonly account = inject(CloudAccount);
+  /** O grupo escolhido na lista da parte (pela aba Tudo, que não tem um grupo só). */
+  protected readonly sharePicked = signal<string | null>(null);
+  /** O grupo da parte Compartilhar: o escolhido, o do menu da aba, o aberto na página, o do quadro. */
+  protected readonly shareName = computed(() => this.sharePicked() ?? this.group() ?? this.here() ?? (this.quadroGrupo() || null));
+  /** Dá para trocar de grupo na parte (a folha não abriu presa a um). */
+  protected readonly shareSwitchable = computed(() => !this.group() && !this.here() && !this.quadroGrupo());
+  /** Os grupos do mural, cada um com quem vê numa linha (a lista da parte, pela aba Tudo). */
+  protected readonly shareRows = computed(() =>
+    this.categories().map((c) => {
+      const g = this.sharedGroups.ofCategory(c.label);
+      const who = g
+        ? accessSummary({
+            me: g.papel,
+            meCode: this.account.account()?.codigo ?? null,
+            ownerName: g.dono.nome,
+            members: g.membros,
+            public: g.publico,
+          }).short
+        : 'Só você';
+      return { ...c, who, shared: !!g };
+    }),
+  );
 
   /** A parte aberta é sempre uma das que estão à mostra (as entradas chegam depois da criação). */
   private readonly keepSection = effect(() => {

@@ -377,7 +377,7 @@ Novidades, BUILD + 1, commit e push.
 
 - [x] Rodada 1 — Quem vê (BUILD 853)
 - [x] Rodada 2 — A nuvem dos grupos (BUILD 854)
-- [ ] Rodada 3 — Compartilhar um grupo com pessoas
+- [x] Rodada 3 — Compartilhar um grupo com pessoas (BUILD 855). Ficou para a rodada 4, com o documento do grupo: o nome, o desenho, a cor, as pastas e as tags do grupo (renomear um grupo compartilhado ainda não chega aos outros), e tirar uma anotação do grupo pela tela
 - [ ] Rodada 4 — O Kanban compartilhado
 - [ ] Rodada 5 — O grupo público
 - [ ] Rodada 6 — Quadros livres compartilhados

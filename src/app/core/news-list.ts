@@ -27,6 +27,21 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-11-grupos-compartilhados',
+    version: '1.45.0',
+    kind: 'funcionalidade',
+    date: '2026-11-11',
+    title: 'Grupos compartilhados',
+    items: [
+      'Um grupo inteiro das anotações pode ser dividido com outras pessoas, cada uma como Leitor, Editor ou Gestor: pela engrenagem do mural, na parte nova Compartilhar, que diz numa frase quem vê e quem edita o grupo.',
+      'Quem é chamado recebe o aviso em Amigos e passa a ter o grupo como uma aba do mural, com todas as anotações dele; as que alguém escreve ali ficam no grupo, e o Editor apaga só as que escreveu.',
+      'Na pasta do mural e do Kanban, uma etiqueta com as fotos de quem está mostra quem vê o grupo aberto ("Com Ana e Bia", "De Ana · você edita") e abre o Compartilhar.',
+      'Antes de chamar a primeira pessoa, o site avisa quantas anotações privadas o grupo tem; pôr uma anotação num grupo compartilhado diz quem vai vê-la; sair do grupo e parar de compartilhar dizem o que acontece com o que cada um escreveu.',
+    ],
+    notice: 'Novo: grupos compartilhados. Divida um grupo inteiro das anotações pela engrenagem do mural, em Compartilhar.',
+    until: '2026-11-25',
+  },
+  {
     id: '2026-11-11-quem-ve',
     version: '1.44.1',
     kind: 'ajustes',

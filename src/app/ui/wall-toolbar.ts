@@ -11,6 +11,7 @@ import { FacetKey, NO_FILTER } from '../core/wall-filter';
 import { Density, SortKey, WallState, directionLabelOf } from '../core/wall-view';
 import { FilterChip, FilterSheet, FilterTags, FilterToggle } from './filter-sheet';
 import { FilterCard } from './filter-card';
+import { AccessTag } from './access-tag';
 import { MuralConfig } from './mural-config';
 import { NoteTabsBar } from './note-tabs-bar';
 import { NoteFilters } from './note-filters';
@@ -45,7 +46,7 @@ const NOTE_SORT_OPTIONS: { value: string; label: string }[] = [
 
 @Component({
   selector: 'app-wall-toolbar',
-  imports: [FilterCard, FilterSheet, FilterTags, FolderPath, IconModule, MuralConfig, NgTemplateOutlet, NoteTabsBar, SearchStrip],
+  imports: [AccessTag, FilterCard, FilterSheet, FilterTags, FolderPath, IconModule, MuralConfig, NgTemplateOutlet, NoteTabsBar, SearchStrip],
   // a folha dos filtros das anotações, o Filtrar e os adesivos ligados leem as mesmas escolhas
   providers: [NoteFilters],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -103,8 +104,14 @@ export class WallToolbar {
   /** Aberta pelo menu de uma aba ("Ajustes do grupo"): já em Grupos, com o dele aberto. */
   protected readonly configGroup = signal<string | null>(null);
 
-  protected openConfig(group: string | null): void {
+  /** O grupo da aba aberta (null em Tudo, Fixadas, Compartilhadas e Sem grupo): o da etiqueta Quem vê e da parte Compartilhar. */
+  protected readonly openGroup = computed(() => (this.view.notes() && this.view.activeTab().startsWith('c:') ? this.view.activeTabLabel() : null));
+  /** A parte em que a folha abre (a etiqueta Quem vê abre em Compartilhar). */
+  protected readonly configStart = signal<'compartilhar' | null>(null);
+
+  protected openConfig(group: string | null, start: 'compartilhar' | null = null): void {
     this.configGroup.set(group);
+    this.configStart.set(start);
     this.configOpen.set(true);
   }
 
@@ -249,6 +256,7 @@ export class WallToolbar {
     const group = this.configGroup();
     this.configOpen.set(false);
     this.configGroup.set(null);
+    this.configStart.set(null);
     // aberta pelo menu de uma aba: o foco volta para a aba (renomeada ou escondida, para a engrenagem)
     const key = group ? noteTabKey({ category: group }) : null;
     // (a aba no "Mais": a orelha dele; renomeada, a engrenagem)

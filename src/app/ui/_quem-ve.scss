@@ -1,0 +1,343 @@
+@use 'paper-kit' as kit;
+
+/*
+ * Quem vê (PLANO-COMPARTILHAR.md, 4.1): o que a folha Compartilhar da anotação e a parte Compartilhar da
+ * engrenagem (o grupo) desenham igual. A peça `ui/access-panel.ts` (a frase, chamar alguém, quem está) e as
+ * folhas que a montam (o "Quem mais vê") incluem este parcial; nada aqui sai dele duplicado.
+ */
+@mixin quem-ve {
+  .grupo {
+    display: grid;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  /* ===== Quem vê, numa frase: a resposta antes de tudo, a caneta com o traço de marca-texto ===== */
+  .resumo {
+    margin: 0;
+    max-width: 52ch;
+    font-family: var(--f-hand);
+    font-weight: 700;
+    font-size: 1.14rem;
+    line-height: 1.5;
+    color: var(--ink);
+    text-wrap: pretty;
+  }
+
+  .resumo-texto {
+    background: linear-gradient(transparent 56%, rgb(255 218 66 / 0.62) 56% 90%, transparent 90%);
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    padding-inline: 2px;
+  }
+
+  .grupo-titulo {
+    @include kit.grupo-titulo;
+  }
+
+  /* ===== Chamar alguém: a tira branca e o papel ao lado ===== */
+  .chamar-linha {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  .campo {
+    @include kit.campo;
+    flex: 1;
+    padding-left: 12px;
+    cursor: text;
+
+    .lupa {
+      display: inline-flex;
+      margin-right: 6px;
+      color: var(--ink-2);
+    }
+  }
+
+  /* O papel: um select nativo vestido da etiqueta de papel dos botões (botao-papel em
+     ui/_paper-kit.scss), com a seta desenhada. O meio-corte fica no rótulo: o select não tem ::after */
+  .papel-escolha {
+    position: relative;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+
+    &:not(.na-linha)::after {
+      content: '';
+      position: absolute;
+      inset: 3px;
+      border: 1.5px dashed rgb(21 21 21 / 0.42);
+      border-radius: 1px;
+      pointer-events: none;
+      transition: border-color var(--t-ui) var(--ease-ui);
+    }
+
+    &:not(.na-linha):hover::after {
+      border-color: rgb(21 21 21 / 0.72);
+    }
+
+    select {
+      appearance: none;
+      height: 50px;
+      min-width: 128px;
+      padding: 0 38px 0 14px;
+      border: 0;
+      border-radius: 2px;
+      background-color: #fffdf8;
+      background-image: var(--paper-grain);
+      background-blend-mode: multiply;
+      color: var(--ink);
+      box-shadow:
+        0 0 0 1px rgb(21 21 21 / 0.08),
+        0 1px 1px rgb(0 0 0 / 0.24),
+        0 3px 6px -3px rgb(0 0 0 / 0.32);
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.96rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition:
+        background-color var(--t-ui) var(--ease-ui),
+        box-shadow var(--t-physical) var(--ease-physical);
+
+      &:hover:not(:disabled) {
+        background-color: #fff;
+        box-shadow:
+          0 0 0 1px rgb(21 21 21 / 0.08),
+          0 2px 2px rgb(0 0 0 / 0.2),
+          0 7px 12px -5px rgb(0 0 0 / 0.4);
+      }
+
+      &:focus-visible {
+        outline: 3px solid var(--ink);
+        outline-offset: 2px;
+      }
+
+      &:disabled {
+        cursor: wait;
+        opacity: 0.6;
+      }
+    }
+
+    .seta {
+      position: absolute;
+      right: 12px;
+      display: inline-flex;
+      pointer-events: none;
+    }
+
+    /* na linha de cada pessoa: um lembrete impresso, sem caixa, como o "Peso normal" do editor */
+    &.na-linha select {
+      height: 44px;
+      min-width: 0;
+      padding: 0 30px 0 10px;
+      background: transparent;
+      box-shadow: none;
+      font-size: 0.9rem;
+
+      &:hover:not(:disabled) {
+        background: rgb(21 21 21 / 0.06);
+      }
+
+      &:focus-visible {
+        outline: none;
+        box-shadow: inset 0 0 0 3px var(--ink);
+      }
+    }
+
+    &.na-linha .seta {
+      right: 8px;
+    }
+
+    &.esperando select {
+      color: var(--ink-2);
+    }
+  }
+
+  .dica {
+    margin-top: -4px;
+    font-size: 0.9rem;
+    color: var(--ink-2);
+  }
+
+  /* ===== As pessoas: as sugestões e quem está ===== */
+  .sugestoes,
+  .pessoas {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .sugestoes {
+    margin-top: -2px;
+    border-top: 1.5px dashed rgb(21 21 21 / 0.28);
+  }
+
+  .sugestoes li,
+  .pessoa {
+    border-bottom: 1.5px dashed rgb(21 21 21 / 0.28);
+  }
+
+  .sugestao,
+  .pessoa {
+    --foto: 38px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    min-height: 60px;
+    padding: 8px 4px;
+  }
+
+  .sugestao {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: var(--ink);
+    text-align: left;
+    cursor: pointer;
+    transition: background-color var(--t-ui) var(--ease-ui);
+
+    &:hover:not(:disabled) {
+      background: rgb(21 21 21 / 0.05);
+
+      .chamar-acao {
+        text-decoration-thickness: 3px;
+      }
+    }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: inset 0 0 0 3px var(--ink);
+    }
+
+    &:disabled {
+      cursor: wait;
+    }
+  }
+
+  .quem {
+    display: grid;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  .nome {
+    font-weight: 700;
+    font-size: 1.04rem;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+
+  .voce {
+    font-weight: 500;
+    color: var(--ink-2);
+  }
+
+  .rel {
+    font-size: 0.9rem;
+    line-height: 1.3;
+    color: var(--ink-2);
+  }
+
+  /* a ação da sugestão: a palavra sublinhada a caneta, que engrossa no hover da linha */
+  .chamar-acao {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding-right: 6px;
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.9rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-decoration: underline 2px;
+    text-underline-offset: 4px;
+
+    lucide-icon {
+      display: inline-flex;
+    }
+  }
+
+  /* o papel de quem não dá para mudar: impresso, em caixa alta */
+  .papel-fixo {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding-right: 8px;
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.9rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+
+    lucide-icon {
+      display: inline-flex;
+    }
+
+    /* o dono: a única etiqueta colada, como a escolhida de uma cartela */
+    &.dono {
+      padding: 5px 9px 4px;
+      border-radius: 2px;
+      background: var(--ink);
+      color: var(--hi);
+      rotate: -2deg;
+      box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+    }
+  }
+
+  .vazio,
+  .visita-desc {
+    font-size: 0.96rem;
+    line-height: 1.45;
+    color: var(--ink-2);
+    max-width: 60ch;
+  }
+
+  .erro {
+    font-family: var(--f-hand);
+    font-weight: 700;
+    font-size: 1.04rem;
+    line-height: 1.35;
+    color: var(--red-deep);
+  }
+
+  /* ===== Para quem visita ===== */
+  .segmentos {
+    @include kit.segmentos;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-width: 360px;
+    margin-top: 0;
+  }
+
+  .segmento {
+    @include kit.segmento;
+  }
+
+  .seg-icone {
+    display: inline-flex;
+  }
+
+  .seg-nome {
+    @include kit.seg-nome;
+  }
+
+  @media (max-width: 480px) {
+    /* estreita: o menu já diz o papel; o que ele quer dizer fica para a folha larga */
+    .dica-papel {
+      display: none;
+    }
+
+    .chamar-linha {
+      flex-direction: column;
+    }
+
+    .papel-escolha:not(.na-linha) select {
+      width: 100%;
+    }
+  }
+}

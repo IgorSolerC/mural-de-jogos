@@ -95,7 +95,7 @@ export function peopleNames(people: readonly Person[]): string {
 /** "começou a seguir você", "reagiu" / "reagiram", "comentou" / "comentaram". */
 export function noticeVerb(n: Notice): string {
   if (n.tipo === 'seguiu') return 'começou a seguir você';
-  if (n.tipo === 'compartilhou') return 'compartilhou uma nota com você:';
+  if (n.tipo === 'compartilhou') return n.item.grupo ? 'compartilhou um grupo com você:' : 'compartilhou uma nota com você:';
   if (n.tipo === 'acesso') return n.item.conector ? 'ganhou acesso ao seu Murall:' : 'Chave de API criada:';
   const many = n.people.length > 1;
   if (n.tipo === 'respondeu') return many ? 'responderam ao seu comentário' : 'respondeu ao seu comentário';
@@ -115,7 +115,7 @@ export function noticeWhere(n: CardNotice): string {
 export function noticeSpoken(n: Notice): string {
   const who = peopleNames(n.people);
   if (n.tipo === 'seguiu') return `${who} ${noticeVerb(n)}`;
-  if (n.tipo === 'compartilhou') return `${who} compartilhou com você a anotação ${n.item.titulo}. Você é ${ROLE_LABEL[n.item.papel].toLowerCase()}`;
+  if (n.tipo === 'compartilhou') return `${who} compartilhou com você ${n.item.grupo ? 'o grupo' : 'a anotação'} ${n.item.titulo}. Você é ${ROLE_LABEL[n.item.papel].toLowerCase()}`;
   if (n.tipo === 'acesso') return accessSpoken(n);
   const how = n.tipo === 'reagiu' ? ` com ${n.reactions.map((r) => reactionOf(r).label).join(', ')}` : '';
   return `${who} ${noticeVerb(n)}${how} ${noticeWhere(n)} ${n.item.titulo}`;

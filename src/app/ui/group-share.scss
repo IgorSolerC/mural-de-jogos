@@ -1,0 +1,36 @@
+@use 'paper-kit' as kit;
+@use 'quem-ve' as quem;
+
+/* A parte Compartilhar da engrenagem: a peça Quem vê, com o que é só do grupo por baixo. */
+:host {
+  display: grid;
+  gap: 26px;
+  min-width: 0;
+}
+
+@include quem.quem-ve;
+
+.sem-conta {
+  font-family: var(--f-hand);
+  font-size: 1.12rem;
+  line-height: 1.45;
+}
+
+/* as anotações indo para a nuvem: a caneta, como o "Levando…" de um bilhete */
+.indo {
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1.02rem;
+  color: var(--ink);
+}
+
+.papel {
+  @include kit.botao-papel;
+  justify-self: start;
+}
+
+.pe {
+  display: flex;
+  padding-top: 14px;
+  border-top: 1.5px dashed rgb(21 21 21 / 0.28);
+}

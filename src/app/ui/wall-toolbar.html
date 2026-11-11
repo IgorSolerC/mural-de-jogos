@@ -97,6 +97,8 @@
         <!-- a engrenagem: as configurações do mural (categorias, ordem, como nasce cada anotação) -->
         @if (mine()) {
           <div class="pasta-grupo">
+            <!-- quem vê o grupo aberto, quando ele não é só seu (PLANO-COMPARTILHAR.md, 4.3) -->
+            <app-access-tag [name]="openGroup()" (open)="openConfig(null, 'compartilhar')" />
             <button
               #gear
               type="button"
@@ -315,6 +317,6 @@
 <!-- as configurações do mural: um pedaço à parte, que só chega quando a engrenagem é tocada -->
 @if (configOpen()) {
   @defer (on immediate) {
-    <app-mural-config [group]="configGroup()" (closed)="closeConfig()" />
+    <app-mural-config [group]="configGroup()" [here]="openGroup()" [start]="configStart()" (closed)="closeConfig()" />
   }
 }

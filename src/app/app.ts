@@ -37,6 +37,7 @@ import { PAGE_BACKGROUNDS, PageBackground } from './core/profile';
 import { ColleagueStore, wallOf } from './core/colleague-store';
 import { ProfileStore } from './core/profile-store';
 import { SharedStore } from './core/shared-store';
+import { SharedGroupsStore } from './core/shared-groups-store';
 import { SyncConflicts, splitTarget } from './core/sync-conflicts';
 import { KanbanStore } from './core/kanban-store';
 import { CalendarStore } from './core/calendar-store';
@@ -101,6 +102,8 @@ export class App {
   protected readonly cloudConfig = inject(Cloud).config;
   /** As anotações compartilhadas: entram no mural e sincronizam à parte (ver core/shared-store.ts). */
   private readonly shared = inject(SharedStore);
+  /** Os grupos compartilhados: sobem com o app, para as anotações deles irem para o grupo certo (PLANO-COMPARTILHAR.md). */
+  private readonly sharedGroups = inject(SharedGroupsStore);
   /** Os conflitos da sincronização da conta (ver core/sync-conflicts.ts): o bilhete avisa quando chega um. */
   private readonly syncConflicts = inject(SyncConflicts);
 
@@ -453,8 +456,9 @@ export class App {
     const e = this.shared.get(id);
     if (!e) return;
     const name = e.view.game.name;
-    const mine = e.papel === 'dono';
-    const others = e.membros.length;
+    // a de um grupo compartilhado apaga para todos do grupo (quem não pode, a nuvem diz por quê)
+    const mine = e.papel === 'dono' || !!e.grupo;
+    const others = e.grupo ? Math.max(1, e.membros.length) : e.membros.length;
     const sure = await this.confirm.ask(
       mine
         ? {

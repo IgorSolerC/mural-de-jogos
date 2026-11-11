@@ -84,6 +84,7 @@ import { OrganizeSheet } from './organize-sheet';
 import { SharedStore } from '../core/shared-store';
 import { SyncConflicts } from '../core/sync-conflicts';
 import { accessSummary } from '../core/access';
+import { SharedGroupsStore } from '../core/shared-groups-store';
 import { canManage, canWrite, removalOf } from '../core/shared-notes';
 
 
@@ -703,6 +704,7 @@ export class ReviewReader {
     const r = this.review();
     return r && this.owner() === null ? (this.shared.get(r.id) ?? null) : null;
   });
+  private readonly sharedGroups = inject(SharedGroupsStore);
   /** Quem abriu escreve nela (a sua, ou a compartilhada em que você é dono, gestor ou editor). */
   protected readonly writable = computed(() => {
     const e = this.sharedEntry();
@@ -715,14 +717,7 @@ export class ReviewReader {
   protected readonly sharedHere = computed(() => {
     const e = this.sharedEntry();
     if (!e) return null;
-    const s = accessSummary({
-      me: e.papel,
-      meCode: this.account.account()?.codigo ?? null,
-      ownerName: e.dono.nome,
-      members: e.membros,
-      public: !e.view.private,
-      feed: !e.view.private && !e.view.quiet,
-    });
+    const s = accessSummary(this.sharedGroups.accessOf(e, this.account.account()?.codigo ?? null));
     return { line: s.short, title: s.line, manages: canManage(e.papel) };
   });
   /**

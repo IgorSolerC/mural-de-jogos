@@ -88,6 +88,10 @@ export interface SharedEntry {
   atualizadoPor: SharedPerson | null;
   /** O lugar dela no mural de quem está aqui (fixada no topo, o grupo, o assunto e as tags): não vai para a nuvem. */
   pessoal: Personal;
+  /** O grupo compartilhado dela (PLANO-COMPARTILHAR.md); null: a compartilhada solta. */
+  grupo: string | null;
+  /** Quem a escreveu, numa de grupo. */
+  criadoPor: SharedPerson | null;
   /** A anotação como ela aparece no mural (feita uma vez por mudança, para o mural saber o que mudou). */
   view: Review;
 }
@@ -193,6 +197,8 @@ function readEntry(raw: unknown): (SharedEntry & { migrated?: string }) | null {
     atualizadoEm: detail.atualizadoEm,
     atualizadoPor: detail.atualizadoPor,
     pessoal,
+    grupo: detail.grupo,
+    criadoPor: detail.criadoPor,
   });
   return stored.org ? entry : { ...entry, migrated: before?.updatedAt ?? detail.atualizadoEm };
 }
@@ -224,6 +230,13 @@ export class SharedStore implements SharedSink {
   readonly conflicts = computed(() => [...this.entries().values()].filter((e) => e.conflito && canWrite(e.papel)));
   /** O último aviso (um conflito chegou, alguém escolheu antes, a anotação saiu do mural). */
   readonly notice = signal<(SharedNotice & { at: number }) | null>(null);
+  /**
+   * O nome de cada grupo compartilhado no mural de quem está aqui (id → nome), posto por
+   * `SharedGroupsStore`: a anotação de um grupo aparece nele, seja qual for o grupo que a pessoa escolheria.
+   */
+  readonly groupNames = signal<ReadonlyMap<string, string>>(new Map());
+  /** A anotação de grupo como o mural a vê (com o nome do grupo), uma por versão, para o mural não refazer a ficha. */
+  private readonly inGroup = new Map<string, { view: Review; name: string; out: Review }>();
   /** As anotações abertas agora na leitura ou no editor: conferidas mais seguido. */
   private readonly watching = signal<ReadonlySet<string>>(new Set());
 
@@ -243,12 +256,13 @@ export class SharedStore implements SharedSink {
       const id = this.accountId();
       untracked(() => this.loadFor(id));
     });
-    // o mural mostra o que está aqui
+    // o mural mostra o que está aqui (a de grupo, no grupo compartilhado dela)
     effect(() => {
       const list = [...this.entries().values()];
+      const names = this.groupNames();
       untracked(() =>
         this.store.setShared(
-          list.map((e) => e.view),
+          list.map((e) => this.shown(e, names)),
           new Set(list.filter((e) => e.papel !== 'dono').map((e) => e.id)),
         ),
       );
@@ -285,6 +299,24 @@ export class SharedStore implements SharedSink {
     return this.entries().get(id);
   }
 
+  /** A anotação como o mural a mostra: a de um grupo compartilhado vai para ele, com o nome que ele tem aqui. */
+  private shown(e: SharedEntry, names: ReadonlyMap<string, string>): Review {
+    const name = e.grupo ? names.get(e.grupo) : undefined;
+    if (!e.grupo || !name) return e.view;
+    const memo = this.inGroup.get(e.id);
+    if (memo && memo.view === e.view && memo.name === name) return memo.out;
+    const { subject: _s, folder: _f, ...rest } = e.view;
+    // (a pasta de cada um é a de um grupo dele: no compartilhado, ela não vale)
+    const out = { ...rest, category: name } as Review;
+    this.inGroup.set(e.id, { view: e.view, name, out });
+    return out;
+  }
+
+  /** As compartilhadas de um grupo compartilhado. */
+  inGroupOf(grupo: string): SharedEntry[] {
+    return [...this.entries().values()].filter((e) => e.grupo === grupo);
+  }
+
   role(id: string): SharedRole | null {
     return this.entries().get(id)?.papel ?? null;
   }
@@ -304,7 +336,8 @@ export class SharedStore implements SharedSink {
    * com o dono quando não é a própria pessoa.
    */
   publicShared(): { note: Review; dono: SharedPerson | null }[] {
-    return [...this.entries().values()].filter((e) => !e.view.private).map((e) => ({ note: e.view, dono: e.papel === 'dono' ? null : e.dono }));
+    // as de grupo, nunca: quem decide se elas aparecem é o grupo, e o público dele vem da nuvem (PLANO-COMPARTILHAR.md, 4.6)
+    return [...this.entries().values()].filter((e) => !e.grupo && !e.view.private).map((e) => ({ note: e.view, dono: e.papel === 'dono' ? null : e.dono }));
   }
 
   /**
@@ -344,6 +377,20 @@ export class SharedStore implements SharedSink {
     const places = new Map(this.places());
     places.set(id, { p, em });
     this.places.set(newestPlaces(places));
+  }
+
+  /**
+   * Põe estas compartilhadas no grupo `category` do mural de quem está aqui (o dono parando de compartilhar
+   * um grupo: elas ficam no grupo de mesmo nome, só dele).
+   */
+  placeInGroup(ids: readonly string[], category: string): void {
+    for (const id of ids) {
+      const e = this.entries().get(id);
+      if (!e) continue;
+      const pessoal = { ...e.pessoal, category, org: true as const };
+      this.setPlace(id, pessoal);
+      this.put({ ...e, pessoal });
+    }
   }
 
   /** A leitura ou o editor abriu (ou fechou) uma compartilhada: enquanto aberta, ela é conferida mais seguido. */
@@ -402,10 +449,10 @@ export class SharedStore implements SharedSink {
    * Compartilha uma anotação do próprio mural: ela passa a morar na nuvem à parte, com as pessoas
    * pedidas. Devolve a anotação compartilhada (ou lança CloudError com a mensagem pronta).
    */
-  async share(review: Review, people: { codigo: string; papel: MemberRole }[]): Promise<SharedEntry> {
+  async share(review: Review, people: { codigo: string; papel: MemberRole }[], grupo: string | null = null): Promise<SharedEntry> {
     const res = await this.account.request<{ nota: unknown }>('/v1/notas', {
       method: 'POST',
-      body: { id: review.id, dados: sharedContent(review), membros: people },
+      body: { id: review.id, dados: sharedContent(review), membros: people, ...(grupo ? { grupo } : {}) },
     });
     const detail = parseDetail(res?.nota);
     if (!detail) throw new CloudError('A nuvem respondeu de um jeito estranho. Tente de novo.', 'resposta-invalida', 0);
@@ -418,6 +465,16 @@ export class SharedStore implements SharedSink {
     const entry = this.adopt(detail, { pessoal, local });
     if (local) this.schedulePush();
     return entry;
+  }
+
+  /**
+   * Põe a compartilhada num grupo compartilhado, ou tira dele (`null`). Pôr: quem é dono dela e escreve no
+   * grupo; ela passa a ser do dono do grupo. Tirar: o dono e os gestores do grupo.
+   */
+  async moveToGroup(id: string, grupo: string | null): Promise<void> {
+    const res = await this.account.request<{ nota?: unknown }>(`/v1/notas/${encodeURIComponent(id)}/grupo`, { method: 'PUT', body: { grupo } });
+    if (res?.nota) this.integrateDetail(res.nota);
+    else this.drop(id, true);
   }
 
   /** Põe alguém na anotação, ou troca o papel de quem já está (o dono e os gestores). */
@@ -877,8 +934,18 @@ function storedFrom(value: unknown): Stored {
 }
 
 /** O que vem da nuvem e não é o conteúdo: o dono, o papel, as pessoas, quem gravou. */
-function meta(d: SharedDetail): Pick<SharedEntry, 'id' | 'dono' | 'papel' | 'membros' | 'versao' | 'atualizadoEm' | 'atualizadoPor'> {
-  return { id: d.id, dono: d.dono, papel: d.papel, membros: d.membros, versao: d.versao, atualizadoEm: d.atualizadoEm, atualizadoPor: d.atualizadoPor };
+function meta(d: SharedDetail): Pick<SharedEntry, 'id' | 'dono' | 'papel' | 'membros' | 'versao' | 'atualizadoEm' | 'atualizadoPor' | 'grupo' | 'criadoPor'> {
+  return {
+    id: d.id,
+    dono: d.dono,
+    papel: d.papel,
+    membros: d.membros,
+    versao: d.versao,
+    atualizadoEm: d.atualizadoEm,
+    atualizadoPor: d.atualizadoPor,
+    grupo: d.grupo,
+    criadoPor: d.criadoPor,
+  };
 }
 
 /** A anotação com a estrutura (quem vê) de `from`: o que o editor não muda. */

@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, inject, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Injector, inject, input, output } from '@angular/core';
+import { SharedGroupsStore } from '../core/shared-groups-store';
 import { ICON, IconModule } from './icons';
 import { CloudAccount } from '../core/cloud-account';
 import { Follow, Person, agoLabel, fullWhen } from '../core/follow';
@@ -75,8 +76,10 @@ export class NoticeList {
 
   /** A anotação compartilhada já chegou ao seu mural? (Logo depois do aviso, pode ainda estar a caminho.) */
   protected hasShared(n: SharedNotice): boolean {
-    return !!this.store.get(n.item.ref);
+    // (os grupos só quando o aviso é de um: a lista não precisa deles para os outros avisos)
+    return n.item.grupo ? !!this.injector.get(SharedGroupsStore).get(n.item.ref) : !!this.store.get(n.item.ref);
   }
+  private readonly injector = inject(Injector);
 
   /** "editor", "leitor", "gestor". */
   protected roleOf(n: SharedNotice): string {

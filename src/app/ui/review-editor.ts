@@ -111,7 +111,8 @@ import { anchorFor, caretY, scrollToShow } from './caret-follow';
 import { SharedStore } from '../core/shared-store';
 import { Desk, type EditorPart, type EditorTab } from '../core/desk';
 import { canManage, canWrite, removalOf } from '../core/shared-notes';
-import { accessSummary } from '../core/access';
+import { accessSummary, namesOf } from '../core/access';
+import { SharedGroupsStore } from '../core/shared-groups-store';
 import { CloudAccount } from '../core/cloud-account';
 import { ShareSheet } from './share-sheet';
 import { MONTHS_LONG } from '../core/dates';
@@ -627,14 +628,8 @@ export class ReviewEditor {
     const e = this.sharedRole() ? this.shared.get(this.id()) : null;
     if (!e) return null;
     const live = this.liveShared() ?? e.view;
-    return accessSummary({
-      me: e.papel,
-      meCode: this.account.account()?.codigo ?? null,
-      ownerName: e.dono.nome,
-      members: e.membros,
-      public: !live.private,
-      feed: !live.private && !live.quiet,
-    });
+    // (contando o grupo compartilhado dela: vale o mais aberto)
+    return accessSummary(this.sharedGroups.accessOf(e, this.account.account()?.codigo ?? null, live));
   });
   /** A folha Compartilhar, aberta pelo "Quem vê?" da compartilhada. */
   protected readonly shareOpen = signal(false);
@@ -1616,6 +1611,7 @@ export class ReviewEditor {
       return;
     }
     if (!(await this.okWithoutLabels())) return;
+    if (!(await this.okIntoSharedGroup())) return;
     const now = new Date().toISOString();
     const prev = this.editing();
     const look = this.preview();
@@ -1716,6 +1712,38 @@ export class ReviewEditor {
     if (!ok) this.openProp(noCategory ? 'grupo' : 'tags');
     return ok;
   }
+
+  /**
+   * A anotação vai para um grupo compartilhado em que ainda não estava: quem está nele passa a vê-la
+   * (PLANO-COMPARTILHAR.md, 4.4.4); no grupo de outra pessoa, ela passa a ser do grupo. Voltar abre o Grupo.
+   */
+  private async okIntoSharedGroup(): Promise<boolean> {
+    const g = this.sharedGroups.ofCategory(this.noteCategory());
+    if (!g) return true;
+    const prev = this.editing();
+    if (prev && this.sharedGroups.ofCategory(prev.category)?.id === g.id) return true;
+    const me = this.account.account()?.codigo ?? null;
+    const others = [g.dono, ...g.membros].filter((p) => p.codigo !== me).map((p) => p.nome);
+    if (!others.length) return true;
+    const name = this.noteCategory()!;
+    const theirs = g.papel !== 'dono' ? ` Ela passa a ser do grupo, de ${g.dono.nome}: se você sair dele, ela fica lá.` : '';
+    const ok = await this.confirm.ask({
+      title: `Pôr no grupo ${name}?`,
+      text: `O grupo ${name} está compartilhado com ${namesOf(others)}: ${others.length > 1 ? 'eles vão' : `${others[0]} vai`} ver esta anotação.${theirs}`,
+      confirm: this.editing() ? 'Salvar assim' : 'Pregar assim',
+      cancel: 'Voltar',
+      icon: null,
+      tone: 'neutro',
+    });
+    if (!ok) this.openProp('grupo');
+    return ok;
+  }
+  private readonly sharedGroups = inject(SharedGroupsStore);
+  /** O grupo compartilhado em que a anotação aberta já está (o Grupo dela não se troca aqui). */
+  protected readonly lockedGroup = computed(() => {
+    const e = this.editing() ? this.shared.get(this.id()) : null;
+    return e?.grupo ? (this.sharedGroups.names().get(e.grupo) ?? null) : null;
+  });
 
   /** Guarda só o nome e a capa, fora do mural, para terminar a resenha depois. */
   protected saveForLater(): void {

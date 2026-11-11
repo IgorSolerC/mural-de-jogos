@@ -378,6 +378,8 @@ describe('A leitura e os comentários (ReviewReader)', () => {
       atualizadoEm: note.updatedAt,
       atualizadoPor: null,
       pessoal: {},
+      grupo: null,
+      criadoPor: null,
       view: note,
     };
     TestBed.inject(SharedStore).entries.set(new Map([['nota-1', shared]]));
@@ -406,6 +408,8 @@ describe('A leitura e os comentários (ReviewReader)', () => {
       atualizadoEm: note.updatedAt,
       atualizadoPor: null,
       pessoal: { category: 'Compartilhadas', org: true },
+      grupo: null,
+      criadoPor: null,
       view: note,
     });
     const shared = TestBed.inject(SharedStore);
@@ -485,6 +489,8 @@ describe('A leitura e os comentários (ReviewReader)', () => {
         atualizadoEm: note.updatedAt,
         atualizadoPor: null,
         pessoal: {},
+        grupo: null,
+        criadoPor: null,
         view: note,
       };
     };

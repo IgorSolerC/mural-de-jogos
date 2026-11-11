@@ -1351,3 +1351,12 @@ fieldset.quem-ve {
   padding: 4px 22px 22px;
 }
 
+
+/* o Grupo de uma anotação de grupo compartilhado: dito, sem a escolha (ela é do grupo) */
+.grupo-preso {
+  max-width: 46ch;
+  font-family: var(--f-hand);
+  font-size: 1.06rem;
+  line-height: 1.45;
+  color: var(--ink);
+}

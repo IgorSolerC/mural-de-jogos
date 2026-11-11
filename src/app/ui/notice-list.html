@@ -116,7 +116,7 @@
       } @else if (n.tipo === 'compartilhou') {
         <!-- a anotação compartilhada: a linha abre; "Sair" tira ela do seu mural -->
         @if (hasShared(n)) {
-          <button type="button" class="abre" [attr.aria-label]="'Abrir a anotação ' + n.item.titulo" (click)="sharedNote.emit(n)"></button>
+          <button type="button" class="abre" [attr.aria-label]="(n.item.grupo ? 'Abrir o grupo ' : 'Abrir a anotação ') + n.item.titulo" (click)="sharedNote.emit(n)"></button>
         }
         <button
           type="button"

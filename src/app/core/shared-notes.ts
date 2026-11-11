@@ -51,7 +51,10 @@ export const isMemberRole = (v: unknown): v is MemberRole => typeof v === 'strin
  * do editor): a compartilhada de outra pessoa não se apaga, sai-se dela; o dono dela apaga para todos; a
  * anotação só sua se apaga; a resenha sai do mural.
  */
-export function removalOf(entry: { papel: SharedRole; membros: readonly unknown[] } | null | undefined, note: boolean): { label: string; leaves: boolean } {
+export function removalOf(entry: { papel: SharedRole; membros: readonly unknown[]; grupo?: string | null } | null | undefined, note: boolean): { label: string; leaves: boolean } {
+  // a de um grupo compartilhado: ninguém sai dela (o acesso vem do grupo); quem pode apagar apaga para todos
+  // (o dono e os gestores do grupo, e o editor a que ele escreveu; a nuvem confere e diz quando não pode)
+  if (entry?.grupo) return { label: 'Apagar para todos', leaves: false };
   const leaves = !!entry && entry.papel !== 'dono';
   const label = leaves ? 'Sair da anotação' : entry && entry.membros.length > 0 ? 'Apagar para todos' : note ? 'Apagar anotação' : 'Remover do mural';
   return { label, leaves };
@@ -96,6 +99,13 @@ export interface SharedDetail {
   atualizadoEm: string;
   atualizadoPor: SharedPerson | null;
   conflito: SharedConflict | null;
+  /**
+   * O grupo compartilhado em que ela está (PLANO-COMPARTILHAR.md): o grupo dela no mural de cada um é esse,
+   * com o nome que o dono deu. Null: a compartilhada solta.
+   */
+  grupo: string | null;
+  /** Quem a escreveu (só nas de grupo, que são do dono do grupo). */
+  criadoPor: SharedPerson | null;
 }
 
 /**
@@ -267,6 +277,8 @@ export function parseDetail(raw: unknown): SharedDetail | null {
     atualizadoEm: iso(n?.['atualizadoEm']) ?? dados.updatedAt,
     atualizadoPor: parsePerson(n?.['atualizadoPor']),
     conflito: c && a && b ? { a, b, autorA: parsePerson(c['autorA']), autorB: parsePerson(c['autorB']), em: iso(c['em']) ?? '' } : null,
+    grupo: typeof n?.['grupo'] === 'string' && /^g[A-Za-z0-9_-]{8,40}$/.test(n['grupo']) ? n['grupo'] : null,
+    criadoPor: parsePerson(n?.['criadoPor']),
   };
 }
 

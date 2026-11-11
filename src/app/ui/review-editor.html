@@ -266,7 +266,12 @@
             <div class="parte" id="editor-parte" role="group" [attr.aria-label]="propName(p)" (keydown.escape)="closeProp($event)">
               @switch (p) {
                 @case ('grupo') {
-                  <app-group-picker #grupo [category]="noteCategory()" (categoryChange)="pickGroup($event)" [categories]="categoryLib()" />
+                  @if (lockedGroup(); as locked) {
+                    <!-- a anotação de um grupo compartilhado é do grupo: o Grupo dela não muda daqui -->
+                    <p class="grupo-preso">Esta anotação é do grupo compartilhado <strong>{{ locked }}</strong>: ela muda de grupo só pelo dono ou por um gestor dele.</p>
+                  } @else {
+                    <app-group-picker #grupo [category]="noteCategory()" (categoryChange)="pickGroup($event)" [categories]="categoryLib()" />
+                  }
                 }
                 @case ('assunto') {
                   <app-folder-picker

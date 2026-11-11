@@ -958,3 +958,70 @@ fieldset.linha {
     transition: none;
   }
 }
+
+/* ===== Compartilhar: os grupos em linhas de índice, cada um com quem vê numa linha a lápis ===== */
+.compartilhar-grupos {
+  display: grid;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.compartilhar-grupo {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 52px;
+  padding: 10px 6px;
+  border: 0;
+  border-bottom: 1.5px dashed rgb(21 21 21 / 0.24);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.05);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 3px var(--ink);
+  }
+}
+
+/* quem vê: a lápis; o grupo dividido com alguém, na caneta (é o que a pessoa procura) */
+.compartilhar-quem {
+  justify-self: end;
+  font-family: var(--f-hand);
+  font-weight: 400;
+  font-size: 1rem;
+  color: var(--ink-2);
+  text-align: right;
+
+  &.dividido {
+    font-weight: 700;
+    color: var(--ink);
+  }
+}
+
+.compartilhar-seta {
+  display: inline-flex;
+  rotate: -90deg;
+  color: var(--ink-2);
+}
+
+.vazio-lista {
+  padding: 14px 0;
+  color: var(--ink-2);
+}
+
+/* a peça do grupo, com o respiro de um bloco novo depois da linha de cima */
+app-group-share {
+  margin-top: 22px;
+}

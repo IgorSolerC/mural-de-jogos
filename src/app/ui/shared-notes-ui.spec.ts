@@ -12,6 +12,9 @@ import { ConflictSheet, differences, textPieces } from './conflict-sheet';
 import { Confirm } from './confirm';
 import { NoticeList } from './notice-list';
 import { ShareSheet } from './share-sheet';
+import { SharedGroupsStore } from '../core/shared-groups-store';
+import { parseGroup } from '../core/shared-groups';
+import { removalOf } from '../core/shared-notes';
 
 /**
  * As telas das anotações compartilhadas: o aviso em Amigos ("Ana compartilhou uma nota com você"), a
@@ -57,9 +60,11 @@ function entry(papel: SharedEntry['papel'], extra: Partial<SharedEntry> = {}): S
     atualizadoEm: view.updatedAt,
     atualizadoPor: { ...ANA, foto: null },
     pessoal: {},
+    grupo: null,
+    criadoPor: null,
     view,
     ...extra,
-  };
+  } as SharedEntry;
 }
 
 describe('anotações compartilhadas: o aviso em Amigos', () => {
@@ -127,6 +132,26 @@ describe('anotações compartilhadas: o aviso em Amigos', () => {
   });
 });
 
+/** O grupo Trabalho de Ana, com Davi como gestor (a folha de uma anotação dele). */
+const TRABALHO = parseGroup({
+  id: 'gTrabalho001',
+  dono: ANA,
+  papel: 'dono',
+  rev: 1,
+  versao: 1,
+  dados: { nome: 'Trabalho' },
+  membros: [{ codigo: 'DDDD-4444', nome: 'Davi', papel: 'gestor', desde: '' }],
+})!;
+let groupOn = false;
+const groupsMock = {
+  get: (id: string) => (groupOn && id === TRABALHO.id ? TRABALHO : undefined),
+  names: () => new Map(groupOn ? [[TRABALHO.id, 'Trabalho']] : []),
+  accessOf: (e: SharedEntry, meCode: string | null, live = e.view) => {
+    const extra = groupOn && e.grupo ? TRABALHO.membros.map((m) => ({ codigo: m.codigo, nome: m.nome, papel: m.papel })) : [];
+    return { me: e.papel, meCode, ownerName: e.dono.nome, members: [...e.membros, ...extra], public: !live.private, feed: false, group: null, viaGroup: new Set() };
+  },
+};
+
 describe('anotações compartilhadas: a folha Compartilhar', () => {
   let current: ReturnType<typeof signal<SharedEntry | null>>;
   let calls: string[];
@@ -160,6 +185,7 @@ describe('anotações compartilhadas: a folha Compartilhar', () => {
         { provide: Follow, useValue: { available: () => true, people: () => people, loadPeople: async () => people } },
         { provide: Confirm, useValue: { ask: async () => true } },
         { provide: Router, useValue: { navigate: async () => true } },
+        { provide: SharedGroupsStore, useValue: groupsMock },
       ],
     });
     const fixture = TestBed.createComponent(ShareSheet);
@@ -268,6 +294,23 @@ describe('anotações compartilhadas: a folha Compartilhar', () => {
     f = render('leitor', CRIS);
     await settle(f);
     expect(resumo(f)).toBe('É de Ana. Você só lê. Também está: Bia. Ninguém mais vê.');
+  });
+
+  it('a de um grupo compartilhado: a frase conta quem está pelo grupo, que aparece na faixa "Pelo grupo", sem o menu; apagar não é "Sair"', async () => {
+    groupOn = true;
+    try {
+      const f = render('dono');
+      current.set({ ...current()!, grupo: TRABALHO.id });
+      await settle(f);
+      const el = f.nativeElement as HTMLElement;
+      expect(el.querySelector('[data-resumo]')?.textContent?.trim()).toBe('Você, Bia, Cris e Davi veem. Bia e Davi também editam. Ninguém mais vê.');
+      const davi = [...el.querySelectorAll('.pessoa')].find((p) => p.textContent?.includes('Davi'))!;
+      expect(davi.querySelector('.rel')!.textContent!.trim()).toBe('Pelo grupo Trabalho');
+      expect(davi.querySelector('select')).toBeNull();
+      expect(removalOf({ papel: 'editor', membros: [], grupo: TRABALHO.id }, true)).toEqual({ label: 'Apagar para todos', leaves: false });
+    } finally {
+      groupOn = false;
+    }
   });
 });
 

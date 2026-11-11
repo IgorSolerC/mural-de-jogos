@@ -34,6 +34,33 @@
 
       <div class="conteudo" role="tabpanel" [id]="'config-parte-' + section()" [attr.aria-labelledby]="'config-aba-' + section()" tabindex="-1">
         @switch (section()) {
+          @case ('compartilhar') {
+            <h3>Compartilhar</h3>
+            @if (shareName(); as n) {
+              <p class="lead">
+                Quem vê e quem edita o grupo <strong>{{ n }}</strong>.
+                @if (shareSwitchable() || sharePicked()) {
+                  <button type="button" class="link" (click)="sharePicked.set(null)">Outro grupo</button>
+                }
+              </p>
+              <app-group-share [name]="n" />
+            } @else {
+              <p class="lead">Escolha o grupo: ele vai inteiro, com o mural, o Kanban e os quadros livres.</p>
+              <ul class="compartilhar-grupos" aria-label="Grupos">
+                @for (c of shareRows(); track c.key) {
+                  <li>
+                    <button type="button" class="compartilhar-grupo" (click)="sharePicked.set(c.label)">
+                      <app-cat-label [label]="c.label" [look]="settings.categoryLook(c.label)" [iconSize]="16" />
+                      <span class="compartilhar-quem" [class.dividido]="c.shared">{{ c.who }}</span>
+                      <lucide-icon class="compartilhar-seta" [img]="ChevronIcon" [size]="16" aria-hidden="true" />
+                    </button>
+                  </li>
+                } @empty {
+                  <li class="vazio-lista">Ainda não há grupos: dê um grupo a uma anotação e ele aparece aqui.</li>
+                }
+              </ul>
+            }
+          }
           @case ('padroes') {
             <h3>Padrões</h3>
             <p class="lead">Como nasce toda anotação deste mural. Cada grupo pode seguir estes padrões ou ter os seus, em <button type="button" class="link" (click)="pick('categorias')">Grupos</button>.</p>

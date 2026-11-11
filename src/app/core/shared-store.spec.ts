@@ -59,6 +59,8 @@ interface FakeNote {
   por: string;
   em: string;
   membros: Map<string, Role>;
+  /** O grupo compartilhado dela (PLANO-COMPARTILHAR.md). */
+  grupo?: string;
 }
 
 /** A nuvem das anotações compartilhadas, de mentira, com as regras de api/src/routes/notes.ts. */
@@ -114,6 +116,7 @@ class FakeNotes {
       membros: [...n.membros].map(([id, papel]) => ({ ...this.person(id), papel, desde: '2026-10-16T00:00:00.000Z' })),
       atualizadoEm: n.em,
       atualizadoPor: this.person(n.por),
+      ...(n.grupo ? { grupo: n.grupo } : {}),
       ...(writes && n.conflito ? { conflito: { ...n.conflito, autorA: this.person(n.conflito.autorA), autorB: this.person(n.conflito.autorB) } } : {}),
     };
   }
@@ -388,6 +391,19 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
   }
 
   describe('compartilhar e receber', () => {
+    it('a de um grupo compartilhado aparece no grupo, com o nome dele aqui, e nunca vai no mural público de cada um', async () => {
+      const { bia } = await sharedNote('arroz', { private: false });
+      const fake = cloud.notes.get('nota-1')!;
+      fake.grupo = 'gTrabalho001';
+      fake.versao++;
+      bia.shared.groupNames.set(new Map([['gTrabalho001', 'Trabalho · Ana']]));
+      await sync(bia);
+      expect(bia.shared.get('nota-1')?.grupo).toBe('gTrabalho001');
+      expect(bia.store.get('nota-1')?.category).toBe('Trabalho · Ana');
+      // o público do grupo vem da nuvem (rodada 5): a anotação dele não vai no mural público de quem está nele
+      expect(bia.shared.publicShared().map((x) => x.note.id)).toEqual([]);
+    });
+
     it('a anotação aparece no mural de quem entrou, igual à da dona', async () => {
       const { ana, bia, cris } = await sharedNote();
       expect(bia.store.get('nota-1')?.text).toBe('arroz\nfeijão');

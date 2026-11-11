@@ -58,7 +58,19 @@ export type FeedItem =
    */
   | { tipo: 'respondeu'; em: string; pessoa: Person; ref: string; titulo: string; mural: Kind; silenciado: boolean; dono: string; comentario: string | null }
   /** Alguém compartilhou comigo a anotação `ref`, com um papel (ver core/shared-notes.ts). Nunca silenciado. */
-  | { tipo: 'compartilhou'; em: string; pessoa: Person; ref: string; titulo: string; mural: 'anotacoes'; silenciado: boolean; papel: MemberRole; euSigo: boolean }
+  | {
+      tipo: 'compartilhou';
+      em: string;
+      pessoa: Person;
+      ref: string;
+      titulo: string;
+      mural: 'anotacoes';
+      silenciado: boolean;
+      papel: MemberRole;
+      euSigo: boolean;
+      /** Um grupo inteiro, e não uma anotação (o `ref` é o id do grupo; PLANO-COMPARTILHAR.md). */
+      grupo?: true;
+    }
   /**
    * Nasceu um acesso a esta conta (PLANO-API.md, D11): a chave de API `ref` foi criada, ou um conector
    * (`conector`, o domínio dele) foi autorizado. A pessoa é a própria conta. Nunca silenciado.
@@ -94,11 +106,13 @@ export function parseFeed(raw: unknown): FeedItem[] {
       const ref = typeof r['ref'] === 'string' && /^ch_[\w-]{16}$/.test(r['ref']) ? r['ref'] : null;
       if (!ref) continue;
       out.push({ tipo: 'acesso', em, pessoa, ref, nome: text(r['nome'], 60) ?? 'Uma chave', conector: text(r['conector'], 120), silenciado: false });
-    } else if (r['tipo'] === 'compartilhou') {
-      const ref = typeof r['ref'] === 'string' && /^[\w-]{4,64}$/.test(r['ref']) ? r['ref'] : null;
+    } else if (r['tipo'] === 'compartilhou' || r['tipo'] === 'compartilhou-grupo') {
+      const group = r['tipo'] === 'compartilhou-grupo';
+      const ref = typeof r['ref'] === 'string' && (group ? /^g[A-Za-z0-9_-]{8,40}$/ : /^[\w-]{4,64}$/).test(r['ref']) ? r['ref'] : null;
       if (!ref) continue;
       const papel = isMemberRole(r['papel']) ? r['papel'] : 'leitor';
-      out.push({ tipo: 'compartilhou', em, pessoa, ref, titulo: text(r['titulo'], 120) ?? 'Anotação', mural: 'anotacoes', silenciado: false, papel, euSigo: r['euSigo'] === true });
+      const titulo = text(r['titulo'], 120) ?? (group ? 'Grupo' : 'Anotação');
+      out.push({ tipo: 'compartilhou', em, pessoa, ref, titulo, mural: 'anotacoes', silenciado: false, papel, euSigo: r['euSigo'] === true, ...(group ? { grupo: true as const } : {}) });
     } else if (r['tipo'] === 'resenha' || r['tipo'] === 'reagiu' || r['tipo'] === 'comentou' || r['tipo'] === 'respondeu') {
       const ref = typeof r['ref'] === 'string' && /^[\w-]{4,64}$/.test(r['ref']) ? r['ref'] : null;
       const titulo = text(r['titulo'], 120);
