@@ -27,6 +27,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-11-kanban-do-grupo',
+    version: '1.45.1',
+    kind: 'ajustes',
+    date: '2026-11-11',
+    title: 'O Kanban dos grupos compartilhados',
+    melhorias: [
+      'O Kanban de um grupo compartilhado é o mesmo para todos que estão nele: colunas, cartões, importância e status; duas pessoas mexendo ao mesmo tempo ficam com as duas mexidas, e quem só lê vê o quadro sem mudar nada.',
+      'Num grupo compartilhado, as tags das anotações são do grupo (as etiquetas do Kanban são iguais para todos), e renomear o grupo muda o nome para todo mundo.',
+    ],
+  },
+  {
     id: '2026-11-11-grupos-compartilhados',
     version: '1.45.0',
     kind: 'funcionalidade',

@@ -1,3 +1,4 @@
+import { SharedGroupsStore } from './shared-groups-store';
 import { Injectable, inject } from '@angular/core';
 import { NoteFolders } from './note-folders';
 import { siblingNamed } from './folders';
@@ -181,6 +182,7 @@ export class LabelEdits {
   private readonly study = inject(StudyStore);
   private readonly freeBoards = inject(FreeBoardStore);
   private readonly folders = inject(NoteFolders);
+  private readonly groups = inject(SharedGroupsStore);
 
   /** Quantas anotações têm a categoria (pela chave). */
   categoryUses(category: string): number {
@@ -254,6 +256,10 @@ export class LabelEdits {
     const from = lookKey(category);
     const to = name === null ? null : cleanCategory(name);
     if (to === '') return { changed: 0 };
+    // um grupo compartilhado: o nome é do grupo, para todos (só o dono e os gestores renomeiam; apagar, nunca
+    // por aqui: o dono para de compartilhar antes)
+    const shared = this.groups.ofCategory(category);
+    if (shared && (to === null || !this.groups.rename(shared.id, to))) return { changed: 0 };
     const toKey = to === null ? null : lookKey(to);
     const result = this.save(notesWithCategory(this.store.notes(), from, to, new Date().toISOString()));
     if (toKey !== from) {

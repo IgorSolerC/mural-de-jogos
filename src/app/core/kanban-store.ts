@@ -7,6 +7,7 @@ import { Settings } from './settings';
 import { StudyStore } from './study-store';
 import { onOtherTab, writeJson } from './storage';
 import { fromOtherTab } from './tab-join';
+import { SharedGroupsStore } from './shared-groups-store';
 
 /**
  * Onde uma anotação aparece: no mural (pelo voto do Kanban e dos Estudos, ver `boardOnly`), no quadro do
@@ -60,7 +61,18 @@ export class KanbanStore {
   private readonly study = inject(StudyStore);
 
   readonly state = signal<KanbanState>(read());
-  readonly boards = computed(() => this.state().boards);
+  /** Os grupos compartilhados: o quadro de cada um mora no documento do grupo, não aqui (PLANO-COMPARTILHAR.md). */
+  private readonly groups = inject(SharedGroupsStore);
+  /**
+   * Os quadros: os guardados aqui e os dos grupos compartilhados (estes no lugar do guardado do mesmo grupo,
+   * que ficou de antes de o grupo ser dividido).
+   */
+  readonly boards = computed(() => {
+    const shared = this.groups.boards();
+    if (!shared.length) return this.state().boards;
+    const ids = new Set(shared.map((b) => b.id));
+    return [...this.state().boards.filter((b) => !ids.has(b.id)), ...shared];
+  });
   /** Quando os quadros mudaram aqui (para a sincronização enviar). */
   readonly changedAt = signal(0);
   /**
@@ -208,6 +220,12 @@ export class KanbanStore {
     return this.boards().find((b) => b.id === id) ?? this.fresh.get(id);
   }
 
+  /** O quadro é de um grupo compartilhado em que você só lê (nada nele muda daqui)? */
+  readOnly(id: string): boolean {
+    const g = this.groups.groupOfBoard(id);
+    return !!g && g.papel === 'leitor';
+  }
+
   /** O quadro da categoria: o guardado, ou o de sempre (sem gravar nada). */
   boardFor(category: string): KanbanBoard {
     const key = categoryKey(category);
@@ -234,6 +252,15 @@ export class KanbanStore {
   /** Troca um quadro pelo resultado de `change` (as funções de core/kanban.ts). O de sempre passa a ser guardado. */
   update(id: string, change: (b: KanbanBoard, at: string) => KanbanBoard): void {
     const at = new Date().toISOString();
+    // o quadro de um grupo compartilhado vai para o grupo (quem só lê não muda nada)
+    const group = this.groups.groupOfBoard(id);
+    if (group) {
+      const before = this.boards().find((b) => b.id === id) ?? this.fresh.get(id);
+      if (!before) return;
+      const next = change(before, at);
+      if (next !== before && this.groups.updateBoard(group.id, next)) this.changedAt.set(Date.now());
+      return;
+    }
     const st = this.state();
     const i = st.boards.findIndex((b) => b.id === id);
     const before = i >= 0 ? st.boards[i] : this.fresh.get(id);
@@ -244,6 +271,17 @@ export class KanbanStore {
     if (i >= 0) boards[i] = next;
     else boards.push(next);
     this.state.set({ ...st, boards });
+    this.changedAt.set(Date.now());
+  }
+
+  /**
+   * O quadro de um grupo que deixou de ser compartilhado vira o quadro guardado aqui, como ficou no grupo (sem
+   * isso, voltaria o de antes de o grupo ser dividido).
+   */
+  keep(board: KanbanBoard): void {
+    const at = new Date().toISOString();
+    const st = this.state();
+    this.state.set({ ...st, boards: [...st.boards.filter((b) => b.id !== board.id), { ...board, at }] });
     this.changedAt.set(Date.now());
   }
 

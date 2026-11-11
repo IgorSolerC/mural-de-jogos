@@ -139,15 +139,23 @@ export interface Personal {
 /** O que cada um organiza do seu jeito, e o lugar inteiro. */
 const PERSONAL_KEYS = ['noteRank', 'category', 'subject', 'folder', 'tags', 'org'] as const;
 
-/** Sem o que é de cada um. */
-function withoutPersonal(r: Review): Review {
+/**
+ * Sem o que é de cada um. Numa anotação de grupo compartilhado (`inGroup`), as tags e a pasta são do grupo
+ * (PLANO-COMPARTILHAR.md, D7: o Kanban do grupo mostra as mesmas etiquetas para todos): ficam no conteúdo;
+ * de cada um só a fixada (e o grupo, que é o próprio grupo).
+ */
+function withoutPersonal(r: Review, inGroup = false): Review {
+  if (inGroup) {
+    const { noteRank: _r, category: _c, subject: _s, ...kept } = r;
+    return kept as Review;
+  }
   const { noteRank: _r, category: _c, subject: _s, folder: _f, tags: _t, ...rest } = r;
   return rest as Review;
 }
 
 /** O que da anotação vai para a nuvem: tudo, menos o que é de cada um (o lugar e o grupo, o assunto e as tags). */
-export function sharedContent(r: Review): Record<string, unknown> {
-  const { sharedBy: _b, ...rest } = storedNote(withoutPersonal(r));
+export function sharedContent(r: Review, inGroup = false): Record<string, unknown> {
+  const { sharedBy: _b, ...rest } = storedNote(withoutPersonal(r, inGroup));
   return rest as Record<string, unknown>;
 }
 
@@ -162,7 +170,9 @@ export function orgOf(r: Pick<Review, 'category' | 'subject' | 'folder' | 'tags'
   };
 }
 
-export function personalOf(r: Pick<Review, 'noteRank' | 'category' | 'subject' | 'folder' | 'tags'>): Personal {
+export function personalOf(r: Pick<Review, 'noteRank' | 'category' | 'subject' | 'folder' | 'tags'>, inGroup = false): Personal {
+  // (numa de grupo, o grupo, a pasta e as tags são do grupo: de cada um, só a fixada)
+  if (inGroup) return { ...(r.noteRank ? { noteRank: r.noteRank } : {}), org: true };
   return { ...(r.noteRank ? { noteRank: r.noteRank } : {}), ...orgOf(r) };
 }
 
@@ -198,8 +208,9 @@ export function legacyOrg(p: Personal, from: Personal): Personal {
 }
 
 /** A anotação do mural: o conteúdo compartilhado com o lugar e o grupo dela no mural de quem vê. */
-export function withPersonal(content: Review, personal: Personal): Review {
+export function withPersonal(content: Review, personal: Personal, inGroup = false): Review {
   const { org: _o, ...mine } = personal;
+  if (inGroup) return { ...withoutPersonal(content, true), ...(mine.noteRank ? { noteRank: mine.noteRank } : {}) };
   return { ...withoutPersonal(content), ...mine };
 }
 
@@ -213,17 +224,17 @@ export function samePersonal(a: Personal, b: Personal): boolean {
  * `sharedBy`: de quem ela é quem diz é a nuvem (o dono), nunca o conteúdo, que qualquer um que escreve
  * manda; vindo nele, a anotação iria para o mural público do dono como sendo de outra pessoa.
  */
-export function noteFrom(raw: unknown, id: string): Review | null {
+export function noteFrom(raw: unknown, id: string, inGroup = false): Review | null {
   const r = sanitizeReview(raw);
   if (!r || r.id !== id || !isNote(r)) return null;
   const { sharedBy: _b, ...content } = r;
-  return withPersonal(content as Review, {});
+  return withPersonal(content as Review, {}, inGroup);
 }
 
 /** As duas anotações dizem a mesma coisa (sem contar quando foram mexidas nem o lugar no mural)? */
-export function sameShared(a: Review, b: Review): boolean {
-  const { updatedAt: _a, ...x } = sharedContent(a);
-  const { updatedAt: _b, ...y } = sharedContent(b);
+export function sameShared(a: Review, b: Review, inGroup = false): boolean {
+  const { updatedAt: _a, ...x } = sharedContent(a, inGroup);
+  const { updatedAt: _b, ...y } = sharedContent(b, inGroup);
   return canonicalJson(x) === canonicalJson(y);
 }
 
@@ -250,7 +261,8 @@ export function parseDetail(raw: unknown): SharedDetail | null {
   const papel = ROLES.find((r) => r === n?.['papel']) ?? null;
   const rev = n?.['rev'];
   const versao = n?.['versao'];
-  const dados = noteFrom(n?.['dados'], id);
+  const grupo = typeof n?.['grupo'] === 'string' && /^g[A-Za-z0-9_-]{8,40}$/.test(n['grupo']) ? n['grupo'] : null;
+  const dados = noteFrom(n?.['dados'], id, !!grupo);
   const inside = dados ? sanitizeReview(n?.['dados']) : null;
   if (!dono || !papel || !dados || !Number.isSafeInteger(rev) || !Number.isSafeInteger(versao)) return null;
   const membros: SharedMember[] = [];
@@ -263,8 +275,8 @@ export function parseDetail(raw: unknown): SharedDetail | null {
     membros.push({ ...p, papel: role, desde: iso((item as Record<string, unknown>)['desde']) ?? '' });
   }
   const c = n?.['conflito'] as Record<string, unknown> | null | undefined;
-  const a = c ? noteFrom(c['a'], id) : null;
-  const b = c ? noteFrom(c['b'], id) : null;
+  const a = c ? noteFrom(c['a'], id, !!grupo) : null;
+  const b = c ? noteFrom(c['b'], id, !!grupo) : null;
   return {
     id,
     dono,
@@ -277,7 +289,7 @@ export function parseDetail(raw: unknown): SharedDetail | null {
     atualizadoEm: iso(n?.['atualizadoEm']) ?? dados.updatedAt,
     atualizadoPor: parsePerson(n?.['atualizadoPor']),
     conflito: c && a && b ? { a, b, autorA: parsePerson(c['autorA']), autorB: parsePerson(c['autorB']), em: iso(c['em']) ?? '' } : null,
-    grupo: typeof n?.['grupo'] === 'string' && /^g[A-Za-z0-9_-]{8,40}$/.test(n['grupo']) ? n['grupo'] : null,
+    grupo,
     criadoPor: parsePerson(n?.['criadoPor']),
   };
 }
@@ -326,10 +338,10 @@ const same = (x: unknown, y: unknown) => canonicalJson(x ?? null) === canonicalJ
  * Junta duas versões de uma anotação que partiram de `o` (ver o topo do arquivo). `a` é a que está na
  * nuvem, `b` a daqui: na ordem das linhas acrescentadas dos dois lados, a de `a` vem primeiro.
  */
-export function mergeNote(o: Review, a: Review, b: Review): NoteMerge {
-  const O = sharedContent(o);
-  const A = sharedContent(a);
-  const B = sharedContent(b);
+export function mergeNote(o: Review, a: Review, b: Review, inGroup = false): NoteMerge {
+  const O = sharedContent(o, inGroup);
+  const A = sharedContent(a, inGroup);
+  const B = sharedContent(b, inGroup);
   const parts = new Set<ConflictPart>();
   const left: Obj = {};
   const right: Obj = {};
@@ -366,7 +378,15 @@ export function mergeNote(o: Review, a: Review, b: Review): NoteMerge {
   if (!text.clean) parts.add('texto');
   set('text', text.a, text.b);
 
-  // o grupo, o assunto e as tags são de cada um: não vêm no conteúdo (ver `sharedContent`)
+  // o grupo, o assunto e as tags são de cada um: não vêm no conteúdo (ver `sharedContent`); numa de grupo
+  // compartilhado, as tags e a pasta são do grupo, e cada uma vale inteira (mudou dos dois lados: conflito)
+  if (inGroup) {
+    for (const key of ['tags', 'folder']) {
+      const [x, y] = atomic('categoria', O[key] ?? null, A[key] ?? null, B[key] ?? null);
+      if (x !== null) left[key] = x;
+      if (y !== null) right[key] = y;
+    }
+  }
 
   // finalizada: é sim ou não; os dois finalizaram, fica a data mais antiga (nunca briga)
   const done = (x: Obj) => typeof x['doneAt'] === 'string';
@@ -392,8 +412,8 @@ export function mergeNote(o: Review, a: Review, b: Review): NoteMerge {
   const updatedAt = [String(A['updatedAt'] ?? ''), String(B['updatedAt'] ?? '')].sort().at(-1)!;
   set('updatedAt', updatedAt);
 
-  const merged = noteFrom(left, a.id) ?? a;
-  const other = parts.size ? (noteFrom(right, a.id) ?? b) : null;
+  const merged = noteFrom(left, a.id, inGroup) ?? a;
+  const other = parts.size ? (noteFrom(right, a.id, inGroup) ?? b) : null;
   return { merged, other, parts: [...parts] };
 }
 

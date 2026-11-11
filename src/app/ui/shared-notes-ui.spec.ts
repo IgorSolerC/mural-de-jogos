@@ -345,7 +345,9 @@ describe('anotações compartilhadas: a folha do conflito', () => {
       providers: [
         provideZonelessChangeDetection(),
         { provide: SharedStore, useValue: { get: () => entry('dono', { conflito }), resolve: (_id: string, r: Review) => chosen.push(r) } },
-        { provide: CloudAccount, useValue: { account: () => ({ ...ANA }) } },
+        { provide: CloudAccount, useValue: { signedIn: () => true, account: () => ({ ...ANA }) } },
+        // (o Kanban, que a folha traz, pergunta aos grupos compartilhados pelos quadros deles)
+        { provide: SharedGroupsStore, useValue: { boards: () => [], groupOfBoard: () => undefined } },
       ],
     });
     const f = TestBed.createComponent(ConflictSheet);

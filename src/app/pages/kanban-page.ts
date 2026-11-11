@@ -313,6 +313,12 @@ export class KanbanPage {
     return b ? (this.kanban.labelOf(b) ?? b.category) : null;
   });
 
+  /** O quadro é de um grupo compartilhado em que você só lê. */
+  protected readonly readOnly = computed(() => {
+    const b = this.board();
+    return !!b && this.kanban.readOnly(b.id);
+  });
+
   /** A etiqueta Quem vê: a engrenagem na parte Compartilhar. */
   protected openShare(): void {
     this.configStart.set('compartilhar');

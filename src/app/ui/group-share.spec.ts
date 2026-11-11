@@ -10,6 +10,7 @@ import { ReviewStore } from '../core/review-store';
 import { SharedGroup, parseGroup } from '../core/shared-groups';
 import { SharedGroupsStore } from '../core/shared-groups-store';
 import { SharedStore } from '../core/shared-store';
+import { KanbanStore } from '../core/kanban-store';
 import { AccessTag } from './access-tag';
 import { Confirm } from './confirm';
 import { GroupShare } from './group-share';
@@ -88,6 +89,7 @@ describe('compartilhar um grupo: a parte da engrenagem e a etiqueta da pasta', (
         { provide: Follow, useValue: { available: () => false, people: () => null, loadPeople: async () => null } },
         { provide: Confirm, useValue: { ask: async (q: { title?: string; text: string }) => (asked.push(q), answer) } },
         { provide: Router, useValue: { navigate: async () => true } },
+        { provide: KanbanStore, useValue: { boardFor: () => null } },
       ],
     });
   }

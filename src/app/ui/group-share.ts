@@ -10,6 +10,7 @@ import { Settings } from '../core/settings';
 import { MemberRole } from '../core/shared-notes';
 import { SharedGroupsStore } from '../core/shared-groups-store';
 import { SharedStore } from '../core/shared-store';
+import { KanbanStore } from '../core/kanban-store';
 import { AccessPanel, AccessRow, AccessTarget } from './access-panel';
 import { Busy } from './busy';
 import { Confirm } from './confirm';
@@ -76,6 +77,7 @@ export class GroupShare {
   private readonly cloud = inject(Cloud);
   private readonly confirm = inject(Confirm);
   private readonly router = inject(Router);
+  private readonly kanban = inject(KanbanStore);
 
   protected readonly StopIcon = ICON.privada;
   protected readonly LeaveIcon = ICON.sair;
@@ -159,7 +161,9 @@ export class GroupShare {
         return;
       }
       const look = this.settings.categoryLook(this.name());
-      await this.groups.share(this.name(), [{ codigo, papel }], { ...(look.icon ? { icone: look.icon } : {}), ...(look.color ? { cor: look.color } : {}) });
+      // o quadro do Kanban do grupo vai junto (PLANO-COMPARTILHAR.md, rodada 4)
+      const board = this.kanban.boardFor(this.name());
+      await this.groups.share(this.name(), [{ codigo, papel }], { ...(look.icon ? { icone: look.icon } : {}), ...(look.color ? { cor: look.color } : {}) }, board);
     },
     setRole: (codigo: string, papel: MemberRole) => this.groups.setRole(this.group()!.id, codigo, papel),
     remove: (codigo: string) => this.groups.removeMember(this.group()!.id, codigo),
@@ -177,7 +181,11 @@ export class GroupShare {
       confirm: 'Parar de compartilhar',
     });
     if (!sure) return;
-    await this.run('parar', () => this.groups.stop(g.id));
+    await this.run('parar', async () => {
+      // o quadro do Kanban, como ficou no grupo, fica sendo o seu
+      const board = await this.groups.stop(g.id);
+      if (board) this.kanban.keep(board);
+    });
   }
 
   /** Sai do grupo (quem não é o dono): o que a pessoa escreveu fica nele (4.4.7, resposta P4). */

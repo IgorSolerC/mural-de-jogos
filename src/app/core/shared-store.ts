@@ -143,10 +143,10 @@ interface Stored {
   lugares: Record<string, unknown>;
 }
 
-const json = (r: Review | null) => (r ? sharedContent(r) : null);
+const json = (r: Review | null, inGroup = false) => (r ? sharedContent(r, inGroup) : null);
 
 function viewOf(e: Omit<SharedEntry, 'view'>): Review {
-  return withPersonal(e.local ?? e.base, e.pessoal);
+  return withPersonal(e.local ?? e.base, e.pessoal, !!e.grupo);
 }
 
 function entryOf(e: Omit<SharedEntry, 'view'>): SharedEntry {
@@ -157,10 +157,10 @@ function storedEntry(e: SharedEntry): unknown {
   const { view: _v, base, local, outra, conflito, ...rest } = e;
   return {
     ...rest,
-    base: json(base),
-    local: json(local),
-    outra: json(outra),
-    conflito: conflito ? { ...conflito, a: json(conflito.a), b: json(conflito.b) } : null,
+    base: json(base, !!e.grupo),
+    local: json(local, !!e.grupo),
+    outra: json(outra, !!e.grupo),
+    conflito: conflito ? { ...conflito, a: json(conflito.a, !!e.grupo), b: json(conflito.b, !!e.grupo) } : null,
   };
 }
 
@@ -177,8 +177,8 @@ function readEntry(raw: unknown): (SharedEntry & { migrated?: string }) | null {
   if (!id) return null;
   const detail = parseDetail({ ...r, dados: r?.['base'], conflito: r?.['conflito'] });
   if (!detail) return null;
-  const local = r?.['local'] ? noteFrom(r['local'], id) : null;
-  const outra = r?.['outra'] ? noteFrom(r['outra'], id) : null;
+  const local = r?.['local'] ? noteFrom(r['local'], id, !!detail.grupo) : null;
+  const outra = r?.['outra'] ? noteFrom(r['outra'], id, !!detail.grupo) : null;
   const stored = sanitizePersonal(r?.['pessoal']);
   const before = r?.['local'] ? sanitizeReview(r['local']) : null;
   const pessoal = legacyOrg(stored, before ? orgOf(before) : detail.orgDados);
@@ -420,17 +420,18 @@ export class SharedStore implements SharedSink {
   save(review: Review, from?: Review): void {
     const e = this.entries().get(review.id);
     if (!e) return;
-    const pessoal = personalOf(review);
+    const g = !!e.grupo;
+    const pessoal = personalOf(review, g);
     const current = e.local ?? e.base;
-    let next: Review = withPersonal(review, {});
+    let next: Review = withPersonal(review, {}, g);
     if (!canWrite(e.papel)) next = current;
     else if (!canManage(e.papel)) next = withStructureOf(next, current);
     let local = e.local;
     let outra = e.outra;
-    if (canWrite(e.papel) && !sameShared(next, current)) {
-      if (from && !sameShared(withPersonal(from, {}), current)) {
+    if (canWrite(e.papel) && !sameShared(next, current, g)) {
+      if (from && !sameShared(withPersonal(from, {}, g), current, g)) {
         // o editor abriu uma versão e outra chegou por baixo: junta as duas a partir da que ele abriu
-        const m = mergeNote(withPersonal(from, {}), current, next);
+        const m = mergeNote(withPersonal(from, {}, g), current, next, g);
         local = m.merged;
         outra = m.other ?? outra;
       } else {
@@ -452,15 +453,16 @@ export class SharedStore implements SharedSink {
   async share(review: Review, people: { codigo: string; papel: MemberRole }[], grupo: string | null = null): Promise<SharedEntry> {
     const res = await this.account.request<{ nota: unknown }>('/v1/notas', {
       method: 'POST',
-      body: { id: review.id, dados: sharedContent(review), membros: people, ...(grupo ? { grupo } : {}) },
+      body: { id: review.id, dados: sharedContent(review, !!grupo), membros: people, ...(grupo ? { grupo } : {}) },
     });
     const detail = parseDetail(res?.nota);
     if (!detail) throw new CloudError('A nuvem respondeu de um jeito estranho. Tente de novo.', 'resposta-invalida', 0);
     // a de antes de compartilhar continua sendo a mais nova aqui, se mudou durante o pedido
     const now = this.store.get(review.id) ?? review;
-    const local = sameShared(withPersonal(now, {}), detail.dados) ? null : withPersonal(now, {});
-    // o grupo, o assunto e as tags continuam os de quem compartilhou (só para ele)
-    const pessoal = personalOf(now);
+    const g = !!detail.grupo;
+    const local = sameShared(withPersonal(now, {}, g), detail.dados, g) ? null : withPersonal(now, {}, g);
+    // o grupo, o assunto e as tags continuam os de quem compartilhou (só para ele; num grupo, são do grupo)
+    const pessoal = personalOf(now, g);
     this.setPlace(detail.id, pessoal);
     const entry = this.adopt(detail, { pessoal, local });
     if (local) this.schedulePush();
@@ -472,9 +474,20 @@ export class SharedStore implements SharedSink {
    * grupo; ela passa a ser do dono do grupo. Tirar: o dono e os gestores do grupo.
    */
   async moveToGroup(id: string, grupo: string | null): Promise<void> {
+    const before = this.entries().get(id);
     const res = await this.account.request<{ nota?: unknown }>(`/v1/notas/${encodeURIComponent(id)}/grupo`, { method: 'PUT', body: { grupo } });
-    if (res?.nota) this.integrateDetail(res.nota);
-    else this.drop(id, true);
+    if (!res?.nota) {
+      this.drop(id, true);
+      return;
+    }
+    this.integrateDetail(res.nota);
+    // no grupo, as tags são do grupo: as que ela tinha aqui vão junto, na próxima subida
+    const tags = before?.pessoal.tags;
+    const now = this.entries().get(id);
+    if (grupo && now?.grupo === grupo && tags?.length && canWrite(now.papel)) {
+      this.put({ ...now, local: { ...(now.local ?? now.base), tags: [...tags] } });
+      this.schedulePush();
+    }
   }
 
   /** Põe alguém na anotação, ou troca o papel de quem já está (o dono e os gestores). */
@@ -531,8 +544,8 @@ export class SharedStore implements SharedSink {
     if (!e || !e.conflito || !canWrite(e.papel)) return;
     this.told.add(conflictKey(e));
     const current = e.local ?? e.base;
-    const pick = withPersonal(chosen, {});
-    const m = mergeNote(e.conflito.a, current, pick);
+    const pick = withPersonal(chosen, {}, !!e.grupo);
+    const m = mergeNote(e.conflito.a, current, pick, !!e.grupo);
     // o que veio depois mexeu no mesmo trecho que a escolha: vale a escolha
     let next = m.other ?? m.merged;
     // quem não gere só manda a estrutura (quem vê) de agora ou a da versão escolhida (a nuvem recusa outra)
@@ -653,8 +666,8 @@ export class SharedStore implements SharedSink {
     const sent = e.local ?? e.base;
     const body = {
       base: e.rev,
-      dados: sharedContent(sent),
-      ...(e.outra ? { conflito: { b: sharedContent(e.outra) } } : e.resolver ? { resolver: true } : {}),
+      dados: sharedContent(sent, !!e.grupo),
+      ...(e.outra ? { conflito: { b: sharedContent(e.outra, !!e.grupo) } } : e.resolver ? { resolver: true } : {}),
     };
     let res: Response;
     try {
@@ -740,14 +753,14 @@ export class SharedStore implements SharedSink {
       } else if (outra) {
         // um conflito daqui ainda não tinha subido: as duas versões dele partem agora da de lá
         const mine = local ?? e.base;
-        local = mergeNote(e.base, d.dados, mine).merged;
-        const other = mergeNote(e.base, d.dados, outra);
+        local = mergeNote(e.base, d.dados, mine, !!d.grupo).merged;
+        const other = mergeNote(e.base, d.dados, outra, !!d.grupo);
         outra = other.other ?? other.merged;
         resolver = false;
       } else if (local) {
         // a edição daqui partiu de `e.base`; a da nuvem andou: junta as duas, como o git
-        const m = mergeNote(e.base, d.dados, local);
-        local = sameShared(m.merged, d.dados) && !m.other ? null : m.merged;
+        const m = mergeNote(e.base, d.dados, local, !!d.grupo);
+        local = sameShared(m.merged, d.dados, !!d.grupo) && !m.other ? null : m.merged;
         outra = m.other;
         if (outra) resolver = false;
       }

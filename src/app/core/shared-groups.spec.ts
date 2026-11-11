@@ -1,6 +1,9 @@
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { CloudAccount } from './cloud-account';
+import { CloudAccount, CloudError } from './cloud-account';
+import { KanbanStore } from './kanban-store';
+import { placeCard, sanitizeBoard } from './kanban';
+import { mergeNote, sharedContent } from './shared-notes';
 import { Cloud } from './cloud-config';
 import { DATA_KEYS } from './local-data';
 import { Review, sanitizeReview } from './review';
@@ -187,5 +190,140 @@ describe('grupos compartilhados: o serviço (core/shared-groups-store.ts)', () =
     expect(localStorage.getItem(GROUPS_KEY)).toContain('u-eu');
     await wipeBrowser();
     expect(localStorage.getItem(GROUPS_KEY)).toBeNull();
+  });
+});
+
+describe('grupos compartilhados: o Kanban do grupo (rodada 4)', () => {
+  /** A nuvem de mentira de um grupo só: a vez de gravar (`rev`) e o 409 com o de agora. */
+  let server: { rev: number; dados: Record<string, unknown>; papel: string };
+  let puts: number;
+
+  function detail() {
+    return { ...raw({ papel: server.papel, dono: server.papel === 'dono' ? EU : ANA, rev: server.rev, versao: server.rev, dados: server.dados }) };
+  }
+
+  function setup(papel = 'dono', keep = false) {
+    if (!keep) server = { rev: 1, dados: { nome: 'Trabalho' }, papel };
+    puts = 0;
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        { provide: GROUPS_AUTO, useValue: false },
+        {
+          provide: SharedStore,
+          useValue: { entries: signal(new Map()), groupNames: signal(new Map()), get: () => undefined, inGroupOf: () => [], placeInGroup: () => undefined, sync: async () => undefined },
+        },
+        { provide: Cloud, useValue: { config: () => ({ api: 'x' }) } },
+        {
+          provide: CloudAccount,
+          useValue: {
+            signedIn: () => true,
+            account: () => ({ id: 'u-eu', ...EU }),
+            request: async (path: string, init?: { method?: string; body?: { base?: number; dados?: Record<string, unknown> } }) => {
+              if (path === '/v1/eu/grupos') return { grupos: [{ id: 'gTrabalho001', versao: server.rev, papel: server.papel }] };
+              if (path.startsWith('/v1/eu/grupos/detalhes')) return { grupos: [detail()] };
+              if (init?.method === 'PUT') {
+                puts++;
+                if (init.body!.base !== server.rev) throw new CloudError('Outra pessoa gravou antes.', 'conflito', 409, { grupo: detail() });
+                server = { ...server, rev: server.rev + 1, dados: init.body!.dados! };
+                return { grupo: detail() };
+              }
+              return { ok: true };
+            },
+          },
+        },
+      ],
+    });
+    return { groups: TestBed.inject(SharedGroupsStore), kanban: TestBed.inject(KanbanStore) };
+  }
+
+  beforeEach(() => localStorage.clear());
+  afterEach(() => {
+    TestBed.resetTestingModule();
+    localStorage.clear();
+  });
+
+  it('o quadro do grupo vem do documento dele, e mexer nele sobe para o grupo (não fica no quadro guardado aqui)', async () => {
+    const { groups, kanban } = setup();
+    await groups.sync();
+    const board = kanban.boardFor('Trabalho');
+    expect(kanban.boards().some((b) => b.id === board.id)).toBeFalse();
+    const col = board.columns[0]!.id;
+    kanban.update(board.id, (b, at) => placeCard(b, 'n-um0001', col, at));
+    expect(kanban.boardFor('Trabalho').cards.map((c) => c.note)).toEqual(['n-um0001']);
+    expect(kanban.state().boards).toEqual([]);
+    await groups.pushAll();
+    expect(puts).toBe(1);
+    expect((server.dados['kanban'] as { cards: { note: string }[] }).cards.map((c) => c.note)).toEqual(['n-um0001']);
+  });
+
+  it('duas pessoas mexendo ao mesmo tempo: as duas mexidas ficam (a junção cartão a cartão)', async () => {
+    const { groups, kanban } = setup();
+    await groups.sync();
+    const board = kanban.boardFor('Trabalho');
+    const col = board.columns[0]!.id;
+    kanban.update(board.id, (b, at) => placeCard(b, 'n-um0001', col, at));
+    await groups.pushAll();
+    // a Ana pôs outra anotação enquanto isso (rev 3 na nuvem)
+    const theirs = placeCard(sanitizeBoard({ ...(server.dados['kanban'] as object), category: 'Trabalho' })!, 'n-dela01', col, new Date(Date.now() + 1000).toISOString());
+    server = { ...server, rev: server.rev + 1, dados: { ...server.dados, kanban: theirs } };
+    kanban.update(board.id, (b, at) => placeCard(b, 'n-dois01', col, at));
+    await groups.pushAll();
+    expect(puts).toBe(3);
+    expect((server.dados['kanban'] as { cards: { note: string }[] }).cards.map((c) => c.note).sort()).toEqual(['n-dela01', 'n-dois01', 'n-um0001']);
+  });
+
+  it('a mexida que não chegou a subir (a aba fechou) continua esperando, e sobe ao abrir de novo', async () => {
+    let { groups, kanban } = setup();
+    await groups.sync();
+    const board = kanban.boardFor('Trabalho');
+    kanban.update(board.id, (b, at) => placeCard(b, 'n-um0001', b.columns[0]!.id, at));
+    TestBed.resetTestingModule();
+    ({ groups, kanban } = setup('dono', true));
+    TestBed.tick();
+    await groups.pushAll();
+    expect(puts).toBe(1);
+    expect((server.dados['kanban'] as { cards: { note: string }[] }).cards.map((c) => c.note)).toEqual(['n-um0001']);
+  });
+
+  it('parar de compartilhar devolve o quadro como ficou no grupo (para ser o seu)', async () => {
+    const { groups, kanban } = setup();
+    await groups.sync();
+    const board = kanban.boardFor('Trabalho');
+    kanban.update(board.id, (b, at) => placeCard(b, 'n-um0001', b.columns[0]!.id, at));
+    const kept = await groups.stop('gTrabalho001');
+    expect(kept?.cards.map((c) => c.note)).toEqual(['n-um0001']);
+    kanban.keep(kept!);
+    expect(kanban.boardFor('Trabalho').cards.map((c) => c.note)).toEqual(['n-um0001']);
+  });
+
+  it('quem só lê não muda o quadro, e o Kanban sabe que ele é só de ler', async () => {
+    const { groups, kanban } = setup('leitor');
+    await groups.sync();
+    const board = kanban.boardFor('Trabalho');
+    expect(kanban.readOnly(board.id)).toBeTrue();
+    kanban.update(board.id, (b, at) => placeCard(b, 'n-um0001', b.columns[0]!.id, at));
+    expect(kanban.boardFor('Trabalho').cards).toEqual([]);
+    await groups.pushAll();
+    expect(puts).toBe(0);
+  });
+
+  it('renomear o grupo (o dono): o nome vai no documento, para todos', async () => {
+    const { groups } = setup();
+    await groups.sync();
+    expect(groups.rename('gTrabalho001', 'Empresa')).toBeTrue();
+    expect(groups.names().get('gTrabalho001')).toBe('Empresa');
+    await groups.pushAll();
+    expect(server.dados['nome']).toBe('Empresa');
+  });
+
+  it('as tags de uma anotação de grupo são do grupo: vão no conteúdo e se juntam como um todo', () => {
+    const base = note('n-um0001', 'Trabalho', { tags: ['urgente'] });
+    expect(sharedContent(base, true)['tags']).toEqual(['urgente']);
+    expect(sharedContent(base)['tags']).toBeUndefined();
+    const mine = { ...base, tags: ['urgente', 'cliente'] };
+    const m = mergeNote(base, base, mine, true);
+    expect(m.merged.tags).toEqual(['urgente', 'cliente']);
+    expect(m.other).toBeNull();
   });
 });

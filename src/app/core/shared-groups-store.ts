@@ -6,11 +6,12 @@ import { isNote } from './review';
 import { ReviewStore } from './review-store';
 import { MemberRole, canManage, canWrite } from './shared-notes';
 import { SharedStore } from './shared-store';
-import { SharedGroup, groupNames, newGroupId, parseGroup } from './shared-groups';
+import { SharedGroup, groupNames, newGroupId, parseGroup, parseGroupDoc } from './shared-groups';
 import { labelKey } from './text';
 import { AccessPerson, AccessState } from './access';
 import { SharedRole } from './shared-notes';
 import type { SharedEntry } from './shared-store';
+import { FRESH_AT, KanbanBoard, boardIdFor, mergeBoards, sanitizeBoard } from './kanban';
 
 const RANK: Record<SharedRole, number> = { leitor: 1, editor: 2, gestor: 3, dono: 4 };
 /** O papel mais aberto dos dois (o da anotação e o do grupo dela). */
@@ -35,6 +36,8 @@ export const GROUPS_AUTO = new InjectionToken<boolean>('GROUPS_AUTO', { provided
 
 const MINUTE = 60_000;
 const DETAILS_PAGE = 10;
+/** Quanto depois da última mexida no documento do grupo ele sobe (as mexidas seguidas vão juntas). */
+const PUSH_DELAY = 1_500;
 
 /** O que está acontecendo com um grupo agora (a peça Quem vê mostra). */
 export interface GroupMoving {
@@ -72,6 +75,28 @@ export class SharedGroupsStore {
   readonly byName = computed(() => new Map([...this.names()].map(([id, name]) => [labelKey(name), this.entries().get(id)!])));
   /** O que está indo para a nuvem agora. */
   readonly moving = signal<GroupMoving | null>(null);
+  /**
+   * O documento de cada grupo como estava na `rev` de onde as mexidas daqui partiram (só os que têm mexida
+   * esperando para subir): a base da junção quando outra pessoa gravou antes.
+   */
+  private readonly bases = new Map<string, SharedGroup['dados']>();
+  private pushTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /**
+   * O quadro do Kanban de cada grupo compartilhado (PLANO-COMPARTILHAR.md, rodada 4), do documento dele, com o
+   * id e a categoria do nome que o grupo tem aqui (o `KanbanStore` o mostra no lugar do quadro guardado).
+   */
+  readonly boards = computed<KanbanBoard[]>(() => {
+    const out: KanbanBoard[] = [];
+    for (const [id, name] of this.names()) {
+      const raw = this.entries().get(id)?.dados['kanban'];
+      const b = raw ? sanitizeBoard({ ...(raw as Record<string, unknown>), category: name }) : null;
+      if (b) out.push(b);
+    }
+    return out;
+  });
+  /** O grupo compartilhado de cada quadro (pelo id do quadro aqui): também o dos que ainda não têm quadro. */
+  readonly boardGroups = computed(() => new Map([...this.names()].map(([id, name]) => [boardIdFor(name), id])));
   /** O último erro de levar uma anotação para um grupo (a peça dele mostra; some no próximo que dá certo). */
   readonly error = signal<{ grupo: string; mensagem: string } | null>(null);
 
@@ -87,7 +112,10 @@ export class SharedGroupsStore {
     });
     if (!this.auto) return;
     const destroy = inject(DestroyRef);
-    destroy.onDestroy(() => clearTimeout(this.timer));
+    destroy.onDestroy(() => {
+      clearTimeout(this.timer);
+      clearTimeout(this.pushTimer);
+    });
     effect(() => {
       if (this.active()) untracked(() => this.schedule(0));
       else clearTimeout(this.timer);
@@ -140,16 +168,56 @@ export class SharedGroupsStore {
     };
   }
 
+  /** O grupo compartilhado de um quadro (pelo id do quadro), ou undefined: o quadro é só seu. */
+  groupOfBoard(boardId: string): SharedGroup | undefined {
+    const id = this.boardGroups().get(boardId);
+    return id ? this.entries().get(id) : undefined;
+  }
+
+  /**
+   * Muda o quadro do Kanban de um grupo compartilhado (quem escreve no grupo): vale aqui na hora e sobe logo
+   * depois, partindo da versão de agora (outra pessoa gravou antes: as duas se juntam, cartão a cartão).
+   * Devolve false para quem só lê (nada muda).
+   */
+  updateBoard(groupId: string, board: KanbanBoard): boolean {
+    const g = this.entries().get(groupId);
+    if (!g || !canWrite(g.papel)) return false;
+    if (!this.bases.has(groupId)) this.bases.set(groupId, g.dados);
+    this.put({ ...g, dados: { ...g.dados, kanban: board } });
+    this.schedulePush();
+    return true;
+  }
+
+  /**
+   * Renomeia um grupo compartilhado (o dono e os gestores): o nome vai no documento, para todos que estão
+   * nele. Devolve false para quem não pode (nada muda).
+   */
+  rename(groupId: string, nome: string): boolean {
+    const g = this.entries().get(groupId);
+    if (!g || !canManage(g.papel) || !nome.trim()) return false;
+    if (!this.bases.has(groupId)) this.bases.set(groupId, g.dados);
+    this.put({ ...g, dados: { ...g.dados, nome: nome.trim().slice(0, 40) } });
+    this.schedulePush();
+    return true;
+  }
+
   // ——— o que a peça Quem vê pede ———
 
   /**
    * Compartilha um grupo seu com as pessoas pedidas: o grupo passa a morar na nuvem, e as anotações dele vão
    * em seguida, uma a uma (`adopt`). Devolve o grupo, ou lança CloudError com a mensagem pronta.
    */
-  async share(category: string, people: { codigo: string; papel: MemberRole }[], look: { icone?: string; cor?: string } = {}): Promise<SharedGroup> {
+  async share(
+    category: string,
+    people: { codigo: string; papel: MemberRole }[],
+    look: { icone?: string; cor?: string } = {},
+    board: KanbanBoard | null = null,
+  ): Promise<SharedGroup> {
+    // o quadro do Kanban do grupo vai junto (o de sempre, em que ninguém mexeu, não: cada um vê o de sempre)
+    const kanban = board && board.at !== FRESH_AT ? { kanban: board } : {};
     const res = await this.account.request<{ grupo: unknown }>('/v1/grupos', {
       method: 'POST',
-      body: { id: newGroupId(), dados: { nome: category, ...(look.icone || look.cor ? { aparencia: look } : {}) }, membros: people },
+      body: { id: newGroupId(), dados: { nome: category, ...(look.icone || look.cor ? { aparencia: look } : {}), ...kanban }, membros: people },
     });
     const g = this.integrate(res?.grupo);
     if (!g) throw new CloudError('A nuvem respondeu de um jeito estranho. Tente de novo.', 'resposta-invalida', 0);
@@ -185,9 +253,10 @@ export class SharedGroupsStore {
    * Para de compartilhar (só o dono): as pessoas deixam de ver, e tudo o que está no grupo fica com você, no
    * grupo de mesmo nome (as anotações viram compartilhadas suas com ninguém, como as que já foram divididas).
    */
-  async stop(id: string): Promise<void> {
+  async stop(id: string): Promise<KanbanBoard | null> {
     const g = this.entries().get(id);
-    if (!g) return;
+    if (!g) return null;
+    const board = this.boards().find((b) => b.id === boardIdFor(this.names().get(id) ?? g.dados.nome)) ?? null;
     const name = this.names().get(id) ?? g.dados.nome;
     // o lugar delas no seu mural: o grupo de mesmo nome (antes de a nuvem as soltar do grupo)
     this.shared.placeInGroup(
@@ -195,8 +264,11 @@ export class SharedGroupsStore {
       name,
     );
     await this.account.request(`/v1/grupos/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    this.bases.delete(id);
     this.drop(id);
     await this.shared.sync();
+    // o quadro do Kanban do grupo, como ficou: quem chamou o guarda como o quadro só seu
+    return board;
   }
 
   // ——— a sincronização ———
@@ -216,6 +288,78 @@ export class SharedGroupsStore {
   private schedule(ms: number): void {
     clearTimeout(this.timer);
     this.timer = setTimeout(() => void this.sync(), ms);
+  }
+
+  private schedulePush(ms = PUSH_DELAY): void {
+    clearTimeout(this.pushTimer);
+    this.pushTimer = setTimeout(() => void this.pushAll(), ms);
+  }
+
+  /** Sobe os documentos com mexida esperando, um de cada vez. */
+  async pushAll(): Promise<void> {
+    for (const id of [...this.bases.keys()]) {
+      for (let attempt = 0; attempt < 4 && this.bases.has(id); attempt++) {
+        if (await this.pushOne(id)) break;
+      }
+    }
+  }
+
+  /** Sobe o documento do grupo; false: outra pessoa gravou antes, e o de agora já foi juntado ao daqui. */
+  private async pushOne(id: string): Promise<boolean> {
+    const g = this.entries().get(id);
+    if (!g || !canWrite(g.papel)) {
+      this.bases.delete(id);
+      return true;
+    }
+    const sent = g.dados;
+    try {
+      const res = await this.account.request<{ grupo: unknown }>(`/v1/grupos/${encodeURIComponent(id)}`, { method: 'PUT', body: { base: g.rev, dados: sent } });
+      const saved = parseGroup(res?.grupo);
+      const now = this.entries().get(id);
+      if (!saved || !now) return true;
+      // o que mudou aqui enquanto subia continua esperando, partindo do que subiu
+      if (now.dados !== sent) {
+        this.bases.set(id, saved.dados);
+        this.put({ ...saved, dados: now.dados });
+        this.schedulePush(0);
+      } else {
+        this.bases.delete(id);
+        this.put(saved);
+      }
+      return true;
+    } catch (err) {
+      if (!(err instanceof CloudError)) throw err;
+      if (err.status === 409) {
+        const theirs = parseGroup((err.body as { grupo?: unknown } | null)?.grupo);
+        if (!theirs) return true;
+        this.put({ ...theirs, dados: this.joined(this.bases.get(id) ?? theirs.dados, theirs.dados, this.entries().get(id)?.dados ?? sent) });
+        this.bases.set(id, theirs.dados);
+        return false;
+      }
+      if (err.status === 404) {
+        this.bases.delete(id);
+        this.drop(id);
+        return true;
+      }
+      if (err.status === 403) {
+        // virou leitor: a mexida daqui não sobe mais; vale o da nuvem na próxima conferida
+        this.bases.delete(id);
+        this.schedule(0);
+        return true;
+      }
+      return true; // sem rede, 429: a próxima conferida sobe
+    }
+  }
+
+  /**
+   * As duas versões do documento juntas, a partir de `o`: o quadro do Kanban cartão a cartão (`mergeBoards`,
+   * a mesma junção de dois aparelhos), o resto o mudado por último (só o dono e os gestores mudam o nome).
+   */
+  private joined(o: SharedGroup['dados'], theirs: SharedGroup['dados'], mine: SharedGroup['dados']): SharedGroup['dados'] {
+    const board = (d: SharedGroup['dados']) => (d['kanban'] ? sanitizeBoard({ ...(d['kanban'] as Record<string, unknown>), category: d.nome }) : null);
+    const [bo, bt, bm] = [board(o), board(theirs), board(mine)];
+    const kanban = bt && bm ? mergeBoards(bo ?? bt, bt, bm) : (bm ?? bt);
+    return { ...theirs, ...(mine.nome !== o.nome ? { nome: mine.nome } : {}), ...(kanban ? { kanban } : {}) };
   }
 
   private async pull(): Promise<void> {
@@ -282,15 +426,24 @@ export class SharedGroupsStore {
   }
 
   private integrate(raw: unknown): SharedGroup | null {
-    const g = parseGroup(raw);
-    if (!g) return null;
+    const parsed = parseGroup(raw);
+    if (!parsed) return null;
     // (o grupo que chega antes de a conta ser lida aqui: os guardados dela vêm antes, para ele entrar junto)
     if (this.loadedFor === null) this.loadFor(this.accountId());
+    // com mexida daqui esperando para subir: ela continua por cima do que chegou (junta na subida)
+    const here = this.entries().get(parsed.id);
+    const base = this.bases.get(parsed.id);
+    const g = here && base && here.rev !== parsed.rev ? { ...parsed, dados: this.joined(base, parsed.dados, here.dados) } : here && base ? { ...parsed, dados: here.dados } : parsed;
+    if (here && base && here.rev !== parsed.rev) this.bases.set(parsed.id, parsed.dados);
+    this.put(g);
+    return g;
+  }
+
+  private put(g: SharedGroup): void {
     const next = new Map(this.entries());
     next.set(g.id, g);
     this.entries.set(next);
     this.persist();
-    return g;
   }
 
   private drop(id: string): void {
@@ -315,17 +468,29 @@ export class SharedGroupsStore {
       if (this.entries().size) this.entries.set(new Map());
       return;
     }
-    const list = this.readAll()[account] ?? [];
+    const stored = this.readAll();
+    const list = stored.contas[account] ?? [];
     this.entries.set(new Map(list.map(parseGroup).filter((g): g is SharedGroup => !!g).map((g) => [g.id, g])));
+    // as mexidas que não chegaram a subir (a aba fechou antes): continuam esperando, e sobem
+    this.bases.clear();
+    for (const [id, base] of Object.entries(stored.bases[account] ?? {})) {
+      const doc = parseGroupDoc(base);
+      if (doc && this.entries().has(id)) this.bases.set(id, doc);
+    }
+    if (this.bases.size && this.auto) this.schedulePush(0);
   }
 
-  private readAll(): Record<string, unknown[]> {
+  private readAll(): { contas: Record<string, unknown[]>; bases: Record<string, Record<string, unknown>> } {
     try {
-      const raw = JSON.parse(this.data.getItem(GROUPS_KEY) ?? 'null') as { contas?: Record<string, unknown> } | null;
+      const raw = JSON.parse(this.data.getItem(GROUPS_KEY) ?? 'null') as { contas?: Record<string, unknown>; bases?: Record<string, unknown> } | null;
       const contas = raw?.contas && typeof raw.contas === 'object' ? raw.contas : {};
-      return Object.fromEntries(Object.entries(contas).filter(([, v]) => Array.isArray(v))) as Record<string, unknown[]>;
+      const bases = raw?.bases && typeof raw.bases === 'object' ? raw.bases : {};
+      return {
+        contas: Object.fromEntries(Object.entries(contas).filter(([, v]) => Array.isArray(v))) as Record<string, unknown[]>,
+        bases: Object.fromEntries(Object.entries(bases).filter(([, v]) => !!v && typeof v === 'object')) as Record<string, Record<string, unknown>>,
+      };
     } catch {
-      return {};
+      return { contas: {}, bases: {} };
     }
   }
 
@@ -333,10 +498,13 @@ export class SharedGroupsStore {
     const account = this.loadedFor;
     if (!account) return;
     const all = this.readAll();
-    all[account] = [...this.entries().values()];
-    if (!all[account].length) delete all[account];
+    all.contas[account] = [...this.entries().values()];
+    if (!all.contas[account].length) delete all.contas[account];
+    // a base das mexidas que esperam subir: sem ela, uma aba fechada antes da subida perderia a mexida
+    all.bases[account] = Object.fromEntries(this.bases);
+    if (!this.bases.size) delete all.bases[account];
     try {
-      void Promise.resolve(this.data.setItem(GROUPS_KEY, JSON.stringify({ contas: all }))).catch(() => undefined);
+      void Promise.resolve(this.data.setItem(GROUPS_KEY, JSON.stringify(all))).catch(() => undefined);
     } catch {
       /* sem espaço: fica na memória */
     }
