@@ -34,6 +34,9 @@
         <button type="button" class="pc-tecla" title="Virar de cabeça para baixo" aria-label="Virar de cabeça para baixo" [disabled]="!inked()" (click)="flipUpside()">
           <lucide-icon [img]="FlipVIcon" [size]="18" aria-hidden="true" />
         </button>
+        <button type="button" class="pc-tecla" title="Trazer de uma imagem (colar ou soltar na prancheta também serve)" aria-label="Trazer de uma imagem" [disabled]="importing()" (click)="chooseImage()">
+          <lucide-icon [img]="ImageIcon" [size]="18" aria-hidden="true" />
+        </button>
         <button type="button" class="pc-tecla perigo" title="Limpar a prancheta" aria-label="Limpar a prancheta" [disabled]="!inked()" (click)="clear()">
           <lucide-icon [img]="ClearIcon" [size]="17" aria-hidden="true" />
         </button>
@@ -63,6 +66,9 @@
         (lostpointercapture)="up()"
         (pointerleave)="hover.set(null)"
         (contextmenu)="$event.preventDefault()"
+        (paste)="takeImage($event)"
+        (dragover)="dragOver($event)"
+        (drop)="takeImage($event)"
       >
         <defs>
           <pattern [attr.id]="ids() + '-xadrez'" width="1" height="1" patternUnits="userSpaceOnUse">
@@ -114,8 +120,15 @@
       <input #cor type="color" class="pc-cor-escolha" tabindex="-1" aria-hidden="true" (input)="setColor($any($event.target).value)" />
     </div>
   </div>
-  <p class="pc-dica">
-    @if (ink() === 0) {
+  <input #arquivo class="pc-arquivo" type="file" accept="image/*" tabindex="-1" aria-hidden="true" (change)="fromFile($event)" />
+  <p class="pc-dica" [class.ruim]="!!importError()">
+    @if (importing()) {
+      Trazendo a imagem…
+    } @else if (importError(); as err) {
+      {{ err }}
+    } @else if (!inked()) {
+      Pinte arrastando, ou traga uma imagem: pelo botão da régua, colando ou soltando aqui.
+    } @else if (ink() === 0) {
       O 0 é o transparente: pinta apagando.
     } @else if (colors()[ink()]) {
       A cor {{ ink() }} foi trocada.

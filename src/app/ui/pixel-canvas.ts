@@ -5,6 +5,7 @@ import {
   PIXEL_MAX,
   blankGrid,
   clampSide,
+  fitInGrid,
   floodFill,
   flipH,
   flipV,
@@ -16,11 +17,13 @@ import {
   paintCells,
   paletteWord,
   parseColors,
+  quantize,
   shiftGrid,
   writeColors,
   writeGrid,
 } from '../core/pixel-art';
 import { WidgetValues } from '../core/widgets';
+import { imageFileOf } from '../core/images';
 import { ICON, IconModule } from './icons';
 
 type Tool = 'lapis' | 'borracha' | 'balde' | 'conta-gotas';
@@ -64,6 +67,7 @@ export class PixelCanvas {
 
   private readonly board = viewChild.required<ElementRef<SVGSVGElement>>('prancheta');
   private readonly picker = viewChild.required<ElementRef<HTMLInputElement>>('cor');
+  private readonly file = viewChild.required<ElementRef<HTMLInputElement>>('arquivo');
 
   protected readonly TOOLS: readonly { value: Tool; label: string; key: string; icon: typeof ICON.editar }[] = [
     { value: 'lapis', label: 'Lápis', key: 'B', icon: ICON.editar },
@@ -78,6 +82,10 @@ export class PixelCanvas {
   protected readonly FlipHIcon = ICON.virarDeLado;
   protected readonly FlipVIcon = ICON.virarDeCabeca;
   protected readonly ClearIcon = ICON.apagar;
+  protected readonly ImageIcon = ICON.imagem;
+  /** Uma imagem sendo trazida para a prancheta; e o que deu errado na última. */
+  protected readonly importing = signal(false);
+  protected readonly importError = signal<string | null>(null);
 
   protected readonly w = computed(() => clampSide(this.values()['width']));
   protected readonly h = computed(() => clampSide(this.values()['height']));
@@ -151,6 +159,8 @@ export class PixelCanvas {
   // ===== os pontos =====
 
   private commit(next: string[]): void {
+    // o desenho andou: o aviso da imagem que não abriu já não diz respeito a ele
+    this.importError.set(null);
     this.buffer.set(next);
     const raw = writeGrid(next);
     this.sent = raw;
@@ -448,6 +458,64 @@ export class PixelCanvas {
     this.said.set(`A ${this.inkName(n)} voltou à da paleta`);
   }
 
+  // ===== trazer de uma imagem =====
+
+  /** Abre a escolha de arquivo do aparelho (no celular, a galeria e a câmera). */
+  protected chooseImage(): void {
+    this.file().nativeElement.click();
+  }
+
+  protected fromFile(e: Event): void {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    // a mesma imagem escolhida de novo também chega
+    input.value = '';
+    if (file) void this.importImage(file);
+  }
+
+  /** Colar (Ctrl+V) ou soltar uma imagem na prancheta: ela vira os pontos. */
+  protected takeImage(e: ClipboardEvent | DragEvent): void {
+    const file = imageFileOf(e instanceof ClipboardEvent ? e.clipboardData : e.dataTransfer);
+    if (!file) return;
+    e.preventDefault();
+    void this.importImage(file);
+  }
+
+  /** Deixa soltar só imagem na prancheta. */
+  protected dragOver(e: DragEvent): void {
+    if ([...(e.dataTransfer?.items ?? [])].some((i) => i.kind === 'file' && i.type.startsWith('image/'))) e.preventDefault();
+  }
+
+  /**
+   * A imagem encolhida até a grade de agora (inteira, no meio, sem deformar) e cada ponto na cor mais perto
+   * das nove de agora; o quase transparente fica transparente. Um passo no desfazer.
+   */
+  private async importImage(file: Blob): Promise<void> {
+    // uma de cada vez: a segunda, colada enquanto a primeira chega, seria apagada por ela
+    if (this.importing()) return;
+    this.importing.set(true);
+    this.importError.set(null);
+    try {
+      const bitmap = await createImageBitmap(file);
+      const w = this.w();
+      const h = this.h();
+      const fit = fitInGrid(bitmap.width, bitmap.height, w, h);
+      const data = shrink(bitmap, fit.w, fit.h);
+      bitmap.close();
+      const part = quantize(data, fit.w, fit.h, this.inks());
+      const next = blankGrid(PIXEL_MAX, PIXEL_MAX).map((row, y) => {
+        const line = part[y - fit.y];
+        return line === undefined ? row : row.slice(0, fit.x) + line + row.slice(fit.x + line.length);
+      });
+      this.change(next, `Imagem trazida para ${w} por ${h} pontos, na paleta de agora`);
+    } catch {
+      this.importError.set('Essa imagem não abriu. Tente outra (PNG, JPG, WebP, GIF).');
+      this.said.set('Essa imagem não abriu.');
+    } finally {
+      this.importing.set(false);
+    }
+  }
+
   /** O nome da pastilha para quem não vê: "Cor 4, trocada", "Transparente: apaga". */
   protected swatchLabel(n: number): string {
     if (n === 0) return 'Transparente (apaga)';
@@ -456,6 +524,32 @@ export class PixelCanvas {
 
   /** A prancheta para quem não vê. */
   protected readonly label = computed(() => `Prancheta de ${this.w()} por ${this.h()} pontos. Setas andam; Espaço pinta com a ${this.inkName(this.ink())}.`);
+}
+
+/**
+ * Os bytes RGBA da imagem encolhida para `w` × `h`, pela metade a cada passo até chegar (direto de uma foto
+ * grande para 16 pontos, o navegador pega uns poucos pixels e o desenho sai picado).
+ */
+function shrink(image: ImageBitmap, w: number, h: number): Uint8ClampedArray {
+  let src: CanvasImageSource = image;
+  let sw = image.width;
+  let sh = image.height;
+  while (sw / 2 >= w * 2 && sh / 2 >= h * 2) {
+    const half = document.createElement('canvas');
+    half.width = Math.round(sw / 2);
+    half.height = Math.round(sh / 2);
+    const ctx = half.getContext('2d')!;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(src, 0, 0, half.width, half.height);
+    [src, sw, sh] = [half, half.width, half.height];
+  }
+  const out = document.createElement('canvas');
+  out.width = w;
+  out.height = h;
+  const ctx = out.getContext('2d', { willReadFrequently: true })!;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(src, 0, 0, w, h);
+  return ctx.getImageData(0, 0, w, h).data;
 }
 
 /** Um passo do desfazer: os pontos e as cores trocadas (como escritas). */

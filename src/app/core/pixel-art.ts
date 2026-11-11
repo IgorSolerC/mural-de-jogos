@@ -405,3 +405,56 @@ export function inkPaths(rows: readonly string[], look: PixelLook): InkPath[] {
   return [...parts].sort(([a], [b]) => a - b).map(([ink, ds]) => ({ ink, d: ds.join('') }));
 }
 
+
+// ===== trazer de uma imagem =====
+
+/** "#d8433b" → [216, 67, 59]. */
+function rgbOf(hex: string): [number, number, number] {
+  const h = normalHex(hex) ?? '#000000';
+  return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+}
+
+/**
+ * Os pontos de uma imagem já encolhida para `w` × `h` (os bytes RGBA dela, como o canvas dá): cada ponto
+ * vira a cor mais perto entre as nove de agora (a distância "redmean", que pesa o vermelho e o azul como o
+ * olho pesa), e o quase transparente (menos da metade) vira 0.
+ */
+export function quantize(data: ArrayLike<number>, w: number, h: number, inks: readonly (string | null)[]): string[] {
+  const palette = inks.map((c, i) => (i > 0 && c ? { i, rgb: rgbOf(c) } : null)).filter((x): x is { i: number; rgb: [number, number, number] } => !!x);
+  const rows: string[] = [];
+  for (let y = 0; y < h; y++) {
+    let row = '';
+    for (let x = 0; x < w; x++) {
+      const o = (y * w + x) * 4;
+      if ((data[o + 3] ?? 0) < 128 || !palette.length) {
+        row += '0';
+        continue;
+      }
+      const [r, g, b] = [data[o], data[o + 1], data[o + 2]];
+      let best = palette[0].i;
+      let bestD = Infinity;
+      for (const p of palette) {
+        const rm = (r + p.rgb[0]) / 2;
+        const dr = r - p.rgb[0];
+        const dg = g - p.rgb[1];
+        const db = b - p.rgb[2];
+        const d = (2 + rm / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256) * db * db;
+        if (d < bestD) {
+          bestD = d;
+          best = p.i;
+        }
+      }
+      row += String(best);
+    }
+    rows.push(row);
+  }
+  return rows;
+}
+
+/** Onde a imagem de `iw` × `ih` cabe inteira na grade de `w` × `h`, no meio e sem deformar (em pontos). */
+export function fitInGrid(iw: number, ih: number, w: number, h: number): { x: number; y: number; w: number; h: number } {
+  const scale = Math.min(w / Math.max(1, iw), h / Math.max(1, ih));
+  const fw = Math.max(1, Math.min(w, Math.round(iw * scale)));
+  const fh = Math.max(1, Math.min(h, Math.round(ih * scale)));
+  return { x: Math.floor((w - fw) / 2), y: Math.floor((h - fh) / 2), w: fw, h: fh };
+}

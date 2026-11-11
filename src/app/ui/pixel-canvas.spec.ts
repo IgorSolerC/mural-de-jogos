@@ -1,6 +1,6 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { floodFill, flipH, flipV, lineCells, paintCells, shiftGrid } from '../core/pixel-art';
+import { fitInGrid, floodFill, flipH, flipV, inkOf, lineCells, paintCells, quantize, shiftGrid } from '../core/pixel-art';
 import { WidgetValues, widgetDef } from '../core/widgets';
 import { PixelCanvas } from './pixel-canvas';
 
@@ -29,6 +29,18 @@ describe('pixel art: as ferramentas', () => {
     expect(flipV(['1', '2', '3'], 1, 2)).toEqual(['2', '1', '3']);
     expect(shiftGrid(['100', '000'], 1, 0, 3, 2)).toEqual(['010', '000']);
     expect(shiftGrid(['001', '000'], 1, 1, 3, 2)).toEqual(['000', '100']);
+  });
+
+  it('a imagem: cada ponto na cor mais perto da paleta, e o quase transparente fica transparente', () => {
+    const inks = inkOf('classica', {});
+    // vermelho puro, quase preto, branco, e um ponto meio transparente
+    const data = [255, 0, 0, 255, 10, 10, 10, 255, 255, 255, 255, 255, 255, 0, 0, 60];
+    expect(quantize(data, 4, 1, inks)).toEqual(['4120']);
+  });
+
+  it('a imagem cabe inteira na grade, no meio, sem deformar', () => {
+    expect(fitInGrid(200, 100, 16, 16)).toEqual({ x: 0, y: 4, w: 16, h: 8 });
+    expect(fitInGrid(10, 40, 16, 16)).toEqual({ x: 6, y: 0, w: 4, h: 16 });
   });
 
   it('pintar devolve fileiras novas e deixa as de antes como estavam', () => {
@@ -169,6 +181,30 @@ describe('pixel art: a prancheta', () => {
   it('a grade escrita maior que 32 volta para 32', async () => {
     await make({ width: '40', height: '8' });
     expect(values['width']).toBe('32');
+  });
+
+  it('trazer uma imagem: escolhida ou colada, ela vira os pontos, num passo do desfazer', async () => {
+    await make({ width: '4', height: '4', pixels: '1' });
+    // uma imagem de 8 × 4: a metade de cima vermelha, a de baixo azul, sem fundo nos lados
+    const c = document.createElement('canvas');
+    c.width = 8;
+    c.height = 4;
+    const ctx = c.getContext('2d')!;
+    ctx.fillStyle = '#d8433b';
+    ctx.fillRect(0, 0, 8, 2);
+    ctx.fillStyle = '#3a6fc4';
+    ctx.fillRect(0, 2, 8, 2);
+    const blob = await new Promise<Blob>((ok) => c.toBlob((b) => ok(b!), 'image/png'));
+    const file = new File([blob], 'img.png', { type: 'image/png' });
+    const data = new DataTransfer();
+    data.items.add(file);
+    svg.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+    await new Promise((r) => setTimeout(r, 300));
+    await fixture.whenStable();
+    // a imagem é 2 por 1: cabe 4 × 2, no meio da altura
+    expect(values['pixels']).toBe('/4444/8888');
+    key('z', { ctrlKey: true });
+    expect(values['pixels']).toBe('1');
   });
 
   it('a mudança de fora (outro desenho) troca a prancheta e esvazia o desfazer', async () => {

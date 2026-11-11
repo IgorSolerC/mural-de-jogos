@@ -244,7 +244,15 @@
   }
 }
 
-/* o seletor de cor do aparelho: só o que ele abre aparece */
+/* o seletor de cor do aparelho e a escolha de arquivo: só o que eles abrem aparece */
+.pc-arquivo {
+  display: none;
+}
+
+.pc-dica.ruim {
+  color: var(--error-ink, var(--red-deep));
+}
+
 .pc-cor-escolha {
   position: absolute;
   width: 1px;
