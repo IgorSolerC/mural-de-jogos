@@ -260,6 +260,7 @@ export class FreeBoardsPage {
         this.sheetStart.set(start);
       }),
     openNote: (id) => this.desk.openReview(id),
+    linkNotes: () => this.reviews.notes(),
   };
 
   protected onPicked(r: Review): void {

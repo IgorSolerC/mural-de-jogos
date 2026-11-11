@@ -5,6 +5,7 @@ import { Camera } from '../../core/free-board-geometry';
 import { FreeBoardView } from './free-board-view';
 import { FreeBoardPiece, drawingIn } from './free-board-piece';
 import { expectEtiquetaPadrao } from '../../testing/etiqueta-acoes.spec';
+import { comMarkdown } from '../../testing/writing-mode.spec';
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const frames = async (n = 3) => {
@@ -325,39 +326,171 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
       expect(changes.at(-1)!.n.some((n) => n.i === 'senha')).toBeTrue();
     });
 
-    it('duplo clique no fundo é um texto novo, já escrevendo; clicar fora guarda, Ctrl+Enter também, e o Esc desiste', async () => {
-      await edit(MANSION);
-      visor().dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true, clientX: 1000, clientY: 400 }));
-      await settle();
-      let area = el.querySelector<HTMLTextAreaElement>('textarea.escrever')!;
-      expect(document.activeElement).toBe(area);
-      area.value = 'Senha nova';
-      area.dispatchEvent(new Event('input', { bubbles: true }));
-      // o clique fora, no fundo: o texto fica (antes, o clique apagava o que foi escrito)
-      ptr('pointerdown', 1200, 700);
-      ptr('pointerup', 1200, 700);
-      await settle();
-      expect(changes.at(-1)!.n.some((n) => n.t === 'x' && n.txt === 'Senha nova')).toBeTrue();
-      expect(el.querySelector('textarea.escrever')).toBeNull();
-      // de novo: Ctrl+Enter guarda
-      const id = changes.at(-1)!.n.find((n) => n.t === 'x' && n.txt === 'Senha nova')!.i;
-      visor().dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true, clientX: 1000, clientY: 400 }));
-      await settle();
-      area = el.querySelector<HTMLTextAreaElement>('textarea.escrever')!;
-      area.value = 'Senha nova\nNo quarto 46';
-      area.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true, cancelable: true }));
-      await settle();
-      expect(changes.at(-1)!.n.find((n) => n.i === id)?.['txt']).toBe('Senha nova\nNo quarto 46');
-      // e o Esc desiste do que foi escrito
-      visor().dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true, clientX: 1000, clientY: 400 }));
-      await settle();
-      area = el.querySelector<HTMLTextAreaElement>('textarea.escrever')!;
-      area.value = 'não era isso';
-      area.dispatchEvent(new Event('input', { bubbles: true }));
-      area.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
-      await settle();
-      expect(el.querySelector('textarea.escrever')).toBeNull();
-      expect(changes.at(-1)!.n.find((n) => n.i === id)?.['txt']).toBe('Senha nova\nNo quarto 46');
+    /** A folha do texto do card (chega por @defer): espera ela aparecer. */
+    async function sheet(): Promise<HTMLElement> {
+      for (let i = 0; i < 100; i++) {
+        await settle();
+        const s = el.querySelector<HTMLElement>('app-free-board-text-sheet');
+        if (s?.querySelector('app-rich-editor textarea, app-rich-editor .ProseMirror')) return s;
+        await new Promise((r) => setTimeout(r, 10));
+      }
+      throw new Error('a folha do texto não abriu');
+    }
+    const typeIn = (field: HTMLTextAreaElement, text: string) => {
+      field.value = text;
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    const txtOf = (id: string) => changes.at(-1)!.n.find((n) => n.i === id)?.['txt'];
+
+    describe('o texto do card, na folha ao lado do quadro', () => {
+      comMarkdown();
+
+      it('duplo clique no fundo é um card novo, com a folha aberta no título; o card muda a cada letra, e clicar no quadro guarda', async () => {
+        await edit(MANSION);
+        // embaixo da moldura, na tela (a peça é montada)
+        visor().dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true, clientX: 640, clientY: 560 }));
+        const s = await sheet();
+        // fora do mundo do quadro: não escala com o zoom
+        expect(el.querySelector('.mundo app-free-board-text-sheet')).toBeNull();
+        const title = s.querySelector<HTMLTextAreaElement>('textarea.titulo')!;
+        expect(document.activeElement).toBe(title);
+        expect(title.placeholder).toBe('Nota');
+        // o antigo campo no lugar do card não existe mais
+        expect(el.querySelector('textarea.escrever')).toBeNull();
+        typeIn(title, 'Senha nova');
+        typeIn(s.querySelector<HTMLTextAreaElement>('app-rich-editor textarea')!, 'No **quarto** 46');
+        await settle();
+        // ainda não guardou, mas o card no quadro já mostra o que está escrito
+        const id = fixture.componentInstance.editor.writing()!.id;
+        expect(changes.some((b) => b.n.some((n) => n['txt'] === 'Senha nova\nNo **quarto** 46'))).toBeFalse();
+        expect(piece(id)!.querySelector('.cartao-titulo')!.textContent).toBe('Senha nova');
+        expect(piece(id)!.querySelector('.cartao-corpo .enf.negrito')!.textContent).toBe('quarto');
+        ptr('pointerdown', 840, 560);
+        ptr('pointerup', 840, 560);
+        await settle();
+        expect(txtOf(id)).toBe('Senha nova\nNo **quarto** 46');
+        expect(el.querySelector('app-free-board-text-sheet')).toBeNull();
+      });
+
+      it('Pronto, Ctrl+Enter e Esc guardam (um passo no desfazer); o título com marcas fica como estava se não mexer nele', async () => {
+        await edit(MANSION);
+        const ed = fixture.componentInstance.editor;
+        ed.writing.set({ kind: 'bilhete', id: 'email' });
+        let s = await sheet();
+        const title = s.querySelector<HTMLTextAreaElement>('textarea.titulo')!;
+        // o título como o card mostra, sem as marcas; aberto num card com texto, o foco vai para o texto
+        expect(title.value).toBe('Ler email no escritório');
+        const body = s.querySelector<HTMLTextAreaElement>('app-rich-editor textarea')!;
+        expect(document.activeElement).toBe(body);
+        typeIn(body, '- a senha do cofre');
+        s.querySelector<HTMLButtonElement>('.faixa .pronto')!.click();
+        await settle();
+        expect(txtOf('email')).toBe('Ler **email** no escritório\n- a senha do cofre');
+        expect(el.querySelector('app-free-board-text-sheet')).toBeNull();
+        // Ctrl+Enter
+        ed.writing.set({ kind: 'bilhete', id: 'senha' });
+        s = await sheet();
+        typeIn(s.querySelector<HTMLTextAreaElement>('textarea.titulo')!, 'Senha do cofre');
+        s.querySelector('textarea.titulo')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true, cancelable: true }));
+        await settle();
+        expect(txtOf('senha')).toBe('Senha do cofre');
+        // o Esc também guarda (o Ctrl+Z desfaz)
+        ed.writing.set({ kind: 'bilhete', id: 'senha' });
+        s = await sheet();
+        typeIn(s.querySelector<HTMLTextAreaElement>('app-rich-editor textarea')!, '4 dígitos');
+        s.querySelector('app-rich-editor textarea')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+        await settle();
+        expect(el.querySelector('app-free-board-text-sheet')).toBeNull();
+        expect(txtOf('senha')).toBe('Senha do cofre\n4 dígitos');
+        key('z', { ctrlKey: true });
+        await settle();
+        expect(txtOf('senha')).toBe('Senha do cofre');
+      });
+
+      it('o card cresce com o texto enquanto se escreve (medido nele, em furos), e guarda essa altura', async () => {
+        await edit(MANSION);
+        fixture.componentInstance.editor.writing.set({ kind: 'bilhete', id: 'senha' });
+        const s = await sheet();
+        typeIn(s.querySelector<HTMLTextAreaElement>('app-rich-editor textarea')!, ['um', 'dois', 'três', 'quatro', 'cinco', 'seis'].map((x) => '- ' + x).join('\n'));
+        await settle();
+        await settle();
+        const grown = piece('senha')!.offsetHeight;
+        expect(grown).toBeGreaterThan(104);
+        expect(grown % 26).toBe(0);
+        // o texto inteiro cabe no card
+        const body = piece('senha')!.querySelector<HTMLElement>('.cartao-corpo')!;
+        expect(body.scrollHeight).toBeLessThanOrEqual(body.clientHeight + 1);
+        s.querySelector<HTMLButtonElement>('.faixa .pronto')!.click();
+        await settle();
+        expect(changes.at(-1)!.n.find((n) => n.i === 'senha')!.h).toBe(grown);
+      });
+
+      it('com a folha aberta, o Delete e o L no quadro não mexem no card nem cobrem a folha; o Esc no quadro guarda', async () => {
+        await edit(MANSION);
+        fixture.componentInstance.editor.writing.set({ kind: 'bilhete', id: 'senha' });
+        const s = await sheet();
+        typeIn(s.querySelector<HTMLTextAreaElement>('textarea.titulo')!, 'Senha do cofre');
+        visor().focus();
+        key('Delete');
+        key('l');
+        await settle();
+        expect(el.querySelector('app-free-board-text-sheet')).not.toBeNull();
+        expect(el.querySelector('.lista')).toBeNull();
+        expect(changes.length).toBe(0);
+        key('Escape');
+        await settle();
+        expect(el.querySelector('app-free-board-text-sheet')).toBeNull();
+        expect(txtOf('senha')).toBe('Senha do cofre');
+      });
+
+      it('o Enter que fecha a composição do japonês fica no título; o Enter de fora dela vai para o texto', async () => {
+        await edit(MANSION);
+        fixture.componentInstance.editor.writing.set({ kind: 'bilhete', id: 'senha' });
+        const s = await sheet();
+        const title = s.querySelector<HTMLTextAreaElement>('textarea.titulo')!;
+        title.focus();
+        const composing = new KeyboardEvent('keydown', { key: 'Enter', isComposing: true, bubbles: true, cancelable: true });
+        title.dispatchEvent(composing);
+        expect(composing.defaultPrevented).toBeFalse();
+        expect(document.activeElement).toBe(title);
+        title.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+        await settle();
+        expect(document.activeElement).toBe(s.querySelector('app-rich-editor textarea'));
+      });
+
+      it('no computador, a câmera leva o card para o lado da folha, num zoom de ler, e volta ao fechar', async () => {
+        // a tela larga (a folha fica ao lado do quadro) e sem o deslize (a câmera pula)
+        const real = window.matchMedia.bind(window);
+        spyOn(window, 'matchMedia').and.callFake((q: string) =>
+          q.includes('max-width: 860px') ? ({ matches: false } as MediaQueryList) : q.includes('reduced-motion') ? ({ matches: true } as MediaQueryList) : real(q),
+        );
+        await open(MANSION, { x: -20, y: -20, z: 0.5 });
+        fixture.componentRef.setInput('editing', true);
+        await settle();
+        fixture.componentInstance.editor.writing.set({ kind: 'bilhete', id: 'email' });
+        const s = await sheet();
+        await settle();
+        const card = piece('email')!.getBoundingClientRect();
+        // o card inteiro à esquerda de onde a folha fica (900 de quadro, 460 de folha, 16 de margem e 24 de folga)
+        expect(card.left).toBeGreaterThanOrEqual(24);
+        expect(card.right).toBeLessThanOrEqual(900 - 460 - 32 - 24);
+        expect(card.width / 208).toBeCloseTo(0.9, 2);
+        s.querySelector('textarea.titulo')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+        await settle();
+        await settle();
+        expect(piece('email')!.getBoundingClientRect().width / 208).toBeCloseTo(0.5, 2);
+      });
+
+      it('sair do editar com a folha aberta guarda o que foi escrito', async () => {
+        await edit(MANSION);
+        fixture.componentInstance.editor.writing.set({ kind: 'bilhete', id: 'senha' });
+        const s = await sheet();
+        typeIn(s.querySelector<HTMLTextAreaElement>('textarea.titulo')!, 'Senha?!');
+        fixture.componentRef.setInput('editing', false);
+        await settle();
+        expect(txtOf('senha')).toBe('Senha?!');
+        expect(el.querySelector('app-free-board-text-sheet')).toBeNull();
+      });
     });
 
     it('a régua das ferramentas e o zoom são etiquetas de tinta separadas, em grupos tortos; a ligada é a amarela', async () => {
@@ -400,7 +533,7 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
       await open(MANSION);
       toggles = [];
       fixture.componentInstance.editToggle.subscribe((on) => toggles.push(on));
-      fixture.componentRef.setInput('owner', { pickNote: async () => null, findNote: () => null, storeImages: async () => [], editWidget: async () => null, openNote: () => undefined });
+      fixture.componentRef.setInput('owner', { pickNote: async () => null, findNote: () => null, storeImages: async () => [], editWidget: async () => null, openNote: () => undefined, linkNotes: () => [] });
       await fixture.whenStable();
       key('e');
       expect(toggles).toEqual([true]);

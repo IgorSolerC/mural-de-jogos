@@ -1052,3 +1052,43 @@ nas heurísticas, e o detector com a auditoria técnica; registro em `.impeccabl
 Ficou de fora (anotado): ligar seta pelo teclado; travar o foco no quadro aberto (`inert` na página de trás); um sinal
 de "guardado" no quadro aberto; os tons de kraft, alumínio e fita-crepe virarem tokens; a etiqueta de 34 px (é a peça
 única dos cards, de aparência aprovada); a Imagem da régua anunciada como diálogo.
+
+### Escrever o card como uma anotação (10/nov)
+
+Pedido do dono: a edição do texto no quadro era feia (uma caixa de texto por cima do card, com o markdown cru, a
+primeira linha fazendo de título e tudo no tamanho do zoom: a 33%, letras de 5 px). Ele quer o editor visual de uma
+anotação: título e corpo separados, a régua com os efeitos. A estrutura foi escolhida sem rodada de escolha.
+
+- **A folha do card ao lado do quadro**, não por cima do card: o editor de verdade (`app-rich-editor`, o mesmo das
+  anotações, com Visual e Markdown, Formatar, Inserir, Ajuda e Tela cheia) precisa de uns 400 px de tela e da letra
+  em tamanho de ler, qualquer que seja o zoom, e um card pode ter 150 px a 33%. A folha fica no lugar do "Ver em
+  lista" (o painel lateral que o quadro já tem), na tela, fora do mundo: nem escala com o zoom nem borra. No celular,
+  ela ocupa o quadro inteiro, como o editor das anotações.
+- **O título é a faixa do card**, como o nome da anotação na faixa da cartolina do editor: o papel do jeito (ou da
+  cor) do card, o desenho do jeito e o título a pincel na tinta dele, sobre a linha de caneta. Vazio, ele diz o que o
+  card mostra no lugar (o nome do jeito). Enter leva ao texto.
+- **O card no quadro acompanha** o que se escreve, letra a letra, e cresce com o texto (medido no próprio card, em
+  furos, nunca menor do que era); o anel amarelo marca qual é. A câmera traz o card para a parte do quadro que a folha
+  não cobre, num zoom em que ele aparece inteiro.
+- **Guardar**: o Pronto, Ctrl+Enter, o Esc ou clicar no quadro; um passo só no desfazer (Ctrl+Z traz o de antes). O
+  card novo que fica sem nada sai, como antes. O título da moldura e o rótulo da seta continuam no lugar (são uma
+  linha só), com o Esc desistindo.
+- **O texto guardado é o de sempre**: a primeira linha é o título, o resto o corpo (`noteParts`). Sem título, a
+  primeira linha fica vazia (senão a primeira linha do corpo viraria título); um título que pareceria lista ou widget
+  vai com `# ` na frente. Um título com formatação que não foi mexido fica como estava.
+
+Feito em uma parte só (o card ao vivo e a câmera saíram junto com a folha), BUILD 844: `ui/free-board/text-sheet.ts`
+(a folha), `noteText` em core/free-board.ts (o contrário do `noteParts`), o rascunho do editor virou signal
+(`BoardEditor.drafted`) e o quadro mostra o card com ele (`withDraft`), medido no próprio card (`cardNeed`, a classe
+`medindo`); `FreeBoardOwner.linkNotes` dá as anotações dos links. A folha mora num `@defer`: o editor só desce quando o
+dono escreve, e a visita nunca liga o editar.
+
+- `/code-review mid`: a medida saía uma letra atrasada (refeita também quando as peças montadas mudam); uma folha por
+  card (`@for ... track id`), para o desfazer do texto não passar de um card para outro.
+- Crítica do Impeccable (27/40; registro em `.impeccable/critique/`): o card aparece num zoom de ler (0,9, ou o maior
+  em que ele cabe) à esquerda da folha, e a câmera volta ao fechar; o Pronto subiu para a faixa (sem o pé tracejado); o
+  título a 1,5rem no celular; o lugar do título vazio com 3:1; o contador não muda mais com o título. Ficou como está,
+  de propósito: `**x**` escrito no Visual continua letra (a escolha P4 do Visual); o Esc guarda (o Ctrl+Z desfaz).
+- `/code-review high`: o Enter que fecha a composição do japonês no título não pula mais para o texto; a altura do
+  título fica com o `field-sizing`; com a folha aberta, o Delete e o L do quadro não valem (o Esc do quadro guarda); a
+  câmera volta também se a folha fecha no meio do deslize.

@@ -354,3 +354,18 @@ function watchDrawing(box: HTMLElement, measure: (again: () => void) => void): (
     mo.disconnect();
   };
 }
+
+/**
+ * A altura que o card do texto pede para mostrar tudo o que tem (o título, o corpo inteiro e o pé rasgado), em px do
+ * mundo, medida no próprio card por um instante sem o corte embaixo (a classe `medindo`). Null se o card não está
+ * desenhado com o texto (longe ou no meio, onde só o título aparece).
+ */
+export function cardNeed(piece: HTMLElement): number | null {
+  const card = piece.querySelector<HTMLElement>(':scope > .cartao');
+  if (!card || card.classList.contains('liso')) return null;
+  card.classList.add('medindo');
+  const h = card.offsetHeight;
+  card.classList.remove('medindo');
+  // o rasgo fica nos 7 px de baixo da peça
+  return h ? h + 7 : null;
+}

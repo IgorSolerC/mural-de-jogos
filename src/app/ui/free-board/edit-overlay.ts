@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, input, output, viewChild } from '@angular/core';
-import { FB_FRAME_TITLE_MAX, FB_LABEL_MAX, FB_TEXT_MAX, FbNode, FbSide, FB_SIDES, noteColor, noteLook } from '../../core/free-board';
-import { calloutPaper } from '../../core/callouts';
+import { FB_FRAME_TITLE_MAX, FB_LABEL_MAX, FbNode, FbSide, FB_SIDES, noteLook } from '../../core/free-board';
 import { CALLOUT_ICON } from '../callout-looks';
 import { anchor, boundsOf, intersects, nearestSide } from '../../core/free-board-geometry';
 import { ICON, IconModule } from '../icons';
@@ -13,8 +12,9 @@ export type SelectionAction = 'cor' | 'jeito' | 'rotulo' | 'cadeado' | 'frente' 
 /**
  * A camada da edição do Quadro livre (PLANO-QUADRO-LIVRE.md, 4.4 e seção 11): no mundo, por cima das peças, o
  * anel amarelo do que está selecionado, as alças de tamanho, as bolinhas de giz de onde saem as setas, a caixa
- * de seleção tracejada, a moldura sendo desenhada, a seta sendo puxada, o campo de escrever no lugar (o bilhete,
- * o título da moldura, o rótulo da seta) e a etiqueta de tinta com o que fazer com a seleção.
+ * de seleção tracejada, a moldura sendo desenhada, a seta sendo puxada, o campo de escrever no lugar (o título da
+ * moldura, o rótulo da seta; o texto do card tem a folha dele, text-sheet.ts) e a etiqueta de tinta com o que fazer
+ * com a seleção.
  *
  * Os pedaços que se puxam (as alças, as bolinhas) só têm a marca (`data-alca`, `data-bolinha`): quem pega o
  * ponteiro é a peça do quadro. O tamanho deles é de tela: a camada tem a `--iz` (1 / zoom), posta a cada quadro
@@ -61,43 +61,24 @@ export type SelectionAction = 'cor' | 'jeito' | 'rotulo' | 'cadeado' | 'frente' 
       <svg class="puxando" width="1" height="1" aria-hidden="true"><path [attr.d]="l" /></svg>
     }
     @if (writingBox(); as w) {
-      @if (w.kind === 'bilhete') {
-        <textarea
-          #campo
-          class="escrever bilhete"
-          [attr.data-escrevendo]="w.id"
-          aria-label="O texto do card: a primeira linha é o título"
-          placeholder="Título na primeira linha; o resto embaixo"
-          [attr.data-jeito]="w.paper"
-          [maxLength]="textMax"
-          [style.left.px]="w.x"
-          [style.top.px]="w.y"
-          [style.width.px]="w.w"
-          [style.height.px]="w.h"
-          [value]="w.text"
-          (keydown)="keys($event, w.writing)"
-          (input)="typed(w.writing, $event)"
-          (blur)="done(w.writing, $event)"
-        ></textarea>
-      } @else {
-        <input
-          #campo
-          class="escrever"
-          [class.titulo]="w.kind === 'moldura'"
-          [class.rotulo]="w.kind === 'seta'"
-          [attr.data-escrevendo]="w.id"
-          [attr.aria-label]="w.kind === 'moldura' ? 'O título da moldura' : 'O rótulo da seta'"
-          [placeholder]="w.kind === 'moldura' ? 'Sem título' : 'Rótulo'"
-          [maxLength]="w.kind === 'moldura' ? titleMax : labelMax"
-          [style.left.px]="w.x"
-          [style.top.px]="w.y"
-          [style.width.px]="w.w"
-          [value]="w.text"
-          (keydown)="keys($event, w.writing)"
-          (input)="typed(w.writing, $event)"
-          (blur)="done(w.writing, $event)"
-        />
-      }
+      <!-- o título da moldura e o rótulo da seta, escritos no lugar (o texto do card tem a folha dele, ao lado do quadro) -->
+      <input
+        #campo
+        class="escrever"
+        [class.titulo]="w.kind === 'moldura'"
+        [class.rotulo]="w.kind === 'seta'"
+        [attr.data-escrevendo]="w.id"
+        [attr.aria-label]="w.kind === 'moldura' ? 'O título da moldura' : 'O rótulo da seta'"
+        [placeholder]="w.kind === 'moldura' ? 'Sem título' : 'Rótulo'"
+        [maxLength]="w.kind === 'moldura' ? titleMax : labelMax"
+        [style.left.px]="w.x"
+        [style.top.px]="w.y"
+        [style.width.px]="w.w"
+        [value]="w.text"
+        (keydown)="keys($event, w.writing)"
+        (input)="typed(w.writing, $event)"
+        (blur)="done(w.writing, $event)"
+      />
     }
     @if (tag(); as t) {
       <!-- a etiqueta da seleção: a peça única dos botões dos cards (ui/_etiqueta-acoes.scss), à vista enquanto há
@@ -173,11 +154,10 @@ export class FreeBoardEditOverlay {
   readonly act = output<SelectionAction>();
 
   protected readonly Icons = { cor: ICON.paleta, jeito: ICON.moldura, rotulo: ICON.etiqueta, presa: ICON.setaPresa, solta: ICON.setaSolta, frente: ICON.frente, tras: ICON.tras, duplicar: ICON.copiar, apagar: ICON.apagar };
-  protected readonly textMax = FB_TEXT_MAX;
   protected readonly titleMax = FB_FRAME_TITLE_MAX;
   protected readonly labelMax = FB_LABEL_MAX;
 
-  private readonly campo = viewChild<ElementRef<HTMLInputElement | HTMLTextAreaElement>>('campo');
+  private readonly campo = viewChild<ElementRef<HTMLInputElement>>('campo');
 
   protected readonly selectedNodes = computed(() => {
     const nodes = this.nodes();
@@ -227,20 +207,19 @@ export class FreeBoardEditOverlay {
     return `M${a.x} ${a.y} L${b.x} ${b.y}`;
   });
 
-  /** O campo de escrever no lugar, onde ele fica no mundo. */
+  /** O campo de escrever no lugar (o título da moldura, o rótulo da seta), onde ele fica no mundo. */
   protected readonly writingBox = computed(() => {
     const w = this.editor().writing();
     if (!w) return null;
     if (w.kind === 'seta') {
       const m = this.edgeMid();
       if (!m) return null;
-      return { kind: 'seta' as const, id: w.id, writing: w, x: m.x - 120, y: m.y - 18, w: 240, h: 36, text: this.edgeText(), paper: null };
+      return { kind: 'seta' as const, id: w.id, writing: w, x: m.x - 120, y: m.y - 18, w: 240, text: this.edgeText() };
     }
     const n = this.nodes().get(w.id);
     if (!n) return null;
-    if (w.kind === 'moldura') return { kind: 'moldura' as const, id: w.id, writing: w, x: n.x + 26, y: n.y + 18, w: Math.max(160, Math.min(n.w - 52, 520)), h: 38, text: n.t === 'm' ? (n.nome ?? '') : '', paper: null };
-    const paper = n.t === 'x' ? calloutPaper(noteLook(n), noteColor(n)) : 'nota';
-    return { kind: 'bilhete' as const, id: w.id, writing: w, x: n.x, y: n.y, w: n.w, h: Math.max(n.h, 104), text: n.t === 'x' ? n.txt : '', paper };
+    if (w.kind !== 'moldura') return null;
+    return { kind: 'moldura' as const, id: w.id, writing: w, x: n.x + 26, y: n.y + 18, w: Math.max(160, Math.min(n.w - 52, 520)), text: n.t === 'm' ? (n.nome ?? '') : '' };
   });
 
   /** A etiqueta da seleção: em cima à esquerda da seleção, com os botões que valem para ela. */
@@ -266,13 +245,12 @@ export class FreeBoardEditOverlay {
   });
 
   constructor() {
-    // o campo de escrever recebe o foco quando aparece (o texto todo selecionado no título e no rótulo)
+    // o campo de escrever recebe o foco quando aparece, com o texto todo selecionado
     afterRenderEffect(() => {
       const el = this.campo()?.nativeElement;
       if (!el || el === document.activeElement) return;
       el.focus({ preventScroll: true });
-      if (el instanceof HTMLInputElement) el.select();
-      else el.setSelectionRange(el.value.length, el.value.length);
+      el.select();
     });
   }
 
@@ -284,42 +262,32 @@ export class FreeBoardEditOverlay {
     return h.includes('n') ? n.y : h.includes('s') ? n.y + n.h : n.y + n.h / 2;
   }
 
-  /**
-   * Enter guarda o título e o rótulo; no bilhete, Ctrl+Enter (o Enter é linha nova). Clicar fora também guarda. O
-   * Esc desiste do que foi escrito, como em todo campo.
-   */
+  /** Enter guarda o título e o rótulo, e clicar fora também. O Esc desiste do que foi escrito, como em todo campo. */
   protected keys(e: KeyboardEvent, w: Writing): void {
     e.stopPropagation();
-    const el = e.target as HTMLInputElement | HTMLTextAreaElement;
     if (e.key === 'Escape') {
       e.preventDefault();
       this.editor().cancelWriting(w);
       return;
     }
-    if (e.key === 'Enter' && (w.kind !== 'bilhete' || e.ctrlKey || e.metaKey)) {
+    if (e.key === 'Enter') {
       e.preventDefault();
-      this.finish(w, el.value, el instanceof HTMLTextAreaElement ? el.scrollHeight : undefined);
+      this.finish(w, (e.target as HTMLInputElement).value);
     }
   }
 
-  /**
-   * Cada letra: o editor sabe o que está no campo (o clique fora guarda isto) e, no card, a altura que o texto pede
-   * (o campo cresce junto, e o card guardado fica com ela: nada do texto some cortado embaixo).
-   */
+  /** Cada letra: o editor sabe o que está no campo (o clique fora guarda isto). */
   protected typed(w: Writing, e: Event): void {
-    const el = e.target as HTMLInputElement | HTMLTextAreaElement;
-    if (el instanceof HTMLTextAreaElement && el.scrollHeight > el.clientHeight) el.style.height = `${el.scrollHeight}px`;
-    this.editor().draft = { writing: w, text: el.value, ...(el instanceof HTMLTextAreaElement ? { height: el.scrollHeight } : {}) };
+    this.editor().draft = { writing: w, text: (e.target as HTMLInputElement).value };
   }
 
   protected done(w: Writing, e: FocusEvent): void {
-    const el = e.target as HTMLInputElement | HTMLTextAreaElement;
-    this.finish(w, el.value, el instanceof HTMLTextAreaElement ? el.scrollHeight : undefined);
+    this.finish(w, (e.target as HTMLInputElement).value);
   }
 
-  private finish(w: Writing, text: string, height?: number): void {
+  private finish(w: Writing, text: string): void {
     const now = this.editor().writing();
     if (!now || now.id !== w.id || now.kind !== w.kind) return;
-    this.editor().write(w, text, height);
+    this.editor().write(w, text);
   }
 }

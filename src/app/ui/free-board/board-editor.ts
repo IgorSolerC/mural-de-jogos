@@ -11,6 +11,9 @@ export type Tool = 'selecionar' | 'moldura' | 'texto';
 /** O que se escreve no lugar: o texto do bilhete, o título da moldura ou o rótulo da seta. */
 export type Writing = { kind: 'bilhete' | 'moldura'; id: string } | { kind: 'seta'; id: string };
 
+/** O que está escrito agora, ainda não guardado (ver `BoardEditor.draft`). */
+export type Draft = { writing: Writing; text: string; height?: number };
+
 /** O gesto em andamento (depois de passar dos 4 px, ele vale). */
 type Gesture =
   | { kind: 'mover'; start: Point; ids: Set<string>; lead: Point; base: FreeBoard }
@@ -61,9 +64,16 @@ export class BoardEditor {
   readonly writing = signal<Writing | null>(null);
   /**
    * O que está escrito no campo agora (o campo conta a cada letra): o clique fora do campo guarda isto antes de
-   * qualquer outra coisa, sem depender da ordem em que o navegador avisa que o campo perdeu o foco.
+   * qualquer outra coisa, sem depender da ordem em que o navegador avisa que o campo perdeu o foco. No texto, o quadro
+   * mostra o card com ele (e com a altura que ele pede, `height`) enquanto se escreve.
    */
-  draft: { writing: Writing; text: string; height?: number } | null = null;
+  readonly drafted = signal<Draft | null>(null);
+  get draft(): Draft | null {
+    return this.drafted();
+  }
+  set draft(d: Draft | null) {
+    this.drafted.set(d);
+  }
   /** "Selecionar vários" (no celular, arrastar no fundo passa a fazer a caixa). */
   readonly multi = signal(false);
   readonly history = new History();
@@ -482,8 +492,8 @@ export class BoardEditor {
   }
 
   /**
-   * Guarda o texto escrito no lugar (o bilhete, o título, o rótulo); vazio, o bilhete novo sai. `height`: a altura
-   * que o texto do card pediu no campo (o card cresce até ela, em furos; nunca encolhe sozinho).
+   * Guarda o texto escrito (o card, o título, o rótulo); vazio, o card novo sai. `height`: a altura que o card pede
+   * com o texto inteiro à mostra, medida nele (o card cresce até ela, em furos; nunca encolhe sozinho).
    */
   write(w: Writing, text: string, height?: number): void {
     this.writing.set(null);
@@ -508,8 +518,7 @@ export class BoardEditor {
         this.clearSelection();
         return;
       }
-      // o card desenhado tem o título maior e o pé rasgado: um furo a mais que o campo
-      const need = height ? Math.ceil((height + 26) / 26) * 26 : 0;
+      const need = height ? Math.ceil(height / 26) * 26 : 0;
       this.change((x) => patchNodes(x, new Set([n.i]), (y) => (y.t === 'x' ? { ...y, txt: text.slice(0, 4000), ...(need > y.h ? { h: need } : {}) } : y), now()));
       return;
     }

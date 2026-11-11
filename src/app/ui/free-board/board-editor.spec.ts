@@ -256,10 +256,10 @@ describe('Quadro livre: o editor', () => {
     expect(t.board.n.some((x) => x.i === m.i)).toBeFalse();
   });
 
-  it('o card cresce até a altura que o texto pediu no campo (em furos), e nunca encolhe sozinho', () => {
+  it('o card cresce até a altura que o texto pede, medida nele (em furos), e nunca encolhe sozinho', () => {
     const t = setup(board([note('a', 0, 0, 208, 104)]));
     t.ed.writing.set({ kind: 'bilhete', id: 'a' });
-    t.ed.write({ kind: 'bilhete', id: 'a' }, 'um\ndois\ntrês\nquatro\ncinco', 200);
+    t.ed.write({ kind: 'bilhete', id: 'a' }, 'um\ndois\ntrês\nquatro\ncinco', 220);
     expect(t.board.n[0].h).toBe(234);
     t.ed.writing.set({ kind: 'bilhete', id: 'a' });
     t.ed.write({ kind: 'bilhete', id: 'a' }, 'um', 40);

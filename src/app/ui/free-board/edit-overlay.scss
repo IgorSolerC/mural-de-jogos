@@ -184,7 +184,7 @@
   stroke-width: calc(9px * var(--iz));
 }
 
-/* escrever no lugar: o próprio papel (o bilhete), a fita (o título), a fita-crepe (o rótulo) */
+/* escrever no lugar: a fita (o título da moldura), a fita-crepe (o rótulo da seta) */
 .escrever {
   position: absolute;
   margin: 0;
@@ -194,22 +194,9 @@
   outline: calc(2.5px * var(--iz)) solid var(--hi);
   outline-offset: calc(4px * var(--iz));
   caret-color: var(--red);
-  resize: none;
 
   &::selection {
     background: rgb(255 218 66 / 0.6);
-  }
-}
-
-.escrever.bilhete {
-  /* o papel do card que está sendo escrito (o [data-jeito] de styles.scss) */
-  padding: 0.55em 0.85em;
-  background: var(--c-papel, var(--paper));
-  color: #1b1916;
-  font: 400 1.15rem / 1.35 var(--f-hand);
-
-  &::placeholder {
-    color: rgb(27 25 22 / 0.5);
   }
 }
 

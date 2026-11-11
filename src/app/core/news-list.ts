@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-10-recorte-sem-brilho',
+    id: '2026-11-10-texto-do-quadro',
     version: '1.43.2',
     kind: 'ajustes',
     date: '2026-11-10',
@@ -53,6 +53,7 @@ export const NEWS: NewsEntry[] = [
       'Cada grupo pode abrir com as finalizadas, as só no Kanban ou as só nos Flashcards à mostra, em Configurações do mural › Grupos › Ao abrir, mostrar também.',
       'Na folha "Editar as marcadas", o Apagar foi para o canto esquerdo do pé, como no editor, e diz quantas vão (Apagar as 3 anotações).',
       'Os widgets do quadro livre (o contador, o som, a anotação, a imagem, o vídeo) crescem pelas oito alças sem deformar. A tabela se reorganiza na largura e na altura da caixa, nunca menor que o conteúdo, e sem o papel branco atrás dela.',
+      'Escrever num card do quadro livre abre o editor das anotações numa folha ao lado do quadro (no celular, por cima dele): o título na faixa do card, separado do texto, e a régua de sempre, com o Visual e o Markdown. O card no quadro muda a cada letra e cresce com o texto; o Pronto, Ctrl+Enter, o Esc ou clicar no quadro guardam.',
       'Os botões do quadro livre (voltar, Editar e Pronto, tela cheia, as ferramentas e o zoom) viraram etiquetas de tinta separadas, como o Fixar e o Finalizar: crescem com o mouse em cima, o desenho ganha cor e a ferramenta ligada fica amarela. As ferramentas ficam em três grupos: o que a mão faz, o que entra no quadro, e desfazer, refazer e atalhos.',
     ],
     correcoes: [

@@ -18,6 +18,7 @@ import {
   noteColor,
   noteLook,
   noteParts,
+  noteText,
   patchEdge,
   patchNodes,
   pieceCount,
@@ -281,5 +282,25 @@ describe('Quadro livre: a lista e os grupos', () => {
     expect(noteParts('- lupa\n- chave')).toEqual({ title: '', body: '- lupa\n- chave' });
     expect(noteParts('Só o título')).toEqual({ title: 'Só o título', body: '' });
     expect(noteParts('Título\n\nCorpo')).toEqual({ title: 'Título', body: 'Corpo' });
+  });
+
+  it('noteText junta o título e o corpo do jeito que o noteParts separa de volta', () => {
+    const cases: [string, string][] = [
+      ['Senha?', 'A do cofre\n- lupa'],
+      ['', 'Primeira linha do corpo\nsegunda'],
+      ['', '- lupa\n- chave'],
+      ['Só o título', ''],
+      ['- não é lista', 'corpo'],
+      ['#1 da lista', ''],
+      ['1. primeiro', 'x'],
+      ['{{contador}}', ''],
+      ['', ''],
+    ];
+    for (const [title, body] of cases) expect(noteParts(noteText(title, body))).withContext(`${title} | ${body}`).toEqual({ title, body });
+    // sem título, a primeira linha fica vazia; o título é uma linha só
+    expect(noteText('', 'corpo')).toBe('\ncorpo');
+    expect(noteText('  um\n dois ', '')).toBe('um dois');
+    expect(noteText('', '  ')).toBe('');
+    expect(noteText('Título', 'corpo\n\n')).toBe('Título\ncorpo');
   });
 });

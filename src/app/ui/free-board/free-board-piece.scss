@@ -162,6 +162,16 @@
   font: inherit;
 }
 
+/* medindo a altura que o texto pede (ver `cardNeed`): o papel do tamanho do que tem, sem o corte embaixo */
+.cartao.medindo {
+  bottom: auto;
+
+  .cartao-corpo {
+    flex: none;
+    overflow: visible;
+  }
+}
+
 /* ===== Os widgets: a mesma peça das anotações; no meio, a versão leve ===== */
 
 /* o widget em escala: desenhado na largura e na linha de base (as duas vêm de free-board-piece.ts) e ampliado por

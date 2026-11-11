@@ -547,6 +547,19 @@ export function noteParts(txt: string): { title: string; body: string } {
   return { title: first.replace(/^\s*#+\s*/, '').trim(), body: rest(lines.slice(1).join('\n')) };
 }
 
+/**
+ * O contrário de `noteParts`: o texto do card com este título e este corpo. Sem título, a primeira linha fica vazia
+ * (senão a primeira linha do corpo viraria o título); o título que seria lido como lista, tabela, widget ou com um #
+ * dele vai com "# " na frente (o `noteParts` tira).
+ */
+export function noteText(title: string, body: string): string {
+  const t = title.replace(/\s+/g, ' ').trim();
+  const b = body.replace(/\s+$/, '');
+  if (!t) return b.trim() ? `\n${b}` : '';
+  const safe = /^([-*+>|#]|\d+[.)]\s|\[[ xX]?\]|\{\{)/.test(t) ? `# ${t}` : t;
+  return b.trim() ? `${safe}\n${b}` : safe;
+}
+
 // ===== o que o quadro usa =====
 
 /** O texto do quadro em que moram os widgets (para achar as imagens: `localImageIds`, e as notas: `cardRefsIn`). */

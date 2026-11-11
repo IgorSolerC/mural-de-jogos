@@ -5,6 +5,7 @@ import {
   ElementRef,
   Injector,
   afterNextRender,
+  afterRenderEffect,
   computed,
   effect,
   inject,
@@ -15,20 +16,21 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { FbNode, FreeBoard } from '../../core/free-board';
+import { FbNode, FbNote, FreeBoard, noteColor, noteLook } from '../../core/free-board';
 import { boardOutline } from '../../core/free-board-text';
 import { ContextMenu, MenuSections } from '../context-menu';
 import { Camera, Point, Rect, contains, fitRect, framesOf, readingOrder, toWorld, viewRect, zoomAt } from '../../core/free-board-geometry';
 import { NoteLinks } from '../../core/note-links';
 import { ICON, IconModule } from '../icons';
-import { BoardEditor } from './board-editor';
+import { BoardEditor, Draft } from './board-editor';
 import { BoardEditing } from './board-editing';
 import { CameraRig, RigHost } from './camera-rig';
 import { FreeBoardEditOverlay, SelectionAction } from './edit-overlay';
 import { FreeBoardOwner } from './owner-tools';
 import { FreeBoardTools, RulerAsk } from './tool-ruler';
 import { drawFar, farDensity } from './far-layer';
-import { FreeBoardPiece, PieceMeasured } from './free-board-piece';
+import { FreeBoardPiece, PieceMeasured, cardNeed } from './free-board-piece';
+import { FreeBoardTextSheet } from './text-sheet';
 import { PieceMeasure, fitMeasured, sameMeasure } from './edit-ops';
 import { NEAR_PX, Scene, SceneFrame, needsRecount } from './scene';
 import { FreeBoardThumbs } from './thumbs';
@@ -38,6 +40,13 @@ export const LABELS_ON_CANVAS_BELOW = 0.5;
 
 /** Quanto tempo a caixa acertada por uma medida espera para ser guardada (as medidas chegam juntas, ao abrir). */
 const MEASURED_KEEP_MS = 800;
+
+/** Onde a folha do texto cobre o quadro inteiro (a mesma medida do free-board-view.scss). */
+const SHEET_COVERS = '(max-width: 860px)';
+/** A largura da folha do texto, ao lado do quadro. */
+const SHEET_W = 460;
+/** O zoom em que o card sendo escrito aparece (a letra quase do tamanho da folha): ler o que muda nele. */
+const READ_Z = 0.9;
 
 /** Quanto as setas do teclado andam (px da tela); com Shift, cinco vezes isso. */
 const KEY_STEP = 80;
@@ -69,7 +78,7 @@ interface EdgeLabel {
  */
 @Component({
   selector: 'app-free-board',
-  imports: [ContextMenu, FreeBoardEditOverlay, FreeBoardPiece, FreeBoardTools, IconModule],
+  imports: [ContextMenu, FreeBoardEditOverlay, FreeBoardPiece, FreeBoardTextSheet, FreeBoardTools, IconModule],
   providers: [FreeBoardThumbs],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './free-board-view.scss',
@@ -175,6 +184,22 @@ interface EdgeLabel {
         }
       </section>
     }
+    @for (c of writingCards(); track c.id) {
+      <!-- o texto do card: o editor das anotações numa folha ao lado do quadro (no celular, por cima dele), com o card
+           mudando no quadro a cada letra. Uma folha nova para cada card (o desfazer do texto é daquele card) -->
+      @defer (on immediate) {
+        <app-free-board-text-sheet
+          class="folha-texto"
+          [id]="c.id"
+          [text]="c.txt"
+          [look]="c.look"
+          [color]="c.color"
+          [notes]="linkNotes()"
+          (changed)="cardTyped(c.id, $event)"
+          (done)="editor.flushWriting()"
+        />
+      }
+    }
     <app-context-menu #menu [caption]="menuCaption()" [sections]="menuSections()" (closed)="menuClosed()" />
     <div class="regua" role="toolbar" aria-label="Zoom do quadro">
       <div class="grupo-zoom">
@@ -278,8 +303,21 @@ export class FreeBoardView implements RigHost {
   protected readonly scene = computed(() => {
     const preview = this.editor.preview();
     // no meio do gesto, também com as medidas: a tabela não fica menor que o conteúdo nem enquanto é puxada
-    return new Scene(preview ? fitMeasured(preview, this.measures()) : this.shown());
+    const board = preview ? fitMeasured(preview, this.measures()) : this.shown();
+    // escrevendo o texto de um card: ele aparece com o que está escrito, na altura que o texto pede
+    return new Scene(withDraft(board, this.editor.drafted()));
   });
+  /** O card cujo texto está sendo escrito na folha (o texto guardado, o jeito e a cor), ou null. */
+  protected readonly writingCard = computed(() => {
+    const w = this.editor.writing();
+    const n = w?.kind === 'bilhete' ? this.current().n.find((x): x is FbNote => x.i === w.id && x.t === 'x') : undefined;
+    return n ? { id: n.i, txt: n.txt, look: noteLook(n), color: noteColor(n) } : null;
+  });
+  protected readonly writingCards = computed(() => {
+    const c = this.writingCard();
+    return c ? [c] : [];
+  });
+  protected readonly linkNotes = computed(() => this.owner()?.linkNotes() ?? null);
   protected readonly menuCaption = signal('');
   protected readonly menuSections = signal<MenuSections>([]);
   protected readonly helpOpen = signal(false);
@@ -315,7 +353,8 @@ export class FreeBoardView implements RigHost {
     ['Setas', 'Andar a seleção um furo (Shift: 1 px)'],
     ['Alt arrastando', 'Sem encaixar nos furos'],
     ['Duplo clique', 'Escrever, renomear, editar; no fundo, um texto'],
-    ['Clicar fora ou Ctrl+Enter', 'Guardar o texto (Esc desiste)'],
+    ['Pronto, Ctrl+Enter, Esc ou clicar no quadro', 'Guardar o texto do card'],
+    ['Enter ou clicar fora', 'Guardar o título da moldura ou o rótulo da seta (Esc desiste)'],
     ['+ − 0 1', 'Zoom, Ver tudo, 100%'],
     ['Esc', 'Tirar a seleção; sem nada, sair do editar'],
     ['L', 'Ver o quadro em lista'],
@@ -394,15 +433,44 @@ export class FreeBoardView implements RigHost {
       this.scene();
       untracked(() => this.live && this.recount(this.live));
     });
-    // saindo do editar: sem seleção, sem gesto no meio, a ferramenta de volta
+    // saindo do editar: o que estava sendo escrito fica guardado; sem seleção, sem gesto no meio, a ferramenta de volta
     effect(() => {
       if (this.editing()) return;
       untracked(() => {
+        this.editor.flushWriting();
         this.editor.cancel();
         this.editor.clearSelection();
-        this.editor.writing.set(null);
         this.editor.tool.set('selecionar');
       });
+    });
+    // a folha do texto abriu: os outros painéis do canto fecham, o card fica marcado e aparece na parte do quadro que
+    // a folha não cobre; fechou, o foco volta para o quadro
+    effect(() => {
+      const id = this.writingCard()?.id ?? null;
+      if (id === this.cardOpen) return;
+      const was = this.cardOpen;
+      this.cardOpen = id;
+      untracked(() => {
+        if (id) {
+          this.listOpen.set(false);
+          this.helpOpen.set(false);
+          if (!this.editor.selected().has(id) || this.editor.selected().size !== 1) this.editor.select([id]);
+          this.revealCard(id);
+        } else if (was) {
+          this.restoreCamera();
+          afterNextRender(() => (!document.activeElement || document.activeElement === document.body) && this.visor().nativeElement.focus({ preventScroll: true }), { injector: this.injector });
+        }
+      });
+    });
+    // o card sendo escrito: a altura que o texto inteiro pede, medida no próprio card (ele cresce enquanto se escreve)
+    afterRenderEffect(() => {
+      const d = this.editor.drafted();
+      // (e de novo quando as peças montadas mudam: o card recebe o texto novo na conta da cena, depois do rascunho)
+      this.view();
+      if (d?.writing.kind !== 'bilhete') return;
+      const el = this.front().nativeElement.querySelector<HTMLElement>(`app-free-board-piece[data-peca="${d.writing.id}"]`);
+      const need = el ? cardNeed(el) : null;
+      if (need !== null && need !== d.height) this.editor.draft = { ...d, height: need };
     });
     // no editar do dono, a caixa acertada por uma medida nova (a imagem trocada que chegou, o widget que mudou de
     // tamanho) fica guardada sozinha, um instante depois e fora de um gesto: sem passo no desfazer (ninguém a fez)
@@ -586,6 +654,50 @@ export class FreeBoardView implements RigHost {
     afterNextRender(() => focus(10), { injector: this.injector });
   }
 
+  /**
+   * Leva a câmera até o card que vai ser escrito, se ele não aparece inteiro na parte do quadro que a folha não cobre
+   * (ou está pequeno demais para ler o texto): no meio dessa parte, num zoom de ler (`READ_Z`) ou no maior em que ele
+   * cabe. Ao fechar, a câmera volta (`restoreCamera`). No celular a folha cobre o quadro todo, e a câmera fica.
+   */
+  private revealCard(id: string): void {
+    const node = this.shown().n.find((n) => n.i === id);
+    if (!this.rig || !node || matchMedia(SHEET_COVERS).matches) return;
+    const cam = this.rig.camera;
+    const { w, h } = this.dims;
+    // a folha: 460 px (ou o que couber) e 16 de margem, à direita; o quadro livre fica à esquerda dela
+    const free = w - Math.min(SHEET_W, w - 32) - 32;
+    const box = { left: 24, top: 72, right: free - 24, bottom: h - 92 };
+    const screen = { x: (node.x - cam.x) * cam.z, y: (node.y - cam.y) * cam.z, w: node.w * cam.z, h: node.h * cam.z };
+    const inside = screen.x >= box.left && screen.y >= box.top && screen.x + screen.w <= box.right && screen.y + screen.h <= box.bottom;
+    // num zoom de ler (o texto mudando a cada letra se vê), se o card couber nele; senão, o maior em que ele cabe
+    const fit = Math.min((box.right - box.left) / node.w, (box.bottom - box.top) / node.h);
+    const z = Math.max(0.05, Math.min(Math.max(cam.z, READ_Z), fit));
+    if (inside && z <= cam.z + 0.01) return;
+    const cx = (box.left + box.right) / 2;
+    const cy = (box.top + box.bottom) / 2;
+    const to = { x: node.x + node.w / 2 - cx / z, y: node.y + node.h / 2 - cy / z, z };
+    this.cardCamera = { before: cam, after: to };
+    this.rig.flyTo(to);
+  }
+
+  /** A folha fechou: a câmera volta para onde estava antes de ir até o card (se ninguém a mexeu depois). */
+  private restoreCamera(): void {
+    const c = this.cardCamera;
+    this.cardCamera = null;
+    const now = this.rig?.camera;
+    if (!c || !now) return;
+    // (ainda deslizando até o card também: a pessoa não mexeu, senão o deslize teria parado)
+    const near = Math.abs(now.z - c.after.z) < 0.001 && Math.hypot(now.x - c.after.x, now.y - c.after.y) * now.z < 2;
+    if (near || this.rig!.flying) this.rig!.flyTo(c.before);
+  }
+
+  /** Uma letra na folha do texto: o card no quadro mostra o que está escrito (a altura vem da medida, depois). */
+  protected cardTyped(id: string, text: string): void {
+    const d = this.editor.draft;
+    const same = d?.writing.kind === 'bilhete' && d.writing.id === id;
+    this.editor.draft = { writing: { kind: 'bilhete', id }, text, ...(same && d.height ? { height: d.height } : {}) };
+  }
+
   // ===== "Ver em lista" =====
 
   /** Abre a lista, com o foco nela. */
@@ -641,6 +753,10 @@ export class FreeBoardView implements RigHost {
   }
 
   private menuOnClose: (() => void) | null = null;
+  /** O card com a folha do texto aberta (para saber quando ela abre e fecha). */
+  private cardOpen: string | null = null;
+  /** A câmera de antes e a de depois de ir até o card da folha (para voltar ao fechar). */
+  private cardCamera: { before: Camera; after: Camera } | null = null;
 
   protected menuClosed(): void {
     const done = this.menuOnClose;
@@ -781,4 +897,15 @@ export class FreeBoardView implements RigHost {
     visor.toggleAttribute('data-movendo', on);
     for (const layer of this.layers()) layer.style.willChange = on ? 'transform' : '';
   }
+}
+
+/**
+ * O quadro com o texto que está sendo escrito no card (só para mostrar): o card com o texto de agora e, se o texto
+ * pede, mais alto (em furos, nunca menor do que era). O editor continua no quadro guardado.
+ */
+function withDraft(board: FreeBoard, d: Draft | null): FreeBoard {
+  if (d?.writing.kind !== 'bilhete') return board;
+  const id = d.writing.id;
+  const h = d.height ? Math.ceil(d.height / 26) * 26 : 0;
+  return { ...board, n: board.n.map((n) => (n.i === id && n.t === 'x' ? { ...n, txt: d.text, h: Math.max(n.h, h) } : n)) };
 }

@@ -300,6 +300,22 @@
   }
 }
 
+/* a folha do texto do card (text-sheet.ts): no lugar do "Ver em lista", ao lado do quadro; abaixo de 860 px (onde a
+   régua das ferramentas sobe), por cima do quadro inteiro, como o editor das anotações no celular */
+.folha-texto {
+  position: absolute;
+  z-index: 2;
+  top: 72px;
+  right: 16px;
+  bottom: 84px;
+  width: min(460px, calc(100% - 32px));
+
+  @media (max-width: 860px) {
+    inset: 8px;
+    width: auto;
+  }
+}
+
 .lista-topo {
   display: flex;
   align-items: center;

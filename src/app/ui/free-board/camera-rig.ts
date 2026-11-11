@@ -121,6 +121,11 @@ export class CameraRig {
     this.flight = requestAnimationFrame(step);
   }
 
+  /** A câmera está deslizando num `flyTo` (qualquer gesto da pessoa para o deslize). */
+  get flying(): boolean {
+    return !!this.flight;
+  }
+
   private stopFlight(): void {
     if (this.flight) cancelAnimationFrame(this.flight);
     this.flight = 0;

@@ -1,3 +1,5 @@
+import { Review } from '../../core/review';
+
 /**
  * O que só o dono faz no Quadro livre e a peça do quadro não sabe fazer sozinha (a regra "Visita: as mesmas
  * peças do dono", no CLAUDE.md): escolher uma anotação, guardar imagens, abrir a folha de um widget, abrir uma
@@ -20,4 +22,6 @@ export interface FreeBoardOwner {
   editWidget(line: string): Promise<string | null>;
   /** Abre a nota (a leitura). */
   openNote(id: string): void;
+  /** As anotações que os links "[[Título]]" do texto de um card abrem (o editor do texto as oferece). */
+  linkNotes(): readonly Review[];
 }

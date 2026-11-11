@@ -1,0 +1,121 @@
+@use '../formatado';
+
+/* A folha de escrever o texto do Quadro livre (ver text-sheet.ts): o papel solto dos painéis do quadro (o "Ver em
+   lista", os atalhos), com o alto do card em cima e o editor das anotações embaixo. Quem diz onde ela fica é o
+   quadro (free-board-view.scss). */
+
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--paper) var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  box-shadow: var(--shadow-lift);
+}
+
+/* ===== A faixa: o alto do card (o papel do jeito ou da cor, a fibra, o pé rasgado), com o desenho e o título a
+   pincel na tinta do jeito, sobre a linha de caneta de onde se escreve (o nome na faixa do editor das anotações) ===== */
+
+.faixa {
+  @include formatado.cartao-papel;
+  position: relative;
+  z-index: 1;
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px 22px 16px;
+  color: var(--c-tinta);
+  font-size: 1.9rem;
+
+  /* no celular, o título não toma a folha (um título de três linhas ficava com um quarto dela) */
+  @media (max-width: 860px) {
+    gap: 10px;
+    padding: 14px 14px 12px 16px;
+    font-size: 1.5rem;
+  }
+
+  &::after {
+    @include formatado.cartao-rasgo;
+  }
+}
+
+.icone {
+  @include formatado.cartao-icone;
+  /* no meio da primeira linha do título */
+  margin-top: 0.06em;
+}
+
+.titulo {
+  flex: 1;
+  min-width: 0;
+  display: block;
+  min-height: 1.2em;
+  /* cresce com o título (também quando a letra a pincel chega depois); sem o field-sizing, a conta é do text-sheet.ts */
+  field-sizing: content;
+  margin: 0;
+  padding: 0 0 8px;
+  border: 0;
+  background: linear-gradient(currentColor, currentColor) 0 100% / 100% 1.5px no-repeat;
+  background-color: transparent;
+  color: inherit;
+  caret-color: var(--red);
+  font: 400 1em / 1.12 var(--f-marker);
+  letter-spacing: 0.005em;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  resize: none;
+  outline: none;
+  transition: background-size var(--t-ui) var(--ease-ui);
+
+  &::placeholder {
+    color: inherit;
+    /* 3:1 ou mais sobre o papel de todo jeito (a letra é grande) */
+    opacity: 0.78;
+  }
+
+  &::selection {
+    background: rgb(255 218 66 / 0.6);
+  }
+
+  /* no foco, a linha de caneta engrossa: é ela que diz onde se escreve */
+  &:focus {
+    background-size: 100% 3px;
+  }
+}
+
+/* ===== O texto: o editor das anotações, que cresce com o que tem; quem rola é a folha (uma rolagem só, com a régua
+   presa em cima dela) ===== */
+
+.conteudo {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  /* sem respiro em cima: o alto da folha e a régua presos contam a partir do padding de quem rola, e ficariam por
+     cima da primeira linha (o respiro é a margem do editor, os 16 px de onde o alto prende) */
+  padding: 0 16px 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: rgb(21 21 21 / 0.35) transparent;
+  /* a linha do cursor não fica atrás do alto da folha e da régua presos em cima, nem colada no pé */
+  scroll-padding-block: 128px 32px;
+
+  @media (max-height: 500px) {
+    scroll-padding-top: 64px;
+  }
+}
+
+app-rich-editor {
+  flex: 1 0 auto;
+  margin-top: 16px;
+}
+
+/* o Pronto, no alto à direita, como o Pronto do topo do quadro: guarda e fecha a folha */
+.pronto {
+  flex: none;
+  align-self: flex-start;
+  font-size: 1rem;
+}

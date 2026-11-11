@@ -795,6 +795,12 @@ export class BoardEditing {
   /** Os atalhos do editar; devolve se a tecla foi usada. */
   key(e: KeyboardEvent): boolean {
     if (e.key === ' ' && !e.repeat) this.space = true;
+    // com a folha do texto aberta, o card dela não sai pelo Delete nem a lista cobre a folha: o Esc guarda e fecha
+    if (this.ed.writing()?.kind === 'bilhete') {
+      if (e.key !== 'Escape') return false;
+      this.ed.flushWriting();
+      return true;
+    }
     if ((e.key === 'l' || e.key === 'L') && !e.ctrlKey && !e.metaKey && !e.altKey) {
       this.h.showList();
       return true;
