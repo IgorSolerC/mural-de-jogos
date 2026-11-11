@@ -379,6 +379,6 @@ Novidades, BUILD + 1, commit e push.
 - [x] Rodada 2 — A nuvem dos grupos (BUILD 854)
 - [x] Rodada 3 — Compartilhar um grupo com pessoas (BUILD 855). Ficou para a rodada 4, com o documento do grupo: o nome, o desenho, a cor, as pastas e as tags do grupo (renomear um grupo compartilhado ainda não chega aos outros), e tirar uma anotação do grupo pela tela
 - [x] Rodada 4 — O Kanban compartilhado (BUILD 856): o quadro no documento do grupo (junção cartão a cartão, a mexida que espera sobe depois de recarregar, parar de compartilhar devolve o quadro), as tags do grupo, renomear para todos. A peça `ui/kanban-board.ts` para a visita fica para a rodada 5, quando ela tiver o segundo uso. Ficaram de fora: as pastas do grupo (cada um tem as suas) e as cores das tags do grupo; renomear muda o id do quadro (o último aberto volta a outro)
-- [ ] Rodada 5 — O grupo público
+- [~] Rodada 5 — O grupo público. 5a (BUILD 857): o Público na parte Compartilhar com os avisos 4.4.1, 4.4.2 e 4.4.5 e a conversão das privadas, o público servido pela nuvem e o mural do grupo na visita (core/visit-groups.ts), o link `?mural=…&grupo=…`, as fichas à mostra no envio do dono (PUBLIC_RULES 7). 5b: o Kanban do grupo na visita, com o quadro tirado da página para a peça `ui/kanban-board.ts`
 - [ ] Rodada 6 — Quadros livres compartilhados
 - [ ] Rodada 7 — Fechamento

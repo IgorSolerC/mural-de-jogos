@@ -5,6 +5,8 @@ import { Review } from './review';
 import { SpoilerShield } from './spoiler-shield';
 import { WallMotion } from './wall-motion';
 import { VISIT_KEY, WallState } from './wall-view';
+import { VisitGroups } from './visit-groups';
+import { lookKey } from './category-looks';
 
 const NONE: ReadonlySet<string> = new Set();
 
@@ -26,7 +28,15 @@ export class VisitView extends WallState {
 
   readonly colleague = this.colleagues.selected;
   readonly owner = computed(() => this.colleague()?.name ?? 'Colega');
-  readonly categoryLooks = computed(() => this.colleague()?.categoryLooks ?? {});
+  /** Os grupos públicos da pessoa, servidos pela nuvem (PLANO-COMPARTILHAR.md, 4.6). */
+  readonly publicGroups = inject(VisitGroups);
+  /** O desenho e a cor dos grupos: os do mural público dela, e os dos grupos públicos (que vêm de cada grupo). */
+  readonly categoryLooks = computed(() => {
+    const groups = this.publicGroups.groups();
+    const own = this.colleague()?.categoryLooks ?? {};
+    if (!groups.length) return own;
+    return { ...own, ...Object.fromEntries(groups.map((g) => [lookKey(g.nome), g.look])) };
+  });
   /**
    * As fichas e as pastas da pessoa. O mural público de antes das pastas (ainda não reenviado) traz o
    * assunto: ele vira pasta aqui, na leitura, do mesmo jeito que no aparelho dela.
@@ -38,7 +48,14 @@ export class VisitView extends WallState {
   readonly folders = computed(() => this.converted().tree);
   /** O código na nuvem da pessoa (as fichas mostram as reações); null num backup. */
   readonly code = computed(() => this.colleague()?.codigo ?? null);
-  readonly wall = computed<Review[]>(() => this.converted().reviews.filter((r) => r.kind === this.mural.kind()));
+  readonly wall = computed<Review[]>(() => {
+    const own = this.converted().reviews.filter((r) => r.kind === this.mural.kind());
+    // as anotações dos grupos públicos dela, no grupo delas (as de um grupo nunca vão no mural público de cada um)
+    const groups = this.mural.kind() === 'anotacoes' ? this.publicGroups.notes() : [];
+    if (!groups.length) return own;
+    const ids = new Set(own.map((r) => r.id));
+    return [...own, ...groups.filter((r) => !ids.has(r.id))];
+  });
 
   /** "Mostrar notas": de quem (o id da pessoa), para outra pessoa abrir seguindo Ajustes de novo. */
   private readonly revealedFor = signal<string | null>(null);
@@ -68,6 +85,11 @@ export class VisitView extends WallState {
       this.colleague()?.id;
       this.mural.kind();
       untracked(() => this.reset());
+    });
+    // os grupos públicos de quem se visita (a pessoa mudou, ou passou o tempo de conferir de novo)
+    effect(() => {
+      const code = this.code();
+      untracked(() => void this.publicGroups.load(code));
     });
   }
 

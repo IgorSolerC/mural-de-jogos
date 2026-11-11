@@ -61,15 +61,20 @@ describe('compartilhar um grupo: a parte da engrenagem e a etiqueta da pasta', (
   let current: ReturnType<typeof signal<SharedGroup | undefined>>;
   let asked: { title?: string; text: string }[];
   let calls: string[];
+  let updates: Review[];
 
-  function setup(g: SharedGroup | undefined, answer = true) {
+  function setup(g: SharedGroup | undefined, answer: boolean | 'confirm' | 'secondary' = true) {
     current = signal(g);
     asked = [];
     calls = [];
+    updates = [];
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
-        { provide: ReviewStore, useValue: { notes: () => [note('n-um0001', true), note('n-dois01', true), note('n-tres01', false)] } },
+        {
+          provide: ReviewStore,
+          useValue: { notes: () => [note('n-um0001', true), note('n-dois01', true), note('n-tres01', false)], update: (r: Review) => void updates.push(r) },
+        },
         {
           provide: SharedGroupsStore,
           useValue: {
@@ -81,13 +86,20 @@ describe('compartilhar um grupo: a parte da engrenagem e a etiqueta da pasta', (
             removeMember: async (id: string, codigo: string) => void calls.push(`tirar:${id}:${codigo}`),
             leave: async (id: string) => void calls.push(`sair:${id}`),
             stop: async (id: string) => void calls.push(`parar:${id}`),
+            setPublic: async (id: string, on: boolean) => void calls.push(`publico:${id}:${on}`),
           },
         },
         { provide: SharedStore, useValue: { inGroupOf: () => [{ criadoPor: EU }, { criadoPor: EU }, { criadoPor: ANA }] } },
         { provide: CloudAccount, useValue: { signedIn: () => true, account: () => ({ id: 'u-eu', ...EU }) } },
         { provide: Cloud, useValue: { config: () => ({ api: 'x' }) } },
         { provide: Follow, useValue: { available: () => false, people: () => null, loadPeople: async () => null } },
-        { provide: Confirm, useValue: { ask: async (q: { title?: string; text: string }) => (asked.push(q), answer) } },
+        {
+          provide: Confirm,
+          useValue: {
+            ask: async (q: { title?: string; text: string }) => (asked.push(q), answer === true || answer === 'confirm'),
+            choose: async (q: { title?: string; text: string }) => (asked.push(q), answer === true ? 'confirm' : answer === false ? null : answer),
+          },
+        },
         { provide: Router, useValue: { navigate: async () => true } },
         { provide: KanbanStore, useValue: { boardFor: () => null } },
       ],
@@ -157,6 +169,30 @@ describe('compartilhar um grupo: a parte da engrenagem e a etiqueta da pasta', (
     await f.whenStable();
     expect(asked[0]!.text).toContain('Você escreveu 2 anotações neste grupo. Elas ficam no grupo, com Ana, e saem do seu mural.');
     expect(calls).toEqual(['sair:gTrabalho001']);
+  });
+
+  it('tornar público avisa quantas privadas há (as palavras do pedido) e as deixa Disponíveis, fora do Feed', async () => {
+    setup(group('dono', [{ ...ANA, papel: 'editor' }]));
+    const { f, el } = await render();
+    el.querySelector<HTMLInputElement>('input[name="grupo-publico"][value="sim"]')!.click();
+    await f.whenStable();
+    expect(asked[0]!.text).toBe('Há 2 anotações privadas neste grupo (no mural e no Kanban). Torná-lo público irá deixá-las públicas, sem ir para o Feed. Tem certeza que quer fazer isso?');
+    expect(calls).toEqual(['publico:gTrabalho001:true']);
+    expect(updates.map((r) => [r.id, !!r.private, !!r.quiet])).toEqual([
+      ['n-um0001', false, true],
+      ['n-dois01', false, true],
+    ]);
+  });
+
+  it('voltar a só quem está pergunta se as públicas voltam a ser privadas; "Deixar como estão" não mexe nelas', async () => {
+    setup({ ...group('dono', [{ ...ANA, papel: 'editor' }]), publico: true }, 'secondary');
+    const { f, el } = await render();
+    expect(el.textContent).toContain('Copiar o link');
+    el.querySelector<HTMLInputElement>('input[name="grupo-publico"][value="nao"]')!.click();
+    await f.whenStable();
+    expect(asked[0]!.text).toContain('continua pública (Disponíveis)'.replace('continua pública', 'A anotação do grupo continua pública'));
+    expect(calls).toEqual(['publico:gTrabalho001:false']);
+    expect(updates).toEqual([]);
   });
 
   it('a etiqueta da pasta: só no grupo que não é só seu, com as fotos e o resumo; tocar abre o Compartilhar', async () => {

@@ -86,6 +86,7 @@ describe('grupos compartilhados: o serviço (core/shared-groups-store.ts)', () =
     const replies: Record<string, unknown> = {
       'POST /v1/grupos': { grupo: raw({ papel: 'dono', dono: EU, membros: [{ ...ANA, papel: 'editor', desde: '' }] }) },
       'GET /v1/eu/grupos': { grupos: [] },
+      'PUT /v1/grupos/gTrabalho001': { grupo: raw({ papel: 'dono', dono: EU, publico: true, rev: 3 }) },
     };
     const shared = {
       entries,
@@ -160,6 +161,17 @@ describe('grupos compartilhados: o serviço (core/shared-groups-store.ts)', () =
     await groups.adopt();
     expect(shared.moveToGroup).toHaveBeenCalledOnceWith('n-solta1', g.id);
     expect(shared.share).not.toHaveBeenCalled();
+  });
+
+  it('a privada que chega num grupo público por outro caminho (em massa, Kanban) sobe pública, fora do Feed', async () => {
+    const { groups, shared } = setup();
+    await groups.share('Trabalho', []);
+    await groups.setPublic('gTrabalho001', true);
+    store.add(note('n-priv01', 'Trabalho'));
+    shared.share.calls.reset();
+    await groups.adopt();
+    const sent = shared.share.calls.mostRecent().args[0] as Review;
+    expect([sent.id, !!sent.private, !!sent.quiet]).toEqual(['n-priv01', false, true]);
   });
 
   it('sair do grupo: ele sai daqui, e as anotações dele saem com a próxima conferida', async () => {

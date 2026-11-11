@@ -162,8 +162,11 @@ export class CloudMurals {
     const params = new URLSearchParams(location.search);
     const code = params.get('mural');
     if (code === null) return;
+    // o grupo público (PLANO-COMPARTILHAR.md, 4.6): a visita abre na aba dele
+    const group = params.get('grupo');
     // tira o parâmetro do endereço: recarregar a página não abre de novo
     params.delete('mural');
+    params.delete('grupo');
     const rest = params.toString();
     history.replaceState(history.state, '', location.pathname + (rest ? `?${rest}` : '') + location.hash);
     await this.cloud.ready;
@@ -173,7 +176,7 @@ export class CloudMurals {
     }
     try {
       const colleague = await this.open(code);
-      await this.router.navigate(['/comparar/mural']);
+      await this.router.navigate(['/comparar/mural'], group ? { queryParams: { grupo: group } } : {});
       this.toasts.show(`O mural de ${colleague.name} chegou`);
     } catch (err) {
       this.toasts.show(err instanceof Error ? err.message : 'Não consegui abrir esse mural.');

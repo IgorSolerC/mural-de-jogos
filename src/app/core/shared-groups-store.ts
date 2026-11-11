@@ -2,7 +2,7 @@ import { DestroyRef, Injectable, InjectionToken, computed, effect, inject, signa
 import { CloudAccount, CloudError } from './cloud-account';
 import { Cloud } from './cloud-config';
 import { LocalData } from './local-data';
-import { isNote } from './review';
+import { isNote, withAudience } from './review';
 import { ReviewStore } from './review-store';
 import { MemberRole, canManage, canWrite } from './shared-notes';
 import { SharedStore } from './shared-store';
@@ -201,6 +201,25 @@ export class SharedGroupsStore {
     return true;
   }
 
+  /**
+   * Torna o grupo público (qualquer pessoa lê, pelo seu mural e pelo link) ou só de quem está (o dono e os
+   * gestores). Outra gravação no meio (409): tenta de novo a partir da de agora.
+   */
+  async setPublic(groupId: string, on: boolean): Promise<void> {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const g = this.entries().get(groupId);
+      if (!g || g.publico === on) return;
+      try {
+        const res = await this.account.request<{ grupo: unknown }>(`/v1/grupos/${encodeURIComponent(groupId)}`, { method: 'PUT', body: { base: g.rev, publico: on } });
+        this.integrate(res?.grupo);
+        return;
+      } catch (err) {
+        if (!(err instanceof CloudError) || err.status !== 409) throw err;
+        this.integrate((err.body as { grupo?: unknown } | null)?.grupo);
+      }
+    }
+  }
+
   // ——— o que a peça Quem vê pede ———
 
   /**
@@ -212,12 +231,13 @@ export class SharedGroupsStore {
     people: { codigo: string; papel: MemberRole }[],
     look: { icone?: string; cor?: string } = {},
     board: KanbanBoard | null = null,
+    publico = false,
   ): Promise<SharedGroup> {
     // o quadro do Kanban do grupo vai junto (o de sempre, em que ninguém mexeu, não: cada um vê o de sempre)
     const kanban = board && board.at !== FRESH_AT ? { kanban: board } : {};
     const res = await this.account.request<{ grupo: unknown }>('/v1/grupos', {
       method: 'POST',
-      body: { id: newGroupId(), dados: { nome: category, ...(look.icone || look.cor ? { aparencia: look } : {}), ...kanban }, membros: people },
+      body: { id: newGroupId(), dados: { nome: category, ...(look.icone || look.cor ? { aparencia: look } : {}), ...kanban }, membros: people, ...(publico ? { publico: true } : {}) },
     });
     const g = this.integrate(res?.grupo);
     if (!g) throw new CloudError('A nuvem respondeu de um jeito estranho. Tente de novo.', 'resposta-invalida', 0);
@@ -395,8 +415,14 @@ export class SharedGroupsStore {
         const entry = this.shared.get(note.id);
         const now = this.store.get(note.id);
         if (!now || this.ofCategory(now.category)?.id !== grupo) continue;
+        // num grupo público, a privada fica pública, fora do Feed (o editor pergunta antes; os outros caminhos
+        // chegam aqui sem perguntar, e a nuvem já a mostraria pelo grupo: o que ela diz tem de bater)
+        const g = this.entries().get(grupo);
+        // (a daqui muda antes de subir: o envio compara com ela, e a privada voltaria por cima)
+        if (g?.publico && now.private) this.store.update(withAudience(now, 'visivel', new Date().toISOString()));
+        const ready = this.store.get(note.id) ?? now;
         if (entry) await this.shared.moveToGroup(note.id, grupo);
-        else await this.shared.share(now, [], grupo);
+        else await this.shared.share(ready, [], grupo);
       }
       this.error.set(null);
     } catch (err) {

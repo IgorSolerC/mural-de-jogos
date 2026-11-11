@@ -1611,7 +1611,10 @@ export class ReviewEditor {
       return;
     }
     if (!(await this.okWithoutLabels())) return;
-    if (!(await this.okIntoSharedGroup())) return;
+    const into = await this.okIntoSharedGroup(audience);
+    if (!into) return;
+    // a privada num grupo público vira Disponível: pública, fora do Feed (o pedido do dono)
+    if (into === 'publica') audience = 'visivel';
     const now = new Date().toISOString();
     const prev = this.editing();
     const look = this.preview();
@@ -1717,15 +1720,31 @@ export class ReviewEditor {
    * A anotação vai para um grupo compartilhado em que ainda não estava: quem está nele passa a vê-la
    * (PLANO-COMPARTILHAR.md, 4.4.4); no grupo de outra pessoa, ela passa a ser do grupo. Voltar abre o Grupo.
    */
-  private async okIntoSharedGroup(): Promise<boolean> {
+  private async okIntoSharedGroup(audience: Audience): Promise<boolean | 'publica'> {
     const g = this.sharedGroups.ofCategory(this.noteCategory());
     if (!g) return true;
     const prev = this.editing();
-    if (prev && this.sharedGroups.ofCategory(prev.category)?.id === g.id) return true;
+    const name = this.noteCategory()!;
+    const already = !!prev && this.sharedGroups.ofCategory(prev.category)?.id === g.id;
+    // num grupo público, a privada fica pública (sem ir para o Feed): entrando nele, pergunta antes, com as
+    // palavras do pedido; já nele, ela continua pública (o grupo é público), sem pergunta
+    if (g.publico && audience === 'privada' && already) return 'publica';
+    if (g.publico && audience === 'privada') {
+      const ok = await this.confirm.ask({
+        title: `Pôr no grupo público ${name}?`,
+        text: `Esta anotação privada está sendo incluída num grupo público (${name}), o que irá torná-la pública, sem ir para o Feed. Tem certeza?`,
+        confirm: this.editing() ? 'Salvar assim' : 'Pregar assim',
+        cancel: 'Voltar',
+        icon: null,
+        tone: 'neutro',
+      });
+      if (!ok) this.openProp('grupo');
+      return ok ? 'publica' : false;
+    }
+    if (already) return true;
     const me = this.account.account()?.codigo ?? null;
     const others = [g.dono, ...g.membros].filter((p) => p.codigo !== me).map((p) => p.nome);
     if (!others.length) return true;
-    const name = this.noteCategory()!;
     const theirs = g.papel !== 'dono' ? ` Ela passa a ser do grupo, de ${g.dono.nome}: se você sair dele, ela fica lá.` : '';
     const ok = await this.confirm.ask({
       title: `Pôr no grupo ${name}?`,

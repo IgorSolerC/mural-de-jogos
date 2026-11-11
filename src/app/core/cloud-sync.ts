@@ -16,6 +16,7 @@ import { Profile, cardBackground, defaultProfile, publicProfile, sanitizeProfile
 import { ProfileStore } from './profile-store';
 import { KanbanBoard, KanbanState, sanitizeKanban } from './kanban';
 import { KanbanStore } from './kanban-store';
+import { SharedGroupsStore } from './shared-groups-store';
 import { CalendarState, calendarToSync, sanitizeCalendar } from './calendar';
 import { CalendarStore } from './calendar-store';
 import { SpendingState, sanitizeSpending, spendingToSync } from './spending';
@@ -496,8 +497,10 @@ export function boardOnlyNotes(notes: unknown, boardOnly: ReadonlySet<string>): 
  * título sempre que não está à mostra (também a apagada e a de outra pessoa numa compartilhada) e
  * também no "Sobre mim" do perfil. 5: os baralhos públicos dos Estudos (`estudos`, ver core/public-study.ts).
  * 6: as pastas das anotações (`pastas`, só as com alguma anotação à mostra; PLANO-PASTAS.md, 3.8).
+ * 7: as anotações dos grupos compartilhados nunca vão no público de cada um; as dos seus grupos públicos entram
+ * nas fichas à mostra (PLANO-COMPARTILHAR.md, 4.6).
  */
-export const PUBLIC_RULES = 6;
+export const PUBLIC_RULES = 7;
 
 /**
  * A impressão do público que foi junto com este mural privado (`sync.publico`, ver `publicPrint`):
@@ -722,6 +725,7 @@ export class CloudSync {
   /** As anotações compartilhadas: as públicas vão no mural que os outros veem (ver `push`). */
   private readonly shared = inject(SharedStore);
   private readonly kanban = inject(KanbanStore);
+  private readonly groups = inject(SharedGroupsStore);
   /** O espelho da API das AIs (PLANO-API.md, seção 8): sobe depois de cada rodada que deixou tudo igual. */
   private readonly apiMirror = inject(ApiMirror);
   /** Os pedidos da API das AIs (PLANO-API.md, seção 9): aplicados aqui, depois de uma rodada que deixou tudo igual. */
@@ -1805,7 +1809,8 @@ export class CloudSync {
     form.append('cartao', JSON.stringify(cartao));
     // as fichas à mostra: a nuvem esconde dos outros as reações, os comentários e os avisos das que não
     // estão (as só no Kanban estão, pelo link)
-    form.append('fichas', JSON.stringify([...new Set([...shownIds, ...boardIds])]));
+    // (e as dos seus grupos públicos, servidas pela nuvem: as reações e os comentários delas são seus)
+    form.append('fichas', JSON.stringify([...new Set([...shownIds, ...boardIds, ...this.publicGroupNotes()])]));
     // as imagens coladas: as que estão à mostra (a nuvem as entrega a quem visita) e todas as que o mural
     // usa, com as dos quadros livres, que moram fora do mural (as outras ficam soltas e saem da nuvem em 30 dias)
     const usadas = [...new Set([...localImageIds(privateText + publicText), ...(await this.freeBoards.imageIds())])];
@@ -1819,6 +1824,19 @@ export class CloudSync {
     // imagens que o mural usa e a nuvem não tem: as que estão aqui sobem de novo
     if (Array.isArray(body.imagensFaltam)) void this.imageSync.lost(body.imagensFaltam.filter((x): x is string => typeof x === 'string'));
     return body.rev;
+  }
+
+  /**
+   * As anotações dos seus grupos públicos (PLANO-COMPARTILHAR.md, 4.6): a nuvem as mostra a quem visita pelo
+   * grupo; aqui elas só entram nas fichas à mostra (as reações e os comentários delas, que são seus).
+   */
+  private publicGroupNotes(): string[] {
+    const out: string[] = [];
+    for (const e of this.shared.entries().values()) {
+      const g = e.grupo ? this.groups.get(e.grupo) : undefined;
+      if (g?.publico && g.papel === 'dono') out.push(e.id);
+    }
+    return out.sort();
   }
 
   /** As compartilhadas públicas que vão no mural público: as que estão só no Kanban ficam de fora. */
@@ -1840,6 +1858,7 @@ export class CloudSync {
       regra: PUBLIC_RULES,
       publicas: list.map((x) => ({ n: storedNote(x.note), d: x.dono?.codigo ?? null })).sort((a, b) => (a.n.id < b.n.id ? -1 : 1)),
       soKanban: [...board].sort(),
+      grupos: this.publicGroupNotes(),
     });
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
     return Array.from(new Uint8Array(digest).slice(0, 12), (b) => b.toString(16).padStart(2, '0')).join('');

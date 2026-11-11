@@ -1,13 +1,14 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { accessSummary } from '../core/access';
 import { CloudAccount, CloudError } from '../core/cloud-account';
 import { Cloud } from '../core/cloud-config';
 import { lookKey } from '../core/category-looks';
-import { isNote } from '../core/review';
+import { isNote, withAudience } from '../core/review';
+import { muralLink } from '../core/cloud-murals';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
-import { MemberRole } from '../core/shared-notes';
+import { MemberRole, canManage } from '../core/shared-notes';
 import { SharedGroupsStore } from '../core/shared-groups-store';
 import { SharedStore } from '../core/shared-store';
 import { KanbanStore } from '../core/kanban-store';
@@ -32,6 +33,37 @@ import { ICON, IconModule } from './icons';
       <button type="button" class="papel" (click)="goSignIn()">Entrar em Ajustes › Conta</button>
     } @else {
       <app-access-panel [target]="target">
+        <!-- quem mais vê: ninguém, ou qualquer pessoa (o mural do grupo, o Kanban e os quadros livres, só lendo) -->
+        <section class="grupo" aria-labelledby="publico-titulo">
+          <h3 class="grupo-titulo" id="publico-titulo">Quem mais vê</h3>
+          @if (manages()) {
+            <div class="segmentos" role="radiogroup" aria-labelledby="publico-titulo">
+              <label class="segmento">
+                <input type="radio" name="grupo-publico" value="nao" [checked]="!isPublic()" [disabled]="!!busy()" (change)="setPublic(false)" />
+                <lucide-icon class="seg-icone" [img]="PrivateIcon" [size]="18" aria-hidden="true" />
+                <span class="seg-nome">Só quem está</span>
+              </label>
+              <label class="segmento">
+                <input type="radio" name="grupo-publico" value="sim" [checked]="isPublic()" [disabled]="!!busy()" (change)="setPublic(true)" />
+                <lucide-icon class="seg-icone" [img]="PublicIcon" [size]="18" aria-hidden="true" />
+                <span class="seg-nome">Público</span>
+              </label>
+            </div>
+          }
+          <p class="visita-desc">
+            @if (isPublic()) {
+              Qualquer pessoa lê o mural do grupo, o Kanban e os quadros livres, pelo seu mural e pelo link; só quem está aqui edita. Nada vai para o Feed.
+            } @else {
+              Ninguém mais: quem visita o seu mural não vê nem o nome do grupo.
+            }
+          </p>
+          @if (isPublic() && link(); as l) {
+            <button type="button" class="papel copiar" (click)="copyLink(l)">
+              <lucide-icon [img]="LinkIcon" [size]="17" aria-hidden="true" />
+              {{ copied() ? 'Link copiado' : 'Copiar o link' }}
+            </button>
+          }
+        </section>
         <section class="grupo" aria-labelledby="junto-titulo">
           <h3 class="grupo-titulo" id="junto-titulo">O que vai junto</h3>
           <p class="visita-desc">{{ together() }}</p>
@@ -78,8 +110,12 @@ export class GroupShare {
   private readonly confirm = inject(Confirm);
   private readonly router = inject(Router);
   private readonly kanban = inject(KanbanStore);
+  private readonly host = inject(ElementRef);
 
   protected readonly StopIcon = ICON.privada;
+  protected readonly PrivateIcon = ICON.privada;
+  protected readonly PublicIcon = ICON.publica;
+  protected readonly LinkIcon = ICON.link;
   protected readonly LeaveIcon = ICON.sair;
 
   protected readonly signedIn = computed(() => this.account.signedIn() && !!this.cloud.config());
@@ -88,6 +124,16 @@ export class GroupShare {
   private readonly me = computed(() => this.account.account()?.codigo ?? '');
   protected readonly busy = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
+
+  /** Quem gere o grupo (o dono de um grupo ainda só seu também). */
+  protected readonly manages = computed(() => canManage(this.group()?.papel ?? 'dono'));
+  protected readonly isPublic = computed(() => !!this.group()?.publico);
+  protected readonly copied = signal(false);
+  /** O link que abre o grupo público (o ?mural= de sempre, com o grupo). */
+  protected readonly link = computed(() => {
+    const g = this.group();
+    return g ? `${muralLink(g.dono.codigo)}&grupo=${encodeURIComponent(g.dados.nome)}` : null;
+  });
 
   /** As anotações do grupo no seu mural. */
   private readonly notes = computed(() => {
@@ -168,6 +214,79 @@ export class GroupShare {
     setRole: (codigo: string, papel: MemberRole) => this.groups.setRole(this.group()!.id, codigo, papel),
     remove: (codigo: string) => this.groups.removeMember(this.group()!.id, codigo),
   };
+
+  /**
+   * Público ou só de quem está (4.4.1 e 4.4.5 do plano). Tornando público, as privadas do grupo viram
+   * Disponíveis (públicas, fora do Feed): o aviso diz quantas, com as palavras do pedido. Voltando a ser só de
+   * quem está, a pergunta é se elas voltam a ser privadas também.
+   */
+  protected async setPublic(on: boolean): Promise<void> {
+    if (on === this.isPublic() || !this.manages()) return;
+    const notes = this.notes();
+    if (on) {
+      const priv = this.privates();
+      if (priv) {
+        const sure = await this.confirm.ask({
+          title: `Tornar público o grupo ${this.name()}?`,
+          text:
+            priv === 1
+              ? 'Há uma anotação privada neste grupo (no mural e no Kanban). Torná-lo público irá deixá-la pública, sem ir para o Feed. Tem certeza que quer fazer isso?'
+              : `Há ${priv} anotações privadas neste grupo (no mural e no Kanban). Torná-lo público irá deixá-las públicas, sem ir para o Feed. Tem certeza que quer fazer isso?`,
+          confirm: 'Tornar público',
+          tone: 'neutro',
+        });
+        if (!sure) return this.resetRadios();
+      }
+      await this.run('publico', async () => {
+        // o grupo ainda só seu nasce na nuvem já público (duas gravações seguidas a nuvem recusa)
+        const g = this.group();
+        if (g) await this.groups.setPublic(g.id, true);
+        else await this.shareAlone();
+        // as privadas viram Disponíveis (públicas, fora do Feed), como o pedido diz
+        const now = new Date().toISOString();
+        for (const n of notes.filter((x) => x.private)) this.store.update(withAudience(n, 'visivel', now));
+      });
+      return;
+    }
+    const open = notes.filter((n) => !n.private).length;
+    const answer = open
+      ? await this.confirm.choose({
+          title: `${this.name()} só para quem está?`,
+          text: `${open === 1 ? 'A anotação do grupo continua pública' : `As ${open} anotações do grupo continuam públicas`} (Disponíveis): quem visita ainda vê no seu mural. Quer torná-las privadas também?`,
+          confirm: 'Tornar privadas',
+          secondary: 'Deixar como estão',
+        })
+      : 'secondary';
+    if (answer === null) return this.resetRadios();
+    await this.run('publico', async () => {
+      await this.groups.setPublic(this.group()!.id, false);
+      if (answer !== 'confirm') return;
+      const now = new Date().toISOString();
+      for (const n of notes.filter((x) => !x.private)) this.store.update(withAudience(n, 'privada', now));
+    });
+  }
+
+  /** Um grupo ainda só seu, tornado público: ele vai para a nuvem sem ninguém (o público é servido de lá). */
+  private shareAlone() {
+    const look = this.settings.categoryLook(this.name());
+    return this.groups.share(this.name(), [], { ...(look.icon ? { icone: look.icon } : {}), ...(look.color ? { cor: look.color } : {}) }, this.kanban.boardFor(this.name()), true);
+  }
+
+  /** Desistiu no aviso: os recortes voltam a dizer como o grupo está. */
+  private resetRadios(): void {
+    const el = this.host.nativeElement as HTMLElement;
+    for (const r of el.querySelectorAll<HTMLInputElement>('input[name="grupo-publico"]')) r.checked = (r.value === 'sim') === this.isPublic();
+  }
+
+  protected async copyLink(link: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(link);
+      this.copied.set(true);
+      setTimeout(() => this.copied.set(false), 2_400);
+    } catch {
+      this.error.set('Não deu para copiar. O link: ' + link);
+    }
+  }
 
   /** Para de compartilhar (o dono): as pessoas deixam de ver, e tudo fica com você (4.4.6). */
   protected async stop(): Promise<void> {

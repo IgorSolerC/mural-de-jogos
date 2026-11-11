@@ -460,6 +460,15 @@ export function audienceOf(r: Pick<Review, 'private' | 'quiet'>): Audience {
  * visível) leva `publishedAt`: para quem segue, ela é nova a partir de hoje. A que já era vista
  * guarda o dia de antes.
  */
+/**
+ * A ficha com outro "quem vê" (os três campos trocados de uma vez: espalhar só os novos por cima deixaria o
+ * `private` de antes), mexida agora.
+ */
+export function withAudience(r: Review, a: Audience, now: string): Review {
+  const { private: _p, quiet: _q, publishedAt: _w, ...rest } = r;
+  return { ...rest, ...audienceFields(a, r, now), updatedAt: now } as Review;
+}
+
 export function audienceFields(a: Audience, prev: Pick<Review, 'private' | 'quiet' | 'publishedAt'> | null, now: string): Pick<Review, 'private' | 'quiet' | 'publishedAt'> {
   if (a === 'privada') return { private: true };
   const published = a === 'publicar' && prev && audienceOf(prev) !== 'publicar' ? now : prev && !prev.private ? prev.publishedAt : undefined;

@@ -25,7 +25,8 @@ import { VisitStudy } from '../ui/visit-study';
 import { VisitBoardsView } from '../ui/visit-boards';
 import { WallAccess, WallBoard } from './wall-board';
 import { ONE_DECIMAL as avgFmt } from '../core/review';
-import { plural } from '../core/text';
+import { labelKey, plural } from '../core/text';
+import { noteTabKey } from '../core/note-tabs';
 import { failedText, FollowToasts } from '../ui/follow-toasts';
 import { KIND_ICON } from '../ui/kind-switcher';
 import { PersonFace, PersonPhoto } from '../ui/person-photo';
@@ -118,6 +119,22 @@ export class ColleagueWallPage {
       },
     },
   );
+  /**
+   * O link de um grupo público (`?grupo=Trabalho`, PLANO-COMPARTILHAR.md 4.6): a visita abre na aba dele assim
+   * que os grupos públicos da pessoa chegam (uma vez; depois, a aba é de quem visita).
+   */
+  private readonly openGroup = (() => {
+    const wanted = this.route.snapshot.queryParamMap.get('grupo');
+    if (!wanted) return null;
+    let done = false;
+    return effect(() => {
+      const found = this.visit.publicGroups.groups().find((g) => labelKey(g.nome) === labelKey(wanted));
+      if (!found || done) return;
+      done = true;
+      untracked(() => this.visit.setNoteTab(noteTabKey({ category: found.nome })));
+    });
+  })();
+
   /** O Quadro livre da pessoa (`/comparar/mural/quadro-livre/...`): os quadros públicos dela (PLANO-QUADRO-LIVRE.md, 4.8). */
   protected readonly visitBoards = inject(VisitBoards);
   protected readonly boarding = computed(() => this.params().boards);
