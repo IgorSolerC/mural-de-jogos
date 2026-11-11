@@ -172,6 +172,11 @@ import {
   Package,
   PanelTop,
   Palette,
+  PaintBucket,
+  Pipette,
+  FlipHorizontal2,
+  FlipVertical2,
+  SquareSplitHorizontal,
   Paperclip,
   PartyPopper,
   Pause,
@@ -309,6 +314,12 @@ const NOTE_LINK: LucideIconData = [
   ['path', { d: 'M10 15.5H8.5a2.5 2.5 0 0 1 0-5H10', key: 'elo-esq' }],
   ['path', { d: 'M14 10.5h1.5a2.5 2.5 0 0 1 0 5H14', key: 'elo-dir' }],
   ['path', { d: 'M10 13h4', key: 'elo-meio' }],
+];
+
+/** A pixel art: um coração de quadradinhos, o contorno em degraus, com o ponto de brilho. */
+const PIXEL_HEART: LucideIconData = [
+  ['path', { d: 'M4.5 3h6v3h3V3h6v3h3v6h-3v3h-3v3h-3v3h-3v-3h-3v-3h-3v-3h-3V6h3z', key: 'coracao' }],
+  ['path', { d: 'M6.5 7.5h2v2h-2z', key: 'brilho' }],
 ];
 
 /** As abas do estojo da ficha (Cor, Papel, Estampa, Rabisco, Estrago, Decoração, Mancha). */
@@ -522,6 +533,13 @@ export const ICON = {
   codigo: Code,
   blocoDeCodigo: SquareCode,
   tabela: Table,
+  pixelArt: PIXEL_HEART,
+  /** A prancheta da pixel art (ui/pixel-canvas.ts): o balde, o conta-gotas, o espelho e virar o desenho. */
+  balde: PaintBucket,
+  contaGotas: Pipette,
+  espelho: SquareSplitHorizontal,
+  virarDeLado: FlipHorizontal2,
+  virarDeCabeca: FlipVertical2,
   /** A tabela: a linha nova em cima e embaixo da do cursor, a coluna nova antes e depois. */
   linhaEmCima: BetweenHorizontalStart,
   linhaEmbaixo: BetweenHorizontalEnd,

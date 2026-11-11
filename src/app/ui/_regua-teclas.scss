@@ -1,0 +1,91 @@
+/* A régua de teclas de ícone (a da folha da tabela, ui/table-grid.ts, e a da prancheta da pixel art,
+   ui/pixel-canvas.ts): grupos com o nome do que mexem em letra de etiqueta à esquerda das teclas, e as
+   teclas na tinta, com o tom de tinta por baixo no mouse; a escolhida (`.on`) fica em tinta. Sem
+   largura, um grupo embaixo do outro (sem fio entre eles: o fio sobrava no começo da linha de baixo). */
+
+@mixin regua {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 22px;
+}
+
+@mixin grupo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@mixin grupo-nome {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.74rem;
+  letter-spacing: 0.1em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  /* "Linha 12" e "Linha 3" do mesmo tamanho: a régua não anda */
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@mixin teclas {
+  display: flex;
+  gap: 2px;
+}
+
+@mixin tecla {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    color var(--t-ui) var(--ease-ui);
+
+  &:hover:not(:disabled) {
+    background: rgb(21 21 21 / 0.08);
+  }
+
+  &:active:not(:disabled) {
+    background: rgb(21 21 21 / 0.14);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 1px;
+  }
+
+  &:disabled {
+    color: rgb(21 21 21 / 0.28);
+    cursor: default;
+  }
+
+  &.perigo:not(:disabled) {
+    color: var(--red-deep);
+
+    &:hover {
+      background: rgb(184 29 28 / 0.1);
+    }
+  }
+
+  /* a escolhida: a tecla em tinta, como a escolha dos recortes */
+  &.on {
+    background: var(--ink);
+    color: var(--hi);
+
+    &:hover {
+      background: #2a2a2a;
+    }
+  }
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}

@@ -13,6 +13,8 @@ import { CardPicker } from './card-picker';
 import { CoverSleeve } from './cover-sleeve';
 import { NoteWidget } from './note-widget';
 import { Pin } from './pin';
+import { PixelCanvas } from './pixel-canvas';
+import { PIXEL_LOOKS, inkOf, inkPaths } from '../core/pixel-art';
 import { TableLookArt } from './table-look-art';
 import { RichText } from './rich-text';
 import { TableGrid } from './table-grid';
@@ -50,7 +52,7 @@ interface FieldRow {
  */
 @Component({
   selector: 'app-widget-sheet',
-  imports: [BackdropClose, CardPicker, CoverSleeve, IconModule, NgTemplateOutlet, NoteWidget, Pin, RichText, TableGrid, TableLookArt],
+  imports: [BackdropClose, CardPicker, CoverSleeve, IconModule, NgTemplateOutlet, NoteWidget, Pin, PixelCanvas, RichText, TableGrid, TableLookArt],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './widget-sheet.html',
   styleUrl: './widget-sheet.scss',
@@ -103,6 +105,9 @@ export class WidgetSheet {
     medio: { w: 17, h: 9.5 },
     grande: { w: 25, h: 13.5 },
   };
+  /** As miniaturas dos jeitos da pixel art: um coraçãozinho de 7 × 6, desenhado como a peça desenha cada jeito. */
+  protected readonly pixelTiles: Record<string, ReturnType<typeof inkPaths>> = Object.fromEntries(PIXEL_LOOKS.map((l) => [l.value, inkPaths(TILE_HEART, l.value)]));
+  protected readonly pixelInks = inkOf('classica', {});
   protected readonly views = [
     { value: 'ficha', label: 'Na ficha' },
     { value: 'aberta', label: 'Aberta' },
@@ -295,6 +300,11 @@ export class WidgetSheet {
     this.values.update((v) => ({ ...v, [key]: value }));
   }
 
+  /** Vários campos de uma vez (a prancheta da pixel art manda os pontos, a grade nova e as cores trocadas). */
+  protected patch(p: WidgetValues): void {
+    this.values.update((v) => ({ ...v, ...p }));
+  }
+
   protected valueOf(f: WidgetField): string {
     return this.values()[f.key] || (f.options?.[0]?.value ?? '');
   }
@@ -369,6 +379,9 @@ export class WidgetSheet {
 }
 
 let uid = 0;
+
+/** O coraçãozinho das miniaturas dos jeitos da pixel art (o 4 é o vermelho da clássica; o 2, o brilho). */
+const TILE_HEART = ['0440440', '4244444', '4444444', '0444440', '0044400', '0004000'];
 
 /** Onde a imagem guardada está, numa frase curta (vazia: ela não está neste aparelho). */
 function whereOf(image: StoredImage | null, problem: { code: string; message: string } | null, signedIn: boolean): string {

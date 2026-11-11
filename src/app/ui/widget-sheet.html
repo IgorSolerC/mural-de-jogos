@@ -60,6 +60,10 @@
                       <!-- a tabela: escrita como numa planilha, sem as barras do markdown -->
                       <app-table-grid class="largo" [text]="values()[f.key] || ''" [missing]="isMissing(f)" [ids]="ids + '-tabela'" (changed)="set(f.key, $event)" />
                     }
+                    @case ('pixels') {
+                      <!-- a pixel art: a prancheta, com as ferramentas e as cores (a paleta e a grade são os campos de baixo) -->
+                      <app-pixel-canvas class="largo" [values]="values()" [missing]="isMissing(f)" [ids]="ids + '-pixel'" (changed)="patch($event)" />
+                    }
                     @case ('card') {
                       <!-- a Nota: a ficha escolhida, colada como a etiqueta de papel; sem ela, o recorte de escolher -->
                       @let card = chosenCard();
@@ -359,7 +363,7 @@
       } @else {
         <lucide-icon [img]="iconOf(name())" [size]="28" aria-hidden="true" />
       }
-      <span>{{ name() === 'nota' ? 'Escolha a ficha para ver como ela fica colada.' : name() === 'tabela' ? 'Escreva numa célula para ver como fica.' : name() === 'imagem' ? 'Cole o link ou escolha uma imagem do aparelho para ver como fica.' : 'Cole o link para ver como fica.' }}</span>
+      <span>{{ name() === 'nota' ? 'Escolha a ficha para ver como ela fica colada.' : name() === 'tabela' ? 'Escreva numa célula para ver como fica.' : name() === 'pixel' ? 'Pinte um ponto na prancheta para ver como fica.' : name() === 'imagem' ? 'Cole o link ou escolha uma imagem do aparelho para ver como fica.' : 'Cole o link para ver como fica.' }}</span>
     </div>
   }
 </ng-template>
@@ -484,6 +488,48 @@
     }
     @case ('recibo') {
       <svg:g [appTableLookArt]="'recibo'" />
+    }
+    <!-- a pixel art: o mesmo coraçãozinho nos quatro jeitos (os caminhos são os da peça, ui/pixel-art.ts) -->
+    @case ('pixel') {
+      <svg:g transform="translate(14.5 9) scale(5)" shape-rendering="crispEdges">
+        @for (p of pixelTiles['pixel']; track p.ink) {
+          <svg:path [attr.d]="p.d" [attr.fill]="pixelInks[p.ink]" />
+        }
+      </svg:g>
+    }
+    @case ('figurinha') {
+      <svg:g transform="rotate(-4 32 24) translate(14.5 9) scale(5)">
+        <!-- a sombra rente e a borda branca do recorte, seguindo o contorno -->
+        @for (p of pixelTiles['figurinha']; track p.ink) {
+          <svg:path [attr.d]="p.d" transform="translate(0 .25)" fill="#151515" fill-opacity=".3" stroke="#151515" stroke-opacity=".3" stroke-width="1.2" stroke-linejoin="round" />
+        }
+        @for (p of pixelTiles['figurinha']; track p.ink) {
+          <svg:path [attr.d]="p.d" fill="#fffdf7" stroke="#fffdf7" stroke-width="1.2" stroke-linejoin="round" />
+        }
+        @for (p of pixelTiles['figurinha']; track p.ink) {
+          <svg:path [attr.d]="p.d" [attr.fill]="pixelInks[p.ink]" />
+        }
+      </svg:g>
+    }
+    @case ('ponto-cruz') {
+      <svg:g transform="rotate(2 32 24)">
+        <svg:rect x="10" y="4" width="44" height="40" rx="1" fill="#f4efe1" />
+        <svg:g transform="translate(14.5 9) scale(5)" fill="none" stroke-width=".26" stroke-linecap="round">
+          @for (p of pixelTiles['ponto-cruz']; track p.ink) {
+            <svg:path [attr.d]="p.d" [attr.stroke]="pixelInks[p.ink]" />
+          }
+        </svg:g>
+      </svg:g>
+    }
+    @case ('micanga') {
+      <svg:g transform="rotate(-2 32 24)">
+        <svg:rect x="11" y="5" width="42" height="38" rx="3" fill="#fbfaf6" fill-opacity=".85" stroke="#151515" stroke-opacity=".12" stroke-width=".6" />
+        <svg:g transform="translate(14.5 9) scale(5)" fill="none" stroke-width=".34">
+          @for (p of pixelTiles['micanga']; track p.ink) {
+            <svg:path [attr.d]="p.d" [attr.stroke]="pixelInks[p.ink]" />
+          }
+        </svg:g>
+      </svg:g>
     }
     <!-- a nota colada: a ficha, a capa com o nome, a tira e o texto inteiro -->
     @case ('ficha') {

@@ -66,6 +66,12 @@ export const PDF_WIDGET_SAMPLES: Record<string, readonly string[]> = {
   video: ['{{video: https://www.youtube.com/watch?v=dQw4w9WgXcQ | O clipe}}'],
   audio: ['{{audio: https://www.youtube.com/watch?v=dQw4w9WgXcQ | Fado}}', '{{audio: https://www.youtube.com/watch?v=dQw4w9WgXcQ | vinil | Fado | pequeno}}', '{{audio: https://www.youtube.com/watch?v=dQw4w9WgXcQ | simples | Fado | mini}}'],
   nota: ['{{nota: #amostra-malas | Lista de malas}}', '{{nota: #amostra-malas | Lista de malas | capa | pequeno}}', '{{nota: #amostra-malas | Lista de malas | inteira}}'],
+  pixel: [
+    '{{pixel: 8x8 | 0110011/14411441/14444441/14444441/0144441/001441/00011 | Coração}}',
+    '{{pixel: 8x8 | 0110011/14411441/14444441/14444441/0144441/001441/00011 | pastel | figurinha | pequeno}}',
+    '{{pixel: 8x8 | 0110011/14411441/14444441/14444441/0144441/001441/00011 | 4#c2185b | ponto-cruz | Bordado da vó | pequeno}}',
+    '{{pixel: 12x6 | 000011110000/000177771/0017777771/01111111111/001288882/0001111 | mar | micanga | pequeno}}',
+  ],
   // a tabela branca é a do bloco `table`; aqui, os outros jeitos (a marca em cima da tabela)
   tabela: ['listrada', 'quadriculada', 'caneta', 'recibo'].map(
     (jeito) => `{{tabela: ${jeito}}}\n| Trem | Sai | Preço |\n| --- | :---: | ---: |\n| Sintra | 9h10 | 2,30 € |\n| Cascais | 10h05 | 2,30 € |`,

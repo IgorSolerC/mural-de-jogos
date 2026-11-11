@@ -61,6 +61,7 @@ export const GUIDE: readonly { title: string; items: readonly GuideItem[] }[] = 
       { what: 'Vídeo', mark: '{{video: https://youtu.be/… | legenda}}', note: 'YouTube, Vimeo ou um .mp4, que toca ali.' },
       { what: 'Áudio', mark: '{{audio: https://… | nome}}', note: 'Um .mp3, YouTube, Vimeo ou .mp4. Outros jeitos: simples, vinil.' },
       { what: 'Nota', mark: '{{nota: Título}}', note: 'A ficha colada em miniatura. Pelo Inserir, qualquer ficha, de qualquer mural.' },
+      { what: 'Pixel art', mark: '{{pixel: 8x8 | 0110/1221/1221/0110}}', note: 'A grade e os pontos, fileira por fileira, separadas por /: 0 é o transparente, de 1 a 9 as cores. Paletas: pastel, terra, mar, neon, cinzas; uma cor trocada: 3#e43b44. Outros jeitos: figurinha, ponto-cruz, micanga. Pelo Inserir, desenhando.' },
       { what: 'Tamanho', mark: '{{… | mini}}', note: 'Também pequeno e grande; sem nada, o médio.' },
     ],
   },
@@ -132,7 +133,7 @@ export const GUIDE_VISUAL: readonly { title: string; items: readonly GuideItem[]
   {
     title: 'Widgets',
     items: [
-      { what: 'Pôr um widget', note: 'Pelo Inserir: o contador, a imagem, o vídeo, o áudio e a nota, cada um numa linha só dele. Colar ou soltar uma imagem também.' },
+      { what: 'Pôr um widget', note: 'Pelo Inserir: o contador, a imagem, o vídeo, o áudio, a nota e a pixel art, cada um numa linha só dele. Colar ou soltar uma imagem também.' },
       { what: 'Mexer num widget', note: 'Um toque nele mostra o Editar e o Tirar. A legenda da imagem e do vídeo e o título do contador e da faixa se escrevem direto nele: Enter guarda, Esc desiste.' },
       { what: 'Tamanho e jeito', note: 'Embaixo do widget selecionado: o − e o + mudam o tamanho, e o botão do jeito (ou da moldura) troca para o próximo a cada toque; com Shift, volta.' },
       { what: 'Tirar o widget', keys: 'Delete', note: 'Com ele selecionado (ou o Backspace); o Ctrl+Z volta. O Enter abre uma linha embaixo dele, e dá para arrastá-lo para outro lugar.' },

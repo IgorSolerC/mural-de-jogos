@@ -1,3 +1,5 @@
+@use 'regua-teclas' as rt;
+
 
 /* A tabela como numa planilha: a régua de cima (a linha, a coluna e o alinhamento da célula do
    cursor), e a grade de papel colado, com as letras das colunas e os números das linhas impressos na
@@ -14,19 +16,14 @@
   min-width: 0;
 }
 
-/* ===== A régua: três grupos, cada um com o nome do que ele mexe à esquerda das teclas; sem
-   largura, um embaixo do outro (sem fio entre eles: o fio sobrava no começo da linha de baixo) ===== */
+/* ===== A régua: três grupos, cada um com o nome do que ele mexe à esquerda das teclas (a peça das
+   réguas de teclas, ui/_regua-teclas.scss) ===== */
 .tg-regua {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 22px;
+  @include rt.regua;
 }
 
 .tg-grupo {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  @include rt.grupo;
 }
 
 /* "Cabeçalho" e "Linha 12" do mesmo tamanho: as teclas não andam quando o cursor muda de linha */
@@ -35,78 +32,15 @@
 }
 
 .tg-grupo-nome {
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.74rem;
-  letter-spacing: 0.1em;
-  line-height: 1.1;
-  text-transform: uppercase;
-  color: var(--ink-2);
-  /* "Linha 12" e "Linha 3" do mesmo tamanho: a régua não anda */
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  @include rt.grupo-nome;
 }
 
 .tg-teclas {
-  display: flex;
-  gap: 2px;
+  @include rt.teclas;
 }
 
-/* as teclas de ícone da régua do texto: a tinta, e o tom de tinta por baixo no mouse */
 .tg-tecla {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border: 0;
-  border-radius: 3px;
-  background: transparent;
-  color: var(--ink);
-  cursor: pointer;
-  transition:
-    background-color var(--t-ui) var(--ease-ui),
-    color var(--t-ui) var(--ease-ui);
-
-  &:hover:not(:disabled) {
-    background: rgb(21 21 21 / 0.08);
-  }
-
-  &:active:not(:disabled) {
-    background: rgb(21 21 21 / 0.14);
-  }
-
-  &:focus-visible {
-    outline: 3px solid var(--ink);
-    outline-offset: 1px;
-  }
-
-  &:disabled {
-    color: rgb(21 21 21 / 0.28);
-    cursor: default;
-  }
-
-  &.perigo:not(:disabled) {
-    color: var(--red-deep);
-
-    &:hover {
-      background: rgb(184 29 28 / 0.1);
-    }
-  }
-
-  /* o alinhamento escolhido: a tecla em tinta, como a escolha dos recortes */
-  &.on {
-    background: var(--ink);
-    color: var(--hi);
-
-    &:hover {
-      background: #2a2a2a;
-    }
-  }
-
-  lucide-icon {
-    display: inline-flex;
-  }
+  @include rt.tecla;
 }
 
 /* ===== A grade ===== */

@@ -38,8 +38,8 @@ try {
     kind: 'anotacoes',
     game: { name, ...(extra.cover ? { coverUrl: extra.cover } : {}) },
     text,
+    // (sem assunto: desde as pastas, o assunto vira uma pasta, e a ficha sairia do mural para dentro dela)
     category: 'Viagens',
-    subject: 'Portugal',
     tags: ['roteiro', 'outubro'],
     completedAt: day,
     createdAt: `${day}T10:00:00.000Z`,

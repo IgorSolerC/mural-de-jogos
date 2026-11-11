@@ -27,6 +27,20 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-10-pixel-art',
+    version: '1.44.0',
+    kind: 'funcionalidade',
+    date: '2026-11-10',
+    title: 'Pixel art nas anotações',
+    items: [
+      'Um widget novo, a Pixel art: pelo Inserir, uma prancheta de até 32 × 32 pontos para desenhar com o lápis, a borracha, o balde e o conta-gotas, com o espelho que pinta os dois lados, desfazer, virar o desenho e o botão direito que apaga.',
+      'Dez cores por desenho, numeradas de 0 a 9 (o 0 é o transparente), em seis paletas (Clássica, Pastel, Terra, Mar, Neon e Cinzas); um segundo toque numa cor troca ela por qualquer outra.',
+      'O desenho mora no próprio texto, numa linha curta de algarismos ({{pixel: 8x8 | 0110/1221/…}}), e aparece em quatro jeitos: Pixel, Figurinha, Ponto-cruz e Miçanga, com legenda, tamanho e o broche de ampliar.',
+    ],
+    notice: 'Novo: a Pixel art, no Inserir das anotações. Desenhe de quadradinhos, com dez cores, direto no texto.',
+    until: '2026-11-24',
+  },
+  {
     id: '2026-11-10-texto-do-quadro',
     version: '1.43.2',
     kind: 'ajustes',

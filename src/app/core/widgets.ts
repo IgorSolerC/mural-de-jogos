@@ -1,4 +1,5 @@
 import { DAY_MS } from './dates';
+import { DEFAULT_PIXEL_LOOK, PALETTES, PIXEL_LOOKS, PIXEL_MAX, clampSide, gridOf, paletteWord, parseColors, pixelLookWord, pixelSummary, readPixelArt, writeColors, writeGrid, writePixelArt } from './pixel-art';
 import { DEFAULT_TABLE_LOOK, TABLE_LOOKS, parseTableText, tableIsEmpty, tableLookOf, tableLookWord, writeTable } from './tables';
 import { cap } from './text';
 import { localImageId } from './images';
@@ -29,7 +30,7 @@ import { localImageId } from './images';
 export interface WidgetField {
   key: string;
   label: string;
-  kind: 'text' | 'url' | 'date' | 'time' | 'number' | 'toggle' | 'choice' | 'card' | 'table';
+  kind: 'text' | 'url' | 'date' | 'time' | 'number' | 'toggle' | 'choice' | 'card' | 'table' | 'pixels';
   placeholder?: string;
   /** O campo só aparece (e só é pedido) quando isto diz que sim, pelos valores de agora; sem ele, sempre. */
   shown?(values: WidgetValues): boolean;
@@ -1179,8 +1180,69 @@ const TABLE: WidgetDef = {
   copy: () => '',
 };
 
+// ===== A pixel art: os pontos de um desenho, escritos com algarismos (ver core/pixel-art.ts) =====
+
+/**
+ * Na folha, o campo `pixels` (ui/pixel-canvas.ts) mexe em `pixels` (os pontos como escritos, sem cortar
+ * pela grade), `width`, `height`, `palette` e `colors` (as trocadas, como se escrevem); o jeito e a
+ * legenda são campos de sempre.
+ */
+const PIXEL: WidgetDef = {
+  name: 'pixel',
+  aliases: ['pixels', 'pixelart', 'pixel-art'],
+  label: 'Pixel art',
+  about: 'Um desenho de quadradinhos, com até nove cores, feito ali mesmo.',
+  hint: 'Um desenho de quadradinhos',
+  what: 'O desenho',
+  put: 'Pôr o desenho',
+  swap: 'Salvar o desenho',
+  fields: [
+    { key: 'pixels', label: 'O desenho', kind: 'pixels', required: true, missing: 'Falta desenhar' },
+    { key: 'palette', label: 'Paleta', kind: 'choice', options: PALETTES, display: 'select', row: 'grade' },
+    { key: 'width', label: 'Largura', kind: 'number', range: [1, PIXEL_MAX], placeholder: '16', row: 'grade' },
+    { key: 'height', label: 'Altura', kind: 'number', range: [1, PIXEL_MAX], placeholder: '16', row: 'grade', hint: `A grade vai de 1 a ${PIXEL_MAX} pontos de cada lado.` },
+    { key: 'caption', label: 'Legenda', kind: 'text', placeholder: 'Opcional', max: 80, inline: 'Escreva uma legenda' },
+    { key: 'look', label: 'Jeito', kind: 'choice', options: PIXEL_LOOKS, display: 'tiles' },
+  ],
+  read(args) {
+    const art = readPixelArt(args);
+    return {
+      pixels: art.raw || writeGrid(art.rows),
+      width: String(art.w),
+      height: String(art.h),
+      palette: art.palette,
+      colors: writeColors(art.colors, art.palette),
+      look: art.look,
+      caption: art.caption,
+    };
+  },
+  write(v) {
+    const w = clampSide(v['width']);
+    const h = clampSide(v['height']);
+    return writePixelArt({
+      w,
+      h,
+      rows: gridOf(v['pixels'] ?? '', w, h),
+      palette: paletteWord(v['palette'] ?? '') ?? 'classica',
+      colors: parseColors(v['colors'] ?? '') ?? {},
+      look: pixelLookWord(v['look'] ?? '') ?? DEFAULT_PIXEL_LOOK,
+      caption: v['caption'] ?? '',
+    });
+  },
+  // "Coração · 16 × 16 · Pastel": a legenda (se tiver), a grade e a paleta
+  summary(v) {
+    const grid = pixelSummary({ w: clampSide(v['width']), h: clampSide(v['height']), palette: paletteWord(v['palette'] ?? '') ?? 'classica' });
+    return [(v['caption'] ?? '').trim(), grid].filter(Boolean).join(' · ');
+  },
+  plain: (args) => readPixelArt(args).caption,
+  copy(args) {
+    const art = readPixelArt(args);
+    return joinCopy(`pixel art ${art.w}×${art.h}`, art.caption);
+  },
+};
+
 /** Todos os widgets, na ordem da régua. */
-export const WIDGETS: readonly WidgetDef[] = [COUNTDOWN, IMAGE, VIDEO, AUDIO, CARD, TABLE];
+export const WIDGETS: readonly WidgetDef[] = [COUNTDOWN, IMAGE, VIDEO, AUDIO, CARD, TABLE, PIXEL];
 
 /** O widget por um dos nomes dele (com ou sem acento, maiúsculas). */
 export function widgetDef(name: string): WidgetDef | null {

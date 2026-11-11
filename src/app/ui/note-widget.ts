@@ -5,6 +5,7 @@ import { WIDGET_LINES, WidgetSize, readAudio, readMedia } from '../core/widgets'
 import { AudioTrack } from './audio-track';
 import { Countdown } from './countdown';
 import { GluedMedia } from './glued-media';
+import { PixelArt } from './pixel-art';
 
 /**
  * Um widget do texto (ver core/widgets.ts), desenhado pelo componente dele. Cada widget novo ganha
@@ -23,7 +24,7 @@ import { GluedMedia } from './glued-media';
  */
 @Component({
   selector: 'app-note-widget',
-  imports: [AudioTrack, Countdown, GluedMedia, NgComponentOutlet],
+  imports: [AudioTrack, Countdown, GluedMedia, NgComponentOutlet, PixelArt],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '[class.tam-mini]': "size() === 'mini'",
@@ -61,6 +62,14 @@ import { GluedMedia } from './glued-media';
         <!-- a fita, o vinil e o player vêm num pedaço à parte do site, carregado só quando aparece uma faixa -->
         @defer (on immediate) {
           <app-audio-track [args]="args()" [editavel]="editavel()" />
+        } @placeholder {
+          <div class="esperando" data-sem-medida></div>
+        }
+      }
+      <!-- a pixel art: o desenho de algarismos, num pedaço à parte do site -->
+      @case ('pixel') {
+        @defer (on immediate) {
+          <app-pixel-art [args]="args()" [editavel]="editavel()" />
         } @placeholder {
           <div class="esperando" data-sem-medida></div>
         }

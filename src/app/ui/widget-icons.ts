@@ -9,4 +9,5 @@ export const WIDGET_ICONS: Record<string, LucideIconData> = {
   audio: ICON.fitaCassete,
   nota: ICON.anotacoes,
   tabela: ICON.tabela,
+  pixel: ICON.pixelArt,
 };
