@@ -1198,7 +1198,7 @@ const PIXEL: WidgetDef = {
   swap: 'Salvar o desenho',
   fields: [
     { key: 'pixels', label: 'O desenho', kind: 'pixels', required: true, missing: 'Falta desenhar' },
-    { key: 'palette', label: 'Paleta', kind: 'choice', options: PALETTES, display: 'select', row: 'grade' },
+    { key: 'palette', label: 'Paleta', kind: 'choice', options: PALETTES, display: 'select' },
     { key: 'width', label: 'Largura', kind: 'number', range: [1, PIXEL_MAX], placeholder: '16', row: 'grade' },
     { key: 'height', label: 'Altura', kind: 'number', range: [1, PIXEL_MAX], placeholder: '16', row: 'grade', hint: `A grade vai de 1 a ${PIXEL_MAX} pontos de cada lado.` },
     { key: 'caption', label: 'Legenda', kind: 'text', placeholder: 'Opcional', max: 80, inline: 'Escreva uma legenda' },

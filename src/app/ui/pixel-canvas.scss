@@ -46,6 +46,7 @@
 }
 
 .pc-papel {
+  position: relative;
   flex: 0 1 auto;
   width: var(--lado);
   min-width: 0;
@@ -59,6 +60,27 @@
   &:focus-within {
     box-shadow: var(--campo-sombra-foco);
   }
+}
+
+/* "Espelho" escrito em cima do meio da prancheta, numa etiqueta de marca-texto, enquanto ele está ligado */
+.pc-espelho {
+  position: absolute;
+  z-index: 1;
+  top: -9px;
+  left: 50%;
+  translate: -50% 0;
+  padding: 2px 7px 1px;
+  border-radius: 2px;
+  background: var(--hi);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  pointer-events: none;
 }
 
 .pc.falta .pc-papel {
@@ -199,6 +221,9 @@
 
 .pastilha-num {
   position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
   right: -3px;
   bottom: -4px;
   min-width: 15px;
@@ -217,6 +242,73 @@
 /* a trocada: a etiquetinha em amarelo de marca-texto */
 .pastilha.trocada .pastilha-num {
   background: var(--hi);
+}
+
+/* embaixo da prancheta: a dica de agora e o trazer de uma imagem */
+.pc-pe {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 16px;
+}
+
+.pc-trazer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* os tamanhos de sempre: recortes pequenos de papel, o escolhido em tinta */
+.pc-grades {
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  justify-content: start;
+  gap: 6px;
+}
+
+@container (min-width: 520px) {
+  .pc-grades {
+    grid-template-columns: repeat(2, 38px);
+    gap: 8px;
+  }
+}
+
+.pc-grades-nome {
+  @include rt.grupo-nome;
+  grid-column: 1 / -1;
+}
+
+.pc-grade {
+  min-width: 38px;
+  height: 32px;
+  padding: 0 6px;
+  border: 1.5px dashed rgb(21 21 21 / 0.4);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.06);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  &.on {
+    border-style: solid;
+    border-color: var(--ink);
+    background: var(--ink);
+    color: var(--hi);
+  }
 }
 
 .pc-dica {

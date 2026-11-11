@@ -34,9 +34,6 @@
         <button type="button" class="pc-tecla" title="Virar de cabeça para baixo" aria-label="Virar de cabeça para baixo" [disabled]="!inked()" (click)="flipUpside()">
           <lucide-icon [img]="FlipVIcon" [size]="18" aria-hidden="true" />
         </button>
-        <button type="button" class="pc-tecla" title="Trazer de uma imagem (colar ou soltar na prancheta também serve)" aria-label="Trazer de uma imagem" [disabled]="importing()" (click)="chooseImage()">
-          <lucide-icon [img]="ImageIcon" [size]="18" aria-hidden="true" />
-        </button>
         <button type="button" class="pc-tecla perigo" title="Limpar a prancheta" aria-label="Limpar a prancheta" [disabled]="!inked()" (click)="clear()">
           <lucide-icon [img]="ClearIcon" [size]="17" aria-hidden="true" />
         </button>
@@ -47,6 +44,10 @@
   <div class="pc-mesa">
     <!-- a prancheta: o xadrez do transparente, os pontos, os fios e a mira do que o toque faz -->
     <div class="pc-papel">
+      @if (mirror()) {
+        <!-- o espelho ligado, dito em cima da prancheta: o tracejado sozinho podia passar por um fio -->
+        <span class="pc-espelho" aria-hidden="true">Espelho</span>
+      }
       <svg
         #prancheta
         class="prancheta"
@@ -61,9 +62,9 @@
         data-campo="pixels"
         (pointerdown)="down($event)"
         (pointermove)="move($event)"
-        (pointerup)="up()"
-        (pointercancel)="up()"
-        (lostpointercapture)="up()"
+        (pointerup)="up($event)"
+        (pointercancel)="up($event)"
+        (lostpointercapture)="up($event)"
         (pointerleave)="hover.set(null)"
         (contextmenu)="$event.preventDefault()"
         (paste)="takeImage($event)"
@@ -113,29 +114,52 @@
             [title]="n === 0 ? 'Transparente: apaga (0)' : on ? 'Trocar esta cor' : 'Cor ' + n + ' (' + n + ')'"
             (click)="swatch(n)"
           >
-            <span class="pastilha-num" aria-hidden="true">{{ n }}</span>
+            <span class="pastilha-num" aria-hidden="true">
+              {{ n }}
+              @if (on && n > 0) {
+                <!-- a escolhida: o lápis diz que um toque nela troca a cor -->
+                <lucide-icon class="pastilha-trocar" [img]="PenIcon" [size]="10" aria-hidden="true" />
+              }
+            </span>
           </button>
+        }
+      </div>
+      <!-- a grade de papel quadriculado: os tamanhos de sempre num toque (outro tamanho, nos campos embaixo) -->
+      <div class="pc-grades" role="group" [attr.aria-labelledby]="ids() + '-grade'">
+        <span class="pc-grades-nome" [id]="ids() + '-grade'">Grade</span>
+        @for (g of GRIDS; track g) {
+          <button type="button" class="pc-grade" [class.on]="w() === g && h() === g" [attr.aria-pressed]="w() === g && h() === g" [title]="g + ' × ' + g + ' pontos'" (click)="setGrid(g)">{{ g }}</button>
         }
       </div>
       <input #cor type="color" class="pc-cor-escolha" tabindex="-1" aria-hidden="true" (input)="setColor($any($event.target).value)" />
     </div>
   </div>
   <input #arquivo class="pc-arquivo" type="file" accept="image/*" tabindex="-1" aria-hidden="true" (change)="fromFile($event)" />
-  <p class="pc-dica" [class.ruim]="!!importError()">
-    @if (importing()) {
-      Trazendo a imagem…
-    } @else if (importError(); as err) {
-      {{ err }}
-    } @else if (!inked()) {
-      Pinte arrastando, ou traga uma imagem: pelo botão da régua, colando ou soltando aqui.
-    } @else if (ink() === 0) {
-      O 0 é o transparente: pinta apagando.
-    } @else if (colors()[ink()]) {
-      A cor {{ ink() }} foi trocada.
-      <button type="button" class="pc-voltar" (click)="resetColor(ink())">Voltar à da paleta</button>
-    } @else {
-      Toque de novo na cor escolhida para trocá-la.
-    }
+  <div class="pc-pe">
+    <p class="pc-dica" [class.ruim]="!!importError()">
+      @if (importing()) {
+        Trazendo a imagem…
+      } @else if (importError(); as err) {
+        {{ err }}
+      } @else if (!inked()) {
+        Pinte arrastando, ou traga uma imagem (colar ou soltar aqui também serve).
+      } @else if (ink() === 0) {
+        O 0 é o transparente: pinta apagando.
+      } @else if (colors()[ink()]) {
+        A cor {{ ink() }} foi trocada.
+        <button type="button" class="pc-voltar" (click)="resetColor(ink())">Voltar à da paleta</button>
+      } @else {
+        Um toque de novo na cor escolhida troca ela.
+      }
   </p>
+    <button type="button" class="btn-quiet pc-trazer" [disabled]="importing()" (click)="chooseImage()">
+      <lucide-icon [img]="ImageIcon" [size]="17" aria-hidden="true" />
+      Trazer de uma imagem
+    </button>
+  </div>
+  @if (hiddenInk(); as n) {
+    <!-- a grade diminuiu por cima do desenho: o que ficou de fora não vai no texto -->
+    <p class="pc-dica ruim pc-fora">{{ n === 1 ? 'Um ponto pintado ficou' : n + ' pontos pintados ficaram' }} fora da grade e não vão no desenho. Aumente a grade para trazê-los de volta.</p>
+  }
   <p class="sr-only" [id]="ids() + '-diz'" aria-live="polite">{{ said() }}</p>
 </div>

@@ -83,6 +83,9 @@ export class PixelCanvas {
   protected readonly FlipVIcon = ICON.virarDeCabeca;
   protected readonly ClearIcon = ICON.apagar;
   protected readonly ImageIcon = ICON.imagem;
+  protected readonly PenIcon = ICON.editar;
+  /** Os tamanhos de grade de sempre, quadrados. */
+  protected readonly GRIDS = [8, 16, 24, 32];
   /** Uma imagem sendo trazida para a prancheta; e o que deu errado na última. */
   protected readonly importing = signal(false);
   protected readonly importError = signal<string | null>(null);
@@ -98,6 +101,16 @@ export class PixelCanvas {
   protected readonly rows = computed(() => this.buffer().slice(0, this.h()).map((r) => r.slice(0, this.w())));
   protected readonly paths = computed(() => inkPaths(this.rows(), 'pixel'));
   protected readonly inked = computed(() => hasInk(this.rows()));
+  /** Quantos pontos pintados ficaram fora da grade (ela diminuiu por cima do desenho): esses não vão no texto. */
+  protected readonly hiddenInk = computed(() => {
+    const w = this.w();
+    const h = this.h();
+    let n = 0;
+    this.buffer().forEach((row, y) => {
+      for (let x = 0; x < row.length; x++) if (row[x] !== '0' && (x >= w || y >= h)) n++;
+    });
+    return n;
+  });
   /** Os fios entre os pontos; os de 8 em 8, mais fortes (para contar). */
   protected readonly lines = computed(() => gridLines(this.w(), this.h(), (i) => i % 8 !== 0));
   protected readonly majors = computed(() => gridLines(this.w(), this.h(), (i) => i % 8 === 0));
@@ -123,6 +136,8 @@ export class PixelCanvas {
   private colorsBefore: string | null = null;
   /** O arrasto de agora: apagando ou não, e o último ponto (a reta vai dele ao próximo). */
   private stroke: { erase: boolean; last: Cell; before: string[] } | null = null;
+  /** O dedo, a caneta ou o mouse do arrasto de agora: o segundo dedo não começa outro por cima. */
+  private pointer: number | null = null;
   /** O último ponto pintado (o Shift risca a reta desde ele). */
   private lastPainted: Cell | null = null;
 
@@ -273,11 +288,13 @@ export class PixelCanvas {
 
   protected down(e: PointerEvent): void {
     if (e.button !== 0 && e.button !== 2) return;
+    if (this.pointer !== null && this.pointer !== e.pointerId) return;
     const c = this.cellAt(e);
     if (!c) return;
     e.preventDefault();
     this.board().nativeElement.focus({ preventScroll: true });
     this.board().nativeElement.setPointerCapture?.(e.pointerId);
+    this.pointer = e.pointerId;
     this.keyboard.set(false);
     this.cursor.set(c);
     this.apply(c, e.button === 2 ? 'borracha' : this.tool(), e.shiftKey);
@@ -290,12 +307,14 @@ export class PixelCanvas {
     const now = e.pointerType === 'mouse' ? c : null;
     if (was?.x !== now?.x || was?.y !== now?.y) this.hover.set(now);
     const s = this.stroke;
-    if (!s || !c || (c.x === s.last.x && c.y === s.last.y)) return;
+    if (!s || !c || e.pointerId !== this.pointer || (c.x === s.last.x && c.y === s.last.y)) return;
     this.paint(lineCells(s.last, c).slice(1), s.erase);
     s.last = c;
   }
 
-  protected up(): void {
+  protected up(e: PointerEvent): void {
+    if (e.pointerId !== this.pointer) return;
+    this.pointer = null;
     this.endStroke();
   }
 
@@ -395,6 +414,12 @@ export class PixelCanvas {
   protected toggleMirror(): void {
     this.mirror.update((m) => !m);
     this.said.set(this.mirror() ? 'Espelho ligado' : 'Espelho desligado');
+  }
+
+  /** Um dos tamanhos de sempre (quadrado): os campos de Largura e Altura vão junto. */
+  protected setGrid(n: number): void {
+    this.changed.emit({ width: String(n), height: String(n) });
+    this.said.set(`Grade de ${n} por ${n} pontos`);
   }
 
   protected flipSide(): void {

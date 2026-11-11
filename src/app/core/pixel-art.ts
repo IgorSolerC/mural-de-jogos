@@ -264,13 +264,6 @@ export function pixelSummary(art: Pick<PixelArt, 'w' | 'h' | 'palette'>): string
   return `${art.w} × ${art.h} · ${palette}`;
 }
 
-/** Quantos pontos de cada cor (do 0 ao 9). */
-export function inkCount(rows: readonly string[]): number[] {
-  const out = new Array<number>(10).fill(0);
-  for (const r of rows) for (const ch of r) out[Number(ch)]++;
-  return out;
-}
-
 // ===== o que a prancheta faz com os pontos (ui/pixel-canvas.ts) =====
 // As fileiras são sempre `string[]` de algarismos; cada operação devolve fileiras novas (as de antes
 // ficam para o desfazer) e mexe só dentro da grade `w` × `h` (o que está fora fica como está).

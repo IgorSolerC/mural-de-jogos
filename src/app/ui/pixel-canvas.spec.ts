@@ -162,6 +162,15 @@ describe('pixel art: a prancheta', () => {
     expect(marked()).toEqual(['4x1', '1001']);
   });
 
+  it('os tamanhos de sempre num toque, e o aviso dos pontos que ficaram fora da grade', async () => {
+    await make({ width: '4', height: '1', pixels: '1001' });
+    (fixture.nativeElement.querySelector('button.pc-grade') as HTMLButtonElement).click();
+    expect([values['width'], values['height']]).toEqual(['8', '8']);
+    fixture.componentRef.setInput('values', (values = { ...values, width: '2', height: '1' }));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.pc-fora')?.textContent).toContain('Um ponto pintado ficou fora da grade');
+  });
+
   it('a cor trocada vai escrita e volta à da paleta', async () => {
     await make({ width: '1', height: '1', pixels: '3' });
     const canvas = fixture.componentInstance as unknown as { chooseInk(n: number): void; setColor(v: string): void; resetColor(n: number): void };
@@ -205,6 +214,20 @@ describe('pixel art: a prancheta', () => {
     expect(values['pixels']).toBe('/4444/8888');
     key('z', { ctrlKey: true });
     expect(values['pixels']).toBe('1');
+  });
+
+  it('o segundo dedo não começa outro arrasto por cima do primeiro', async () => {
+    await make({ width: '4', height: '1' });
+    pointer('pointerdown', 0, 0, 4, 1, { pointerId: 1, pointerType: 'touch' });
+    pointer('pointerdown', 3, 0, 4, 1, { pointerId: 2, pointerType: 'touch' });
+    pointer('pointermove', 3, 0, 4, 1, { pointerId: 2, pointerType: 'touch' });
+    pointer('pointerup', 3, 0, 4, 1, { pointerId: 2, pointerType: 'touch' });
+    pointer('pointermove', 1, 0, 4, 1, { pointerId: 1, pointerType: 'touch' });
+    pointer('pointerup', 1, 0, 4, 1, { pointerId: 1, pointerType: 'touch' });
+    expect(values['pixels']).toBe('11');
+    // e um passo só no desfazer volta tudo
+    key('z', { ctrlKey: true });
+    expect(values['pixels']).toBe('');
   });
 
   it('a mudança de fora (outro desenho) troca a prancheta e esvazia o desfazer', async () => {

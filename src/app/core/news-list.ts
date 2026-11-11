@@ -27,12 +27,15 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-11-pixel-no-quadro',
+    id: '2026-11-11-prancheta-da-pixel-art',
     version: '1.44.1',
     kind: 'ajustes',
     date: '2026-11-11',
-    title: 'Pixel art no Quadro livre',
-    melhorias: ['A Pixel art também entra no Quadro livre, pelo Widget da régua, e as AIs ligadas pela API e pelo MCP sabem escrever uma.'],
+    title: 'Pixel art no Quadro livre e a prancheta mais clara',
+    melhorias: [
+      'A Pixel art também entra no Quadro livre, pelo Widget da régua, e as AIs ligadas pela API e pelo MCP sabem escrever uma.',
+      'Na prancheta da Pixel art: os tamanhos de grade 8, 16, 24 e 32 num toque, o aviso dos pontos que ficam de fora quando a grade diminui, o Espelho escrito em cima do eixo, um lápis na cor escolhida dizendo que ela se troca, e o "Trazer de uma imagem" com nome, embaixo da prancheta.',
+    ],
   },
   {
     id: '2026-11-10-pixel-art',
