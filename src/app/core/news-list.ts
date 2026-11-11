@@ -27,6 +27,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-11-pixel-no-quadro',
+    version: '1.44.1',
+    kind: 'ajustes',
+    date: '2026-11-11',
+    title: 'Pixel art no Quadro livre',
+    melhorias: ['A Pixel art também entra no Quadro livre, pelo Widget da régua, e as AIs ligadas pela API e pelo MCP sabem escrever uma.'],
+  },
+  {
     id: '2026-11-10-pixel-art',
     version: '1.44.0',
     kind: 'funcionalidade',

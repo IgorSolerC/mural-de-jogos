@@ -166,6 +166,8 @@ export class FreeBoardPiece {
         return ICON.som;
       case 'tabela':
         return ICON.tabela;
+      case 'pixel':
+        return ICON.pixelArt;
       default:
         return ICON.imagem;
     }

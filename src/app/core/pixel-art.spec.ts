@@ -39,6 +39,11 @@ describe('pixel art: a marca no texto', () => {
     expect(writeGrid(gridOf('111111/22', 3, 2))).toBe('111/22');
   });
 
+  it('o widget novo, sem nada escrito, abre na grade de sempre', () => {
+    const art = readPixelArt([]);
+    expect([art.w, art.h]).toEqual([16, 16]);
+  });
+
   it('desenho sem ponto pintado não sai', () => {
     expect(writePixelArt(readPixelArt(['4x4', '0000/00']))).toBeNull();
     expect(writePixelArt(readPixelArt(['4x4']))).toBeNull();

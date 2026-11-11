@@ -285,7 +285,7 @@ export class BoardEditing {
     return this.addLines([{ line: noteLine(note.id, note.title) }], at);
   }
 
-  /** O Widget: primeiro qual (o contador, o vídeo, o som, a tabela, a imagem por link), depois a folha dele. */
+  /** O Widget: primeiro qual (o contador, o vídeo, o som, a tabela, a pixel art, a imagem por link), depois a folha dele. */
   private addWidget(at: Point): Promise<FbNode[]> {
     const owner = this.h.owner();
     if (!owner) return Promise.resolve([]);
@@ -297,6 +297,7 @@ export class BoardEditing {
         ['video', 'Vídeo', ICON.video],
         ['audio', 'Áudio', ICON.som],
         ['tabela', 'Tabela', ICON.tabela],
+        ['pixel', 'Pixel art', ICON.pixelArt],
         ['imagem', 'Imagem por link', ICON.imagem],
       ];
       const items = kinds.map(

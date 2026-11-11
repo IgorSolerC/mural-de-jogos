@@ -227,8 +227,9 @@ export function readPixelArt(args: readonly string[]): PixelArt {
   // (um laço, e não Math.max(...): uma linha escrita à mão com milhares de fileiras estouraria a pilha)
   let longest = 1;
   for (const r of written) longest = Math.max(longest, r.length);
-  const w = dims?.w ?? clampSide(longest);
-  const h = dims?.h ?? clampSide(Math.max(1, written.length));
+  // sem grade e sem pontos (o "{{pixel}}" de um widget novo), a grade de sempre
+  const w = dims?.w ?? (text ? clampSide(longest) : PIXEL_DEFAULT_SIDE);
+  const h = dims?.h ?? (text ? clampSide(written.length) : PIXEL_DEFAULT_SIDE);
   return { w, h, rows: gridOf(text, w, h), raw: text, palette: palette ?? DEFAULT_PALETTE, colors: colors ?? {}, look: look ?? DEFAULT_PIXEL_LOOK, caption };
 }
 

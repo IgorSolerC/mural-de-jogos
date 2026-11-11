@@ -225,7 +225,7 @@ export function fitMeasured(board: FreeBoard, measures: ReadonlyMap<string, Piec
 // ===== as peças novas =====
 
 /** O tamanho de uma peça nova de cada tipo (um múltiplo dos furos). */
-export function defaultSize(kind: 'bilhete' | 'nota' | 'imagem' | 'contador' | 'video' | 'audio' | 'tabela' | 'widget'): { w: number; h: number } {
+export function defaultSize(kind: 'bilhete' | 'nota' | 'imagem' | 'contador' | 'video' | 'audio' | 'tabela' | 'pixel' | 'widget'): { w: number; h: number } {
   switch (kind) {
     case 'bilhete':
       return { w: HOLE * 8, h: HOLE * 4 };
@@ -239,6 +239,9 @@ export function defaultSize(kind: 'bilhete' | 'nota' | 'imagem' | 'contador' | '
       return { w: HOLE * 12, h: HOLE * 5 };
     case 'tabela':
       return { w: HOLE * 16, h: HOLE * 8 };
+    // a pixel art nasce quadrada (a 16 × 16 de sempre); a peça acerta a proporção pelo desenho
+    case 'pixel':
+      return { w: HOLE * 8, h: HOLE * 8 };
     default:
       return { w: HOLE * 12, h: HOLE * 6 };
   }
@@ -251,7 +254,7 @@ export function sizeForLine(line: string, image?: { w: number; h: number }): { w
     const w = HOLE * 10;
     return { w, h: Math.max(HOLE * 2, Math.round((w * image.h) / Math.max(1, image.w))) };
   }
-  if (name === 'contador' || name === 'video' || name === 'audio' || name === 'tabela' || name === 'nota' || name === 'imagem') return defaultSize(name);
+  if (name === 'contador' || name === 'video' || name === 'audio' || name === 'tabela' || name === 'pixel' || name === 'nota' || name === 'imagem') return defaultSize(name);
   return defaultSize('widget');
 }
 
