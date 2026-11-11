@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-11-pixel-art-mais-curta',
+    id: '2026-11-11-kanban-filtrar-altura',
     version: '1.44.1',
     kind: 'ajustes',
     date: '2026-11-11',
@@ -37,6 +37,7 @@ export const NEWS: NewsEntry[] = [
       'Na prancheta da Pixel art: os tamanhos de grade 8, 16, 24 e 32 num toque, o aviso dos pontos que ficam de fora quando a grade diminui, o Espelho escrito em cima do eixo, um lápis na cor escolhida dizendo que ela se troca, e o "Trazer de uma imagem" com nome, embaixo da prancheta.',
       'A linha da Pixel art no texto ficou mais curta: cinco ou mais pontos iguais seguidos vão abreviados, com a quantidade em dois algarismos (0*12 são doze transparentes). As linhas de antes continuam valendo.',
     ],
+    correcoes: ['No Kanban, fechar o Filtrar não deixa mais as colunas pequenas: elas voltam à altura de antes assim que a folha sobe.'],
   },
   {
     id: '2026-11-10-pixel-art',

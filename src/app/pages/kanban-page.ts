@@ -806,17 +806,25 @@ export class KanbanPage {
     });
     // a altura das colunas: o que sobra da tela depois das abas e da pasta (ver `fitColumns`), medido de
     // novo quando elas mudam de altura (os filtros ligados que quebram em outra linha, o "Mostrando 3
-    // de 9") e quando a folha dos filtros abre embaixo da pasta, cresce ou fecha
+    // de 9") e quando a folha dos filtros abre embaixo da pasta, cresce ou fecha. A folha fecha subindo
+    // (animate.leave): fica na página um instante depois de o Filtrar fechar e só então sai. Ela continua
+    // observada até sair de verdade, e o aviso da saída mede de novo; medir quando o Filtrar fecha pegava
+    // a folha ainda lá, e as colunas ficavam do tamanho de com a folha aberta.
+    const fitWatch = new ResizeObserver((entries) => {
+      for (const e of entries) if (!e.target.isConnected) fitWatch.unobserve(e.target);
+      this.fitColumns();
+    });
+    destroy.onDestroy(() => fitWatch.disconnect());
     effect((onCleanup) => {
-      const top = this.abas()?.nativeElement;
-      const folder = this.pasta()?.nativeElement;
+      const watched = [this.abas()?.nativeElement, this.pasta()?.nativeElement].filter((el) => !!el);
+      for (const el of watched) fitWatch.observe(el);
+      onCleanup(() => {
+        for (const el of watched) fitWatch.unobserve(el);
+      });
+    });
+    effect(() => {
       const sheet = this.filterSheet()?.nativeElement;
-      if (!top || !folder) return;
-      const ro = new ResizeObserver(() => this.fitColumns());
-      ro.observe(top);
-      ro.observe(folder);
-      if (sheet) ro.observe(sheet);
-      onCleanup(() => ro.disconnect());
+      if (sheet) fitWatch.observe(sheet);
     });
     // o quadro mudou (a ordem, o filtro, a vista, uma ficha que foi para outra coluna): o que está na tela
     // é montado antes da pintura, sem passar por uma tela de vagas (ver ui/near-screen.ts)

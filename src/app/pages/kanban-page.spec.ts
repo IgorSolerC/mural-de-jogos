@@ -87,11 +87,15 @@ describe('página do Kanban', () => {
   const columnName = (h: Element) => h.childNodes[0].textContent!.trim();
   const namesIn = (id: string) => [...column(id).querySelectorAll('.lugar')].map((li) => li.getAttribute('data-nota'));
 
+  /** As animações de entrada e saída (o TestBed as desliga): ligadas só no bloco que precisa delas. */
+  let animated = false;
+
   beforeEach(async () => {
     localStorage.clear();
     // a janela dos testes é baixa: tudo montado, menos no bloco que testa justamente isso (o último)
     setEverythingNear(true);
     TestBed.configureTestingModule({
+      animationsEnabled: animated,
       providers: [
         provideZonelessChangeDetection(),
         provideRouter([
@@ -1704,6 +1708,42 @@ describe('página do Kanban', () => {
       await frames();
       expect(topo()).toBeGreaterThan(before);
       expect(Math.abs(topo() - measured())).toBeLessThanOrEqual(1);
+    });
+
+    // com as animações ligadas (o TestBed as desliga): a folha que fecha sobe antes de sair, como na tela
+    describe('com a folha subindo ao fechar', () => {
+      beforeAll(() => (animated = true));
+      afterAll(() => (animated = false));
+
+      it('fechar o Filtrar devolve a altura das colunas depois que a folha sobe e sai (não ficam pequenas)', async () => {
+        kanban.state.set(state(long()));
+        await go(TRAB_URL);
+        const frames = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        await frames();
+        const page = host.querySelector<HTMLElement>('app-kanban-page')!;
+        const topo = () => parseFloat(page.style.getPropertyValue('--kb-topo'));
+        const closed = topo();
+        const height = column('feito').getBoundingClientRect().height;
+        await openFilters();
+        await frames();
+        expect(topo()).toBeGreaterThan(closed);
+        // fecha (pelo Pronto da folha e, na segunda vez, pelo próprio Filtrar); a folha ainda sobe
+        // (animate.leave) um instante antes de sair da página, e só então as colunas crescem de volta
+        const close = async (how: () => void) => {
+          how();
+          await settle();
+          for (let i = 0; i < 100 && host.querySelector('app-filter-card'); i++) await new Promise((r) => setTimeout(r, 10));
+          expect(host.querySelector('app-filter-card')).withContext('a folha saiu').toBeNull();
+          await frames();
+          expect(topo()).toBe(closed);
+          expect(column('feito').getBoundingClientRect().height).toBeCloseTo(height, 0);
+        };
+        await close(() => host.querySelector<HTMLButtonElement>('app-filter-card button.pronto')!.click());
+        await openFilters();
+        await frames();
+        expect(topo()).toBeGreaterThan(closed);
+        await close(() => host.querySelector<HTMLButtonElement>('[aria-controls="cartela-filtros"]')!.click());
+      });
     });
 
     it('a sombra da última ficha se apaga dentro da coluna, sem ser cortada pela beirada do rolo', async () => {
