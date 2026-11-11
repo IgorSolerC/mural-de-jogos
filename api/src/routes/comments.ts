@@ -7,6 +7,7 @@ import { write } from '../domain/quota';
 import { isReaction } from '../domain/reaction';
 import { MURAL_RE, REF_RE, cleanTitle } from '../domain/review';
 import { isShown, shownRefs } from '../domain/shown';
+import { memberOfNoteSql } from '../domain/shared-group';
 import { HttpError } from '../errors';
 import { Deps } from '../ports';
 import { readJson, sessionOf } from './http';
@@ -165,19 +166,19 @@ export function commentRoutes(app: Hono, deps: Deps): void {
     ];
   }
 
-  /** A ficha `ref` do mural de `ownerId` é uma anotação compartilhada com alguém? */
+  /** A ficha `ref` do mural de `ownerId` é uma anotação compartilhada com alguém (ela mesma, ou o grupo dela)? */
   async function sharedNote(ownerId: string, ref: string): Promise<boolean> {
-    return !!(await deps.db.first('SELECT 1 AS x FROM nota_membros m JOIN notas n ON n.id = m.nota_id WHERE m.nota_id = ? AND n.dono_id = ? LIMIT 1', [ref, ownerId]));
+    return !!(await deps.db.first(
+      'SELECT 1 AS x FROM notas n WHERE n.id = ? AND n.dono_id = ? AND (EXISTS (SELECT 1 FROM nota_membros m WHERE m.nota_id = n.id) ' +
+        'OR (n.grupo_id IS NOT NULL AND EXISTS (SELECT 1 FROM grupo_membros g WHERE g.grupo_id = n.grupo_id))) LIMIT 1',
+      [ref, ownerId],
+    ));
   }
 
-  /** `userId` está na anotação compartilhada `ref` do mural de `ownerId` (sem ser o dono)? */
+  /** `userId` está na anotação compartilhada `ref` do mural de `ownerId` (sem ser o dono), por ela ou pelo grupo dela? */
   async function member(ownerId: string, ref: string, userId: string | null): Promise<boolean> {
     if (!userId || userId === ownerId) return false;
-    return !!(await deps.db.first('SELECT 1 AS x FROM nota_membros m JOIN notas n ON n.id = m.nota_id WHERE m.nota_id = ? AND n.dono_id = ? AND m.usuario_id = ?', [
-      ref,
-      ownerId,
-      userId,
-    ]));
+    return !!(await deps.db.first(`SELECT 1 AS x FROM notas n WHERE n.id = ? AND n.dono_id = ? AND ${memberOfNoteSql('n')}`, [ref, ownerId, userId, userId]));
   }
 
   /**
@@ -236,10 +237,7 @@ export function commentRoutes(app: Hono, deps: Deps): void {
       shown && me
         ? new Set(
             (
-              await deps.db.all<{ id: string }>('SELECT n.id FROM nota_membros m JOIN notas n ON n.id = m.nota_id WHERE m.usuario_id = ? AND n.dono_id = ?', [
-                me,
-                who.id,
-              ])
+              await deps.db.all<{ id: string }>(`SELECT n.id FROM notas n WHERE n.dono_id = ? AND ${memberOfNoteSql('n')}`, [who.id, me, me])
             ).map((n) => n.id),
           )
         : null;

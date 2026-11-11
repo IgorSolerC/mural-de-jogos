@@ -42,20 +42,26 @@ export const MAX_NOTE_BODY_CHARS = 2 * MAX_NOTE_CHARS + 4_096;
  * pessoa" falso no mural público do dono, mandado por qualquer um que escreve.
  */
 const PERSONAL = ['category', 'subject', 'folder', 'tags', 'noteRank', 'sharedBy'] as const;
+/**
+ * Numa anotação de grupo compartilhado (migração 0025), a pasta e as tags são do grupo, não de cada um
+ * (PLANO-COMPARTILHAR.md, D7): ficam. O grupo é o próprio grupo (não vai no conteúdo); fixar é de cada um.
+ */
+const PERSONAL_IN_GROUP = ['category', 'subject', 'noteRank', 'sharedBy'] as const;
 
 /**
  * A anotação que veio do site, pronta para guardar (JSON), sem o que é de cada pessoa (`PERSONAL`).
  * Tem de ser um objeto com o id dela e do mural de anotações; o resto o servidor não abre (quem desenha
  * e confere é o site).
  */
-export function noteData(raw: unknown, id: string): string {
+export function noteData(raw: unknown, id: string, inGroup = false): string {
   const bad = () => new HttpError(400, 'nota-invalida', 'Essa anotação veio quebrada.');
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw bad();
   const r = raw as Record<string, unknown>;
   if (r['id'] !== id || r['kind'] !== 'anotacoes') throw bad();
   const game = r['game'] as Record<string, unknown> | undefined;
   if (!game || typeof game !== 'object' || typeof game['name'] !== 'string') throw bad();
-  const own = Object.fromEntries(Object.entries(r).filter(([k]) => !(PERSONAL as readonly string[]).includes(k)));
+  const personal: readonly string[] = inGroup ? PERSONAL_IN_GROUP : PERSONAL;
+  const own = Object.fromEntries(Object.entries(r).filter(([k]) => !personal.includes(k)));
   const text = JSON.stringify(own);
   if (text.length > MAX_NOTE_CHARS) {
     throw new HttpError(413, 'nota-grande-demais', 'Essa anotação ficou grande demais para compartilhar (passa de 450 mil caracteres).');

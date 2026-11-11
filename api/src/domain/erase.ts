@@ -105,7 +105,11 @@ export async function eraseAccount(deps: Deps, id: string, vault = false): Promi
     }
   }
   const counts = await deps.db.first<{ n: number }>(
-    'SELECT (SELECT COUNT(*) FROM sessoes WHERE usuario_id = ?) + ' +
+    // os grupos compartilhados (migração 0025): os dela saem, com as pessoas; nos dos outros, ela sai
+    'SELECT (SELECT COUNT(*) FROM grupos WHERE dono_id = ?) + ' +
+      '(SELECT COUNT(*) FROM grupo_membros WHERE usuario_id = ? OR grupo_id IN (SELECT id FROM grupos WHERE dono_id = ?)) + ' +
+      '(SELECT COUNT(*) FROM grupo_membros WHERE usuario_id = ?) + ' +
+      '(SELECT COUNT(*) FROM sessoes WHERE usuario_id = ?) + ' +
       '(SELECT COUNT(*) FROM seguindo WHERE seguidor_id = ? OR seguido_id = ?) + ' +
       '(SELECT COUNT(*) FROM seguindo_desfeito WHERE seguidor_id = ? OR seguido_id = ?) + ' +
       '(SELECT COUNT(*) FROM atividades WHERE autor_id = ? OR alvo_id = ?) + ' +
@@ -126,7 +130,7 @@ export async function eraseAccount(deps: Deps, id: string, vault = false): Promi
       '(SELECT COUNT(*) FROM agenda_google WHERE usuario_id = ?) + ' +
       '(SELECT COUNT(*) FROM api_espelho_estado WHERE usuario_id = ?) + ' +
       `(SELECT COUNT(*) FROM atividades WHERE id IN (${ANSWERS_ON})) AS n`,
-    [id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id],
+    [id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id],
   );
   // o lugar de comentário apagado (de outra pessoa) que ficava só por causa de uma resposta dela: sai
   // depois, como quando a resposta sai sozinha (ver routes/comments.ts)
@@ -166,6 +170,12 @@ export async function eraseAccount(deps: Deps, id: string, vault = false): Promi
       // a permissão do Google Agenda guardada (a do Google mesmo, a pessoa tira lá)
       { sql: 'DELETE FROM agenda_google WHERE usuario_id = ?', params: [id] },
       { sql: 'DELETE FROM agenda_pedidos WHERE usuario_id = ?', params: [id] },
+      // os grupos compartilhados: os dela somem para todos (as anotações deles são dela, e saem logo abaixo); nos dos
+      // outros, ela sai, e o que escreveu neles fica no grupo (resposta P4 de PLANO-COMPARTILHAR.md)
+      { sql: 'UPDATE grupos SET versao = versao + 1 WHERE id IN (SELECT grupo_id FROM grupo_membros WHERE usuario_id = ?)', params: [id] },
+      { sql: "DELETE FROM atividades WHERE tipo = 'compartilhou-grupo' AND ref IN (SELECT id FROM grupos WHERE dono_id = ?)", params: [id] },
+      { sql: 'DELETE FROM grupo_membros WHERE usuario_id = ? OR grupo_id IN (SELECT id FROM grupos WHERE dono_id = ?)', params: [id, id] },
+      { sql: 'DELETE FROM grupos WHERE dono_id = ?', params: [id] },
       // as anotações compartilhadas: as dela somem para todos; nas dos outros, ela sai (e eles veem a lista nova)
       { sql: 'UPDATE notas SET versao = versao + 1 WHERE id IN (SELECT nota_id FROM nota_membros WHERE usuario_id = ?)', params: [id] },
       { sql: `DELETE FROM atividades WHERE tipo = 'compartilhou' AND ref IN (${NOTES_OF})`, params: [id] },

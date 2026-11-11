@@ -263,21 +263,24 @@ Todos pela `Confirm` de sempre (`ui/confirm.ts`), com o número de verdade:
 - `grupo_membros`: igual a `nota_membros` (papel, quem chamou, desde).
 - `notas.grupo_id` (nulo): a anotação de um grupo compartilhado mora em `notas`, como a compartilhada,
   e ganha todo o maquinário de hoje (rev, junção, conflito, imagens, comentários). O acesso a uma
-  anotação passa a ser: dona, ou membro dela, **ou membro do grupo dela**. O limite de 500 por pessoa
-  conta só as compartilhadas soltas; as de grupo têm o limite do grupo (2.000).
-- `quadro_membros` e `quadros.grupo_id`: o quadro livre com pessoas, e o quadro do grupo seguindo o grupo.
-- Rotas: `GET /v1/eu/grupos` (id, versão e papel), `GET /v1/eu/grupos/detalhes`, `POST /v1/grupos`
-  (compartilhar: o grupo e as anotações dele de uma vez, em lotes), `PUT /v1/grupos/:id` (o documento do
-  grupo, com `base` e 409 como a anotação), `PUT/DELETE /v1/grupos/:id/membros/:codigo`,
-  `DELETE /v1/grupos/:id` (parar de compartilhar). Público: `GET /v1/murais/:codigo/grupos` e
-  `/grupos/:id` (o documento e as anotações dele, só com `publico = 1`). Quadros: as mesmas rotas de
-  membros em `/v1/quadros/:id/membros/:codigo`.
-- Um contador `grupos_versao` no cabeçalho do GET do mural (como o `Quadros-Versao`): o site só pede a
-  lista quando algo mudou.
-- Imagens: quem é membro do grupo vê as imagens das anotações dele; o grupo público as entrega a todos
-  (`imagem_publica` pelo grupo).
-- Comentários e reações: numa anotação de grupo, quem está no grupo comenta (como na compartilhada); no
-  público, a anotação de grupo conta como ficha à mostra do dono do grupo.
+  anotação passa a ser: dona, ou membro dela, **ou membro do grupo dela** (vale o papel mais aberto).
+  O limite de 500 por pessoa conta só as compartilhadas soltas; as de grupo têm o limite do grupo (2.000).
+  A anotação de grupo é do dono do grupo (`dono_id`), e `notas.criado_por` guarda quem a escreveu (P3, P4).
+- Rotas (feitas na rodada 2, `routes/groups.ts`): `GET /v1/eu/grupos` (id, versão e papel),
+  `GET /v1/eu/grupos/detalhes`, `POST /v1/grupos` (o documento e, se quiser, as pessoas e o público),
+  `PUT /v1/grupos/:id` (o documento e o público, com `base` e 409 como a anotação),
+  `PUT/DELETE /v1/grupos/:id/membros/:codigo`, `DELETE /v1/grupos/:id` (parar de compartilhar). As
+  anotações entram com `POST /v1/notas` e o `grupo` (uma a uma, como a compartilhada; o site manda em
+  sequência), e mudam de lugar com `PUT /v1/notas/:id/grupo`. Público: `GET /v1/murais/:codigo/grupos` e
+  `/grupos/:id` (o documento e as anotações, em páginas de 200, com a versão `grupo.soma` e o 204).
+- Sem contador novo no GET do mural: o site já confere `GET /v1/eu/notas` a cada minuto (as anotações dos
+  grupos vêm nela) e confere `GET /v1/eu/grupos` junto (só id, versão e papel).
+- Imagens: quem está no grupo vê as imagens das anotações dele (`inNoteSql`); as do grupo público vão para
+  todos.
+- Comentários: numa anotação de grupo, quem está no grupo comenta e recebe os avisos (como na
+  compartilhada). No público, a anotação do grupo entra nas fichas à mostra do dono pelo envio do mural
+  (rodada 5), como as outras.
+- Quadros livres com pessoas (`quadro_membros`, `quadros.grupo_id`): migração própria na rodada 6.
 - Avisos: atividade `compartilhou-grupo` (um por pessoa e grupo).
 
 ### 5.2 No site
@@ -373,7 +376,7 @@ Novidades, BUILD + 1, commit e push.
 ## 8. Andamento
 
 - [x] Rodada 1 — Quem vê (BUILD 853)
-- [ ] Rodada 2 — A nuvem dos grupos
+- [x] Rodada 2 — A nuvem dos grupos (BUILD 854)
 - [ ] Rodada 3 — Compartilhar um grupo com pessoas
 - [ ] Rodada 4 — O Kanban compartilhado
 - [ ] Rodada 5 — O grupo público

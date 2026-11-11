@@ -32,6 +32,7 @@ import { boardRoutes } from './routes/boards';
 import { boardsExtRoutes } from './ext/boards-ext';
 import { muralRoutes } from './routes/mural';
 import { noteRoutes } from './routes/notes';
+import { groupRoutes } from './routes/groups';
 import { reactionRoutes } from './routes/reactions';
 import { usageReportRoutes } from './routes/usage-report';
 import { imageRoutes } from './routes/images';
@@ -134,6 +135,7 @@ export function createApp(deps: Deps): Hono {
   reactionRoutes(app, deps);
   commentRoutes(app, deps);
   noteRoutes(app, deps);
+  groupRoutes(app, deps);
   imageRoutes(app, deps);
   catalogRoutes(app, deps);
   agendaRoutes(app, deps);

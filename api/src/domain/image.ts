@@ -1,3 +1,4 @@
+import { inNoteSql } from './shared-group';
 import { HttpError } from '../errors';
 import { Db, Deps, SqlValue, Statement } from '../ports';
 import { DAY_MS } from './quota';
@@ -128,8 +129,8 @@ export function imageIdsIn(text: string, max = 1000): string[] {
   return [...out];
 }
 
-/** A pessoa está na anotação (é a dona, ou está entre as pessoas): o pedaço de SQL, com o id da pessoa em `?` duas vezes. */
-const IN_NOTE = '(n.dono_id = ? OR EXISTS (SELECT 1 FROM nota_membros m WHERE m.nota_id = n.id AND m.usuario_id = ?))';
+/** A pessoa está na anotação (é a dona, está entre as pessoas ou no grupo dela): o pedaço de SQL, com o id da pessoa em `?` três vezes. */
+const IN_NOTE = inNoteSql('n');
 
 /**
  * A imagem e quem pode vê-la, conferido agora (rodada 4): `publica`, alguém a mostra no mural público e
@@ -146,12 +147,14 @@ export async function imageAccess(
       'EXISTS (SELECT 1 FROM imagem_publica p WHERE p.imagem_id = i.id AND (p.usuario_id = i.dono_id OR EXISTS (' +
       'SELECT 1 FROM nota_imagens ni JOIN notas n ON n.id = ni.nota_id WHERE ni.imagem_id = i.id AND ' +
       '(n.dono_id = p.usuario_id OR EXISTS (SELECT 1 FROM nota_membros m WHERE m.nota_id = n.id AND m.usuario_id = p.usuario_id))))) OR ' +
+      // a imagem de uma anotação de um grupo público (PLANO-COMPARTILHAR.md, 4.6)
+      'EXISTS (SELECT 1 FROM nota_imagens ni JOIN notas n ON n.id = ni.nota_id JOIN grupos g ON g.id = n.grupo_id WHERE ni.imagem_id = i.id AND g.publico = 1) OR ' +
       // a imagem de um quadro público do dono (PLANO-QUADRO-LIVRE.md, 4.8)
       'EXISTS (SELECT 1 FROM quadro_imagens qi JOIN quadros q ON q.id = qi.quadro_id WHERE qi.imagem_id = i.id AND q.usuario_id = i.dono_id ' +
       'AND q.publico = 1 AND q.apagado_em IS NULL) AS publica, ' +
       `EXISTS (SELECT 1 FROM nota_imagens ni JOIN notas n ON n.id = ni.nota_id WHERE ni.imagem_id = i.id AND ${IN_NOTE}) AS membro ` +
       'FROM imagens i WHERE i.id = ?',
-    [viewer ?? '', viewer ?? '', id],
+    [viewer ?? '', viewer ?? '', viewer ?? '', id],
   );
 }
 

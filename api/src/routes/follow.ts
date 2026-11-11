@@ -41,7 +41,7 @@ interface Person {
 }
 
 interface FeedRow {
-  tipo: 'seguiu' | 'resenha' | 'reagiu' | 'comentou' | 'respondeu' | 'compartilhou' | 'acesso';
+  tipo: 'seguiu' | 'resenha' | 'reagiu' | 'comentou' | 'respondeu' | 'compartilhou' | 'compartilhou-grupo' | 'acesso';
   criado_em: string;
   ref: string | null;
   resumo: string | null;
@@ -349,27 +349,33 @@ export function followRoutes(app: Hono, deps: Deps): void {
           "AND (a.tipo <> 'respondeu' OR EXISTS (SELECT 1 FROM comentarios r JOIN usuarios d ON d.id = r.dono_id " +
           'WHERE r.ref = a.ref AND r.autor_id = a.autor_id AND r.apagado = 0 AND r.resposta_a IS NOT NULL ' +
           `AND (d.id = a.alvo_id OR ${shownSql('d', 'a.ref')} ` +
-          'OR EXISTS (SELECT 1 FROM nota_membros nm2 JOIN notas n2 ON n2.id = nm2.nota_id WHERE n2.id = a.ref AND n2.dono_id = d.id AND nm2.usuario_id = a.alvo_id)))) ' +
+          'OR EXISTS (SELECT 1 FROM notas n2 WHERE n2.id = a.ref AND n2.dono_id = d.id AND (EXISTS (SELECT 1 FROM nota_membros nm2 WHERE nm2.nota_id = n2.id AND nm2.usuario_id = a.alvo_id) ' +
+          'OR (n2.grupo_id IS NOT NULL AND EXISTS (SELECT 1 FROM grupo_membros gm2 WHERE gm2.grupo_id = n2.grupo_id AND gm2.usuario_id = a.alvo_id))))))) ' +
           'UNION ALL ' +
-          // quem comentou numa anotação em que eu estou (de outra pessoa), enquanto eu ainda estou nela
+          // quem comentou numa anotação em que eu estou (de outra pessoa; por ela ou pelo grupo dela), enquanto eu ainda estou nela
           "SELECT 'comentou' AS tipo, a.criado_em AS criado_em, a.ref, a.resumo, u.codigo, u.nome, COALESCE(f.silenciado, 0) AS silenciado, " +
           'CASE WHEN f.seguidor_id IS NULL THEN 0 ELSE 1 END AS eu_sigo ' +
-          'FROM nota_membros nm JOIN notas n ON n.id = nm.nota_id ' +
+          'FROM notas n ' +
           "JOIN atividades a ON a.alvo_id = n.dono_id AND a.ref = n.id AND a.tipo = 'comentou' " +
           'JOIN usuarios u ON u.id = a.autor_id ' +
-          'LEFT JOIN seguindo f ON f.seguidor_id = nm.usuario_id AND f.seguido_id = a.autor_id ' +
-          'WHERE nm.usuario_id = ? AND a.autor_id <> ? AND a.criado_em > ? ' +
+          'LEFT JOIN seguindo f ON f.seguidor_id = ? AND f.seguido_id = a.autor_id ' +
+          'WHERE (n.id IN (SELECT nota_id FROM nota_membros WHERE usuario_id = ?) OR n.grupo_id IN (SELECT grupo_id FROM grupo_membros WHERE usuario_id = ?)) ' +
+          'AND a.autor_id <> ? AND a.criado_em > ? ' +
           'UNION ALL ' +
-          // quem compartilhou uma anotação comigo (enquanto eu ainda estou nela), com o título e o papel de agora
-          "SELECT 'compartilhou' AS tipo, a.criado_em AS criado_em, a.ref, " +
-          "json_object('titulo', COALESCE(json_extract(n.dados, '$.game.name'), ''), 'mural', 'anotacoes', 'papel', m.papel) AS resumo, " +
+          // quem compartilhou uma anotação ou um grupo comigo (enquanto eu ainda estou nele), com o título e o papel de agora
+          "SELECT a.tipo AS tipo, a.criado_em AS criado_em, a.ref, " +
+          "json_object('titulo', COALESCE(json_extract(n.dados, '$.game.name'), json_extract(g.dados, '$.nome'), ''), 'mural', 'anotacoes', 'papel', COALESCE(m.papel, gm.papel)) AS resumo, " +
           'u.codigo, u.nome, 0 AS silenciado, ' +
           '(SELECT COUNT(*) FROM seguindo b WHERE b.seguidor_id = ? AND b.seguido_id = a.autor_id) AS eu_sigo ' +
           'FROM atividades a JOIN usuarios u ON u.id = a.autor_id ' +
-          'JOIN nota_membros m ON m.nota_id = a.ref AND m.usuario_id = a.alvo_id JOIN notas n ON n.id = a.ref ' +
-          "WHERE a.tipo = 'compartilhou' AND a.alvo_id = ? AND a.criado_em > ? " +
+          "LEFT JOIN nota_membros m ON a.tipo = 'compartilhou' AND m.nota_id = a.ref AND m.usuario_id = a.alvo_id " +
+          "LEFT JOIN notas n ON a.tipo = 'compartilhou' AND n.id = a.ref " +
+          "LEFT JOIN grupo_membros gm ON a.tipo = 'compartilhou-grupo' AND gm.grupo_id = a.ref AND gm.usuario_id = a.alvo_id " +
+          "LEFT JOIN grupos g ON a.tipo = 'compartilhou-grupo' AND g.id = a.ref " +
+          "WHERE a.tipo IN ('compartilhou', 'compartilhou-grupo') AND a.alvo_id = ? AND a.criado_em > ? " +
+          'AND ((m.usuario_id IS NOT NULL AND n.id IS NOT NULL) OR (gm.usuario_id IS NOT NULL AND g.id IS NOT NULL)) ' +
           'ORDER BY criado_em DESC LIMIT ?',
-        [s.userId, s.userId, since, s.userId, since, s.userId, since, s.userId, s.userId, since, s.userId, s.userId, since, limit],
+        [s.userId, s.userId, since, s.userId, since, s.userId, since, s.userId, s.userId, s.userId, s.userId, since, s.userId, s.userId, since, limit],
       );
     if (after) {
       const fresh = await feed(after > floor ? after : floor, 1);
@@ -390,8 +396,9 @@ export function followRoutes(app: Hono, deps: Deps): void {
           return { ...base, ref: r.ref, nome: a.nome, conector: a.conector };
         }
         const sum = summary(r.resumo);
-        if (r.tipo === 'compartilhou') {
-          return { ...base, ref: r.ref, titulo: (sum?.titulo || 'Anotação').slice(0, 120), mural: 'anotacoes', papel: sum?.papel ?? 'leitor', euSigo: !!r.eu_sigo };
+        if (r.tipo === 'compartilhou' || r.tipo === 'compartilhou-grupo') {
+          const fallback = r.tipo === 'compartilhou' ? 'Anotação' : 'Grupo';
+          return { ...base, ref: r.ref, titulo: (sum?.titulo || fallback).slice(0, 120), mural: 'anotacoes', papel: sum?.papel ?? 'leitor', euSigo: !!r.eu_sigo };
         }
         const review = { ...base, ref: r.ref, titulo: sum?.titulo ?? '', mural: sum?.mural ?? 'jogos', silenciado: !!r.silenciado };
         // a resposta: de quem é a ficha (pode ser de outra pessoa) e qual comentário abrir

@@ -17,6 +17,7 @@ import { muraisSuite } from './murais.suite';
 import { estudosSuite } from './estudos.suite';
 import { apiSuite } from './suite';
 import { notasSuite } from './notas.suite';
+import { gruposSuite } from './grupos.suite';
 import { imagensSuite } from './imagens.suite';
 import { quadrosSuite } from './quadros.suite';
 
@@ -30,6 +31,7 @@ beforeAll(async () => {
 apiSuite('Cloudflare D1', () => d1Db(bindings.DB));
 amigosSuite('Cloudflare D1', () => d1Db(bindings.DB));
 notasSuite('Cloudflare D1', () => d1Db(bindings.DB));
+gruposSuite('Cloudflare D1', () => d1Db(bindings.DB));
 chavesSuite('Cloudflare D1', () => d1Db(bindings.DB));
 adminSuite('Cloudflare D1', () => d1Db(bindings.DB));
 usoApisSuite('Cloudflare D1', () => d1Db(bindings.DB));

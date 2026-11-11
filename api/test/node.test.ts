@@ -16,6 +16,7 @@ import { muraisSuite } from './murais.suite';
 import { estudosSuite } from './estudos.suite';
 import { apiSuite } from './suite';
 import { notasSuite } from './notas.suite';
+import { gruposSuite } from './grupos.suite';
 import { imagensSuite } from './imagens.suite';
 import { quadrosSuite } from './quadros.suite';
 
@@ -29,6 +30,7 @@ const imagesDb = sqliteDb(imagesSqlite);
 apiSuite('Node + SQLite', () => db);
 amigosSuite('Node + SQLite', () => db);
 notasSuite('Node + SQLite', () => db);
+gruposSuite('Node + SQLite', () => db);
 chavesSuite('Node + SQLite', () => db);
 adminSuite('Node + SQLite', () => db);
 usoApisSuite('Node + SQLite', () => db);

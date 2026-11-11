@@ -23,6 +23,7 @@ import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
 import { readJson, sessionOf } from './http';
 import { imageIdsIn, noteImageStatements } from '../domain/image';
+import { MAX_GROUP_NOTES, asRole, groupId, widest } from '../domain/shared-group';
 
 /**
  * As anotações compartilhadas (ver `domain/shared-note.ts` e a migração 0011).
@@ -52,6 +53,10 @@ export const MIN_EDIT_MS = 1_000;
 interface NoteRow {
   id: string;
   dono_id: string;
+  /** O grupo compartilhado da anotação (migração 0025); null: a compartilhada solta. */
+  grupo_id: string | null;
+  /** Quem a escreveu (só nas de grupo: o dono dela é o dono do grupo). */
+  criado_por: string | null;
   rev: number;
   versao: number;
   dados: string;
@@ -85,11 +90,82 @@ export function noteRoutes(app: Hono, deps: Deps): void {
     return deps.db.first<NoteRow>('SELECT * FROM notas WHERE id = ?', [id]);
   }
 
-  /** O papel de `userId` na anotação (null: não está nela). */
+  /**
+   * O papel de `userId` na anotação (null: não está nela): o da própria anotação ou o do grupo dela, o mais
+   * aberto (PLANO-COMPARTILHAR.md, 3.4). O dono do grupo é o dono das anotações dele.
+   */
   async function accessOf(n: NoteRow, userId: string): Promise<Access | null> {
     if (n.dono_id === userId) return 'dono';
     const m = await deps.db.first<{ papel: string }>('SELECT papel FROM nota_membros WHERE nota_id = ? AND usuario_id = ?', [n.id, userId]);
-    return m && isRole(m.papel) ? m.papel : null;
+    const own = m && isRole(m.papel) ? m.papel : null;
+    if (!n.grupo_id) return own;
+    return widest(own, await groupRole(n.grupo_id, userId));
+  }
+
+  /** O papel de `userId` num grupo compartilhado (null: não está nele, ou o grupo não existe). */
+  async function groupRole(grupoId: string, userId: string): Promise<Access | null> {
+    const g = await deps.db.first<{ dono_id: string; papel: string | null }>(
+      'SELECT g.dono_id, m.papel FROM grupos g LEFT JOIN grupo_membros m ON m.grupo_id = g.id AND m.usuario_id = ? WHERE g.id = ?',
+      [userId, grupoId],
+    );
+    if (!g) return null;
+    return g.dono_id === userId ? 'dono' : asRole(g.papel);
+  }
+
+  /** O grupo e o papel de quem pede, ou 404. */
+  async function groupFor(id: string, userId: string): Promise<{ dono_id: string; access: Access }> {
+    const g = await deps.db.first<{ dono_id: string }>('SELECT dono_id FROM grupos WHERE id = ?', [id]);
+    const access = g ? await groupRole(id, userId) : null;
+    if (!g || !access) throw new HttpError(404, 'grupo-nao-encontrado', 'Esse grupo não está mais compartilhado com você.');
+    return { dono_id: g.dono_id, access };
+  }
+
+  /** Quantas anotações o grupo já tem. */
+  async function groupCount(grupoId: string): Promise<number> {
+    return (await deps.db.first<{ n: number }>('SELECT COUNT(*) AS n FROM notas WHERE grupo_id = ?', [grupoId]))?.n ?? 0;
+  }
+
+  const groupFull = () => new HttpError(429, 'grupo-cheio', `O grupo já tem ${MAX_GROUP_NOTES} anotações, o máximo.`);
+
+  /**
+   * O id é o de uma ficha à mostra no mural de outra pessoa: só pode ser cópia (o id nasce sorteado em
+   * cada mural). Compartilhada com a dona do id, a ficha dela ganharia um id novo (as duas não cabem no
+   * mesmo mural) e perderia os comentários, as reações e os links; e ninguém toma de antemão o id de uma
+   * ficha que ela ainda vai compartilhar.
+   */
+  async function idFree(id: string, userId: string): Promise<void> {
+    if (await deps.db.first('SELECT 1 AS x FROM usuarios WHERE id <> ? AND fichas_publicas IS NOT NULL AND instr(fichas_publicas, ?) > 0 LIMIT 1', [userId, JSON.stringify(id)])) {
+      throw idInUse();
+    }
+  }
+
+  /** Uma anotação nova num grupo compartilhado, escrita por `userId` (que escreve no grupo). */
+  async function createInGroup(userId: string, id: string, grupoId: string, dados: string) {
+    const g = await groupFor(grupoId, userId);
+    if (!canWrite(g.access)) throw new HttpError(403, 'so-leitura', 'Você pode ler este grupo, mas não escrever nele.');
+    if ((await groupCount(grupoId)) >= MAX_GROUP_NOTES) throw groupFull();
+    await idFree(id, userId);
+    const at = deps.now().toISOString();
+    const row: NoteRow = { id, dono_id: g.dono_id, grupo_id: grupoId, criado_por: userId, rev: 1, versao: 1, dados, conflito: null, criado_em: at, atualizado_em: at, atualizado_por: userId };
+    try {
+      await write(
+        deps,
+        [
+          {
+            sql: 'INSERT INTO notas (id, dono_id, grupo_id, criado_por, rev, versao, dados, criado_em, atualizado_em, atualizado_por) VALUES (?, ?, ?, ?, 1, 1, ?, ?, ?, ?)',
+            params: [id, g.dono_id, grupoId, userId, dados, at, at, userId],
+          },
+          ...noteImageStatements(id, [dados]),
+        ],
+        2 + 2 * imageIdsIn(dados, 200).length,
+      );
+    } catch (error) {
+      // dois pedidos iguais ao mesmo tempo: o outro criou; devolve a de agora
+      const now2 = await note(id);
+      if (error instanceof HttpError || !now2 || now2.grupo_id !== grupoId) throw error;
+      return detail(now2, g.access);
+    }
+    return detail(row, g.access);
   }
 
   /** A anotação e o papel de quem pede, ou 404 (para quem não está nela, ela não existe). */
@@ -133,7 +209,7 @@ export function noteRoutes(app: Hono, deps: Deps): void {
       [n.id],
     );
     const conflict = canWrite(access) ? parseConflict(n.conflito) : null;
-    const ids = [...new Set([n.dono_id, n.atualizado_por, ...(conflict ? [conflict.autorA, conflict.autorB] : [])])];
+    const ids = [...new Set([n.dono_id, n.atualizado_por, ...(n.criado_por ? [n.criado_por] : []), ...(conflict ? [conflict.autorA, conflict.autorB] : [])])];
     const people = await deps.db.all<Person>(`SELECT id, codigo, nome, foto FROM usuarios WHERE id IN (${ids.map(() => '?').join(', ')})`, ids);
     const byId = new Map(people.map((p) => [p.id, p]));
     const who = (id: string) => {
@@ -158,6 +234,8 @@ export function noteRoutes(app: Hono, deps: Deps): void {
       criadoEm: n.criado_em,
       atualizadoEm: n.atualizado_em,
       atualizadoPor: who(n.atualizado_por),
+      // a de um grupo compartilhado: o grupo e quem a escreveu (o dono dela é o dono do grupo)
+      ...(n.grupo_id ? { grupo: n.grupo_id, criadoPor: n.criado_por ? who(n.criado_por) : null } : {}),
       ...(conflict ? { conflito: { a: conflict.a, b: conflict.b, autorA: who(conflict.autorA), autorB: who(conflict.autorB), em: conflict.em } } : {}),
     };
   }
@@ -165,7 +243,8 @@ export function noteRoutes(app: Hono, deps: Deps): void {
   /** Quantas anotações compartilhadas a pessoa já tem (dela e com ela). */
   async function countFor(userId: string): Promise<number> {
     const row = await deps.db.first<{ n: number }>(
-      'SELECT (SELECT COUNT(*) FROM notas WHERE dono_id = ?) + (SELECT COUNT(*) FROM nota_membros WHERE usuario_id = ?) AS n',
+      // as de grupo têm o limite do grupo (MAX_GROUP_NOTES), não o da pessoa
+      'SELECT (SELECT COUNT(*) FROM notas WHERE dono_id = ? AND grupo_id IS NULL) + (SELECT COUNT(*) FROM nota_membros WHERE usuario_id = ?) AS n',
       [userId, userId],
     );
     return row?.n ?? 0;
@@ -197,15 +276,23 @@ export function noteRoutes(app: Hono, deps: Deps): void {
   }
 
   // As anotações em que a pessoa está: só o que muda (a versão) e o papel.
+  // (com as dos grupos compartilhados em que ela está; numa que vem pelos dois caminhos, vale o papel mais aberto)
   app.get('/v1/eu/notas', async (c) => {
     const s = await session(c);
     const rows = await deps.db.all<{ id: string; versao: number; papel: string }>(
       "SELECT id, versao, 'dono' AS papel FROM notas WHERE dono_id = ? " +
         'UNION ALL SELECT n.id, n.versao, m.papel FROM nota_membros m JOIN notas n ON n.id = m.nota_id WHERE m.usuario_id = ? ' +
+        'UNION ALL SELECT n.id, n.versao, g.papel FROM grupo_membros g JOIN notas n ON n.grupo_id = g.grupo_id WHERE g.usuario_id = ? ' +
         'LIMIT ?',
-      [s.userId, s.userId, MAX_NOTES_PER_USER * 2],
+      [s.userId, s.userId, s.userId, MAX_NOTES_PER_USER * 2 + MAX_GROUP_NOTES * 4],
     );
-    return c.json({ notas: rows.map((r) => ({ id: r.id, versao: r.versao, papel: r.papel })) });
+    const byId = new Map<string, { id: string; versao: number; papel: Access }>();
+    for (const r of rows) {
+      const papel = r.papel === 'dono' ? 'dono' : asRole(r.papel);
+      if (!papel) continue;
+      byId.set(r.id, { id: r.id, versao: r.versao, papel: widest(byId.get(r.id)?.papel ?? null, papel)! });
+    }
+    return c.json({ notas: [...byId.values()] });
   });
 
   // As anotações pedidas, inteiras (só as em que a pessoa está; as outras não vêm).
@@ -228,27 +315,28 @@ export function noteRoutes(app: Hono, deps: Deps): void {
   });
 
   // Compartilhar uma anotação: ela passa a morar aqui, com o dono e as pessoas que vierem junto.
+  //
+  // Com `grupo`, a anotação nasce num grupo compartilhado (quem escreve nele: o dono, os gestores e os
+  // editores): ela é do dono do grupo, e quem a escreveu fica em `criado_por`. Sem pessoas a mais.
   app.post('/v1/notas', async (c) => {
     const s = await session(c);
     const body = await readJson(c, MAX_NOTE_BODY_CHARS);
     const id = noteId(body['id']);
-    const dados = noteData(body['dados'], id);
+    const grupoId = body['grupo'] === undefined || body['grupo'] === null ? null : groupId(body['grupo']);
+    const dados = noteData(body['dados'], id, !!grupoId);
     const existing = await note(id);
     if (existing) {
       // já compartilhada (o pedido de antes chegou e a resposta se perdeu): devolve como está
       if (existing.dono_id === s.userId) return c.json({ nota: await detail(existing, 'dono') }, 200);
+      const access = grupoId && existing.grupo_id === grupoId ? await accessOf(existing, s.userId) : null;
+      if (access) return c.json({ nota: await detail(existing, access) }, 200);
       throw idInUse();
     }
+    if (grupoId) return c.json({ nota: await createInGroup(s.userId, id, grupoId, dados) }, 201);
     if ((await countFor(s.userId)) >= MAX_NOTES_PER_USER) {
       throw new HttpError(429, 'notas-demais', `Você já tem ${MAX_NOTES_PER_USER} anotações compartilhadas, o máximo.`);
     }
-    // O id é o de uma ficha à mostra no mural de outra pessoa: só pode ser cópia (o id nasce sorteado
-    // em cada mural). Compartilhada com a dona do id, a ficha dela ganharia um id novo (as duas não
-    // cabem no mesmo mural) e perderia os comentários, as reações e os links; e ninguém toma de
-    // antemão o id de uma ficha que ela ainda vai compartilhar.
-    if (await deps.db.first('SELECT 1 AS x FROM usuarios WHERE id <> ? AND fichas_publicas IS NOT NULL AND instr(fichas_publicas, ?) > 0 LIMIT 1', [s.userId, JSON.stringify(id)])) {
-      throw idInUse();
-    }
+    await idFree(id, s.userId);
     const wanted = Array.isArray(body['membros']) ? body['membros'].slice(0, MAX_MEMBERS + 1) : [];
     const people = new Map<string, { p: Person; role: Role }>();
     for (const item of wanted) {
@@ -264,7 +352,7 @@ export function noteRoutes(app: Hono, deps: Deps): void {
     const now = deps.now();
     await shareBrake(s.userId, now, people.size);
     const at = now.toISOString();
-    const row: NoteRow = { id, dono_id: s.userId, rev: 1, versao: 1, dados, conflito: null, criado_em: at, atualizado_em: at, atualizado_por: s.userId };
+    const row: NoteRow = { id, dono_id: s.userId, grupo_id: null, criado_por: null, rev: 1, versao: 1, dados, conflito: null, criado_em: at, atualizado_em: at, atualizado_por: s.userId };
     try {
       await write(
         deps,
@@ -301,9 +389,9 @@ export function noteRoutes(app: Hono, deps: Deps): void {
       throw new HttpError(400, 'sem-rev', 'Faltou dizer em qual versão da anotação a edição se baseia.');
     }
     if (base !== n.rev) return c.json({ erro: 'conflito', mensagem: 'Outra pessoa gravou antes. Juntando as duas edições.', nota: await detail(n, access) }, 409);
-    const dados = noteData(body['dados'], id);
+    const dados = noteData(body['dados'], id, !!n.grupo_id);
     const raw = body['conflito'] as Record<string, unknown> | undefined;
-    const other = raw && typeof raw === 'object' && !Array.isArray(raw) ? noteData(raw['b'], id) : null;
+    const other = raw && typeof raw === 'object' && !Array.isArray(raw) ? noteData(raw['b'], id, !!n.grupo_id) : null;
     const pending = parseConflict(n.conflito);
     // O editor escreve, mas não muda a estrutura (o site nem mostra; aqui é a garantia). Escolhendo num
     // conflito, vale a estrutura de uma das duas versões (a outra pode ter vindo de um gestor).
@@ -438,12 +526,79 @@ export function noteRoutes(app: Hono, deps: Deps): void {
     return c.json({ nota: await detail(saved, access) });
   });
 
-  // Apagar para todos: só o dono.
+  // Pôr a anotação num grupo compartilhado, ou tirar dela. Pôr: quem é dono da anotação e escreve no grupo
+  // (ela passa a ser do dono do grupo, resposta P4). Tirar: o dono e os gestores do grupo (ela fica com o
+  // dono do grupo, sem grupo). Trocar de um grupo para outro: as duas coisas.
+  app.put('/v1/notas/:id/grupo', async (c) => {
+    const s = await session(c);
+    const id = noteId(c.req.param('id'));
+    const { n, access } = await mine(id, s.userId);
+    const body = await readJson(c);
+    const target = body['grupo'] === null ? null : groupId(body['grupo']);
+    if (target === n.grupo_id) return c.json({ nota: await detail(n, access) });
+    if (n.grupo_id && !canManage(await groupRole(n.grupo_id, s.userId))) {
+      throw new HttpError(403, 'so-gestor', 'Só o dono e os gestores tiram uma anotação do grupo.');
+    }
+    if (!n.grupo_id && n.dono_id !== s.userId) throw new HttpError(403, 'so-dono', 'Só o dono da anotação a põe num grupo.');
+    let owner = n.dono_id;
+    if (target) {
+      const g = await groupFor(target, s.userId);
+      if (!canWrite(g.access)) throw new HttpError(403, 'so-leitura', 'Você pode ler este grupo, mas não escrever nele.');
+      if ((await groupCount(target)) >= MAX_GROUP_NOTES) throw groupFull();
+      owner = g.dono_id;
+    }
+    // o conteúdo guardado como o do lugar novo: a pasta e as tags ficam só dentro de um grupo
+    let stored: unknown = null;
+    try {
+      stored = JSON.parse(n.dados);
+    } catch {
+      stored = null;
+    }
+    const dados = noteData(stored, id, !!target);
+    const at = deps.now().toISOString();
+    const [result] = await write(
+      deps,
+      [
+        {
+          sql:
+            'UPDATE notas SET grupo_id = ?, dono_id = ?, criado_por = COALESCE(criado_por, ?), dados = ?, rev = rev + 1, versao = versao + 1, ' +
+            'atualizado_em = ?, atualizado_por = ? WHERE id = ? AND rev = ?',
+          params: [target, owner, n.dono_id, dados, at, s.userId, id, n.rev],
+        },
+        // mudou de dono (foi para o grupo de outra pessoa): a conversa, as reações e os comentários fechados
+        // vão junto, porque moram no mural do dono (pelo código dele), se a mudança entrou
+        ...(owner === n.dono_id
+          ? []
+          : ['comentarios', 'reacoes', 'comentarios_fechados'].map((table) => ({
+              sql: `UPDATE ${table} SET dono_id = ? WHERE dono_id = ? AND ref = ? AND EXISTS (SELECT 1 FROM notas WHERE id = ? AND rev = ? AND dono_id = ?)`,
+              params: [owner, n.dono_id, id, id, n.rev + 1, owner],
+            }))),
+      ],
+      owner === n.dono_id ? 1 : 4,
+    );
+    const saved = await note(id);
+    if (!saved) throw notFound();
+    const now = await accessOf(saved, s.userId);
+    if (!result || result.changes === 0) {
+      if (!now) throw notFound();
+      return c.json({ erro: 'conflito', mensagem: 'Outra pessoa gravou antes. Tente de novo.', nota: await detail(saved, now) }, 409);
+    }
+    // quem tirou e não está mais nela (a dona de antes, que a pôs num grupo de outra pessoa e saiu dele) não a vê
+    if (!now) return c.json({ ok: true });
+    return c.json({ nota: await detail(saved, now) });
+  });
+
+  // Apagar para todos: o dono; numa de grupo, também os gestores, e o editor a que ele escreveu (resposta P3).
   app.delete('/v1/notas/:id', async (c) => {
     const s = await session(c);
     const id = noteId(c.req.param('id'));
-    const { access } = await mine(id, s.userId);
-    if (access !== 'dono') throw new HttpError(403, 'so-dono', 'Só o dono apaga a anotação para todos. Você pode sair dela.');
+    const { n, access } = await mine(id, s.userId);
+    const mayDelete = access === 'dono' || (!!n.grupo_id && (access === 'gestor' || (access === 'editor' && n.criado_por === s.userId)));
+    if (!mayDelete) {
+      throw n.grupo_id
+        ? new HttpError(403, 'so-quem-escreveu', 'Num grupo, o editor apaga só as anotações que escreveu. As outras, o dono e os gestores.')
+        : new HttpError(403, 'so-dono', 'Só o dono apaga a anotação para todos. Você pode sair dela.');
+    }
     const members = await deps.db.first<{ n: number }>('SELECT COUNT(*) AS n FROM nota_membros WHERE nota_id = ?', [id]);
     await write(
       deps,
