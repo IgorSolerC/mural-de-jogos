@@ -2,7 +2,8 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, u
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs';
-import { visitBoardPath, visitStudyPath } from '../core/areas';
+import { visitBoardPath, visitKanbanPath, visitStudyPath } from '../core/areas';
+import { VisitKanban } from '../ui/visit-kanban';
 import { VisitBoards } from '../core/visit-boards';
 import { ICON, IconModule } from '../ui/icons';
 import { CloudAccount } from '../core/cloud-account';
@@ -44,7 +45,7 @@ const NO_PICKS: ReadonlyMap<string, number> = new Map();
  */
 @Component({
   selector: 'app-colleague-wall-page',
-  imports: [Busy, IconModule, PersonPhoto, ReviewReader, RouterLink, VisitBoardsView, VisitStudy, WallBoard, WallToolbar],
+  imports: [Busy, IconModule, PersonPhoto, ReviewReader, RouterLink, VisitBoardsView, VisitKanban, VisitStudy, WallBoard, WallToolbar],
   providers: [VisitView, { provide: WallState, useExisting: VisitView }],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './colleague-wall-page.html',
@@ -107,12 +108,20 @@ export class ColleagueWallPage {
   private readonly route = inject(ActivatedRoute);
   private readonly params = toSignal(
     this.route.paramMap.pipe(
-      map((p) => ({ studying: p.get('secao') === 'estudos', boards: p.get('secao') === 'quadro-livre', group: p.get('grupo'), deck: p.get('baralho'), board: p.get('quadro') })),
+      map((p) => ({
+        studying: p.get('secao') === 'estudos',
+        boards: p.get('secao') === 'quadro-livre',
+        kanban: p.get('secao') === 'kanban',
+        group: p.get('grupo'),
+        deck: p.get('baralho'),
+        board: p.get('quadro'),
+      })),
     ),
     {
       initialValue: {
         studying: this.route.snapshot.paramMap.get('secao') === 'estudos',
         boards: this.route.snapshot.paramMap.get('secao') === 'quadro-livre',
+        kanban: this.route.snapshot.paramMap.get('secao') === 'kanban',
         group: null,
         deck: null,
         board: null,
@@ -141,12 +150,18 @@ export class ColleagueWallPage {
   protected readonly boardId = computed(() => this.params().board);
   protected readonly hasBoards = computed(() => this.visitBoards.boards().length > 0);
   protected readonly visitBoardPath = visitBoardPath;
+  /** O Kanban dos grupos públicos da pessoa (`/comparar/mural/kanban/...`, PLANO-COMPARTILHAR.md 4.6). */
+  protected readonly kanbaning = computed(() => this.params().kanban);
+  protected readonly hasKanban = computed(() => this.visit.publicGroups.groups().length > 0);
+  protected readonly visitKanbanPath = visitKanbanPath;
   protected readonly studying = computed(() => this.params().studying);
   protected readonly studyGroup = computed(() => this.params().group);
   protected readonly studyDeck = computed(() => this.params().deck);
   /** A pessoa tem baralho público: nas Anotações, as seções Mural e Estudos. */
   protected readonly hasStudy = computed(() => !!this.colleague()?.estudos?.decks.length);
-  protected readonly sections = computed(() => ((this.hasStudy() || this.hasBoards()) && isNotes(this.mural.kind())) || this.studying() || this.boarding());
+  protected readonly sections = computed(
+    () => ((this.hasStudy() || this.hasBoards() || this.hasKanban()) && isNotes(this.mural.kind())) || this.studying() || this.boarding() || this.kanbaning(),
+  );
   protected readonly visitStudyPath = visitStudyPath;
   private readonly from: 'perfil' | 'amigos' | 'comparar' = this.prevUrl.startsWith('/perfil/')
     ? 'perfil'

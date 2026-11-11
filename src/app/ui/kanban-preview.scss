@@ -28,26 +28,7 @@
   transition: filter 0.26s ease-out;
 }
 
-.etiqueta {
-  @include kk.etiqueta-coluna;
-}
-
-.etiqueta-icone {
-  @include kk.etiqueta-icone;
-}
-
-.etiqueta-nome {
-  @include kk.etiqueta-nome;
-  margin: 0;
-}
-
-.etiqueta-n {
-  @include kk.etiqueta-n;
-}
-
-.carimbo {
-  @include kk.carimbo;
-}
+/* a etiqueta da coluna é a peça ui/kanban-column-head.ts, a mesma do quadro */
 
 /* as fichas: o vão e a folga do alto da coluna da página (ver .rolo e .fichas em kanban-page.scss) */
 .fichas {

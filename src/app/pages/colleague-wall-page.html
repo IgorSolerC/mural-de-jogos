@@ -88,8 +88,13 @@
     <nav class="secoes" [attr.aria-label]="'Anotações de ' + c.name">
       <ul>
         <li>
-          <a class="secao" routerLink="/comparar/mural" [class.on]="!studying() && !boarding()" [attr.aria-current]="!studying() && !boarding() ? 'page' : null">Mural</a>
+          <a class="secao" routerLink="/comparar/mural" [class.on]="!studying() && !boarding() && !kanbaning()" [attr.aria-current]="!studying() && !boarding() && !kanbaning() ? 'page' : null">Mural</a>
         </li>
+        @if (hasKanban() || kanbaning()) {
+          <li>
+            <a class="secao" [routerLink]="visitKanbanPath()" [class.on]="kanbaning()" [attr.aria-current]="kanbaning() ? 'page' : null">Kanban</a>
+          </li>
+        }
         @if (hasStudy() || studying()) {
           <li>
             <a class="secao" [routerLink]="visitStudyPath()" [class.on]="studying()" [attr.aria-current]="studying() ? 'page' : null">Flashcards</a>
@@ -104,7 +109,11 @@
     </nav>
   }
 
-  @if (boarding()) {
+  @if (kanbaning()) {
+    @defer (on immediate) {
+      <app-visit-kanban [name]="c.name" [groupId]="studyGroup()" (opened)="openCard($event)" />
+    }
+  } @else if (boarding()) {
     @if (hasBoards() || visitBoards.loading()) {
       @defer (on immediate) {
         <app-visit-boards [name]="c.name" [groupId]="studyGroup()" [boardId]="boardId()" />

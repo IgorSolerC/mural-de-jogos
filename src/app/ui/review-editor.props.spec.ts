@@ -279,7 +279,7 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
     status.dispatchEvent(new Event('input'));
     await fixture.whenStable();
     // a coluna nova, com a conta dela contando esta; a anotação chega no fim, depois da que já estava lá
-    expect(stage().querySelector('.etiqueta-nome')!.textContent!.replace(/\s+/g, ' ').trim()).toBe('Fazendo 2');
+    expect(stage().querySelector('.etiqueta-nome')!.textContent!.replace(/\s+/g, ' ').trim()).toBe('Fazendo , 2 anotações');
     const fichas = [...stage().querySelectorAll('.fichas > li:not(.pilha)')];
     expect(fichas.map((li) => li.classList.contains('vizinha'))).toEqual([true, false]);
     // há uma antes: no estreito (que a esconde) a beirada dela sai da etiqueta; sem nada embaixo, a coluna acaba

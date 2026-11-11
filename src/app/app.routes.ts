@@ -18,6 +18,8 @@ export function visitMatcher(segments: UrlSegment[]): UrlMatchResult | null {
   if (a?.path !== 'comparar' || b?.path !== 'mural' || rest.length) return null;
   if (!secao) return { consumed: segments, posParams: {} };
   if (secao.path === 'quadro-livre') return { consumed: segments, posParams: { secao, ...(grupo ? { grupo } : {}), ...(baralho ? { quadro: baralho } : {}) } };
+  // o Kanban dos grupos públicos (PLANO-COMPARTILHAR.md, 4.6): um grupo por vez
+  if (secao.path === 'kanban' && !baralho) return { consumed: segments, posParams: { secao, ...(grupo ? { grupo } : {}) } };
   if (secao.path !== 'estudos') return null;
   return { consumed: segments, posParams: { secao, ...(grupo ? { grupo } : {}), ...(baralho ? { baralho } : {}) } };
 }

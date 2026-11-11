@@ -295,63 +295,13 @@
           [attr.aria-labelledby]="'col-' + v.col.id"
         >
           <!-- a roda do mouse na etiqueta e no pé rola a lista da coluna, e não a página (ver ui/column-wheel.ts) -->
-          <header class="etiqueta" appColumnWheel [attr.data-cor]="v.col.color">
-            <lucide-icon
-              class="etiqueta-icone"
-              [img]="iconOf[v.col.icon]"
-              [size]="20"
-              aria-hidden="true"
-            />
-            <h2 class="etiqueta-nome" [id]="'col-' + v.col.id">
-              {{ v.col.name }}
-              <!-- quantas: impresso miúdo na ponta da etiqueta, sempre no mesmo lugar, como nas abas dos quadros -->
-              <span class="etiqueta-n"
-                ><span class="sr-only">, </span>{{ v.total
-                }}<span class="sr-only">{{
-                  v.total === 1 ? " anotação" : " anotações"
-                }}</span></span
-              >
-            </h2>
-            <button
-              type="button"
-              class="etiqueta-btn"
-              [attr.aria-label]="'Ajustes da coluna ' + v.col.name"
-              title="Ajustes da coluna"
-              aria-haspopup="dialog"
-              (click)="columnSheet.set({ id: v.col.id, fresh: false })"
-            >
-              <lucide-icon
-                [img]="PencilIcon"
-                [size]="16"
-                aria-hidden="true"
-              />
-            </button>
-            @if (v.col.sort?.length) {
-              <!-- a ordem da coluna, impressa miúdo embaixo do nome: diz por que as anotações estão assim -->
-              <p class="etiqueta-ordem" [title]="sortSentence(v.col.sort!)">
-                <lucide-icon
-                  [img]="SortIcon"
-                  [size]="13"
-                  aria-hidden="true"
-                />
-                {{ sortShort(v.col.sort!) }}
-              </p>
-            }
-            @if (v.col.finishes) {
-              <!-- o carimbo de quem finaliza -->
-              <span
-                class="carimbo"
-                title="Finaliza as anotações que chegam aqui"
-              >
-                <lucide-icon
-                  [img]="DoneIcon"
-                  [size]="12"
-                  aria-hidden="true"
-                />
-                Finaliza
-              </span>
-            }
-          </header>
+          <app-kanban-column-head
+            appColumnWheel
+            [col]="v.col"
+            [total]="v.total"
+            [editable]="!readOnly()"
+            (edit)="columnSheet.set({ id: v.col.id, fresh: false })"
+          />
 
           <!-- as anotações rolam dentro da coluna (a página não cresce com a coluna mais comprida); a caixa
              leva a sombra do alto e do pé enquanto há o que rolar para lá -->

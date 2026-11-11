@@ -20,10 +20,13 @@ describe('O endereço da visita (visitMatcher)', () => {
     expect(match('comparar/mural/estudos')).toEqual({ secao: 'estudos' });
     expect(match('comparar/mural/estudos/japones')).toEqual({ secao: 'estudos', grupo: 'japones' });
     expect(match('comparar/mural/estudos/japones/dkanji')).toEqual({ secao: 'estudos', grupo: 'japones', baralho: 'dkanji' });
+    // o Kanban dos grupos públicos (PLANO-COMPARTILHAR.md, 4.6): um grupo por vez
+    expect(match('comparar/mural/kanban')).toEqual({ secao: 'kanban' });
+    expect(match('comparar/mural/kanban/trabalho')).toEqual({ secao: 'kanban', grupo: 'trabalho' });
   });
 
   it('o resto não é dela', () => {
-    for (const path of ['comparar', 'comparar/outra', 'anotacoes/mural', 'comparar/mural/kanban', 'comparar/mural/estudos/a/b/c']) {
+    for (const path of ['comparar', 'comparar/outra', 'anotacoes/mural', 'comparar/mural/kanban/a/b', 'comparar/mural/estudos/a/b/c']) {
       expect(match(path)).withContext(path).toBeNull();
     }
   });

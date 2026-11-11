@@ -62,6 +62,12 @@ const PECAS = [
     o: 'o topo do quadro aberto (voltar, o nome na fita, a tela cheia)',
   },
   {
+    peca: 'src/app/ui/kanban-column-head.ts',
+    usa: 'app-kanban-column-head',
+    marcas: [/<header class="etiqueta"[^>]*data-cor/],
+    o: 'a etiqueta de uma coluna do Kanban (PLANO-COMPARTILHAR.md, 4.6)',
+  },
+  {
     peca: 'src/app/ui/folder-path.ts',
     usa: 'app-folder-path',
     marcas: [/aria-label="Caminho da pasta"/],
@@ -74,6 +80,7 @@ const VISITA = [
   { molde: 'src/app/ui/visit-study.html', pecas: ['app-study-card-wall', 'app-study-piles', 'app-study-group-tabs'] },
   { molde: 'src/app/pages/colleague-wall-page.html', pecas: ['app-wall-board', 'app-wall-toolbar', 'app-review-reader', 'app-visit-study', 'app-visit-boards'] },
   { molde: 'src/app/ui/visit-boards.ts', pecas: ['app-study-group-tabs', 'app-free-board-card', 'app-free-board', 'app-free-board-top'] },
+  { molde: 'src/app/ui/visit-kanban.ts', pecas: ['app-study-group-tabs', 'app-kanban-column-head', 'app-kanban-note'] },
 ];
 
 /** As peças que a visita monta e que só leem: nada delas pode importar o que escreve. */
@@ -95,6 +102,10 @@ const SO_LEEM = [
   'src/app/ui/free-board/board-sketch.ts',
   'src/app/ui/visit-boards.ts',
   'src/app/core/visit-boards.ts',
+  'src/app/ui/visit-kanban.ts',
+  'src/app/ui/kanban-column-head.ts',
+  'src/app/ui/kanban-note.ts',
+  'src/app/core/visit-groups.ts',
 ];
 /** O que escreve no seu Murall. */
 const ESCREVE = /from '[./]+(?:core\/)?(study-store|review-store|desk|kanban-store|calendar-store|spending-store)'/;

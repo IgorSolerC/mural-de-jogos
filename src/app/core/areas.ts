@@ -95,6 +95,11 @@ export function visitStudyPath(group?: string | null, deck?: string | null): str
   return '/comparar/mural/estudos' + (group ? `/${group}` + (deck ? `/${deck}` : '') : '');
 }
 
+/** O Kanban dos grupos públicos de quem se visita (PLANO-COMPARTILHAR.md, 4.6), por grupo. */
+export function visitKanbanPath(group?: string | null): string {
+  return '/comparar/mural/kanban' + (group ? `/${group}` : '');
+}
+
 /** O Quadro livre de quem se visita (PLANO-QUADRO-LIVRE.md, 4.8): os quadros públicos da pessoa, por grupo. */
 export function visitBoardPath(group?: string | null, board?: string | null): string {
   return '/comparar/mural/quadro-livre' + (group ? `/${group}` + (board ? `/${board}` : '') : '');

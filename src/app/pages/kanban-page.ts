@@ -28,6 +28,7 @@ import { KanbanColumnSheet } from '../ui/kanban-column-sheet';
 import { ColumnWheel } from '../ui/column-wheel';
 import { KanbanNote } from '../ui/kanban-note';
 import { NearPool, NearScreen } from '../ui/near-screen';
+import { KanbanColumnHead } from '../ui/kanban-column-head';
 import { AccessTag } from '../ui/access-tag';
 import { MuralConfig } from '../ui/mural-config';
 import { NoteSelection } from '../ui/note-selection';
@@ -141,7 +142,7 @@ interface BoardTab {
  */
 @Component({
   selector: 'app-kanban-page',
-  imports: [AccessTag, BulkEditSheet, SelectionTray, CardPicker, CategoryLabel, ColumnWheel, ContextMenu, TabMore, KanbanColumnSheet, KanbanNote, IconModule, MuralConfig, NearScreen, NoteMenu, PageWall, Pin, RouterLink, SearchStrip, FilterCard, FilterTags],
+  imports: [AccessTag, BulkEditSheet, KanbanColumnHead, SelectionTray, CardPicker, CategoryLabel, ColumnWheel, ContextMenu, TabMore, KanbanColumnSheet, KanbanNote, IconModule, MuralConfig, NearScreen, NoteMenu, PageWall, Pin, RouterLink, SearchStrip, FilterCard, FilterTags],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './kanban-page.html',
   styleUrl: './kanban-page.scss',

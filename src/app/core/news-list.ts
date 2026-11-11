@@ -27,13 +27,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-11-grupo-publico',
+    id: '2026-11-11-kanban-na-visita',
     version: '1.45.1',
     kind: 'ajustes',
     date: '2026-11-11',
     title: 'Grupos públicos e o Kanban dos grupos compartilhados',
     melhorias: [
       'Um grupo pode ser público, em Compartilhar: qualquer pessoa lê o mural dele pelo seu mural e por um link, e só quem está nele edita; nada vai para o Feed. O site avisa quantas anotações privadas o grupo tem antes, e elas ficam públicas, sem ir para o Feed (pôr uma privada num grupo público também pergunta antes).',
+      'Quem visita o seu mural vê também o Kanban dos seus grupos públicos, numa seção Kanban ao lado do Mural, só para ler.',
       'O Kanban de um grupo compartilhado é o mesmo para todos que estão nele: colunas, cartões, importância e status; duas pessoas mexendo ao mesmo tempo ficam com as duas mexidas, e quem só lê vê o quadro sem mudar nada.',
       'Num grupo compartilhado, as tags das anotações são do grupo (as etiquetas do Kanban são iguais para todos), e renomear o grupo muda o nome para todo mundo.',
     ],

@@ -4,8 +4,9 @@ import { FRESH_AT, Importance, KanbanBoard, KanbanCard, belongs, cardsIn, readDe
 import { sortCards } from '../core/kanban-sort';
 import { Review } from '../core/review';
 import { ReviewStore } from '../core/review-store';
-import { ICON, ICON_CHOICE, IconModule } from './icons';
+
 import { KanbanNote } from './kanban-note';
+import { KanbanColumnHead } from './kanban-column-head';
 
 /** O lugar escolhido na aba Kanban, como está agora (ainda sem salvar). */
 export interface KanbanPlace {
@@ -26,22 +27,14 @@ export interface KanbanPlace {
  */
 @Component({
   selector: 'app-kanban-preview',
-  imports: [IconModule, KanbanNote],
+  imports: [KanbanColumnHead, KanbanNote],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class.ainda-nao]': '!on()', '[class.titulos]': 'dense()', '[class.continua]': 'more()' },
   template: `
     @if (column(); as col) {
       <section class="coluna" [class.finaliza]="col.finishes" [attr.aria-label]="'Coluna ' + col.name" inert>
-        <header class="etiqueta" [attr.data-cor]="col.color">
-          <lucide-icon class="etiqueta-icone" [img]="iconOf[col.icon]" [size]="20" aria-hidden="true" />
-          <p class="etiqueta-nome">
-            {{ col.name }}
-            <span class="etiqueta-n">{{ items().length }}</span>
-          </p>
-          @if (col.finishes) {
-            <span class="carimbo"><lucide-icon [img]="DoneIcon" [size]="12" aria-hidden="true" />Finaliza</span>
-          }
-        </header>
+        <!-- a mesma etiqueta da coluna do quadro (a peça do quadro e da visita) -->
+        <app-kanban-column-head [col]="col" [total]="items().length" [ids]="false" />
         <ol class="fichas">
           @if (at() > 0) {
             <!-- as de cima, que não cabem: a beirada de baixo delas, saindo de trás da etiqueta (no estreito, também a de logo antes) -->
@@ -75,8 +68,6 @@ export class KanbanPreview {
   /** A coluna onde entraria, ainda não sendo tarefa (a pedida pela coluna de onde a nova veio, ou a primeira). */
   readonly firstColumn = input<string | null>(null);
 
-  protected readonly DoneIcon = ICON.pronto;
-  protected readonly iconOf = ICON_CHOICE;
 
   /** É (ou vai ser, ao salvar) tarefa no quadro. */
   protected readonly on = computed(() => this.place().column !== null);

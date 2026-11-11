@@ -16,7 +16,7 @@ const app = join(root, 'src/app');
  * usa a peça única, sem exceção.
  */
 const FORA_DO_PADRAO = [
-  ['src/app/pages/kanban-page.scss', '.etiqueta-btn', 'o botão no cabeçalho da coluna do Kanban: a coluna não é um card'],
+  ['src/app/ui/kanban-column-head.scss', '.etiqueta-btn', 'o botão no cabeçalho da coluna do Kanban: a coluna não é um card'],
   ['src/app/ui/rich-text-codigo.scss', '.codigo-copiar', 'o Copiar do bloco de código, dentro do texto'],
   ['src/app/ui/wish-clip.ts', '.adesivo-btn', 'o lugar vazio do adesivo no recorte da Wishlist: é o próprio adesivo, não um botão de tinta'],
   ['src/app/ui/cover-picker.ts', '.foto', 'a capa escolhida no seletor de capas clareia'],
