@@ -61,7 +61,7 @@ export const GUIDE: readonly { title: string; items: readonly GuideItem[] }[] = 
       { what: 'Vídeo', mark: '{{video: https://youtu.be/… | legenda}}', note: 'YouTube, Vimeo ou um .mp4, que toca ali.' },
       { what: 'Áudio', mark: '{{audio: https://… | nome}}', note: 'Um .mp3, YouTube, Vimeo ou .mp4. Outros jeitos: simples, vinil.' },
       { what: 'Nota', mark: '{{nota: Título}}', note: 'A ficha colada em miniatura. Pelo Inserir, qualquer ficha, de qualquer mural.' },
-      { what: 'Pixel art', mark: '{{pixel: 8x8 | 0110/1221/1221/0110}}', note: 'A grade e os pontos, fileira por fileira, separadas por /: 0 é o transparente, de 1 a 9 as cores. Paletas: pastel, terra, mar, neon, cinzas; uma cor trocada: 3#e43b44. Outros jeitos: figurinha, ponto-cruz, micanga. Pelo Inserir, desenhando.' },
+      { what: 'Pixel art', mark: '{{pixel: 8x8 | 0110/1221/1221/0110}}', note: 'A grade e os pontos, fileira por fileira, separadas por /: 0 é o transparente, de 1 a 9 as cores; cinco ou mais iguais seguidos se abreviam, com dois algarismos: 0*12 são doze 0. Paletas: pastel, terra, mar, neon, cinzas; uma cor trocada: 3#e43b44. Outros jeitos: figurinha, ponto-cruz, micanga. Pelo Inserir, desenhando.' },
       { what: 'Tamanho', mark: '{{… | mini}}', note: 'Também pequeno e grande; sem nada, o médio.' },
     ],
   },

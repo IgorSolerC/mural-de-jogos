@@ -9,7 +9,7 @@ import { labelKey as key } from './text';
  * - a grade, `LxA` (de 1 a 32 cada lado);
  * - os pontos, as fileiras de cima para baixo separadas por "/", um algarismo por ponto (0 é o
  *   transparente; de 1 a 9, as cores da paleta). Os 0 do fim de cada fileira e as fileiras vazias do
- *   fim não se escrevem;
+ *   fim não se escrevem, e cinco ou mais pontos iguais seguidos vão abreviados: "0*12" são doze 0;
  * - a paleta, uma palavra (`classica`, a de sempre, não se escreve);
  * - as cores trocadas, só as que mudaram: "3#e43b44 7#3355aa";
  * - o jeito (`pixel`, o de sempre, não se escreve);
@@ -97,7 +97,11 @@ export function pixelLookWord(a: string): PixelLook | null {
 
 const DIMS = /^(\d{1,2})\s*[x×]\s*(\d{1,2})$/i;
 /** Os pontos: algarismos e "/", com pelo menos um algarismo. */
-const ROWS = /^[0-9/]*[0-9][0-9/]*$/;
+const ROWS = /^[0-9/*]*[0-9][0-9/*]*$/;
+/** A sequência abreviada: o algarismo, o "*" e quantas vezes ele se repete, com até dois algarismos ("0*12"). */
+const RUN = /([0-9])\*([0-9]{1,2})|([0-9])/g;
+/** A partir de quantos pontos iguais seguidos a abreviação ("0*05", quatro letras) fica mais curta que eles. */
+const RUN_MIN = 5;
 /** As cores trocadas: "3#e43b44 7#35a", separadas por espaço. */
 const COLORS = /^[1-9]#(?:[0-9a-f]{6}|[0-9a-f]{3})(?:\s+[1-9]#(?:[0-9a-f]{6}|[0-9a-f]{3}))*$/i;
 const HEX = /^#(?:[0-9a-f]{6}|[0-9a-f]{3})$/i;
@@ -166,15 +170,37 @@ export function inkOf(palette: PaletteName, colors: Readonly<Record<number, stri
 export function gridOf(raw: string, w: number, h: number): string[] {
   const rows = raw ? raw.split('/') : [];
   const out: string[] = [];
-  for (let r = 0; r < h; r++) out.push((rows[r] ?? '').replace(/[^0-9]/g, '').slice(0, w).padEnd(w, '0'));
+  for (let r = 0; r < h; r++) out.push(expandRow(rows[r] ?? '').slice(0, w).padEnd(w, '0'));
   return out;
 }
 
-/** As fileiras de volta ao texto: sem os 0 do fim de cada uma e sem as vazias do fim; "" se não tem ponto. */
+/**
+ * Uma fileira escrita, com as sequências abreviadas por extenso: "0*0514*031" → "000001444". A quantidade
+ * tem até dois algarismos e é lida inteira ("0*12" são doze 0); a folha escreve sempre os dois ("0*05"), e
+ * então o algarismo seguinte já é o próximo ponto. Para no tamanho máximo da grade (o resto não aparece).
+ */
+export function expandRow(row: string): string {
+  let out = '';
+  for (const m of row.matchAll(RUN)) {
+    out += m[3] ?? m[1].repeat(Number(m[2]));
+    if (out.length >= PIXEL_MAX) break;
+  }
+  return out.slice(0, PIXEL_MAX);
+}
+
+/** Uma fileira com as sequências de cinco ou mais pontos iguais abreviadas: "000000011" → "0*0711". */
+export function compressRow(row: string): string {
+  return row.replace(/([0-9])\1*/g, (run, d: string) => (run.length >= RUN_MIN ? `${d}*${String(run.length).padStart(2, '0')}` : run));
+}
+
+/**
+ * As fileiras de volta ao texto: sem os 0 do fim de cada uma, sem as vazias do fim e com as sequências de
+ * cinco ou mais pontos iguais abreviadas ("1*10" são dez 1); "" se não tem ponto.
+ */
 export function writeGrid(rows: readonly string[]): string {
   const cut = rows.map((r) => r.replace(/0+$/, ''));
   while (cut.length && !cut.at(-1)) cut.pop();
-  return cut.join('/');
+  return cut.map(compressRow).join('/');
 }
 
 /** O desenho tem algum ponto pintado? */
@@ -226,7 +252,7 @@ export function readPixelArt(args: readonly string[]): PixelArt {
   const written = text ? text.split('/') : [];
   // (um laço, e não Math.max(...): uma linha escrita à mão com milhares de fileiras estouraria a pilha)
   let longest = 1;
-  for (const r of written) longest = Math.max(longest, r.length);
+  for (const r of written) longest = Math.max(longest, expandRow(r).length);
   // sem grade e sem pontos (o "{{pixel}}" de um widget novo), a grade de sempre
   const w = dims?.w ?? (text ? clampSide(longest) : PIXEL_DEFAULT_SIDE);
   const h = dims?.h ?? (text ? clampSide(written.length) : PIXEL_DEFAULT_SIDE);

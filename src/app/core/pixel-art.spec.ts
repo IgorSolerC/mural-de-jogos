@@ -1,9 +1,11 @@
-import { gridOf, inkOf, normalHex, parseColors, parseDims, readPixelArt, writeColors, writeGrid, writePixelArt } from './pixel-art';
+import { compressRow, expandRow, gridOf, inkOf, normalHex, parseColors, parseDims, readPixelArt, writeColors, writeGrid, writePixelArt } from './pixel-art';
 import { parseWidgetLine, widgetDef, widgetLine, widgetSpoken } from './widgets';
 
 /** A pixel art no texto (PLANO-PIXEL.md, seção 1): poucas letras, lidas em qualquer ordem, escritas sempre iguais. */
 describe('pixel art: a marca no texto', () => {
   const heart = '0110011/11111111/11111111/0111111/001111/00011';
+  /** O mesmo coração como a folha escreve: as fileiras de oito 1 abreviadas. */
+  const short = '0110011/1*08/1*08/01*06/001111/00011';
 
   it('lê a grade, os pontos, a paleta, as cores trocadas, o jeito e a legenda, em qualquer ordem', () => {
     const art = readPixelArt(['Coração', 'figurinha', '3#E43B44 7#35a', 'pastel', heart, '8x8']);
@@ -28,9 +30,9 @@ describe('pixel art: a marca no texto', () => {
 
   it('escreve na ordem da folha, sem os zeros do fim nem o que é o de sempre', () => {
     const art = readPixelArt(['8x8', heart]);
-    expect(writePixelArt(art)).toEqual(['8x8', heart]);
+    expect(writePixelArt(art)).toEqual(['8x8', short]);
     const full = readPixelArt(['8x8', heart, 'Coração', 'micanga', 'neon', '4#ff0000']);
-    expect(writePixelArt(full)).toEqual(['8x8', heart, 'neon', '4#ff0000', 'micanga', 'Coração']);
+    expect(writePixelArt(full)).toEqual(['8x8', short, 'neon', '4#ff0000', 'micanga', 'Coração']);
   });
 
   it('a fileira vazia do meio fica (//), as do fim saem; o que passa da grade fica de fora', () => {
@@ -42,6 +44,32 @@ describe('pixel art: a marca no texto', () => {
   it('o widget novo, sem nada escrito, abre na grade de sempre', () => {
     const art = readPixelArt([]);
     expect([art.w, art.h]).toEqual([16, 16]);
+  });
+
+  it('cinco ou mais pontos iguais seguidos vão abreviados, com a quantidade sempre em dois algarismos', () => {
+    expect(compressRow('0000000011')).toBe('0*0811');
+    expect(compressRow('00001')).toBe('00001');
+    expect(compressRow('1'.repeat(32))).toBe('1*32');
+    expect(expandRow('0*0811')).toBe('0000000011');
+    // os dois algarismos acabam com a dúvida: "0*051" são cinco 0 e um 1
+    expect(expandRow('0*051')).toBe('000001');
+    // escrito à mão com um algarismo só, no fim da fileira, também vale
+    expect(expandRow('3*5')).toBe('33333');
+    // nunca passa do tamanho máximo da grade (uma fileira enorme escrita à mão não pesa)
+    expect(expandRow('1*99'.repeat(50)).length).toBe(32);
+  });
+
+  it('a linha sem abreviação, de antes, continua valendo; e a abreviada é lida igual', () => {
+    expect(readPixelArt(['8x8', heart]).rows).toEqual(readPixelArt(['8x8', short]).rows);
+    // sem a grade escrita, ela sai das fileiras por extenso
+    const art = readPixelArt(['0*12/1']);
+    expect([art.w, art.h]).toEqual([12, 2]);
+  });
+
+  it('uma fileira de 16 com uma faixa no meio cabe em bem menos letras', () => {
+    const rows = ['0000011111100000', '0000000000000000', '0000033333300000'];
+    expect(writeGrid(rows)).toBe('0*051*06//0*053*06');
+    expect(gridOf(writeGrid(rows), 16, 3)).toEqual(rows);
   });
 
   it('desenho sem ponto pintado não sai', () => {
@@ -84,8 +112,8 @@ describe('pixel art: a marca no texto', () => {
   });
 
   it('é um widget: a linha inteira, com o tamanho, ida e volta', () => {
-    const line = widgetLine('pixel', ['8x8', heart, 'pastel', 'Coração'], 'pequeno');
-    expect(line).toBe(`{{pixel: 8x8 | ${heart} | pastel | Coração | pequeno}}`);
+    const line = widgetLine('pixel', ['8x8', short, 'pastel', 'Coração'], 'pequeno');
+    expect(line).toBe(`{{pixel: 8x8 | ${short} | pastel | Coração | pequeno}}`);
     const w = parseWidgetLine(line)!;
     expect(w.name).toBe('pixel');
     expect(w.size).toBe('pequeno');

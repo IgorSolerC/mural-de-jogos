@@ -32,7 +32,10 @@ Uma legenda que é a palavra de uma paleta ou de um jeito ("Pastel") faz a palet
 escritos antes dela (a primeira palavra de cada um é ele), como na legenda da imagem.
 
 Um 16×16 cheio é ~270 letras numa linha; com os zeros do fim cortados, um desenho comum fica bem
-abaixo disso. Nada de compressão que ninguém leia: a fileira de algarismos ainda é o desenho.
+abaixo disso. Pedido do dono em 11/nov: encurtar mais. Cinco ou mais pontos iguais seguidos vão
+abreviados: o algarismo, `*` e a quantidade sempre com dois algarismos (`0*12` são doze 0, `4*05`
+cinco 4). Os dois algarismos fixos acabam com a dúvida (`0*051` são cinco 0 e um 1); com um só, no fim
+da fileira, também vale à mão. A linha de antes, sem abreviação, continua valendo.
 
 ## 2. O desenho (`ui/pixel-art.ts`)
 

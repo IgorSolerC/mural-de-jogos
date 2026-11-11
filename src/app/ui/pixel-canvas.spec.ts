@@ -230,6 +230,21 @@ describe('pixel art: a prancheta', () => {
     expect(values['pixels']).toBe('');
   });
 
+  it('cinco ou mais pontos iguais saem abreviados, e o abreviado de fora abre por extenso', async () => {
+    await make({ width: '6', height: '1' });
+    pointer('pointerdown', 0, 0, 6, 1);
+    pointer('pointermove', 5, 0, 6, 1);
+    pointer('pointerup', 5, 0, 6, 1);
+    expect(values['pixels']).toBe('1*06');
+    fixture.componentRef.setInput('values', (values = { ...values, pixels: '0*052' }));
+    fixture.detectChanges();
+    expect(marked()).toEqual(['6x1', '0*052']);
+    key('1');
+    svg.focus();
+    key(' ');
+    expect(values['pixels']).toBe('100002');
+  });
+
   it('a mudança de fora (outro desenho) troca a prancheta e esvazia o desfazer', async () => {
     await make({ width: '2', height: '1', pixels: '1' });
     fixture.componentRef.setInput('values', (values = { ...values, pixels: '22' }));
