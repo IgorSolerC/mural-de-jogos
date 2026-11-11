@@ -252,6 +252,23 @@ describe('anotações compartilhadas: a folha Compartilhar', () => {
     expect(el.querySelectorAll('.pessoa select').length).toBe(1); // só a Bia: nem o dono, nem você
     expect(el.querySelector('.papel-fixo.dono')).not.toBeNull();
   });
+
+  it('quem vê, numa frase, sempre no topo: a sua sem ninguém, a sua com gente e a de outra pessoa', async () => {
+    const resumo = (f: ReturnType<typeof render>) => (f.nativeElement as HTMLElement).querySelector('[data-resumo]')?.textContent?.trim();
+    let f = render(null);
+    await settle(f);
+    expect(resumo(f)).toBe('Só você vê.');
+    TestBed.resetTestingModule();
+    f = render('dono');
+    await settle(f);
+    expect(resumo(f)).toBe('Você, Bia e Cris veem. Bia também edita. Ninguém mais vê.');
+    // a escolha de quem mais vê diz as palavras do modelo (PLANO-COMPARTILHAR.md, 3.3)
+    expect([...(f.nativeElement as HTMLElement).querySelectorAll('.segmento .seg-nome')].map((n) => n.textContent?.trim())).toEqual(['Só quem está', 'Público']);
+    TestBed.resetTestingModule();
+    f = render('leitor', CRIS);
+    await settle(f);
+    expect(resumo(f)).toBe('É de Ana. Você só lê. Também está: Bia. Ninguém mais vê.');
+  });
 });
 
 describe('anotações compartilhadas: a folha do conflito', () => {

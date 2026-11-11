@@ -83,7 +83,8 @@ import { FichaLinks } from '../core/ficha-link';
 import { OrganizeSheet } from './organize-sheet';
 import { SharedStore } from '../core/shared-store';
 import { SyncConflicts } from '../core/sync-conflicts';
-import { ROLE_LABEL, canManage, canWrite, removalOf } from '../core/shared-notes';
+import { accessSummary } from '../core/access';
+import { canManage, canWrite, removalOf } from '../core/shared-notes';
 
 
 /** O vão entre o trecho selecionado e o remendo "Citar" (e entre o remendo e o rodapé). */
@@ -294,7 +295,7 @@ interface ReadingPlace {
                     <span aria-hidden="true"> · </span>
                     <span class="compartilhada">
                       <lucide-icon class="quem-ve-icone" [img]="SharedIcon" [size]="15" aria-hidden="true" />
-                      <button type="button" class="parte-de" aria-haspopup="dialog" [title]="s.manages ? 'Pessoas na anotação' : 'Quem está na anotação'" (click)="openShare()">{{ s.line }}</button>
+                      <button type="button" class="parte-de" aria-haspopup="dialog" [title]="s.title" (click)="openShare()">{{ s.line }}<span class="sr-only">. {{ s.title }}</span></button>
                     </span>
                   }
                 </p>
@@ -707,20 +708,22 @@ export class ReviewReader {
     const e = this.sharedEntry();
     return !e || canWrite(e.papel);
   });
-  /** O pedaço da linha da data: com quem está (ou de quem é, e o seu papel) e quem visita vê. */
+  /**
+   * O pedaço da linha da data: quem vê, no resumo curto (com quem está, ou de quem é e o que você pode, e se é
+   * pública), e a frase inteira no título (ver core/access.ts).
+   */
   protected readonly sharedHere = computed(() => {
     const e = this.sharedEntry();
     if (!e) return null;
-    const names = e.membros.map((m) => m.nome);
-    const people = names.length <= 2 ? names.join(' e ') : `${names.slice(0, 2).join(', ')} e mais ${names.length - 2}`;
-    const who =
-      e.papel === 'dono'
-        ? names.length
-          ? `Com ${people}`
-          : 'Por enquanto, só com você'
-        : `De ${e.dono.nome} · ${ROLE_LABEL[e.papel].toLowerCase()}`;
-    const vis = e.view.private ? 'privada' : 'pública';
-    return { line: `${who} · ${vis}`, manages: canManage(e.papel) };
+    const s = accessSummary({
+      me: e.papel,
+      meCode: this.account.account()?.codigo ?? null,
+      ownerName: e.dono.nome,
+      members: e.membros,
+      public: !e.view.private,
+      feed: !e.view.private && !e.view.quiet,
+    });
+    return { line: s.short, title: s.line, manages: canManage(e.papel) };
   });
   /**
    * Quem vê, como na ficha do mural: só um desenho antes da data, e o que ele quer dizer no título e

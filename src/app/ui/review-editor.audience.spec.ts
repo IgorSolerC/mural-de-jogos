@@ -256,6 +256,19 @@ describe('o editor: público ou privado, e o Feed na setinha', () => {
       return n;
     }
 
+    it('a etiqueta Quem vê diz com quem ela está, e a dica, a frase inteira (core/access.ts)', async () => {
+      const entry = {
+        papel: 'editor',
+        dono: { codigo: 'AAAA-1111', nome: 'Ana', foto: null },
+        membros: [{ codigo: 'BBBB-2222', nome: 'Bia', foto: null, papel: 'leitor', desde: '' }],
+        view: note({ quiet: true }),
+      };
+      spyOn(TestBed.inject(SharedStore), 'get').and.returnValue(entry as unknown as ReturnType<SharedStore['get']>);
+      await openShared('editor');
+      expect(el.querySelector('.prop[data-prop="quem"] .prop-txt')!.textContent!.trim()).toBe('De Ana · você edita · público');
+      expect(shared()!.querySelector('.quem-dica')!.textContent).toContain('É de Ana. Você pode editar. Também está: Bia. Qualquer pessoa pode ler.');
+    });
+
     it('"Quem vê?" mostra como ela está e leva ao Compartilhar, em vez das opções', async () => {
       await openShared('gestor');
       expect(block()).toBeNull();

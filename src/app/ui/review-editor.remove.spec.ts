@@ -88,8 +88,8 @@ describe('o editor: apagar a ficha pelo pé', () => {
     const shared = TestBed.inject(SharedStore);
     // a primeira é de outra pessoa (você edita); a segunda é sua, com duas pessoas nela
     const entries: Record<string, SharedEntry> = {
-      ncomp001: { id: 'ncomp001', papel: 'editor', membros: [{}] } as unknown as SharedEntry,
-      ncomp002: { id: 'ncomp002', papel: 'dono', membros: [{}, {}] } as unknown as SharedEntry,
+      ncomp001: { id: 'ncomp001', papel: 'editor', dono: { codigo: 'AAAA-1111', nome: 'Ana' }, membros: [{}] } as unknown as SharedEntry,
+      ncomp002: { id: 'ncomp002', papel: 'dono', dono: { codigo: 'EEEE-0000', nome: 'Eu' }, membros: [{}, {}] } as unknown as SharedEntry,
     };
     spyOn(shared, 'get').and.callFake((id: string) => entries[id]);
     spyOn(shared, 'role').and.callFake((id: string) => entries[id]?.papel ?? null);

@@ -41,6 +41,25 @@ dialog.compartilhar {
   min-width: 0;
 }
 
+/* ===== Quem vê, numa frase: a resposta antes de tudo, a caneta com o traço de marca-texto ===== */
+.resumo {
+  margin: 0;
+  max-width: 52ch;
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1.14rem;
+  line-height: 1.5;
+  color: var(--ink);
+  text-wrap: pretty;
+}
+
+.resumo-texto {
+  background: linear-gradient(transparent 56%, rgb(255 218 66 / 0.62) 56% 90%, transparent 90%);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  padding-inline: 2px;
+}
+
 .grupo-titulo {
   @include kit.grupo-titulo;
 }

@@ -111,6 +111,8 @@ import { anchorFor, caretY, scrollToShow } from './caret-follow';
 import { SharedStore } from '../core/shared-store';
 import { Desk, type EditorPart, type EditorTab } from '../core/desk';
 import { canManage, canWrite, removalOf } from '../core/shared-notes';
+import { accessSummary } from '../core/access';
+import { CloudAccount } from '../core/cloud-account';
 import { ShareSheet } from './share-sheet';
 import { MONTHS_LONG } from '../core/dates';
 import { KanbanStore } from '../core/kanban-store';
@@ -383,9 +385,12 @@ export class ReviewEditor {
       out.push({ id: 'capa', name: 'Capa', icon: ICON.imagem, value: 'Capa', spoken: has ? 'com capa' : 'sem capa', filled: has });
     }
     if (this.sharedRole() || this.cloud.config()) {
-      const shared = !!this.sharedRole();
-      const value = this.isPrivate() ? 'Privada' : 'Pública';
-      out.push({ id: 'quem', name: 'Quem vê', icon: shared ? ICON.pessoas : this.isPrivate() ? ICON.privada : ICON.publica, value, spoken: value.toLowerCase() + (shared ? ', compartilhada' : ''), filled: true });
+      // a compartilhada diz com quem está (ou de quem é, e o que você pode), no resumo de core/access.ts
+      const role = this.sharedRole();
+      const summary = this.sharedSummary();
+      const value = summary ? summary.short : this.isPrivate() ? 'Privada' : 'Pública';
+      const spoken = summary ? summary.line : value.toLowerCase() + (role ? ', compartilhada' : '');
+      out.push({ id: 'quem', name: 'Quem vê', icon: role ? ICON.pessoas : this.isPrivate() ? ICON.privada : ICON.publica, value, spoken, filled: true });
     }
     return out;
   });
@@ -588,6 +593,7 @@ export class ReviewEditor {
   protected readonly id = signal(newId());
   protected readonly editing = signal<Review | null>(null);
   private readonly shared = inject(SharedStore);
+  private readonly account = inject(CloudAccount);
   /** O papel de quem edita uma anotação compartilhada (null: não é compartilhada). */
   protected readonly sharedRole = computed(() => (this.editing() ? this.shared.role(this.id()) : null));
   private readonly desk = inject(Desk);
@@ -616,6 +622,20 @@ export class ReviewEditor {
    * leitura), não no editor, então é esta que diz se ela é privada, e não a que o editor abriu.
    */
   private readonly liveShared = computed(() => (this.sharedRole() ? (this.store.get(this.id()) ?? null) : null));
+  /** Quem vê a compartilhada, no resumo curto (a etiqueta) e na frase inteira (a dica); ver core/access.ts. */
+  protected readonly sharedSummary = computed(() => {
+    const e = this.sharedRole() ? this.shared.get(this.id()) : null;
+    if (!e) return null;
+    const live = this.liveShared() ?? e.view;
+    return accessSummary({
+      me: e.papel,
+      meCode: this.account.account()?.codigo ?? null,
+      ownerName: e.dono.nome,
+      members: e.membros,
+      public: !live.private,
+      feed: !live.private && !live.quiet,
+    });
+  });
   /** A folha Compartilhar, aberta pelo "Quem vê?" da compartilhada. */
   protected readonly shareOpen = signal(false);
   /** Mudou em Compartilhar: a prévia (o cadeado) e o que o editor salva seguem a anotação. */

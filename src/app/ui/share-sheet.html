@@ -13,6 +13,10 @@
       </header>
 
       <div class="body">
+        <!-- a resposta a "quem vê isto?", sempre no topo (PLANO-COMPARTILHAR.md, 4.1) -->
+        @if (summary(); as s) {
+          <p class="resumo" data-resumo><span class="resumo-texto">{{ s.line }}</span></p>
+        }
         @if (!signedIn()) {
           <!-- sem conta não há com quem dividir: a anotação continua só sua -->
           <div class="sem-conta">
@@ -136,28 +140,28 @@
           </section>
 
           @if (entry() || manages()) {
-            <!-- quem visita os murais: a privada fica só com quem está nela -->
+            <!-- quem mais vê, além de quem está: ninguém (só quem está), ou qualquer pessoa (o público) -->
             <section class="grupo" aria-labelledby="visita-titulo">
-              <h3 class="grupo-titulo" id="visita-titulo">Para quem visita</h3>
+              <h3 class="grupo-titulo" id="visita-titulo">Quem mais vê</h3>
               @if (manages()) {
                 <div class="segmentos" role="radiogroup" aria-labelledby="visita-titulo">
                   <label class="segmento">
                     <input type="radio" name="compartilhar-visita" [checked]="isPrivate()" (change)="setPrivate(true)" />
                     <lucide-icon class="seg-icone" [img]="PrivateIcon" [size]="18" aria-hidden="true" />
-                    <span class="seg-nome">Privada</span>
+                    <span class="seg-nome">Só quem está</span>
                   </label>
                   <label class="segmento">
                     <input type="radio" name="compartilhar-visita" [checked]="!isPrivate()" (change)="setPrivate(false)" />
                     <lucide-icon class="seg-icone" [img]="PublicIcon" [size]="18" aria-hidden="true" />
-                    <span class="seg-nome">Pública</span>
+                    <span class="seg-nome">Público</span>
                   </label>
                 </div>
               }
               <p class="visita-desc">
                 @if (isPrivate()) {
-                  Só quem está aqui vê: ela aparece no mural de cada um, mas quem visita esses murais não a vê.
+                  Ninguém mais: ela aparece no mural de cada um que está aqui, mas quem visita esses murais não a vê.
                 } @else {
-                  Aparece também no mural de quem está aqui, para quem visita. As reações e os comentários vão todos para a do dono.
+                  Qualquer pessoa lê: ela aparece também no mural de quem está aqui, para quem visita. As reações e os comentários vão todos para a do dono.
                 }
               </p>
             </section>

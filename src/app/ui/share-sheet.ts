@@ -7,6 +7,7 @@ import { normalizeCode } from '../core/cloud-murals';
 import { Follow } from '../core/follow';
 import { Review, Stock, audienceFields, fold } from '../core/review';
 import { ReviewStore } from '../core/review-store';
+import { accessSummary } from '../core/access';
 import { MEMBER_ROLES, MemberRole, ROLE_HINT, ROLE_LABEL, SharedRole, canManage } from '../core/shared-notes';
 import { SharedStore } from '../core/shared-store';
 import { BackdropClose } from './backdrop-close';
@@ -130,6 +131,21 @@ export class ShareSheet {
   /** Quem visita os murais vê a anotação? */
   protected readonly isPrivate = computed(() => !!this.note()?.private);
 
+  /** Quem vê, numa frase (ver core/access.ts): o topo da folha. */
+  protected readonly summary = computed(() => {
+    const n = this.note();
+    if (!n) return null;
+    const e = this.entry();
+    return accessSummary({
+      me: this.myRole(),
+      meCode: this.me() || null,
+      ownerName: e?.dono.nome ?? '',
+      members: e?.membros ?? [],
+      public: !n.private,
+      feed: !n.private && !n.quiet,
+    });
+  });
+
   constructor() {
     afterNextRender(() => {
       const el = this.dialog().nativeElement;
@@ -227,7 +243,7 @@ export class ShareSheet {
     const now = new Date().toISOString();
     const { private: _p, quiet: _q, publishedAt: _w, ...rest } = note;
     this.store.update({ ...rest, ...audienceFields(priv ? 'privada' : 'visivel', note, now), updatedAt: now } as Review);
-    this.said.set(priv ? 'Agora a anotação é privada.' : 'Agora a anotação é pública.');
+    this.said.set(priv ? 'Agora só quem está na anotação vê.' : 'Agora a anotação é pública.');
   }
 
   /** Sai da anotação (quem não é o dono): ela some do seu mural. */

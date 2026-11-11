@@ -583,7 +583,7 @@
             </button>
           </div>
           <p class="quem-dica" id="editor-quem-dica">
-            {{ isPrivate() ? 'Só quem está na anotação vê.' : 'Aparece também no mural de quem está nela.' }}
+            {{ sharedSummary()?.line ?? (isPrivate() ? 'Só quem está na anotação vê.' : 'Aparece também no mural de quem está nela.') }}
             @if (structureLocked()) {
               Só o dono e os gestores mudam isso.
             }
