@@ -150,7 +150,7 @@ interface ReadingPlace {
         <!-- a ficha e, puxada de baixo dela pela orelha, a folha de comentários (só a cartolina: a dupla
              fica guardada, escondida, com o lugar onde se lia) -->
         <div class="par" [class.com-grupo]="!!groupEar() && lendo()">
-        <article class="ficha cartolina" [class.de-anotacao]="note()" [style.--stock]="'var(--stock-' + pin().stock + ')'" [attr.data-cor]="pin().stock">
+        <article class="ficha cartolina" [style.--stock]="'var(--stock-' + pin().stock + ')'" [attr.data-cor]="pin().stock">
           <app-pin class="pin" [color]="pin().pinColor" />
           <!-- a faixa da cartolina é a orelha da ficha de fichário: o nome vai escrito nela, a pincel, e
                o resto da folha fica para o que se lê -->

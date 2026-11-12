@@ -27,13 +27,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-12-letras-dos-flashcards',
+    id: '2026-11-12-letras-nas-analises',
     version: '1.45.2',
     kind: 'ajustes',
     date: '2026-11-12',
-    title: 'Letras novas nas anotações, as seções do mural se juntam na pilha e a cabeça dos Flashcards',
+    title: 'Letras novas nas anotações e nas análises, as seções do mural se juntam na pilha e a cabeça dos Flashcards',
     melhorias: [
-      'As anotações têm letras novas: o nome é escrito a caneta (Caveat) na ficha do mural, na leitura, no editor e na anotação colada, e os títulos dentro do texto (H1 e H2) também, no lugar do pincel grosso que pesava mais que o texto. O texto continua na mesma letra à mão, um pouco menor. O nome nas fichas de jogos, livros, filmes, séries, animes e músicas continua como era.',
+      'Letras novas nas anotações e nas análises: o nome é escrito a caneta (Caveat) na ficha do mural, na leitura, no editor e na ficha colada, e os títulos dentro do texto (H1 e H2) também, no lugar do pincel grosso que pesava mais que o texto. O texto continua na mesma letra à mão, um pouco menor.',
       'A caneta também no resto das anotações: o nome do card e da coluna no Kanban (o card ficou com o nome maior), o nome das pastas e das miniaturas dentro delas, e os itens do menu do botão direito.',
       'Nos Flashcards, a palavra da frente é escrita numa serifa de livro (Fraunces), e o verso e a legenda na letra do site, mais fáceis de ler; o japonês continua à mão.',
       'Fechar uma seção do mural junta as fichas na pilha: as primeiras chegam uma depois da outra ao lugar da primeira, encolhendo e se empilhando por baixo dela, e a pilha assenta com um leve aperto. Abrir distribui as fichas: saem da pilha, uma depois da outra, para o lugar de cada uma. Mais devagar que uma troca qualquer, para dar para ver as fichas se juntando.',

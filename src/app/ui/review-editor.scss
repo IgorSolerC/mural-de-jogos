@@ -115,9 +115,11 @@
   min-width: 0;
 }
 
+/* o nome da obra na letra da leitura (o papel de styles.scss), como o da anotação */
 .obra-nome {
-  font-family: var(--f-marker);
-  font-size: 1.85rem;
+  font-family: var(--f-titulo-leitura);
+  font-weight: var(--w-titulo-leitura);
+  font-size: calc(1.85rem * var(--e-titulo-leitura));
   line-height: 1.06;
   text-wrap: balance;
   overflow-wrap: anywhere;
@@ -178,8 +180,9 @@
 
 .nome-vazio {
   flex: 1;
-  font-family: var(--f-marker);
-  font-size: 1.9rem;
+  font-family: var(--f-titulo-leitura);
+  font-weight: var(--w-titulo-leitura);
+  font-size: calc(1.9rem * var(--e-titulo-leitura));
   line-height: 1.05;
 }
 
@@ -806,6 +809,12 @@ app-rich-editor.anotacao {
   --linhas: 10;
 }
 
+/* o texto da resenha também na escala do papel "texto" (styles.scss, PLANO-FONTES.md): pesa mais que o
+   `:host { --e-texto: 1 }` do RichEditor, que vale para as outras folhas (comentários, perfil) */
+app-rich-editor {
+  --e-texto: var(--e-texto-nota);
+}
+
 .field-error {
   margin-top: 6px;
   font-weight: 600;
@@ -1106,7 +1115,7 @@ fieldset.quem-ve {
   }
 
   .obra-nome {
-    font-size: 1.45rem;
+    font-size: calc(1.45rem * var(--e-titulo-leitura));
   }
 
   .obra-capa {

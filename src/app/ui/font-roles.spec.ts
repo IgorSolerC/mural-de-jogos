@@ -5,9 +5,9 @@ import { ReviewCard } from './review-card';
 import { RichText } from './rich-text';
 
 /**
- * As letras por papel (PLANO-FONTES.md, os tokens de styles.scss): a anotação escreve o nome na Caveat e o
- * texto 6% menor; a resenha continua como era; os títulos dentro do texto (H1, H2) vão para a Caveat em
- * qualquer texto; e a ficha de dentro de um widget não herda as escalas da de fora.
+ * As letras por papel (PLANO-FONTES.md, os tokens de styles.scss): a ficha (anotação ou resenha) escreve o
+ * nome na Caveat e o texto 6% menor; os títulos dentro do texto (H1, H2) vão para a Caveat em qualquer
+ * texto; e a ficha de dentro de um widget não herda as escalas da de fora.
  */
 function card(kind: 'anotacoes' | 'jogos', name: string): Review {
   return sanitizeReview({
@@ -58,24 +58,28 @@ describe('as letras por papel', () => {
 
   const px = (el: Element | null) => parseFloat(getComputedStyle(el!).fontSize);
 
-  it('a anotação escreve o nome na Caveat 700, 16% maior que o da resenha', async () => {
+  it('anotação e resenha escrevem o nome na Caveat 700, 16% maior que o tamanho de antes', async () => {
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
     // (cada ficha é medida antes da próxima: o TestBed tira a anterior da página)
-    const nota = getComputedStyle((await show(card('anotacoes', 'Viagem para Kyoto'))).querySelector('.title')!);
-    const [fNota, wNota, sNota] = [nota.fontFamily, nota.fontWeight, parseFloat(nota.fontSize)];
-    const jogo = getComputedStyle((await show(card('jogos', 'Hollow Knight'))).querySelector('.title')!);
-    expect(fNota).toContain('Caveat');
-    expect(wNota).toBe('700');
-    expect(jogo.fontFamily).toContain('Permanent Marker');
-    expect(jogo.fontWeight).toBe('400');
-    expect(sNota / parseFloat(jogo.fontSize)).toBeCloseTo(1.16, 2);
+    for (const [kind, name] of [
+      ['anotacoes', 'Viagem para Kyoto'],
+      ['jogos', 'Hollow Knight'],
+    ] as const) {
+      const t = getComputedStyle((await show(card(kind, name))).querySelector('.title')!);
+      expect(t.fontFamily).withContext(kind).toContain('Caveat');
+      expect(t.fontWeight).withContext(kind).toBe('700');
+      // 1,62rem, ou 1,46rem na tela estreita (a do teste pode ser uma ou outra)
+      const base = parseFloat(t.fontSize) / 1.16 / rem;
+      expect([1.62, 1.46].some((b) => Math.abs(b - base) < 0.01)).withContext(`${kind}: ${base}`).toBeTrue();
+    }
   });
 
-  it('a ficha pequena da anotação (o card do Kanban) cresce 36%, e o nome tem folga para a caneta não cortar', async () => {
+  it('a ficha pequena da anotação (o card do Kanban) cresce 36%, a da resenha 16%, e o nome tem folga para a caneta não cortar', async () => {
     const nota = (await show(card('anotacoes', 'Daily 11/Nov/26'), '', { compact: true })).querySelector('.title')!;
     const sNota = parseFloat(getComputedStyle(nota).fontSize);
     const folga = parseFloat(getComputedStyle(nota).paddingRight);
     const jogo = (await show(card('jogos', 'Hades'), '', { compact: true })).querySelector('.title')!;
-    expect(sNota / parseFloat(getComputedStyle(jogo).fontSize)).toBeCloseTo(1.36, 2);
+    expect(sNota / parseFloat(getComputedStyle(jogo).fontSize)).toBeCloseTo(1.36 / 1.16, 2);
     expect(folga).toBeCloseTo(sNota * 0.14, 1);
   });
 

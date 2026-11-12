@@ -1,21 +1,21 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
-import { Review, artIdOf, isDarkStock, isNote } from '../core/review';
+import { Review, artIdOf, isDarkStock } from '../core/review';
 import { pinningFor } from '../core/wall-physics';
 import { PaperArtLayer } from './paper-layer';
 
 /**
  * A cartolina de uma ficha em miniatura, no lugar da capa que ela não tem (a anotação sem foto, nas
  * pastas do perfil): a cor, o papel, a estampa, o rabisco, o estrago, a mancha e a decoração, com
- * o título a pincel atômico, grande, cortado onde a folha acaba. É desenhada no tamanho de uma ficha (quatro vezes a caixa) e reduzida, para os
+ * o título a caneta (o papel do nome da ficha), grande, cortado onde a folha acaba. É desenhada no tamanho de uma ficha (quatro vezes a caixa) e reduzida, para os
  * desenhos saírem como na ficha de verdade, só que pequenos. Enche a caixa em que for posta.
  */
 @Component({
   selector: 'app-mini-cartolina',
   imports: [PaperArtLayer],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { 'aria-hidden': 'true', '[class.de-anotacao]': 'note()' },
+  host: { 'aria-hidden': 'true' },
   template: `
     <div class="folha" [style]="vars()" [style.--stock]="'var(--stock-' + stock() + ')'" [attr.data-cor]="stock()">
       <app-paper-art [id]="artId()" [scribble]="review().scribble" [scribbleSeed]="review().scribbleSeed" [scribbleInk]="review().scribbleInk" [paper]="review().paper" [paperSeed]="review().paperSeed" [damage]="review().damage" [seed]="review().damageSeed" [stains]="review().stains" [decors]="review().decors" [glitter]="review().paper === 'glitter'" [dark]="dark()" [content]="review()" />
@@ -53,18 +53,14 @@ import { PaperArtLayer } from './paper-layer';
       left: 9%;
       right: 4%;
       margin: 0;
-      font-family: var(--f-marker);
-      /* quem usa pode pedir menor (\`--mini-titulo\`: nas pastas das anotações); nas do perfil, 3.1rem */
-      font-size: var(--mini-titulo, 3.1rem);
-      line-height: 1;
-      overflow-wrap: anywhere;
-      rotate: -2deg;
-    }
-    /* a da anotação: a letra do papel "título da anotação no mural" (styles.scss, PLANO-FONTES.md) */
-    :host(.de-anotacao) .titulo {
+      /* a letra do papel "título da anotação no mural" (styles.scss, PLANO-FONTES.md). Quem usa pode pedir
+         menor (\`--mini-titulo\`: nas pastas das anotações); nas do perfil, 3.1rem */
       font-family: var(--f-titulo-ficha);
       font-weight: var(--w-titulo-ficha);
       font-size: calc(var(--mini-titulo, 3.1rem) * var(--e-titulo-ficha));
+      line-height: 1;
+      overflow-wrap: anywhere;
+      rotate: -2deg;
     }
   `,
 })
@@ -73,7 +69,6 @@ export class MiniCartolina {
 
   /** O mesmo desenho da ficha: o rabisco e o estrago saem iguais (ver artIdOf). */
   protected readonly artId = computed(() => artIdOf(this.review()));
-  protected readonly note = computed(() => isNote(this.review()));
   /** A cartolina da ficha (a mesma do mural). */
   protected readonly stock = computed(() => pinningFor(this.review().id, this.review().stock).stock);
   protected readonly dark = computed(() => isDarkStock(this.stock()));

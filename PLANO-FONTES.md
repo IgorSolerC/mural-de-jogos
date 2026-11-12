@@ -148,10 +148,13 @@ Os papéis trocados têm três tokens em `src/styles.scss`: `--f-<papel>` (a fam
 | Itens do menu do botão direito | Caveat 700, ×1,1 | |
 | Nome das pastas | Caveat 700, ×1,1 | o campo de renomear; a altura da pasta acompanha (`--nome-tam`) |
 
-- **Só nas anotações.** O nome das fichas de jogos, livros, filmes, séries, animes e músicas continua na
-  Permanent Marker. A escala vem por `--titulo-escala` e `--e-texto`, que toda peça zera (`:host`, `.ficha`)
-  e só a anotação liga (`ficha-anotacao`, `.ficha.de-anotacao`, `app-rich-editor.anotacao`): a ficha de
-  dentro de um widget não herda a da de fora.
+- **Anotações e Análises.** Primeiro só nas anotações; no mesmo dia o dono pediu as Análises também, e os
+  papéis do nome, da leitura, do editor e do texto valem para toda ficha. A escala vem por `--titulo-escala`
+  e `--e-texto`, que cada peça diz no começo dela (`:host` do card, `.ficha` da leitura, o `app-rich-editor`
+  do editor): a ficha de dentro de um widget não herda a da de fora. Só o card do Kanban (a ficha pequena da
+  anotação) tem a escala dele. No Simples, a altura da tira (`--strip-h`) conta a escala, e toda tira continua
+  da mesma altura. As páginas dos Extras (Ranking, Comparar, Estatísticas) têm títulos próprios e ficaram como
+  eram.
 - **A folga da caneta.** A Caveat passa um pouco da caixa à direita; onde o título corta (`overflow: hidden`),
   `padding-right: var(--caneta-folga)` (0,14em) guarda a ponta da última letra.
 - **A ficha compacta** só aumenta a letra (`font-size: calc(var(--title-fs) * var(--titulo-escala))`): a

@@ -53,8 +53,9 @@ dialog.reader {
   flex: 1 1 auto;
   /* recebe o foco ao trocar de anotação pelos links (para o leitor de tela), sem moldura */
   outline: none;
-  font-family: var(--f-marker);
-  font-weight: 400;
+  /* o papel "título na leitura e no editor" (styles.scss, PLANO-FONTES.md), o mesmo da cartolina */
+  font-family: var(--f-titulo-leitura);
+  font-weight: var(--w-titulo-leitura);
   /* menor que o nome no editor: na leitura, quem ocupa a ficha é o texto, não a faixa */
   font-size: calc(1.62rem * var(--titulo-escala, 1));
   line-height: 1.06;
@@ -64,21 +65,11 @@ dialog.reader {
   padding: 1px 0 0.06em;
 }
 
-/* A anotação tem a letra dela no nome e no texto (os papéis de styles.scss, PLANO-FONTES.md): as escalas
-   multiplicam cada tamanho do nome e do texto (leitura, tela cheia, celular); as resenhas ficam com 1 */
+/* As escalas dos papéis (styles.scss, PLANO-FONTES.md) multiplicam cada tamanho do nome e do texto (leitura,
+   tela cheia, celular), da anotação e da resenha */
 .ficha {
-  --titulo-escala: 1;
-  --e-texto: 1;
-}
-
-.ficha.de-anotacao {
   --titulo-escala: var(--e-titulo-leitura);
   --e-texto: var(--e-texto-nota);
-}
-
-.ficha.de-anotacao .faixa-nome .title {
-  font-family: var(--f-titulo-leitura);
-  font-weight: var(--w-titulo-leitura);
 }
 
 /* um nome comprido desce um tanto, para a faixa não comer a folha */

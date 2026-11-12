@@ -690,14 +690,10 @@ export const CARD_STYLES = `
     :host(.so-cartolina) .meta.molde {
       opacity: 0.4;
     }
-    /* A anotação tem a letra dela no nome e no texto (os papéis de styles.scss, PLANO-FONTES.md): a escala
-       multiplica cada tamanho de .title e do texto, nas vistas e no celular; as resenhas ficam com 1. Toda ficha
-       zera as escalas, para a de dentro de um widget (uma resenha numa anotação) não herdar as da de fora */
+    /* A letra do nome e do texto de toda ficha, anotação ou resenha (os papéis de styles.scss, PLANO-FONTES.md):
+       a escala multiplica cada tamanho de .title e do texto, nas vistas e no celular. Cada ficha diz a dela no
+       :host, então a de dentro de um widget não herda a da de fora */
     :host {
-      --titulo-escala: 1;
-      --e-texto: 1;
-    }
-    :host(.ficha-anotacao) {
       --titulo-escala: var(--e-titulo-ficha);
       --e-texto: var(--e-texto-nota);
     }
@@ -706,17 +702,13 @@ export const CARD_STYLES = `
     :host(.ficha-anotacao.compact:not(.geral)) {
       --titulo-escala: var(--e-kanban-titulo);
     }
-    :host(.ficha-anotacao) .title {
-      font-family: var(--f-titulo-ficha);
-      font-weight: var(--w-titulo-ficha);
-      /* a caneta passa da caixa à direita: a folga para a última letra não perder a ponta no corte */
-      padding-right: var(--caneta-folga);
-    }
     .title {
       max-width: 100%;
-      font-family: var(--f-marker);
-      font-weight: 400;
+      font-family: var(--f-titulo-ficha);
+      font-weight: var(--w-titulo-ficha);
       font-size: calc(1.62rem * var(--titulo-escala, 1));
+      /* a caneta passa da caixa à direita: a folga para a última letra não perder a ponta no corte */
+      padding-right: var(--caneta-folga);
       line-height: 1.04;
       letter-spacing: 0.005em;
       text-wrap: balance;
@@ -760,7 +752,7 @@ export const CARD_STYLES = `
     .lead {
       margin-top: 14px;
       font-family: var(--f-hand);
-      font-size: 1.1rem;
+      font-size: calc(1.1rem * var(--e-texto, 1));
       line-height: 1.36;
       text-wrap: pretty;
       overflow-wrap: anywhere;
@@ -1158,7 +1150,7 @@ export const CARD_STYLES = `
     }
     :host(.capas.sem-capa) .title {
       min-height: 0;
-      font-size: 1.12rem;
+      font-size: calc(1.12rem * var(--titulo-escala, 1));
       line-height: 1.12;
       text-wrap: balance;
       -webkit-line-clamp: 5;
@@ -1275,7 +1267,8 @@ export const CARD_STYLES = `
        e a etiqueta ficam empilhados ao lado dela. */
     :host(.compact) {
       --title-fs: 1.24rem;
-      --strip-h: calc(6px + var(--title-fs) * 2.14 + 4px + 20px + 8px + 42px);
+      /* a altura de duas linhas do nome na letra de agora (com a escala): toda tira continua da mesma altura */
+      --strip-h: calc(6px + var(--title-fs) * var(--titulo-escala, 1) * 2.14 + 4px + 20px + 8px + 42px);
       /* a capinha tem 2px de plástico em volta de uma foto 4:5 */
       --cover-w: calc((var(--strip-h) - 4px) * 0.8 + 4px);
       padding: 14px 14px 12px;
@@ -1350,7 +1343,7 @@ export const CARD_STYLES = `
     :host(.capas) .title {
       width: 100%;
       min-height: 2.16em;
-      font-size: 1rem;
+      font-size: calc(1rem * var(--titulo-escala, 1));
       line-height: 1.08;
     }
     /* o adesivo de marcar encolhe junto com a ficha */
@@ -1478,7 +1471,7 @@ export const CARD_STYLES = `
         padding: 16px 7px 8px;
       }
       :host(.capas) .title {
-        font-size: 0.9rem;
+        font-size: calc(0.9rem * var(--titulo-escala, 1));
       }
       /* no celular a coluna do nome é estreita: a etiqueta do julgamento desce e ocupa a largura */
       :host(:not(.compact):not(.capas)) .head {

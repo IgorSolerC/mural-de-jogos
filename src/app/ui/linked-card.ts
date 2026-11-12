@@ -111,7 +111,7 @@ const EAR_GAP = 0.2;
                cartolina dela com o nome e a folha creme com o texto todo). A seta da faixa fecha o
                texto (fica só o nome); tocar no que não é de tocar abre esta nota, não a de fora -->
           <article #inteira class="inteira amplia" data-colado data-zoom-max="2" [class.abre]="openable()" [class.fechada]="folded()" [attr.aria-label]="spoken(f.review)" (click)="sheetClick($event, f.review)">
-            <header class="faixa cartolina" [class.de-anotacao]="isNote(f.review)" [attr.data-cor]="stock()" [style]="ownPaper()">
+            <header class="faixa cartolina" [attr.data-cor]="stock()" [style]="ownPaper()">
               <span class="faixa-textos">
                 @if (overline(f.review); as o) {
                   <span class="faixa-assunto">{{ o }}</span>
@@ -407,9 +407,10 @@ const EAR_GAP = 0.2;
       border: 0;
       background: none;
       color: inherit;
-      font-family: var(--f-marker);
-      font-size: 1.4rem;
-      font-weight: 400;
+      /* o nome na letra da leitura (o papel de styles.scss, PLANO-FONTES.md) */
+      font-family: var(--f-titulo-leitura);
+      font-size: calc(1.4rem * var(--e-titulo-leitura));
+      font-weight: var(--w-titulo-leitura);
       font-style: normal;
       line-height: 1.06;
       letter-spacing: 0.005em;
@@ -417,12 +418,6 @@ const EAR_GAP = 0.2;
       text-indent: 0;
       text-wrap: balance;
       overflow-wrap: anywhere;
-    }
-    /* a anotação colada: o nome na letra da leitura (o papel de styles.scss, PLANO-FONTES.md) */
-    .de-anotacao .faixa-nome {
-      font-family: var(--f-titulo-leitura);
-      font-weight: var(--w-titulo-leitura);
-      font-size: calc(1.4rem * var(--e-titulo-leitura));
     }
     /* o nome é o botão que abre a nota; o texto embaixo é dela, vivo (as tarefas, os widgets) */
     button.faixa-nome {
@@ -589,8 +584,6 @@ export class LinkedCard {
    */
   protected readonly zoomMax = computed(() => Math.max(1.5, MAX_SCALE / (this.box().s || 1)).toFixed(3));
   protected readonly PrivateIcon = ICON.privada;
-  /** A faixa da anotação usa a letra do nome na leitura (o papel de styles.scss); a de uma resenha, a de sempre. */
-  protected readonly isNote = isNote;
   private readonly finder = inject(CardFinder);
 
   protected readonly ref = computed(() => readCardRef(this.args()));
