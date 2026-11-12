@@ -64,9 +64,9 @@ typography:
     fontWeight: 400
     lineHeight: 1.05
   title:
-    fontFamily: "Permanent Marker, Comic Sans MS, cursive"
-    fontSize: "1.62rem"
-    fontWeight: 400
+    fontFamily: "Caveat, Segoe Print, cursive"
+    fontSize: "calc(1.62rem * 1.16)"
+    fontWeight: 700
     lineHeight: 1.04
     letterSpacing: "0.005em"
   marker-action:
@@ -428,7 +428,7 @@ All four are self-hosted through `@fontsource` (latin subsets) and loaded from `
 ### Hierarchy
 - **Display** (Permanent Marker 400, `clamp(2.5rem, 6vw, 4.4rem)`, 0.98): only the cartaz masthead, "Meu mural de jogos".
 - **Headline** (Permanent Marker 400, 1.9rem, 1.05; 1.6rem at 560px and below): sheet titles ("Nova resenha", "Ajustes"), empty-state heading (2rem), no-results heading (1.6rem).
-- **Title** (Permanent Marker 400, 1.62rem, 1.04; 1.46rem on phones; 1.24rem on Simples cards, 1.2rem on Simples phones): the game name on a card, balanced and clamped to 2 lines.
+- **Title** (Caveat 700, the ballpoint pen, since 12/nov/2026; each old size × 1.16: 1.62rem, 1.46rem on phones, 1.24rem on Simples cards, 1.2rem on Simples phones, × 1.36 on the Kanban card): the name on a card, note or review, balanced and clamped to 2 lines, with `--caneta-folga` (0.14em) of right padding so the last letter keeps its tip. The same face names the work in the reader band, the editor band, the Nota widget and the folder miniatures, and sets the in-text headings (H1, H2 × 1.18), the Kanban column, the folder name and the context-menu items. Every one of these is a role token in `src/styles.scss` (`--f-/--w-/--e-<role>`; the map and the choices are in `PLANO-FONTES.md`): changing a role's face is one line there.
 - **Grade numeral** (Barlow Condensed 800 italic, 2.9rem integer at -0.03em plus a 1.9rem ",decimal" aligned to the integer's foot, 1, tabular; 2.25rem + 1.5rem on Simples): the Média on the paper half of the card's judgment label, printed big like the number on a sticker.
 - **Verdict band** (Barlow Condensed 800, 1.02rem, 1, 0.1em, uppercase, white; 0.86rem on Simples): the verdict name on the label's ink band.
 - **Marker action** (Permanent Marker 400, 1.15rem, 1): the text on cartolina and ink buttons. It goes up to 1.35rem on the header stack.
@@ -444,7 +444,7 @@ All four are self-hosted through `@fontsource` (latin subsets) and loaded from `
 - **Boletim label** (Barlow Condensed 800, 0.8rem, 0.01em, 1, sentence case, full `ink`): the four full category names over the boletim numerals.
 
 ### Named Rules
-**The Three Tools Rule.** Each typeface stands for one tool on the desk: the marker (Permanent Marker), the pen (Kalam), and the label printer (Barlow Condensed). Choose the face by who "wrote" the text, never for variety. Barlow is only for text that is interface, not artifact. The one exception is the magazine's own press, only on the Wishlist: Abril Fatface (`--f-didone`) and DM Serif Display regular and italic (`--f-serif`), for text printed in the magazine a clipping came from (headlines, ransom-note pieces, the Wishlist masthead, the "sem capa" initial).
+**The Three Tools Rule.** Each typeface stands for one tool on the desk: the marker (Permanent Marker), the pen (Kalam for the text; Caveat 700, the ballpoint, for names and in-text headings since 12/nov/2026), and the label printer (Barlow Condensed). On the flashcards the word on the front is set in a book serif (Fraunces, `--f-carta-palavra`, Japanese falling to Klee One) and the back and caption in Barlow (`--f-carta-verso`). Choose the face by who "wrote" the text, never for variety. Barlow is only for text that is interface, not artifact. The one exception is the magazine's own press, only on the Wishlist: Abril Fatface (`--f-didone`) and DM Serif Display regular and italic (`--f-serif`), for text printed in the magazine a clipping came from (headlines, ransom-note pieces, the Wishlist masthead, the "sem capa" initial).
 
 **The Label Numeral Rule.** The Média is the one score printed rather than written, and it is always the Barlow Condensed 800 italic numeral. On a wall card it is printed on the paper half of the two-part label (a 2.9rem integer with a smaller ",decimal" aligned to its foot; 3.7rem + 2.4rem on the reader's big label); in the editor it is the label on the live preview card (and, on narrow screens, a compact label beside "Que nota?"). Every other score is a smaller Permanent Marker numeral. The Média is always the largest number on its surface, and it keeps its paper except at the extremes the user asked for: holographic foil from 9, a torn black sticker below 4.
 

@@ -1340,9 +1340,11 @@ export const CARD_STYLES = `
       align-items: center;
       text-align: center;
     }
+    /* o nome centrado: a folga da caneta dos dois lados, para ele ficar no meio */
     :host(.capas) .title {
       width: 100%;
       min-height: 2.16em;
+      padding-left: var(--caneta-folga);
       font-size: calc(1rem * var(--titulo-escala, 1));
       line-height: 1.08;
     }
@@ -1447,7 +1449,7 @@ export const CARD_STYLES = `
       }
       :host(.compact.paired) .cover { width: var(--cover-w); justify-self: center; }
       :host(.compact.paired) .words { padding-top: 0; min-width: 0; align-items: center; text-align: center; }
-      :host(.compact.paired) .title { font-size: calc(var(--title-fs) * var(--titulo-escala, 1)); min-height: 2.14em; overflow-wrap: anywhere; }
+      :host(.compact.paired) .title { font-size: calc(var(--title-fs) * var(--titulo-escala, 1)); padding-left: var(--caneta-folga); min-height: 2.14em; overflow-wrap: anywhere; }
       :host(.compact.paired) .meta { min-height: 40px; line-height: 1.35; }
       :host(.compact.paired) .judge { width: 100%; justify-content: center; }
     }
