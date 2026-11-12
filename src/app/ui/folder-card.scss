@@ -9,7 +9,8 @@
   --pasta-fundo: #bea873;
   --pasta-alto: 116px;
   /* o nome (até duas linhas) e a conta: a frente tem sempre a altura das duas linhas */
-  --nome-tam: 0.98rem;
+  /* o tamanho do nome na escala do papel "nome das pastas" (styles.scss, PLANO-FONTES.md) */
+  --nome-tam: calc(0.98rem * var(--e-pasta-nome));
   --nome-alt: 1.08;
   --qtd-tam: 0.74rem;
   --qtd-alt: 1.25;
@@ -142,9 +143,12 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
-  font-family: var(--f-marker);
+  font-family: var(--f-pasta-nome);
+  font-weight: var(--w-pasta-nome);
   font-size: var(--nome-tam);
   line-height: var(--nome-alt);
+  /* a caneta passa da caixa à direita: a folga para a última letra não perder a ponta no corte */
+  padding-right: var(--caneta-folga);
   /* a palavra comprida desce inteira (e a segunda linha termina em reticências) */
   overflow-wrap: break-word;
 }
@@ -207,7 +211,8 @@
   border-radius: 0;
   background: transparent;
   color: var(--ink);
-  font-family: var(--f-marker);
+  font-family: var(--f-pasta-nome);
+  font-weight: var(--w-pasta-nome);
   font-size: var(--nome-tam);
   line-height: 1.1;
   caret-color: var(--ink);

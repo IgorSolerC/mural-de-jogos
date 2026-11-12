@@ -38,7 +38,7 @@ describe('as letras por papel', () => {
     localStorage.clear();
   });
 
-  async function show(review: Review, wrapperStyle = ''): Promise<HTMLElement> {
+  async function show(review: Review, wrapperStyle = '', inputs: Record<string, unknown> = {}): Promise<HTMLElement> {
     const fixture = TestBed.createComponent(ReviewCard);
     fixtures.push(fixture);
     const el = fixture.nativeElement as HTMLElement;
@@ -51,6 +51,7 @@ describe('as letras por papel', () => {
     }
     fixture.componentRef.setInput('review', review);
     fixture.componentRef.setInput('checkable', true);
+    for (const [k, v] of Object.entries(inputs)) fixture.componentRef.setInput(k, v);
     await fixture.whenStable();
     return el;
   }
@@ -67,6 +68,15 @@ describe('as letras por papel', () => {
     expect(jogo.fontFamily).toContain('Permanent Marker');
     expect(jogo.fontWeight).toBe('400');
     expect(sNota / parseFloat(jogo.fontSize)).toBeCloseTo(1.16, 2);
+  });
+
+  it('a ficha pequena da anotação (o card do Kanban) cresce 36%, e o nome tem folga para a caneta não cortar', async () => {
+    const nota = (await show(card('anotacoes', 'Daily 11/Nov/26'), '', { compact: true })).querySelector('.title')!;
+    const sNota = parseFloat(getComputedStyle(nota).fontSize);
+    const folga = parseFloat(getComputedStyle(nota).paddingRight);
+    const jogo = (await show(card('jogos', 'Hades'), '', { compact: true })).querySelector('.title')!;
+    expect(sNota / parseFloat(getComputedStyle(jogo).fontSize)).toBeCloseTo(1.36, 2);
+    expect(folga).toBeCloseTo(sNota * 0.14, 1);
   });
 
   it('o texto da anotação fica 6% menor, na mesma Kalam', async () => {

@@ -701,9 +701,16 @@ export const CARD_STYLES = `
       --titulo-escala: var(--e-titulo-ficha);
       --e-texto: var(--e-texto-nota);
     }
+    /* a ficha pequena da anotação (o card do Kanban, a presa num lembrete, a colada): a escala do papel do
+       Kanban, que é este mesmo card no quadro; a Visão geral tem a dela, abaixo */
+    :host(.ficha-anotacao.compact:not(.geral)) {
+      --titulo-escala: var(--e-kanban-titulo);
+    }
     :host(.ficha-anotacao) .title {
       font-family: var(--f-titulo-ficha);
       font-weight: var(--w-titulo-ficha);
+      /* a caneta passa da caixa à direita: a folga para a última letra não perder a ponta no corte */
+      padding-right: var(--caneta-folga);
     }
     .title {
       max-width: 100%;
@@ -1288,8 +1295,9 @@ export const CARD_STYLES = `
     :host(.compact) .words {
       padding-top: 6px;
     }
+    /* só a letra cresce com a escala: a altura da tira e a capinha ficam as de --title-fs */
     :host(.compact) .title {
-      font-size: var(--title-fs);
+      font-size: calc(var(--title-fs) * var(--titulo-escala, 1));
     }
     :host(.compact) .meta {
       margin-top: 4px;
@@ -1446,7 +1454,7 @@ export const CARD_STYLES = `
       }
       :host(.compact.paired) .cover { width: var(--cover-w); justify-self: center; }
       :host(.compact.paired) .words { padding-top: 0; min-width: 0; align-items: center; text-align: center; }
-      :host(.compact.paired) .title { font-size: var(--title-fs); min-height: 2.14em; overflow-wrap: anywhere; }
+      :host(.compact.paired) .title { font-size: calc(var(--title-fs) * var(--titulo-escala, 1)); min-height: 2.14em; overflow-wrap: anywhere; }
       :host(.compact.paired) .meta { min-height: 40px; line-height: 1.35; }
       :host(.compact.paired) .judge { width: 100%; justify-content: center; }
     }

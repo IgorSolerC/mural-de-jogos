@@ -1102,7 +1102,7 @@ fieldset.quem-ve {
   }
 
   .nome-faixa textarea {
-    font-size: 1.65rem;
+    font-size: calc(1.65rem * var(--e-titulo-leitura));
   }
 
   .obra-nome {
@@ -1337,7 +1337,7 @@ fieldset.quem-ve {
     }
 
     .nome-faixa textarea {
-      font-size: 1.35rem;
+      font-size: calc(1.35rem * var(--e-titulo-leitura));
     }
 
     .ficha:has(.regua.presa) {

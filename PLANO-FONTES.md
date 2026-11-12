@@ -131,3 +131,31 @@ esses trabalhos.
   genéricos do CSS (`system-ui`, `ui-rounded`, `ui-serif`, `ui-monospace`): aparecem de verdade só em aparelho da
   Apple; no Windows e no Android viram a letra do sistema. Para ter o mesmo jeito em todo lugar, as parecidas do
   Provador (Inter, Nunito, Newsreader, JetBrains Mono) são o caminho.
+
+## 5. O que foi escolhido e como entrou (12/nov/2026)
+
+Os papéis trocados têm três tokens em `src/styles.scss`: `--f-<papel>` (a família), `--w-<papel>` (o peso) e
+`--e-<papel>` (a escala sobre o tamanho que cada peça já tinha). Trocar de novo é mudar só essas linhas.
+
+| Papel | Escolha | Onde mais vale |
+|---|---|---|
+| Título da anotação no mural | Caveat 700, ×1,16 | as miniaturas na boca da pasta e no perfil (`mini-cartolina.ts`), a Visão geral |
+| Título na leitura e no editor | Caveat 700, ×1,16 (o mesmo da cartolina) | o nome no Widget Nota (`linked-card.ts`, inteira e a que sumiu) |
+| Texto da anotação | Kalam, ×0,94 | o editor (Markdown e Visual), o Quadro livre e os comentários |
+| Títulos dentro do texto (H1, H2) | Caveat 700, ×1,18 | todo texto formatado (`_formatado.scss`) e as amostras do menu de estilos; o PDF tem a letra dele |
+| Título do card no Kanban | Caveat 700, ×1,36 | toda ficha pequena de anotação: o card do Kanban, a presa num lembrete, a colada |
+| Nome da coluna | Caveat 700, ×1,2 | o campo de renomear a coluna |
+| Itens do menu do botão direito | Caveat 700, ×1,1 | |
+| Nome das pastas | Caveat 700, ×1,1 | o campo de renomear; a altura da pasta acompanha (`--nome-tam`) |
+
+- **Só nas anotações.** O nome das fichas de jogos, livros, filmes, séries, animes e músicas continua na
+  Permanent Marker. A escala vem por `--titulo-escala` e `--e-texto`, que toda peça zera (`:host`, `.ficha`)
+  e só a anotação liga (`ficha-anotacao`, `.ficha.de-anotacao`, `app-rich-editor.anotacao`): a ficha de
+  dentro de um widget não herda a da de fora.
+- **A folga da caneta.** A Caveat passa um pouco da caixa à direita; onde o título corta (`overflow: hidden`),
+  `padding-right: var(--caneta-folga)` (0,14em) guarda a ponta da última letra.
+- **A ficha compacta** só aumenta a letra (`font-size: calc(var(--title-fs) * var(--titulo-escala))`): a
+  altura da tira e a capinha continuam as de `--title-fs`.
+- A Caveat Brush chegou a entrar no título da leitura e saiu no mesmo dia: o dono quis o nome igual em todo
+  lugar.
+- Testes: `src/app/ui/font-roles.spec.ts`.

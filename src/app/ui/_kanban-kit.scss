@@ -345,9 +345,10 @@ $kraft: #c6a36b;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  font-family: var(--f-marker);
-  font-weight: 400;
-  font-size: 1.3rem;
+  /* o papel "nome da coluna" (styles.scss, PLANO-FONTES.md) */
+  font-family: var(--f-kanban-coluna);
+  font-weight: var(--w-kanban-coluna);
+  font-size: calc(1.3rem * var(--e-kanban-coluna));
   line-height: 1.05;
   overflow-wrap: anywhere;
 }

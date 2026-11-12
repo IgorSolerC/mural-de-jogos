@@ -127,10 +127,12 @@
   flex: none;
 }
 
+/* o papel "itens do menu do botão direito" (styles.scss, PLANO-FONTES.md) */
 .nome {
   min-width: 0;
-  font-family: var(--f-marker);
-  font-size: 1.05rem;
+  font-family: var(--f-menu);
+  font-weight: var(--w-menu);
+  font-size: calc(1.05rem * var(--e-menu));
   line-height: 1.15;
 }
 

@@ -186,9 +186,12 @@
   border: 0;
   background: none;
   color: inherit;
-  font-family: var(--f-marker);
-  font-weight: 400;
-  font-size: 0.98rem;
+  /* o papel "título do card no Kanban" (styles.scss, PLANO-FONTES.md) */
+  font-family: var(--f-kanban-titulo);
+  font-weight: var(--w-kanban-titulo);
+  font-size: calc(0.98rem * var(--e-kanban-titulo));
+  /* a caneta passa da caixa à direita: a folga para a última letra não perder a ponta no corte */
+  padding-right: var(--caneta-folga);
   line-height: 1.12;
   letter-spacing: 0.005em;
   text-align: left;

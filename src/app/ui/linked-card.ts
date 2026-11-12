@@ -553,9 +553,11 @@ const EAR_GAP = 0.2;
       min-width: 0;
       line-height: 1.2;
     }
+    /* o nome da ficha que sumiu: na letra do nome das anotações (o papel de styles.scss) */
     .perdida-nome {
-      font-family: var(--f-marker);
-      font-size: 1.05em;
+      font-family: var(--f-titulo-leitura);
+      font-weight: var(--w-titulo-leitura);
+      font-size: calc(1.05em * var(--e-titulo-leitura));
       overflow-wrap: anywhere;
     }
     .perdida-dica {

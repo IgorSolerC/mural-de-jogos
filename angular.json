@@ -65,7 +65,6 @@
               "node_modules/@fontsource/cascadia-mono/latin-400.css",
               "node_modules/@fontsource/cascadia-mono/latin-700.css",
               "node_modules/@fontsource/caveat/latin-700.css",
-              "node_modules/@fontsource/caveat-brush/latin-400.css",
               "node_modules/@fontsource-variable/fraunces/wght.css",
               "src/styles.scss",
               { "input": "src/klee-one.scss", "bundleName": "klee-one", "inject": false }
@@ -136,7 +135,6 @@
               "node_modules/@fontsource/abril-fatface/latin-400.css",
               "node_modules/@fontsource/barlow-condensed/latin-800-italic.css",
               "node_modules/@fontsource/caveat/latin-700.css",
-              "node_modules/@fontsource/caveat-brush/latin-400.css",
               "node_modules/@fontsource-variable/fraunces/wght.css",
               "src/styles.scss"
             ]

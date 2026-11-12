@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
-import { Review, artIdOf, isDarkStock } from '../core/review';
+import { Review, artIdOf, isDarkStock, isNote } from '../core/review';
 import { pinningFor } from '../core/wall-physics';
 import { PaperArtLayer } from './paper-layer';
 
@@ -15,7 +15,7 @@ import { PaperArtLayer } from './paper-layer';
   selector: 'app-mini-cartolina',
   imports: [PaperArtLayer],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { 'aria-hidden': 'true' },
+  host: { 'aria-hidden': 'true', '[class.de-anotacao]': 'note()' },
   template: `
     <div class="folha" [style]="vars()" [style.--stock]="'var(--stock-' + stock() + ')'" [attr.data-cor]="stock()">
       <app-paper-art [id]="artId()" [scribble]="review().scribble" [scribbleSeed]="review().scribbleSeed" [scribbleInk]="review().scribbleInk" [paper]="review().paper" [paperSeed]="review().paperSeed" [damage]="review().damage" [seed]="review().damageSeed" [stains]="review().stains" [decors]="review().decors" [glitter]="review().paper === 'glitter'" [dark]="dark()" [content]="review()" />
@@ -60,6 +60,12 @@ import { PaperArtLayer } from './paper-layer';
       overflow-wrap: anywhere;
       rotate: -2deg;
     }
+    /* a da anotação: a letra do papel "título da anotação no mural" (styles.scss, PLANO-FONTES.md) */
+    :host(.de-anotacao) .titulo {
+      font-family: var(--f-titulo-ficha);
+      font-weight: var(--w-titulo-ficha);
+      font-size: calc(var(--mini-titulo, 3.1rem) * var(--e-titulo-ficha));
+    }
   `,
 })
 export class MiniCartolina {
@@ -67,6 +73,7 @@ export class MiniCartolina {
 
   /** O mesmo desenho da ficha: o rabisco e o estrago saem iguais (ver artIdOf). */
   protected readonly artId = computed(() => artIdOf(this.review()));
+  protected readonly note = computed(() => isNote(this.review()));
   /** A cartolina da ficha (a mesma do mural). */
   protected readonly stock = computed(() => pinningFor(this.review().id, this.review().stock).stock);
   protected readonly dark = computed(() => isDarkStock(this.stock()));

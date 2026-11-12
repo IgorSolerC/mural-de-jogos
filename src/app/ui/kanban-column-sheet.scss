@@ -60,9 +60,11 @@ dialog.coluna-ajustes {
 .campo {
   @include kit.campo;
 
+  /* o nome da coluna é escrito na letra da coluna (o papel de styles.scss) */
   input {
-    font-family: var(--f-marker);
-    font-size: 1.15rem;
+    font-family: var(--f-kanban-coluna);
+    font-weight: var(--w-kanban-coluna);
+    font-size: calc(1.15rem * var(--e-kanban-coluna));
   }
 }
 
