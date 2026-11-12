@@ -95,6 +95,13 @@
   }
 }
 
+<!-- a folha Compartilhar de um quadro (um pedaço à parte, só quando aberta) -->
+@if (sharing(); as id) {
+  @defer (on immediate) {
+    <app-board-share [boardId]="id" (closed)="sharing.set(null)" (left)="close()" />
+  }
+}
+
 <!-- o quadro aberto: a tela inteira, só para ver -->
 @if (wantedBoard()) {
   <div class="tela-cheia" role="dialog" aria-modal="true" [attr.aria-label]="open() ? 'Quadro ' + open()!.nome : 'Quadro'">
@@ -115,7 +122,13 @@
         />
       }
       <app-free-board-top [name]="b.nome" (back)="close()">
-        @if (editing()) {
+        <button type="button" class="etiqueta-topo compartilhar" aria-haspopup="dialog" (click)="sharing.set(b.id)" title="Quem vê e quem edita o quadro">
+          <lucide-icon [img]="Icons.pessoas" [size]="18" aria-hidden="true" />
+          Compartilhar
+        </button>
+        @if (openRole() === 'leitor') {
+          <!-- quem só lê o quadro de outra pessoa: sem o Editar -->
+        } @else if (editing()) {
           <button type="button" class="etiqueta-topo pronto" (click)="setEditing(false)" title="Sair do editar (E)">
             <lucide-icon [img]="Icons.pronto" [size]="18" aria-hidden="true" />
             Pronto

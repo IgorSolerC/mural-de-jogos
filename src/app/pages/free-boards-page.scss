@@ -158,6 +158,11 @@
   @include et.cor-na-mao(var(--etiqueta-verde));
 }
 
+/* o Compartilhar (PLANO-COMPARTILHAR.md, rodada 6): a mesma etiqueta, com a cor das pessoas */
+.etiqueta-topo.compartilhar {
+  @include et.cor-na-mao(var(--etiqueta-azul));
+}
+
 /* 44 px para o dedo, e o nome fica também no toque (o com-nome da peça o tira para caber num card) */
 .etiqueta-topo {
   width: auto;

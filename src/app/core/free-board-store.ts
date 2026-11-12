@@ -153,6 +153,17 @@ export class FreeBoardStore {
     }).then((rec) => rec?.quadro ?? clean);
   }
 
+  /**
+   * O quadro sobe de novo sem mudar nada (o grupo compartilhado dele mudou: o envio leva o grupo novo,
+   * PLANO-COMPARTILHAR.md rodada 6).
+   */
+  async markDirty(id: string): Promise<void> {
+    await this.ready;
+    if (!this.get(id)) return;
+    await this.write(id, (stored) => (stored ? (stored.quadro ? { ...stored, sujo: true, marca: newMark() } : stored) : null));
+    this.version.update((v) => v + 1);
+  }
+
   /** Muda o quadro `id` pela função (null: não existe mais). */
   async update(id: string, change: (board: FreeBoard) => FreeBoard): Promise<FreeBoard | null> {
     await this.ready;

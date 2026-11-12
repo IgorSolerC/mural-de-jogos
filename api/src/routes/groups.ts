@@ -168,6 +168,8 @@ export function groupRoutes(app: Hono, deps: Deps): void {
         params: [by, p.id, g.id, JSON.stringify({ titulo: groupNameOf(g.dados), mural: 'anotacoes' }), at],
       },
       brakeStatement(by, 'compartilhar', now),
+      // os quadros livres do grupo passam a ser dela também: o site dela pede a lista (PLANO-COMPARTILHAR.md, rodada 6)
+      { sql: 'UPDATE usuarios SET quadros_versao = quadros_versao + 1 WHERE id = ?', params: [p.id] },
     ];
   }
 
@@ -245,7 +247,7 @@ export function groupRoutes(app: Hono, deps: Deps): void {
           },
           ...[...people.values()].flatMap(({ p, role }) => memberStatements(row, p, role, s.userId, true, at, now)),
         ],
-        1 + 4 * people.size,
+        1 + 5 * people.size,
       );
     } catch (error) {
       const now2 = await group(id);
@@ -319,7 +321,7 @@ export function groupRoutes(app: Hono, deps: Deps): void {
     }
     const at = now.toISOString();
     try {
-      await write(deps, [...memberStatements(g, p, role, s.userId, !current, at, now), bump(id)], current ? 2 : 5);
+      await write(deps, [...memberStatements(g, p, role, s.userId, !current, at, now), bump(id)], current ? 2 : 6);
     } catch (error) {
       // dois pedidos para pôr a mesma pessoa ao mesmo tempo: o outro já a pôs
       if (error instanceof HttpError || current) throw error;
@@ -356,8 +358,11 @@ export function groupRoutes(app: Hono, deps: Deps): void {
         // (as anotações do grupo saem da lista de quem saiu, e o site dela as tira; a versão delas não sobe,
         // senão todos os outros baixariam o grupo inteiro de novo)
         bump(id),
+        // os quadros livres que ela fez no grupo ficam no grupo, com o dono dele (P4); a lista de quadros dela muda
+        { sql: 'UPDATE quadros SET usuario_id = ? WHERE grupo_id = ? AND usuario_id = ?', params: [g.dono_id, id, target] },
+        { sql: 'UPDATE usuarios SET quadros_versao = quadros_versao + 1 WHERE id IN (?, ?)', params: [target, g.dono_id] },
       ],
-      3,
+      6,
     );
     if (target === s.userId) return c.json({ ok: true });
     const saved = await group(id);
@@ -376,11 +381,14 @@ export function groupRoutes(app: Hono, deps: Deps): void {
       deps,
       [
         { sql: "DELETE FROM atividades WHERE tipo = 'compartilhou-grupo' AND ref = ?", params: [id] },
+        // os quadros livres do grupo ficam com o dono (P4), e a lista de quadros de todos muda
+        { sql: 'UPDATE usuarios SET quadros_versao = quadros_versao + 1 WHERE id = ? OR id IN (SELECT usuario_id FROM grupo_membros WHERE grupo_id = ?)', params: [s.userId, id] },
+        { sql: 'UPDATE quadros SET usuario_id = ?, grupo_id = NULL WHERE grupo_id = ?', params: [s.userId, id] },
         { sql: 'DELETE FROM grupo_membros WHERE grupo_id = ?', params: [id] },
         { sql: 'UPDATE notas SET grupo_id = NULL, versao = versao + 1 WHERE grupo_id = ?', params: [id] },
         { sql: 'DELETE FROM grupos WHERE id = ?', params: [id] },
       ],
-      4,
+      8,
     );
     return c.json({ ok: true });
   });

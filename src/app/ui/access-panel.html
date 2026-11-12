@@ -91,7 +91,7 @@
         <app-person-photo [code]="p.codigo" [name]="p.nome" [face]="p.foto" />
         <span class="quem">
           <span class="nome">{{ p.nome }}@if (p.voce) {<span class="voce">{{ ' (você)' }}</span>}</span>
-          <span class="rel" [class.dica-papel]="p.papel !== 'dono' && !p.via">{{ p.via ? 'Pelo grupo ' + p.via : p.papel === 'dono' ? (noun() === 'grupo' ? 'Dono do grupo' : 'Criou a anotação') : roleHint[p.papel] }}</span>
+          <span class="rel" [class.dica-papel]="p.papel !== 'dono' && !p.via">{{ p.via ? 'Pelo grupo ' + p.via : p.papel === 'dono' ? (noun() === 'grupo' ? 'Dono do grupo' : noun() === 'quadro' ? 'Dono do quadro' : 'Criou a anotação') : roleHint[p.papel] }}</span>
         </span>
         @if (p.papel === 'dono') {
           <span class="papel-fixo dono">
@@ -106,7 +106,7 @@
                 <option [value]="r" [selected]="r === p.papel">{{ roleLabel[r] }}</option>
               }
               <option disabled>──────</option>
-              <option value="tirar">{{ noun() === 'grupo' ? 'Tirar do grupo' : 'Tirar da anotação' }}</option>
+              <option value="tirar">{{ noun() === 'anotação' ? 'Tirar da anotação' : 'Tirar do ' + noun() }}</option>
             </select>
             <lucide-icon class="seta" [img]="ChevronIcon" [size]="16" aria-hidden="true" />
           </label>

@@ -76,6 +76,11 @@ export class SharedGroupsStore {
   /** O que está indo para a nuvem agora. */
   readonly moving = signal<GroupMoving | null>(null);
   /**
+   * A lista dos grupos já foi conferida na nuvem desde que o site abriu: antes disso, "este grupo não é
+   * compartilhado" ainda não é certeza (os quadros não dizem à nuvem que saíram do grupo por engano).
+   */
+  readonly synced = signal(false);
+  /**
    * O documento de cada grupo como estava na `rev` de onde as mexidas daqui partiram (só os que têm mexida
    * esperando para subir): a base da junção quando outra pessoa gravou antes.
    */
@@ -391,6 +396,7 @@ export class SharedGroupsStore {
       if (typeof r?.['id'] === 'string' && Number.isSafeInteger(r['versao'])) index.set(r['id'], r['versao'] as number);
     }
     for (const id of [...this.entries().keys()]) if (!index.has(id)) this.drop(id);
+    this.synced.set(true);
     const stale = [...index].filter(([id, v]) => this.entries().get(id)?.versao !== v).map(([id]) => id);
     for (let i = 0; i < stale.length; i += DETAILS_PAGE) {
       const ids = stale.slice(i, i + DETAILS_PAGE);

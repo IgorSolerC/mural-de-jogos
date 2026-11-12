@@ -6,6 +6,7 @@ import { deleteDatabase } from './erase-save';
 import { FbNode, FreeBoard, sanitizeFreeBoard } from './free-board';
 import { BOARDS_DB, FreeBoardStore } from './free-board-store';
 import { BOARDS_VERSION_KEY, FreeBoardSync } from './free-board-sync';
+import { SharedGroupsStore } from './shared-groups-store';
 
 const text = (i: string, txt = i, x = 0): FbNode => ({ i, t: 'x', x, y: 0, w: 120, h: 52, txt });
 const settle = (ms = 30) => new Promise((r) => setTimeout(r, ms));
@@ -18,6 +19,12 @@ class FakeCloud {
   boards = new Map<string, { rev: number; data: string | null; apagado?: string; imagens: string[] }>();
   versao = 0;
   calls: string[] = [];
+  /** O que a lista diz de cada quadro de outra pessoa (o papel, o dono, o grupo): PLANO-COMPARTILHAR.md, rodada 6. */
+  theirs = new Map<string, { papel: string; dono?: { codigo: string; nome: string }; grupo?: string }>();
+  /** O grupo que a nuvem guardou de cada quadro, pelo cabeçalho do envio. */
+  groupOf = new Map<string, string | null>();
+  /** Quem só lê: o envio desses quadros é recusado (403). */
+  readOnly = new Set<string>();
 
   async requestRaw(path: string, init: { method?: string; body?: unknown; headers?: Record<string, string> } = {}): Promise<Response> {
     const method = init.method ?? 'GET';
@@ -26,7 +33,13 @@ class FakeCloud {
       throw new CloudError(String(body['mensagem'] ?? 'erro'), String(body['erro'] ?? 'erro'), status, body);
     };
     if (path === '/v1/eu/quadros') {
-      const quadros = [...this.boards].map(([id, b]) => ({ id, rev: b.rev, ...(b.apagado ? { apagado: b.apagado } : {}) }));
+      const quadros = [...this.boards].map(([id, b]) => ({
+        id,
+        rev: b.rev,
+        ...(b.apagado ? { apagado: b.apagado } : {}),
+        ...(this.groupOf.get(id) ? { grupo: this.groupOf.get(id) } : {}),
+        ...(this.theirs.get(id) ?? {}),
+      }));
       return new Response(JSON.stringify({ quadros }), { headers: { 'Quadros-Versao': String(this.versao) } });
     }
     const m = /^\/v1\/eu\/quadros\/([^?]+)(?:\?rev=(\d+))?$/.exec(path)!;
@@ -50,6 +63,8 @@ class FakeCloud {
       }
       return new Response(JSON.stringify({ rev: here?.rev ?? 0, versao: this.versao }));
     }
+    if (this.readOnly.has(id)) fail(403, { erro: 'so-leitura', mensagem: 'Você pode ver este quadro, mas não mexer nele.' });
+    if (init.headers && 'Quadro-Grupo' in init.headers) this.groupOf.set(id, init.headers['Quadro-Grupo'] || null);
     if ((here && here.rev !== base) || (!here && base !== 0)) fail(409, { erro: 'conflito', rev: here?.rev ?? 0, ...(here?.apagado ? { apagado: here.apagado } : {}) });
     // em partes, como o site manda: o quadro em gzip e a lista das imagens
     const form = init.body as FormData;
@@ -80,7 +95,15 @@ describe('Quadro livre: a nuvem no site', () => {
     localStorage.removeItem(BOARDS_VERSION_KEY);
     cloud = new FakeCloud();
     TestBed.configureTestingModule({
-      providers: [provideZonelessChangeDetection(), { provide: CloudAccount, useValue: { signedIn, requestRaw: (p: string, i: never) => cloud.requestRaw(p, i) } }],
+      providers: [
+        provideZonelessChangeDetection(),
+        { provide: CloudAccount, useValue: { signedIn, requestRaw: (p: string, i: never) => cloud.requestRaw(p, i) } },
+        // os grupos compartilhados: o Trabalho é (PLANO-COMPARTILHAR.md, rodada 6)
+        {
+          provide: SharedGroupsStore,
+          useValue: { byName: () => new Map(), synced: () => true, ofCategory: (c: string) => (c === 'Trabalho' ? { id: 'gTrabalho001', papel: 'dono' } : undefined) },
+        },
+      ],
     });
     store = TestBed.inject(FreeBoardStore);
     sync = TestBed.inject(FreeBoardSync);
@@ -93,6 +116,38 @@ describe('Quadro livre: a nuvem no site', () => {
     await settle(0);
     await deleteDatabase(BOARDS_DB);
     localStorage.removeItem(BOARDS_VERSION_KEY);
+  });
+
+  it('o quadro de um grupo compartilhado sobe dizendo o grupo; o de um grupo só seu, nenhum (P2)', async () => {
+    const a = await store.create('Planta', 'Trabalho');
+    const b = await store.create('Mansão', 'Jogos');
+    await sync.flush();
+    expect(cloud.groupOf.get(a.id)).toBe('gTrabalho001');
+    expect(cloud.groupOf.get(b.id)).toBeNull();
+  });
+
+  it('o quadro de outra pessoa: o papel vem da lista; o de quem só lê não sobe (403) e volta o da nuvem; saiu da lista, sai daqui', async () => {
+    const remote = sanitizeFreeBoard({ v: 1, id: 'deoutrapessoa01qqqqqqq', nome: 'Da Ana', grupo: 'Trabalho', em: '2026-11-09T00:00:00.000Z', n: [text('a')], e: [] })!;
+    cloud.boards.set(remote.id, { rev: 2, data: JSON.stringify(remote), imagens: [] });
+    cloud.theirs.set(remote.id, { papel: 'leitor', dono: { codigo: 'AAAA-1111', nome: 'Ana' }, grupo: 'gTrabalho001' });
+    cloud.readOnly.add(remote.id);
+    cloud.versao = 3;
+    sync.noteVersion('3');
+    await sync.flush();
+    expect(sync.roleOf(remote.id)).toBe('leitor');
+    expect(sync.roleOf('qualquer')).toBe('dono');
+    await store.save({ ...store.get(remote.id)!, n: [text('a'), text('b')] });
+    await sync.flush();
+    expect(store.get(remote.id)!.n.map((n) => n.i)).toEqual(['a']);
+    expect(store.record(remote.id)!.sujo).toBeFalse();
+    // a Ana tirou você do quadro: ele sai da lista, e daqui (sem subir como um quadro novo)
+    cloud.boards.delete(remote.id);
+    cloud.versao = 4;
+    sync.noteVersion('4');
+    cloud.calls = [];
+    await sync.flush();
+    expect(store.get(remote.id)).toBeNull();
+    expect(cloud.calls.filter((c) => c.startsWith('PUT'))).toEqual([]);
   });
 
   it('o quadro novo sobe sozinho, com as imagens dele, e vira a base (nada mais por mandar)', async () => {

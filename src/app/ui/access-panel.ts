@@ -27,7 +27,7 @@ export interface AccessRow {
  */
 export interface AccessTarget {
   /** A palavra da coisa, para as frases: "anotação", "grupo". */
-  noun: 'anotação' | 'grupo';
+  noun: 'anotação' | 'grupo' | 'quadro';
   rows: Signal<AccessRow[]>;
   myRole: Signal<SharedRole>;
   summary: Signal<AccessSummary | null>;
@@ -83,7 +83,7 @@ export class AccessPanel {
   protected readonly summary = computed(() => this.target().summary());
   protected readonly noun = computed(() => this.target().noun);
   /** "na anotação", "no grupo". */
-  protected readonly inIt = computed(() => (this.noun() === 'grupo' ? 'no grupo' : 'na anotação'));
+  protected readonly inIt = computed(() => (this.noun() === 'anotação' ? 'na anotação' : `no ${this.noun()}`));
 
   protected readonly query = signal('');
   protected readonly newRole = signal<MemberRole>('editor');
@@ -169,11 +169,11 @@ export class AccessPanel {
     if (this.busy()) return;
     const t = this.target();
     if (value === 'tirar') {
-      const what = t.noun === 'grupo' ? 'O grupo e tudo o que está nele saem' : 'A anotação sai';
+      const what = t.noun === 'grupo' ? 'O grupo e tudo o que está nele saem' : t.noun === 'quadro' ? 'O quadro sai' : 'A anotação sai';
       const sure = await this.confirm.ask({
         title: `Tirar ${row.nome}?`,
         text: `${what} do mural de ${row.nome}. Dá para chamar de novo depois.`,
-        confirm: t.noun === 'grupo' ? 'Tirar do grupo' : 'Tirar da anotação',
+        confirm: t.noun === 'anotação' ? 'Tirar da anotação' : `Tirar do ${t.noun}`,
       });
       if (!sure) {
         this.resetSelect(row);
@@ -185,7 +185,7 @@ export class AccessPanel {
     try {
       if (value === 'tirar') {
         await t.remove(row.codigo);
-        this.said.set(`${row.nome} saiu ${t.noun === 'grupo' ? 'do grupo' : 'da anotação'}.`);
+        this.said.set(`${row.nome} saiu ${t.noun === 'anotação' ? 'da anotação' : `do ${t.noun}`}.`);
       } else {
         await t.setRole(row.codigo, value as MemberRole);
         this.said.set(`${row.nome} agora é ${ROLE_LABEL[value as MemberRole].toLowerCase()}.`);

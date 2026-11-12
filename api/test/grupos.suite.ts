@@ -6,7 +6,7 @@ import { googleVerifier } from '../src/domain/google';
 import { MIN_GROUP_EDIT_MS } from '../src/routes/groups';
 import { MIN_EDIT_MS } from '../src/routes/notes';
 import { Config, Db, Deps } from '../src/ports';
-import { BASE_ENV, NOW, TABLES, eraseNow, jsonCaller } from './harness';
+import { BASE_ENV, NOW, TABLES, eraseNow, gzip, jsonCaller } from './harness';
 
 /**
  * Os grupos compartilhados (migração 0025, PLANO-COMPARTILHAR.md): o documento do grupo, as pessoas e os
@@ -102,7 +102,19 @@ export function gruposSuite(label: string, getDb: () => Db) {
     };
     const notes = async (token: string) => ((await res(json('GET', '/v1/eu/notas', undefined, token))).body.notas as { id: string; papel: string }[]).sort((a, b) => (a.id < b.id ? -1 : 1));
     const groups = async (token: string) => (await res(json('GET', '/v1/eu/grupos', undefined, token))).body.grupos as { id: string; papel: string }[];
-    return { db, deps, json, res, advance, login, ana, bia, cris, davi, shareGroup, putGroup, newNote, putNote, notes, groups };
+    /** Um quadro livre (o servidor não abre: só confere o gzip), com o grupo e o público nos cabeçalhos. */
+    const board = (id: string) => JSON.stringify({ v: 1, id, nome: 'Planta', grupo: 'Trabalho', em: NOW.toISOString(), n: [], e: [] });
+    const putBoard = async (token: string, id: string, base: number, headers: Record<string, string> = {}) => {
+      const r = await app.request(`https://api.teste/v1/eu/quadros/${id}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/gzip', 'Quadro-Rev-Base': String(base), ...headers },
+        body: await gzip(board(id)),
+      });
+      advance(2_500);
+      return { status: r.status, body: (await r.json().catch(() => null)) as any };
+    };
+    const boards = async (token: string) => ((await res(json('GET', '/v1/eu/quadros', undefined, token))).body.quadros as any[]).map((q) => [q.id, q.papel ?? 'dono']);
+    return { db, deps, json, res, advance, login, putBoard, boards, ana, bia, cris, davi, shareGroup, putGroup, newNote, putNote, notes, groups };
   }
 
   describe(`Grupos compartilhados (${label})`, () => {
@@ -284,6 +296,48 @@ export function gruposSuite(label: string, getDb: () => Db) {
       await t.newNote(t.ana.token, 'n-ana01');
       const row = await t.db.first<{ n: number }>('SELECT COUNT(*) AS n FROM notas WHERE dono_id = ? AND grupo_id IS NULL', [t.ana.id]);
       expect(row!.n).toBe(0);
+    });
+
+    it('os quadros livres vão junto com o grupo (P2): quem está nele lê; o editor grava; o leitor não; o público mostra', async () => {
+      const t = await setup();
+      await t.shareGroup();
+      const Q = 'quadroGrupo0001qqqqqqq';
+      expect((await t.putBoard(t.ana.token, Q, 0, { 'Quadro-Grupo': GRUPO })).status).toBe(200);
+      expect(await t.boards(t.davi.token)).toEqual([[Q, 'leitor']]);
+      expect(await t.boards(t.cris.token)).toEqual([[Q, 'editor']]);
+      expect((await t.res(t.json('GET', `/v1/eu/quadros/${Q}`, undefined, t.davi.token))).status).toBe(200);
+      // o editor grava no quadro da Ana (que continua dela); o leitor não
+      expect((await t.putBoard(t.cris.token, Q, 1)).status).toBe(200);
+      expect((await t.putBoard(t.davi.token, Q, 2)).body.erro).toBe('so-leitura');
+      expect((await t.db.first<{ usuario_id: string }>('SELECT usuario_id FROM quadros WHERE id = ?', [Q]))!.usuario_id).toBe(t.ana.id);
+      // quem não está no grupo nem sabe que ele existe
+      const eva = await t.login('eva', 'Eva');
+      expect((await t.res(t.json('GET', `/v1/eu/quadros/${Q}`, undefined, eva.token))).status).toBe(404);
+      // o grupo público mostra o quadro a quem visita
+      expect((await t.res(t.json('GET', `/v1/murais/${t.ana.codigo}/quadros`))).body.quadros).toEqual([]);
+      t.advance(2_000);
+      await t.res(t.json('PUT', `/v1/grupos/${GRUPO}`, { base: 1, publico: true }, t.ana.token));
+      expect((await t.res(t.json('GET', `/v1/murais/${t.ana.codigo}/quadros`))).body.quadros.map((q: any) => q.id)).toEqual([Q]);
+    });
+
+    it('um quadro solto com pessoas: o dono chama, a pessoa vê e (editor) grava; sair tira; quem sai do grupo deixa o quadro que fez nele (P4)', async () => {
+      const t = await setup();
+      const Q = 'quadroSolto0001qqqqqqq';
+      await t.putBoard(t.ana.token, Q, 0);
+      expect((await t.res(t.json('PUT', `/v1/eu/quadros/${Q}/membros/${t.bia.codigo}`, { papel: 'editor' }, t.ana.token))).body.membros.map((m: any) => m.nome)).toEqual(['Bia']);
+      expect(await t.boards(t.bia.token)).toEqual([[Q, 'editor']]);
+      expect((await t.putBoard(t.bia.token, Q, 1)).status).toBe(200);
+      expect((await t.res(t.json('PUT', `/v1/eu/quadros/${Q}/membros/${t.cris.codigo}`, { papel: 'leitor' }, t.bia.token))).body.erro).toBe('so-gestor');
+      expect((await t.res(t.json('DELETE', `/v1/eu/quadros/${Q}/membros/eu`, undefined, t.bia.token))).status).toBe(200);
+      expect(await t.boards(t.bia.token)).toEqual([]);
+      // o quadro que a Cris fez no grupo da Ana fica no grupo, com a Ana, quando ela sai
+      await t.shareGroup();
+      const Q2 = 'quadroCris0001qqqqqqqq';
+      await t.putBoard(t.cris.token, Q2, 0, { 'Quadro-Grupo': GRUPO });
+      expect(await t.boards(t.ana.token)).toContainEqual([Q2, 'gestor']);
+      await t.res(t.json('DELETE', `/v1/grupos/${GRUPO}/membros/eu`, undefined, t.cris.token));
+      expect((await t.db.first<{ usuario_id: string }>('SELECT usuario_id FROM quadros WHERE id = ?', [Q2]))!.usuario_id).toBe(t.ana.id);
+      expect(await t.boards(t.cris.token)).toEqual([]);
     });
 
     it('apagar a conta: a do dono leva o grupo e as anotações dele; a de quem está só a tira do grupo', async () => {

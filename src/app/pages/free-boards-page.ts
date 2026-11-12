@@ -26,6 +26,7 @@ import { groupKey, studyGroupId } from '../core/study';
 import { WallView } from '../core/wall-view';
 import { CardPicker } from '../ui/card-picker';
 import { ContextMenu, ContextMenuTrigger, MenuBy, MenuItem, MenuSections } from '../ui/context-menu';
+import { BoardShare } from '../ui/board-share';
 import { FreeBoardOwner } from '../ui/free-board/owner-tools';
 import { WidgetDone, WidgetSheet } from '../ui/widget-sheet';
 import { FreeBoardCard } from '../ui/free-board/board-card';
@@ -54,7 +55,7 @@ interface BoardGroup {
  */
 @Component({
   selector: 'app-free-boards-page',
-  imports: [CardPicker, ContextMenu, FreeBoardCard, FreeBoardTop, WidgetSheet, FreeBoardView, IconModule, StudyGroupTabs],
+  imports: [BoardShare, CardPicker, ContextMenu, FreeBoardCard, FreeBoardTop, WidgetSheet, FreeBoardView, IconModule, StudyGroupTabs],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './free-boards-page.html',
   styleUrl: './free-boards-page.scss',
@@ -72,7 +73,7 @@ export class FreeBoardsPage {
   private readonly injector = inject(Injector);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
-  protected readonly Icons = { novo: ICON.adicionar, editar: ICON.editar, pronto: ICON.pronto };
+  protected readonly Icons = { novo: ICON.adicionar, editar: ICON.editar, pronto: ICON.pronto, pessoas: ICON.pessoas };
   protected readonly nameMax = FB_NAME_MAX;
   protected readonly path = freeBoardPath;
 
@@ -183,11 +184,25 @@ export class FreeBoardsPage {
           .map((g): MenuItem => ({ id: `grupo:${g.id}`, label: g.label, icon: ICON.pasta, run: () => void this.moveTo(b.id, g.label) })),
       ];
     }
+    // o quadro de outra pessoa (PLANO-COMPARTILHAR.md, rodada 6): o grupo, o público e apagar são do dono; quem só lê não renomeia
+    const role = this.boardSync.roleOf(b.id);
+    const share: MenuItem = { id: 'compartilhar', label: 'Compartilhar', icon: ICON.pessoas, dialog: true, run: () => this.sharing.set(b.id) };
+    if (role !== 'dono') {
+      return [
+        [{ id: 'abrir', label: 'Abrir', icon: ICON.aumentar, run: () => void this.router.navigateByUrl(this.boardPath(b)) }],
+        [
+          ...(role === 'leitor' ? [] : [{ id: 'renomear', label: 'Renomear', icon: ICON.editar, run: () => this.startRename(b) }]),
+          { id: 'duplicar', label: 'Duplicar', icon: ICON.copiar, run: () => void this.duplicate(b.id) },
+          share,
+        ],
+      ];
+    }
     return [
       [{ id: 'abrir', label: 'Abrir', icon: ICON.aumentar, run: () => void this.router.navigateByUrl(this.boardPath(b)) }],
       [
         { id: 'renomear', label: 'Renomear', icon: ICON.editar, run: () => this.startRename(b) },
         { id: 'duplicar', label: 'Duplicar', icon: ICON.copiar, run: () => void this.duplicate(b.id) },
+        share,
         ...(this.groups().length > 1 ? [{ id: 'mover', label: 'Mover para o grupo…', icon: ICON.pasta, dialog: true, run: () => this.reopenForMove(b.id) }] : []),
         {
           id: 'publico',
@@ -201,6 +216,15 @@ export class FreeBoardsPage {
     ];
   });
   private lastMenu: { x: number; y: number; back: HTMLElement | null } | null = null;
+
+  // ===== compartilhar (PLANO-COMPARTILHAR.md, rodada 6) =====
+  /** O quadro com a folha Compartilhar aberta. */
+  protected readonly sharing = signal<string | null>(null);
+  /** O seu papel no quadro aberto (o de outra pessoa pode ser só de ler: sem o Editar). */
+  protected readonly openRole = computed(() => {
+    const b = this.open();
+    return b ? this.boardSync.roleOf(b.id) : 'dono';
+  });
 
   // ===== o que só o dono faz, para a peça do quadro =====
   private readonly reviews = inject(ReviewStore);

@@ -131,6 +131,11 @@ export function imageIdsIn(text: string, max = 1000): string[] {
 
 /** A pessoa está na anotação (é a dona, está entre as pessoas ou no grupo dela): o pedaço de SQL, com o id da pessoa em `?` três vezes. */
 const IN_NOTE = inNoteSql('n');
+/** A pessoa está no quadro `q` (a dona, as pessoas dele, o grupo dele ou o dono do grupo): o id dela em `?` quatro vezes. */
+const IN_BOARD =
+  '(q.usuario_id = ? OR EXISTS (SELECT 1 FROM quadro_membros qm WHERE qm.quadro_id = q.id AND qm.usuario_id = ?) ' +
+  'OR (q.grupo_id IS NOT NULL AND (EXISTS (SELECT 1 FROM grupo_membros gm WHERE gm.grupo_id = q.grupo_id AND gm.usuario_id = ?) ' +
+  'OR EXISTS (SELECT 1 FROM grupos gg WHERE gg.id = q.grupo_id AND gg.dono_id = ?))))';
 
 /**
  * A imagem e quem pode vê-la, conferido agora (rodada 4): `publica`, alguém a mostra no mural público e
@@ -151,10 +156,15 @@ export async function imageAccess(
       'EXISTS (SELECT 1 FROM nota_imagens ni JOIN notas n ON n.id = ni.nota_id JOIN grupos g ON g.id = n.grupo_id WHERE ni.imagem_id = i.id AND g.publico = 1) OR ' +
       // a imagem de um quadro público do dono (PLANO-QUADRO-LIVRE.md, 4.8)
       'EXISTS (SELECT 1 FROM quadro_imagens qi JOIN quadros q ON q.id = qi.quadro_id WHERE qi.imagem_id = i.id AND q.usuario_id = i.dono_id ' +
-      'AND q.publico = 1 AND q.apagado_em IS NULL) AS publica, ' +
-      `EXISTS (SELECT 1 FROM nota_imagens ni JOIN notas n ON n.id = ni.nota_id WHERE ni.imagem_id = i.id AND ${IN_NOTE}) AS membro ` +
+      'AND q.publico = 1 AND q.apagado_em IS NULL) OR ' +
+      // a imagem de um quadro de um grupo público (PLANO-COMPARTILHAR.md, rodada 6)
+      'EXISTS (SELECT 1 FROM quadro_imagens qi JOIN quadros q ON q.id = qi.quadro_id JOIN grupos g ON g.id = q.grupo_id ' +
+      'WHERE qi.imagem_id = i.id AND g.publico = 1 AND q.apagado_em IS NULL) AS publica, ' +
+      `(EXISTS (SELECT 1 FROM nota_imagens ni JOIN notas n ON n.id = ni.nota_id WHERE ni.imagem_id = i.id AND ${IN_NOTE}) OR ` +
+      // quem está num quadro compartilhado (pelo quadro ou pelo grupo dele) vê as imagens dele
+      `EXISTS (SELECT 1 FROM quadro_imagens qi JOIN quadros q ON q.id = qi.quadro_id WHERE qi.imagem_id = i.id AND ${IN_BOARD})) AS membro ` +
       'FROM imagens i WHERE i.id = ?',
-    [viewer ?? '', viewer ?? '', viewer ?? '', id],
+    [viewer ?? '', viewer ?? '', viewer ?? '', viewer ?? '', viewer ?? '', viewer ?? '', viewer ?? '', id],
   );
 }
 

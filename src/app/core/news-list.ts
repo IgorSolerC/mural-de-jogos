@@ -27,12 +27,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-11-kanban-na-visita',
+    id: '2026-11-11-quadros-compartilhados',
     version: '1.45.1',
     kind: 'ajustes',
     date: '2026-11-11',
-    title: 'Grupos públicos e o Kanban dos grupos compartilhados',
+    title: 'Grupos públicos, o Kanban e os quadros livres compartilhados',
     melhorias: [
+      'Os quadros livres vão junto com o grupo compartilhado (e com o público): quem está nele vê, e quem edita mexe. Um quadro de um grupo só seu também pode ser dividido com pessoas, pelo Compartilhar no topo do quadro ou no menu dele.',
       'Um grupo pode ser público, em Compartilhar: qualquer pessoa lê o mural dele pelo seu mural e por um link, e só quem está nele edita; nada vai para o Feed. O site avisa quantas anotações privadas o grupo tem antes, e elas ficam públicas, sem ir para o Feed (pôr uma privada num grupo público também pergunta antes).',
       'Quem visita o seu mural vê também o Kanban dos seus grupos públicos, numa seção Kanban ao lado do Mural, só para ler.',
       'O Kanban de um grupo compartilhado é o mesmo para todos que estão nele: colunas, cartões, importância e status; duas pessoas mexendo ao mesmo tempo ficam com as duas mexidas, e quem só lê vê o quadro sem mudar nada.',

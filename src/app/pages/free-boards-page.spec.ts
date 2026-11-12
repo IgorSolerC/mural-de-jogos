@@ -76,6 +76,9 @@ class FakeStore {
   }
 }
 
+/** O seu papel no quadro, como a sincronização diz (PLANO-COMPARTILHAR.md, rodada 6). */
+let boardRole = 'dono';
+
 describe('a página do Quadro livre', () => {
   let host: HTMLElement;
   let router: Router;
@@ -106,7 +109,7 @@ describe('a página do Quadro livre', () => {
         provideZonelessChangeDetection(),
         provideRouter([{ matcher: freeBoardMatcher, component: FreeBoardsPage }]),
         { provide: FreeBoardStore, useValue: store },
-        { provide: FreeBoardSync, useValue: { flush: async () => undefined, noteVersion: () => undefined } },
+        { provide: FreeBoardSync, useValue: { flush: async () => undefined, noteVersion: () => undefined, roleOf: () => boardRole, shared: () => new Map() } },
         { provide: Confirm, useValue: { ask: async () => true } },
       ],
     });
@@ -178,12 +181,12 @@ describe('a página do Quadro livre', () => {
     await settle(10);
     expectEtiquetaPadrao($('.grupo-voltar')!, { semMedida: true });
     const dir = $('.topo-dir')!;
-    expect([...dir.querySelectorAll('button')].map((b) => text(b) || b.querySelector('.sr-only')?.textContent?.trim())).toEqual(['Editar', 'Tela cheia']);
-    expectEtiquetaPadrao(dir, { rotate: '-1deg', gap: '6px', semMedida: true, comNome: ['editar'] });
+    expect([...dir.querySelectorAll('button')].map((b) => text(b) || b.querySelector('.sr-only')?.textContent?.trim())).toEqual(['Compartilhar', 'Editar', 'Tela cheia']);
+    expectEtiquetaPadrao(dir, { rotate: '-1deg', gap: '6px', semMedida: true, comNome: ['compartilhar', 'editar'] });
     $<HTMLButtonElement>('.etiqueta-topo.editar')!.click();
     await settle(10);
     expect(text($('.etiqueta-topo.pronto'))).toBe('Pronto');
-    expectEtiquetaPadrao(dir, { rotate: '-1deg', gap: '6px', semMedida: true, comNome: ['pronto'] });
+    expectEtiquetaPadrao(dir, { rotate: '-1deg', gap: '6px', semMedida: true, comNome: ['compartilhar', 'pronto'] });
   });
 
   it('o quadro que não está aqui diz isso, com o caminho de volta', async () => {
@@ -197,7 +200,7 @@ describe('a página do Quadro livre', () => {
     link.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 40 }));
     await settle();
     const items = [...document.querySelectorAll<HTMLElement>('.menu-contexto [role="menuitem"]')].map(text);
-    expect(items).toEqual(['Abrir', 'Renomear', 'Duplicar', 'Mover para o grupo…', 'Tornar público', 'Apagar']);
+    expect(items).toEqual(['Abrir', 'Renomear', 'Duplicar', 'Compartilhar', 'Mover para o grupo…', 'Tornar público', 'Apagar']);
     [...document.querySelectorAll<HTMLElement>('.menu-contexto [role="menuitem"]')][1].click();
     await settle();
     const input = $<HTMLInputElement>('.renomear input')!;
@@ -206,6 +209,23 @@ describe('a página do Quadro livre', () => {
     $<HTMLFormElement>('form.renomear')!.requestSubmit();
     await settle();
     expect(store.boards()[0].nome).toBe('Mansão velha');
+  });
+
+  it('o quadro de outra pessoa que você só lê (PLANO-COMPARTILHAR.md, rodada 6): sem Editar, e o menu sem o que é do dono', async () => {
+    boardRole = 'leitor';
+    try {
+      await go(freeBoardPath());
+      $$('app-free-board-card a')[0].dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 40 }));
+      await settle();
+      expect([...document.querySelectorAll<HTMLElement>('.menu-contexto [role="menuitem"]')].map(text)).toEqual(['Abrir', 'Duplicar', 'Compartilhar']);
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await go(freeBoardPath(studyGroupId('Jogos'), store.boards()[0].id));
+      await settle(10);
+      expect($('.etiqueta-topo.editar')).toBeNull();
+      expect($('.etiqueta-topo.compartilhar')).not.toBeNull();
+    } finally {
+      boardRole = 'dono';
+    }
   });
 
   it('a miniatura de um quadro mais alto que largo cabe na folha (antes, esticava a folha e empurrava o nome para fora)', async () => {
