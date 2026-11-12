@@ -36,7 +36,7 @@
   color: var(--ink);
   font-family: var(--f-hand);
   // a letra da folha (o recuo das descrições conta nela, mesmo num título de letra maior)
-  --vis-letra: 1.14rem;
+  --vis-letra: calc(1.14rem * var(--e-texto, 1));
   font-size: var(--vis-letra);
   line-height: var(--line);
   caret-color: var(--red);
@@ -393,7 +393,7 @@
   min-height: 0;
   max-height: none;
   padding: 4px 18px;
-  --vis-letra: 1.3rem;
+  --vis-letra: calc(1.3rem * var(--e-texto, 1));
   font-size: var(--vis-letra);
 }
 // enchendo, com poucas linhas de piso: o lugar vazio embaixo também é folha
@@ -414,7 +414,7 @@
   }
   .vis-folha.vis-grande > .ProseMirror {
     padding: 4px 10px;
-    --vis-letra: 1.18rem;
+    --vis-letra: calc(1.18rem * var(--e-texto, 1));
     font-size: var(--vis-letra);
   }
 }

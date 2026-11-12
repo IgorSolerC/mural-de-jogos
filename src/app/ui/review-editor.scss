@@ -51,9 +51,10 @@
     background-color: transparent;
     color: inherit;
     caret-color: var(--red);
-    font-family: var(--f-marker);
-    font-weight: 400;
-    font-size: 2.05rem;
+    /* o nome da anotação na letra da leitura (o papel de styles.scss): o que se escreve é o que se lê */
+    font-family: var(--f-titulo-leitura);
+    font-weight: var(--w-titulo-leitura);
+    font-size: calc(2.05rem * var(--e-titulo-leitura));
     line-height: 1.08;
     letter-spacing: 0.005em;
     overflow: hidden;

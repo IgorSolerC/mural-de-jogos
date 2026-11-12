@@ -273,10 +273,11 @@ $cod-vao: 0.7rem;
 }
 
 @mixin titulos {
-  /* ===== Os títulos: a letra grossa de pincel; o terceiro, de carimbo ===== */
+  /* ===== Os títulos: a letra do papel "títulos dentro do texto" (styles.scss, PLANO-FONTES.md), com a
+     escala dele sobre o tamanho de cada um; o terceiro, de carimbo ===== */
   .titulo {
-    font-family: var(--f-marker);
-    font-weight: 400;
+    font-family: var(--f-titulo-texto);
+    font-weight: var(--w-titulo-texto);
     line-height: var(--line, 1.5em);
     overflow-wrap: anywhere;
   }
@@ -290,10 +291,10 @@ $cod-vao: 0.7rem;
     margin-bottom: var(--titulo-depois, 0);
   }
   .t1 {
-    font-size: 1.32em;
+    font-size: calc(1.32em * var(--e-titulo-texto));
   }
   .t2 {
-    font-size: 1.12em;
+    font-size: calc(1.12em * var(--e-titulo-texto));
   }
   .t3 {
     font-family: var(--f-label);

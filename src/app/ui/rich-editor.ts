@@ -1065,6 +1065,13 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
     @use 'a11y';
     @use 'formatado';
 
+    /* o texto da anotação: a escala do papel (styles.scss, PLANO-FONTES.md) vale no Markdown e no Visual */
+    :host {
+      --e-texto: 1;
+    }
+    :host(.anotacao) {
+      --e-texto: var(--e-texto-nota);
+    }
     :host {
       display: block;
       container: folha / inline-size;
@@ -1678,7 +1685,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
       background-attachment: local;
       color: var(--ink);
       font-family: var(--f-hand);
-      font-size: 1.14rem;
+      font-size: calc(1.14rem * var(--e-texto, 1));
       line-height: var(--line);
       white-space: pre-wrap;
       overflow-wrap: anywhere;
@@ -1690,7 +1697,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
       min-height: 0;
       max-height: none;
       padding: 4px 18px;
-      font-size: 1.3rem;
+      font-size: calc(1.3rem * var(--e-texto, 1));
     }
     textarea[hidden] {
       display: none;
@@ -2140,11 +2147,12 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
     /* os estilos, cada um do jeito que fica no texto (as medidas dos títulos são as da leitura) */
     [data-estilo='t1'],
     [data-estilo='t2'] {
-      font-family: var(--f-marker);
-      font-size: 1.12rem;
+      font-family: var(--f-titulo-texto);
+      font-weight: var(--w-titulo-texto);
+      font-size: calc(1.12rem * var(--e-titulo-texto));
     }
     [data-estilo='t1'] {
-      font-size: 1.3rem;
+      font-size: calc(1.3rem * var(--e-titulo-texto));
     }
     [data-estilo='t3'] {
       font-family: var(--f-label);
@@ -2439,7 +2447,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
       background-attachment: local;
       color: var(--ink);
       font-family: var(--f-hand);
-      font-size: 1.14rem;
+      font-size: calc(1.14rem * var(--e-texto, 1));
       line-height: var(--line);
       caret-color: var(--red);
       outline: none;
@@ -2521,7 +2529,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
       max-height: none;
       padding: 4px 18px;
       resize: none;
-      font-size: 1.3rem;
+      font-size: calc(1.3rem * var(--e-texto, 1));
       overflow-y: auto;
     }
     @media (prefers-reduced-motion: reduce) {

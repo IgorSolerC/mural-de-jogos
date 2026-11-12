@@ -137,11 +137,13 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
     expect(document.activeElement).toBe(band('.ler-tela-cheia'));
     expect(band('.ver-cartolina').getAttribute('aria-label')).toBe('Ver só a cartolina');
     // a letra e a pauta um pouco maiores que as da leitura, na mesma proporção
+    // (a letra da anotação é 6% menor: a escala do papel "texto da anotação", --e-texto-nota em styles.scss)
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
-    expect(leitura.font).toBeCloseTo(1.12 * rem, 1);
+    const nota = 0.94;
+    expect(leitura.font).toBeCloseTo(1.12 * rem * nota, 1);
     expect(leitura.line).toBeCloseTo(1.76 * rem, 1);
     expect(innerWidth).toBeGreaterThan(600);
-    expect(parseFloat(getComputedStyle(q('.text')!).fontSize)).toBeCloseTo(1.24 * rem, 1);
+    expect(parseFloat(getComputedStyle(q('.text')!).fontSize)).toBeCloseTo(1.24 * rem * nota, 1);
     expect(parseFloat(getComputedStyle(q('.text')!).lineHeight)).toBeCloseTo(1.95 * rem, 1);
     // a faixa fina, com os botões do mesmo tamanho, inteiros dentro dela
     const faixa = q('.faixa-nome')!.getBoundingClientRect();

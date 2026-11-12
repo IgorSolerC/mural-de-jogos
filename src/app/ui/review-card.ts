@@ -690,11 +690,26 @@ export const CARD_STYLES = `
     :host(.so-cartolina) .meta.molde {
       opacity: 0.4;
     }
+    /* A anotação tem a letra dela no nome e no texto (os papéis de styles.scss, PLANO-FONTES.md): a escala
+       multiplica cada tamanho de .title e do texto, nas vistas e no celular; as resenhas ficam com 1. Toda ficha
+       zera as escalas, para a de dentro de um widget (uma resenha numa anotação) não herdar as da de fora */
+    :host {
+      --titulo-escala: 1;
+      --e-texto: 1;
+    }
+    :host(.ficha-anotacao) {
+      --titulo-escala: var(--e-titulo-ficha);
+      --e-texto: var(--e-texto-nota);
+    }
+    :host(.ficha-anotacao) .title {
+      font-family: var(--f-titulo-ficha);
+      font-weight: var(--w-titulo-ficha);
+    }
     .title {
       max-width: 100%;
       font-family: var(--f-marker);
       font-weight: 400;
-      font-size: 1.62rem;
+      font-size: calc(1.62rem * var(--titulo-escala, 1));
       line-height: 1.04;
       letter-spacing: 0.005em;
       text-wrap: balance;
@@ -1005,7 +1020,7 @@ export const CARD_STYLES = `
          primeiras linhas somem da ficha */
       overflow: clip;
       font-family: var(--f-hand);
-      font-size: 1.04rem;
+      font-size: calc(1.04rem * var(--e-texto, 1));
       line-height: var(--line);
       white-space: pre-wrap;
       overflow-wrap: anywhere;
@@ -1055,7 +1070,7 @@ export const CARD_STYLES = `
       position: relative;
       margin-top: 14px;
       font-family: var(--f-hand);
-      font-size: 1.04rem;
+      font-size: calc(1.04rem * var(--e-texto, 1));
       line-height: 1.4rem;
       white-space: pre-wrap;
       overflow-wrap: anywhere;
@@ -1472,7 +1487,7 @@ export const CARD_STYLES = `
           'judge';
       }
       .title {
-        font-size: 1.46rem;
+        font-size: calc(1.46rem * var(--titulo-escala, 1));
       }
     }
 
@@ -1502,7 +1517,7 @@ export const CARD_STYLES = `
       padding-top: 2px;
     }
     :host(.geral) .title {
-      font-size: 1.06rem;
+      font-size: calc(1.06rem * var(--titulo-escala, 1));
       line-height: 1.12;
       -webkit-line-clamp: 3;
     }

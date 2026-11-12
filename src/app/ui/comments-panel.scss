@@ -357,7 +357,8 @@
   --citacao-folga: 0.05em;
   margin-top: 2px;
   font-family: var(--f-hand);
-  font-size: 1.08rem;
+  /* o papel "texto da anotação" (styles.scss, PLANO-FONTES.md) vale também para os comentários */
+  font-size: calc(1.08rem * var(--e-texto-nota));
   line-height: var(--line);
   overflow-wrap: anywhere;
 }

@@ -64,6 +64,9 @@
               "node_modules/@fontsource/dm-serif-display/latin-400-italic.css",
               "node_modules/@fontsource/cascadia-mono/latin-400.css",
               "node_modules/@fontsource/cascadia-mono/latin-700.css",
+              "node_modules/@fontsource/caveat/latin-700.css",
+              "node_modules/@fontsource/caveat-brush/latin-400.css",
+              "node_modules/@fontsource-variable/fraunces/wght.css",
               "src/styles.scss",
               { "input": "src/klee-one.scss", "bundleName": "klee-one", "inject": false }
             ]
@@ -79,7 +82,7 @@
                 {
                   "type": "anyComponentStyle",
                   "maximumWarning": "14kB",
-                  "maximumError": "24kB"
+                  "maximumError": "32kB"
                 }
               ],
               "outputHashing": "all",
@@ -132,6 +135,9 @@
               "node_modules/@fontsource/barlow-condensed/latin-800.css",
               "node_modules/@fontsource/abril-fatface/latin-400.css",
               "node_modules/@fontsource/barlow-condensed/latin-800-italic.css",
+              "node_modules/@fontsource/caveat/latin-700.css",
+              "node_modules/@fontsource/caveat-brush/latin-400.css",
+              "node_modules/@fontsource-variable/fraunces/wght.css",
               "src/styles.scss"
             ]
           }

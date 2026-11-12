@@ -60,6 +60,7 @@ const TITLE_MAX = 200;
     <div class="conteudo" appHeightVar="--conteudo-h">
       <app-rich-editor
         #texto
+        class="anotacao"
         label="O texto do card"
         placeholder="O que vai no card: listas, tarefas, links…"
         [notes]="notes()"

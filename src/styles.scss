@@ -121,6 +121,26 @@
   /* o código do texto das anotações (ver ui/_formatado.scss): a Cascadia Mono, auto-hospedada (o navegador só
      baixa o arquivo quando um código aparece na tela) */
   --f-codigo: 'Cascadia Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+  /* a caneta esferográfica (Caveat 700) e o pincel fino (Caveat Brush): os títulos das anotações */
+  --f-caneta: 'Caveat', 'Segoe Print', cursive;
+  --f-pincel-fino: 'Caveat Brush', 'Segoe Print', cursive;
+  /* a serifa de livro (Fraunces, variável no peso): a palavra da frente do flashcard */
+  --f-livro: 'Fraunces Variable', Georgia, serif;
+
+  /* Papéis (PLANO-FONTES.md): a família, o peso e a escala sobre o tamanho de cada lugar. Trocar a letra de
+     um papel é mudar aqui; a escala multiplica o tamanho que cada peça já tinha (1 = o de antes). */
+  --f-titulo-ficha: var(--f-caneta);
+  --w-titulo-ficha: 700;
+  --e-titulo-ficha: 1.16;
+  --f-titulo-leitura: var(--f-pincel-fino);
+  --w-titulo-leitura: 400;
+  --e-titulo-leitura: 1;
+  /* o texto da anotação continua na --f-hand, menor */
+  --e-texto-nota: 0.94;
+  /* os títulos dentro do texto (H1, H2) */
+  --f-titulo-texto: var(--f-caneta);
+  --w-titulo-texto: 700;
+  --e-titulo-texto: 1.18;
 
   /* Uma só gramática de movimento */
   --ease-physical: cubic-bezier(0.16, 1, 0.3, 1);

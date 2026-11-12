@@ -27,12 +27,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-12-pilha-em-cascata',
+    id: '2026-11-12-letras-das-anotacoes',
     version: '1.45.2',
     kind: 'ajustes',
     date: '2026-11-12',
-    title: 'As seções do mural se juntam na pilha, o menu delas e a cabeça dos Flashcards',
+    title: 'Letras novas nas anotações, as seções do mural se juntam na pilha e a cabeça dos Flashcards',
     melhorias: [
+      'As anotações têm letras novas: o nome na ficha do mural é escrito a caneta (Caveat), o nome na leitura e no editor a pincel fino (Caveat Brush), e os títulos dentro do texto (H1 e H2) a caneta, no lugar do pincel grosso que pesava mais que o texto. O texto continua na mesma letra à mão, um pouco menor. O nome nas fichas de jogos, livros, filmes, séries, animes e músicas continua como era.',
       'Fechar uma seção do mural junta as fichas na pilha: as primeiras chegam uma depois da outra ao lugar da primeira, encolhendo e se empilhando por baixo dela, e a pilha assenta com um leve aperto. Abrir distribui as fichas: saem da pilha, uma depois da outra, para o lugar de cada uma. Mais devagar que uma troca qualquer, para dar para ver as fichas se juntando.',
       'O botão direito na cabeça de uma seção do mural (ou na pilha dela) abre um menu para fechar ou abrir aquela, fechar as outras, abrir todas e fechar todas; Alt + clique na cabeça fecha as outras e deixa aquela aberta. Também no mural de quem você visita.',
       'A seção de uma ficha só não fecha mais: a cabeça dela é só o nome, e a que estava fechada aparece aberta (volta a fechar quando tiver duas de novo).',
