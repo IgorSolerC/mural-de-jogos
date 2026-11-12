@@ -48,7 +48,7 @@ export interface CardDeck {
  * baralho qual vai ser o estilo do flashcard"). Cinco releituras da carta de baralho (Clássica, Faixa de cor,
  * Cartolina inteira, Orelha, Baralho antigo) e cinco objetos de papelaria (Ficha de argola, Selo, Polaroid,
  * Ingresso, Ficha da biblioteca). Em todos: o título com a letra do tamanho do espaço que sobra
- * (ui/fit-title.ts), escrito à mão (o alfabeto na Permanent Marker, o japonês e o chinês na Klee One), o
+ * (ui/fit-title.ts), o alfabeto na serifa de livro (Fraunces) e o japonês e o chinês à mão (Klee One), o
  * subtítulo inteiro até quatro linhas e a cor da cartolina da anotação.
  *
  * `face` é o progresso (o nível, quando volta, o carimbo, as respostas e o número): na parede e na pilha. Sem

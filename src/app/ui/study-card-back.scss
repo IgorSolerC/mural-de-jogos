@@ -39,8 +39,8 @@
   margin: 0 0 12px;
   padding-bottom: 8px;
   border-bottom: 1.5px dashed color-mix(in oklab, currentColor 30%, transparent);
-  font-family: 'Permanent Marker', 'Klee One', 'Comic Sans MS', cursive;
-  font-weight: 700;
+  font-family: var(--f-carta-palavra);
+  font-weight: var(--w-carta-palavra);
   font-size: 1.6rem;
   line-height: 1.15;
   text-wrap: balance;
@@ -56,8 +56,9 @@
 
   /* o subtítulo acompanha, menor */
   span {
-    font-family: var(--f-hand);
-    font-size: 1.05rem;
+    font-family: var(--f-carta-verso);
+    font-weight: var(--w-carta-verso);
+    font-size: calc(1.05rem * var(--e-carta-verso));
     color: var(--ink-2);
   }
 }
@@ -77,8 +78,10 @@
   --tarefa-respiro: 0.45em;
   --corpo-respiro: 0px;
   --caixa-sobe: 3.5px;
-  font-family: var(--f-hand);
-  font-size: 1.04rem;
+  /* o papel "verso e legenda da carta" (styles.scss, PLANO-FONTES.md) */
+  font-family: var(--f-carta-verso);
+  font-weight: var(--w-carta-verso);
+  font-size: calc(1.04rem * var(--e-carta-verso));
   line-height: var(--line);
   white-space: pre-wrap;
   overflow-wrap: anywhere;

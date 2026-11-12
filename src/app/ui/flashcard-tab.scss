@@ -138,14 +138,16 @@
 
 /* o título a pincel, como vai na frente */
 .titulo input {
-  font-family: 'Permanent Marker', 'Klee One', 'Comic Sans MS', cursive;
+  /* o que se escreve na letra da carta (os papéis de styles.scss) */
+  font-family: var(--f-carta-palavra);
+  font-weight: var(--w-carta-palavra);
   font-size: 1.15rem;
 }
 
 .subtitulo input {
-  font-family: var(--f-hand);
-  font-weight: 700;
-  font-size: 1.05rem;
+  font-family: var(--f-carta-verso);
+  font-weight: var(--w-carta-verso);
+  font-size: calc(1.05rem * var(--e-carta-verso));
 }
 
 .link {

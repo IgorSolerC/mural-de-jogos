@@ -126,8 +126,6 @@
      letra não perder a ponta */
   --f-caneta: 'Caveat', 'Segoe Print', cursive;
   --caneta-folga: 0.14em;
-  /* a serifa de livro (Fraunces, variável no peso): a palavra da frente do flashcard */
-  --f-livro: 'Fraunces Variable', Georgia, serif;
 
   /* Papéis (PLANO-FONTES.md): a família, o peso e a escala sobre o tamanho de cada lugar. Trocar a letra de
      um papel é mudar aqui; a escala multiplica o tamanho que cada peça já tinha (1 = o de antes). */
@@ -159,6 +157,15 @@
   --f-pasta-nome: var(--f-caneta);
   --w-pasta-nome: 700;
   --e-pasta-nome: 1.1;
+  /* a palavra da carta (frente e alto do verso): a serifa de livro, Fraunces (variável no peso). O japonês e o
+     chinês, que ela não tem, caem na Klee One antes da reserva (que no Windows escolheria uma mincho do
+     sistema); o tamanho é o que cabe (ui/fit-title.ts), sem escala */
+  --f-carta-palavra: 'Fraunces Variable', 'Klee One', Georgia, serif;
+  --w-carta-palavra: 400;
+  /* o verso e a legenda da carta: a letra neutra do site */
+  --f-carta-verso: var(--f-ui);
+  --w-carta-verso: 400;
+  --e-carta-verso: 0.96;
 
   /* Uma só gramática de movimento */
   --ease-physical: cubic-bezier(0.16, 1, 0.3, 1);

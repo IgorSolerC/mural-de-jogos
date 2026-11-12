@@ -526,12 +526,12 @@ describe('a sessão de estudo (ui/study-session.ts)', () => {
       const verso = await reveal('Leitura:\n    recuada');
       const css = getComputedStyle(verso);
       expect(css.whiteSpace).toBe('pre-wrap');
-      // a letra à mão das anotações (--f-hand), não a da interface
-      const hand = document.createElement('span');
-      hand.style.fontFamily = 'var(--f-hand)';
-      document.body.append(hand);
-      expect(css.fontFamily).toBe(getComputedStyle(hand).fontFamily);
-      hand.remove();
+      // a letra do papel "verso e legenda da carta" (--f-carta-verso em styles.scss, PLANO-FONTES.md)
+      const papel = document.createElement('span');
+      papel.style.fontFamily = 'var(--f-carta-verso)';
+      document.body.append(papel);
+      expect(css.fontFamily).toBe(getComputedStyle(papel).fontFamily);
+      papel.remove();
       expect(css.getPropertyValue('--line').trim()).toBe('1.4rem');
       expect(verso.textContent).toContain('    recuada');
     });
@@ -560,10 +560,13 @@ describe('a sessão de estudo (ui/study-session.ts)', () => {
         expect(text(titles[0])).toBe('Sol (日)');
       });
 
-      it('em negrito, maior que o texto, na tinta da carta', async () => {
+      it('na letra da palavra da frente, maior que o texto, na tinta da carta', async () => {
         await reveal('Leitura: nichi.');
         const css = getComputedStyle($('.verso-titulo')!);
-        expect(Number(css.fontWeight)).toBeGreaterThanOrEqual(700);
+        // o papel "palavra da carta" (styles.scss): a família e o peso da frente
+        const papel = getComputedStyle(document.documentElement);
+        expect(css.fontWeight).toBe(papel.getPropertyValue('--w-carta-palavra').trim());
+        expect(css.fontFamily).toContain('Fraunces');
         expect(parseFloat(css.fontSize)).toBeGreaterThanOrEqual(1.6 * parseFloat(getComputedStyle(document.documentElement).fontSize));
         expect(css.color).toBe(getComputedStyle($('.verso')!).color);
       });

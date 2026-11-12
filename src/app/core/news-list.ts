@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-12-caneta-no-kanban',
+    id: '2026-11-12-letras-dos-flashcards',
     version: '1.45.2',
     kind: 'ajustes',
     date: '2026-11-12',
@@ -35,6 +35,7 @@ export const NEWS: NewsEntry[] = [
     melhorias: [
       'As anotações têm letras novas: o nome é escrito a caneta (Caveat) na ficha do mural, na leitura, no editor e na anotação colada, e os títulos dentro do texto (H1 e H2) também, no lugar do pincel grosso que pesava mais que o texto. O texto continua na mesma letra à mão, um pouco menor. O nome nas fichas de jogos, livros, filmes, séries, animes e músicas continua como era.',
       'A caneta também no resto das anotações: o nome do card e da coluna no Kanban (o card ficou com o nome maior), o nome das pastas e das miniaturas dentro delas, e os itens do menu do botão direito.',
+      'Nos Flashcards, a palavra da frente é escrita numa serifa de livro (Fraunces), e o verso e a legenda na letra do site, mais fáceis de ler; o japonês continua à mão.',
       'Fechar uma seção do mural junta as fichas na pilha: as primeiras chegam uma depois da outra ao lugar da primeira, encolhendo e se empilhando por baixo dela, e a pilha assenta com um leve aperto. Abrir distribui as fichas: saem da pilha, uma depois da outra, para o lugar de cada uma. Mais devagar que uma troca qualquer, para dar para ver as fichas se juntando.',
       'O botão direito na cabeça de uma seção do mural (ou na pilha dela) abre um menu para fechar ou abrir aquela, fechar as outras, abrir todas e fechar todas; Alt + clique na cabeça fecha as outras e deixa aquela aberta. Também no mural de quem você visita.',
       'A seção de uma ficha só não fecha mais: a cabeça dela é só o nome, e a que estava fechada aparece aberta (volta a fechar quando tiver duas de novo).',

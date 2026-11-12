@@ -64,15 +64,17 @@
 }
 
 /*
- * O título curto (até 10 caracteres: um kanji, uma palavra, uma sigla) a pincel, na Permanent Marker; a
+ * O título curto (até 10 caracteres: um kanji, uma palavra, uma sigla) na serifa de livro (o papel "palavra da
+ * carta" de styles.scss); a
  * pergunta e a frase escritas à mão na Kalam, com maiúsculas e minúsculas, que se leem melhor. O japonês e
  * o chinês caem na Klee One nos dois.
  */
 .titulo {
   width: 100%;
   margin: 0;
-  font-family: 'Permanent Marker', 'Klee One', 'Comic Sans MS', cursive;
-  font-weight: 400;
+  /* o papel "palavra da carta" (styles.scss, PLANO-FONTES.md) */
+  font-family: var(--f-carta-palavra);
+  font-weight: var(--w-carta-palavra);
   font-size: 12cqi;
   line-height: 1.06;
   text-align: center;
@@ -96,9 +98,11 @@
   flex: none;
   max-width: 100%;
   margin: 0;
-  font-family: var(--f-hand);
-  font-weight: 400;
-  font-size: max(6.2cqi, 0.62rem);
+  /* o papel "verso e legenda da carta" (styles.scss) */
+  font-family: var(--f-carta-verso);
+  font-weight: var(--w-carta-verso);
+  /* a escala só na parte que acompanha a carta: o piso de 0,62rem, que é o que ainda se lê, fica */
+  font-size: max(calc(6.2cqi * var(--e-carta-verso)), 0.62rem);
   line-height: 1.18;
   text-align: center;
   text-wrap: balance;
