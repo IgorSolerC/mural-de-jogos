@@ -217,7 +217,6 @@ export class WallBoard {
   private readonly folderMenuRef = viewChild<ContextMenu>('menuDaPasta');
   private noteTrigger: NoteMenuTrigger | null = null;
   private folderTrigger: ContextMenuTrigger | null = null;
-  private sectionTrigger: ContextMenuTrigger | null = null;
   /** O menu do botão direito na cabeça de uma seção ou na pilha: o nome dela no alto e as opções. */
   protected readonly sectionMenu = signal<{ caption: string; sections: MenuSections }>({ caption: '', sections: [] });
   private readonly sectionMenuRef = viewChild<ContextMenu>('menuDaSecao');
@@ -588,7 +587,7 @@ export class WallBoard {
     });
     // o botão direito (ou o dedo segurado, ou Shift+F10) na cabeça de uma seção ou na pilha dela, em todo mural
     // (o seu e a visita): fechar esta, fechar as outras, abrir ou fechar todas (PLANO-ETIQUETAS.md, 4)
-    this.sectionTrigger = new ContextMenuTrigger({
+    new ContextMenuTrigger({
       host: this.el,
       targets: 'app-section-head[data-secao], .guardadas[data-pilha]',
       keyOf: (box) => {
@@ -715,8 +714,9 @@ export class WallBoard {
     this.motion.finish();
     if (!this.folding(g) || this.isShut(g) === closed) return;
     const change = () => this.view.setCollapsed([g.key], closed);
-    if (closed) this.motion.fold([this.idOf(g.key)], change);
-    else this.motion.unfold([this.idOf(g.key)], change);
+    const id = this.idOf(g.key);
+    if (closed) this.motion.fold([id], change, [], id);
+    else this.motion.unfold([id], change, id);
   }
 
   /** Fecha as outras seções (as que fecham: de duas fichas ou mais) e deixa esta aberta. */
@@ -732,6 +732,7 @@ export class WallBoard {
         this.view.setCollapsed([key], false);
       },
       me && this.isShut(me) ? ids([me]) : [],
+      this.idOf(key),
     );
   }
 
@@ -740,6 +741,7 @@ export class WallBoard {
    * Só entra o que faz sentido agora, contando só as seções que fecham (as de duas fichas ou mais).
    */
   private sectionSections(g: WallGroup): MenuSections {
+    const at = this.idOf(g.key);
     const folding = this.view.groups().filter((x) => this.folding(x));
     const shut = (x: WallGroup) => this.view.isCollapsed(x.key);
     const here: MenuItem[] = [];
@@ -754,8 +756,8 @@ export class WallBoard {
       here.push({ id: 'so-esta', label: 'Fechar as outras', icon: ICON.soEsta, keys: 'Alt+clique', hint: 'Alt + clique na cabeça da seção faz o mesmo', run: () => this.onlyThis(g.key) });
     }
     const all: MenuItem[] = [];
-    if (folding.some(shut)) all.push({ id: 'abrir-todas', label: 'Abrir todas', icon: ICON.abrirTodas, run: () => this.allSections(false) });
-    if (folding.some((x) => !shut(x))) all.push({ id: 'fechar-todas', label: 'Fechar todas', icon: ICON.fecharTodas, run: () => this.allSections(true) });
+    if (folding.some(shut)) all.push({ id: 'abrir-todas', label: 'Abrir todas', icon: ICON.abrirTodas, run: () => this.allSections(false, at) });
+    if (folding.some((x) => !shut(x))) all.push({ id: 'fechar-todas', label: 'Fechar todas', icon: ICON.fecharTodas, run: () => this.allSections(true, at) });
     return [here, all];
   }
 
@@ -763,15 +765,15 @@ export class WallBoard {
    * Abre ou fecha todas as seções da parede, como estão na hora do toque (o menu pode ter ficado aberto enquanto
    * a parede mudou). Abrir todas abre também a de uma ficha guardada como fechada (a chave sai).
    */
-  private allSections(closed: boolean): void {
+  private allSections(closed: boolean, keep: string): void {
     this.motion.finish();
     const groups = this.view.groups();
     const keys = (closed ? groups.filter((x) => this.folding(x)) : groups).map((x) => x.key);
     const change = () => this.view.setCollapsed(keys, closed);
     // (só as que mudam se juntam ou saem da pilha)
     const moving = groups.filter((x) => this.folding(x) && this.isShut(x) !== closed).map((x) => this.idOf(x.key));
-    if (closed) this.motion.fold(moving, change);
-    else this.motion.unfold(moving, change);
+    if (closed) this.motion.fold(moving, change, [], keep);
+    else this.motion.unfold(moving, change, keep);
   }
 
   /**
@@ -780,6 +782,8 @@ export class WallBoard {
    * folhas das seguintes, só a cor, a mais longe primeiro (para ficar por baixo). As de trás giram como a de cima, em
    * volta da tachinha dela, e descem o mesmo desnível, para a beirada aparecer igual dos dois lados.
    */
+  /** A lista de uma ficha só da ficha de cima de cada pilha, pela seção: a mesma enquanto a ficha não muda. */
+  private readonly pileTops = new Map<string, readonly Review[]>();
   protected readonly piles = computed(() => {
     const out = new Map<string, Pile>();
     for (const g of this.view.groups()) {
@@ -788,8 +792,11 @@ export class WallBoard {
       const [first, ...rest] = g.reviews;
       if (!first) continue;
       const pin = pinningFor(first.id, first.stock);
+      // (a mesma lista, se a ficha de cima é a mesma: abrir ou fechar outra seção não monta esta de novo)
+      let top = this.pileTops.get(g.key);
+      if (top?.[0] !== first) this.pileTops.set(g.key, (top = [first]));
       out.set(g.key, {
-        first: [first],
+        first: top!,
         back: rest
           .slice(0, PILE_BACK)
           .map((r, i) => ({ stock: pinningFor(r.id, r.stock).stock, depth: i + 1 }))

@@ -7,6 +7,7 @@
 :host {
   --giz-fio: rgb(243 239 230 / 0.26);
   --giz-fio-forte: rgb(243 239 230 / 0.62);
+  --giz-fio-fechado: rgb(243 239 230 / 0.42);
   display: block;
   width: 0;
   min-width: 100%;
@@ -90,8 +91,21 @@ a.cabeca-secao {
   transition: border-color var(--t-ui) var(--ease-ui);
 }
 
+/* fechada, o fio fica tracejado e um tico mais forte: é ele que diz, de longe, que a seção está guardada */
 :host(.fechada) .fio {
-  border-top-style: dashed;
+  border-top: 2px dashed var(--giz-fio-fechado);
+}
+
+/* tão estreita que o fio viraria um tracinho solto (parece um sinal de menos): sem o fio, e a seta vai para a
+   ponta (fechada, quem diz que está guardada é a pilha logo embaixo, e a seta virada) */
+@container (max-width: 200px) {
+  .fio {
+    display: none;
+  }
+
+  .seta {
+    margin-left: auto;
+  }
 }
 
 .seta {

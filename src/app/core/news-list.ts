@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-12-cabeca-dos-flashcards',
+    id: '2026-11-12-secao-fechada-no-celular',
     version: '1.45.2',
     kind: 'ajustes',
     date: '2026-11-12',
@@ -37,6 +37,9 @@ export const NEWS: NewsEntry[] = [
       'O botão direito na cabeça de uma seção do mural (ou na pilha dela) abre um menu para fechar ou abrir aquela, fechar as outras, abrir todas e fechar todas; Alt + clique na cabeça fecha as outras e deixa aquela aberta. Também no mural de quem você visita.',
       'A seção de uma ficha só não fecha mais: a cabeça dela é só o nome, e a que estava fechada aparece aberta (volta a fechar quando tiver duas de novo).',
       'No Tudo dos Flashcards (os seus e os de quem você visita), cada grupo tem a mesma cabeça das seções do mural: o nome, que leva ao grupo, quantos baralhos e quantos flashcards, numa linha a giz, no lugar da fita-crepe.',
+    ],
+    correcoes: [
+      'No celular, na Visão geral das anotações, a cabeça de uma seção fechada não fica mais alta que as outras nem empurra a pilha para baixo.',
     ],
   },
   {

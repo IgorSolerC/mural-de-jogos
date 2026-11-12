@@ -279,6 +279,8 @@ describe('a seção fechada vira uma pilha', () => {
   afterEach(() => {
     document.querySelectorAll('app-wall-board').forEach((e) => e.remove());
     localStorage.clear();
+    // (estes testes rolam a página, e a cabeça tocada leva a rolagem junto: o próximo teste da suíte começa do alto)
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   });
 
   const game = (id: string, day: string, stock: string) =>
@@ -357,17 +359,17 @@ describe('a seção fechada vira uma pilha', () => {
     const el = await wall('simples', []);
     const out = section(el, 'Outubro de 2026');
     const button = out.querySelector<HTMLElement>('.cabeca-secao')!;
-    // (medido a partir da parede: o foco pode rolar a página da suíte)
-    const at = () => button.getBoundingClientRect().top - el.getBoundingClientRect().top;
-    const top = at();
+    out.scrollIntoView({ block: 'center' });
     button.focus();
+    // (no lugar da tela: a seção fechada pode subir para a fileira de cima, e a rolagem acompanha a cabeça)
+    const top = button.getBoundingClientRect().top;
     button.click();
     done();
     expect(out.classList).toContain('fechada');
     expect(out.querySelector('.guardadas')).not.toBeNull();
-    // o mesmo botão, no mesmo lugar, com o foco
+    // o mesmo botão, com o foco, no mesmo lugar da tela (quando a página tem para onde rolar)
     expect(out.querySelector('.cabeca-secao')).toBe(button);
-    expect(at()).toBe(top);
+    if (scrollY > 0) expect(Math.abs(button.getBoundingClientRect().top - top)).toBeLessThan(2);
     expect(document.activeElement).toBe(button);
   });
 
@@ -438,6 +440,22 @@ describe('a seção fechada vira uma pilha', () => {
       expect(section(el, 'Outubro de 2026').classList).not.toContain('fechada');
       expect(section(el, 'Setembro de 2026').classList).not.toContain('fechada');
       expect(await rightClick(el, head('Novembro de 2026'))).toEqual(['Fechar as outras', 'Fechar todas']);
+    });
+
+    it('pelo teclado: Shift+F10 na cabeça abre o mesmo menu, e o foco volta para ela', async () => {
+      const el = await wall('completa', []);
+      const button = section(el, 'Outubro de 2026').querySelector<HTMLElement>('button.cabeca-secao')!;
+      button.focus();
+      const key = new KeyboardEvent('keydown', { key: 'F10', shiftKey: true, bubbles: true, cancelable: true });
+      button.dispatchEvent(key);
+      await new Promise((ok) => setTimeout(ok, 0));
+      TestBed.tick();
+      expect(key.defaultPrevented).toBeTrue();
+      const menu = openMenu(el)!;
+      expect(Array.from(menu.querySelectorAll('.escolha .nome')).map((x) => x.textContent!.trim())).toEqual(['Fechar esta seção', 'Fechar as outras', 'Fechar todas']);
+      menu.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      TestBed.tick();
+      expect(document.activeElement).toBe(button);
     });
 
     it('na pilha: abrir esta, e fechar as outras deixa esta aberta', async () => {
@@ -576,6 +594,19 @@ describe('a seção fechada vira uma pilha', () => {
       TestBed.tick();
       expect(out.classList).toContain('fechada');
       expect(Array.from(el.querySelectorAll<HTMLElement>('.lugar')).some(flying)).toBeFalse();
+    });
+
+    it('Alt + clique: a cabeça tocada fica no mesmo lugar da tela, mesmo com as de cima fechando', async () => {
+      const el = await wall('simples', []);
+      const set = section(el, 'Setembro de 2026');
+      set.scrollIntoView({ block: 'start' });
+      const button = set.querySelector<HTMLElement>('button.cabeca-secao')!;
+      const top = button.getBoundingClientRect().top;
+      button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, altKey: true }));
+      done();
+      expect(section(el, 'Outubro de 2026').classList).toContain('fechada');
+      // (só quando a página tem para onde rolar: a de cima fechou e a de Setembro subiria)
+      if (scrollY > 0) expect(Math.abs(button.getBoundingClientRect().top - top)).toBeLessThan(2);
     });
 
     it('um segundo clique no meio do fechar termina o primeiro e vale', async () => {

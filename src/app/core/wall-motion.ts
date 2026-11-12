@@ -13,6 +13,8 @@ const WALL = 'app-wall-board [data-ficha]';
 const MOVERS = 5;
 /** O intervalo entre uma ficha e a seguinte saindo da pilha. */
 const STAGGER = 50;
+/** A parte do caminho até a pilha em que a seção já fecha e as de baixo começam a subir. */
+const GATHERED = 0.7;
 /** Quanto a ficha encolhe no caminho (e o tamanho de onde ela parte, saindo da pilha). */
 const SHRINK = 0.9;
 const HEADS = 'app-wall-board .grupo-head, app-wall-board .showing';
@@ -114,9 +116,10 @@ export class WallMotion {
    * esmaecem. Ao chegar, a seção fecha, a pilha assenta com um leve aperto e as seções seguintes deslizam.
    * Abrir: as seções seguintes deslizam e as primeiras fichas saem da pilha para o lugar delas, uma depois da
    * outra; as outras aparecem esmaecendo. Só o que está na tela anima; com "Movimento reduzido", troca direto.
-   * Quem decide o que fecha lê o estado depois de `finish()` (um fechar pela metade conta como feito).
+   * Quem decide o que fecha lê o estado depois de `finish()` (um fechar pela metade conta como feito). `keep`: a
+   * seção cuja cabeça se tocou, que fica no mesmo lugar da tela.
    */
-  fold(folding: readonly string[], change: () => void, unfolding: readonly string[] = []): void {
+  fold(folding: readonly string[], change: () => void, unfolding: readonly string[] = [], keep?: string): void {
     this.finish();
     if (!animates()) {
       change();
@@ -155,20 +158,22 @@ export class WallMotion {
       clearTimeout(timer);
       for (const a of anims) a.cancel();
       for (const { box } of plans) unlift(box);
-      this.settle(folding, unfolding, change, landing);
+      this.settle(folding, unfolding, change, landing, keep);
     };
     if (!anims.length) {
       apply();
       return;
     }
-    // (o relógio, e não o fim da animação: numa aba escondida, animação nenhuma termina)
-    timer = setTimeout(apply, duration);
+    // (o relógio, e não o fim da animação: numa aba escondida, animação nenhuma termina). A troca vem quando as
+    // fichas já estão quase empilhadas (a curva física chega lá cedo): esperar o fim deixava a parede vazia embaixo
+    // da pilha antes de as seções de baixo começarem a subir
+    timer = setTimeout(apply, Math.round(duration * GATHERED));
     this.pending = apply;
   }
 
-  /** Abre as seções `unfolding` (ver `fold`). */
-  unfold(unfolding: readonly string[], change: () => void): void {
-    this.fold([], change, unfolding);
+  /** Abre as seções `unfolding` (ver `fold`); `keep`, a seção cuja cabeça fica no lugar da tela. */
+  unfold(unfolding: readonly string[], change: () => void, keep?: string): void {
+    this.fold([], change, unfolding, keep);
   }
 
   /**
@@ -188,7 +193,7 @@ export class WallMotion {
   }
 
   /** A troca das seções: as de baixo deslizam, a pilha nova assenta e as fichas da que abriu saem da pilha. */
-  private settle(folding: readonly string[], unfolding: readonly string[], change: () => void, landing: ReadonlyMap<string, DOMRect>): void {
+  private settle(folding: readonly string[], unfolding: readonly string[], change: () => void, landing: ReadonlyMap<string, DOMRect>, keep?: string): void {
     // de onde as fichas da que abre saem: a ficha de cima da pilha, ainda na tela
     const piles = new Map<string, { box: DOMRect; tilt: number; drop: number }>();
     for (const id of unfolding) {
@@ -197,11 +202,14 @@ export class WallMotion {
       const card = top ? cardIn(top) : null;
       if (top && r && onScreen(r)) piles.set(id, { box: r, tilt: angleOf(card ?? top), drop: card?.offsetTop ?? 0 });
     }
-    const heads = [...folding, ...unfolding].map((id) => document.querySelector<HTMLElement>(`app-section-head[data-secao="${CSS.escape(id)}"]`));
+    const headOf = (id: string) => document.querySelector<HTMLElement>(`app-section-head[data-secao="${CSS.escape(id)}"]`);
+    const heads = [...folding, ...unfolding].map(headOf);
     const sections = new Set(heads.flatMap((h) => h?.closest('section.grupo') ?? []));
-    // a cabeça que se tocou fica no mesmo lugar da tela (o foco está nela): a seção que fecha pode subir para a
-    // fileira de cima, e a que abre descer para uma só dela; a rolagem acompanha, para ela não sair da tela
-    const head = heads.find((h) => h && onScreen(h.getBoundingClientRect()));
+    // a cabeça que se tocou (`keep`; sem ela, a primeira das tocadas na tela) fica no mesmo lugar da tela, com o
+    // foco nela: a seção que fecha pode subir para a fileira de cima, e a que abre descer para uma só dela, ou as
+    // de cima fecharem (Alt + clique); a rolagem acompanha, para ela não sair da tela
+    const touched = keep ? headOf(keep) : null;
+    const head = touched && onScreen(touched.getBoundingClientRect()) ? touched : heads.find((h) => h && onScreen(h.getBoundingClientRect()));
     // (a cabeça desliza como as outras; a pilha e as fichas das seções tocadas, este faz andar)
     this.slide(change, (el) => !el.matches('app-section-head') && sections.has(el.closest('section.grupo') as Element), head ?? undefined);
     const { duration, easing } = timing();
@@ -338,12 +346,14 @@ interface Place {
 function places(): Map<string, Place> {
   const out = new Map<string, Place>();
   const times = new Map<string, number>();
-  // a ficha de cima de uma pilha anda com a pilha (que leva as folhas de trás junto): conta só a pilha
-  const all = 'app-wall-board [data-ficha]:not(.pilha-ficha *), app-wall-board .grupo-head[data-secao], app-wall-board .guardadas';
+  const all = 'app-wall-board [data-ficha], app-wall-board .grupo-head[data-secao], app-wall-board .guardadas';
   for (const el of Array.from(document.querySelectorAll<HTMLElement>(all))) {
     const id = el.dataset['ficha'];
     const n = id ? (times.get(id) ?? 0) : 0;
     if (id) times.set(id, n + 1);
+    // a ficha de cima de uma pilha anda com a pilha (que leva as folhas de trás junto): conta só a pilha. Ela
+    // conta na vez dela, porém: ordenando por tag, a cópia da mesma ficha noutra seção continua com o número dela
+    if (id && el.closest('.pilha-ficha')) continue;
     // a cabeça e a pilha de uma seção: pela chave da seção
     const key = id ? `f:${id}#${n}` : el.classList.contains('guardadas') ? `p:${el.dataset['pilha']}` : `g:${el.dataset['secao']}`;
     const r = el.getBoundingClientRect();

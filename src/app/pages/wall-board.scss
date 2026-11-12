@@ -47,6 +47,9 @@
   flex: 0 1 auto;
   min-width: 0;
   display: grid;
+  /* (a cabeça fica sempre com os 30px dela: a pilha da largura de metade da tela, no celular, media a altura
+     antes de saber a largura e deixava a grade esticar a linha da cabeça) */
+  align-content: start;
   gap: 16px;
 }
 

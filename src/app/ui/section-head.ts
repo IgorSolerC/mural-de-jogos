@@ -84,6 +84,6 @@ export class SectionHead {
   protected readonly tip = computed(() => {
     const said = this.summary() ? `${this.label()}: ${this.summary()}` : this.label();
     if (!this.foldable()) return this.link() && this.linkHint() ? `${said}. ${this.linkHint()}` : said;
-    return `${said}. ${this.open() ? 'Clique para fechar' : 'Clique para abrir'}`;
+    return `${said}. ${this.open() ? 'Fechar a seção' : 'Abrir a seção'}`;
   });
 }

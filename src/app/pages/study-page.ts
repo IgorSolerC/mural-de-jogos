@@ -821,7 +821,6 @@ export class StudyPage {
     void this.router.navigateByUrl(g ? studyPath(g.id) : studyPath());
   }
 
-  /** "2 baralhos · 101 cartas": o resumo de um grupo na seção de Tudo. */
   /** O que a cabeça de um grupo diz no Tudo (ver `studyGroupWords`). */
   protected groupWords(g: GroupTab): { detail: string; summary: string } {
     return studyGroupWords(g.decks.length, g.cards);
