@@ -242,10 +242,129 @@ describe('a linha marcada da lista', () => {
     fixture.componentRef.setInput('access', ACCESS);
     document.body.appendChild(fixture.nativeElement);
     await fixture.whenStable();
-    const row = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.linha')!;
+    const row = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.cabeca-secao')!;
     const before = row.getBoundingClientRect().height;
     row.setAttribute('data-marcada', '');
     row.style.setProperty('--marca-n', '1');
     expect(row.getBoundingClientRect().height).toBe(before);
+  });
+});
+
+/**
+ * A seção que fecha (PLANO-ETIQUETAS.md): a cabeça de giz fica no lugar e as fichas viram a pilha, com a
+ * primeira ficha da seção em cima (a mesma da parede) e as folhas das seguintes atrás.
+ */
+describe('a seção fechada vira uma pilha', () => {
+  afterEach(() => {
+    document.querySelectorAll('app-wall-board').forEach((e) => e.remove());
+    localStorage.clear();
+  });
+
+  const game = (id: string, day: string, stock: string) =>
+    sanitizeReview({
+      id,
+      kind: 'jogos',
+      game: { name: `Jogo ${id}`, coverUrl: null, source: 'manual' },
+      scores: { final: 8, ...SCORES['jogos'] },
+      status: 'finalizado',
+      stock,
+      completedAt: day,
+      createdAt: `${day}T10:00:00.000Z`,
+      updatedAt: `${day}T10:00:00.000Z`,
+    })!;
+
+  /** Outubro com seis jogos e Novembro com um; `closed` são as chaves fechadas guardadas. */
+  async function wall(density: Density, closed: string[]): Promise<HTMLElement> {
+    localStorage.clear();
+    localStorage.setItem('mural-de-jogos:vista:v1', JSON.stringify({ sort: 'data', direction: 'desc', density, collapsed: closed }));
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+    const store = TestBed.inject(ReviewStore);
+    store.add(game('rpil0001', '2026-11-02', 'azul'));
+    const stocks = ['rosa', 'verde', 'laranja', 'lilas', 'amarelo', 'cinza'];
+    stocks.forEach((s, i) => store.add(game(`rpil001${i}`, `2026-10-${String(20 - i).padStart(2, '0')}`, s)));
+    TestBed.inject(Mural).kind.set('jogos');
+    const fixture = TestBed.createComponent(WallBoard);
+    fixture.componentRef.setInput('access', ACCESS);
+    document.body.appendChild(fixture.nativeElement);
+    await fixture.whenStable();
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  const section = (el: HTMLElement, label: string) =>
+    Array.from(el.querySelectorAll<HTMLElement>('section.grupo')).find((s) => s.querySelector('.nome')?.textContent === label)!;
+
+  it('aberta: a cabeça com o nome, quantas são e a média, e as fichas', async () => {
+    const el = await wall('completa', []);
+    const out = section(el, 'Outubro de 2026');
+    expect(out.querySelector('.n')!.textContent!.trim()).toBe('6');
+    expect(out.querySelector('.detalhe')!.textContent).toBe('média 8,0');
+    expect(out.querySelector('.cabeca-secao')!.getAttribute('aria-expanded')).toBe('true');
+    expect(out.querySelector('.fichas')).not.toBeNull();
+    expect(out.querySelector('.guardadas')).toBeNull();
+  });
+
+  it('fechada: a primeira ficha em cima e as quatro seguintes atrás, só a cor; a seção não toma a fileira', async () => {
+    const el = await wall('completa', ['k:jogos::2026-10']);
+    const out = section(el, 'Outubro de 2026');
+    expect(out.classList).toContain('fechada');
+    expect(out.querySelector('.cabeca-secao')!.getAttribute('aria-expanded')).toBe('false');
+    expect(out.querySelector('.fichas')).toBeNull();
+    const pile = out.querySelector<HTMLElement>('.guardadas')!;
+    // a ficha de cima é a mesma da parede, e não se usa (a pilha inteira abre)
+    for (let i = 0; i < 100 && !pile.querySelector('app-review-card'); i++) await new Promise((r) => setTimeout(r, 20));
+    expect(pile.querySelector('app-review-card')!.getAttribute('data-ficha')).toBe('rpil0010');
+    expect(pile.querySelector('.pilha-ficha')!.hasAttribute('inert')).toBeTrue();
+    expect(pile.getAttribute('aria-hidden')).toBe('true');
+    // atrás, a mais longe primeiro: a quinta, a quarta, a terceira e a segunda
+    const back = Array.from(pile.querySelectorAll<HTMLElement>('.folha'));
+    expect(back.map((f) => f.dataset['cor'])).toEqual(['amarelo', 'lilas', 'laranja', 'verde']);
+    expect(back.map((f) => f.style.getPropertyValue('--k'))).toEqual(['4', '3', '2', '1']);
+    // a seção fechada é do tamanho de uma ficha, do lado da de Novembro
+    const nov = section(el, 'Novembro de 2026');
+    if (innerWidth > 559) expect(Math.round(out.getBoundingClientRect().top)).toBe(Math.round(nov.getBoundingClientRect().top));
+    // tocar na pilha abre
+    pile.click();
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    expect(out.querySelector('.fichas')).not.toBeNull();
+    expect(out.querySelector('.guardadas')).toBeNull();
+  });
+
+  it('a cabeça fecha e abre, e não sai do lugar', async () => {
+    const el = await wall('simples', []);
+    const out = section(el, 'Outubro de 2026');
+    const button = out.querySelector<HTMLElement>('.cabeca-secao')!;
+    const top = button.getBoundingClientRect().top;
+    button.focus();
+    button.click();
+    TestBed.tick();
+    expect(out.classList).toContain('fechada');
+    expect(out.querySelector('.guardadas')).not.toBeNull();
+    // o mesmo botão, no mesmo lugar, com o foco
+    expect(out.querySelector('.cabeca-secao')).toBe(button);
+    expect(button.getBoundingClientRect().top).toBe(top);
+    expect(document.activeElement).toBe(button);
+  });
+
+  it('na lista, a fechada fica só a cabeça', async () => {
+    localStorage.clear();
+    const v = { sort: 'criacao', direction: 'desc', density: 'lista' };
+    localStorage.setItem('mural-de-jogos:vista:v1', JSON.stringify({ noteViews: { '': v }, collapsed: ['::2026-10'] }));
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+    const store = TestBed.inject(ReviewStore);
+    for (const [id, day] of [['nlis0001', '2026-10-03'], ['nlis0002', '2026-10-02'], ['nlis0003', '2026-09-02']]) {
+      store.add(sanitizeReview({ id, kind: 'anotacoes', game: { name: id, coverUrl: null, source: 'manual' }, scores: { final: 0 }, status: 'finalizado', createdAt: `${day}T10:00:00.000Z`, updatedAt: `${day}T10:00:00.000Z` })!);
+    }
+    TestBed.inject(Mural).kind.set('anotacoes');
+    const fixture = TestBed.createComponent(WallBoard);
+    fixture.componentRef.setInput('access', ACCESS);
+    document.body.appendChild(fixture.nativeElement);
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    const out = section(el, 'Outubro de 2026');
+    expect(out.classList).toContain('fechada');
+    expect(out.querySelector('app-note-index')).toBeNull();
+    expect(out.querySelector('.guardadas')).toBeNull();
+    expect(section(el, 'Setembro de 2026').querySelector('app-note-index')).not.toBeNull();
   });
 });

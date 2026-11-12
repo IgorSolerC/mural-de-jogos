@@ -244,7 +244,8 @@ export class NoteMenu {
 }
 
 /** As fichas do mural (a caixa de cada uma, ver pages/wall-cards.ts) e as linhas da Lista (ver ui/note-index.ts). */
-export const WALL_NOTES = '.lugar[data-lugar], .linha[data-ficha]';
+// (a ficha de cima da pilha de uma seção fechada é só desenho, inert: não se marca, não se arrasta, não entra na ordem)
+export const WALL_NOTES = '.lugar[data-lugar]:not([inert] *), .linha[data-ficha]';
 /** O id da anotação de uma ficha do mural ou de uma linha da Lista. */
 export const wallNoteId = (el: Element): string | null => el.getAttribute('data-lugar') ?? el.getAttribute('data-ficha');
 

@@ -9,7 +9,7 @@ import { Settings } from '../core/settings';
 import { SideBySide } from '../core/side-by-side';
 import { WallMotion } from '../core/wall-motion';
 import { pinningFor } from '../core/wall-physics';
-import { FolderInfo, WallGroup, WallState } from '../core/wall-view';
+import { FolderInfo, WallState } from '../core/wall-view';
 import { NO_FOLDERS, NoteFolder, siblingNamed } from '../core/folders';
 import { type Review, isNote } from '../core/review';
 import { plural } from '../core/text';
@@ -26,6 +26,7 @@ import { lookKey } from '../core/category-looks';
 import { NoteSelection } from '../ui/note-selection';
 import { Pin } from '../ui/pin';
 import { SearchHighlight } from '../ui/search-highlight';
+import { SectionHead } from '../ui/section-head';
 import { WallCardPool, WallCardProps, WallCards, copyKey } from './wall-cards';
 import { stepFocus } from './wall-keys';
 
@@ -34,11 +35,26 @@ const DATE_SORTS = ['criacao', 'alteracao', 'finalizacao'] as const;
 
 const NO_PICKS: ReadonlyMap<string, number> = new Map();
 
+/** Quantas folhas aparecem atrás da ficha de cima da pilha (as fichas da segunda à quinta). */
+const PILE_BACK = 4;
+
+/** A pilha de uma seção fechada (ver `WallBoard.piles`). */
+interface Pile {
+  /** A ficha de cima (a primeira da seção), numa lista para a parede montar. */
+  first: readonly Review[];
+  /** As de trás, a mais longe primeiro: só a cor, e a distância da de cima (1 é a logo atrás). */
+  back: { stock: string; depth: number }[];
+  /** O desnível, a inclinação e a tachinha da ficha de cima: as de trás acompanham. */
+  drop: string;
+  tilt: string;
+  pin: string;
+}
+
 /** O que muda nas fichas conforme quem olha o mural (o dono ou quem visita); o resto vem da vista. */
 export type WallAccess = Pick<WallCardProps, 'landingId' | 'picking' | 'picked' | 'masked' | 'secret' | 'reactCode' | 'checkable' | 'looks'>;
 
 /**
- * A parede de um mural: as seções com as etiquetas que fecham (o maço preso com elástico), as fichas
+ * A parede de um mural: as seções com as cabeças que fecham (a pilha baixa, PLANO-ETIQUETAS.md), as fichas
  * (completas, inteiras em colagem, simples, só capa, ou a lista das anotações) e os cartões de
  * quando nada aparece; quantas a busca e os filtros acharam fica na pasta (WallToolbar). Lê a vista que a página fornece
  * (`WallState`): o seu mural e o de outra pessoa são a mesma parede, só muda `access` (o que o dono
@@ -46,7 +62,7 @@ export type WallAccess = Pick<WallCardProps, 'landingId' | 'picking' | 'picked' 
  */
 @Component({
   selector: 'app-wall-board',
-  imports: [ContextMenu, DoneStamp, FolderCard, FolderMoveSheet, IconModule, NoteIndex, NoteMenu, Pin, RouterLink, SearchHighlight, WallCards],
+  imports: [ContextMenu, DoneStamp, FolderCard, FolderMoveSheet, IconModule, NoteIndex, NoteMenu, Pin, RouterLink, SearchHighlight, SectionHead, WallCards],
   providers: [WallCardPool],
   host: { '(keydown)': 'onKey($event)' },
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -74,7 +90,6 @@ export class WallBoard {
   readonly bulkEdit = input<(() => void) | null>(null);
 
   protected readonly PlusIcon = ICON.adicionar;
-  protected readonly ChevronIcon = ICON.abrir;
   protected readonly BoardIcon = ICON.colunas;
   protected readonly StudyIcon = ICON.camadas;
   protected readonly studyLink = studyPath();
@@ -572,7 +587,8 @@ export class WallBoard {
     this.folderTrigger = new ContextMenuTrigger({
       host: this.el,
       targets: 'app-folder-card[data-pasta], .pastas, .wall',
-      ignore: `${WALL_NOTES}, .grupo-etiqueta, input`,
+      // (a pilha de uma seção fechada não é vão da parede)
+      ignore: `${WALL_NOTES}, .grupo-etiqueta, .guardadas, input`,
       keyOf: (box) => {
         if (box.matches('app-folder-card')) return `pasta:${box.dataset['pasta']}`;
         return this.view.folderGroup() !== null ? 'vao' : null;
@@ -635,32 +651,37 @@ export class WallBoard {
 
   /** Fecha ou abre uma seção; as de baixo deslizam para o lugar novo. */
   protected toggleGroup(key: string): void {
-    const closing = !this.view.isCollapsed(key);
     this.motion.run(() => this.view.toggleCollapsed(key));
-    // fechou agora: o elástico estala no maço (o que já vem fechado ao abrir o mural fica parado)
-    if (closing) {
-      clearTimeout(this.snapTimer);
-      this.snapping.set(key);
-      this.snapTimer = setTimeout(() => this.snapping.set(null), 900);
-    }
   }
-
-  /** A seção que acabou de fechar: o elástico dela estala (ver `.estalando` no wall-board.scss). */
-  protected readonly snapping = signal<string | null>(null);
-  private snapTimer: ReturnType<typeof setTimeout> | undefined;
 
   /**
-   * O maço da seção fechada: as primeiras fichas (até quatro), nas cores das cartolinas, a de cima por
-   * último e reta; as de baixo, um pouco tortas, mostram só a beirada.
+   * As pilhas das seções, pela chave: em cima, a primeira ficha (a lista de uma ficha só é a mesma enquanto
+   * as seções não mudam, para a parede não montar a ficha de novo a cada passada); atrás, até quatro
+   * folhas das seguintes, só a cor, a mais longe primeiro (para ficar por baixo). As de trás giram como a de cima, em
+   * volta da tachinha dela, e descem o mesmo desnível, para a beirada aparecer igual dos dois lados.
    */
-  protected bundle(g: WallGroup): { color: string; transform: string | null }[] {
-    const tilts = ['rotate(-8 32 22) translate(-2 2)', 'rotate(6 32 22) translate(2 1)', 'rotate(-3 32 22) translate(-1 0)'];
-    const cards = g.reviews.slice(0, 4).reverse();
-    return cards.map((r, i) => ({
-      color: `var(--stock-${pinningFor(r.id, r.stock).stock})`,
-      transform: i === cards.length - 1 ? null : tilts[(tilts.length - (cards.length - 1) + i) % tilts.length],
-    }));
-  }
+  protected readonly piles = computed(() => {
+    const out = new Map<string, Pile>();
+    for (const g of this.view.groups()) {
+      // só as fechadas têm pilha
+      if (!this.foldable() || !this.view.isCollapsed(g.key)) continue;
+      const [first, ...rest] = g.reviews;
+      if (!first) continue;
+      const pin = pinningFor(first.id, first.stock);
+      out.set(g.key, {
+        first: [first],
+        back: rest
+          .slice(0, PILE_BACK)
+          .map((r, i) => ({ stock: pinningFor(r.id, r.stock).stock, depth: i + 1 }))
+          .reverse(),
+        drop: `${pin.dropY}px`,
+        tilt: String(pin.tilt),
+        // a tachinha da ficha da parede (ver ReviewCard.pinX)
+        pin: `${Math.round(42 + (pin.pinX - 40) * 0.8)}%`,
+      });
+    }
+    return out;
+  });
 
   /**
    * As setas andam entre as fichas da Visão geral e as linhas da lista, como numa grade de escolher: na
@@ -670,7 +691,7 @@ export class WallBoard {
    */
   protected onKey(e: KeyboardEvent): void {
     if (!this.overview() && !this.lista()) return;
-    const items = Array.from(this.el.querySelectorAll<HTMLElement>(this.lista() ? '.linha[data-ficha]' : '.lugar[data-lugar]'));
+    const items = Array.from(this.el.querySelectorAll<HTMLElement>(this.lista() ? '.linha[data-ficha]' : '.lugar[data-lugar]:not([inert] *)'));
     const at = items.findIndex((el) => el.contains(e.target as Node) && (e.target as HTMLElement).classList.contains('hit'));
     if (at < 0) return;
     const next = stepFocus(items, at, e, this.lista() ? 'columns' : 'rows');

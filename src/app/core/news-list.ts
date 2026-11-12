@@ -27,12 +27,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-11-quadros-compartilhados',
+    id: '2026-11-11-secoes-em-pilha',
     version: '1.45.1',
     kind: 'ajustes',
     date: '2026-11-11',
-    title: 'Grupos públicos, o Kanban e os quadros livres compartilhados',
+    title: 'As seções do mural em pilha, grupos públicos e os quadros livres compartilhados',
     melhorias: [
+      'As seções do mural (os meses, os grupos, as letras) têm outra cabeça: o nome, quantas são e a média escritos a giz numa linha só, com um fio até o fim da seção, no lugar da fita-crepe que quebrava em duas linhas. Fechada, a seção vira uma pilha do tamanho de uma ficha, com a primeira em cima e a beirada das seguintes atrás, em vez do maço com elástico que tomava a fileira inteira.',
       'Os quadros livres vão junto com o grupo compartilhado (e com o público): quem está nele vê, e quem edita mexe. Um quadro de um grupo só seu também pode ser dividido com pessoas, pelo Compartilhar no topo do quadro ou no menu dele.',
       'Um grupo pode ser público, em Compartilhar: qualquer pessoa lê o mural dele pelo seu mural e por um link, e só quem está nele edita; nada vai para o Feed. O site avisa quantas anotações privadas o grupo tem antes, e elas ficam públicas, sem ir para o Feed (pôr uma privada num grupo público também pergunta antes).',
       'Quem visita o seu mural vê também o Kanban dos seus grupos públicos, numa seção Kanban ao lado do Mural, só para ler.',

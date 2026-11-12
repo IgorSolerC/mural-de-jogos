@@ -221,7 +221,13 @@ function readPrefs(key: string, whole: boolean): ViewPrefs {
 export interface WallGroup {
   key: string;
   label: string;
+  /** O resumo inteiro da seção: "3 jogos · média 9,1" (o nome acessível e a dica da cabeça). */
   summary: string;
+  /**
+   * O que a cabeça mostra depois do número (que já diz quantas são): "média 9,1", "1 rejogada", "2 álbuns ·
+   * 1 música". Vazio quando o resumo é só a contagem (como nas anotações).
+   */
+  detail: string;
   reviews: Review[];
   /**
    * As fichas desta seção que já apareceram numa seção de antes (ordenando por tag, a anotação com duas
@@ -1341,9 +1347,12 @@ export function groupWall(sorted: readonly Review[], o: WallOrder, hideAverage =
     const n = g.reviews.length;
     // "3 jogos · 1 rejogada": a rejogada não é mais um jogo no mural
     const again = g.reviews.filter((r) => r.revisitOf).length;
-    const parts = [...(n > again ? countsOf(o.profile, g.reviews.filter((r) => !r.revisitOf)) : []), ...(again ? [revisitCountOf(o.profile, again)] : [])];
-    if (showAvg && n > 1) parts.push(`média ${avgFmt.format(g.reviews.reduce((s, r) => s + r.scores.final, 0) / n)}`);
-    g.summary = parts.join(' · ');
+    const counts = n > again ? countsOf(o.profile, g.reviews.filter((r) => !r.revisitOf)) : [];
+    const extra = again ? [revisitCountOf(o.profile, again)] : [];
+    if (showAvg && n > 1) extra.push(`média ${avgFmt.format(g.reviews.reduce((s, r) => s + r.scores.final, 0) / n)}`);
+    g.summary = [...counts, ...extra].join(' · ');
+    // o número da cabeça já diz quantas são: a contagem só volta no detalhe quando se divide (álbuns e músicas)
+    g.detail = [...(counts.length > 1 ? counts : []), ...extra].join(' · ');
   }
   return groups;
 }
@@ -1368,7 +1377,7 @@ function groupInRuns(sorted: readonly Review[], o: WallOrder): WallGroup[] {
     const [key, label] = keyOf(r);
     const last = groups.at(-1);
     if (last?.key === key) last.reviews.push(r);
-    else groups.push({ key, label, summary: '', reviews: [r] });
+    else groups.push({ key, label, summary: '', detail: '', reviews: [r] });
   }
   return groups;
 }
@@ -1386,7 +1395,7 @@ function groupByTags(sorted: readonly Review[], o: WallOrder): WallGroup[] {
   const inGroup = new Map<string, Set<string>>();
   const add = (key: string, label: string, r: Review) => {
     let g = byKey.get(key);
-    if (!g) byKey.set(key, (g = { key, label, summary: '', reviews: [] }));
+    if (!g) byKey.set(key, (g = { key, label, summary: '', detail: '', reviews: [] }));
     const ids = inGroup.get(key) ?? new Set<string>();
     inGroup.set(key, ids);
     // duas tags que só mudam no acento ou na caixa são a mesma seção: a anotação entra uma vez

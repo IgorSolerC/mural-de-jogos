@@ -133,17 +133,20 @@ interface Place {
 }
 
 /**
- * As fichas e as etiquetas das seções do mural, onde estão agora. A mesma ficha pode aparecer mais de
+ * As fichas, as cabeças das seções e as pilhas das fechadas, onde estão agora. A mesma ficha pode aparecer mais de
  * uma vez (ordenando por tag, uma em cada seção das tags dela): cada vez é uma, na ordem da página.
  */
 function places(): Map<string, Place> {
   const out = new Map<string, Place>();
   const times = new Map<string, number>();
-  for (const el of Array.from(document.querySelectorAll<HTMLElement>('app-wall-board [data-ficha], app-wall-board .grupo-head .tape-label'))) {
+  // a ficha de cima de uma pilha anda com a pilha (que leva as folhas de trás junto): conta só a pilha
+  const all = 'app-wall-board [data-ficha]:not(.pilha-ficha *), app-wall-board .grupo-head[data-secao], app-wall-board .guardadas';
+  for (const el of Array.from(document.querySelectorAll<HTMLElement>(all))) {
     const id = el.dataset['ficha'];
     const n = id ? (times.get(id) ?? 0) : 0;
     if (id) times.set(id, n + 1);
-    const key = id ? `f:${id}#${n}` : `g:${el.id}`;
+    // a cabeça e a pilha de uma seção: pela chave da seção
+    const key = id ? `f:${id}#${n}` : el.classList.contains('guardadas') ? `p:${el.dataset['pilha']}` : `g:${el.dataset['secao']}`;
     const r = el.getBoundingClientRect();
     if (!r.width && !r.height) continue;
     out.set(key, { el, box: { top: r.top, left: r.left, bottom: r.bottom, right: r.right } });

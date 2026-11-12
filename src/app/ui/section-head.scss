@@ -1,0 +1,133 @@
+/* ===== A cabeça da seção (PLANO-ETIQUETAS.md) =====
+   Escrita a giz na parede, sem papel: o nome em letra de rótulo, o número, o detalhe e um fio de giz até o
+   fim da seção. Uma linha só, sempre de 30px: a cabeça não muda de altura com o nome, e as fichas de todas
+   as seções começam na mesma linha. A largura é a da seção (quem usa não deixa a cabeça alargar a seção:
+   `width: 0; min-width: 100%`); faltando lugar, o fio encolhe primeiro (base 0), depois o detalhe (encolhe
+   cem vezes mais rápido) e por último o nome, com reticências. */
+:host {
+  --giz-fio: rgb(243 239 230 / 0.26);
+  --giz-fio-forte: rgb(243 239 230 / 0.62);
+  display: block;
+  width: 0;
+  min-width: 100%;
+  /* a cabeça sabe a própria largura (a da seção), para tirar o detalhe inteiro quando não cabe */
+  container-type: inline-size;
+}
+
+h2,
+h3 {
+  margin: 0;
+  font: inherit;
+}
+
+.cabeca-secao {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--cabeca-vao, 9px);
+  width: 100%;
+  height: 30px;
+  padding: 0 2px 0 4px;
+  border: 0;
+  background: none;
+  color: var(--wall-ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: var(--cabeca-letra, 0.86rem);
+  letter-spacing: var(--cabeca-espaco, 0.12em);
+  line-height: 1;
+  text-align: left;
+  text-transform: uppercase;
+  text-decoration: none;
+  text-shadow: var(--chalk-shadow);
+}
+
+button.cabeca-secao,
+a.cabeca-secao {
+  cursor: pointer;
+}
+
+.nome {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.n {
+  flex: none;
+  color: var(--wall-ink-2);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.detalhe {
+  flex: 0 100 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--wall-ink-2);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* numa seção de uma ficha estreita (a Capa e nome), o detalhe sai inteiro em vez de virar "M…" */
+@container (max-width: 240px) {
+  .detalhe {
+    display: none;
+  }
+}
+
+/* o fio de giz até o fim da seção; fechada, tracejado, como o lugar das fichas que foram guardadas */
+.fio {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 0;
+  border-top: 1.5px solid var(--giz-fio);
+  transition: border-color var(--t-ui) var(--ease-ui);
+}
+
+:host(.fechada) .fio {
+  border-top-style: dashed;
+}
+
+.seta {
+  flex: none;
+  display: inline-flex;
+  margin-left: -3px;
+  color: var(--wall-ink-2);
+  transition:
+    rotate var(--t-ui) var(--ease-ui),
+    color var(--t-ui) var(--ease-ui);
+}
+
+:host(.fechada) .seta {
+  rotate: -90deg;
+}
+
+/* com a mão (ou o foco) na linha, o giz fica mais forte */
+:is(button, a).cabeca-secao:is(:hover, :focus-visible) {
+  .fio {
+    border-color: var(--giz-fio-forte);
+  }
+
+  .seta {
+    color: var(--wall-ink);
+  }
+}
+
+:is(button, a).cabeca-secao:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fio,
+  .seta {
+    transition: none;
+  }
+}

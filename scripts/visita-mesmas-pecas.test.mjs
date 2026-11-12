@@ -73,6 +73,12 @@ const PECAS = [
     marcas: [/aria-label="Caminho da pasta"/],
     o: 'o caminho da pasta aberta, na barra',
   },
+  {
+    peca: 'src/app/ui/section-head.ts',
+    usa: 'app-section-head',
+    marcas: [/class="cabeca-secao"/],
+    o: 'a cabeça de uma seção da parede, escrita a giz com o fio (PLANO-ETIQUETAS.md)',
+  },
 ];
 
 /** Os moldes da visita e as peças que precisam aparecer neles. */

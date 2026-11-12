@@ -119,46 +119,43 @@
     [class.com-orelhas]="ears()"
     [class.sem-etiquetas]="!labels()"
     [appRealceBusca]="view.query()"
-    realceEm=".fichas, app-note-index"
+    realceEm=".fichas, app-note-index, .guardadas"
   >
     @for (g of view.groups(); track g.key) {
-      <!-- a etiqueta da seção fecha e abre a seção: fechada, as fichas viram um maço preso com
-           elástico, numa linha só; sem etiquetas, nada fecha -->
+      <!-- a cabeça da seção (ui/section-head.ts) fecha e abre a seção e não sai do lugar: fechada, as
+           fichas viram a pilha, do tamanho de uma ficha (na lista, fica só a cabeça); sem etiquetas, nada
+           fecha (PLANO-ETIQUETAS.md) -->
       @let shut = foldable() && view.isCollapsed(g.key);
       <section class="grupo" [class.fechada]="shut" [attr.aria-labelledby]="'grupo-' + idOf(g.key)">
-        <header class="grupo-head">
-          <h3 class="tape-label" [class.dobravel]="foldable()" [id]="'grupo-' + idOf(g.key)" [style.view-transition-name]="labels() ? 'grupo-' + idOf(g.key) : null">
-            @if (foldable()) {
-              <button type="button" class="dobra" [attr.aria-expanded]="!shut" [attr.aria-controls]="shut ? null : 'fichas-' + idOf(g.key)" (click)="toggleGroup(g.key)">
-                {{ g.label }}
-                <lucide-icon class="dobra-seta" [img]="ChevronIcon" [size]="18" aria-hidden="true" />
-              </button>
-            } @else {
-              {{ g.label }}
-            }
-          </h3>
-          @if (shut) {
-            <!-- o maço: as primeiras fichas da seção, nas cores das cartolinas, presas com elástico
-                 (decorativo: o botão da etiqueta é que abre; o toque no maço abre também) -->
-            <svg class="maco" [class.estalando]="snapping() === g.key" viewBox="0 0 64 46" aria-hidden="true" (click)="toggleGroup(g.key)">
-              @for (c of bundle(g); track $index) {
-                <rect class="maco-ficha" x="8" y="6" width="48" height="32" rx="1.5" [style.fill]="c.color" [attr.transform]="c.transform" />
+        <app-section-head
+          class="grupo-head"
+          [attr.data-secao]="idOf(g.key)"
+          [style.view-transition-name]="labels() ? 'grupo-' + idOf(g.key) : null"
+          [headingId]="'grupo-' + idOf(g.key)"
+          [label]="g.label"
+          [count]="g.reviews.length"
+          [detail]="g.detail"
+          [summary]="g.summary"
+          [foldable]="foldable()"
+          [open]="!shut"
+          [controls]="'fichas-' + idOf(g.key)"
+          (toggle)="toggleGroup(g.key)"
+        />
+        @if (shut) {
+          @if (!lista()) {
+            <!-- a pilha: em cima, a primeira ficha da seção, a mesma da parede (orelha, tachinha, inclinação);
+                 atrás, as folhas das quatro seguintes, do tamanho dela e tortas como ela, mostrando só a
+                 beirada da cor. A ficha de cima não se usa (inert): a pilha inteira é o atalho do mouse para abrir
+                 (o botão da cabeça é quem abre para o teclado e o leitor de tela) -->
+            @let p = piles().get(g.key)!;
+            <div class="guardadas" aria-hidden="true" [attr.data-pilha]="idOf(g.key)" [style.--pilha-drop]="p.drop" [style.--pilha-giro]="p.tilt" [style.--pilha-eixo]="p.pin" (click)="toggleGroup(g.key)">
+              @for (s of p.back; track $index) {
+                <span class="folha cartolina" [attr.data-cor]="s.stock" [style.--stock]="'var(--stock-' + s.stock + ')'" [style.--k]="s.depth"></span>
               }
-              <!-- o elástico amarelo, com duas voltas: dois fios quase paralelos, que apertam a pilha e
-                   dobram para trás nas beiradas de cima e de baixo -->
-              <g class="elastico">
-                <path class="elastico-sombra" d="M26.4 7 Q27.4 23 28.2 40 M31.2 7 Q31.6 23 32.6 40" />
-                <path class="elastico-volta" d="M23.6 7.2 Q26.2 4.4 29 6.6 M28.6 6.8 Q31.4 4.4 34.2 7.2 M23.8 38.6 Q26.4 41.6 29.2 39.4 M28.8 39.6 Q31.8 41.6 34.6 38.6" />
-                <path class="elastico-contorno" d="M25.6 6 Q26.6 22.6 27.4 39.2 M30.4 6 Q30.8 22.6 31.8 39.2" />
-                <path class="elastico-fio" d="M25.6 6 Q26.6 22.6 27.4 39.2 M30.4 6 Q30.8 22.6 31.8 39.2" />
-                <path class="elastico-brilho" d="M25.9 9 Q26.6 20 27.1 31 M30.7 9 Q31 20 31.5 31" />
-              </g>
-            </svg>
+              <div class="pilha-ficha" inert [appFichas]="p.first" [appFichasCopias]="g.copies" [appFichasSecao]="g.key"></div>
+            </div>
           }
-          <p class="grupo-sum">{{ g.summary }}</p>
-        </header>
-        <!-- fechada, a seção é só a etiqueta com o maço -->
-        @if (!shut) {
+        } @else {
           @if (lista()) {
             <app-note-index [id]="'fichas-' + idOf(g.key)" [reviews]="g.reviews" [ear]="groupTab() ? 'assunto' : 'grupo'" [folders]="cardFolders()" [looks]="access().looks" [boardOnly]="shownBoard()" [studyOnly]="view.studyOnly()" (opened)="opened.emit($event)" />
           } @else {

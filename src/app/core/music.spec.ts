@@ -269,6 +269,9 @@ describe('o mural de músicas', () => {
       const list = sortWall([music('A', 'X'), music('B', 'X'), music('C', 'X', {}, { form: 'faixa' })], order);
       expect(groupWall(list, order)[0].summary).toBe('2 álbuns · 1 música · média 7,8');
       expect(groupWall([music('C', 'X', {}, { form: 'faixa' })], order)[0].summary).toBe('1 música');
+      // a cabeça mostra o número (3) e, ao lado, como ele se divide e a média; uma música só, nada ao lado
+      expect(groupWall(list, order)[0].detail).toBe('2 álbuns · 1 música · média 7,8');
+      expect(groupWall([music('C', 'X', {}, { form: 'faixa' })], order)[0].detail).toBe('');
     });
 
     it('o grupo Tipo só existe no mural de músicas', () => {

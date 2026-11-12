@@ -194,6 +194,8 @@ describe('anotações', () => {
       ['Viagem', '1 anotação'],
       ['Sem grupo', '1 anotação'],
     ]);
+    // a cabeça da seção já diz quantas são pelo número: nas anotações, não sobra detalhe
+    expect(groups.map((g) => g.detail)).toEqual(['', '', '']);
     const desc = { ...order, direction: 'desc' as const };
     expect(groupWall(sortWall(list, desc), desc).map((g) => g.label)).toEqual(['Viagem', 'Compras', 'Sem grupo']);
   });
