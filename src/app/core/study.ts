@@ -7,7 +7,7 @@ import { localImageId } from './images';
 import { categoryKey, hash64 } from './kanban';
 import { cleanCategory } from './note-labels';
 import { LIGHT_STOCKS, LightStock, newId } from './review';
-import { cleanLabel } from './text';
+import { cleanLabel, plural } from './text';
 
 /**
  * Os Estudos das anotações (PLANO-ESTUDOS.md): flashcards como os do Anki, feitos das anotações que já
@@ -460,6 +460,16 @@ export function cardDecks(card: Pick<StudyCard, 'decks'>, decks: readonly Deck[]
 /** A chave de um grupo (sem acento nem caixa), a mesma do quadro do Kanban, ou '' sem grupo. */
 export function groupKey(group: string | null | undefined): string {
   return group?.trim() ? categoryKey(group) : '';
+}
+
+/**
+ * As palavras da cabeça de um grupo no Tudo dos Flashcards (o seu e o de quem se visita, ui/section-head.ts): o
+ * número da cabeça são os baralhos, e o detalhe diz o que ele conta e os flashcards ("baralhos · 4 flashcards");
+ * o resumo inteiro vai para a dica e o leitor de tela ("3 baralhos · 4 flashcards").
+ */
+export function studyGroupWords(decks: number, cards: number): { detail: string; summary: string } {
+  const flashcards = plural(cards, 'flashcard', 'flashcards');
+  return { detail: `${decks === 1 ? 'baralho' : 'baralhos'} · ${flashcards}`, summary: `${plural(decks, 'baralho', 'baralhos')} · ${flashcards}` };
 }
 
 /**

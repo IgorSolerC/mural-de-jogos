@@ -119,6 +119,13 @@ a.cabeca-secao {
   }
 }
 
+/* o nome que leva a outro lugar (o grupo dos Flashcards) sublinha com a mão, como os links do site */
+a.cabeca-secao:hover .nome {
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+
 :is(button, a).cabeca-secao:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 3px;

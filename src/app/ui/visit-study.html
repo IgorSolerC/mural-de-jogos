@@ -98,10 +98,18 @@
 } @else {
   @for (g of groups(); track g.id) {
     <section class="grupo-pilhas" [attr.aria-labelledby]="'visita-pilhas-' + g.id">
-      <header class="grupo-head">
-        <h3 class="tape-label" [id]="'visita-pilhas-' + g.id"><a [routerLink]="path(g.id)" title="Abrir o grupo">{{ g.label }}</a></h3>
-        <p class="grupo-sum">{{ groupSummary(g) }}</p>
-      </header>
+      <!-- a cabeça da seção, a mesma dos seus Flashcards (ui/section-head.ts), um nível abaixo (a visita tem o título dela) -->
+      @let words = groupWords(g);
+      <app-section-head
+        [level]="3"
+        [headingId]="'visita-pilhas-' + g.id"
+        [label]="g.label"
+        [count]="g.decks.length"
+        [detail]="words.detail"
+        [summary]="words.summary"
+        [link]="path(g.id)"
+        linkHint="Abrir o grupo"
+      />
       <!-- os baralhos como pilhas, as mesmas dos seus Flashcards, sem os montes de hoje (são dela) (ui/study-piles.ts) -->
       <app-study-piles [piles]="piles().get(g.id) ?? []" [label]="'Baralhos de ' + g.label" [link]="deckLink" />
     </section>

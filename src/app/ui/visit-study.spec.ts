@@ -4,6 +4,7 @@ import { Router, provideRouter } from '@angular/router';
 import { Colleague } from '../core/colleague-store';
 import { PublicStudy } from '../core/public-study';
 import { Review, sanitizeReview } from '../core/review';
+import { visitStudyPath } from '../core/areas';
 import { studyGroupId } from '../core/study';
 import { expectEtiquetaPadrao } from '../testing/etiqueta-acoes.spec';
 import { setEverythingNear } from './near-screen';
@@ -75,10 +76,23 @@ describe('Os Estudos de quem se visita (VisitStudy)', () => {
   it('Tudo: as abas são os grupos com baralho público, e uma seção de pilhas por grupo', async () => {
     const { el } = await render(marina());
     expect([...el.querySelectorAll('.abas > li')].map(text)).toEqual(['Tudo', 'Japonês', 'Geografia']);
-    expect([...el.querySelectorAll('.grupo-pilhas .tape-label')].map(text)).toEqual(['Japonês', 'Geografia']);
+    expect([...el.querySelectorAll('.grupo-pilhas app-section-head .nome')].map(text)).toEqual(['Japonês', 'Geografia']);
     // sem os montes de hoje: são da dona
     expect(el.querySelector('.papelzinho')).toBeNull();
     expect([...el.querySelectorAll('.pilha')].map((a) => a.getAttribute('aria-label'))).toEqual(['Kanji N5, 2 flashcards', 'Capitais, 1 flashcard']);
+  });
+
+  it('Tudo: a cabeça de cada grupo é a mesma dos seus Flashcards (o nome leva ao grupo, os baralhos e os flashcards)', async () => {
+    const { el } = await render(marina());
+    const heads = [...el.querySelectorAll<HTMLElement>('.grupo-pilhas app-section-head')];
+    // um nível abaixo do título da visita, sem fechar, com o mesmo que os seus Flashcards dizem
+    expect(heads.map((h) => `${text(h.querySelector('h3 .nome'))}: ${text(h.querySelector('.n'))} · ${text(h.querySelector('.detalhe'))}`)).toEqual(['Japonês: 1 · baralho · 2 flashcards', 'Geografia: 1 · baralho · 1 flashcard']);
+    expect(heads.map((h) => h.querySelector('a.cabeca-secao')!.getAttribute('href'))).toEqual([visitStudyPath(studyGroupId('Japonês')), visitStudyPath(studyGroupId('Geografia'))]);
+    expect(heads.map((h) => h.querySelector('a.cabeca-secao')!.getAttribute('title'))).toEqual(['Japonês: 1 baralho · 2 flashcards. Abrir o grupo', 'Geografia: 1 baralho · 1 flashcard. Abrir o grupo']);
+    expect(el.querySelector('.grupo-pilhas button.cabeca-secao, .grupo-pilhas .seta')).toBeNull();
+    // a seção se apresenta pelo título da cabeça
+    const section = el.querySelector<HTMLElement>('.grupo-pilhas')!;
+    expect(section.querySelector(`#${CSS.escape(section.getAttribute('aria-labelledby')!)}`)!.tagName).toBe('H3');
   });
 
   it('o baralho: as cartas que têm anotação, a de cima a próxima, o progresso na frente e o Copiar', async () => {

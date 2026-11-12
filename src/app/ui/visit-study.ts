@@ -5,7 +5,7 @@ import { visitStudyPath } from '../core/areas';
 import { CategoryLook, categoryColorHex, lookKey } from '../core/category-looks';
 import { Colleague } from '../core/colleague-store';
 import { Review } from '../core/review';
-import { CardFace, CardSize, Deck, LEVEL_LABEL, Level, STUDY_SIZE_KEY, StudyCard as Card, cardFace, frontTitle, groupKey, levelOf, studyGroupId } from '../core/study';
+import { CardFace, CardSize, Deck, LEVEL_LABEL, Level, STUDY_SIZE_KEY, StudyCard as Card, cardFace, frontTitle, groupKey, levelOf, studyGroupId, studyGroupWords } from '../core/study';
 import { DeckCopyRequest } from '../core/study-copy';
 import { STUDY_SOURCE, StudySource, colleagueStudySource } from '../core/study-source';
 import { readText, writeText } from '../core/storage';
@@ -14,6 +14,7 @@ import { pinningFor } from '../core/wall-physics';
 import { ContextMenu, ContextMenuTrigger, MenuItem, MenuSections } from './context-menu';
 import { ICON, IconModule } from './icons';
 import { SearchStrip } from './search-strip';
+import { SectionHead } from './section-head';
 import { StudyCardWall, WallCard } from './study-card-wall';
 import { StudyGroupTabs, StudyTab } from './study-group-tabs';
 import { StudyPile, StudyPiles } from './study-piles';
@@ -83,7 +84,7 @@ function tiltOf(id: string): number {
  */
 @Component({
   selector: 'app-visit-study',
-  imports: [ContextMenu, IconModule, RouterLink, SearchStrip, StudyCardWall, StudyCopySheet, StudyGroupTabs, StudyPiles],
+  imports: [ContextMenu, IconModule, RouterLink, SearchStrip, SectionHead, StudyCardWall, StudyCopySheet, StudyGroupTabs, StudyPiles],
   // as peças dos Flashcards (o verso, a maximizada) leem as cartas dela, não as suas
   providers: [{ provide: STUDY_SOURCE, useExisting: forwardRef(() => VisitStudy) }],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -370,6 +371,11 @@ export class VisitStudy implements StudySource {
   }
 
   protected groupSummary(g: GroupView): string {
-    return `${g.decks.length === 1 ? '1 baralho' : `${g.decks.length} baralhos`} · ${this.countLabel(g.cards)}`;
+    return studyGroupWords(g.decks.length, g.cards).summary;
+  }
+
+  /** O que a cabeça de um grupo diz no Tudo, o mesmo dos Flashcards do dono (ver `studyGroupWords`). */
+  protected groupWords(g: GroupView): { detail: string; summary: string } {
+    return studyGroupWords(g.decks.length, g.cards);
   }
 }

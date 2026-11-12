@@ -191,48 +191,13 @@
   }
 }
 
-/* ===== Tudo: uma seção por grupo, com a etiqueta de fita do mural e o resumo a giz ===== */
+/* ===== Tudo: uma seção por grupo, com a cabeça de giz do mural (ui/section-head.ts) ===== */
 .grupo-pilhas {
   margin-top: 34px;
 }
 
 .grupo-pilhas + .grupo-pilhas {
   margin-top: 46px;
-}
-
-.grupo-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 14px;
-  padding-left: 4px;
-
-  .tape-label a {
-    color: inherit;
-    text-decoration: none;
-
-    &:hover {
-      text-decoration: underline;
-      text-underline-offset: 3px;
-    }
-
-    &:focus-visible {
-      outline: 3px solid var(--focus);
-      outline-offset: 4px;
-    }
-  }
-}
-
-.grupo-sum {
-  margin: 0;
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.92rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--wall-ink-2);
-  font-variant-numeric: tabular-nums;
-  text-shadow: var(--chalk-shadow);
 }
 
 /* ===== A pasta: quantas para hoje (o título, a pincel, como o mês dos Gastos), os montes e os controles

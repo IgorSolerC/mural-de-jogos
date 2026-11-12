@@ -27,15 +27,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-12-pilha-animada',
+    id: '2026-11-12-cabeca-dos-flashcards',
     version: '1.45.2',
     kind: 'ajustes',
     date: '2026-11-12',
-    title: 'As seções do mural se juntam na pilha, e o menu delas',
+    title: 'As seções do mural se juntam na pilha, o menu delas e a cabeça dos Flashcards',
     melhorias: [
       'Fechar uma seção do mural junta as fichas na pilha: as primeiras andam juntas até o lugar dela, encolhendo e se empilhando, e a pilha assenta com um leve aperto. Abrir faz as fichas saírem da pilha, uma depois da outra, para o lugar de cada uma.',
       'O botão direito na cabeça de uma seção do mural (ou na pilha dela) abre um menu para fechar ou abrir aquela, fechar as outras, abrir todas e fechar todas; Alt + clique na cabeça fecha as outras e deixa aquela aberta. Também no mural de quem você visita.',
       'A seção de uma ficha só não fecha mais: a cabeça dela é só o nome, e a que estava fechada aparece aberta (volta a fechar quando tiver duas de novo).',
+      'No Tudo dos Flashcards (os seus e os de quem você visita), cada grupo tem a mesma cabeça das seções do mural: o nome, que leva ao grupo, quantos baralhos e quantos flashcards, numa linha a giz, no lugar da fita-crepe.',
     ],
   },
   {

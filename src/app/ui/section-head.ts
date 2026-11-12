@@ -67,12 +67,14 @@ export class SectionHead {
   readonly open = input(true);
   /** O id do que a seção mostra aberta (o `aria-controls`). */
   readonly controls = input<string | null>(null);
-  /** O nível do título: 2 nos Flashcards, 3 no mural. */
+  /** O nível do título: 2 nos seus Flashcards, 3 no mural e nos Flashcards da visita (abaixo do título dela). */
   readonly level = input<2 | 3>(3);
   /** O id do título, para a seção apontar para ele (`aria-labelledby`). */
   readonly headingId = input<string | null>(null);
   /** Para onde o nome leva (o grupo dos Flashcards). Não vale com `foldable`. */
   readonly link = input<string | null>(null);
+  /** O que a dica diz que o link faz ("Abrir o grupo"). */
+  readonly linkHint = input('');
 
   /** Tocou na linha dobrável: quem usa fecha ou abre (com o evento, para ler o Alt). */
   readonly toggle = output<MouseEvent>();
@@ -81,7 +83,7 @@ export class SectionHead {
 
   protected readonly tip = computed(() => {
     const said = this.summary() ? `${this.label()}: ${this.summary()}` : this.label();
-    if (!this.foldable()) return said;
+    if (!this.foldable()) return this.link() && this.linkHint() ? `${said}. ${this.linkHint()}` : said;
     return `${said}. ${this.open() ? 'Clique para fechar' : 'Clique para abrir'}`;
   });
 }

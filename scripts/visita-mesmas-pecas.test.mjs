@@ -83,7 +83,7 @@ const PECAS = [
 
 /** Os moldes da visita e as peças que precisam aparecer neles. */
 const VISITA = [
-  { molde: 'src/app/ui/visit-study.html', pecas: ['app-study-card-wall', 'app-study-piles', 'app-study-group-tabs'] },
+  { molde: 'src/app/ui/visit-study.html', pecas: ['app-study-card-wall', 'app-study-piles', 'app-study-group-tabs', 'app-section-head'] },
   { molde: 'src/app/pages/colleague-wall-page.html', pecas: ['app-wall-board', 'app-wall-toolbar', 'app-review-reader', 'app-visit-study', 'app-visit-boards'] },
   { molde: 'src/app/ui/visit-boards.ts', pecas: ['app-study-group-tabs', 'app-free-board-card', 'app-free-board', 'app-free-board-top'] },
   { molde: 'src/app/ui/visit-kanban.ts', pecas: ['app-study-group-tabs', 'app-kanban-column-head', 'app-kanban-note'] },
@@ -112,6 +112,7 @@ const SO_LEEM = [
   'src/app/ui/kanban-column-head.ts',
   'src/app/ui/kanban-note.ts',
   'src/app/core/visit-groups.ts',
+  'src/app/ui/section-head.ts',
 ];
 /** O que escreve no seu Murall. */
 const ESCREVE = /from '[./]+(?:core\/)?(study-store|review-store|desk|kanban-store|calendar-store|spending-store)'/;

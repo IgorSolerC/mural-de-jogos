@@ -240,13 +240,22 @@
       <app-study-piles [piles]="g.decks" [label]="'Baralhos de ' + g.label" [link]="deckPath" [publicMark]="true" />
     }
   } @else {
-    <!-- Tudo: os baralhos de todos os grupos, uma seção por grupo, com a etiqueta de fita do mural -->
+    <!-- Tudo: os baralhos de todos os grupos, uma seção por grupo, com a cabeça de giz do mural -->
     @for (g of filled(); track g.id) {
       <section class="grupo-pilhas" [attr.aria-labelledby]="'pilhas-' + g.id">
-        <header class="grupo-head">
-          <h2 class="tape-label" [id]="'pilhas-' + g.id"><a [routerLink]="studyPath(g.id)" title="Abrir o grupo">{{ g.label }}</a></h2>
-          <p class="grupo-sum">{{ groupSummary(g) }}</p>
-        </header>
+        <!-- a cabeça da seção, a mesma do mural e da visita (ui/section-head.ts): o nome leva ao grupo, o número são
+             os baralhos e o detalhe, os flashcards; não fecha (PLANO-ETIQUETAS.md) -->
+        @let words = groupWords(g);
+        <app-section-head
+          [level]="2"
+          [headingId]="'pilhas-' + g.id"
+          [label]="g.label"
+          [count]="g.decks.length"
+          [detail]="words.detail"
+          [summary]="words.summary"
+          [link]="studyPath(g.id)"
+          linkHint="Abrir o grupo"
+        />
         <!-- os baralhos como pilhas, as mesmas de quem visita o seu mural (ui/study-piles.ts) -->
         <app-study-piles [piles]="g.decks" [label]="'Baralhos de ' + g.label" [link]="deckPath" [publicMark]="true" />
       </section>

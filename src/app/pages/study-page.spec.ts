@@ -142,8 +142,12 @@ describe('página dos Estudos', () => {
     // o Tudo sem número (a pasta logo embaixo diz quantas para hoje)
     expect($$('.abas:not(.medida) .aba').map(text)).toEqual(['Tudo', 'Estudos, 4 para hoje', 'Computação, 1 para hoje']);
     expect($('.aba.on')?.textContent).toContain('Tudo');
-    // Tudo: uma seção por grupo, com a etiqueta de fita e o resumo
-    expect($$('.grupo-pilhas').map((s) => `${text(s.querySelector('.tape-label'))}: ${text(s.querySelector('.grupo-sum'))}`)).toEqual(['Estudos: 3 baralhos · 4 flashcards', 'Computação: 1 baralho · 1 flashcard']);
+    // Tudo: uma seção por grupo, com a cabeça de giz do mural (ui/section-head.ts): o nome leva ao grupo, o número são
+    // os baralhos e o detalhe diz isso e os flashcards; não fecha
+    expect($$('.grupo-pilhas').map((s) => `${text(s.querySelector('.nome'))}: ${text(s.querySelector('.n'))} · ${text(s.querySelector('.detalhe'))}`)).toEqual(['Estudos: 3 · baralhos · 4 flashcards', 'Computação: 1 · baralho · 1 flashcard']);
+    expect($$('.grupo-pilhas h2 a.cabeca-secao').map((a) => a.getAttribute('href'))).toEqual([studyPath(GROUP), studyPath(studyGroupId('Computação'))]);
+    expect($$('.grupo-pilhas h2 a.cabeca-secao').map((a) => a.getAttribute('title'))).toEqual(['Estudos: 3 baralhos · 4 flashcards. Abrir o grupo', 'Computação: 1 baralho · 1 flashcard. Abrir o grupo']);
+    expect($('.grupo-pilhas button.cabeca-secao, .grupo-pilhas .seta')).toBeNull();
     expect(text($('.estudar'))).toBe('Estudar tudo');
     // o grupo: a aba aberta, só os baralhos dele, o Estudar o grupo e o Novo baralho
     await go(studyPath(GROUP));

@@ -14,7 +14,7 @@ import { Desk } from '../core/desk';
 import { daysBetween, studyDay } from '../core/fsrs';
 import { LIGHT_STOCKS, LightStock } from '../core/review';
 import { ReviewStore } from '../core/review-store';
-import { CardFace, CardSize, DECK_NAME_MAX, Deck, LEVEL_LABEL, Level, STUDY_SIZE_KEY, StudyCard as Card, cardFace, frontTitle, groupKey, inGroup, levelOf, studyGroupId, whenLabel } from '../core/study';
+import { CardFace, CardSize, DECK_NAME_MAX, Deck, LEVEL_LABEL, Level, STUDY_SIZE_KEY, StudyCard as Card, cardFace, frontTitle, groupKey, inGroup, levelOf, studyGroupId, studyGroupWords, whenLabel } from '../core/study';
 import { readText, writeText } from '../core/storage';
 import { DRILL_KINDS, DRILL_LABEL, DrillKind, DrillPlan, drillCounts as countDrills, drillPool } from '../core/study-drill';
 import { QueueCounts, StudyScope, allCounts, countTotal, dayQueue, scopeCards } from '../core/study-queue';
@@ -25,6 +25,7 @@ import { pinningFor } from '../core/wall-physics';
 import { ICON, ICON_CHOICE, IconModule } from '../ui/icons';
 import { Pin } from '../ui/pin';
 import { SearchStrip } from '../ui/search-strip';
+import { SectionHead } from '../ui/section-head';
 import { StudyCardWall, WallCard } from '../ui/study-card-wall';
 import { StudyDeckSheet } from '../ui/study-deck-sheet';
 import { StudySession } from '../ui/study-session';
@@ -136,7 +137,7 @@ function tiltOf(id: string): number {
  */
 @Component({
   selector: 'app-study-page',
-  imports: [BulkEditSheet, SelectionTray, CardPicker, ContextMenu, IconModule, NgTemplateOutlet, Pin, RouterLink, SearchStrip, StudyCardWall, StudyDeckSheet, StudyGroupTabs, StudyPiles, StudyDrillPicker, StudySession, MuralConfig, TabMore],
+  imports: [BulkEditSheet, SelectionTray, CardPicker, ContextMenu, IconModule, NgTemplateOutlet, Pin, RouterLink, SearchStrip, SectionHead, StudyCardWall, StudyDeckSheet, StudyGroupTabs, StudyPiles, StudyDrillPicker, StudySession, MuralConfig, TabMore],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './study-page.html',
   styleUrl: './study-page.scss',
@@ -821,8 +822,9 @@ export class StudyPage {
   }
 
   /** "2 baralhos · 101 cartas": o resumo de um grupo na seção de Tudo. */
-  protected groupSummary(g: GroupTab): string {
-    return `${g.decks.length === 1 ? '1 baralho' : `${g.decks.length} baralhos`} · ${this.countLabel(g.cards)}`;
+  /** O que a cabeça de um grupo diz no Tudo (ver `studyGroupWords`). */
+  protected groupWords(g: GroupTab): { detail: string; summary: string } {
+    return studyGroupWords(g.decks.length, g.cards);
   }
 
   protected countLabel(n: number): string {
