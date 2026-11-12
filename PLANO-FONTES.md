@@ -153,8 +153,10 @@ Os papéis trocados têm três tokens em `src/styles.scss`: `--f-<papel>` (a fam
   e `--e-texto`, que cada peça diz no começo dela (`:host` do card, `.ficha` da leitura, o `app-rich-editor`
   do editor): a ficha de dentro de um widget não herda a da de fora. Só o card do Kanban (a ficha pequena da
   anotação) tem a escala dele. No Simples, a altura da tira (`--strip-h`) conta a escala, e toda tira continua
-  da mesma altura. As páginas dos Extras (Ranking, Comparar, Estatísticas) têm títulos próprios e ficaram como
-  eram.
+  da mesma altura. Nos Extras, o nome da obra que aparece sozinho segue o papel do nome da ficha: as linhas do
+  Ranking, as colunas do Lado a lado, os bilhetes e o pódio do Comparar, o pódio, a régua e as franquias das
+  Estatísticas. Ficaram na letra de interface o nome no meio de uma frase (as Estatísticas), a tabela de
+  palpites do Muraldle e a lista de rodadas do Maior ou menor, que são dados em coluna.
 - **A folga da caneta.** A Caveat passa um pouco da caixa à direita; onde o título corta (`overflow: hidden`),
   `padding-right: var(--caneta-folga)` (0,14em) guarda a ponta da última letra.
 - **A ficha compacta** só aumenta a letra (`font-size: calc(var(--title-fs) * var(--titulo-escala))`): a

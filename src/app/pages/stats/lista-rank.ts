@@ -70,18 +70,17 @@ import { CoverSleeve } from '../../ui/cover-sleeve';
       rotate: -2deg;
     }
 
+    /* o nome da obra: o papel do nome da ficha (styles.scss, PLANO-FONTES.md) */
     .nome {
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 1.12rem;
+      font-family: var(--f-titulo-ficha);
+      font-weight: var(--w-titulo-ficha);
+      font-size: calc(1.12rem * var(--e-titulo-ficha));
       line-height: 1.12;
       overflow-wrap: anywhere;
     }
 
     .primeiro .nome {
-      font-family: var(--f-marker);
-      font-weight: 400;
-      font-size: 1.3rem;
+      font-size: calc(1.3rem * var(--e-titulo-ficha));
     }
 
     .nota {

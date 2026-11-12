@@ -298,11 +298,14 @@ tbody tr.split > * {
   rotate: -2deg;
 }
 
+/* o nome da obra: o papel do nome da ficha (styles.scss, PLANO-FONTES.md) */
 .nome {
   max-width: 17ch;
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 1.05rem;
+  font-family: var(--f-titulo-ficha);
+  font-weight: var(--w-titulo-ficha);
+  font-size: calc(1.05rem * var(--e-titulo-ficha));
+  /* a caneta passa da caixa à direita: a folga para a última letra não perder a ponta no corte */
+  padding-right: var(--caneta-folga);
   line-height: 1.1;
   text-wrap: balance;
   overflow-wrap: anywhere;
@@ -515,7 +518,7 @@ tbody tr.split > * {
   }
 
   .nome {
-    font-size: 0.98rem;
+    font-size: calc(0.98rem * var(--e-titulo-ficha));
   }
 }
 

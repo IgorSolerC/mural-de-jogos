@@ -143,10 +143,11 @@ h1 {
   min-width: 0;
 }
 
+/* o nome da obra: o papel do nome da ficha (styles.scss, PLANO-FONTES.md) */
 .name {
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 1.22rem;
+  font-family: var(--f-titulo-ficha);
+  font-weight: var(--w-titulo-ficha);
+  font-size: calc(1.22rem * var(--e-titulo-ficha));
   line-height: 1.12;
   overflow-wrap: anywhere;
   text-wrap: balance;
@@ -216,9 +217,7 @@ h1 {
   }
 
   .name {
-    font-family: var(--f-marker);
-    font-weight: 400;
-    font-size: 1.55rem;
+    font-size: calc(1.55rem * var(--e-titulo-ficha));
   }
 
   .score {
