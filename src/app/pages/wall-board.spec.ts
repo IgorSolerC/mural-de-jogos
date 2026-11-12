@@ -549,7 +549,7 @@ describe('a seção fechada vira uma pilha', () => {
       for (const b of onScreen.slice(5)) expect(flying(b)).toBeFalse();
       for (const b of boxes(out).filter((x) => !shown(x))) expect(b.getAnimations().length).toBe(0);
       // chegou: fecha, e nada fica para trás nas fichas
-      await new Promise((r) => setTimeout(r, 450));
+      await new Promise((r) => setTimeout(r, 900));
       TestBed.tick();
       expect(out.classList).toContain('fechada');
       expect(out.querySelector('.guardadas')).not.toBeNull();

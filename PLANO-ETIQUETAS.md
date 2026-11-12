@@ -125,6 +125,9 @@ Detalhes que valem para todas:
   encolhendo e se empilhando com o deslocamento das folhas; as outras esmaecem. Ao chegar, a seção fecha, a
   pilha assenta (um leve aperto, como o `assenta` do exemplo) e as seções seguintes deslizam.
 - Só o que está na tela anima (como no `WallMotion`); com "Movimento reduzido", troca direto.
+- **Ajuste de 12/nov**: o dono não viu a animação (no tempo de 380ms ela passava num piscar). Cada ficha leva 560ms,
+  com 60ms entre uma e outra: ao fechar, chegam à pilha em cascata (a seção fecha na metade do caminho da última);
+  ao abrir, saem dela as 10 primeiras.
 - Some o estalo do elástico (`snapping`, `.estalando`, os keyframes do elástico).
 
 ## 6. Por dentro

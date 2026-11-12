@@ -9,12 +9,19 @@ const MARGIN = 240;
 /** O sumiço das fichas antes de trocar o tipo de ficha. */
 const FADE_OUT = 130;
 const WALL = 'app-wall-board [data-ficha]';
-/** Quantas fichas andam até a pilha (e saem dela): a de cima e as quatro folhas de trás. */
+/** Quantas fichas andam até a pilha: a de cima e as quatro folhas de trás. */
 const MOVERS = 5;
-/** O intervalo entre uma ficha e a seguinte saindo da pilha. */
-const STAGGER = 50;
-/** A parte do caminho até a pilha em que a seção já fecha e as de baixo começam a subir. */
-const GATHERED = 0.7;
+/** Quantas fichas saem da pilha ao abrir (as outras aparecem esmaecendo): a seção se distribui de dentro dela. */
+const DEALT = 10;
+/**
+ * O tempo de cada ficha andando até a pilha e saindo dela. Mais longo que o das fichas deslizando (380ms): com o
+ * tempo de uma troca qualquer, a pilha se formava e se desfazia num piscar, e ninguém via as fichas se juntando.
+ */
+const TRIP = 560;
+/** O intervalo entre uma ficha e a seguinte, indo para a pilha e saindo dela. */
+const STAGGER = 60;
+/** A parte do caminho da última ficha em que a seção já fecha e as de baixo começam a subir (a curva física chega quase lá cedo). */
+const GATHERED = 0.5;
 /** Quanto a ficha encolhe no caminho (e o tamanho de onde ela parte, saindo da pilha). */
 const SHRINK = 0.9;
 const HEADS = 'app-wall-board .grupo-head, app-wall-board .showing';
@@ -125,7 +132,7 @@ export class WallMotion {
       change();
       return;
     }
-    const { duration, easing } = timing();
+    const { easing } = timing();
     // primeiro, tudo o que se mede (medir depois de mexer no estilo de uma faria o navegador refazer a parede)
     const gathers = folding.map((id) => ({ id, g: gatherOf(id) }));
     const plans = gathers.flatMap(({ g }) =>
@@ -147,11 +154,13 @@ export class WallMotion {
       // (por cima das outras, e a de cima por cima de todas, como na pilha)
       box.style.zIndex = String(MOVERS + 1 - k);
       box.style.transformOrigin = '50% 12px';
-      anims.push(box.animate([{ transform: 'none' }, { transform: mid, offset: 0.6 }, { transform: end }], { duration, easing, fill: 'forwards' }));
+      // uma depois da outra: a de cima fica, e as seguintes chegam por baixo dela, a mais longe por último
+      anims.push(box.animate([{ transform: 'none' }, { transform: mid, offset: 0.6 }, { transform: end }], { duration: TRIP, delay: k * STAGGER, easing, fill: 'both' }));
     }
     for (const { g } of gathers) {
-      for (const box of g?.fading ?? []) anims.push(box.animate([{ opacity: 1 }, { opacity: 0 }], { duration: duration * 0.6, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' }));
+      for (const box of g?.fading ?? []) anims.push(box.animate([{ opacity: 1 }, { opacity: 0 }], { duration: TRIP * 0.6, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' }));
     }
+    const last = Math.max(0, ...plans.map((p) => p.k));
     let timer: ReturnType<typeof setTimeout> | undefined;
     const apply = () => {
       this.pending = null;
@@ -164,10 +173,10 @@ export class WallMotion {
       apply();
       return;
     }
-    // (o relógio, e não o fim da animação: numa aba escondida, animação nenhuma termina). A troca vem quando as
-    // fichas já estão quase empilhadas (a curva física chega lá cedo): esperar o fim deixava a parede vazia embaixo
+    // (o relógio, e não o fim da animação: numa aba escondida, animação nenhuma termina). A troca vem quando a
+    // última ficha está quase na pilha (a curva física chega lá cedo): esperar o fim deixava a parede vazia embaixo
     // da pilha antes de as seções de baixo começarem a subir
-    timer = setTimeout(apply, Math.round(duration * GATHERED));
+    timer = setTimeout(apply, Math.round(last * STAGGER + TRIP * GATHERED));
     this.pending = apply;
   }
 
@@ -237,13 +246,13 @@ export class WallMotion {
       }
       // as primeiras saem da pilha, uma depois da outra (a de cima, que já estava lá, quase não anda); as
       // outras aparecem esmaecendo. Primeiro o que se mede, depois o que se mexe.
-      const starts = boxes.slice(0, MOVERS).map((box, i) => {
+      const starts = boxes.slice(0, DEALT).map((box, i) => {
         const card = cardIn(box);
         return pileTransform(box.getBoundingClientRect(), from.box, from.tilt - (card ? angleOf(card) : 0), i, i ? SHRINK : 1, from.drop - (card?.offsetTop ?? 0));
       });
       boxes.forEach((box, i) => {
-        if (i >= MOVERS) {
-          box.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 240, delay: MOVERS * STAGGER, easing: 'linear', fill: 'backwards' });
+        if (i >= DEALT) {
+          box.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 240, delay: DEALT * STAGGER, easing: 'linear', fill: 'backwards' });
           return;
         }
         // a que ainda espera o papel (velada, ver veil.ts) sai da pilha quando ele fica pronto, junto com a entrada dela
@@ -256,12 +265,12 @@ export class WallMotion {
 
   /** Uma ficha saindo da pilha (`start`) para o lugar dela, depois de `delay`. */
   private fly(box: HTMLElement, i: number, start: string, delay: number): void {
-    const { duration, easing } = timing();
-    box.style.zIndex = String(MOVERS + 1 - i);
+    const { easing } = timing();
+    box.style.zIndex = String(DEALT + 1 - i);
     box.style.transformOrigin = '50% 12px';
-    const a = box.animate([{ transform: start }, { transform: 'none' }], { duration, delay, easing, fill: 'backwards' });
+    const a = box.animate([{ transform: start }, { transform: 'none' }], { duration: TRIP, delay, easing, fill: 'backwards' });
     // (o relógio também: a animação parada, numa aba escondida, não termina)
-    const timer = setTimeout(() => stop(), delay + duration + 40);
+    const timer = setTimeout(() => stop(), delay + TRIP + 40);
     const stop = () => {
       if (!this.flights.delete(stop)) return;
       clearTimeout(timer);
