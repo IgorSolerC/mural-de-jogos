@@ -177,6 +177,30 @@ describe('WallView', () => {
     expect(view.visible().length).toBe(4);
   });
 
+  it('fecha e abre várias seções de uma vez (o menu da cabeça), e guarda', () => {
+    view.setCollapsed(['2024-03', '2024-01'], true);
+    expect(view.isCollapsed('2024-03')).toBeTrue();
+    expect(view.isCollapsed('2024-01')).toBeTrue();
+    view.setCollapsed(['2024-03'], false);
+    expect(view.isCollapsed('2024-03')).toBeFalse();
+    expect(view.isCollapsed('2024-01')).toBeTrue();
+    // abrir a que já está aberta não muda nada (nem o sinal)
+    const before = view.collapsed();
+    view.setCollapsed(['2024-03'], false);
+    expect(view.collapsed()).toBe(before);
+    TestBed.tick();
+    expect(JSON.parse(localStorage.getItem('mural-de-jogos:vista:v1')!).collapsed).toEqual(['k:jogos::2024-01']);
+  });
+
+  it('as fechadas guardadas não passam de 300: saem as fechadas há mais tempo', () => {
+    view.setCollapsed(Array.from({ length: 300 }, (_, i) => `s${i}`), true);
+    view.setCollapsed(['nova'], true);
+    expect(view.collapsed().size).toBe(300);
+    expect(view.isCollapsed('s0')).toBeFalse();
+    expect(view.isCollapsed('s1')).toBeTrue();
+    expect(view.isCollapsed('nova')).toBeTrue();
+  });
+
   describe('a visualização padrão do grupo (configurações do mural)', () => {
     const note = (id: string, name: string, category: string) => sanitizeReview({ id, kind: 'anotacoes', game: { name }, category, createdAt: '2024-01-01T00:00:00.000Z' })!;
     let settings: Settings;

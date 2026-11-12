@@ -9,7 +9,7 @@ import { Settings } from '../core/settings';
 import { SideBySide } from '../core/side-by-side';
 import { WallMotion } from '../core/wall-motion';
 import { pinningFor } from '../core/wall-physics';
-import { FolderInfo, WallState } from '../core/wall-view';
+import { FolderInfo, WallGroup, WallState } from '../core/wall-view';
 import { NO_FOLDERS, NoteFolder, siblingNamed } from '../core/folders';
 import { type Review, isNote } from '../core/review';
 import { plural } from '../core/text';
@@ -217,6 +217,10 @@ export class WallBoard {
   private readonly folderMenuRef = viewChild<ContextMenu>('menuDaPasta');
   private noteTrigger: NoteMenuTrigger | null = null;
   private folderTrigger: ContextMenuTrigger | null = null;
+  private sectionTrigger: ContextMenuTrigger | null = null;
+  /** O menu do botão direito na cabeça de uma seção ou na pilha: o nome dela no alto e as opções. */
+  protected readonly sectionMenu = signal<{ caption: string; sections: MenuSections }>({ caption: '', sections: [] });
+  private readonly sectionMenuRef = viewChild<ContextMenu>('menuDaSecao');
 
   /** O nome de uma pasta (null: o do grupo). */
   private name(id: string | null): string {
@@ -582,13 +586,38 @@ export class WallBoard {
       menu: this.noteMenu,
       hold: () => !this.dragOn(),
     });
+    // o botão direito (ou o dedo segurado, ou Shift+F10) na cabeça de uma seção ou na pilha dela, em todo mural
+    // (o seu e a visita): fechar esta, fechar as outras, abrir ou fechar todas (PLANO-ETIQUETAS.md, 4)
+    this.sectionTrigger = new ContextMenuTrigger({
+      host: this.el,
+      targets: 'app-section-head[data-secao], .guardadas[data-pilha]',
+      keyOf: (box) => {
+        const g = this.groupById().get(box.dataset['secao'] ?? box.dataset['pilha'] ?? '');
+        // (com uma seção que fecha, sempre há o que fazer: abrir todas ou fechar todas; sem nenhuma, fica o menu
+        // do navegador)
+        return g && this.view.groups().some((x) => this.folding(x)) ? `secao:${this.idOf(g.key)}` : null;
+      },
+      on: () => this.foldable(),
+      hold: true,
+      isOpenFor: (key) => !!this.sectionMenuRef()?.isOpenFor(key),
+      open: (key, _box, x, y, by) => {
+        const id = key.slice('secao:'.length);
+        const g = this.groupById().get(id);
+        if (!g) return;
+        this.sectionMenu.set({ caption: g.label, sections: this.sectionSections(g) });
+        // o foco volta para a cabeça (a pilha não entra no Tab); a de uma ficha é texto: volta para a ficha
+        const head = this.el.querySelector<HTMLElement>(`app-section-head[data-secao="${CSS.escape(id)}"]`);
+        const back = head?.querySelector<HTMLElement>('button.cabeca-secao') ?? head?.closest('.grupo')?.querySelector<HTMLElement>('.hit') ?? null;
+        this.sectionMenuRef()?.show({ key, x, y, back, by });
+      },
+    });
     // o botão direito numa pasta da parede ou no vão dela (no seu Murall, numa aba de grupo): o vão é o das
     // fichas e o da fileira das pastas, em cima delas
     this.folderTrigger = new ContextMenuTrigger({
       host: this.el,
       targets: 'app-folder-card[data-pasta], .pastas, .wall',
-      // (a pilha de uma seção fechada não é vão da parede)
-      ignore: `${WALL_NOTES}, .grupo-etiqueta, .guardadas, input`,
+      // (a cabeça e a pilha de uma seção não são vão da parede: têm o menu delas)
+      ignore: `${WALL_NOTES}, app-section-head, .guardadas, input`,
       keyOf: (box) => {
         if (box.matches('app-folder-card')) return `pasta:${box.dataset['pasta']}`;
         return this.view.folderGroup() !== null ? 'vao' : null;
@@ -649,9 +678,76 @@ export class WallBoard {
     return key.replace(/[^a-zA-Z0-9-]/gu, (c) => `_${c.codePointAt(0)!.toString(16)}_`);
   }
 
-  /** Fecha ou abre uma seção; as de baixo deslizam para o lugar novo. */
-  protected toggleGroup(key: string): void {
+  /** As seções da parede pelo id (o `data-secao` da cabeça e o `data-pilha` da pilha). */
+  private readonly groupById = computed(() => new Map(this.view.groups().map((g) => [this.idOf(g.key), g])));
+
+  /**
+   * A seção fecha: com as etiquetas à mostra e duas fichas ou mais (uma só não tem o que guardar). É a conta do
+   * momento: o filtro que deixa uma ficha mostra a seção aberta, e a chave guardada fica (`isCollapsed` diz só
+   * o que está guardado; o que se vê é `isShut`).
+   */
+  protected folding(g: WallGroup): boolean {
+    return this.foldable() && g.reviews.length > 1;
+  }
+
+  /** A seção está fechada na parede (a pilha, ou só a cabeça na lista). */
+  protected isShut(g: WallGroup): boolean {
+    return this.folding(g) && this.view.isCollapsed(g.key);
+  }
+
+  /** Fecha ou abre uma seção; as de baixo deslizam para o lugar novo. Com Alt, fecha as outras e deixa esta aberta. */
+  protected toggleGroup(key: string, e?: MouseEvent): void {
+    if (e?.altKey) {
+      this.onlyThis(key);
+      return;
+    }
     this.motion.run(() => this.view.toggleCollapsed(key));
+  }
+
+  /** Fecha as outras seções (as que fecham: de duas fichas ou mais) e deixa esta aberta. */
+  private onlyThis(key: string): void {
+    const others = this.view
+      .groups()
+      .filter((g) => g.key !== key && this.folding(g))
+      .map((g) => g.key);
+    this.motion.run(() => {
+      this.view.setCollapsed(others, true);
+      this.view.setCollapsed([key], false);
+    });
+  }
+
+  /**
+   * O menu da cabeça (e da pilha) de uma seção: fechar ou abrir esta, fechar as outras, abrir e fechar todas.
+   * Só entra o que faz sentido agora, contando só as seções que fecham (as de duas fichas ou mais).
+   */
+  private sectionSections(g: WallGroup): MenuSections {
+    const folding = this.view.groups().filter((x) => this.folding(x));
+    const shut = (x: WallGroup) => this.view.isCollapsed(x.key);
+    const here: MenuItem[] = [];
+    if (this.folding(g)) {
+      here.push(
+        shut(g)
+          ? { id: 'abrir-esta', label: 'Abrir esta seção', icon: ICON.abrir, run: () => this.toggleGroup(g.key) }
+          : { id: 'fechar-esta', label: 'Fechar esta seção', icon: ICON.recolher, run: () => this.toggleGroup(g.key) },
+      );
+    }
+    if (folding.some((x) => x.key !== g.key && !shut(x))) {
+      here.push({ id: 'so-esta', label: 'Fechar as outras', icon: ICON.soEsta, keys: 'Alt+clique', hint: 'Alt + clique na cabeça da seção faz o mesmo', run: () => this.onlyThis(g.key) });
+    }
+    const all: MenuItem[] = [];
+    if (folding.some(shut)) all.push({ id: 'abrir-todas', label: 'Abrir todas', icon: ICON.abrirTodas, run: () => this.allSections(false) });
+    if (folding.some((x) => !shut(x))) all.push({ id: 'fechar-todas', label: 'Fechar todas', icon: ICON.fecharTodas, run: () => this.allSections(true) });
+    return [here, all];
+  }
+
+  /**
+   * Abre ou fecha todas as seções da parede, como estão na hora do toque (o menu pode ter ficado aberto enquanto
+   * a parede mudou). Abrir todas abre também a de uma ficha guardada como fechada (a chave sai).
+   */
+  private allSections(closed: boolean): void {
+    const groups = this.view.groups();
+    const keys = (closed ? groups.filter((x) => this.folding(x)) : groups).map((x) => x.key);
+    this.motion.run(() => this.view.setCollapsed(keys, closed));
   }
 
   /**
@@ -663,8 +759,8 @@ export class WallBoard {
   protected readonly piles = computed(() => {
     const out = new Map<string, Pile>();
     for (const g of this.view.groups()) {
-      // só as fechadas têm pilha
-      if (!this.foldable() || !this.view.isCollapsed(g.key)) continue;
+      // só as fechadas têm pilha (a de uma ficha só nunca fecha)
+      if (!this.isShut(g)) continue;
       const [first, ...rest] = g.reviews;
       if (!first) continue;
       const pin = pinningFor(first.id, first.stock);

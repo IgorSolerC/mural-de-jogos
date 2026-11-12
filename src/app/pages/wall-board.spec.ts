@@ -1,12 +1,26 @@
-import { provideZonelessChangeDetection } from '@angular/core';
+import { Component, provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { provideLocationMocks } from '@angular/common/testing';
+import { provideRouter } from '@angular/router';
+import { Colleague, ColleagueStore } from '../core/colleague-store';
 import { Mural } from '../core/mural';
-import { Kind, sanitizeReview } from '../core/review';
+import { Kind, Review, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
-import { Density, WallView } from '../core/wall-view';
+import { VisitView } from '../core/visit-view';
+import { Density, VISIT_KEY, WallState, WallView } from '../core/wall-view';
 import { WallAccess, WallBoard } from './wall-board';
 
 const ACCESS: WallAccess = { landingId: null, picking: false, picked: new Map(), masked: false, secret: new Set(), reactCode: null, checkable: true, looks: {} };
+
+/** A parede montada como na visita: a mesma peça sobre a vista de quem se visita. */
+@Component({
+  imports: [WallBoard],
+  providers: [VisitView, { provide: WallState, useExisting: VisitView }],
+  template: `<app-wall-board [access]="access" />`,
+})
+class VisitWall {
+  readonly access = ACCESS;
+}
 
 const SCORES: Record<string, Record<string, number>> = {
   jogos: { diversao: 8, historia: 8, jogabilidade: 8, visual: 8 },
@@ -273,7 +287,7 @@ describe('a seção fechada vira uma pilha', () => {
       updatedAt: `${day}T10:00:00.000Z`,
     })!;
 
-  /** Outubro com seis jogos e Novembro com um; `closed` são as chaves fechadas guardadas. */
+  /** Outubro com seis jogos, Novembro com um e Setembro com dois; `closed` são as chaves fechadas guardadas. */
   async function wall(density: Density, closed: string[]): Promise<HTMLElement> {
     localStorage.clear();
     localStorage.setItem('mural-de-jogos:vista:v1', JSON.stringify({ sort: 'data', direction: 'desc', density, collapsed: closed }));
@@ -282,6 +296,8 @@ describe('a seção fechada vira uma pilha', () => {
     store.add(game('rpil0001', '2026-11-02', 'azul'));
     const stocks = ['rosa', 'verde', 'laranja', 'lilas', 'amarelo', 'cinza'];
     stocks.forEach((s, i) => store.add(game(`rpil001${i}`, `2026-10-${String(20 - i).padStart(2, '0')}`, s)));
+    store.add(game('rpil0020', '2026-09-12', 'azul'));
+    store.add(game('rpil0021', '2026-09-10', 'verde'));
     TestBed.inject(Mural).kind.set('jogos');
     const fixture = TestBed.createComponent(WallBoard);
     fixture.componentRef.setInput('access', ACCESS);
@@ -334,7 +350,9 @@ describe('a seção fechada vira uma pilha', () => {
     const el = await wall('simples', []);
     const out = section(el, 'Outubro de 2026');
     const button = out.querySelector<HTMLElement>('.cabeca-secao')!;
-    const top = button.getBoundingClientRect().top;
+    // (medido a partir da parede: o foco pode rolar a página da suíte)
+    const at = () => button.getBoundingClientRect().top - el.getBoundingClientRect().top;
+    const top = at();
     button.focus();
     button.click();
     TestBed.tick();
@@ -342,8 +360,140 @@ describe('a seção fechada vira uma pilha', () => {
     expect(out.querySelector('.guardadas')).not.toBeNull();
     // o mesmo botão, no mesmo lugar, com o foco
     expect(out.querySelector('.cabeca-secao')).toBe(button);
-    expect(button.getBoundingClientRect().top).toBe(top);
+    expect(at()).toBe(top);
     expect(document.activeElement).toBe(button);
+  });
+
+  it('a seção de uma ficha nunca fecha: sem seta, e a chave guardada fica', async () => {
+    const el = await wall('completa', ['k:jogos::2026-11']);
+    const nov = section(el, 'Novembro de 2026');
+    expect(nov.classList).not.toContain('fechada');
+    expect(nov.querySelector('.guardadas')).toBeNull();
+    expect(nov.querySelector('.fichas')).not.toBeNull();
+    // a cabeça é texto: nem botão, nem seta
+    expect(nov.querySelector('button.cabeca-secao')).toBeNull();
+    expect(nov.querySelector('span.cabeca-secao')).not.toBeNull();
+    expect(nov.querySelector('.seta')).toBeNull();
+    expect(TestBed.inject(WallView).collapsed().has('k:jogos::2026-11')).toBeTrue();
+  });
+
+  it('Alt + clique na cabeça fecha as outras e deixa esta aberta', async () => {
+    const el = await wall('simples', ['k:jogos::2026-09']);
+    const head = (label: string) => section(el, label).querySelector<HTMLElement>('button.cabeca-secao')!;
+    head('Setembro de 2026').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, altKey: true }));
+    TestBed.tick();
+    expect(section(el, 'Setembro de 2026').classList).not.toContain('fechada');
+    expect(section(el, 'Outubro de 2026').classList).toContain('fechada');
+    // a de uma ficha não fecha
+    expect(section(el, 'Novembro de 2026').classList).not.toContain('fechada');
+    // de novo, nada muda: esta continua aberta
+    head('Setembro de 2026').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, altKey: true }));
+    TestBed.tick();
+    expect(section(el, 'Setembro de 2026').classList).not.toContain('fechada');
+    expect(section(el, 'Outubro de 2026').classList).toContain('fechada');
+  });
+
+  describe('o menu do botão direito', () => {
+    const openMenu = (el: HTMLElement) => Array.from(el.querySelectorAll<HTMLElement>('.menu-contexto')).find((m) => m.matches(':popover-open'));
+
+    /** O botão direito em `target`: as opções do menu que abriu (vazio: ficou o do navegador). */
+    async function rightClick(el: HTMLElement, target: HTMLElement): Promise<string[]> {
+      const r = target.getBoundingClientRect();
+      const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: r.left + 5, clientY: r.top + 5 });
+      target.dispatchEvent(e);
+      await new Promise((ok) => setTimeout(ok, 0));
+      TestBed.tick();
+      const menu = openMenu(el);
+      if (!e.defaultPrevented || !menu) return [];
+      return Array.from(menu.querySelectorAll('.escolha .nome')).map((x) => x.textContent!.trim());
+    }
+
+    const choose = (el: HTMLElement, label: string) => {
+      Array.from(openMenu(el)!.querySelectorAll<HTMLElement>('.escolha')).find((b) => b.querySelector('.nome')!.textContent!.trim() === label)!.click();
+      TestBed.tick();
+    };
+
+    it('na cabeça: só o que faz sentido, com o nome da seção no alto', async () => {
+      const el = await wall('completa', []);
+      const head = (label: string) => section(el, label).querySelector<HTMLElement>('.cabeca-secao')!;
+      expect(await rightClick(el, head('Outubro de 2026'))).toEqual(['Fechar esta seção', 'Fechar as outras', 'Fechar todas']);
+      expect(openMenu(el)!.querySelector('.legenda')!.textContent).toContain('Outubro de 2026');
+      // o atalho do Fechar as outras: Alt + clique
+      expect(openMenu(el)!.querySelector('[data-k="so-esta"] .atalho')!.textContent).toBe('Alt+clique');
+      choose(el, 'Fechar todas');
+      expect(section(el, 'Outubro de 2026').classList).toContain('fechada');
+      expect(section(el, 'Setembro de 2026').classList).toContain('fechada');
+      // a de uma ficha não fecha, mas o menu dela fala das outras
+      expect(await rightClick(el, head('Novembro de 2026'))).toEqual(['Abrir todas']);
+      choose(el, 'Abrir todas');
+      expect(section(el, 'Outubro de 2026').classList).not.toContain('fechada');
+      expect(section(el, 'Setembro de 2026').classList).not.toContain('fechada');
+      expect(await rightClick(el, head('Novembro de 2026'))).toEqual(['Fechar as outras', 'Fechar todas']);
+    });
+
+    it('na pilha: abrir esta, e fechar as outras deixa esta aberta', async () => {
+      const el = await wall('completa', ['k:jogos::2026-10']);
+      const pile = section(el, 'Outubro de 2026').querySelector<HTMLElement>('.guardadas')!;
+      expect(await rightClick(el, pile)).toEqual(['Abrir esta seção', 'Fechar as outras', 'Abrir todas', 'Fechar todas']);
+      choose(el, 'Fechar as outras');
+      expect(section(el, 'Outubro de 2026').classList).not.toContain('fechada');
+      expect(section(el, 'Setembro de 2026').classList).toContain('fechada');
+    });
+
+    it('na visita: o mesmo menu e o mesmo Alt + clique, sem guardar nada', async () => {
+      localStorage.clear();
+      const reviews: Review[] = [
+        game('rvis0001', '2026-11-02', 'azul'),
+        game('rvis0010', '2026-10-12', 'rosa'),
+        game('rvis0011', '2026-10-10', 'verde'),
+        game('rvis0020', '2026-09-12', 'lilas'),
+        game('rvis0021', '2026-09-10', 'amarelo'),
+      ];
+      const marina = { id: 'Marina', name: 'Marina', fileName: '', loadedAt: '2026-11-01T00:00:00Z', reviews, exportedAt: null, skipped: 0, ownerName: null } as unknown as Colleague;
+      TestBed.configureTestingModule({
+        providers: [provideZonelessChangeDetection(), provideRouter([]), provideLocationMocks(), { provide: ColleagueStore, useValue: { selected: signal<Colleague | null>(marina) } }],
+      });
+      TestBed.inject(Mural).kind.set('jogos');
+      const fixture = TestBed.createComponent(VisitWall);
+      const el = fixture.nativeElement as HTMLElement;
+      document.body.appendChild(el);
+      await fixture.whenStable();
+      const visit = fixture.debugElement.injector.get(VisitView);
+      visit.setSort('data');
+      await fixture.whenStable();
+      const head = (label: string) => section(el, label).querySelector<HTMLElement>('.cabeca-secao')!;
+      // a de uma ficha não fecha, como no seu mural
+      expect(section(el, 'Novembro de 2026').querySelector('button.cabeca-secao')).toBeNull();
+      expect(await rightClick(el, head('Outubro de 2026'))).toEqual(['Fechar esta seção', 'Fechar as outras', 'Fechar todas']);
+      choose(el, 'Fechar todas');
+      expect(section(el, 'Outubro de 2026').classList).toContain('fechada');
+      expect(section(el, 'Setembro de 2026').classList).toContain('fechada');
+      head('Setembro de 2026').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, altKey: true }));
+      TestBed.tick();
+      expect(section(el, 'Setembro de 2026').classList).not.toContain('fechada');
+      expect(section(el, 'Outubro de 2026').classList).toContain('fechada');
+      // o seu mural não mudou, e nada ficou guardado
+      expect(TestBed.inject(WallView).collapsed().size).toBe(0);
+      TestBed.tick();
+      expect(JSON.parse(localStorage.getItem(VISIT_KEY) ?? '{}').collapsed).toBeUndefined();
+      el.remove();
+    });
+
+    it('sem nada que fazer, fica o menu do navegador', async () => {
+      localStorage.clear();
+      localStorage.setItem('mural-de-jogos:vista:v1', JSON.stringify({ sort: 'data', direction: 'desc', density: 'completa' }));
+      TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+      const store = TestBed.inject(ReviewStore);
+      store.add(game('rpil0030', '2026-11-02', 'azul'));
+      store.add(game('rpil0031', '2026-10-02', 'rosa'));
+      TestBed.inject(Mural).kind.set('jogos');
+      const fixture = TestBed.createComponent(WallBoard);
+      fixture.componentRef.setInput('access', ACCESS);
+      document.body.appendChild(fixture.nativeElement);
+      await fixture.whenStable();
+      const el = fixture.nativeElement as HTMLElement;
+      expect(await rightClick(el, section(el, 'Novembro de 2026').querySelector<HTMLElement>('.cabeca-secao')!)).toEqual([]);
+    });
   });
 
   it('na lista, a fechada fica só a cabeça', async () => {

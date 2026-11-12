@@ -22,7 +22,6 @@ const FORA_DO_PADRAO = [
   ['src/app/ui/cover-picker.ts', '.foto', 'a capa escolhida no seletor de capas clareia'],
   ['src/app/ui/rich-text.ts', '.cartao-seta', 'a seta do card recolhível, dentro do texto'],
   ['src/app/ui/flashcard-preview.scss', 'lucide-icon', 'o desenho do próprio botão clareia'],
-  ['src/app/pages/wall-board.scss', '.dobra', 'a dobra de abrir o grupo: faz parte da pasta'],
 ];
 
 function files(dir) {

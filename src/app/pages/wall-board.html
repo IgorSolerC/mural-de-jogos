@@ -124,8 +124,11 @@
     @for (g of view.groups(); track g.key) {
       <!-- a cabeça da seção (ui/section-head.ts) fecha e abre a seção e não sai do lugar: fechada, as
            fichas viram a pilha, do tamanho de uma ficha (na lista, fica só a cabeça); sem etiquetas, nada
-           fecha (PLANO-ETIQUETAS.md) -->
-      @let shut = foldable() && view.isCollapsed(g.key);
+           fecha, e a seção de uma ficha só também não (guardada como fechada, aparece aberta e a chave
+           fica, para valer de novo quando ela tiver duas). Alt + clique fecha as outras; o botão direito
+           na cabeça ou na pilha abre o menu da seção (PLANO-ETIQUETAS.md) -->
+      @let folds = folding(g);
+      @let shut = isShut(g);
       <section class="grupo" [class.fechada]="shut" [attr.aria-labelledby]="'grupo-' + idOf(g.key)">
         <app-section-head
           class="grupo-head"
@@ -136,10 +139,10 @@
           [count]="g.reviews.length"
           [detail]="g.detail"
           [summary]="g.summary"
-          [foldable]="foldable()"
+          [foldable]="folds"
           [open]="!shut"
           [controls]="'fichas-' + idOf(g.key)"
-          (toggle)="toggleGroup(g.key)"
+          (toggle)="toggleGroup(g.key, $event)"
         />
         @if (shut) {
           @if (!lista()) {
@@ -148,7 +151,7 @@
                  beirada da cor. A ficha de cima não se usa (inert): a pilha inteira é o atalho do mouse para abrir
                  (o botão da cabeça é quem abre para o teclado e o leitor de tela) -->
             @let p = piles().get(g.key)!;
-            <div class="guardadas" aria-hidden="true" [attr.data-pilha]="idOf(g.key)" [style.--pilha-drop]="p.drop" [style.--pilha-giro]="p.tilt" [style.--pilha-eixo]="p.pin" (click)="toggleGroup(g.key)">
+            <div class="guardadas" aria-hidden="true" [attr.data-pilha]="idOf(g.key)" [style.--pilha-drop]="p.drop" [style.--pilha-giro]="p.tilt" [style.--pilha-eixo]="p.pin" (click)="toggleGroup(g.key, $event)">
               @for (s of p.back; track $index) {
                 <span class="folha cartolina" [attr.data-cor]="s.stock" [style.--stock]="'var(--stock-' + s.stock + ')'" [style.--k]="s.depth"></span>
               }
@@ -172,6 +175,9 @@
 
 <!-- trocou de pasta: onde se está, para o leitor de tela -->
 <p class="sr-only" aria-live="polite">{{ folderSaid() }}</p>
+
+<!-- o menu do botão direito na cabeça de uma seção ou na pilha dela (em todo mural, o seu e a visita) -->
+<app-context-menu #menuDaSecao [caption]="sectionMenu().caption" [sections]="sectionMenu().sections" />
 
 <!-- o menu do botão direito numa pasta da parede ou no vão dela (no seu Murall) -->
 <app-context-menu #menuDaPasta [caption]="folderMenu().caption" [sections]="folderMenu().sections" />

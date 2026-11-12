@@ -60,6 +60,18 @@ describe('VisitView', () => {
     expect(JSON.parse(localStorage.getItem(VISIT_KEY)!).noteViews['']).toEqual({ sort: 'alfabetica', direction: 'asc', density: 'lista' });
   });
 
+  it('fecha e abre várias seções de uma vez (o menu da cabeça), sem guardar', () => {
+    const visit = TestBed.inject(VisitView);
+    visit.setCollapsed(['comuns', 'outra'], true);
+    expect(visit.isCollapsed('comuns')).toBeTrue();
+    expect(visit.isCollapsed('outra')).toBeTrue();
+    visit.setCollapsed(['comuns'], false);
+    expect(visit.isCollapsed('comuns')).toBeFalse();
+    TestBed.tick();
+    expect(JSON.parse(localStorage.getItem(VISIT_KEY) ?? '{}').collapsed).toBeUndefined();
+    expect(TestBed.inject(WallView).isCollapsed('outra')).toBeFalse();
+  });
+
   it('a aba, a busca e as seções fechadas não ficam guardadas', () => {
     const visit = TestBed.inject(VisitView);
     visit.setNoteTab(visit.noteTabs()!.tabs[1].key);

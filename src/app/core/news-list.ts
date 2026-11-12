@@ -27,6 +27,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-12-menu-das-secoes',
+    version: '1.45.2',
+    kind: 'ajustes',
+    date: '2026-11-12',
+    title: 'O menu das seções do mural',
+    melhorias: [
+      'O botão direito na cabeça de uma seção do mural (ou na pilha dela) abre um menu para fechar ou abrir aquela, fechar as outras, abrir todas e fechar todas; Alt + clique na cabeça fecha as outras e deixa aquela aberta. Também no mural de quem você visita.',
+      'A seção de uma ficha só não fecha mais: a cabeça dela é só o nome, e a que estava fechada aparece aberta (volta a fechar quando tiver duas de novo).',
+    ],
+  },
+  {
     id: '2026-11-11-secoes-em-pilha',
     version: '1.45.1',
     kind: 'ajustes',

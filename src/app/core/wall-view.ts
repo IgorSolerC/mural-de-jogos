@@ -589,7 +589,7 @@ export abstract class WallState {
     return k === ALL_TAB || noteTabKey(r) === k;
   }
   /**
-   * As seções fechadas (o maço preso com elástico), cada uma com a chave da seção (ver `groupWall`):
+   * As seções fechadas (a pilha, PLANO-ETIQUETAS.md), cada uma com a chave da seção (ver `groupWall`):
    * nas anotações, por aba ("aba::seção"), e a Fixadas fechada continua fechada em qualquer ordem;
    * nos outros murais, por mural ("k:jogos::2026-09"; nas músicas, por mural e por aba). Fica
    * guardado, como a aba.
@@ -610,12 +610,33 @@ export abstract class WallState {
 
   /** Fecha ou abre uma seção do mural aberto (nas anotações, da aba aberta). */
   toggleCollapsed(groupKey: string): void {
-    const k = this.collapseKey(groupKey);
-    this.collapsed.update((set) => {
-      const next = new Set(set);
-      if (!next.delete(k)) next.add(k);
-      return next;
-    });
+    this.setCollapsed([groupKey], !this.isCollapsed(groupKey));
+  }
+
+  /**
+   * Fecha (ou abre) de uma vez as seções do mural aberto (o menu da cabeça: fechar as outras, abrir ou fechar
+   * todas). A que fecha agora vai para o fim da fila: passando de `MAX_COLLAPSED`, saem as fechadas há mais tempo.
+   */
+  setCollapsed(groupKeys: readonly string[], closed: boolean): void {
+    const ks = groupKeys.map((g) => this.collapseKey(g));
+    const set = this.collapsed();
+    if (ks.every((k) => set.has(k) === closed)) return;
+    const next = new Set(set);
+    for (const k of ks) {
+      next.delete(k);
+      if (closed) next.add(k);
+    }
+    // (as desta vez ficam: saem primeiro as de antes; só um lote maior que o teto perde o começo dele)
+    const now = new Set(ks);
+    for (const k of next) {
+      if (next.size <= MAX_COLLAPSED) break;
+      if (!now.has(k)) next.delete(k);
+    }
+    for (const k of next) {
+      if (next.size <= MAX_COLLAPSED) break;
+      next.delete(k);
+    }
+    this.collapsed.set(next);
   }
 
   /** O mural da aba aberta (nos de resenhas e em "Tudo", o mural inteiro), finalizadas também. */
