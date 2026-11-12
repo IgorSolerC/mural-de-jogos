@@ -60,6 +60,19 @@ export function removalOf(entry: { papel: SharedRole; membros: readonly unknown[
   return { label, leaves };
 }
 
+/**
+ * A pergunta de apagar uma compartilhada para todos: `others`, os nomes de quem mais está nela (numa de grupo,
+ * as pessoas do grupo, não só as dela); `group`, o nome do grupo compartilhado dela.
+ */
+export function deleteAsk(name: string, others: readonly string[], group: string | null): { title?: string; text: string; confirm: string } {
+  const text = group
+    ? `“${name}” sai do grupo ${group} para todos que estão nele. Não dá para desfazer.`
+    : others.length
+      ? `“${name}” sai do seu mural e do mural de ${others.length === 1 ? others[0] : `todas as ${others.length} pessoas`} com quem você compartilhou. Não dá para desfazer.`
+      : `“${name}” sai do mural, com o texto. Não dá para desfazer.`;
+  return others.length ? { title: 'Apagar para todos?', text, confirm: 'Apagar para todos' } : { text, confirm: 'Apagar anotação' };
+}
+
 export interface SharedPerson {
   /** `K7QF-M2XA`. */
   codigo: string;

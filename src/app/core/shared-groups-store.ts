@@ -270,7 +270,9 @@ export class SharedGroupsStore {
     } catch (err) {
       if (!(err instanceof CloudError && err.status === 404)) throw err;
     }
+    this.bases.delete(id);
     this.drop(id);
+    this.persist();
     await this.shared.sync();
   }
 
@@ -291,6 +293,7 @@ export class SharedGroupsStore {
     await this.account.request(`/v1/grupos/${encodeURIComponent(id)}`, { method: 'DELETE' });
     this.bases.delete(id);
     this.drop(id);
+    this.persist();
     await this.shared.sync();
     // o quadro do Kanban do grupo, como ficou: quem chamou o guarda como o quadro só seu
     return board;
@@ -369,6 +372,7 @@ export class SharedGroupsStore {
       if (err.status === 403) {
         // virou leitor: a mexida daqui não sobe mais; vale o da nuvem na próxima conferida
         this.bases.delete(id);
+        this.persist();
         this.schedule(0);
         return true;
       }
@@ -444,6 +448,7 @@ export class SharedGroupsStore {
   /** As anotações suas que estão num grupo compartilhado (pelo nome) e ainda não foram para ele na nuvem. */
   private pending(): { note: { id: string }; grupo: string }[] {
     const out: { note: { id: string }; grupo: string }[] = [];
+    if (![...this.entries().values()].some((g) => canWrite(g.papel))) return out;
     for (const n of this.store.notes()) {
       if (!isNote(n) || !n.category) continue;
       const g = this.ofCategory(n.category);

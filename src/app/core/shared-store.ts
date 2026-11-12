@@ -623,7 +623,7 @@ export class SharedStore implements SharedSink {
 
   /** Baixa a lista e as anotações que mudaram. */
   private async pull(): Promise<void> {
-    const res = await this.account.request<{ notas?: unknown }>('/v1/eu/notas');
+    const res = await this.account.request<{ notas?: unknown; cortada?: unknown }>('/v1/eu/notas');
     // uma resposta sem a lista (a página de um wi-fi de hotel, com 200) não diz que elas saíram: tirar
     // todas daqui levaria junto o lugar delas, e elas voltariam no grupo de antes
     if (!Array.isArray(res?.notas)) throw new CloudError('A nuvem respondeu de um jeito estranho. Tente de novo.', 'resposta-invalida', 0);
@@ -632,8 +632,9 @@ export class SharedStore implements SharedSink {
       const r = item as Record<string, unknown> | null;
       if (typeof r?.['id'] === 'string' && Number.isSafeInteger(r['versao'])) index.set(r['id'], r['versao'] as number);
     }
-    // as que saíram: a pessoa saiu (ou foi tirada), ou o dono apagou
-    for (const e of [...this.entries().values()]) if (!index.has(e.id)) this.drop(e.id, true);
+    // as que saíram: a pessoa saiu (ou foi tirada), ou o dono apagou (a lista cortada no teto da nuvem não diz
+    // isso: as que ficaram de fora continuam, com o que já se tinha)
+    if (res.cortada !== true) for (const e of [...this.entries().values()]) if (!index.has(e.id)) this.drop(e.id, true);
     const stale = [...index].filter(([id, v]) => this.entries().get(id)?.versao !== v).map(([id]) => id);
     const before = new Set(this.entries().keys());
     for (let i = 0; i < stale.length; i += DETAILS_PAGE) {

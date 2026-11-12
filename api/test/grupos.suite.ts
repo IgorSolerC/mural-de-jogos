@@ -186,6 +186,9 @@ export function gruposSuite(label: string, getDb: () => Db) {
       const del = (token: string, id: string) => t.res(t.json('DELETE', `/v1/notas/${id}`, undefined, token));
       expect((await del(t.cris.token, 'n-bia01')).body.erro).toBe('so-quem-escreveu');
       expect((await del(t.davi.token, 'n-cris1')).status).toBe(403);
+      // gestor só da anotação, leitor no grupo: apagar para o grupo inteiro vale pelo papel no grupo
+      await t.res(t.json('PUT', '/v1/notas/n-ana01/membros/' + t.davi.codigo, { papel: 'gestor' }, t.ana.token));
+      expect((await del(t.davi.token, 'n-ana01')).body.erro).toBe('so-quem-escreveu');
       expect((await del(t.cris.token, 'n-cris1')).status).toBe(200);
       expect((await del(t.bia.token, 'n-ana01')).status).toBe(200);
       expect((await del(t.ana.token, 'n-bia01')).status).toBe(200);
@@ -310,6 +313,8 @@ export function gruposSuite(label: string, getDb: () => Db) {
       expect((await t.putBoard(t.cris.token, Q, 1)).status).toBe(200);
       expect((await t.putBoard(t.davi.token, Q, 2)).body.erro).toBe('so-leitura');
       expect((await t.db.first<{ usuario_id: string }>('SELECT usuario_id FROM quadros WHERE id = ?', [Q]))!.usuario_id).toBe(t.ana.id);
+      // as pessoas do quadro de um grupo são as do grupo: não se chama ninguém só para ele
+      expect((await t.res(t.json('PUT', `/v1/eu/quadros/${Q}/membros/${t.davi.codigo}`, { papel: 'editor' }, t.ana.token))).body.erro).toBe('quadro-do-grupo');
       // quem não está no grupo nem sabe que ele existe
       const eva = await t.login('eva', 'Eva');
       expect((await t.res(t.json('GET', `/v1/eu/quadros/${Q}`, undefined, eva.token))).status).toBe(404);

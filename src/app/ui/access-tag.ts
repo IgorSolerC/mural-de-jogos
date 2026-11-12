@@ -24,6 +24,9 @@ import { PersonPhoto } from './person-photo';
           }
         </span>
         <span class="texto" aria-hidden="true">{{ v.short }}</span>
+        @if (v.tiny) {
+          <span class="texto-curto" aria-hidden="true">{{ v.tiny }}</span>
+        }
       </button>
     }
   `,
@@ -86,9 +89,22 @@ import { PersonPhoto } from './person-photo';
       white-space: nowrap;
       text-overflow: ellipsis;
     }
+    .texto-curto {
+      display: none;
+    }
     @media (max-width: 560px) {
       .texto {
         display: none;
+      }
+      /* no celular, só os rostos: o público (e o grupo sem ninguém) ainda dizem o que são */
+      .texto-curto {
+        display: inline;
+        font-family: var(--f-label);
+        font-weight: 800;
+        font-size: 0.78rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        white-space: nowrap;
       }
       .etiqueta {
         padding-right: 6px;
@@ -110,6 +126,8 @@ export class AccessTag {
     const me = this.account.account()?.codigo ?? null;
     const s = accessSummary({ me: g.papel, meCode: me, ownerName: g.dono.nome, members: g.membros, public: g.publico });
     const people = [g.dono, ...g.membros].filter((p) => p.codigo !== me);
-    return { ...s, faces: people.slice(0, 3) };
+    // o que fica escrito no celular, onde a etiqueta mostra só os rostos
+    const tiny = g.publico ? 'Público' : people.length ? null : s.short;
+    return { ...s, faces: people.slice(0, 3), tiny };
   });
 }

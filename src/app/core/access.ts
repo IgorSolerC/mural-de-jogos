@@ -46,7 +46,7 @@ export function namesOf(names: readonly string[], max = 3): string {
 }
 
 const CAN: Record<MemberRole, string> = { gestor: 'pode editar e chamar gente', editor: 'pode editar', leitor: 'só lê' };
-const CAN_SHORT: Record<MemberRole, string> = { gestor: 'você gere', editor: 'você edita', leitor: 'você só lê' };
+const CAN_SHORT: Record<MemberRole, string> = { gestor: 'você gerencia', editor: 'você edita', leitor: 'você só lê' };
 
 const writes = (p: AccessPerson) => p.papel !== 'leitor';
 
@@ -74,8 +74,12 @@ export function accessSummary(s: AccessState): AccessSummary {
     return { line: `${who} veem. ${edit} Ninguém mais vê.`, short: `Com ${namesOf(names, 2)}` };
   }
   const mine = s.me;
-  const others = s.members.filter((m) => m.codigo !== s.meCode).map((m) => m.nome);
-  const also = others.length ? ` Também ${others.length > 1 ? 'estão' : 'está'}: ${namesOf(others)}.` : '';
+  const people = s.members.filter((m) => m.codigo !== s.meCode);
+  const others = people.map((m) => m.nome);
+  // quem mais edita (o dono, sempre): a mesma pergunta que a frase do dono responde
+  const writers = people.filter(writes).map((m) => m.nome);
+  const edit = writers.length ? ` ${namesOf(writers)} ${writers.length > 1 ? 'editam' : 'edita'}.` : '';
+  const also = others.length ? ` Também ${others.length > 1 ? 'estão' : 'está'}: ${namesOf(others)}.${edit}` : '';
   const more = s.public ? ' Qualquer pessoa pode ler.' : ' Ninguém mais vê.';
   return {
     line: `É de ${s.ownerName}. Você ${CAN[mine]}.${also}${more}`,

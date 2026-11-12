@@ -37,6 +37,7 @@ import { PAGE_BACKGROUNDS, PageBackground } from './core/profile';
 import { ColleagueStore, wallOf } from './core/colleague-store';
 import { ProfileStore } from './core/profile-store';
 import { SharedStore } from './core/shared-store';
+import { deleteAsk } from './core/shared-notes';
 import { SharedGroupsStore } from './core/shared-groups-store';
 import { SyncConflicts, splitTarget } from './core/sync-conflicts';
 import { KanbanStore } from './core/kanban-store';
@@ -458,16 +459,11 @@ export class App {
     const name = e.view.game.name;
     // a de um grupo compartilhado apaga para todos do grupo (quem não pode, a nuvem diz por quê)
     const mine = e.papel === 'dono' || !!e.grupo;
-    const others = e.grupo ? Math.max(1, e.membros.length) : e.membros.length;
+    const others = e.grupo ? this.groupPeople(e.grupo) : e.membros.map((m) => m.nome);
+    const groupName = e.grupo ? (this.sharedGroups.names().get(e.grupo) ?? null) : null;
     const sure = await this.confirm.ask(
       mine
-        ? {
-            title: others ? 'Apagar para todos?' : undefined,
-            text: others
-              ? `“${name}” sai do seu mural e do mural de ${others === 1 ? e.membros[0].nome : `todas as ${others} pessoas`} com quem você compartilhou. Não dá para desfazer.`
-              : `“${name}” sai do mural, com o texto. Não dá para desfazer.`,
-            confirm: others ? 'Apagar para todos' : 'Apagar anotação',
-          }
+        ? deleteAsk(name, others, groupName)
         : {
             title: 'Sair desta anotação?',
             text: `“${name}” sai do seu mural. Ela continua com ${e.dono.nome} e com quem mais está nela; para voltar, alguém precisa chamar você de novo.`,
@@ -484,7 +480,14 @@ export class App {
     }
     this.reader().close();
     this.editor().forget(id);
-    this.toasts.show(mine ? `“${name}” foi apagada${others ? ' para todos' : ''}` : `Você saiu de “${name}”`);
+    this.toasts.show(mine ? `“${name}” foi apagada${others.length ? ' para todos' : ''}` : `Você saiu de “${name}”`);
+  }
+
+  /** Os nomes de quem está no grupo compartilhado além de você (o dono e as pessoas dele). */
+  private groupPeople(groupId: string): string[] {
+    const g = this.sharedGroups.get(groupId);
+    const me = this.account.account()?.codigo ?? '';
+    return g ? [g.dono, ...g.membros].filter((p) => p.codigo !== me).map((p) => p.nome) : [];
   }
 
   protected onSaved(e: SavedEvent): void {

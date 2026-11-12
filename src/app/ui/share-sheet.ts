@@ -59,6 +59,14 @@ export class ShareSheet {
   protected readonly manages = computed(() => canManage(this.myRole()));
   protected readonly signedIn = computed(() => this.account.signedIn() && !!this.cloud.config());
   private readonly me = computed(() => this.account.account()?.codigo ?? '');
+  /**
+   * Dá para sair só desta anotação: a solta, ou a do grupo em que você foi chamado nela mesma. Quem está só pelo
+   * grupo não sai de uma anotação dele (ela voltaria pelo grupo): sai do grupo, pela engrenagem do mural.
+   */
+  protected readonly canLeave = computed(() => {
+    const e = this.entry();
+    return !!e && (!e.grupo || e.membros.some((m) => m.codigo === this.me()));
+  });
   /** O pedido em andamento ('sair'), para o botão esperar. */
   protected readonly busy = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);

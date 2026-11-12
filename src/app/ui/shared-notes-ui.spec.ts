@@ -14,7 +14,7 @@ import { NoticeList } from './notice-list';
 import { ShareSheet } from './share-sheet';
 import { SharedGroupsStore } from '../core/shared-groups-store';
 import { parseGroup } from '../core/shared-groups';
-import { removalOf } from '../core/shared-notes';
+import { deleteAsk, removalOf } from '../core/shared-notes';
 
 /**
  * As telas das anotações compartilhadas: o aviso em Amigos ("Ana compartilhou uma nota com você"), a
@@ -293,7 +293,7 @@ describe('anotações compartilhadas: a folha Compartilhar', () => {
     TestBed.resetTestingModule();
     f = render('leitor', CRIS);
     await settle(f);
-    expect(resumo(f)).toBe('É de Ana. Você só lê. Também está: Bia. Ninguém mais vê.');
+    expect(resumo(f)).toBe('É de Ana. Você só lê. Também está: Bia. Bia edita. Ninguém mais vê.');
   });
 
   it('a de um grupo compartilhado: a frase conta quem está pelo grupo, que aparece na faixa "Pelo grupo", sem o menu; apagar não é "Sair"', async () => {
@@ -311,6 +311,35 @@ describe('anotações compartilhadas: a folha Compartilhar', () => {
     } finally {
       groupOn = false;
     }
+  });
+
+  it('a de um grupo em que você está só pelo grupo: sem "Sair da anotação" (ela voltaria pelo grupo); chamado nela mesma, sai', async () => {
+    groupOn = true;
+    try {
+      let f = render('editor', CRIS);
+      current.set({ ...current()!, grupo: TRABALHO.id, membros: current()!.membros.filter((m) => m.codigo !== CRIS.codigo) });
+      await settle(f);
+      const leave = () => [...(f.nativeElement as HTMLElement).querySelectorAll('.foot button')].some((b) => b.textContent?.includes('Sair da anotação'));
+      expect(leave()).toBeFalse();
+      TestBed.resetTestingModule();
+      f = render('editor', CRIS);
+      current.set({ ...current()!, grupo: TRABALHO.id });
+      await settle(f);
+      expect(current()!.membros.some((m) => m.codigo === CRIS.codigo)).toBeTrue();
+      expect(leave()).toBeTrue();
+    } finally {
+      groupOn = false;
+    }
+  });
+
+  it('apagar para todos: a de um grupo diz o grupo (sem pessoas na anotação, a pergunta não quebra); a solta, as pessoas', () => {
+    expect(deleteAsk('Relatório', ['Bia', 'Cris'], 'Trabalho')).toEqual({
+      title: 'Apagar para todos?',
+      text: '“Relatório” sai do grupo Trabalho para todos que estão nele. Não dá para desfazer.',
+      confirm: 'Apagar para todos',
+    });
+    expect(deleteAsk('Relatório', ['Bia'], null).text).toBe('“Relatório” sai do seu mural e do mural de Bia com quem você compartilhou. Não dá para desfazer.');
+    expect(deleteAsk('Relatório', [], null)).toEqual({ text: '“Relatório” sai do mural, com o texto. Não dá para desfazer.', confirm: 'Apagar anotação' });
   });
 });
 

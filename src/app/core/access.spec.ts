@@ -46,5 +46,8 @@ describe('Quem vê, numa frase (core/access.ts)', () => {
     expect(accessSummary(member('gestor')).line).toContain('Você pode editar e chamar gente.');
     expect(accessSummary(member('leitor', true))).toEqual({ line: 'É de Caio. Você só lê. Também está: Bia. Qualquer pessoa pode ler.', short: 'De Caio · você só lê · público' });
     expect(accessSummary({ ...member('leitor'), members: [ana] }).line).toBe('É de Caio. Você só lê. Ninguém mais vê.');
+    // quem mais edita também aparece (a crítica de 11/nov: a frase do dono diz, a de quem está não dizia)
+    expect(accessSummary({ ...member('leitor'), members: [ana, bia, caio] }).line).toBe('É de Caio. Você só lê. Também estão: Bia e Caio. Caio edita. Ninguém mais vê.');
+    expect(accessSummary(member('gestor')).short).toBe('De Caio · você gerencia');
   });
 });

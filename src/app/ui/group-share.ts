@@ -112,7 +112,8 @@ export class GroupShare {
   private readonly kanban = inject(KanbanStore);
   private readonly host = inject(ElementRef);
 
-  protected readonly StopIcon = ICON.privada;
+  // (o cadeado é o "Só quem está": parar de compartilhar desfaz o grupo, não o fecha)
+  protected readonly StopIcon = ICON.desconectar;
   protected readonly PrivateIcon = ICON.privada;
   protected readonly PublicIcon = ICON.publica;
   protected readonly LinkIcon = ICON.link;

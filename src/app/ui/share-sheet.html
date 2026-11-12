@@ -58,7 +58,7 @@
 
       <footer class="foot">
         @if (entry(); as e) {
-          @if (e.papel !== 'dono') {
+          @if (e.papel !== 'dono' && canLeave()) {
             <button type="button" class="papel perigo" [disabled]="!!busy()" [appBusy]="busy() === 'sair'" (click)="leave()">
               <lucide-icon [img]="LeaveIcon" [size]="17" aria-hidden="true" />
               Sair da anotação

@@ -7,6 +7,8 @@ import { photoOut } from '../domain/photo';
 import { Access, canManage, canWrite, isRole } from '../domain/shared-note';
 import { asRole, groupId, widest } from '../domain/shared-group';
 import { readBody, readJson, sessionOf } from './http';
+import { brakeStatement, usedToday } from '../domain/brake';
+import { MAX_SHARES_PER_DAY } from './notes';
 import { toBytes } from './mural';
 
 /**
@@ -273,7 +275,7 @@ export function boardRoutes(app: Hono, deps: Deps): void {
       'SELECT COUNT(*) AS n, COALESCE(SUM(bytes), 0) AS bytes FROM quadros WHERE usuario_id = ? AND apagado_em IS NULL AND id <> ?',
       [owner, id],
     );
-    if ((mine?.n ?? 0) >= MAX_BOARDS) throw new HttpError(413, 'quadros-demais', `Cabem ${MAX_BOARDS} quadros na nuvem. Apague um para guardar outro.`);
+    if ((!here || here.apagado_em) && (mine?.n ?? 0) >= MAX_BOARDS) throw new HttpError(413, 'quadros-demais', `Cabem ${MAX_BOARDS} quadros na nuvem. Apague um para guardar outro.`);
     if ((mine?.bytes ?? 0) + body.length > MAX_BOARDS_BYTES_PER_USER) {
       throw new HttpError(413, 'quadros-cheios', 'Os seus quadros chegaram a 5 MB na nuvem. Tire peças ou apague um quadro.');
     }
@@ -335,6 +337,7 @@ export function boardRoutes(app: Hono, deps: Deps): void {
     const role = q && !q.apagado_em ? await boardAccess(deps, q, s.userId) : null;
     if (!q || !role) throw new HttpError(404, 'quadro-nao-encontrado', 'Esse quadro não está na nuvem.');
     if (!canManage(role)) throw new HttpError(403, 'so-gestor', 'Só o dono e os gestores escolhem quem está neste quadro.');
+    if (q.grupo_id) throw new HttpError(400, 'quadro-do-grupo', 'Este quadro vai com o grupo: chame a pessoa pelo grupo.');
     const body = await readJson(c);
     const papel = body['papel'];
     if (!isRole(papel)) throw new HttpError(400, 'papel-invalido', 'Escolha entre gestor, editor e leitor.');
@@ -345,7 +348,13 @@ export function boardRoutes(app: Hono, deps: Deps): void {
     if (p.id === s.userId) throw new HttpError(400, 'e-voce', 'Esse é você. Para mudar o seu papel, peça ao dono.');
     const n = await deps.db.first<{ n: number }>('SELECT COUNT(*) AS n FROM quadro_membros WHERE quadro_id = ? AND usuario_id <> ?', [id, p.id]);
     if ((n?.n ?? 0) >= MAX_BOARD_MEMBERS) throw new HttpError(400, 'gente-demais', `Um quadro tem até ${MAX_BOARD_MEMBERS} pessoas além do dono.`);
-    const at = deps.now().toISOString();
+    const now = deps.now();
+    const at = now.toISOString();
+    // gente nova: o mesmo freio de compartilhar das anotações e dos grupos
+    const isNew = !(await deps.db.first('SELECT 1 AS x FROM quadro_membros WHERE quadro_id = ? AND usuario_id = ?', [id, p.id]));
+    if (isNew && (await usedToday(deps, s.userId, 'compartilhar', now)) + 1 > MAX_SHARES_PER_DAY) {
+      throw new HttpError(429, 'compartilhar-devagar', 'Você compartilhou com muita gente hoje. Tente de novo amanhã.');
+    }
     await write(
       deps,
       [
@@ -355,8 +364,9 @@ export function boardRoutes(app: Hono, deps: Deps): void {
         },
         // o site dela pede a lista dos quadros (o novo aparece)
         { sql: 'UPDATE usuarios SET quadros_versao = quadros_versao + 1 WHERE id = ?', params: [p.id] },
+        ...(isNew ? [brakeStatement(s.userId, 'compartilhar', now)] : []),
       ],
-      2,
+      isNew ? 3 : 2,
     );
     return c.json({ membros: await boardMembers(id) });
   });

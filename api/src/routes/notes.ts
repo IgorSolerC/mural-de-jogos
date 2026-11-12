@@ -279,12 +279,13 @@ export function noteRoutes(app: Hono, deps: Deps): void {
   // (com as dos grupos compartilhados em que ela está; numa que vem pelos dois caminhos, vale o papel mais aberto)
   app.get('/v1/eu/notas', async (c) => {
     const s = await session(c);
+    const limit = MAX_NOTES_PER_USER * 2 + MAX_GROUP_NOTES * 4;
     const rows = await deps.db.all<{ id: string; versao: number; papel: string }>(
       "SELECT id, versao, 'dono' AS papel FROM notas WHERE dono_id = ? " +
         'UNION ALL SELECT n.id, n.versao, m.papel FROM nota_membros m JOIN notas n ON n.id = m.nota_id WHERE m.usuario_id = ? ' +
         'UNION ALL SELECT n.id, n.versao, g.papel FROM grupo_membros g JOIN notas n ON n.grupo_id = g.grupo_id WHERE g.usuario_id = ? ' +
         'LIMIT ?',
-      [s.userId, s.userId, s.userId, MAX_NOTES_PER_USER * 2 + MAX_GROUP_NOTES * 4],
+      [s.userId, s.userId, s.userId, limit],
     );
     const byId = new Map<string, { id: string; versao: number; papel: Access }>();
     for (const r of rows) {
@@ -292,7 +293,8 @@ export function noteRoutes(app: Hono, deps: Deps): void {
       if (!papel) continue;
       byId.set(r.id, { id: r.id, versao: r.versao, papel: widest(byId.get(r.id)?.papel ?? null, papel)! });
     }
-    return c.json({ notas: [...byId.values()] });
+    // (no teto, a lista não está inteira: as que ficaram de fora não saíram, e o site não as tira)
+    return c.json({ notas: [...byId.values()], ...(rows.length >= limit ? { cortada: true } : {}) });
   });
 
   // As anotações pedidas, inteiras (só as em que a pessoa está; as outras não vêm).
@@ -593,7 +595,8 @@ export function noteRoutes(app: Hono, deps: Deps): void {
     const s = await session(c);
     const id = noteId(c.req.param('id'));
     const { n, access } = await mine(id, s.userId);
-    const mayDelete = access === 'dono' || (!!n.grupo_id && (access === 'gestor' || (access === 'editor' && n.criado_por === s.userId)));
+    const inGroup = n.grupo_id ? await groupRole(n.grupo_id, s.userId) : null;
+    const mayDelete = access === 'dono' || canManage(inGroup) || (canWrite(inGroup) && n.criado_por === s.userId);
     if (!mayDelete) {
       throw n.grupo_id
         ? new HttpError(403, 'so-quem-escreveu', 'Num grupo, o editor apaga só as anotações que escreveu. As outras, o dono e os gestores.')

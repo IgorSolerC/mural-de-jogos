@@ -206,6 +206,11 @@ describe('compartilhar um grupo: a parte da engrenagem e a etiqueta da pasta', (
     expect(tag.querySelector('.texto')!.textContent!.trim()).toBe('De Ana · você só lê');
     expect(tag.querySelectorAll('app-person-photo').length).toBe(2);
     expect(tag.getAttribute('aria-label')).toContain('É de Ana. Você só lê.');
+    // com gente, o celular mostra só os rostos; o público ainda se diz (a crítica de 11/nov)
+    expect(tag.querySelector('.texto-curto')).toBeNull();
+    current.set({ ...current()!, publico: true });
+    f.detectChanges();
+    expect(tag.querySelector('.texto-curto')!.textContent!.trim()).toBe('Público');
     tag.click();
     expect(f.componentInstance.opened).toBe(1);
   });

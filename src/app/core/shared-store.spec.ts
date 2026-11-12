@@ -78,6 +78,8 @@ class FakeNotes {
   leaks = 0;
   /** A lista das anotações volta como uma página qualquer (um wi-fi de hotel), com 200. */
   brokenList = false;
+  /** A lista no teto da nuvem: só as primeiras N, com `cortada` (null: inteira). */
+  clipList: number | null = null;
 
   /** A anotação como a API guarda: sem o que é de cada pessoa nem o "de quem é" (ver `noteData` em api/src/domain/shared-note.ts). */
   private stored(d: Record<string, unknown>): Record<string, unknown> {
@@ -158,6 +160,8 @@ class FakeNotes {
     if (path === '/v1/eu/notas' && method === 'GET') {
       if (this.brokenList) return new Response('<html>Entre na rede</html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
       const out = [...this.notes.values()].filter((n) => this.access(n, me)).map((n) => ({ id: n.id, versao: n.versao, papel: this.access(n, me) }));
+      // a lista no teto da nuvem: vem só um pedaço, dizendo que foi cortada
+      if (this.clipList !== null) return json({ notas: out.slice(0, this.clipList), cortada: true });
       return json({ notas: out });
     }
     if (path === '/v1/eu/notas/detalhes') {
@@ -1422,6 +1426,16 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
       expect(bia.shared.places().get('nota-1')!.p.category).toBe('Trabalho');
       await sync(ana, bia);
       expect(bia.store.get('nota-1')!.category).toBe('Trabalho');
+    });
+
+    it('a lista cortada no teto da nuvem não tira as que ficaram de fora (PLANO-COMPARTILHAR.md: grupos grandes)', async () => {
+      const { bia } = await sharedNote('a');
+      expect(bia.shared.get('nota-1')).toBeTruthy();
+      cloud.clipList = 0;
+      await sync(bia);
+      cloud.clipList = null;
+      expect(bia.shared.get('nota-1')).toBeTruthy();
+      expect(bia.store.get('nota-1')).toBeTruthy();
     });
 
     it('quem já estava numa anotação e abre num aparelho novo (o lugar de antes, sem o grupo) fica no grupo de antes', async () => {
