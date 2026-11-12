@@ -8,7 +8,14 @@ import { Kind, Review, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { VisitView } from '../core/visit-view';
 import { Density, VISIT_KEY, WallState, WallView } from '../core/wall-view';
+import { WallMotion } from '../core/wall-motion';
 import { WallAccess, WallBoard } from './wall-board';
+
+/** Termina já o fechar que ainda está juntando as fichas (ver WallMotion.fold) e desenha. */
+const done = () => {
+  TestBed.inject(WallMotion).finish();
+  TestBed.tick();
+};
 
 const ACCESS: WallAccess = { landingId: null, picking: false, picked: new Map(), masked: false, secret: new Set(), reactCode: null, checkable: true, looks: {} };
 
@@ -341,7 +348,7 @@ describe('a seção fechada vira uma pilha', () => {
     // tocar na pilha abre
     pile.click();
     await new Promise((r) => setTimeout(r, 0));
-    TestBed.tick();
+    done();
     expect(out.querySelector('.fichas')).not.toBeNull();
     expect(out.querySelector('.guardadas')).toBeNull();
   });
@@ -355,7 +362,7 @@ describe('a seção fechada vira uma pilha', () => {
     const top = at();
     button.focus();
     button.click();
-    TestBed.tick();
+    done();
     expect(out.classList).toContain('fechada');
     expect(out.querySelector('.guardadas')).not.toBeNull();
     // o mesmo botão, no mesmo lugar, com o foco
@@ -381,20 +388,22 @@ describe('a seção fechada vira uma pilha', () => {
     const el = await wall('simples', ['k:jogos::2026-09']);
     const head = (label: string) => section(el, label).querySelector<HTMLElement>('button.cabeca-secao')!;
     head('Setembro de 2026').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, altKey: true }));
-    TestBed.tick();
+    done();
     expect(section(el, 'Setembro de 2026').classList).not.toContain('fechada');
     expect(section(el, 'Outubro de 2026').classList).toContain('fechada');
     // a de uma ficha não fecha
     expect(section(el, 'Novembro de 2026').classList).not.toContain('fechada');
     // de novo, nada muda: esta continua aberta
     head('Setembro de 2026').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, altKey: true }));
-    TestBed.tick();
+    done();
     expect(section(el, 'Setembro de 2026').classList).not.toContain('fechada');
     expect(section(el, 'Outubro de 2026').classList).toContain('fechada');
   });
 
   describe('o menu do botão direito', () => {
     const openMenu = (el: HTMLElement) => Array.from(el.querySelectorAll<HTMLElement>('.menu-contexto')).find((m) => m.matches(':popover-open'));
+    // o menu que ficou aberto fecha (o site tem um menu aberto por vez: um esquecido aqui atrapalharia o próximo teste)
+    afterEach(() => openMenu(document.body)?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
 
     /** O botão direito em `target`: as opções do menu que abriu (vazio: ficou o do navegador). */
     async function rightClick(el: HTMLElement, target: HTMLElement): Promise<string[]> {
@@ -402,7 +411,7 @@ describe('a seção fechada vira uma pilha', () => {
       const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: r.left + 5, clientY: r.top + 5 });
       target.dispatchEvent(e);
       await new Promise((ok) => setTimeout(ok, 0));
-      TestBed.tick();
+      done();
       const menu = openMenu(el);
       if (!e.defaultPrevented || !menu) return [];
       return Array.from(menu.querySelectorAll('.escolha .nome')).map((x) => x.textContent!.trim());
@@ -410,7 +419,7 @@ describe('a seção fechada vira uma pilha', () => {
 
     const choose = (el: HTMLElement, label: string) => {
       Array.from(openMenu(el)!.querySelectorAll<HTMLElement>('.escolha')).find((b) => b.querySelector('.nome')!.textContent!.trim() === label)!.click();
-      TestBed.tick();
+      done();
     };
 
     it('na cabeça: só o que faz sentido, com o nome da seção no alto', async () => {
@@ -469,12 +478,12 @@ describe('a seção fechada vira uma pilha', () => {
       expect(section(el, 'Outubro de 2026').classList).toContain('fechada');
       expect(section(el, 'Setembro de 2026').classList).toContain('fechada');
       head('Setembro de 2026').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, altKey: true }));
-      TestBed.tick();
+      done();
       expect(section(el, 'Setembro de 2026').classList).not.toContain('fechada');
       expect(section(el, 'Outubro de 2026').classList).toContain('fechada');
       // o seu mural não mudou, e nada ficou guardado
       expect(TestBed.inject(WallView).collapsed().size).toBe(0);
-      TestBed.tick();
+      done();
       expect(JSON.parse(localStorage.getItem(VISIT_KEY) ?? '{}').collapsed).toBeUndefined();
       el.remove();
     });
@@ -493,6 +502,93 @@ describe('a seção fechada vira uma pilha', () => {
       await fixture.whenStable();
       const el = fixture.nativeElement as HTMLElement;
       expect(await rightClick(el, section(el, 'Novembro de 2026').querySelector<HTMLElement>('.cabeca-secao')!)).toEqual([]);
+    });
+  });
+
+  describe('as animações (PLANO-ETIQUETAS.md, 5)', () => {
+    const boxes = (out: HTMLElement) => Array.from(out.querySelectorAll<HTMLElement>('.fichas > .lugar'));
+    const shown = (b: HTMLElement) => {
+      const r = b.getBoundingClientRect();
+      return r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth;
+    };
+    const flying = (box: HTMLElement) => box.getAnimations().some((a) => JSON.stringify((a.effect as KeyframeEffect).getKeyframes()).includes('translate'));
+
+    it('fechar: as fichas da tela andam juntas até a pilha e só então a seção fecha', async () => {
+      const el = await wall('simples', []);
+      const out = section(el, 'Outubro de 2026');
+      out.scrollIntoView({ block: 'start' });
+      for (let i = 0; i < 100 && boxes(out).filter((b) => b.querySelector('app-review-card:not([data-veu])')).length < 6; i++) await new Promise((r) => setTimeout(r, 20));
+      out.querySelector<HTMLElement>('.cabeca-secao')!.click();
+      TestBed.tick();
+      // ainda aberta: as primeiras da tela (até cinco) andando, por cima das outras (a primeira por cima de todas);
+      // as outras da tela esmaecem, e as de fora dela não se mexem
+      expect(out.classList).not.toContain('fechada');
+      const onScreen = boxes(out).filter(shown);
+      const movers = onScreen.slice(0, 5);
+      expect(movers.length).toBeGreaterThan(1);
+      expect(movers.every(flying)).toBeTrue();
+      expect(movers.map((b) => b.style.zIndex)).toEqual(['6', '5', '4', '3', '2'].slice(0, movers.length));
+      for (const b of onScreen.slice(5)) expect(flying(b)).toBeFalse();
+      for (const b of boxes(out).filter((x) => !shown(x))) expect(b.getAnimations().length).toBe(0);
+      // chegou: fecha, e nada fica para trás nas fichas
+      await new Promise((r) => setTimeout(r, 450));
+      TestBed.tick();
+      expect(out.classList).toContain('fechada');
+      expect(out.querySelector('.guardadas')).not.toBeNull();
+      expect(Array.from(el.querySelectorAll<HTMLElement>('.lugar')).filter((b) => b.style.zIndex || b.style.transformOrigin)).toEqual([]);
+    });
+
+    it('abrir: as primeiras saem da pilha uma depois da outra', async () => {
+      const el = await wall('simples', []);
+      const out = section(el, 'Outubro de 2026');
+      out.scrollIntoView({ block: 'start' });
+      for (let i = 0; i < 100 && boxes(out).filter((b) => b.querySelector('app-review-card:not([data-veu])')).length < 6; i++) await new Promise((r) => setTimeout(r, 20));
+      out.querySelector<HTMLElement>('.cabeca-secao')!.click();
+      done();
+      expect(out.classList).toContain('fechada');
+      out.querySelector<HTMLElement>('.guardadas')!.click();
+      TestBed.tick();
+      expect(out.classList).not.toContain('fechada');
+      // (a que ainda espera o papel sai quando ele fica pronto)
+      const out5 = boxes(out).filter(shown).slice(0, 5);
+      expect(out5.length).toBeGreaterThan(1);
+      const delays = new Map<number, number>();
+      for (let i = 0; i < 200 && delays.size < out5.length; i++) {
+        out5.forEach((b, n) => {
+          const a = b.getAnimations().find((x) => JSON.stringify((x.effect as KeyframeEffect).getKeyframes()).includes('translate'));
+          if (a && !delays.has(n)) delays.set(n, (a.effect as KeyframeEffect).getTiming().delay as number);
+        });
+        await new Promise((r) => setTimeout(r, 10));
+      }
+      expect(delays.size).toBe(out5.length);
+      // cada uma sai depois da anterior
+      for (let n = 1; n < out5.length; n++) expect(delays.get(n)!).toBeGreaterThan(delays.get(n - 1)!);
+      // as de fora da tela não saem da pilha
+      for (const b of boxes(out).filter((x) => !shown(x))) expect(flying(b)).toBeFalse();
+    });
+
+    it('com Movimento reduzido, troca direto', async () => {
+      const el = await wall('simples', []);
+      const real = window.matchMedia.bind(window);
+      spyOn(window, 'matchMedia').and.callFake((q: string) => (q.includes('reduced-motion') ? ({ matches: true } as MediaQueryList) : real(q)));
+      const out = section(el, 'Outubro de 2026');
+      out.querySelector<HTMLElement>('.cabeca-secao')!.click();
+      TestBed.tick();
+      expect(out.classList).toContain('fechada');
+      expect(Array.from(el.querySelectorAll<HTMLElement>('.lugar')).some(flying)).toBeFalse();
+    });
+
+    it('um segundo clique no meio do fechar termina o primeiro e vale', async () => {
+      const el = await wall('simples', []);
+      const out = section(el, 'Outubro de 2026');
+      out.scrollIntoView({ block: 'start' });
+      const button = out.querySelector<HTMLElement>('.cabeca-secao')!;
+      button.click();
+      TestBed.tick();
+      button.click();
+      done();
+      expect(out.classList).not.toContain('fechada');
+      expect(TestBed.inject(WallView).isCollapsed('2026-10')).toBeFalse();
     });
   });
 

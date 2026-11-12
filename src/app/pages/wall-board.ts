@@ -695,25 +695,44 @@ export class WallBoard {
     return this.folding(g) && this.view.isCollapsed(g.key);
   }
 
-  /** Fecha ou abre uma seção; as de baixo deslizam para o lugar novo. Com Alt, fecha as outras e deixa esta aberta. */
+  /**
+   * Fecha ou abre uma seção: fechando, as fichas se juntam na pilha; abrindo, saem dela (ver WallMotion.fold);
+   * as de baixo deslizam para o lugar novo. Com Alt, fecha as outras e deixa esta aberta.
+   */
   protected toggleGroup(key: string, e?: MouseEvent): void {
     if (e?.altKey) {
       this.onlyThis(key);
       return;
     }
-    this.motion.run(() => this.view.toggleCollapsed(key));
+    // (um fechar pela metade conta como feito: o toque seguinte desfaz o que ele fez)
+    this.motion.finish();
+    const g = this.view.groups().find((x) => x.key === key);
+    if (g) this.setSection(g, !this.isShut(g));
+  }
+
+  /** Fecha (ou abre) uma seção, se ela ainda não está assim. */
+  private setSection(g: WallGroup, closed: boolean): void {
+    this.motion.finish();
+    if (!this.folding(g) || this.isShut(g) === closed) return;
+    const change = () => this.view.setCollapsed([g.key], closed);
+    if (closed) this.motion.fold([this.idOf(g.key)], change);
+    else this.motion.unfold([this.idOf(g.key)], change);
   }
 
   /** Fecha as outras seções (as que fecham: de duas fichas ou mais) e deixa esta aberta. */
   private onlyThis(key: string): void {
-    const others = this.view
-      .groups()
-      .filter((g) => g.key !== key && this.folding(g))
-      .map((g) => g.key);
-    this.motion.run(() => {
-      this.view.setCollapsed(others, true);
-      this.view.setCollapsed([key], false);
-    });
+    this.motion.finish();
+    const others = this.view.groups().filter((g) => g.key !== key && this.folding(g));
+    const me = this.view.groups().find((g) => g.key === key);
+    const ids = (gs: WallGroup[]) => gs.map((g) => this.idOf(g.key));
+    this.motion.fold(
+      ids(others.filter((g) => !this.isShut(g))),
+      () => {
+        this.view.setCollapsed(others.map((g) => g.key), true);
+        this.view.setCollapsed([key], false);
+      },
+      me && this.isShut(me) ? ids([me]) : [],
+    );
   }
 
   /**
@@ -727,8 +746,8 @@ export class WallBoard {
     if (this.folding(g)) {
       here.push(
         shut(g)
-          ? { id: 'abrir-esta', label: 'Abrir esta seção', icon: ICON.abrir, run: () => this.toggleGroup(g.key) }
-          : { id: 'fechar-esta', label: 'Fechar esta seção', icon: ICON.recolher, run: () => this.toggleGroup(g.key) },
+          ? { id: 'abrir-esta', label: 'Abrir esta seção', icon: ICON.abrir, run: () => this.setSection(g, false) }
+          : { id: 'fechar-esta', label: 'Fechar esta seção', icon: ICON.recolher, run: () => this.setSection(g, true) },
       );
     }
     if (folding.some((x) => x.key !== g.key && !shut(x))) {
@@ -745,9 +764,14 @@ export class WallBoard {
    * a parede mudou). Abrir todas abre também a de uma ficha guardada como fechada (a chave sai).
    */
   private allSections(closed: boolean): void {
+    this.motion.finish();
     const groups = this.view.groups();
     const keys = (closed ? groups.filter((x) => this.folding(x)) : groups).map((x) => x.key);
-    this.motion.run(() => this.view.setCollapsed(keys, closed));
+    const change = () => this.view.setCollapsed(keys, closed);
+    // (só as que mudam se juntam ou saem da pilha)
+    const moving = groups.filter((x) => this.folding(x) && this.isShut(x) !== closed).map((x) => this.idOf(x.key));
+    if (closed) this.motion.fold(moving, change);
+    else this.motion.unfold(moving, change);
   }
 
   /**
