@@ -20,8 +20,10 @@ describe('menu do botão direito no Pra depois e na Wishlist', () => {
   let calls: string[];
 
   const panel = () => host.querySelector<HTMLElement>('.menu-contexto')!;
-  const labels = () => [...panel().querySelectorAll('.escolha .nome')].map((x) => x.textContent!.trim());
-  const option = (label: string) => [...panel().querySelectorAll<HTMLButtonElement>('.escolha')].find((b) => b.querySelector('.nome')!.textContent!.trim() === label)!;
+  // o nome da opção: o impresso, ou o do leitor de tela (o adesivo da vontade não tem nome impresso)
+  const nameOf = (b: Element) => (b.querySelector('.nome') ?? b.querySelector('.sr-only'))!.textContent!.trim();
+  const labels = () => [...panel().querySelectorAll('.escolha')].map(nameOf);
+  const option = (label: string) => [...panel().querySelectorAll<HTMLButtonElement>('.escolha')].find((b) => nameOf(b) === label)!;
   async function settle(): Promise<void> {
     for (let i = 0; i < 4; i++) {
       await new Promise((r) => setTimeout(r, 0));
@@ -108,18 +110,20 @@ describe('menu do botão direito no Pra depois e na Wishlist', () => {
     expect(document.activeElement).toBe(sheet('d2').querySelector('.hit'));
   });
 
-  it('Wishlist: começar a resenha, as outras vontades (Comum tira o adesivo) e tirar da wishlist', async () => {
+  it('Wishlist: começar a resenha, as três vontades (com os adesivos e o tique na de agora) e tirar da wishlist', async () => {
     store.saveWish(wish('w1', 'Celeste'));
     store.saveWish(wish('w2', 'Hades', 'must'));
     await mount(WishlistPage);
     const clip = (id: string) => host.querySelector<HTMLElement>(`.desejo[data-ficha="${id}"]`)!;
     await rightClick(clip('w1'));
-    expect(labels()).toEqual(['Começar a resenha', 'Marcar MUST PLAY', 'Marcar LATER', 'Tirar da wishlist']);
+    expect(labels()).toEqual(['Começar a resenha', 'MUST PLAY', 'Comum', 'LATER', 'Tirar da wishlist']);
+    expect(panel().querySelectorAll('.escolha app-relevance-sticker').length).toBe(2);
+    expect(option('Comum').querySelector('.marcada')).not.toBeNull();
     option('Começar a resenha').click();
     expect(calls).toEqual(['openWish:w1']);
     await rightClick(clip('w2'));
-    expect(labels()).toEqual(['Começar a resenha', 'Tirar o adesivo', 'Marcar LATER', 'Tirar da wishlist']);
-    option('Marcar LATER').click();
+    expect(option('MUST PLAY').querySelector('.marcada')).not.toBeNull();
+    option('LATER').click();
     await settle();
     await frames();
     expect(store.getWish('w2')!.relevance).toBe('later');

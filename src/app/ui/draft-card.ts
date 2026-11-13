@@ -82,6 +82,8 @@ import { daysAgoLabel } from '../core/dates';
     }
   `,
   styles: `
+    @use 'caderno';
+
     :host {
       --rule: 20px;
       --margin-x: 14px;
@@ -144,12 +146,9 @@ import { daysAgoLabel } from '../core/dates';
     /* caderno de espiral: margem vermelha, pauta azul contada do pé da folha (o nome cai na linha),
        e na esquerda as meias-luas mordidas onde a folha saiu da espiral */
     :host(.papel-espiral) .sheet {
-      background:
-        linear-gradient(90deg, transparent var(--margin-x), var(--margem) var(--margin-x) calc(var(--margin-x) + 1.5px), transparent 0),
-        repeating-linear-gradient(to top, transparent 0 14px, var(--pauta) 14px 15.5px, transparent 15.5px var(--rule)),
-        var(--folha);
-      -webkit-mask: radial-gradient(circle at 0 50%, #0000 3.5px, #000 4px) 0 0 / 100% 13px repeat-y;
-      mask: radial-gradient(circle at 0 50%, #0000 3.5px, #000 4px) 0 0 / 100% 13px repeat-y;
+      /* o mesmo caderno do lembrete da Wishlist (ui/_caderno.scss) */
+      @include caderno.papel(var(--margin-x), var(--rule));
+      @include caderno.espiral(esquerda);
     }
 
     /* fichário: margem dupla e os três furos redondos (de verdade: a parede aparece por eles) */

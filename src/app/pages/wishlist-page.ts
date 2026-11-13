@@ -26,6 +26,7 @@ import {
   wishTagCounts,
   wishTagHex,
   wishVontadeOptions,
+  foundByNote,
 } from '../core/wishlist-view';
 import { Toasts } from '../ui/toast';
 import { ContextMenu, ContextMenuTrigger, MenuItem, MenuSections } from '../ui/context-menu';
@@ -37,6 +38,8 @@ import { SearchStrip } from '../ui/search-strip';
 import { TagChip } from '../ui/tag-chips';
 import { WishClip } from '../ui/wish-clip';
 import { WishCover } from '../ui/wish-cover';
+import { WishActions } from '../ui/wish-actions';
+import { WishNote } from '../ui/wish-note';
 import { WishTags } from '../ui/wish-tags';
 import { reducedMotion } from '../core/motion';
 
@@ -53,7 +56,7 @@ import { reducedMotion } from '../core/motion';
  */
 @Component({
   selector: 'app-wishlist-page',
-  imports: [ContextMenu, FilterCard, FilterTags, IconModule, SearchHighlight, SearchStrip, WishClip, WishCover, WishTags],
+  imports: [ContextMenu, FilterCard, FilterTags, IconModule, SearchHighlight, SearchStrip, WishActions, WishClip, WishCover, WishNote, WishTags],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '(document:keydown.escape)': 'onEscape()', '[class.com-sorteio]': 'winner()' },
   template: `
@@ -223,7 +226,11 @@ import { reducedMotion } from '../core/motion';
                 [landing]="desk.landingId() === w.id"
                 [class.sorteado]="winner()?.id === w.id"
                 [class.na-sombra]="winner() && winner()?.id !== w.id"
+                [editable]="editable"
+                [query]="filter().query"
+                [noteOpen]="byNote().has(w.id)"
                 (opened)="drawn.set(null); desk.openWish($event)"
+                (vontade)="openVontade(w, $event)"
               />
             </li>
           }
@@ -249,11 +256,17 @@ import { reducedMotion } from '../core/motion';
                     [landing]="desk.landingId() === w.id"
                     [class.sorteado]="winner()?.id === w.id"
                     [class.na-sombra]="winner() && winner()?.id !== w.id"
+                    [describedBy]="w.note ? 'lembrete-' + w.id : null"
                     (opened)="drawn.set(null); desk.openWish($event)"
-                    (relevance)="setRelevance(w, $event)"
                   />
-                  @if (w.tags?.length) {
-                    <app-wish-tags class="tags" [class.na-sombra]="winner() && winner()?.id !== w.id" [tags]="w.tags!" [kind]="w.kind" />
+                  <div class="pe" [class.na-sombra]="winner() && winner()?.id !== w.id">
+                    @if (w.tags?.length) {
+                      <app-wish-tags class="tags" [tags]="w.tags!" [kind]="w.kind" />
+                    }
+                    <app-wish-actions class="etiqueta" [wish]="w" [editable]="editable" (vontade)="openVontade(w, $event)" />
+                  </div>
+                  @if (w.note; as n) {
+                    <app-wish-note [wishId]="w.id" [text]="n" [query]="filter().query" [open]="byNote().has(w.id)" />
                   }
                 </div>
               }
@@ -278,8 +291,9 @@ import { reducedMotion } from '../core/motion';
       </section>
     }
 
-    <!-- o botão direito (o dedo segurado, Shift+F10) num recorte: começar a resenha, a vontade, tirar da wishlist -->
-    <app-context-menu #menu [caption]="menuWish()?.game?.name ?? ''" [sections]="menuSections()" (closed)="menuOn.set(null)" />
+    <!-- o menu do site: o do recorte (o botão direito, o dedo segurado, Shift+F10: começar a resenha, as
+         vontades, tirar da wishlist) e o do Vontade da etiqueta (só as vontades, com os adesivos) -->
+    <app-context-menu #menu [caption]="menuWish()?.game?.name ?? ''" [note]="menuWish()?.note ?? ''" [sections]="menuSections()" (closed)="menuOn.set(null)" />
   `,
   styles: `
     :host {
@@ -320,12 +334,53 @@ import { reducedMotion } from '../core/motion';
     .desejo:focus-within {
       z-index: 30;
     }
-    .desejo .tags {
+    /* embaixo do recorte: as tags e, sem mouse, a etiqueta */
+    .pe {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px 10px;
       margin-top: 2px;
       transition: opacity var(--t-physical) var(--ease-physical);
     }
-    .tags.na-sombra {
+    .pe.na-sombra {
       opacity: 0.32;
+    }
+    .pe .tags {
+      flex: 1;
+      min-width: 0;
+    }
+    /* a etiqueta: com o mouse, inteira acima do papel (a manchete fica à vista); sem mouse, no pé */
+    .etiqueta {
+      position: absolute;
+      z-index: 6;
+      top: -16px;
+      right: 6px;
+    }
+    @media (hover: none) {
+      .etiqueta {
+        position: static;
+        flex: none;
+        margin-left: auto;
+      }
+    }
+    /* o lembrete: um instante depois da mão parar em cima, na hora com o teclado; some na hora */
+    app-wish-note {
+      opacity: 0;
+      transition:
+        opacity var(--t-ui) var(--ease-ui),
+        translate var(--t-ui) var(--ease-ui);
+    }
+    @media (hover: hover) {
+      .desejo:hover > app-wish-note {
+        opacity: 1;
+        translate: 0 0;
+        transition-delay: 300ms;
+      }
+    }
+    .desejo:has(.hit:focus-visible) > app-wish-note,
+    app-wish-note.aberta {
+      opacity: 1;
+      translate: 0 0;
     }
     /* segurar o dedo num recorte abre o menu dele (ui/context-menu.ts): sem o balão do sistema (salvar a
        capa) nem a seleção junto */
@@ -576,27 +631,45 @@ export class WishlistPage {
   protected readonly winner = computed<Wish | null>(() => this.visible().find((w) => w.id === this.drawn()) ?? null);
 
   private readonly menu = viewChild.required<ContextMenu>('menu');
-  /** O recorte com o menu aberto. */
-  protected readonly menuOn = signal<string | null>(null);
-  protected readonly menuWish = computed(() => this.mural.wishes().find((w) => w.id === this.menuOn()) ?? null);
+  /** O desejo com o menu aberto, e qual menu: o do recorte (o botão direito) ou o do Vontade da etiqueta. */
+  protected readonly menuOn = signal<{ id: string; only: 'tudo' | 'vontade' } | null>(null);
+  protected readonly menuWish = computed(() => this.mural.wishes().find((w) => w.id === this.menuOn()?.id) ?? null);
+  /** O Editar da etiqueta e do menu (a folha do desejo, na rodada 4 do plano). */
+  protected readonly editable = false;
   /**
-   * O que o toque no recorte faz (começar a resenha); as outras vontades do adesivo (Comum é tirar o
-   * adesivo); e, sozinho no fim, tirar da wishlist, com o Desfazer.
+   * As três vontades, com o adesivo de verdade em miniatura (Comum, que não tem, fica com o desenho do
+   * vazio) e o tique na de agora; escolher a de agora não faz nada.
+   */
+  private vontadeItems(w: Wish, fromButton = false): MenuItem[] {
+    const hints: Record<Relevance, string> = { must: 'O adesivo vermelho: vem na frente', comum: 'Sem adesivo', later: 'O selo azul: vai para o fim' };
+    return RELEVANCES.map((r) => ({
+      id: r,
+      label: r === 'comum' ? 'Comum' : relevanceLabel(w.kind, r),
+      icon: r === 'comum' ? ICON.semNada : ICON.adesivo,
+      ...(r === 'comum' ? {} : { sticker: { relevance: r, kind: w.kind } }),
+      on: relevanceOf(w) === r,
+      hint: hints[r],
+      run: () => this.setRelevance(w, r, fromButton),
+    }));
+  }
+  /**
+   * O do recorte: o que o toque faz (começar a resenha), as vontades e, sozinho no fim, tirar da wishlist,
+   * com o Desfazer. O do Vontade: só as vontades.
    */
   protected readonly menuSections = computed<MenuSections>(() => {
     const w = this.menuWish();
     if (!w) return [];
-    const rel = relevanceOf(w);
-    const stickers: MenuItem[] = RELEVANCES.filter((r) => r !== rel).map((r) =>
-      r === 'comum'
-        ? { id: 'comum', label: 'Tirar o adesivo', icon: ICON.adesivo, hint: 'Volta a ser Comum, sem adesivo', run: () => this.setRelevance(w, r, false) }
-        : { id: r, label: `Marcar ${relevanceLabel(w.kind, r)}`, icon: ICON.adesivo, hint: 'O adesivo da quina do recorte', run: () => this.setRelevance(w, r, false) },
-    );
+    if (this.menuOn()?.only === 'vontade') return [this.vontadeItems(w, true)];
     return [
       [{ id: 'comecar', label: 'Começar a resenha', icon: ICON.editar, dialog: true, run: () => this.startDrawn(w) }],
-      stickers,
+      this.vontadeItems(w),
       [{ id: 'tirar', label: 'Tirar da wishlist', icon: ICON.apagar, danger: true, run: () => this.remove(w.id) }],
     ];
+  });
+  /** Os desejos que a busca achou só pelo lembrete: a folha do caderno fica aberta neles. */
+  protected readonly byNote = computed(() => {
+    const q = this.filter().query;
+    return new Set(q.trim() ? this.visible().filter((w) => foundByNote(w, q)).map((w) => w.id) : []);
   });
   private readonly host: HTMLElement;
 
@@ -613,7 +686,7 @@ export class WishlistPage {
       hold: true,
       isOpenFor: (id) => this.menu().isOpenFor(id),
       open: (id, box, x, y, by) => {
-        this.menuOn.set(id);
+        this.menuOn.set({ id, only: 'tudo' });
         // o foco volta para onde estava no recorte (Shift+F10 no adesivo); senão, para o recorte
         const active = document.activeElement;
         this.menu().show({ key: id, x, y, by, back: active instanceof HTMLElement && box.contains(active) ? active : box.querySelector<HTMLElement>('.hit') });
@@ -733,16 +806,29 @@ export class WishlistPage {
     this.prefs.update((p) => ({ ...p, vista: v }));
   }
 
+  /** O Vontade da etiqueta: o menu com as três vontades, embaixo do botão. */
+  protected openVontade(w: Wish, at: { el: HTMLElement; keyboard: boolean }): void {
+    const r = at.el.getBoundingClientRect();
+    this.menuOn.set({ id: w.id, only: 'vontade' });
+    this.menu().show({ key: 'v:' + w.id, x: r.left, y: r.bottom + 6, back: at.el, by: at.keyboard ? 'teclado' : 'mouse' });
+  }
+
   /**
-   * Trocou a vontade no adesivo (ou no menu): o recorte muda de lugar na colagem, e o teclado vai junto com
-   * ele, no adesivo (do menu, no recorte, de onde o menu abriu).
+   * Trocou a vontade (pelo Vontade ou pelo menu do recorte): o recorte muda de lugar na colagem, com a
+   * transição, e o teclado vai junto com ele (no Vontade, de onde o menu abriu, ou no recorte); se ele saiu
+   * da tela, a tela vai até ele. O aviso tem o Desfazer.
    */
-  protected setRelevance(w: Wish, r: Relevance, sticker = true): void {
+  protected setRelevance(w: Wish, r: Relevance, fromButton = false): void {
+    const before = relevanceOf(w);
+    if (r === before) return;
     this.transitions.run(() => this.store.setRelevance(w.id, r));
-    this.toasts.show(`“${w.game.name}” agora é ${r === 'comum' ? 'Comum' : relevanceLabel(w.kind, r)}`);
+    this.toasts.show(`“${w.game.name}” agora é ${r === 'comum' ? 'Comum' : relevanceLabel(w.kind, r)}`, {
+      label: 'Desfazer',
+      run: () => this.transitions.run(() => this.store.setRelevance(w.id, before)),
+    });
     setTimeout(() => {
-      const box = document.querySelector(`[data-ficha="${w.id}"]`);
-      const btn = (sticker ? box?.querySelector<HTMLElement>('.adesivo-btn') : null) ?? box?.querySelector<HTMLElement>('.hit');
+      const box = document.querySelector(`[data-ficha="${CSS.escape(w.id)}"]`);
+      const btn = (fromButton ? box?.querySelector<HTMLElement>('app-wish-actions .vontade') : null) ?? box?.querySelector<HTMLElement>('.hit');
       btn?.focus({ preventScroll: true });
       btn?.scrollIntoView({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' });
     }, 140);

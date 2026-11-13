@@ -70,6 +70,25 @@
   text-overflow: ellipsis;
 }
 
+/* o lembrete, a caneta, logo embaixo do nome (só no toque: com a mão, ele vem na folha do caderno) */
+.lembrete {
+  max-width: 30ch;
+  margin: 2px 12px 6px;
+  font-family: var(--f-hand);
+  font-size: 1.02rem;
+  line-height: 1.25;
+  color: #1d2a4a;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+/* o adesivo da vontade (a Wishlist), no lugar do desenho e do nome */
+.adesivo {
+  display: inline-flex;
+  flex: none;
+  margin: 2px 0;
+}
+
 .leva {
   display: grid;
   gap: 2px;

@@ -2,6 +2,8 @@ import { ChangeDetectionStrategy, Component, computed, input, output, signal } f
 import { Wish, initialOf, relevanceOf } from '../core/review';
 import { coverFor } from '../core/wish-cover-look';
 import { RelevanceSticker } from './relevance-sticker';
+import { WishActions } from './wish-actions';
+import { WishNote } from './wish-note';
 import { WishTags } from './wish-tags';
 
 /**
@@ -9,11 +11,13 @@ import { WishTags } from './wish-tags';
  * mesmo tamanho, mas ainda de revista: a capa numa margem de papel com a retícula e o brilho do couché, um
  * quinto delas de revista velha, e uns poucos acidentes de quem destacou a página (a beirada rasgada, a quina
  * arrancada, o picote, a orelha dobrada), sorteados pelo id e congelados (`coverFor`). O adesivo da vontade em
- * miniatura na quina, o nome em duas linhas e as tags embaixo. Tocar começa a resenha, como no recorte.
+ * miniatura na quina, o nome em duas linhas e as tags embaixo. Tocar começa a resenha, como no recorte; com
+ * a mão em cima, a etiqueta (Editar e Vontade, `WishActions`) acima da capa e, um instante depois, o lembrete
+ * na folha do caderno ao lado (`WishNote`). Sem mouse, a etiqueta fica ao lado do nome.
  */
 @Component({
   selector: 'app-wish-cover',
-  imports: [RelevanceSticker, WishTags],
+  imports: [RelevanceSticker, WishActions, WishNote, WishTags],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '[attr.data-rasgo]': 'look().kind || null',
@@ -34,13 +38,19 @@ import { WishTags } from './wish-tags';
         <app-relevance-sticker class="adesivo" size="mini" [relevance]="rel()" [kind]="wish().kind" />
       }
     </span>
-    <span class="nome" dir="auto">{{ wish().game.name }}</span>
+    <span class="linha">
+      <span class="nome" dir="auto">{{ wish().game.name }}</span>
+      <app-wish-actions class="etiqueta" [wish]="wish()" [editable]="editable()" (edit)="edit.emit()" (vontade)="vontade.emit($event)" />
+    </span>
     @if (wish().tags?.length) {
       <app-wish-tags class="tags" [tags]="wish().tags!" [kind]="wish().kind" />
     }
-    <button type="button" class="hit" (click)="opened.emit(wish().id)">
+    <button type="button" class="hit" (click)="opened.emit(wish().id)" [attr.aria-describedby]="wish().note ? 'lembrete-' + wish().id : null">
       <span class="sr-only">Começar a resenha de {{ wish().game.name }}</span>
     </button>
+    @if (wish().note; as n) {
+      <app-wish-note [wishId]="wish().id" [text]="n" [query]="query()" [open]="noteOpen()" />
+    }
   `,
   styles: `
     @use 'meio-tom';
@@ -143,7 +153,14 @@ import { WishTags } from './wish-tags';
       rotate: -8deg;
     }
 
+    .linha {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+    }
     .nome {
+      flex: 1;
+      min-width: 0;
       display: -webkit-box;
       overflow: hidden;
       -webkit-line-clamp: 2;
@@ -158,6 +175,42 @@ import { WishTags } from './wish-tags';
     .tags {
       margin-top: -6px;
       font-size: 0.92em;
+    }
+
+    /* a etiqueta: com o mouse, inteira acima da capa; sem mouse, ao lado do nome (por cima do toque) */
+    .etiqueta {
+      position: absolute;
+      z-index: 6;
+      top: -14px;
+      right: -4px;
+    }
+    @media (hover: none) {
+      .etiqueta {
+        position: relative;
+        top: -3px;
+        right: 0;
+        flex: none;
+      }
+    }
+
+    /* o lembrete: um instante depois da mão parar em cima, na hora com o teclado; some na hora */
+    app-wish-note {
+      opacity: 0;
+      transition:
+        opacity var(--t-ui) var(--ease-ui),
+        translate var(--t-ui) var(--ease-ui);
+    }
+    @media (hover: hover) {
+      :host(:hover) app-wish-note {
+        opacity: 1;
+        translate: 0 0;
+        transition-delay: 300ms;
+      }
+    }
+    :host(:has(.hit:focus-visible)) app-wish-note,
+    app-wish-note.aberta {
+      opacity: 1;
+      translate: 0 0;
     }
 
     /* tocar começa a resenha: o botão cobre a capa e o nome */
@@ -214,8 +267,18 @@ export class WishCover {
   readonly wish = input.required<Wish>();
   /** Acabou de chegar na parede. */
   readonly landing = input(false);
+  /** Com o Editar na etiqueta. */
+  readonly editable = input(true);
+  /** A busca da página (o lembrete realça o trecho achado). */
+  readonly query = input('');
+  /** A busca achou o desejo só pelo lembrete: a folha fica aberta. */
+  readonly noteOpen = input(false);
   /** Tocou: começa a resenha. */
   readonly opened = output<string>();
+  /** O Editar da etiqueta. */
+  readonly edit = output<void>();
+  /** O Vontade da etiqueta: o menu das vontades abre embaixo do botão. */
+  readonly vontade = output<{ el: HTMLElement; keyboard: boolean }>();
 
   protected readonly look = computed(() => coverFor(this.wish().id));
   protected readonly rel = computed(() => relevanceOf(this.wish()));

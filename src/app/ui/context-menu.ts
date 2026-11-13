@@ -1,7 +1,10 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterRenderEffect, computed, inject, input, output, signal, untracked, viewChild, viewChildren } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
 import { fold } from '../core/text';
+import type { Kind } from '../core/kinds';
+import type { Relevance } from '../core/review';
 import { ICON, IconModule } from './icons';
+import { RelevanceSticker } from './relevance-sticker';
 
 /** Quantos menus já nasceram (o id de cada um). */
 let menus = 0;
@@ -40,6 +43,11 @@ export interface MenuItem {
   swatch?: string;
   /** A escolhida agora (a amostra ganha o tique). */
   on?: boolean;
+  /**
+   * O adesivo de uma vontade da Wishlist (MUST PLAY, LATER): a opção mostra o adesivo de verdade, em
+   * miniatura, no lugar do desenho e do nome (o nome vai para o leitor de tela).
+   */
+  sticker?: { relevance: Relevance; kind: Kind };
 }
 
 /** As levas de opções, separadas pela costura (as vazias não aparecem). */
@@ -74,7 +82,7 @@ export interface MenuAt {
  */
 @Component({
   selector: 'app-context-menu',
-  imports: [IconModule],
+  imports: [IconModule, RelevanceSticker],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <!-- fica montado (escondido pelo popover): abrir é só mostrar, medir e pôr o foco. O popover é
@@ -93,6 +101,10 @@ export interface MenuAt {
     >
       @if (at()) {
         <p class="legenda" [id]="menuId + '-nome'"><span class="sr-only">Ações de </span>{{ caption() }}</p>
+        <!-- o lembrete do que se segurou com o dedo (no toque, não há a folha que a mão revela) -->
+        @if (note() && at()!.by === 'toque') {
+          <p class="lembrete"><span class="sr-only">Lembrete: </span>{{ note() }}</p>
+        }
         @for (leva of levas(); track $index) {
           @let paleta = isPalette(leva);
           <div role="group" class="leva" [class.costurada]="!$first" [class.paleta]="paleta">
@@ -131,8 +143,13 @@ export interface MenuAt {
                 tabindex="-1"
                 (click)="choose(x)"
               >
-                <lucide-icon class="ico" [img]="x.icon" [size]="18" aria-hidden="true" />
-                <span class="nome">{{ x.label }}</span>
+                @if (x.sticker; as st) {
+                  <app-relevance-sticker class="adesivo" size="mini" [relevance]="st.relevance" [kind]="st.kind" aria-hidden="true" />
+                  <span class="sr-only">{{ x.label }}</span>
+                } @else {
+                  <lucide-icon class="ico" [img]="x.icon" [size]="18" aria-hidden="true" />
+                  <span class="nome">{{ x.label }}</span>
+                }
                 @if (x.on) {
                   <lucide-icon class="atalho marcada" [img]="CheckIcon" [size]="16" aria-hidden="true" /><span class="sr-only">(o de agora)</span>
                 } @else if (x.keys) {
@@ -155,6 +172,8 @@ export class ContextMenu {
   readonly caption = input('');
   /** As opções, em levas. */
   readonly sections = input<MenuSections>([]);
+  /** Um lembrete do que se clicou, escrito a caneta embaixo do nome, só quando o dedo abriu o menu. */
+  readonly note = input('');
   /** Fechou (escolhendo ou não): quem usa esquece o que estava aberto. */
   readonly closed = output<void>();
 

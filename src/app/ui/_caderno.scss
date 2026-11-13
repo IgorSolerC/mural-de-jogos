@@ -1,0 +1,26 @@
+/* ===== A folha arrancada do caderno de espiral =====
+   O papel do Pra depois (ui/draft-card.ts, o papel "espiral") e o lembrete da Wishlist (ui/wish-note.ts):
+   a folha creme, a margem vermelha, a pauta azul e as meias-luas mordidas onde ela saiu da espiral. Um
+   desenho só, para as duas folhas serem o mesmo caderno.
+
+   $margem-x: onde corre a margem vermelha; $regua: a altura de cada linha da pauta (contada do pé, para o
+   texto cair na linha); $lado: de onde a folha foi arrancada (esquerda, como no Pra depois, ou topo). As
+   cores vêm de --folha, --pauta e --margem, que quem usa define. */
+
+@mixin papel($margem-x, $regua) {
+  background:
+    linear-gradient(90deg, transparent $margem-x, var(--margem) $margem-x calc(#{$margem-x} + 1.5px), transparent 0),
+    repeating-linear-gradient(to top, transparent 0 calc(#{$regua} - 6px), var(--pauta) calc(#{$regua} - 6px) calc(#{$regua} - 4.5px), transparent calc(#{$regua} - 4.5px) $regua),
+    var(--folha);
+}
+
+/* as meias-luas da espiral, mordidas na beirada */
+@mixin espiral($lado: esquerda) {
+  @if $lado == esquerda {
+    -webkit-mask: radial-gradient(circle at 0 50%, #0000 3.5px, #000 4px) 0 0 / 100% 13px repeat-y;
+    mask: radial-gradient(circle at 0 50%, #0000 3.5px, #000 4px) 0 0 / 100% 13px repeat-y;
+  } @else {
+    -webkit-mask: radial-gradient(circle at 50% 0, #0000 3.5px, #000 4px) 0 0 / 13px 100% repeat-x;
+    mask: radial-gradient(circle at 50% 0, #0000 3.5px, #000 4px) 0 0 / 13px 100% repeat-x;
+  }
+}

@@ -7,6 +7,8 @@ import { Wish } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { WISHLIST_PREFS_KEY } from '../core/wishlist-view';
+import { Toasts } from '../ui/toast';
+import { expectEtiquetaPadrao } from '../testing/etiqueta-acoes.spec';
 import { WishlistPage } from './wishlist-page';
 
 /** A pasta da Wishlist (PLANO-WISHLIST.md, rodada 2): Filtrar, a ordem, a vista e as tags no recorte e na capa. */
@@ -95,7 +97,7 @@ describe('a pasta da Wishlist', () => {
     expect(host.querySelectorAll('app-wish-clip').length).toBe(3);
     // nos recortes, a legenda das tags fica embaixo do recorte, fora dele (não entorta com o papel)
     const box = host.querySelector<HTMLElement>('.desejo[data-ficha="w1"]')!;
-    expect(box.querySelector(':scope > app-wish-tags')).not.toBeNull();
+    expect(box.querySelector(':scope > .pe > app-wish-tags')).not.toBeNull();
     expect(box.querySelector('app-wish-clip app-wish-tags')).toBeNull();
   });
 
@@ -206,5 +208,79 @@ describe('a pasta da Wishlist', () => {
     const cover = host.querySelector<HTMLElement>('app-wish-cover')!;
     expect(cover.querySelector('.papel')).toBeNull();
     expect(getComputedStyle(cover.querySelector('.margem')!).backgroundBlendMode).not.toContain('hard-light');
+  });
+
+  describe('o recorte no padrão (rodada 3)', () => {
+    const menuPanel = () => host.querySelector<HTMLElement>('.menu-contexto')!;
+    const menuNames = () => [...menuPanel().querySelectorAll('.escolha')].map((b) => (b.querySelector('.nome') ?? b.querySelector('.sr-only'))!.textContent!.trim());
+
+    it('a etiqueta de hover no padrão, no recorte e na capa; o adesivo da quina não é mais botão', async () => {
+      await mount();
+      // a Comum: a do MUST fica vermelha de propósito (a vontade de agora, ver ui/wish-actions.spec.ts)
+      const box = host.querySelector<HTMLElement>('.desejo[data-ficha="w1"]')!;
+      expectEtiquetaPadrao(box.querySelector('app-wish-actions .acoes')!);
+      expect(host.querySelector('.desejo[data-ficha="w3"] app-wish-clip app-relevance-sticker')).not.toBeNull();
+      expect(box.querySelectorAll('app-wish-clip button').length).withContext('só o toque').toBe(1);
+      button('Grade').click();
+      await settle();
+      expectEtiquetaPadrao(host.querySelector<HTMLElement>('app-wish-cover[data-ficha="w1"] app-wish-actions .acoes')!);
+    });
+
+    it('o Vontade abre o menu só com as vontades; escolher muda, e o aviso tem o Desfazer', async () => {
+      await mount();
+      const vontade = host.querySelector<HTMLButtonElement>('.desejo[data-ficha="w1"] .vontade')!;
+      expect(vontade.getAttribute('aria-label')).toBe('Quanta vontade de Celeste: Comum. Mudar');
+      vontade.click();
+      await settle();
+      expect(menuNames()).toEqual(['MUST PLAY', 'Comum', 'LATER']);
+      [...menuPanel().querySelectorAll<HTMLButtonElement>('.escolha')][0].click();
+      await settle();
+      expect(store.getWish('w1')!.relevance).toBe('must');
+      const toast = TestBed.inject(Toasts).current()!;
+      expect(toast.text).toContain('Celeste');
+      expect(toast.action!.label).toBe('Desfazer');
+      toast.action!.run();
+      await settle();
+      expect(store.getWish('w1')!.relevance).toBeUndefined();
+    });
+
+    it('o lembrete: só no desejo que tem, citado pelo toque, e aberto quando a busca achou só nele', async () => {
+      await mount();
+      expect(host.querySelectorAll('app-wish-note').length).toBe(1);
+      const hit = host.querySelector<HTMLElement>('.desejo[data-ficha="w1"] .hit')!;
+      expect(hit.getAttribute('aria-describedby')).toBe('lembrete-w1');
+      expect(document.getElementById('lembrete-w1')!.textContent).toContain('Indicação do Rafa');
+      expect(host.querySelector('.desejo[data-ficha="w2"] .hit')!.hasAttribute('aria-describedby')).toBeFalse();
+      const note = host.querySelector<HTMLElement>('app-wish-note')!;
+      expect(getComputedStyle(note).opacity).toBe('0');
+      const input = host.querySelector<HTMLInputElement>('#busca-desejos')!;
+      input.value = 'rafa';
+      input.dispatchEvent(new Event('input'));
+      await settle();
+      expect(host.querySelector('app-wish-note')!.classList).toContain('aberta');
+      input.value = 'celeste';
+      input.dispatchEvent(new Event('input'));
+      await settle();
+      expect(host.querySelector('app-wish-note')!.classList).not.toContain('aberta');
+    });
+
+    it('a mão espera um instante para o lembrete aparecer (e o teclado, não)', async () => {
+      // os estilos das duas peças só estão na página com elas montadas (a da página e, na Grade, a da capa)
+      await mount();
+      button('Grade').click();
+      await settle();
+      const rules: CSSStyleRule[] = [];
+      for (const sheet of [...document.styleSheets])
+        for (const r of [...sheet.cssRules]) {
+          if (r instanceof CSSMediaRule) for (const inner of [...r.cssRules]) if (inner instanceof CSSStyleRule) rules.push(inner);
+          if (r instanceof CSSStyleRule) rules.push(r);
+        }
+      const hover = rules.filter((r) => /:hover/.test(r.selectorText) && r.selectorText.includes('app-wish-note'));
+      expect(hover.length).toBeGreaterThanOrEqual(2);
+      expect(hover.every((r) => r.style.transitionDelay === '300ms')).toBeTrue();
+      const keyboard = rules.filter((r) => /focus-visible/.test(r.selectorText) && r.selectorText.includes('app-wish-note'));
+      expect(keyboard.length).toBeGreaterThanOrEqual(2);
+      expect(keyboard.every((r) => !r.style.transitionDelay)).toBeTrue();
+    });
   });
 });

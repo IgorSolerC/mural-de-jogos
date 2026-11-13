@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-13-wishlist-grade',
+    id: '2026-11-13-wishlist-vontade',
     version: '1.45.3',
     kind: 'ajustes',
     date: '2026-11-13',
@@ -36,6 +36,7 @@ export const NEWS: NewsEntry[] = [
       'Toda cartolina tem o canto um pouco arredondado: as fichas de todos os murais (anotações e análises, em todas as vistas), a tira do Kanban, a ficha colada no texto, as folhas das pastas, os lembretes do calendário, os avisos e os murais vazios, e o botão de criar no topo.',
       'A Wishlist ganhou a vista Grade, para ver muitas capas de uma vez: todas do mesmo tamanho, numa margem de papel de revista, umas poucas rasgadas, destacadas do picote ou com a orelha dobrada. A colagem de sempre continua em Recortes.',
       'Na pasta da Wishlist, o Filtrar abre a folha das anotações, para ver só uma vontade; a ordem pode ser por quando entrou, pelo nome ou pelo lançamento, com o inverter; e o MUST 1º deixa MUST PLAY na frente e LATER no fim (ligado, como antes) ou só a ordem. A vista e a ordem ficam guardadas no aparelho.',
+      'Na Wishlist, o adesivo da quina deixou de ser botão: com o mouse em cima do recorte (ou da capa da Grade) aparece a etiqueta do Vontade, que abre o menu com os adesivos de verdade (MUST PLAY, Comum e LATER, o tique na de agora); no celular, ela fica embaixo do recorte. O botão direito tem as mesmas vontades, e mudar a vontade tem o Desfazer.',
     ],
     correcoes: [
       'No modo Visual do texto, o cursor aparece enquanto você escreve dentro de um código na linha (antes, a fita do código o cobria).',
