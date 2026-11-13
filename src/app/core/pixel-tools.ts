@@ -139,7 +139,7 @@ export function resizeCanvas(rows: readonly string[], w: number, h: number, nw: 
 // ===== o zoom =====
 
 /** Os zooms da folha, em pixels da tela por ponto (1 é o 100% do Aseprite). */
-export const ZOOMS: readonly number[] = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64];
+export const ZOOMS: readonly number[] = [1, 2, 3, 4, 6, 8, 12, 16, 20, 24, 32, 48, 64];
 /** Os atalhos 1 a 6 do Aseprite: 100%, 200%, 400%, 800%, 1600% e 3200%. */
 export const ZOOM_KEYS: readonly number[] = [1, 2, 4, 8, 16, 32];
 

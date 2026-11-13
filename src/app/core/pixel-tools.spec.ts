@@ -54,6 +54,8 @@ describe('pixel art: as ferramentas do ateliê', () => {
     expect(stepZoom(1, -1)).toBe(1);
     expect(fitZoom(16, 16, 800, 600)).toBe(24);
     expect(fitZoom(64, 64, 300, 300)).toBe(3);
+    // (o 16 × 16 num celular de 390: o nível de 20 enche a tela)
+    expect(fitZoom(16, 16, 390, 600, 16)).toBe(20);
     expect(zoomLabel(8)).toBe('800%');
   });
 });

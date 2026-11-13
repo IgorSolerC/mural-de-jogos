@@ -105,7 +105,7 @@
       </div>
 
       <div class="vista-botoes">
-        <div class="grupo" role="group" aria-label="Zoom">
+        <div class="grupo grupo-zoom" role="group" aria-label="Zoom">
           <span class="teclas">
             <button type="button" class="tecla" title="Afastar (Ctrl -)" aria-label="Afastar" (click)="zoomAt(zoomStep(-1))">
               <lucide-icon [img]="I.afastar" [size]="18" aria-hidden="true" />
@@ -119,7 +119,7 @@
             </button>
           </span>
         </div>
-        <div class="grupo" role="group" aria-label="Grades">
+        <div class="grupo grupo-grades" role="group" aria-label="Grades">
           <span class="teclas">
             <button type="button" class="tecla" [class.on]="gridDots()" [attr.aria-pressed]="gridDots()" title="Os fios de cada ponto (Ctrl Shift ')" aria-label="Fios dos pontos" (click)="toggleDots()">
               <lucide-icon [img]="I.fios" [size]="18" aria-hidden="true" />
@@ -136,6 +136,9 @@
             </button>
             <button type="button" class="tecla" title="Refazer (Ctrl Y)" aria-label="Refazer" [disabled]="!canRedo()" (click)="redo()">
               <lucide-icon [img]="I.refazer" [size]="18" aria-hidden="true" />
+            </button>
+            <button type="button" class="tecla" title="Os atalhos (?)" aria-label="Os atalhos" aria-haspopup="dialog" (click)="openKeys()">
+              <lucide-icon [img]="I.ajuda" [size]="18" aria-hidden="true" />
             </button>
           </span>
         </div>
@@ -349,6 +352,16 @@
         </div>
       }
       <input #cor type="color" class="cor-escolha" tabindex="-1" aria-hidden="true" (input)="setInkColor($any($event.target).value)" (change)="inkEdited()" />
+      <!-- o que as teclas fazem com a ferramenta de agora -->
+      <div class="dicas">
+        <p class="dicas-nome">{{ toolLabel() }}</p>
+        <ul class="dicas-lista">
+          @for (d of hintLines(); track d) {
+            <li>{{ d }}</li>
+          }
+        </ul>
+        <button type="button" class="dicas-todas" aria-haspopup="dialog" (click)="openKeys()">Todos os atalhos (?)</button>
+      </div>
       @if (importing() || importError()) {
         <p class="painel-aviso" [class.ruim]="!!importError()">{{ importing() ? 'Trazendo a imagem…' : importError() }}</p>
       }
@@ -360,7 +373,7 @@
         @if (hover(); as hv) {
           x {{ hv.x }} · y {{ hv.y }}
         } @else {
-          &nbsp;
+          {{ toolLabel() }}
         }
       </span>
       @if (under(); as u) {
@@ -408,6 +421,33 @@
     <app-palette-sheet [rows]="rows()" [w]="iw" [h]="ih" [palette]="palette()" [colors]="colors()" (picked)="applyPalette($event)" (closed)="paletteOpen.set(false)" />
   }
   <p class="sr-only" [id]="ids + '-diz'" aria-live="polite">{{ said() }}</p>
+
+  <!-- os Atalhos (?): todos, por assunto, no papel de sempre -->
+  @if (keysOpen()) {
+    <dialog #atalhos class="sheet atalhos" [attr.aria-labelledby]="ids + '-atalhos'" (close)="keysOpen.set(false)" (keydown)="$event.stopPropagation()">
+      <div class="atalhos-ficha">
+        <h3 class="tamanho-titulo" [id]="ids + '-atalhos'">Atalhos do ateliê</h3>
+        <div class="atalhos-colunas">
+          @for (g of KEYS; track g.title) {
+            <section class="atalhos-grupo">
+              <h4 class="atalhos-grupo-nome">{{ g.title }}</h4>
+              <dl class="atalhos-lista">
+                @for (k of g.items; track k[0]) {
+                  <div>
+                    <dt><kbd>{{ k[0] }}</kbd></dt>
+                    <dd>{{ k[1] }}</dd>
+                  </div>
+                }
+              </dl>
+            </section>
+          }
+        </div>
+        <div class="tamanho-pe">
+          <button type="button" class="pronto" (click)="closeKeys()">Entendi</button>
+        </div>
+      </div>
+    </dialog>
+  }
 
   <!-- o Tamanho da tela (C): a largura, a altura e onde o desenho fica -->
   @if (sizing(); as s) {

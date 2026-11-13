@@ -1,5 +1,6 @@
 @use '../sheet';
 @use '../paper-kit' as kit;
+@use 'xadrez' as x;
 
 /* A escolha da paleta (ver palette-sheet.ts): a ficha grande por cima do ateliê, como a cartela de ícones
    (ui/icon-chart.scss): a busca parada no alto e as paletas em seções, cada uma um cartão de papel com o
@@ -161,7 +162,7 @@ dialog.paletas {
   height: 112px;
   padding: 8px;
   border-radius: 2px;
-  background: repeating-conic-gradient(#e2ddd0 0 25%, #fbfaf6 0 50%) 0 0 / 10px 10px;
+  @include x.xadrez(10px);
   box-shadow: inset 0 0 0 1px rgb(21 21 21 / 0.1);
 
   svg {

@@ -1,0 +1,5 @@
+/* O xadrez do transparente da pixel art: o mesmo na pastilha do 0, na prévia, na miniatura da folha do
+   widget e nos cartões das paletas (a folha do ateliê usa um maior e mais quente, fixo, como o Aseprite) */
+@mixin xadrez($lado: 10px) {
+  background: repeating-conic-gradient(#e2ddd0 0 25%, #fbfaf6 0 50%) 0 0 / #{$lado} #{$lado};
+}

@@ -1,4 +1,5 @@
 @use '../paper-kit' as kit;
+@use 'xadrez' as x;
 
 /* O desenho na folha do widget (ver pixel-field.ts): uma linha, como a escolha do ícone (ui/icon-chart.scss),
    com a miniatura do desenho no xadrez do transparente no lugar do adesivo */
@@ -22,7 +23,7 @@
   padding: 6px;
   box-sizing: border-box;
   border-radius: 2px;
-  background: repeating-conic-gradient(#e2ddd0 0 25%, #fbfaf6 0 50%) 0 0 / 10px 10px;
+  @include x.xadrez(10px);
   box-shadow: var(--campo-sombra);
   color: var(--ink-2);
 

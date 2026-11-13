@@ -135,7 +135,7 @@ export class PaletteSheet {
   }
 
   /** O desenho pintado em cada paleta (contado uma vez por mudança, não a cada letra da busca). */
-  protected readonly previews = computed(() => new Map(PALETTES.map((p) => [p.value, this.preview(p.value)] as const)));
+  protected readonly previews = computed(() => new Map(PALETTES.filter((p) => p.value !== 'propria').map((p) => [p.value, this.preview(p.value)] as const)));
 
   /** O desenho pintado na paleta `p`: mantendo os números (as cores acrescentadas continuam) ou as cores. */
   private preview(p: PaletteName): { paths: ReturnType<typeof inkPaths>; inks: (string | null)[] } {

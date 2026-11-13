@@ -504,4 +504,47 @@ describe('pixel art: o ateliê', () => {
     expect(values['colors']).toBe('1#0000ff 2#ff0000');
     expect(values['pixels']).toBe('21');
   });
+
+  it('o ? abre os atalhos; o painel diz o que as teclas fazem com a ferramenta de agora', async () => {
+    await make({ width: '2', height: '2' });
+    expect(host.querySelector('.dicas-nome')?.textContent).toContain('Lápis');
+    key('u');
+    expect(host.querySelector('.dicas-lista')?.textContent).toContain('quadrado e círculo');
+    key('?');
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const sheet = host.querySelector('dialog.atalhos') as HTMLDialogElement;
+    expect(sheet.open).toBeTrue();
+    expect(sheet.textContent).toContain('Ctrl+Shift+I');
+  });
+
+  it('Alt e depois Shift na seleção tiram dela (não viram o conta-gotas); o Enter com a Seleção não a tira', async () => {
+    await make({ width: '4', height: '1', pixels: '1111' });
+    key('m');
+    key('a', { ctrlKey: true });
+    key('Alt');
+    pointer('pointerdown', 0, 0, { shiftKey: true, altKey: true });
+    pointer('pointermove', 1, 0, { shiftKey: true, altKey: true });
+    pointer('pointerup', 1, 0, { shiftKey: true, altKey: true });
+    board().dispatchEvent(new KeyboardEvent('keyup', { key: 'Alt', bubbles: true }));
+    fixture.detectChanges();
+    expect(host.querySelector('.estado')?.textContent).toContain('Seleção 2 × 1');
+    expect(host.querySelector('.frente-nome')?.textContent).toContain('Cor 1');
+    key('Enter');
+    expect(host.querySelector('path.formigas')).not.toBeNull();
+  });
+
+  it('o balde no dedo espera o dedo subir: a pinça não deixa mancha', async () => {
+    await make({ width: '2', height: '1' });
+    key('g');
+    pointer('pointerdown', 0, 0, { pointerType: 'touch', pointerId: 7 });
+    pointer('pointerdown', 1, 0, { pointerType: 'touch', pointerId: 8 });
+    pointer('pointerup', 1, 0, { pointerType: 'touch', pointerId: 8 });
+    pointer('pointerup', 0, 0, { pointerType: 'touch', pointerId: 7 });
+    expect(values['pixels'] ?? '').toBe('');
+    pointer('pointerdown', 0, 0, { pointerType: 'touch', pointerId: 9 });
+    expect(values['pixels'] ?? '').toBe('');
+    pointer('pointerup', 0, 0, { pointerType: 'touch', pointerId: 9 });
+    expect(values['pixels']).toBe('11');
+  });
 });

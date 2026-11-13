@@ -104,6 +104,7 @@ export class PixelStudio {
   private readonly picker = viewChild.required<ElementRef<HTMLInputElement>>('cor');
   private readonly file = viewChild.required<ElementRef<HTMLInputElement>>('arquivo');
   private readonly sizeSheet = viewChild<ElementRef<HTMLDialogElement>>('tamanho');
+  private readonly keysSheet = viewChild<ElementRef<HTMLDialogElement>>('atalhos');
   private readonly imageMenu = viewChild.required<ContextMenu>('menuImagem');
   private readonly colorsMenu = viewChild.required<ContextMenu>('menuCores');
 
@@ -227,6 +228,71 @@ export class PixelStudio {
   protected readonly editing = signal(false);
   protected readonly importing = signal(false);
   protected readonly importError = signal<string | null>(null);
+  /** A folha dos atalhos (?) aberta. */
+  protected readonly keysOpen = signal(false);
+  /** Todos os atalhos, por assunto (os do Aseprite; a folha do ?). */
+  protected readonly KEYS: readonly { title: string; items: readonly (readonly [string, string])[] }[] = [
+    {
+      title: 'Ferramentas',
+      items: [
+        ['M · W · V', 'Seleção, Varinha, Mover'],
+        ['B · E · G · I', 'Lápis, Borracha, Balde, Conta-gotas'],
+        ['L · U · Shift+U', 'Linha, Retângulo, Elipse (de novo: cheia)'],
+        ['H', 'Mão'],
+        ['Alt segurado', 'Conta-gotas enquanto segura'],
+        ['Espaço segurado', 'Arrastar a vista'],
+      ],
+    },
+    {
+      title: 'Pintar',
+      items: [
+        ['Botão direito', 'Pinta com a cor do fundo'],
+        ['Shift', 'Lápis: reta desde o último ponto · formas: quadrado e círculo'],
+        ['Ctrl', 'Formas: do meio para fora'],
+        ['- e +', 'Pincel menor e maior'],
+        ['Enter', 'Pinta no ponto do teclado (as setas andam)'],
+      ],
+    },
+    {
+      title: 'Cores',
+      items: [
+        ['X', 'Troca a frente com o fundo'],
+        ['[ e ]  (9 e 0)', 'A cor anterior e a próxima'],
+        ['A ou F4', 'Editar a cor da frente'],
+      ],
+    },
+    {
+      title: 'Seleção',
+      items: [
+        ['Ctrl+A · Ctrl+D', 'Selecionar tudo · tirar a seleção'],
+        ['Ctrl+Shift+D · Ctrl+Shift+I', 'Trazer de volta · inverter'],
+        ['Ctrl+C · Ctrl+X · Ctrl+V', 'Copiar, recortar, colar'],
+        ['Delete', 'Apagar o que está escolhido'],
+        ['Setas (Shift: 8)', 'Mover o pedaço · Enter assenta'],
+        ['Shift ao puxar · Shift+Alt', 'Somar · tirar da seleção'],
+      ],
+    },
+    {
+      title: 'Imagem',
+      items: [
+        ['Shift+H · Shift+V', 'Virar de lado · de cabeça para baixo'],
+        ['Shift+O', 'Contorno com a cor da frente'],
+        ['C', 'Tamanho da tela'],
+        ['Alt+setas', 'Empurrar o desenho um ponto'],
+      ],
+    },
+    {
+      title: 'Vista',
+      items: [
+        ['1 a 6', 'Zoom de 100% a 3200%'],
+        ['Ctrl + e Ctrl -', 'Aproximar e afastar'],
+        ['Ctrl+0', 'Caber na tela'],
+        ["Ctrl+' · Ctrl+Shift+'", 'Grade de 8 · fios de cada ponto'],
+        ['Ctrl+Z · Ctrl+Y', 'Desfazer · refazer'],
+        ['?', 'Estes atalhos'],
+      ],
+    },
+  ];
   /** A folha das paletas aberta. */
   protected readonly paletteOpen = signal(false);
   /** A pastilha sendo arrastada para outro lugar (o número dela). */
@@ -247,6 +313,8 @@ export class PixelStudio {
   private drag: Drag | null = null;
   /** Os ponteiros na mesa agora (dois dedos aproximam). */
   private readonly pointers = new Map<number, { x: number; y: number }>();
+  /** O balde tocado pelo dedo, esperando ele subir (se virar pinça, não pinta). */
+  private pendingFill: { c: Cell; alt: boolean } | null = null;
   /** O ponteiro do traço de agora (outro não continua o traço dele). */
   private strokePointer: number | null = null;
   /** O último ponto pintado (o Shift risca a reta desde ele). */
@@ -563,6 +631,7 @@ export class PixelStudio {
     this.colorsOpen.set(false);
     // o segundo dedo: o traço do primeiro era o começo do gesto
     if (this.pointers.size === 2) {
+      this.pendingFill = null;
       this.cancelStroke();
       const [a, b] = [...this.pointers.values()];
       this.drag = { kind: 'pinca', dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, zoom: this.zoom(), panX: this.panX(), panY: this.panY() };
@@ -576,7 +645,16 @@ export class PixelStudio {
     const c = this.cellAt(e);
     this.cursor.set({ x: Math.max(0, Math.min(this.w() - 1, c.x)), y: Math.max(0, Math.min(this.h() - 1, c.y)) });
     this.strokePointer = e.pointerId;
-    this.press(c, this.active(), e.button === 2, e.shiftKey, e.ctrlKey || e.metaKey, e.shiftKey && e.altKey);
+    // Shift+Alt na Seleção e na Varinha é o "tirar", qualquer que seja a ordem das teclas (o Alt sozinho
+    // já tinha posto o conta-gotas na mão)
+    const selecting = this.tool() === 'selecao' || this.tool() === 'varinha';
+    const tool = selecting && e.shiftKey && e.altKey ? this.tool() : this.active();
+    // o balde no dedo espera o dedo subir: um segundo dedo (a pinça) não deixa uma mancha para trás
+    if (tool === 'balde' && e.pointerType === 'touch') {
+      this.pendingFill = { c, alt: e.button === 2 };
+      return;
+    }
+    this.press(c, tool, e.button === 2, e.shiftKey, e.ctrlKey || e.metaKey, e.shiftKey && e.altKey);
   }
 
   protected move(e: PointerEvent): void {
@@ -643,6 +721,9 @@ export class PixelStudio {
 
   protected up(e: PointerEvent): void {
     if (!this.pointers.delete(e.pointerId)) return;
+    const fill = this.pendingFill;
+    this.pendingFill = null;
+    if (fill && e.type === 'pointerup' && this.pointers.size === 0) this.press(fill.c, 'balde', fill.alt, false);
     if (this.drag?.kind === 'pinca') {
       // o primeiro dedo que sai acaba o gesto; o outro não começa um traço
       if (this.pointers.size === 0) this.drag = null;
@@ -783,6 +864,11 @@ export class PixelStudio {
       else this.flipUpside();
       return;
     }
+    if (e.key === '?') {
+      e.preventDefault();
+      this.openKeys();
+      return;
+    }
     if (e.shiftKey && k === 'o') {
       e.preventDefault();
       this.outlineInk();
@@ -858,7 +944,9 @@ export class PixelStudio {
       const c = this.clampCursor();
       this.keyboard.set(true);
       const tool = k === 'enter' ? this.tool() : 'borracha';
-      this.press(c, tool === 'mao' || tool === 'mover' ? 'lapis' : tool, false, e.shiftKey);
+      // (com a Seleção, a Varinha, o Mover ou a Mão, o Enter pinta com o lápis: não tira a seleção)
+      const paints = tool === 'mao' || tool === 'mover' || tool === 'selecao' || tool === 'varinha' ? 'lapis' : tool;
+      this.press(c, paints, false, e.shiftKey);
       this.endStroke();
       this.sayCell(c);
     }
@@ -1380,6 +1468,17 @@ export class PixelStudio {
 
   // ===== o tamanho da tela (C) =====
 
+  protected openKeys(): void {
+    this.keysOpen.set(true);
+    afterNextRender(() => this.keysSheet()?.nativeElement.showModal(), { injector: this.injector });
+  }
+
+  protected closeKeys(): void {
+    const el = this.keysSheet()?.nativeElement;
+    if (el?.open) el.close();
+    this.keysOpen.set(false);
+  }
+
   protected openSize(): void {
     this.sizing.set({ w: this.w(), h: this.h(), anchor: { x: 1, y: 1 } });
     afterNextRender(() => this.sizeSheet()?.nativeElement.showModal(), { injector: this.injector });
@@ -1469,6 +1568,9 @@ export class PixelStudio {
         const colors: Record<number, string> = {};
         ownInks.forEach((c, i) => c && (colors[i] = c));
         this.change({ rows, palette: 'propria', colors }, `Imagem trazida para ${w} por ${h} pontos, com ${ownInks.length - 1} cores dela`);
+      } else if (own) {
+        this.importError.set('Essa imagem é toda transparente: não tem cor para trazer.');
+        this.said.set('Essa imagem é toda transparente.');
       } else this.change({ rows }, `Imagem trazida para ${w} por ${h} pontos, nas cores de agora`);
     } catch {
       this.importError.set('Essa imagem não abriu. Tente outra (PNG, JPG, WebP, GIF).');
@@ -1546,6 +1648,11 @@ export class PixelStudio {
     const h = ['à esquerda', 'no meio', 'à direita'][a.x];
     return a.x === 1 && a.y === 1 ? 'No meio' : a.x === 1 ? cap(v) + ', no meio' : a.y === 1 ? 'No meio, ' + h : cap(v) + ', ' + h;
   }
+
+  /** O nome da ferramenta de agora (a barra de estado sem o mouse em cima, e as dicas do painel). */
+  protected readonly toolLabel = computed(() => this.TOOLS.find((t) => t.value === this.active())?.label ?? '');
+  /** As dicas da ferramenta, uma por linha. */
+  protected readonly hintLines = computed(() => this.hint().split(' · ').map(cap));
 
   protected readonly label = computed(() => `Folha de ${this.w()} por ${this.h()} pontos. Setas andam; Enter pinta com a ${this.inkName(this.fg())}.`);
 }
