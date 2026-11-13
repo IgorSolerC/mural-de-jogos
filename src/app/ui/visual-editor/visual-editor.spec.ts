@@ -1444,11 +1444,50 @@ describe('o modo Visual do texto', () => {
       for (const sel of ['code.cod', 'span.sutil', 'strong.negrito', 'mark.marca']) {
         const el = pm.querySelector<HTMLElement>(sel);
         expect(el).withContext(sel).not.toBeNull();
-        expect(parseFloat(getComputedStyle(el!).lineHeight)).withContext(sel).toBeCloseTo(parseFloat(getComputedStyle(el!).fontSize), 1);
+        // o código encolhe o tanto que desce até a pauta, em cima e embaixo (os 2px do --cod-desce)
+        const encolhe = sel === 'code.cod' ? 4 : 0;
+        expect(parseFloat(getComputedStyle(el!).lineHeight)).withContext(sel).toBeCloseTo(parseFloat(getComputedStyle(el!).fontSize) - encolhe, 1);
       }
       const line = parseFloat(getComputedStyle(pm).lineHeight);
       const alto = pm.querySelector<HTMLElement>('.linha')!.getBoundingClientRect().height;
       expect(Math.abs(alto / line - Math.round(alto / line))).toBeLessThan(0.03);
+    });
+
+    // o cursor é pintado pelo parágrafo: com uma camada própria (a máscara, o position), a fita o cobria
+    it('o código na linha não pinta numa camada por cima do cursor, e desce até a pauta do mesmo jeito', async () => {
+      await make('Antes `codigo` depois');
+      const cod = folha().querySelector<HTMLElement>('code.cod')!;
+      const cs = getComputedStyle(cod);
+      expect(cs.position).toBe('static');
+      expect(cs.getPropertyValue('mask-image')).toBe('none');
+      expect(cs.getPropertyValue('-webkit-mask-image')).toBe('none');
+      expect(cs.zIndex).toBe('auto');
+      // as pontas cortadas e o meio, no fundo
+      expect(cs.backgroundImage.match(/linear-gradient/g)?.length).toBe(3);
+      // os 2px da pauta (--cod-desce), pela linha de base
+      expect(cs.verticalAlign).toBe('-2px');
+    });
+
+    // descer pela linha de base mexia na linha onde a letra é maior que a pauta (o título crescia 0,83px)
+    for (const grande of [false, true])
+    it(`o código na linha não muda a altura de nenhuma linha${grande ? ', na tela cheia' : ''}`, async () => {
+      await make('# Título `cod` fim\n## Outro `cod` fim\n### Carimbo `cod` fim\nTexto `cod` fim\n-# sutil `cod` fim\n- item `cod` fim\n| a | b |\n|---|---|\n| `cod` | x |', { grande });
+      const pm = folha();
+      const blocos = () => [...pm.querySelectorAll<HTMLElement>(':scope > *, td, th')];
+      const altos = () => blocos().map((el) => el.getBoundingClientRect().height);
+      // a régua: a peça como era, da altura da letra e sem descer pela linha de base (o `top` de antes só
+      // mudava o que se via, não a linha)
+      const sem = document.createElement('style');
+      sem.textContent = '.vis-folha > .ProseMirror .cod.cod.cod { vertical-align: baseline; line-height: 1; }';
+      const confere = (quando: string) => {
+        const com = altos();
+        document.head.appendChild(sem);
+        const regua = altos();
+        sem.remove();
+        blocos().forEach((el, i) => expect(com[i]).withContext(`${quando}: ${el.textContent}`).toBeCloseTo(regua[i], 2));
+      };
+      expect(pm.querySelectorAll('.cod').length).toBe(7);
+      confere(grande ? 'na tela cheia' : 'no lugar');
     });
   });
 });

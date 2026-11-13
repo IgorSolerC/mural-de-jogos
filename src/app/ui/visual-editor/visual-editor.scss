@@ -64,6 +64,10 @@
   mark.marca {
     color: inherit;
   }
+  // o cursor aparece dentro do código na linha (ver o mixin); o :not é o peso de `pecas-na-linha`
+  .cod:not(.linha) {
+    @include formatado.cod-recorte-sem-camada;
+  }
 
   // cada linha do texto é um nó; o recuo (os espaços do começo, na leitura) é o da primeira linha. Na
   // descrição de um item (ver listas.ts), a linha começa no alinhamento do texto dele (--vis-corpo, em

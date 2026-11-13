@@ -162,6 +162,35 @@ $cod-vao: 0.7rem;
   mask: var(--cod-mascara);
 }
 
+// O corte em diagonal das duas pontas do código na linha, pintado com `$cor`: cada ponta tem 0,5em, e o
+// pedaço do meio passa 1px para dentro delas, para não sobrar uma emenda entre eles. Em preto, é a máscara
+// (`--cod-mascara`, em src/styles.scss); na cor da fita, é o fundo do recorte sem camada (abaixo).
+@function cod-cortes($cor) {
+  @return (
+    linear-gradient($cor 0 0) center / calc(100% - 1em + 1px) 100% no-repeat,
+    linear-gradient(to bottom right, #0000 50%, $cor 50%) left / 0.5em 100% no-repeat,
+    linear-gradient(to bottom right, $cor 50%, #0000 50%) right / 0.5em 100% no-repeat
+  );
+}
+
+// O mesmo recorte, cortado no fundo em vez da máscara, para quem escreve dentro dele (o Visual). A máscara
+// e o `top` da peça (o `position: relative`) a pintam numa camada própria, por cima do parágrafo, e o cursor
+// é pintado pelo parágrafo: o fundo da fita o cobria. Sem camada, a fita é pintada antes do cursor. A letra
+// nunca chega nas pontas (o padding), então cortar só o fundo dá o mesmo desenho.
+// Sem o `top`, a peça desce pela linha de base, e isso mexe na linha: num título, de letra maior que a
+// pauta, a caixa dela passava da de baixo e a linha crescia. Por isso a caixa encolhe, em cima e embaixo, o
+// tanto que desce (ou sobe): descida, ela fica dentro de onde estava, e a linha não muda. Quem inclui dá o
+// peso de `pecas-na-linha` (a altura da letra), senão aquela altura vence.
+@mixin cod-recorte-sem-camada {
+  $desce: var(--cod-desce, -1px);
+  position: static;
+  vertical-align: calc(-1 * #{$desce});
+  line-height: calc(1em - 2 * max(#{$desce}, -1 * #{$desce}));
+  background: cod-cortes(var(--cod-pauta, color-mix(in srgb, currentColor 13%, transparent)));
+  -webkit-mask: none;
+  mask: none;
+}
+
 @mixin codigo {
   /* o código na linha: um pedaço de fita no tom do papel, colado na frase. Da altura da letra e um tico
      acima da linha (`top` só muda o que se vê, não o lugar): a caixa fica entre as linhas da pauta, sem
