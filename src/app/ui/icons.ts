@@ -273,6 +273,12 @@ import {
   BringToFront,
   MousePointer2,
   SendToBack,
+  ArrowLeftRight,
+  Grid2x2,
+  Scan,
+  Scaling,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-angular';
 import { CARTELA_DE_ICONES } from '../../../shared/cartela-de-icones';
 import { ICON_CHOICES, IconChoice, isIconChoice } from '../core/icon-choices';
@@ -541,12 +547,19 @@ export const ICON = {
   blocoDeCodigo: SquareCode,
   tabela: Table,
   pixelArt: PIXEL_HEART,
-  /** A prancheta da pixel art (ui/pixel-canvas.ts): o balde, o conta-gotas, o espelho e virar o desenho. */
+  /** O ateliê da pixel art (ui/pixel-studio/): o balde, o conta-gotas, a simetria, virar o desenho. */
   balde: PaintBucket,
   contaGotas: Pipette,
   espelho: SquareSplitHorizontal,
   virarDeLado: FlipHorizontal2,
   virarDeCabeca: FlipVertical2,
+  /** O ateliê: aproximar e afastar, caber na tela, os fios de cada ponto, o tamanho da tela e trocar as cores. */
+  aproximar: ZoomIn,
+  afastar: ZoomOut,
+  caber: Scan,
+  fios: Grid2x2,
+  tamanhoDaTela: Scaling,
+  trocarCores: ArrowLeftRight,
   /** A tabela: a linha nova em cima e embaixo da do cursor, a coluna nova antes e depois. */
   linhaEmCima: BetweenHorizontalStart,
   linhaEmbaixo: BetweenHorizontalEnd,

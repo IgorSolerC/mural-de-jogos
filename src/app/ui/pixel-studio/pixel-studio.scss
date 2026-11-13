@@ -1,0 +1,1177 @@
+@use '../regua-teclas' as rt;
+@use '../paper-kit' as kit;
+
+/* O ateliê da pixel art (PLANO-ATELIE.md): a mesa de desenho em tela inteira. Ao fundo, a base de corte
+   grafite (o cinza neutro em que as cores se julgam, com a grade fina da base de corte); no meio, a folha
+   do desenho no xadrez do transparente, pousada com a sombra de papel; em volta, as tiras de cartolina
+   creme das folhas do Murall, com as teclas de papel da régua (ui/_regua-teclas.scss). */
+
+:host {
+  display: contents;
+}
+
+.atelie {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--ink);
+  overflow: hidden;
+
+  &::backdrop {
+    background: rgb(8 8 10 / 0.8);
+  }
+
+  &[open] {
+    animation: atelie-in var(--t-physical) var(--ease-physical);
+  }
+}
+
+@keyframes atelie-in {
+  from {
+    opacity: 0;
+    scale: 0.985;
+  }
+}
+
+/* a cartolina das tiras em volta da mesa */
+%tira {
+  background-color: var(--papel-ficha);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+}
+
+.corpo {
+  --mat: #25272a;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) 288px;
+  grid-template-rows: auto minmax(0, 1fr) 30px;
+  grid-template-areas:
+    'contexto contexto contexto'
+    'ferramentas mesa painel'
+    'estado estado estado';
+  width: 100%;
+  height: 100%;
+  background: var(--mat);
+}
+
+/* ===== em cima: a barra de contexto ===== */
+.contexto {
+  @extend %tira;
+  grid-area: contexto;
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  min-height: 56px;
+  padding: 6px 14px;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.35),
+    0 6px 14px -6px rgb(0 0 0 / 0.6);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.titulo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  flex: none;
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.opcoes {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  flex: 1;
+  min-width: max-content;
+}
+
+.vista-botoes {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: none;
+}
+
+.grupo {
+  @include rt.grupo;
+}
+
+.grupo-nome {
+  @include rt.grupo-nome;
+}
+
+.teclas {
+  @include rt.teclas;
+  align-items: center;
+}
+
+.tecla {
+  @include rt.tecla;
+}
+
+.pincel-n,
+.zoom-n {
+  min-width: 26px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.95rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.zoom-n {
+  min-width: 54px;
+}
+
+/* o jeito do pincel, desenhado */
+.forma {
+  display: block;
+  width: 12px;
+  height: 12px;
+  background: currentColor;
+
+  &.redonda {
+    border-radius: 50%;
+  }
+}
+
+/* a simetria: o quadradinho com o eixo tracejado de caneta vermelha (ou sem eixo, a nenhuma) */
+.sim-desenho {
+  position: relative;
+  display: block;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid currentColor;
+  border-radius: 2px;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    display: none;
+  }
+
+  /* o eixo em pé */
+  &::before {
+    top: -3px;
+    bottom: -3px;
+    left: calc(50% - 0.75px);
+    border-left: 1.5px dashed var(--red);
+  }
+
+  /* o eixo deitado */
+  &::after {
+    left: -3px;
+    right: -3px;
+    top: calc(50% - 0.75px);
+    border-top: 1.5px dashed var(--red);
+  }
+
+  &[data-sim='lado']::before,
+  &[data-sim='ambas']::before,
+  &[data-sim='cima']::after,
+  &[data-sim='ambas']::after {
+    display: block;
+  }
+}
+
+.tecla.on .sim-desenho::before,
+.tecla.on .sim-desenho::after {
+  border-color: var(--hi);
+}
+
+.chave {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  cursor: pointer;
+}
+
+.interruptor {
+  @include kit.interruptor;
+}
+
+.chave-nome {
+  @include rt.grupo-nome;
+  color: var(--ink);
+}
+
+.opcao-dica {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.papel {
+  @include kit.botao-papel;
+
+  &.pequeno {
+    min-height: 34px;
+    padding: 6px 11px 5px;
+    font-size: 0.82rem;
+  }
+}
+
+.menu-imagem lucide-icon {
+  display: inline-flex;
+}
+
+/* Pronto: a ação que conclui, o pincel atômico */
+.pronto {
+  @include kit.tinta;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 9px 16px 8px;
+  font-size: 1.05rem;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 3px;
+  }
+}
+
+/* ===== à esquerda: as ferramentas ===== */
+.ferramentas {
+  @extend %tira;
+  grid-area: ferramentas;
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0 14px;
+  box-shadow:
+    1px 0 1px rgb(0 0 0 / 0.3),
+    6px 0 14px -8px rgb(0 0 0 / 0.6);
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.ferr-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ferr {
+  @include rt.tecla;
+  position: relative;
+  width: 44px;
+  height: 44px;
+
+  /* a tecla segurada (Alt, Espaço): o recorte tracejado em volta, enquanto vale */
+  &.segurada {
+    outline: 2px dashed var(--ink);
+    outline-offset: 1px;
+  }
+}
+
+/* a letra do atalho, numa etiquetinha de papel no canto (a mesma do número das pastilhas de antes) */
+.ferr-tecla {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  min-width: 13px;
+  padding: 1px 2px 0;
+  border-radius: 2px;
+  background: #fbfaf6;
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.22);
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.62rem;
+  line-height: 1.1;
+  text-align: center;
+}
+
+/* a frente e o fundo: dois quadrados de tinta colados, o da frente por cima (como no Aseprite) */
+.ff {
+  position: relative;
+  flex: none;
+  width: 48px;
+  height: 48px;
+  margin-top: auto;
+}
+
+.ff-cor {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: var(--cor);
+  box-shadow:
+    inset 0 0 0 1px rgb(21 21 21 / 0.2),
+    0 0 0 2px #fffdf8,
+    0 2px 4px rgb(0 0 0 / 0.35);
+  cursor: pointer;
+
+  &.frente {
+    top: 0;
+    left: 0;
+    z-index: 1;
+  }
+
+  &.fundo {
+    right: 0;
+    bottom: 0;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 3px;
+    z-index: 2;
+  }
+}
+
+.ff-trocar {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.08);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ink);
+  }
+}
+
+/* o transparente: o xadrez riscado em diagonal de caneta vermelha */
+%vazia {
+  background:
+    linear-gradient(to top right, transparent calc(50% - 1.2px), var(--red-deep) calc(50% - 1.2px) calc(50% + 1.2px), transparent calc(50% + 1.2px)),
+    repeating-conic-gradient(#e2ddd0 0 25%, #fbfaf6 0 50%) 0 0 / 10px 10px;
+}
+
+.ff-cor.vazia {
+  @extend %vazia;
+}
+
+.cores-botao {
+  display: none;
+}
+
+/* ===== a mesa: a base de corte ===== */
+.mesa {
+  grid-area: mesa;
+  position: relative;
+  overflow: hidden;
+  /* o dedo desenha e aproxima, não rola a página */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: crosshair;
+  background-color: var(--mat);
+  background-image:
+    linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px),
+    linear-gradient(rgb(255 255 255 / 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.022) 1px, transparent 1px);
+  background-size:
+    60px 60px,
+    60px 60px,
+    12px 12px,
+    12px 12px;
+
+  &.arrastando {
+    cursor: grab;
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
+}
+
+/* a folha do desenho, pousada na base de corte, com o xadrez do transparente (fixo, como no Aseprite) */
+.folha-papel {
+  position: absolute;
+  background: repeating-conic-gradient(#d9d4c7 0 25%, #f6f3ec 0 50%) 0 0 / 16px 16px;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.5),
+    0 18px 40px -14px rgb(0 0 0 / 0.75);
+}
+
+.folha {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  outline: none;
+
+  &:focus-visible {
+    outline: 3px solid var(--hi);
+    outline-offset: 5px;
+  }
+}
+
+.fios {
+  fill: none;
+  stroke: rgb(21 21 21 / 0.16);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+  shape-rendering: crispEdges;
+  pointer-events: none;
+
+  &.fortes {
+    stroke: rgb(21 21 21 / 0.42);
+  }
+}
+
+/* o eixo da simetria: o tracejado de caneta vermelha */
+.eixo {
+  stroke: var(--red);
+  stroke-width: 1.5px;
+  stroke-dasharray: 5 4;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+/* a mira: a cor que vai cair ali, meio transparente, com o contorno de tinta */
+.mira {
+  fill-opacity: 0.55;
+  stroke: var(--ink);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.ferramenta-borracha .mira {
+  stroke: var(--red-deep);
+  stroke-dasharray: 3 2;
+}
+
+.cursor {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 3px;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+/* as réguas: o aço escuro na beirada da mesa, com os números a giz */
+.regua {
+  position: absolute;
+  z-index: 1;
+  overflow: hidden;
+  background: rgb(18 19 21 / 0.88);
+  color: var(--wall-ink-2);
+  font-family: var(--f-label);
+  font-weight: 600;
+  font-size: 0.68rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.regua-x {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 20px;
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.08);
+
+  .tique {
+    top: 0;
+    bottom: 0;
+    padding: 4px 0 0 3px;
+    border-left: 1px solid rgb(243 239 230 / 0.42);
+  }
+
+  .regua-mouse {
+    top: 0;
+    bottom: 0;
+  }
+}
+
+.regua-y {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 24px;
+  box-shadow: 1px 0 0 rgb(255 255 255 / 0.08);
+
+  .tique {
+    left: 0;
+    right: 0;
+    padding: 3px 0 0 3px;
+    border-top: 1px solid rgb(243 239 230 / 0.42);
+  }
+
+  .regua-mouse {
+    left: 0;
+    right: 0;
+  }
+}
+
+.tique {
+  position: absolute;
+}
+
+/* o ponto do mouse, marcado na régua com o marca-texto */
+.regua-mouse {
+  position: absolute;
+  background: rgb(255 218 66 / 0.38);
+}
+
+.regua-canto {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 0;
+  width: 24px;
+  height: 20px;
+  background: rgb(18 19 21);
+  pointer-events: none;
+}
+
+/* ===== à direita: a prévia e as cores ===== */
+.painel {
+  @extend %tira;
+  grid-area: painel;
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px 16px 18px;
+  box-shadow:
+    -1px 0 1px rgb(0 0 0 / 0.3),
+    -6px 0 14px -8px rgb(0 0 0 / 0.6);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+/* a prévia: o desenho do tamanho de verdade (ou dobrado, se cabe), no xadrez */
+.previa {
+  display: grid;
+  place-items: center;
+  min-height: 128px;
+  padding: 8px;
+  border-radius: 2px;
+  background: repeating-conic-gradient(#e2ddd0 0 25%, #fbfaf6 0 50%) 0 0 / 12px 12px;
+  box-shadow: inset 0 0 0 1px rgb(21 21 21 / 0.12);
+}
+
+.previa-arte {
+  display: block;
+}
+
+.cores-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.painel-nome {
+  @include rt.grupo-nome;
+  margin: 0;
+  color: var(--ink);
+}
+
+.painel-n {
+  margin-left: 4px;
+  color: var(--ink-2);
+}
+
+/* a paleta: o nome impresso num campo de papel, com a lista do sistema por cima */
+.paleta-campo {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 30px 0 11px;
+  border-radius: 2px;
+  background: var(--campo-papel);
+  box-shadow: var(--campo-sombra);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.92rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+
+  &:focus-within {
+    box-shadow: var(--campo-sombra-foco);
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  select {
+    @include kit.select-por-cima;
+  }
+}
+
+.paleta-nome {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.paleta-seta {
+  position: absolute;
+  right: 8px;
+  display: inline-flex;
+}
+
+/* as pastilhas: quadradinhos de tinta colados, oito por fileira */
+.pastilhas {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.pastilha {
+  position: relative;
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: var(--cor);
+  box-shadow:
+    inset 0 0 0 1px rgb(21 21 21 / 0.18),
+    0 1px 1px rgb(0 0 0 / 0.22);
+  cursor: pointer;
+  transition:
+    translate var(--t-ui) var(--ease-ui),
+    box-shadow var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    translate: 0 -1px;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+    z-index: 2;
+  }
+
+  &.vazia {
+    @extend %vazia;
+  }
+
+  /* a do fundo: o anel tracejado */
+  &.fundo {
+    outline: 2px dashed var(--ink);
+    outline-offset: 2px;
+  }
+
+  /* a da frente: erguida, com o anel de tinta em volta */
+  &.on {
+    z-index: 1;
+    translate: 0 -2px;
+    box-shadow:
+      inset 0 0 0 1px rgb(21 21 21 / 0.18),
+      0 0 0 2px #fffdf8,
+      0 0 0 4px var(--ink),
+      0 5px 8px -2px rgb(0 0 0 / 0.35);
+  }
+
+  /* o "+": o recorte vazio na cartela */
+  &.mais {
+    display: grid;
+    place-items: center;
+    background: transparent;
+    box-shadow: none;
+    outline: 1.5px dashed rgb(21 21 21 / 0.42);
+    outline-offset: -1.5px;
+    color: var(--ink);
+
+    &:hover {
+      background: rgb(21 21 21 / 0.06);
+      outline-color: rgb(21 21 21 / 0.75);
+    }
+
+    lucide-icon {
+      display: inline-flex;
+    }
+  }
+}
+
+/* a cor da frente: a amostra, o caractere que vai no texto e a cor */
+.frente-linha {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+}
+
+.frente-amostra {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 2px;
+  background: var(--cor);
+  box-shadow: inset 0 0 0 1px rgb(21 21 21 / 0.2);
+
+  &.vazia {
+    @extend %vazia;
+  }
+}
+
+.frente-texto {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.frente-nome {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+}
+
+.frente-hex {
+  color: var(--ink-2);
+  font-family: var(--f-codigo);
+  font-size: 0.82rem;
+}
+
+.editor-cor {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 2px;
+  background: rgb(21 21 21 / 0.04);
+  box-shadow: inset 0 0 0 1px rgb(21 21 21 / 0.1);
+}
+
+.editor-amostra {
+  height: 48px;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: var(--cor);
+  box-shadow:
+    inset 0 0 0 1px rgb(21 21 21 / 0.2),
+    0 1px 2px rgb(0 0 0 / 0.25);
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+}
+
+.hex-campo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: 2px;
+  background: var(--campo-papel);
+  box-shadow: var(--campo-sombra);
+
+  &:focus-within {
+    box-shadow: var(--campo-sombra-foco);
+  }
+
+  input {
+    flex: 1;
+    min-width: 0;
+    height: 38px;
+    border: 0;
+    background: transparent;
+    outline: none;
+    color: var(--ink);
+    caret-color: var(--red);
+    font-family: var(--f-codigo);
+    font-size: 0.95rem;
+  }
+}
+
+.hex-nome {
+  @include rt.grupo-nome;
+}
+
+.editor-pe {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+
+  .papel {
+    margin-left: auto;
+  }
+}
+
+.link-voltar {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.painel-aviso {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.88rem;
+
+  &.ruim {
+    color: var(--error-ink);
+  }
+}
+
+.cor-escolha {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.arquivo {
+  display: none;
+}
+
+/* ===== embaixo: a barra de estado, a giz na base de corte ===== */
+.estado {
+  grid-area: estado;
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+  padding: 0 14px;
+  background: #1a1b1d;
+  box-shadow: 0 -1px 0 rgb(255 255 255 / 0.06);
+  color: var(--wall-ink-2);
+  font-family: var(--f-label);
+  font-weight: 600;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.estado-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  &.pos {
+    min-width: 92px;
+  }
+}
+
+.estado-amostra {
+  width: 12px;
+  height: 12px;
+  border-radius: 1px;
+  background: var(--cor);
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.25);
+
+  &.vazia {
+    @extend %vazia;
+    background-size: auto, 6px 6px;
+  }
+}
+
+button.estado-item {
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--wall-ink);
+  font: inherit;
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(255 255 255 / 0.08);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--hi);
+  }
+}
+
+.estado-dica {
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ===== o Tamanho da tela ===== */
+.tamanho {
+  max-width: min(440px, calc(100vw - 24px));
+}
+
+.tamanho-ficha {
+  @extend %tira;
+  display: grid;
+  gap: 18px;
+  padding: 22px 22px 18px;
+  border-radius: 2px;
+  box-shadow: var(--shadow-lift);
+}
+
+.tamanho-titulo {
+  margin: 0;
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.4rem;
+  line-height: 1.1;
+}
+
+.tamanho-campos {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.tam-campo {
+  display: grid;
+  gap: 6px;
+  flex: 1;
+
+  input {
+    height: 46px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 2px;
+    background: var(--campo-fundo);
+    box-shadow: var(--campo-sombra);
+    outline: none;
+    color: var(--ink);
+    caret-color: var(--red);
+    font-family: var(--f-ui);
+    font-size: 1.05rem;
+    font-variant-numeric: tabular-nums;
+
+    &:focus {
+      background: var(--campo-fundo-foco);
+      box-shadow: var(--campo-sombra-foco);
+    }
+  }
+}
+
+.tam-nome {
+  @include rt.grupo-nome;
+}
+
+.tam-x {
+  padding-bottom: 12px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  color: var(--ink-2);
+}
+
+.tam-prontos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* os tamanhos de sempre: recortes pequenos de papel, o escolhido em tinta */
+.tam-pronto {
+  min-width: 44px;
+  height: 34px;
+  padding: 0 8px;
+  border: 1.5px dashed rgb(21 21 21 / 0.42);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.06);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  &.on {
+    border-style: solid;
+    border-color: var(--ink);
+    background: var(--ink);
+    color: var(--hi);
+  }
+}
+
+.ancora-linha {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* a âncora: nove pontos, o escolhido em tinta */
+.ancora {
+  display: grid;
+  grid-template-columns: repeat(3, 26px);
+  gap: 4px;
+  flex: none;
+}
+
+.ancora-ponto {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1.5px dashed rgb(21 21 21 / 0.42);
+  border-radius: 2px;
+  background: transparent;
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.06);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  &.on {
+    border: 0;
+    background: var(--ink);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+  }
+}
+
+.ancora-dica {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.tamanho-pe {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* ===== no celular: a mesa ocupa a tela, as ferramentas numa fita embaixo, as cores sobem numa folha ===== */
+@media (max-width: 760px) {
+  .corpo {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'contexto'
+      'mesa'
+      'ferramentas';
+  }
+
+  .titulo {
+    display: none;
+  }
+
+  .contexto {
+    gap: 16px;
+    padding: 6px 10px;
+  }
+
+  .ferramentas {
+    flex-direction: row;
+    gap: 8px;
+    padding: 6px 10px calc(6px + env(safe-area-inset-bottom));
+    overflow-x: auto;
+    box-shadow:
+      0 -1px 1px rgb(0 0 0 / 0.3),
+      0 -6px 14px -8px rgb(0 0 0 / 0.6);
+  }
+
+  .ferr-lista {
+    flex-direction: row;
+  }
+
+  .ff {
+    margin: 0 0 0 auto;
+  }
+
+  .cores-botao {
+    display: grid;
+    flex: none;
+  }
+
+  .estado {
+    display: none;
+  }
+
+  .painel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 4;
+    max-height: 62dvh;
+    padding-bottom: calc(18px + env(safe-area-inset-bottom));
+    border-radius: 6px 6px 0 0;
+    box-shadow: 0 -10px 30px rgb(0 0 0 / 0.5);
+    translate: 0 105%;
+    transition: translate var(--t-physical) var(--ease-physical);
+  }
+
+  .cores-abertas .painel {
+    translate: 0 0;
+  }
+
+  .previa {
+    display: none;
+  }
+
+  .pastilhas {
+    grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .atelie[open] {
+    animation: none;
+  }
+
+  .pastilha,
+  .painel {
+    transition: none;
+  }
+}

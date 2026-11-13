@@ -13,7 +13,7 @@ import { CardPicker } from './card-picker';
 import { CoverSleeve } from './cover-sleeve';
 import { NoteWidget } from './note-widget';
 import { Pin } from './pin';
-import { PixelCanvas } from './pixel-canvas';
+import { PixelField } from './pixel-studio/pixel-field';
 import { PIXEL_LOOKS, inkOf, inkPaths } from '../core/pixel-art';
 import { TableLookArt } from './table-look-art';
 import { RichText } from './rich-text';
@@ -52,7 +52,7 @@ interface FieldRow {
  */
 @Component({
   selector: 'app-widget-sheet',
-  imports: [BackdropClose, CardPicker, CoverSleeve, IconModule, NgTemplateOutlet, NoteWidget, Pin, PixelCanvas, RichText, TableGrid, TableLookArt],
+  imports: [BackdropClose, CardPicker, CoverSleeve, IconModule, NgTemplateOutlet, NoteWidget, Pin, PixelField, RichText, TableGrid, TableLookArt],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './widget-sheet.html',
   styleUrl: './widget-sheet.scss',
@@ -300,7 +300,7 @@ export class WidgetSheet {
     this.values.update((v) => ({ ...v, [key]: value }));
   }
 
-  /** Vários campos de uma vez (a prancheta da pixel art manda os pontos, a grade nova e as cores trocadas). */
+  /** Vários campos de uma vez (o ateliê da pixel art manda os pontos, a tela, a paleta e as cores). */
   protected patch(p: WidgetValues): void {
     this.values.update((v) => ({ ...v, ...p }));
   }

@@ -464,7 +464,7 @@ export function pixelSummary(art: Pick<PixelArt, 'w' | 'h' | 'palette'>): string
   return `${art.w} × ${art.h} · ${palette}`;
 }
 
-// ===== o que a prancheta faz com os pontos (ui/pixel-canvas.ts) =====
+// ===== o que o ateliê faz com os pontos (ui/pixel-studio/; o resto em core/pixel-tools.ts) =====
 // As fileiras são sempre `string[]` de caracteres de cor (`inkChar`); cada operação devolve fileiras novas (as de antes
 // ficam para o desfazer) e mexe só dentro da grade `w` × `h` (o que está fora fica como está).
 

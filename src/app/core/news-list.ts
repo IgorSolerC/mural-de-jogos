@@ -27,12 +27,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-12-pixel-61-cores',
+    id: '2026-11-12-atelie-pixel',
     version: '1.45.2',
     kind: 'ajustes',
     date: '2026-11-12',
-    title: 'Letras novas nas anotações e nas análises, a Pixel art com 61 cores e as seções do mural em pilha',
+    title: 'Letras novas nas anotações e nas análises, o ateliê da Pixel art e as seções do mural em pilha',
     melhorias: [
+      'A Pixel art ganhou um ateliê de tela inteira, como o Aseprite: a folha grande numa base de corte, com zoom (a roda, os números 1 a 6, dois dedos), réguas, os fios de cada ponto e a grade de 8; as ferramentas com a letra do atalho (Lápis com tamanho, redondo e pixel perfeito, Borracha, Balde só na mancha ou na cor inteira, Conta-gotas, Mão), a simetria, a cor da frente e a do fundo (X troca, [ e ] andam a paleta), acrescentar e editar cores, o Tamanho da tela com a âncora (C) e a barra que diz onde está o mouse. Na folha do widget, o desenho fica numa linha, com o Abrir o ateliê.',
       'A Pixel art passa de nove para até 61 cores (depois do 9, as letras de a a z e de A a Z), com oito paletas novas (Completa, com 61 cores em rampas, Tinta e papel, Game Boy, PICO-8, Commodore 64, Sweetie 16, DawnBringer 16 e Endesga 32) e grades de até 64 × 64 pontos; os desenhos de antes continuam iguais.',
       'Letras novas nas anotações e nas análises: o nome é escrito a caneta (Caveat) na ficha do mural, na leitura, no editor, na ficha colada e nas listas dos Extras (Ranking, Estatísticas, Lado a lado, Comparar), e os títulos dentro do texto (H1 e H2) também, no lugar do pincel grosso que pesava mais que o texto. O texto continua na mesma letra à mão, um pouco menor.',
       'A caneta também no resto das anotações: o nome do card e da coluna no Kanban (o card ficou com o nome maior), o nome das pastas e das miniaturas dentro delas, e os itens do menu do botão direito.',
