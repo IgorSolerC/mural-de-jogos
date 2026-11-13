@@ -236,4 +236,71 @@ describe('pixel art: o ateliê', () => {
     expect(values['pixels'] ?? '').toBe('');
     expect(host.querySelector('.zoom-n')?.textContent).not.toBe(before);
   });
+
+  it('as formas: a linha (L), o retângulo (U, de novo cheio) e a elipse (Shift+U); a prévia é o resultado e soltar é um passo', async () => {
+    await make({ width: '5', height: '5' });
+    key('l');
+    pointer('pointerdown', 0, 0);
+    pointer('pointermove', 4, 4);
+    // (a prévia já está na folha, antes de soltar)
+    expect(values['pixels']).toBe('1/01/001/0001/00001');
+    expect(host.querySelector('.forma-tam')?.textContent).toContain('5 × 5');
+    pointer('pointermove', 4, 0);
+    pointer('pointerup', 4, 0);
+    expect(values['pixels']).toBe('1*05');
+    key('z', { ctrlKey: true });
+    expect(values['pixels']).toBe('');
+    key('u');
+    pointer('pointerdown', 0, 0);
+    pointer('pointermove', 3, 2);
+    pointer('pointerup', 3, 2);
+    expect(values['pixels']).toBe('1111/1001/1111');
+    key('z', { ctrlKey: true });
+    key('u');
+    expect(host.querySelector('.opcoes .interruptor')?.getAttribute('aria-checked')).toBe('true');
+    pointer('pointerdown', 0, 0);
+    pointer('pointermove', 1, 1);
+    pointer('pointerup', 1, 1);
+    expect(values['pixels']).toBe('11/11');
+    key('z', { ctrlKey: true });
+    // (o "Cheia" vale para as duas formas: continua ligado)
+    key('U', { shiftKey: true });
+    pointer('pointerdown', 0, 0);
+    pointer('pointermove', 4, 4);
+    pointer('pointerup', 4, 4);
+    expect(values['pixels']).toBe('0111/1*05/1*05/1*05/0111');
+  });
+
+  it('as formas com o Shift (quadrado) e o Ctrl (do meio para fora)', async () => {
+    await make({ width: '5', height: '5' });
+    key('u');
+    pointer('pointerdown', 2, 2);
+    pointer('pointermove', 3, 3, { ctrlKey: true });
+    pointer('pointerup', 3, 3, { ctrlKey: true });
+    expect(values['pixels']).toBe('/0111/0101/0111');
+    key('z', { ctrlKey: true });
+    pointer('pointerdown', 0, 0);
+    pointer('pointermove', 4, 2, { shiftKey: true });
+    pointer('pointerup', 4, 2, { shiftKey: true });
+    expect(values['pixels']).toBe('1*05/10001/10001/10001/1*05');
+  });
+
+  it('o Shift apertado com a forma na mão já a faz quadrada; cheia, o pincel grande não passa da caixa', async () => {
+    await make({ width: '6', height: '6' });
+    key('u');
+    pointer('pointerdown', 0, 0);
+    pointer('pointermove', 3, 1);
+    expect(values['pixels']).toBe('1111/1111');
+    key('Shift', { shiftKey: true });
+    expect(values['pixels']).toBe('1111/1001/1001/1111');
+    pointer('pointerup', 3, 1, { shiftKey: true });
+    key('z', { ctrlKey: true });
+    key('u');
+    key('+');
+    key('+');
+    pointer('pointerdown', 1, 1);
+    pointer('pointermove', 2, 2);
+    pointer('pointerup', 2, 2);
+    expect(values['pixels']).toBe('/011/011');
+  });
 });

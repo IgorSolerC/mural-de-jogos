@@ -159,3 +159,108 @@ export function fitZoom(w: number, h: number, vw: number, vh: number, margin = 4
 export function zoomLabel(z: number): string {
   return `${Math.round(z * 100)}%`;
 }
+
+// ===== as formas =====
+
+/** A caixa de uma forma puxada de `a` até `b`: com `square`, quadrada (o lado maior); com `center`, `a` é o meio. */
+export function shapeBox(a: Cell, b: Cell, square: boolean, center: boolean): { x0: number; y0: number; x1: number; y1: number } {
+  let dx = b.x - a.x;
+  let dy = b.y - a.y;
+  if (square) {
+    const n = Math.max(Math.abs(dx), Math.abs(dy));
+    dx = (dx < 0 ? -1 : 1) * n;
+    dy = (dy < 0 ? -1 : 1) * n;
+  }
+  const x0 = center ? a.x - dx : a.x;
+  const y0 = center ? a.y - dy : a.y;
+  const x1 = a.x + dx;
+  const y1 = a.y + dy;
+  return { x0: Math.min(x0, x1), y0: Math.min(y0, y1), x1: Math.max(x0, x1), y1: Math.max(y0, y1) };
+}
+
+/** A reta com o Shift: presa nos ângulos de 45° (deitada, em pé ou na diagonal), do tamanho do arrasto. */
+export function snapLine(a: Cell, b: Cell): Cell {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const ax = Math.abs(dx);
+  const ay = Math.abs(dy);
+  if (ax > ay * 2) return { x: b.x, y: a.y };
+  if (ay > ax * 2) return { x: a.x, y: b.y };
+  const n = Math.max(ax, ay);
+  return { x: a.x + Math.sign(dx) * n, y: a.y + Math.sign(dy) * n };
+}
+
+/** O retângulo da caixa: só a beirada, ou cheio. */
+export function rectCells(x0: number, y0: number, x1: number, y1: number, filled: boolean): Cell[] {
+  const out: Cell[] = [];
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      if (filled || y === y0 || y === y1 || x === x0 || x === x1) out.push({ x, y });
+    }
+  }
+  return out;
+}
+
+/**
+ * A elipse que cabe na caixa (o algoritmo de Alois Zingl, o mesmo do Aseprite): a beirada sem buraco e sem
+ * ponto dobrado; cheia, cada fileira de ponta a ponta da beirada.
+ */
+export function ellipseCells(x0: number, y0: number, x1: number, y1: number, filled: boolean): Cell[] {
+  const ring: Cell[] = [];
+  const put = (x: number, y: number) => ring.push({ x, y });
+  let a = Math.abs(x1 - x0);
+  const b = Math.abs(y1 - y0);
+  let b1 = b & 1;
+  let dx = 4 * (1 - a) * b * b;
+  let dy = 4 * (b1 + 1) * a * a;
+  let err = dx + dy + b1 * a * a;
+  if (x0 > x1) {
+    x0 = x1;
+    x1 += a;
+  }
+  if (y0 > y1) y0 = y1;
+  y0 += (b + 1) >> 1;
+  y1 = y0 - b1;
+  a = 8 * a * a;
+  b1 = 8 * b * b;
+  do {
+    put(x1, y0);
+    put(x0, y0);
+    put(x0, y1);
+    put(x1, y1);
+    const e2 = 2 * err;
+    if (e2 <= dy) {
+      y0++;
+      y1--;
+      err += dy += a;
+    }
+    if (e2 >= dx || 2 * err > dy) {
+      x0++;
+      x1--;
+      err += dx += b1;
+    }
+  } while (x0 <= x1);
+  // a ponta fina (a elipse muito estreita): as fileiras que faltam
+  while (y0 - y1 <= b) {
+    put(x0 - 1, y0);
+    put(x1 + 1, y0++);
+    put(x0 - 1, y1);
+    put(x1 + 1, y1--);
+  }
+  const seen = new Set<number>();
+  const uniq = ring.filter((c) => {
+    const k = (c.y + 1024) * 4096 + c.x + 1024;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  if (!filled) return uniq;
+  const span = new Map<number, [number, number]>();
+  for (const c of uniq) {
+    const s = span.get(c.y);
+    span.set(c.y, s ? [Math.min(s[0], c.x), Math.max(s[1], c.x)] : [c.x, c.x]);
+  }
+  const out: Cell[] = [];
+  for (const [y, [from, to]] of span) for (let x = from; x <= to; x++) out.push({ x, y });
+  return out;
+}

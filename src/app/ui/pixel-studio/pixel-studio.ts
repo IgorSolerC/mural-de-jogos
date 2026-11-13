@@ -31,14 +31,17 @@ import {
   writeColors,
   writeGrid,
 } from '../../core/pixel-art';
-import { Anchor, BRUSH_MAX, BrushShape, Symmetry, ZOOMS, ZOOM_KEYS, brushCells, fitZoom, mirrored, perfectCorner, replaceInk, resizeCanvas, stampCells, stepZoom, zoomLabel } from '../../core/pixel-tools';
+import { Anchor, BRUSH_MAX, BrushShape, Symmetry, ZOOMS, ZOOM_KEYS, ellipseCells, fitZoom, mirrored, perfectCorner, rectCells, replaceInk, resizeCanvas, shapeBox, snapLine, stampCells, stepZoom, zoomLabel } from '../../core/pixel-tools';
 import { WidgetValues } from '../../core/widgets';
 import { imageFileOf } from '../../core/images';
 import { ContextMenu, MenuSections } from '../context-menu';
 import { ICON, IconModule } from '../icons';
 
 /** As ferramentas do ateliê (as que pintam e a mão). */
-export type StudioTool = 'lapis' | 'borracha' | 'balde' | 'conta-gotas' | 'mao';
+export type StudioTool = 'lapis' | 'borracha' | 'balde' | 'conta-gotas' | 'linha' | 'retangulo' | 'elipse' | 'mao';
+
+/** As ferramentas que puxam uma forma (a reta, o retângulo, a elipse). */
+const SHAPES: readonly StudioTool[] = ['linha', 'retangulo', 'elipse'];
 
 /** Quantos passos o desfazer guarda. */
 const UNDO_MAX = 120;
@@ -55,6 +58,7 @@ interface Snap {
 /** O arrasto de agora: pintando, arrastando a vista ou aproximando com dois dedos. */
 type Drag =
   | { kind: 'pinta'; ink: number; erase: boolean; last: Cell; before: string[]; path: Cell[] }
+  | { kind: 'forma'; tool: StudioTool; ink: number; from: Cell; to: Cell; square: boolean; center: boolean; before: string[] }
   | { kind: 'vista'; x: number; y: number; panX: number; panY: number }
   | { kind: 'pinca'; dist: number; mid: { x: number; y: number }; zoom: number; panX: number; panY: number };
 
@@ -106,6 +110,9 @@ export class PixelStudio {
     { value: 'borracha', label: 'Borracha', key: 'E', icon: ICON.borracha },
     { value: 'balde', label: 'Balde', key: 'G', icon: ICON.balde },
     { value: 'conta-gotas', label: 'Conta-gotas', key: 'I', icon: ICON.contaGotas },
+    { value: 'linha', label: 'Linha', key: 'L', icon: ICON.reta },
+    { value: 'retangulo', label: 'Retângulo', key: 'U', icon: ICON.desmarcado },
+    { value: 'elipse', label: 'Elipse', key: 'Shift+U', icon: ICON.circulo },
     { value: 'mao', label: 'Mão', key: 'H', icon: ICON.aMao },
   ];
   protected readonly SYMMETRIES: readonly { value: Symmetry; label: string }[] = [
@@ -154,6 +161,10 @@ export class PixelStudio {
   /** O balde só na mancha (contíguo) ou na cor inteira. */
   protected readonly contiguous = signal(true);
   protected readonly symmetry = signal<Symmetry>('nenhuma');
+  /** O retângulo e a elipse cheios (U e Shift+U de novo alternam, como no Aseprite). */
+  protected readonly filled = signal(false);
+  /** O tamanho da forma sendo puxada, para a barra de estado ("8 × 4"). */
+  protected readonly shapeSize = signal<string | null>(null);
 
   // ===== a vista =====
 
@@ -329,7 +340,8 @@ export class PixelStudio {
 
   /** Os pontos que o pincel cobre num caminho, com a simetria, dentro da tela. */
   private cover(path: readonly Cell[]): Cell[] {
-    const size = this.active() === 'lapis' || this.active() === 'borracha' ? this.brush() : 1;
+    const t = this.active();
+    const size = t === 'lapis' || t === 'borracha' || SHAPES.includes(t) ? this.brush() : 1;
     return mirrored(stampCells(path, size, this.shape()), this.symmetry(), this.w(), this.h()).filter((c) => c.x >= 0 && c.y >= 0 && c.x < this.w() && c.y < this.h());
   }
 
@@ -355,6 +367,11 @@ export class PixelStudio {
       let rows = this.rows();
       for (const at of mirrored([c], this.symmetry(), this.w(), this.h())) rows = this.contiguous() ? floodFill(rows, at, ink, this.w(), this.h()) : replaceInk(rows, at, ink, this.w(), this.h());
       this.change({ rows }, `Balde de ${this.inkName(ink)}`);
+      return;
+    }
+    if (SHAPES.includes(tool)) {
+      this.drag = { kind: 'forma', tool, ink, from: c, to: c, square: shift, center: false, before: this.rows() };
+      this.shapeAt(c, shift, false);
       return;
     }
     const erase = tool === 'borracha';
@@ -391,18 +408,54 @@ export class PixelStudio {
     this.lastPainted = path.at(-1) ?? this.lastPainted;
   }
 
+  /** A forma puxada até `to`: desenhada por cima dos pontos de antes dela (a prévia é o resultado). */
+  private shapeAt(to: Cell, square: boolean, center: boolean): void {
+    const d = this.drag;
+    if (d?.kind !== 'forma') return;
+    Object.assign(d, { to, square, center });
+    let path: Cell[];
+    if (d.tool === 'linha') {
+      const end = square ? snapLine(d.from, to) : to;
+      const from = center ? { x: 2 * d.from.x - end.x, y: 2 * d.from.y - end.y } : d.from;
+      path = lineCells(from, end);
+      this.shapeSize.set(`${Math.abs(end.x - from.x) + 1} × ${Math.abs(end.y - from.y) + 1}`);
+    } else {
+      const b = shapeBox(d.from, to, square, center);
+      const fill = this.filled();
+      path = d.tool === 'retangulo' ? rectCells(b.x0, b.y0, b.x1, b.y1, fill) : ellipseCells(b.x0, b.y0, b.x1, b.y1, fill);
+      this.shapeSize.set(`${b.x1 - b.x0 + 1} × ${b.y1 - b.y0 + 1}`);
+    }
+    // (cheia, a forma é a caixa: o pincel engrossaria a beirada para fora dela)
+    const cells = d.tool !== 'linha' && this.filled() ? mirrored(path, this.symmetry(), this.w(), this.h()).filter((c) => this.inside(c)) : this.cover(path);
+    const rows = paintCells(d.before, cells, d.ink);
+    if (!sameRows(rows, this.rows())) {
+      this.rows.set(rows);
+      this.emit();
+    }
+  }
+
+  /** O Shift ou o Ctrl apertado (ou solto) com a forma na mão: ela muda na hora, sem esperar o mouse andar. */
+  private shapeKeys(e: KeyboardEvent): boolean {
+    const d = this.drag;
+    if (d?.kind !== 'forma' || (e.key !== 'Shift' && e.key !== 'Control' && e.key !== 'Meta')) return false;
+    this.shapeAt(d.to, e.shiftKey, e.ctrlKey || e.metaKey);
+    return true;
+  }
+
   /** Termina o arrasto: um passo só no desfazer (se mudou alguma coisa). */
   private endStroke(): void {
     const d = this.drag;
     this.drag = null;
-    if (d?.kind === 'pinta' && !sameRows(d.before, this.rows())) this.remember({ ...this.snap(), rows: d.before });
+    this.shapeSize.set(null);
+    if ((d?.kind === 'pinta' || d?.kind === 'forma') && !sameRows(d.before, this.rows())) this.remember({ ...this.snap(), rows: d.before });
   }
 
   /** Desfaz o arrasto de agora sem guardar nada (o segundo dedo chegou: era um gesto, não um traço). */
   private cancelStroke(): void {
     const d = this.drag;
     this.drag = null;
-    if (d?.kind === 'pinta' && !sameRows(d.before, this.rows())) {
+    this.shapeSize.set(null);
+    if ((d?.kind === 'pinta' || d?.kind === 'forma') && !sameRows(d.before, this.rows())) {
       this.rows.set(d.before);
       this.emit();
     }
@@ -477,6 +530,14 @@ export class PixelStudio {
       this.zoom.set(z);
       this.panX.set(d.panX + (mid.x - d.mid.x) + ox - (ox * z) / d.zoom);
       this.panY.set(d.panY + (mid.y - d.mid.y) + oy - (oy * z) / d.zoom);
+    } else if (d.kind === 'forma' && e.pointerId === this.strokePointer) {
+      if (e.pointerType === 'mouse' && e.buttons === 0) {
+        this.pointers.delete(e.pointerId);
+        this.endStroke();
+        return;
+      }
+      const center = e.ctrlKey || e.metaKey;
+      if (c.x !== d.to.x || c.y !== d.to.y || e.shiftKey !== d.square || center !== d.center) this.shapeAt(c, e.shiftKey, center);
     } else if (d.kind === 'pinta' && e.pointerId === this.strokePointer) {
       // o botão solto onde a mesa não ouviu (fora da janela): o traço acaba aqui
       if (e.pointerType === 'mouse' && e.buttons === 0) {
@@ -553,6 +614,7 @@ export class PixelStudio {
   protected onKey(e: KeyboardEvent): void {
     const target = e.target as HTMLElement | null;
     if (target?.closest?.('input, select, textarea, [role="menu"]') || this.sizing()) return;
+    if (this.shapeKeys(e)) return;
     const mod = e.ctrlKey || e.metaKey;
     const k = e.key.toLowerCase();
     if (mod && !e.altKey) {
@@ -589,6 +651,19 @@ export class PixelStudio {
     }
     if (e.altKey) {
       if (this.onBoard(e)) this.nudge(e);
+      return;
+    }
+    // U: o retângulo (de novo, cheio ou não); Shift+U: a elipse; L: a linha
+    if (k === 'u') {
+      e.preventDefault();
+      const t: StudioTool = e.shiftKey ? 'elipse' : 'retangulo';
+      if (this.tool() === t) this.toggleFilled();
+      else this.pickTool(t);
+      return;
+    }
+    if (k === 'l' && !e.shiftKey) {
+      e.preventDefault();
+      this.pickTool('linha');
       return;
     }
     if (e.shiftKey && (k === 'h' || k === 'v')) {
@@ -657,6 +732,7 @@ export class PixelStudio {
   }
 
   protected onKeyUp(e: KeyboardEvent): void {
+    if (this.shapeKeys(e)) return;
     if ((e.key === 'Alt' && this.held() === 'conta-gotas') || (e.key === ' ' && this.held() === 'mao')) {
       e.preventDefault();
       this.held.set(null);
@@ -691,6 +767,11 @@ export class PixelStudio {
   protected pickTool(t: StudioTool): void {
     this.tool.set(t);
     this.said.set(this.TOOLS.find((o) => o.value === t)?.label ?? '');
+  }
+
+  protected toggleFilled(): void {
+    this.filled.update((v) => !v);
+    this.said.set(this.filled() ? 'Forma cheia' : 'Só a beirada da forma');
   }
 
   protected setBrush(n: number): void {
@@ -977,6 +1058,11 @@ export class PixelStudio {
         return this.contiguous() ? 'Pinta a mancha da mesma cor · o direito, com a cor do fundo' : 'Pinta toda a cor, em qualquer lugar · o direito, com a do fundo';
       case 'conta-gotas':
         return 'Esquerdo: a cor da frente · direito: a do fundo';
+      case 'linha':
+        return 'Shift: deitada, em pé ou a 45° · Ctrl: do meio para fora · o direito, com a cor do fundo';
+      case 'retangulo':
+      case 'elipse':
+        return 'Shift: quadrado e círculo · Ctrl: do meio para fora · U de novo: cheia ou só a beirada';
       default:
         return 'Arraste para mover a vista · a roda aproxima';
     }

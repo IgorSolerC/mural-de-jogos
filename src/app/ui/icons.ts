@@ -279,6 +279,7 @@ import {
   Scaling,
   ZoomIn,
   ZoomOut,
+  Slash,
 } from 'lucide-angular';
 import { CARTELA_DE_ICONES } from '../../../shared/cartela-de-icones';
 import { ICON_CHOICES, IconChoice, isIconChoice } from '../core/icon-choices';
@@ -560,6 +561,8 @@ export const ICON = {
   fios: Grid2x2,
   tamanhoDaTela: Scaling,
   trocarCores: ArrowLeftRight,
+  /** As formas do ateliê: a reta (o retângulo e a elipse são o desmarcado e o círculo). */
+  reta: Slash,
   /** A tabela: a linha nova em cima e embaixo da do cursor, a coluna nova antes e depois. */
   linhaEmCima: BetweenHorizontalStart,
   linhaEmbaixo: BetweenHorizontalEnd,

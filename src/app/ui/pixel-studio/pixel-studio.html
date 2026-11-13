@@ -55,6 +55,14 @@
                 </button>
               </span>
             </div>
+            @if (active() === 'retangulo' || active() === 'elipse') {
+              <label class="chave" title="Cheia ou só a beirada (U de novo)">
+                <button type="button" role="switch" class="interruptor" [attr.aria-checked]="filled()" (click)="toggleFilled()">
+                  <span class="bolinha"></span>
+                </button>
+                <span class="chave-nome">Cheia</span>
+              </label>
+            }
             @if (active() === 'lapis') {
               <label class="chave" title="Tira o canto dos traços de um ponto, para a linha não engrossar">
                 <button type="button" role="switch" class="interruptor" [attr.aria-checked]="perfect()" (click)="perfect.set(!perfect())">
@@ -133,7 +141,7 @@
           @let on = tool() === t.value;
           <button type="button" role="radio" class="ferr" [class.on]="on" [class.segurada]="held() === t.value" [attr.aria-checked]="on" [title]="t.label + ' (' + t.key + ')'" [attr.aria-label]="t.label" [attr.aria-keyshortcuts]="t.key" (click)="pickTool(t.value)">
             <lucide-icon [img]="t.icon" [size]="20" aria-hidden="true" />
-            <kbd class="ferr-tecla" aria-hidden="true">{{ t.key }}</kbd>
+            <kbd class="ferr-tecla" aria-hidden="true">{{ t.key.replace('Shift+', '⇧') }}</kbd>
           </button>
         }
       </div>
@@ -322,6 +330,9 @@
           <span class="estado-amostra" [class.vazia]="u.n === 0" [style.--cor]="u.color ?? 'transparent'"></span>
           {{ u.n === 0 ? 'transparente' : inkChar(u.n) + ' ' + u.color }}
         </span>
+      }
+      @if (shapeSize(); as sz) {
+        <span class="estado-item forma-tam">{{ sz }}</span>
       }
       <button type="button" class="estado-item tela" title="Tamanho da tela (C)" (click)="openSize()">{{ iw }} × {{ ih }}</button>
       <span class="estado-item">{{ zoomLabel(z) }}</span>
