@@ -187,9 +187,9 @@ describe('pixel art: a prancheta', () => {
     expect(values['colors']).toBe('3#00ff00');
   });
 
-  it('a grade escrita maior que 32 volta para 32', async () => {
-    await make({ width: '40', height: '8' });
-    expect(values['width']).toBe('32');
+  it('a grade escrita maior que 64 volta para 64', async () => {
+    await make({ width: '70', height: '8' });
+    expect(values['width']).toBe('64');
   });
 
   it('trazer uma imagem: escolhida ou colada, ela vira os pontos, num passo do desfazer', async () => {

@@ -1180,7 +1180,7 @@ const TABLE: WidgetDef = {
   copy: () => '',
 };
 
-// ===== A pixel art: os pontos de um desenho, escritos com algarismos (ver core/pixel-art.ts) =====
+// ===== A pixel art: os pontos de um desenho, um caractere de cor cada (ver core/pixel-art.ts) =====
 
 /**
  * Na folha, o campo `pixels` (ui/pixel-canvas.ts) mexe em `pixels` (os pontos como escritos, sem cortar
@@ -1191,14 +1191,15 @@ const PIXEL: WidgetDef = {
   name: 'pixel',
   aliases: ['pixels', 'pixelart', 'pixel-art'],
   label: 'Pixel art',
-  about: 'Um desenho de quadradinhos, com até nove cores, feito ali mesmo.',
+  about: 'Um desenho de quadradinhos, com até 61 cores, feito ali mesmo.',
   hint: 'Um desenho de quadradinhos',
   what: 'O desenho',
   put: 'Pôr o desenho',
   swap: 'Salvar o desenho',
   fields: [
     { key: 'pixels', label: 'O desenho', kind: 'pixels', required: true, missing: 'Falta desenhar' },
-    { key: 'palette', label: 'Paleta', kind: 'choice', options: PALETTES, display: 'select' },
+    // (a própria não se escolhe: ela nasce de mexer nas cores, no ateliê)
+    { key: 'palette', label: 'Paleta', kind: 'choice', options: PALETTES.filter((p) => p.value !== 'propria'), display: 'select' },
     { key: 'width', label: 'Largura', kind: 'number', range: [1, PIXEL_MAX], placeholder: '16', row: 'grade' },
     { key: 'height', label: 'Altura', kind: 'number', range: [1, PIXEL_MAX], placeholder: '16', row: 'grade', hint: `A grade vai de 1 a ${PIXEL_MAX} pontos de cada lado.` },
     { key: 'caption', label: 'Legenda', kind: 'text', placeholder: 'Opcional', max: 80, inline: 'Escreva uma legenda' },

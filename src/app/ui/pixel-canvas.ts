@@ -5,12 +5,15 @@ import {
   PIXEL_MAX,
   blankGrid,
   clampSide,
+  drawingInks,
   fitInGrid,
   floodFill,
   flipH,
   flipV,
   gridOf,
   hasInk,
+  inkChar,
+  inkIndex,
   inkOf,
   inkPaths,
   lineCells,
@@ -75,7 +78,7 @@ export class PixelCanvas {
     { value: 'balde', label: 'Balde', key: 'G', icon: ICON.balde },
     { value: 'conta-gotas', label: 'Conta-gotas', key: 'I', icon: ICON.contaGotas },
   ];
-  protected readonly DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+  protected readonly inkChar = inkChar;
   protected readonly MirrorIcon = ICON.espelho;
   protected readonly UndoIcon = ICON.desfazer;
   protected readonly RedoIcon = ICON.refazer;
@@ -95,6 +98,8 @@ export class PixelCanvas {
   protected readonly palette = computed(() => paletteWord(this.values()['palette'] ?? '') ?? DEFAULT_PALETTE);
   protected readonly colors = computed(() => parseColors(this.values()['colors'] ?? '') ?? {});
   protected readonly inks = computed(() => inkOf(this.palette(), this.colors()));
+  /** As cores do desenho (do 0 até a última dele), uma pastilha cada. */
+  protected readonly swatches = computed(() => drawingInks(this.palette(), this.colors()).map((_, i) => i));
 
   /** Os pontos, sempre 32 × 32 (a grade mostra o canto de cima dele). */
   protected readonly buffer = signal<string[]>(blankGrid(PIXEL_MAX, PIXEL_MAX));
@@ -153,7 +158,12 @@ export class PixelCanvas {
         this.syncHistory();
       });
     });
-    // a grade escrita maior que 32 volta para 32 no campo (a prancheta e a marca já param nele)
+    // a paleta diminuiu (a Game Boy tem 4): a cor escolhida que ficou de fora volta para a 1
+    effect(() => {
+      const n = this.swatches().length;
+      if (untracked(this.ink) >= n) this.ink.set(Math.min(1, n - 1));
+    });
+    // a grade escrita maior que 64 volta para 64 no campo (a prancheta e a marca já param nele)
     effect(() => {
       const v = this.values();
       const patch: WidgetValues = {};
@@ -247,13 +257,15 @@ export class PixelCanvas {
 
   /** O ponto de uma cor, como se fala: "transparente", "cor 4". */
   protected inkName(n: number): string {
-    return n === 0 ? 'transparente' : `cor ${n}`;
+    return n === 0 ? 'transparente' : `cor ${inkChar(n)}`;
   }
 
   /** O que um toque (ou o Espaço) faz no ponto `c`, com a ferramenta de agora (a borracha, no botão direito). */
   private apply(c: Cell, tool: Tool, shift: boolean): void {
     if (tool === 'conta-gotas') {
-      const n = Number(this.buffer()[c.y][c.x]);
+      const at = Math.max(0, inkIndex(this.buffer()[c.y][c.x]));
+      // (um ponto escrito à mão com uma cor que a paleta não tem: a 1)
+      const n = at < this.swatches().length ? at : Math.min(1, this.swatches().length - 1);
       this.ink.set(n);
       this.tool.set('lapis');
       this.said.set(`Cor escolhida: ${this.inkName(n)}`);
@@ -334,7 +346,7 @@ export class PixelCanvas {
       if (e.altKey && !mod && this.onBoard(e)) this.shiftKey(e);
       return;
     }
-    if (/^[0-9]$/.test(e.key)) {
+    if (/^[0-9]$/.test(e.key) && Number(e.key) < this.swatches().length) {
       e.preventDefault();
       this.chooseInk(Number(e.key));
       return;
@@ -401,7 +413,7 @@ export class PixelCanvas {
   }
 
   private sayCell(c: Cell): void {
-    this.said.set(`Linha ${c.y + 1}, coluna ${c.x + 1}: ${this.inkName(Number(this.buffer()[c.y][c.x]))}`);
+    this.said.set(`Linha ${c.y + 1}, coluna ${c.x + 1}: ${this.inkName(Math.max(0, inkIndex(this.buffer()[c.y][c.x])))}`);
   }
 
   // ===== a régua e as cores =====
@@ -527,7 +539,7 @@ export class PixelCanvas {
       const fit = fitInGrid(bitmap.width, bitmap.height, w, h);
       const data = shrink(bitmap, fit.w, fit.h);
       bitmap.close();
-      const part = quantize(data, fit.w, fit.h, this.inks());
+      const part = quantize(data, fit.w, fit.h, drawingInks(this.palette(), this.colors()));
       const next = blankGrid(PIXEL_MAX, PIXEL_MAX).map((row, y) => {
         const line = part[y - fit.y];
         return line === undefined ? row : row.slice(0, fit.x) + line + row.slice(fit.x + line.length);
@@ -544,7 +556,7 @@ export class PixelCanvas {
   /** O nome da pastilha para quem não vê: "Cor 4, trocada", "Transparente: apaga". */
   protected swatchLabel(n: number): string {
     if (n === 0) return 'Transparente (apaga)';
-    return `Cor ${n}${this.colors()[n] ? ', trocada' : ''}`;
+    return `Cor ${inkChar(n)}${this.colors()[n] ? ', trocada' : ''}`;
   }
 
   /** A prancheta para quem não vê. */

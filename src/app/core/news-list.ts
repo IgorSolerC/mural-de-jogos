@@ -27,12 +27,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-12-letras-nos-extras',
+    id: '2026-11-12-pixel-61-cores',
     version: '1.45.2',
     kind: 'ajustes',
     date: '2026-11-12',
-    title: 'Letras novas nas anotações e nas análises, as seções do mural se juntam na pilha e a cabeça dos Flashcards',
+    title: 'Letras novas nas anotações e nas análises, a Pixel art com 61 cores e as seções do mural em pilha',
     melhorias: [
+      'A Pixel art passa de nove para até 61 cores (depois do 9, as letras de a a z e de A a Z), com oito paletas novas (Completa, com 61 cores em rampas, Tinta e papel, Game Boy, PICO-8, Commodore 64, Sweetie 16, DawnBringer 16 e Endesga 32) e grades de até 64 × 64 pontos; os desenhos de antes continuam iguais.',
       'Letras novas nas anotações e nas análises: o nome é escrito a caneta (Caveat) na ficha do mural, na leitura, no editor, na ficha colada e nas listas dos Extras (Ranking, Estatísticas, Lado a lado, Comparar), e os títulos dentro do texto (H1 e H2) também, no lugar do pincel grosso que pesava mais que o texto. O texto continua na mesma letra à mão, um pouco menor.',
       'A caneta também no resto das anotações: o nome do card e da coluna no Kanban (o card ficou com o nome maior), o nome das pastas e das miniaturas dentro delas, e os itens do menu do botão direito.',
       'Nos Flashcards, a palavra da frente é escrita numa serifa de livro (Fraunces), e o verso e a legenda na letra do site, mais fáceis de ler; o japonês continua à mão.',

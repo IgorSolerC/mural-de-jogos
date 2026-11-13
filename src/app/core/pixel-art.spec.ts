@@ -1,4 +1,4 @@
-import { compressRow, expandRow, gridOf, inkOf, normalHex, parseColors, parseDims, readPixelArt, writeColors, writeGrid, writePixelArt } from './pixel-art';
+import { INK_MAX, PALETTES, compressRow, drawingInks, expandRow, gridOf, inkChar, inkCount, inkIndex, inkOf, inkPaths, normalHex, paintCells, paletteWord, parseColors, parseDims, readPixelArt, writeColors, writeGrid, writePixelArt } from './pixel-art';
 import { parseWidgetLine, widgetDef, widgetLine, widgetSpoken } from './widgets';
 
 /** A pixel art no texto (PLANO-PIXEL.md, seção 1): poucas letras, lidas em qualquer ordem, escritas sempre iguais. */
@@ -56,7 +56,7 @@ describe('pixel art: a marca no texto', () => {
     // escrito à mão com um algarismo só, no fim da fileira, também vale
     expect(expandRow('3*5')).toBe('33333');
     // nunca passa do tamanho máximo da grade (uma fileira enorme escrita à mão não pesa)
-    expect(expandRow('1*99'.repeat(50)).length).toBe(32);
+    expect(expandRow('1*99'.repeat(50)).length).toBe(64);
   });
 
   it('a linha sem abreviação, de antes, continua valendo; e a abreviada é lida igual', () => {
@@ -92,10 +92,11 @@ describe('pixel art: a marca no texto', () => {
     expect(writeColors(odd.colors, odd.palette)).toBe('');
   });
 
-  it('a grade vale de 1 a 32 de cada lado', () => {
+  it('a grade vale de 1 a 64 de cada lado', () => {
     expect(parseDims('16x16')).toEqual({ w: 16, h: 16 });
     expect(parseDims('32×8')).toEqual({ w: 32, h: 8 });
-    expect(parseDims('33x8')).toBeNull();
+    expect(parseDims('64x64')).toEqual({ w: 64, h: 64 });
+    expect(parseDims('65x8')).toBeNull();
     expect(parseDims('0x8')).toBeNull();
   });
 
@@ -108,7 +109,9 @@ describe('pixel art: a marca no texto', () => {
     const inks = inkOf('classica', { 4: '#00ff00' });
     expect(inks[0]).toBeNull();
     expect(inks[4]).toBe('#00ff00');
-    expect(inks.length).toBe(10);
+    // as nove da paleta e, até a 61, as da reserva (um ponto escrito à mão além dela não some)
+    expect(inks.length).toBe(62);
+    expect(drawingInks('classica', { 4: '#00ff00' }).length).toBe(10);
   });
 
   it('é um widget: a linha inteira, com o tamanho, ida e volta', () => {
@@ -133,5 +136,103 @@ describe('pixel art: a marca no texto', () => {
     expect(def.write({ ...v, pixels: '' })).toBeNull();
     // a grade vazia (o campo apagado) é a de sempre, não 1 ponto
     expect(def.write({ ...v, width: '', height: '' })![0]).toBe('16x16');
+  });
+
+  // ===== 61 cores (PLANO-ATELIE.md, seção 1) =====
+
+  it('os caracteres das cores: 0–9, a–z (10–35), A–Z (36–61), ida e volta', () => {
+    expect([inkChar(0), inkChar(9), inkChar(10), inkChar(35), inkChar(36), inkChar(61)]).toEqual(['0', '9', 'a', 'z', 'A', 'Z']);
+    for (let n = 0; n <= INK_MAX; n++) expect(inkIndex(inkChar(n))).toBe(n);
+    expect(inkIndex('*')).toBe(-1);
+    expect(inkIndex('ç')).toBe(-1);
+  });
+
+  it('pontos com letras logo depois da grade: lidos, abreviados e escritos de volta iguais', () => {
+    const art = readPixelArt(['6x2', 'a*06/0zAZ9', 'Gato']);
+    expect(art.rows).toEqual(['aaaaaa', '0zAZ90']);
+    expect(art.caption).toBe('Gato');
+    expect(writePixelArt(art)).toEqual(['6x2', 'a*06/0zAZ9', 'Gato']);
+    expect(compressRow('bbbbbbbbbbbbc')).toBe('b*12c');
+    expect(expandRow('Z*03a')).toBe('ZZZa');
+  });
+
+  it('uma palavra sem algarismo, "/" nem "*" depois da grade continua legenda; e a de paleta, paleta', () => {
+    expect(readPixelArt(['8x8', 'Gato']).caption).toBe('Gato');
+    expect(readPixelArt(['8x8', 'Gato']).raw).toBe('');
+    expect(readPixelArt(['8x8', 'pico8', '0110']).palette).toBe('pico8');
+    expect(readPixelArt(['8x8', 'pico8', '0110']).rows[0]).toBe('01100000');
+    // longe da grade, só algarismos são pontos (como antes): "Mario64" é legenda
+    expect(readPixelArt(['8x8', '0110', 'Mario64']).caption).toBe('Mario64');
+  });
+
+  it('um desenho só de letras numa fileira, ou com cara de palavra, sai com um "/" que não muda nada', () => {
+    const one = writePixelArt({ ...readPixelArt(['3x1', '111']), rows: ['abc'] })!;
+    expect(one[1]).toBe('abc/');
+    expect(readPixelArt(one).rows).toEqual(['abc']);
+    const word = writePixelArt({ ...readPixelArt(['3x1', '111']), rows: ['c64'] })!;
+    expect(word[1]).toBe('c64/');
+    expect(readPixelArt(word).rows).toEqual(['c64']);
+    expect(readPixelArt(word).palette).toBe('classica');
+  });
+
+  it('as cores trocadas e acrescentadas com letras; a paleta de 16 com a "h" acrescentada tem 17', () => {
+    expect(parseColors('c#ff0000 Z#00f')).toEqual({ 12: '#ff0000', 61: '#0000ff' });
+    expect(writeColors({ 61: '#0000ff', 12: '#ff0000', 3: '#8a8791' }, 'classica')).toBe('c#ff0000 Z#0000ff');
+    expect(inkCount('pico8', {})).toBe(16);
+    expect(inkCount('pico8', { 17: '#123456' })).toBe(17);
+    const inks = drawingInks('pico8', { 17: '#123456' });
+    expect(inks.length).toBe(18);
+    expect(inks[17]).toBe('#123456');
+  });
+
+  it('a paleta própria: nenhuma cor de base, todas escritas', () => {
+    expect(inkCount('propria', {})).toBe(0);
+    const art = readPixelArt(['2x1', '12', 'propria', '1#101010 2#202020']);
+    expect(art.palette).toBe('propria');
+    expect(drawingInks(art.palette, art.colors)).toEqual([null, '#101010', '#202020']);
+    expect(writePixelArt(art)).toEqual(['2x1', '12', 'propria', '1#101010 2#202020']);
+  });
+
+  it('uma cor no meio sem cor nenhuma (escrita à mão) pega a da reserva, a Completa, e nunca some', () => {
+    const completa = PALETTES.find((p) => p.value === 'completa')!.colors;
+    expect(completa.length).toBe(INK_MAX);
+    expect(new Set(completa).size).toBe(INK_MAX);
+    // as nove primeiras são as da Clássica: trocar uma pela outra não muda o desenho
+    expect(completa.slice(0, 9)).toEqual(PALETTES[0].colors);
+    const inks = drawingInks('propria', { 3: '#333333' });
+    expect(inks[1]).toBe(completa[0]);
+    expect(inkOf('gameboy', {})[40]).toBe(completa[39]);
+  });
+
+  it('as paletas: até 61 cores cada, cores que valem, palavras que se leem de volta', () => {
+    for (const p of PALETTES) {
+      expect(p.colors.length).toBeLessThanOrEqual(INK_MAX);
+      for (const c of p.colors) expect(normalHex(c)).toBe(c);
+      expect(paletteWord(p.value)).toBe(p.value);
+    }
+    expect(paletteWord('PICO-8')).toBe('pico8');
+    expect(paletteWord('Própria')).toBe('propria');
+  });
+
+  it('pintar, o balde e os caminhos do desenho valem para as letras', () => {
+    expect(paintCells(['000'], [{ x: 1, y: 0 }], 37)).toEqual(['0B0']);
+    const paths = inkPaths(['aab', '0Z0'], 'pixel');
+    expect(paths.map((p) => p.ink)).toEqual([10, 11, 61]);
+    expect(paths[0].d).toBe('M0 0h2v1h-2z');
+  });
+
+  it('as linhas antigas, só de algarismos, leem e se escrevem exatamente como antes', () => {
+    // (como a folha escreve desde a abreviação, de 11/nov)
+    const old = [
+      ['8x8', '0110011/14411441/14*061/14*061/0144441/001441/00011', 'Coração'],
+      ['8x8', '0110011/14411441/14*061/14*061/0144441/001441/00011', 'pastel', 'figurinha'],
+      ['8x8', '0110011/14411441/14*061/14*061/0144441/001441/00011', '4#c2185b', 'ponto-cruz', 'Bordado da vó'],
+      ['12x6', '00001111/000177771/0017*061/01*10/001288882/0001111', 'mar', 'micanga'],
+      ['32x32', '/1*32/2*0533', 'neon', '9#123456', 'Fileiras'],
+    ];
+    for (const args of old) expect(writePixelArt(readPixelArt(args))).toEqual(args);
+    // e as de antes da abreviação leem os mesmos pontos
+    const before = readPixelArt(['8x8', '0110011/14411441/14444441/14444441/0144441/001441/00011']);
+    expect(before.rows).toEqual(readPixelArt(old[0]).rows);
   });
 });

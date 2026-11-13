@@ -162,6 +162,10 @@
   display: grid;
   grid-template-columns: repeat(5, 38px);
   gap: 8px;
+  /* (as paletas grandes rolam dentro dela) */
+  max-height: 416px;
+  overflow-y: auto;
+  padding: 6px 6px 6px 0;
 }
 
 /* com largura, as cores ficam ao lado da prancheta, em duas colunas de cinco */

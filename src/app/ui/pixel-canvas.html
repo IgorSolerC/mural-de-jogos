@@ -99,7 +99,7 @@
     <!-- as dez cores: o número delas é o que vai escrito no texto -->
     <div class="pc-cores">
       <div class="pastilhas" role="radiogroup" aria-label="Cores">
-        @for (n of DIGITS; track n) {
+        @for (n of swatches(); track n) {
           @let on = ink() === n;
           <button
             type="button"
@@ -111,11 +111,11 @@
             [style.--cor]="inks()[n] ?? 'transparent'"
             [attr.aria-checked]="on"
             [attr.aria-label]="swatchLabel(n)"
-            [title]="n === 0 ? 'Transparente: apaga (0)' : on ? 'Trocar esta cor' : 'Cor ' + n + ' (' + n + ')'"
+            [title]="n === 0 ? 'Transparente: apaga (0)' : on ? 'Trocar esta cor' : 'Cor ' + inkChar(n)"
             (click)="swatch(n)"
           >
             <span class="pastilha-num" aria-hidden="true">
-              {{ n }}
+              {{ inkChar(n) }}
               @if (on && n > 0) {
                 <!-- a escolhida: o lápis diz que um toque nela troca a cor -->
                 <lucide-icon class="pastilha-trocar" [img]="PenIcon" [size]="10" aria-hidden="true" />
@@ -146,7 +146,7 @@
       } @else if (ink() === 0) {
         O 0 é o transparente: pinta apagando.
       } @else if (colors()[ink()]) {
-        A cor {{ ink() }} foi trocada.
+        A cor {{ inkChar(ink()) }} foi trocada.
         <button type="button" class="pc-voltar" (click)="resetColor(ink())">Voltar à da paleta</button>
       } @else {
         Um toque de novo na cor escolhida troca ela.
