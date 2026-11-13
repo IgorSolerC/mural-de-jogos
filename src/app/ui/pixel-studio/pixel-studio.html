@@ -9,6 +9,7 @@
   (close)="closed.emit()"
   (keydown)="onKey($event); $event.stopPropagation()"
   (keyup)="onKeyUp($event)"
+  (paste)="onPaste($event)"
 >
   <div class="corpo" [class.cores-abertas]="colorsOpen()">
     <!-- em cima: o nome, as opções da ferramenta de agora e o que mexe na vista e no desenho todo -->
@@ -192,7 +193,6 @@
       (pointerleave)="leave()"
       (wheel)="wheel($event)"
       (contextmenu)="$event.preventDefault()"
-      (paste)="takeImage($event)"
       (dragover)="dragOver($event)"
       (drop)="takeImage($event)"
     >
@@ -277,6 +277,10 @@
           </button>
           <button type="button" class="tecla" title="Mais: ordenar, tirar a cor, trazer de uma imagem" aria-label="Mais sobre as cores" aria-haspopup="menu" (click)="openColorsMenu($event)">
             <lucide-icon [img]="I.maisOpcoes" [size]="18" aria-hidden="true" />
+          </button>
+          <!-- no celular: a folha cobre a fita das ferramentas (e o botão que a abriu), então fecha aqui -->
+          <button type="button" class="tecla cores-fechar" title="Fechar as cores" aria-label="Fechar as cores" (click)="colorsOpen.set(false); editing.set(false); inkEdited()">
+            <lucide-icon [img]="I.fechar" [size]="18" aria-hidden="true" />
           </button>
         </span>
       </div>

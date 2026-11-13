@@ -21,6 +21,7 @@ import {
   inkIndex,
   inkOf,
   inkPaths,
+  keptColors,
   lineCells,
   normalHex,
   paintCells,
@@ -45,6 +46,9 @@ export type StudioTool = 'selecao' | 'varinha' | 'mover' | 'lapis' | 'borracha' 
 
 /** As ferramentas que puxam uma forma (a reta, o retângulo, a elipse). */
 const SHAPES: readonly StudioTool[] = ['linha', 'retangulo', 'elipse'];
+
+/** Quando as cores viram a folha que sobe (o celular): o mesmo corte do pixel-studio.scss. */
+const SHEET_MEDIA = '(max-width: 760px)';
 
 /** Quantos passos o desfazer guarda. */
 const UNDO_MAX = 120;
@@ -89,6 +93,7 @@ let uid = 0;
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './pixel-studio.html',
   styleUrl: './pixel-studio.scss',
+  host: { '(window:blur)': 'onBlur()' },
 })
 export class PixelStudio {
   /** Os valores da folha quando o ateliê abriu (os pontos, a grade, a paleta, as cores trocadas). */
@@ -313,8 +318,11 @@ export class PixelStudio {
   private drag: Drag | null = null;
   /** Os ponteiros na mesa agora (dois dedos aproximam). */
   private readonly pointers = new Map<number, { x: number; y: number }>();
-  /** O balde tocado pelo dedo, esperando ele subir (se virar pinça, não pinta). */
-  private pendingFill: { c: Cell; alt: boolean } | null = null;
+  /**
+   * O toque de um ponto só (o balde, a varinha, o conta-gotas) no dedo, esperando ele subir: se virar pinça,
+   * nada acontece.
+   */
+  private pendingTap: { c: Cell; tool: StudioTool } | null = null;
   /** O ponteiro do traço de agora (outro não continua o traço dele). */
   private strokePointer: number | null = null;
   /** O último ponto pintado (o Shift risca a reta desde ele). */
@@ -580,8 +588,12 @@ export class PixelStudio {
     const d = this.drag;
     this.drag = null;
     this.shapeSize.set(null);
-    // um clique sem arrastar, com a Seleção, tira a seleção (como no Aseprite)
-    if (d?.kind === 'sel' && d.mode === 'trocar' && d.from.x === d.to.x && d.from.y === d.to.y) this.deselect();
+    // um clique sem arrastar, com a Seleção, tira a seleção (como no Aseprite); o Ctrl+Shift+D traz a de
+    // antes do clique, não o ponto que ele escolheu
+    if (d?.kind === 'sel' && d.mode === 'trocar' && d.from.x === d.to.x && d.from.y === d.to.y) {
+      this.sel.set(d.base);
+      this.deselect();
+    }
     if ((d?.kind === 'pinta' || d?.kind === 'forma') && !sameRows(d.before, this.rows())) this.remember({ ...this.snap(), rows: d.before });
   }
 
@@ -617,6 +629,13 @@ export class PixelStudio {
 
   protected down(e: PointerEvent): void {
     if (e.button !== 0 && e.button !== 1 && e.button !== 2) return;
+    // a folha das cores do celular aberta: o toque na mesa só a fecha (não pinta onde o dedo caiu); no
+    // computador o painel é a tira da direita, sempre à vista, e o clique pinta
+    if (this.colorsOpen() && matchMedia(SHEET_MEDIA).matches) {
+      e.preventDefault();
+      this.colorsOpen.set(false);
+      return;
+    }
     const mesa = this.mesa().nativeElement;
     this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     try {
@@ -627,11 +646,10 @@ export class PixelStudio {
     e.preventDefault();
     this.board().nativeElement.focus({ preventScroll: true, focusVisible: false } as FocusOptions);
     this.keyboard.set(false);
-    // (a folha das cores do celular desce quando se volta a desenhar)
     this.colorsOpen.set(false);
     // o segundo dedo: o traço do primeiro era o começo do gesto
     if (this.pointers.size === 2) {
-      this.pendingFill = null;
+      this.pendingTap = null;
       this.cancelStroke();
       const [a, b] = [...this.pointers.values()];
       this.drag = { kind: 'pinca', dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, zoom: this.zoom(), panX: this.panX(), panY: this.panY() };
@@ -649,9 +667,10 @@ export class PixelStudio {
     // já tinha posto o conta-gotas na mão)
     const selecting = this.tool() === 'selecao' || this.tool() === 'varinha';
     const tool = selecting && e.shiftKey && e.altKey ? this.tool() : this.active();
-    // o balde no dedo espera o dedo subir: um segundo dedo (a pinça) não deixa uma mancha para trás
-    if (tool === 'balde' && e.pointerType === 'touch') {
-      this.pendingFill = { c, alt: e.button === 2 };
+    // o que age num toque só espera o dedo subir: um segundo dedo (a pinça) não deixa uma mancha, uma
+    // seleção ou uma cor trocada para trás
+    if ((tool === 'balde' || tool === 'varinha' || tool === 'conta-gotas') && e.pointerType === 'touch') {
+      this.pendingTap = { c, tool };
       return;
     }
     this.press(c, tool, e.button === 2, e.shiftKey, e.ctrlKey || e.metaKey, e.shiftKey && e.altKey);
@@ -721,16 +740,15 @@ export class PixelStudio {
 
   protected up(e: PointerEvent): void {
     if (!this.pointers.delete(e.pointerId)) return;
-    const fill = this.pendingFill;
-    this.pendingFill = null;
-    if (fill && e.type === 'pointerup' && this.pointers.size === 0) this.press(fill.c, 'balde', fill.alt, false);
+    const tap = this.pendingTap;
+    this.pendingTap = null;
+    if (tap && e.type === 'pointerup' && this.pointers.size === 0) this.press(tap.c, tap.tool, false, false);
     if (this.drag?.kind === 'pinca') {
       // o primeiro dedo que sai acaba o gesto; o outro não começa um traço
       if (this.pointers.size === 0) this.drag = null;
       return;
     }
     if (this.pointers.size === 0) this.endStroke();
-    if (this.drag?.kind === 'vista' && this.pointers.size === 0) this.drag = null;
   }
 
   protected leave(): void {
@@ -915,7 +933,8 @@ export class PixelStudio {
       this.clearSel();
       return;
     }
-    if (k === 'enter' && this.float()) {
+    // (o Enter num botão é o clique dele, não o assentar)
+    if (k === 'enter' && this.float() && !target?.closest?.('button, a')) {
       e.preventDefault();
       this.anchor();
       this.said.set('Pedaço assentado');
@@ -950,6 +969,11 @@ export class PixelStudio {
       this.endStroke();
       this.sayCell(c);
     }
+  }
+
+  /** A janela perdeu o foco (o Alt+Tab): a tecla segurada não volta a subir aqui, então a ferramenta solta. */
+  protected onBlur(): void {
+    this.held.set(null);
   }
 
   protected onKeyUp(e: KeyboardEvent): void {
@@ -1091,8 +1115,7 @@ export class PixelStudio {
   private liftSel(copy: boolean): boolean {
     if (this.float()) return true;
     const s = this.sel();
-    const all = rectMask(this.w(), this.h(), { x: 0, y: 0 }, { x: this.w() - 1, y: this.h() - 1 });
-    const m = maskAny(s) ? s : all;
+    const m = maskAny(s) ? s : this.fullMask();
     const out = lift(this.rows(), m, copy);
     if (!out) return false;
     this.floatBefore = this.snap();
@@ -1129,9 +1152,14 @@ export class PixelStudio {
     if (before && !sameSnap(before, this.snap())) this.remember(before);
   }
 
+  /** A tela inteira escolhida. */
+  private fullMask(): Mask {
+    return rectMask(this.w(), this.h(), { x: 0, y: 0 }, { x: this.w() - 1, y: this.h() - 1 });
+  }
+
   protected selectAll(): void {
     this.anchor();
-    this.sel.set(rectMask(this.w(), this.h(), { x: 0, y: 0 }, { x: this.w() - 1, y: this.h() - 1 }));
+    this.sel.set(this.fullMask());
     this.said.set('Tudo escolhido');
   }
 
@@ -1153,7 +1181,7 @@ export class PixelStudio {
   protected invertSel(): void {
     this.anchor();
     const s = this.sel();
-    this.sel.set(maskAny(s) ? invertMask(s) : rectMask(this.w(), this.h(), { x: 0, y: 0 }, { x: this.w() - 1, y: this.h() - 1 }));
+    this.sel.set(maskAny(s) ? invertMask(s) : this.fullMask());
     this.said.set('Seleção invertida');
   }
 
@@ -1190,8 +1218,7 @@ export class PixelStudio {
     if (f) this.clip = { ...f, rows: [...f.rows] };
     else {
       const s = this.sel();
-      const all = rectMask(this.w(), this.h(), { x: 0, y: 0 }, { x: this.w() - 1, y: this.h() - 1 });
-      this.clip = lift(this.rows(), maskAny(s) ? s : all, true)?.float ?? null;
+      this.clip = lift(this.rows(), maskAny(s) ? s : this.fullMask(), true)?.float ?? null;
     }
     this.hasClip.set(!!this.clip);
     if (cut) this.clearSel();
@@ -1298,10 +1325,7 @@ export class PixelStudio {
     const p = paletteWord(value);
     if (!p || p === this.palette()) return;
     // as cores acrescentadas (as que passam da paleta de antes) continuam as mesmas; as trocadas, não
-    const old = paletteColors(this.palette()).length;
-    const kept: Record<number, string> = {};
-    for (const [k, c] of Object.entries(this.colors())) if (Number(k) > old) kept[Number(k)] = c;
-    this.change({ palette: p, colors: kept }, `Paleta ${PALETTES.find((x) => x.value === p)?.label ?? ''}`);
+    this.change({ palette: p, colors: keptColors(this.palette(), p, this.colors()) },`Paleta ${PALETTES.find((x) => x.value === p)?.label ?? ''}`);
   }
 
   /** A paleta escolhida na folha: mantendo os números (`setPalette`) ou as cores (cada uma na mais perto). */
@@ -1348,7 +1372,11 @@ export class PixelStudio {
   private moveSwatch(from: number, to: number): void {
     if (from === to) return;
     this.ownPalette(moveInk(this.rows(), drawingInks(this.palette(), this.colors()), from, to), `A cor ${inkChar(from)} agora é a ${inkChar(to)}`);
-    if (this.fg() === from) this.fg.set(to);
+    // a frente segue a cor dela: a que andou vai junto; as do caminho andam um lugar
+    const fg = this.fg();
+    if (fg === from) this.fg.set(to);
+    else if (from < to && fg > from && fg <= to) this.fg.set(fg - 1);
+    else if (from > to && fg >= to && fg < from) this.fg.set(fg + 1);
   }
 
   /** Ordena a paleta pela luz ou pelo tom (o desenho não muda). */
@@ -1522,6 +1550,15 @@ export class PixelStudio {
     input.value = '';
     if (file) void this.importImage(file, this.importOwn);
     this.importOwn = false;
+  }
+
+  /**
+   * O Ctrl+V em qualquer lugar do ateliê (o foco pode estar num botão, como o Imagem depois do Copiar do
+   * menu); num campo, é o colar do campo.
+   */
+  protected onPaste(e: ClipboardEvent): void {
+    if ((e.target as HTMLElement | null)?.closest?.('input, textarea, select')) return;
+    this.takeImage(e);
   }
 
   /** Colar (Ctrl+V) ou soltar uma imagem na mesa: ela vira os pontos. */

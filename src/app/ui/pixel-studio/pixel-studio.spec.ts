@@ -144,6 +144,8 @@ describe('pixel art: o ateliê', () => {
 
   it('as cores acrescentadas ganham letras e vão escritas na marca', async () => {
     await make({ width: '2', height: '1', palette: 'gameboy' });
+    // (no computador: no celular, o "+" abre a folha das cores, e o toque na mesa só a fecharia)
+    spyOn(window, 'matchMedia').and.returnValue({ matches: false } as MediaQueryList);
     expect(host.querySelectorAll('.pastilha:not(.mais)').length).toBe(5);
     (host.querySelector('.pastilha.mais') as HTMLButtonElement).click();
     fixture.detectChanges();
@@ -340,10 +342,12 @@ describe('pixel art: o ateliê', () => {
     expect(host.querySelector('path.formigas')).toBeNull();
     key('D', { ctrlKey: true, shiftKey: true });
     expect(host.querySelector('path.formigas')).not.toBeNull();
-    // um clique sem arrastar, com a Seleção, tira
+    // um clique sem arrastar, com a Seleção, tira; e o Ctrl+Shift+D traz a de antes, não o ponto do clique
     key('m');
     click(0, 0);
     expect(host.querySelector('path.formigas')).toBeNull();
+    key('D', { ctrlKey: true, shiftKey: true });
+    expect(host.querySelector('.estado')?.textContent).toContain('Seleção 2 × 2');
   });
 
   it('mover (V) solta o pedaço, ele anda pelo arrasto e pelas setas, e Enter assenta num passo só', async () => {
@@ -545,6 +549,99 @@ describe('pixel art: o ateliê', () => {
     pointer('pointerdown', 0, 0, { pointerType: 'touch', pointerId: 9 });
     expect(values['pixels'] ?? '').toBe('');
     pointer('pointerup', 0, 0, { pointerType: 'touch', pointerId: 9 });
+    expect(values['pixels']).toBe('11');
+  });
+
+  it('a varinha e o conta-gotas no dedo também esperam: a pinça não escolhe nem troca a cor', async () => {
+    await make({ width: '2', height: '1', pixels: '3' });
+    key('w');
+    pointer('pointerdown', 0, 0, { pointerType: 'touch', pointerId: 7 });
+    pointer('pointerdown', 1, 0, { pointerType: 'touch', pointerId: 8 });
+    pointer('pointerup', 1, 0, { pointerType: 'touch', pointerId: 8 });
+    pointer('pointerup', 0, 0, { pointerType: 'touch', pointerId: 7 });
+    expect(host.querySelector('path.formigas')).toBeNull();
+    pointer('pointerdown', 0, 0, { pointerType: 'touch', pointerId: 9 });
+    pointer('pointerup', 0, 0, { pointerType: 'touch', pointerId: 9 });
+    expect(host.querySelector('path.formigas')).not.toBeNull();
+    key('d', { ctrlKey: true });
+    key('i');
+    pointer('pointerdown', 0, 0, { pointerType: 'touch', pointerId: 10 });
+    pointer('pointerdown', 1, 0, { pointerType: 'touch', pointerId: 11 });
+    pointer('pointerup', 1, 0, { pointerType: 'touch', pointerId: 11 });
+    pointer('pointerup', 0, 0, { pointerType: 'touch', pointerId: 10 });
+    expect(host.querySelector('.frente-nome')?.textContent).toContain('Cor 1');
+    pointer('pointerdown', 0, 0, { pointerType: 'touch', pointerId: 12 });
+    pointer('pointerup', 0, 0, { pointerType: 'touch', pointerId: 12 });
+    expect(host.querySelector('.frente-nome')?.textContent).toContain('Cor 3');
+  });
+
+  it('no celular, o toque na mesa com as cores abertas só as fecha; e a folha tem o Fechar', async () => {
+    await make({ width: '2', height: '1' });
+    spyOn(window, 'matchMedia').and.returnValue({ matches: true } as MediaQueryList);
+    (host.querySelector('.cores-botao') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(host.querySelector('.corpo.cores-abertas')).not.toBeNull();
+    pointer('pointerdown', 0, 0, { pointerType: 'touch', pointerId: 3 });
+    pointer('pointerup', 0, 0, { pointerType: 'touch', pointerId: 3 });
+    expect(host.querySelector('.corpo.cores-abertas')).toBeNull();
+    expect(values['pixels'] ?? '').toBe('');
+    (host.querySelector('.cores-botao') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (host.querySelector('.cores-fechar') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(host.querySelector('.corpo.cores-abertas')).toBeNull();
+    pointer('pointerdown', 0, 0, { pointerType: 'touch', pointerId: 4 });
+    pointer('pointerup', 0, 0, { pointerType: 'touch', pointerId: 4 });
+    expect(values['pixels']).toBe('1');
+  });
+
+  it('da paleta própria para uma pronta, mantendo os números, as cores viram as da nova', async () => {
+    await make({ width: '2', height: '1', pixels: '12', palette: 'propria', colors: '1#123456 2#abcdef' });
+    await pickPalette('Game Boy');
+    expect(values['palette']).toBe('gameboy');
+    expect(values['pixels']).toBe('12');
+    expect(values['colors'] ?? '').toBe('');
+  });
+
+  it('arrastar uma pastilha por cima da cor da frente: a frente continua na mesma cor', async () => {
+    await make({ width: '3', height: '1', pixels: '123' });
+    key(']');
+    const hex = host.querySelector('.frente-hex')?.textContent;
+    const swatches = () => host.querySelectorAll('.pastilha');
+    swatches()[1].dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: new DataTransfer() }));
+    swatches()[3].dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: new DataTransfer() }));
+    fixture.detectChanges();
+    expect(values['pixels']).toBe('312');
+    expect(host.querySelector('.frente-hex')?.textContent).toBe(hex);
+    expect(host.querySelector('.frente-nome')?.textContent).toContain('Cor 1');
+  });
+
+  it('o Alt+Tab não deixa o conta-gotas preso na mão', async () => {
+    await make({ width: '1', height: '1' });
+    key('Alt');
+    expect(host.querySelector('.ferr.segurada')).not.toBeNull();
+    window.dispatchEvent(new Event('blur'));
+    fixture.detectChanges();
+    expect(host.querySelector('.ferr.segurada')).toBeNull();
+    click(0, 0);
+    expect(values['pixels']).toBe('1');
+  });
+
+  it('o Ctrl+V cola com o foco num botão; o Enter num botão não assenta o pedaço', async () => {
+    await make({ width: '4', height: '1', pixels: '1' });
+    key('a', { ctrlKey: true });
+    key('c', { ctrlKey: true });
+    key('d', { ctrlKey: true });
+    const menu = host.querySelector('.menu-imagem') as HTMLButtonElement;
+    menu.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: new DataTransfer() }));
+    fixture.detectChanges();
+    expect(host.querySelector('.estado')?.textContent).toContain('Seleção 4 × 1');
+    const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    menu.dispatchEvent(enter);
+    fixture.detectChanges();
+    expect(enter.defaultPrevented).toBeFalse();
+    key('ArrowRight');
+    key('Enter');
     expect(values['pixels']).toBe('11');
   });
 });

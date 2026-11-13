@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, input, output, signal, viewChild } from '@angular/core';
-import { PALETTES, Palette, PaletteGroup, PaletteName, drawingInks, hasInk, inkOf, inkPaths, paletteColors } from '../../core/pixel-art';
+import { PALETTES, Palette, PaletteGroup, PaletteName, drawingInks, hasInk, inkOf, inkPaths, keptColors } from '../../core/pixel-art';
 import { convertRows } from '../../core/pixel-tools';
 import { fold } from '../../core/text';
 import { BackdropClose } from '../backdrop-close';
@@ -143,10 +143,7 @@ export class PaletteSheet {
       const to = drawingInks(p, {});
       return { paths: inkPaths(convertRows(this.rows(), drawingInks(this.palette(), this.colors()), to), 'pixel'), inks: inkOf(p, {}) };
     }
-    const old = paletteColors(this.palette()).length;
-    const kept: Record<number, string> = {};
-    for (const [k, c] of Object.entries(this.colors())) if (Number(k) > old) kept[Number(k)] = c;
-    return { paths: this.paths(), inks: inkOf(p, kept) };
+    return { paths: this.paths(), inks: inkOf(p, keptColors(this.palette(), p, this.colors())) };
   }
 
   private readonly paths = computed(() => inkPaths(this.rows(), 'pixel'));

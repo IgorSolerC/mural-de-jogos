@@ -389,7 +389,8 @@
   @extend %vazia;
 }
 
-.cores-botao {
+.cores-botao,
+.cores-fechar {
   display: none;
 }
 
@@ -1349,7 +1350,8 @@ button.estado-item {
     margin: 0 0 0 auto;
   }
 
-  .cores-botao {
+  .cores-botao,
+  .cores-fechar {
     display: grid;
     flex: none;
   }

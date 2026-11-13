@@ -289,6 +289,18 @@ export function paletteColors(name: PaletteName): readonly string[] {
   return (PALETTES.find((p) => p.value === name) ?? PALETTES[0]).colors;
 }
 
+/**
+ * As cores que continuam ao trocar a paleta de `from` para `to` mantendo os números: as acrescentadas (as
+ * que passam do fim da paleta de antes); as trocadas, não. A própria não tem cor nenhuma de paleta: dela
+ * ficam só as que passam do fim da nova (senão todas cobririam a paleta nova, e nada mudaria).
+ */
+export function keptColors(from: PaletteName, to: PaletteName, colors: Readonly<Record<number, string>>): Record<number, string> {
+  const end = paletteColors(from === 'propria' ? to : from).length;
+  const kept: Record<number, string> = {};
+  for (const [k, c] of Object.entries(colors)) if (Number(k) > end) kept[Number(k)] = c;
+  return kept;
+}
+
 /** A paleta que serve de reserva: a cor de um número sem cor nenhuma (além da paleta, sem a acrescentada). */
 const SPARE = PALETTES.find((p) => p.value === 'completa')!.colors;
 
