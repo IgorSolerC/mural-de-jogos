@@ -127,6 +127,8 @@ describe('menu do botão direito no Pra depois e na Wishlist', () => {
     await settle();
     await frames();
     expect(store.getWish('w2')!.relevance).toBe('later');
+    // a troca de vontade passa pela transição de vista: o recorte só assenta no lugar novo uns quadros depois
+    await frames(16);
     await rightClick(clip('w2'));
     option('Tirar da wishlist').click();
     await settle();
