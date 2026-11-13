@@ -155,6 +155,7 @@ export const routes: Routes = [
   // um conector (claude.ai, Claude Code) pedindo acesso pelo OAuth (PLANO-API.md, 11.2)
   { path: 'autorizar', title: 'Autorizar', loadComponent: () => import('./pages/authorize-page').then((m) => m.AuthorizePage) },
   // o laboratório do Quadro livre (PLANO-QUADRO-LIVRE.md, rodada 2): escondido, nenhum link leva até ele
+  { path: 'laboratorio/wishlist', title: 'Wishlist', loadComponent: () => import('./pages/wishlist-lab-page').then((m) => m.WishlistLabPage) },
   { path: 'laboratorio/quadro-livre', title: 'Quadro livre', loadComponent: () => import('./pages/free-board-lab-page').then((m) => m.FreeBoardLabPage) },
   { path: 'novidades', title: 'Novidades',loadComponent: () => import('./pages/news-page').then((m) => m.NewsPage) },
   // um endereço que não existe (ou uma seção que um mural não tem): a última parede aberta. Pela função, e

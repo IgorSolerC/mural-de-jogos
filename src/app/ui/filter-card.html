@@ -4,8 +4,8 @@
 @if (subjectRow()) {
   <div class="linha">
     <div class="linha-texto">
-      <p class="linha-titulo" [id]="id + '-assunto'">Pasta</p>
-      <p class="linha-desc">Um por anotação: escolha um para ver só ele.</p>
+      <p class="linha-titulo" [id]="id + '-assunto'">{{ subjectTitle() }}</p>
+      <p class="linha-desc">{{ subjectHint() }}</p>
     </div>
     <div class="recortes" role="radiogroup" [attr.aria-labelledby]="id + '-assunto'">
       <label class="recorte">

@@ -1,0 +1,1205 @@
+@use '../ui/etiqueta-acoes' as et;
+@use '../ui/divisorias' as dv;
+@use '../ui/meio-tom';
+
+/* O laboratório da Wishlist: os cinco jeitos, com dados de mentira. As peças são as do site; só o que é
+   novo (o índice, os envelopes, as seções, a grade) é desenhado aqui. */
+
+:host {
+  display: block;
+  padding-bottom: 80px;
+}
+
+/* ===== O topo do laboratório ===== */
+.lab-topo {
+  margin-bottom: 26px;
+}
+.lab-sobre {
+  margin-bottom: 8px;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wall-ink-2, #bdb5a8);
+}
+.jeitos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 4px;
+}
+.jeito {
+  border: 0;
+  background: none;
+  cursor: pointer;
+  padding: 6px 12px 5px;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 1.2rem;
+  line-height: 1;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--wall-ink-2, #bdb5a8);
+
+  b {
+    margin-right: 5px;
+    opacity: 0.55;
+  }
+  &:hover {
+    color: var(--wall-ink);
+  }
+  &[aria-pressed='true'] {
+    background: #ffda42;
+    color: var(--ink);
+    clip-path: polygon(1% 10%, 100% 0, 98% 94%, 0 100%);
+  }
+}
+.lab-como {
+  margin-top: 14px;
+  max-width: 82ch;
+  color: var(--wall-ink);
+
+  .como {
+    font-family: var(--f-hand);
+    font-size: 1.12rem;
+    line-height: 1.35;
+  }
+  .pros {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 24px;
+    margin: 8px 0;
+    font-family: var(--f-label);
+    font-size: 1rem;
+    color: var(--wall-ink-2, #bdb5a8);
+
+    div {
+      display: flex;
+      gap: 6px;
+      align-items: baseline;
+    }
+    dt {
+      font-weight: 800;
+      font-size: 0.84rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--wall-ink);
+    }
+  }
+  .todos {
+    font-family: var(--f-label);
+    font-size: 0.98rem;
+    line-height: 1.35;
+    color: var(--wall-ink-2, #bdb5a8);
+  }
+}
+
+.cartela {
+  display: block;
+  margin-top: -6px;
+  margin-bottom: 18px;
+}
+
+.aviso-lab {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: baseline;
+  width: fit-content;
+  margin: 14px 0 0;
+  padding: 8px 14px;
+  rotate: -0.6deg;
+  background: #fdfcf9;
+  color: var(--ink);
+  font-family: var(--f-hand);
+  font-size: 1.1rem;
+  box-shadow: 0 6px 12px -4px rgb(0 0 0 / 0.5);
+}
+
+/* ===== Jeito 5: as orelhas das pastas, iguais às dos grupos das Anotações ===== */
+.orelhas {
+  @include dv.pasta;
+  --focus: var(--ink);
+
+  &::after {
+    @include dv.borda-da-pasta;
+  }
+  .abas {
+    position: relative;
+    @include dv.abas-de-grupo;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .aba {
+    @include dv.aba-de-grupo('.on', '.nome', '.n');
+    align-items: center;
+  }
+  .nome {
+    @include dv.nome-de-grupo;
+    font-family: var(--f-pasta-nome);
+    font-size: 1.25rem;
+  }
+  .n {
+    @include dv.numero-de-grupo;
+  }
+  .aba-ico {
+    display: inline-flex;
+    opacity: 0.7;
+  }
+  .nova {
+    padding-inline: 12px;
+  }
+}
+.tags-a-vista {
+  flex: 1 1 100%;
+}
+
+/* ===== A mesa: o índice (jeito 3) e a parede ===== */
+.mesa-lab {
+  margin-top: 40px;
+
+  &.com-indice {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 34px;
+    align-items: start;
+  }
+}
+
+/* o índice: a página de sumário da revista, papel liso, as entradas com os pontinhos até o número */
+.indice {
+  position: sticky;
+  top: 16px;
+  padding: 18px 16px 16px;
+  rotate: -0.4deg;
+  background: #fdfcf9;
+  color: var(--ink);
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.3),
+    0 10px 16px -6px rgb(0 0 0 / 0.55);
+  border-radius: var(--raio-cartolina, 5px);
+}
+.indice-titulo {
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 3px solid var(--red-deep);
+  font-family: var(--f-didone);
+  font-size: 2rem;
+  line-height: 1;
+  color: var(--red-deep);
+}
+.indice-parte + .indice-parte {
+  margin-top: 14px;
+}
+.indice-sub {
+  margin-bottom: 4px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+.indice-lista {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.entrada {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 32px;
+  padding: 3px 4px;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: var(--ink);
+  font-family: var(--f-serif);
+  font-size: 1.02rem;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.06);
+  }
+  &.on {
+    background: linear-gradient(transparent 18%, rgb(255 218 66 / 0.85) 18% 86%, transparent 86%);
+  }
+  &.dentro {
+    padding-left: 20px;
+    font-size: 0.96rem;
+  }
+  &.nova-entrada {
+    font-family: var(--f-label);
+    font-weight: 700;
+    font-size: 0.92rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 0.6;
+  }
+}
+.entrada-nome {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pontos {
+  flex: 1;
+  min-width: 10px;
+  align-self: flex-end;
+  margin-bottom: 8px;
+  border-bottom: 2px dotted rgb(21 21 21 / 0.35);
+}
+.entrada-n {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+.entrada-adesivo {
+  margin: -6px -8px -6px -4px;
+  scale: 0.72;
+}
+.pontos {
+  align-self: center;
+  margin-bottom: 0;
+  translate: 0 5px;
+}
+.indice-limpar {
+  margin-top: 12px;
+}
+
+.parede-lab {
+  min-width: 0;
+}
+.nada {
+  font-family: var(--f-hand);
+  font-size: 1.2rem;
+  color: var(--wall-ink);
+}
+
+/* ===== As pastas manilha (as das Anotações) ===== */
+.pastas-lista {
+  --pastas-vao: 22px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(max(128px, calc((100% - 7 * var(--pastas-vao)) / 8)), 1fr));
+  gap: 26px var(--pastas-vao);
+  margin: 0 0 44px;
+  padding: 4px 0 0;
+  list-style: none;
+
+  > li:nth-child(2n) {
+    --tilt: 0.5deg;
+  }
+  > li:nth-child(3n) {
+    --tilt: -0.3deg;
+  }
+}
+
+/* ===== Jeito 4: os envelopes pardos, as capas de dentro espiando pela boca ===== */
+.envelopes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 30px 26px;
+  margin: 0 0 46px;
+  padding: 26px 0 0;
+  list-style: none;
+}
+.envelope {
+  --kraft-env: #c9a46c;
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 128px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  rotate: calc(var(--tilt, 0) * 1deg);
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 6px 8px rgb(0 0 0 / 0.4));
+  transition: translate var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    translate: 0 -3px;
+  }
+  &:hover .env-capas img {
+    translate: 0 calc(-14px - var(--k) * 4px);
+  }
+  &:focus-visible {
+    outline: 3px solid #ffda42;
+    outline-offset: 4px;
+  }
+}
+.env-costas,
+.env-frente,
+.env-aba {
+  position: absolute;
+  inset: 0;
+  background-color: var(--kraft-env);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+}
+.env-costas {
+  filter: brightness(0.82);
+  border-radius: 3px;
+}
+.env-capas {
+  position: absolute;
+  inset: -18px 14px 30px;
+  display: flex;
+  justify-content: center;
+
+  img {
+    width: 42%;
+    aspect-ratio: 2 / 3;
+    height: auto;
+    margin-inline: -9%;
+    object-fit: cover;
+    border: 2px solid #f5f2ea;
+    rotate: calc((var(--k) - 1) * 7deg);
+    translate: 0 calc(var(--k) * 3px);
+    box-shadow: 0 2px 4px rgb(0 0 0 / 0.35);
+    transition: translate var(--t-ui) var(--ease-ui);
+  }
+}
+/* a frente do envelope: as duas abas laterais e a de baixo, em V */
+.env-frente {
+  top: 34%;
+  clip-path: polygon(0 0, 50% 58%, 100% 0, 100% 100%, 0 100%);
+  border-radius: 0 0 3px 3px;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.2);
+}
+.env-aba {
+  inset: auto 0 0;
+  height: 66%;
+  clip-path: polygon(0 100%, 50% 18%, 100% 100%);
+  filter: brightness(1.06);
+}
+.env-rotulo {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  display: grid;
+  justify-items: center;
+  width: 88%;
+  padding: 4px 10px 5px;
+  translate: -50% 0;
+  rotate: -1.5deg;
+  background: #fdfcf9;
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+}
+.env-nome {
+  max-width: 100%;
+  overflow-wrap: break-word;
+  text-align: center;
+  font-family: var(--f-pasta-nome);
+  font-size: 1.05rem;
+  line-height: 1.05;
+}
+.env-n {
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.74rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.65;
+}
+
+/* ===== A colagem (a mesma da Wishlist de hoje) ===== */
+.recortes {
+  display: grid;
+  grid-template-columns: repeat(var(--colunas), minmax(0, 1fr));
+  align-items: start;
+  column-gap: 34px;
+  padding-top: 10px;
+}
+.desejo {
+  position: relative;
+  width: calc(var(--largura, 100) * 1%);
+  margin-left: calc(var(--desvio, 0) * 1%);
+  margin-bottom: var(--vao, 40px);
+
+  app-wish-clip.is-preview {
+    rotate: calc(var(--tilt) * 1deg);
+  }
+  /* a ponta descola um pouco da cola quando a mão chega (o toque fica no .hit, por cima do recorte) */
+  &:hover app-wish-clip,
+  &:focus-within app-wish-clip {
+    rotate: calc(var(--tilt) * 0.35deg);
+    translate: 0 -3px;
+    filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.3)) drop-shadow(0 14px 14px rgb(0 0 0 / 0.46));
+  }
+}
+.hit {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 3px solid #ffda42;
+    outline-offset: 4px;
+  }
+}
+.sorteado {
+  outline: 3px dashed #ffda42;
+  outline-offset: 8px;
+}
+
+/* as tags embaixo do nome: as etiquetas kraft das anotações */
+.tags-mini {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 5px;
+  margin-top: -2px;
+  pointer-events: none;
+}
+/* o lembrete: um bilhetinho a lápis, na tinta da parede */
+.bilhete {
+  margin-top: 6px;
+  font-family: var(--f-hand);
+  font-size: 0.95rem;
+  line-height: 1.2;
+  color: var(--wall-ink-2, #bdb5a8);
+  overflow-wrap: anywhere;
+}
+/* jeito 2: a legenda impressa embaixo da foto */
+.legenda {
+  margin-top: 2px;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--wall-ink-2, #bdb5a8);
+}
+/* jeito 4: as etiquetas de preço, penduradas no barbante na beirada de baixo */
+.precos {
+  position: absolute;
+  z-index: 5;
+  left: 10%;
+  top: calc(100% - 10px);
+  display: flex;
+  gap: 2px;
+  pointer-events: none;
+}
+.preco {
+  position: relative;
+  padding-top: calc(10px + var(--k) * 7px);
+  rotate: calc(-4deg + var(--k) * 5deg);
+  transform-origin: 50% 0;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 12px;
+    width: 1.5px;
+    height: calc(14px + var(--k) * 7px);
+    background: #e8dcc0;
+    box-shadow: 0 1px 1px rgb(0 0 0 / 0.4);
+  }
+}
+.desejo:has(.precos) {
+  margin-bottom: calc(var(--vao, 40px) + 34px);
+}
+
+/* jeito 2: as seções da vontade, cada uma com o título recortado */
+.faixa + .faixa {
+  margin-top: 18px;
+  padding-top: 26px;
+  border-top: 2px dashed rgb(243 239 230 / 0.18);
+}
+.faixa-titulo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.faixa-comum {
+  display: inline-block;
+  padding: 6px 14px 5px;
+  rotate: -1.5deg;
+  background: #fdfcf9;
+  color: var(--ink);
+  font-family: var(--f-didone);
+  font-size: 1.5rem;
+  line-height: 1;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 0.4);
+}
+.faixa-n {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--wall-ink-2, #bdb5a8);
+}
+.faixa-titulo app-relevance-sticker {
+  font-size: 20px;
+}
+
+/* ===== Os botões de hover: o padrão do Finalizar e do Fixar ===== */
+.acoes {
+  position: absolute;
+  top: -14px;
+  right: 6px;
+  z-index: 6;
+  @include et.grupo;
+}
+.botao {
+  @include et.botao;
+}
+.resenhar {
+  @include et.cor-na-mao(var(--etiqueta-verde));
+}
+.must {
+  @include et.cor-na-mao(var(--etiqueta-vermelho));
+}
+.later {
+  @include et.cor-na-mao(var(--etiqueta-azul));
+}
+.must[aria-pressed='true'] {
+  color: var(--etiqueta-vermelho);
+}
+.later[aria-pressed='true'] {
+  color: var(--etiqueta-azul);
+}
+.desejo:hover .botao,
+.celula:hover .botao,
+.acoes:has(:focus-visible) .botao {
+  @include et.mostra;
+}
+
+/* ===== A grade: muitas capas de uma vez, sem rasgo nem enfeite ===== */
+.grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 26px 16px;
+  margin: 0;
+  padding: 14px 0 0;
+  list-style: none;
+}
+.celula {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+.cel-capa {
+  position: relative;
+  display: block;
+  aspect-ratio: 2 / 3;
+  background: #2a2624;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.4),
+    0 4px 8px -2px rgb(0 0 0 / 0.5);
+  transition:
+    translate var(--t-ui) var(--ease-ui),
+    box-shadow var(--t-ui) var(--ease-ui);
+
+  img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+.celula:hover .cel-capa {
+  translate: 0 -3px;
+  box-shadow:
+    0 2px 2px rgb(0 0 0 / 0.35),
+    0 12px 16px -4px rgb(0 0 0 / 0.55);
+}
+.cel-adesivo {
+  position: absolute;
+  left: -8px;
+  bottom: -8px;
+  rotate: -8deg;
+}
+.cel-nome {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.92rem;
+  line-height: 1.15;
+  color: var(--wall-ink);
+}
+.cel-tags {
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+.celula .acoes {
+  top: -12px;
+  right: -4px;
+}
+
+/* jeito 4: a folha de contato, o filme preto com os furos e o número de cada quadro */
+.grade.contato {
+  gap: 0;
+  padding: 26px 14px;
+  background:
+    radial-gradient(circle at 50% 50%, #3a3633 3px, transparent 3.5px) 0 6px / 18px 14px repeat-x,
+    radial-gradient(circle at 50% 50%, #3a3633 3px, transparent 3.5px) 0 calc(100% - 6px) / 18px 14px repeat-x,
+    #121110;
+  box-shadow: 0 8px 18px -6px rgb(0 0 0 / 0.7);
+
+  .celula {
+    padding: 18px 8px 14px;
+    border-right: 1px solid rgb(255 255 255 / 0.06);
+  }
+  .cel-capa {
+    box-shadow: none;
+  }
+  .cel-nome {
+    font-family: var(--f-mono);
+    font-weight: 400;
+    font-size: 0.8rem;
+    color: #e6dfd2;
+  }
+  .celula .acoes {
+    top: 4px;
+  }
+}
+.quadro-n {
+  position: absolute;
+  top: 2px;
+  left: 8px;
+  font-family: var(--f-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #ff9f43;
+}
+
+/* jeito 5: a página de cupons do catálogo, cada um com o picote em volta */
+.grade.cupons {
+  gap: 0;
+  padding: 0;
+  background: #fdfcf9;
+  box-shadow: 0 8px 18px -6px rgb(0 0 0 / 0.6);
+  border-radius: var(--raio-cartolina, 5px);
+
+  .celula {
+    padding: 14px 12px 12px;
+    outline: 2px dashed rgb(21 21 21 / 0.28);
+    outline-offset: -5px;
+  }
+  .cel-nome {
+    color: var(--ink);
+    font-family: var(--f-serif);
+    font-weight: 400;
+    font-size: 0.98rem;
+  }
+  .cel-tags {
+    color: var(--ink);
+  }
+  .celula .acoes {
+    top: 4px;
+    right: 6px;
+  }
+}
+
+/* ===== A folha de editar (o resto vem do "Pôr na wishlist") ===== */
+.ti-capa-lab {
+  width: 44px;
+  aspect-ratio: 2 / 3;
+  height: auto;
+  object-fit: cover;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+}
+.tags-editar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.tag-presa {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.tirar-tag {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.08);
+  }
+}
+.nova-tag {
+  width: 9ch;
+  min-height: 30px;
+  padding: 2px 8px;
+  border: 0;
+  border-bottom: 2px solid rgb(21 21 21 / 0.3);
+  background: none;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.sugestoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.sugestao {
+  padding: 2px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transition: scale var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    scale: 1.06;
+  }
+}
+.campo-lab {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: #f1ede3;
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-weight: 600;
+  font-size: 1rem;
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.15);
+}
+textarea.campo-lab {
+  font-family: var(--f-hand);
+  font-weight: 400;
+  font-size: 1.05rem;
+  resize: vertical;
+}
+.foot {
+  justify-content: space-between;
+}
+.perigo {
+  color: var(--red-deep);
+}
+
+/* ===== Celular ===== */
+@media (max-width: 800px) {
+  .mesa-lab.com-indice {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+  }
+  .indice {
+    position: static;
+    rotate: 0deg;
+  }
+}
+@media (max-width: 559px) {
+  .recortes {
+    column-gap: 18px;
+  }
+  .grade {
+    grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+    gap: 20px 12px;
+  }
+  .pastas-lista {
+    --pastas-vao: 14px;
+  }
+  .envelopes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 26px 14px;
+  }
+  .jeito {
+    font-size: 1.02rem;
+    padding: 6px 8px 5px;
+  }
+}
+
+/* =====================================================================================================
+   Jeito 6: a mistura
+   ===================================================================================================== */
+
+/* a escolha do jeito das tags, no topo do laboratório */
+.tag-jeitos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+}
+.tag-jeitos-pre {
+  margin-right: 4px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wall-ink);
+}
+.tag-jeito {
+  padding: 5px 10px 4px;
+  border: 0;
+  border-radius: 3px;
+  background: rgb(243 239 230 / 0.08);
+  color: var(--wall-ink-2);
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+
+  b {
+    margin-right: 6px;
+    opacity: 0.6;
+  }
+  &:hover {
+    color: var(--wall-ink);
+  }
+  &[aria-pressed='true'] {
+    background: var(--hi);
+    color: var(--ink);
+  }
+}
+
+/* os dois botões: Editar (amarelo, o dos ajustes) e Vontade (vermelho, o do adesivo) */
+.editar {
+  @include et.cor-na-mao(var(--etiqueta-amarelo));
+}
+.vontade-btn {
+  @include et.cor-na-mao(var(--etiqueta-vermelho));
+}
+
+/* com a mão em cima, o recorte vem para a frente (o lembrete passa por cima dos vizinhos) */
+.desejo:hover,
+.desejo:focus-within,
+.celula:hover,
+.celula:focus-within {
+  z-index: 30;
+}
+.celula {
+  z-index: 0;
+}
+
+/* ===== O lembrete: uma folha arrancada do caderno, do lado ===== */
+.caderno {
+  --pauta: 22px;
+  position: absolute;
+  z-index: 7;
+  top: 16%;
+  width: 196px;
+  padding: 20px 12px 12px 30px;
+  color: #1d2a4a;
+  background:
+    linear-gradient(90deg, transparent 22px, rgb(214 73 73 / 0.55) 22px 23.5px, transparent 23.5px),
+    repeating-linear-gradient(transparent 0 calc(var(--pauta) - 1px), rgb(70 120 200 / 0.35) calc(var(--pauta) - 1px) var(--pauta)) 0 18px / 100% calc(100% - 18px) no-repeat,
+    #fbfaf4;
+  /* a beirada de cima arrancada da espiral: os furos picados */
+  -webkit-mask:
+    radial-gradient(circle at 50% 7px, #0000 3.2px, #000 3.8px) 0 0 / 14px 14px repeat-x,
+    linear-gradient(#000 0 0) 0 13px / 100% calc(100% - 13px) no-repeat;
+  mask:
+    radial-gradient(circle at 50% 7px, #0000 3.2px, #000 3.8px) 0 0 / 14px 14px repeat-x,
+    linear-gradient(#000 0 0) 0 13px / 100% calc(100% - 13px) no-repeat;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3)) drop-shadow(0 8px 10px rgb(0 0 0 / 0.45));
+  rotate: 2.5deg;
+  opacity: 0;
+  translate: -6px 4px;
+  pointer-events: none;
+  transition:
+    opacity var(--t-ui) var(--ease-ui),
+    translate var(--t-ui) var(--ease-ui);
+}
+.caderno-txt {
+  display: block;
+  font-family: var(--f-hand);
+  font-size: 1.02rem;
+  line-height: var(--pauta);
+  overflow-wrap: anywhere;
+}
+.caderno {
+  left: calc(100% + 6px);
+}
+[data-lado='esq'] > .caderno {
+  left: auto;
+  right: calc(100% + 6px);
+  rotate: -2.5deg;
+  translate: 6px 4px;
+}
+.desejo:hover > .caderno,
+.desejo:has(.hit:focus-visible) > .caderno,
+.celula:hover > .caderno,
+.celula:has(.hit:focus-visible) > .caderno {
+  opacity: 1;
+  translate: 0 0;
+}
+.celula > .caderno {
+  top: 8%;
+  width: 180px;
+}
+.arrasto-fantasma .caderno,
+.arrasto-fantasma .acoes {
+  display: none;
+}
+
+/* ===== As tags, nos cinco jeitos ===== */
+.tags6 {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  margin-top: 2px;
+  pointer-events: none;
+  color: var(--wall-ink-2);
+}
+/* A: a legenda impressa, miúda, em caixa alta */
+.tags6[data-tags='legenda'] {
+  gap: 0;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.t-leg {
+  white-space: nowrap;
+}
+/* o ponto vai com a tag de depois: quebrando a linha, ele não fica sobrando no fim */
+.t-leg + .t-leg::before {
+  content: '·';
+  margin: 0 0.45em;
+}
+.celula .tags6 {
+  font-size: 0.92em;
+}
+/* B: a mesma legenda, com o quadradinho na cor da tag */
+.t-cor {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+
+  &::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 1px;
+    background: var(--t);
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 0.25);
+  }
+}
+/* C: escrito a caneta na parede, torto */
+.tags6[data-tags='caneta'] {
+  gap: 0 7px;
+  rotate: -1.2deg;
+}
+.t-caneta {
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 0.98rem;
+  line-height: 1.2;
+  color: #e9dfc9;
+}
+/* D: o carimbo, na tinta da tag, falhado */
+.tags6[data-tags='carimbo'] {
+  gap: 5px 6px;
+  margin-top: 6px;
+}
+.t-carimbo {
+  padding: 2px 6px 1px;
+  border: 1.5px solid var(--t);
+  border-radius: 2px;
+  color: var(--t);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  rotate: calc(-3deg + var(--k) * 2.5deg);
+  filter: brightness(1.45) saturate(0.85);
+  opacity: 0.9;
+  -webkit-mask: var(--paper-grain) 0 0 / 120px, linear-gradient(#000a 0 0);
+  mask: var(--paper-grain) 0 0 / 120px, linear-gradient(#000a 0 0);
+}
+/* E: só os pontinhos de cor; com a mão em cima, o nome sai de cada um */
+.tags6[data-tags='pontos'] {
+  gap: 4px 6px;
+  margin-top: 4px;
+}
+.t-ponto {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+
+  &::before {
+    content: '';
+    flex: none;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--t);
+    box-shadow: 0 0 0 1.5px rgb(0 0 0 / 0.35);
+  }
+}
+.t-ponto-nome {
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0;
+  transition:
+    max-width var(--t-ui) var(--ease-ui),
+    opacity var(--t-ui) var(--ease-ui),
+    margin var(--t-ui) var(--ease-ui);
+}
+:is(.desejo, .celula):is(:hover, :focus-within) .t-ponto-nome {
+  max-width: 12ch;
+  margin-left: 4px;
+  opacity: 1;
+}
+.celula .tags6 {
+  margin-top: -2px;
+}
+
+/* ===== A grade com um pouco de revista: o mesmo tamanho, a margem de papel, a retícula e uns rasgos ===== */
+.cel-papel {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: hidden;
+}
+.celula.textura {
+  rotate: calc(var(--cel-tilt, 0) * 1deg);
+
+  .cel-capa {
+    background: none;
+    box-shadow: none;
+    filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.4)) drop-shadow(0 4px 6px rgb(0 0 0 / 0.42));
+  }
+  &:hover .cel-capa {
+    box-shadow: none;
+    filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.35)) drop-shadow(0 12px 14px rgb(0 0 0 / 0.5));
+  }
+  .cel-papel {
+    padding: 4px;
+    @include meio-tom.papel(#f5f2ea);
+  }
+  .cel-papel::after {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    pointer-events: none;
+    @include meio-tom.couche;
+  }
+  .velha {
+    background-color: #ede2c4;
+  }
+  .velha img {
+    filter: sepia(0.3) saturate(0.78) contrast(0.93) brightness(1.03);
+  }
+}
+/* o picote do lado de quem destacou do bloco */
+.celula[data-rasgo='picote'] .cel-papel {
+  -webkit-mask:
+    radial-gradient(circle at 0 50%, #0000 2.6px, #000 3px) 0 0 / 7px 9px repeat-y,
+    linear-gradient(#000 0 0) 7px 0 / calc(100% - 7px) 100% no-repeat;
+  mask:
+    radial-gradient(circle at 0 50%, #0000 2.6px, #000 3px) 0 0 / 7px 9px repeat-y,
+    linear-gradient(#000 0 0) 7px 0 / calc(100% - 7px) 100% no-repeat;
+}
+/* a orelha dobrada na quina de cima */
+.celula[data-rasgo='dobra'] .cel-papel {
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
+}
+.celula[data-rasgo='dobra'] .cel-capa::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 18px;
+  height: 18px;
+  background: linear-gradient(225deg, transparent 50%, #e2dacb 50%, #f5f2ea 75%);
+  box-shadow: -2px 2px 3px rgb(0 0 0 / 0.25);
+}
+
+/* ===== Arrastar: o fantasma, a etiqueta amarela e o alvo (os mesmos das Anotações) ===== */
+.arrasto-fantasma {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  margin: 0;
+  pointer-events: none;
+  rotate: 2.5deg;
+  scale: 0.5;
+  opacity: 0.94;
+  filter: drop-shadow(0 18px 22px rgb(0 0 0 / 0.55));
+  will-change: translate;
+  list-style: none;
+}
+.arrasto-dica {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 61;
+  max-width: min(22rem, calc(100vw - 32px));
+  padding: 6px 11px 5px;
+  border-radius: 3px;
+  background: var(--hi);
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.92rem;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  rotate: -1.5deg;
+  pointer-events: none;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.35),
+    0 6px 12px -4px rgb(0 0 0 / 0.5);
+}
+[data-arrastada] {
+  opacity: 0.35;
+}
+.desejo[data-alvo],
+.celula[data-alvo] {
+  outline: 2.5px dashed var(--hi);
+  outline-offset: 8px;
+  border-radius: 6px;
+}
+app-folder-card[data-alvo] {
+  outline: 2.5px dashed var(--hi);
+  outline-offset: 6px;
+  border-radius: 8px;
+}

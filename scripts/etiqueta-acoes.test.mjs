@@ -18,6 +18,7 @@ const app = join(root, 'src/app');
 const FORA_DO_PADRAO = [
   ['src/app/ui/kanban-column-head.scss', '.etiqueta-btn', 'o botão no cabeçalho da coluna do Kanban: a coluna não é um card'],
   ['src/app/ui/rich-text-codigo.scss', '.codigo-copiar', 'o Copiar do bloco de código, dentro do texto'],
+  ['src/app/pages/wishlist-lab-page.scss', '.caderno', 'o lembrete do desejo numa folha de caderno, ao lado: não é botão, é o texto que a mão revela'],
   ['src/app/ui/wish-clip.ts', '.adesivo-btn', 'o lugar vazio do adesivo no recorte da Wishlist: é o próprio adesivo, não um botão de tinta'],
   ['src/app/ui/cover-picker.ts', '.foto', 'a capa escolhida no seletor de capas clareia'],
   ['src/app/ui/rich-text.ts', '.cartao-seta', 'a seta do card recolhível, dentro do texto'],

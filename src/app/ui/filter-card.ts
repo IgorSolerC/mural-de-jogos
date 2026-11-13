@@ -80,6 +80,11 @@ export class FilterCard {
   readonly total = input(0);
   /** A busca ou algum filtro está ligado. */
   readonly filtering = input(false);
+  /** A primeira linha (um por item): a pasta nas anotações, a vontade na Wishlist. */
+  readonly subjectTitle = input('Pasta');
+  readonly subjectHint = input('Um por anotação: escolha um para ver só ele.');
+  /** O que se conta no pé, no singular e no plural. */
+  readonly units = input<readonly [string, string]>(['anotação', 'anotações']);
 
   readonly subjectChosen = output<string | null>();
   readonly tagToggled = output<string>();
@@ -102,7 +107,7 @@ export class FilterCard {
 
   /** O pé: "Mostrando 3 de 26 anotações", ou só quantas são. */
   protected readonly summary = computed(() => {
-    const total = plural(this.total(), 'anotação', 'anotações');
+    const total = plural(this.total(), ...this.units());
     return this.filtering() ? `Mostrando ${this.shown()} de ${total}` : total;
   });
 

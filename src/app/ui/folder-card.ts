@@ -84,6 +84,8 @@ let hints = 0;
 export class FolderCard {
   readonly folder = input.required<NoteFolder>();
   readonly info = input<FolderInfo>({ notes: 0, folders: 0, peek: [] });
+  /** O que mora na pasta, no singular e no plural: as notas, ou os recortes da Wishlist. */
+  readonly units = input<readonly [string, string]>(['nota', 'notas']);
   /** Tocou: abrir a pasta (o id). */
   readonly opened = output<string>();
   /** Dando nome à pasta (a nova, ou Renomear no menu): o campo na própria pasta. */
@@ -128,13 +130,13 @@ export class FolderCard {
   /** "4 notas · 2 pastas", "1 nota", "Vazia". */
   protected readonly countLine = computed(() => {
     const { notes, folders } = this.info();
-    const parts = [notes ? plural(notes, 'nota', 'notas') : '', folders ? plural(folders, 'pasta', 'pastas') : ''].filter(Boolean);
+    const parts = [notes ? plural(notes, ...this.units()) : '', folders ? plural(folders, 'pasta', 'pastas') : ''].filter(Boolean);
     return parts.length ? parts.join(' · ') : 'Vazia';
   });
   /** O que o leitor de tela ouve: "Pasta Programação, 4 notas e 2 pastas". */
   protected readonly spoken = computed(() => {
     const { notes, folders } = this.info();
-    const parts = [notes ? plural(notes, 'nota', 'notas') : '', folders ? plural(folders, 'pasta', 'pastas') : ''].filter(Boolean);
+    const parts = [notes ? plural(notes, ...this.units()) : '', folders ? plural(folders, 'pasta', 'pastas') : ''].filter(Boolean);
     return `Pasta ${this.folder().name}, ${parts.length ? parts.join(' e ') : 'vazia'}`;
   });
 }

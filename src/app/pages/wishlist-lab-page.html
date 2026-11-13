@@ -1,0 +1,707 @@
+<div class="lab" [attr.data-jeito]="jeito()">
+  <!-- ===== Os cinco jeitos ===== -->
+  <header class="lab-topo">
+    <p class="lab-sobre">Laboratório da Wishlist · dados de mentira, nada é gravado</p>
+    <nav class="jeitos" aria-label="Os jeitos">
+      @for (j of jeitos; track j.nome; let i = $index) {
+        <button type="button" class="jeito" [attr.aria-pressed]="jeito() === i + 1" (click)="setJeito(i + 1)">
+          <b>{{ i + 1 }}</b>{{ j.nome }}
+        </button>
+      }
+    </nav>
+    <div class="lab-como">
+      <p class="como">{{ info().como }}</p>
+      <dl class="pros">
+        <div><dt>Pastas</dt><dd>{{ info().pastas }}</dd></div>
+        <div><dt>Tags</dt><dd>{{ info().tags }}</dd></div>
+        <div><dt>Grade</dt><dd>{{ info().grade }}</dd></div>
+      </dl>
+      <p class="todos">
+        @if (info().todos; as t) {
+          {{ t }}
+        } @else {
+          Em todos: tocar no recorte abre a folha de editar (sem criar resenha). Com o mouse em cima, os três botões
+          separados: Começar a resenha, MUST PLAY e LATER. Troque a vista na barra: Recortes ou Grade.
+        }
+      </p>
+      @if (jeito() === 6) {
+        <div class="tag-jeitos" role="group" aria-label="Como as tags aparecem">
+          <span class="tag-jeitos-pre">Tags:</span>
+          @for (t of tagJeitos; track t.value; let i = $index) {
+            <button type="button" class="tag-jeito" [attr.aria-pressed]="tagJeito() === t.value" (click)="tagJeito.set(t.value)">
+              <b>{{ 'ABCDE'[i] }}</b>{{ t.label }}
+            </button>
+          }
+        </div>
+      }
+    </div>
+  </header>
+
+  <h1 class="sr-only">Wishlist</h1>
+
+  <!-- ===== Jeito 5: as pastas viram orelhas em cima da pasta da barra ===== -->
+  @if (jeito() === 5) {
+    <div class="orelhas">
+      <div class="abas" role="group" aria-label="Pastas da wishlist">
+        <button type="button" class="aba" [class.on]="!folder()" [attr.aria-pressed]="!folder()" (click)="openFolder(null)">
+          <span class="nome">Tudo</span><span class="n">{{ wishes().length }}</span>
+        </button>
+        @for (f of rootFolders(); track f.id) {
+          <button
+            type="button"
+            class="aba"
+            [class.on]="path()[0]?.id === f.id"
+            [attr.aria-pressed]="path()[0]?.id === f.id"
+            (click)="openFolder(f.id)"
+          >
+            <lucide-icon class="aba-ico" [img]="I.pasta" [size]="15" aria-hidden="true" />
+            <span class="nome">{{ f.name }}</span><span class="n">{{ subtreeCount(f) }}</span>
+          </button>
+        }
+        <button type="button" class="aba nova" aria-label="Nova pasta" title="Nova pasta">
+          <lucide-icon [img]="I.novaPasta" [size]="17" aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- ===== A pasta da barra: a mesma do mural ===== -->
+  <div class="pasta" [class.solta]="jeito() !== 5">
+    @if (navigates() && path().length) {
+      <app-folder-path group="Wishlist" [path]="pathAsNote()" (go)="openFolder($event)" />
+    }
+    <div class="pasta-linha">
+      <app-search-strip
+        class="pasta-busca"
+        inputId="busca-desejos-lab"
+        [glued]="true"
+        label="Procurar na wishlist"
+        placeholder="Procurar na wishlist…"
+        [value]="query()"
+        (valueChange)="query.set($event)"
+      />
+
+      <div class="pasta-controles">
+        <!-- jeito 4: a vontade com atalho, os três adesivos -->
+        @if (jeito() === 4) {
+          <div class="pasta-grupo atalho-vontade" role="group" aria-label="Vontade">
+            @for (o of vontadeOptions(); track o.value) {
+              <button
+                type="button"
+                class="tinta adesivo-filtro"
+                [attr.aria-pressed]="o.on"
+                [attr.aria-label]="'Só ' + o.label + ', ' + o.n"
+                [title]="'Só ' + o.label"
+                (click)="chooseVontade(o.value)"
+              >
+                <app-relevance-sticker size="mini" [relevance]="$any(o.value)" kind="jogos" />
+              </button>
+            }
+          </div>
+        }
+
+        @if (jeito() !== 3 && jeito() !== 5) {
+          <div class="pasta-grupo">
+            <button type="button" class="tinta" [attr.aria-expanded]="filterOpen()" (click)="filterOpen.set(!filterOpen())">
+              <lucide-icon [img]="I.filtrar" [size]="18" aria-hidden="true" />
+              <span>Filtrar</span>
+              @if (filterCount()) {
+                <span class="tinta-n" aria-hidden="true">{{ filterCount() }}</span>
+              }
+            </button>
+          </div>
+        }
+
+        <div class="pasta-grupo" role="group" aria-label="Ordenar">
+          <label class="tinta campo">
+            <span class="campo-pre">Ordenar</span>
+            <span class="campo-val" aria-hidden="true">{{ orderLabel() }}</span>
+            <lucide-icon class="campo-chev" [img]="I.abrir" [size]="15" aria-hidden="true" />
+            <select aria-label="Ordenar por" (change)="order.set($any($event.target).value)">
+              @for (o of ordens; track o.value) {
+                <option [value]="o.value" [selected]="o.value === order()">{{ o.label }}</option>
+              }
+            </select>
+          </label>
+          <button type="button" class="tinta so-icone" aria-label="Inverter ordem" title="Inverter ordem" (click)="direction.set(direction() === 'desc' ? 'asc' : 'desc')">
+            <lucide-icon [img]="direction() === 'desc' ? I.ordenarDecrescente : I.ordenarCrescente" [size]="18" aria-hidden="true" />
+          </button>
+          @if (jeito() !== 2) {
+            <button
+              type="button"
+              class="tinta so-icone"
+              [attr.aria-pressed]="vontadeFirst()"
+              aria-label="MUST PLAY na frente"
+              [title]="vontadeFirst() ? 'MUST PLAY na frente, LATER no fim' : 'A vontade não muda a ordem'"
+              (click)="vontadeFirst.set(!vontadeFirst())"
+            >
+              <lucide-icon [img]="jeito() === 6 ? I.adesivo : I.chama" [size]="18" aria-hidden="true" />
+            </button>
+          }
+        </div>
+
+        <div class="pasta-grupo" role="group" aria-label="Vista">
+          <button type="button" class="tinta so-icone" [attr.aria-pressed]="vista() === 'recortes'" aria-label="Recortes" title="Recortes: a colagem" (click)="vista.set('recortes')">
+            <lucide-icon [img]="I.tesoura" [size]="18" aria-hidden="true" />
+          </button>
+          <button type="button" class="tinta so-icone" [attr.aria-pressed]="vista() === 'grade'" aria-label="Grade" title="Grade: muitas capas de uma vez" (click)="vista.set('grade')">
+            <lucide-icon [img]="I.grade" [size]="18" aria-hidden="true" />
+          </button>
+        </div>
+
+        <div class="pasta-grupo">
+          <button type="button" class="tinta" [disabled]="visible().length < 2" (click)="draw()">
+            <lucide-icon [img]="I.sortear" [size]="18" aria-hidden="true" />
+            Sortear
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="pasta-linha pasta-baixo">
+      <!-- jeito 5: as tags sempre à vista -->
+      @if (jeito() === 5) {
+        <div class="pasta-filtros tags-a-vista">
+          <app-tag-chips class="etiquetas" [tags]="tagChips()" (toggled)="toggleTag($event)" (excluded)="excludeTag($event)" />
+        </div>
+      }
+      @if (chips().length && jeito() !== 5 && jeito() !== 3) {
+        <div class="pasta-filtros">
+          <app-filter-tags class="atalhos" [tags]="chips()" (remove)="removeChip($event)" />
+        </div>
+      }
+      <div class="pasta-estado">
+        @if (filtering()) {
+          <p class="achados" aria-live="polite">
+            <span>Mostrando {{ visible().length }} de {{ pool().length }}</span>
+            @if (folder() && path().at(-1); as f) {
+              <span>em {{ f.name }} e nas pastas de dentro</span>
+            }
+            <button type="button" class="tinta-link" (click)="clear()">Limpar</button>
+          </p>
+        }
+      </div>
+    </div>
+  </div>
+
+  @if (filterOpen()) {
+    <app-filter-card
+      class="cartela"
+      subjectTitle="Vontade"
+      subjectHint="Uma por recorte: escolha uma para ver só ela."
+      [units]="['recorte', 'recortes']"
+      [subjects]="vontadeOptions()"
+      [tags]="tagChips()"
+      [shown]="visible().length"
+      [total]="pool().length"
+      [filtering]="filtering()"
+      (subjectChosen)="vontade.set($any($event))"
+      (tagToggled)="toggleTag($event)"
+      (tagExcluded)="excludeTag($event)"
+      (cleared)="clear()"
+      (done)="filterOpen.set(false)"
+    />
+  }
+
+  @if (aviso(); as a) {
+    <p class="aviso-lab" role="status">
+      <span>{{ a }}</span>
+      <button type="button" class="tinta-link" (click)="aviso.set(null)">Ok</button>
+    </p>
+  }
+
+  <!-- ===== A mesa: (o índice, no jeito 3) e a parede ===== -->
+  <div class="mesa-lab" [class.com-indice]="jeito() === 3">
+    @if (jeito() === 3) {
+      <aside class="indice" aria-label="Índice da wishlist">
+        <p class="indice-titulo">Índice</p>
+
+        <section class="indice-parte">
+          <h2 class="indice-sub">Pastas</h2>
+          <ul class="indice-lista">
+            <li>
+              <button type="button" class="entrada" [class.on]="!folder()" (click)="openFolder(null)">
+                <span class="entrada-nome">Tudo</span><span class="pontos" aria-hidden="true"></span><span class="entrada-n">{{ wishes().length }}</span>
+              </button>
+            </li>
+            @for (f of rootFolders(); track f.id) {
+              <li>
+                <button type="button" class="entrada" [class.on]="folder() === f.id" (click)="openFolder(f.id)">
+                  <span class="entrada-nome">{{ f.name }}</span><span class="pontos" aria-hidden="true"></span><span class="entrada-n">{{ subtreeCount(f) }}</span>
+                </button>
+                @for (c of childrenOf(f.id); track c.id) {
+                  <button type="button" class="entrada dentro" [class.on]="folder() === c.id" (click)="openFolder(c.id)">
+                    <span class="entrada-nome">{{ c.name }}</span><span class="pontos" aria-hidden="true"></span><span class="entrada-n">{{ subtreeCount(c) }}</span>
+                  </button>
+                }
+              </li>
+            }
+            <li>
+              <button type="button" class="entrada nova-entrada">
+                <lucide-icon [img]="I.novaPasta" [size]="15" aria-hidden="true" /><span class="entrada-nome">Nova pasta</span>
+              </button>
+            </li>
+          </ul>
+        </section>
+
+        <section class="indice-parte">
+          <h2 class="indice-sub">Vontade</h2>
+          <ul class="indice-lista">
+            @for (o of vontadeOptions(); track o.value) {
+              <li>
+                <button type="button" class="entrada" [class.on]="o.on" [attr.aria-pressed]="o.on" (click)="chooseVontade(o.value)">
+                  @if (o.value === 'comum') {
+                    <span class="entrada-nome">Comum</span>
+                  } @else {
+                    <app-relevance-sticker class="entrada-adesivo" size="mini" [relevance]="$any(o.value)" kind="jogos" />
+                  }
+                  <span class="pontos" aria-hidden="true"></span><span class="entrada-n">{{ o.n }}</span>
+                </button>
+              </li>
+            }
+          </ul>
+        </section>
+
+        <section class="indice-parte">
+          <h2 class="indice-sub">Tags</h2>
+          <app-tag-chips class="etiquetas quebra" [tags]="tagChips()" (toggled)="toggleTag($event)" (excluded)="excludeTag($event)" />
+        </section>
+
+        @if (filtering()) {
+          <button type="button" class="acao-caneta indice-limpar" (click)="clear()">Limpar os filtros</button>
+        }
+      </aside>
+    }
+
+    <div class="parede-lab" #parede>
+      <!-- as pastas na parede (jeitos 1 e 2: as manilha; 4: os envelopes) -->
+      @if (navigates() && childFolders().length && !filtering()) {
+        @if (jeito() === 4) {
+          <ul class="envelopes" aria-label="Pastas">
+            @for (f of childFolders(); track f.id; let j = $index) {
+              <li [style.--tilt]="j % 2 ? 1.2 : -1.4">
+                <button type="button" class="envelope" (click)="openFolder(f.id)" [attr.aria-label]="'Pasta ' + f.name">
+                  <span class="env-costas" aria-hidden="true"></span>
+                  <span class="env-capas" aria-hidden="true">
+                    @for (p of folderInfo(f).peek; track p.id; let k = $index) {
+                      <img [src]="p.game.coverUrl" alt="" [style.--k]="k" loading="lazy" referrerpolicy="no-referrer" />
+                    }
+                  </span>
+                  <span class="env-frente" aria-hidden="true"></span>
+                  <span class="env-aba" aria-hidden="true"></span>
+                  <span class="env-rotulo">
+                    <span class="env-nome">{{ f.name }}</span>
+                    <span class="env-n">{{ subtreeCount(f) }} recortes</span>
+                  </span>
+                </button>
+              </li>
+            }
+          </ul>
+        } @else {
+          <ul class="pastas-lista" aria-label="Pastas">
+            @for (f of childFolders(); track f.id) {
+              <li>
+                <app-folder-card
+                  [folder]="asNote(f)"
+                  [info]="folderInfo(f)"
+                  [units]="['recorte', 'recortes']"
+                  [naming]="namingId() === f.id"
+                  (named)="named(f.id, $event)"
+                  (opened)="openFolder($event)"
+                />
+              </li>
+            }
+          </ul>
+        }
+      }
+
+      @if (!visible().length) {
+        <p class="nada">Nenhum recorte aqui com esses filtros.</p>
+      }
+
+      @if (vista() === 'recortes') {
+        @if (jeito() === 2) {
+          @for (s of sections(); track s.r) {
+            <section class="faixa" [attr.data-vontade]="s.r">
+              <h2 class="faixa-titulo">
+                @if (s.r === 'comum') {
+                  <span class="faixa-comum">Na lista</span>
+                } @else {
+                  <app-relevance-sticker [relevance]="s.r" kind="jogos" />
+                }
+                <span class="faixa-n">{{ s.list.length }}</span>
+              </h2>
+              <div class="recortes" [style.--colunas]="cols()">
+                @for (col of s.columns; track $index) {
+                  <div class="coluna">
+                    @for (w of col; track w.id) {
+                      <ng-container *ngTemplateOutlet="recorte; context: { $implicit: w }" />
+                    }
+                  </div>
+                }
+              </div>
+            </section>
+          }
+        } @else {
+          <div class="recortes" [style.--colunas]="cols()">
+            @for (col of columns(); track $index) {
+              <div class="coluna">
+                @for (w of col; track w.id) {
+                  <ng-container *ngTemplateOutlet="recorte; context: { $implicit: w }" />
+                }
+              </div>
+            }
+          </div>
+        }
+      } @else {
+        @if (jeito() === 2) {
+          @for (s of sections(); track s.r) {
+            <section class="faixa" [attr.data-vontade]="s.r">
+              <h2 class="faixa-titulo">
+                @if (s.r === 'comum') {
+                  <span class="faixa-comum">Na lista</span>
+                } @else {
+                  <app-relevance-sticker [relevance]="s.r" kind="jogos" />
+                }
+                <span class="faixa-n">{{ s.list.length }}</span>
+              </h2>
+              <ul class="grade">
+                @for (w of s.list; track w.id) {
+                  <ng-container *ngTemplateOutlet="celula; context: { $implicit: w }" />
+                }
+              </ul>
+            </section>
+          }
+        } @else {
+          <ul class="grade" [class.contato]="jeito() === 4" [class.cupons]="jeito() === 5">
+            @for (w of visible(); track w.id; let n = $index) {
+              <ng-container *ngTemplateOutlet="celula; context: { $implicit: w, n: n }" />
+            }
+          </ul>
+        }
+      }
+    </div>
+  </div>
+</div>
+
+<!-- ===== Um recorte na colagem ===== -->
+<ng-template #recorte let-w>
+  <div
+    class="desejo"
+    [attr.data-ficha]="w.id"
+    [class.sorteado]="sorteado() === w.id"
+    (pointerdown)="down($event, w)"
+    (mouseenter)="side($event)"
+    [style.--largura]="place(w.id).width"
+    [style.--desvio]="place(w.id).shift"
+    [style.--vao]="place(w.id).gap + 'px'"
+  >
+    <app-wish-clip [wish]="w" [preview]="true" />
+    <ng-container *ngTemplateOutlet="toque; context: { $implicit: w }" />
+
+    @if (w.tags.length && jeito() === 6) {
+      <ng-container *ngTemplateOutlet="tags6; context: { $implicit: w }" />
+    } @else if (w.tags.length) {
+      @switch (jeito()) {
+        @case (2) {
+          <p class="legenda">
+            @for (t of w.tags; track t; let last = $last) {
+              <span>{{ t }}</span>
+              @if (!last) {
+                <span aria-hidden="true"> · </span>
+              }
+            }
+          </p>
+        }
+        @case (4) {
+          <div class="precos">
+            @for (t of w.tags; track t; let k = $index) {
+              <span class="preco" [style.--k]="k"><app-note-tag size="mini" [label]="t" [color]="colorOf(t)" /></span>
+            }
+          </div>
+        }
+        @default {
+          <div class="tags-mini">
+            @for (t of w.tags; track t) {
+              <app-note-tag size="mini" [label]="t" [color]="colorOf(t)" />
+            }
+          </div>
+        }
+      }
+    }
+    @if (w.note && jeito() !== 4 && jeito() !== 6) {
+      <p class="bilhete">{{ w.note }}</p>
+    }
+    <ng-container *ngTemplateOutlet="caderno; context: { $implicit: w }" />
+
+    <ng-container *ngTemplateOutlet="jeito() === 6 ? acoes6 : acoes; context: { $implicit: w }" />
+  </div>
+</ng-template>
+
+<!-- ===== Uma capa na grade ===== -->
+<ng-template #celula let-w let-n="n">
+  @let look = celLook(w.id);
+  <li
+    class="celula"
+    [attr.data-ficha]="w.id"
+    [class.sorteado]="sorteado() === w.id"
+    [class.textura]="jeito() === 6"
+    [attr.data-rasgo]="jeito() === 6 ? look.kind : null"
+    [style.--cel-tilt]="jeito() === 6 ? look.tilt : 0"
+    (pointerdown)="down($event, w)"
+    (mouseenter)="side($event)"
+  >
+    @if (jeito() === 4) {
+      <span class="quadro-n" aria-hidden="true">{{ (n ?? 0) + 1 }}A</span>
+    }
+    <span class="cel-capa">
+      <span class="cel-papel" [class.velha]="jeito() === 6 && look.velha" [style.clip-path]="jeito() === 6 ? look.clip : null">
+        <img [src]="w.game.coverUrl" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />
+      </span>
+      @if (relOf(w) !== 'comum') {
+        <app-relevance-sticker class="cel-adesivo" size="mini" [relevance]="relOf(w)" kind="jogos" />
+      }
+    </span>
+    <span class="cel-nome">{{ w.game.name }}</span>
+    @if (jeito() === 5 && w.tags.length) {
+      <span class="cel-tags">{{ w.tags.join(' · ') }}</span>
+    }
+    @if (jeito() === 6 && w.tags.length) {
+      <ng-container *ngTemplateOutlet="tags6; context: { $implicit: w }" />
+    }
+    <ng-container *ngTemplateOutlet="toque; context: { $implicit: w }" />
+    <ng-container *ngTemplateOutlet="caderno; context: { $implicit: w }" />
+    <ng-container *ngTemplateOutlet="jeito() === 6 ? acoes6 : acoes; context: { $implicit: w }" />
+  </li>
+</ng-template>
+
+<!-- ===== O toque no recorte: no jeito 6 começa a resenha; nos outros, abre o editar ===== -->
+<ng-template #toque let-w>
+  @if (jeito() === 6) {
+    <button type="button" class="hit" (click)="review(w)" [attr.aria-describedby]="w.note ? 'lembrete-' + w.id : null">
+      <span class="sr-only">Começar a resenha de {{ w.game.name }}</span>
+    </button>
+  } @else {
+    <button type="button" class="hit" (click)="edit(w)">
+      <span class="sr-only">Abrir {{ w.game.name }}</span>
+    </button>
+  }
+</ng-template>
+
+<!-- ===== Jeito 6: o lembrete, numa folha arrancada do caderno, do lado, só com o mouse em cima ===== -->
+<ng-template #caderno let-w>
+  @if (jeito() === 6 && w.note) {
+    <aside class="caderno" [id]="'lembrete-' + w.id">
+      <span class="sr-only">Lembrete: </span>
+      <span class="caderno-txt">{{ w.note }}</span>
+    </aside>
+  }
+</ng-template>
+
+<!-- ===== Jeito 6: as tags, nos cinco jeitos para comparar ===== -->
+<ng-template #tags6 let-w>
+  <p class="tags6" [attr.data-tags]="tagJeito()">
+    <span class="sr-only">Tags: </span>
+    @for (t of w.tags; track t; let last = $last; let k = $index) {
+      @switch (tagJeito()) {
+        @case ('legenda') {
+          <span class="t-leg">{{ t }}</span>
+        }
+        @case ('legenda-cor') {
+          <span class="t-cor" [style.--t]="colorOf(t) ?? '#b89a63'">{{ t }}</span>
+        }
+        @case ('caneta') {
+          <span class="t-caneta">#{{ t }}</span>
+        }
+        @case ('carimbo') {
+          <span class="t-carimbo" [style.--t]="colorOf(t) ?? '#8a6a3a'" [style.--k]="k">{{ t }}</span>
+        }
+        @case ('pontos') {
+          <span class="t-ponto" [style.--t]="colorOf(t) ?? '#b89a63'"><span class="t-ponto-nome">{{ t }}</span></span>
+        }
+      }
+    }
+  </p>
+</ng-template>
+
+<!-- ===== Jeito 6: os dois botões, Editar e Vontade (que abre o menu) ===== -->
+<ng-template #acoes6 let-w>
+  <div class="acoes">
+    <button type="button" class="botao editar" [attr.aria-label]="'Editar ' + w.game.name" title="Editar" (click)="edit(w)">
+      <lucide-icon [img]="I.ajustar" [size]="16" aria-hidden="true" />
+    </button>
+    <button
+      type="button"
+      class="botao vontade-btn"
+      aria-haspopup="menu"
+      [attr.aria-label]="'Quanta vontade de ' + w.game.name + ': ' + relevanceLabel('jogos', relOf(w)) + '. Mudar'"
+      title="Quanta vontade?"
+      (click)="vontadeMenu(w, $event)"
+    >
+      <lucide-icon [img]="I.adesivo" [size]="16" aria-hidden="true" />
+    </button>
+  </div>
+</ng-template>
+
+<!-- ===== Os botões de hover: o padrão do Finalizar e do Fixar ===== -->
+<ng-template #acoes let-w>
+  <div class="acoes">
+    <button type="button" class="botao resenhar" [attr.aria-label]="'Começar a resenha de ' + w.game.name" title="Começar a resenha" (click)="review(w)">
+      <lucide-icon [img]="I.escrever" [size]="16" aria-hidden="true" />
+    </button>
+    <button
+      type="button"
+      class="botao must"
+      [attr.aria-pressed]="relOf(w) === 'must'"
+      [attr.aria-label]="'MUST PLAY: ' + w.game.name"
+      [title]="relOf(w) === 'must' ? 'Tirar o MUST PLAY' : 'Marcar MUST PLAY'"
+      (click)="toggleRel(w, 'must')"
+    >
+      <lucide-icon [img]="I.chama" [size]="16" aria-hidden="true" />
+    </button>
+    <button
+      type="button"
+      class="botao later"
+      [attr.aria-pressed]="relOf(w) === 'later'"
+      [attr.aria-label]="'LATER: ' + w.game.name"
+      [title]="relOf(w) === 'later' ? 'Tirar o LATER' : 'Marcar LATER'"
+      (click)="toggleRel(w, 'later')"
+    >
+      <lucide-icon [img]="I.lua" [size]="16" aria-hidden="true" />
+    </button>
+  </div>
+</ng-template>
+
+<!-- o menu do site: a vontade (o botão) e o do recorte (o botão direito, o dedo segurado) -->
+<app-context-menu #menu [caption]="menuCaption()" [sections]="menuSections()" />
+
+@if (dragHint(); as h) {
+  <p class="arrasto-dica" [style.translate]="h.x + 'px ' + h.y + 'px'" aria-hidden="true">{{ h.text }}</p>
+}
+
+<!-- ===== A folha de editar: a mesma página de catálogo do "Pôr na wishlist" ===== -->
+<dialog #dialogo class="sheet recortar" aria-labelledby="editar-titulo" (backdropClose)="closeEdit()" (close)="closeEdit()">
+  @if (editing(); as w) {
+    <form class="folha" (submit)="save($event)" novalidate>
+      <header class="masthead">
+        <h2 id="editar-titulo">Editar recorte</h2>
+        <button type="button" class="fechar" (click)="closeEdit()" aria-label="Fechar">
+          <lucide-icon [img]="I.fechar" [size]="22" aria-hidden="true" />
+        </button>
+      </header>
+
+      <div class="body">
+        <aside class="mesa parede">
+          <div class="mesa-txt">
+            <p class="giz" aria-hidden="true">Na parede</p>
+            <button type="button" class="re-recortar">
+              <lucide-icon [img]="I.recomecar" [size]="17" aria-hidden="true" />
+              Outro recorte
+            </button>
+          </div>
+          @if (ePreview(); as pv) {
+            <app-wish-clip class="previa" aria-hidden="true" [wish]="pv" [preview]="true" />
+          }
+        </aside>
+
+        <div class="campos">
+          <section class="bloco">
+            <p class="pergunta">Qual jogo?</p>
+            <div class="tira-item">
+              <img class="ti-capa-lab" [src]="w.game.coverUrl" alt="" referrerpolicy="no-referrer" />
+              <div class="ti-txt">
+                <p class="ti-nome">{{ w.game.name }}</p>
+                <p class="ti-ano">{{ w.game.year }}</p>
+              </div>
+              <button type="button" class="acao-caneta">
+                <lucide-icon [img]="I.trocarCores" [size]="16" aria-hidden="true" />
+                Trocar
+              </button>
+            </div>
+          </section>
+
+          <fieldset class="bloco vontade">
+            <legend class="pergunta">Quanta vontade?</legend>
+            <div class="vontades">
+              @for (r of relevances; track r) {
+                <label class="vontade-op" [class.on]="eRel() === r">
+                  <input type="radio" name="lab-vontade" class="sr-only" [checked]="eRel() === r" (change)="eRel.set(r)" [attr.aria-label]="relevanceLabel('jogos', r)" />
+                  <app-relevance-sticker [relevance]="r" kind="jogos" />
+                </label>
+              }
+            </div>
+          </fieldset>
+
+          <section class="bloco">
+            <p class="pergunta">Tags</p>
+            <div class="tags-editar">
+              @for (t of eTags(); track t) {
+                <span class="tag-presa">
+                  <app-note-tag [label]="t" [color]="colorOf(t)" />
+                  <button type="button" class="tirar-tag" [attr.aria-label]="'Tirar a tag ' + t" (click)="dropTag(t)">
+                    <lucide-icon [img]="I.fechar" [size]="13" aria-hidden="true" />
+                  </button>
+                </span>
+              }
+              <input
+                class="nova-tag"
+                type="text"
+                placeholder="+ tag"
+                aria-label="Nova tag"
+                [value]="eNovaTag()"
+                (input)="eNovaTag.set($any($event.target).value)"
+                (keydown.enter)="$event.preventDefault(); addTag(eNovaTag())"
+              />
+            </div>
+            @if (eSugestoes().length) {
+              <div class="sugestoes">
+                @for (t of eSugestoes(); track t.name) {
+                  <button type="button" class="sugestao" (click)="addTag(t.name)" [attr.aria-label]="'Pôr a tag ' + t.name">
+                    <app-note-tag [label]="t.name" [ghost]="true" />
+                  </button>
+                }
+              </div>
+            }
+          </section>
+
+          <section class="bloco">
+            <label class="pergunta" for="lab-pasta">Pasta</label>
+            <select id="lab-pasta" class="campo-lab" (change)="eFolder.set($any($event.target).value || null)">
+              <option value="" [selected]="!eFolder()">Sem pasta</option>
+              @for (f of allFolders(); track f.id) {
+                <option [value]="f.id" [selected]="eFolder() === f.id">{{ f.label }}</option>
+              }
+            </select>
+          </section>
+
+          <section class="bloco">
+            <label class="pergunta" for="lab-bilhete">Lembrete</label>
+            <textarea
+              id="lab-bilhete"
+              class="campo-lab"
+              rows="2"
+              maxlength="140"
+              placeholder="Quem indicou, onde jogar, quando…"
+              [value]="eNote()"
+              (input)="eNote.set($any($event.target).value)"
+            ></textarea>
+          </section>
+        </div>
+      </div>
+
+      <footer class="foot">
+        <button type="button" class="acao-caneta perigo" (click)="removeEditing()">
+          <lucide-icon [img]="I.apagar" [size]="16" aria-hidden="true" />
+          Tirar da wishlist
+        </button>
+        <div class="actions">
+          <button type="button" class="btn-quiet" (click)="reviewEditing()">
+            <lucide-icon [img]="I.escrever" [size]="17" aria-hidden="true" />
+            Começar a resenha
+          </button>
+          <button type="submit" class="btn-ink">Salvar</button>
+        </div>
+      </footer>
+    </form>
+  }
+</dialog>
