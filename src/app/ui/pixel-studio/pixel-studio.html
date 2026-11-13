@@ -20,6 +20,22 @@
 
       <div class="opcoes" role="toolbar" aria-label="Opções da ferramenta">
         @switch (active()) {
+          @case ('selecao') {
+            <ng-container *ngTemplateOutlet="selOpcoes" />
+          }
+          @case ('varinha') {
+            <label class="chave">
+              <button type="button" role="switch" class="interruptor" [attr.aria-checked]="contiguous()" (click)="contiguous.set(!contiguous())">
+                <span class="bolinha"></span>
+              </button>
+              <span class="chave-nome">Só a mancha</span>
+            </label>
+            <ng-container *ngTemplateOutlet="selOpcoes" />
+          }
+          @case ('mover') {
+            <p class="opcao-dica">Arraste o que está escolhido; sem seleção, o desenho todo</p>
+            <ng-container *ngTemplateOutlet="selOpcoes" />
+          }
           @case ('balde') {
             <label class="chave">
               <button type="button" role="switch" class="interruptor" [attr.aria-checked]="contiguous()" (click)="contiguous.set(!contiguous())">
@@ -73,7 +89,7 @@
             }
           }
         }
-        @if (active() !== 'mao' && active() !== 'conta-gotas') {
+        @if (active() !== 'mao' && active() !== 'conta-gotas' && active() !== 'selecao' && active() !== 'varinha' && active() !== 'mover') {
           <div class="grupo" role="radiogroup" [attr.aria-labelledby]="ids + '-sim'">
             <span class="grupo-nome" [id]="ids + '-sim'">Simetria</span>
             <span class="teclas">
@@ -163,6 +179,7 @@
       #mesa
       class="mesa"
       [class.arrastando]="active() === 'mao'"
+      [class.movendo]="active() === 'mover'"
       aria-label="Mesa de desenho"
       (pointerdown)="down($event)"
       (pointermove)="move($event)"
@@ -207,6 +224,10 @@
           }
           @for (c of aim(); track c.x + ',' + c.y) {
             <rect class="mira" [attr.x]="c.x" [attr.y]="c.y" width="1" height="1" [attr.fill]="active() === 'lapis' && fg() ? inks()[fg()] : 'none'" />
+          }
+          @if (ants()) {
+            <path class="formigas" [attr.d]="ants()" />
+            <path class="formigas andando" [attr.d]="ants()" />
           }
           @if (keyboard()) {
             <rect class="cursor" [attr.x]="cursor().x" [attr.y]="cursor().y" width="1" height="1" />
@@ -331,6 +352,9 @@
           {{ u.n === 0 ? 'transparente' : inkChar(u.n) + ' ' + u.color }}
         </span>
       }
+      @if (selSize(); as ss) {
+        <span class="estado-item">Seleção {{ ss }}</span>
+      }
       @if (shapeSize(); as sz) {
         <span class="estado-item forma-tam">{{ sz }}</span>
       }
@@ -339,6 +363,26 @@
       <span class="estado-dica">{{ hint() }}</span>
     </footer>
   </div>
+
+  <!-- o que a seleção faz, na barra de contexto da Seleção, da Varinha e do Mover -->
+  <ng-template #selOpcoes>
+    <div class="grupo" role="group" aria-label="Seleção">
+      <span class="teclas">
+        <button type="button" class="tecla" title="Selecionar tudo (Ctrl A)" aria-label="Selecionar tudo" (click)="selectAll()">
+          <lucide-icon [img]="I.semDesenho" [size]="18" aria-hidden="true" />
+        </button>
+        <button type="button" class="tecla" title="Inverter a seleção (Ctrl Shift I)" aria-label="Inverter a seleção" (click)="invertSel()">
+          <lucide-icon [img]="I.trocarCores" [size]="18" aria-hidden="true" />
+        </button>
+        <button type="button" class="tecla" title="Tirar a seleção (Ctrl D)" aria-label="Tirar a seleção" [disabled]="!hasSel()" (click)="deselect()">
+          <lucide-icon [img]="I.fechar" [size]="18" aria-hidden="true" />
+        </button>
+      </span>
+    </div>
+    @if (float()) {
+      <button type="button" class="papel pequeno" title="Assentar o pedaço (Enter)" (click)="anchor()">Assentar</button>
+    }
+  </ng-template>
 
   <input #arquivo class="arquivo" type="file" accept="image/*" tabindex="-1" aria-hidden="true" (change)="fromFile($event)" />
   <app-context-menu #menuImagem caption="Imagem" [sections]="imageItems()" />

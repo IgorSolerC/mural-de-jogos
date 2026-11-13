@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import {
   Cell,
@@ -32,13 +33,14 @@ import {
   writeGrid,
 } from '../../core/pixel-art';
 import { Anchor, BRUSH_MAX, BrushShape, Symmetry, ZOOMS, ZOOM_KEYS, ellipseCells, fitZoom, mirrored, perfectCorner, rectCells, replaceInk, resizeCanvas, shapeBox, snapLine, stampCells, stepZoom, zoomLabel } from '../../core/pixel-tools';
+import { Float, Mask, combineMask, composite, flipMask, flipRows, invertMask, lift, maskAny, maskBounds, maskOutline, outline, placedMask, rectMask, rotateMask, rotateRows, wandMask } from '../../core/pixel-selection';
 import { WidgetValues } from '../../core/widgets';
 import { imageFileOf } from '../../core/images';
 import { ContextMenu, MenuSections } from '../context-menu';
 import { ICON, IconModule } from '../icons';
 
 /** As ferramentas do ateliê (as que pintam e a mão). */
-export type StudioTool = 'lapis' | 'borracha' | 'balde' | 'conta-gotas' | 'linha' | 'retangulo' | 'elipse' | 'mao';
+export type StudioTool = 'selecao' | 'varinha' | 'mover' | 'lapis' | 'borracha' | 'balde' | 'conta-gotas' | 'linha' | 'retangulo' | 'elipse' | 'mao';
 
 /** As ferramentas que puxam uma forma (a reta, o retângulo, a elipse). */
 const SHAPES: readonly StudioTool[] = ['linha', 'retangulo', 'elipse'];
@@ -59,6 +61,8 @@ interface Snap {
 type Drag =
   | { kind: 'pinta'; ink: number; erase: boolean; last: Cell; before: string[]; path: Cell[] }
   | { kind: 'forma'; tool: StudioTool; ink: number; from: Cell; to: Cell; square: boolean; center: boolean; before: string[] }
+  | { kind: 'sel'; from: Cell; to: Cell; mode: 'trocar' | 'somar' | 'tirar'; base: Mask | null }
+  | { kind: 'mov'; from: Cell; x: number; y: number }
   | { kind: 'vista'; x: number; y: number; panX: number; panY: number }
   | { kind: 'pinca'; dist: number; mid: { x: number; y: number }; zoom: number; panX: number; panY: number };
 
@@ -80,7 +84,7 @@ let uid = 0;
  */
 @Component({
   selector: 'app-pixel-studio',
-  imports: [ContextMenu, IconModule],
+  imports: [ContextMenu, IconModule, NgTemplateOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './pixel-studio.html',
   styleUrl: './pixel-studio.scss',
@@ -106,6 +110,9 @@ export class PixelStudio {
   protected readonly inkChar = inkChar;
   protected readonly zoomLabel = zoomLabel;
   protected readonly TOOLS: readonly { value: StudioTool; label: string; key: string; icon: typeof ICON.editar }[] = [
+    { value: 'selecao', label: 'Seleção', key: 'M', icon: ICON.semDesenho },
+    { value: 'varinha', label: 'Varinha', key: 'W', icon: ICON.varinha },
+    { value: 'mover', label: 'Mover', key: 'V', icon: ICON.mover },
     { value: 'lapis', label: 'Lápis', key: 'B', icon: ICON.editar },
     { value: 'borracha', label: 'Borracha', key: 'E', icon: ICON.borracha },
     { value: 'balde', label: 'Balde', key: 'G', icon: ICON.balde },
@@ -163,6 +170,28 @@ export class PixelStudio {
   protected readonly symmetry = signal<Symmetry>('nenhuma');
   /** O retângulo e a elipse cheios (U e Shift+U de novo alternam, como no Aseprite). */
   protected readonly filled = signal(false);
+  /** Os pontos escolhidos (a seleção); null, nenhum. */
+  protected readonly sel = signal<Mask | null>(null);
+  /** O pedaço solto (movido, colado, virado): os pontos de baixo ficam em `base` até ele assentar. */
+  protected readonly float = signal<Float | null>(null);
+  /** As formigas: a beirada da seleção (ou do pedaço, onde ele está). */
+  protected readonly ants = computed(() => {
+    const f = this.float();
+    if (f) return maskOutline(f.mask, f.x, f.y);
+    const s = this.sel();
+    return s ? maskOutline(s) : '';
+  });
+  /** O tamanho da seleção, para a barra de estado. */
+  protected readonly selSize = computed(() => {
+    const f = this.float();
+    if (f) return `${f.mask.w} × ${f.mask.h}`;
+    const s = this.sel();
+    const b = s && maskBounds(s);
+    return b ? `${b.w} × ${b.h}` : null;
+  });
+  protected readonly hasSel = computed(() => !!this.float() || this.selActive());
+  /** A seleção tem algum ponto (contado uma vez, não a cada ponto pintado). */
+  private readonly selActive = computed(() => maskAny(this.sel()));
   /** O tamanho da forma sendo puxada, para a barra de estado ("8 × 4"). */
   protected readonly shapeSize = signal<string | null>(null);
 
@@ -201,6 +230,14 @@ export class PixelStudio {
   /** O Tamanho da tela (C): os campos e a âncora, enquanto a folha dele está aberta. */
   protected readonly sizing = signal<{ w: number; h: number; anchor: Anchor } | null>(null);
 
+  /** A tela debaixo do pedaço solto, e o desenho de antes de ele soltar (o passo do desfazer). */
+  private base: string[] | null = null;
+  private floatBefore: Snap | null = null;
+  /** A última seleção tirada (Ctrl+Shift+D a traz de volta). */
+  private lastSel: Mask | null = null;
+  /** O que o Ctrl+C e o Ctrl+X guardaram (o pedaço, onde ele estava). */
+  private clip: Float | null = null;
+  protected readonly hasClip = signal(false);
   private undos: Snap[] = [];
   private redos: Snap[] = [];
   private drag: Drag | null = null;
@@ -290,6 +327,10 @@ export class PixelStudio {
   }
 
   private restore(s: Snap): void {
+    this.float.set(null);
+    this.base = null;
+    this.floatBefore = null;
+    if (s.w !== this.w() || s.h !== this.h()) this.sel.set(null);
     this.w.set(s.w);
     this.h.set(s.h);
     this.rows.set(s.rows);
@@ -302,6 +343,7 @@ export class PixelStudio {
 
   /** Uma mudança de uma vez só (o balde, virar, limpar, a tela): um passo no desfazer. */
   private change(next: Partial<Snap>, said: string): void {
+    this.anchor();
     const before = this.snap();
     const after = { ...before, ...next };
     if (sameSnap(before, after)) return;
@@ -311,8 +353,9 @@ export class PixelStudio {
   }
 
   protected undo(): void {
-    // (no meio de um traço, ele termina antes: o desfazer volta o traço inteiro)
+    // (no meio de um traço, ele termina antes: o desfazer volta o traço inteiro; o pedaço solto assenta)
     this.endStroke();
+    this.anchor();
     const prev = this.undos.pop();
     if (!prev) return;
     this.redos.push(this.snap());
@@ -322,6 +365,7 @@ export class PixelStudio {
 
   protected redo(): void {
     this.endStroke();
+    this.anchor();
     const next = this.redos.pop();
     if (!next) return;
     this.undos.push(this.snap());
@@ -342,7 +386,14 @@ export class PixelStudio {
   private cover(path: readonly Cell[]): Cell[] {
     const t = this.active();
     const size = t === 'lapis' || t === 'borracha' || SHAPES.includes(t) ? this.brush() : 1;
-    return mirrored(stampCells(path, size, this.shape()), this.symmetry(), this.w(), this.h()).filter((c) => c.x >= 0 && c.y >= 0 && c.x < this.w() && c.y < this.h());
+    return mirrored(stampCells(path, size, this.shape()), this.symmetry(), this.w(), this.h()).filter((c) => this.paintable(c));
+  }
+
+  /** O ponto pode ser pintado: dentro da tela e, com uma seleção, dentro dela (como no Aseprite). */
+  private paintable(c: Cell): boolean {
+    if (c.x < 0 || c.y < 0 || c.x >= this.w() || c.y >= this.h()) return false;
+    const s = this.sel();
+    return !s || !this.selActive() || s.bits[c.y * s.w + c.x] === 1;
   }
 
   /** O nome de uma cor, como se fala: "transparente", "cor b". */
@@ -351,8 +402,14 @@ export class PixelStudio {
   }
 
   /** O ponto debaixo do toque, com a ferramenta dada; `alt`: o botão direito (a cor do fundo). */
-  private press(c: Cell, tool: StudioTool, alt: boolean, shift: boolean): void {
+  private press(c: Cell, tool: StudioTool, alt: boolean, shift: boolean, mod = false, shiftAlt = false): void {
     const ink = alt ? this.bg() : this.fg();
+    if (tool === 'selecao' || tool === 'varinha' || tool === 'mover') {
+      this.pressSelection(c, tool, shift, shiftAlt, mod);
+      return;
+    }
+    // pintar assenta o pedaço solto (a seleção continua, no lugar dele)
+    this.anchor();
     if (tool === 'conta-gotas') {
       if (!this.inside(c)) return;
       const n = Math.max(0, inkIndex(this.rows()[c.y][c.x]));
@@ -364,8 +421,12 @@ export class PixelStudio {
     }
     if (tool === 'balde') {
       if (!this.inside(c)) return;
-      let rows = this.rows();
+      if (!this.paintable(c)) return;
+      const before = this.rows();
+      let rows = before;
       for (const at of mirrored([c], this.symmetry(), this.w(), this.h())) rows = this.contiguous() ? floodFill(rows, at, ink, this.w(), this.h()) : replaceInk(rows, at, ink, this.w(), this.h());
+      // com uma seleção, o balde não passa dela
+      rows = rows.map((r, y) => [...r].map((ch, x) => (this.paintable({ x, y }) ? ch : before[y][x])).join(''));
       this.change({ rows }, `Balde de ${this.inkName(ink)}`);
       return;
     }
@@ -447,6 +508,8 @@ export class PixelStudio {
     const d = this.drag;
     this.drag = null;
     this.shapeSize.set(null);
+    // um clique sem arrastar, com a Seleção, tira a seleção (como no Aseprite)
+    if (d?.kind === 'sel' && d.mode === 'trocar' && d.from.x === d.to.x && d.from.y === d.to.y) this.deselect();
     if ((d?.kind === 'pinta' || d?.kind === 'forma') && !sameRows(d.before, this.rows())) this.remember({ ...this.snap(), rows: d.before });
   }
 
@@ -454,6 +517,12 @@ export class PixelStudio {
   private cancelStroke(): void {
     const d = this.drag;
     this.drag = null;
+    // a seleção puxada pela metade volta a ser a de antes; o pedaço que andava volta ao lugar
+    if (d?.kind === 'sel') this.sel.set(d.base);
+    if (d?.kind === 'mov') {
+      const f = this.float();
+      if (f) this.placeFloat({ ...f, x: d.x, y: d.y });
+    }
     this.shapeSize.set(null);
     if ((d?.kind === 'pinta' || d?.kind === 'forma') && !sameRows(d.before, this.rows())) {
       this.rows.set(d.before);
@@ -503,7 +572,7 @@ export class PixelStudio {
     const c = this.cellAt(e);
     this.cursor.set({ x: Math.max(0, Math.min(this.w() - 1, c.x)), y: Math.max(0, Math.min(this.h() - 1, c.y)) });
     this.strokePointer = e.pointerId;
-    this.press(c, this.active(), e.button === 2, e.shiftKey);
+    this.press(c, this.active(), e.button === 2, e.shiftKey, e.ctrlKey || e.metaKey, e.shiftKey && e.altKey);
   }
 
   protected move(e: PointerEvent): void {
@@ -530,6 +599,23 @@ export class PixelStudio {
       this.zoom.set(z);
       this.panX.set(d.panX + (mid.x - d.mid.x) + ox - (ox * z) / d.zoom);
       this.panY.set(d.panY + (mid.y - d.mid.y) + oy - (oy * z) / d.zoom);
+    } else if ((d.kind === 'sel' || d.kind === 'mov') && e.pointerId === this.strokePointer) {
+      if (e.pointerType === 'mouse' && e.buttons === 0) {
+        this.pointers.delete(e.pointerId);
+        this.endStroke();
+        return;
+      }
+      if (d.kind === 'sel') {
+        if (c.x === d.to.x && c.y === d.to.y) return;
+        d.to = c;
+        this.sel.set(combineMask(d.base, rectMask(this.w(), this.h(), d.from, c), d.mode));
+      } else {
+        const f = this.float();
+        if (!f) return;
+        const x = d.x + c.x - d.from.x;
+        const y = d.y + c.y - d.from.y;
+        if (x !== f.x || y !== f.y) this.placeFloat({ ...f, x, y });
+      }
     } else if (d.kind === 'forma' && e.pointerId === this.strokePointer) {
       if (e.pointerType === 'mouse' && e.buttons === 0) {
         this.pointers.delete(e.pointerId);
@@ -631,6 +717,20 @@ export class PixelStudio {
       } else if (k === '-') {
         e.preventDefault();
         this.zoomAt(stepZoom(this.zoom(), -1));
+      } else if (k === 'a') {
+        e.preventDefault();
+        this.selectAll();
+      } else if (k === 'd') {
+        e.preventDefault();
+        if (e.shiftKey) this.reselect();
+        else this.deselect();
+      } else if (k === 'i' && e.shiftKey) {
+        e.preventDefault();
+        this.invertSel();
+      } else if (k === 'c' || k === 'x') {
+        if (!this.hasSel()) return;
+        e.preventDefault();
+        this.copySel(k === 'x');
       } else if (k === "'" || k === '"' || e.code === 'Quote') {
         e.preventDefault();
         if (e.shiftKey) this.toggleDots();
@@ -639,9 +739,16 @@ export class PixelStudio {
       return;
     }
     if (e.key === 'Alt') {
-      // o conta-gotas enquanto segura (e o menu do navegador não abre)
+      // o conta-gotas enquanto segura (e o menu do navegador não abre); com o Shift, na seleção, é o "tirar"
       e.preventDefault();
-      if (!e.repeat && !this.drag) this.held.set('conta-gotas');
+      const selecting = this.tool() === 'selecao' || this.tool() === 'varinha';
+      if (!e.repeat && !this.drag && !(selecting && e.shiftKey)) this.held.set('conta-gotas');
+      return;
+    }
+    if (e.key === 'Escape' && (this.float() || maskAny(this.sel()))) {
+      // o Esc solta a seleção antes de fechar o ateliê
+      e.preventDefault();
+      this.deselect();
       return;
     }
     if (e.key === ' ' && this.onBoard(e)) {
@@ -672,7 +779,12 @@ export class PixelStudio {
       else this.flipUpside();
       return;
     }
-    const tool = ({ b: 'lapis', p: 'lapis', e: 'borracha', g: 'balde', i: 'conta-gotas', h: 'mao' } as Record<string, StudioTool>)[k];
+    if (e.shiftKey && k === 'o') {
+      e.preventDefault();
+      this.outlineInk();
+      return;
+    }
+    const tool = ({ m: 'selecao', w: 'varinha', v: 'mover', b: 'lapis', p: 'lapis', e: 'borracha', g: 'balde', i: 'conta-gotas', h: 'mao' } as Record<string, StudioTool>)[k];
     if (tool && !e.shiftKey) {
       e.preventDefault();
       this.pickTool(tool);
@@ -708,8 +820,25 @@ export class PixelStudio {
       this.editInk();
       return;
     }
+    if ((k === 'delete' || k === 'backspace') && this.hasSel()) {
+      e.preventDefault();
+      this.clearSel();
+      return;
+    }
+    if (k === 'enter' && this.float()) {
+      e.preventDefault();
+      this.anchor();
+      this.said.set('Pedaço assentado');
+      return;
+    }
     if (!this.onBoard(e)) return;
     const step = ({ arrowleft: [-1, 0], arrowright: [1, 0], arrowup: [0, -1], arrowdown: [0, 1] } as Record<string, [number, number]>)[k];
+    if (step && this.hasSel()) {
+      // as setas movem o que está escolhido (Shift: de 8 em 8)
+      e.preventDefault();
+      this.nudgeSel(step[0] * (e.shiftKey ? 8 : 1), step[1] * (e.shiftKey ? 8 : 1));
+      return;
+    }
     if (step) {
       e.preventDefault();
       const c = this.cursor();
@@ -725,7 +854,7 @@ export class PixelStudio {
       const c = this.clampCursor();
       this.keyboard.set(true);
       const tool = k === 'enter' ? this.tool() : 'borracha';
-      this.press(c, tool === 'mao' ? 'lapis' : tool, false, e.shiftKey);
+      this.press(c, tool === 'mao' || tool === 'mover' ? 'lapis' : tool, false, e.shiftKey);
       this.endStroke();
       this.sayCell(c);
     }
@@ -790,11 +919,206 @@ export class PixelStudio {
   }
 
   protected flipSide(): void {
+    if (this.transformSel((f) => ({ ...f, rows: flipRows(f.rows, 'h'), mask: flipMask(f.mask, 'h') }), 'Seleção virada de lado')) return;
     this.change({ rows: flipH(this.rows(), this.w(), this.h()) }, 'Desenho virado de lado');
   }
 
   protected flipUpside(): void {
+    if (this.transformSel((f) => ({ ...f, rows: flipRows(f.rows, 'v'), mask: flipMask(f.mask, 'v') }), 'Seleção de cabeça para baixo')) return;
     this.change({ rows: flipV(this.rows(), this.w(), this.h()) }, 'Desenho de cabeça para baixo');
+  }
+
+  /** Girar: a seleção (no meio de onde estava) ou a tela inteira (a largura troca com a altura). */
+  protected rotate(dir: 'cw' | 'ccw' | '180'): void {
+    const said = dir === 'cw' ? 'girado 90° para a direita' : dir === 'ccw' ? 'girado 90° para a esquerda' : 'girado 180°';
+    const moved = this.transformSel((f) => {
+      const mask = rotateMask(f.mask, dir);
+      return { x: f.x + Math.floor((f.mask.w - mask.w) / 2), y: f.y + Math.floor((f.mask.h - mask.h) / 2), rows: rotateRows(f.rows, dir), mask };
+    }, `Seleção ${said}`);
+    if (moved) return;
+    const rows = rotateRows(this.rows(), dir);
+    this.change({ rows, w: rows[0]?.length ?? this.w(), h: rows.length }, `Desenho ${said}`);
+    if (dir !== '180') this.fit();
+  }
+
+  /** Shift+O: o contorno com a cor da frente em volta do que está pintado (só na seleção, se tiver). */
+  protected outlineInk(): void {
+    if (this.fg() === 0) {
+      this.said.set('Escolha uma cor para o contorno');
+      return;
+    }
+    this.anchor();
+    this.change({ rows: outline(this.rows(), this.w(), this.h(), this.fg(), maskAny(this.sel()) ? this.sel() : null) }, `Contorno de ${this.inkName(this.fg())}`);
+  }
+
+  /** A tela do tamanho da seleção (Recortar na seleção). */
+  protected cropToSel(): void {
+    this.anchor();
+    const s = this.sel();
+    const b = s && maskBounds(s);
+    if (!b) return;
+    const rows = this.rows()
+      .slice(b.y, b.y + b.h)
+      .map((r) => r.slice(b.x, b.x + b.w));
+    this.change({ rows, w: b.w, h: b.h }, `Tela recortada em ${b.w} por ${b.h}`);
+    this.sel.set(null);
+    this.fit();
+  }
+
+  // ===== a seleção =====
+
+  /** O toque com a Seleção, a Varinha ou o Mover. */
+  private pressSelection(c: Cell, tool: StudioTool, shift: boolean, shiftAlt: boolean, copy: boolean): void {
+    const mode = shiftAlt ? 'tirar' : shift ? 'somar' : 'trocar';
+    const s = this.sel();
+    const insideSel = (m: Mask | null) => !!m && this.inside(c) && m.bits[c.y * m.w + c.x] === 1;
+    const f = this.float();
+    const onFloat = !!f && c.x >= f.x && c.y >= f.y && c.x < f.x + f.mask.w && c.y < f.y + f.mask.h && f.mask.bits[(c.y - f.y) * f.mask.w + c.x - f.x] === 1;
+    // o Mover (em qualquer lugar: o que está escolhido anda), ou a Seleção puxada de dentro dela; com o Ctrl, uma cópia
+    if (tool === 'mover' || (tool === 'selecao' && mode === 'trocar' && (onFloat || (!f && insideSel(s))))) {
+      if (!this.liftSel(copy)) return;
+      const lifted = this.float()!;
+      this.drag = { kind: 'mov', from: c, x: lifted.x, y: lifted.y };
+      return;
+    }
+    this.anchor();
+    if (tool === 'varinha') {
+      if (!this.inside(c)) return;
+      this.sel.set(combineMask(s, wandMask(this.rows(), this.w(), this.h(), c, this.contiguous()), mode));
+      this.said.set('Mancha escolhida');
+      return;
+    }
+    this.drag = { kind: 'sel', from: c, to: c, mode, base: s };
+    this.sel.set(combineMask(s, rectMask(this.w(), this.h(), c, c), mode));
+  }
+
+  /**
+   * Solta o que está escolhido (ou a tela inteira, sem seleção) num pedaço que flutua por cima: a tela fica
+   * com o buraco (ou sem ele, `copy`). Já solto, continua o mesmo. False: não há nada para soltar.
+   */
+  private liftSel(copy: boolean): boolean {
+    if (this.float()) return true;
+    const s = this.sel();
+    const all = rectMask(this.w(), this.h(), { x: 0, y: 0 }, { x: this.w() - 1, y: this.h() - 1 });
+    const m = maskAny(s) ? s : all;
+    const out = lift(this.rows(), m, copy);
+    if (!out) return false;
+    this.floatBefore = this.snap();
+    this.base = out.base;
+    this.placeFloat(out.float);
+    return true;
+  }
+
+  /** O pedaço solto num lugar novo (ou virado): a folha mostra a tela com ele por cima. */
+  private placeFloat(f: Float): void {
+    this.float.set(f);
+    this.rows.set(composite(this.base ?? this.rows(), f));
+    this.emit();
+  }
+
+  /** Vira, gira… o pedaço solto (soltando a seleção antes, se precisa). False: não há seleção. */
+  private transformSel(fn: (f: Float) => Float, said: string): boolean {
+    if (!this.hasSel()) return false;
+    if (!this.liftSel(false)) return false;
+    this.placeFloat(fn(this.float()!));
+    this.said.set(said);
+    return true;
+  }
+
+  /** O pedaço solto assenta na tela (um passo do desfazer, se mudou algo); a seleção fica onde ele ficou. */
+  protected anchor(): void {
+    const f = this.float();
+    if (!f) return;
+    this.sel.set(placedMask(f, this.w(), this.h()));
+    this.float.set(null);
+    this.base = null;
+    const before = this.floatBefore;
+    this.floatBefore = null;
+    if (before && !sameSnap(before, this.snap())) this.remember(before);
+  }
+
+  protected selectAll(): void {
+    this.anchor();
+    this.sel.set(rectMask(this.w(), this.h(), { x: 0, y: 0 }, { x: this.w() - 1, y: this.h() - 1 }));
+    this.said.set('Tudo escolhido');
+  }
+
+  protected deselect(): void {
+    this.anchor();
+    if (maskAny(this.sel())) this.lastSel = this.sel();
+    this.sel.set(null);
+    this.said.set('Seleção tirada');
+  }
+
+  protected reselect(): void {
+    const m = this.lastSel;
+    if (!m || m.w !== this.w() || m.h !== this.h()) return;
+    this.anchor();
+    this.sel.set(m);
+    this.said.set('Seleção de volta');
+  }
+
+  protected invertSel(): void {
+    this.anchor();
+    const s = this.sel();
+    this.sel.set(maskAny(s) ? invertMask(s) : rectMask(this.w(), this.h(), { x: 0, y: 0 }, { x: this.w() - 1, y: this.h() - 1 }));
+    this.said.set('Seleção invertida');
+  }
+
+  /** Delete: o que está escolhido vira transparente (o pedaço solto some). */
+  protected clearSel(): void {
+    const f = this.float();
+    if (f) {
+      const before = this.floatBefore;
+      this.rows.set(this.base ?? this.rows());
+      this.float.set(null);
+      this.base = null;
+      this.floatBefore = null;
+      this.emit();
+      if (before && !sameSnap(before, this.snap())) this.remember(before);
+      this.said.set('Pedaço apagado');
+      return;
+    }
+    const s = this.sel();
+    if (!maskAny(s)) return;
+    this.change({ rows: this.rows().map((r, y) => [...r].map((ch, x) => (s.bits[y * s.w + x] ? '0' : ch)).join('')) }, 'Seleção apagada');
+  }
+
+  /** As setas com a seleção: o pedaço anda (soltando antes, se precisa). */
+  private nudgeSel(dx: number, dy: number): void {
+    if (!this.liftSel(false)) return;
+    const f = this.float()!;
+    this.placeFloat({ ...f, x: f.x + dx, y: f.y + dy });
+    this.said.set(`Seleção em ${f.x + dx}, ${f.y + dy}`);
+  }
+
+  /** Ctrl+C e Ctrl+X: o pedaço escolhido guardado para colar (recortar deixa o buraco). */
+  protected copySel(cut: boolean): void {
+    const f = this.float();
+    if (f) this.clip = { ...f, rows: [...f.rows] };
+    else {
+      const s = this.sel();
+      const all = rectMask(this.w(), this.h(), { x: 0, y: 0 }, { x: this.w() - 1, y: this.h() - 1 });
+      this.clip = lift(this.rows(), maskAny(s) ? s : all, true)?.float ?? null;
+    }
+    this.hasClip.set(!!this.clip);
+    if (cut) this.clearSel();
+    this.said.set(cut ? 'Recortado' : 'Copiado');
+  }
+
+  /** Ctrl+V: o pedaço guardado solto no lugar de onde veio (dentro da tela), pronto para mover. */
+  protected pasteClip(): void {
+    const c = this.clip;
+    if (!c) return;
+    this.anchor();
+    this.sel.set(null);
+    const x = Math.max(0, Math.min(c.x, this.w() - c.mask.w));
+    const y = Math.max(0, Math.min(c.y, this.h() - c.mask.h));
+    this.floatBefore = this.snap();
+    this.base = this.rows();
+    this.placeFloat({ ...c, x, y });
+    this.tool.set('mover');
+    this.said.set('Colado: arraste ou use as setas, e Enter para assentar');
   }
 
   protected clear(): void {
@@ -808,15 +1132,38 @@ export class PixelStudio {
     this.imageMenu().show({ key: 'imagem', x: r.left, y: r.bottom + 4, back: btn, by: e.detail === 0 ? 'teclado' : 'mouse' });
   }
 
-  protected readonly imageItems = computed<MenuSections>(() => [
-    [
-      { id: 'tamanho', label: 'Tamanho da tela…', icon: ICON.tamanhoDaTela, keys: 'C', dialog: true, run: () => this.openSize() },
-      { id: 'lado', label: 'Virar de lado', icon: ICON.virarDeLado, keys: 'Shift+H', run: () => this.flipSide() },
-      { id: 'cabeca', label: 'Virar de cabeça para baixo', icon: ICON.virarDeCabeca, keys: 'Shift+V', run: () => this.flipUpside() },
-    ],
-    [{ id: 'imagem', label: 'Trazer de uma imagem…', icon: ICON.imagem, run: () => this.chooseImage() }],
-    [{ id: 'limpar', label: 'Limpar a folha', icon: ICON.apagar, danger: true, run: () => this.clear() }],
-  ]);
+  protected readonly imageItems = computed<MenuSections>(() => {
+    const sel = this.hasSel();
+    const what = sel ? 'a seleção' : 'o desenho';
+    return [
+      [
+        { id: 'tamanho', label: 'Tamanho da tela…', icon: ICON.tamanhoDaTela, keys: 'C', dialog: true, run: () => this.openSize() },
+        ...(sel ? [{ id: 'recortar-tela', label: 'Recortar na seleção', icon: ICON.recortarTela, run: () => this.cropToSel() }] : []),
+      ],
+      [
+        { id: 'lado', label: 'Virar de lado', hint: `Vira ${what}`, icon: ICON.virarDeLado, keys: 'Shift+H', run: () => this.flipSide() },
+        { id: 'cabeca', label: 'Virar de cabeça para baixo', hint: `Vira ${what}`, icon: ICON.virarDeCabeca, keys: 'Shift+V', run: () => this.flipUpside() },
+        { id: 'direita', label: 'Girar 90° para a direita', hint: `Gira ${what}`, icon: ICON.girarDireita, run: () => this.rotate('cw') },
+        { id: 'esquerda', label: 'Girar 90° para a esquerda', hint: `Gira ${what}`, icon: ICON.girarEsquerda, run: () => this.rotate('ccw') },
+        { id: 'meia-volta', label: 'Girar 180°', hint: `Gira ${what}`, icon: ICON.girarMeiaVolta, run: () => this.rotate('180') },
+        { id: 'contorno', label: 'Contorno com a cor da frente', icon: ICON.moldura, keys: 'Shift+O', run: () => this.outlineInk() },
+      ],
+      [
+        { id: 'tudo', label: 'Selecionar tudo', icon: ICON.semDesenho, keys: 'Ctrl+A', run: () => this.selectAll() },
+        ...(sel
+          ? [
+              { id: 'copiar', label: 'Copiar', icon: ICON.copiar, keys: 'Ctrl+C', run: () => this.copySel(false) },
+              { id: 'recortar', label: 'Recortar', icon: ICON.tesoura, keys: 'Ctrl+X', run: () => this.copySel(true) },
+              { id: 'inverter', label: 'Inverter a seleção', icon: ICON.trocarCores, keys: 'Ctrl+Shift+I', run: () => this.invertSel() },
+              { id: 'tirar', label: 'Tirar a seleção', icon: ICON.fechar, keys: 'Ctrl+D', run: () => this.deselect() },
+            ]
+          : []),
+        ...(this.hasClip() ? [{ id: 'colar', label: 'Colar', icon: ICON.colar, keys: 'Ctrl+V', run: () => this.pasteClip() }] : []),
+      ],
+      [{ id: 'imagem', label: 'Trazer de uma imagem…', icon: ICON.imagem, run: () => this.chooseImage() }],
+      [{ id: 'limpar', label: 'Limpar a folha', icon: ICON.apagar, danger: true, run: () => this.clear() }],
+    ];
+  });
 
   // ===== as cores =====
 
@@ -977,7 +1324,13 @@ export class PixelStudio {
   /** Colar (Ctrl+V) ou soltar uma imagem na mesa: ela vira os pontos. */
   protected takeImage(e: ClipboardEvent | DragEvent): void {
     const file = imageFileOf(e instanceof ClipboardEvent ? e.clipboardData : e.dataTransfer);
-    if (!file) return;
+    if (!file) {
+      if (e instanceof ClipboardEvent && this.clip) {
+        e.preventDefault();
+        this.pasteClip();
+      }
+      return;
+    }
     e.preventDefault();
     void this.importImage(file);
   }
@@ -1024,7 +1377,7 @@ export class PixelStudio {
   protected readonly aim = computed(() => {
     const c = this.hover();
     const t = this.active();
-    if (!c || t === 'mao') return [];
+    if (!c || t === 'mao' || t === 'selecao' || t === 'varinha' || t === 'mover') return [];
     if (t === 'conta-gotas' || t === 'balde') return [c];
     return this.cover([c]);
   });
@@ -1050,6 +1403,12 @@ export class PixelStudio {
   /** O que os modificadores fazem na ferramenta de agora, na barra de estado. */
   protected readonly hint = computed(() => {
     switch (this.active()) {
+      case 'selecao':
+        return 'Puxe para escolher · Shift: soma · Shift+Alt: tira · arraste de dentro para mover · Esc: tira';
+      case 'varinha':
+        return 'Escolhe a mancha da cor · Shift: soma · Shift+Alt: tira';
+      case 'mover':
+        return 'Arraste o que está escolhido (ou tudo) · Ctrl ao começar: uma cópia · setas: um ponto · Enter: assenta';
       case 'lapis':
         return 'Shift: reta desde o último ponto · Alt: conta-gotas · Espaço: arrastar a vista';
       case 'borracha':

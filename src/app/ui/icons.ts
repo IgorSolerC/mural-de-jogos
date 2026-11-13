@@ -280,6 +280,13 @@ import {
   ZoomIn,
   ZoomOut,
   Slash,
+  WandSparkles,
+  Move,
+  RotateCwSquare,
+  RotateCcwSquare,
+  RefreshCcwDot,
+  Crop,
+  ClipboardPaste,
 } from 'lucide-angular';
 import { CARTELA_DE_ICONES } from '../../../shared/cartela-de-icones';
 import { ICON_CHOICES, IconChoice, isIconChoice } from '../core/icon-choices';
@@ -563,6 +570,14 @@ export const ICON = {
   trocarCores: ArrowLeftRight,
   /** As formas do ateliê: a reta (o retângulo e a elipse são o desmarcado e o círculo). */
   reta: Slash,
+  /** A seleção do ateliê: a varinha, mover, girar, recortar a tela na seleção e colar. */
+  varinha: WandSparkles,
+  mover: Move,
+  girarDireita: RotateCwSquare,
+  girarEsquerda: RotateCcwSquare,
+  girarMeiaVolta: RefreshCcwDot,
+  recortarTela: Crop,
+  colar: ClipboardPaste,
   /** A tabela: a linha nova em cima e embaixo da do cursor, a coluna nova antes e depois. */
   linhaEmCima: BetweenHorizontalStart,
   linhaEmbaixo: BetweenHorizontalEnd,

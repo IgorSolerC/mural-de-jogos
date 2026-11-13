@@ -474,6 +474,32 @@
   stroke-dasharray: 3 2;
 }
 
+/* as formigas da seleção: o traço de tinta e, por cima, o tracejado claro que anda */
+.formigas {
+  fill: none;
+  stroke: #151515;
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
+  shape-rendering: crispEdges;
+  pointer-events: none;
+
+  &.andando {
+    stroke: #fffdf8;
+    stroke-dasharray: 4 4;
+    animation: formigas 0.6s linear infinite;
+  }
+}
+
+@keyframes formigas {
+  to {
+    stroke-dashoffset: -8;
+  }
+}
+
+.mesa.movendo {
+  cursor: move;
+}
+
 .cursor {
   fill: none;
   stroke: var(--ink);
@@ -1173,5 +1199,9 @@ button.estado-item {
   .pastilha,
   .painel {
     transition: none;
+  }
+
+  .formigas.andando {
+    animation: none;
   }
 }

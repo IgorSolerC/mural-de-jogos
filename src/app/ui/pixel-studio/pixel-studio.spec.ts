@@ -303,4 +303,95 @@ describe('pixel art: o ateliê', () => {
     pointer('pointerup', 2, 2);
     expect(values['pixels']).toBe('/011/011');
   });
+
+  it('a seleção (M) limita o lápis; Delete apaga o que está nela; Ctrl+D tira e Ctrl+Shift+D traz de volta', async () => {
+    await make({ width: '4', height: '2', pixels: '1111/1111' });
+    key('m');
+    pointer('pointerdown', 1, 0);
+    pointer('pointermove', 2, 1);
+    pointer('pointerup', 2, 1);
+    expect(host.querySelector('path.formigas')).not.toBeNull();
+    expect(host.querySelector('.estado')?.textContent).toContain('Seleção 2 × 2');
+    key('Delete');
+    expect(values['pixels']).toBe('1001/1001');
+    key('b');
+    key(']');
+    pointer('pointerdown', 0, 0);
+    pointer('pointermove', 3, 0);
+    pointer('pointerup', 3, 0);
+    // o lápis só pinta dentro da seleção
+    expect(values['pixels']).toBe('1221/1001');
+    key('d', { ctrlKey: true });
+    expect(host.querySelector('path.formigas')).toBeNull();
+    key('D', { ctrlKey: true, shiftKey: true });
+    expect(host.querySelector('path.formigas')).not.toBeNull();
+    // um clique sem arrastar, com a Seleção, tira
+    key('m');
+    click(0, 0);
+    expect(host.querySelector('path.formigas')).toBeNull();
+  });
+
+  it('mover (V) solta o pedaço, ele anda pelo arrasto e pelas setas, e Enter assenta num passo só', async () => {
+    await make({ width: '4', height: '1', pixels: '12' });
+    key('m');
+    pointer('pointerdown', 0, 0);
+    pointer('pointermove', 1, 0);
+    pointer('pointerup', 1, 0);
+    key('v');
+    pointer('pointerdown', 0, 0);
+    pointer('pointermove', 1, 0);
+    pointer('pointerup', 1, 0);
+    expect(values['pixels']).toBe('012');
+    key('ArrowRight');
+    expect(values['pixels']).toBe('0012');
+    key('Enter');
+    key('z', { ctrlKey: true });
+    expect(values['pixels']).toBe('12');
+  });
+
+  it('a varinha pega a mancha; virar e girar valem para a seleção; Shift+O faz o contorno', async () => {
+    await make({ width: '3', height: '3', pixels: '/010' });
+    key('w');
+    click(1, 1);
+    key('O', { shiftKey: true });
+    // com a seleção só no ponto pintado, o contorno não tem onde entrar
+    expect(values['pixels']).toBe('/010');
+    key('d', { ctrlKey: true });
+    key('O', { shiftKey: true });
+    expect(values['pixels']).toBe('01/111/01');
+  });
+
+  it('girar a tela inteira troca a largura com a altura; com seleção, gira só ela', async () => {
+    await make({ width: '3', height: '1', pixels: '123' });
+    const menu = host.querySelector('.menu-imagem') as HTMLButtonElement;
+    menu.click();
+    fixture.detectChanges();
+    (Array.from(host.querySelectorAll('.menu-contexto button')) as HTMLButtonElement[]).find((b) => b.textContent?.includes('Girar 90° para a direita'))!.click();
+    fixture.detectChanges();
+    expect([values['width'], values['height']]).toEqual(['1', '3']);
+    expect(values['pixels']).toBe('1/2/3');
+  });
+
+  it('copiar e colar (Ctrl+C, Ctrl+V): o pedaço volta solto no mesmo lugar, pronto para mover', async () => {
+    await make({ width: '4', height: '1', pixels: '1' });
+    key('a', { ctrlKey: true });
+    key('c', { ctrlKey: true });
+    key('d', { ctrlKey: true });
+    const paste = new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: new DataTransfer() });
+    board().dispatchEvent(paste);
+    fixture.detectChanges();
+    key('ArrowRight');
+    key('Enter');
+    expect(values['pixels']).toBe('11');
+  });
+
+  it('o Esc tira a seleção antes de fechar o ateliê', async () => {
+    await make({ width: '2', height: '1' });
+    key('a', { ctrlKey: true });
+    const esc = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    board().dispatchEvent(esc);
+    fixture.detectChanges();
+    expect(esc.defaultPrevented).toBeTrue();
+    expect(host.querySelector('path.formigas')).toBeNull();
+  });
 });
