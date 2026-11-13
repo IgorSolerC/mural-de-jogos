@@ -63,7 +63,8 @@ export class NoteFolders {
   }
 
   private save(folders: readonly NoteFolder[]): void {
-    const pruned = prunedFolders(folders, this.store.notes(), Date.now());
+    // os desejos da Wishlist também apontam para pastas daqui (grupo desejos:<mural>): a lápide fica enquanto alguém aponta
+    const pruned = prunedFolders(folders, [...this.store.notes(), ...this.store.wishes()], Date.now());
     this.settings.setNotesConfig({ folders: pruned });
   }
 

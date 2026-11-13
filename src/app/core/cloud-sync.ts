@@ -217,10 +217,14 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  *     só no Kanban, as só nos Flashcards). Um site da 54 jogaria o campo fora e enviaria assim, e o grupo
  *     voltaria a abrir sem elas em todo aparelho.
  *
+ * 56: a Wishlist repensada (PLANO-WISHLIST.md): as tags, a pasta e o lembrete do desejo (`tags`, `folder`,
+ *     `note`) e a cor das tags dela (`wishTagColors` nas configurações do mural de anotações, onde também moram
+ *     as pastas dela). Um site da 55 jogaria os campos fora ao enviar, e o desejo perderia tudo em todo aparelho.
+ *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 55;
+export const SYNC_SCHEMA = 56;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };

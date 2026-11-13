@@ -204,14 +204,14 @@ export class WishlistLabPage {
   }
   private inside(w: LabWish, id: string | null): boolean {
     const set = this.subtree(id);
-    return !set || set.has(w.folder);
+    return !set || set.has(w.folder ?? null);
   }
 
   protected readonly filtering = computed(() => !!this.query().trim() || this.tagsOn().size > 0 || this.tagsOut().size > 0 || !!this.vontade());
   /** Onde se procura: a pasta aberta (só as direto nela, nos jeitos que navegam; com filtro, ela e as de dentro). */
   protected readonly pool = computed(() => {
     const id = this.folder();
-    if (this.navigates() && !this.filtering()) return this.wishes().filter((w) => w.folder === id);
+    if (this.navigates() && !this.filtering()) return this.wishes().filter((w) => (w.folder ?? null) === id);
     return this.wishes().filter((w) => this.inside(w, id));
   });
   protected readonly visible = computed(() => {
@@ -279,7 +279,7 @@ export class WishlistLabPage {
       notes: this.wishes().filter((w) => w.folder === f.id).length,
       folders: this.folders().filter((x) => x.parent === f.id).length,
       peek: this.wishes()
-        .filter((w) => sub.has(w.folder))
+        .filter((w) => sub.has(w.folder ?? null))
         .slice(0, 3) as unknown as Review[],
     };
   }
@@ -480,7 +480,7 @@ export class WishlistLabPage {
     this.drag.down(e, w, e.currentTarget as HTMLElement);
   }
   private moveTo(ids: string[], folder: string | null): void {
-    this.wishes.update((l) => l.map((x) => (ids.includes(x.id) ? { ...x, folder } : x)));
+    this.wishes.update((l) => l.map((x) => (ids.includes(x.id) ? { ...x, folder: folder ?? undefined } : x)));
   }
   protected named(id: string, name: string | null): void {
     this.namingId.set(null);
@@ -601,7 +601,7 @@ export class WishlistLabPage {
   protected edit(w: LabWish): void {
     this.eRel.set(relevanceOf(w));
     this.eTags.set([...w.tags]);
-    this.eFolder.set(w.folder);
+    this.eFolder.set(w.folder ?? null);
     this.eNote.set(w.note ?? '');
     this.eNovaTag.set('');
     this.editingId.set(w.id);
@@ -623,7 +623,7 @@ export class WishlistLabPage {
     this.wishes.update((list) =>
       list.map((x) =>
         x.id === id
-          ? ({ ...x, relevance: this.eRel() === 'comum' ? undefined : this.eRel(), tags: this.eTags(), folder: this.eFolder(), note: this.eNote().trim() || undefined } as LabWish)
+          ? ({ ...x, relevance: this.eRel() === 'comum' ? undefined : this.eRel(), tags: this.eTags(), folder: this.eFolder() ?? undefined, note: this.eNote().trim() || undefined } as LabWish)
           : x,
       ),
     );

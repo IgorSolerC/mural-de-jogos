@@ -127,6 +127,11 @@ export interface NotesConfig {
   /** A cor da etiqueta de cada aba que o mural gera (o nome e o desenho são fixos). Sem a chave, sem cor. */
   autoColors: Partial<Record<AutoTab, CategoryColorId>>;
   /**
+   * A cor das tags da Wishlist (PLANO-WISHLIST.md, P2), pela chave `'<mural>|<tag sem caixa e sem acento>'`
+   * (`wishTagKey`). As pastas da Wishlist moram em `folders`, com o grupo `desejos:<mural>`.
+   */
+  wishTagColors: Record<string, CategoryColorId>;
+  /**
    * Os assuntos criados nas configurações, de antes das pastas, por grupo (a chave de `lookKey`). Só
    * lidos: a conversão (`convertSubjects`, core/folders.ts) os troca por pastas e esvazia o campo.
    */
@@ -148,7 +153,7 @@ export interface NotesConfig {
   codeTheme: CodeTheme;
 }
 
-export const NOTES_CONFIG_DEFAULT: NotesConfig = { audience: 'privada', orderBy: 'quantidade', order: [], categories: {}, hiddenTags: [], showAll: false, showPinned: false, showShared: false, hideEmpty: true, autoColors: {}, subjects: {}, folders: [], templates: [], codeTheme: 'papel' };
+export const NOTES_CONFIG_DEFAULT: NotesConfig = { audience: 'privada', orderBy: 'quantidade', order: [], categories: {}, hiddenTags: [], showAll: false, showPinned: false, showShared: false, hideEmpty: true, autoColors: {}, wishTagColors: {}, subjects: {}, folders: [], templates: [], codeTheme: 'papel' };
 
 /** Assuntos guardados demais viram lixo: no máximo estes por grupo. */
 export const MAX_SAVED_SUBJECTS = 60;
@@ -238,11 +243,42 @@ export function sanitizeNotesConfig(raw: unknown): NotesConfig {
     // ligado para todo mundo, também para quem já tinha configurações guardadas de antes dele
     hideEmpty: r['hideEmpty'] !== false,
     autoColors: sanitizeAutoColors(r['autoColors']),
+    wishTagColors: sanitizeWishTagColors(r['wishTagColors']),
     subjects,
     folders: sanitizeFolders(r['folders']),
     templates: sanitizeTemplates(r['templates']),
     codeTheme: (CODE_THEMES as readonly unknown[]).includes(r['codeTheme']) ? (r['codeTheme'] as CodeTheme) : NOTES_CONFIG_DEFAULT.codeTheme,
   };
+}
+
+/** Quantas tags da Wishlist guardam cor (de todos os murais). */
+const MAX_WISH_TAG_COLORS = 400;
+
+/** A chave da cor de uma tag da Wishlist: o mural e o nome sem caixa e sem acento. */
+export function wishTagKey(kind: string, tag: string): string {
+  return `${kind}|${lookKey(tag)}`.slice(0, 80);
+}
+
+/** O grupo das pastas da Wishlist de um mural, em `NotesConfig.folders`. */
+export function wishFolderGroup(kind: string): string {
+  return `desejos:${kind}`;
+}
+
+/** As cores das tags da Wishlist: só chaves `mural|tag` e só as cores da cartela. */
+function sanitizeWishTagColors(raw: unknown): Record<string, CategoryColorId> {
+  const out: Record<string, CategoryColorId> = {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  let n = 0;
+  for (const [k, c] of Object.entries(raw as Record<string, unknown>)) {
+    if (n >= MAX_WISH_TAG_COLORS) break;
+    const cut = k.indexOf('|');
+    const kind = cut > 0 ? k.slice(0, cut) : '';
+    const tag = cut > 0 ? k.slice(cut + 1) : '';
+    if (!kind || !tag || !ehCorDaCartela(c)) continue;
+    out[wishTagKey(kind, tag)] = c as CategoryColorId;
+    n++;
+  }
+  return out;
 }
 
 /** As cores das abas que o mural gera: só as das abas que existem, e só as cores da cartela. */

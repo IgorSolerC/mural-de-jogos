@@ -265,4 +265,5 @@ Os achados e o que o plano faz com cada um (entram nas rodadas da seção 6):
 
 ## 9. Andamento
 
-- 13/nov: laboratório com os seis jeitos, a escolha (Mistura + Legenda com cor) e este plano.
+- 13/nov: laboratório com os seis jeitos, a escolha (Mistura + Legenda com cor) e este plano (BUILD 882).
+- 13/nov, rodada 1 (BUILD 883): o desejo com `tags`, `folder` e `note` (`withWishPatch`, `WISH_TAGS_MAX` 12, `WISH_NOTE_MAX` 280), `updateWish`/`moveWishes`/`restoreWishes` no armazém, `wishTagColors` e `wishFolderGroup` nas configurações das notas, SYNC_SCHEMA 56. O `/code-review mid` achou três (a lápide das pastas da Wishlist podada contando só as notas, o "nada mudou" pela ordem das chaves e a cor da tag com barra), corrigidos com teste.

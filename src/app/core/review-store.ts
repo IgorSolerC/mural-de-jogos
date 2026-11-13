@@ -8,7 +8,7 @@ import { buildOf } from './migrations';
 import { DataKey, LocalData } from './local-data';
 import { canonicalJson } from './canonical-json';
 import { KeptReason, KeptVersion, mergeVersions, sameContent, sanitizeVersions, storedVersions } from './kept-versions';
-import { Bonus, Draft, Kind, LIGHT_STOCKS, newId, Relevance, ROTATION_STOCKS, Review, SHELVES, Shelf, Stock, Wish, asRevisit, isCatalogBonus, isMusicReview, isNote, linkSameWorks, sanitizeDraft, sanitizeReview, sanitizeWish, settleOriginal, shelfOf, storedNote } from './review';
+import { Bonus, Draft, Kind, LIGHT_STOCKS, newId, Relevance, ROTATION_STOCKS, Review, SHELVES, Shelf, Stock, Wish, WishPatch, asRevisit, isCatalogBonus, isMusicReview, isNote, linkSameWorks, sanitizeDraft, sanitizeReview, sanitizeWish, settleOriginal, withWishPatch, shelfOf, storedNote } from './review';
 import { readText, writeText } from './storage';
 import { joinItemsWithOtherTab } from './tab-join';
 
@@ -538,6 +538,41 @@ export class ReviewStore {
     this.wishes.update((list) =>
       list.some((w) => w.id === wish.id) ? list.map((w) => (w.id === wish.id ? wish : w)) : [wish, ...list],
     );
+  }
+
+  /**
+   * Muda o desejo pelo editar (o item, a vontade, as tags, a pasta, o lembrete), numa gravação só. Devolve o
+   * desejo de antes (para o Desfazer), ou undefined se não mudou nada.
+   */
+  updateWish(id: string, patch: WishPatch): Wish | undefined {
+    const w = this.getWish(id);
+    if (!w) return undefined;
+    const next = withWishPatch(w, patch);
+    if (canonicalJson(next) === canonicalJson(w)) return undefined;
+    this.saveWish({ ...next, updatedAt: new Date().toISOString() });
+    return w;
+  }
+
+  /** Guarda vários desejos numa pasta (null: a raiz), uma gravação só. Devolve os de antes, para o Desfazer. */
+  moveWishes(ids: readonly string[], folder: string | null): Wish[] {
+    const want = new Set(ids);
+    const before: Wish[] = [];
+    const at = new Date().toISOString();
+    this.wishes.update((list) =>
+      list.map((w) => {
+        if (!want.has(w.id) || (w.folder ?? null) === folder) return w;
+        before.push(w);
+        return { ...withWishPatch(w, { folder: folder ?? undefined }), updatedAt: at };
+      }),
+    );
+    return before;
+  }
+
+  /** Volta desejos como estavam (o Desfazer do editar e do mover), com a data nova para a mudança valer. */
+  restoreWishes(list: readonly Wish[]): void {
+    const back = new Map(list.map((w) => [w.id, w]));
+    const at = new Date().toISOString();
+    this.wishes.update((all) => all.map((w) => (back.has(w.id) ? { ...back.get(w.id)!, updatedAt: at } : w)));
   }
 
   /** Troca quanta vontade: Comum sai do registro (é o padrão). */

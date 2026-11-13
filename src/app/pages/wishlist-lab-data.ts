@@ -6,8 +6,6 @@ import type { Relevance, Wish } from '../core/review';
  */
 export interface LabWish extends Wish {
   tags: string[];
-  folder: string | null;
-  note?: string;
 }
 
 export interface LabFolder {
@@ -91,7 +89,7 @@ export function labWishes(): LabWish[] {
       createdAt: at,
       updatedAt: at,
       tags,
-      folder,
+      ...(folder ? { folder } : {}),
       ...(note ? { note } : {}),
     } as LabWish;
   });

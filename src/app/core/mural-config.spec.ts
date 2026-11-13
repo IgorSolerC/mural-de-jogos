@@ -58,6 +58,7 @@ describe('as configurações do mural de anotações', () => {
       showShared: false,
       hideEmpty: true,
       autoColors: {},
+      wishTagColors: {},
       subjects: {},
       folders: [],
       templates: [],

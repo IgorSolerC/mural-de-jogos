@@ -5,6 +5,7 @@ import { Damage, DecorMark, Paper, Pattern, Scribble, StainMark, isAgedPaper, sa
 import { BUILD } from './build';
 import { migrateReview } from './migrations';
 import { cleanLabel, fold, nameKey, slugOf } from './text';
+import { PASTA_ID_RE } from '../../../contrato/api-v1/notas';
 import { localDay, longDayFmt, longMonthFmt, parseDay, todayISO } from './dates';
 
 export type { Kind } from './kinds';
@@ -658,8 +659,44 @@ export interface Wish {
   game: PickedGame;
   /** Quanta vontade; sem o campo (os desejos de antes dele), é Comum. */
   relevance?: Relevance;
+  /** As tags (PLANO-WISHLIST.md, P2), limpas e sem repetir; sem o campo, nenhuma. */
+  tags?: string[];
+  /** A pasta (o id, em `NotesConfig.folders`, grupo `desejos:<mural>`); sem o campo, a raiz. */
+  folder?: string;
+  /** O lembrete: texto puro, até `WISH_NOTE_MAX` letras; sem o campo, nenhum. */
+  note?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Quantas tags um desejo leva, e o tamanho do lembrete (PLANO-WISHLIST.md, P2 e P3). */
+export const WISH_TAGS_MAX = 12;
+export const WISH_NOTE_MAX = 280;
+
+/** O lembrete limpo: sem espaço sobrando nas pontas, no máximo `WISH_NOTE_MAX` letras (vazio: nenhum). */
+export function cleanWishNote(raw: unknown): string {
+  return typeof raw === 'string' ? raw.replace(/\r\n?/g, '\n').trim().slice(0, WISH_NOTE_MAX).trim() : '';
+}
+
+/** O que o editar muda num desejo; o resto (id, mural, datas) fica. */
+export type WishPatch = Partial<Pick<Wish, 'game' | 'relevance' | 'tags' | 'folder' | 'note'>>;
+
+/**
+ * O desejo com as mudanças, limpo: cada campo opcional só fica quando tem valor (Comum, nenhuma tag, a raiz e
+ * o lembrete vazio saem), para o desejo de antes continuar igual.
+ */
+export function withWishPatch(w: Wish, patch: WishPatch): Wish {
+  const next = { ...w, ...patch };
+  const { relevance, tags, folder, note, ...rest } = next;
+  const cleanTags = sanitizeTags(tags ?? [], WISH_TAGS_MAX);
+  const cleanNote = cleanWishNote(note);
+  return {
+    ...rest,
+    ...(relevance === 'must' || relevance === 'later' ? { relevance } : {}),
+    ...(cleanTags.length ? { tags: cleanTags } : {}),
+    ...(typeof folder === 'string' && PASTA_ID_RE.test(folder) ? { folder } : {}),
+    ...(cleanNote ? { note: cleanNote } : {}),
+  };
 }
 
 /** Quanta vontade de um desejo: MUST PLAY vai para a frente da wishlist, LATER para o fim. */
@@ -1110,9 +1147,14 @@ export function sanitizeDraft(raw: unknown): Draft | null {
 export function sanitizeWish(raw: unknown): Wish | null {
   const wish: Wish | null = sanitizeDraft(raw);
   if (!wish) return null;
-  const rel = (raw as Record<string, unknown>)['relevance'];
-  // Comum é o padrão: não precisa ir para o armazenamento
-  return rel === 'must' || rel === 'later' ? { ...wish, relevance: rel } : wish;
+  const r = raw as Record<string, unknown>;
+  // Comum, nenhuma tag, a raiz e o lembrete vazio são o padrão: não precisam ir para o armazenamento
+  return withWishPatch(wish, {
+    relevance: r['relevance'] as Relevance,
+    tags: r['tags'] as string[],
+    folder: r['folder'] as string,
+    note: r['note'] as string,
+  });
 }
 
 /**
