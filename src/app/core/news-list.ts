@@ -27,6 +27,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-13-canto-das-cartolinas',
+    version: '1.45.3',
+    kind: 'ajustes',
+    date: '2026-11-13',
+    title: 'O canto arredondado das cartolinas',
+    melhorias: [
+      'Toda cartolina tem o canto um pouco arredondado: as fichas de todos os murais (anotações e análises, em todas as vistas), a tira do Kanban, a ficha colada no texto, as folhas das pastas, os lembretes do calendário, os avisos e os murais vazios, e o botão de criar no topo.',
+    ],
+  },
+  {
     id: '2026-11-12-atelie-atalhos',
     version: '1.45.2',
     kind: 'ajustes',

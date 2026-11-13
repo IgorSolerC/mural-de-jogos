@@ -48,7 +48,6 @@ export interface Numero {
       gap: 6px;
       min-height: 150px;
       padding: 24px 16px 16px;
-      border-radius: 2px;
       box-shadow: var(--shadow-card);
       text-align: center;
       rotate: calc(var(--k-tilt, -1) * 1deg);

@@ -108,7 +108,6 @@
   right: 0;
   bottom: 0;
   left: 0;
-  border-radius: 2px;
   box-shadow:
     0 1px 1px rgb(0 0 0 / 0.35),
     0 6px 12px -5px rgb(0 0 0 / 0.55);
@@ -244,7 +243,7 @@
 .vaga {
   margin-top: var(--drop-y);
   border: 2px dashed rgb(241 241 236 / 0.16);
-  border-radius: 3px;
+  border-radius: var(--raio-cartolina);
   rotate: calc(var(--tilt) * var(--inclina, 1) * 1deg);
   transform-origin: 50% 12px;
   pointer-events: none;
@@ -283,7 +282,6 @@
   max-width: 460px;
   margin: 10px auto 0;
   padding: 30px 28px 26px;
-  border-radius: 2px;
   rotate: 1deg;
   box-shadow: var(--shadow-card);
   text-align: center;
@@ -458,7 +456,8 @@
     inset: -8px;
     z-index: -5;
     border: 2.5px dashed var(--wall-ink);
-    border-radius: 5px;
+    /* a 8px da ficha: o canto acompanha o dela */
+    border-radius: calc(var(--raio-cartolina) + 8px);
     opacity: 1;
     transition: opacity 120ms ease-out;
   }
@@ -609,7 +608,7 @@
   inset: -8px;
   z-index: -5;
   border: 2.5px dashed var(--hi);
-  border-radius: 5px;
+  border-radius: calc(var(--raio-cartolina) + 8px);
   opacity: 1;
 }
 

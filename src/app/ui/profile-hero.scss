@@ -81,6 +81,8 @@
   position: absolute;
   inset: 0;
   z-index: -1;
+  /* é o fundo do quadro, não uma cartolina solta: o canto é o do quadro */
+  border-radius: inherit;
 }
 
 /* Uma imagem por link: colada no fundo, debaixo do plástico de encapar */

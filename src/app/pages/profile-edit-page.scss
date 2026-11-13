@@ -516,6 +516,8 @@ fieldset > :not(legend) {
   place-items: center;
   width: 74px;
   height: 74px;
+  /* a foto da polaroide: o canto reto do quadro dela, não o da cartolina */
+  border-radius: 0;
   box-shadow: inset 0 0 14px rgb(0 0 0 / 0.2);
 }
 

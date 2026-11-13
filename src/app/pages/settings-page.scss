@@ -318,7 +318,7 @@ fieldset.linha .previa-linha {
   gap: 8px;
   width: 100%;
   padding: 12px;
-  border-radius: 2px;
+  border-radius: var(--raio-cartolina);
   background: var(--stock);
   color: var(--ink);
   rotate: -0.6deg;

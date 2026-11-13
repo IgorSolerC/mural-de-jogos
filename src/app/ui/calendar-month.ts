@@ -222,7 +222,6 @@ interface Cell {
     .tirinha {
       min-width: 0;
       padding: 2px 6px 1px;
-      border-radius: 2px;
       color: var(--ink);
       box-shadow:
         inset 0 0 0 1px rgb(21 21 21 / 0.12),

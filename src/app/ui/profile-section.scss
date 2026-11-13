@@ -53,6 +53,8 @@
   position: absolute;
   inset: 0;
   z-index: -1;
+  /* é o fundo do quadro, não uma cartolina solta: o canto é o do miolo */
+  border-radius: inherit;
 }
 
 /* a sombra da moldura cai sobre a cartolina também */

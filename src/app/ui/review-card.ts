@@ -479,7 +479,7 @@ export const CARD_STYLES = `
       justify-self: center;
       margin-top: var(--drop-y);
       padding: var(--pad) var(--pad) 14px;
-      border-radius: 2px;
+      /* o canto vem da .cartolina (--raio-cartolina, styles.scss) */
       box-shadow: var(--shadow-card);
       /* A ficha levantada pelo mouse: sobe 3px, então a sombra só se afasta e amolece um pouco. (A
          --shadow-lift, de quem sai da parede de verdade, pesava demais para tão pouca altura.) A
@@ -507,6 +507,11 @@ export const CARD_STYLES = `
       flex-direction: column;
       flex: 1 1 auto;
       min-width: 0;
+      /* passa o canto da ficha às camadas do papel e ao botão, que herdam dele */
+      border-radius: inherit;
+    }
+    .corpo > app-paper-art {
+      border-radius: inherit;
     }
 
     /* Esperando o papel ficar pronto (ver ui/veil.ts): no lugar da ficha, só a marca tracejada na
@@ -562,7 +567,7 @@ export const CARD_STYLES = `
       position: absolute;
       inset: 0;
       border: 2px dashed rgb(241 241 236 / 0.16);
-      border-radius: 3px;
+      border-radius: inherit;
       pointer-events: none;
       opacity: 0;
       transition: opacity 180ms ease-out var(--entrada, 0ms);
@@ -1257,7 +1262,7 @@ export const CARD_STYLES = `
       border: 0;
       padding: 0;
       background: transparent;
-      border-radius: 2px;
+      border-radius: inherit;
       cursor: pointer;
     }
 

@@ -263,7 +263,6 @@ const EAR_GAP = 0.2;
       margin-block: calc(var(--line, 1.5em) * 0.25);
       padding: 0.3em 0.95em 0.32em 0.85em;
       border: 0;
-      border-radius: 2px;
       font-family: var(--f-marker);
       font-size: 1rem;
       font-weight: 400;
@@ -322,7 +321,8 @@ const EAR_GAP = 0.2;
          largura da ficha inteira, antes de encolher, e a folha passaria da beirada) */
       contain: inline-size;
       margin: calc(var(--line, 1.5em) * 0.3) 0 calc(var(--line, 1.5em) * 0.5);
-      border-radius: 2px;
+      /* o canto da faixa de cartolina em cima, para o creme não aparecer nas quinas dela */
+      border-radius: var(--raio-cartolina);
       /* um tom mais claro que o creme da leitura: colada nela, a folha ainda se destaca */
       background-color: #fdfbf5;
       color: var(--ink);
@@ -338,10 +338,10 @@ const EAR_GAP = 0.2;
       align-items: flex-start;
       gap: 0.6em;
       padding: 0.6em 0.5em 0.5em 0.95em;
-      border-radius: 2px 2px 0 0;
+      border-radius: var(--raio-cartolina) var(--raio-cartolina) 0 0;
     }
     .inteira.fechada .faixa {
-      border-radius: 2px;
+      border-radius: var(--raio-cartolina);
     }
     /* fechada, só a faixa: com a folga menor, cabe em duas linhas da pauta, como a tira */
     .inteira.fechada {

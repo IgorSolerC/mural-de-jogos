@@ -84,6 +84,11 @@
   /* Anel de foco: amarelo sobre a parede, tinta preta sobre cartolina */
   --focus: var(--hi);
 
+  /* O canto de toda cartolina (a ficha do mural, a tira do Kanban, a ficha colada, os vazios e avisos
+     das páginas): cortado um pouco arredondado, nunca menos que isto. Quem é cartolina usa a classe
+     .cartolina (que já arredonda) ou este valor; o tracejado em volta soma a folga a ele. */
+  --raio-cartolina: 5px;
+
   /* Sombras: luz fluorescente vinda de cima */
   --shadow-card: 0 1px 1px rgb(0 0 0 / 0.35), 0 10px 18px -6px rgb(0 0 0 / 0.55), 0 22px 40px -18px rgb(0 0 0 / 0.6);
   --shadow-lift: 0 2px 2px rgb(0 0 0 / 0.3), 0 20px 28px -8px rgb(0 0 0 / 0.55), 0 40px 60px -24px rgb(0 0 0 / 0.65);
@@ -950,7 +955,7 @@ select optgroup {
   min-height: 48px;
   padding: 10px 20px 9px;
   border: 0;
-  border-radius: 2px;
+  border-radius: var(--raio-cartolina);
   background-color: var(--stock);
   background-image: var(--paper-grain);
   background-blend-mode: multiply;
@@ -1222,6 +1227,11 @@ dialog.sheet {
   color: var(--ink);
   /* controles nativos (rádio, data, rolagem) em versão clara sobre o papel */
   color-scheme: light;
+}
+/* O canto da cartolina, por padrão e sem peso nenhum (:where): quem tem o próprio (as miniaturas, as
+   fotos, o verso dos Flashcards, as folhas creme) sempre fica com o dele, em qualquer ordem dos estilos */
+:where(.cartolina) {
+  border-radius: var(--raio-cartolina);
 }
 
 /* ===== Nota 9 ou mais: número em metal =====

@@ -514,7 +514,8 @@ $com-adicionar: true !default;
       position: absolute;
       inset: 0;
       z-index: -1;
-      border-radius: 2px;
+      /* cartolinas em branco do mesmo monte: o canto da de cima */
+      border-radius: var(--raio-cartolina);
       box-shadow: var(--shadow-card);
       transition:
         rotate var(--t-physical) var(--ease-physical),

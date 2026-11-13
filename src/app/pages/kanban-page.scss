@@ -28,7 +28,6 @@
 .primeiro-ficha {
   position: relative;
   padding: 30px 26px 26px;
-  border-radius: 2px;
   color: var(--ink);
   box-shadow: var(--shadow-card);
   rotate: -0.8deg;
@@ -591,7 +590,7 @@ $folga-sombra: 30px;
 .ficha-vaga {
   box-sizing: border-box;
   border: 2px dashed rgb(21 21 21 / 0.16);
-  border-radius: 3px;
+  border-radius: var(--raio-cartolina);
 }
 
 /* marcada para copiar (Ctrl+clique, ver ui/note-selection.ts): o mesmo do mural, na tira de papel
@@ -606,7 +605,8 @@ $folga-sombra: 30px;
     /* 5px: duas vizinhas marcadas (16px uma da outra) ficam com contornos separados */
     inset: -5px;
     border: 2.5px dashed rgb(21 21 21 / 0.85);
-    border-radius: 5px;
+    /* a 5px da ficha: o canto acompanha o dela */
+    border-radius: calc(var(--raio-cartolina) + 5px);
     pointer-events: none;
   }
 

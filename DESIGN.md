@@ -147,6 +147,7 @@ typography:
     letterSpacing: "0.1em"
 rounded:
   paper: "2px"
+  cartolina: "5px"
   sleeve: "3px"
   soft: "4px"
   option: "6px"
@@ -167,7 +168,7 @@ components:
     backgroundColor: "{colors.paper}"
     textColor: "{colors.ink}"
     typography: "{typography.marker-action}"
-    rounded: "{rounded.paper}"
+    rounded: "{rounded.cartolina}"
     padding: "10px 20px 9px"
     height: "48px"
   button-cartolina-stack:
@@ -222,7 +223,7 @@ components:
     backgroundColor: "{colors.stock-verde}"
     textColor: "{colors.ink}"
     typography: "{typography.title}"
-    rounded: "{rounded.paper}"
+    rounded: "{rounded.cartolina}"
     padding: "16px 16px 14px"
     width: "clamp(330px, calc((100vw - 2 * var(--gutter) - 84px) / 3), 424px)"
   review-card-compact:
@@ -495,7 +496,7 @@ Depth here is physical light: one fluorescent source above the wall. Everything 
 
 ## Shapes
 
-Paper is cut almost square: cards, the cartaz, strips and sheets have a 2px radius (`paper`), plastic-covered photos, ink buttons and the card's judgment label 3px (`sleeve`; square where the two halves meet), and small on-paper hover targets, score cells and verdict stamps 4px (`soft`). Choice options drawn on the card (status, difficulty) and quiet buttons use 6px (`option`). Pins, icon buttons and the "limpar"/clear targets are circles.
+Every cartolina (the wall card in every view and wall, the Kanban strip, the card glued into a text, the empty and notice cards of the pages, the reminders and the month's reminder strips in the calendar, the card previews in Ajustes, the blank-card button and the blank sheets fanned behind it) has a 5px radius at least (`cartolina`, the `--raio-cartolina` token in styles.scss): the `.cartolina` class gives it by default (`:where(.cartolina)`, with no weight, so a piece with its own corner, like a swatch, a photo or the back of a flashcard, keeps it), so a new cartolina only needs the class; a dashed mark around one adds its gap to the radius (`calc(var(--raio-cartolina) + 8px)`); the flashcards are cards of their own, not cartolinas, and keep their corners. Other paper is cut almost square: the cartaz, strips and sheets have a 2px radius (`paper`), plastic-covered photos, ink buttons and the card's judgment label 3px (`sleeve`; square where the two halves meet), and small on-paper hover targets, score cells and verdict stamps 4px (`soft`). Choice options drawn on the card (status, difficulty) and quiet buttons use 6px (`option`). Pins, icon buttons and the "limpar"/clear targets are circles.
 
 The recurring silhouettes are specific objects, not generic shapes:
 - **Binder divider tab:** a trapezoid with 7px chamfers on the top corners (`clip-path: polygon(7px 0, calc(100% - 7px) 0, 100% 100%, 0 100%)`), standing on the ruler.
@@ -513,7 +514,7 @@ Tilt is part of the form language. Cards tilt ±0.8°–3.4° (never straight; h
 
 ### Buttons
 Tactile stationery, each with its own material.
-- **Cartolina button (primary):** a blank white index card (`paper`) with paper grain, marker lettering, a 2px radius, the hanging-card shadow, and a 48px minimum height. On hover it tilts -1.2deg, rises 2px and takes the lifted shadow over 380ms on the physical curve. On press it sinks 1px. In the header (on Mural, Ranking and Ajustes; on Pra depois and Wishlist the page's own add button takes its place) it is the top card of the **blank-card stack**: a rosa sheet behind it at 5deg and an azul one at -4deg, only their edges showing, which fan out further on hover (9deg / -8deg). Label: "Nova resenha", with a plus icon.
+- **Cartolina button (primary):** a blank white index card (`paper`) with paper grain, marker lettering, the 5px cartolina radius, the hanging-card shadow, and a 48px minimum height. On hover it tilts -1.2deg, rises 2px and takes the lifted shadow over 380ms on the physical curve. On press it sinks 1px. In the header (on Mural, Ranking and Ajustes; on Pra depois and Wishlist the page's own add button takes its place) it is the top card of the **blank-card stack**: a rosa sheet behind it at 5deg and an azul one at -4deg, only their edges showing, which fan out further on hover (9deg / -8deg). Label: "Nova resenha", with a plus icon.
 - **Ink button (completes an action inside a sheet):** a marker-black block with yellow marker lettering, a 3px radius and a 50px minimum height. On hover it rises 2px and tilts -1deg. The danger variant is `red-deep` with white text. Examples: "Pregar no mural", "Salvar alterações", "Editar", "Mostrar o mural inteiro", "Descartar".
 - **Quiet button:** transparent, Barlow Condensed 800 uppercase, 40px, with a neutral 16% tint on hover. It takes chalk colour on the wall and ink colour on sheets. Examples: "Ajustes e backup", "Cancelar", "Remover do mural".
 - **Icon button (sheet close):** a 44px circle with a 12% ink tint on hover.
@@ -523,7 +524,7 @@ Tactile stationery, each with its own material.
 *(Superseded by "Visita e orelhas" below: the chamfered grey trapezoid and the aluminium rail are gone from the whole site; every `.plate` is now the manila folder ear.)*
 
 ### Cards / Containers
-- **Review card, "ficha do mural" (signature):** a horizontal cartolina card in the review's stock, a 2px radius, padding `16px 16px 14px` (`14px 14px 12px` Simples), the hanging-card shadow. The only thing on the photo is the status tape across its foot. Anatomy:
+- **Review card, "ficha do mural" (signature):** a horizontal cartolina card in the review's stock, the 5px cartolina radius, padding `16px 16px 14px` (`14px 14px 12px` Simples), the hanging-card shadow. The only thing on the photo is the status tape across its foot. Anatomy:
   - **Head:** a grid of `cover | words` over `cover | judge` on desktop Comum and on every Simples card; on Comum phones, `cover | words` over a full-width `judge` row.
   - **Photo:** the game's photo under contact plastic at 112px (104px phone; on Simples, as wide as the strip height allows, about 100px), glued to the card and counter-tilted at -0.6 × the card's tilt, with no tape. Incompleto and Platinado get a strip of status tape across the foot of the photo (see Status tape); Finalizado is the normal case and carries none. The cover is decorative for assistive tech (empty alt), because the card already says the name.
   - **Words:** the marker title (2 lines max), then the card meta (date · hours, full ink; the date is the user-editable completedAt, day only inside month sections; "Sem data" when the user marked it Data não definida). Status lives on the photo, not here.
@@ -638,7 +639,7 @@ One physical curve, `cubic-bezier(0.16, 1, 0.3, 1)` at 380ms, is used for anythi
 - **Don't** add anything outside the stationery world: every new object must be something you could find at a papelaria.
 - **Don't** add a ninth stock, colour a card by its score, or re-draw a stock at render time.
 - **Don't** put tracked uppercase kickers above headings; tracked caps are only for printed matter and control-group labels.
-- **Don't** round paper past 2–3px or give cards pill or large-radius corners; paper is cut, not moulded.
+- **Don't** round paper past 2–3px (cartolinas: 5px) or give cards pill or large-radius corners; paper is cut, not moulded.
 - **Don't** straighten cards to 0deg or animate their tilt while the wall is idle; the tilt is fixed and changes only on hover, focus and landing.
 - **Don't** put paper grain, a worn-ink mask or a rubber stamp on the judgment label; it is printed flat and crisp, paper on one half and solid black ink on the other. The one physical damage it takes is the torn corner of a Média below 4.
 

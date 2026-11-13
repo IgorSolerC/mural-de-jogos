@@ -27,7 +27,6 @@
   grid-column: span 2;
   position: relative;
   padding: 34px 30px 28px;
-  border-radius: 2px;
   rotate: -1.5deg;
   box-shadow: var(--shadow-card);
 
@@ -77,7 +76,7 @@
   position: relative;
   aspect-ratio: 3 / 4.4;
   max-width: 300px;
-  border-radius: 3px;
+  border-radius: var(--raio-cartolina);
   border: 2px dashed rgb(241 241 236 / 0.14);
 
   &:nth-of-type(odd) {
