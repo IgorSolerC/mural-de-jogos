@@ -23,7 +23,7 @@ export class ViewTransitions {
    * animação que se vê é a mesma, sem o custo de fotografar o mural inteiro.
    */
   run(change: () => void, snapshot?: () => () => void): void {
-    const doc = document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<unknown> } };
+    const doc = document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<unknown>; ready?: Promise<unknown> } };
     const reduced = reducedMotion();
     // Muitas fichas: trocar direto é mais rápido que animar cada uma.
     if (!doc.startViewTransition || reduced || this.mural.wallCount() > 160) {
@@ -43,6 +43,8 @@ export class ViewTransitions {
       if (hide) this.unname(hide);
     });
     const mine = this.offstage;
+    // uma troca nova antes desta acabar pula esta: o "pronto" dela rejeita, e ninguém precisa saber
+    transition.ready?.catch(() => undefined);
     transition.finished
       .catch(() => undefined)
       .then(() => {

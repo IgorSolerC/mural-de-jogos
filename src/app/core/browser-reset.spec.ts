@@ -96,6 +96,13 @@ describe('limpar o navegador (sair da conta)', () => {
     expect(takeReset()).toBeNull();
   });
 
+  it('a vista e a ordem da Wishlist (meu-mural:wishlist:v1, PLANO-WISHLIST.md 3.3) saem na limpeza', async () => {
+    signedInBrowser();
+    localStorage.setItem('meu-mural:wishlist:v1', JSON.stringify({ vista: 'grade', ordem: 'ano', direcao: 'asc', vontadePrimeiro: false }));
+    await wipeBrowser();
+    expect(localStorage.getItem('meu-mural:wishlist:v1')).toBeNull();
+  });
+
   it('o tema do código (os ajustes do mural) sai na limpeza', async () => {
     signedInBrowser();
     localStorage.setItem('mural-de-jogos:config:v1', JSON.stringify({ notesConfig: { codeTheme: 'dracula' }, notesConfigAt: '2026-11-06T12:00:00.000Z' }));

@@ -27,13 +27,15 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-13-cursor-no-codigo',
+    id: '2026-11-13-wishlist-grade',
     version: '1.45.3',
     kind: 'ajustes',
     date: '2026-11-13',
-    title: 'O canto arredondado das cartolinas e o cursor dentro do código',
+    title: 'A Wishlist em Grade, o canto arredondado das cartolinas e o cursor dentro do código',
     melhorias: [
       'Toda cartolina tem o canto um pouco arredondado: as fichas de todos os murais (anotações e análises, em todas as vistas), a tira do Kanban, a ficha colada no texto, as folhas das pastas, os lembretes do calendário, os avisos e os murais vazios, e o botão de criar no topo.',
+      'A Wishlist ganhou a vista Grade, para ver muitas capas de uma vez: todas do mesmo tamanho, numa margem de papel de revista, umas poucas rasgadas, destacadas do picote ou com a orelha dobrada. A colagem de sempre continua em Recortes.',
+      'Na pasta da Wishlist, o Filtrar abre a folha das anotações, para ver só uma vontade; a ordem pode ser por quando entrou, pelo nome ou pelo lançamento, com o inverter; e o MUST 1º deixa MUST PLAY na frente e LATER no fim (ligado, como antes) ou só a ordem. A vista e a ordem ficam guardadas no aparelho.',
     ],
     correcoes: [
       'No modo Visual do texto, o cursor aparece enquanto você escreve dentro de um código na linha (antes, a fita do código o cobria).',

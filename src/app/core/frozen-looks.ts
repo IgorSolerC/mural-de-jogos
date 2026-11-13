@@ -1,7 +1,7 @@
 /**
  * A aparência congelada: uma impressão digital de tudo o que é desenhado por sorteio (as estampas,
  * os rabiscos, os estragos, as manchas, as decorações, os papéis; os recortes da wishlist e as folhas
- * do Pra depois), para vários sorteios, ids e tamanhos. `frozen-looks.spec.ts` compara com `frozen-looks.data.ts`: o que
+ * do Pra depois, as capas da Grade da Wishlist), para vários sorteios, ids e tamanhos. `frozen-looks.spec.ts` compara com `frozen-looks.data.ts`: o que
  * já foi aprovado nunca muda por tabela quando se mexe em outra coisa.
  *
  * Mudar de propósito UM desenho: rode `node scripts/freeze-looks.mjs <prefixo>` (por exemplo
@@ -15,6 +15,7 @@ import type { AgedPaper, Damage, Decor, Paper, Pattern, Scribble, Stain } from '
 import { decorArt } from './decor-art';
 import { cutMask, paperArt, paperStyle, patternTile } from './paper-art';
 import { snipFor, stickerEdge, stripFor, tearFor } from './tear';
+import { coverFor } from './wish-cover-look';
 
 export const FROZEN_PAPERS: readonly Paper[] = [
   'cartolina', 'lisa', 'canson', 'linho', 'verge', 'reciclado', 'glitter', 'aquarela', 'feltro', 'arroz', 'ondulado', 'metalizado', 'perolado',
@@ -176,5 +177,7 @@ export function frozenPrints(): Record<string, string> {
   for (const id of CLIP_IDS.slice(0, 8))
     for (const [W, H] of [[300, 200], [120, 90], [640, 360]])
       for (const k of [1, 2]) out[`sticker:${id}:${W}x${H}:${k}`] = print(stickerEdge(`https://exemplo.invalid/${id}.jpg`, W, H, k));
+  // 2026-11-13, as capas da Grade da Wishlist (PLANO-WISHLIST.md, P8): o acidente, a inclinação e o papel velho
+  for (const id of CLIP_IDS) out[`cover:${id}`] = print(coverFor(id));
   return out;
 }

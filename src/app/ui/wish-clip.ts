@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, output, signal } from '@angular/core';
 import { ICON, IconModule } from './icons';
-import { CUTOUT_STYLES, placeFor, stickerFor, titleFor } from '../core/clipping';
+import { CUTOUT_STYLES, stickerFor, titleFor } from '../core/clipping';
 import { RELEVANCES, Relevance, Wish, initialOf, relevanceLabel, relevanceOf } from '../core/review';
 import { SHAPE_RATIO, stripFor, tearFor } from '../core/tear';
 import { pinningFor } from '../core/wall-physics';
@@ -30,9 +30,6 @@ import { closeOnOutsidePress } from './outside-press';
     '[style.--tira-miolo]': 'strip().core',
     '[style.--nome-x]': 'look().inset + "px"',
     '[style.--nome-tilt]': 'look().tilt',
-    '[style.--largura]': 'place().width',
-    '[style.--desvio]': 'place().shift',
-    '[style.--vao]': 'place().gap + "px"',
     '[style.view-transition-name]': 'preview() ? null : "desejo-" + wish().id',
   },
   template: `
@@ -937,7 +934,6 @@ export class WishClip {
   protected readonly ratio = computed(() => SHAPE_RATIO[this.tear().shape]);
   protected readonly look = computed(() => titleFor(this.wish().id, this.wish().game.name, this.tear()));
   protected readonly spot = computed(() => `${this.look().place} ${this.look().side}`);
-  protected readonly place = computed(() => placeFor(this.wish().id));
   /** Colado, não pregado: entorta menos que a cartolina. */
   protected readonly tilt = computed(() => Math.round(pinningFor(this.wish().id).tilt * 7) / 10);
   protected readonly strip = computed(() => stripFor(this.wish().id));

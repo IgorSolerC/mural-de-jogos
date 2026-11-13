@@ -112,7 +112,7 @@ describe('menu do botão direito no Pra depois e na Wishlist', () => {
     store.saveWish(wish('w1', 'Celeste'));
     store.saveWish(wish('w2', 'Hades', 'must'));
     await mount(WishlistPage);
-    const clip = (id: string) => host.querySelector<HTMLElement>(`app-wish-clip[data-ficha="${id}"]`)!;
+    const clip = (id: string) => host.querySelector<HTMLElement>(`.desejo[data-ficha="${id}"]`)!;
     await rightClick(clip('w1'));
     expect(labels()).toEqual(['Começar a resenha', 'Marcar MUST PLAY', 'Marcar LATER', 'Tirar da wishlist']);
     option('Começar a resenha').click();
