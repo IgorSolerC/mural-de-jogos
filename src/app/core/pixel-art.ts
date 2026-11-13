@@ -603,42 +603,56 @@ export function inkPaths(rows: readonly string[], look: PixelLook): InkPath[] {
 // ===== trazer de uma imagem =====
 
 /** "#d8433b" → [216, 67, 59]. */
-function rgbOf(hex: string): [number, number, number] {
+export function rgbOf(hex: string): [number, number, number] {
   const h = normalHex(hex) ?? '#000000';
   return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 }
 
+/** Uma cor da paleta, com o número dela e as três partes. */
+export interface InkRgb {
+  i: number;
+  rgb: [number, number, number];
+}
+
+/** As cores pintáveis (do 1 em diante, as que existem) com as três partes de cada uma. */
+export function inksRgb(inks: readonly (string | null)[]): InkRgb[] {
+  return inks.map((c, i) => (i > 0 && c ? { i, rgb: rgbOf(c) } : null)).filter((x): x is InkRgb => !!x);
+}
+
+/**
+ * O número da cor mais perto de `r`, `g`, `b` (a distância "redmean", que pesa o vermelho e o azul como o
+ * olho pesa); sem cor nenhuma, 0.
+ */
+export function nearestInk(r: number, g: number, b: number, palette: readonly InkRgb[]): number {
+  let best = 0;
+  let bestD = Infinity;
+  for (const p of palette) {
+    const rm = (r + p.rgb[0]) / 2;
+    const dr = r - p.rgb[0];
+    const dg = g - p.rgb[1];
+    const db = b - p.rgb[2];
+    const d = (2 + rm / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256) * db * db;
+    if (d < bestD) {
+      bestD = d;
+      best = p.i;
+    }
+  }
+  return best;
+}
+
 /**
  * Os pontos de uma imagem já encolhida para `w` × `h` (os bytes RGBA dela, como o canvas dá): cada ponto
- * vira a cor mais perto entre as de agora (`inks`, do 0 até a última do desenho) (a distância "redmean", que pesa o vermelho e o azul como o
- * olho pesa), e o quase transparente (menos da metade) vira 0.
+ * vira a cor mais perto entre as de agora (`inks`, do 0 até a última do desenho; ver `nearestInk`), e o
+ * quase transparente (menos da metade) vira 0.
  */
 export function quantize(data: ArrayLike<number>, w: number, h: number, inks: readonly (string | null)[]): string[] {
-  const palette = inks.map((c, i) => (i > 0 && c ? { i, rgb: rgbOf(c) } : null)).filter((x): x is { i: number; rgb: [number, number, number] } => !!x);
+  const palette = inksRgb(inks);
   const rows: string[] = [];
   for (let y = 0; y < h; y++) {
     let row = '';
     for (let x = 0; x < w; x++) {
       const o = (y * w + x) * 4;
-      if ((data[o + 3] ?? 0) < 128 || !palette.length) {
-        row += '0';
-        continue;
-      }
-      const [r, g, b] = [data[o], data[o + 1], data[o + 2]];
-      let best = palette[0].i;
-      let bestD = Infinity;
-      for (const p of palette) {
-        const rm = (r + p.rgb[0]) / 2;
-        const dr = r - p.rgb[0];
-        const dg = g - p.rgb[1];
-        const db = b - p.rgb[2];
-        const d = (2 + rm / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256) * db * db;
-        if (d < bestD) {
-          bestD = d;
-          best = p.i;
-        }
-      }
-      row += inkChar(best);
+      row += (data[o + 3] ?? 0) < 128 ? '0' : inkChar(nearestInk(data[o], data[o + 1], data[o + 2], palette));
     }
     rows.push(row);
   }

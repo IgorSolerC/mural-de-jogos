@@ -634,31 +634,41 @@
   color: var(--ink-2);
 }
 
-/* a paleta: o nome impresso num campo de papel, com a lista do sistema por cima */
+.paleta-linha {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+/* a paleta: o nome impresso num campo de papel, que abre a folha das paletas */
 .paleta-campo {
   position: relative;
   display: inline-flex;
   align-items: center;
   min-width: 0;
+  max-width: 160px;
   min-height: 36px;
   padding: 0 30px 0 11px;
+  border: 0;
   border-radius: 2px;
   background: var(--campo-papel);
   box-shadow: var(--campo-sombra);
+  color: var(--ink);
   font-family: var(--f-label);
   font-weight: 800;
   font-size: 0.92rem;
   letter-spacing: 0.04em;
   cursor: pointer;
+  transition: box-shadow var(--t-physical) var(--ease-physical);
 
-  &:focus-within {
+  &:hover {
     box-shadow: var(--campo-sombra-foco);
-    outline: 3px solid var(--ink);
-    outline-offset: 2px;
   }
 
-  select {
-    @include kit.select-por-cima;
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
   }
 }
 
@@ -726,6 +736,11 @@
       0 0 0 2px #fffdf8,
       0 0 0 4px var(--ink),
       0 5px 8px -2px rgb(0 0 0 / 0.35);
+  }
+
+  /* a que está sendo arrastada para outro lugar */
+  &.arrastada {
+    opacity: 0.4;
   }
 
   /* o "+": o recorte vazio na cartela */
@@ -845,6 +860,30 @@
 
 .hex-nome {
   @include rt.grupo-nome;
+}
+
+.editor-lugar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+
+  .tecla {
+    @include rt.tecla;
+  }
+
+  .perigo {
+    margin-left: auto;
+    color: var(--red-deep);
+  }
+}
+
+.editor-lugar-nome {
+  min-width: 64px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  letter-spacing: 0.04em;
+  text-align: center;
 }
 
 .editor-pe {

@@ -182,13 +182,28 @@ describe('pixel art: o ateliê', () => {
     expect(values['width']).toBe('2');
   });
 
+  /** Abre a folha das paletas e escolhe uma pelo nome (com ou sem manter as cores). */
+  async function pickPalette(label: string, convert = false): Promise<void> {
+    (host.querySelector('.paleta-campo') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const sheet = host.querySelector('dialog.paletas') as HTMLDialogElement;
+    expect(sheet.open).toBeTrue();
+    if (convert) {
+      (sheet.querySelector('.interruptor') as HTMLButtonElement).click();
+      fixture.detectChanges();
+    }
+    (Array.from(sheet.querySelectorAll('.cartao')) as HTMLButtonElement[]).find((b) => b.querySelector('.cartao-nome')?.textContent?.trim().startsWith(label))!.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
   it('trocar de paleta mantém os números; a cor da frente volta para dentro da paleta menor', async () => {
     await make({ width: '1', height: '1', pixels: '9' });
     for (let i = 0; i < 8; i++) key(']');
-    const select = host.querySelector('.paleta-campo select') as HTMLSelectElement;
-    select.value = 'gameboy';
-    select.dispatchEvent(new Event('change'));
-    fixture.detectChanges();
+    await pickPalette('Game Boy');
     expect(values['palette']).toBe('gameboy');
     expect(values['pixels']).toBe('9');
     expect(host.querySelector('.pastilha.on')?.getAttribute('aria-label')).toBe('Cor 1');
@@ -393,5 +408,100 @@ describe('pixel art: o ateliê', () => {
     fixture.detectChanges();
     expect(esc.defaultPrevented).toBeTrue();
     expect(host.querySelector('path.formigas')).toBeNull();
+  });
+
+  it('a folha das paletas mostra o desenho em cada uma; com "manter as cores", cada cor vai para a mais perto', async () => {
+    await make({ width: '2', height: '1', pixels: '12' });
+    (host.querySelector('.paleta-campo') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const sheet = host.querySelector('dialog.paletas') as HTMLDialogElement;
+    // todas, menos a própria, cada uma com o desenho pintado nela
+    expect(sheet.querySelectorAll('.cartao').length).toBe(14);
+    expect(sheet.querySelectorAll('.cartao svg').length).toBe(14);
+    expect(sheet.querySelector('.cartao.agora .cartao-nome')?.textContent).toContain('Clássica');
+    const search = sheet.querySelector('input[type="search"]') as HTMLInputElement;
+    search.value = 'pico';
+    search.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(sheet.querySelectorAll('.cartao').length).toBe(1);
+    (sheet.querySelector('.icon-btn') as HTMLButtonElement).click();
+    // (o "close" do <dialog> chega depois, numa tarefa à parte)
+    await new Promise((r) => setTimeout(r, 50));
+    fixture.detectChanges();
+    expect(host.querySelector('dialog.paletas')).toBeNull();
+    // o quase preto (1) e o creme (2) da Clássica viram o azul-noite (2) e o branco (8) da PICO-8
+    await pickPalette('PICO-8', true);
+    expect(values['palette']).toBe('pico8');
+    expect(values['pixels']).toBe('28');
+  });
+
+  it('tirar a cor da frente: os pontos dela somem, as de depois descem, e a paleta vira a própria', async () => {
+    await make({ width: '3', height: '1', pixels: '123' });
+    // o fundo na cor 3: depois de tirar a 2, ele segue a cor dele (agora a 2)
+    host.querySelectorAll('.pastilha')[3].dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+    key(']');
+    key('a');
+    (Array.from(host.querySelectorAll('.editor-lugar button')) as HTMLButtonElement[]).find((b) => b.textContent?.includes('Tirar a cor'))!.click();
+    fixture.detectChanges();
+    expect(values['palette']).toBe('propria');
+    expect(values['pixels']).toBe('102');
+    expect(host.querySelector('.pastilha.fundo')?.getAttribute('aria-label')).toBe('Cor 2');
+    key('z', { ctrlKey: true });
+    expect(values['palette']).toBe('classica');
+    expect(values['pixels']).toBe('123');
+  });
+
+  it('mover a cor de lugar não muda o desenho; ordenar pela luz também não', async () => {
+    await make({ width: '3', height: '1', pixels: '123' });
+    key('a');
+    (host.querySelector('.editor-lugar button[aria-label="Um lugar para a frente"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(values['pixels']).toBe('213');
+    expect(host.querySelector('.frente-nome')?.textContent).toContain('Cor 2');
+    const before = host.querySelector('.previa svg')!.innerHTML;
+    (host.querySelector('.cores-topo .tecla') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (Array.from(host.querySelectorAll('.menu-contexto button')) as HTMLButtonElement[]).find((b) => b.textContent?.includes('Ordenar pela luz'))!.click();
+    fixture.detectChanges();
+    // o creme (claro) vai para o fim; os pontos acompanham
+    expect(values['colors']!.split(' ').at(-1)).toContain('#f7f3e8');
+    expect(host.querySelector('.previa svg')!.innerHTML.length).toBe(before.length);
+  });
+
+  it('trazer de uma imagem colada: nas cores de agora ou com as cores dela', async () => {
+    await make({ width: '2', height: '1' });
+    const canvas = document.createElement('canvas');
+    canvas.width = 2;
+    canvas.height = 1;
+    const ctx = canvas.getContext('2d')!;
+    ctx.fillStyle = '#ff0000';
+    ctx.fillRect(0, 0, 1, 1);
+    ctx.fillStyle = '#0000ff';
+    ctx.fillRect(1, 0, 1, 1);
+    const blob: Blob = await new Promise((r) => canvas.toBlob((b) => r(b!), 'image/png'));
+    const paste = () => {
+      const dt = new DataTransfer();
+      dt.items.add(new File([blob], 'cores.png', { type: 'image/png' }));
+      mesa().dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: dt }));
+    };
+    paste();
+    await new Promise((r) => setTimeout(r, 300));
+    fixture.detectChanges();
+    // o vermelho e o azul da Clássica
+    expect(values['pixels']).toBe('48');
+    key('z', { ctrlKey: true });
+    (fixture.componentInstance as unknown as { importOwn: boolean }).importOwn = true;
+    const input = host.querySelector('input.arquivo') as HTMLInputElement;
+    const dt = new DataTransfer();
+    dt.items.add(new File([blob], 'cores.png', { type: 'image/png' }));
+    input.files = dt.files;
+    input.dispatchEvent(new Event('change'));
+    await new Promise((r) => setTimeout(r, 300));
+    fixture.detectChanges();
+    expect(values['palette']).toBe('propria');
+    expect(values['colors']).toBe('1#0000ff 2#ff0000');
+    expect(values['pixels']).toBe('21');
   });
 });

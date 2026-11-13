@@ -32,11 +32,12 @@ import {
   writeColors,
   writeGrid,
 } from '../../core/pixel-art';
-import { Anchor, BRUSH_MAX, BrushShape, Symmetry, ZOOMS, ZOOM_KEYS, ellipseCells, fitZoom, mirrored, perfectCorner, rectCells, replaceInk, resizeCanvas, shapeBox, snapLine, stampCells, stepZoom, zoomLabel } from '../../core/pixel-tools';
+import { Anchor, BRUSH_MAX, BrushShape, Symmetry, ZOOMS, ZOOM_KEYS, convertRows, medianCut, moveInk, removeInk, sortInks, ellipseCells, fitZoom, mirrored, perfectCorner, rectCells, replaceInk, resizeCanvas, shapeBox, snapLine, stampCells, stepZoom, zoomLabel } from '../../core/pixel-tools';
 import { Float, Mask, combineMask, composite, flipMask, flipRows, invertMask, lift, maskAny, maskBounds, maskOutline, outline, placedMask, rectMask, rotateMask, rotateRows, wandMask } from '../../core/pixel-selection';
 import { WidgetValues } from '../../core/widgets';
 import { imageFileOf } from '../../core/images';
 import { ContextMenu, MenuSections } from '../context-menu';
+import { PaletteSheet } from './palette-sheet';
 import { ICON, IconModule } from '../icons';
 
 /** As ferramentas do ateliê (as que pintam e a mão). */
@@ -84,7 +85,7 @@ let uid = 0;
  */
 @Component({
   selector: 'app-pixel-studio',
-  imports: [ContextMenu, IconModule, NgTemplateOutlet],
+  imports: [ContextMenu, IconModule, NgTemplateOutlet, PaletteSheet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './pixel-studio.html',
   styleUrl: './pixel-studio.scss',
@@ -104,6 +105,7 @@ export class PixelStudio {
   private readonly file = viewChild.required<ElementRef<HTMLInputElement>>('arquivo');
   private readonly sizeSheet = viewChild<ElementRef<HTMLDialogElement>>('tamanho');
   private readonly imageMenu = viewChild.required<ContextMenu>('menuImagem');
+  private readonly colorsMenu = viewChild.required<ContextMenu>('menuCores');
 
   protected readonly ids = 'at-' + ++uid;
   protected readonly I = ICON;
@@ -128,8 +130,6 @@ export class PixelStudio {
     { value: 'cima', label: 'De cima' },
     { value: 'ambas', label: 'As duas' },
   ];
-  /** As paletas da escolha (a própria só aparece quando é a de agora: ela nasce de mexer nas cores). */
-  protected readonly palettes = computed(() => PALETTES.filter((p) => p.value !== 'propria' || this.palette() === 'propria'));
   protected readonly SIZES = [8, 16, 24, 32, 48, 64];
   protected readonly ANCHORS: readonly Anchor[] = [0, 1, 2].flatMap((y) => [0, 1, 2].map((x) => ({ x, y }) as Anchor));
   protected readonly PIXEL_MAX = PIXEL_MAX;
@@ -227,6 +227,10 @@ export class PixelStudio {
   protected readonly editing = signal(false);
   protected readonly importing = signal(false);
   protected readonly importError = signal<string | null>(null);
+  /** A folha das paletas aberta. */
+  protected readonly paletteOpen = signal(false);
+  /** A pastilha sendo arrastada para outro lugar (o número dela). */
+  protected readonly dragging = signal<number | null>(null);
   /** O Tamanho da tela (C): os campos e a âncora, enquanto a folha dele está aberta. */
   protected readonly sizing = signal<{ w: number; h: number; anchor: Anchor } | null>(null);
 
@@ -1160,7 +1164,10 @@ export class PixelStudio {
           : []),
         ...(this.hasClip() ? [{ id: 'colar', label: 'Colar', icon: ICON.colar, keys: 'Ctrl+V', run: () => this.pasteClip() }] : []),
       ],
-      [{ id: 'imagem', label: 'Trazer de uma imagem…', icon: ICON.imagem, run: () => this.chooseImage() }],
+      [
+        { id: 'imagem', label: 'Trazer de uma imagem…', hint: 'Nas cores de agora', icon: ICON.imagem, run: () => this.chooseImage() },
+        { id: 'imagem-cores', label: 'Trazer, com as cores dela…', hint: 'Cria a paleta com as cores da imagem', icon: ICON.paleta, run: () => this.chooseImage(true) },
+      ],
       [{ id: 'limpar', label: 'Limpar a folha', icon: ICON.apagar, danger: true, run: () => this.clear() }],
     ];
   });
@@ -1208,6 +1215,98 @@ export class PixelStudio {
     for (const [k, c] of Object.entries(this.colors())) if (Number(k) > old) kept[Number(k)] = c;
     this.change({ palette: p, colors: kept }, `Paleta ${PALETTES.find((x) => x.value === p)?.label ?? ''}`);
   }
+
+  /** A paleta escolhida na folha: mantendo os números (`setPalette`) ou as cores (cada uma na mais perto). */
+  protected applyPalette(p: { palette: PaletteName; convert: boolean }): void {
+    if (!p.convert) {
+      this.setPalette(p.palette);
+      return;
+    }
+    if (p.palette === this.palette() && !Object.keys(this.colors()).length) return;
+    const rows = convertRows(this.rows(), drawingInks(this.palette(), this.colors()), drawingInks(p.palette, {}));
+    this.change({ rows, palette: p.palette, colors: {} }, `Paleta ${PALETTES.find((x) => x.value === p.palette)?.label ?? ''}, com as cores mais perto`);
+  }
+
+  /**
+   * Uma mudança na ordem ou no tamanho da paleta: ela vira a própria (todas as cores escritas). A cor do fundo
+   * segue a dela para o número novo (a que saiu vira o transparente).
+   */
+  private ownPalette(out: { rows: string[]; colors: Record<number, string> }, said: string): void {
+    const bgColor = this.bg() > 0 ? this.inks()[this.bg()] : null;
+    this.change({ rows: out.rows, palette: 'propria', colors: out.colors }, said);
+    if (bgColor) {
+      const at = Object.entries(out.colors).find(([, c]) => c === bgColor)?.[0];
+      this.bg.set(at ? Number(at) : 0);
+    }
+  }
+
+  /** Tira a cor da frente: os pontos dela ficam transparentes e as de depois descem um número. */
+  protected removeFg(): void {
+    const n = this.fg();
+    if (n < 1 || this.count() <= 1) return;
+    this.ownPalette(removeInk(this.rows(), drawingInks(this.palette(), this.colors()), n), `A ${this.inkName(n)} saiu da paleta`);
+    this.fg.set(Math.min(n, this.count()));
+    this.editing.set(false);
+  }
+
+  /** Leva a cor da frente um lugar para trás ou para a frente (o desenho não muda). */
+  protected moveFg(dir: 1 | -1): void {
+    const n = this.fg();
+    const to = n + dir;
+    if (n < 1 || to < 1 || to > this.count()) return;
+    this.moveSwatch(n, to);
+  }
+
+  private moveSwatch(from: number, to: number): void {
+    if (from === to) return;
+    this.ownPalette(moveInk(this.rows(), drawingInks(this.palette(), this.colors()), from, to), `A cor ${inkChar(from)} agora é a ${inkChar(to)}`);
+    if (this.fg() === from) this.fg.set(to);
+  }
+
+  /** Ordena a paleta pela luz ou pelo tom (o desenho não muda). */
+  protected sortPalette(by: 'luz' | 'tom'): void {
+    const fgColor = this.inks()[this.fg()];
+    this.ownPalette(sortInks(this.rows(), drawingInks(this.palette(), this.colors()), by), by === 'luz' ? 'Paleta pela luz' : 'Paleta pelo tom');
+    const at = this.inks().indexOf(fgColor ?? null, 1);
+    if (at > 0) this.fg.set(at);
+  }
+
+  // arrastar uma pastilha para outro lugar
+  protected swatchDragStart(e: DragEvent, n: number): void {
+    if (n < 1) return;
+    this.dragging.set(n);
+    e.dataTransfer?.setData('text/plain', inkChar(n));
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+  }
+
+  protected swatchDragOver(e: DragEvent, n: number): void {
+    if (this.dragging() !== null && n > 0) e.preventDefault();
+  }
+
+  protected swatchDrop(e: DragEvent, n: number): void {
+    const from = this.dragging();
+    this.dragging.set(null);
+    if (from === null || n < 1) return;
+    e.preventDefault();
+    this.moveSwatch(from, n);
+  }
+
+  /** O menu das cores (o "…" ao lado da paleta). */
+  protected openColorsMenu(e: MouseEvent): void {
+    const btn = e.currentTarget as HTMLElement;
+    const r = btn.getBoundingClientRect();
+    this.colorsMenu().show({ key: 'cores', x: r.left, y: r.bottom + 4, back: btn, by: e.detail === 0 ? 'teclado' : 'mouse' });
+  }
+
+  protected readonly colorItems = computed<MenuSections>(() => [
+    [
+      { id: 'paletas', label: 'Trocar a paleta…', icon: ICON.paleta, dialog: true, run: () => this.paletteOpen.set(true) },
+      { id: 'luz', label: 'Ordenar pela luz', icon: ICON.ordenarCrescente, run: () => this.sortPalette('luz') },
+      { id: 'tom', label: 'Ordenar pelo tom', icon: ICON.brilho, run: () => this.sortPalette('tom') },
+    ],
+    [{ id: 'imagem-cores', label: 'Trazer de uma imagem, com as cores dela…', icon: ICON.imagem, run: () => this.chooseImage(true) }],
+    ...(this.fg() > 0 && this.count() > 1 ? [[{ id: 'tirar-cor', label: `Tirar a cor ${inkChar(this.fg())}`, icon: ICON.apagar, danger: true, run: () => this.removeFg() }]] : []),
+  ]);
 
   /** "+": uma cor nova no fim da paleta (a cópia da da frente), já escolhida e aberta para editar. */
   protected addInk(): void {
@@ -1310,7 +1409,11 @@ export class PixelStudio {
 
   // ===== trazer de uma imagem =====
 
-  protected chooseImage(): void {
+  /** Trazer de uma imagem: nas cores de agora, ou (`own`) criando a paleta com as cores dela. */
+  private importOwn = false;
+
+  protected chooseImage(own = false): void {
+    this.importOwn = own;
     this.file().nativeElement.click();
   }
 
@@ -1318,7 +1421,8 @@ export class PixelStudio {
     const input = e.target as HTMLInputElement;
     const file = input.files?.[0];
     input.value = '';
-    if (file) void this.importImage(file);
+    if (file) void this.importImage(file, this.importOwn);
+    this.importOwn = false;
   }
 
   /** Colar (Ctrl+V) ou soltar uma imagem na mesa: ela vira os pontos. */
@@ -1343,7 +1447,7 @@ export class PixelStudio {
    * A imagem encolhida até a tela de agora (inteira, no meio, sem deformar) e cada ponto na cor mais perto
    * das do desenho; o quase transparente fica transparente. Um passo no desfazer.
    */
-  private async importImage(file: Blob): Promise<void> {
+  private async importImage(file: Blob, own = false): Promise<void> {
     if (this.importing()) return;
     this.importing.set(true);
     this.importError.set(null);
@@ -1354,12 +1458,18 @@ export class PixelStudio {
       const fit = fitInGrid(bitmap.width, bitmap.height, w, h);
       const data = shrink(bitmap, fit.w, fit.h);
       bitmap.close();
-      const part = quantize(data, fit.w, fit.h, drawingInks(this.palette(), this.colors()));
+      // com as cores dela: a paleta própria, pelo corte na mediana (16 numa tela de 16, 32 numa de 32, até 61)
+      const ownInks = own ? [null, ...medianCut(data, Math.min(INK_MAX, Math.max(8, Math.round(Math.sqrt(w * h)))))] : null;
+      const part = quantize(data, fit.w, fit.h, ownInks ?? drawingInks(this.palette(), this.colors()));
       const rows = blankGrid(w, h).map((row, y) => {
         const line = part[y - fit.y];
         return line === undefined ? row : row.slice(0, fit.x) + line + row.slice(fit.x + line.length);
       });
-      this.change({ rows }, `Imagem trazida para ${w} por ${h} pontos, nas cores de agora`);
+      if (ownInks && ownInks.length > 1) {
+        const colors: Record<number, string> = {};
+        ownInks.forEach((c, i) => c && (colors[i] = c));
+        this.change({ rows, palette: 'propria', colors }, `Imagem trazida para ${w} por ${h} pontos, com ${ownInks.length - 1} cores dela`);
+      } else this.change({ rows }, `Imagem trazida para ${w} por ${h} pontos, nas cores de agora`);
     } catch {
       this.importError.set('Essa imagem não abriu. Tente outra (PNG, JPG, WebP, GIF).');
       this.said.set('Essa imagem não abriu.');

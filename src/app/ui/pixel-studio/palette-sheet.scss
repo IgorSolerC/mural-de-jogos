@@ -1,0 +1,238 @@
+@use '../sheet';
+@use '../paper-kit' as kit;
+
+/* A escolha da paleta (ver palette-sheet.ts): a ficha grande por cima do ateliê, como a cartela de ícones
+   (ui/icon-chart.scss): a busca parada no alto e as paletas em seções, cada uma um cartão de papel com o
+   desenho da pessoa já pintado nela e a fita das cores embaixo */
+
+:host {
+  display: contents;
+}
+
+dialog.paletas {
+  max-width: min(820px, calc(100vw - 24px));
+  height: min(860px, calc(100dvh - 24px));
+}
+
+.ficha {
+  position: relative;
+  height: 100%;
+}
+
+.head {
+  align-items: center;
+  margin-bottom: 0;
+}
+
+.titulos {
+  @include sheet.titulos;
+}
+
+.sub {
+  @include sheet.sub;
+}
+
+.topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+  padding: 16px 24px 12px;
+  border-bottom: 1.5px dashed rgb(21 21 21 / 0.2);
+}
+
+.busca {
+  @include kit.campo;
+  flex: 1 1 260px;
+  min-height: 46px;
+  padding-left: 12px;
+
+  input {
+    height: 44px;
+  }
+
+  input::-webkit-search-cancel-button {
+    display: none;
+  }
+}
+
+.lupa {
+  flex: none;
+  display: inline-flex;
+  margin-right: 6px;
+  color: var(--ink-2);
+}
+
+.chave {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.interruptor {
+  @include kit.interruptor;
+}
+
+.chave-nome {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.body {
+  gap: 22px;
+  padding-top: 16px;
+}
+
+.secao {
+  display: grid;
+  gap: 10px;
+}
+
+/* o nome da seção preso no alto enquanto as paletas dela rolam */
+.secao-nome {
+  @include kit.grupo-titulo;
+  position: sticky;
+  top: -16px;
+  z-index: 1;
+  margin: 0;
+  padding-top: 8px;
+  background: var(--paper);
+}
+
+.cartoes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+  gap: 14px;
+}
+
+/* o cartão: papel claro colado rente, o desenho no xadrez, o nome e a fita das cores */
+.cartao {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 10px 10px 12px;
+  border: 0;
+  border-radius: 2px;
+  background-color: #fffdf8;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  text-align: left;
+  box-shadow:
+    0 0 0 1px rgb(21 21 21 / 0.08),
+    0 1px 1px rgb(0 0 0 / 0.22),
+    0 4px 8px -4px rgb(0 0 0 / 0.3);
+  cursor: pointer;
+  transition:
+    translate var(--t-physical) var(--ease-physical),
+    rotate var(--t-physical) var(--ease-physical),
+    box-shadow var(--t-physical) var(--ease-physical);
+
+  &:hover {
+    translate: 0 -2px;
+    rotate: -0.6deg;
+    box-shadow:
+      0 0 0 1px rgb(21 21 21 / 0.1),
+      0 3px 3px rgb(0 0 0 / 0.18),
+      0 12px 18px -8px rgb(0 0 0 / 0.38);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 3px;
+  }
+
+  /* a de agora: o anel de tinta e a etiqueta amarela */
+  &.agora {
+    box-shadow:
+      0 0 0 2px var(--ink),
+      0 4px 8px -4px rgb(0 0 0 / 0.3);
+  }
+}
+
+.cartao-arte {
+  display: grid;
+  place-items: center;
+  height: 112px;
+  padding: 8px;
+  border-radius: 2px;
+  background: repeating-conic-gradient(#e2ddd0 0 25%, #fbfaf6 0 50%) 0 0 / 10px 10px;
+  box-shadow: inset 0 0 0 1px rgb(21 21 21 / 0.1);
+
+  svg {
+    display: block;
+    max-width: 100%;
+    max-height: 96px;
+    height: 96px;
+    width: auto;
+  }
+}
+
+/* sem desenho: as cores, em faixas, no lugar dele */
+.cartao-faixa {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 1px;
+
+  span {
+    flex: 1;
+  }
+}
+
+.cartao-nome {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 1rem;
+  letter-spacing: 0.03em;
+}
+
+.cartao-n {
+  color: var(--ink-2);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.cartao-agora {
+  margin-left: auto;
+  padding: 1px 6px 0;
+  border-radius: 2px;
+  background: var(--hi);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* a fita das cores: quadradinhos colados, de ponta a ponta */
+.cartao-cores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+
+  span {
+    width: 10px;
+    height: 10px;
+    border-radius: 1px;
+    box-shadow: inset 0 0 0 1px rgb(21 21 21 / 0.15);
+  }
+}
+
+.vazio {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cartao {
+    transition: none;
+  }
+}

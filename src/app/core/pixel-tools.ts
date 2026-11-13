@@ -1,4 +1,4 @@
-import { Cell, PIXEL_MAX, inkChar } from './pixel-art';
+import { Cell, PIXEL_MAX, inkChar, inkIndex, inksRgb, nearestInk } from './pixel-art';
 
 /**
  * As ferramentas do ateliê da pixel art (ui/pixel-studio/, PLANO-ATELIE.md), como contas: o pincel, a
@@ -263,4 +263,131 @@ export function ellipseCells(x0: number, y0: number, x1: number, y1: number, fil
   const out: Cell[] = [];
   for (const [y, [from, to]] of span) for (let x = from; x <= to; x++) out.push({ x, y });
   return out;
+}
+
+// ===== mexer na paleta =====
+
+/** As fileiras com cada cor trocada pelo número que `map` dá a ela (`map[i]`; o 0 fica 0). */
+export function remapRows(rows: readonly string[], map: readonly number[]): string[] {
+  return rows.map((r) =>
+    [...r]
+      .map((ch) => {
+        const i = inkIndex(ch);
+        return i > 0 && map[i] !== undefined ? inkChar(map[i]) : ch;
+      })
+      .join(''),
+  );
+}
+
+/** As cores do desenho escritas uma a uma (a paleta própria: do 1 até a última, todas). */
+export function ownColors(inks: readonly (string | null)[]): Record<number, string> {
+  const out: Record<number, string> = {};
+  inks.forEach((c, i) => {
+    if (i > 0 && c) out[i] = c;
+  });
+  return out;
+}
+
+/** Tira a cor `n` da paleta própria: os pontos dela ficam transparentes e as de depois descem um número. */
+export function removeInk(rows: readonly string[], inks: readonly (string | null)[], n: number): { rows: string[]; colors: Record<number, string> } {
+  const map: number[] = [0];
+  for (let i = 1; i < inks.length; i++) map[i] = i === n ? 0 : i > n ? i - 1 : i;
+  const colors: Record<number, string> = {};
+  inks.forEach((c, i) => {
+    if (i > 0 && c && i !== n) colors[i > n ? i - 1 : i] = c;
+  });
+  return { rows: remapRows(rows, map), colors };
+}
+
+/** Leva a cor `from` para o lugar `to` na paleta própria; o desenho não muda (os pontos seguem a cor). */
+export function moveInk(rows: readonly string[], inks: readonly (string | null)[], from: number, to: number): { rows: string[]; colors: Record<number, string> } {
+  const order = inks.map((_, i) => i).slice(1);
+  const [moved] = order.splice(from - 1, 1);
+  order.splice(to - 1, 0, moved);
+  return reorder(rows, inks, order);
+}
+
+/** As cores da paleta própria em outra ordem (`order`: os números de antes, na ordem nova). */
+function reorder(rows: readonly string[], inks: readonly (string | null)[], order: readonly number[]): { rows: string[]; colors: Record<number, string> } {
+  const map: number[] = [0];
+  const colors: Record<number, string> = {};
+  order.forEach((old, k) => {
+    map[old] = k + 1;
+    const c = inks[old];
+    if (c) colors[k + 1] = c;
+  });
+  return { rows: remapRows(rows, map), colors };
+}
+
+/** Ordena a paleta pela luz (do escuro ao claro) ou pelo tom (o círculo das cores; os cinzas no fim, pela luz). */
+export function sortInks(rows: readonly string[], inks: readonly (string | null)[], by: 'luz' | 'tom'): { rows: string[]; colors: Record<number, string> } {
+  const info = inksRgb(inks).map(({ i, rgb: [r, g, b] }) => {
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const light = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+    const sat = max === 0 ? 0 : (max - min) / max;
+    let hue = 0;
+    if (max !== min) {
+      const d = max - min;
+      hue = max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    }
+    return { i, light, hue: sat < 0.12 ? 7 : hue };
+  });
+  info.sort((a, b) => (by === 'luz' ? a.light - b.light : a.hue - b.hue || a.light - b.light) || a.i - b.i);
+  return reorder(rows, inks, info.map((x) => x.i));
+}
+
+/** O desenho passado para outra paleta, cada cor pela mais perto dela na nova (o "manter as cores"). */
+export function convertRows(rows: readonly string[], from: readonly (string | null)[], to: readonly (string | null)[]): string[] {
+  const palette = inksRgb(to);
+  const map: number[] = [0];
+  for (const { i, rgb } of inksRgb(from)) map[i] = nearestInk(rgb[0], rgb[1], rgb[2], palette);
+  return remapRows(rows, map);
+}
+
+/**
+ * As cores de uma imagem (os bytes RGBA; o quase transparente fica fora), até `max`, pelo corte na mediana: a
+ * caixa de cores mais espalhada é cortada no meio da parte mais larga, até dar `max` caixas, e cada caixa vira
+ * a média dela. Da mais escura para a mais clara, sem repetir.
+ */
+export function medianCut(data: ArrayLike<number>, max: number): string[] {
+  const px: [number, number, number][] = [];
+  for (let o = 0; o + 3 < data.length; o += 4) if ((data[o + 3] ?? 0) >= 128) px.push([data[o], data[o + 1], data[o + 2]]);
+  if (!px.length || max < 1) return [];
+  const spread = (box: readonly [number, number, number][]) => {
+    let best = { axis: 0, range: -1 };
+    for (let a = 0; a < 3; a++) {
+      let lo = 255;
+      let hi = 0;
+      for (const p of box) {
+        if (p[a] < lo) lo = p[a];
+        if (p[a] > hi) hi = p[a];
+      }
+      if (hi - lo > best.range) best = { axis: a, range: hi - lo };
+    }
+    return best;
+  };
+  let boxes: [number, number, number][][] = [px];
+  while (boxes.length < max) {
+    let pick = -1;
+    let pickRange = 0;
+    boxes.forEach((b, k) => {
+      const s = spread(b);
+      if (b.length > 1 && s.range > pickRange) {
+        pick = k;
+        pickRange = s.range;
+      }
+    });
+    if (pick < 0) break;
+    const { axis } = spread(boxes[pick]);
+    const sorted = [...boxes[pick]].sort((p, q) => p[axis] - q[axis]);
+    const mid = sorted.length >> 1;
+    boxes = [...boxes.slice(0, pick), sorted.slice(0, mid), sorted.slice(mid), ...boxes.slice(pick + 1)];
+  }
+  const hex = (n: number) => Math.round(n).toString(16).padStart(2, '0');
+  const colors = boxes.map((b) => {
+    const sum = b.reduce((acc, p) => [acc[0] + p[0], acc[1] + p[1], acc[2] + p[2]], [0, 0, 0]);
+    return { c: `#${hex(sum[0] / b.length)}${hex(sum[1] / b.length)}${hex(sum[2] / b.length)}`, light: (0.2126 * sum[0] + 0.7152 * sum[1] + 0.0722 * sum[2]) / b.length };
+  });
+  return [...new Set(colors.sort((a, b) => a.light - b.light).map((x) => x.c))];
 }

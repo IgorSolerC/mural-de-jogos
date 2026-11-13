@@ -267,16 +267,15 @@
 
       <div class="cores-topo">
         <h3 class="painel-nome">Cores <span class="painel-n">{{ count() }}</span></h3>
-        <label class="paleta-campo">
-          <span class="sr-only">Paleta</span>
-          <span class="paleta-nome" aria-hidden="true">{{ paletteLabel() }}</span>
-          <lucide-icon class="paleta-seta" [img]="I.abrir" [size]="16" aria-hidden="true" />
-          <select (change)="setPalette($any($event.target).value)">
-            @for (p of palettes(); track p.value) {
-              <option [value]="p.value" [selected]="palette() === p.value">{{ p.label }} · {{ p.colors.length || count() }}</option>
-            }
-          </select>
-        </label>
+        <span class="paleta-linha">
+          <button type="button" class="paleta-campo" aria-haspopup="dialog" [attr.aria-label]="'Paleta ' + paletteLabel() + '. Trocar'" (click)="paletteOpen.set(true)">
+            <span class="paleta-nome">{{ paletteLabel() }}</span>
+            <lucide-icon class="paleta-seta" [img]="I.abrir" [size]="16" aria-hidden="true" />
+          </button>
+          <button type="button" class="tecla" title="Mais: ordenar, tirar a cor, trazer de uma imagem" aria-label="Mais sobre as cores" aria-haspopup="menu" (click)="openColorsMenu($event)">
+            <lucide-icon [img]="I.maisOpcoes" [size]="18" aria-hidden="true" />
+          </button>
+        </span>
       </div>
 
       <div class="pastilhas" role="radiogroup" aria-label="Cor da frente">
@@ -289,6 +288,8 @@
             [class.on]="on"
             [class.fundo]="bg() === n"
             [class.vazia]="n === 0"
+            [class.arrastada]="dragging() === n"
+            [attr.draggable]="n > 0 ? 'true' : null"
             [style.--cor]="inks()[n] ?? 'transparent'"
             [attr.aria-checked]="on"
             [attr.aria-label]="n === 0 ? 'Transparente' : 'Cor ' + inkChar(n)"
@@ -296,6 +297,10 @@
             (click)="chooseInk(n)"
             (dblclick)="editInk()"
             (contextmenu)="swatchMenu($event, n)"
+            (dragstart)="swatchDragStart($event, n)"
+            (dragover)="swatchDragOver($event, n)"
+            (drop)="swatchDrop($event, n)"
+            (dragend)="dragging.set(null)"
           ></button>
         }
         @if (count() < INK_MAX) {
@@ -323,6 +328,18 @@
             <span class="hex-nome">Hex</span>
             <input type="text" spellcheck="false" autocomplete="off" maxlength="7" [value]="inks()[fg()]" (input)="setInkColor($any($event.target).value, true)" (change)="setInkColor($any($event.target).value); inkEdited()" (blur)="inkEdited()" />
           </label>
+          <div class="editor-lugar" role="group" aria-label="O lugar da cor na paleta">
+            <button type="button" class="tecla" title="Um lugar para trás" aria-label="Um lugar para trás" [disabled]="fg() <= 1" (click)="moveFg(-1)">
+              <lucide-icon [img]="I.anterior" [size]="18" aria-hidden="true" />
+            </button>
+            <span class="editor-lugar-nome">Lugar {{ inkChar(fg()) }}</span>
+            <button type="button" class="tecla" title="Um lugar para a frente" aria-label="Um lugar para a frente" [disabled]="fg() >= count()" (click)="moveFg(1)">
+              <lucide-icon [img]="I.proximo" [size]="18" aria-hidden="true" />
+            </button>
+            @if (count() > 1) {
+              <button type="button" class="link-voltar perigo" (click)="removeFg()">Tirar a cor</button>
+            }
+          </div>
           <div class="editor-pe">
             @if (fgSwapped()) {
               <button type="button" class="link-voltar" (click)="resetInk()">Voltar à da paleta</button>
@@ -386,6 +403,10 @@
 
   <input #arquivo class="arquivo" type="file" accept="image/*" tabindex="-1" aria-hidden="true" (change)="fromFile($event)" />
   <app-context-menu #menuImagem caption="Imagem" [sections]="imageItems()" />
+  <app-context-menu #menuCores caption="Cores" [sections]="colorItems()" />
+  @if (paletteOpen()) {
+    <app-palette-sheet [rows]="rows()" [w]="iw" [h]="ih" [palette]="palette()" [colors]="colors()" (picked)="applyPalette($event)" (closed)="paletteOpen.set(false)" />
+  }
   <p class="sr-only" [id]="ids + '-diz'" aria-live="polite">{{ said() }}</p>
 
   <!-- o Tamanho da tela (C): a largura, a altura e onde o desenho fica -->

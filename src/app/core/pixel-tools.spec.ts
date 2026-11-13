@@ -1,4 +1,4 @@
-import { brushCells, ellipseCells, fitZoom, mirrored, perfectCorner, rectCells, replaceInk, resizeCanvas, shapeBox, snapLine, stampCells, stepZoom, zoomLabel } from './pixel-tools';
+import { brushCells, convertRows, ellipseCells, fitZoom, medianCut, mirrored, moveInk, ownColors, perfectCorner, rectCells, remapRows, removeInk, replaceInk, resizeCanvas, shapeBox, snapLine, sortInks, stampCells, stepZoom, zoomLabel } from './pixel-tools';
 
 /** As contas das ferramentas do ateliê (PLANO-ATELIE.md, seção 3). */
 describe('pixel art: as ferramentas do ateliê', () => {
@@ -91,5 +91,41 @@ describe('pixel art: as formas', () => {
     // a elipse de um ponto e a reta fina (1 de altura) também saem
     expect(grid(ellipseCells(2, 0, 2, 0, false), 5, 1)).toEqual(['00100']);
     expect(grid(ellipseCells(0, 0, 4, 0, true), 5, 1)).toEqual(['11111']);
+  });
+});
+
+/** Mexer na paleta (PLANO-ATELIE.md, feature 5): tirar, levar para outro lugar, ordenar, converter, a paleta de uma imagem. */
+describe('pixel art: mexer na paleta', () => {
+  const inks = [null, '#000000', '#ffffff', '#ff0000'];
+
+  it('trocar os números das cores; a paleta própria escreve todas', () => {
+    expect(remapRows(['0123'], [0, 3, 2, 1])).toEqual(['0321']);
+    expect(ownColors(inks)).toEqual({ 1: '#000000', 2: '#ffffff', 3: '#ff0000' });
+  });
+
+  it('tirar uma cor: os pontos dela ficam transparentes e as de depois descem', () => {
+    expect(removeInk(['123'], inks, 2)).toEqual({ rows: ['102'], colors: { 1: '#000000', 2: '#ff0000' } });
+  });
+
+  it('levar uma cor para outro lugar não muda o desenho', () => {
+    const out = moveInk(['123'], inks, 3, 1);
+    expect(out.colors).toEqual({ 1: '#ff0000', 2: '#000000', 3: '#ffffff' });
+    expect(out.rows).toEqual(['231']);
+  });
+
+  it('ordenar pela luz e pelo tom (os cinzas no fim)', () => {
+    expect(sortInks(['123'], inks, 'luz').colors).toEqual({ 1: '#000000', 2: '#ff0000', 3: '#ffffff' });
+    expect(sortInks(['123'], inks, 'tom').colors[1]).toBe('#ff0000');
+  });
+
+  it('converter para outra paleta: cada cor vira a mais perto dela', () => {
+    expect(convertRows(['123'], inks, [null, '#fefefe', '#100000', '#ee1010'])).toEqual(['213']);
+  });
+
+  it('a paleta de uma imagem: até o máximo, da mais escura para a mais clara, sem o transparente', () => {
+    const data = [0, 0, 0, 255, 250, 250, 250, 255, 255, 0, 0, 255, 255, 0, 0, 10];
+    expect(medianCut(data, 8)).toEqual(['#000000', '#ff0000', '#fafafa']);
+    expect(medianCut(data, 1).length).toBe(1);
+    expect(medianCut([], 4)).toEqual([]);
   });
 });
