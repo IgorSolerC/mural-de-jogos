@@ -51,7 +51,7 @@ describe('as pastas na parede (WallState)', () => {
   let selected: ReturnType<typeof signal<Colleague | null>>;
   let visit: VisitView;
 
-  const names = (rs: readonly Review[]) => rs.map((r) => r.game.name).sort();
+  const names = (rs: readonly Pick<Review, 'game'>[]) => rs.map((r) => r.game.name).sort();
   const kids = () => visit.folderKids().map((x) => x.name);
 
   beforeEach(() => {

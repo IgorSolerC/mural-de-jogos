@@ -4,6 +4,7 @@ import { LABEL_MAX } from '../core/note-labels';
 import type { NoteFolder } from '../core/folders';
 import { plural } from '../core/text';
 import type { FolderInfo } from '../core/wall-view';
+import type { Review } from '../core/review';
 import { MiniCartolina } from './mini-cartolina';
 import { NearScreen } from './near-screen';
 
@@ -71,8 +72,8 @@ let hints = 0;
           <span class="espia" [style.--j]="j">
             @if (r.game.coverUrl && !broken().has(r.game.coverUrl)) {
               <img [src]="r.game.coverUrl" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" (error)="lost(r.game.coverUrl)" />
-            } @else {
-              <app-mini-cartolina [review]="r" />
+            } @else if (asReview(r); as rv) {
+              <app-mini-cartolina [review]="rv" />
             }
           </span>
         }
@@ -113,6 +114,11 @@ export class FolderCard {
       el.select();
       el.scrollIntoView({ block: 'nearest' });
     });
+  }
+
+  /** A anotação, para a cartolina (o desejo da Wishlist sem capa não espia). */
+  protected asReview(r: FolderInfo['peek'][number]): Review | null {
+    return 'scores' in r ? (r as Review) : null;
   }
 
   /** As capas que não carregaram: a miniatura volta à cartolina. */

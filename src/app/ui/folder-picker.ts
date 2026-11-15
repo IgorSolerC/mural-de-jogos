@@ -77,7 +77,7 @@ interface Row {
             <lucide-icon class="ico" [img]="FolderIcon" [size]="17" aria-hidden="true" />
             <span class="nome">{{ r.path ?? r.folder.name }}</span>
             @if (counts().get(r.folder.id); as n) {
-              <span class="n"><span class="sr-only">, </span>{{ n }}<span class="sr-only"> {{ n === 1 ? 'anotação' : 'anotações' }}</span></span>
+              <span class="n"><span class="sr-only">, </span>{{ n }}<span class="sr-only"> {{ n === 1 ? units()[0] : units()[1] }}</span></span>
             }
           </button>
         </div>
@@ -115,6 +115,8 @@ export class FolderPicker {
   readonly blocked = input<ReadonlySet<string>>(new Set());
   /** A linha da raiz ("Sem pasta"; mover uma pasta: "Direto em Estudos"); vazio, sem a linha. */
   readonly rootLabel = input('Sem pasta');
+  /** O que as contas contam, no singular e no plural (para o leitor de tela). */
+  readonly units = input<readonly [string, string]>(['anotação', 'anotações']);
   /** O nome do grupo de rádios, para o leitor de tela. */
   readonly label = input('Pasta da anotação');
   /** Criar a pasta escrita, dentro de `parent` (quem usa cria e escolhe). */

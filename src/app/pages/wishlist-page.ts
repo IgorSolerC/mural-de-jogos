@@ -1,4 +1,15 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, afterNextRender, computed, effect, inject, linkedSignal, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, afterNextRender, computed, effect, inject, linkedSignal, signal, untracked, viewChild } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { NoteFolder, siblingNamed } from '../core/folders';
+import type { FolderInfo } from '../core/wall-view';
+import { WishFolders } from '../core/wish-folders';
+import { plural } from '../core/text';
+import { FolderAsking, WISH_UNITS } from '../ui/folder-asking';
+import { FolderCard } from '../ui/folder-card';
+import { FolderMoveSheet } from '../ui/folder-move-sheet';
+import { FolderPath } from '../ui/folder-path';
+import { WallDrag, WallDragItem, WallDrop } from './wall-drag';
 import { ICON, IconModule } from '../ui/icons';
 import { collage, placeFor, shelfColumns } from '../core/clipping';
 import { Desk } from '../core/desk';
@@ -53,10 +64,15 @@ import { reducedMotion } from '../core/motion';
  * A pasta de cima é a do mural (PLANO-WISHLIST.md, 4.1): a busca (no nome e no lembrete), o Filtrar (a folha
  * das Anotações, com a Vontade e as Tags), a ordem com o inverter e o "MUST 1º", a vista (Recortes, a colagem;
  * Grade, muitas capas de uma vez) e o Sortear. A vista e a ordem ficam guardadas no aparelho.
+ *
+ * As pastas (PLANO-WISHLIST.md, P1 e P9) são as das Anotações: as pastas manilha antes dos recortes, o caminho
+ * na pasta da barra, a aberta no endereço (`?pasta=`); arrastar um recorte até uma pasta (ou um pedaço do
+ * caminho) guarda nela, e soltar um recorte no miolo de outro cria uma pasta com os dois (pages/wall-drag.ts).
+ * Dentro de uma pasta, a busca e os filtros pegam ela e as de dentro.
  */
 @Component({
   selector: 'app-wishlist-page',
-  imports: [ContextMenu, FilterCard, FilterTags, IconModule, SearchHighlight, SearchStrip, WishActions, WishClip, WishCover, WishNote, WishTags],
+  imports: [ContextMenu, FilterCard, FilterTags, FolderCard, FolderMoveSheet, FolderPath, IconModule, SearchHighlight, SearchStrip, WishActions, WishClip, WishCover, WishNote, WishTags],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '(document:keydown.escape)': 'onEscape()', '[class.com-sorteio]': 'winner()' },
   template: `
@@ -67,6 +83,10 @@ import { reducedMotion } from '../core/motion';
       <!-- a pasta, como no mural: a busca, a ordem e o sorteio em tinta e, depois do picote, o que a
            busca achou -->
       <div class="pasta solta">
+        <!-- dentro de uma pasta, o caminho de volta (o mesmo das Anotações) -->
+        @if (folderPath().length) {
+          <app-folder-path group="Wishlist" [path]="folderPath()" (go)="enterFolder($event)" />
+        }
         <div class="pasta-linha">
           <app-search-strip
             class="pasta-busca"
@@ -140,7 +160,7 @@ import { reducedMotion } from '../core/motion';
             </div>
 
             <div class="pasta-grupo">
-              <button #drawBtn type="button" class="tinta" [disabled]="visible().length < 2" (click)="draw()">
+              <button #drawBtn type="button" class="tinta" [disabled]="drawPool().length < 2" (click)="draw()">
                 <lucide-icon [img]="DiceIcon" [size]="18" aria-hidden="true" />
                 Sortear
               </button>
@@ -159,6 +179,11 @@ import { reducedMotion } from '../core/motion';
             @if (filtering()) {
               <p class="achados" aria-live="polite">
                 <span>Mostrando {{ visible().length }} de {{ pool().length }}</span>
+                <!-- procurando dentro de uma pasta: ela e as de dentro -->
+                @if (folderPath().at(-1); as f) {
+                  <span>em {{ f.name }} e nas pastas de dentro</span>
+                  <button type="button" class="tinta-link" (click)="enterFolder(null)">Procurar em toda a Wishlist</button>
+                }
                 <button type="button" class="tinta-link" (click)="clear()">Limpar</button>
               </p>
             }
@@ -189,6 +214,7 @@ import { reducedMotion } from '../core/motion';
         />
       }
       <p class="sr-only" aria-live="polite">{{ winner() ? 'Sorteado: ' + winner()!.game.name : '' }}</p>
+      <p class="sr-only" aria-live="polite">{{ folderSaid() }}</p>
 
       @if (winner(); as w) {
         <!-- o resultado do sorteio: um bilhete arrancado do bloco, preso embaixo da tela; logo depois da
@@ -210,8 +236,32 @@ import { reducedMotion } from '../core/motion';
         </aside>
       }
 
-      @if (!visible().length) {
+      @if (folderKids().length) {
+        <!-- as pastas da aberta (ou da raiz), antes dos recortes: as mesmas das Anotações -->
+        <section class="pastas" aria-label="Pastas">
+          <ul class="pastas-lista">
+            @for (f of folderKids(); track f.id) {
+              <li>
+                <app-folder-card
+                  [folder]="f"
+                  [info]="folderInfo().get(f.id) ?? { notes: 0, folders: 0, peek: [] }"
+                  [units]="['recorte', 'recortes']"
+                  [naming]="naming() === f.id"
+                  [clash]="naming() === f.id ? clash() : null"
+                  (opened)="enterFolder($event)"
+                  (draft)="drafted(f, $event)"
+                  (named)="named(f, $event)"
+                />
+              </li>
+            }
+          </ul>
+        </section>
+      }
+
+      @if (filtering() && !visible().length) {
         <p class="none">{{ noneText() }}</p>
+      } @else if (folderEmpty()) {
+        <p class="none">Pasta vazia. Guarde um recorte aqui arrastando até ela, ou pelo “Mover para pasta…” do recorte.</p>
       }
 
       @if (prefs().vista === 'grade') {
@@ -295,10 +345,63 @@ import { reducedMotion } from '../core/motion';
     <!-- o menu do site: o do recorte (o botão direito, o dedo segurado, Shift+F10: começar a resenha, as
          vontades, tirar da wishlist) e o do Vontade da etiqueta (só as vontades, com os adesivos) -->
     <app-context-menu #menu [caption]="menuWish()?.game?.name ?? ''" [note]="menuWish()?.note ?? ''" [sections]="menuSections()" (closed)="menuOn.set(null)" />
+    <!-- o menu de uma pasta da parede, ou do vão dela -->
+    <app-context-menu #menuDaPasta [caption]="folderMenu().caption" [sections]="folderMenu().sections" />
+
+    <!-- mover sem arrastar: a folha com a árvore da Wishlist do mural -->
+    @if (moveSheet(); as m) {
+      <app-folder-move-sheet
+        [title]="m.title"
+        [sub]="m.sub"
+        [tree]="folderTree()"
+        [group]="group()"
+        groupName="Wishlist"
+        [counts]="m.counts"
+        [blocked]="m.blocked"
+        [rootLabel]="m.rootLabel"
+        [start]="m.start"
+        [units]="['recorte', 'recortes']"
+        (chosen)="moveTo($event)"
+        (create)="moveToNew($event)"
+        (closed)="moving.set(null)"
+      />
+    }
   `,
   styles: `
+    @use '../ui/pastas-parede' as pastas;
+    @use '../ui/arrasto';
+
     :host {
       display: block;
+    }
+
+    /* ===== As pastas (as das Anotações) e o arrastar (pages/wall-drag.ts) ===== */
+    @include pastas.na-parede;
+    @include arrasto.fantasma;
+    .desejo[data-arrastada],
+    app-wish-cover[data-arrastada] {
+      opacity: 0.35;
+    }
+    /* o recorte alvo (soltar ali cria a pasta com os dois): o tracejado do marca-texto em volta do papel */
+    .desejo[data-alvo] > app-wish-clip,
+    app-wish-cover[data-alvo] {
+      outline: 2.5px dashed var(--hi);
+      outline-offset: 6px;
+    }
+    /* o vão da pasta aberta (soltar ali guarda nela): o mesmo tracejado, em volta da parede */
+    .recortes[data-alvo],
+    .grade[data-alvo],
+    .pastas[data-alvo],
+    .none[data-alvo] {
+      outline: 2.5px dashed var(--hi);
+      outline-offset: 10px;
+      border-radius: 4px;
+    }
+    /* a parede ocupa a tela embaixo da barra: o vão dela é alvo de soltar, e o botão direito nele abre o menu */
+    .recortes,
+    .grade {
+      min-height: 40vh;
+      align-content: start;
     }
 
     .pasta {
@@ -588,16 +691,74 @@ export class WishlistPage {
   /** O id sorteado; o bilhete some quando ele sai da lista. */
   protected readonly drawn = signal<string | null>(null);
 
-  /** Onde se procura: a Wishlist do mural aberto. */
-  protected readonly pool = computed(() => this.mural.wishes());
+  // ===== As pastas =====
+  private readonly folders = inject(WishFolders);
+  private readonly asking = inject(FolderAsking);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  protected readonly folderTree = this.folders.tree;
+  /** O grupo das pastas da Wishlist do mural aberto. */
+  protected readonly group = computed(() => this.folders.group(this.mural.kind()));
+  /** A pasta pedida no endereço (`?pasta=`). */
+  private readonly asked = signal<string | null>(null);
+  /** A pasta aberta: a pedida, se é da Wishlist deste mural (a desfeita vale pela de cima); null: a raiz. */
+  protected readonly openFolder = computed(() => this.folderTree().resolve(this.asked(), this.group()));
+  protected readonly folderPath = computed(() => this.folderTree().path(this.openFolder()));
+  /** A pasta de verdade de cada desejo (as mudanças de pasta mudam a árvore, e ela refaz tudo). */
+  private readonly folderOf = computed(() => {
+    const tree = this.folderTree();
+    const group = this.group();
+    return new Map(this.mural.wishes().map((w) => [w.id, tree.resolve(w.folder, group)]));
+  });
+  private whereIs(id: string): string | null {
+    return this.folderOf().get(id) ?? null;
+  }
+
+  /** Onde se procura: a Wishlist do mural aberto, ou a pasta aberta e as de dentro. */
+  protected readonly pool = computed(() => {
+    const open = this.openFolder();
+    const all = this.mural.wishes();
+    if (!open) return all;
+    const below = this.folderTree().below(open);
+    return all.filter((w) => below.has(this.whereIs(w.id) ?? ''));
+  });
   protected readonly filtering = computed(() => wishFiltering(this.filter()));
+  /** Sem procurar, só os direto na pasta aberta (as de dentro moram nas pastas); procurando, ela e as de dentro. */
   protected readonly visible = computed(() => {
     const f = this.filter();
+    const open = this.openFolder();
+    const base = this.filtering() ? this.pool() : this.pool().filter((w) => this.whereIs(w.id) === open);
     return sortWishes(
-      this.pool().filter((w) => wishMatches(w, f)),
+      base.filter((w) => wishMatches(w, f)),
       this.prefs(),
     );
   });
+  /** As pastas na parede: as de dentro da aberta, sem procurar. */
+  protected readonly folderKids = computed<readonly NoteFolder[]>(() => (this.filtering() ? [] : this.folderTree().kids(this.group(), this.openFolder())));
+  /**
+   * O que cada pasta mostra: quantos recortes tem (com os das de dentro), quantas pastas logo dentro, e até três
+   * capas espiando, na ordem da parede (MUST PLAY primeiro), as direto nela antes das de dentro.
+   */
+  protected readonly folderInfo = computed<ReadonlyMap<string, FolderInfo>>(() => {
+    const kids = this.folderKids();
+    if (!kids.length) return new Map();
+    const tree = this.folderTree();
+    const sorted = sortWishes(this.mural.wishes(), this.prefs());
+    const out = new Map<string, FolderInfo>();
+    for (const f of kids) {
+      const below = tree.below(f.id);
+      const inside = sorted.filter((w) => below.has(this.whereIs(w.id) ?? ''));
+      const covered = inside.filter((w) => w.game.coverUrl);
+      const direct = covered.filter((w) => this.whereIs(w.id) === f.id);
+      const deep = covered.filter((w) => this.whereIs(w.id) !== f.id);
+      out.set(f.id, { notes: inside.length, folders: tree.kids(f.group, f.id).length, peek: [...direct, ...deep].slice(0, 3) });
+    }
+    return out;
+  });
+  /** A pasta aberta não tem nada: nem recorte, nem pasta. */
+  protected readonly folderEmpty = computed(() => this.openFolder() !== null && !this.filtering() && !this.visible().length && !this.folderKids().length);
+  /** O que o leitor de tela ouve depois de trocar de pasta: "Pasta Co-op, 4 recortes e 1 pasta". */
+  protected readonly folderSaid = signal('');
 
   /** As tags, na cor de cada uma, as mais usadas primeiro (o valor é a tag sem caixa e sem acento). */
   protected readonly tagChips = computed<TagChip[]>(() => {
@@ -635,6 +796,25 @@ export class WishlistPage {
   /** O desejo com o menu aberto, e qual menu: o do recorte (o botão direito) ou o do Vontade da etiqueta. */
   protected readonly menuOn = signal<{ id: string; only: 'tudo' | 'vontade' } | null>(null);
   protected readonly menuWish = computed(() => this.mural.wishes().find((w) => w.id === this.menuOn()?.id) ?? null);
+  /** O que fica no menu de um recorte sobre a pasta dele: mover para outra e, dentro de uma, tirar dela. */
+  private folderItems(w: Wish): MenuItem[] {
+    const items: MenuItem[] = [
+      {
+        id: 'mover-pasta',
+        label: 'Mover para pasta…',
+        icon: ICON.guardarNaPasta,
+        dialog: true,
+        run: () => this.moving.set({ kind: 'desejos', ids: [w.id], name: w.game.name, from: this.whereIs(w.id) }),
+      },
+    ];
+    const open = this.openFolder();
+    if (open !== null && this.whereIs(w.id) === open) {
+      const up = this.folderTree().parentOf(open);
+      items.push({ id: 'tirar-pasta', label: 'Tirar da pasta', icon: ICON.tirarDaPasta, hint: `Vai para ${this.goesTo(up)}`, run: () => this.dropped({ kind: 'notas', lead: w.id, ids: [w.id] }, { kind: 'guardar', folder: up }) });
+    }
+    return items;
+  }
+
   /** O Editar da etiqueta e do menu: a folha do desejo (a Wishlist é só do dono: nunca na visita). */
   protected readonly editable = true;
   /**
@@ -667,6 +847,7 @@ export class WishlistPage {
         { id: 'editar', label: 'Editar', icon: ICON.ajustar, dialog: true, run: () => this.edit(w) },
       ],
       this.vontadeItems(w),
+      this.folderItems(w),
       [{ id: 'tirar', label: 'Tirar da wishlist', icon: ICON.apagar, danger: true, run: () => this.remove(w.id) }],
     ];
   });
@@ -680,14 +861,15 @@ export class WishlistPage {
   constructor() {
     const host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
     this.host = host;
-    new ContextMenuTrigger({
+    const wishTrigger = new ContextMenuTrigger({
       host,
       targets: '.desejo[data-ficha], app-wish-cover[data-ficha]',
       keyOf: (box) => {
         const id = box.getAttribute('data-ficha');
         return id && this.mural.wishes().some((w) => w.id === id) ? id : null;
       },
-      hold: true,
+      // o dedo segurado e solto sem arrastar abre o menu pelo arrasto (o mesmo gesto)
+      hold: () => !this.dragOn(),
       isOpenFor: (id) => this.menu().isOpenFor(id),
       open: (id, box, x, y, by) => {
         this.menuOn.set({ id, only: 'tudo' });
@@ -696,6 +878,57 @@ export class WishlistPage {
         this.menu().show({ key: id, x, y, by, back: active instanceof HTMLElement && box.contains(active) ? active : box.querySelector<HTMLElement>('.hit') });
       },
     });
+    // o botão direito numa pasta da parede, ou no vão (a fileira das pastas e a parede dos recortes)
+    const folderTrigger = new ContextMenuTrigger({
+      host,
+      targets: 'app-folder-card[data-pasta], .pastas, .recortes, .grade',
+      ignore: '.desejo, app-wish-cover, input',
+      keyOf: (box) => (box.matches('app-folder-card') ? `pasta:${box.dataset['pasta']}` : 'vao'),
+      hold: (box) => !box.matches('app-folder-card') || !this.dragOn(),
+      isOpenFor: (key) => !!this.folderMenuRef()?.isOpenFor(key),
+      open: (key, box, x, y, by) => {
+        const f = key.startsWith('pasta:') ? this.folderTree().live(key.slice(6)) : undefined;
+        if (key !== 'vao' && !f) return;
+        this.folderMenu.set(f ? { caption: `Pasta ${f.name}`, sections: this.folderSections(f) } : { caption: this.folderName(this.openFolder()), sections: this.gapSections() });
+        this.folderMenuRef()?.show({ key, x, y, back: box.matches('app-folder-card') ? box.querySelector<HTMLElement>('button') : null, by });
+      },
+    });
+    // arrastar organiza: recorte numa pasta guarda, recorte no miolo de outro cria uma pasta com os dois
+    const drag = new WallDrag({
+      host,
+      on: () => this.dragOn(),
+      marked: () => [],
+      openFolder: () => this.openFolder(),
+      groupName: () => 'Wishlist',
+      folderName: (id) => this.folderTree().live(id)?.name ?? null,
+      folderOf: (id) => this.whereIs(id),
+      below: (id) => this.folderTree().below(id),
+      parentOf: (id) => this.folderTree().parentOf(id),
+      drop: (item, to) => this.dropped(item, to),
+      open: (id) => this.enterFolder(id),
+      menu: (item, box, x, y) => {
+        if (item.kind === 'pasta') folderTrigger.openAt(`pasta:${item.id}`, x, y, box);
+        else wishTrigger.openAt(item.lead, x, y, box);
+      },
+      scope: () => host.querySelector('.recortes, .grade, .pastas'),
+      gap: '.recortes, .grade, .pastas, .none',
+      pieces: {
+        selector: '.desejo[data-ficha], app-wish-cover[data-ficha]',
+        idOf: (el) => el.getAttribute('data-ficha'),
+        // só o papel do recorte (sem as tags e o lembrete de baixo); a capa da Grade inteira
+        face: (el) => (el.matches('app-wish-cover') ? el : (el.querySelector<HTMLElement>('app-wish-clip') ?? el)),
+        joinLabel: (n) => (n === 1 ? 'Nova pasta com os dois' : `Nova pasta com os ${n + 1}`),
+        core: 0.6,
+      },
+    });
+    this.destroyRef.onDestroy(() => drag.off());
+    // a pasta aberta mora no endereço (o Voltar do navegador sobe), e o "Pôr na wishlist" nasce nela
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((q) => this.asked.set(q.get('pasta')));
+    effect(() => {
+      const open = { kind: this.mural.kind(), id: this.openFolder() };
+      untracked(() => this.folders.open.set(open));
+    });
+    this.destroyRef.onDestroy(() => this.folders.open.set(null));
     const measure = () => this.cols.set(shelfColumns(host.clientWidth, 172, 34));
     // a vista e a ordem ficam no aparelho (writeJson respeita a trava da limpeza do logout)
     let saved = JSON.stringify(this.prefs());
@@ -708,7 +941,12 @@ export class WishlistPage {
     // "Ver na lista" ou um item novo chegando: se a busca ou os filtros escondem ele, saem da frente
     effect(() => {
       const id = this.desk.landingId();
-      if (id && this.filtering() && !this.visible().some((x) => x.id === id)) this.filter.set(NO_WISH_FILTER);
+      if (!id || this.visible().some((x) => x.id === id) || !this.mural.wishes().some((w) => w.id === id)) return;
+      untracked(() => {
+        if (this.filtering()) this.filter.set(NO_WISH_FILTER);
+        const where = this.whereIs(id);
+        if (where !== this.openFolder()) this.enterFolder(where, false);
+      });
     });
     afterNextRender(() => {
       measure();
@@ -859,10 +1097,16 @@ export class WishlistPage {
   }
 
   /** Tira um recorte da parede, nunca o mesmo da vez anterior, leva a tela até ele e o foco ao bilhete. */
+  /** Onde o sorteio tira: o que a busca achou ou, sem procurar, a pasta aberta e as de dentro (a Wishlist inteira na raiz). */
+  protected readonly drawPool = computed(() => (this.filtering() ? this.visible() : this.pool()));
+
   protected draw(): void {
-    const pool = this.visible().filter((w) => w.id !== this.drawn());
+    const pool = this.drawPool().filter((w) => w.id !== this.drawn());
     if (!pool.length) return;
     const w = pool[Math.floor(Math.random() * pool.length)];
+    // o sorteado mora numa pasta de dentro: ela abre (o Voltar do navegador volta para cá)
+    const where = this.whereIs(w.id);
+    if (!this.filtering() && where !== this.openFolder()) this.enterFolder(where, true, false);
     this.drawn.set(w.id);
     const reduced = reducedMotion();
     requestAnimationFrame(() => {
@@ -885,5 +1129,214 @@ export class WishlistPage {
   protected startDrawn(w: Wish): void {
     this.drawn.set(null);
     this.desk.openWish(w.id);
+  }
+
+  // ===== As pastas: entrar, arrastar, dar nome, os menus, mover sem arrastar =====
+
+  /** Arrastar organiza (fora do nome sendo escrito numa pasta). */
+  protected readonly dragOn = computed(() => !this.naming());
+  /** A pasta sendo nomeada (a nova, ou Renomear), e a irmã com o nome que está escrito. */
+  protected readonly naming = signal<string | null>(null);
+  protected readonly clash = signal<string | null>(null);
+  protected readonly folderMenu = signal<{ caption: string; sections: MenuSections }>({ caption: '', sections: [] });
+  private readonly folderMenuRef = viewChild<ContextMenu>('menuDaPasta');
+
+  /** O nome de uma pasta (null: a Wishlist). */
+  private folderName(id: string | null): string {
+    return id ? (this.folderTree().live(id)?.name ?? '') : 'Wishlist';
+  }
+
+  /** Para onde vai: "Indies", ou "a Wishlist". */
+  private goesTo(id: string | null): string {
+    return id ? this.folderName(id) : 'a Wishlist';
+  }
+
+  /**
+   * Abre a pasta (null: a raiz da Wishlist). `push`: veio de um toque (o Voltar do navegador volta para cá). O
+   * foco vai para onde se está no caminho; subindo, para a pasta de onde se veio.
+   */
+  protected enterFolder(id: string | null, push = true, focus = push): void {
+    const from = this.openFolder();
+    if (id === from) return;
+    this.drawn.set(null);
+    this.naming.set(null);
+    this.asked.set(id);
+    // já, sem esperar o efeito: o "Adicionar aqui" do menu da pasta abre a folha logo em seguida
+    this.folders.open.set({ kind: this.mural.kind(), id });
+    void this.router.navigate([], { relativeTo: this.route, queryParams: { pasta: id }, queryParamsHandling: 'merge', replaceUrl: !push });
+    if (!focus) return;
+    const info = id ? this.folderTree().live(id) : null;
+    const n = this.visible().length;
+    const k = this.folderKids().length;
+    const what = [n ? plural(n, 'recorte', 'recortes') : '', k ? plural(k, 'pasta', 'pastas') : ''].filter(Boolean).join(' e ') || 'vazia';
+    this.folderSaid.set(`${info ? `Pasta ${info.name}` : 'Wishlist'}, ${what}`);
+    afterNextRender(
+      () => {
+        const back = from && this.folderTree().parentOf(from) === id ? this.host.querySelector<HTMLElement>(`app-folder-card[data-pasta="${CSS.escape(from)}"] button`) : null;
+        const here = back ?? this.host.querySelector<HTMLElement>('app-folder-path .aqui') ?? this.host.querySelector<HTMLElement>('#busca-desejos');
+        here?.focus({ preventScroll: !!back });
+      },
+      { injector: this.injector },
+    );
+  }
+
+  private undoToast(text: string, undo: () => void): void {
+    this.toasts.show(text, { label: 'Desfazer', run: () => this.transitions.run(undo) });
+  }
+
+  /**
+   * Soltou arrastando (ou escolheu no menu): guarda os recortes, junta numa pasta nova ou põe uma pasta dentro
+   * de outra, com o Desfazer. A colagem muda com a transição, e o aviso sai de dentro dela (ela muda no quadro
+   * seguinte: o que a mudança devolve só existe lá dentro).
+   */
+  private dropped(item: WallDragItem, to: WallDrop): void {
+    const kind = this.mural.kind();
+    if (to.kind === 'juntar') {
+      if (item.kind !== 'notas') return;
+      const ids = [...item.ids, to.with];
+      this.transitions.run(() => {
+        const made = this.folders.gather(ids, kind, this.openFolder());
+        if (!made) {
+          this.toasts.show('Não cabe mais nenhuma pasta aqui.');
+          return;
+        }
+        this.naming.set(made.folder.id);
+        this.undoToast(`Nova pasta com ${ids.length} recortes.`, made.undo);
+      });
+      return;
+    }
+    const where = this.folderName(to.folder);
+    if (item.kind === 'pasta') {
+      const was = this.folderName(item.id);
+      this.transitions.run(() => {
+        const undo = this.folders.move(item.id, to.folder);
+        if (undo) this.undoToast(to.folder ? `${was} guardada em ${where}.` : `${was} foi para a Wishlist.`, undo);
+      });
+      return;
+    }
+    const one = this.mural.wishes().find((w) => w.id === item.lead)?.game.name ?? 'O recorte';
+    this.transitions.run(() => {
+      const done = this.folders.place(item.ids, to.folder);
+      if (!done.moved) return;
+      const text = to.folder
+        ? done.moved === 1
+          ? `“${one}” guardado em ${where}.`
+          : `${done.moved} recortes guardados em ${where}.`
+        : done.moved === 1
+          ? `“${one}” saiu das pastas.`
+          : `${done.moved} recortes saíram das pastas.`;
+      this.undoToast(text, done.undo);
+    });
+  }
+
+  /** A cada letra do nome: a irmã que já tem esse nome (o Enter junta as duas). */
+  protected drafted(f: NoteFolder, value: string): void {
+    const tree = this.folderTree();
+    this.clash.set(siblingNamed(tree, f.group, tree.parentOf(f.id), value, f.id)?.name ?? null);
+  }
+
+  /** Acabou de dar nome à pasta: renomeia, ou junta com a irmã de mesmo nome; o foco volta para ela. */
+  protected named(f: NoteFolder, value: string | null): void {
+    this.naming.set(null);
+    this.clash.set(null);
+    const clean = value?.trim() ?? '';
+    let focus = f.id;
+    if (clean && clean !== f.name) {
+      const tree = this.folderTree();
+      const twin = siblingNamed(tree, f.group, tree.parentOf(f.id), clean, f.id);
+      if (twin) {
+        this.undoToast(`${f.name} entrou em ${twin.name}: agora é uma pasta só.`, this.folders.join(f.id, twin.id));
+        focus = twin.id;
+      } else {
+        this.folders.rename(f.id, clean);
+      }
+    }
+    afterNextRender(() => this.host.querySelector<HTMLElement>(`app-folder-card[data-pasta="${CSS.escape(focus)}"] button`)?.focus(), { injector: this.injector });
+  }
+
+  /** Uma pasta nova (vazia) em `parent`, já com o campo do nome. */
+  private newFolder(parent: string | null): void {
+    if (parent !== this.openFolder()) this.enterFolder(parent);
+    const made = this.folders.create(this.mural.kind(), parent, '');
+    if (made) this.naming.set(made.id);
+    else this.toasts.show('Não cabe mais nenhuma pasta aqui.');
+  }
+
+  /** Desfaz a pasta: o que tinha dentro sobe (pergunta antes, se não estiver vazia), com o Desfazer. */
+  private async dissolve(f: NoteFolder): Promise<void> {
+    const up = this.goesTo(this.folderTree().parentOf(f.id));
+    if (!(await this.asking.dissolve(f.name, this.folders.contentsOf(f.id), up, WISH_UNITS)) || !this.folderTree().live(f.id)) return;
+    this.transitions.run(() => this.undoToast(`A pasta ${f.name} foi desfeita.`, this.folders.dissolve(f.id)));
+  }
+
+  /** As opções do menu de uma pasta da parede. */
+  private folderSections(f: NoteFolder): MenuSections {
+    const p = this.mural.profile();
+    return [
+      [{ id: 'abrir', label: 'Abrir', icon: ICON.pastaDeNotas, run: () => this.enterFolder(f.id) }],
+      [
+        {
+          id: 'novo-desejo',
+          label: `Adicionar ${g(p, 'um', 'uma')} ${p.singular} aqui`,
+          icon: ICON.adicionar,
+          dialog: true,
+          run: () => {
+            this.enterFolder(f.id);
+            this.desk.newWish();
+          },
+        },
+        { id: 'nova-pasta', label: 'Nova pasta dentro', icon: ICON.novaPasta, run: () => this.newFolder(f.id) },
+        { id: 'renomear', label: 'Renomear', icon: ICON.editar, run: () => this.naming.set(f.id) },
+        { id: 'mover', label: 'Mover para…', icon: ICON.guardarNaPasta, dialog: true, run: () => this.moving.set({ kind: 'pasta', id: f.id, name: f.name, from: this.folderTree().parentOf(f.id) }) },
+      ],
+      [{ id: 'desfazer', label: 'Desfazer a pasta', icon: ICON.desfazerPasta, danger: true, hint: 'O que tem dentro sobe; nenhum recorte sai da wishlist', run: () => void this.dissolve(f) }],
+    ];
+  }
+
+  /** O menu do vão da parede: pôr um recorte ou criar uma pasta ali. */
+  private gapSections(): MenuSections {
+    const p = this.mural.profile();
+    return [
+      [
+        { id: 'novo-desejo', label: `Adicionar ${g(p, 'um', 'uma')} ${p.singular} aqui`, icon: ICON.adicionar, dialog: true, run: () => this.desk.newWish() },
+        { id: 'nova-pasta', label: 'Nova pasta aqui', icon: ICON.novaPasta, run: () => this.newFolder(this.openFolder()) },
+      ],
+    ];
+  }
+
+  /** O que está sendo movido pela folha: recortes, ou uma pasta. */
+  protected readonly moving = signal<{ kind: 'desejos'; ids: readonly string[]; name: string; from: string | null } | { kind: 'pasta'; id: string; name: string; from: string | null } | null>(null);
+  /** O que a folha precisa saber: as contas, onde está e o que não se pode escolher. */
+  protected readonly moveSheet = computed(() => {
+    const m = this.moving();
+    if (!m) return null;
+    const tree = this.folderTree();
+    return {
+      title: m.kind === 'pasta' ? `Mover a pasta ${m.name}` : `Mover ${m.name}`,
+      sub: `Está em ${this.folderName(m.from)}`,
+      counts: this.folders.countsIn(this.mural.kind()),
+      blocked: m.kind === 'pasta' ? tree.below(m.id) : new Set<string>(),
+      rootLabel: m.kind === 'pasta' ? 'Direto na Wishlist' : 'Sem pasta',
+      start: m.from,
+    };
+  });
+
+  /** Escolheu na folha: move (os recortes, ou a pasta), com o aviso e o Desfazer. */
+  protected moveTo(id: string | null): void {
+    const m = this.moving();
+    this.moving.set(null);
+    if (!m || id === m.from) return;
+    if (m.kind === 'pasta') this.dropped({ kind: 'pasta', id: m.id }, { kind: 'guardar', folder: id });
+    else this.dropped({ kind: 'notas', lead: m.ids[0], ids: m.ids }, { kind: 'guardar', folder: id });
+  }
+
+  /** O nome escrito na folha que ainda não é pasta: cria ali e move para ela. */
+  protected moveToNew(e: { parent: string | null; name: string }): void {
+    const made = this.folders.create(this.mural.kind(), e.parent, e.name);
+    if (made) this.moveTo(made.id);
+    else {
+      this.moving.set(null);
+      this.toasts.show('Não cabe mais nenhuma pasta aqui.');
+    }
   }
 }

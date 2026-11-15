@@ -14,6 +14,8 @@ import { Settings } from '../core/settings';
 import { ViewTransitions } from '../core/view-transitions';
 import { wishTagCounts, wishTagHex } from '../core/wishlist-view';
 import { TagColors, TagPicker } from './tag-picker';
+import { FolderPicker } from './folder-picker';
+import { WishFolders } from '../core/wish-folders';
 import { Toasts } from './toast';
 import { CoverPicker } from './cover-picker';
 import { CoverSleeve } from './cover-sleeve';
@@ -37,7 +39,7 @@ export type AdderMode = 'wish' | 'draft';
  */
 @Component({
   selector: 'app-wish-adder',
-  imports: [BackdropClose, CoverPicker, CoverSleeve, DraftCard, GameSearch, IconModule, RelevanceSticker, TagPicker, WishClip],
+  imports: [BackdropClose, CoverPicker, CoverSleeve, DraftCard, FolderPicker, GameSearch, IconModule, RelevanceSticker, TagPicker, WishClip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wish-adder.html',
   styleUrl: './wish-adder.scss',
@@ -49,6 +51,7 @@ export class WishAdder {
   private readonly desk = inject(Desk);
   private readonly toasts = inject(Toasts);
   private readonly transitions = inject(ViewTransitions);
+  protected readonly wishFolders = inject(WishFolders);
   /** O desejo novo foi para a lista. */
   readonly wished = output<string>();
   /** Já estava na lista: a pessoa quer ver o que está lá. */
@@ -103,6 +106,10 @@ export class WishAdder {
   protected readonly tags = signal<string[]>([]);
   /** O lembrete: texto puro, só aparece com a mão em cima do recorte. */
   protected readonly note = signal('');
+  /** A pasta (o id; null: solto na raiz da Wishlist). Pondo um novo, a aberta na página da Wishlist. */
+  protected readonly folder = signal<string | null>(null);
+  /** Quantos recortes cada pasta da Wishlist do mural tem (com os das de dentro), para a escolha. */
+  protected readonly folderCounts = computed(() => this.wishFolders.countsIn(this.kind()));
   /** As tags à mão: as da Wishlist do mural, as mais usadas primeiro (sem a estrela das anotações). */
   protected readonly tagLib = computed<TagEntry[]>(() =>
     wishTagCounts(this.mural.wishes().filter((w) => w.kind === this.kind())).map((t) => ({ label: t.label, n: t.n, pinned: false })),
@@ -168,6 +175,9 @@ export class WishAdder {
     this.id.set(newId());
     this.game.set(null);
     this.relevance.set('comum');
+    // a pasta aberta na Wishlist deste mural: o recorte nasce nela
+    const open = this.wishFolders.open();
+    this.folder.set(open && open.kind === this.kind() ? open.id : null);
     this.dialog().nativeElement.showModal();
     // a busca só nasce depois que o diálogo desenha (se ficou um item da última vez, ela não existia)
     setTimeout(() => this.search()?.focus());
@@ -187,6 +197,7 @@ export class WishAdder {
     this.relevance.set(relevanceOf(wish));
     this.tags.set([...(wish.tags ?? [])]);
     this.note.set(wish.note ?? '');
+    this.folder.set(this.wishFolders.of(wish));
     this.dialog().nativeElement.showModal();
   }
 
@@ -202,6 +213,7 @@ export class WishAdder {
     this.attempted.set(false);
     this.tags.set([]);
     this.note.set('');
+    this.folder.set(null);
   }
 
   /** Recorta de novo: outro id, outro jeito de rasgar e de colar o nome. */
@@ -217,7 +229,7 @@ export class WishAdder {
   /** O que a folha muda no desejo: o item, a vontade (Comum sai do registro), as tags e o lembrete. */
   private patch(game: PickedGame): WishPatch {
     const r = this.relevance();
-    return { game, relevance: r === 'comum' ? undefined : r, tags: this.tags(), note: this.note() };
+    return { game, relevance: r === 'comum' ? undefined : r, tags: this.tags(), note: this.note(), folder: this.folder() ?? undefined };
   }
 
   /**
@@ -231,6 +243,7 @@ export class WishAdder {
     if (relevanceOf(from) !== this.relevance()) out.relevance = all.relevance;
     if ((from.tags ?? []).map(fold).join('\n') !== this.tags().map(fold).join('\n')) out.tags = all.tags;
     if ((from.note ?? '') !== cleanWishNote(this.note())) out.note = all.note;
+    if (this.wishFolders.of(from) !== this.folder()) out.folder = all.folder;
     return out;
   }
 
@@ -332,6 +345,13 @@ export class WishAdder {
     this.close();
     this.store.updateWish(editing.id, this.changes(editing, gm));
     this.desk.openWish(editing.id);
+  }
+
+  /** O "Criar" da escolha da pasta: a pasta nasce na hora (como no editor das anotações) e fica escolhida. */
+  protected makeFolder(e: { parent: string | null; name: string }): void {
+    const made = this.wishFolders.create(this.kind(), e.parent, e.name);
+    if (made) this.folder.set(made.id);
+    else this.toasts.show('Não cabe mais nenhuma pasta aqui.');
   }
 
   /** Tirar da wishlist pelo editar (com o Desfazer de quem tira). */

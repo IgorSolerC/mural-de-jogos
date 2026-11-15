@@ -1,0 +1,58 @@
+@use 'pilha-arrasto' as pilha;
+
+// Arrastar para organizar as pastas (pages/wall-drag.ts), nas Anotações e na Wishlist: a cópia da ficha (ou da
+// pasta) segue o ponteiro levantada, torta e encolhida na direção dele (o alvo embaixo continua à vista), com a
+// sombra de quem saiu da parede; com várias marcadas, o adesivo de tinta diz quantas vão. Uma etiqueta amarela
+// de marca-texto, colada embaixo do ponteiro, diz o que soltar ali faz. Quem usa inclui o mixin no estilo da
+// parede (a cópia e a etiqueta nascem dentro dela, com os atributos de escopo dela) e desenha o alvo e o
+// apagado das fichas dela.
+@mixin fantasma {
+  .arrasto-fantasma {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 60;
+    pointer-events: none;
+    rotate: 2.5deg;
+    /* encolhida em direção ao ponteiro (a origem é onde ele pegou, ver wall-drag.ts) */
+    scale: 0.5;
+    opacity: 0.94;
+    filter: drop-shadow(0 18px 22px rgb(0 0 0 / 0.55));
+    will-change: translate;
+  }
+
+  /* várias marcadas: o maço do Kanban (ui/_pilha-arrasto.scss); a cópia está pela metade, e o adesivo volta
+     ao tamanho de sempre */
+  @include pilha.maco;
+
+  .arrasto-fantasma .pilha-n {
+    scale: 2;
+    transform-origin: 100% 0;
+  }
+
+  .arrasto-dica {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 61;
+    max-width: min(22rem, calc(100vw - 32px));
+    padding: 6px 11px 5px;
+    border-radius: 3px;
+    background: var(--hi);
+    color: var(--ink);
+    font-family: var(--f-label);
+    font-weight: 700;
+    font-size: 0.92rem;
+    letter-spacing: 0.06em;
+    line-height: 1.2;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    rotate: -1.5deg;
+    pointer-events: none;
+    box-shadow:
+      0 1px 1px rgb(0 0 0 / 0.35),
+      0 6px 12px -4px rgb(0 0 0 / 0.5);
+  }
+}

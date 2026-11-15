@@ -35,6 +35,7 @@ import { ALL_TAB, NO_CATEGORY_TAB, NoteTab, NoteTabs, PINNED_TAB, SHARED_TAB, NO
 import { NO_TAG_OUTS, TagOuts, excludeTag, hiddenByTags, outByDefault, releaseTag, showAllTags, tagIsOut } from './tag-filter';
 import { FacetKey, GRADE_LABEL, NO_FILTER, WallFilter, facetsOf, filterFor, filterSize, gradeBandOf, matchesFilter, matchesQuery, tagsOf, toggleOption } from './wall-filter';
 import { ONE_DECIMAL as avgFmt } from './review';
+import type { Wish } from './review';
 import { cap, labelKey, nameCollator, plural } from './text';
 import { longMonthFmt } from './dates';
 import { tasksOf } from './rich-text';
@@ -1321,7 +1322,8 @@ export function directionLabelOf(sort: SortKey, direction: Direction, profile: K
 export interface FolderInfo {
   notes: number;
   folders: number;
-  peek: readonly Review[];
+  /** As anotações (ou os desejos da Wishlist: só a capa, sem a cartolina). */
+  peek: readonly (Review | Pick<Wish, 'id' | 'game'>)[];
 }
 
 /** Como o mural está ordenado: serve ao seu mural e ao mural de um colega. */

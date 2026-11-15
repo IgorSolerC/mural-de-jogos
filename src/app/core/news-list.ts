@@ -27,14 +27,15 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-15-wishlist-editar',
+    id: '2026-11-15-wishlist-pastas',
     version: '1.45.4',
     kind: 'ajustes',
     date: '2026-11-15',
-    title: 'Editar o recorte da Wishlist, com tags e lembrete',
+    title: 'Pastas na Wishlist, e editar o recorte com tags e lembrete',
     melhorias: [
       'Na Wishlist, a etiqueta do recorte (e o botão direito) ganhou o Editar: a folha do "Pôr na wishlist" muda o item, a capa e a vontade sem resenhar e sem tirar da lista, com o Desfazer, e tem ali mesmo o Começar a resenha e o Tirar da wishlist.',
       'Ao pôr ou editar um recorte, dá para dar tags a ele (cada tag nova ganha uma cor, como nas anotações) e escrever um lembrete, que nunca aparece na parede: só com o mouse em cima do recorte, ou segurando o dedo no celular.',
+      'A Wishlist ganhou as pastas das anotações, uma árvore para cada mural: as pastas manilha antes dos recortes, o caminho na pasta da barra, arrastar um recorte até uma pasta (ou até o caminho) para guardar, soltar um recorte sobre outro para criar uma pasta com os dois, e Renomear, Mover para… e Desfazer a pasta, todos com o Desfazer. O botão direito do recorte tem o Mover para pasta…, a folha do recorte tem a Pasta (o novo já nasce na pasta aberta), e dentro de uma pasta a busca, os filtros e o Sortear pegam ela e as de dentro.',
     ],
   },
   {

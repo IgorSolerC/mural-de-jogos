@@ -31,8 +31,34 @@ export type WallDragItem = { kind: 'notas'; lead: string; ids: readonly string[]
 /** Onde cai: com outra anotação, numa pasta nova (`juntar`), ou numa pasta (`guardar`; null: a raiz do grupo). */
 export type WallDrop = { kind: 'juntar'; with: string } | { kind: 'guardar'; folder: string | null };
 
+/**
+ * As fichas que se arrastam, quando não são as anotações da parede (`WALL_NOTES`): a Wishlist arrasta os
+ * recortes e as capas da Grade.
+ */
+export interface WallDragPieces {
+  /** O seletor da caixa de cada uma. */
+  selector: string;
+  /** O id dela. */
+  idOf: (el: Element) => string | null;
+  /** O papel que vira a cópia que segue o ponteiro (sem a legenda de baixo). */
+  face: (el: HTMLElement) => HTMLElement;
+  /** A frase de soltar uma sobre outra ("Nova pasta com os dois"), com `n` as que vão. */
+  joinLabel: (n: number) => string;
+  /** Só o miolo da outra arma o "juntar" (a beirada não): com recortes tortos e juntos, a mão erra fácil. */
+  core?: number;
+}
+
 /** O que a parede diz ao arrasto: o que vale arrastar, os nomes e o que fazer ao soltar. */
 export interface WallDragConfig {
+  /** As fichas que se arrastam (sem: as anotações da parede). */
+  pieces?: WallDragPieces;
+  /**
+   * O vão da parede (este seletor, fora das fichas e das pastas) também é alvo: guardar na pasta aberta. Parar
+   * em cima de uma pasta abre ela; soltar logo depois no vão guarda ali, sem precisar achar outro alvo.
+   */
+  gap?: string;
+  /** O elemento de onde a cópia e a etiqueta copiam o escopo dos estilos (sem: a `.wall` da parede). */
+  scope?: () => Element | null;
   /** A parede (as fichas, as pastas e o caminho na barra ficam dentro dela ou da página). */
   host: HTMLElement;
   /** Se arrastar vale agora (o seu Murall, numa aba de grupo, sem marcar para o lado a lado). */
@@ -88,6 +114,7 @@ interface Target {
  * página rola. O que foi pego fica apagado no lugar enquanto a cópia anda.
  */
 export class WallDrag {
+  private readonly pieces: WallDragPieces;
   private readonly gesture: DragHold<{ item: WallDragItem; box: HTMLElement }>;
   private ghost: HTMLElement | null = null;
   private tip: HTMLElement | null = null;
@@ -101,6 +128,12 @@ export class WallDrag {
   private touch = false;
 
   constructor(private readonly cfg: WallDragConfig) {
+    this.pieces = cfg.pieces ?? {
+      selector: WALL_NOTES,
+      idOf: wallNoteId,
+      face: (box) => box.querySelector<HTMLElement>('app-review-card') ?? box,
+      joinLabel: (n) => (n === 1 ? 'Nova pasta com as duas' : `Nova pasta com as ${n + 1}`),
+    };
     this.gesture = new DragHold({
       begin: (s) => this.begin(s),
       move: (x, y) => this.follow(x, y),
@@ -145,25 +178,25 @@ export class WallDrag {
     // o que é de dentro da ficha: as caixinhas das tarefas, os botões da etiqueta (só o da ficha inteira
     // arrasta), os campos, os links
     if (t.closest('input, textarea, select, label, a[href], [contenteditable="true"], button:not(.hit)')) return;
-    const box = t.closest<HTMLElement>(WALL_NOTES);
-    const id = box && this.cfg.host.contains(box) ? wallNoteId(box) : null;
+    const box = t.closest<HTMLElement>(this.pieces.selector);
+    const id = box && this.cfg.host.contains(box) ? this.pieces.idOf(box) : null;
     if (!box || !id) return;
     // as marcadas vão juntas, na ordem da parede (ui/drag-pile.ts, como no Kanban)
-    const order = Array.from(this.cfg.host.querySelectorAll(WALL_NOTES), (el) => wallNoteId(el) ?? '');
+    const order = Array.from(this.cfg.host.querySelectorAll(this.pieces.selector), (el) => this.pieces.idOf(el) ?? '');
     const group = dragGroup(id, this.cfg.marked(), order);
     this.gesture.down(e, { item: { kind: 'notas', lead: id, ids: group.length ? group : [id] }, box }, box);
   }
 
   private begin(s: DragStart<{ item: WallDragItem; box: HTMLElement }>): boolean {
     const { item, box } = s.item;
-    const face = item.kind === 'pasta' ? box : (box.querySelector<HTMLElement>('app-review-card') ?? box);
+    const face = item.kind === 'pasta' ? box : this.pieces.face(box);
     const rect = face.getBoundingClientRect();
     if (!rect.width) return false;
     this.item = item;
     this.touch = s.touch;
     this.grab = { x: s.x - rect.left, y: s.y - rect.top };
     // os estilos da parede valem na cópia e na etiqueta, como nas fichas
-    const wall = this.cfg.host.querySelector('.wall') ?? this.cfg.host;
+    const wall = this.cfg.scope?.() ?? this.cfg.host.querySelector('.wall') ?? this.cfg.host;
     const scope = scopeOf(wall);
     const ghost = document.createElement('div');
     for (const n of scope) ghost.setAttribute(n, '');
@@ -192,7 +225,7 @@ export class WallDrag {
     this.tip = tip;
     // o que foi pego fica apagado no lugar
     const ids = item.kind === 'notas' ? item.ids : [];
-    this.dimmed = item.kind === 'pasta' ? [box] : Array.from(this.cfg.host.querySelectorAll<HTMLElement>(WALL_NOTES)).filter((el) => ids.includes(wallNoteId(el) ?? ''));
+    this.dimmed = item.kind === 'pasta' ? [box] : Array.from(this.cfg.host.querySelectorAll<HTMLElement>(this.pieces.selector)).filter((el) => ids.includes(this.pieces.idOf(el) ?? ''));
     for (const el of this.dimmed) el.setAttribute('data-arrastada', '');
     document.documentElement.classList.add('parede-arrastando');
     return true;
@@ -200,8 +233,10 @@ export class WallDrag {
 
   /** O papel de uma anotação da parede (a ficha, ou a linha da Lista), se está montado. */
   private faceOf(id: string): HTMLElement | null {
-    for (const el of this.cfg.host.querySelectorAll<HTMLElement>(WALL_NOTES)) {
-      if (wallNoteId(el) === id) return el.querySelector<HTMLElement>('app-review-card') ?? (el.matches('.linha') ? el : null);
+    for (const el of this.cfg.host.querySelectorAll<HTMLElement>(this.pieces.selector)) {
+      if (this.pieces.idOf(el) !== id) continue;
+      if (this.cfg.pieces) return this.pieces.face(el);
+      return el.querySelector<HTMLElement>('app-review-card') ?? (el.matches('.linha') ? el : null);
     }
     return null;
   }
@@ -265,11 +300,23 @@ export class WallDrag {
       if (!drop) return null;
       return { el: folder, ...drop, spring: id };
     }
-    const box = hit.closest<HTMLElement>(WALL_NOTES);
-    const other = box ? wallNoteId(box) : null;
+    const box = hit.closest<HTMLElement>(this.pieces.selector);
+    const other = box ? this.pieces.idOf(box) : null;
+    if (!box && this.cfg.gap) {
+      const gap = hit.closest<HTMLElement>(this.cfg.gap);
+      const drop = gap && this.cfg.host.contains(gap) ? this.storeIn(item, open) : null;
+      return gap && drop ? { el: gap, ...drop } : null;
+    }
     if (!box || !other || item.kind !== 'notas' || item.ids.includes(other)) return null;
-    const n = item.ids.length;
-    return { el: box, drop: { kind: 'juntar', with: other }, label: n === 1 ? 'Nova pasta com as duas' : `Nova pasta com as ${n + 1}` };
+    const core = this.pieces.core;
+    if (core) {
+      // só o miolo do papel dela (sem a legenda de baixo) arma o juntar
+      const r = this.pieces.face(box).getBoundingClientRect();
+      const mx = (r.width * (1 - core)) / 2;
+      const my = (r.height * (1 - core)) / 2;
+      if (x < r.left + mx || x > r.right - mx || y < r.top + my || y > r.bottom - my) return null;
+    }
+    return { el: box, drop: { kind: 'juntar', with: other }, label: this.pieces.joinLabel(item.ids.length) };
   }
 
   /** Guardar o que se arrasta na pasta `id` (null: a raiz): a frase, ou null se já está lá ou não pode. */

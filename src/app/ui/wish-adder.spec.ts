@@ -9,6 +9,7 @@ import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { Toasts } from './toast';
 import { WishAdder } from './wish-adder';
+import { WishFolders } from '../core/wish-folders';
 
 /** O "Editar recorte" (PLANO-WISHLIST.md, rodada 4): a folha do "Pôr na wishlist" aberta com um desejo. */
 
@@ -218,6 +219,35 @@ describe('a folha do desejo: editar sem resenhar', () => {
     await settle();
     button('Tirar da wishlist')!.click();
     expect(calls).toContain('removeWish:w2');
+  });
+
+  it('a Pasta: o novo nasce na pasta aberta na Wishlist; editar troca, e o Criar faz a pasta na hora', async () => {
+    const folders = TestBed.inject(WishFolders);
+    const coop = folders.create('jogos', null, 'Co-op')!.id;
+    folders.open.set({ kind: 'jogos', id: coop });
+    adder().open();
+    await settle();
+    (adder() as unknown as { pick(g: Wish['game']): void }).pick({ name: 'Unravel', coverUrl: null, source: 'manual' });
+    await settle();
+    expect(host.querySelector('.onde [role="radio"][aria-checked="true"]')!.textContent).toContain('Co-op');
+    button('Pôr na lista')!.click();
+    await settle();
+    expect(store.wishes().find((w) => w.game.name === 'Unravel')!.folder).toBe(coop);
+    // a pasta aberta de outro mural não vale
+    folders.open.set({ kind: 'livros', id: coop });
+    adder().edit(store.getWish('w1')!);
+    await settle();
+    expect(host.querySelector('.onde [role="radio"][aria-checked="true"]')!.textContent).toContain('Sem pasta');
+    const field = host.querySelector<HTMLInputElement>('.onde input')!;
+    field.value = 'Curtinhos';
+    field.dispatchEvent(new Event('input'));
+    await settle();
+    field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    await settle();
+    button('Salvar')!.click();
+    await settle();
+    const made = folders.tree().kids('desejos:jogos', null).find((f) => f.name === 'Curtinhos')!;
+    expect(store.getWish('w1')!.folder).toBe(made.id);
   });
 
   it('o Pôr na wishlist ganha as tags (a nova com uma cor da Wishlist do mural) e o lembrete; o Pra depois, não', async () => {

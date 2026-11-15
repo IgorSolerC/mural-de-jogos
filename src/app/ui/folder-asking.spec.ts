@@ -1,7 +1,7 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Confirm } from './confirm';
-import { FolderAsking } from './folder-asking';
+import { FolderAsking, WISH_UNITS } from './folder-asking';
 
 /**
  * A pergunta de desfazer a pasta (ui/folder-asking.ts): uma só, para a parede e para as configurações do
@@ -42,6 +42,9 @@ describe('a pergunta de desfazer a pasta (FolderAsking)', () => {
       }),
     );
     expect(FolderAsking.dissolveText({ notes: 0, folders: 1 }, 'Programação')).toBe('A 1 pasta de dentro vai para Programação. Nenhuma anotação é apagada.');
+    // na Wishlist, os recortes
+    expect(FolderAsking.dissolveText({ notes: 2, folders: 1 }, 'a Wishlist', WISH_UNITS)).toBe('Os 2 recortes e 1 pasta de dentro vão para a Wishlist. Nenhum recorte sai da wishlist.');
+    expect(FolderAsking.dissolveText({ notes: 0, folders: 2 }, 'a Wishlist', WISH_UNITS)).toBe('As 2 pastas de dentro vão para a Wishlist. Nenhum recorte sai da wishlist.');
     // a vazia some sem perguntar
     expect(await asking.dissolve('Vazia', { notes: 0, folders: 0 }, 'Estudos')).toBeTrue();
     expect(asked.length).toBe(1);

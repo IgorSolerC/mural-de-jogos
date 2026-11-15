@@ -159,7 +159,12 @@ export class NoteFolders {
 
   /** Cria uma pasta no grupo (`category`, null: sem grupo), dentro de `parent` (null: na raiz). Devolve a pasta, ou null sem lugar. */
   create(category: string | null | undefined, parent: string | null, name: string): NoteFolder | null {
-    const { folders, folder } = withNewFolder(this.folders, lookKey(category ?? ''), parent, name);
+    return this.createIn(lookKey(category ?? ''), parent, name);
+  }
+
+  /** O mesmo, pela chave do grupo (as pastas da Wishlist moram no grupo `desejos:<mural>`, ver core/wish-folders.ts). */
+  createIn(group: string, parent: string | null, name: string): NoteFolder | null {
+    const { folders, folder } = withNewFolder(this.folders, group, parent, name);
     if (folder) this.save(folders);
     return folder;
   }

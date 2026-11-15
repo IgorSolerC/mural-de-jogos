@@ -102,6 +102,22 @@
             />
           </fieldset>
 
+          <!-- a pasta: a árvore da Wishlist do mural (a mesma escolha das anotações) -->
+          <fieldset class="bloco onde">
+            <legend class="pergunta">Pasta</legend>
+            <app-folder-picker
+              [(value)]="folder"
+              [tree]="wishFolders.tree()"
+              [group]="wishFolders.group(kind())"
+              groupName="Wishlist"
+              [counts]="folderCounts()"
+              rootLabel="Sem pasta"
+              label="Pasta do recorte"
+              [units]="['recorte', 'recortes']"
+              (create)="makeFolder($event)"
+            />
+          </fieldset>
+
           <!-- o lembrete: nunca na parede, só com a mão em cima do recorte, na folha do caderno -->
           <div class="bloco lembrete">
             <label class="pergunta" for="desejo-lembrete">Lembrete</label>

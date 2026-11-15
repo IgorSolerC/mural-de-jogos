@@ -39,6 +39,7 @@ import { Pin } from './pin';
             [blocked]="blocked()"
             [rootLabel]="rootLabel()"
             [label]="title()"
+            [units]="units()"
             (create)="create.emit($event)"
           />
         </div>
@@ -61,6 +62,8 @@ export class FolderMoveSheet {
   /** O que não se pode escolher (a pasta que se move e as de dentro). */
   readonly blocked = input<ReadonlySet<string>>(new Set());
   readonly rootLabel = input('Sem pasta');
+  /** O que as contas contam (as anotações; na Wishlist, os recortes). */
+  readonly units = input<readonly [string, string]>(['anotação', 'anotações']);
   /** A cor do papel (a da anotação; a pasta, manilha). */
   readonly stock = input('branco');
   /** Escolheu (o id; null: a raiz do grupo). */

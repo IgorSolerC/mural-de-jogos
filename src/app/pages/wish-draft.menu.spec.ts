@@ -117,7 +117,7 @@ describe('menu do botão direito no Pra depois e na Wishlist', () => {
     await mount(WishlistPage);
     const clip = (id: string) => host.querySelector<HTMLElement>(`.desejo[data-ficha="${id}"]`)!;
     await rightClick(clip('w1'));
-    expect(labels()).toEqual(['Começar a resenha', 'Editar', 'MUST PLAY', 'Comum', 'LATER', 'Tirar da wishlist']);
+    expect(labels()).toEqual(['Começar a resenha', 'Editar', 'MUST PLAY', 'Comum', 'LATER', 'Mover para pasta…', 'Tirar da wishlist']);
     expect(panel().querySelectorAll('.escolha app-relevance-sticker').length).toBe(2);
     expect(option('Comum').querySelector('.marcada')).not.toBeNull();
     option('Começar a resenha').click();

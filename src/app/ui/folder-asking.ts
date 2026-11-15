@@ -9,6 +9,19 @@ export interface FolderContents {
   folders: number;
 }
 
+/** O que mora nas pastas: as anotações, ou os recortes da Wishlist (`WISH_UNITS`). */
+export interface FolderUnits {
+  one: string;
+  many: string;
+  /** "o recorte", "os recortes". */
+  male: boolean;
+  /** O fim da frase: nada se apaga. */
+  none: string;
+}
+
+export const NOTE_UNITS: FolderUnits = { one: 'anotação', many: 'anotações', male: false, none: 'Nenhuma anotação é apagada.' };
+export const WISH_UNITS: FolderUnits = { one: 'recorte', many: 'recortes', male: true, none: 'Nenhum recorte sai da wishlist.' };
+
 /**
  * A pergunta de desfazer a pasta, uma só para a parede (o menu da pasta) e para as configurações do mural
  * (a parte Pastas). Fica fora do `RemoveAsking` porque a parede é a mesma peça da visita e não importa nada
@@ -19,22 +32,25 @@ export class FolderAsking {
   private readonly confirm = inject(Confirm);
 
   /** A frase do que acontece: "As 2 anotações e 1 pasta de dentro vão para Estudos. Nenhuma anotação é apagada." */
-  static dissolveText(contents: FolderContents, up: string): string {
+  static dissolveText(contents: FolderContents, up: string, units: FolderUnits = NOTE_UNITS): string {
     const { notes, folders } = contents;
-    const what = [notes ? plural(notes, 'anotação', 'anotações') : '', folders ? plural(folders, 'pasta', 'pastas') : ''].filter(Boolean).join(' e ');
+    const what = [notes ? plural(notes, units.one, units.many) : '', folders ? plural(folders, 'pasta', 'pastas') : ''].filter(Boolean).join(' e ');
+    // o artigo vai pelo primeiro da lista (os recortes são "os"; as anotações e as pastas, "as")
     const many = notes + folders > 1;
-    return `${many ? 'As' : 'A'} ${what} de dentro ${many ? 'vão' : 'vai'} para ${up}. Nenhuma anotação é apagada.`;
+    const male = !!notes && units.male;
+    const art = many ? (male ? 'Os' : 'As') : male ? 'O' : 'A';
+    return `${art} ${what} de dentro ${many ? 'vão' : 'vai'} para ${up}. ${units.none}`;
   }
 
   /**
    * Pergunta antes de desfazer a pasta `name`, que sobe para `up` (o nome da de cima, ou do grupo). A vazia
    * não pergunta. Devolve se pode desfazer.
    */
-  async dissolve(name: string, contents: FolderContents, up: string): Promise<boolean> {
+  async dissolve(name: string, contents: FolderContents, up: string, units: FolderUnits = NOTE_UNITS): Promise<boolean> {
     if (!contents.notes && !contents.folders) return true;
     return this.confirm.ask({
       title: `Desfazer a pasta ${name}?`,
-      text: FolderAsking.dissolveText(contents, up),
+      text: FolderAsking.dissolveText(contents, up, units),
       confirm: 'Desfazer a pasta',
       cancel: 'Deixar',
       icon: ICON.desfazerPasta,
