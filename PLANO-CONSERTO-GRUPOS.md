@@ -135,7 +135,7 @@ Achados enquanto lia o código; cada um entra na rodada que diz:
 ## 4. Andamento
 
 - [x] Rodada 1 — A pasta não sai mais (BUILD 890). O /code-review mid achou 5, consertados: entrar num grupo leva a pasta da solta (e a de outro grupo sai), o lugar só muda depois de a nuvem aceitar tirar do grupo, e o teste de parar de compartilhar como a nuvem faz de verdade
-- [ ] Rodada 2 — As pastas do grupo são do grupo
+- [x] Rodada 2 — As pastas do grupo são do grupo (BUILD 891). As pastas no documento do grupo (`pastas`), juntadas pasta a pasta; a árvore pela peça leve `core/group-folders.ts` (o NoteFolders não depende do serviço dos grupos). Só o dono inaugura o documento das pastas (um membro nunca o cria sem as do dono), e o dono guarda uma cópia nas configurações. O /code-review mid achou 4, consertados: a cópia velha do dono não traz de volta pasta desfeita, renomear leva as pastas, a pasta do membro num grupo de antes vai para o documento
 - [ ] Rodada 3 — Apagar em massa e o que sobra de um grupo parado
 - [ ] Rodada 4 — Conflito sem surpresa
 - [ ] Rodada 5 — A restauração da conta do dono

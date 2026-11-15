@@ -22,6 +22,7 @@ import {
 import { Review, isNote } from './review';
 import { ReviewStore } from './review-store';
 import { Settings } from './settings';
+import { GroupFolders } from './group-folders';
 
 /**
  * As pastas das anotações do seu Murall (PLANO-PASTAS.md): a árvore pronta para ler (`tree`) e o que muda
@@ -37,8 +38,23 @@ import { Settings } from './settings';
 export class NoteFolders {
   private readonly settings = inject(Settings);
   private readonly store = inject(ReviewStore);
+  private readonly groups = inject(GroupFolders);
 
-  readonly tree = computed<FolderTree>(() => folderTree(this.settings.notesConfig().folders ?? []));
+  /**
+   * Todas as pastas: as suas (das configurações) e as dos grupos compartilhados (do documento de cada grupo,
+   * PLANO-CONSERTO-GRUPOS.md, rodada 2), as mesmas para todos que estão nele. Num grupo cujo documento já tem as
+   * pastas, valem só as dele (as guardadas aqui são a cópia do dono, ver `save`, ou velhas); num grupo de antes
+   * desta build, as guardadas continuam valendo até irem para o documento (`SharedGroupsStore.seedFolders`):
+   * nenhuma anotação sai da pasta no caminho.
+   */
+  private readonly all = computed<readonly NoteFolder[]>(() => {
+    const own = this.settings.notesConfig().folders ?? [];
+    const shared = this.groups.groups();
+    if (!shared.size) return own;
+    return [...own.filter((f) => !shared.get(f.group)?.doc), ...this.groups.folders()];
+  });
+
+  readonly tree = computed<FolderTree>(() => folderTree(this.all()));
 
   constructor() {
     effect(() => {
@@ -59,13 +75,37 @@ export class NoteFolders {
   }
 
   private get folders(): readonly NoteFolder[] {
-    return this.settings.notesConfig().folders;
+    return this.all();
   }
 
+  /**
+   * Grava a lista inteira. As pastas de um grupo compartilhado vão para o documento dele, quando quem está aqui
+   * escreve no grupo e o documento já tem pastas (ou é o dono, que as leva para lá na primeira vez): um membro
+   * nunca cria o documento das pastas sem as do dono, o que tiraria as anotações do dono das pastas. O dono guarda
+   * nas configurações uma cópia das pastas dos grupos dele (vão no backup e voltam ao parar de compartilhar); de
+   * quem não é o dono, as do grupo não ficam nas configurações. O resto vai para as configurações, como sempre.
+   */
   private save(folders: readonly NoteFolder[]): void {
     // os desejos da Wishlist também apontam para pastas daqui (grupo desejos:<mural>): a lápide fica enquanto alguém aponta
     const pruned = prunedFolders(folders, [...this.store.notes(), ...this.store.wishes()], Date.now());
-    this.settings.setNotesConfig({ folders: pruned });
+    const shared = this.groups.groups();
+    if (!shared.size) {
+      this.settings.setNotesConfig({ folders: pruned });
+      return;
+    }
+    const doc = this.groups.folders();
+    const written = new Set<string>();
+    const mirrored = new Set<string>();
+    for (const [key, g] of shared) {
+      if (!g.write || !(g.doc || g.dono)) continue;
+      const list = pruned.filter((f) => f.group === key);
+      if (JSON.stringify(list) !== JSON.stringify(doc.filter((f) => f.group === key))) this.groups.update(g.id, list);
+      written.add(key);
+      if (g.dono) mirrored.add(key);
+    }
+    const stored = this.settings.notesConfig().folders ?? [];
+    const next = pruned.filter((f) => mirrored.has(f.group) || (!written.has(f.group) && !shared.get(f.group)?.doc));
+    if (JSON.stringify(next) !== JSON.stringify(stored)) this.settings.setNotesConfig({ folders: next });
   }
 
   /** O nome da pasta viva, ou null. */

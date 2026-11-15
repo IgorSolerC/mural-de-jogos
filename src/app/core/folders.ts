@@ -385,6 +385,50 @@ export function prunedFolders(folders: readonly NoteFolder[], notes: readonly Pi
   return folders.filter((f) => !f.gone || Date.parse(f.gone) >= old || used.has(f.id));
 }
 
+// ===== as pastas de um grupo compartilhado =====
+
+/**
+ * As pastas como o documento de um grupo compartilhado guarda (PLANO-CONSERTO-GRUPOS.md, rodada 2): sem a chave
+ * do grupo, que é o próprio grupo e muda com o nome que ele tem no mural de cada um ("Trabalho · Ana").
+ */
+export type GroupDocFolder = Omit<NoteFolder, 'group'>;
+
+/** As pastas do documento do grupo, conferidas, na chave `group` (a do nome que o grupo tem aqui). */
+export function docFolders(raw: unknown, group: string): NoteFolder[] {
+  if (!Array.isArray(raw)) return [];
+  return sanitizeFolders(raw.map((v) => (v && typeof v === 'object' ? { ...(v as object), group } : v)));
+}
+
+/** As pastas do grupo `group` para o documento (sem a chave do grupo). */
+export function toDocFolders(folders: readonly NoteFolder[], group: string): GroupDocFolder[] {
+  return folders.filter((f) => f.group === group).map(({ group: _g, ...rest }) => rest);
+}
+
+/**
+ * As pastas de um grupo compartilhado juntadas pasta a pasta, quando duas pessoas mexeram ao mesmo tempo a partir
+ * de `o`: cada pasta fica com o que mudou nela (as duas mudaram: vale `mine`, a daqui, a que a pessoa acabou de
+ * fazer); a criada de um lado entra; a que só um lado ainda tem e o outro não mexeu desde `o` fica com o lado que
+ * mexeu (desfazer é uma lápide, `gone`: é mudança como as outras). Funciona com a chave do grupo ou sem ela.
+ */
+export function mergeFolders<T extends GroupDocFolder>(o: readonly T[], theirs: readonly T[], mine: readonly T[]): T[] {
+  const base = new Map(o.map((f) => [f.id, f]));
+  const a = new Map(theirs.map((f) => [f.id, f]));
+  const b = new Map(mine.map((f) => [f.id, f]));
+  const same = (x: T | undefined, y: T | undefined) => JSON.stringify(x ?? null) === JSON.stringify(y ?? null);
+  const out: T[] = [];
+  for (const id of new Set([...a.keys(), ...b.keys()])) {
+    const was = base.get(id);
+    const x = a.get(id);
+    const y = b.get(id);
+    if (x && y) out.push(same(y, was) ? x : y);
+    // só de um lado: a nova desse lado entra; a que o outro tirou de vez sai, a não ser que este lado a mudou
+    else if (x) {
+      if (!was || !same(x, was)) out.push(x);
+    } else if (y && (!was || !same(y, was))) out.push(y);
+  }
+  return out;
+}
+
 // ===== o mural público =====
 
 /**

@@ -12,6 +12,10 @@ import { AccessPerson, AccessState } from './access';
 import { SharedRole } from './shared-notes';
 import type { SharedEntry } from './shared-store';
 import { FRESH_AT, KanbanBoard, boardIdFor, mergeBoards, sanitizeBoard } from './kanban';
+import { lookKey } from './category-looks';
+import { GroupDocFolder, NoteFolder, docFolders, mergeFolders, toDocFolders } from './folders';
+import { Settings } from './settings';
+import { GroupFolders } from './group-folders';
 
 const RANK: Record<SharedRole, number> = { leitor: 1, editor: 2, gestor: 3, dono: 4 };
 /** O papel mais aberto dos dois (o da anotação e o do grupo dela). */
@@ -54,6 +58,7 @@ export class SharedGroupsStore {
   private readonly store = inject(ReviewStore);
   private readonly shared = inject(SharedStore);
   private readonly auto = inject(GROUPS_AUTO);
+  private readonly settings = inject(Settings);
 
   readonly entries = signal<ReadonlyMap<string, SharedGroup>>(new Map());
   private readonly accountId = computed(() => (this.account.signedIn() ? (this.account.account()?.id ?? null) : null));
@@ -102,10 +107,37 @@ export class SharedGroupsStore {
   });
   /** O grupo compartilhado de cada quadro (pelo id do quadro aqui): também o dos que ainda não têm quadro. */
   readonly boardGroups = computed(() => new Map([...this.names()].map(([id, name]) => [boardIdFor(name), id])));
+  /**
+   * As pastas dos grupos compartilhados (PLANO-CONSERTO-GRUPOS.md, rodada 2), do documento de cada um, na chave do
+   * nome que o grupo tem aqui: as mesmas para todos que estão nele. Só dos grupos cujo documento já tem pastas (o
+   * de antes desta build continua com as pastas guardadas de cada um, até o dono levá-las, ver `seedFolders`).
+   */
+  readonly folders = computed<NoteFolder[]>(() => {
+    const out: NoteFolder[] = [];
+    for (const [id, name] of this.names()) {
+      const raw = this.entries().get(id)?.dados['pastas'];
+      if (Array.isArray(raw)) out.push(...docFolders(raw, lookKey(name)));
+    }
+    return out;
+  });
+  /**
+   * Os grupos compartilhados pela chave do nome que eles têm aqui: o id, se quem está aqui escreve nele, e se o
+   * documento já guarda as pastas (para `NoteFolders` saber de onde vêm e para onde vão as pastas de cada grupo).
+   */
+  readonly folderGroups = computed<ReadonlyMap<string, { id: string; write: boolean; doc: boolean; dono: boolean }>>(() => {
+    const out = new Map<string, { id: string; write: boolean; doc: boolean; dono: boolean }>();
+    for (const [id, name] of this.names()) {
+      const g = this.entries().get(id);
+      if (g) out.set(lookKey(name), { id, write: canWrite(g.papel), doc: Array.isArray(g.dados['pastas']), dono: g.papel === 'dono' });
+    }
+    return out;
+  });
   /** O último erro de levar uma anotação para um grupo (a peça dele mostra; some no próximo que dá certo). */
   readonly error = signal<{ grupo: string; mensagem: string } | null>(null);
 
   constructor() {
+    // as pastas dos grupos para a árvore das pastas (NoteFolders), sem ela depender deste serviço
+    inject(GroupFolders).attach({ folders: () => this.folders(), groups: () => this.folderGroups(), update: (id, list) => this.updateFolders(id, list) });
     effect(() => {
       const id = this.accountId();
       untracked(() => this.loadFor(id));
@@ -124,6 +156,13 @@ export class SharedGroupsStore {
     effect(() => {
       if (this.active()) untracked(() => this.schedule(0));
       else clearTimeout(this.timer);
+    });
+    // as pastas de um grupo seu compartilhado antes desta build vão para o documento dele, para todos
+    effect(() => {
+      this.entries();
+      this.names();
+      this.settings.notesConfig();
+      untracked(() => this.seedFolders());
     });
     // a anotação sua que foi parar num grupo compartilhado vai para ele
     effect(() => {
@@ -194,14 +233,77 @@ export class SharedGroupsStore {
   }
 
   /**
+   * Muda as pastas de um grupo compartilhado (quem escreve no grupo): `folders` são as dele, na chave do nome que
+   * ele tem aqui. Vale aqui na hora e sobe logo depois (outra pessoa gravou antes: as duas se juntam pasta a
+   * pasta). Devolve false para quem só lê, ou quando nada mudou.
+   */
+  updateFolders(groupId: string, folders: readonly NoteFolder[]): boolean {
+    const g = this.entries().get(groupId);
+    const name = this.names().get(groupId);
+    if (!g || !name || !canWrite(g.papel)) return false;
+    const pastas = toDocFolders(folders, lookKey(name));
+    if (JSON.stringify(pastas) === JSON.stringify(g.dados['pastas'] ?? null)) return false;
+    if (!this.bases.has(groupId)) this.bases.set(groupId, g.dados);
+    this.put({ ...g, dados: { ...g.dados, pastas } });
+    this.schedulePush();
+    return true;
+  }
+
+  /**
+   * Leva para o documento do grupo as pastas guardadas aqui que ainda não estão nele (PLANO-CONSERTO-GRUPOS.md, 2):
+   *
+   * - o dono, num grupo dele compartilhado antes desta build (o documento sem pastas): as pastas dele do grupo,
+   *   uma vez (as configurações ficam com a cópia). Sem pasta nenhuma guardada, espera: as configurações podem
+   *   ainda não ter chegado a este aparelho, e um documento vazio esconderia as que chegassem depois;
+   * - quem escreve no grupo e não é o dono, quando o documento já tem pastas: as que ele criou no grupo antes disso
+   *   (só ele as via) entram no documento e saem das configurações dele.
+   *
+   * O documento que já tem pastas nunca recebe as do dono de novo: a cópia dele pode ser velha (uma pasta que
+   * alguém desfez e que já saiu de vez voltaria).
+   */
+  seedFolders(): void {
+    const mine = this.settings.notesConfig().folders ?? [];
+    let moved: Set<string> | null = null;
+    for (const [id, name] of this.names()) {
+      const g = this.entries().get(id);
+      if (!g || !canWrite(g.papel)) continue;
+      const key = lookKey(name);
+      const raw = g.dados['pastas'];
+      const own = mine.filter((f) => f.group === key);
+      if (!own.length) continue;
+      if (g.papel === 'dono') {
+        if (!Array.isArray(raw)) this.updateFolders(id, own);
+        continue;
+      }
+      if (!Array.isArray(raw)) continue;
+      const doc = docFolders(raw, key);
+      const ids = new Set(doc.map((f) => f.id));
+      this.updateFolders(id, [...doc, ...own.filter((f) => !ids.has(f.id))]);
+      moved ??= new Set();
+      for (const f of own) moved.add(f.id);
+    }
+    if (moved) this.settings.setNotesConfig({ folders: mine.filter((f) => !moved!.has(f.id)) });
+  }
+
+  /**
    * Renomeia um grupo compartilhado (o dono e os gestores): o nome vai no documento, para todos que estão
    * nele. Devolve false para quem não pode (nada muda).
    */
   rename(groupId: string, nome: string): boolean {
     const g = this.entries().get(groupId);
     if (!g || !canManage(g.papel) || !nome.trim()) return false;
+    const before = this.names().get(groupId);
     if (!this.bases.has(groupId)) this.bases.set(groupId, g.dados);
     this.put({ ...g, dados: { ...g.dados, nome: nome.trim().slice(0, 40) } });
+    // as pastas do documento seguem o nome sozinhas; a cópia guardada aqui (a do dono) vai junto, para não ficar
+    // num grupo de nome velho, sem anotação nenhuma
+    const from = before ? lookKey(before) : null;
+    const after = this.names().get(groupId);
+    const to = after ? lookKey(after) : null;
+    const stored = this.settings.notesConfig().folders ?? [];
+    if (from && to && from !== to && stored.some((f) => f.group === from)) {
+      this.settings.setNotesConfig({ folders: stored.map((f) => (f.group === from ? { ...f, group: to } : f)) });
+    }
     this.schedulePush();
     return true;
   }
@@ -240,9 +342,16 @@ export class SharedGroupsStore {
   ): Promise<SharedGroup> {
     // o quadro do Kanban do grupo vai junto (o de sempre, em que ninguém mexeu, não: cada um vê o de sempre)
     const kanban = board && board.at !== FRESH_AT ? { kanban: board } : {};
+    // as pastas do grupo vão junto: quem entra vê as mesmas, e as anotações continuam nelas (PLANO-CONSERTO-GRUPOS.md, 2)
+    const pastas = toDocFolders(this.settings.notesConfig().folders ?? [], lookKey(category));
     const res = await this.account.request<{ grupo: unknown }>('/v1/grupos', {
       method: 'POST',
-      body: { id: newGroupId(), dados: { nome: category, ...(look.icone || look.cor ? { aparencia: look } : {}), ...kanban }, membros: people, ...(publico ? { publico: true } : {}) },
+      body: {
+        id: newGroupId(),
+        dados: { nome: category, ...(look.icone || look.cor ? { aparencia: look } : {}), ...kanban, pastas },
+        membros: people,
+        ...(publico ? { publico: true } : {}),
+      },
     });
     const g = this.integrate(res?.grupo);
     if (!g) throw new CloudError('A nuvem respondeu de um jeito estranho. Tente de novo.', 'resposta-invalida', 0);
@@ -291,12 +400,25 @@ export class SharedGroupsStore {
       name,
     );
     await this.account.request(`/v1/grupos/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    // as pastas do grupo, como ficaram nele, voltam para as suas configurações (as anotações continuam nelas)
+    this.returnFolders(id, name);
     this.bases.delete(id);
     this.drop(id);
     this.persist();
     await this.shared.sync();
     // o quadro do Kanban do grupo, como ficou: quem chamou o guarda como o quadro só seu
     return board;
+  }
+
+  /** As pastas do documento do grupo `id` (nome `name` aqui) nas suas configurações, por cima das guardadas de mesmo id. */
+  private returnFolders(id: string, name: string): void {
+    const raw = this.entries().get(id)?.dados['pastas'];
+    if (!Array.isArray(raw)) return;
+    const back = docFolders(raw, lookKey(name));
+    if (!back.length) return;
+    const ids = new Set(back.map((f) => f.id));
+    const kept = (this.settings.notesConfig().folders ?? []).filter((f) => !ids.has(f.id));
+    this.settings.setNotesConfig({ folders: [...kept, ...back] });
   }
 
   // ——— a sincronização ———
@@ -388,7 +510,11 @@ export class SharedGroupsStore {
     const board = (d: SharedGroup['dados']) => (d['kanban'] ? sanitizeBoard({ ...(d['kanban'] as Record<string, unknown>), category: d.nome }) : null);
     const [bo, bt, bm] = [board(o), board(theirs), board(mine)];
     const kanban = bt && bm ? mergeBoards(bo ?? bt, bt, bm) : (bm ?? bt);
-    return { ...theirs, ...(mine.nome !== o.nome ? { nome: mine.nome } : {}), ...(kanban ? { kanban } : {}) };
+    // as pastas, pasta a pasta (duas pessoas criando ou renomeando pastas ao mesmo tempo: as duas mexidas ficam)
+    const list = (d: SharedGroup['dados']) => (Array.isArray(d['pastas']) ? (d['pastas'] as GroupDocFolder[]) : null);
+    const [po, pt, pm] = [list(o), list(theirs), list(mine)];
+    const pastas = pt || pm ? mergeFolders(po ?? [], pt ?? [], pm ?? []) : null;
+    return { ...theirs, ...(mine.nome !== o.nome ? { nome: mine.nome } : {}), ...(kanban ? { kanban } : {}), ...(pastas ? { pastas } : {}) };
   }
 
   private async pull(): Promise<void> {

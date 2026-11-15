@@ -12,6 +12,9 @@ import { SharedGroup, groupNames, newGroupId, parseGroup } from './shared-groups
 import { GROUPS_AUTO, GROUPS_KEY, SharedGroupsStore } from './shared-groups-store';
 import { SharedEntry, SharedStore } from './shared-store';
 import { wipeBrowser } from './browser-reset';
+import { NoteFolder, mergeFolders } from './folders';
+import { NoteFolders } from './note-folders';
+import { Settings } from './settings';
 
 /** Os grupos compartilhados no site (PLANO-COMPARTILHAR.md, rodada 3): o que vem da nuvem, o nome no mural e o serviço. */
 
@@ -133,7 +136,7 @@ describe('grupos compartilhados: o serviço (core/shared-groups-store.ts)', () =
     store.add(note('n-dois01', 'Trabalho'));
     store.add(note('n-casa01', 'Casa'));
     const g = await groups.share('Trabalho', [{ codigo: ANA.codigo, papel: 'editor' }], { icone: 'pasta', cor: 'azul' });
-    expect(calls[0]).toEqual({ path: 'POST /v1/grupos', body: jasmine.objectContaining({ dados: { nome: 'Trabalho', aparencia: { icone: 'pasta', cor: 'azul' } }, membros: [{ codigo: ANA.codigo, papel: 'editor' }] }) });
+    expect(calls[0]).toEqual({ path: 'POST /v1/grupos', body: jasmine.objectContaining({ dados: { nome: 'Trabalho', aparencia: { icone: 'pasta', cor: 'azul' }, pastas: [] }, membros: [{ codigo: ANA.codigo, papel: 'editor' }] }) });
     expect(g.papel).toBe('dono');
     TestBed.tick();
     await groups.adopt();
@@ -337,5 +340,190 @@ describe('grupos compartilhados: o Kanban do grupo (rodada 4)', () => {
     const m = mergeNote(base, base, mine, true);
     expect(m.merged.tags).toEqual(['urgente', 'cliente']);
     expect(m.other).toBeNull();
+  });
+});
+
+describe('grupos compartilhados: as pastas do grupo (PLANO-CONSERTO-GRUPOS.md, rodada 2)', () => {
+  let server: { rev: number; dados: Record<string, unknown>; papel: string };
+  let puts: { dados?: Record<string, unknown> }[];
+  const pasta = (id: string, name: string, parent: string | null = null, group = 'trabalho'): NoteFolder => ({ id, group, name, parent });
+
+  function setup(papel: string, dados: Record<string, unknown>) {
+    server = { rev: 1, dados, papel };
+    puts = [];
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        { provide: GROUPS_AUTO, useValue: false },
+        {
+          provide: SharedStore,
+          useValue: { entries: signal(new Map()), groupNames: signal(new Map()), get: () => undefined, inGroupOf: () => [], placeInGroup: () => undefined, sync: async () => undefined },
+        },
+        { provide: Cloud, useValue: { config: () => ({ api: 'x' }) } },
+        {
+          provide: CloudAccount,
+          useValue: {
+            signedIn: () => true,
+            account: () => ({ id: 'u-eu', ...EU }),
+            request: async (path: string, init?: { method?: string; body?: { base?: number; dados?: Record<string, unknown> } }) => {
+              const detail = () => raw({ papel: server.papel, dono: server.papel === 'dono' ? EU : ANA, rev: server.rev, versao: server.rev, dados: server.dados });
+              if (path === '/v1/eu/grupos') return { grupos: [{ id: 'gTrabalho001', versao: server.rev, papel: server.papel }] };
+              if (path.startsWith('/v1/eu/grupos/detalhes')) return { grupos: [detail()] };
+              if (init?.method === 'PUT') {
+                puts.push({ dados: init.body!.dados });
+                if (init.body!.base !== server.rev) throw new CloudError('Outra pessoa gravou antes.', 'conflito', 409, { grupo: detail() });
+                server = { ...server, rev: server.rev + 1, dados: init.body!.dados! };
+                return { grupo: detail() };
+              }
+              if (init?.method === 'DELETE') return { ok: true };
+              return { ok: true };
+            },
+          },
+        },
+      ],
+    });
+    return { groups: TestBed.inject(SharedGroupsStore), folders: TestBed.inject(NoteFolders), settings: TestBed.inject(Settings) };
+  }
+
+  beforeEach(() => localStorage.clear());
+  afterEach(() => {
+    TestBed.resetTestingModule();
+    localStorage.clear();
+  });
+
+  const names = (folders: NoteFolders, parent: string | null = null) => folders.tree().kids('trabalho', parent).map((f) => f.name);
+
+  it('quem está no grupo vê as pastas do dono (antes, nenhuma: as pastas eram de cada um)', async () => {
+    const { groups, folders } = setup('editor', { nome: 'Trabalho', pastas: [{ id: 'pkana0000001', name: 'Kana', parent: null }] });
+    await groups.sync();
+    expect(names(folders)).toEqual(['Kana']);
+    expect(folders.of({ category: 'Trabalho', folder: 'pkana0000001' })).toBe('pkana0000001');
+  });
+
+  it('criar e renomear uma pasta num grupo compartilhado vai para o documento dele, para todos (e não para as suas configurações)', async () => {
+    const { groups, folders, settings } = setup('editor', { nome: 'Trabalho', pastas: [{ id: 'pkana0000001', name: 'Kana', parent: null }] });
+    await groups.sync();
+    const made = folders.create('Trabalho', null, 'Termos')!;
+    folders.rename('pkana0000001', 'Kana e Kanji');
+    expect(names(folders)).toEqual(['Kana e Kanji', 'Termos']);
+    expect(settings.notesConfig().folders).toEqual([]);
+    await groups.pushAll();
+    expect((server.dados['pastas'] as { id: string; name: string }[]).map((f) => [f.id, f.name])).toEqual([
+      ['pkana0000001', 'Kana e Kanji'],
+      [made.id, 'Termos'],
+    ]);
+  });
+
+  it('duas pessoas criando pastas ao mesmo tempo: as duas ficam (a junção pasta a pasta)', async () => {
+    const { groups, folders } = setup('dono', { nome: 'Trabalho', pastas: [] });
+    await groups.sync();
+    folders.create('Trabalho', null, 'Minha');
+    // a Ana criou outra enquanto isso (rev 2 na nuvem)
+    server = { ...server, rev: 2, dados: { ...server.dados, pastas: [{ id: 'pdela0000001', name: 'Dela', parent: null }] } };
+    await groups.pushAll();
+    expect((server.dados['pastas'] as { name: string }[]).map((f) => f.name).sort()).toEqual(['Dela', 'Minha']);
+  });
+
+  it('quem só lê não muda as pastas do grupo', async () => {
+    const { groups, folders } = setup('leitor', { nome: 'Trabalho', pastas: [{ id: 'pkana0000001', name: 'Kana', parent: null }] });
+    await groups.sync();
+    folders.rename('pkana0000001', 'Outra');
+    await groups.pushAll();
+    expect(puts.length).toBe(0);
+    expect(names(folders)).toEqual(['Kana']);
+  });
+
+  it('num grupo de antes (o documento sem pastas), o membro não cria o documento das pastas sem as do dono', async () => {
+    const { groups, folders, settings } = setup('editor', { nome: 'Trabalho' });
+    await groups.sync();
+    folders.create('Trabalho', null, 'Só minha');
+    await groups.pushAll();
+    expect(puts.length).toBe(0);
+    expect(settings.notesConfig().folders.map((f) => f.name)).toEqual(['Só minha']);
+  });
+
+  it('o dono leva para o documento as pastas guardadas do grupo (o de antes desta build), e as anotações continuam nelas', async () => {
+    const { groups, folders, settings } = setup('dono', { nome: 'Trabalho' });
+    settings.setNotesConfig({ folders: [pasta('psimb0000001', 'Símbolos'), pasta('pcasa0000001', 'Contas', null, 'casa')] });
+    await groups.sync();
+    // antes de levar, as dele continuam valendo (nenhuma anotação sai da pasta)
+    expect(names(folders)).toEqual(['Símbolos']);
+    groups.seedFolders();
+    await groups.pushAll();
+    expect((server.dados['pastas'] as { id: string }[]).map((f) => f.id)).toEqual(['psimb0000001']);
+    expect(names(folders)).toEqual(['Símbolos']);
+    // a cópia do dono fica nas configurações, e a pasta de outro grupo também
+    expect(settings.notesConfig().folders.map((f) => f.id).sort()).toEqual(['pcasa0000001', 'psimb0000001']);
+  });
+
+  it('aparelho novo do dono: sem as configurações ainda, o documento não nasce vazio; elas chegam e vão para ele', async () => {
+    const { groups, folders, settings } = setup('dono', { nome: 'Trabalho' });
+    await groups.sync();
+    groups.seedFolders();
+    await groups.pushAll();
+    expect(puts.length).toBe(0);
+    settings.setNotesConfig({ folders: [pasta('psimb0000001', 'Símbolos')] });
+    groups.seedFolders();
+    await groups.pushAll();
+    expect((server.dados['pastas'] as { id: string }[]).map((f) => f.id)).toEqual(['psimb0000001']);
+    expect(names(folders)).toEqual(['Símbolos']);
+  });
+
+  it('a cópia velha do dono não traz de volta uma pasta que saiu do documento', async () => {
+    const { groups, folders, settings } = setup('dono', { nome: 'Trabalho', pastas: [{ id: 'pkana0000001', name: 'Kana', parent: null }] });
+    settings.setNotesConfig({ folders: [pasta('pkana0000001', 'Kana'), pasta('pvelh0000001', 'Desfeita há muito')] });
+    await groups.sync();
+    groups.seedFolders();
+    await groups.pushAll();
+    expect(puts.length).toBe(0);
+    expect(names(folders)).toEqual(['Kana']);
+  });
+
+  it('a pasta que o membro criou num grupo de antes (só ele via) vai para o documento quando o dono leva as dele', async () => {
+    const { groups, folders, settings } = setup('editor', { nome: 'Trabalho' });
+    await groups.sync();
+    folders.create('Trabalho', null, 'Minha');
+    // o dono levou as pastas dele (rev 2)
+    server = { ...server, rev: 2, dados: { nome: 'Trabalho', pastas: [{ id: 'pkana0000001', name: 'Kana', parent: null }] } };
+    await groups.sync();
+    groups.seedFolders();
+    await groups.pushAll();
+    expect((server.dados['pastas'] as { name: string }[]).map((f) => f.name)).toEqual(['Kana', 'Minha']);
+    expect(settings.notesConfig().folders).toEqual([]);
+    expect(names(folders)).toEqual(['Kana', 'Minha']);
+  });
+
+  it('renomear o grupo leva as pastas dele junto (as do documento e a cópia do dono)', async () => {
+    const { groups, folders, settings } = setup('dono', { nome: 'Trabalho', pastas: [{ id: 'pkana0000001', name: 'Kana', parent: null }] });
+    settings.setNotesConfig({ folders: [pasta('pkana0000001', 'Kana')] });
+    await groups.sync();
+    groups.rename('gTrabalho001', 'Empresa');
+    expect(folders.tree().kids('empresa', null).map((f) => f.name)).toEqual(['Kana']);
+    expect(settings.notesConfig().folders.map((f) => f.group)).toEqual(['empresa']);
+    expect(folders.tree().kids('trabalho', null)).toEqual([]);
+  });
+
+  it('compartilhar leva as pastas do grupo; parar de compartilhar as devolve às suas configurações, como ficaram', async () => {
+    const { groups, folders, settings } = setup('dono', { nome: 'Trabalho', pastas: [{ id: 'pkana0000001', name: 'Kana do grupo', parent: null }] });
+    settings.setNotesConfig({ folders: [pasta('pkana0000001', 'Kana')] });
+    await groups.sync();
+    expect(names(folders)).toEqual(['Kana do grupo']);
+    await groups.stop('gTrabalho001');
+    expect(settings.notesConfig().folders.map((f) => [f.id, f.name, f.group])).toEqual([['pkana0000001', 'Kana do grupo', 'trabalho']]);
+    expect(names(folders)).toEqual(['Kana do grupo']);
+  });
+
+  it('a junção pasta a pasta: o que cada lado mudou fica; os dois mudaram a mesma, vale a daqui', () => {
+    const o = [pasta('pa000000001', 'A'), pasta('pb000000001', 'B'), pasta('pc000000001', 'C')];
+    const theirs = [pasta('pa000000001', 'A2'), pasta('pb000000001', 'B'), pasta('pc000000001', 'C lá'), pasta('pd000000001', 'D')];
+    const mine = [pasta('pa000000001', 'A'), { ...pasta('pb000000001', 'B'), gone: '2026-11-15T00:00:00.000Z' }, pasta('pc000000001', 'C aqui'), pasta('pe000000001', 'E')];
+    const out = mergeFolders(o, theirs, mine);
+    expect(out.map((f) => [f.id, f.name, !!f.gone])).toEqual([
+      ['pa000000001', 'A2', false],
+      ['pb000000001', 'B', true],
+      ['pc000000001', 'C aqui', false],
+      ['pd000000001', 'D', false],
+      ['pe000000001', 'E', false],
+    ]);
   });
 });
