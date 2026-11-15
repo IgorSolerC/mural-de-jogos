@@ -833,3 +833,43 @@
     border-radius: 2px;
   }
 }
+
+/* Um campo de texto escrito à mão numa folha pautada (as linhas azuis do caderno, que rolam com o texto):
+   o texto do template e o lembrete da Wishlist. `$linhas` é a altura mínima, em linhas. */
+@mixin folha-pautada($linhas: 9, $max: 26rem, $letra: 1.14rem) {
+  --line: 1.75rem;
+  display: block;
+  width: 100%;
+  min-height: calc(var(--line) * #{$linhas} + 8px);
+  max-height: $max;
+  field-sizing: content;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 2px;
+  resize: vertical;
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 calc(var(--line) - 2px), rgb(64 110 190 / 0.32) calc(var(--line) - 2px) var(--line)) 0 4px,
+    var(--campo-papel);
+  background-attachment: local;
+  box-shadow: var(--campo-sombra);
+  color: var(--ink);
+  font-family: var(--f-hand);
+  font-size: $letra;
+  line-height: var(--line);
+  caret-color: var(--red);
+  outline: none;
+  transition: box-shadow var(--t-physical) var(--ease-physical);
+
+  &:focus {
+    box-shadow: var(--campo-sombra-foco);
+  }
+
+  &::placeholder {
+    color: rgb(21 21 21 / 0.55);
+  }
+
+  &::selection {
+    background: rgb(255 218 66 / 0.85);
+    color: var(--ink);
+  }
+}

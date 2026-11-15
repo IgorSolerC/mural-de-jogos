@@ -47,7 +47,7 @@ describe('a pasta da Wishlist', () => {
     const noop = () => undefined;
     const handlers: DeskHandlers = {
       newReview: noop, openReview: noop, newNote: noop, newNoteIn: noop, newWish: noop, newDraft: noop, openLoose: noop, closeReader: noop,
-      editReview: noop, removeReview: noop, openDraft: noop, openWish: noop, removeDraft: noop, removeWish: noop,
+      editReview: noop, removeReview: noop, openDraft: noop, openWish: noop, editWish: noop, removeDraft: noop, removeWish: noop,
     };
     TestBed.inject(Desk).register(handlers);
     store.saveWish(wish('w1', 'Celeste', { createdAt: at(3), tags: ['curto', 'história'], note: 'Indicação do Rafa' }));

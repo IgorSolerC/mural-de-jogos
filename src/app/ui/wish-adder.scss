@@ -1,3 +1,5 @@
+@use 'paper-kit' as kit;
+
 /* Recortar do catálogo: uma página de catálogo de loja, papel liso e branco, com a faixa vermelha
    impressa em retícula no alto. Não é a ficha creme do editor: aqui nada se escreve, se escolhe. */
 
@@ -253,6 +255,39 @@ app-cover-picker {
     outline: 2px dashed var(--ink);
     outline-offset: 2px;
   }
+}
+
+/* ===== O lembrete: uma tira de papel pautado, escrita à mão (a mesma letra da folha do caderno na parede) ===== */
+.lembrete textarea {
+  @include kit.folha-pautada($linhas: 3, $max: 14rem, $letra: 1.1rem);
+}
+
+.lembrete-dica {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin-top: -4px;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  color: var(--ink-2);
+}
+
+.lembrete-conta {
+  margin-left: auto;
+  font-family: var(--f-label);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+
+  &.cheio {
+    color: var(--red-deep);
+  }
+}
+
+/* editando: o tirar fica sozinho do outro lado do pé */
+.tirar {
+  margin-right: auto;
 }
 
 /* o item escolhido: a mesma tira de papel da busca, preenchida */

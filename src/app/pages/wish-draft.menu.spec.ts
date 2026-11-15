@@ -73,6 +73,7 @@ describe('menu do botão direito no Pra depois e na Wishlist', () => {
       removeReview: noop,
       openDraft: (id) => void calls.push(`openDraft:${id}`),
       openWish: (id) => void calls.push(`openWish:${id}`),
+      editWish: (id) => void calls.push(`editWish:${id}`),
       removeDraft: (id) => {
         calls.push(`removeDraft:${id}`);
         store.removeDraft(id);
@@ -110,17 +111,20 @@ describe('menu do botão direito no Pra depois e na Wishlist', () => {
     expect(document.activeElement).toBe(sheet('d2').querySelector('.hit'));
   });
 
-  it('Wishlist: começar a resenha, as três vontades (com os adesivos e o tique na de agora) e tirar da wishlist', async () => {
+  it('Wishlist: começar a resenha, editar, as três vontades (com os adesivos e o tique na de agora) e tirar da wishlist', async () => {
     store.saveWish(wish('w1', 'Celeste'));
     store.saveWish(wish('w2', 'Hades', 'must'));
     await mount(WishlistPage);
     const clip = (id: string) => host.querySelector<HTMLElement>(`.desejo[data-ficha="${id}"]`)!;
     await rightClick(clip('w1'));
-    expect(labels()).toEqual(['Começar a resenha', 'MUST PLAY', 'Comum', 'LATER', 'Tirar da wishlist']);
+    expect(labels()).toEqual(['Começar a resenha', 'Editar', 'MUST PLAY', 'Comum', 'LATER', 'Tirar da wishlist']);
     expect(panel().querySelectorAll('.escolha app-relevance-sticker').length).toBe(2);
     expect(option('Comum').querySelector('.marcada')).not.toBeNull();
     option('Começar a resenha').click();
     expect(calls).toEqual(['openWish:w1']);
+    await rightClick(clip('w1'));
+    option('Editar').click();
+    expect(calls).toEqual(['openWish:w1', 'editWish:w1']);
     await rightClick(clip('w2'));
     expect(option('MUST PLAY').querySelector('.marcada')).not.toBeNull();
     option('LATER').click();

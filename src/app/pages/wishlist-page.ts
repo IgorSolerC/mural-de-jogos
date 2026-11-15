@@ -230,6 +230,7 @@ import { reducedMotion } from '../core/motion';
                 [query]="filter().query"
                 [noteOpen]="byNote().has(w.id)"
                 (opened)="drawn.set(null); desk.openWish($event)"
+                (edit)="edit(w)"
                 (vontade)="openVontade(w, $event)"
               />
             </li>
@@ -263,7 +264,7 @@ import { reducedMotion } from '../core/motion';
                     @if (w.tags?.length) {
                       <app-wish-tags class="tags" [tags]="w.tags!" [kind]="w.kind" />
                     }
-                    <app-wish-actions class="etiqueta" [wish]="w" [editable]="editable" (vontade)="openVontade(w, $event)" />
+                    <app-wish-actions class="etiqueta" [wish]="w" [editable]="editable" (edit)="edit(w)" (vontade)="openVontade(w, $event)" />
                   </div>
                   @if (w.note; as n) {
                     <app-wish-note [wishId]="w.id" [text]="n" [query]="filter().query" [open]="byNote().has(w.id)" />
@@ -634,8 +635,8 @@ export class WishlistPage {
   /** O desejo com o menu aberto, e qual menu: o do recorte (o botão direito) ou o do Vontade da etiqueta. */
   protected readonly menuOn = signal<{ id: string; only: 'tudo' | 'vontade' } | null>(null);
   protected readonly menuWish = computed(() => this.mural.wishes().find((w) => w.id === this.menuOn()?.id) ?? null);
-  /** O Editar da etiqueta e do menu (a folha do desejo, na rodada 4 do plano). */
-  protected readonly editable = false;
+  /** O Editar da etiqueta e do menu: a folha do desejo (a Wishlist é só do dono: nunca na visita). */
+  protected readonly editable = true;
   /**
    * As três vontades, com o adesivo de verdade em miniatura (Comum, que não tem, fica com o desenho do
    * vazio) e o tique na de agora; escolher a de agora não faz nada.
@@ -653,15 +654,18 @@ export class WishlistPage {
     }));
   }
   /**
-   * O do recorte: o que o toque faz (começar a resenha), as vontades e, sozinho no fim, tirar da wishlist,
-   * com o Desfazer. O do Vontade: só as vontades.
+   * O do recorte: o que o toque faz (começar a resenha) e o Editar, as vontades e, sozinho no fim, tirar da
+   * wishlist, com o Desfazer. O do Vontade: só as vontades.
    */
   protected readonly menuSections = computed<MenuSections>(() => {
     const w = this.menuWish();
     if (!w) return [];
     if (this.menuOn()?.only === 'vontade') return [this.vontadeItems(w, true)];
     return [
-      [{ id: 'comecar', label: 'Começar a resenha', icon: ICON.editar, dialog: true, run: () => this.startDrawn(w) }],
+      [
+        { id: 'comecar', label: 'Começar a resenha', icon: ICON.editar, dialog: true, run: () => this.startDrawn(w) },
+        { id: 'editar', label: 'Editar', icon: ICON.ajustar, dialog: true, run: () => this.edit(w) },
+      ],
       this.vontadeItems(w),
       [{ id: 'tirar', label: 'Tirar da wishlist', icon: ICON.apagar, danger: true, run: () => this.remove(w.id) }],
     ];
@@ -826,12 +830,25 @@ export class WishlistPage {
       label: 'Desfazer',
       run: () => this.transitions.run(() => this.store.setRelevance(w.id, before)),
     });
+    this.follow(w.id, fromButton ? 'app-wish-actions .vontade' : null);
+  }
+
+  /**
+   * O teclado vai junto com o recorte que mudou de lugar (no botão `at` dele, ou no recorte), depois que a
+   * transição assenta; se ele saiu da tela, a tela vai até ele.
+   */
+  private follow(id: string, at: string | null): void {
     setTimeout(() => {
-      const box = document.querySelector(`[data-ficha="${CSS.escape(w.id)}"]`);
-      const btn = (fromButton ? box?.querySelector<HTMLElement>('app-wish-actions .vontade') : null) ?? box?.querySelector<HTMLElement>('.hit');
+      const box = document.querySelector(`[data-ficha="${CSS.escape(id)}"]`);
+      const btn = (at ? box?.querySelector<HTMLElement>(at) : null) ?? box?.querySelector<HTMLElement>('.hit');
       btn?.focus({ preventScroll: true });
       btn?.scrollIntoView({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' });
     }, 140);
+  }
+
+  /** O "Editar recorte": a folha do desejo; tirar por ela leva o foco ao vizinho, como o menu. */
+  protected edit(w: Wish): void {
+    this.desk.editWish(w.id, { remove: () => this.remove(w.id), saved: () => this.follow(w.id, 'app-wish-actions .editar') });
   }
 
   /** Tira da wishlist (com o Desfazer); o foco vai para o recorte vizinho, ou para o "Adicionar" da wishlist vazia. */

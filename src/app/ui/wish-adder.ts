@@ -4,8 +4,17 @@ import { ICON, IconModule } from './icons';
 import { sameGame } from '../core/game-lookup';
 import { g, profileOf } from '../core/kinds';
 import { Mural } from '../core/mural';
-import { Draft, Kind, PickedGame, RELEVANCES, Relevance, Wish, formatScore, newId, relevanceLabel } from '../core/review';
+import { Draft, Kind, PickedGame, RELEVANCES, Relevance, WISH_NOTE_MAX, Wish, WishPatch, cleanWishNote, fold, formatScore, newId, relevanceLabel, relevanceOf, withWishPatch } from '../core/review';
 import { ReviewStore } from '../core/review-store';
+import { Desk, WishEditHooks } from '../core/desk';
+import { CategoryColorId, categoryColorHex } from '../core/category-looks';
+import { wishTagKey } from '../core/mural-config';
+import type { TagEntry } from '../core/note-labels';
+import { Settings } from '../core/settings';
+import { ViewTransitions } from '../core/view-transitions';
+import { wishTagCounts, wishTagHex } from '../core/wishlist-view';
+import { TagColors, TagPicker } from './tag-picker';
+import { Toasts } from './toast';
 import { CoverPicker } from './cover-picker';
 import { CoverSleeve } from './cover-sleeve';
 import { DraftCard } from './draft-card';
@@ -17,13 +26,18 @@ import { WishClip } from './wish-clip';
 export type AdderMode = 'wish' | 'draft';
 
 /**
- * Recortar do catálogo: o diálogo da wishlist, e o mesmo diálogo para guardar direto no Pra depois. Só o nome (com o auto-complete do mural) e a capa,
- * escolhida entre as que o catálogo tem do mesmo título, ou colada de um link, ou nenhuma. Ao lado,
- * o recorte como ele vai ficar na parede.
+ * Recortar do catálogo: o diálogo da wishlist, e o mesmo diálogo para guardar direto no Pra depois. O nome
+ * (com o auto-complete do mural) e a capa, escolhida entre as que o catálogo tem do mesmo título, ou colada de
+ * um link, ou nenhuma; na wishlist, também quanta vontade, as tags e o lembrete. Ao lado, o recorte como ele
+ * vai ficar na parede.
+ *
+ * Aberto com um desejo (`edit`), é o "Editar recorte" (PLANO-WISHLIST.md, P11): muda o desejo sem resenhar,
+ * com o recorte de verdade ao lado (sem "Outro recorte": trocar o id faria o desejo sumir e voltar na
+ * sincronização), e no pé Tirar da wishlist, Começar a resenha e Salvar (com o Desfazer).
  */
 @Component({
   selector: 'app-wish-adder',
-  imports: [BackdropClose, CoverPicker, CoverSleeve, DraftCard, GameSearch, IconModule, RelevanceSticker, WishClip],
+  imports: [BackdropClose, CoverPicker, CoverSleeve, DraftCard, GameSearch, IconModule, RelevanceSticker, TagPicker, WishClip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wish-adder.html',
   styleUrl: './wish-adder.scss',
@@ -31,6 +45,10 @@ export type AdderMode = 'wish' | 'draft';
 export class WishAdder {
   private readonly store = inject(ReviewStore);
   private readonly mural = inject(Mural);
+  private readonly settings = inject(Settings);
+  private readonly desk = inject(Desk);
+  private readonly toasts = inject(Toasts);
+  private readonly transitions = inject(ViewTransitions);
   /** O desejo novo foi para a lista. */
   readonly wished = output<string>();
   /** Já estava na lista: a pessoa quer ver o que está lá. */
@@ -45,6 +63,10 @@ export class WishAdder {
   protected readonly SwapIcon = ICON.atualizar;
   protected readonly NoteIcon = ICON.praDepois;
   protected readonly RerollIcon = ICON.sortear;
+  protected readonly SaveIcon = ICON.pronto;
+  protected readonly StartIcon = ICON.editar;
+  protected readonly TrashIcon = ICON.apagar;
+  protected readonly noteMax = WISH_NOTE_MAX;
 
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly search = viewChild(GameSearch);
@@ -68,12 +90,44 @@ export class WishAdder {
   protected readonly relevance = signal<Relevance>('comum');
   protected readonly relevances = RELEVANCES;
   protected readonly relevanceLabel = relevanceLabel;
+  /** O desejo aberto no "Editar recorte" (como estava ao abrir); null: pondo um novo. */
+  protected readonly editing = signal<Wish | null>(null);
+  /** O que a página que abriu o editar faz no fim (tirar com o foco no vizinho, o foco no recorte salvo). */
+  private hooks: WishEditHooks = {};
+  /**
+   * As cores sorteadas para as tags novas (pela chave `wishTagKey`): só vão para as configurações ao salvar,
+   * e só as das tags que ficaram; cancelar não deixa cor de tag que nenhum desejo tem.
+   */
+  private readonly newColors = signal<ReadonlyMap<string, CategoryColorId>>(new Map());
+  /** As tags do desejo (só na wishlist). */
+  protected readonly tags = signal<string[]>([]);
+  /** O lembrete: texto puro, só aparece com a mão em cima do recorte. */
+  protected readonly note = signal('');
+  /** As tags à mão: as da Wishlist do mural, as mais usadas primeiro (sem a estrela das anotações). */
+  protected readonly tagLib = computed<TagEntry[]>(() =>
+    wishTagCounts(this.mural.wishes().filter((w) => w.kind === this.kind())).map((t) => ({ label: t.label, n: t.n, pinned: false })),
+  );
+  /** As cores das tags da Wishlist do mural, em `NotesConfig.wishTagColors` (a tag nova ganha uma sorteada). */
+  protected readonly tagColors = computed<TagColors>(() => {
+    const kind = this.kind();
+    const colors = this.settings.notesConfig().wishTagColors;
+    const fresh = this.newColors();
+    return {
+      hex: (tag) => wishTagHex(colors, kind, tag) ?? categoryColorHex(fresh.get(wishTagKey(kind, tag))),
+      has: (tag) => !!colors[wishTagKey(kind, tag)] || fresh.has(wishTagKey(kind, tag)),
+      set: (tag, color) => this.newColors.update((m) => new Map(m).set(wishTagKey(kind, tag), color)),
+    };
+  });
+  /** O lembrete perto do limite: o contador aparece. */
+  protected readonly noteNear = computed(() => this.note().length >= WISH_NOTE_MAX - 40);
   /** O mesmo título já está na lista de destino (a wishlist, ou a fila do Pra depois) deste mural. */
   protected readonly dup = computed<Wish | Draft | null>(() => {
     const gm = this.game();
     if (!gm) return null;
     const list: (Wish | Draft)[] = this.mode() === 'draft' ? this.mural.drafts() : this.mural.wishes();
-    return list.find((w) => sameGame(w.game, gm)) ?? null;
+    // editando, o próprio desejo não é repetido
+    const self = this.editing()?.id;
+    return list.find((w) => w.id !== self && sameGame(w.game, gm)) ?? null;
   });
   /** Guardando no Pra depois algo que estava na wishlist: sai de lá, como no "Salvar pra depois". */
   protected readonly alsoWished = computed<Wish | null>(() => {
@@ -96,7 +150,7 @@ export class WishAdder {
       id: this.id(),
       kind: this.kind(),
       game: gm ? { ...gm } : { name: '', coverUrl: null, source: 'manual' },
-      ...this.relevanceField(),
+      ...(this.relevance() === 'comum' ? {} : { relevance: this.relevance() }),
       createdAt: '',
       updatedAt: '',
     };
@@ -109,18 +163,45 @@ export class WishAdder {
   });
 
   open(mode: AdderMode = 'wish'): void {
-    this.mode.set(mode);
+    this.reset(mode);
     this.kind.set(this.mural.kind());
     this.id.set(newId());
-    this.rerolls.set(0);
     this.game.set(null);
-    this.searchSeed.set('');
-    this.search()?.reset();
-    this.attempted.set(false);
     this.relevance.set('comum');
     this.dialog().nativeElement.showModal();
     // a busca só nasce depois que o diálogo desenha (se ficou um item da última vez, ela não existia)
     setTimeout(() => this.search()?.focus());
+  }
+
+  /**
+   * O "Editar recorte": a folha com o desejo, para mudar o item, a vontade, as tags, o lembrete e a capa
+   * sem resenhar. `hooks`: o que a página de quem abriu faz no fim (o foco no recorte, ou no vizinho).
+   */
+  edit(wish: Wish, hooks: WishEditHooks = {}): void {
+    this.reset('wish');
+    this.editing.set(wish);
+    this.hooks = hooks;
+    this.kind.set(wish.kind);
+    this.id.set(wish.id);
+    this.game.set({ ...wish.game });
+    this.relevance.set(relevanceOf(wish));
+    this.tags.set([...(wish.tags ?? [])]);
+    this.note.set(wish.note ?? '');
+    this.dialog().nativeElement.showModal();
+  }
+
+  /** A folha em branco, no modo pedido. */
+  private reset(mode: AdderMode): void {
+    this.mode.set(mode);
+    this.editing.set(null);
+    this.hooks = {};
+    this.newColors.set(new Map());
+    this.rerolls.set(0);
+    this.searchSeed.set('');
+    this.search()?.reset();
+    this.attempted.set(false);
+    this.tags.set([]);
+    this.note.set('');
   }
 
   /** Recorta de novo: outro id, outro jeito de rasgar e de colar o nome. */
@@ -131,6 +212,39 @@ export class WishAdder {
 
   close(): void {
     this.dialog().nativeElement.close();
+  }
+
+  /** O que a folha muda no desejo: o item, a vontade (Comum sai do registro), as tags e o lembrete. */
+  private patch(game: PickedGame): WishPatch {
+    const r = this.relevance();
+    return { game, relevance: r === 'comum' ? undefined : r, tags: this.tags(), note: this.note() };
+  }
+
+  /**
+   * Editando: só o que a pessoa mudou desde que abriu a folha. O resto fica como está no desejo agora (o
+   * que chegou de outro aparelho, ou do Vontade, enquanto a folha estava aberta não é desfeito).
+   */
+  private changes(from: Wish, game: PickedGame): WishPatch {
+    const all = this.patch(game);
+    const out: WishPatch = {};
+    if (JSON.stringify(from.game) !== JSON.stringify(game)) out.game = game;
+    if (relevanceOf(from) !== this.relevance()) out.relevance = all.relevance;
+    if ((from.tags ?? []).map(fold).join('\n') !== this.tags().map(fold).join('\n')) out.tags = all.tags;
+    if ((from.note ?? '') !== cleanWishNote(this.note())) out.note = all.note;
+    return out;
+  }
+
+  /** As cores sorteadas das tags novas que ficaram no desejo vão para as configurações, numa mudança só. */
+  private keepNewColors(): void {
+    const fresh = this.newColors();
+    const kind = this.kind();
+    const keep = new Map<string, CategoryColorId>();
+    for (const tag of this.tags()) {
+      const c = fresh.get(wishTagKey(kind, tag));
+      if (c) keep.set(tag, c);
+    }
+    this.settings.setWishTagColors(kind, keep);
+    this.newColors.set(new Map());
   }
 
 
@@ -154,10 +268,20 @@ export class WishAdder {
       return;
     }
     const dup = this.dup();
+    const editing = this.editing();
+    // editando, o item escolhido já é outro desejo: nada se perde, a folha fica aberta para trocar de novo
+    if (dup && editing) {
+      this.dialog().nativeElement.querySelector<HTMLElement>('.tira-item .acao-caneta')?.focus();
+      return;
+    }
     if (dup) {
       this.close();
       if (this.mode() === 'draft') this.seenDraft.emit(dup.id);
       else this.seen.emit(dup.id);
+      return;
+    }
+    if (editing) {
+      this.saveEdit(editing, gm);
       return;
     }
     const now = new Date().toISOString();
@@ -170,15 +294,54 @@ export class WishAdder {
       this.queued.emit(this.id());
       return;
     }
-    this.store.saveWish({ id: this.id(), kind: this.kind(), game: gm, ...this.relevanceField(), createdAt: now, updatedAt: now });
+    this.keepNewColors();
+    this.store.saveWish(withWishPatch({ id: this.id(), kind: this.kind(), game: gm, createdAt: now, updatedAt: now }, this.patch(gm)));
     this.close();
     this.wished.emit(this.id());
   }
 
-  /** Comum é o padrão: não vai para o registro. */
-  private relevanceField(): Pick<Wish, 'relevance'> {
-    const r = this.relevance();
-    return r === 'comum' ? {} : { relevance: r };
+  /**
+   * Salva o editar numa gravação só; o recorte muda de lugar na parede com a transição (a ordem pode ter
+   * mudado), e o aviso tem o Desfazer. Sem nada mudado, só fecha.
+   */
+  private saveEdit(editing: Wish, gm: PickedGame): void {
+    const patch = this.changes(editing, gm);
+    const saved = this.hooks.saved;
+    this.keepNewColors();
+    this.close();
+    // a transição muda no quadro seguinte: o aviso sai de dentro da mudança, quando já se sabe se mudou
+    this.transitions.run(() => {
+      const old = this.store.updateWish(editing.id, patch);
+      if (!old) return;
+      saved?.();
+      this.toasts.show(`“${gm.name}” mudou na wishlist`, {
+        label: 'Desfazer',
+        run: () => this.transitions.run(() => this.store.restoreWishes([old])),
+      });
+    });
+  }
+
+  /**
+   * Começar a resenha pelo editar: o que mudou fica (sem aviso: o desejo vira resenha logo em seguida), e o
+   * editor da resenha abre como no toque. Sem item escolhido, ou com um que já é outro desejo, fica o de antes.
+   */
+  protected startReview(): void {
+    const editing = this.editing();
+    if (!editing) return;
+    const gm = this.game() && !this.dup() ? this.game()! : editing.game;
+    this.close();
+    this.store.updateWish(editing.id, this.changes(editing, gm));
+    this.desk.openWish(editing.id);
+  }
+
+  /** Tirar da wishlist pelo editar (com o Desfazer de quem tira). */
+  protected removeEditing(): void {
+    const editing = this.editing();
+    if (!editing) return;
+    const run = this.hooks.remove;
+    this.close();
+    if (run) run();
+    else this.desk.removeWish(editing.id);
   }
 }
 

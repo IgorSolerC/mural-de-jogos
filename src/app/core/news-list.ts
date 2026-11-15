@@ -27,6 +27,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-15-wishlist-editar',
+    version: '1.45.4',
+    kind: 'ajustes',
+    date: '2026-11-15',
+    title: 'Editar o recorte da Wishlist, com tags e lembrete',
+    melhorias: [
+      'Na Wishlist, a etiqueta do recorte (e o botão direito) ganhou o Editar: a folha do "Pôr na wishlist" muda o item, a capa e a vontade sem resenhar e sem tirar da lista, com o Desfazer, e tem ali mesmo o Começar a resenha e o Tirar da wishlist.',
+      'Ao pôr ou editar um recorte, dá para dar tags a ele (cada tag nova ganha uma cor, como nas anotações) e escrever um lembrete, que nunca aparece na parede: só com o mouse em cima do recorte, ou segurando o dedo no celular.',
+    ],
+  },
+  {
     id: '2026-11-13-wishlist-vontade',
     version: '1.45.3',
     kind: 'ajustes',

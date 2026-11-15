@@ -251,6 +251,10 @@ export class App {
         const w = this.store.getWish(id);
         if (w) this.editor().open(undefined, undefined, w);
       },
+      editWish: (id, hooks) => {
+        const w = this.store.getWish(id);
+        if (w) this.wishAdder().edit(w, hooks);
+      },
       openLoose: (review, owner, pool, code, signedIn) => this.reader().openLoose(review, owner, pool, code, signedIn),
       closeReader: () => this.reader().close(),
       editReview: (id, tab, part) => this.editReview(id, tab, part),

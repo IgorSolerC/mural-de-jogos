@@ -1,8 +1,8 @@
-<dialog #dialog class="sheet recortar" [class.modo-fila]="mode() === 'draft'" aria-labelledby="desejo-titulo" (backdropClose)="close()">
+<dialog #dialog class="sheet recortar" [class.modo-fila]="mode() === 'draft'" [class.editando]="!!editing()" aria-labelledby="desejo-titulo" (backdropClose)="close()">
   <form class="folha" (submit)="save($event)" novalidate>
     <!-- a faixa vermelha do catálogo, impressa em retícula (no Pra depois, a capa azul do caderno) -->
     <header class="masthead">
-      <h2 id="desejo-titulo">{{ mode() === 'draft' ? 'Guardar pra depois' : 'Pôr na wishlist' }}</h2>
+      <h2 id="desejo-titulo">{{ mode() === 'draft' ? 'Guardar pra depois' : editing() ? 'Editar recorte' : 'Pôr na wishlist' }}</h2>
       <button type="button" class="fechar" (click)="close()" aria-label="Fechar">
         <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
       </button>
@@ -12,12 +12,15 @@
       <!-- um pedaço da parede, com o recorte como ele vai ficar -->
       <aside class="mesa parede">
         <div class="mesa-txt">
-          <p class="giz" aria-hidden="true">Vai ficar assim</p>
-          <!-- não gostou? sorteia de novo: outro rasgo e outro jeito de colar o nome (ou outra folha, outro jeito de prender) -->
-          <button type="button" class="re-recortar" (click)="reroll()">
-            <lucide-icon [img]="RerollIcon" [size]="17" aria-hidden="true" />
-            {{ mode() === 'draft' ? 'Outra folha' : 'Outro recorte' }}
-          </button>
+          <p class="giz" aria-hidden="true">{{ editing() ? 'Na parede' : 'Vai ficar assim' }}</p>
+          <!-- não gostou? sorteia de novo: outro rasgo e outro jeito de colar o nome (ou outra folha, outro jeito de
+               prender). Editando, não: o recorte é o id, e trocar o id faria o desejo sumir e voltar na sincronização -->
+          @if (!editing()) {
+            <button type="button" class="re-recortar" (click)="reroll()">
+              <lucide-icon [img]="RerollIcon" [size]="17" aria-hidden="true" />
+              {{ mode() === 'draft' ? 'Outra folha' : 'Outro recorte' }}
+            </button>
+          }
         </div>
         @for (k of [id()]; track k) {
           @if (mode() === 'draft') {
@@ -46,7 +49,9 @@
               </button>
             </div>
             @if (dup()) {
-              <p class="aviso" role="status">{{ mode() === 'draft' ? 'Já está no seu Pra depois.' : 'Já está na sua wishlist.' }}</p>
+              <p class="aviso" role="status">
+                {{ mode() === 'draft' ? 'Já está no seu Pra depois.' : editing() ? 'Já está na sua wishlist: troque o item para salvar.' : 'Já está na sua wishlist.' }}
+              </p>
             } @else if (reviewed(); as r) {
               <p class="aviso" role="status">Você já resenhou {{ words().esse }}: média {{ fmt(r.scores.final) }} no mural.</p>
             }
@@ -83,6 +88,41 @@
           </fieldset>
         }
 
+        @if (game() && mode() === 'wish') {
+          <!-- as tags: as mesmas das anotações (o nome, a cor sorteada na nova), mas da Wishlist do mural -->
+          <fieldset class="bloco tags">
+            <legend class="pergunta">Tags</legend>
+            <app-tag-picker
+              [(tags)]="tags"
+              [library]="tagLib()"
+              [colors]="tagColors()"
+              [pinnable]="false"
+              [units]="['recorte', 'recortes']"
+              owner="Este recorte"
+            />
+          </fieldset>
+
+          <!-- o lembrete: nunca na parede, só com a mão em cima do recorte, na folha do caderno -->
+          <div class="bloco lembrete">
+            <label class="pergunta" for="desejo-lembrete">Lembrete</label>
+            <textarea
+              id="desejo-lembrete"
+              rows="3"
+              [maxLength]="noteMax"
+              [value]="note()"
+              (input)="note.set($any($event.target).value)"
+              placeholder="Quem indicou, onde viu, por que quer…"
+              aria-describedby="desejo-lembrete-dica"
+            ></textarea>
+            <p class="lembrete-dica" id="desejo-lembrete-dica">
+              Só aparece com o mouse em cima do recorte (no celular, segurando o dedo).
+              @if (noteNear()) {
+                <span class="lembrete-conta" [class.cheio]="note().length >= noteMax">{{ note().length }} de {{ noteMax }}</span>
+              }
+            </p>
+          </div>
+        }
+
         @if (game(); as gm) {
           <fieldset class="bloco capas">
             <legend class="pergunta">Qual capa?</legend>
@@ -93,13 +133,30 @@
     </div>
 
     <footer class="foot">
-      <p class="dica">Fica só o nome e a capa, até a hora de resenhar.</p>
+      @if (editing()) {
+        <!-- editando: o tirar sozinho do outro lado, como o "Tirar da wishlist" do editor da resenha -->
+        <button type="button" class="btn-quiet danger tirar" (click)="removeEditing()">
+          <lucide-icon [img]="TrashIcon" [size]="17" aria-hidden="true" />
+          Tirar da wishlist
+        </button>
+      } @else {
+        <p class="dica">{{ mode() === 'draft' ? 'Fica só o nome e a capa, até a hora de resenhar.' : 'Fica na wishlist até a hora de resenhar.' }}</p>
+      }
       <div class="actions">
-        <button type="button" class="btn-quiet cancelar" (click)="close()">Cancelar</button>
+        @if (editing()) {
+          <button type="button" class="btn-quiet comecar" (click)="startReview()">
+            <lucide-icon [img]="StartIcon" [size]="17" aria-hidden="true" />
+            Começar a resenha
+          </button>
+        } @else {
+          <button type="button" class="btn-quiet cancelar" (click)="close()">Cancelar</button>
+        }
         <button type="submit" class="btn-ink">
-          <lucide-icon [img]="mode() === 'draft' ? NoteIcon : CutIcon" [size]="19" aria-hidden="true" />
+          <lucide-icon [img]="mode() === 'draft' ? NoteIcon : editing() ? SaveIcon : CutIcon" [size]="19" aria-hidden="true" />
           @if (mode() === 'draft') {
             {{ dup() ? 'Ver na fila' : 'Guardar na fila' }}
+          } @else if (editing()) {
+            Salvar
           } @else {
             {{ dup() ? 'Ver na lista' : 'Pôr na lista' }}
           }

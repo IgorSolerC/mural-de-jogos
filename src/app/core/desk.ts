@@ -8,6 +8,14 @@ export type EditorTab = 'kanban' | 'flashcard';
 /** Um pedaço de uma aba que já abre aberto e à vista (o boletim do flashcard, pelo "Ver o progresso"). */
 export type EditorPart = 'progresso';
 
+/** O que a página que abriu o "Editar recorte" faz no fim (o foco no recorte, que pode ter mudado de lugar). */
+export interface WishEditHooks {
+  /** O Tirar da wishlist da página (o foco vai para o recorte vizinho). */
+  remove?: () => void;
+  /** O desejo mudou (já gravado). */
+  saved?: () => void;
+}
+
 export interface DeskHandlers {
   newReview(): void;
   /** Com `fromId`, veio pelo link de outra anotação: ela vira o "Voltar" da leitura. */
@@ -24,6 +32,8 @@ export interface DeskHandlers {
   newDraft(): void;
   /** Começar a resenha de um desejo. */
   openWish(id: string): void;
+  /** O "Editar recorte" de um desejo (sem resenhar), com o que a página de quem abriu faz no fim. */
+  editWish(id: string, hooks?: WishEditHooks): void;
   /** Tirar da fila do Pra depois, com o Desfazer (o mesmo do "Tirar da fila" do editor). */
   removeDraft(id: string): void;
   /** Tirar da wishlist, com o Desfazer (o mesmo do "Tirar da wishlist" do editor). */
@@ -84,6 +94,10 @@ export class Desk {
 
   openWish(id: string): void {
     this.handlers?.openWish(id);
+  }
+
+  editWish(id: string, hooks?: WishEditHooks): void {
+    this.handlers?.editWish(id, hooks);
   }
 
   removeDraft(id: string): void {

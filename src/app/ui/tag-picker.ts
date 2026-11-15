@@ -2,9 +2,19 @@ import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input
 import { ICON, IconModule } from './icons';
 import { fold } from '../core/review';
 import { LABEL_MAX, MAX_TAGS, TagEntry, cleanTag } from '../core/note-labels';
-import { randomCategoryColor, tagColorHex, tagHasLook } from '../core/category-looks';
+import { CategoryColorId, randomCategoryColor, tagColorHex, tagHasLook } from '../core/category-looks';
 import { Settings } from '../core/settings';
 import { NoteTag } from './note-tag';
+
+/**
+ * De onde vêm as cores das tags, quando não são as das anotações (as da Wishlist moram em
+ * `NotesConfig.wishTagColors`, por mural): a cor em hex, se a tag já tem uma, e dar uma cor à tag nova.
+ */
+export interface TagColors {
+  hex(tag: string): string | null;
+  has(tag: string): boolean;
+  set(tag: string, color: CategoryColorId): void;
+}
 
 /**
  * As tags da anotação, no editor (a parte Tags): todas, em linhas e em colunas, como as pastas e os grupos
@@ -48,19 +58,21 @@ import { NoteTag } from './note-tag';
             </span>
             <app-note-tag [label]="t.label" [ghost]="!t.on" [color]="colorOf(t.label)" />
             @if (t.n) {
-              <span class="n"><span class="sr-only">, </span>{{ t.n }}<span class="sr-only"> {{ t.n === 1 ? 'anotação' : 'anotações' }}</span></span>
+              <span class="n"><span class="sr-only">, </span>{{ t.n }}<span class="sr-only"> {{ t.n === 1 ? units()[0] : units()[1] }}</span></span>
             }
           </button>
-          <button
-            type="button"
-            class="estrela"
-            [attr.aria-pressed]="t.pinned"
-            [attr.aria-label]="'Sempre à mão: ' + t.label"
-            [title]="t.pinned ? 'Sempre à mão em toda anotação. Toque para soltar.' : 'Deixar sempre à mão em toda anotação'"
-            (click)="settings.togglePinnedTag(t.label)"
-          >
-            <lucide-icon [img]="StarIcon" [size]="14" aria-hidden="true" />
-          </button>
+          @if (pinnable()) {
+            <button
+              type="button"
+              class="estrela"
+              [attr.aria-pressed]="t.pinned"
+              [attr.aria-label]="'Sempre à mão: ' + t.label"
+              [title]="t.pinned ? 'Sempre à mão em toda anotação. Toque para soltar.' : 'Deixar sempre à mão em toda anotação'"
+              (click)="settings.togglePinnedTag(t.label)"
+            >
+              <lucide-icon [img]="StarIcon" [size]="14" aria-hidden="true" />
+            </button>
+          }
         </li>
       }
       @if (fresh(); as f) {
@@ -72,9 +84,11 @@ import { NoteTag } from './note-tag';
         </li>
       }
     </ul>
-    <p class="legenda"><lucide-icon [img]="StarIcon" [size]="13" aria-hidden="true" />sempre à mão nas anotações</p>
+    @if (pinnable()) {
+      <p class="legenda"><lucide-icon [img]="StarIcon" [size]="13" aria-hidden="true" />sempre à mão nas anotações</p>
+    }
     @if (full()) {
-      <p class="dica">Esta anotação já tem {{ maxTags }} tags: tire uma para pôr outra.</p>
+      <p class="dica">{{ owner() }} já tem {{ maxTags }} tags: tire uma para pôr outra.</p>
     }
   `,
   styleUrl: './tag-picker.scss',
@@ -87,6 +101,14 @@ export class TagPicker {
   readonly library = input<readonly TagEntry[]>([]);
   /** O grupo da anotação: a cor de cada tag é a dela nele. */
   readonly category = input<string | null>(null);
+  /** As cores de outro lugar (a Wishlist); sem, as das anotações, no grupo `category`. */
+  readonly colors = input<TagColors | null>(null);
+  /** Com a estrela "sempre à mão" (só nas anotações: as fixas são delas). */
+  readonly pinnable = input(true);
+  /** O que conta o número de cada tag, no singular e no plural (para o leitor de tela). */
+  readonly units = input<readonly [string, string]>(['anotação', 'anotações']);
+  /** Quem tem as tags, no aviso de cheio ("Esta anotação já tem 12 tags"). */
+  readonly owner = input('Esta anotação');
 
   protected readonly max = LABEL_MAX;
   protected readonly maxTags = MAX_TAGS;
@@ -118,6 +140,8 @@ export class TagPicker {
   });
 
   protected colorOf(tag: string): string | null {
+    const own = this.colors();
+    if (own) return own.hex(tag);
     return tagColorHex(this.settings.categoryLooks(), tag, this.category() ?? '');
   }
 
@@ -156,8 +180,11 @@ export class TagPicker {
     const entry = this.library().find((e) => fold(e.label) === fold(tag));
     // como o grupo novo: a tag que ainda não está em nenhuma anotação do grupo, e não tem cor nele,
     // ganha uma das cores, sorteada (dá para trocar nas configurações do mural)
+    const own = this.colors();
     const category = this.category() ?? '';
-    if (!entry?.n && !tagHasLook(this.settings.categoryLooks(), tag, category)) this.settings.setTagColor(tag, randomCategoryColor(), category);
+    if (own) {
+      if (!entry?.n && !own.has(tag)) own.set(tag, randomCategoryColor());
+    } else if (!entry?.n && !tagHasLook(this.settings.categoryLooks(), tag, category)) this.settings.setTagColor(tag, randomCategoryColor(), category);
     this.tags.update((l) => [...l, entry?.label ?? tag]);
   }
 

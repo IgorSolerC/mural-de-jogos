@@ -2,7 +2,7 @@ import { DestroyRef, Injectable, computed, effect, inject, signal } from '@angul
 import { fold } from './review';
 import { MAX_PINNED_TAGS, sanitizeTags } from './note-labels';
 import { CategoryColorId, CategoryLook, CategoryLooks, lookKey, sanitizeCategoryLooks, tagColorOf, tagLookKey } from './category-looks';
-import { CategoryPrefs, NotesConfig, sanitizeNotesConfig, withPrefs, withSavedSubjects, withTagHidden } from './mural-config';
+import { CategoryPrefs, NotesConfig, sanitizeNotesConfig, withPrefs, withSavedSubjects, withTagHidden, wishTagKey } from './mural-config';
 import { NoteTemplate, withTemplate } from './note-templates';
 import { onOtherTab, writeJson } from './storage';
 import { fromOtherTab } from './tab-join';
@@ -374,6 +374,18 @@ export class Settings {
   setNotesConfig(patch: Partial<NotesConfig>): void {
     this.notesConfig.set(sanitizeNotesConfig({ ...this.notesConfig(), ...patch }));
     this.notesConfigAt.set(new Date().toISOString());
+  }
+
+  /** A cor de tags da Wishlist do mural `kind` (undefined tira a cor), em `NotesConfig.wishTagColors`, numa mudança só. */
+  setWishTagColors(kind: string, colors: ReadonlyMap<string, CategoryColorId | undefined>): void {
+    if (!colors.size) return;
+    const next = { ...this.notesConfig().wishTagColors };
+    for (const [tag, color] of colors) {
+      const key = wishTagKey(kind, tag);
+      if (color) next[key] = color;
+      else delete next[key];
+    }
+    this.setNotesConfig({ wishTagColors: next });
   }
 
   /** Muda o que uma categoria muda em cima do mural (`undefined` num campo: volta a seguir o mural). */
