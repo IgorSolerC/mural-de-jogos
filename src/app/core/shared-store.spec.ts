@@ -82,8 +82,14 @@ class FakeNotes {
   clipList: number | null = null;
 
   /** A anotação como a API guarda: sem o que é de cada pessoa nem o "de quem é" (ver `noteData` em api/src/domain/shared-note.ts). */
-  private stored(d: Record<string, unknown>): Record<string, unknown> {
-    const { category, subject, tags, noteRank, sharedBy: _b, ...rest } = d;
+  private stored(d: Record<string, unknown>, inGroup = false): Record<string, unknown> {
+    // numa de grupo compartilhado, a pasta e as tags são do grupo e ficam no conteúdo (como `PERSONAL_IN_GROUP` da API)
+    if (inGroup) {
+      const { category, subject, noteRank, sharedBy: _b, ...kept } = d;
+      if (category !== undefined || subject !== undefined || noteRank !== undefined) this.leaks++;
+      return kept;
+    }
+    const { category, subject, tags, noteRank, sharedBy: _b, folder: _f, ...rest } = d;
     if (category !== undefined || subject !== undefined || tags !== undefined || noteRank !== undefined) this.leaks++;
     return rest;
   }
@@ -171,10 +177,24 @@ class FakeNotes {
     }
     if (path === '/v1/notas' && method === 'POST') {
       const at = new Date().toISOString();
-      const n: FakeNote = { id: body.id, dono: me.id, rev: 1, versao: 1, dados: this.stored(body.dados), conflito: null, por: me.id, em: at, membros: new Map() };
+      const n: FakeNote = { id: body.id, dono: me.id, rev: 1, versao: 1, dados: this.stored(body.dados, !!body.grupo), conflito: null, por: me.id, em: at, membros: new Map(), ...(body.grupo ? { grupo: body.grupo } : {}) };
       for (const m of body.membros ?? []) n.membros.set(this.byCode(m.codigo)!.id, m.papel);
       this.notes.set(n.id, n);
       return json({ nota: this.detail(n, 'dono') }, 201);
+    }
+    // pôr num grupo compartilhado ou tirar dele (o dono e os gestores; a pasta e as tags só ficam dentro de um grupo)
+    const g = /^\/v1\/notas\/([^/]+)\/grupo$/.exec(path);
+    if (g && method === 'PUT') {
+      const gn = this.notes.get(decodeURIComponent(g[1]));
+      const ga = gn ? this.access(gn, me) : null;
+      if (!gn || !ga) return json({ erro: 'nota-nao-encontrada', mensagem: 'Essa anotação não está mais compartilhada com você.' }, 404);
+      if (ga !== 'dono' && ga !== 'gestor') return json({ erro: 'so-gestor', mensagem: 'Só o dono e os gestores.' }, 403);
+      if (body.grupo) gn.grupo = body.grupo;
+      else delete gn.grupo;
+      gn.dados = this.stored(gn.dados, !!gn.grupo);
+      gn.rev++;
+      gn.versao++;
+      return json({ nota: this.detail(gn, ga) });
     }
     const m = /^\/v1\/notas\/([^/]+)(?:\/membros\/([^/]+))?$/.exec(path);
     const n = m ? this.notes.get(decodeURIComponent(m[1])) : undefined;
@@ -208,9 +228,9 @@ class FakeNotes {
       if (!allowed.has(this.structure(body.dados))) return json({ erro: 'so-gestor', mensagem: 'Só o dono e os gestores mudam a estrutura.' }, 403);
     }
     const at = new Date().toISOString();
-    if (body.conflito) n.conflito = { a: this.stored(body.dados), b: this.stored(body.conflito.b), autorA: n.por, autorB: me.id, em: at };
+    if (body.conflito) n.conflito = { a: this.stored(body.dados, !!n.grupo), b: this.stored(body.conflito.b, !!n.grupo), autorA: n.por, autorB: me.id, em: at };
     else if (body.resolver) n.conflito = null;
-    n.dados = this.stored(body.dados);
+    n.dados = this.stored(body.dados, !!n.grupo);
     n.rev++;
     n.versao++;
     n.por = me.id;
@@ -1177,6 +1197,111 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
         TestBed.tick();
         expect(cris.kanban.live(cris.kanban.boardFor('Mercado')).map((c) => c.note)).toEqual(['nota-1']);
       });
+    });
+  });
+
+  describe('a pasta num grupo compartilhado (PLANO-CONSERTO-GRUPOS.md, rodada 1)', () => {
+    const GRUPO = 'gEstudos00001';
+    /** Ana compartilha o grupo Estudos com Bia (gestora): a anotação dela, na pasta e com uma tag, sobe para ele. */
+    async function groupNote(extra: Record<string, unknown> = {}) {
+      const ana = person('ana');
+      const bia = person('bia');
+      ana.shared.groupNames.set(new Map([[GRUPO, 'Estudos']]));
+      ana.store.add(note('nota-1', 'あ', { category: 'Estudos', folder: 'a1simbolos01', tags: ['Kana'], ...extra }));
+      TestBed.tick();
+      await ana.shared.share(ana.store.get('nota-1')!, [], GRUPO);
+      TestBed.tick();
+      // a Bia entra pelo grupo (aqui, pela própria anotação: a nuvem de mentira não tem grupos)
+      const fake = cloud.notes.get('nota-1')!;
+      fake.membros.set(USERS['bia'].id, 'gestor');
+      fake.versao++;
+      bia.shared.groupNames.set(new Map([[GRUPO, 'Estudos · Ana']]));
+      await sync(ana, bia);
+      return { ana, bia, fake };
+    }
+
+    it('a anotação continua na pasta depois de ir para o grupo, no mural da dona e no de quem está nele', async () => {
+      const { ana, bia, fake } = await groupNote();
+      expect(ana.store.get('nota-1')?.folder).toBe('a1simbolos01');
+      expect(ana.store.get('nota-1')?.category).toBe('Estudos');
+      expect(bia.store.get('nota-1')?.folder).toBe('a1simbolos01');
+      expect(fake.dados['folder']).toBe('a1simbolos01');
+      expect(fake.dados['tags']).toEqual(['Kana']);
+    });
+
+    it('pôr uma tag (gravando a anotação como o mural a mostra) não tira a pasta, nem aqui nem na nuvem', async () => {
+      const { ana, bia, fake } = await groupNote();
+      ana.edit('nota-1', { tags: ['Kana', 'Estudo'] });
+      await sync(ana, bia);
+      expect(fake.dados['folder']).toBe('a1simbolos01');
+      expect(fake.dados['tags']).toEqual(['Kana', 'Estudo']);
+      expect(bia.store.get('nota-1')?.folder).toBe('a1simbolos01');
+      expect(bia.store.get('nota-1')?.tags).toEqual(['Kana', 'Estudo']);
+    });
+
+    it('quem está no grupo escreve e a pasta fica para todos (o que a Bruna gravava tirava a pasta)', async () => {
+      const { ana, bia, fake } = await groupNote();
+      bia.edit('nota-1', { text: 'あ (a)' });
+      await sync(bia, ana);
+      expect(fake.dados['text']).toBe('あ (a)');
+      expect(fake.dados['folder']).toBe('a1simbolos01');
+      expect(ana.store.get('nota-1')?.folder).toBe('a1simbolos01');
+      // e ninguém ganhou conflito com isso
+      expect(fake.conflito).toBeNull();
+    });
+
+    it('guardar na pasta (ou tirar dela) numa de grupo vale e chega para todos', async () => {
+      const { ana, bia, fake } = await groupNote();
+      ana.edit('nota-1', { folder: 'a1termos0001' });
+      await sync(ana, bia);
+      expect(ana.store.get('nota-1')?.folder).toBe('a1termos0001');
+      expect(fake.dados['folder']).toBe('a1termos0001');
+      expect(bia.store.get('nota-1')?.folder).toBe('a1termos0001');
+    });
+
+    it('sair do grupo (parar de compartilhar) mantém o grupo, a pasta e as tags no mural da dona', async () => {
+      const { ana, fake } = await groupNote();
+      ana.shared.placeInGroup(['nota-1'], 'Estudos');
+      // como a nuvem faz (DELETE /v1/grupos/:id): só o grupo sai; o conteúdo continua com a pasta e as tags
+      delete fake.grupo;
+      fake.versao++;
+      await sync(ana);
+      const r = ana.store.get('nota-1')!;
+      expect(ana.shared.get('nota-1')?.grupo).toBeNull();
+      expect([r.category, r.folder, r.tags]).toEqual(['Estudos', 'a1simbolos01', ['Kana']]);
+    });
+
+    it('a compartilhada solta que entra no grupo leva a pasta e as tags dela para o grupo', async () => {
+      const ana = person('ana');
+      ana.shared.groupNames.set(new Map([[GRUPO, 'Estudos']]));
+      ana.store.add(note('nota-2', 'い', { category: 'Estudos', folder: 'a1simbolos01', tags: ['Kana'] }));
+      TestBed.tick();
+      await ana.shared.share(ana.store.get('nota-2')!, []);
+      TestBed.tick();
+      await ana.shared.moveToGroup('nota-2', GRUPO);
+      TestBed.tick();
+      await sync(ana);
+      const fake = cloud.notes.get('nota-2')!;
+      expect([fake.dados['folder'], fake.dados['tags']]).toEqual(['a1simbolos01', ['Kana']]);
+      expect(ana.store.get('nota-2')?.folder).toBe('a1simbolos01');
+    });
+
+    it('tirar do grupo recusado pela nuvem não mexe no lugar da anotação', async () => {
+      const { ana } = await groupNote();
+      const before = ana.shared.places().get('nota-1');
+      cloud.offline = true;
+      await expectAsync(ana.shared.moveToGroup('nota-1', null)).toBeRejected();
+      cloud.offline = false;
+      expect(ana.shared.places().get('nota-1')).toEqual(before);
+      expect(ana.shared.get('nota-1')?.grupo).toBe(GRUPO);
+    });
+
+    it('tirar do grupo pela nuvem (moveToGroup null) leva a pasta e as tags para o lugar de quem tirou', async () => {
+      const { ana } = await groupNote();
+      await ana.shared.moveToGroup('nota-1', null);
+      TestBed.tick();
+      const r = ana.store.get('nota-1')!;
+      expect([r.category, r.folder, r.tags]).toEqual(['Estudos', 'a1simbolos01', ['Kana']]);
     });
   });
 

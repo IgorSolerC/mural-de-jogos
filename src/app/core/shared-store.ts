@@ -305,8 +305,10 @@ export class SharedStore implements SharedSink {
     if (!e.grupo || !name) return e.view;
     const memo = this.inGroup.get(e.id);
     if (memo && memo.view === e.view && memo.name === name) return memo.out;
-    const { subject: _s, folder: _f, ...rest } = e.view;
-    // (a pasta de cada um é a de um grupo dele: no compartilhado, ela não vale)
+    // a pasta fica: num grupo compartilhado ela é do grupo, no conteúdo (PLANO-COMPARTILHAR.md, D7). Tirá-la
+    // aqui tirava a anotação da pasta na tela, e a gravação seguinte, feita a partir desta vista, a tirava
+    // da nuvem para todos (PLANO-CONSERTO-GRUPOS.md, 1). Só o assunto de antes das pastas sai.
+    const { subject: _s, ...rest } = e.view;
     const out = { ...rest, category: name } as Review;
     this.inGroup.set(e.id, { view: e.view, name, out });
     return out;
@@ -387,7 +389,7 @@ export class SharedStore implements SharedSink {
     for (const id of ids) {
       const e = this.entries().get(id);
       if (!e) continue;
-      const pessoal = { ...e.pessoal, category, org: true as const };
+      const pessoal = outOfGroupPlace(e, category);
       this.setPlace(id, pessoal);
       this.put({ ...e, pessoal });
     }
@@ -475,19 +477,33 @@ export class SharedStore implements SharedSink {
    */
   async moveToGroup(id: string, grupo: string | null): Promise<void> {
     const before = this.entries().get(id);
+    const name = before?.grupo ? (this.groupNames().get(before.grupo) ?? before.view.category ?? '') : '';
     const res = await this.account.request<{ nota?: unknown }>(`/v1/notas/${encodeURIComponent(id)}/grupo`, { method: 'PUT', body: { grupo } });
     if (!res?.nota) {
       this.drop(id, true);
       return;
     }
-    this.integrateDetail(res.nota);
-    // no grupo, as tags são do grupo: as que ela tinha aqui vão junto, na próxima subida
-    const tags = before?.pessoal.tags;
-    const now = this.entries().get(id);
-    if (grupo && now?.grupo === grupo && tags?.length && canWrite(now.papel)) {
-      this.put({ ...now, local: { ...(now.local ?? now.base), tags: [...tags] } });
-      this.schedulePush();
+    // saindo do grupo, a pasta e as tags (que no grupo moram no conteúdo, e que a nuvem acabou de tirar dele)
+    // passam a ser desta pessoa, como estavam antes do pedido; o grupo fica o de mesmo nome, só dela. Só depois
+    // de a nuvem aceitar: recusado (quem não gere, sem rede), o lugar fica como estava
+    if (before?.grupo && grupo === null && this.entries().has(id)) {
+      const pessoal = outOfGroupPlace(before, name);
+      this.setPlace(id, pessoal);
+      this.put({ ...this.entries().get(id)!, pessoal });
     }
+    this.integrateDetail(res.nota);
+    // entrando num grupo, a pasta e as tags passam a ser do grupo: as que ela tinha aqui vão junto, na próxima
+    // subida (vinda de outro grupo, a pasta de lá não vale aqui e sai; as tags vêm do conteúdo de lá)
+    const now = this.entries().get(id);
+    if (!grupo || !before || before.grupo === grupo || now?.grupo !== grupo || !canWrite(now.papel)) return;
+    const folder = before.grupo ? undefined : before.pessoal.folder;
+    const tags = before.grupo ? (before.local ?? before.base).tags : before.pessoal.tags;
+    const current = now.local ?? now.base;
+    const { folder: _f, tags: _t, ...rest } = current;
+    const next = { ...rest, ...(folder ? { folder } : {}), ...(tags?.length ? { tags: [...tags] } : {}) } as Review;
+    if (sameShared(next, current, true)) return;
+    this.put({ ...now, local: next });
+    this.schedulePush();
   }
 
   /** Põe alguém na anotação, ou troca o papel de quem já está (o dono e os gestores). */
@@ -959,6 +975,23 @@ function meta(d: SharedDetail): Pick<SharedEntry, 'id' | 'dono' | 'papel' | 'mem
     atualizadoPor: d.atualizadoPor,
     grupo: d.grupo,
     criadoPor: d.criadoPor,
+  };
+}
+
+/**
+ * O lugar de uma anotação de grupo compartilhado que sai dele (parar de compartilhar, tirar do grupo): o
+ * grupo `category` e, como estavam no conteúdo do grupo, a pasta e as tags, que fora dele são de cada um (só
+ * para a de grupo: é no conteúdo dela que elas moram). Sem isso, a anotação ficava sem pasta e sem tags (PLANO-CONSERTO-GRUPOS.md, 1).
+ */
+export function outOfGroupPlace(e: Pick<SharedEntry, 'pessoal' | 'local' | 'base'>, category: string): Personal {
+  const { folder, tags } = e.local ?? e.base;
+  const { category: _c, subject: _s, folder: _f, tags: _t, ...rest } = e.pessoal;
+  return {
+    ...rest,
+    ...(category.trim() ? { category } : {}),
+    ...(folder ? { folder } : {}),
+    ...(tags?.length ? { tags: [...tags] } : {}),
+    org: true,
   };
 }
 
