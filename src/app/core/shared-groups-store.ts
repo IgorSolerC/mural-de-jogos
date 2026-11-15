@@ -2,7 +2,7 @@ import { DestroyRef, Injectable, InjectionToken, computed, effect, inject, signa
 import { CloudAccount, CloudError } from './cloud-account';
 import { Cloud } from './cloud-config';
 import { LocalData } from './local-data';
-import { isNote, withAudience } from './review';
+import { Review, isNote, withAudience } from './review';
 import { ReviewStore } from './review-store';
 import { MemberRole, canManage, canWrite } from './shared-notes';
 import { SharedStore } from './shared-store';
@@ -35,6 +35,20 @@ const widest = (a: SharedRole, b: SharedRole | undefined): SharedRole => (b && R
  */
 
 export const GROUPS_KEY = 'meu-mural:grupos:v1';
+
+/** As pastas usadas pelas anotações dadas, com as de cima de cada uma (entre `folders`). */
+function foldersInUse(folders: readonly NoteFolder[], notes: readonly Pick<Review, 'folder'>[]): Set<string> {
+  const byId = new Map(folders.map((f) => [f.id, f]));
+  const out = new Set<string>();
+  for (const n of notes) {
+    let cur = n.folder ? byId.get(n.folder) : undefined;
+    while (cur && !out.has(cur.id)) {
+      out.add(cur.id);
+      cur = cur.parent ? byId.get(cur.parent) : undefined;
+    }
+  }
+  return out;
+}
 /** Conferir e levar sozinho (os testes desligam e chamam à mão). */
 export const GROUPS_AUTO = new InjectionToken<boolean>('GROUPS_AUTO', { providedIn: 'root', factory: () => true });
 
@@ -112,14 +126,18 @@ export class SharedGroupsStore {
    * nome que o grupo tem aqui: as mesmas para todos que estão nele. Só dos grupos cujo documento já tem pastas (o
    * de antes desta build continua com as pastas guardadas de cada um, até o dono levá-las, ver `seedFolders`).
    */
-  readonly folders = computed<NoteFolder[]>(() => {
-    const out: NoteFolder[] = [];
-    for (const [id, name] of this.names()) {
-      const raw = this.entries().get(id)?.dados['pastas'];
-      if (Array.isArray(raw)) out.push(...docFolders(raw, lookKey(name)));
-    }
-    return out;
-  });
+  readonly folders = computed<NoteFolder[]>(
+    () => {
+      const out: NoteFolder[] = [];
+      for (const [id, name] of this.names()) {
+        const raw = this.entries().get(id)?.dados['pastas'];
+        if (Array.isArray(raw)) out.push(...docFolders(raw, lookKey(name)));
+      }
+      return out;
+    },
+    // (mexer no Kanban do grupo muda o documento, mas não as pastas: a árvore não é refeita à toa)
+    { equal: (a, b) => JSON.stringify(a) === JSON.stringify(b) },
+  );
   /**
    * Os grupos compartilhados pela chave do nome que eles têm aqui: o id, se quem está aqui escreve nele, e se o
    * documento já guarda as pastas (para `NoteFolders` saber de onde vêm e para onde vão as pastas de cada grupo).
@@ -131,7 +149,7 @@ export class SharedGroupsStore {
       if (g) out.set(lookKey(name), { id, write: canWrite(g.papel), doc: Array.isArray(g.dados['pastas']), dono: g.papel === 'dono' });
     }
     return out;
-  });
+  }, { equal: (a, b) => JSON.stringify([...a]) === JSON.stringify([...b]) });
   /** O último erro de levar uma anotação para um grupo (a peça dele mostra; some no próximo que dá certo). */
   readonly error = signal<{ grupo: string; mensagem: string } | null>(null);
 
@@ -276,11 +294,16 @@ export class SharedGroupsStore {
         continue;
       }
       if (!Array.isArray(raw)) continue;
+      // só as que as anotações do grupo usam (e as de cima delas): uma pasta de um grupo só dela, de mesmo nome e
+      // sem anotação nenhuma, não vai parar no grupo dos outros
+      const used = foldersInUse(own, this.store.notes().filter((n) => isNote(n) && lookKey(n.category ?? '') === key));
+      const take = own.filter((f) => used.has(f.id));
+      if (!take.length) continue;
       const doc = docFolders(raw, key);
       const ids = new Set(doc.map((f) => f.id));
-      this.updateFolders(id, [...doc, ...own.filter((f) => !ids.has(f.id))]);
+      this.updateFolders(id, [...doc, ...take.filter((f) => !ids.has(f.id))]);
       moved ??= new Set();
-      for (const f of own) moved.add(f.id);
+      for (const f of take) moved.add(f.id);
     }
     if (moved) this.settings.setNotesConfig({ folders: mine.filter((f) => !moved!.has(f.id)) });
   }
@@ -424,6 +447,7 @@ export class SharedGroupsStore {
 
   // ——— a sincronização ———
 
+
   async sync(): Promise<void> {
     if (!this.active()) return;
     if (this.running) return this.running;
@@ -514,7 +538,8 @@ export class SharedGroupsStore {
     // as pastas, pasta a pasta (duas pessoas criando ou renomeando pastas ao mesmo tempo: as duas mexidas ficam)
     const list = (d: SharedGroup['dados']) => (Array.isArray(d['pastas']) ? (d['pastas'] as GroupDocFolder[]) : null);
     const [po, pt, pm] = [list(o), list(theirs), list(mine)];
-    const pastas = pt || pm ? mergeFolders(po ?? [], pt ?? [], pm ?? []) : null;
+    // (conferida de novo: duas pessoas movendo uma pasta para dentro da outra ao mesmo tempo não deixam um ciclo)
+    const pastas = pt || pm ? toDocFolders(docFolders(mergeFolders(po ?? [], pt ?? [], pm ?? []), ''), '') : null;
     return { ...theirs, ...(mine.nome !== o.nome ? { nome: mine.nome } : {}), ...(kanban ? { kanban } : {}), ...(pastas ? { pastas } : {}) };
   }
 

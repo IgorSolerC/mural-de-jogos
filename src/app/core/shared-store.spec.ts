@@ -1346,6 +1346,29 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
       expect([back.text, back.category, back.folder, back.tags]).toEqual(['あ', 'Estudos', 'a1simbolos01', ['Kana']]);
     });
 
+    it('outro aparelho da dona: a que voltou a ser comum chega antes de ela sair da lista das compartilhadas, e não some', async () => {
+      const { ana, fake } = await groupNote();
+      const phone = person('ana');
+      phone.shared.groupNames.set(new Map([[GRUPO, 'Estudos']]));
+      await sync(phone);
+      expect(phone.shared.get('nota-1')?.grupo).toBe(GRUPO);
+      // no computador: parou de compartilhar, ela voltou a ser comum (a nuvem a tirou)
+      const own = { ...ana.store.get('nota-1')!, updatedAt: '2026-11-15T12:00:00.000Z' };
+      cloud.notes.delete('nota-1');
+      void fake;
+      // o celular baixa o mural (com ela comum) antes da lista das compartilhadas: ela fica esperando
+      phone.store.importJson(JSON.stringify({ app: 'meu-mural', version: 2, reviews: [], notas: [own] }), 'merge');
+      TestBed.tick();
+      expect(phone.shared.get('nota-1')).toBeDefined();
+      await sync(phone);
+      TestBed.tick();
+      const r = phone.store.get('nota-1')!;
+      expect(phone.store.sharedIds().has('nota-1')).toBeFalse();
+      expect([r.text, r.category, r.folder]).toEqual(['あ', 'Estudos', 'a1simbolos01']);
+      // e vai no mural deste aparelho (não some na próxima gravação)
+      expect((phone.store.snapshot().notas ?? []).map((n) => (n as { id: string }).id)).toContain('nota-1');
+    });
+
     it('apagar em massa leva também as compartilhadas: as suas saem para todos, e das dos outros você sai', async () => {
       const { ana, bia } = await groupNote();
       ana.store.add(note('nota-2', 'só minha'));

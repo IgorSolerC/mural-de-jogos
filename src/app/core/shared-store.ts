@@ -547,7 +547,8 @@ export class SharedStore implements SharedSink {
    */
   async unshare(id: string): Promise<boolean> {
     const e = this.entries().get(id);
-    if (!e || e.papel !== 'dono' || e.grupo || e.membros.length || e.conflito) return false;
+    // (com um conflito, na nuvem ou achado aqui e ainda não enviado, ela continua compartilhada até alguém escolher)
+    if (!e || e.papel !== 'dono' || e.grupo || e.membros.length || e.conflito || e.outra) return false;
     if (!this.store.adoptShared(e.view)) return false;
     this.drop(id);
     try {

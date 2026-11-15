@@ -119,6 +119,13 @@ export class ReviewStore {
   private readonly sharedNotes = signal<ReadonlyMap<string, Review>>(new Map());
   readonly sharedIds = computed<ReadonlySet<string>>(() => new Set(this.sharedNotes().keys()));
   private sharedSink: SharedSink | null = null;
+  /**
+   * As anotações comuns que chegaram de outro aparelho (a junção do mural) com o id de uma que ainda é compartilhada
+   * aqui: o dono parou de compartilhar em outro aparelho e ela voltou a ser só dele (PLANO-CONSERTO-GRUPOS.md, 6).
+   * Ficam esperando: quando a compartilhada sai daqui, elas entram no lugar dela. Sem isso, este aparelho pulava a
+   * anotação e, gravando o mural antes de baixar a lista das compartilhadas, a tirava da nuvem.
+   */
+  private readonly parked = new Map<string, Review>();
   /** As chaves que o navegador se recusou a salvar (cota cheia, modo privado…), até salvarem de novo. */
   private readonly failedKeys = signal<ReadonlySet<string>>(new Set());
   /**
@@ -737,6 +744,8 @@ export class ReviewStore {
       const current = byId.get(r.id);
       if (shared.has(r.id)) {
         skipped++;
+        const was = this.parked.get(r.id);
+        if (!was || isNewer(r, was)) this.parked.set(r.id, r);
         if (current && isNewer(r, current) && !sameContent(withoutRank(current), withoutRank(r))) lost.push({ ficha: r, motivo: 'juntou' });
         continue;
       }
@@ -844,6 +853,15 @@ export class ReviewStore {
         renamedFrom.push(r);
       } else absorbed.push(r);
     }
+    // a que saiu das compartilhadas e tinha chegado como comum de outro aparelho entra no lugar dela (ver `parked`)
+    for (const id of before.keys()) {
+      const back = this.parked.get(id);
+      if (!back || next.has(id)) continue;
+      this.parked.delete(id);
+      const when = this.deleted().reviews[id];
+      if (!(when && Date.parse(when) >= Date.parse(back.updatedAt)) && !own.some((r) => r.id === id)) own.push(back);
+    }
+    for (const id of [...this.parked.keys()]) if (!next.has(id) && !before.has(id)) this.parked.delete(id);
     const stale = absorbed.filter((r) => isNewer(r, next.get(r.id)!) && !sameContent(withoutRank(r), withoutRank(next.get(r.id)!)));
     // as compartilhadas onde estavam na lista (as novas no começo), depois as daqui
     const order = new Map(this.reviews().map((r, i) => [r.id, i]));

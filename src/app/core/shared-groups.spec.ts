@@ -378,7 +378,8 @@ describe('grupos compartilhados: as pastas do grupo (PLANO-CONSERTO-GRUPOS.md, r
         { provide: GROUPS_AUTO, useValue: false },
         {
           provide: SharedStore,
-          useValue: { entries: signal(new Map()), groupNames: signal(new Map()), get: () => undefined, inGroupOf: () => [], placeInGroup: () => undefined, sync: async () => undefined, unshare: async () => false },
+          // (as anotações 'n-…' destes testes são do grupo compartilhado, como as que a nuvem manda)
+          useValue: { entries: signal(new Map()), groupNames: signal(new Map()), get: (id: string) => (id.startsWith('n-') ? { grupo: 'gTrabalho001' } : undefined), inGroupOf: () => [], placeInGroup: () => undefined, sync: async () => undefined, unshare: async () => false },
         },
         { provide: Cloud, useValue: { config: () => ({ api: 'x' }) } },
         {
@@ -503,7 +504,8 @@ describe('grupos compartilhados: as pastas do grupo (PLANO-CONSERTO-GRUPOS.md, r
   it('a pasta que o membro criou num grupo de antes (só ele via) vai para o documento quando o dono leva as dele', async () => {
     const { groups, folders, settings } = setup('editor', { nome: 'Trabalho' });
     await groups.sync();
-    folders.create('Trabalho', null, 'Minha');
+    const minha = folders.create('Trabalho', null, 'Minha')!;
+    TestBed.inject(ReviewStore).add(note('n-minha01', 'Trabalho', { folder: minha.id }));
     // o dono levou as pastas dele (rev 2)
     server = { ...server, rev: 2, dados: { nome: 'Trabalho', pastas: [{ id: 'pkana0000001', name: 'Kana', parent: null }] } };
     await groups.sync();
@@ -512,6 +514,17 @@ describe('grupos compartilhados: as pastas do grupo (PLANO-CONSERTO-GRUPOS.md, r
     expect((server.dados['pastas'] as { name: string }[]).map((f) => f.name)).toEqual(['Kana', 'Minha']);
     expect(settings.notesConfig().folders).toEqual([]);
     expect(names(folders)).toEqual(['Kana', 'Minha']);
+  });
+
+  it('a pasta de um grupo só da pessoa, de mesmo nome e sem anotação do grupo nela, não vai para o grupo dos outros', async () => {
+    const { groups, settings } = setup('editor', { nome: 'Trabalho', pastas: [{ id: 'pkana0000001', name: 'Kana', parent: null }] });
+    settings.setNotesConfig({ folders: [pasta('pcontas00001', 'Contas'), pasta('pusada000001', 'Usada')] });
+    TestBed.inject(ReviewStore).add(note('n-usada01', 'Trabalho', { folder: 'pusada000001' }));
+    await groups.sync();
+    groups.seedFolders();
+    await groups.pushAll();
+    expect((server.dados['pastas'] as { id: string }[]).map((f) => f.id)).toEqual(['pkana0000001', 'pusada000001']);
+    expect(settings.notesConfig().folders.map((f) => f.id)).toEqual(['pcontas00001']);
   });
 
   it('renomear o grupo leva as pastas dele junto (as do documento e a cópia do dono)', async () => {
