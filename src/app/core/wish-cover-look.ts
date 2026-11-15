@@ -1,51 +1,52 @@
 import { hash, rng } from './paper';
 
 /**
- * Como cada capa entra na Grade da Wishlist (PLANO-WISHLIST.md, P8): todas do mesmo tamanho, numa margem de
- * papel de revista, e uns poucos acidentes de quem destacou a página, sorteados pelo id (os mesmos em toda
- * visita, congelados em `frozen-looks`):
- * - `rasgo`: a beirada de baixo rasgada à mão;
- * - `canto`: a quina de cima arrancada, numa diagonal torta;
- * - `picote`: o lado esquerdo destacado do picote do bloco;
- * - `dobra`: a orelha dobrada na quina de cima;
- * - `''`: lisa (a maioria).
- * Um quinto delas é de revista velha (o papel amarelado), e cada uma fica um tico fora do prumo.
+ * Como cada capa entra na Grade da Wishlist (PLANO-WISHLIST.md, P8 e A3): todas do mesmo tamanho, recortadas
+ * da revista à tesoura, sem margem. O contorno é feito de cortes retos, cada lado em dois ou três golpes um
+ * tico fora do esquadro, e as quinas nunca batem certinho; sorteado pelo id (o mesmo em toda visita,
+ * congelado em `frozen-looks`). Um quinto delas é de revista velha (a foto amarelada), e cada uma fica um tico
+ * fora do prumo.
  */
-export type CoverAccident = '' | 'rasgo' | 'canto' | 'picote' | 'dobra';
-
 export interface CoverLook {
-  kind: CoverAccident;
   /** A inclinação, em graus (de -0,8 a 0,8). */
   tilt: number;
-  /** Papel de revista velha. */
+  /** Revista velha. */
   old: boolean;
-  /** O contorno do rasgo e do canto arrancado (`clip-path`); null nos outros. */
-  clip: string | null;
+  /** O contorno dos cortes da tesoura (`clip-path`). */
+  clip: string;
 }
 
-/** Dez casas: seis lisas e um de cada acidente (um terço com acidente, mais ou menos). */
-const KINDS: readonly CoverAccident[] = ['', '', '', 'rasgo', '', 'canto', '', 'picote', '', 'dobra'];
-
-/** A beirada de baixo rasgada à mão: a linha sobe e desce uns pixels. */
-function tornBottom(r: () => number): string {
-  const pts = ['0 0', '100% 0'];
-  const n = 12;
-  for (let i = n; i >= 0; i--) pts.push(`${((i / n) * 100).toFixed(1)}% calc(100% - ${(r() * 7).toFixed(1)}px)`);
-  return `polygon(${pts.join(', ')})`;
+/** Um ponto do contorno, em porcentagem da capa mais uns pixels para dentro. */
+function pt(xPct: number, yPct: number, dx: number, dy: number): string {
+  const x = dx ? `calc(${xPct}% ${dx < 0 ? '-' : '+'} ${Math.abs(dx).toFixed(1)}px)` : `${xPct}%`;
+  const y = dy ? `calc(${yPct}% ${dy < 0 ? '-' : '+'} ${Math.abs(dy).toFixed(1)}px)` : `${yPct}%`;
+  return `${x} ${y}`;
 }
 
-/** A quina de cima arrancada: uma diagonal torta. */
-function tornCorner(r: () => number): string {
-  const a = 66 + r() * 12;
-  const b = 14 + r() * 10;
-  const pts = ['0 0', `${a.toFixed(1)}% 0`];
-  const n = 6;
-  for (let i = 1; i < n; i++) {
-    const x = a + ((100 - a) * i) / n + (r() - 0.5) * 3;
-    const y = (b * i) / n + (r() - 0.5) * 3;
-    pts.push(`${x.toFixed(1)}% ${Math.max(0, y).toFixed(1)}%`);
-  }
-  pts.push(`100% ${b.toFixed(1)}%`, '100% 100%', '0 100%');
+/**
+ * Os cortes da tesoura: as quatro quinas entram de 0 a 2,6px (cada uma do seu jeito), e cada lado ganha um ou
+ * dois pontos no meio, onde a tesoura parou e mudou um tico de direção (até 1,4px para dentro).
+ */
+function scissorCut(r: () => number): string {
+  const corner = () => r() * 2.6;
+  const tl = [corner(), corner()];
+  const tr = [corner(), corner()];
+  const br = [corner(), corner()];
+  const bl = [corner(), corner()];
+  const mids = (from: number, to: number) => {
+    const n = r() < 0.5 ? 1 : 2;
+    const out: [number, number][] = [];
+    for (let i = 1; i <= n; i++) out.push([from + ((to - from) * i) / (n + 1) + (r() - 0.5) * 12, r() * 1.4]);
+    return out;
+  };
+  const pts: string[] = [pt(0, 0, tl[0], tl[1])];
+  for (const [at, d] of mids(0, 100)) pts.push(pt(at, 0, 0, d));
+  pts.push(pt(100, 0, -tr[0], tr[1]));
+  for (const [at, d] of mids(0, 100)) pts.push(pt(100, at, -d, 0));
+  pts.push(pt(100, 100, -br[0], -br[1]));
+  for (const [at, d] of mids(100, 0)) pts.push(pt(at, 100, 0, -d));
+  pts.push(pt(0, 100, bl[0], -bl[1]));
+  for (const [at, d] of mids(100, 0)) pts.push(pt(0, at, d, 0));
   return `polygon(${pts.join(', ')})`;
 }
 
@@ -53,11 +54,9 @@ function tornCorner(r: () => number): string {
 export function coverFor(id: string): CoverLook {
   // a semente tem o prefixo próprio: o sorteio da grade nunca anda junto com o do recorte
   const r = rng(hash(`capa:${id}`));
-  const kind = KINDS[Math.floor(r() * KINDS.length)];
   return {
-    kind,
     tilt: Math.round((r() * 1.6 - 0.8) * 10) / 10,
     old: r() < 0.2,
-    clip: kind === 'rasgo' ? tornBottom(r) : kind === 'canto' ? tornCorner(r) : null,
+    clip: scissorCut(r),
   };
 }

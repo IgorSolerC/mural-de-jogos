@@ -1,0 +1,35 @@
+// O cartão de quando não há nada à mostra (a busca e os filtros não acharam, a pasta vazia): a cartolina
+// pregada torta no meio da parede, o título a pincel e a frase à mão. Nas Anotações e na Análises (a
+// parede, pages/wall-board.ts) e na Wishlist. Quem usa põe `section.no-results.cartolina` com o `app-pin.pin`,
+// o `h2`, o `p` e, se tiver, as ações.
+@mixin cartao {
+  .no-results {
+    --stock: var(--stock-laranja);
+    position: relative;
+    max-width: 460px;
+    margin: 10px auto 0;
+    padding: 30px 28px 26px;
+    rotate: 1deg;
+    box-shadow: var(--shadow-card);
+    text-align: center;
+
+    .pin {
+      top: -10px;
+      left: calc(50% - 13px);
+    }
+
+    h2 {
+      font-family: var(--f-marker);
+      font-weight: 400;
+      font-size: 1.6rem;
+      line-height: 1.1;
+    }
+
+    p {
+      margin: 10px 0 18px;
+      font-family: var(--f-hand);
+      font-size: 1.15rem;
+      overflow-wrap: anywhere;
+    }
+  }
+}

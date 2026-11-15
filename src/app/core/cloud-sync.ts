@@ -223,8 +223,10 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
+ * 57: a descrição do desejo (o `note`) passa a ser o texto das anotações, até 4000 letras: um site da 56
+ *     cortaria em 280 ao enviar.
  */
-export const SYNC_SCHEMA = 56;
+export const SYNC_SCHEMA = 57;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };

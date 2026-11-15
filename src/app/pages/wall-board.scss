@@ -1,6 +1,7 @@
 @use '../ui/a11y';
 @use '../ui/arrasto';
 @use '../ui/pastas-parede' as pastas;
+@use '../ui/sem-resultados' as sem;
 
 :host {
   display: block;
@@ -277,35 +278,7 @@
 }
 
 /* ===== Sem resultados ===== */
-.no-results {
-  --stock: var(--stock-laranja);
-  position: relative;
-  max-width: 460px;
-  margin: 10px auto 0;
-  padding: 30px 28px 26px;
-  rotate: 1deg;
-  box-shadow: var(--shadow-card);
-  text-align: center;
-
-  .pin {
-    top: -10px;
-    left: calc(50% - 13px);
-  }
-
-  h2 {
-    font-family: var(--f-marker);
-    font-weight: 400;
-    font-size: 1.6rem;
-    line-height: 1.1;
-  }
-
-  p {
-    margin: 10px 0 18px;
-    font-family: var(--f-hand);
-    font-size: 1.15rem;
-    overflow-wrap: anywhere;
-  }
-}
+@include sem.cartao;
 
 /* "Tudo finalizado": o cartão leva o carimbo verde no canto, batido por cima do papel */
 .tudo-feito {

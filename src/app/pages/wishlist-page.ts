@@ -5,10 +5,12 @@ import { NoteFolder, siblingNamed } from '../core/folders';
 import type { FolderInfo } from '../core/wall-view';
 import { WishFolders } from '../core/wish-folders';
 import { plural } from '../core/text';
+import { plainText } from '../core/rich-text';
 import { FolderAsking, WISH_UNITS } from '../ui/folder-asking';
 import { FolderCard } from '../ui/folder-card';
 import { FolderMoveSheet } from '../ui/folder-move-sheet';
 import { FolderPath } from '../ui/folder-path';
+import { Pin } from '../ui/pin';
 import { WallDrag, WallDragItem, WallDrop } from './wall-drag';
 import { ICON, IconModule } from '../ui/icons';
 import { collage, placeFor, shelfColumns } from '../core/clipping';
@@ -61,7 +63,7 @@ import { reducedMotion } from '../core/motion';
  * O adesivo na quina diz quanta vontade: MUST PLAY vem na frente, LATER vai para o fim.
  * Sem saber o que escolher? O sorteio tira um da parede.
  *
- * A pasta de cima é a do mural (PLANO-WISHLIST.md, 4.1): a busca (no nome e no lembrete), o Filtrar (a folha
+ * A pasta de cima é a do mural (PLANO-WISHLIST.md, 4.1): a busca (no nome e na descrição), o Filtrar (a folha
  * das Anotações, com a Vontade e as Tags), a ordem com o inverter e o "MUST 1º", a vista (Recortes, a colagem;
  * Grade, muitas capas de uma vez) e o Sortear. A vista e a ordem ficam guardadas no aparelho.
  *
@@ -72,7 +74,7 @@ import { reducedMotion } from '../core/motion';
  */
 @Component({
   selector: 'app-wishlist-page',
-  imports: [ContextMenu, FilterCard, FilterTags, FolderCard, FolderMoveSheet, FolderPath, IconModule, SearchHighlight, SearchStrip, WishActions, WishClip, WishCover, WishNote, WishTags],
+  imports: [ContextMenu, Pin, FilterCard, FilterTags, FolderCard, FolderMoveSheet, FolderPath, IconModule, SearchHighlight, SearchStrip, WishActions, WishClip, WishCover, WishNote, WishTags],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '(document:keydown.escape)': 'onEscape()', '[class.com-sorteio]': 'winner()' },
   template: `
@@ -259,9 +261,28 @@ import { reducedMotion } from '../core/motion';
       }
 
       @if (filtering() && !visible().length) {
-        <p class="none">{{ noneText() }}</p>
+        <!-- a busca e os filtros não acharam nada: o cartão das Anotações -->
+        <section class="no-results cartolina" aria-live="polite">
+          <app-pin class="pin" color="#f4f4f0" />
+          <h2>{{ openFolder() ? 'Nada nesta pasta com esse filtro' : 'Nada na wishlist com esse filtro' }}</h2>
+          <p>{{ noneText() }}</p>
+          <div class="acoes-vazio">
+            <button type="button" class="btn-quiet" (click)="clear()">Limpar a busca e os filtros</button>
+          </div>
+        </section>
       } @else if (folderEmpty()) {
-        <p class="none">Pasta vazia. Guarde um recorte aqui arrastando até ela, ou pelo “Mover para pasta…” do recorte.</p>
+        <!-- a pasta aberta não tem nada: o cartão da pasta vazia das Anotações -->
+        <section class="no-results cartolina pasta-vazia" aria-live="polite">
+          <app-pin class="pin" color="#f4f4f0" />
+          <h2>{{ folderPath().at(-1)?.name }} está vazia</h2>
+          <p>Nenhum recorte nesta pasta ainda. O que você recortar aqui já nasce nela, e dá para arrastar um até o nome dela no caminho.</p>
+          <div class="acoes-vazio">
+            <button type="button" class="btn-ink" (click)="desk.newWish()">
+              <lucide-icon [img]="CutIcon" [size]="19" aria-hidden="true" />
+              Adicionar {{ g(mural.profile(), 'um', 'uma') }} {{ mural.profile().singular }}
+            </button>
+          </div>
+        </section>
       }
 
       @if (prefs().vista === 'grade') {
@@ -302,12 +323,16 @@ import { reducedMotion } from '../core/motion';
                   [style.--vao]="at.gap + 'px'"
                   [style.view-transition-name]="'desejo-pe-' + w.id"
                 >
+                  @if (w.note) {
+                    <!-- tem descrição: a ponta da folha do caderno aparece atrás do recorte (é de onde ela sai) -->
+                    <span class="ponta" aria-hidden="true"></span>
+                  }
                   <app-wish-clip
                     [wish]="w"
                     [landing]="desk.landingId() === w.id"
                     [class.sorteado]="winner()?.id === w.id"
                     [class.na-sombra]="winner() && winner()?.id !== w.id"
-                    [describedBy]="w.note ? 'lembrete-' + w.id : null"
+                    [describedBy]="w.note ? 'descricao-' + w.id : null"
                     (opened)="drawn.set(null); desk.openWish($event)"
                   />
                   <div class="pe" [class.na-sombra]="winner() && winner()?.id !== w.id">
@@ -344,7 +369,7 @@ import { reducedMotion } from '../core/motion';
 
     <!-- o menu do site: o do recorte (o botão direito, o dedo segurado, Shift+F10: começar a resenha, as
          vontades, tirar da wishlist) e o do Vontade da etiqueta (só as vontades, com os adesivos) -->
-    <app-context-menu #menu [caption]="menuWish()?.game?.name ?? ''" [note]="menuWish()?.note ?? ''" [sections]="menuSections()" (closed)="menuOn.set(null)" />
+    <app-context-menu #menu [caption]="menuWish()?.game?.name ?? ''" [note]="menuNote()" [sections]="menuSections()" (closed)="menuOn.set(null)" />
     <!-- o menu de uma pasta da parede, ou do vão dela -->
     <app-context-menu #menuDaPasta [caption]="folderMenu().caption" [sections]="folderMenu().sections" />
 
@@ -370,6 +395,8 @@ import { reducedMotion } from '../core/motion';
   styles: `
     @use '../ui/pastas-parede' as pastas;
     @use '../ui/arrasto';
+    @use '../ui/caderno';
+    @use '../ui/sem-resultados' as sem;
 
     :host {
       display: block;
@@ -392,7 +419,7 @@ import { reducedMotion } from '../core/motion';
     .recortes[data-alvo],
     .grade[data-alvo],
     .pastas[data-alvo],
-    .none[data-alvo] {
+    .no-results[data-alvo] {
       outline: 2.5px dashed var(--hi);
       outline-offset: 10px;
       border-radius: 4px;
@@ -413,10 +440,15 @@ import { reducedMotion } from '../core/motion';
       margin-bottom: 44px;
     }
 
-    .none {
-      font-family: var(--f-hand);
-      font-size: 1.2rem;
-      color: var(--wall-ink);
+    /* o cartão de quando não há nada à mostra: o das Anotações (ui/_sem-resultados.scss) */
+    @include sem.cartao;
+    .acoes-vazio {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px 18px;
+    }
+    .pasta-vazia h2 {
       overflow-wrap: anywhere;
     }
 
@@ -437,6 +469,31 @@ import { reducedMotion } from '../core/motion';
     .desejo:hover,
     .desejo:focus-within {
       z-index: 30;
+    }
+    /* a ponta da folha da descrição mora atrás do recorte: o recorte é o contexto dela (e a folha aberta pela
+       busca fica por cima dos vizinhos) */
+    .desejo {
+      isolation: isolate;
+    }
+    .desejo:has(app-wish-note.aberta) {
+      z-index: 20;
+    }
+    .ponta {
+      @include caderno.ponta;
+      top: 30%;
+      right: -12px;
+      rotate: 8deg;
+    }
+    /* a folha grande abriu: a ponta some (a mesma espera da folha com a mão; na hora com o teclado e a busca) */
+    @media (hover: hover) {
+      .desejo:hover > .ponta {
+        opacity: 0;
+        transition-delay: 300ms;
+      }
+    }
+    .desejo:has(.hit:focus-visible) > .ponta,
+    .desejo:has(app-wish-note.aberta) > .ponta {
+      opacity: 0;
     }
     /* embaixo do recorte: as tags e, sem mouse, a etiqueta */
     .pe {
@@ -467,7 +524,7 @@ import { reducedMotion } from '../core/motion';
         margin-left: auto;
       }
     }
-    /* o lembrete: um instante depois da mão parar em cima, na hora com o teclado; some na hora */
+    /* a descrição: um instante depois da mão parar em cima, na hora com o teclado; some na hora */
     app-wish-note {
       opacity: 0;
       transition:
@@ -777,7 +834,7 @@ export class WishlistPage {
     const p = this.mural.profile();
     const f = this.filter();
     const nenhum = g(p, 'Nenhum', 'Nenhuma');
-    if (f.query.trim() && !f.vontade && !f.on.size && !f.out.size) return `${nenhum} ${p.singular} da wishlist tem “${f.query.trim()}” no nome ou no lembrete.`;
+    if (f.query.trim() && !f.vontade && !f.on.size && !f.out.size) return `${nenhum} ${p.singular} da wishlist tem “${f.query.trim()}” no nome ou na descrição.`;
     return `${nenhum} ${p.singular} da wishlist com esses filtros.`;
   });
   /** Onde cada recorte fica na coluna (a largura, o desvio e o vão), o mesmo sorteio do recorte. */
@@ -796,6 +853,11 @@ export class WishlistPage {
   /** O desejo com o menu aberto, e qual menu: o do recorte (o botão direito) ou o do Vontade da etiqueta. */
   protected readonly menuOn = signal<{ id: string; only: 'tudo' | 'vontade' } | null>(null);
   protected readonly menuWish = computed(() => this.mural.wishes().find((w) => w.id === this.menuOn()?.id) ?? null);
+  /** No alto do menu do dedo: o começo da descrição, sem as marcas do texto. */
+  protected readonly menuNote = computed(() => {
+    const plain = plainText(this.menuWish()?.note ?? '').replace(/\s+/g, ' ').trim();
+    return plain.length > 180 ? plain.slice(0, 179).trimEnd() + '…' : plain;
+  });
   /** O que fica no menu de um recorte sobre a pasta dele: mover para outra e, dentro de uma, tirar dela. */
   private folderItems(w: Wish): MenuItem[] {
     const items: MenuItem[] = [
@@ -851,7 +913,7 @@ export class WishlistPage {
       [{ id: 'tirar', label: 'Tirar da wishlist', icon: ICON.apagar, danger: true, run: () => this.remove(w.id) }],
     ];
   });
-  /** Os desejos que a busca achou só pelo lembrete: a folha do caderno fica aberta neles. */
+  /** Os desejos que a busca achou só pela descrição: a folha do caderno fica aberta neles. */
   protected readonly byNote = computed(() => {
     const q = this.filter().query;
     return new Set(q.trim() ? this.visible().filter((w) => foundByNote(w, q)).map((w) => w.id) : []);
@@ -911,7 +973,7 @@ export class WishlistPage {
         else wishTrigger.openAt(item.lead, x, y, box);
       },
       scope: () => host.querySelector('.recortes, .grade, .pastas'),
-      gap: '.recortes, .grade, .pastas, .none',
+      gap: '.recortes, .grade, .pastas, .no-results',
       pieces: {
         selector: '.desejo[data-ficha], app-wish-cover[data-ficha]',
         idOf: (el) => el.getAttribute('data-ficha'),

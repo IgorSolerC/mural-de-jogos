@@ -15,6 +15,9 @@ import { ViewTransitions } from '../core/view-transitions';
 import { wishTagCounts, wishTagHex } from '../core/wishlist-view';
 import { TagColors, TagPicker } from './tag-picker';
 import { FolderPicker } from './folder-picker';
+import { RichEditor } from './rich-editor';
+import { WishTags } from './wish-tags';
+import type { LucideIconData } from 'lucide-angular';
 import { WishFolders } from '../core/wish-folders';
 import { Toasts } from './toast';
 import { CoverPicker } from './cover-picker';
@@ -24,14 +27,21 @@ import { GameSearch } from './game-search';
 import { RelevanceSticker } from './relevance-sticker';
 import { WishClip } from './wish-clip';
 
+/** As etiquetas da folha do recorte. */
+export type WishProp = 'vontade' | 'tags' | 'pasta' | 'capa';
+
 /** Para onde vai o que se escolhe aqui: a wishlist (recorte de revista) ou o Pra depois (folha de caderno). */
 export type AdderMode = 'wish' | 'draft';
 
 /**
  * Recortar do catálogo: o diálogo da wishlist, e o mesmo diálogo para guardar direto no Pra depois. O nome
  * (com o auto-complete do mural) e a capa, escolhida entre as que o catálogo tem do mesmo título, ou colada de
- * um link, ou nenhuma; na wishlist, também quanta vontade, as tags e o lembrete. Ao lado, o recorte como ele
- * vai ficar na parede.
+ * um link, ou nenhuma. Ao lado, o recorte como ele vai ficar na parede.
+ *
+ * Na wishlist (PLANO-WISHLIST.md, A2), a folha é a do editor das anotações, igual para pôr e para editar, com
+ * tudo à vista desde o começo: a obra no alto (a busca, ou a capinha e o nome), a fileira de etiquetas (Vontade,
+ * Tags, Pasta e Capa: cada uma diz o que está escolhido e abre a sua parte logo embaixo) e a Descrição, com o
+ * editor de texto das anotações (o Visual ou o Markdown, o que a pessoa escolheu).
  *
  * Aberto com um desejo (`edit`), é o "Editar recorte" (PLANO-WISHLIST.md, P11): muda o desejo sem resenhar,
  * com o recorte de verdade ao lado (sem "Outro recorte": trocar o id faria o desejo sumir e voltar na
@@ -39,7 +49,7 @@ export type AdderMode = 'wish' | 'draft';
  */
 @Component({
   selector: 'app-wish-adder',
-  imports: [BackdropClose, CoverPicker, CoverSleeve, DraftCard, FolderPicker, GameSearch, IconModule, RelevanceSticker, TagPicker, WishClip],
+  imports: [BackdropClose, CoverPicker, CoverSleeve, DraftCard, FolderPicker, GameSearch, IconModule, RelevanceSticker, RichEditor, TagPicker, WishClip, WishTags],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wish-adder.html',
   styleUrl: './wish-adder.scss',
@@ -69,6 +79,7 @@ export class WishAdder {
   protected readonly SaveIcon = ICON.pronto;
   protected readonly StartIcon = ICON.editar;
   protected readonly TrashIcon = ICON.apagar;
+  protected readonly DoneIcon = ICON.pronto;
   protected readonly noteMax = WISH_NOTE_MAX;
 
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
@@ -104,8 +115,29 @@ export class WishAdder {
   private readonly newColors = signal<ReadonlyMap<string, CategoryColorId>>(new Map());
   /** As tags do desejo (só na wishlist). */
   protected readonly tags = signal<string[]>([]);
-  /** O lembrete: texto puro, só aparece com a mão em cima do recorte. */
+  /** A descrição: o texto das anotações, que só aparece com a mão em cima do recorte. */
   protected readonly note = signal('');
+  /** A etiqueta aberta (a parte dela logo embaixo da fileira), ou nenhuma. */
+  protected readonly prop = signal<WishProp | null>(null);
+  /** A fileira de etiquetas: o nome, o desenho, o que está escolhido e o que o leitor de tela ouve. */
+  protected readonly props = computed(() => {
+    const k = this.kind();
+    const r = this.relevance();
+    const tags = this.tags();
+    const folder = this.folder();
+    const gm = this.game();
+    const fname = folder ? (this.wishFolders.tree().live(folder)?.name ?? null) : null;
+    const rel = r === 'comum' ? 'Comum' : relevanceLabel(k, r);
+    const capa = !gm ? 'Capa' : gm.coverUrl ? 'Capa' : 'Sem capa';
+    const out: { id: WishProp; name: string; icon: LucideIconData; value: string; spoken: string; filled: boolean; off?: boolean }[] = [
+      { id: 'vontade', name: 'Vontade', icon: ICON.adesivo, value: rel, spoken: rel, filled: r !== 'comum' },
+      { id: 'tags', name: 'Tags', icon: ICON.etiquetas, value: 'Tags', spoken: tags.length ? tags.join(', ') : 'nenhuma', filled: tags.length > 0 },
+      { id: 'pasta', name: 'Pasta', icon: ICON.pastaDeNotas, value: fname ?? 'Pasta', spoken: fname ?? 'sem pasta', filled: !!fname },
+      { id: 'capa', name: 'Capa', icon: ICON.imagem, value: capa, spoken: !gm ? 'escolha primeiro o item' : gm.coverUrl ? 'escolhida' : 'sem capa', filled: !!gm?.coverUrl, off: !gm },
+    ];
+    return out;
+  });
+  protected readonly propNames: Record<WishProp, string> = { vontade: 'Quanta vontade?', tags: 'Tags', pasta: 'Pasta', capa: 'Qual capa?' };
   /** A pasta (o id; null: solto na raiz da Wishlist). Pondo um novo, a aberta na página da Wishlist. */
   protected readonly folder = signal<string | null>(null);
   /** Quantos recortes cada pasta da Wishlist do mural tem (com os das de dentro), para a escolha. */
@@ -125,8 +157,6 @@ export class WishAdder {
       set: (tag, color) => this.newColors.update((m) => new Map(m).set(wishTagKey(kind, tag), color)),
     };
   });
-  /** O lembrete perto do limite: o contador aparece. */
-  protected readonly noteNear = computed(() => this.note().length >= WISH_NOTE_MAX - 40);
   /** O mesmo título já está na lista de destino (a wishlist, ou a fila do Pra depois) deste mural. */
   protected readonly dup = computed<Wish | Draft | null>(() => {
     const gm = this.game();
@@ -214,6 +244,37 @@ export class WishAdder {
     this.tags.set([]);
     this.note.set('');
     this.folder.set(null);
+    this.prop.set(null);
+  }
+
+  /** Abre a parte da etiqueta (de novo: fecha). O foco desce para a parte; fechando, volta para a etiqueta. */
+  protected toggleProp(id: WishProp): void {
+    if (this.prop() === id) {
+      this.closeProp();
+      return;
+    }
+    this.prop.set(id);
+    setTimeout(() => {
+      const part = this.dialog().nativeElement.querySelector<HTMLElement>('#desejo-parte');
+      const first = part?.querySelector<HTMLElement>('input[type="text"], input:checked, input, button');
+      first?.focus();
+    });
+  }
+
+  /** Fecha a parte aberta (Esc, o Pronto, a etiqueta de novo); o foco volta para a etiqueta dela. */
+  protected closeProp(e?: Event): void {
+    const id = this.prop();
+    if (!id) return;
+    // o Esc fecha só a parte, não a folha
+    e?.preventDefault();
+    e?.stopPropagation();
+    this.prop.set(null);
+    setTimeout(() => this.dialog().nativeElement.querySelector<HTMLElement>(`.prop[data-prop="${id}"]`)?.focus());
+  }
+
+  /** Escolheu a vontade na parte: a etiqueta mostra o adesivo, e a parte fica aberta para ver como ficou. */
+  protected pickRelevance(r: Relevance): void {
+    this.relevance.set(r);
   }
 
   /** Recorta de novo: outro id, outro jeito de rasgar e de colar o nome. */

@@ -10,6 +10,7 @@ import { Settings } from '../core/settings';
 import { Toasts } from './toast';
 import { WishAdder } from './wish-adder';
 import { WishFolders } from '../core/wish-folders';
+import { comMarkdown } from '../testing/writing-mode.spec';
 
 /** O "Editar recorte" (PLANO-WISHLIST.md, rodada 4): a folha do "Pôr na wishlist" aberta com um desejo. */
 
@@ -17,6 +18,7 @@ const at = (d: number) => new Date(Date.UTC(2026, 10, d)).toISOString();
 const wish = (id: string, name: string, extra: Partial<Wish> = {}): Wish => ({ id, kind: 'jogos', game: { name, coverUrl: null, source: 'manual' }, createdAt: at(1), updatedAt: at(1), ...extra });
 
 describe('a folha do desejo: editar sem resenhar', () => {
+  comMarkdown();
   let fixture: ComponentFixture<WishAdder>;
   let host: HTMLElement;
   let store: ReviewStore;
@@ -32,7 +34,13 @@ describe('a folha do desejo: editar sem resenhar', () => {
   const adder = () => fixture.componentInstance;
   const dialog = () => host.querySelector<HTMLDialogElement>('dialog')!;
   const button = (label: string) => [...host.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent!.trim() === label);
-  const noteField = () => host.querySelector<HTMLTextAreaElement>('#desejo-lembrete');
+  const noteField = () => host.querySelector<HTMLTextAreaElement>('.descricao app-rich-editor textarea');
+  /** Abre a parte da etiqueta (se já não está aberta). */
+  async function part(id: string): Promise<void> {
+    const b = host.querySelector<HTMLButtonElement>(`.prop[data-prop="${id}"]`)!;
+    if (b.getAttribute('aria-expanded') !== 'true') b.click();
+    await settle();
+  }
   const tagOn = () => [...host.querySelectorAll<HTMLButtonElement>('app-tag-picker .op[aria-pressed="true"]')].map((b) => b.querySelector('app-note-tag')!.textContent!.trim());
   async function write(text: string): Promise<void> {
     noteField()!.value = text;
@@ -40,6 +48,7 @@ describe('a folha do desejo: editar sem resenhar', () => {
     await settle();
   }
   async function newTag(text: string): Promise<void> {
+    await part('tags');
     const field = host.querySelector<HTMLInputElement>('app-tag-picker input')!;
     field.value = text;
     field.dispatchEvent(new Event('input'));
@@ -77,14 +86,19 @@ describe('a folha do desejo: editar sem resenhar', () => {
     localStorage.clear();
   });
 
-  it('abre com o desejo: o título, o recorte de verdade (sem "Outro recorte"), a vontade, as tags e o lembrete', async () => {
+  it('abre com o desejo: o título, o recorte de verdade (sem "Outro recorte"), a vontade, as tags e a descrição', async () => {
     adder().edit(store.getWish('w1')!);
     await settle();
     expect(dialog().open).toBeTrue();
     expect(host.querySelector('h2')!.textContent!.trim()).toBe('Editar recorte');
     expect(button('Outro recorte')).toBeUndefined();
     expect(host.querySelector('app-wish-clip')).not.toBeNull();
+    // as etiquetas dizem o que está escolhido
+    expect(host.querySelector('.prop[data-prop="vontade"] app-relevance-sticker')).not.toBeNull();
+    expect(host.querySelector('.prop[data-prop="tags"]')!.getAttribute('aria-label')).toBe('Tags: curto');
+    await part('vontade');
     expect(host.querySelector<HTMLInputElement>('input[name="desejo-vontade"][aria-label="MUST PLAY"]')!.checked).toBeTrue();
+    await part('tags');
     expect(tagOn()).toEqual(['curto']);
     expect(noteField()!.value).toBe('Indicação do Rafa');
     // as tags da Wishlist do mural, sem a estrela das anotações
@@ -99,6 +113,7 @@ describe('a folha do desejo: editar sem resenhar', () => {
     await settle();
     await write('  Ver o trailer de novo  ');
     await newTag('co-op');
+    await part('vontade');
     host.querySelector<HTMLInputElement>('input[name="desejo-vontade"][aria-label="LATER"]')!.click();
     await settle();
     button('Salvar')!.click();
@@ -131,6 +146,7 @@ describe('a folha do desejo: editar sem resenhar', () => {
     adder().edit(store.getWish('w1')!);
     await settle();
     await write('   ');
+    await part('tags');
     host.querySelector<HTMLButtonElement>('app-tag-picker .op[aria-pressed="true"]')!.click();
     await settle();
     button('Salvar')!.click();
@@ -138,6 +154,31 @@ describe('a folha do desejo: editar sem resenhar', () => {
     const w = store.getWish('w1')!;
     expect('note' in w).toBeFalse();
     expect('tags' in w).toBeFalse();
+  });
+
+  it('pôr é a mesma folha de editar, com tudo à vista desde o começo; a Capa espera o item; Esc fecha só a parte', async () => {
+    adder().open();
+    await settle();
+    expect(host.querySelector('h2')!.textContent!.trim()).toBe('Pôr na wishlist');
+    expect([...host.querySelectorAll('.prop')].map((b) => b.getAttribute('data-prop'))).toEqual(['vontade', 'tags', 'pasta', 'capa']);
+    expect(host.querySelector<HTMLButtonElement>('.prop[data-prop="capa"]')!.disabled).toBeTrue();
+    expect(noteField()).not.toBeNull();
+    // a descrição e as tags escritas antes de escolher o item ficam
+    await write('Vi no trailer da Nintendo');
+    await newTag('plataforma');
+    const part0 = host.querySelector<HTMLElement>('#desejo-parte')!;
+    part0.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    await settle();
+    expect(host.querySelector('#desejo-parte')).toBeNull();
+    expect(dialog().open).toBeTrue();
+    (adder() as unknown as { pick(g: Wish['game']): void }).pick({ name: 'Hollow Knight', coverUrl: null, source: 'manual' });
+    await settle();
+    expect(host.querySelector<HTMLButtonElement>('.prop[data-prop="capa"]')!.disabled).toBeFalse();
+    button('Pôr na lista')!.click();
+    await settle();
+    const w = store.wishes().find((x) => x.game.name === 'Hollow Knight')!;
+    expect(w.note).toBe('Vi no trailer da Nintendo');
+    expect(w.tags).toEqual(['plataforma']);
   });
 
   it('trocar para um item que já é outro desejo: o aviso, e o Salvar não fecha nem perde o que foi escrito', async () => {
@@ -229,7 +270,9 @@ describe('a folha do desejo: editar sem resenhar', () => {
     await settle();
     (adder() as unknown as { pick(g: Wish['game']): void }).pick({ name: 'Unravel', coverUrl: null, source: 'manual' });
     await settle();
-    expect(host.querySelector('.onde [role="radio"][aria-checked="true"]')!.textContent).toContain('Co-op');
+    expect(host.querySelector('.prop[data-prop="pasta"]')!.textContent).toContain('Co-op');
+    await part('pasta');
+    expect(host.querySelector('#desejo-parte [role="radio"][aria-checked="true"]')!.textContent).toContain('Co-op');
     button('Pôr na lista')!.click();
     await settle();
     expect(store.wishes().find((w) => w.game.name === 'Unravel')!.folder).toBe(coop);
@@ -237,8 +280,9 @@ describe('a folha do desejo: editar sem resenhar', () => {
     folders.open.set({ kind: 'livros', id: coop });
     adder().edit(store.getWish('w1')!);
     await settle();
-    expect(host.querySelector('.onde [role="radio"][aria-checked="true"]')!.textContent).toContain('Sem pasta');
-    const field = host.querySelector<HTMLInputElement>('.onde input')!;
+    await part('pasta');
+    expect(host.querySelector('#desejo-parte [role="radio"][aria-checked="true"]')!.textContent).toContain('Sem pasta');
+    const field = host.querySelector<HTMLInputElement>('#desejo-parte input')!;
     field.value = 'Curtinhos';
     field.dispatchEvent(new Event('input'));
     await settle();

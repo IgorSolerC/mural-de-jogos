@@ -3,6 +3,7 @@ import { RELEVANCES, RELEVANCE_RANK, Relevance, Wish, fold, relevanceLabel, rele
 import type { Kind } from './kinds';
 import { CategoryColorId, categoryColorHex } from './category-looks';
 import { wishTagKey } from './mural-config';
+import { plainText } from './rich-text';
 
 /**
  * A vista da Wishlist (PLANO-WISHLIST.md, 3.3, P5–P7): como a parede aparece (Recortes ou Grade), em que
@@ -108,10 +109,22 @@ export function wishFiltering(f: WishFilter): boolean {
   return !!f.query.trim() || !!f.vontade || f.on.size > 0 || f.out.size > 0;
 }
 
-/** O desejo passa: a busca acha no nome (ou no lembrete), na vontade escolhida, com uma tag ligada e nenhuma escondida. */
+/**
+ * O texto da descrição, sem as marcas e sem caixa nem acento, para procurar: guardado por desejo (o desejo
+ * mudado é outro objeto, e o de antes sai sozinho), para a busca não refazer cada descrição a cada letra.
+ */
+const plainNotes = new WeakMap<Wish, string>();
+function notePlain(w: Wish): string {
+  if (!w.note) return '';
+  let plain = plainNotes.get(w);
+  if (plain === undefined) plainNotes.set(w, (plain = fold(plainText(w.note))));
+  return plain;
+}
+
+/** O desejo passa: a busca acha no nome (ou na descrição), na vontade escolhida, com uma tag ligada e nenhuma escondida. */
 export function wishMatches(w: Wish, f: WishFilter): boolean {
   const needle = fold(f.query.trim());
-  if (needle && !fold(w.game.name).includes(needle) && !fold(w.note ?? '').includes(needle)) return false;
+  if (needle && !fold(w.game.name).includes(needle) && !notePlain(w).includes(needle)) return false;
   if (f.vontade && relevanceOf(w) !== f.vontade) return false;
   const tags = (w.tags ?? []).map(fold);
   if (tags.some((t) => f.out.has(t))) return false;
@@ -119,10 +132,10 @@ export function wishMatches(w: Wish, f: WishFilter): boolean {
   return true;
 }
 
-/** A busca achou o desejo só pelo lembrete (o nome não tem o que se procura). */
+/** A busca achou o desejo só pela descrição (o nome não tem o que se procura). */
 export function foundByNote(w: Wish, query: string): boolean {
   const needle = fold(query.trim());
-  return !!needle && !fold(w.game.name).includes(needle) && fold(w.note ?? '').includes(needle);
+  return !!needle && !fold(w.game.name).includes(needle) && notePlain(w).includes(needle);
 }
 
 /** Uma tag da Wishlist do mural: a grafia mais usada e em quantos desejos está. */

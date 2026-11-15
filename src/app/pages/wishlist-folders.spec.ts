@@ -139,7 +139,7 @@ describe('as pastas na Wishlist', () => {
     const empty = folders.create('jogos', null, 'Vazia')!.id;
     await mount();
     await open(empty);
-    expect(host.querySelector('.none')!.textContent).toContain('Pasta vazia');
+    expect(host.querySelector('.pasta-vazia h2')!.textContent).toContain('Vazia está vazia');
     host.querySelector<HTMLButtonElement>('app-folder-path [data-caminho=""]')!.click();
     await settle();
     await open(coop);

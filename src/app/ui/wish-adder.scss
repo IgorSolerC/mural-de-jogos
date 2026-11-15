@@ -1,4 +1,4 @@
-@use 'paper-kit' as kit;
+@use 'props-editor' as props;
 
 /* Recortar do catálogo: uma página de catálogo de loja, papel liso e branco, com a faixa vermelha
    impressa em retícula no alto. Não é a ficha creme do editor: aqui nada se escreve, se escolhe. */
@@ -9,6 +9,11 @@
 
 dialog.recortar {
   max-width: min(720px, calc(100vw - 24px));
+}
+
+/* a wishlist tem a descrição: a folha mais larga, para o texto */
+dialog.recortar:not(.modo-fila) {
+  max-width: min(860px, calc(100vw - 24px));
 }
 
 .folha {
@@ -257,32 +262,32 @@ app-cover-picker {
   }
 }
 
-/* ===== O lembrete: uma tira de papel pautado, escrita à mão (a mesma letra da folha do caderno na parede) ===== */
-.lembrete textarea {
-  @include kit.folha-pautada($linhas: 3, $max: 14rem, $letra: 1.1rem);
+/* ===== As etiquetas do recorte e a parte aberta: as do editor das anotações (ui/_props-editor.scss) ===== */
+@include props.fileira;
+
+.bloco + .props-area {
+  margin-top: 18px;
 }
 
-.lembrete-dica {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 12px;
-  margin-top: -4px;
-  font-size: 0.9rem;
-  line-height: 1.35;
-  color: var(--ink-2);
+/* a Vontade com o adesivo de verdade, em miniatura, e as Tags com a legenda da parede, na tinta do papel */
+.prop-adesivo {
+  margin: -12px -8px;
+  scale: 0.78;
 }
 
-.lembrete-conta {
-  margin-left: auto;
-  font-family: var(--f-label);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  font-variant-numeric: tabular-nums;
+.prop-tags {
+  color: inherit;
+}
 
-  &.cheio {
-    color: var(--red-deep);
-  }
+/* ===== A descrição: o texto das anotações, embaixo das etiquetas, separado pelo picote ===== */
+.props-area + .bloco {
+  margin-top: 22px;
+  padding-top: 22px;
+  border-top: 2px dashed rgb(21 21 21 / 0.2);
+}
+
+.descricao > .pergunta {
+  margin: 0;
 }
 
 /* editando: o tirar fica sozinho do outro lado do pé */

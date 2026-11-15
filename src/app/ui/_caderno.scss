@@ -24,3 +24,31 @@
     mask: radial-gradient(circle at 50% 0, #0000 3.5px, #000 4px) 0 0 / 13px 100% repeat-x;
   }
 }
+
+/* ===== A ponta da folha atrás do recorte =====
+   O recorte da Wishlist (e a capa da Grade) que tem descrição deixa aparecer, atrás dele, a ponta da folha
+   do caderno onde ela está escrita: a mesma da folha que abre com a mão em cima, pequena, com a pauta, a
+   margem e as mordidas da espiral. Quem usa põe a ponta (um span vazio) dentro do card, num contexto de
+   empilhamento dele, e diz onde ela aparece (top/left/right, rotate); a sombra fica no span e o papel
+   no ::before (a máscara das mordidas comeria a sombra). */
+@mixin ponta {
+  position: absolute;
+  z-index: -1;
+  width: 30px;
+  height: 40px;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.45)) drop-shadow(0 4px 5px rgb(0 0 0 / 0.35));
+  /* some quando a folha grande abre (quem usa diz quando: a mesma hora da folha) */
+  transition: opacity var(--t-ui) var(--ease-ui);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    --folha: #fbfaf4;
+    --pauta: rgb(70 120 200 / 0.5);
+    --margem: rgb(214 73 73 / 0.7);
+    @include papel(8px, 6px);
+    @include espiral(topo);
+  }
+}

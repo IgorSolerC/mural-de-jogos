@@ -663,7 +663,10 @@ export interface Wish {
   tags?: string[];
   /** A pasta (o id, em `NotesConfig.folders`, grupo `desejos:<mural>`); sem o campo, a raiz. */
   folder?: string;
-  /** O lembrete: texto puro, até `WISH_NOTE_MAX` letras; sem o campo, nenhum. */
+  /**
+   * A descrição (o nome guardado é o de antes, "lembrete"): o texto das anotações (Markdown), até `WISH_NOTE_MAX`
+   * letras; sem o campo, nenhuma.
+   */
   note?: string;
   createdAt: string;
   updatedAt: string;
@@ -671,9 +674,9 @@ export interface Wish {
 
 /** Quantas tags um desejo leva, e o tamanho do lembrete (PLANO-WISHLIST.md, P2 e P3). */
 export const WISH_TAGS_MAX = 12;
-export const WISH_NOTE_MAX = 280;
+export const WISH_NOTE_MAX = 4000;
 
-/** O lembrete limpo: sem espaço sobrando nas pontas, no máximo `WISH_NOTE_MAX` letras (vazio: nenhum). */
+/** A descrição limpa: sem espaço sobrando nas pontas, no máximo `WISH_NOTE_MAX` letras (vazio: nenhuma). */
 export function cleanWishNote(raw: unknown): string {
   return typeof raw === 'string' ? raw.replace(/\r\n?/g, '\n').trim().slice(0, WISH_NOTE_MAX).trim() : '';
 }

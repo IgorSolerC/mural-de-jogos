@@ -61,10 +61,13 @@ import { wishTagHex } from '../core/wishlist-view';
 export class WishTags {
   readonly tags = input.required<readonly string[]>();
   readonly kind = input.required<Kind>();
+  /** As cores de outro lugar (a folha do recorte, com as sorteadas que só vão para as configurações ao salvar). */
+  readonly colors = input<{ hex(tag: string): string | null } | null>(null);
 
   private readonly settings = inject(Settings);
   protected readonly items = computed(() => {
+    const own = this.colors();
     const colors = this.settings.notesConfig().wishTagColors;
-    return this.tags().map((label) => ({ label, color: wishTagHex(colors, this.kind(), label) }));
+    return this.tags().map((label) => ({ label, color: own ? own.hex(label) : wishTagHex(colors, this.kind(), label) }));
   });
 }

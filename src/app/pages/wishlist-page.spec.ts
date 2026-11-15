@@ -150,7 +150,7 @@ describe('a pasta da Wishlist', () => {
     expect(shown()).toEqual(['w3', 'w2']);
   });
 
-  it('a busca acha pelo lembrete, e sem nada achado diz onde procurou', async () => {
+  it('a busca acha pela descrição, e sem nada achado diz onde procurou', async () => {
     await mount();
     const input = host.querySelector<HTMLInputElement>('#busca-desejos')!;
     input.value = 'rafa';
@@ -160,7 +160,7 @@ describe('a pasta da Wishlist', () => {
     input.value = 'zelda';
     input.dispatchEvent(new Event('input'));
     await settle();
-    expect(host.querySelector('.none')!.textContent).toContain('no nome ou no lembrete');
+    expect(host.querySelector('.no-results p')!.textContent).toContain('no nome ou na descrição');
   });
 
   it('abrir a página não grava nada: a vista só vai para o aparelho quando muda', async () => {
@@ -202,12 +202,30 @@ describe('a pasta da Wishlist', () => {
     expect(shown().length).toBe(3);
   });
 
-  it('a margem da capa não usa a classe global .papel (a da cartolina, que mistura as camadas)', async () => {
+  it('a capa da Grade: recortada à tesoura, sem a margem de papel (e sem a classe global .papel da cartolina)', async () => {
     localStorage.setItem(WISHLIST_PREFS_KEY, JSON.stringify({ vista: 'grade' }));
     await mount();
     const cover = host.querySelector<HTMLElement>('app-wish-cover')!;
-    expect(cover.querySelector('.papel')).toBeNull();
-    expect(getComputedStyle(cover.querySelector('.margem')!).backgroundBlendMode).not.toContain('hard-light');
+    expect(cover.querySelector('.papel, .margem')).toBeNull();
+    const foto = cover.querySelector<HTMLElement>('.foto')!;
+    expect(getComputedStyle(foto).clipPath).toContain('polygon');
+    expect(getComputedStyle(foto).paddingTop).toBe('0px');
+  });
+
+  it('a ponta da folha do caderno aparece atrás do recorte e da capa que têm descrição, e só neles', async () => {
+    await mount();
+    expect(host.querySelector('.desejo[data-ficha="w1"] > .ponta')).not.toBeNull();
+    expect(host.querySelector('.desejo[data-ficha="w2"] > .ponta')).toBeNull();
+    expect(host.querySelector('.desejo[data-ficha="w1"] > .ponta')!.getAttribute('aria-hidden')).toBe('true');
+    // a busca que acha só pela descrição deixa a folha grande aberta: a ponta some
+    const ponta = host.querySelector<HTMLElement>('.desejo[data-ficha="w1"] > .ponta')!;
+    expect(getComputedStyle(ponta).opacity).toBe('1');
+    const field = host.querySelector<HTMLInputElement>('#busca-desejos')!;
+    field.value = 'Rafa';
+    field.dispatchEvent(new Event('input'));
+    await settle();
+    await new Promise((r) => setTimeout(r, 400));
+    expect(getComputedStyle(host.querySelector<HTMLElement>('.desejo[data-ficha="w1"] > .ponta')!).opacity).toBe('0');
   });
 
   describe('o recorte no padrão (rodada 3)', () => {
@@ -244,12 +262,12 @@ describe('a pasta da Wishlist', () => {
       expect(store.getWish('w1')!.relevance).toBeUndefined();
     });
 
-    it('o lembrete: só no desejo que tem, citado pelo toque, e aberto quando a busca achou só nele', async () => {
+    it('a descrição: só no desejo que tem, citado pelo toque, e aberto quando a busca achou só nele', async () => {
       await mount();
       expect(host.querySelectorAll('app-wish-note').length).toBe(1);
       const hit = host.querySelector<HTMLElement>('.desejo[data-ficha="w1"] .hit')!;
-      expect(hit.getAttribute('aria-describedby')).toBe('lembrete-w1');
-      expect(document.getElementById('lembrete-w1')!.textContent).toContain('Indicação do Rafa');
+      expect(hit.getAttribute('aria-describedby')).toBe('descricao-w1');
+      expect(document.getElementById('descricao-w1')!.textContent).toContain('Indicação do Rafa');
       expect(host.querySelector('.desejo[data-ficha="w2"] .hit')!.hasAttribute('aria-describedby')).toBeFalse();
       const note = host.querySelector<HTMLElement>('app-wish-note')!;
       expect(getComputedStyle(note).opacity).toBe('0');
@@ -264,7 +282,7 @@ describe('a pasta da Wishlist', () => {
       expect(host.querySelector('app-wish-note')!.classList).not.toContain('aberta');
     });
 
-    it('a mão espera um instante para o lembrete aparecer (e o teclado, não)', async () => {
+    it('a mão espera um instante para a descrição aparecer (e o teclado, não)', async () => {
       // os estilos das duas peças só estão na página com elas montadas (a da página e, na Grade, a da capa)
       await mount();
       button('Grade').click();

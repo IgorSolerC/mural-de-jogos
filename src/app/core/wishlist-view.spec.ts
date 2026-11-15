@@ -133,14 +133,18 @@ describe('a vista da Wishlist', () => {
   });
 
   describe('a capa da Grade', () => {
-    it('o mesmo jeito para o mesmo id, e uns poucos acidentes entre muitas', () => {
+    it('o mesmo jeito para o mesmo id: recortada à tesoura (as quinas para dentro até 2,6px), sem margem', () => {
       expect(coverFor('wk7Hq2')).toEqual(coverFor('wk7Hq2'));
       const looks = Array.from({ length: 300 }, (_, i) => coverFor(`id-${i}`));
-      const accidents = looks.filter((l) => l.kind).length / looks.length;
-      expect(accidents).toBeGreaterThan(0.25);
-      expect(accidents).toBeLessThan(0.55);
       expect(looks.every((l) => Math.abs(l.tilt) <= 0.8)).toBeTrue();
-      expect(looks.every((l) => (l.clip !== null) === (l.kind === 'rasgo' || l.kind === 'canto'))).toBeTrue();
+      expect(looks.every((l) => l.clip.startsWith('polygon('))).toBeTrue();
+      // as quatro quinas e um ou dois golpes no meio de cada lado: de 8 a 12 pontos
+      const points = looks.map((l) => l.clip.slice(8, -1).split(/, (?![^(]*\))/).length);
+      expect(Math.min(...points)).toBe(8);
+      expect(Math.max(...points)).toBe(12);
+      const insets = looks.flatMap((l) => [...l.clip.matchAll(/([0-9.]+)px/g)].map((m) => Number(m[1])));
+      expect(Math.max(...insets)).toBeLessThanOrEqual(2.6);
+      expect(new Set(looks.map((l) => l.clip)).size).toBe(300);
       const old = looks.filter((l) => l.old).length / looks.length;
       expect(old).toBeGreaterThan(0.1);
       expect(old).toBeLessThan(0.3);

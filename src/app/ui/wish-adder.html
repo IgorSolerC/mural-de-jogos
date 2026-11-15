@@ -66,80 +66,131 @@
           }
         </section>
 
-        @if (game() && mode() === 'wish') {
-          <!-- a vontade: os dois adesivos de capa de revista, e o Comum, sem adesivo -->
-          <fieldset class="bloco vontade">
-            <legend class="pergunta">Quanta vontade?</legend>
-            <div class="vontades">
-              @for (r of relevances; track r) {
-                <label class="vontade-op" [class.on]="relevance() === r">
-                  <input
-                    type="radio"
-                    name="desejo-vontade"
-                    class="sr-only"
-                    [checked]="relevance() === r"
-                    (change)="relevance.set(r)"
-                    [attr.aria-label]="relevanceLabel(kind(), r)"
-                  />
-                  <app-relevance-sticker [relevance]="r" [kind]="kind()" />
-                </label>
+        @if (mode() === 'wish') {
+          <!-- As etiquetas do recorte, numa fileira (a do editor das anotações): cada uma diz o que está
+               escolhido e abre a sua parte logo embaixo; a vazia é o recorte, ainda sem etiqueta -->
+          <div class="props-area">
+            <div class="props" role="group" aria-label="Detalhes do recorte">
+              @for (p of props(); track p.id) {
+                <button
+                  type="button"
+                  class="prop"
+                  [class.vazia]="!p.filled"
+                  [attr.data-prop]="p.id"
+                  [attr.aria-expanded]="prop() === p.id"
+                  aria-controls="desejo-parte"
+                  [attr.aria-label]="p.name + ': ' + p.spoken"
+                  [disabled]="p.off"
+                  [title]="p.off ? 'Escolha primeiro ' + words().o : ''"
+                  (click)="toggleProp(p.id)"
+                >
+                  @switch (p.id) {
+                    @case ('vontade') {
+                      @if (relevance() !== 'comum') {
+                        <app-relevance-sticker class="prop-adesivo" size="mini" [relevance]="relevance()" [kind]="kind()" />
+                      } @else {
+                        <lucide-icon [img]="p.icon" [size]="16" aria-hidden="true" /><span class="prop-txt">Vontade</span>
+                      }
+                    }
+                    @case ('tags') {
+                      @if (tags().length) {
+                        <app-wish-tags class="prop-tags" [tags]="tags().slice(0, 3)" [kind]="kind()" [colors]="tagColors()" />
+                        @if (tags().length > 3) {
+                          <span class="prop-mais">+{{ tags().length - 3 }}</span>
+                        }
+                      } @else {
+                        <lucide-icon [img]="p.icon" [size]="16" aria-hidden="true" /><span class="prop-txt">Tags</span>
+                      }
+                    }
+                    @case ('capa') {
+                      @if (game()?.coverUrl; as url) {
+                        <img class="prop-capa" [src]="url" alt="" loading="lazy" referrerpolicy="no-referrer" />
+                      } @else {
+                        <lucide-icon [img]="p.icon" [size]="16" aria-hidden="true" />
+                      }
+                      <span class="prop-txt">{{ p.value }}</span>
+                    }
+                    @default {
+                      <lucide-icon [img]="p.icon" [size]="16" aria-hidden="true" />
+                      <span class="prop-txt">{{ p.value }}</span>
+                    }
+                  }
+                </button>
               }
             </div>
-          </fieldset>
-        }
 
-        @if (game() && mode() === 'wish') {
-          <!-- as tags: as mesmas das anotações (o nome, a cor sorteada na nova), mas da Wishlist do mural -->
-          <fieldset class="bloco tags">
-            <legend class="pergunta">Tags</legend>
-            <app-tag-picker
-              [(tags)]="tags"
-              [library]="tagLib()"
-              [colors]="tagColors()"
-              [pinnable]="false"
-              [units]="['recorte', 'recortes']"
-              owner="Este recorte"
-            />
-          </fieldset>
-
-          <!-- a pasta: a árvore da Wishlist do mural (a mesma escolha das anotações) -->
-          <fieldset class="bloco onde">
-            <legend class="pergunta">Pasta</legend>
-            <app-folder-picker
-              [(value)]="folder"
-              [tree]="wishFolders.tree()"
-              [group]="wishFolders.group(kind())"
-              groupName="Wishlist"
-              [counts]="folderCounts()"
-              rootLabel="Sem pasta"
-              label="Pasta do recorte"
-              [units]="['recorte', 'recortes']"
-              (create)="makeFolder($event)"
-            />
-          </fieldset>
-
-          <!-- o lembrete: nunca na parede, só com a mão em cima do recorte, na folha do caderno -->
-          <div class="bloco lembrete">
-            <label class="pergunta" for="desejo-lembrete">Lembrete</label>
-            <textarea
-              id="desejo-lembrete"
-              rows="3"
-              [maxLength]="noteMax"
-              [value]="note()"
-              (input)="note.set($any($event.target).value)"
-              placeholder="Quem indicou, onde viu, por que quer…"
-              aria-describedby="desejo-lembrete-dica"
-            ></textarea>
-            <p class="lembrete-dica" id="desejo-lembrete-dica">
-              Só aparece com o mouse em cima do recorte (no celular, segurando o dedo).
-              @if (noteNear()) {
-                <span class="lembrete-conta" [class.cheio]="note().length >= noteMax">{{ note().length }} de {{ noteMax }}</span>
-              }
-            </p>
+            <!-- a parte aberta: logo embaixo da fileira, um papel solto; Esc, o Pronto ou a etiqueta de novo fecham -->
+            @if (prop(); as p) {
+              <div class="parte" id="desejo-parte" role="group" [attr.aria-label]="propNames[p]" (keydown.escape)="closeProp($event)">
+                @switch (p) {
+                  @case ('vontade') {
+                    <!-- os dois adesivos de capa de revista, e o Comum, sem adesivo -->
+                    <div class="vontades" role="radiogroup" aria-label="Quanta vontade?">
+                      @for (r of relevances; track r) {
+                        <label class="vontade-op" [class.on]="relevance() === r">
+                          <input
+                            type="radio"
+                            name="desejo-vontade"
+                            class="sr-only"
+                            [checked]="relevance() === r"
+                            (change)="pickRelevance(r)"
+                            [attr.aria-label]="relevanceLabel(kind(), r)"
+                          />
+                          <app-relevance-sticker [relevance]="r" [kind]="kind()" />
+                        </label>
+                      }
+                    </div>
+                  }
+                  @case ('tags') {
+                    <!-- as mesmas das anotações (o nome, a cor sorteada na nova), mas da Wishlist do mural -->
+                    <app-tag-picker
+                      [(tags)]="tags"
+                      [library]="tagLib()"
+                      [colors]="tagColors()"
+                      [pinnable]="false"
+                      [units]="['recorte', 'recortes']"
+                      owner="Este recorte"
+                    />
+                  }
+                  @case ('pasta') {
+                    <app-folder-picker
+                      [(value)]="folder"
+                      [tree]="wishFolders.tree()"
+                      [group]="wishFolders.group(kind())"
+                      groupName="Wishlist"
+                      [counts]="folderCounts()"
+                      rootLabel="Sem pasta"
+                      label="Pasta do recorte"
+                      [units]="['recorte', 'recortes']"
+                      (create)="makeFolder($event)"
+                    />
+                  }
+                  @case ('capa') {
+                    @if (game(); as gm) {
+                      <app-cover-picker group="desejo-capa" [game]="gm" [kind]="kind()" (changed)="game.set($event)" />
+                    }
+                  }
+                }
+                <button type="button" class="parte-pronto" (click)="closeProp()">
+                  <lucide-icon [img]="DoneIcon" [size]="16" aria-hidden="true" />
+                  Pronto
+                </button>
+              </div>
+            }
           </div>
-        }
 
-        @if (game(); as gm) {
+          <!-- a descrição: o texto das anotações; nunca na parede, só com a mão em cima do recorte -->
+          <section class="bloco descricao">
+            <label class="pergunta" [for]="texto.areaId">Descrição</label>
+            <app-rich-editor
+              #texto
+              label="Descrição"
+              placeholder="Quem indicou, onde viu, por que quer… Aparece com a mão em cima do recorte."
+              [max]="noteMax"
+              [(value)]="note"
+            />
+          </section>
+        } @else if (game(); as gm) {
           <fieldset class="bloco capas">
             <legend class="pergunta">Qual capa?</legend>
             <app-cover-picker group="desejo-capa" [game]="gm" [kind]="kind()" (changed)="game.set($event)" />

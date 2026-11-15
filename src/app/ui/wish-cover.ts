@@ -7,12 +7,12 @@ import { WishNote } from './wish-note';
 import { WishTags } from './wish-tags';
 
 /**
- * Um desejo na Grade da Wishlist (PLANO-WISHLIST.md, P8): a vista para ver muitas capas de uma vez. Todas do
- * mesmo tamanho, mas ainda de revista: a capa numa margem de papel com a retícula e o brilho do couché, um
- * quinto delas de revista velha, e uns poucos acidentes de quem destacou a página (a beirada rasgada, a quina
- * arrancada, o picote, a orelha dobrada), sorteados pelo id e congelados (`coverFor`). O adesivo da vontade em
+ * Um desejo na Grade da Wishlist (PLANO-WISHLIST.md, P8 e A3): a vista para ver muitas capas de uma vez. Todas
+ * do mesmo tamanho, mas ainda de revista: a capa recortada à tesoura, sem margem (o contorno em cortes retos,
+ * um tico fora do esquadro), com a retícula e o brilho do couché por cima e a sombra de papel colado; um quinto
+ * delas de revista velha. O contorno e a inclinação são sorteados pelo id e congelados (`coverFor`). O adesivo da vontade em
  * miniatura na quina, o nome em duas linhas e as tags embaixo. Tocar começa a resenha, como no recorte; com
- * a mão em cima, a etiqueta (Editar e Vontade, `WishActions`) acima da capa e, um instante depois, o lembrete
+ * a mão em cima, a etiqueta (Editar e Vontade, `WishActions`) acima da capa e, um instante depois, a descrição
  * na folha do caderno ao lado (`WishNote`). Sem mouse, a etiqueta fica ao lado do nome.
  */
 @Component({
@@ -20,19 +20,23 @@ import { WishTags } from './wish-tags';
   imports: [RelevanceSticker, WishActions, WishNote, WishTags],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    '[attr.data-rasgo]': 'look().kind || null',
     '[style.--cel-tilt]': 'look().tilt',
     '[class.is-landing]': 'landing()',
     '[style.view-transition-name]': '"desejo-" + wish().id',
   },
   template: `
+    @if (wish().note) {
+      <!-- tem descrição: a ponta da folha do caderno aparece atrás da capa (é de onde ela sai) -->
+      <span class="ponta" aria-hidden="true"></span>
+    }
     <span class="capa">
-      <span class="margem" [class.velha]="look().old" [style.clip-path]="look().clip">
+      <span class="foto" [class.velha]="look().old" [style.clip-path]="look().clip">
         @if (wish().game.coverUrl && failed() !== wish().game.coverUrl) {
           <img [src]="wish().game.coverUrl" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" (error)="failed.set(wish().game.coverUrl)" />
         } @else {
           <span class="sem-capa" aria-hidden="true">{{ initial() }}</span>
         }
+        <span class="impressao" aria-hidden="true"></span>
       </span>
       @if (rel() !== 'comum') {
         <app-relevance-sticker class="adesivo" size="mini" [relevance]="rel()" [kind]="wish().kind" />
@@ -45,7 +49,7 @@ import { WishTags } from './wish-tags';
     @if (wish().tags?.length) {
       <app-wish-tags class="tags" [tags]="wish().tags!" [kind]="wish().kind" />
     }
-    <button type="button" class="hit" (click)="opened.emit(wish().id)" [attr.aria-describedby]="wish().note ? 'lembrete-' + wish().id : null">
+    <button type="button" class="hit" (click)="opened.emit(wish().id)" [attr.aria-describedby]="wish().note ? 'descricao-' + wish().id : null">
       <span class="sr-only">Começar a resenha de {{ wish().game.name }}</span>
     </button>
     @if (wish().note; as n) {
@@ -54,6 +58,7 @@ import { WishTags } from './wish-tags';
   `,
   styles: `
     @use 'meio-tom';
+    @use 'caderno';
 
     :host {
       position: relative;
@@ -65,6 +70,27 @@ import { WishTags } from './wish-tags';
     :host(:hover),
     :host(:focus-within) {
       z-index: 30;
+    }
+    /* a ponta da folha da descrição, atrás da capa, do lado de onde a folha sai */
+    :host {
+      isolation: isolate;
+    }
+    .ponta {
+      @include caderno.ponta;
+      top: 26%;
+      right: -11px;
+      rotate: 7deg;
+    }
+    /* a folha grande abriu: a ponta some (a mesma espera da folha com a mão; na hora com o teclado e a busca) */
+    @media (hover: hover) {
+      :host(:hover) .ponta {
+        opacity: 0;
+        transition-delay: 300ms;
+      }
+    }
+    :host(:has(.hit:focus-visible)) .ponta,
+    :host(:has(app-wish-note.aberta)) .ponta {
+      opacity: 0;
     }
 
     .capa {
@@ -82,30 +108,26 @@ import { WishTags } from './wish-tags';
       filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.35)) drop-shadow(0 12px 14px rgb(0 0 0 / 0.5));
     }
 
-    /* a margem de papel de revista (não .papel: essa é a classe global da cartolina, em styles.scss), com a foto impressa em couché por dentro */
-    .margem {
+    /* a foto recortada à tesoura, sem margem (não .papel: essa é a classe global da cartolina), impressa em
+       couché: a retícula fina e o brilho do papel por cima, sem pegar o toque */
+    .foto {
       position: absolute;
       inset: 0;
       display: block;
       overflow: hidden;
-      padding: 4px;
-      @include meio-tom.papel(#f5f2ea);
+      background: #2a2725;
     }
-    .margem::after {
-      content: '';
+    .impressao {
       position: absolute;
-      inset: 4px;
+      inset: 0;
       pointer-events: none;
       @include meio-tom.couche;
     }
-    .margem img {
+    .foto img {
       display: block;
       width: 100%;
       height: 100%;
       object-fit: cover;
-    }
-    .velha {
-      background-color: #ede2c4;
     }
     .velha img {
       filter: sepia(0.3) saturate(0.78) contrast(0.93) brightness(1.03);
@@ -120,30 +142,6 @@ import { WishTags } from './wish-tags';
       font-family: var(--f-didone);
       font-size: 3rem;
       line-height: 1;
-    }
-
-    /* o picote do lado de quem destacou do bloco */
-    :host([data-rasgo='picote']) .margem {
-      -webkit-mask:
-        radial-gradient(circle at 0 50%, #0000 2.6px, #000 3px) 0 0 / 7px 9px repeat-y,
-        linear-gradient(#000 0 0) 7px 0 / calc(100% - 7px) 100% no-repeat;
-      mask:
-        radial-gradient(circle at 0 50%, #0000 2.6px, #000 3px) 0 0 / 7px 9px repeat-y,
-        linear-gradient(#000 0 0) 7px 0 / calc(100% - 7px) 100% no-repeat;
-    }
-    /* a orelha dobrada na quina de cima */
-    :host([data-rasgo='dobra']) .margem {
-      clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
-    }
-    :host([data-rasgo='dobra']) .capa::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      right: 0;
-      width: 18px;
-      height: 18px;
-      background: linear-gradient(225deg, transparent 50%, #e2dacb 50%, #f5f2ea 75%);
-      box-shadow: -2px 2px 3px rgb(0 0 0 / 0.25);
     }
 
     .adesivo {
@@ -193,7 +191,7 @@ import { WishTags } from './wish-tags';
       }
     }
 
-    /* o lembrete: um instante depois da mão parar em cima, na hora com o teclado; some na hora */
+    /* a descrição: um instante depois da mão parar em cima, na hora com o teclado; some na hora */
     app-wish-note {
       opacity: 0;
       transition:
@@ -269,9 +267,9 @@ export class WishCover {
   readonly landing = input(false);
   /** Com o Editar na etiqueta. */
   readonly editable = input(true);
-  /** A busca da página (o lembrete realça o trecho achado). */
+  /** A busca da página (a descrição realça o trecho achado). */
   readonly query = input('');
-  /** A busca achou o desejo só pelo lembrete: a folha fica aberta. */
+  /** A busca achou o desejo só pela descrição: a folha fica aberta. */
   readonly noteOpen = input(false);
   /** Tocou: começa a resenha. */
   readonly opened = output<string>();

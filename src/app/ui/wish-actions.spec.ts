@@ -7,7 +7,7 @@ import { WishNote } from './wish-note';
 import { ContextMenu } from './context-menu';
 import { ICON } from './icons';
 
-/** A etiqueta de hover do desejo e a folha do lembrete (PLANO-WISHLIST.md, D4 e D5). */
+/** A etiqueta de hover do desejo e a folha da descrição (PLANO-WISHLIST.md, D4 e D5). */
 
 const wish = (relevance?: Wish['relevance']): Wish => ({
   id: 'w1',
@@ -18,7 +18,7 @@ const wish = (relevance?: Wish['relevance']): Wish => ({
   updatedAt: '2026-11-13T10:00:00.000Z',
 });
 
-describe('a etiqueta e o lembrete do desejo', () => {
+describe('a etiqueta e a descrição do desejo', () => {
   beforeEach(() => TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] }));
 
   function mountActions(w: Wish, editable = true) {
@@ -60,7 +60,7 @@ describe('a etiqueta e o lembrete do desejo', () => {
     f.nativeElement.remove();
   });
 
-  it('o lembrete: a folha do caderno, só para os olhos, com o id que o toque cita', () => {
+  it('a descrição: a folha do caderno, só para os olhos, com o id que o toque cita', () => {
     const f = TestBed.createComponent(WishNote);
     f.componentRef.setInput('wishId', 'w1');
     f.componentRef.setInput('text', 'Indicação do Rafa');
@@ -68,7 +68,7 @@ describe('a etiqueta e o lembrete do desejo', () => {
     f.detectChanges();
     const el = f.nativeElement as HTMLElement;
     expect(el.getAttribute('aria-hidden')).toBe('true');
-    expect(el.querySelector('#lembrete-w1')!.textContent).toContain('Lembrete: Indicação do Rafa');
+    expect(el.querySelector('#descricao-w1')!.textContent).toContain('Descrição: Indicação do Rafa');
     expect(getComputedStyle(el.querySelector('.folha')!).backgroundImage).toContain('repeating-linear-gradient');
     f.componentRef.setInput('open', true);
     f.detectChanges();
@@ -76,7 +76,7 @@ describe('a etiqueta e o lembrete do desejo', () => {
     el.remove();
   });
 
-  it('o menu do site mostra o lembrete embaixo do nome só quando o dedo o abriu', () => {
+  it('o menu do site mostra a descrição embaixo do nome só quando o dedo o abriu', () => {
     const f = TestBed.createComponent(ContextMenu);
     f.componentRef.setInput('caption', 'Hades');
     f.componentRef.setInput('note', 'Jogar com a Bia');

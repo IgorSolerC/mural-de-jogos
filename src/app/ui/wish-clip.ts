@@ -728,7 +728,7 @@ export class WishClip {
   /** A prévia do diálogo de adicionar: sem botão, quase reta. */
   readonly preview = input(false);
   readonly opened = output<string>();
-  /** O id do que descreve o recorte para o leitor de tela (o lembrete, que mora fora dele, na página). */
+  /** O id do que descreve o recorte para o leitor de tela (a descrição, que mora fora dele, na página). */
   readonly describedBy = input<string | null>(null);
 
   protected readonly rel = computed(() => relevanceOf(this.wish()));
