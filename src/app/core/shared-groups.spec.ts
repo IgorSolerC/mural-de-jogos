@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { CloudAccount, CloudError } from './cloud-account';
 import { KanbanStore } from './kanban-store';
 import { placeCard, sanitizeBoard } from './kanban';
-import { mergeNote, sharedContent } from './shared-notes';
+import { mergeNote, mergeTagSets, sharedContent } from './shared-notes';
 import { Cloud } from './cloud-config';
 import { DATA_KEYS } from './local-data';
 import { Review, sanitizeReview } from './review';
@@ -333,6 +333,24 @@ describe('grupos compartilhados: o Kanban do grupo (rodada 4)', () => {
     expect(groups.names().get('gTrabalho001')).toBe('Empresa');
     await groups.pushAll();
     expect(server.dados['nome']).toBe('Empresa');
+  });
+
+  it('as tags de grupo se juntam como conjunto: pôr uma tag não briga com a pasta mudada por outra pessoa (o conflito da Hiragana)', () => {
+    const o = note('n-um0001', 'Trabalho', { tags: ['Kana'], folder: 'psimb0000001' });
+    // a dona pôs uma tag; a outra pessoa tirou a pasta (ou mudou o texto)
+    const dela = { ...o, tags: ['Kana', 'Estudo'] };
+    const minha = { ...o, folder: 'ptermos00001', text: 'mudei' };
+    const m = mergeNote(o, dela, minha, true);
+    expect(m.other).toBeNull();
+    expect([m.merged.tags, m.merged.folder, m.merged.text]).toEqual([['Kana', 'Estudo'], 'ptermos00001', 'mudei']);
+  });
+
+  it('cada uma põe uma tag diferente: as duas ficam; a que uma tirou sai, mesmo que a outra ponha outra', () => {
+    const o = note('n-um0001', 'Trabalho', { tags: ['Kana', 'Velha'] });
+    const m = mergeNote(o, { ...o, tags: ['Kana', 'Velha', 'Ana'] }, { ...o, tags: ['Kana', 'Bia'] }, true);
+    expect(m.other).toBeNull();
+    expect(m.merged.tags).toEqual(['Kana', 'Ana', 'Bia']);
+    expect(mergeTagSets(['a'], ['a'], ['A'])).toEqual(['a']);
   });
 
   it('as tags de uma anotação de grupo são do grupo: vão no conteúdo e se juntam como um todo', () => {

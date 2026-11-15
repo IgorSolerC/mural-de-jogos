@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-15-grupos-apagar-em-massa',
+    id: '2026-11-15-grupos-conflito',
     version: '1.45.4',
     kind: 'ajustes',
     date: '2026-11-15',
@@ -42,6 +42,7 @@ export const NEWS: NewsEntry[] = [
       'Num grupo compartilhado, as anotações continuam nas pastas: antes, ao compartilhar, elas saíam das pastas uma a uma, e qualquer mudança feita depois (uma tag, o texto, por qualquer pessoa do grupo) tirava a pasta para todos. Parar de compartilhar também mantém o grupo, a pasta e as tags de cada anotação.',
       'As pastas de um grupo compartilhado são do grupo: quem está nele vê as mesmas pastas do dono (antes, não via nenhuma), e criar, renomear, mover ou desfazer uma pasta vale para todos; quem só lê não mexe nelas.',
       'Apagar as marcadas leva também as compartilhadas: as suas saem para todos, das de outras pessoas você sai, e a pergunta diz quantas de cada (antes, o Apagar nem aparecia). Parar de compartilhar um grupo devolve ao seu mural, como anotações comuns, as que ficaram só com você.',
+      'Num grupo compartilhado, pôr uma tag não vira mais conflito com o que outra pessoa mudou ao mesmo tempo (as tags se juntam); a folha do conflito mostra as tags e diz quando uma versão está finalizada (e sai do mural), e escolher uma versão vale como ela aparece, também finalizada ou aberta.',
     ],
   },
   {

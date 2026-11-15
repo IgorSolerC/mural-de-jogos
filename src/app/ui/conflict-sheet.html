@@ -58,6 +58,12 @@
                 @if (s.title) {
                   <p class="versao-titulo"><span class="rotulo-campo">Título</span> <mark>{{ s.title }}</mark></p>
                 }
+                @if (s.state) {
+                  <p class="versao-titulo"><span class="rotulo-campo">Estado</span> <mark>{{ s.state }}</mark></p>
+                }
+                @if (s.tags) {
+                  <p class="versao-titulo"><span class="rotulo-campo">Tags</span> <mark>{{ s.tags }}</mark></p>
+                }
 
                 @if (s.pieces; as pieces) {
                   <!-- o texto como está escrito (com as marcas), o que difere a marca-texto -->
@@ -76,7 +82,7 @@
                       }
                     }
                   </div>
-                } @else if (!s.title) {
+                } @else if (!s.title && !s.state && !s.tags) {
                   <p class="sem-texto">O texto é igual nas duas; muda {{ v.parts }}.</p>
                 }
               }

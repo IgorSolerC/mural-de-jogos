@@ -1366,6 +1366,29 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
       expect(bia.store.get('nota-1')).toBeUndefined();
     });
 
+    it('escolher uma versão num conflito vale o check dela: a aberta não fica finalizada (e some do mural) por causa da outra', async () => {
+      const { ana, bia, fake } = await groupNote();
+      fake.conflito = {
+        a: { ...fake.dados, text: 'versão da Ana', doneAt: '2026-11-14' },
+        b: { ...fake.dados, text: 'versão da Bia' },
+        autorA: USERS['ana'].id,
+        autorB: USERS['bia'].id,
+        em: new Date().toISOString(),
+      };
+      fake.dados = { ...fake.dados, text: 'versão da Ana', doneAt: '2026-11-14' };
+      fake.versao++;
+      fake.rev++;
+      await sync(bia);
+      const c = bia.shared.get('nota-1')!.conflito!;
+      bia.shared.resolve('nota-1', c.b);
+      TestBed.tick();
+      await sync(bia, ana);
+      expect(fake.dados['text']).toBe('versão da Bia');
+      expect(fake.dados['doneAt']).toBeUndefined();
+      expect(ana.store.get('nota-1')?.doneAt).toBeUndefined();
+      expect(ana.store.get('nota-1')?.folder).toBe('a1simbolos01');
+    });
+
     it('tirar do grupo pela nuvem (moveToGroup null) leva a pasta e as tags para o lugar de quem tirou', async () => {
       const { ana } = await groupNote();
       await ana.shared.moveToGroup('nota-1', null);

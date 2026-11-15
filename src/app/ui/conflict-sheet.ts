@@ -14,6 +14,7 @@ import { SyncConflict, SyncConflicts, conflictKey, splitTarget } from '../core/s
 import { BackdropClose } from './backdrop-close';
 import { PersonPhoto } from './person-photo';
 import { Pin } from './pin';
+import { labelKey } from '../core/text';
 
 /** Um pedaço do texto de uma das versões: igual nas duas, diferente (o trecho da briga) ou linhas iguais recolhidas. */
 type Piece = { kind: 'same' | 'diff'; text: string } | { kind: 'gap'; n: number };
@@ -35,6 +36,10 @@ interface Side {
   deleted: boolean;
   /** O título, quando os dois mudaram ele. */
   title: string | null;
+  /** "Finalizada (sai do mural)" na finalizada; "Aberta" na outra, quando só uma está finalizada. */
+  state: string | null;
+  /** As tags, quando diferem entre as duas. */
+  tags: string | null;
   /** O texto (ou o ajuste em linhas), quando é ele que difere. */
   pieces: Piece[] | null;
   /** O botão: "Manter esta", "Manter apagada". */
@@ -138,6 +143,8 @@ export class ConflictSheet {
     const sameText = c.a.text === c.b.text;
     const [pa, pb] = textPieces(c.a.text, c.b.text);
     const titled = c.a.game.name !== c.b.game.name;
+    const doneDiffers = !!c.a.doneAt !== !!c.b.doneAt;
+    const tagsDiffer = !sameTags(c.a, c.b);
     const side = (key: 'a' | 'b', v: Review, who: SharedPerson | null, name: string, pieces: Piece[]): Side => ({
       key,
       who,
@@ -147,6 +154,9 @@ export class ConflictSheet {
       spoken: name === 'Você' ? 'sua versão' : `versão de ${name}`,
       deleted: false,
       title: titled ? v.game.name : null,
+      // a finalizada sai do mural: a folha diz isso sempre, também quando as duas estão (escolher qualquer uma a tira)
+      state: v.doneAt ? 'Finalizada (sai do mural)' : doneDiffers ? 'Aberta' : null,
+      tags: tagsDiffer ? (v.tags?.length ? v.tags.join(', ') : 'nenhuma') : null,
       pieces: sameText ? null : pieces,
       keep: 'Manter esta',
     });
@@ -209,6 +219,8 @@ export class ConflictSheet {
       : `Você mudou ${parts} em dois aparelhos ao mesmo tempo, cada vez de um jeito.`;
     const side = (key: 'a' | 'b', d: ReturnType<typeof deviceOf>): Side => {
       const gone = (key === 'a' ? c.a : c.b) === null;
+      const v = tipo === 'ficha' && !gone ? ((key === 'a' ? c.a : c.b) as Review) : null;
+      const other = tipo === 'ficha' ? ((key === 'a' ? c.b : c.a) as Review | null) : null;
       return {
         key,
         who: null,
@@ -218,6 +230,8 @@ export class ConflictSheet {
         spoken: d.spoken,
         deleted: gone,
         title: titles[key === 'a' ? 0 : 1],
+        state: v?.doneAt ? 'Finalizada (sai do mural)' : v && other && !!other.doneAt ? 'Aberta' : null,
+        tags: v && other && !sameTags(v, other) ? (v.tags?.length ? v.tags.join(', ') : 'nenhuma') : null,
         pieces: gone ? null : sides[key === 'a' ? 0 : 1],
         keep: gone ? 'Manter apagada' : 'Manter esta',
       };
@@ -287,6 +301,12 @@ function iconOf(nome: string): LucideIconData {
   return ICON.computador;
 }
 
+/** As mesmas tags, sem contar a ordem nem a grafia ("bug" e "Bug"). */
+function sameTags(a: Pick<Review, 'tags'>, b: Pick<Review, 'tags'>): boolean {
+  const set = (r: Pick<Review, 'tags'>) => [...new Set((r.tags ?? []).map((t) => labelKey(t)))].sort().join('\u0000');
+  return set(a) === set(b);
+}
+
 /** O que muda entre duas versões da mesma anotação (o texto, o título…). */
 export function differences(a: Review, b: Review): ConflictPart[] {
   const out: ConflictPart[] = [];
@@ -296,6 +316,8 @@ export function differences(a: Review, b: Review): ConflictPart[] {
   if ((a.game.coverUrl ?? null) !== (b.game.coverUrl ?? null)) out.push('capa');
   if (a.text !== b.text) out.push('texto');
   if ((a.category ?? '') !== (b.category ?? '') || (a.subject ?? '') !== (b.subject ?? '') || (a.folder ?? '') !== (b.folder ?? '')) out.push('categoria');
+  if (!sameTags(a, b)) out.push('tags');
+  if (!!a.doneAt !== !!b.doneAt) out.push('finalizada');
   if (!!a.private !== !!b.private || !!a.quiet !== !!b.quiet) out.push('publico');
   if ((a.completedAt ?? null) !== (b.completedAt ?? null)) out.push('data');
   // todos os campos da aparência (o espaço e o tamanho da estampa, a tinta do rabisco também)

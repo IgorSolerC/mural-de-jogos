@@ -360,6 +360,45 @@ describe('anotações compartilhadas: a folha do conflito', () => {
     expect(differences(note(), note())).toEqual([]);
   });
 
+  it('as tags e o estar finalizada também contam (PLANO-CONSERTO-GRUPOS.md, rodada 4)', () => {
+    expect(differences(note('a', { tags: ['Kana'] }), note('a', { tags: ['Kana', 'Estudo'] }))).toEqual(['tags']);
+    expect(differences(note('a'), note('a', { doneAt: '2026-11-14' }))).toEqual(['finalizada']);
+    // a mesma tag em outra ordem ou grafia não é diferença
+    expect(differences(note('a', { tags: ['Kana', 'Estudo'] }), note('a', { tags: ['estudo', 'Kana'] }))).toEqual([]);
+  });
+
+  it('a versão finalizada diz que sai do mural (as duas, quando as duas estão), e as tags aparecem quando diferem', async () => {
+    const conflito = {
+      a: note('O gato branco.', { doneAt: '2026-11-14', tags: ['Kana'] }),
+      b: note('O gato cinza.', { tags: ['Kana', 'Estudo'] }),
+      autorA: { ...ANA, foto: null },
+      autorB: { ...BIA, foto: null },
+      em: new Date().toISOString(),
+    };
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        { provide: SharedStore, useValue: { get: () => entry('dono', { conflito }), resolve: () => undefined } },
+        { provide: CloudAccount, useValue: { signedIn: () => true, account: () => ({ ...ANA }) } },
+        { provide: SharedGroupsStore, useValue: { boards: () => [], groupOfBoard: () => undefined } },
+      ],
+    });
+    const f = TestBed.createComponent(ConflictSheet);
+    f.componentRef.setInput('noteId', 'nota-1');
+    f.detectChanges();
+    await f.whenStable();
+    const el = f.nativeElement as HTMLElement;
+    const lines = [...el.querySelectorAll('.versao')].map((v) =>
+      [...v.querySelectorAll('.versao-titulo')].map((p) => `${p.querySelector('.rotulo-campo')!.textContent}: ${p.querySelector('mark')!.textContent}`),
+    );
+    expect(lines).toEqual([
+      ['Estado: Finalizada (sai do mural)', 'Tags: Kana'],
+      ['Estado: Aberta', 'Tags: Kana, Estudo'],
+    ]);
+    expect(el.querySelector('.quem-mexeu')?.textContent).toContain('as tags');
+    TestBed.resetTestingModule();
+  });
+
   it('toda a aparência conta (o espaço da estampa, a tinta do rabisco), e a ordem das chaves não', () => {
     const look = (extra: Record<string, unknown>) => ({ ...note(), ...extra }) as unknown as Review;
     expect(differences(look({ pattern: 'bolinhas', patternSpacing: 1 }), look({ pattern: 'bolinhas', patternSpacing: 2 }))).toEqual(['aparencia']);

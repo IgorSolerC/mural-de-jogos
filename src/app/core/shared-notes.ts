@@ -307,14 +307,39 @@ export function parseDetail(raw: unknown): SharedDetail | null {
   };
 }
 
+/**
+ * As tags juntadas como conjunto, a partir de `o`: as de `a` na ordem dela, as que só `b` pôs no fim; a que um
+ * lado tirou (e o outro não pôs de novo) sai. A mesma tag em outra grafia é a mesma.
+ */
+export function mergeTagSets(o: unknown, a: unknown, b: unknown): string[] {
+  const list = (v: unknown) => (Array.isArray(v) ? v.filter((t): t is string => typeof t === 'string') : []);
+  const key = (t: string) => labelKey(t);
+  const base = new Set(list(o).map(key));
+  const inA = new Set(list(a).map(key));
+  const inB = new Set(list(b).map(key));
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const t of [...list(a), ...list(b)]) {
+    const k = key(t);
+    if (seen.has(k)) continue;
+    // estava antes e um dos lados tirou: sai
+    if (base.has(k) && (!inA.has(k) || !inB.has(k))) continue;
+    seen.add(k);
+    out.push(t);
+  }
+  return out;
+}
+
 /** O que mudou dos dois lados de jeitos diferentes, nas palavras da tela. */
-export type ConflictPart = 'titulo' | 'capa' | 'texto' | 'categoria' | 'publico' | 'aparencia' | 'data' | 'outros';
+export type ConflictPart = 'titulo' | 'capa' | 'texto' | 'categoria' | 'tags' | 'finalizada' | 'publico' | 'aparencia' | 'data' | 'outros';
 
 export const CONFLICT_PART_LABEL: Record<ConflictPart, string> = {
   titulo: 'o título',
   capa: 'a capa',
   texto: 'o texto',
   categoria: 'o grupo e a pasta',
+  tags: 'as tags',
+  finalizada: 'se está finalizada',
   publico: 'quem vê',
   aparencia: 'o papel da ficha',
   data: 'a data',
@@ -392,13 +417,15 @@ export function mergeNote(o: Review, a: Review, b: Review, inGroup = false): Not
   set('text', text.a, text.b);
 
   // o grupo, o assunto e as tags são de cada um: não vêm no conteúdo (ver `sharedContent`); numa de grupo
-  // compartilhado, as tags e a pasta são do grupo, e cada uma vale inteira (mudou dos dois lados: conflito)
+  // compartilhado, as tags e a pasta são do grupo. A pasta vale inteira (mudou dos dois lados: conflito); as tags
+  // se juntam como conjunto: a que um pôs entra, a que um tirou sai (pôr uma tag não briga com a mudança de outra
+  // pessoa, PLANO-CONSERTO-GRUPOS.md, rodada 4)
   if (inGroup) {
-    for (const key of ['tags', 'folder']) {
-      const [x, y] = atomic('categoria', O[key] ?? null, A[key] ?? null, B[key] ?? null);
-      if (x !== null) left[key] = x;
-      if (y !== null) right[key] = y;
-    }
+    const [x, y] = atomic('categoria', O['folder'] ?? null, A['folder'] ?? null, B['folder'] ?? null);
+    if (x !== null) left['folder'] = x;
+    if (y !== null) right['folder'] = y;
+    const tags = mergeTagSets(O['tags'], A['tags'], B['tags']);
+    if (tags.length) set('tags', tags);
   }
 
   // finalizada: é sim ou não; os dois finalizaram, fica a data mais antiga (nunca briga)
