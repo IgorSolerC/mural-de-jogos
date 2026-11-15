@@ -1,6 +1,6 @@
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair, type CryptoKey, type JWK } from 'jose';
 import { beforeAll, describe, expect, it } from 'vitest';
-import type { ContextoFichasV1, DesejoV1, FichaV1, PraDepoisV1 } from '../../contrato/api-v1/murais';
+import type { ContextoDesejosV1, ContextoFichasV1, DesejoV1, FichaV1, PraDepoisV1 } from '../../contrato/api-v1/murais';
 import { createApp } from '../src/app';
 import { readConfig } from '../src/config';
 import { cleanup } from '../src/domain/cleanup';
@@ -25,6 +25,9 @@ export const desejo = (id: string, extra: Partial<DesejoV1> = {}): DesejoV1 => (
   por: null,
   capa: null,
   relevancia: 'comum',
+  tags: [],
+  pasta: null,
+  descricao: null,
   criado_em: AT,
   versao: AT,
   ...extra,
@@ -226,7 +229,9 @@ export function muraisSuite(label: string, getDb: () => Db) {
       ];
       expect((await t.mirror(me.token, { rev, poe: extras })).status).toBe(200);
       const saved = async (id: string) => JSON.parse((await t.db.first<{ dados: string }>('SELECT dados FROM api_espelho WHERE id = ?', [id]))!.dados);
-      expect(await saved(SILKSONG.id)).toEqual(SILKSONG);
+      // o desejo é guardado com a pasta só pelo id (a API monta o caminho ao responder)
+      const { pasta: _p, ...rest } = SILKSONG;
+      expect(await saved(SILKSONG.id)).toEqual({ ...rest, pasta_id: null });
       expect(await saved(OUTER_WILDS.id)).toEqual(OUTER_WILDS);
       expect(await saved(PRA_CELESTE.id)).toEqual(PRA_CELESTE);
       const bad = async (tipo: string, id: string, dados: unknown) => {
@@ -336,7 +341,7 @@ export function muraisSuite(label: string, getDb: () => Db) {
       const t = await setup();
       const { me, secret } = await t.ready(READ);
       const ctx = await t.body(t.ext(secret, '/ext/v1/contexto'));
-      expect(ctx.desejos).toEqual({ por_mural: { jogos: 2, livros: 1, filmes: 0, series: 0, animes: 0, musicas: 0 }, relevancias: ['must', 'comum', 'later'] });
+      expect(ctx.desejos).toEqual({ por_mural: { jogos: 2, livros: 1, filmes: 0, series: 0, animes: 0, musicas: 0 }, relevancias: ['must', 'comum', 'later'], wishlists: [] });
       expect(ctx.pra_depois).toEqual({ por_mural: { jogos: 1, livros: 0, filmes: 0, series: 0, animes: 0, musicas: 0 } });
       expect(ctx.fichas).toEqual(CONTEXTO);
       const writer = await t.newKey(me.token, ['fichas:escrever']);
@@ -355,6 +360,105 @@ export function muraisSuite(label: string, getDb: () => Db) {
       expect(f.itens).toEqual([{ tipo: 'ficha', id: COSMOS.id, nome: 'Cosmos', mural: 'livros', nota_final: 8.4, concluida_em: '2026-07-01' }]);
       const wishes = await t.newKey(me.token, ['desejos:ler']);
       expect((await t.ext(wishes.segredo, '/ext/v1/busca?q=cosmos&areas=fichas')).status).toBe(403);
+    });
+  });
+
+  describe(`${label}: as pastas, as tags e a descrição da Wishlist`, () => {
+    // a Wishlist dos jogos: Co-op › Curtos, e Esperar promoção; a Antiga foi desfeita (os desejos dela foram para Co-op)
+    const WISH_CTX: ContextoDesejosV1 = {
+      murais: [
+        {
+          mural: 'jogos',
+          desejos: 3,
+          pastas: [
+            { id: 'pcoop00001', nome: 'Co-op', pai: null, desejos: 2 },
+            { id: 'pcurto0001', nome: 'Curtos', pai: 'pcoop00001', desejos: 1 },
+            { id: 'ppromo0001', nome: 'Esperar promoção', pai: null, desejos: 0 },
+          ],
+          tags: [
+            { nome: 'co-op', desejos: 2 },
+            { nome: 'história', desejos: 1 },
+          ],
+        },
+      ],
+      desfeitas: [{ id: 'pantiga001', viva: 'pcoop00001' }],
+    };
+    // como o site manda: a pasta só pelo id guardado no desejo
+    const onMirror = (d: DesejoV1, pasta_id: string | null) => {
+      const { pasta: _p, ...rest } = d;
+      return { ...rest, pasta_id };
+    };
+    const IT = desejo('dj-ittakes', { nome: 'It Takes Two', tags: ['co-op'], descricao: 'Jogar com a **Bia** no fim de semana' });
+    const UNRAVEL = desejo('dj-unravel', { nome: 'Unravel Two', tags: ['co-op', 'história'] });
+    const TUNIC = desejo('dj-tunic', { nome: 'Tunic' });
+    const fill = async (t: Awaited<ReturnType<typeof setup>>, escopos: string[]) => {
+      const me = await t.login('ana');
+      const k = await t.newKey(me.token, escopos, { aprovacao: 'nunca' });
+      const rev = await t.push(me.token, 0);
+      const res = await t.mirror(me.token, {
+        rev,
+        poe: [
+          t.item('desejo', IT.id, onMirror(IT, 'pcurto0001')),
+          t.item('desejo', UNRAVEL.id, onMirror(UNRAVEL, 'pantiga001')),
+          t.item('desejo', TUNIC.id, onMirror(TUNIC, null)),
+          t.item('contexto-desejos', 'desejos', WISH_CTX),
+        ],
+      });
+      expect(res.status).toBe(200);
+      return { me, secret: k.segredo };
+    };
+
+    it('o desejo mostra a pasta com o caminho (a desfeita pela viva dela), as tags e a descrição; o contexto lista as pastas e as tags', async () => {
+      const t = await setup();
+      const { secret } = await fill(t, ['desejos:ler']);
+      const it = (await t.body(t.ext(secret, `/ext/v1/desejos/${IT.id}`))).desejo;
+      expect(it).toEqual({ ...IT, pasta: { id: 'pcurto0001', caminho: ['Co-op', 'Curtos'] } });
+      expect((await t.body(t.ext(secret, `/ext/v1/desejos/${UNRAVEL.id}`))).desejo.pasta).toEqual({ id: 'pcoop00001', caminho: ['Co-op'] });
+      expect((await t.body(t.ext(secret, `/ext/v1/desejos/${TUNIC.id}`))).desejo.pasta).toBeNull();
+      const ctx = await t.body(t.ext(secret, '/ext/v1/contexto'));
+      expect(ctx.desejos.wishlists).toEqual(WISH_CTX.murais);
+    });
+
+    it('a lista por pasta (o caminho ou o id, com as de dentro) e por tag; a busca acha na descrição', async () => {
+      const t = await setup();
+      const { secret } = await fill(t, ['desejos:ler']);
+      const ids = async (q: string) => (await t.body(t.ext(secret, `/ext/v1/desejos${q}`))).itens.map((d: DesejoV1) => d.id).sort();
+      expect(await ids('?pasta=co-op')).toEqual([IT.id, UNRAVEL.id].sort());
+      expect(await ids('?pasta=Co-op/Curtos')).toEqual([IT.id]);
+      expect(await ids('?pasta=pcurto0001')).toEqual([IT.id]);
+      expect(await ids('?pasta=pcurto0001&mural=livros')).toEqual([]);
+      expect(await ids('?pasta=Nenhuma')).toEqual([]);
+      expect(await ids('?tag=HISTÓRIA')).toEqual([UNRAVEL.id]);
+      expect(await ids('?tag=%23co-op')).toEqual([IT.id, UNRAVEL.id].sort());
+      expect(await ids('?q=fim de semana')).toEqual([IT.id]);
+    });
+
+    it('o espelho não aceita uma pasta que não é id de pasta, tags demais nem a descrição longa demais', async () => {
+      const t = await setup();
+      const me = await t.login('ana');
+      await t.newKey(me.token, ['desejos:ler']);
+      const rev = await t.push(me.token, 0);
+      const bad = async (dados: unknown) => expect((await t.mirror(me.token, { rev, poe: [t.item('desejo', TUNIC.id, dados)] })).status).toBe(400);
+      await bad({ ...onMirror(TUNIC, null), pasta_id: 'Co-op' });
+      await bad({ ...onMirror(TUNIC, null), tags: Array.from({ length: 13 }, (_, i) => `t${i}`) });
+      await bad({ ...onMirror(TUNIC, null), descricao: 'x'.repeat(4001) });
+      expect((await t.mirror(me.token, { rev, poe: [t.item('contexto-desejos', 'desejos', { murais: [{ mural: 'anotacoes', desejos: 0, pastas: [], tags: [] }] })] })).status).toBe(400);
+    });
+
+    it('pôr e mudar com tags, pasta e descrição: a prévia já mostra (o caminho que ainda não existe, só com o caminho)', async () => {
+      const t = await setup();
+      const { secret } = await fill(t, ['desejos:ler', 'desejos:escrever', 'pra-depois:escrever']);
+      const send = (method: string, path: string, payload: unknown) => t.ext(secret, path, { method, body: JSON.stringify(payload) });
+      const put = await t.body(send('POST', '/ext/v1/desejos', { mural: 'jogos', nome: 'Overcooked 2', tags: ['co-op', '#Co-op', 'Curto'], pasta: 'Co-op/Curtos', descricao: '  Com a turma  ', buscar_capa: false }));
+      expect(put.desejo).toEqual(expect.objectContaining({ tags: ['co-op', 'Curto'], pasta: { id: 'pcurto0001', caminho: ['Co-op', 'Curtos'] }, descricao: 'Com a turma' }));
+      const fresh = await t.body(send('POST', '/ext/v1/desejos', { mural: 'jogos', nome: 'Celeste', pasta: 'Plataforma/Difíceis' }));
+      expect(fresh.desejo.pasta).toEqual({ id: null, caminho: ['Plataforma', 'Difíceis'] });
+      // o id de uma pasta de outro mural deixa o desejo na raiz
+      expect((await t.body(send('POST', '/ext/v1/desejos', { mural: 'livros', nome: 'Duna Messias', pasta: 'pcoop00001' }))).desejo.pasta).toBeNull();
+      const changed = await t.body(send('PATCH', `/ext/v1/desejos/${IT.id}`, { versao: IT.versao, tags: [], pasta: null, descricao: null }));
+      expect(changed.desejo).toEqual(expect.objectContaining({ tags: [], pasta: null, descricao: null }));
+      expect((await send('PATCH', `/ext/v1/desejos/${TUNIC.id}`, { versao: TUNIC.versao, descricao: 'x'.repeat(4001) })).status).toBe(400);
+      expect((await send('POST', '/ext/v1/pra-depois', { mural: 'jogos', nome: 'Hades', tags: ['co-op'] })).status).toBe(400);
     });
   });
 

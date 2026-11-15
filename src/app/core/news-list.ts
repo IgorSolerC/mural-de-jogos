@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-15-grupos-fechamento',
+    id: '2026-11-15-wishlist-api',
     version: '1.45.4',
     kind: 'ajustes',
     date: '2026-11-15',
@@ -37,6 +37,7 @@ export const NEWS: NewsEntry[] = [
       'O recorte ganhou a descrição, escrita com o editor de texto das anotações (Visual ou Markdown) e tags com cor, como nas anotações. A descrição nunca aparece na parede: a ponta de uma folha do caderno atrás do recorte avisa que ela existe, e a folha abre com o mouse em cima (no celular, segurando o dedo).',
       'A Wishlist ganhou as pastas das anotações, uma árvore para cada mural: as pastas manilha antes dos recortes, o caminho na pasta da barra, arrastar um recorte até uma pasta (ou até o caminho) para guardar, soltar um recorte sobre outro para criar uma pasta com os dois, e Renomear, Mover para… e Desfazer a pasta, todos com o Desfazer. O botão direito do recorte tem o Mover para pasta…, a folha tem a Pasta (o novo já nasce na pasta aberta), e dentro de uma pasta a busca, os filtros e o Sortear pegam ela e as de dentro.',
       'Na Grade da Wishlist, as capas são recortadas à tesoura, sem a margem branca e sem os rasgos; e a Wishlist sem nada achado, ou com a pasta vazia, mostra o cartão das anotações.',
+      'Na API e no MCP, o desejo da Wishlist traz as tags, a pasta (o id e o caminho) e a descrição; o contexto traz as pastas e as tags da Wishlist de cada mural; pôr e mudar desejo aceitam as três (a pasta pelo caminho, criando as que faltam), e ver_wishlist filtra pela pasta e pela tag.',
     ],
     correcoes: [
       'Num grupo compartilhado, as anotações continuam nas pastas: antes, ao compartilhar, elas saíam das pastas uma a uma, e qualquer mudança feita depois (uma tag, o texto, por qualquer pessoa do grupo) tirava a pasta para todos. Parar de compartilhar também mantém o grupo, a pasta e as tags de cada anotação.',

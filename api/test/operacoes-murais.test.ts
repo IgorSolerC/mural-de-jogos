@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { opMuda } from '../../contrato/api-v1/operacoes';
-import { conferirOpMural, desejoDoPedido, editarDesejoV1, editarFichaV1, fichaDoPedido, itemDoPedido, regrasDaFicha, type PorItemV1 } from '../../contrato/api-v1/operacoes-murais';
+import { conferirOpMural, desejoDoPedido, pastaDoDesejoPedida, editarDesejoV1, editarFichaV1, fichaDoPedido, itemDoPedido, regrasDaFicha, type PorItemV1 } from '../../contrato/api-v1/operacoes-murais';
+import { indiceDasPastasDosDesejos } from '../../contrato/api-v1/murais';
 import { CONTEXTO, OUTER_WILDS, SILKSONG } from './murais.suite';
 
 /** As operações na Wishlist e no Pra depois (contrato/api-v1/operacoes-murais.ts). */
@@ -45,10 +46,40 @@ describe('conferir uma operação dos murais', () => {
   });
 });
 
+describe('as tags, a pasta e a descrição do desejo (a Wishlist repensada, rodada 6)', () => {
+  it('pôr e mudar conferem como nas notas; só o desejo da wishlist tem as três', () => {
+    const put = conferirOpMural('desejo.por', { mural: 'jogos', nome: 'Tunic', tags: ['#Curto', 'curto', ' co-op '], pasta: ' Co-op / Curtos ', descricao: '  Indicação  ' });
+    expect(put).toEqual({ ok: true, dados: { mural: 'jogos', nome: 'Tunic', tags: ['Curto', 'co-op'], pasta: 'Co-op/Curtos', descricao: 'Indicação' } });
+    // ao pôr, vazio é o mesmo que não dizer
+    expect(conferirOpMural('desejo.por', { mural: 'jogos', nome: 'Tunic', tags: [], pasta: null, descricao: '' })).toEqual({ ok: true, dados: { mural: 'jogos', nome: 'Tunic' } });
+    // ao mudar, null tira e [] tira as tags
+    expect(conferirOpMural('desejo.editar', { versao: AGORA, tags: [], pasta: null, descricao: null })).toEqual({ ok: true, dados: { tags: [], pasta: null, descricao: null, versao: AGORA } });
+    expect(conferirOpMural('desejo.editar', { versao: AGORA, tags: Array.from({ length: 13 }, (_, i) => `t${i}`) })).toEqual(expect.objectContaining({ ok: false, campo: 'tags' }));
+    expect(conferirOpMural('desejo.editar', { versao: AGORA, descricao: 'x'.repeat(4001) })).toEqual(expect.objectContaining({ ok: false, campo: 'descricao' }));
+    expect(conferirOpMural('pra-depois.por', { mural: 'jogos', nome: 'Hades', pasta: 'Co-op' })).toEqual(expect.objectContaining({ ok: false, campo: 'pasta' }));
+  });
+
+  it('a prévia da pasta: o id da Wishlist do mural, o caminho que já existe com o id, o novo só com o caminho, outro mural na raiz', () => {
+    const pastas = indiceDasPastasDosDesejos({
+      murais: [
+        { mural: 'jogos', desejos: 1, pastas: [{ id: 'pcoop00001', nome: 'Co-op', pai: null, desejos: 1 }, { id: 'pcurto0001', nome: 'Curtos', pai: 'pcoop00001', desejos: 1 }], tags: [] },
+        { mural: 'livros', desejos: 0, pastas: [{ id: 'plivro0001', nome: 'Clássicos', pai: null, desejos: 0 }], tags: [] },
+      ],
+      desfeitas: [{ id: 'pantiga001', viva: 'pcoop00001' }],
+    });
+    expect(pastaDoDesejoPedida('pcurto0001', 'jogos', pastas)).toEqual({ id: 'pcurto0001', caminho: ['Co-op', 'Curtos'] });
+    expect(pastaDoDesejoPedida('pantiga001', 'jogos', pastas)).toEqual({ id: 'pcoop00001', caminho: ['Co-op'] });
+    expect(pastaDoDesejoPedida('co-op/CURTOS', 'jogos', pastas)).toEqual({ id: 'pcurto0001', caminho: ['Co-op', 'Curtos'] });
+    expect(pastaDoDesejoPedida('Co-op/Longos', 'jogos', pastas)).toEqual({ id: null, caminho: ['Co-op', 'Longos'] });
+    expect(pastaDoDesejoPedida('plivro0001', 'jogos', pastas)).toBeNull();
+    expect(pastaDoDesejoPedida('Clássicos', 'jogos', pastas)).toEqual({ id: null, caminho: ['Clássicos'] });
+  });
+});
+
 describe('o item como vai ficar', () => {
   it('o posto: sem capa dada, ainda sem capa (o Murall procura); o desejo, comum sem dizer', () => {
     const d: PorItemV1 = { mural: 'livros', nome: 'Duna', por: 'Frank Herbert' };
-    expect(desejoDoPedido('dl-novo', d, AGORA)).toEqual({ id: 'dl-novo', mural: 'livros', nome: 'Duna', ano: null, por: 'Frank Herbert', capa: null, relevancia: 'comum', criado_em: AGORA, versao: AGORA });
+    expect(desejoDoPedido('dl-novo', d, AGORA)).toEqual({ id: 'dl-novo', mural: 'livros', nome: 'Duna', ano: null, por: 'Frank Herbert', capa: null, relevancia: 'comum', tags: [], pasta: null, descricao: null, criado_em: AGORA, versao: AGORA });
     expect(itemDoPedido('pd-novo', d, AGORA)).not.toHaveProperty('relevancia');
   });
 

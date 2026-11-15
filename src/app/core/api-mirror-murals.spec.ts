@@ -2,7 +2,8 @@ import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import type { FichaV1 } from '../../../contrato/api-v1/murais';
 import { ApiMirror } from './api-mirror';
-import { contextoFichasV1, desejoV1, fichaV1, muralsMirror, praDepoisV1 } from './api-mirror-murals';
+import { contextoDesejosV1, contextoFichasV1, desejoNoEspelho, desejoV1, fichaV1, muralsMirror, praDepoisV1 } from './api-mirror-murals';
+import { folderTree, withDissolvedFolder, type NoteFolder } from './folders';
 import { CloudAccount } from './cloud-account';
 import { KanbanStore } from './kanban-store';
 import { Draft, Review, Wish, sanitizeDraft, sanitizeReview, sanitizeWish } from './review';
@@ -29,7 +30,7 @@ const NOTE = sanitizeReview({ id: 'n-nota', kind: 'anotacoes', game: { name: 'Um
 
 describe('o espelho da API: os murais em v1', () => {
   it('o desejo e o pra depois: o mural, o nome, o ano, o por, a capa e a relevância', () => {
-    expect(desejoV1(WISH)).toEqual({ id: 'dj-silk', mural: 'jogos', nome: 'Silksong', ano: '2025', por: null, capa: 'https://c/silk.jpg', relevancia: 'must', criado_em: AT, versao: AT });
+    expect(desejoV1(WISH)).toEqual({ id: 'dj-silk', mural: 'jogos', nome: 'Silksong', ano: '2025', por: null, capa: 'https://c/silk.jpg', relevancia: 'must', tags: [], pasta: null, descricao: null, criado_em: AT, versao: AT });
     expect(desejoV1(BOOK_WISH)).toEqual(jasmine.objectContaining({ mural: 'livros', por: 'Frank Herbert', relevancia: 'comum' }));
     expect(praDepoisV1(DRAFT)).toEqual({ id: 'pd-celeste', mural: 'jogos', nome: 'Celeste', ano: null, por: null, capa: null, criado_em: AT, versao: AT });
   });
@@ -77,9 +78,31 @@ describe('o espelho da API: os murais em v1', () => {
     expect(ctx.murais[5]!.fichas).toBe(1);
   });
 
+  it('o desejo com as tags, a descrição e a pasta (o caminho; a desfeita pela de cima), e o espelho com o id guardado', () => {
+    const folders: NoteFolder[] = [
+      { id: 'pcoop00001', group: 'desejos:jogos', name: 'Co-op', parent: null },
+      { id: 'pcurto0001', group: 'desejos:jogos', name: 'Curtos', parent: 'pcoop00001' },
+      { id: 'plivro0001', group: 'desejos:livros', name: 'Clássicos', parent: null },
+    ];
+    const tree = folderTree(folders);
+    const w = sanitizeWish({ ...WISH, tags: ['co-op', 'curto'], folder: 'pcurto0001', note: 'Com a **Bia**' })!;
+    expect(desejoV1(w, tree)).toEqual(jasmine.objectContaining({ tags: ['co-op', 'curto'], descricao: 'Com a **Bia**', pasta: { id: 'pcurto0001', caminho: ['Co-op', 'Curtos'] } }));
+    // a pasta de outro mural não vale (o desejo fica na raiz)
+    expect(desejoV1(sanitizeWish({ ...WISH, folder: 'plivro0001' })!, tree).pasta).toBeNull();
+    const gone = folderTree(withDissolvedFolder(folders, 'pcurto0001', AT));
+    expect(desejoV1(w, gone).pasta).toEqual({ id: 'pcoop00001', caminho: ['Co-op'] });
+    const stored = desejoNoEspelho(w, gone);
+    expect(stored.pasta_id).toBe('pcurto0001');
+    expect('pasta' in stored).toBeFalse();
+    const ctx = contextoDesejosV1([w, BOOK_WISH], gone);
+    expect(ctx.murais.find((m) => m.mural === 'jogos')).toEqual({ mural: 'jogos', desejos: 1, pastas: [{ id: 'pcoop00001', nome: 'Co-op', pai: null, desejos: 1 }], tags: [{ nome: 'co-op', desejos: 1 }, { nome: 'curto', desejos: 1 }] });
+    expect(ctx.murais.find((m) => m.mural === 'livros')!.pastas).toEqual([{ id: 'plivro0001', nome: 'Clássicos', pai: null, desejos: 0 }]);
+    expect(ctx.desfeitas).toEqual([{ id: 'pcurto0001', viva: 'pcoop00001' }]);
+  });
+
   it('só as áreas pedidas, e nunca as anotações', () => {
     const src = { wishes: [WISH], drafts: [DRAFT], reviews: [OUTER, NOTE], boardOnly: new Set<string>() };
-    expect(muralsMirror(src, ['desejos']).map((i) => `${i.tipo}:${i.id}`)).toEqual(['desejo:dj-silk']);
+    expect(muralsMirror(src, ['desejos']).map((i) => `${i.tipo}:${i.id}`)).toEqual(['desejo:dj-silk', 'contexto-desejos:desejos']);
     expect(muralsMirror(src, ['fichas']).map((i) => `${i.tipo}:${i.id}`)).toEqual(['ficha:rf-outer', 'contexto-fichas:fichas']);
     expect(muralsMirror(src, ['notas'])).toEqual([]);
   });
@@ -126,7 +149,7 @@ describe('o espelho da API: o serviço manda os murais', () => {
   it('as três áreas vão quando pedidas; o desejo tirado sai do espelho', async () => {
     const m = setup(['desejos', 'pra-depois', 'fichas']);
     await m.afterSync(3);
-    expect(sent(0)).toEqual(['desejo:dj-silk', 'desejo:dl-duna', 'pra-depois:pd-celeste', 'ficha:rf-outer', 'contexto-fichas:fichas']);
+    expect(sent(0)).toEqual(['desejo:dj-silk', 'desejo:dl-duna', 'contexto-desejos:desejos', 'pra-depois:pd-celeste', 'ficha:rf-outer', 'contexto-fichas:fichas']);
     wishes.set([BOOK_WISH]);
     await m.afterSync(4);
     expect(posts()[1]!.body.tira).toEqual([{ tipo: 'desejo', id: 'dj-silk' }]);

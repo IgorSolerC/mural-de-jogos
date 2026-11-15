@@ -146,6 +146,32 @@ function limparTag(raw: string): string {
   return raw.trim().replace(/^#+/, '').replace(/\s+/g, ' ').trim().slice(0, ROTULO_MAX).trim();
 }
 
+/**
+ * A pasta de um pedido (da nota, ou do desejo da Wishlist): o caminho a partir da raiz ("Programação/Funcional",
+ * cada pedaço limpo, as que faltam o Murall cria) ou o id; null (ou vazio) tira da pasta. `onde` diz de onde o
+ * caminho parte, na mensagem de erro.
+ */
+export function lerPastaPedida(raw: unknown, onde: string): Conferido<string | null> {
+  if (raw === null || raw === '') return { ok: true, dados: null };
+  if (typeof raw !== 'string' || raw.length > PASTA_MAX) return falha('pasta', `A pasta é o caminho ${onde} ("Programação/Funcional") ou o id dela (ou null para tirar).`);
+  const pedacos = pedacosDoCaminho(raw).map((p) => textoLimpo(p, ROTULO_MAX + 1));
+  if (pedacos.some((p) => p.length > ROTULO_MAX)) return falha('pasta', `Cada pasta do caminho tem até ${ROTULO_MAX} letras.`);
+  if (pedacos.length > PASTA_NIVEIS) return falha('pasta', `O caminho tem até ${PASTA_NIVEIS} pastas.`);
+  return { ok: true, dados: pedacos.filter(Boolean).join('/') || null };
+}
+
+/** As tags de um pedido, como o app guarda (sem `#`, sem repetir sem caixa e acento), até `TAGS_MAX` por `dono`. */
+export function lerTagsPedidas(raw: unknown, dono: string): Conferido<string[]> {
+  if (!Array.isArray(raw) || raw.some((t) => typeof t !== 'string')) return falha('tags', 'As tags são uma lista de nomes.');
+  const tags = new Map<string, string>();
+  for (const t of raw as string[]) {
+    const v = limparTag(t);
+    if (v && !tags.has(dobra(v))) tags.set(dobra(v), v);
+  }
+  if (tags.size > TAGS_MAX) return falha('tags', `No máximo ${TAGS_MAX} tags por ${dono}.`);
+  return { ok: true, dados: [...tags.values()] };
+}
+
 function lerCampos(raw: Record<string, unknown>, criando: boolean): Conferido<CamposDaNota> {
   const out: CamposDaNota = {};
   if (raw['titulo'] !== undefined || criando) {
@@ -172,24 +198,14 @@ function lerCampos(raw: Record<string, unknown>, criando: boolean): Conferido<Ca
     out[campo] = v || null;
   }
   if (raw['pasta'] !== undefined) {
-    if (raw['pasta'] === null || raw['pasta'] === '') out.pasta = null;
-    else {
-      if (typeof raw['pasta'] !== 'string' || raw['pasta'].length > PASTA_MAX) return falha('pasta', 'A pasta é o caminho dentro do grupo ("Programação/Funcional") ou o id dela (ou null para tirar).');
-      const pedacos = pedacosDoCaminho(raw['pasta']).map((p) => textoLimpo(p, ROTULO_MAX + 1));
-      if (pedacos.some((p) => p.length > ROTULO_MAX)) return falha('pasta', `Cada pasta do caminho tem até ${ROTULO_MAX} letras.`);
-      if (pedacos.length > PASTA_NIVEIS) return falha('pasta', `O caminho tem até ${PASTA_NIVEIS} pastas.`);
-      out.pasta = pedacos.filter(Boolean).join('/') || null;
-    }
+    const p = lerPastaPedida(raw['pasta'], 'dentro do grupo');
+    if (!p.ok) return p;
+    out.pasta = p.dados;
   }
   if (raw['tags'] !== undefined) {
-    if (!Array.isArray(raw['tags']) || raw['tags'].some((t) => typeof t !== 'string')) return falha('tags', 'As tags são uma lista de nomes.');
-    const tags = new Map<string, string>();
-    for (const t of raw['tags'] as string[]) {
-      const v = limparTag(t);
-      if (v && !tags.has(dobra(v))) tags.set(dobra(v), v);
-    }
-    if (tags.size > TAGS_MAX) return falha('tags', `No máximo ${TAGS_MAX} tags por nota.`);
-    out.tags = [...tags.values()];
+    const t = lerTagsPedidas(raw['tags'], 'nota');
+    if (!t.ok) return t;
+    out.tags = t.dados;
   }
   if (raw['data'] !== undefined) {
     if (raw['data'] !== null && (typeof raw['data'] !== 'string' || !DATA_RE.test(raw['data']))) {

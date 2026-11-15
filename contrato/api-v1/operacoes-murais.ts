@@ -6,9 +6,12 @@
  * funções puras.
  */
 
-import { textoLimpo } from './escopos';
+import { dobra, textoLimpo } from './escopos';
+import { caminhoDaPasta, pastaViva, pedacosDoCaminho, type IndiceDasPastas, type PastaDaNotaV1 } from './notas';
+import { lerPastaPedida, lerTagsPedidas } from './operacoes';
 import {
   ARTISTA_MAX,
+  DESCRICAO_MAX,
   DIFICULDADES,
   NOME_MAX,
   NOTAS,
@@ -60,6 +63,12 @@ export interface PorItemV1 {
   relevancia?: RelevanciaV1;
   /** false: entra sem capa, sem procurar. */
   buscar_capa?: false;
+  /** Só no desejo: as tags (as da Wishlist do mural, em ver_contexto). */
+  tags?: string[];
+  /** Só no desejo: a pasta da Wishlist do mural, pelo caminho ("Co-op/Curtos"; as que faltam o Murall cria) ou pelo id. */
+  pasta?: string;
+  /** Só no desejo: a descrição (o markdown do Murall). */
+  descricao?: string;
 }
 
 export interface EditarDesejoV1 {
@@ -69,6 +78,12 @@ export interface EditarDesejoV1 {
   ano?: string | null;
   por?: string | null;
   capa?: string | null;
+  /** Troca as tags todas (a lista inteira; [] tira todas). */
+  tags?: string[];
+  /** A pasta (caminho ou id); null tira da pasta. */
+  pasta?: string | null;
+  /** null tira a descrição. */
+  descricao?: string | null;
 }
 
 export interface TirarV1 {
@@ -137,6 +152,56 @@ function lerItem(r: Record<string, unknown>, out: Record<string, unknown>, crian
     else out['capa'] = r['capa'];
   }
   return { ok: true, dados: null };
+}
+
+/** As tags, a pasta e a descrição do desejo, como o app guarda (o que vier); null ao pôr é o mesmo que não dizer. */
+function lerDoDesejo(r: Record<string, unknown>, out: Record<string, unknown>, criando: boolean): { ok: false; campo: string; erro: string } | null {
+  if (r['tags'] !== undefined) {
+    const t = lerTagsPedidas(r['tags'], 'desejo');
+    if (!t.ok) return t;
+    if (!criando || t.dados.length) out['tags'] = t.dados;
+  }
+  if (r['pasta'] !== undefined) {
+    const p = lerPastaPedida(r['pasta'], 'a partir da raiz da Wishlist do mural');
+    if (!p.ok) return p;
+    if (!criando || p.dados) out['pasta'] = p.dados;
+  }
+  if (r['descricao'] !== undefined) {
+    if (r['descricao'] === null || r['descricao'] === '') {
+      if (!criando) out['descricao'] = null;
+    } else {
+      if (typeof r['descricao'] !== 'string') return falha('descricao', 'A descrição é um texto (o markdown do Murall), ou null para tirar.');
+      const t = r['descricao'].replace(/\r\n?/g, '\n').trim();
+      if (t.length > DESCRICAO_MAX) return falha('descricao', `A descrição tem até ${DESCRICAO_MAX} letras.`);
+      if (t || !criando) out['descricao'] = t || null;
+    }
+  }
+  return null;
+}
+
+/**
+ * A pasta que o `pasta` de um pedido pede, num desejo do `mural`, como o Murall vai aplicar: o id de uma pasta
+ * da Wishlist do mural (a desfeita vale pela viva dela) dá ela; o de outro mural deixa o desejo na raiz (o
+ * Murall avisa no resultado). O resto é o caminho a partir da raiz da Wishlist: a que já existe com esse caminho
+ * vem com o id; as outras, só com o caminho, até o Murall aplicar (ele cria as que faltam).
+ */
+export function pastaDoDesejoPedida(pedido: string, mural: MuralV1, pastas?: IndiceDasPastas): PastaDaNotaV1 | null {
+  if (pastas && (pastas.vivas.has(pedido) || pastas.desfeitas.has(pedido))) {
+    const id = pastaViva(pastas, pedido);
+    const p = id ? pastas.vivas.get(id) : undefined;
+    if (!id || !p || p.grupo !== mural) return null;
+    return { id, caminho: caminhoDaPasta(pastas, id) ?? [p.nome] };
+  }
+  const caminho = pedacosDoCaminho(pedido);
+  if (pastas) {
+    const quer = caminho.map(dobra);
+    for (const [id, p] of pastas.vivas) {
+      if (p.grupo !== mural) continue;
+      const c = caminhoDaPasta(pastas, id);
+      if (c && c.length === quer.length && c.every((x, i) => dobra(x) === quer[i])) return { id, caminho: c };
+    }
+  }
+  return { id: null, caminho };
 }
 
 /** Os campos da ficha, como o app guarda (o que vier). */
@@ -237,6 +302,9 @@ export function conferirOpMural(op: OpMural, raw: unknown): ConferidoMural<Dados
       }
       if (r['buscar_capa'] !== undefined && typeof r['buscar_capa'] !== 'boolean') return falha('buscar_capa', 'buscar_capa é true ou false.');
       if (r['buscar_capa'] === false && !out['capa']) out['buscar_capa'] = false;
+      for (const k of ['tags', 'pasta', 'descricao']) if (r[k] !== undefined && op !== 'desejo.por') return falha(k, `Só o desejo da wishlist tem ${k}.`);
+      const extra = lerDoDesejo(r, out, true);
+      if (extra) return extra;
       return { ok: true, dados: out as unknown as PorItemV1 };
     }
     case 'desejo.editar': {
@@ -248,7 +316,9 @@ export function conferirOpMural(op: OpMural, raw: unknown): ConferidoMural<Dados
         if (!(RELEVANCIAS as readonly unknown[]).includes(r['relevancia'])) return falha('relevancia', 'A relevância é must, comum ou later.');
         out['relevancia'] = r['relevancia'];
       }
-      if (!Object.keys(out).length) return falha('campos', 'Nada para mudar: mande a relevancia, o nome, o ano, o por ou a capa.');
+      const extra = lerDoDesejo(r, out, false);
+      if (extra) return extra;
+      if (!Object.keys(out).length) return falha('campos', 'Nada para mudar: mande a relevancia, as tags, a pasta, a descricao, o nome, o ano, o por ou a capa.');
       return { ok: true, dados: { ...out, versao: r['versao'] } as EditarDesejoV1 };
     }
     case 'desejo.tirar':
@@ -280,15 +350,26 @@ export function itemDoPedido(id: string, d: PorItemV1, agora: string): PraDepois
   return { id, mural: d.mural, nome: d.nome, ano: d.ano ?? null, por: d.por ?? null, capa: d.capa ?? null, criado_em: agora, versao: agora };
 }
 
-export function desejoDoPedido(id: string, d: PorItemV1, agora: string): DesejoV1 {
+/** O desejo de um pedido de pôr, antes de o site aplicar; `pastas` (as das Wishlists) deixa a pasta pedida com o caminho. */
+export function desejoDoPedido(id: string, d: PorItemV1, agora: string, pastas?: IndiceDasPastas): DesejoV1 {
   const { criado_em, versao, ...rest } = itemDoPedido(id, d, agora);
-  return { ...rest, relevancia: d.relevancia ?? 'comum', criado_em, versao };
+  return {
+    ...rest,
+    relevancia: d.relevancia ?? 'comum',
+    tags: d.tags ?? [],
+    pasta: d.pasta ? pastaDoDesejoPedida(d.pasta, d.mural, pastas) : null,
+    descricao: d.descricao ?? null,
+    criado_em,
+    versao,
+  };
 }
 
 /** O desejo com uma mudança por cima (a prévia de `desejo.editar`). */
-export function editarDesejoV1(w: DesejoV1, d: EditarDesejoV1, agora: string): DesejoV1 {
-  const { versao: _v, ...campos } = d;
-  return { ...w, ...campos, versao: agora } as DesejoV1;
+export function editarDesejoV1(w: DesejoV1, d: EditarDesejoV1, agora: string, pastas?: IndiceDasPastas): DesejoV1 {
+  const { versao: _v, pasta, ...campos } = d;
+  const out = { ...w, ...campos, versao: agora } as DesejoV1;
+  if (pasta !== undefined) out.pasta = pasta ? pastaDoDesejoPedida(pasta, w.mural, pastas) : null;
+  return out;
 }
 
 /** Os campos da ficha por cima (sem a nota final: ela só sai do Murall, então fica null até o pedido entrar). */

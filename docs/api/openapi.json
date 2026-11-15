@@ -29,7 +29,7 @@
       "get": {
         "operationId": "ver_contexto",
         "summary": "Ver o contexto",
-        "description": "A conta, o dia de hoje no fuso dela, o que esta chave pode, o vocabulário das Anotações (grupos com as pastas, a árvore inteira, e as tags; tags fixas), o do Kanban (os quadros e as colunas), o dos Estudos (os baralhos), o dos Gastos (envelopes, pessoas, os meses com lançamento), o do Calendário (as cores e os meses que ver_agenda alcança) e o dos murais (quantos desejos e pra depois há, e as notas de cada mural para escrever fichas). Chame antes de criar ou mudar, e use os nomes que já existem. Permissão: notas:ler ou gastos:ler ou kanban:ler ou kanban:mover ou kanban:colunas ou calendario:ler ou calendario:escrever ou calendario:apagar ou desejos:ler ou desejos:escrever ou pra-depois:ler ou pra-depois:escrever ou fichas:ler ou fichas:escrever ou estudos:ler ou estudos:estudar ou estudos:escrever ou estudos:apagar.",
+        "description": "A conta, o dia de hoje no fuso dela, o que esta chave pode, o vocabulário das Anotações (grupos com as pastas, a árvore inteira, e as tags; tags fixas), o do Kanban (os quadros e as colunas), o dos Estudos (os baralhos), o dos Gastos (envelopes, pessoas, os meses com lançamento), o do Calendário (as cores e os meses que ver_agenda alcança) e o dos murais (quantos desejos e pra depois há, as pastas e as tags da Wishlist de cada mural, e as notas de cada mural para escrever fichas). Chame antes de criar ou mudar, e use os nomes que já existem. Permissão: notas:ler ou gastos:ler ou kanban:ler ou kanban:mover ou kanban:colunas ou calendario:ler ou calendario:escrever ou calendario:apagar ou desejos:ler ou desejos:escrever ou pra-depois:ler ou pra-depois:escrever ou fichas:ler ou fichas:escrever ou estudos:ler ou estudos:estudar ou estudos:escrever ou estudos:apagar.",
         "responses": {
           "200": {
             "description": "O que foi pedido, em JSON."
@@ -3802,7 +3802,7 @@
       "get": {
         "operationId": "ver_wishlist",
         "summary": "Ver a wishlist",
-        "description": "Os desejos de cada mural, como a tela: MUST na frente, LATER no fim. Antes de sugerir, veja também listar_fichas (o que a pessoa já jogou, leu ou viu). Permissão: desejos:ler.",
+        "description": "Os desejos de cada mural, como a tela: MUST na frente, LATER no fim, cada um com as tags, a pasta e a descrição. Antes de sugerir, veja também listar_fichas (o que a pessoa já jogou, leu ou viu). Permissão: desejos:ler.",
         "parameters": [
           {
             "name": "mural",
@@ -3839,10 +3839,29 @@
             "name": "q",
             "in": "query",
             "required": false,
-            "description": "Busca no nome e no autor.",
+            "description": "Busca no nome, no autor e na descrição.",
             "schema": {
               "type": "string",
               "maxLength": 200
+            }
+          },
+          {
+            "name": "pasta",
+            "in": "query",
+            "required": false,
+            "description": "Só os desta pasta e das de dentro dela: o caminho na Wishlist (\"Co-op/Curtos\", sem ligar para caixa e acento) ou o id.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "required": false,
+            "description": "Só os com esta tag (sem ligar para caixa e acento).",
+            "schema": {
+              "type": "string",
+              "maxLength": 32
             }
           },
           {
@@ -3878,7 +3897,7 @@
       "post": {
         "operationId": "por_na_wishlist",
         "summary": "Pôr na wishlist",
-        "description": "Põe um desejo na wishlist (mural e nome), ou vários em itens (até 50, um pedido por item). O Murall procura a capa no catálogo do mural. O mesmo nome no mesmo mural volta 409 com o que já está lá. Permissão: desejos:escrever.",
+        "description": "Põe um desejo na wishlist (mural e nome; também as tags, a pasta e a descrição), ou vários em itens (até 50, um pedido por item). O Murall procura a capa no catálogo do mural. O mesmo nome no mesmo mural volta 409 com o que já está lá. Permissão: desejos:escrever.",
         "parameters": [
           {
             "name": "Idempotency-Key",
@@ -3945,6 +3964,25 @@
                     ],
                     "description": "Quanta vontade: must (MUST PLAY/READ/WATCH, na frente), comum ou later (no fim)."
                   },
+                  "tags": {
+                    "type": "array",
+                    "maxItems": 12,
+                    "items": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "description": "As tags (até 12), as da Wishlist do mural em ver_contexto quando servirem. Mudando, a lista inteira ([] tira todas)."
+                  },
+                  "pasta": {
+                    "type": "string",
+                    "maxLength": 900,
+                    "description": "A pasta da Wishlist do mural: o caminho a partir da raiz (\"Co-op/Curtos\"; as que faltam o Murall cria) ou o id (ver_contexto)."
+                  },
+                  "descricao": {
+                    "type": "string",
+                    "maxLength": 4000,
+                    "description": "A descrição, no markdown do Murall (quem indicou, onde viu, por que quer). Só aparece com a mão em cima do recorte."
+                  },
                   "itens": {
                     "type": "array",
                     "maxItems": 50,
@@ -3998,6 +4036,25 @@
                             "later"
                           ],
                           "description": "Quanta vontade: must (MUST PLAY/READ/WATCH, na frente), comum ou later (no fim)."
+                        },
+                        "tags": {
+                          "type": "array",
+                          "maxItems": 12,
+                          "items": {
+                            "type": "string",
+                            "maxLength": 32
+                          },
+                          "description": "As tags (até 12), as da Wishlist do mural em ver_contexto quando servirem. Mudando, a lista inteira ([] tira todas)."
+                        },
+                        "pasta": {
+                          "type": "string",
+                          "maxLength": 900,
+                          "description": "A pasta da Wishlist do mural: o caminho a partir da raiz (\"Co-op/Curtos\"; as que faltam o Murall cria) ou o id (ver_contexto)."
+                        },
+                        "descricao": {
+                          "type": "string",
+                          "maxLength": 4000,
+                          "description": "A descrição, no markdown do Murall (quem indicou, onde viu, por que quer). Só aparece com a mão em cima do recorte."
                         }
                       },
                       "required": [
@@ -4027,7 +4084,7 @@
       "patch": {
         "operationId": "mudar_desejo",
         "summary": "Mudar um desejo",
-        "description": "Muda a relevância (must, comum, later), o nome, o ano, o autor ou a capa de um desejo. Mande a versao que você leu. Permissão: desejos:escrever.",
+        "description": "Muda a relevância (must, comum, later), as tags, a pasta, a descrição, o nome, o ano, o autor ou a capa de um desejo. Mande a versao que você leu. Permissão: desejos:escrever.",
         "parameters": [
           {
             "name": "id",
@@ -4100,6 +4157,31 @@
                     "maxLength": 2000,
                     "pattern": "^https://",
                     "description": "A capa (null tira)."
+                  },
+                  "tags": {
+                    "type": "array",
+                    "maxItems": 12,
+                    "items": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "description": "As tags (até 12), as da Wishlist do mural em ver_contexto quando servirem. Mudando, a lista inteira ([] tira todas)."
+                  },
+                  "pasta": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 900,
+                    "description": "A pasta da Wishlist do mural: o caminho a partir da raiz (\"Co-op/Curtos\"; as que faltam o Murall cria) ou o id (ver_contexto). null tira da pasta."
+                  },
+                  "descricao": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 4000,
+                    "description": "A descrição, no markdown do Murall (quem indicou, onde viu, por que quer). Só aparece com a mão em cima do recorte. null tira."
                   }
                 },
                 "additionalProperties": false,

@@ -1,5 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { FolderTree, NoteFolder } from './folders';
+import { pedacosDoCaminho } from '../../../contrato/api-v1/notas';
+import { FolderTree, MAX_FOLDERS, NoteFolder, siblingNamed } from './folders';
 import type { Kind } from './kinds';
 import { wishFolderGroup } from './mural-config';
 import { NoteFolders } from './note-folders';
@@ -103,6 +104,35 @@ export class WishFolders {
 
   dissolve(id: string): () => void {
     return this.folders.dissolve(id);
+  }
+
+  /**
+   * A pasta que um pedido da API pede (o `pasta` de pôr e de mudar desejo), na Wishlist do mural `kind`: o id de
+   * uma pasta dela (a desfeita vale pela viva), ou o caminho a partir da raiz ("Co-op/Curtos", sem caixa nem
+   * acento), com as que faltam criadas. O id de uma pasta de outro mural nunca vira nome: o desejo fica na raiz,
+   * com o aviso. No teto de pastas, fica na última que deu. A mesma regra da prévia da API
+   * (`pastaDoDesejoPedida`, contrato/api-v1/operacoes-murais.ts).
+   */
+  forRequest(kind: Kind, pasta: string): { id: string | null; aviso?: string } {
+    const group = wishFolderGroup(kind);
+    const tree = this.tree();
+    const known = tree.index.get(pasta);
+    if (known) {
+      if (known.group !== group) return { id: null, aviso: `A pasta "${known.name}" é de outra Wishlist: o desejo ficou solto na raiz.` };
+      return { id: tree.resolve(pasta, group) };
+    }
+    let parent: string | null = null;
+    for (const name of pedacosDoCaminho(pasta)) {
+      const found = siblingNamed(this.tree(), group, parent, name);
+      if (found) {
+        parent = found.id;
+        continue;
+      }
+      const made = this.create(kind, parent, name);
+      if (!made) return { id: parent, aviso: `Não coube mais pasta (o teto é de ${MAX_FOLDERS}): o desejo ficou ${parent ? `em ${this.tree().live(parent)?.name}` : 'solto na raiz'}.` };
+      parent = made.id;
+    }
+    return { id: parent };
   }
 
   /** Quantos desejos e pastas a pasta tem logo dentro (o que sobe ao desfazê-la). */

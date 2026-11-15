@@ -25,7 +25,8 @@ import { assertRoom, createRequest, randomBase36, readIdem, requestOut } from '.
 import { HttpError } from '../errors';
 import { Deps } from '../ports';
 import { readJson } from '../routes/http';
-import { arrivingItems, currentItem, currentReview, reviewContext } from './murals-read';
+import { arrivingItems, currentItem, currentReview, reviewContext, wishFolderIndex } from './murals-read';
+import { desejoDoEspelho, type DesejoNoEspelhoV1 } from '../../../contrato/api-v1/murais';
 import { mirrorState } from './routes';
 
 /**
@@ -52,7 +53,7 @@ export function muralsWriteRoutes(app: Hono, deps: Deps): void {
       d.mural,
       `${name.replace(/[%_\\]/g, (m) => `\\${m}`)}\n%`,
     ]);
-    if (row) return JSON.parse(row.dados) as DesejoV1;
+    if (row) return tipo === 'desejo' ? desejoDoEspelho(JSON.parse(row.dados) as DesejoNoEspelhoV1, await wishFolderIndex(deps, me.key.userId)) : (JSON.parse(row.dados) as PraDepoisV1);
     return (await arrivingItems(deps, me.key.userId, tipo)).find((x) => x.mural === d.mural && dobra(x.nome) === name) ?? null;
   }
 
@@ -96,10 +97,12 @@ export function muralsWriteRoutes(app: Hono, deps: Deps): void {
       await assertRoom(deps, me, checked.length - stored);
       const now = deps.now();
       const out: { pedido: ReturnType<typeof requestOut>; item: DesejoV1 | PraDepoisV1; repetido?: true }[] = [];
+      // as pastas das Wishlists: a pasta pedida pelo id (ou por um caminho que já existe) volta com o caminho
+      const pastas = tipo === 'desejo' ? await wishFolderIndex(deps, me.key.userId) : undefined;
       for (const [i, d] of checked.entries()) {
         const { row, repeated } = await createRequest(deps, me, op, idDeFicha(now.getTime(), randomBase36()), d, idem ? (batch ? `${idem}:${i}` : idem) : null);
         const shown = JSON.parse(row.dados) as PorItemV1;
-        const item = tipo === 'desejo' ? desejoDoPedido(row.alvo, shown, row.criado_em) : itemDoPedido(row.alvo, shown, row.criado_em);
+        const item = tipo === 'desejo' ? desejoDoPedido(row.alvo, shown, row.criado_em, pastas) : itemDoPedido(row.alvo, shown, row.criado_em);
         out.push({ pedido: requestOut(row, deps.now()), item, ...(repeated ? { repetido: true as const } : {}) });
       }
       const name = tipo === 'desejo' ? 'desejo' : 'pra_depois';
@@ -154,7 +157,7 @@ export function muralsWriteRoutes(app: Hono, deps: Deps): void {
     const { conflict, cur } = await editable(c, me, 'desejo', c.req.param('id'), d.versao);
     if (conflict) return conflict;
     const { row, repeated } = await createRequest(deps, me, 'desejo.editar', cur.id, d, idem);
-    const { pedidos: _p, ...after } = editarDesejoV1(cur as DesejoV1, d, row.criado_em) as DesejoV1 & { pedidos?: unknown };
+    const { pedidos: _p, ...after } = editarDesejoV1(cur as DesejoV1, d, row.criado_em, await wishFolderIndex(deps, me.key.userId)) as DesejoV1 & { pedidos?: unknown };
     return c.json({ pedido: requestOut(row, deps.now()), desejo: after, ...(repeated ? { repetido: true } : {}) }, 202);
   });
 

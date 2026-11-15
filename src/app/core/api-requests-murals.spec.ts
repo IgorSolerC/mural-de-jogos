@@ -5,6 +5,7 @@ import { requestWords, undoable } from './api-requests';
 import { MuralApplyContext, applyMuralRequest, muralTitle, muralWords, undoMural } from './api-requests-murals';
 import { Kind, PickedGame, Review, sanitizeReview, sanitizeWish } from './review';
 import { ReviewStore } from './review-store';
+import { WishFolders } from './wish-folders';
 
 /**
  * Os pedidos da Wishlist, do Pra depois e das fichas aplicados pelo site (core/api-requests-murals.ts,
@@ -46,6 +47,34 @@ describe('os pedidos dos murais aplicados pelo site', () => {
   });
 
   afterEach(() => localStorage.clear());
+
+  it('pôr e mudar desejo com as tags, a pasta (o caminho cria as que faltam; o id de outro mural avisa) e a descrição', async () => {
+    const folders = TestBed.inject(WishFolders);
+    const c = ctx({ wishFolder: (kind, pasta) => folders.forRequest(kind, pasta), folders: () => folders.tree() });
+    const coop = folders.create('jogos', null, 'Co-op')!.id;
+    const put = await apply('desejo.por', 'dj-it', { mural: 'jogos', nome: 'It Takes Two', tags: ['co-op'], pasta: 'Co-op/Curtos', descricao: 'Com a Bia', buscar_capa: false }, c);
+    expect(put.estado).toBe('aplicado');
+    const w = store.getWish('dj-it')!;
+    expect(w.tags).toEqual(['co-op']);
+    expect(w.note).toBe('Com a Bia');
+    const curtos = folders.tree().kids('desejos:jogos', coop)[0]!;
+    expect(curtos.name).toBe('Curtos');
+    expect(w.folder).toBe(curtos.id);
+    expect((put.resultado as { desejo: DesejoV1 }).desejo.pasta).toEqual({ id: curtos.id, caminho: ['Co-op', 'Curtos'] });
+    // o id de uma pasta da Wishlist de outro mural: fica na raiz, com o aviso
+    const books = folders.create('livros', null, 'Clássicos')!.id;
+    const other = await apply('desejo.por', 'dj-tunic', { mural: 'jogos', nome: 'Tunic', pasta: books, buscar_capa: false }, c);
+    expect(store.getWish('dj-tunic')!.folder).toBeUndefined();
+    expect((other.resultado as { aviso?: string }).aviso).toContain('outra Wishlist');
+    // mudar: as tags inteiras, sem pasta, sem descrição
+    const changed = await apply('desejo.editar', 'dj-it', { versao: w.updatedAt, tags: ['curto', 'história'], pasta: null, descricao: null }, c);
+    expect(changed.estado).toBe('aplicado');
+    const after = store.getWish('dj-it')!;
+    expect(after.tags).toEqual(['curto', 'história']);
+    expect(after.folder).toBeUndefined();
+    expect(after.note).toBeUndefined();
+    expect(muralWords('desejo.editar', { versao: AT, tags: [], pasta: null }, 'It Takes Two')).toBe('Mudar as tags e a pasta de “It Takes Two” na wishlist');
+  });
 
   it('pôr na wishlist: a capa vem do catálogo (o nome é o da AI), a relevância, e de novo não duplica', async () => {
     const out = await apply('desejo.por', 'dj-silk', { mural: 'jogos', nome: 'Silksong', relevancia: 'must' });

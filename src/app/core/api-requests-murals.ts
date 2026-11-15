@@ -15,7 +15,8 @@ import { type RequestStamps, onlyOwnSince } from './api-requests-spending';
 import { BUILD } from './build';
 import { sameGame } from './game-lookup';
 import { isMusic } from './kinds';
-import { Draft, Kind, PickedGame, Review, Wish, audienceFields, isNote, relevanceLabel, sanitizeDraft, sanitizeReview, sanitizeWish } from './review';
+import { Draft, Kind, PickedGame, Review, Wish, WishPatch, audienceFields, isNote, relevanceLabel, sanitizeDraft, sanitizeReview, sanitizeWish, withWishPatch } from './review';
+import type { FolderTree } from './folders';
 import type { ReviewStore } from './review-store';
 
 /**
@@ -28,7 +29,7 @@ import type { ReviewStore } from './review-store';
  */
 
 export type MuralResult =
-  | { desejo: DesejoV1 | null }
+  | { desejo: DesejoV1 | null; aviso?: string }
   | { pra_depois: PraDepoisV1 | null }
   | { ficha: FichaV1 }
   | { erro: string; desejo?: DesejoV1; pra_depois?: PraDepoisV1; ficha?: FichaV1 };
@@ -51,6 +52,13 @@ export interface MuralApplyContext {
   findCover(kind: Kind, name: string, year: string | undefined): Promise<PickedGame | null>;
   /** Quem vê não é dos desenhos da ficha: o "só no Kanban" das notas não vale aqui. */
   boardOnly?: ReadonlySet<string>;
+  /** As pastas de agora (para o desejo em v1 sair com a pasta e o caminho; lida depois de criar a pedida). */
+  folders?: () => FolderTree;
+  /**
+   * A pasta da Wishlist do mural que o `pasta` de um pedido pede (o id, ou o caminho, criando as que faltam:
+   * `WishFolders.forRequest`). Id null: o desejo fica na raiz; o aviso vai no resultado.
+   */
+  wishFolder?(kind: Kind, pasta: string): { id: string | null; aviso?: string };
 }
 
 /** É um pedido dos murais de resenhas? */
@@ -111,7 +119,7 @@ export async function applyMuralRequest(store: ReviewStore, req: { op: string; a
       const wish = op === 'desejo.por';
       const there = wish ? store.getWish(req.alvo) : store.getDraft(req.alvo);
       // já entrou (aplicado aqui antes, numa aba que fechou sem concluir): o mesmo id, nada de novo
-      if (there) return { estado: 'aplicado', resultado: wish ? { desejo: desejoV1(there as Wish) } : { pra_depois: praDepoisV1(there) }, antes: null };
+      if (there) return { estado: 'aplicado', resultado: wish ? { desejo: desejoV1(there as Wish, ctx.folders?.()) } : { pra_depois: praDepoisV1(there) }, antes: null };
       const d = checked.dados as PorItemV1;
       const kind = d.mural as Kind;
       const probe: PickedGame = { name: d.nome, coverUrl: null, source: 'manual', ...(d.ano ? { year: d.ano } : {}) };
@@ -120,10 +128,22 @@ export async function applyMuralRequest(store: ReviewStore, req: { op: string; a
       if (dup) return failed(`“${dup.game.name}” já está ${wish ? 'na wishlist' : 'no Pra depois'} (id ${dup.id}).`);
       const game = await itemOf(kind, d, ctx);
       if (wish) {
-        const w = sanitizeWish({ id: req.alvo, kind, game, ...(d.relevancia ? { relevance: d.relevancia } : {}), createdAt: now, updatedAt: now });
+        // a pasta pedida (o id, ou o caminho, criando as que faltam), as tags e a descrição
+        const where = d.pasta && ctx.wishFolder ? ctx.wishFolder(kind, d.pasta) : null;
+        const w = sanitizeWish({
+          id: req.alvo,
+          kind,
+          game,
+          ...(d.relevancia ? { relevance: d.relevancia } : {}),
+          ...(d.tags?.length ? { tags: d.tags } : {}),
+          ...(where?.id ? { folder: where.id } : {}),
+          ...(d.descricao ? { note: d.descricao } : {}),
+          createdAt: now,
+          updatedAt: now,
+        });
         if (!w || w.id !== req.alvo) return failed('O desejo não pôde ser guardado.');
         store.saveWish(w);
-        return { estado: 'aplicado', resultado: { desejo: desejoV1(store.getWish(w.id) ?? w) }, antes: null, carimbo: w.updatedAt, desde: null };
+        return { estado: 'aplicado', resultado: { desejo: desejoV1(store.getWish(w.id) ?? w, ctx.folders?.()), ...(where?.aviso ? { aviso: where.aviso } : {}) }, antes: null, carimbo: w.updatedAt, desde: null };
       }
       const draft = sanitizeDraft({ id: req.alvo, kind, game, createdAt: now, updatedAt: now });
       if (!draft || draft.id !== req.alvo) return failed('O item não pôde ser guardado.');
@@ -138,7 +158,7 @@ export async function applyMuralRequest(store: ReviewStore, req: { op: string; a
       const before = store.getWish(req.alvo);
       if (!before) return failed('O desejo não existe mais na wishlist.');
       if (!onlyOwnSince(before.id, before.updatedAt, (checked.dados as { versao: string }).versao, ctx.stamps)) {
-        return { estado: 'conflito', resultado: { erro: 'O desejo mudou depois que você o leu. Leia de novo e mande a versao nova.', desejo: desejoV1(before) }, antes: null };
+        return { estado: 'conflito', resultado: { erro: 'O desejo mudou depois que você o leu. Leia de novo e mande a versao nova.', desejo: desejoV1(before, ctx.folders?.()) }, antes: null };
       }
       if (op === 'desejo.tirar') {
         store.removeWish(before.id);
@@ -150,12 +170,18 @@ export async function applyMuralRequest(store: ReviewStore, req: { op: string; a
       if (e.ano !== undefined) game.year = e.ano ?? undefined;
       if (e.por !== undefined) game.by = e.por ?? undefined;
       if (e.capa !== undefined) game.coverUrl = e.capa;
-      const { relevance: _r, ...rest } = before;
       const relevance = e.relevancia ?? before.relevance ?? 'comum';
-      const next = sanitizeWish({ ...rest, game, ...(relevance === 'comum' ? {} : { relevance }), updatedAt: now });
-      if (!next) return failed('O desejo não pôde ser guardado.', { desejo: desejoV1(before) });
+      // as tags (a lista inteira), a pasta (null: a raiz) e a descrição (null: nenhuma), quando vieram
+      const where = e.pasta && ctx.wishFolder ? ctx.wishFolder(before.kind, e.pasta) : null;
+      const patch: WishPatch = { game, relevance: relevance === 'comum' ? undefined : relevance };
+      if (e.tags !== undefined) patch.tags = e.tags;
+      // (sem quem resolva o caminho, a pasta pedida não mexe na de agora; null tira sempre)
+      if (e.pasta === null || where) patch.folder = where?.id ?? undefined;
+      if (e.descricao !== undefined) patch.note = e.descricao ?? undefined;
+      const next = sanitizeWish({ ...withWishPatch(before, patch), updatedAt: now });
+      if (!next) return failed('O desejo não pôde ser guardado.', { desejo: desejoV1(before, ctx.folders?.()) });
       store.saveWish(next);
-      return { estado: 'aplicado', resultado: { desejo: desejoV1(next) }, antes: before, ...stamped(before, next) };
+      return { estado: 'aplicado', resultado: { desejo: desejoV1(next, ctx.folders?.()), ...(where?.aviso ? { aviso: where.aviso } : {}) }, antes: before, ...stamped(before, next) };
     }
     case 'pra-depois.tirar': {
       const before = store.getDraft(req.alvo);
@@ -233,6 +259,9 @@ const FIELD_WORDS: Record<string, string> = {
   por: 'o autor',
   capa: 'a capa',
   relevancia: 'a relevância',
+  tags: 'as tags',
+  pasta: 'a pasta',
+  descricao: 'a descrição',
   notas: 'as notas',
   status: 'o status',
   dificuldade: 'a dificuldade',

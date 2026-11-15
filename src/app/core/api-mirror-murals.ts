@@ -1,5 +1,9 @@
-import type { ContextoFichasV1, DesejoV1, FichaV1, MuralV1, PraDepoisV1 } from '../../../contrato/api-v1/murais';
-import { CONTEXTO_FICHAS } from '../../../contrato/api-v1/murais';
+import type { ContextoDesejosV1, ContextoFichasV1, DesejoNoEspelhoV1, DesejoV1, FichaV1, MuralV1, PastaDesejoV1, PraDepoisV1 } from '../../../contrato/api-v1/murais';
+import { CONTEXTO_DESEJOS, CONTEXTO_FICHAS, desejoParaOEspelho } from '../../../contrato/api-v1/murais';
+import type { PastaDesfeitaV1 } from '../../../contrato/api-v1/notas';
+import { FolderTree, NO_FOLDERS } from './folders';
+import { wishFolderGroup } from './mural-config';
+import { wishTagCounts } from './wishlist-view';
 import { KIND_PROFILES, SCORED_KINDS, isMusic } from './kinds';
 import { Draft, Review, SCORE_LABEL, Wish, isNote, musicFormOf, relevanceOf, shownToOthers } from './review';
 
@@ -25,9 +29,68 @@ function itemV1(x: Draft | Wish): PraDepoisV1 {
   };
 }
 
-export function desejoV1(w: Wish): DesejoV1 {
+/**
+ * Um desejo em v1: com as tags, a descrição e a pasta da Wishlist do mural (o id da viva e o caminho; a desfeita
+ * leva à de cima, como na tela).
+ */
+export function desejoV1(w: Wish, tree: FolderTree = NO_FOLDERS): DesejoV1 {
   const { criado_em, versao, ...rest } = itemV1(w);
-  return { ...rest, relevancia: relevanceOf(w), criado_em, versao };
+  const at = tree.resolve(w.folder, wishFolderGroup(w.kind));
+  const caminho = tree.path(at).map((f) => f.name);
+  return {
+    ...rest,
+    relevancia: relevanceOf(w),
+    tags: [...(w.tags ?? [])],
+    pasta: at && caminho.length ? { id: at, caminho } : null,
+    descricao: w.note ?? null,
+    criado_em,
+    versao,
+  };
+}
+
+/** O id da pasta escrito no desejo, se é de uma pasta (viva ou desfeita) da Wishlist do mural dele. */
+function storedWishFolder(tree: FolderTree, w: Wish): string | null {
+  const f = w.folder ? tree.index.get(w.folder) : undefined;
+  return f && f.group === wishFolderGroup(w.kind) ? f.id : null;
+}
+
+/**
+ * O desejo como o espelho guarda: a pasta pelo id escrito no desejo (que pode ser de uma desfeita): desfazer ou
+ * renomear uma pasta muda só o contexto, e a impressão dos desejos dela fica a mesma.
+ */
+export function desejoNoEspelho(w: Wish, tree: FolderTree = NO_FOLDERS): DesejoNoEspelhoV1 {
+  return desejoParaOEspelho(desejoV1(w, tree), storedWishFolder(tree, w));
+}
+
+/**
+ * O vocabulário das Wishlists: as pastas de cada mural (de A a Z, cada uma depois da de cima, com quantos
+ * desejos tem com os de dentro) e as tags (as mais usadas primeiro); e as desfeitas que algum desejo ainda
+ * guarda, com a viva que vale (em ordem de id: a impressão não muda à toa).
+ */
+export function contextoDesejosV1(wishes: readonly Wish[], tree: FolderTree = NO_FOLDERS): ContextoDesejosV1 {
+  const desfeitas = new Map<string, string | null>();
+  const murais = SCORED_KINDS.map((kind) => {
+    const group = wishFolderGroup(kind);
+    const list = wishes.filter((w) => w.kind === kind);
+    const counts = new Map<string, number>();
+    for (const w of list) {
+      const stored = storedWishFolder(tree, w);
+      const at = tree.resolve(w.folder, group);
+      if (stored && tree.index.get(stored)!.gone && !desfeitas.has(stored)) desfeitas.set(stored, at);
+      for (const f of tree.path(at)) counts.set(f.id, (counts.get(f.id) ?? 0) + 1);
+    }
+    const pastas: PastaDesejoV1[] = [];
+    const walk = (parent: string | null) => {
+      for (const f of tree.kids(group, parent)) {
+        pastas.push({ id: f.id, nome: f.name, pai: parent, desejos: counts.get(f.id) ?? 0 });
+        walk(f.id);
+      }
+    };
+    walk(null);
+    return { mural: kind as MuralV1, desejos: list.length, pastas, tags: wishTagCounts(list).map((t) => ({ nome: t.label, desejos: t.n })) };
+  });
+  const gone: PastaDesfeitaV1[] = [...desfeitas].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([id, viva]) => ({ id, viva }));
+  return { murais, ...(gone.length ? { desfeitas: gone } : {}) };
 }
 
 export function praDepoisV1(d: Draft): PraDepoisV1 {
@@ -83,19 +146,24 @@ export function contextoFichasV1(reviews: readonly Review[]): ContextoFichasV1 {
 }
 
 type MuralItem =
-  | { tipo: 'desejo'; id: string; dados: DesejoV1 }
+  | { tipo: 'desejo'; id: string; dados: DesejoNoEspelhoV1 }
+  | { tipo: 'contexto-desejos'; id: string; dados: ContextoDesejosV1 }
   | { tipo: 'pra-depois'; id: string; dados: PraDepoisV1 }
   | { tipo: 'ficha'; id: string; dados: FichaV1 }
   | { tipo: 'contexto-fichas'; id: string; dados: ContextoFichasV1 };
 
 /** O que os murais mandam ao espelho, só das áreas pedidas (as anotações nunca). */
 export function muralsMirror(
-  src: { wishes: readonly Wish[]; drafts: readonly Draft[]; reviews: readonly Review[]; boardOnly: ReadonlySet<string> },
+  src: { wishes: readonly Wish[]; drafts: readonly Draft[]; reviews: readonly Review[]; boardOnly: ReadonlySet<string>; tree?: FolderTree },
   areas: readonly string[],
 ): MuralItem[] {
   const scored = (k: string) => (SCORED_KINDS as readonly string[]).includes(k);
   const out: MuralItem[] = [];
-  if (areas.includes('desejos')) for (const w of src.wishes) if (scored(w.kind)) out.push({ tipo: 'desejo', id: w.id, dados: desejoV1(w) });
+  if (areas.includes('desejos')) {
+    const wishes = src.wishes.filter((w) => scored(w.kind));
+    for (const w of wishes) out.push({ tipo: 'desejo', id: w.id, dados: desejoNoEspelho(w, src.tree) });
+    out.push({ tipo: 'contexto-desejos', id: CONTEXTO_DESEJOS, dados: contextoDesejosV1(wishes, src.tree) });
+  }
   if (areas.includes('pra-depois')) for (const d of src.drafts) if (scored(d.kind)) out.push({ tipo: 'pra-depois', id: d.id, dados: praDepoisV1(d) });
   if (areas.includes('fichas')) {
     const reviews = src.reviews.filter((r) => !isNote(r));

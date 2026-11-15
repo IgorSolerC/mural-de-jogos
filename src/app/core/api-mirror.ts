@@ -6,7 +6,7 @@ import { DestroyRef, Injectable, effect, inject, untracked } from '@angular/core
 import { NoteFolders } from './note-folders';
 import { FolderTree, NO_FOLDERS, NoteFolder } from './folders';
 import type { AgendaDoMesV1, LembreteV1 } from '../../../contrato/api-v1/calendario';
-import type { ContextoFichasV1, DesejoV1, FichaV1, PraDepoisV1 } from '../../../contrato/api-v1/murais';
+import type { ContextoDesejosV1, ContextoFichasV1, DesejoNoEspelhoV1, FichaV1, PraDepoisV1 } from '../../../contrato/api-v1/murais';
 import type { BaralhoV1, CartaV1, ContextoEstudosV1 } from '../../../contrato/api-v1/estudos';
 import { dobra } from '../../../contrato/api-v1/escopos';
 import type { ContextoGastosV1, LancamentoV1, MesV1 } from '../../../contrato/api-v1/gastos';
@@ -52,7 +52,7 @@ export interface MirrorItem {
   tipo: TipoDoEspelho;
   id: string;
   hash: string;
-  dados: NotaNoEspelhoV1 | ContextoNotasV1 | LancamentoV1 | MesV1 | ContextoGastosV1 | QuadroV1 | LembreteV1 | AgendaDoMesV1 | DesejoV1 | PraDepoisV1 | FichaV1 | ContextoFichasV1 | CartaV1 | BaralhoV1 | ContextoEstudosV1 | QuadroLivreV1;
+  dados: NotaNoEspelhoV1 | ContextoNotasV1 | LancamentoV1 | MesV1 | ContextoGastosV1 | QuadroV1 | LembreteV1 | AgendaDoMesV1 | DesejoNoEspelhoV1 | ContextoDesejosV1 | PraDepoisV1 | FichaV1 | ContextoFichasV1 | CartaV1 | BaralhoV1 | ContextoEstudosV1 | QuadroLivreV1;
 }
 
 /** As áreas que este site sabe espelhar, e os tipos que se tiram quando somem daqui. */
@@ -316,7 +316,7 @@ export class ApiMirror {
       for (const i of calendarMirror(this.calendar.state(), todayISO())) out.push({ ...i, hash: await hashOf(i.dados) });
     }
     if (areas.some((a) => a === 'desejos' || a === 'pra-depois' || a === 'fichas')) {
-      const murals = { wishes: this.store.wishes(), drafts: this.store.drafts(), reviews: this.store.reviews(), boardOnly: this.kanban.boardOnly() };
+      const murals = { wishes: this.store.wishes(), drafts: this.store.drafts(), reviews: this.store.reviews(), boardOnly: this.kanban.boardOnly(), tree: this.folders.tree() };
       for (const i of muralsMirror(murals, areas)) out.push({ ...i, hash: await hashOf(i.dados) });
     }
     if (areas.includes('estudos')) out.push(...(await this.studyItems()));

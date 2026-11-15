@@ -1,7 +1,23 @@
 import { Context, Hono } from 'hono';
 import { dobra } from '../../../contrato/api-v1/escopos';
-import { CONTEXTO_FICHAS, MURAIS, RELEVANCIAS, STATUS, VEREDITOS, ehMural, type ContextoFichasV1, type DesejoV1, type FichaV1, type PraDepoisV1 } from '../../../contrato/api-v1/murais';
-import { resumo } from '../../../contrato/api-v1/notas';
+import {
+  CONTEXTO_DESEJOS,
+  CONTEXTO_FICHAS,
+  MURAIS,
+  RELEVANCIAS,
+  STATUS,
+  VEREDITOS,
+  desejoDoEspelho,
+  ehMural,
+  indiceDasPastasDosDesejos,
+  type ContextoDesejosV1,
+  type ContextoFichasV1,
+  type DesejoNoEspelhoV1,
+  type DesejoV1,
+  type FichaV1,
+  type PraDepoisV1,
+} from '../../../contrato/api-v1/murais';
+import { pastasDoFiltro, resumo, type IndiceDasPastas } from '../../../contrato/api-v1/notas';
 import {
   OPS_DOS_MURAIS,
   conferirOpMural,
@@ -78,39 +94,60 @@ async function pendingMurals(deps: Deps, userId: string) {
 const marker = (r: RequestRow, now: Date): PedidoNoItem => ({ id: r.id, op: r.op as OpMural, estado: stateOf(r, now) });
 
 /** O item com as mudanças abertas por cima (o que vai sair fica, com o pedido na lista). */
-function overlayItem<T extends DesejoV1 | PraDepoisV1>(x: T, rows: readonly RequestRow[] | undefined, now: Date): ComPedidos<T> {
+function overlayItem<T extends DesejoV1 | PraDepoisV1>(x: T, rows: readonly RequestRow[] | undefined, now: Date, pastas?: IndiceDasPastas): ComPedidos<T> {
   if (!rows?.length) return x;
   let out = x;
   for (const r of rows) {
     if (r.op !== 'desejo.editar') continue;
     const c = conferirOpMural('desejo.editar', JSON.parse(r.dados));
-    if (c.ok) out = editarDesejoV1(out as DesejoV1, c.dados as EditarDesejoV1, r.criado_em) as T;
+    if (c.ok) out = editarDesejoV1(out as DesejoV1, c.dados as EditarDesejoV1, r.criado_em, pastas) as T;
   }
   return { ...out, pedidos: rows.map((r) => marker(r, now)) };
 }
 
 /** O item de um pedido de pôr ainda não aplicado, com as mudanças de depois por cima. */
-function createdItem(row: RequestRow, later: readonly RequestRow[] | undefined, now: Date): ComPedidos<DesejoV1 | PraDepoisV1> {
+function createdItem(row: RequestRow, later: readonly RequestRow[] | undefined, now: Date, pastas?: IndiceDasPastas): ComPedidos<DesejoV1 | PraDepoisV1> {
   const d = JSON.parse(row.dados) as PorItemV1;
-  const base = row.op === 'desejo.por' ? desejoDoPedido(row.alvo, d, row.criado_em) : itemDoPedido(row.alvo, d, row.criado_em);
-  const shown = overlayItem<DesejoV1 | PraDepoisV1>(base, later, now);
+  const base = row.op === 'desejo.por' ? desejoDoPedido(row.alvo, d, row.criado_em, pastas) : itemDoPedido(row.alvo, d, row.criado_em);
+  const shown = overlayItem<DesejoV1 | PraDepoisV1>(base, later, now, pastas);
   return { ...shown, pedidos: [marker(row, now), ...(shown.pedidos ?? [])] };
+}
+
+/** O contexto das Wishlists (as pastas e as tags de cada mural), ou null antes de o espelho chegar. */
+export async function wishContext(deps: Deps, userId: string): Promise<ContextoDesejosV1 | null> {
+  const row = await deps.db.first<{ dados: string }>("SELECT dados FROM api_espelho WHERE usuario_id = ? AND tipo = 'contexto-desejos' AND id = ?", [userId, CONTEXTO_DESEJOS]);
+  return row ? (JSON.parse(row.dados) as ContextoDesejosV1) : null;
+}
+
+/** As pastas das Wishlists pelo id (uma linha a mais por leitura: o desejo guarda só o id da pasta). */
+export async function wishFolderIndex(deps: Deps, userId: string): Promise<IndiceDasPastas> {
+  return indiceDasPastasDosDesejos(await wishContext(deps, userId));
+}
+
+/** Um item do espelho como a v1 mostra: o desejo com a pasta montada; o pra depois como está. */
+function itemOfRow(tipo: 'desejo' | 'pra-depois', raw: string, pastas: IndiceDasPastas): DesejoV1 | PraDepoisV1 {
+  const x = JSON.parse(raw) as DesejoNoEspelhoV1 | PraDepoisV1;
+  return tipo === 'desejo' ? desejoDoEspelho(x as DesejoNoEspelhoV1, pastas) : (x as PraDepoisV1);
 }
 
 /** O desejo ou o pra depois de agora: o do espelho, ou o de um pedido de pôr; com os pedidos por cima. */
 export async function currentItem(deps: Deps, userId: string, tipo: 'desejo' | 'pra-depois', id: string): Promise<ComPedidos<DesejoV1 | PraDepoisV1> | null> {
-  const [found, pending] = await Promise.all([mirroredItem<DesejoV1 | PraDepoisV1>(deps, userId, tipo, id), pendingMurals(deps, userId)]);
+  const [raw, pending, pastas] = await Promise.all([
+    ID_RE.test(id) ? deps.db.first<{ dados: string }>('SELECT dados FROM api_espelho WHERE usuario_id = ? AND tipo = ? AND id = ?', [userId, tipo, id]) : null,
+    pendingMurals(deps, userId),
+    tipo === 'desejo' ? wishFolderIndex(deps, userId) : undefined,
+  ]);
   const now = deps.now();
-  if (found) return overlayItem(found, pending.byItem.get(id), now);
+  if (raw) return overlayItem(itemOfRow(tipo, raw.dados, pastas ?? indiceDasPastasDosDesejos(null)), pending.byItem.get(id), now, pastas);
   const created = pending.created.find((r) => r.alvo === id && PUT_OF[r.op as OpMural] === tipo);
-  return created ? createdItem(created, pending.byItem.get(id), now) : null;
+  return created ? createdItem(created, pending.byItem.get(id), now, pastas) : null;
 }
 
 /** Os itens que vão entrar numa lista (com os pedidos de depois por cima), para conferir o nome repetido. */
 export async function arrivingItems(deps: Deps, userId: string, tipo: 'desejo' | 'pra-depois'): Promise<ComPedidos<DesejoV1 | PraDepoisV1>[]> {
-  const pending = await pendingMurals(deps, userId);
+  const [pending, pastas] = await Promise.all([pendingMurals(deps, userId), tipo === 'desejo' ? wishFolderIndex(deps, userId) : undefined]);
   const now = deps.now();
-  return pending.created.filter((r) => PUT_OF[r.op as OpMural] === tipo).map((r) => createdItem(r, pending.byItem.get(r.alvo), now));
+  return pending.created.filter((r) => PUT_OF[r.op as OpMural] === tipo).map((r) => createdItem(r, pending.byItem.get(r.alvo), now, pastas));
 }
 
 /** A ficha com as mudanças abertas por cima. */
@@ -170,8 +207,12 @@ async function countByMural(deps: Deps, userId: string, tipo: ListKind): Promise
 export async function muralsContext(deps: Deps, me: KeyCaller) {
   const has = (scopes: readonly string[]) => scopes.some((s) => me.key.scopes.includes(s));
   const userId = me.key.userId;
+  const wishlists = has(WISH_SCOPES) ? await wishContext(deps, userId) : null;
   return {
-    desejos: has(WISH_SCOPES) ? { por_mural: await countByMural(deps, userId, 'desejo'), relevancias: RELEVANCIAS } : null,
+    // quantos desejos por mural, e as pastas e as tags da Wishlist de cada mural (as desfeitas ficam no espelho)
+    desejos: has(WISH_SCOPES)
+      ? { por_mural: await countByMural(deps, userId, 'desejo'), relevancias: RELEVANCIAS, wishlists: wishlists?.murais ?? [] }
+      : null,
     pra_depois: has(LATER_SCOPES) ? { por_mural: await countByMural(deps, userId, 'pra-depois') } : null,
     fichas: has(REVIEW_SCOPES) ? await reviewContext(deps, userId) : null,
   };
@@ -229,6 +270,20 @@ export function muralsReadRoutes(app: Hono, deps: Deps): void {
         where.push("busca LIKE ? ESCAPE '\\'");
         params.push(likeOf(text));
       }
+      // a pasta da Wishlist (o caminho, "Co-op/Curtos", ou o id) e as de dentro dela; e a tag
+      const pastas = tipo === 'desejo' ? await wishFolderIndex(deps, me.key.userId) : indiceDasPastasDosDesejos(null);
+      const folderWanted = tipo === 'desejo' ? q(c, 'pasta') : undefined;
+      const folderIds = folderWanted ? pastasDoFiltro(pastas, folderWanted, mural) : null;
+      if (folderIds) {
+        where.push("json_extract(dados, '$.pasta_id') IN (SELECT value FROM json_each(?))");
+        params.push(JSON.stringify([...folderIds]));
+      }
+      const tag = tipo === 'desejo' ? q(c, 'tag')?.replace(/^#+/, '').trim() : undefined;
+      if (tag) {
+        // a tag mora na busca entre # (sem caixa e sem acento: "História" acha "historia")
+        where.push("busca LIKE ? ESCAPE '\\'");
+        params.push(`%\n#${dobra(tag).replace(/[%_\\]/g, (m) => `\\${m}`)}#%`);
+      }
       // a wishlist como a tela: MUST na frente, LATER no fim; dentro, o que entrou por último primeiro
       const order =
         tipo === 'desejo'
@@ -238,13 +293,15 @@ export function muralsReadRoutes(app: Hono, deps: Deps): void {
       const pending = await pendingMurals(deps, me.key.userId);
       const now = deps.now();
       const shown = page(rows, limit, offset, (raw) => {
-        const x = JSON.parse(raw) as DesejoV1 | PraDepoisV1;
-        return overlayItem(x, pending.byItem.get(x.id), now);
+        const x = itemOfRow(tipo, raw, pastas);
+        return overlayItem(x, pending.byItem.get(x.id), now, pastas);
       });
       // os que vão entrar, no começo da primeira página (só o filtro do mural vale para eles)
       const arriving =
-        offset === 0 && rel === undefined && !text
-          ? pending.created.filter((r) => PUT_OF[r.op as OpMural] === tipo && (mural === undefined || (JSON.parse(r.dados) as PorItemV1).mural === mural)).map((r) => createdItem(r, pending.byItem.get(r.alvo), now))
+        offset === 0 && rel === undefined && !text && !folderWanted && !tag
+          ? pending.created
+              .filter((r) => PUT_OF[r.op as OpMural] === tipo && (mural === undefined || (JSON.parse(r.dados) as PorItemV1).mural === mural))
+              .map((r) => createdItem(r, pending.byItem.get(r.alvo), now, pastas))
           : [];
       return c.json({ ...shown, itens: [...arriving, ...shown.itens], espelho: await mirrorState(deps, me.key.userId) });
     });

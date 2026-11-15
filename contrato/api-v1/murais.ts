@@ -6,6 +6,8 @@
  * API só serve. Só tipos e funções puras.
  */
 
+import { caminhoDaPasta, pastaViva, type IndiceDasPastas, type PastaDaNotaV1, type PastaDesfeitaV1, type PastaNoIndiceV1 } from './notas';
+
 /** Os murais de resenhas (o de anotações tem a parte dele na API). */
 export type MuralV1 = 'jogos' | 'livros' | 'filmes' | 'series' | 'animes' | 'musicas';
 export const MURAIS: readonly MuralV1[] = ['jogos', 'livros', 'filmes', 'series', 'animes', 'musicas'];
@@ -47,13 +49,116 @@ export interface DesejoV1 {
   por: string | null;
   capa: string | null;
   relevancia: RelevanciaV1;
+  /** As tags do desejo (as da Wishlist do mural; em ver_contexto). */
+  tags: string[];
+  /**
+   * A pasta da Wishlist do mural: o id e o caminho, da de cima até ela; null, solto na raiz. O id é null
+   * enquanto a pasta só existe num pedido que o Murall ainda não aplicou (ele cria a que falta).
+   */
+  pasta: PastaDaNotaV1 | null;
+  /** A descrição (o markdown do Murall): só aparece com a mão em cima do recorte. */
+  descricao: string | null;
   criado_em: string;
   /** A versão que se manda de volta ao mudar ou tirar. */
   versao: string;
 }
 
+/**
+ * O desejo como o espelho guarda: a pasta só pelo id (o nome e o caminho moram no contexto da Wishlist, e a
+ * API monta `pasta` ao responder: renomear ou mover uma pasta não regrava nenhum desejo). O site de antes da
+ * rodada 6 da Wishlist manda sem as tags, a pasta e a descrição: a API lê como vazias.
+ */
+export type DesejoNoEspelhoV1 = Omit<DesejoV1, 'pasta'> & { pasta_id: string | null };
+
 /** O que espera uma ficha (o Pra depois): só o nome e a capa. */
-export type PraDepoisV1 = Omit<DesejoV1, 'relevancia'>;
+export type PraDepoisV1 = Omit<DesejoV1, 'relevancia' | 'tags' | 'pasta' | 'descricao'>;
+
+/** As tags de um desejo, no máximo (como as da nota). */
+export const DESEJO_TAGS_MAX = 12;
+/** A descrição de um desejo, no máximo (em letras). */
+export const DESCRICAO_MAX = 4000;
+
+/** Uma pasta da Wishlist de um mural: o id, o nome, a de cima (null: na raiz) e quantos desejos tem, com os de dentro. */
+export interface PastaDesejoV1 {
+  id: string;
+  nome: string;
+  pai: string | null;
+  desejos: number;
+}
+
+/** A Wishlist de um mural: as pastas (todas, de qualquer nível) e as tags usadas, da mais usada para a menos. */
+export interface WishlistDoMuralV1 {
+  mural: MuralV1;
+  desejos: number;
+  pastas: PastaDesejoV1[];
+  tags: { nome: string; desejos: number }[];
+}
+
+/**
+ * O vocabulário das Wishlists (`contexto-desejos`, id `desejos`): as pastas e as tags de cada mural, para a
+ * AI usar em vez de inventar. As desfeitas (com a viva para onde os desejos dela foram) ficam só no espelho.
+ */
+export interface ContextoDesejosV1 {
+  murais: WishlistDoMuralV1[];
+  desfeitas?: PastaDesfeitaV1[];
+}
+
+/** O id da linha de contexto das Wishlists. */
+export const CONTEXTO_DESEJOS = 'desejos';
+
+/** As pastas das Wishlists pelo id (o grupo de cada uma é o mural), para montar o caminho e filtrar. */
+export function indiceDasPastasDosDesejos(ctx: ContextoDesejosV1 | null): IndiceDasPastas {
+  const vivas = new Map<string, PastaNoIndiceV1>();
+  const desfeitas = new Map<string, string | null>();
+  if (ctx) {
+    for (const m of ctx.murais) for (const p of m.pastas) vivas.set(p.id, { nome: p.nome, pai: p.pai, grupo: m.mural });
+    for (const d of ctx.desfeitas ?? []) if (!vivas.has(d.id)) desfeitas.set(d.id, d.viva);
+  }
+  return { vivas, desfeitas };
+}
+
+/** O desejo do espelho como a v1 mostra: a pasta montada pelo contexto (o de antes passa com os campos vazios). */
+export function desejoDoEspelho(raw: DesejoNoEspelhoV1 | DesejoV1, indice: IndiceDasPastas): DesejoV1 {
+  const r = raw as Partial<DesejoNoEspelhoV1> & DesejoV1;
+  let pasta: PastaDaNotaV1 | null = r.pasta ?? null;
+  if ('pasta_id' in raw) {
+    const caminho = caminhoDaPasta(indice, r.pasta_id ?? null);
+    pasta = caminho?.length ? { id: pastaViva(indice, r.pasta_id ?? null), caminho } : null;
+  }
+  // na ordem da v1
+  return {
+    id: r.id,
+    mural: r.mural,
+    nome: r.nome,
+    ano: r.ano,
+    por: r.por,
+    capa: r.capa,
+    relevancia: r.relevancia,
+    tags: r.tags ?? [],
+    pasta,
+    descricao: r.descricao ?? null,
+    criado_em: r.criado_em,
+    versao: r.versao,
+  };
+}
+
+/** O desejo v1 como o espelho guarda (o site manda assim): a pasta pelo id guardado no desejo (pode ser de uma desfeita). */
+export function desejoParaOEspelho(d: DesejoV1, guardada: string | null = d.pasta?.id ?? null): DesejoNoEspelhoV1 {
+  return {
+    id: d.id,
+    mural: d.mural,
+    nome: d.nome,
+    ano: d.ano,
+    por: d.por,
+    capa: d.capa,
+    relevancia: d.relevancia,
+    tags: d.tags,
+    pasta_id: guardada,
+    descricao: d.descricao,
+    criado_em: d.criado_em,
+    versao: d.versao,
+  };
+}
 
 /** Uma ficha (resenha) de um mural. */
 export interface FichaV1 {

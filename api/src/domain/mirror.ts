@@ -45,7 +45,10 @@ import {
 } from '../../../contrato/api-v1/gastos';
 import {
   ARTISTA_MAX,
+  CONTEXTO_DESEJOS,
   CONTEXTO_FICHAS,
+  DESCRICAO_MAX,
+  DESEJO_TAGS_MAX,
   DIFICULDADES,
   MURAIS,
   NOME_MAX,
@@ -57,7 +60,9 @@ import {
   TEXTO_DA_FICHA_MAX,
   VEREDITOS,
   ehMural,
+  type ContextoDesejosV1,
   type ContextoFichasV1,
+  type DesejoNoEspelhoV1,
   type DesejoV1,
   type FichaV1,
   type PraDepoisV1,
@@ -119,7 +124,7 @@ export const TYPES_OF: Record<string, readonly TipoDoEspelho[]> = {
   gastos: ['lancamento', 'visao', 'contexto-gastos'],
   kanban: ['quadro'],
   calendario: ['lembrete', 'agenda'],
-  desejos: ['desejo'],
+  desejos: ['desejo', 'contexto-desejos'],
   'pra-depois': ['pra-depois'],
   fichas: ['ficha', 'contexto-fichas'],
   estudos: ['carta', 'baralho', 'contexto-estudos'],
@@ -509,8 +514,15 @@ const isYear = (v: unknown) => v === null || isStr(v, 10);
 const isCover = (v: unknown) => v === null || (isStr(v, 2_000) && /^https:\/\//.test(v));
 
 /** O desejo ou o pra depois v1 tem a forma certa? Só os campos da v1 entram. */
-function checkItem(d: Record<string, unknown>, wish: boolean): DesejoV1 | PraDepoisV1 {
+function checkItem(d: Record<string, unknown>, wish: boolean): DesejoNoEspelhoV1 | PraDepoisV1 {
+  // as tags, a pasta (pelo id) e a descrição do desejo: o site de antes da rodada 6 da Wishlist não manda
+  const extrasOk =
+    !wish ||
+    ((d['tags'] === undefined || strList(d['tags'], DESEJO_TAGS_MAX, 32)) &&
+      (d['pasta_id'] === undefined || d['pasta_id'] === null || isFolderId(d['pasta_id'])) &&
+      (d['descricao'] === undefined || isStrOrNull(d['descricao'], DESCRICAO_MAX)));
   const ok =
+    extrasOk &&
     isStr(d['id'], 64) &&
     ID_RE.test(d['id']) &&
     ehMural(d['mural']) &&
@@ -531,10 +543,45 @@ function checkItem(d: Record<string, unknown>, wish: boolean): DesejoV1 | PraDep
     ano: v.ano,
     por: v.por,
     capa: v.capa,
-    ...(wish ? { relevancia: v.relevancia } : {}),
+    ...(wish
+      ? {
+          relevancia: v.relevancia,
+          tags: (d['tags'] as string[] | undefined) ?? [],
+          pasta_id: (d['pasta_id'] as string | null | undefined) ?? null,
+          descricao: (d['descricao'] as string | null | undefined) ?? null,
+        }
+      : {}),
     criado_em: v.criado_em,
     versao: v.versao,
-  };
+  } as DesejoNoEspelhoV1 | PraDepoisV1;
+}
+
+/** O contexto das Wishlists: as pastas e as tags de cada mural, e as desfeitas que algum desejo ainda guarda. */
+function checkContextoDesejos(c: Record<string, unknown>): ContextoDesejosV1 {
+  const murais = c['murais'];
+  const pastaOk = (p: Record<string, unknown>) => !!p && isFolderId(p['id']) && isStr(p['nome'], 32) && (p['pai'] === null || isFolderId(p['pai'])) && Number.isInteger(p['desejos']);
+  const tagOk = (t: Record<string, unknown>) => !!t && isStr(t['nome'], 32) && Number.isInteger(t['desejos']);
+  const ok =
+    Array.isArray(murais) &&
+    murais.length <= MURAIS.length &&
+    murais.every(
+      (m: Record<string, unknown>) =>
+        !!m &&
+        ehMural(m['mural']) &&
+        Number.isInteger(m['desejos']) &&
+        Array.isArray(m['pastas']) &&
+        (m['pastas'] as unknown[]).length <= 2_000 &&
+        (m['pastas'] as Record<string, unknown>[]).every(pastaOk) &&
+        Array.isArray(m['tags']) &&
+        (m['tags'] as unknown[]).length <= 2_000 &&
+        (m['tags'] as Record<string, unknown>[]).every(tagOk),
+    ) &&
+    (c['desfeitas'] === undefined ||
+      (Array.isArray(c['desfeitas']) &&
+        c['desfeitas'].length <= 2_000 &&
+        c['desfeitas'].every((d: Record<string, unknown>) => d && isFolderId(d['id']) && (d['viva'] === null || isFolderId(d['viva'])))));
+  if (!ok) throw bad('O contexto das Wishlists não tem a forma da v1.');
+  return c as unknown as ContextoDesejosV1;
 }
 
 /** A ficha v1 tem a forma certa? Só os campos da v1 entram, e só as notas que existem. */
@@ -849,8 +896,11 @@ export function readMirrorBody(body: Record<string, unknown>, areas: readonly st
     if (item['tipo'] === 'desejo' || item['tipo'] === 'pra-depois') {
       const d = checkItem(dados, item['tipo'] === 'desejo');
       if (d.id !== item['id']) throw bad('O id do item não bate com o do envio.');
-      // o grupo é o mural (filtra a lista); a data, o dia em que entrou
-      return { tipo: item['tipo'], id: d.id, versao: d.versao, hash: item['hash'], grupo: d.mural, data: d.criado_em.slice(0, 10), busca: dobra(`${d.nome}\n${d.por ?? ''}`), dados: JSON.stringify(d) };
+      // o grupo é o mural (filtra a lista); a data, o dia em que entrou. A busca acha também na descrição, e cada tag
+      // vai entre # numa linha só dela (o filtro ?tag= acha "#co-op#", sem caixa e sem acento)
+      const extra = 'tags' in d ? [...d.tags.map((t) => `#${t}#`), d.descricao ?? ''].filter(Boolean) : [];
+      const busca = dobra([d.nome, d.por ?? '', ...extra].join('\n'));
+      return { tipo: item['tipo'], id: d.id, versao: d.versao, hash: item['hash'], grupo: d.mural, data: d.criado_em.slice(0, 10), busca, dados: JSON.stringify(d) };
     }
     if (item['tipo'] === 'ficha') {
       const f = checkFicha(dados);
@@ -890,6 +940,10 @@ export function readMirrorBody(body: Record<string, unknown>, areas: readonly st
     if (item['tipo'] === 'contexto-estudos') {
       if (item['id'] !== CONTEXTO_ESTUDOS) throw bad('O contexto dos Estudos tem o id "estudos".');
       return { tipo: 'contexto-estudos', id: CONTEXTO_ESTUDOS, versao: null, hash: item['hash'], grupo: null, data: null, busca: null, dados: JSON.stringify(checkContextoEstudos(dados)) };
+    }
+    if (item['tipo'] === 'contexto-desejos') {
+      if (item['id'] !== CONTEXTO_DESEJOS) throw bad('O contexto das Wishlists tem o id "desejos".');
+      return { tipo: 'contexto-desejos', id: CONTEXTO_DESEJOS, versao: null, hash: item['hash'], grupo: null, data: null, busca: null, dados: JSON.stringify(checkContextoDesejos(dados)) };
     }
     if (item['tipo'] === 'contexto-fichas') {
       if (item['id'] !== CONTEXTO_FICHAS) throw bad('O contexto das fichas tem o id "fichas".');

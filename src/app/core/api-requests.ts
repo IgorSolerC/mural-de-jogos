@@ -5,6 +5,7 @@ import { lookKey } from './category-looks';
 import { dobra } from '../../../contrato/api-v1/escopos';
 import type { NotaV1 } from '../../../contrato/api-v1/notas';
 import { NoteFolders } from './note-folders';
+import { WishFolders } from './wish-folders';
 import {
   OPS_DE_NOTA,
   TEXTO_MAX,
@@ -551,6 +552,7 @@ export class ApiRequests {
   private readonly freeBoards = inject(FreeBoardStore);
   private readonly lookup = inject(GameLookup);
   private readonly folders = inject(NoteFolders);
+  private readonly wishFolders = inject(WishFolders);
 
   /** Os pedidos abertos que a nuvem contou na última conversa: pendentes (para aplicar) e para aprovar. */
   readonly counts = signal({ pendentes: 0, aprovar: 0 });
@@ -641,6 +643,8 @@ export class ApiRequests {
                   stamps,
                   boardOnly: this.kanban.boardOnly(),
                   findCover: (kind, name, year) => this.findCover(kind, name, year),
+                  wishFolder: (kind, pasta) => this.wishFolders.forRequest(kind, pasta),
+                  folders: () => this.folders.tree(),
                 })
               : applySpendingRequest(this.spending, req, { now, today: todayISO(), stamps });
       this.writeItems([...items, fits({ id: req.id, op: req.op, alvo: req.alvo, chave: req.chave.nome, chaveId: req.chave.id, ...out })]);

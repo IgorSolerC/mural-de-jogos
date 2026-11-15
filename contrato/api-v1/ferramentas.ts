@@ -872,6 +872,13 @@ const CAMPOS_DO_ITEM: Record<string, Esquema> = {
   buscar_capa: { type: 'boolean', description: 'false: entra sem capa, sem procurar.' },
 };
 
+/** As tags, a pasta e a descrição de um desejo (as pastas e as tags de cada Wishlist estão em ver_contexto, desejos.wishlists). */
+const CAMPOS_DO_DESEJO: Record<string, Esquema> = {
+  tags: { type: 'array', maxItems: 12, items: { type: 'string', maxLength: 32 }, description: 'As tags (até 12), as da Wishlist do mural em ver_contexto quando servirem. Mudando, a lista inteira ([] tira todas).' },
+  pasta: { type: 'string', maxLength: 900, description: 'A pasta da Wishlist do mural: o caminho a partir da raiz ("Co-op/Curtos"; as que faltam o Murall cria) ou o id (ver_contexto).' },
+  descricao: { type: 'string', maxLength: 4000, description: 'A descrição, no markdown do Murall (quem indicou, onde viu, por que quer). Só aparece com a mão em cima do recorte.' },
+};
+
 /** Os campos de uma ficha que se escrevem (a forma que `conferirOpMural` confere de novo). */
 const CAMPOS_DA_FICHA: Record<string, Esquema> = {
   nome: { type: 'string', minLength: 1, maxLength: 200, description: 'O nome da obra.' },
@@ -897,14 +904,16 @@ export const FERRAMENTAS_DOS_MURAIS: readonly Ferramenta[] = [
   {
     nome: 'ver_wishlist',
     titulo: 'Ver a wishlist',
-    descricao: 'Os desejos de cada mural, como a tela: MUST na frente, LATER no fim. Antes de sugerir, veja também listar_fichas (o que a pessoa já jogou, leu ou viu).',
+    descricao: 'Os desejos de cada mural, como a tela: MUST na frente, LATER no fim, cada um com as tags, a pasta e a descrição. Antes de sugerir, veja também listar_fichas (o que a pessoa já jogou, leu ou viu).',
     escopo: 'desejos:ler',
     somenteLeitura: true,
     destrutiva: false,
     entrada: obj({
       mural: muralArg('Só deste mural.'),
       relevancia,
-      q: { type: 'string', maxLength: 200, description: 'Busca no nome e no autor.' },
+      q: { type: 'string', maxLength: 200, description: 'Busca no nome, no autor e na descrição.' },
+      pasta: { type: 'string', description: 'Só os desta pasta e das de dentro dela: o caminho na Wishlist ("Co-op/Curtos", sem ligar para caixa e acento) ou o id.' },
+      tag: { type: 'string', maxLength: 32, description: 'Só os com esta tag (sem ligar para caixa e acento).' },
       limite: { type: 'integer', minimum: 1, maximum: 100, description: 'Quantos (padrão 50).' },
       depois: { type: 'string', description: 'Para a próxima página: o depois que veio na anterior.' },
     }),
@@ -915,14 +924,15 @@ export const FERRAMENTAS_DOS_MURAIS: readonly Ferramenta[] = [
     nome: 'por_na_wishlist',
     titulo: 'Pôr na wishlist',
     descricao:
-      'Põe um desejo na wishlist (mural e nome), ou vários em itens (até 50, um pedido por item). O Murall procura a capa no catálogo do mural. O mesmo nome no mesmo mural volta 409 com o que já está lá.',
+      'Põe um desejo na wishlist (mural e nome; também as tags, a pasta e a descrição), ou vários em itens (até 50, um pedido por item). O Murall procura a capa no catálogo do mural. O mesmo nome no mesmo mural volta 409 com o que já está lá.',
     escopo: 'desejos:escrever',
     somenteLeitura: false,
     destrutiva: false,
     entrada: obj({
       ...CAMPOS_DO_ITEM,
       relevancia,
-      itens: { type: 'array', maxItems: 50, description: 'Ou vários desejos (até 50).', items: obj({ ...CAMPOS_DO_ITEM, relevancia }, ['mural', 'nome']) },
+      ...CAMPOS_DO_DESEJO,
+      itens: { type: 'array', maxItems: 50, description: 'Ou vários desejos (até 50).', items: obj({ ...CAMPOS_DO_ITEM, relevancia, ...CAMPOS_DO_DESEJO }, ['mural', 'nome']) },
       chave_idempotencia: idem,
     }),
     metodo: 'POST',
@@ -931,7 +941,7 @@ export const FERRAMENTAS_DOS_MURAIS: readonly Ferramenta[] = [
   {
     nome: 'mudar_desejo',
     titulo: 'Mudar um desejo',
-    descricao: 'Muda a relevância (must, comum, later), o nome, o ano, o autor ou a capa de um desejo. Mande a versao que você leu.',
+    descricao: 'Muda a relevância (must, comum, later), as tags, a pasta, a descrição, o nome, o ano, o autor ou a capa de um desejo. Mande a versao que você leu.',
     escopo: 'desejos:escrever',
     somenteLeitura: false,
     destrutiva: false,
@@ -944,6 +954,9 @@ export const FERRAMENTAS_DOS_MURAIS: readonly Ferramenta[] = [
         ano: { type: ['string', 'null'], pattern: '^\\d{4}$', description: 'O ano (null tira).' },
         por: { type: ['string', 'null'], maxLength: 120, description: 'O autor (null tira).' },
         capa: { type: ['string', 'null'], maxLength: 2000, pattern: '^https://', description: 'A capa (null tira).' },
+        tags: CAMPOS_DO_DESEJO['tags']!,
+        pasta: { ...CAMPOS_DO_DESEJO['pasta']!, type: ['string', 'null'], description: `${CAMPOS_DO_DESEJO['pasta']!.description} null tira da pasta.` },
+        descricao: { ...CAMPOS_DO_DESEJO['descricao']!, type: ['string', 'null'], description: `${CAMPOS_DO_DESEJO['descricao']!.description} null tira.` },
         chave_idempotencia: idem,
       },
       ['id', 'versao'],
@@ -1084,7 +1097,7 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
     nome: 'ver_contexto',
     titulo: 'Ver o contexto',
     descricao:
-      'A conta, o dia de hoje no fuso dela, o que esta chave pode, o vocabulário das Anotações (grupos com as pastas, a árvore inteira, e as tags; tags fixas), o do Kanban (os quadros e as colunas), o dos Estudos (os baralhos), o dos Gastos (envelopes, pessoas, os meses com lançamento), o do Calendário (as cores e os meses que ver_agenda alcança) e o dos murais (quantos desejos e pra depois há, e as notas de cada mural para escrever fichas). Chame antes de criar ou mudar, e use os nomes que já existem.',
+      'A conta, o dia de hoje no fuso dela, o que esta chave pode, o vocabulário das Anotações (grupos com as pastas, a árvore inteira, e as tags; tags fixas), o do Kanban (os quadros e as colunas), o dos Estudos (os baralhos), o dos Gastos (envelopes, pessoas, os meses com lançamento), o do Calendário (as cores e os meses que ver_agenda alcança) e o dos murais (quantos desejos e pra depois há, as pastas e as tags da Wishlist de cada mural, e as notas de cada mural para escrever fichas). Chame antes de criar ou mudar, e use os nomes que já existem.',
     escopo: [
       'notas:ler',
       'gastos:ler',
