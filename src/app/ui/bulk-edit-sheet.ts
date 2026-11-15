@@ -10,6 +10,7 @@ import { Review, STOCKS, STOCK_LABEL, Stock, isDone, isNote, isPinnedNote } from
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { SharedStore } from '../core/shared-store';
+import { NoteBulk } from '../core/note-bulk';
 import { StudyStore } from '../core/study-store';
 import { studyOnWall } from '../core/study';
 import { plural } from '../core/text';
@@ -106,6 +107,7 @@ export class BulkEditSheet {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   private readonly confirm = inject(Confirm);
   private readonly shared = inject(SharedStore);
+  private readonly bulk = inject(NoteBulk);
 
   /** Anotações (e não análises): grupo, pasta, tags, fixar e finalizar. */
   protected readonly isNotes = computed(() => this.notes().every(isNote));
@@ -463,14 +465,24 @@ export class BulkEditSheet {
   }
 
   /**
-   * As marcadas que dá para apagar daqui: as suas (a compartilhada sai por Compartilhar, ver `NoteBulk.act`).
+   * As marcadas que dá para apagar daqui (ver `NoteBulk.plan`).
    * Nos Flashcards, nenhuma: apagar levaria a anotação inteira, e não só o flashcard.
    */
-  protected readonly removable = computed(() => (this.place() === 'estudos' ? 0 : this.notes().filter((r) => !this.shared.get(r.id)).length));
+  private readonly removal = computed(() => this.bulk.plan(this.notes().map((r) => r.id)));
+  protected readonly removable = computed(() => {
+    if (this.place() === 'estudos') return 0;
+    // as compartilhadas também: as que você pode apagar para todos e as de outras pessoas, de que você sai
+    // (ver `NoteBulk.plan`); só as de um grupo que você não pode apagar não contam
+    const plan = this.removal();
+    return plan.own.length + plan.forAll.length + plan.leave.length;
+  });
   /** "Apagar a anotação", "Apagar as duas anotações", "Apagar as 5 fichas": quantas vão, como no Aplicar. */
   protected readonly removeLabel = computed(() => {
     const k = this.removable();
     const what = this.isNotes() ? (k === 1 ? 'anotação' : 'anotações') : k === 1 ? 'ficha' : 'fichas';
+    // das compartilhadas de outras pessoas você só sai: o botão não promete apagar o que fica com elas
+    if (this.removal().leave.length === k) return k === 1 ? `Sair da ${what}` : `Sair das ${k} ${what}`;
+    if (this.removal().leave.length) return `Apagar ou sair (${k})`;
     return k === 1 ? `Apagar a ${what}` : k === 2 ? `Apagar as duas ${what}` : `Apagar as ${k} ${what}`;
   });
 

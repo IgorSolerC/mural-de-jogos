@@ -5,7 +5,9 @@ import { KanbanStore } from './kanban-store';
 import { sanitizeTags } from './note-labels';
 import { Review, Stock, audienceFields, fold, isNote, isPinnedNote, withPin } from './review';
 import { ReviewStore } from './review-store';
-import { canWrite } from './shared-notes';
+import { SharedRole, canManage, canWrite } from './shared-notes';
+import { SharedGroupsStore } from './shared-groups-store';
+import { CloudAccount, CloudError } from './cloud-account';
 import { SharedStore } from './shared-store';
 import { StudyStore } from './study-store';
 import { studyOnWall } from './study';
@@ -44,6 +46,70 @@ export interface BulkResult {
   skipped: number;
   undo: () => void;
 }
+
+/**
+ * O que apagar faz com cada marcada (PLANO-CONSERTO-GRUPOS.md, rodada 3), pelas mesmas regras de apagar uma só:
+ * - `own`: a sua, só daqui: sai do mural, com o Desfazer;
+ * - `forAll`: a compartilhada que você pode apagar para todos (a sua; numa de grupo, pelo papel no grupo: o dono e
+ *   os gestores qualquer uma, o editor as que escreveu);
+ * - `leave`: a compartilhada solta de outra pessoa: você sai dela (ela continua com quem está nela);
+ * - `held`: a de um grupo que você não pode apagar (o leitor, o editor numa que não escreveu): fica.
+ */
+export interface RemovalPlan {
+  own: string[];
+  forAll: string[];
+  leave: string[];
+  held: string[];
+}
+
+export function removalPlan(
+  ids: readonly string[],
+  entryOf: (id: string) => { papel: SharedRole; grupo: string | null; criadoPor: { codigo: string } | null } | undefined,
+  groupRole: (grupo: string) => SharedRole | undefined,
+  me: string | null,
+): RemovalPlan {
+  const plan: RemovalPlan = { own: [], forAll: [], leave: [], held: [] };
+  for (const id of ids) {
+    const e = entryOf(id);
+    if (!e) plan.own.push(id);
+    else if (e.grupo) {
+      // (o papel no grupo; antes de a lista dos grupos chegar, o da anotação, que a nuvem já dá pelo grupo)
+      const role = groupRole(e.grupo) ?? e.papel;
+      const mayDelete = e.papel === 'dono' || canManage(role) || (canWrite(role) && !!me && e.criadoPor?.codigo === me);
+      (mayDelete ? plan.forAll : plan.held).push(id);
+    } else (e.papel === 'dono' ? plan.forAll : plan.leave).push(id);
+  }
+  return plan;
+}
+
+/** A pergunta de apagar as marcadas, com o que acontece com cada tipo, em números. */
+export function removalAsk(plan: RemovalPlan, isNotes: boolean): { title?: string; text: string; confirm: string } {
+  const n = plan.own.length + plan.forAll.length + plan.leave.length;
+  const word = isNotes ? plural(n, 'anotação', 'anotações') : plural(n, 'ficha', 'fichas');
+  const parts = [`${n === 1 ? 'A marcada sai' : `As ${word} saem`} do mural, com o texto.`];
+  if (plan.forAll.length)
+    parts.push(
+      plan.forAll.length === 1
+        ? 'Uma delas é compartilhada: ela sai para todos que estão nela, e isso não dá para desfazer.'
+        : `${plan.forAll.length} são compartilhadas: elas saem para todos que estão nelas, e isso não dá para desfazer.`,
+    );
+  if (plan.leave.length)
+    parts.push(
+      plan.leave.length === 1
+        ? 'De uma, compartilhada com você, você só sai: ela continua com quem está nela.'
+        : `De ${plan.leave.length}, compartilhadas com você, você só sai: elas continuam com quem está nelas.`,
+    );
+  if (plan.held.length)
+    parts.push(
+      plan.held.length === 1
+        ? 'Uma, de um grupo compartilhado, fica: nele, o editor apaga só as que escreveu.'
+        : `${plan.held.length}, de um grupo compartilhado, ficam: nele, o editor apaga só as que escreveu.`,
+    );
+  return { ...(plan.forAll.length ? { title: 'Apagar para todos?' } : {}), text: parts.join(' '), confirm: `Apagar ${word}` };
+}
+
+/** Quantas compartilhadas o apagar em massa tira da nuvem ao mesmo tempo. */
+const BULK_CLOUD_AT_ONCE = 4;
 
 /** A mesma tag em outra grafia ("bug" e "Bug") é a mesma tag. */
 const tagKey = (t: string) => fold(t);
@@ -114,6 +180,18 @@ export class NoteBulk {
   private readonly deps = inject(KanbanDeps);
   private readonly noteDone = inject(NoteDone);
   private readonly motion = inject(WallMotion);
+  private readonly groups = inject(SharedGroupsStore);
+  private readonly account = inject(CloudAccount);
+
+  /** O que apagar faria com as marcadas (ver `removalPlan`). */
+  plan(ids: readonly string[]): RemovalPlan {
+    return removalPlan(
+      ids,
+      (id) => this.shared.get(id),
+      (g) => this.groups.get(g)?.papel,
+      this.account.account()?.codigo ?? null,
+    );
+  }
 
   /** O Aplicar da folha: muda, e o bilhete diz quantas, com o Desfazer de todas. */
   run(ids: readonly string[], p: BulkPatch, words?: readonly [string, string]): void {
@@ -133,23 +211,7 @@ export class NoteBulk {
   /** Finalizar, abrir de novo ou apagar as marcadas, na hora (o pé da folha). */
   async act(ids: readonly string[], a: 'finalizar' | 'reabrir' | 'apagar'): Promise<void> {
     if (a === 'apagar') {
-      const own = ids.filter((id) => this.store.get(id) && !this.shared.get(id));
-      if (!own.length) {
-        this.toasts.show('As compartilhadas saem por Compartilhar: nada foi apagado.');
-        return;
-      }
-      const notes = own.map((id) => this.store.get(id)!);
-      const isNotes = notes.every(isNote);
-      const word = isNotes ? plural(own.length, 'anotação', 'anotações') : plural(own.length, 'ficha', 'fichas');
-      const sure = await this.confirm.ask({
-        text: `${own.length === 1 ? 'A marcada sai' : `As ${word} saem`} do mural, com o texto.${own.length < ids.length ? ' As compartilhadas ficam: saem por Compartilhar.' : ''}`,
-        confirm: `Apagar ${word}`,
-      });
-      if (!sure) return;
-      let done = { removed: 0, skipped: 0, undo: () => undefined as void };
-      this.motion.run(() => (done = this.remove(own)));
-      const gone = isNotes ? plural(done.removed, 'anotação apagada', 'anotações apagadas') : plural(done.removed, 'ficha apagada', 'fichas apagadas');
-      this.toasts.show(`${gone}.`, { label: 'Desfazer', run: () => this.motion.run(done.undo) }, 8000);
+      await this.removeMarked(ids);
       return;
     }
     const want = a === 'finalizar';
@@ -190,6 +252,50 @@ export class NoteBulk {
       },
       8000,
     );
+  }
+
+  /**
+   * Apagar as marcadas (o pé da folha): as suas saem com o Desfazer; as compartilhadas que você pode apagar saem
+   * para todos (uma de cada vez, pela nuvem); das de outras pessoas você sai; as de um grupo que você não pode
+   * apagar ficam. A pergunta diz quantas de cada (PLANO-CONSERTO-GRUPOS.md, rodada 3).
+   */
+  private async removeMarked(ids: readonly string[]): Promise<void> {
+    const plan = this.plan(ids);
+    const all = [...plan.own, ...plan.forAll, ...plan.leave];
+    if (!all.length) {
+      this.toasts.show(plan.held.length ? 'Nada foi apagado: num grupo compartilhado, o editor apaga só as anotações que escreveu.' : 'Nada foi apagado.');
+      return;
+    }
+    const isNotes = all.map((id) => this.store.get(id)).every((r) => !r || isNote(r));
+    if (!(await this.confirm.ask(removalAsk(plan, isNotes)))) return;
+    let done = { removed: 0, skipped: 0, undo: () => undefined as void };
+    if (plan.own.length) this.motion.run(() => (done = this.remove(plan.own)));
+    let cloud = 0;
+    let failed: string | null = null;
+    const shared = [...plan.forAll, ...plan.leave];
+    // as compartilhadas vão pela nuvem: com muitas, o bilhete diz que está indo (uma de cada vez seria minutos calado)
+    if (shared.length > 3) this.toasts.show(`Apagando ${plural(shared.length, 'anotação compartilhada', 'anotações compartilhadas')}…`);
+    const forAll = new Set(plan.forAll);
+    for (let i = 0; i < shared.length; i += BULK_CLOUD_AT_ONCE) {
+      await Promise.all(
+        shared.slice(i, i + BULK_CLOUD_AT_ONCE).map(async (id) => {
+          if (!this.shared.get(id)) return;
+          try {
+            if (forAll.has(id)) await this.shared.deleteForAll(id);
+            else await this.shared.leave(id);
+            cloud++;
+          } catch (err) {
+            failed ??= err instanceof CloudError ? err.message : 'Não deu para falar com a nuvem agora.';
+          }
+        }),
+      );
+    }
+    const n = done.removed + cloud;
+    const gone = isNotes ? plural(n, 'anotação apagada', 'anotações apagadas') : plural(n, 'ficha apagada', 'fichas apagadas');
+    const rest = failed ? ` Algumas compartilhadas ficaram: ${failed}` : '';
+    // o Desfazer volta as suas (as compartilhadas já saíram da nuvem)
+    if (done.removed) this.toasts.show(`${gone}.${rest}`, { label: 'Desfazer', run: () => this.motion.run(done.undo) }, 8000);
+    else this.toasts.show(`${gone}.${rest}`);
   }
 
   /** Muda as anotações `ids` com o que a folha pediu, com um Desfazer só. */

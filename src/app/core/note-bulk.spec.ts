@@ -1,6 +1,6 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { NoteBulk, patched } from './note-bulk';
+import { NoteBulk, patched, removalAsk, removalPlan } from './note-bulk';
 import { Review, sanitizeReview } from './review';
 import { ReviewStore } from './review-store';
 import { StudyStore } from './study-store';
@@ -125,5 +125,49 @@ describe('editar as marcadas (core/note-bulk.ts)', () => {
       expect(store.get('nbulk0010')).toBeDefined();
       expect(store.get('nbulk0011')).toBeDefined();
     });
+  });
+});
+
+describe('apagar as marcadas, com as compartilhadas (PLANO-CONSERTO-GRUPOS.md, rodada 3)', () => {
+  type E = { papel: 'dono' | 'gestor' | 'editor' | 'leitor'; grupo: string | null; criadoPor: { codigo: string } | null };
+  const entries: Record<string, E> = {
+    'solta-minha': { papel: 'dono', grupo: null, criadoPor: null },
+    'solta-dela': { papel: 'editor', grupo: null, criadoPor: null },
+    'grupo-do-dono': { papel: 'dono', grupo: 'gMeu00000001', criadoPor: { codigo: 'EU' } },
+    'grupo-gestora': { papel: 'gestor', grupo: 'gDela0000001', criadoPor: { codigo: 'ANA' } },
+    'grupo-escrevi': { papel: 'editor', grupo: 'gEditor00001', criadoPor: { codigo: 'EU' } },
+    'grupo-outra': { papel: 'editor', grupo: 'gEditor00001', criadoPor: { codigo: 'ANA' } },
+    'grupo-leio': { papel: 'leitor', grupo: 'gLeitor00001', criadoPor: { codigo: 'EU' } },
+  };
+  const roles: Record<string, E['papel']> = { gMeu00000001: 'dono', gDela0000001: 'gestor', gEditor00001: 'editor', gLeitor00001: 'leitor' };
+  const plan = (ids: string[]) => removalPlan(ids, (id) => entries[id], (g) => roles[g], 'EU');
+
+  it('as suas saem com o Desfazer; as compartilhadas que você pode apagar saem para todos; das de outros você sai', () => {
+    expect(plan(['minha', 'solta-minha', 'solta-dela', 'grupo-do-dono', 'grupo-gestora', 'grupo-escrevi', 'grupo-outra', 'grupo-leio'])).toEqual({
+      own: ['minha'],
+      forAll: ['solta-minha', 'grupo-do-dono', 'grupo-gestora', 'grupo-escrevi'],
+      leave: ['solta-dela'],
+      held: ['grupo-outra', 'grupo-leio'],
+    });
+  });
+
+  it('antes de a lista dos grupos chegar, vale o papel que a nuvem deu à anotação (o do grupo)', () => {
+    const p = removalPlan(['g1'], () => ({ papel: 'gestor', grupo: 'gNaoChegou01', criadoPor: { codigo: 'ANA' } }), () => undefined, 'EU');
+    expect(p.forAll).toEqual(['g1']);
+  });
+
+  it('as compartilhadas que sobram de um grupo parado (só suas, sem ninguém) também saem (antes, o botão nem aparecia)', () => {
+    expect(plan(['solta-minha']).forAll).toEqual(['solta-minha']);
+  });
+
+  it('a pergunta diz quantas de cada, e que as compartilhadas não têm Desfazer', () => {
+    const ask = removalAsk(plan(['minha', 'solta-minha', 'grupo-do-dono', 'solta-dela', 'grupo-leio']), true);
+    expect(ask.title).toBe('Apagar para todos?');
+    expect(ask.confirm).toBe('Apagar 4 anotações');
+    expect(ask.text).toContain('2 são compartilhadas');
+    expect(ask.text).toContain('não dá para desfazer');
+    expect(ask.text).toContain('você só sai');
+    expect(ask.text).toContain('fica');
+    expect(removalAsk(plan(['minha']), true)).toEqual({ text: 'A marcada sai do mural, com o texto.', confirm: 'Apagar 1 anotação' });
   });
 });

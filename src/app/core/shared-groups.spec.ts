@@ -99,6 +99,7 @@ describe('grupos compartilhados: o serviço (core/shared-groups-store.ts)', () =
       moveToGroup: jasmine.createSpy('moveToGroup').and.resolveTo(undefined),
       inGroupOf: (g: string) => [...entries().values()].filter((e) => e.grupo === g),
       placeInGroup: jasmine.createSpy('placeInGroup'),
+      unshare: jasmine.createSpy('unshare').and.resolveTo(true),
       sync: jasmine.createSpy('sync').and.resolveTo(undefined),
     };
     TestBed.configureTestingModule({
@@ -195,6 +196,8 @@ describe('grupos compartilhados: o serviço (core/shared-groups-store.ts)', () =
     await groups.stop(id);
     expect(shared.placeInGroup).toHaveBeenCalledOnceWith(['n-um0001'], 'Trabalho');
     expect(calls.at(-1)!.path).toBe(`DELETE /v1/grupos/${id}`);
+    // as que ficaram só suas voltam a ser anotações comuns (PLANO-CONSERTO-GRUPOS.md, rodada 3)
+    expect(shared.unshare).toHaveBeenCalledOnceWith('n-um0001');
     expect(groups.get(id)).toBeUndefined();
   });
 
@@ -226,7 +229,7 @@ describe('grupos compartilhados: o Kanban do grupo (rodada 4)', () => {
         { provide: GROUPS_AUTO, useValue: false },
         {
           provide: SharedStore,
-          useValue: { entries: signal(new Map()), groupNames: signal(new Map()), get: () => undefined, inGroupOf: () => [], placeInGroup: () => undefined, sync: async () => undefined },
+          useValue: { entries: signal(new Map()), groupNames: signal(new Map()), get: () => undefined, inGroupOf: () => [], placeInGroup: () => undefined, sync: async () => undefined, unshare: async () => false },
         },
         { provide: Cloud, useValue: { config: () => ({ api: 'x' }) } },
         {
@@ -357,7 +360,7 @@ describe('grupos compartilhados: as pastas do grupo (PLANO-CONSERTO-GRUPOS.md, r
         { provide: GROUPS_AUTO, useValue: false },
         {
           provide: SharedStore,
-          useValue: { entries: signal(new Map()), groupNames: signal(new Map()), get: () => undefined, inGroupOf: () => [], placeInGroup: () => undefined, sync: async () => undefined },
+          useValue: { entries: signal(new Map()), groupNames: signal(new Map()), get: () => undefined, inGroupOf: () => [], placeInGroup: () => undefined, sync: async () => undefined, unshare: async () => false },
         },
         { provide: Cloud, useValue: { config: () => ({ api: 'x' }) } },
         {

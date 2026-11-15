@@ -854,6 +854,22 @@ export class ReviewStore {
     if (stale.length) this.keep(stale, 'juntou');
   }
 
+  /**
+   * A compartilhada volta a ser uma anotação só daqui, como `review` (o dono parou de compartilhar o grupo dela e
+   * ninguém mais está nela, PLANO-CONSERTO-GRUPOS.md, rodada 3): sai da lista das compartilhadas e fica na lista,
+   * gravada como as outras, na mesma hora (quem chama tira a da nuvem depois). Sem a compartilhada aqui, nada muda.
+   */
+  adoptShared(review: Review): boolean {
+    if (!this.sharedNotes().has(review.id)) return false;
+    const shared = new Map(this.sharedNotes());
+    shared.delete(review.id);
+    this.sharedNotes.set(shared);
+    const back = { ...review, updatedAt: this.afterDeletion('reviews', review.id) };
+    this.reviews.update((list) => (list.some((r) => r.id === review.id) ? list.map((r) => (r.id === review.id ? back : r)) : [back, ...list]));
+    this.unmark('reviews', review.id);
+    return true;
+  }
+
   /** Agora, mas sempre depois do registro de quando foi apagado (o Desfazer pode cair no mesmo milissegundo). */
   private afterDeletion(kind: keyof Deleted, id: string): string {
     const when = Date.parse(this.deleted()[kind][id] ?? '');

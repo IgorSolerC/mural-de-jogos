@@ -26,6 +26,11 @@ import { categoryIcon } from '../ui/category-label';
 import { ICON, ICON_CHOICE } from '../ui/icons';
 import { BrowserReset } from './browser-reset';
 import { checkOtherTabs } from './storage';
+import { NoteBulk } from './note-bulk';
+import { GROUPS_AUTO, SharedGroupsStore } from './shared-groups-store';
+import { StudyStore } from './study-store';
+import { KanbanDeps } from './kanban-deps';
+import { GroupFolders } from './group-folders';
 
 /**
  * As anotações compartilhadas de ponta a ponta, com pessoas diferentes (cada uma com o seu aparelho) e
@@ -296,6 +301,7 @@ interface Person {
   actions: KanbanActions;
   toasts: Toasts;
   settings: Settings;
+  bulk(): NoteBulk;
   data: MemoryData;
   edit(id: string, change: Partial<Review>): void;
   text(id: string): string | undefined;
@@ -346,6 +352,12 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
         CloudAccount,
         SharedStore,
         { provide: SHARED_AUTO, useValue: false },
+        { provide: GROUPS_AUTO, useValue: false },
+        NoteBulk,
+        StudyStore,
+        KanbanDeps,
+        SharedGroupsStore,
+        GroupFolders,
         ProfileStore,
         Mural,
         WallView,
@@ -378,6 +390,7 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
       actions: injector.get(KanbanActions),
       toasts: injector.get(Toasts),
       settings: injector.get(Settings),
+      bulk: () => injector.get(NoteBulk),
       data,
       edit: (id, change) => {
         later();
@@ -1294,6 +1307,63 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
       cloud.offline = false;
       expect(ana.shared.places().get('nota-1')).toEqual(before);
       expect(ana.shared.get('nota-1')?.grupo).toBe(GRUPO);
+    });
+
+    it('parar de compartilhar: a que ficou só com a dona volta a ser uma anotação comum dela, com grupo, pasta e tags', async () => {
+      const { ana, bia, fake } = await groupNote();
+      fake.membros.clear();
+      ana.shared.placeInGroup(['nota-1'], 'Estudos');
+      delete fake.grupo;
+      fake.versao++;
+      await sync(ana);
+      expect(await ana.shared.unshare('nota-1')).toBeTrue();
+      TestBed.tick();
+      expect(cloud.notes.has('nota-1')).toBeFalse();
+      expect(ana.shared.get('nota-1')).toBeUndefined();
+      expect(ana.store.sharedIds().has('nota-1')).toBeFalse();
+      const r = ana.store.get('nota-1')!;
+      expect([r.category, r.folder, r.tags, r.text]).toEqual(['Estudos', 'a1simbolos01', ['Kana'], 'あ']);
+      // e ela se apaga como qualquer outra, com o Desfazer
+      expect(ana.store.remove('nota-1')).toBeDefined();
+      await sync(bia);
+      expect(bia.store.get('nota-1')).toBeUndefined();
+    });
+
+    it('sem rede, a que volta para o mural continua lá, e na próxima conferida não some nada', async () => {
+      const { ana, fake } = await groupNote();
+      fake.membros.clear();
+      ana.shared.placeInGroup(['nota-1'], 'Estudos');
+      delete fake.grupo;
+      fake.versao++;
+      await sync(ana);
+      cloud.offline = true;
+      expect(await ana.shared.unshare('nota-1')).toBeFalse();
+      cloud.offline = false;
+      TestBed.tick();
+      await sync(ana);
+      // a nuvem ainda tinha: ela volta a ser a compartilhada, com o mesmo texto e o mesmo lugar (o grupo também)
+      const back = ana.store.get('nota-1')!;
+      expect([back.text, back.category, back.folder, back.tags]).toEqual(['あ', 'Estudos', 'a1simbolos01', ['Kana']]);
+    });
+
+    it('apagar em massa leva também as compartilhadas: as suas saem para todos, e das dos outros você sai', async () => {
+      const { ana, bia } = await groupNote();
+      ana.store.add(note('nota-2', 'só minha'));
+      bia.store.add(note('nota-3', 'da Bia'));
+      TestBed.tick();
+      await bia.shared.share(bia.store.get('nota-3')!, [{ codigo: USERS['ana'].codigo, papel: 'editor' }]);
+      TestBed.tick();
+      await sync(ana);
+      expect(ana.bulk().plan(['nota-1', 'nota-2', 'nota-3'])).toEqual({ own: ['nota-2'], forAll: ['nota-1'], leave: ['nota-3'], held: [] });
+      await ana.bulk().act(['nota-1', 'nota-2', 'nota-3'], 'apagar');
+      TestBed.tick();
+      expect(['nota-1', 'nota-2', 'nota-3'].map((id) => !!ana.store.get(id))).toEqual([false, false, false]);
+      expect(cloud.notes.has('nota-1')).toBeFalse();
+      // a da Bia continua com ela
+      expect(cloud.notes.get('nota-3')?.membros.has(USERS['ana'].id)).toBeFalse();
+      await sync(bia);
+      expect(bia.store.get('nota-3')?.text).toBe('da Bia');
+      expect(bia.store.get('nota-1')).toBeUndefined();
     });
 
     it('tirar do grupo pela nuvem (moveToGroup null) leva a pasta e as tags para o lugar de quem tirou', async () => {

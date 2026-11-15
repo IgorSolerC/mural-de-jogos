@@ -539,6 +539,29 @@ export class SharedStore implements SharedSink {
     this.drop(id);
   }
 
+  /**
+   * A compartilhada sua em que não há mais ninguém (o que sobra de um grupo que você parou de compartilhar) volta a
+   * ser uma anotação comum do seu mural, com o grupo, a pasta e as tags de agora, e sai da nuvem à parte. Primeiro
+   * aqui, depois a nuvem: sem rede, ela volta a ser a compartilhada na próxima conferida (nada se perde), e a
+   * próxima parada tenta de novo. Devolve se voltou.
+   */
+  async unshare(id: string): Promise<boolean> {
+    const e = this.entries().get(id);
+    if (!e || e.papel !== 'dono' || e.grupo || e.membros.length || e.conflito) return false;
+    if (!this.store.adoptShared(e.view)) return false;
+    this.drop(id);
+    try {
+      await this.account.request(`/v1/notas/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    } catch (err) {
+      if (err instanceof CloudError && err.status === 404) return true;
+      // a nuvem ainda tem: ela vai voltar como a compartilhada, e volta no lugar de agora (o grupo, a pasta e as tags)
+      this.setPlace(id, e.pessoal);
+      this.persist();
+      return false;
+    }
+    return true;
+  }
+
   /** Apaga para todos (só o dono). */
   async deleteForAll(id: string): Promise<void> {
     try {

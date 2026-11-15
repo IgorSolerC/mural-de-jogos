@@ -395,10 +395,8 @@ export class SharedGroupsStore {
     const board = this.boards().find((b) => b.id === boardIdFor(this.names().get(id) ?? g.dados.nome)) ?? null;
     const name = this.names().get(id) ?? g.dados.nome;
     // o lugar delas no seu mural: o grupo de mesmo nome (antes de a nuvem as soltar do grupo)
-    this.shared.placeInGroup(
-      this.shared.inGroupOf(id).map((e) => e.id),
-      name,
-    );
+    const ids = this.shared.inGroupOf(id).map((e) => e.id);
+    this.shared.placeInGroup(ids, name);
     await this.account.request(`/v1/grupos/${encodeURIComponent(id)}`, { method: 'DELETE' });
     // as pastas do grupo, como ficaram nele, voltam para as suas configurações (as anotações continuam nelas)
     this.returnFolders(id, name);
@@ -406,6 +404,9 @@ export class SharedGroupsStore {
     this.drop(id);
     this.persist();
     await this.shared.sync();
+    // as que ficaram só com você voltam a ser anotações comuns do seu mural, no grupo de mesmo nome, com a pasta e
+    // as tags (antes, ficavam "compartilhadas com ninguém" para sempre, e nem o apagar em massa as tirava)
+    for (const noteId of ids) await this.shared.unshare(noteId);
     // o quadro do Kanban do grupo, como ficou: quem chamou o guarda como o quadro só seu
     return board;
   }

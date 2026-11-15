@@ -5,6 +5,7 @@ import { Review, sanitizeReview } from '../core/review';
 import { BulkEditSheet } from './bulk-edit-sheet';
 import { Confirm } from './confirm';
 import { NoteFolders } from '../core/note-folders';
+import { SharedStore } from '../core/shared-store';
 
 const T0 = '2026-10-01T10:00:00.000Z';
 const note = (id: string, extra: Record<string, unknown> = {}): Review => ({
@@ -131,6 +132,24 @@ describe('editar as marcadas (BulkEditSheet)', () => {
   it('o apagar de uma só diz "a anotação"', async () => {
     await mount([note('nfol00016')]);
     expect(el.querySelector('.foot > .apagar')!.textContent!.trim()).toBe('Apagar a anotação');
+  });
+
+  it('as compartilhadas também se apagam daqui: o botão aparece e diz quantas (antes, sumia)', async () => {
+    const shared = new Map([
+      ['nshr00001', { papel: 'dono', grupo: null, criadoPor: null }],
+      ['nshr00002', { papel: 'dono', grupo: null, criadoPor: null }],
+    ]);
+    spyOn(SharedStore.prototype, 'get').and.callFake((id: string) => shared.get(id) as never);
+    await mount([note('nshr00001'), note('nshr00002'), note('nshr00003')]);
+    expect(el.querySelector('.foot > .apagar')!.textContent!.trim()).toBe('Apagar as 3 anotações');
+    el.querySelector<HTMLButtonElement>('.foot > .apagar')!.click();
+    expect(acted).toEqual(['apagar']);
+  });
+
+  it('das compartilhadas de outras pessoas você só sai, e o botão diz isso', async () => {
+    spyOn(SharedStore.prototype, 'get').and.returnValue({ papel: 'editor', grupo: null, criadoPor: null } as never);
+    await mount([note('nshr00004'), note('nshr00005')]);
+    expect(el.querySelector('.foot > .apagar')!.textContent!.trim()).toBe('Sair das 2 anotações');
   });
 
   it('o apagar de duas diz "as duas"', async () => {
