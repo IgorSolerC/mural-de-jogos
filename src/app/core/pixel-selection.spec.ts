@@ -1,4 +1,4 @@
-import { combineMask, composite, emptyMask, flipMask, flipRows, invertMask, lift, maskAny, maskBounds, maskOutline, outline, placedMask, rectMask, rotateMask, rotateRows, wandMask } from './pixel-selection';
+import { combineMask, composite, emptyMask, flipMask, flipRows, invertMask, lift, maskAny, maskBounds, maskOutline, outline, placedMask, rectMask, rotateMask, rotateRows, scaleFloat, wandMask } from './pixel-selection';
 
 /** A seleção do ateliê (PLANO-ATELIE.md, feature 4): as máscaras, o pedaço solto, virar, girar e o contorno. */
 describe('pixel art: a seleção', () => {
@@ -55,5 +55,20 @@ describe('pixel art: a seleção', () => {
   it('o contorno em volta do que é pintado, só no transparente e dentro da seleção', () => {
     expect(outline(['000', '010', '000'], 3, 3, 4, null)).toEqual(['040', '414', '040']);
     expect(outline(['000', '010', '000'], 3, 3, 4, rectMask(3, 3, { x: 0, y: 0 }, { x: 2, y: 0 }))).toEqual(['040', '010', '000']);
+  });
+});
+
+describe('esticar o pedaço', () => {
+  const piece = { x: 1, y: 2, rows: ['12', '30'], mask: { w: 2, h: 2, bits: new Uint8Array([1, 1, 1, 0]) } };
+
+  it('dobra cada ponto (o vizinho mais perto), com a máscara junto', () => {
+    const f = scaleFloat(piece, { x: 1, y: 2, w: 4, h: 4 });
+    expect(f.rows).toEqual(['1122', '1122', '3300', '3300']);
+    expect(Array.from(f.mask.bits)).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0]);
+  });
+
+  it('esticar e voltar ao tamanho de antes dá o mesmo pedaço (sempre a partir do solto)', () => {
+    expect(scaleFloat(piece, { x: 0, y: 0, w: 2, h: 2 }).rows).toEqual(['12', '30']);
+    expect(scaleFloat(piece, { x: 5, y: 6, w: 1, h: 2 })).toEqual(jasmine.objectContaining({ x: 5, y: 6, rows: ['2', '0'] }));
   });
 });

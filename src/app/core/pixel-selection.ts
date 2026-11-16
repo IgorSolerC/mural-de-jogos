@@ -227,3 +227,31 @@ export function outline(rows: readonly string[], w: number, h: number, ink: numb
       .join(''),
   );
 }
+
+// ===== esticar =====
+
+/**
+ * O pedaço esticado (ou encolhido) para `w` × `h` pontos, no lugar `x`, `y`: cada ponto novo pega o ponto do pedaço que
+ * fica debaixo do meio dele (o vizinho mais perto: a pixel art não borra). Sempre a partir do pedaço como foi solto,
+ * nunca do já esticado, para esticar e voltar não estragar o desenho.
+ */
+export function scaleFloat(src: Float, box: { x: number; y: number; w: number; h: number }): Float {
+  const w = Math.max(1, Math.round(box.w));
+  const h = Math.max(1, Math.round(box.h));
+  const sw = src.mask.w;
+  const sh = src.mask.h;
+  const mask = emptyMask(w, h);
+  const rows: string[] = [];
+  for (let y = 0; y < h; y++) {
+    const sy = Math.min(sh - 1, Math.floor(((y + 0.5) * sh) / h));
+    let line = '';
+    for (let x = 0; x < w; x++) {
+      const sx = Math.min(sw - 1, Math.floor(((x + 0.5) * sw) / w));
+      const on = src.mask.bits[sy * sw + sx] === 1;
+      mask.bits[y * w + x] = on ? 1 : 0;
+      line += on ? (src.rows[sy]?.[sx] ?? '0') : '0';
+    }
+    rows.push(line);
+  }
+  return { x: Math.round(box.x), y: Math.round(box.y), rows, mask };
+}

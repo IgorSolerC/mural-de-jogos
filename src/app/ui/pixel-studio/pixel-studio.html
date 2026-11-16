@@ -289,6 +289,10 @@
         }
       </div>
       <span class="regua-canto" aria-hidden="true"></span>
+      <!-- as alças em volta do que está escolhido: puxar estica (o Tamanho da seleção, no menu Imagem, faz o mesmo pelo teclado) -->
+      @for (a of handles(); track a.h) {
+        <span class="alca" [attr.data-alca]="a.h" [style.left.px]="a.left" [style.top.px]="a.top" aria-hidden="true"></span>
+      }
     </section>
 
     <!-- à direita: a prévia do tamanho de verdade e as cores -->
@@ -558,7 +562,7 @@
   @if (sizing(); as s) {
     <dialog #tamanho class="sheet tamanho" [attr.aria-labelledby]="ids + '-tam'" (close)="closeSize()" (keydown)="$event.stopPropagation()">
       <form class="tamanho-ficha" method="dialog" (submit)="$event.preventDefault(); applySize()">
-        <h3 class="tamanho-titulo" [id]="ids + '-tam'">Tamanho da tela</h3>
+        <h3 class="tamanho-titulo" [id]="ids + '-tam'">{{ s.target === 'selecao' ? 'Tamanho da seleção' : 'Tamanho da tela' }}</h3>
         <div class="tamanho-campos">
           <label class="tam-campo">
             <span class="tam-nome">Largura</span>
@@ -582,11 +586,11 @@
               <button type="button" role="radio" class="ancora-ponto" [class.on]="on" [attr.aria-checked]="on" [attr.aria-label]="anchorName(a)" (click)="setSizing({ anchor: a })"></button>
             }
           </div>
-          <p class="ancora-dica">O desenho fica preso no ponto escolhido: crescer põe transparente em volta, diminuir corta a beirada do outro lado.</p>
+          <p class="ancora-dica">{{ s.target === 'selecao' ? 'O ponto escolhido fica parado: o pedaço estica ou encolhe a partir dele, cada ponto do tamanho certo.' : 'O desenho fica preso no ponto escolhido: crescer põe transparente em volta, diminuir corta a beirada do outro lado.' }}</p>
         </div>
         <div class="tamanho-pe">
           <button type="button" class="papel" (click)="closeSize()">Cancelar</button>
-          <button type="submit" class="pronto">Mudar a tela</button>
+          <button type="submit" class="pronto">{{ s.target === 'selecao' ? 'Mudar a seleção' : 'Mudar a tela' }}</button>
         </div>
       </form>
     </dialog>

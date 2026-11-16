@@ -210,3 +210,90 @@ describe('pixel art: as camadas do ateliê', () => {
     expect(stacked).toBe(0);
   });
 });
+
+/** Esticar a seleção (PLANO-CAMADAS.md, rodada 3): as alças, o Shift e o Tamanho da seleção. */
+describe('pixel art: esticar a seleção', () => {
+  let fixture: ComponentFixture<PixelStudio>;
+  let values: WidgetValues;
+  let host: HTMLElement;
+
+  async function make(start: WidgetValues): Promise<void> {
+    TestBed.configureTestingModule({ imports: [PixelStudio], providers: [provideZonelessChangeDetection()] });
+    fixture = TestBed.createComponent(PixelStudio);
+    values = { ...start };
+    fixture.componentRef.setInput('values', values);
+    fixture.componentInstance.changed.subscribe((p) => (values = { ...values, ...p }));
+    host = fixture.nativeElement;
+    document.body.appendChild(host);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+  afterEach(() => {
+    host?.querySelectorAll('dialog').forEach((d) => d.open && d.close());
+    host?.remove();
+    TestBed.resetTestingModule();
+  });
+  const board = () => host.querySelector('svg.folha') as SVGSVGElement;
+  const zoom = () => board().getBoundingClientRect().width / Number(board().getAttribute('viewBox')!.split(' ')[2]);
+  function key(k: string, extra: KeyboardEventInit = {}): void {
+    board().dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...extra }));
+    fixture.detectChanges();
+  }
+  /** Puxa a alça `h` de `dx`, `dy` pontos. */
+  function pull(h: string, dx: number, dy: number, extra: PointerEventInit = {}): void {
+    const a = host.querySelector(`.alca[data-alca="${h}"]`) as HTMLElement;
+    const r = a.getBoundingClientRect();
+    const x = r.left + r.width / 2;
+    const y = r.top + r.height / 2;
+    const ev = (type: string, cx: number, cy: number) => a.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 1, pointerType: 'mouse', button: 0, buttons: type === 'pointerup' ? 0 : 1, clientX: cx, clientY: cy, ...extra }));
+    ev('pointerdown', x, y);
+    fixture.detectChanges();
+    ev('pointermove', x + dx * zoom(), y + dy * zoom());
+    fixture.detectChanges();
+    ev('pointerup', x + dx * zoom(), y + dy * zoom());
+    fixture.detectChanges();
+  }
+
+  it('com a Seleção e algo escolhido, as oito alças; puxar o canto estica, um ponto vira dois', async () => {
+    await make({ width: '4', height: '2', pixels: '12' });
+    key('m');
+    expect(host.querySelectorAll('.alca').length).toBe(0);
+    (fixture.componentInstance as unknown as { selectAll(): void }).selectAll();
+    fixture.detectChanges();
+    expect(host.querySelectorAll('.alca').length).toBe(8);
+    key('Escape');
+    // só os dois pontos pintados escolhidos
+    (fixture.componentInstance as unknown as { sel: { set(m: unknown): void } }).sel.set({ w: 4, h: 2, bits: new Uint8Array([1, 1, 0, 0, 0, 0, 0, 0]) });
+    fixture.detectChanges();
+    pull('se', 2, 1);
+    expect(values['pixels']).toBe('1122/1122');
+    key('Enter');
+    key('z', { ctrlKey: true });
+    expect(values['pixels']).toBe('12');
+  });
+
+  it('com o Shift, na proporção', async () => {
+    await make({ width: '4', height: '4', pixels: '12' });
+    key('m');
+    (fixture.componentInstance as unknown as { sel: { set(m: unknown): void } }).sel.set({ w: 4, h: 4, bits: new Uint8Array([1, 1, 0, 0, ...new Array(12).fill(0)]) });
+    fixture.detectChanges();
+    pull('e', 2, 0, { shiftKey: true });
+    // a largura dobrou; a altura acompanhou, crescendo para os dois lados do meio
+    expect(values['pixels']).toBe('1122/1122');
+  });
+
+  it('o Tamanho da seleção, pelo menu Imagem: a âncora fica parada', async () => {
+    await make({ width: '4', height: '1', pixels: '12' });
+    const st = fixture.componentInstance as unknown as { sel: { set(m: unknown): void }; openSize(t: string): void; setSizing(p: unknown): void; applySize(): void };
+    st.sel.set({ w: 4, h: 1, bits: new Uint8Array([1, 1, 0, 0]) });
+    st.openSize('selecao');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(host.querySelector('.tamanho-titulo')?.textContent).toContain('Tamanho da seleção');
+    st.setSizing({ w: 4, h: 1, anchor: { x: 0, y: 0 } });
+    st.applySize();
+    fixture.detectChanges();
+    expect(values['pixels']).toBe('1122');
+  });
+});

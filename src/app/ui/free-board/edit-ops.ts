@@ -1,6 +1,7 @@
 import { FbColor, FbEdge, FbNode, FbSide, FreeBoard, addPieces, idsOf, knownNode, newNodeId, shownNodes, withGroups } from '../../core/free-board';
 import { GridIndex, HOLE, Point, Rect, boundsOf, contains, distanceToPath, grow, insideFrame, intersects, paintOrder, routedEdgePath, snap } from '../../core/free-board-geometry';
 import { parseVideo, parseWidgetLine, widgetDef } from '../../core/widgets';
+import { Handle, SizeRule, resizeBox } from '../../core/resize-box';
 
 /**
  * A edição do Quadro livre (PLANO-QUADRO-LIVRE.md, 4.4), em funções puras: acertar o que está debaixo do
@@ -110,15 +111,9 @@ export function snappedDelta(lead: Point, dx: number, dy: number, snapOn: boolea
 
 // ===== o tamanho =====
 
-/** As alças: os cantos e o meio dos lados (n, s, e, w e as combinações). */
-export type Handle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
-export const ALL_HANDLES: readonly Handle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
-
-/**
- * Como a peça muda de tamanho: livre (a moldura, o texto e a tabela, que se reorganiza na caixa) ou na proporção
- * (os outros widgets: o desenho cresce por igual, e a caixa tem sempre a proporção dele, ver `fitMeasured`).
- */
-export type SizeRule = 'livre' | 'proporcao';
+// (as alças e a regra moram em core/resize-box.ts, divididas com o ateliê da pixel art)
+export type { Handle, SizeRule } from '../../core/resize-box';
+export { ALL_HANDLES } from '../../core/resize-box';
 
 export function sizeRule(node: FbNode): SizeRule {
   return node.t === 'w' && !reflows(node) ? 'proporcao' : 'livre';
@@ -139,30 +134,7 @@ const MIN = 52;
  * num furo.
  */
 export function resized(start: Rect, h: Handle, dx: number, dy: number, rule: SizeRule, opts: { snapOn?: boolean } = {}): Rect {
-  let x0 = start.x;
-  let y0 = start.y;
-  let x1 = start.x + start.w;
-  let y1 = start.y + start.h;
-  const s = (v: number) => (opts.snapOn ? snap(v) : Math.round(v));
-  if (h.includes('w')) x0 = s(x0 + dx);
-  if (h.includes('e')) x1 = s(x1 + dx);
-  if (h.includes('n')) y0 = s(y0 + dy);
-  if (h.includes('s')) y1 = s(y1 + dy);
-  if (x1 - x0 < MIN) h.includes('w') ? (x0 = x1 - MIN) : (x1 = x0 + MIN);
-  if (y1 - y0 < Math.min(MIN, start.h)) h.includes('n') ? (y0 = y1 - Math.min(MIN, start.h)) : (y1 = y0 + Math.min(MIN, start.h));
-  let out = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
-  if (rule === 'proporcao') {
-    const ratio = start.w / Math.max(1, start.h);
-    // no canto, manda o lado que andou mais (puxar o canto só para baixo também cresce); no meio de um lado, ele
-    const byHeight = h === 'n' || h === 's' || (h.length === 2 && Math.abs(out.h / start.h - 1) > Math.abs(out.w / start.w - 1));
-    const w = Math.max(MIN, byHeight ? Math.round(out.h * ratio) : out.w);
-    const hh = Math.max(1, Math.round(w / ratio));
-    // o eixo que ninguém puxou cresce para os dois lados, no lugar
-    const x = h === 'n' || h === 's' ? Math.round(start.x + (start.w - w) / 2) : h.includes('w') ? x1 - w : x0;
-    const y = h === 'e' || h === 'w' ? Math.round(start.y + (start.h - hh) / 2) : h.includes('n') ? y1 - hh : y0;
-    out = { x, y, w, h: hh };
-  }
-  return out;
+  return resizeBox(start, h, dx, dy, rule, { min: MIN, round: opts.snapOn ? snap : Math.round });
 }
 
 /**

@@ -192,7 +192,7 @@ celular, commit no nome do dono e push.
 
 - [x] Rodada 1: dados (BUILD 909; sem item nas Novidades: base sem tela, o item vem com a rodada 2)
 - [x] Rodada 2: o painel das camadas (BUILD 910, Novidades 1.47.0)
-- [ ] Rodada 3: esticar a seleção
+- [x] Rodada 3: esticar a seleção (BUILD 911, Novidades 1.47.1)
 - [ ] Rodada 4: o mapa de cor
 - [ ] Rodada 5: as referências
 - [ ] Rodada 6: trazer uma imagem pergunta

@@ -34,7 +34,8 @@ import {
   writeGrid,
 } from '../../core/pixel-art';
 import { Anchor, BRUSH_MAX, BrushShape, Dither, Symmetry, ZOOMS, ZOOM_KEYS, convertRows, ditherKeeps, medianCut, moveInk, removeInk, sortInks, ellipseCells, fitZoom, mirrored, perfectCorner, rectCells, replaceInk, resizeCanvas, shapeBox, snapLine, stampCells, stepZoom, zoomLabel } from '../../core/pixel-tools';
-import { Float, Mask, combineMask, composite, flipMask, flipRows, invertMask, lift, maskAny, maskBounds, maskOutline, outline, placedMask, rectMask, rotateMask, rotateRows, wandMask } from '../../core/pixel-selection';
+import { ALL_HANDLES, Box, Handle, resizeBox } from '../../core/resize-box';
+import { Float, Mask, scaleFloat, combineMask, composite, flipMask, flipRows, invertMask, lift, maskAny, maskBounds, maskOutline, outline, placedMask, rectMask, rotateMask, rotateRows, wandMask } from '../../core/pixel-selection';
 import { WidgetValues } from '../../core/widgets';
 import { imageFileOf } from '../../core/images';
 import { DotsLayer, InkPathCache, Layer, PIXEL_LAYERS_MAX, StoredLayer, acrossDots, cleanLayerName, dotsBelow, dotsCount, duplicateLayer, flattenLayers, insertAbove, mapDots, mergeDown, moveLayerTo, newLayerId, nextLayerName, readLayers, sameStack, setRows, singleLayer, writeLayers } from '../../core/pixel-layers';
@@ -73,7 +74,8 @@ type Drag =
   | { kind: 'sel'; from: Cell; to: Cell; mode: 'trocar' | 'somar' | 'tirar'; base: Mask | null }
   | { kind: 'mov'; from: Cell; x: number; y: number }
   | { kind: 'vista'; x: number; y: number; panX: number; panY: number }
-  | { kind: 'pinca'; dist: number; mid: { x: number; y: number }; zoom: number; panX: number; panY: number };
+  | { kind: 'pinca'; dist: number; mid: { x: number; y: number }; zoom: number; panX: number; panY: number }
+  | { kind: 'escala'; handle: Handle; start: Box; x: number; y: number };
 
 let uid = 0;
 
@@ -345,6 +347,7 @@ export class PixelStudio {
         ['Ctrl+C · Ctrl+X · Ctrl+V', 'Copiar, recortar, colar'],
         ['Delete', 'Apagar o que está escolhido'],
         ['Setas (Shift: 8)', 'Mover o pedaço · Enter assenta'],
+        ['Puxar uma alça (Shift)', 'Esticar a seleção (na proporção)'],
         ['Shift ao puxar · Shift+Alt', 'Somar · tirar da seleção'],
       ],
     },
@@ -383,7 +386,7 @@ export class PixelStudio {
   /** A pastilha sendo arrastada para outro lugar (o número dela). */
   protected readonly dragging = signal<number | null>(null);
   /** O Tamanho da tela (C): os campos e a âncora, enquanto a folha dele está aberta. */
-  protected readonly sizing = signal<{ w: number; h: number; anchor: Anchor } | null>(null);
+  protected readonly sizing = signal<{ w: number; h: number; anchor: Anchor; target: 'tela' | 'selecao' } | null>(null);
 
   /** A tela debaixo do pedaço solto, e o desenho de antes de ele soltar (o passo do desfazer). */
   private base: string[] | null = null;
@@ -392,6 +395,8 @@ export class PixelStudio {
   private lastSel: Mask | null = null;
   /** O que o Ctrl+C e o Ctrl+X guardaram (o pedaço, onde ele estava). */
   private clip: Float | null = null;
+  /** O pedaço como foi solto (ou depois do último virar e girar): esticar parte sempre dele, para não estragar o desenho. */
+  private scaleSrc: Float | null = null;
   protected readonly hasClip = signal(false);
   private undos: Snap[] = [];
   private redos: Snap[] = [];
@@ -505,6 +510,7 @@ export class PixelStudio {
 
   private restore(s: Snap): void {
     this.float.set(null);
+    this.scaleSrc = null;
     this.base = null;
     this.floatBefore = null;
     if (s.w !== this.w() || s.h !== this.h()) this.sel.set(null);
@@ -720,6 +726,7 @@ export class PixelStudio {
     this.drag = null;
     // a seleção puxada pela metade volta a ser a de antes; o pedaço que andava volta ao lugar
     if (d?.kind === 'sel') this.sel.set(d.base);
+    if (d?.kind === 'escala' && this.scaleSrc) this.placeFloat(scaleFloat(this.scaleSrc, d.start));
     if (d?.kind === 'mov') {
       const f = this.float();
       if (f) this.placeFloat({ ...f, x: d.x, y: d.y });
@@ -773,6 +780,8 @@ export class PixelStudio {
       return;
     }
     if (this.pointers.size > 2 || this.drag) return;
+    const handle = (e.target as Element | null)?.closest?.('[data-alca]')?.getAttribute('data-alca') as Handle | null;
+    if (handle && e.button === 0 && this.startScale(handle, e)) return;
     if (e.button === 1 || this.active() === 'mao') {
       this.drag = { kind: 'vista', x: e.clientX, y: e.clientY, panX: this.panX(), panY: this.panY() };
       return;
@@ -834,6 +843,13 @@ export class PixelStudio {
         const y = d.y + c.y - d.from.y;
         if (x !== f.x || y !== f.y) this.placeFloat({ ...f, x, y });
       }
+    } else if (d.kind === 'escala' && e.pointerId === this.strokePointer) {
+      if (e.pointerType === 'mouse' && e.buttons === 0) {
+        this.pointers.delete(e.pointerId);
+        this.endStroke();
+        return;
+      }
+      this.scaleTo(d, e.clientX, e.clientY, e.shiftKey);
     } else if (d.kind === 'forma' && e.pointerId === this.strokePointer) {
       if (e.pointerType === 'mouse' && e.buttons === 0) {
         this.pointers.delete(e.pointerId);
@@ -1251,6 +1267,7 @@ export class PixelStudio {
     const out = lift(this.rows(), m, copy);
     if (!out) return false;
     this.floatBefore = this.snap();
+    this.scaleSrc = null;
     this.base = out.base;
     this.placeFloat(out.float);
     return true;
@@ -1268,6 +1285,8 @@ export class PixelStudio {
     if (!this.hasSel()) return false;
     if (!this.liftSel(false)) return false;
     this.placeFloat(fn(this.float()!));
+    // (o pedaço virado é o novo ponto de partida do esticar)
+    this.scaleSrc = this.float();
     this.said.set(said);
     return true;
   }
@@ -1278,6 +1297,7 @@ export class PixelStudio {
     if (!f) return;
     this.sel.set(placedMask(f, this.w(), this.h()));
     this.float.set(null);
+    this.scaleSrc = null;
     this.base = null;
     const before = this.floatBefore;
     this.floatBefore = null;
@@ -1325,6 +1345,7 @@ export class PixelStudio {
       const before = this.floatBefore;
       this.rows.set(this.base ?? this.rows());
       this.float.set(null);
+      this.scaleSrc = null;
       this.base = null;
       this.floatBefore = null;
       this.emit();
@@ -1368,6 +1389,7 @@ export class PixelStudio {
     const x = Math.max(0, Math.min(c.x, this.w() - c.mask.w));
     const y = Math.max(0, Math.min(c.y, this.h() - c.mask.h));
     this.floatBefore = this.snap();
+    this.scaleSrc = null;
     this.base = this.rows();
     this.placeFloat({ ...c, x, y });
     this.tool.set('mover');
@@ -1391,7 +1413,12 @@ export class PixelStudio {
     return [
       [
         { id: 'tamanho', label: 'Tamanho da tela…', icon: ICON.tamanhoDaTela, keys: 'C', dialog: true, run: () => this.openSize() },
-        ...(sel ? [{ id: 'recortar-tela', label: 'Recortar na seleção', icon: ICON.recortarTela, run: () => this.cropToSel() }] : []),
+        ...(sel
+          ? [
+              { id: 'tamanho-sel', label: 'Tamanho da seleção…', hint: 'Esticar ou encolher o que está escolhido', icon: ICON.tamanhoDaTela, dialog: true, run: () => this.openSize('selecao') },
+              { id: 'recortar-tela', label: 'Recortar na seleção', icon: ICON.recortarTela, run: () => this.cropToSel() },
+            ]
+          : []),
       ],
       [
         { id: 'lado', label: 'Virar de lado', hint: `Vira ${what}`, icon: ICON.virarDeLado, keys: 'Shift+H', run: () => this.flipSide() },
@@ -1858,8 +1885,10 @@ export class PixelStudio {
     this.keysOpen.set(false);
   }
 
-  protected openSize(): void {
-    this.sizing.set({ w: this.w(), h: this.h(), anchor: { x: 1, y: 1 } });
+  protected openSize(target: 'tela' | 'selecao' = 'tela'): void {
+    const box = target === 'selecao' ? this.selBox() : null;
+    if (target === 'selecao' && !box) return;
+    this.sizing.set({ w: box?.w ?? this.w(), h: box?.h ?? this.h(), anchor: { x: 1, y: 1 }, target });
     afterNextRender(() => this.sizeSheet()?.nativeElement.showModal(), { injector: this.injector });
   }
 
@@ -1877,12 +1906,75 @@ export class PixelStudio {
   protected applySize(): void {
     const s = this.sizing();
     if (!s) return;
+    if (s.target === 'selecao') {
+      this.resizeSel(clampSide(s.w, 1), clampSide(s.h, 1), s.anchor);
+      this.closeSize();
+      return;
+    }
     const w = clampSide(s.w, this.w());
     const h = clampSide(s.h, this.h());
     const layers = mapDots(this.stackNow(), (r) => resizeCanvas(r, this.w(), this.h(), w, h, s.anchor));
     this.change({ layers, w, h }, `Tela de ${w} por ${h} pontos`);
     this.closeSize();
     this.fit();
+  }
+
+  // ===== esticar a seleção (PLANO-CAMADAS.md, rodada 3) =====
+
+  /** A caixa do que está escolhido: o pedaço solto onde está, ou a beirada da seleção. */
+  protected readonly selBox = computed<Box | null>(() => {
+    const f = this.float();
+    if (f) return { x: f.x, y: f.y, w: f.mask.w, h: f.mask.h };
+    const s = this.sel();
+    return (maskAny(s) && maskBounds(s)) || null;
+  });
+
+  /** As alças aparecem com a Seleção e o Mover, havendo o que esticar (e a camada à mostra). */
+  protected readonly handles = computed(() => {
+    const t = this.active();
+    const b = this.selBox();
+    if (!b || (t !== 'selecao' && t !== 'mover') || this.activeLayer().hidden) return [];
+    const z = this.zoom();
+    const left = this.boardLeft();
+    const top = this.boardTop();
+    return ALL_HANDLES.map((h) => {
+      const x = h.includes('w') ? 0 : h.includes('e') ? 1 : 0.5;
+      const y = h.includes('n') ? 0 : h.includes('s') ? 1 : 0.5;
+      return { h, left: left + (b.x + x * b.w) * z, top: top + (b.y + y * b.h) * z };
+    });
+  });
+
+  /** Puxou uma alça: solta o que está escolhido (se ainda não está) e guarda de onde o esticar parte. */
+  private startScale(handle: Handle, e: PointerEvent): boolean {
+    if (this.blockedByHidden() || !this.liftSel(false)) return false;
+    const f = this.float()!;
+    this.scaleSrc ??= f;
+    this.strokePointer = e.pointerId;
+    this.drag = { kind: 'escala', handle, start: { x: f.x, y: f.y, w: f.mask.w, h: f.mask.h }, x: e.clientX, y: e.clientY };
+    return true;
+  }
+
+  /** O pedaço do tamanho da alça puxada até o ponteiro (Shift: na proporção, como no Aseprite). */
+  private scaleTo(d: Extract<Drag, { kind: 'escala' }>, clientX: number, clientY: number, keep: boolean): void {
+    const src = this.scaleSrc;
+    if (!src) return;
+    const z = this.zoom();
+    const box = capBox(resizeBox(d.start, d.handle, (clientX - d.x) / z, (clientY - d.y) / z, keep ? 'proporcao' : 'livre', { min: 1 }), d.handle);
+    const f = this.float();
+    if (f && f.x === box.x && f.y === box.y && f.mask.w === box.w && f.mask.h === box.h) return;
+    this.placeFloat(scaleFloat(src, box));
+    this.said.set(`Seleção de ${box.w} por ${box.h}`);
+  }
+
+  /** O Tamanho da seleção (a folha do Tamanho da tela): o ponto da âncora fica parado. */
+  private resizeSel(w: number, h: number, anchor: Anchor): void {
+    const b = this.selBox();
+    if (!b || this.blockedByHidden() || !this.liftSel(false)) return;
+    this.scaleSrc ??= this.float();
+    const x = b.x + Math.round(((b.w - w) * anchor.x) / 2);
+    const y = b.y + Math.round(((b.h - h) * anchor.y) / 2);
+    this.placeFloat(scaleFloat(this.scaleSrc!, { x, y, w, h }));
+    this.said.set(`Seleção de ${w} por ${h}`);
   }
 
   // ===== trazer de uma imagem =====
@@ -2017,11 +2109,11 @@ export class PixelStudio {
   protected readonly hint = computed(() => {
     switch (this.active()) {
       case 'selecao':
-        return 'Puxe para escolher · Shift: soma · Shift+Alt: tira · arraste de dentro para mover · Esc: tira';
+        return 'Puxe para escolher · Shift: soma · Shift+Alt: tira · arraste de dentro para mover · as alças esticam (Shift: na proporção) · Esc: tira';
       case 'varinha':
         return 'Escolhe a mancha da cor · Shift: soma · Shift+Alt: tira';
       case 'mover':
-        return 'Arraste o que está escolhido (ou tudo) · Ctrl ao começar: uma cópia · setas: um ponto · Enter: assenta';
+        return 'Arraste o que está escolhido (ou tudo) · Ctrl ao começar: uma cópia · as alças esticam (Shift: na proporção) · setas: um ponto · Enter: assenta';
       case 'lapis':
         return (this.dithering() ? 'Pontilhado: um ponto sim, um não · ' : '') + 'Shift: reta desde o último ponto · Alt: conta-gotas · Espaço: arrastar a vista';
       case 'borracha':
@@ -2083,6 +2175,16 @@ function shrink(image: ImageBitmap, w: number, h: number): Uint8ClampedArray {
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(src, 0, 0, w, h);
   return ctx.getImageData(0, 0, w, h).data;
+}
+
+/** O maior pedaço esticado (o dobro da maior tela): passar disso só pinta fora da tela, e a conta pesaria a cada movimento. */
+const STRETCH_MAX = PIXEL_MAX * 2;
+
+/** A caixa até o teto do esticar, presa no lado oposto ao da alça puxada. */
+function capBox(b: Box, h: Handle): Box {
+  const w = Math.min(b.w, STRETCH_MAX);
+  const hh = Math.min(b.h, STRETCH_MAX);
+  return { x: h.includes('w') ? b.x + b.w - w : b.x, y: h.includes('n') ? b.y + b.h - hh : b.y, w, h: hh };
 }
 
 function sameRows(a: readonly string[], b: readonly string[]): boolean {

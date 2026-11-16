@@ -163,3 +163,53 @@
     max-height: none;
   }
 }
+
+/* ===== as alças da seleção (rodada 3): quadradinhos de cartolina com a borda de tinta, do tamanho da tela (não do
+   zoom), nos cantos e no meio dos lados das formigas; puxar estica o pedaço ===== */
+.alca {
+  position: absolute;
+  z-index: 3;
+  width: 11px;
+  height: 11px;
+  margin: -5.5px 0 0 -5.5px;
+  box-sizing: border-box;
+  border: 2px solid #151515;
+  border-radius: 1px;
+  background: #fbfaf6;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.55);
+  touch-action: none;
+
+  /* o alvo maior que o desenho, para o dedo e o mouse apressado */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -9px;
+  }
+
+  &:hover {
+    background: var(--hi);
+  }
+
+  &[data-alca='n'],
+  &[data-alca='s'] {
+    cursor: ns-resize;
+  }
+  &[data-alca='e'],
+  &[data-alca='w'] {
+    cursor: ew-resize;
+  }
+  &[data-alca='nw'],
+  &[data-alca='se'] {
+    cursor: nwse-resize;
+  }
+  &[data-alca='ne'],
+  &[data-alca='sw'] {
+    cursor: nesw-resize;
+  }
+
+  @media (pointer: coarse) {
+    width: 15px;
+    height: 15px;
+    margin: -7.5px 0 0 -7.5px;
+  }
+}
