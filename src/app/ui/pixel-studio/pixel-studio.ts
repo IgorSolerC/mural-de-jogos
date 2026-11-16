@@ -41,7 +41,7 @@ import { WidgetValues } from '../../core/widgets';
 import { ImageProblem, imageFileOf, localImageUrl } from '../../core/images';
 import { ImageStore } from '../../core/image-store';
 import { MuralSrc } from '../stored-image';
-import { DotsLayer, PIXEL_REFS_MAX, PixelRef, RefLayer, fitRef, mapRefs, refsCount, RowsCache, Layer, PIXEL_LAYERS_MAX, StoredLayer, acrossDots, cleanLayerName, dotsBelow, dotsCount, duplicateLayer, flattenLayers, insertAbove, mapDots, mergeDown, moveLayerTo, newLayerId, nextLayerName, readLayers, sameStack, setRows, singleLayer, writeLayers } from '../../core/pixel-layers';
+import { REF_REACH, DotsLayer, PIXEL_REFS_MAX, PixelRef, RefLayer, fitRef, mapRefs, refsCount, RowsCache, Layer, PIXEL_LAYERS_MAX, StoredLayer, acrossDots, cleanLayerName, dotsBelow, dotsCount, duplicateLayer, flattenLayers, insertAbove, mapDots, mergeDown, moveLayerTo, newLayerId, nextLayerName, readLayers, sameStack, setRows, singleLayer, writeLayers } from '../../core/pixel-layers';
 import { Confirm } from '../confirm';
 import { ContextMenu, MenuSections } from '../context-menu';
 import { PaletteSheet } from './palette-sheet';
@@ -404,7 +404,8 @@ export class PixelStudio {
         ['Shift+N', 'Camada nova, acima da escolhida'],
         ['Ctrl+E', 'Juntar com a de baixo'],
         ['F2 · dois cliques', 'Renomear'],
-        ['Arrastar a fileira', 'Mudar de lugar na pilha'],
+        ['Arrastar a fileira · Alt+↑ e Alt+↓', 'Mudar de lugar na pilha'],
+        ['Esc · Delete (com a referência)', 'Soltar a referência · apagá-la'],
       ],
     },
     {
@@ -505,10 +506,16 @@ export class PixelStudio {
     if (this.fg() > this.count()) this.fg.set(Math.min(1, this.count()));
   }
 
+  /** Fechando (a pergunta de tudo escondido aberta): outro Pronto não abre outra. */
+  private closing = false;
+
   protected async close(): Promise<void> {
+    if (this.closing) return;
     this.endStroke();
     this.anchor();
-    if (!(await this.readyToClose())) return;
+    this.closing = true;
+    const ok = await this.readyToClose().finally(() => (this.closing = false));
+    if (!ok) return;
     const el = this.dialog().nativeElement;
     if (el.open) el.close();
     else this.closed.emit();
@@ -1042,6 +1049,17 @@ export class PixelStudio {
       if (!e.repeat && !this.drag && !(selecting && e.shiftKey)) this.held.set('conta-gotas');
       return;
     }
+    if (e.key === 'Escape' && this.refLayer()) {
+      e.preventDefault();
+      this.chosenRef.set(null);
+      this.said.set(`De volta à ${this.activeLayer().name}`);
+      return;
+    }
+    if ((k === 'delete' || k === 'backspace') && this.refLayer()) {
+      e.preventDefault();
+      this.removeLayer(this.refLayer()!.id);
+      return;
+    }
     if (e.key === 'Escape' && (this.float() || maskAny(this.sel()))) {
       // o Esc solta a seleção antes de fechar o ateliê
       e.preventDefault();
@@ -1150,7 +1168,8 @@ export class PixelStudio {
     if (step && ref) {
       e.preventDefault();
       const n = e.shiftKey ? 8 : 1;
-      this.setRef(ref.id, { ...ref.ref, x: ref.ref.x + step[0] * n, y: ref.ref.y + step[1] * n }, 'Referência movida');
+      const clamp = (v: number) => Math.max(-REF_REACH, Math.min(REF_REACH, v));
+      this.setRef(ref.id, { ...ref.ref, x: clamp(ref.ref.x + step[0] * n), y: clamp(ref.ref.y + step[1] * n) }, 'Referência movida');
       return;
     }
     if (step && this.hasSel()) {
@@ -1516,7 +1535,7 @@ export class PixelStudio {
       ],
       [
         { id: 'imagem', label: 'Trazer uma imagem…', hint: 'Nas cores da paleta, com as cores dela ou como referência', icon: ICON.imagem, dialog: true, run: () => this.chooseImage() },
-        ...(this.layered() ? [{ id: 'referencia', label: 'Imagem de referência…', hint: 'Fica no papel para copiar; não entra no desenho', icon: ICON.camadas, run: () => this.chooseRef() }] : []),
+        ...(this.layered() ? [{ id: 'referencia', label: 'Imagem de referência…', hint: 'Fica no papel para copiar; não entra no desenho', icon: ICON.imagem, run: () => this.chooseRef() }] : []),
       ],
       [{ id: 'limpar', label: this.dotsTotal() > 1 ? 'Limpar a camada' : 'Limpar a folha', icon: ICON.apagar, danger: true, run: () => this.clear() }],
     ];
@@ -1528,8 +1547,30 @@ export class PixelStudio {
   private blockedByHidden(): boolean {
     const l = this.activeLayer();
     if (!l.hidden) return false;
-    this.said.set(`A ${l.name} está escondida: mostre para pintar`);
+    this.say(`A ${l.name} está escondida: mostre para pintar`);
     return true;
+  }
+
+  /** O aviso de agora na barra de estado (no lugar da dica, por uns segundos), e para o leitor de tela. */
+  protected readonly notice = signal<string | null>(null);
+  private noticeTimer: ReturnType<typeof setTimeout> | null = null;
+  private say(text: string): void {
+    this.said.set(text);
+    this.notice.set(text);
+    if (this.noticeTimer) clearTimeout(this.noticeTimer);
+    this.noticeTimer = setTimeout(() => this.notice.set(null), 3000);
+  }
+
+  /** O cursor da mesa diz que não pinta: a escolhida escondida, com uma ferramenta que pinta. */
+  protected readonly cantPaint = computed(() => !this.refLayer() && this.activeLayer().hidden && !['mao', 'selecao', 'varinha', 'conta-gotas'].includes(this.active()));
+
+  /** Alt+↑ e Alt+↓ numa fileira do painel: a camada sobe ou desce na pilha (o arrastar, pelo teclado). */
+  protected layerKey(e: KeyboardEvent, id: string): void {
+    if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    this.stepLayer(id, e.key === 'ArrowUp' ? 1 : -1);
+    queueMicrotask(() => this.dialog().nativeElement.querySelector<HTMLElement>(`[data-camada="${CSS.escape(id)}"] .camada-escolher`)?.focus());
   }
 
   /** Escolhe a camada onde se pinta (não é um passo do desfazer: só muda onde se pinta). */
@@ -1565,7 +1606,7 @@ export class PixelStudio {
       this.said.set(`Cabem ${PIXEL_LAYERS_MAX} camadas numa pixel art`);
       return;
     }
-    const layer: Layer = { id: newLayerId(), name: name || nextLayerName(base), hidden: false, kind: 'pontos', rows };
+    const layer: Layer = { id: newLayerId(), name: name || nextLayerName(base.filter((l) => l.kind === 'pontos')), hidden: false, kind: 'pontos', rows };
     this.chosenRef.set(null);
     this.change({ ...extra, layers: insertAbove(base, this.current(), layer), current: layer.id }, said || `${layer.name} nova`);
   }
@@ -1606,6 +1647,11 @@ export class PixelStudio {
 
   /** Juntar com a de baixo (Ctrl+E). */
   protected mergeLayerDown(id: string): void {
+    const top = this.stackNow().find((l) => l.id === id);
+    if (top?.hidden) {
+      this.say(`A ${top.name} está escondida: mostre para juntar`);
+      return;
+    }
     const out = mergeDown(this.stackNow(), id);
     if (!out) {
       this.said.set('Não há camada embaixo para juntar');
@@ -1700,7 +1746,7 @@ export class PixelStudio {
     const l = stack[i];
     if (!l || !id) return [];
     const full = this.isFull(id);
-    const canMerge = l.kind === 'pontos' && !!dotsBelow(stack, id);
+    const canMerge = l.kind === 'pontos' && !l.hidden && !!dotsBelow(stack, id);
     return [
       [
         { id: 'renomear', label: 'Renomear', icon: ICON.editar, keys: 'F2', run: () => this.startRename(id) },
@@ -2161,7 +2207,9 @@ export class PixelStudio {
     const dx = (clientX - d.x) / z;
     const dy = (clientY - d.y) / z;
     const r2 = (v: number) => Math.round(v * 100) / 100;
-    const box = d.mode === 'mover' ? { ...d.start, x: r2(d.start.x + dx), y: r2(d.start.y + dy) } : resizeBox(d.start, d.mode, dx, dy, 'proporcao', { min: 0.5, round: r2, sizeRound: r2 });
+    const raw = d.mode === 'mover' ? { ...d.start, x: r2(d.start.x + dx), y: r2(d.start.y + dy) } : resizeBox(d.start, d.mode, dx, dy, 'proporcao', { min: 0.5, round: r2, sizeRound: r2 });
+    if (raw.w > REF_REACH || raw.h > REF_REACH) return;
+    const box = { ...raw, x: Math.max(-REF_REACH, Math.min(REF_REACH, raw.x)), y: Math.max(-REF_REACH, Math.min(REF_REACH, raw.y)) };
     this.layers.set(this.stackNow().map((l) => (l.id === d.id && l.kind === 'ref' ? { ...l, ref: { ...l.ref, ...box } } : l)));
     this.emit();
   }

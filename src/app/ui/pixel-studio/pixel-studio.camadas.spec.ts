@@ -127,6 +127,23 @@ describe('pixel art: as camadas do ateliê', () => {
     expect(stack?.[0].rows).toBe('11');
   });
 
+  it('juntar uma escondida não junta (os pontos dela apareceriam), e a barra de estado diz por quê', async () => {
+    await make({ width: '2', height: '1', pixels: '1' }, { stack: [{ id: 'a', name: 'Fundo', rows: '1' }, { id: 'b', name: 'Rascunho', hidden: true, rows: '02' }] });
+    studio()['mergeLayerDown']('b');
+    fixture.detectChanges();
+    expect(stack?.length).toBe(2);
+    expect(host.querySelector('.estado-dica')?.textContent).toContain('escondida');
+  });
+
+  it('Alt+↑ e Alt+↓ numa fileira mudam a camada de lugar', async () => {
+    await make({ width: '1', height: '1', pixels: '2' }, { stack: [{ id: 'a', name: 'A', rows: '1' }, { id: 'b', name: 'B', rows: '2' }] });
+    const rowA = host.querySelector('[data-camada="a"] .camada-escolher') as HTMLElement;
+    rowA.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', altKey: true, bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+    expect(rows()).toEqual(['A', 'B']);
+    expect(values['pixels']).toBe('1');
+  });
+
   it('dois cliques renomeiam ali mesmo: Enter grava, Esc volta ao nome de antes', async () => {
     await make({ width: '1', height: '1', pixels: '1' });
     const name = host.querySelector('.camada-escolher') as HTMLButtonElement;
@@ -426,6 +443,24 @@ describe('pixel art: as referências do ateliê', () => {
     mesa().dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, pointerId: 1, pointerType: 'mouse', button: 0, clientX: r.left + 0.5 * zoom(), clientY: r.top + 0.5 * zoom() }));
     fixture.detectChanges();
     expect(values['pixels']).toBe('1');
+  });
+
+  it('com ela escolhida: Esc a solta (o ateliê fica aberto), Delete a apaga com o Desfazer; ela não passa do alcance que a obra guarda', async () => {
+    await make({ width: '4', height: '4' }, [{ id: 'r', name: 'Foto', ref: { src: 'murall://imagem/' + ID, x: 0, y: 0, w: 4, h: 4, opacity: 0.5 } }, { id: 'c1', name: 'Camada 1', rows: '1' }]);
+    st()['selectLayer']('r');
+    fixture.detectChanges();
+    drag(host.querySelector('.alca[data-alca="se"]')!, 400, 400);
+    expect(ref()?.w ?? 0).toBeLessThanOrEqual(256);
+    board().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+    expect((host.querySelector('dialog.atelie') as HTMLDialogElement).open).toBeTrue();
+    expect(host.querySelector('.opacidade')).toBeNull();
+    st()['selectLayer']('r');
+    board().dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+    expect(ref()).toBeUndefined();
+    st()['undo']();
+    expect(ref()).toBeDefined();
   });
 
   it('a tela que cresce leva a referência junto, presa na âncora', async () => {

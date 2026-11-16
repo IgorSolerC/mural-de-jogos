@@ -77,3 +77,10 @@
     transition: none;
   }
 }
+
+/* telas baixas: o quadrado mais deitado, para as camadas aparecerem sem rolar a tira */
+@media (max-height: 960px) {
+  .sv {
+    aspect-ratio: 16 / 7;
+  }
+}

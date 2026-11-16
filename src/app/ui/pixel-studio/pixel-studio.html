@@ -24,7 +24,7 @@
         @if (refLayer(); as r) {
           <div class="grupo" role="group" [attr.aria-labelledby]="ids + '-opac'">
             <span class="grupo-nome" [id]="ids + '-opac'">Opacidade</span>
-            <input class="opacidade" type="range" min="10" max="100" step="5" [value]="r.ref.opacity * 100" [attr.aria-valuetext]="round(r.ref.opacity * 100) + '%'" (input)="setRefOpacity(+$any($event.target).value)" (change)="setRefOpacity(+$any($event.target).value, true)" />
+            <input class="opacidade" type="range" aria-label="Opacidade da referência" min="10" max="100" step="5" [value]="r.ref.opacity * 100" [attr.aria-valuetext]="round(r.ref.opacity * 100) + '%'" (input)="setRefOpacity(+$any($event.target).value)" (change)="setRefOpacity(+$any($event.target).value, true)" />
             <output class="pincel-n opacidade-n">{{ round(r.ref.opacity * 100) }}%</output>
           </div>
           <button type="button" class="papel pequeno" title="A imagem inteira no papel, no meio" (click)="fitRefToCanvas()">Caber no papel</button>
@@ -220,6 +220,7 @@
       class="mesa"
       [class.arrastando]="active() === 'mao'"
       [class.movendo]="active() === 'mover' || !!refLayer()"
+      [class.nao-pinta]="cantPaint()"
       aria-label="Mesa de desenho"
       (pointerdown)="down($event)"
       (pointermove)="move($event)"
@@ -324,7 +325,7 @@
       @if (layered()) {
         <div class="folha-orelhas plates" role="group" aria-label="Mostrar">
           <button type="button" class="plate" [attr.aria-pressed]="sheetTab() === 'cores'" (click)="sheetTab.set('cores')">Cores</button>
-          <button type="button" class="plate" [attr.aria-pressed]="sheetTab() === 'camadas'" (click)="sheetTab.set('camadas')">Camadas <span class="count">{{ dotsTotal() }}</span></button>
+          <button type="button" class="plate" [attr.aria-pressed]="sheetTab() === 'camadas'" (click)="sheetTab.set('camadas')">Camadas <span class="count">{{ layerRows().length }}</span></button>
         </div>
       }
       <div class="previa" aria-hidden="true">
@@ -342,7 +343,7 @@
             <span class="paleta-nome">{{ paletteLabel() }}</span>
             <lucide-icon class="paleta-seta" [img]="I.abrir" [size]="16" aria-hidden="true" />
           </button>
-          <button type="button" class="tecla" title="Mais: ordenar, tirar a cor, trazer de uma imagem" aria-label="Mais sobre as cores" aria-haspopup="menu" (click)="openColorsMenu($event)">
+          <button type="button" class="tecla" title="Mais: trocar a paleta, ordenar, tirar as sem uso, tirar a cor" aria-label="Mais sobre as cores" aria-haspopup="menu" (click)="openColorsMenu($event)">
             <lucide-icon [img]="I.maisOpcoes" [size]="18" aria-hidden="true" />
           </button>
           <!-- no celular: a folha cobre a fita das ferramentas (e o botão que a abriu), então fecha aqui -->
@@ -423,7 +424,7 @@
       @if (layered()) {
         <section class="camadas parte-camadas" [attr.aria-labelledby]="ids + '-camadas'">
           <div class="cores-topo">
-            <h3 class="painel-nome" [id]="ids + '-camadas'">Camadas <span class="painel-n">{{ dotsTotal() }}</span></h3>
+            <h3 class="painel-nome" [id]="ids + '-camadas'">Camadas <span class="painel-n">{{ layerRows().length }}</span></h3>
             <span class="paleta-linha">
               <button type="button" class="tecla" [title]="dotsTotal() >= LAYERS_MAX ? 'Cabem ' + LAYERS_MAX + ' camadas' : 'Camada nova (Shift N)'" aria-label="Camada nova" [disabled]="dotsTotal() >= LAYERS_MAX" (click)="addLayer()">
                 <lucide-icon [img]="I.novaCamada" [size]="18" aria-hidden="true" />
@@ -470,7 +471,7 @@
                   </span>
                   <input class="camada-nome-campo" type="text" autocomplete="off" spellcheck="false" maxlength="40" [value]="l.name" [attr.aria-label]="'Nome da ' + l.name" (keydown)="renameKey($event, l.id)" (blur)="finishRename(l.id, $any($event.target).value)" />
                 } @else {
-                  <button type="button" class="camada-escolher" [attr.aria-current]="on ? 'true' : null" [attr.aria-label]="l.name + (l.kind === 'ref' ? ', referência' : '') + (l.hidden ? ', escondida' : '') + (on ? ', escolhida' : '')" [title]="on ? 'Dois cliques ou F2: renomear' : l.kind === 'ref' ? 'Mover e mudar o tamanho da referência' : 'Pintar nesta camada'" (click)="selectLayer(l.id)" (dblclick)="startRename(l.id)">
+                  <button type="button" class="camada-escolher" [attr.aria-current]="on ? 'true' : null" [attr.aria-label]="l.name + (l.kind === 'ref' ? ', referência' : '') + (l.hidden ? ', escondida' : '') + (on ? ', escolhida' : '')" [title]="on ? 'Dois cliques ou F2: renomear' : l.kind === 'ref' ? 'Mover e mudar o tamanho da referência' : 'Pintar nesta camada'" (click)="selectLayer(l.id)" (dblclick)="startRename(l.id)" (keydown)="layerKey($event, l.id)">
                     <span class="camada-miniatura" aria-hidden="true">
                       @if (r.art; as a) {
                         <app-pixel-thumb [art]="a" />
@@ -526,7 +527,7 @@
       }
       <button type="button" class="estado-item tela" title="Tamanho da tela (C)" (click)="openSize()">{{ iw }} × {{ ih }}</button>
       <span class="estado-item">{{ zoomLabel(z) }}</span>
-      <span class="estado-dica">{{ hint() }}</span>
+      <span class="estado-dica" [class.aviso]="!!notice()">{{ notice() ?? hint() }}</span>
     </footer>
   </div>
 

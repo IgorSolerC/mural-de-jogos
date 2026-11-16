@@ -93,12 +93,16 @@
   line-height: 1;
 }
 
+/* as opções da ferramenta encolhem e rolam de lado; o resto da barra (o zoom, desfazer, Imagem e Pronto) fica parado */
 .opcoes {
   display: flex;
   align-items: center;
   gap: 22px;
-  flex: 1;
-  min-width: max-content;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 4px 2px;
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
 
 .vista-botoes {
