@@ -90,6 +90,18 @@ describe('a galeria de pixel arts (o armazém)', () => {
     expect(gallery.update(p.id, { title: 'Gato' })).toBeNull();
   });
 
+  it('as camadas mudadas voltam com o desenho no Desfazer', () => {
+    const p = gallery.create({ art: ['2x1', '12'], title: 'Par' })!;
+    const undo = gallery.update(p.id, { layers: [{ id: 'a', name: 'Fundo', rows: '1' }, { id: 'b', name: 'Cima', rows: '02' }] })!;
+    expect(gallery.get(p.id)!.layers?.length).toBe(2);
+    expect(gallery.get(p.id)!.art).toEqual(['2x1', '12']);
+    gallery.update(p.id, { art: ['2x1', '12', 'figurinha'] });
+    expect(gallery.get(p.id)!.layers?.length).toBe(2);
+    undo();
+    expect(gallery.get(p.id)!.layers).toBeUndefined();
+    expect(gallery.get(p.id)!.art).toEqual(['2x1', '12', 'figurinha']);
+  });
+
   it('apagar deixa a lápide, e o Desfazer traz de volta', () => {
     const p = gallery.create({ art: ['1x1', '1'], title: 'Ponto' })!;
     const gone = gallery.remove([p.id]);

@@ -868,7 +868,7 @@ export class PixelArtsPage {
   protected duplicate(id: string): void {
     const p = this.gallery.get(id);
     if (!p) return;
-    const made = this.gallery.create({ art: p.art, title: p.title ? `${p.title} (cópia)` : '', tags: p.tags ?? [], note: p.note ?? '', folder: p.folder });
+    const made = this.gallery.create({ art: p.art, title: p.title ? `${p.title} (cópia)` : '', tags: p.tags ?? [], note: p.note ?? '', folder: p.folder, ...(p.layers ? { layers: p.layers } : {}) });
     if (!made) {
       this.toasts.show('A galeria está cheia: apague uma pixel art para guardar outra.');
       return;

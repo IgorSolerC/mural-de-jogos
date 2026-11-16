@@ -92,7 +92,7 @@ export class PixelGallery {
     }
     if (!changed.length) return null;
     this.put(changed.map((c) => c.after));
-    const keys = ['title', 'art', 'tags', 'folder', 'note'] as const;
+    const keys = ['title', 'art', 'tags', 'folder', 'note', 'layers'] as const;
     const stamped = new Map(changed.map((c) => [c.before.id, this.get(c.before.id)!]));
     return () => {
       const back: PixelPiece[] = [];

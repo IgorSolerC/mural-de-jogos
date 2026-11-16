@@ -1,6 +1,7 @@
 import { PASTA_ID_RE } from '../../../contrato/api-v1/notas';
 import { sanitizeTags } from './note-labels';
-import { PixelArt, hasInk, readPixelArt, writePixelArt } from './pixel-art';
+import { PixelArt, gridOf, hasInk, readPixelArt, writePixelArt } from './pixel-art';
+import { StoredLayer, flattenStored, plainStack, sanitizeLayers } from './pixel-layers';
 import { WISH_NOTE_MAX, WISH_TAGS_MAX, cleanWishNote } from './review';
 import { WidgetValues, parseWidgetLine, widgetDef, widgetLine } from './widgets';
 
@@ -43,6 +44,11 @@ export interface PixelPiece {
   folder?: string;
   /** A descrição: o texto das anotações (Markdown), até `PIXEL_NOTE_MAX` letras; sem o campo, nenhuma. */
   note?: string;
+  /**
+   * As camadas de onde o desenho saiu (core/pixel-layers.ts), de baixo para cima: o `art` é sempre o achatado delas.
+   * Sem o campo, a obra tem uma camada só (o próprio `art`).
+   */
+  layers?: StoredLayer[];
   createdAt: string;
   /** A última mudança (a junção fica com a mais nova). */
   at: string;
@@ -57,8 +63,11 @@ export interface PixelGalleryState {
 
 export const EMPTY_PIXEL_GALLERY: PixelGalleryState = { pieces: [], removed: {} };
 
-/** O que o editar muda numa obra; o resto (id, datas) fica. */
-export type PixelPatch = Partial<Pick<PixelPiece, 'title' | 'art' | 'tags' | 'folder' | 'note'>>;
+/**
+ * O que o editar muda numa obra; o resto (id, datas) fica. Com `layers` (mesmo `undefined`: volta a uma camada só),
+ * as camadas mandam e o desenho do `art` sai delas; sem a chave, as de antes ficam se ainda dão o mesmo desenho.
+ */
+export type PixelPatch = Partial<Pick<PixelPiece, 'title' | 'art' | 'tags' | 'folder' | 'note' | 'layers'>>;
 
 const ID_RE = /^[\w-]{1,64}$/;
 
@@ -84,9 +93,20 @@ export function cleanArt(raw: unknown): string[] | null {
  */
 export function withPixelPatch(p: PixelPiece, patch: PixelPatch): PixelPiece | null {
   const next = { ...p, ...patch };
-  const art = patch.art ? cleanArt(patch.art) : next.art;
+  let art = patch.art ? cleanArt(patch.art) : next.art;
   if (!art) return null;
-  const { tags, folder, note, ...rest } = next;
+  let layers: StoredLayer[] | undefined;
+  if ('layers' in patch) {
+    // as camadas mandam: o desenho do art é o achatado delas (com a grade, a paleta e o jeito do art)
+    const drawn = readPixelArt(art);
+    layers = (patch.layers && sanitizeLayers(patch.layers, drawn.w, drawn.h)) || undefined;
+    if (layers) art = cleanArt(writePixelArt({ ...drawn, rows: flattenStored(layers, drawn.w, drawn.h), caption: '' }));
+    if (!art) return null;
+    // (a camada única de sempre deu o desenho e sai: a obra fica igual à de antes das camadas)
+    if (layers && plainStack(layers)) layers = undefined;
+    // (sem desenho novo, as de antes continuam batendo: só o desenho mudado pede a conferência)
+  } else layers = p.layers && (patch.art ? agreeingLayers(p.layers, art) : p.layers);
+  const { tags, folder, note, layers: _layers, ...rest } = next;
   const cleanTags = sanitizeTags(tags ?? [], PIXEL_TAGS_MAX);
   const cleanNote = cleanWishNote(note);
   return {
@@ -96,7 +116,22 @@ export function withPixelPatch(p: PixelPiece, patch: PixelPatch): PixelPiece | n
     ...(cleanTags.length ? { tags: cleanTags } : {}),
     ...(typeof folder === 'string' && PASTA_ID_RE.test(folder) ? { folder } : {}),
     ...(cleanNote ? { note: cleanNote } : {}),
+    ...(layers ? { layers } : {}),
   };
+}
+
+/**
+ * As camadas, na grade do desenho, se o achatado delas é o desenho; senão nada (o desenho manda, e a obra volta a
+ * ter uma camada só). Assim o `art` e as camadas nunca discordam: mudar o desenho por fora delas (o Jeito da ficha
+ * não muda os pontos; um aparelho antigo mudaria) não deixa camadas velhas penduradas.
+ */
+function agreeingLayers(raw: unknown, art: readonly string[]): StoredLayer[] | undefined {
+  const drawn = readPixelArt(art);
+  const layers = sanitizeLayers(raw, drawn.w, drawn.h);
+  if (!layers || plainStack(layers)) return undefined;
+  const flat = flattenStored(layers, drawn.w, drawn.h);
+  const rows = gridOf(drawn.rows.join('/'), drawn.w, drawn.h);
+  return flat.every((r, i) => r === rows[i]) ? layers : undefined;
 }
 
 /** O título como a pessoa escreveu (sem trocar a caixa), sem espaço sobrando, no máximo `PIXEL_TITLE_MAX` letras. */
@@ -112,8 +147,10 @@ export function sanitizePixelPiece(raw: unknown): PixelPiece | null {
   const art = cleanArt(r['art']);
   if (!id || !art || !isStamp(r['at'])) return null;
   const createdAt = isStamp(r['createdAt']) ? r['createdAt'] : r['at'];
+  // (as camadas guardadas só ficam se dão o desenho guardado: a obra nunca some por causa delas)
+  const layers = r['layers'] === undefined ? undefined : agreeingLayers(r['layers'], art);
   return withPixelPatch(
-    { id, title: '', art, createdAt, at: r['at'] },
+    { id, title: '', art, createdAt, at: r['at'], ...(layers ? { layers } : {}) },
     { title: typeof r['title'] === 'string' ? r['title'] : '', tags: r['tags'] as string[], folder: r['folder'] as string, note: r['note'] as string },
   );
 }
