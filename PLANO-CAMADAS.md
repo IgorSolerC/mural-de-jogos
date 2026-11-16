@@ -196,5 +196,5 @@ celular, commit no nome do dono e push.
 - [x] Rodada 4: o mapa de cor e tirar as cores sem uso (BUILD 912, Novidades 1.47.1)
 - [x] Rodada 5: as referências (BUILD 913, item no 1.47.0)
 - [x] Rodada 6: trazer uma imagem pergunta (BUILD 914, Novidades 1.47.1)
-- [ ] Rodada 7: baixar no tamanho original
+- [x] Rodada 7: baixar no tamanho original (BUILD 915, Novidades 1.47.1)
 - [ ] Rodada 8: crítica, `/code-review high`, DESIGN.md

@@ -135,7 +135,7 @@ describe('marcar várias pixel arts', () => {
     const page = fixture.componentInstance;
     page['menuOn'].set('pa');
     const labels = page['menuSections']().flat().map((i: { label: string }) => i.label);
-    expect(labels).toEqual(['Mover as 2 para pasta…', 'Tags das 2…', 'Baixar as 2', 'Copiar as 2 como widgets', 'Apagar as 2']);
+    expect(labels).toEqual(['Mover as 2 para pasta…', 'Tags das 2…', 'Baixar as 2', 'Baixar as 2 no tamanho original', 'Copiar as 2 como widgets', 'Apagar as 2']);
     page['menuSections']().flat().find((i: { label: string }) => i.label === 'Apagar as 2')!.run();
     await settle();
     expect(gallery.pieces().map((p) => p.id)).toEqual(['pc']);

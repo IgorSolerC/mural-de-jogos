@@ -11,7 +11,7 @@ import { FolderPath } from '../ui/folder-path';
 import { WallDrag, WallDragItem, WallDrop } from './wall-drag';
 import { collage, shelfColumns } from '../core/clipping';
 import { PixelLook } from '../core/pixel-art';
-import { FoundPixelArt, PIXEL_TAG_SPACE, PixelPiece, artValues, pieceTitle, pieceWidgetLine, pixelArtsInNotes, valuesArt } from '../core/pixel-gallery';
+import { FoundPixelArt, PIXEL_TAG_SPACE, PixelPiece, artValues, pieceTitle, pieceWidgetLine, pixelArtOf, pixelArtsInNotes, valuesArt } from '../core/pixel-gallery';
 import { StoredLayer } from '../core/pixel-layers';
 import { ReviewStore } from '../core/review-store';
 import { plainText } from '../core/rich-text';
@@ -296,13 +296,13 @@ export class PixelArtsPage {
     });
   }
 
-  /** Um PNG de cada marcada, com nomes que não se repetem. */
-  private async downloadMany(list: readonly PixelPiece[]): Promise<void> {
+  /** Um PNG de cada marcada (grande, ou no tamanho original), com nomes que não se repetem. */
+  private async downloadMany(list: readonly PixelPiece[], original = false): Promise<void> {
     const taken = new Set<string>();
     for (const p of list) {
-      const blob = await pieceToPng(p);
+      const blob = await pieceToPng(p, original);
       if (!blob) continue;
-      const name = pngName(p, taken);
+      const name = pngName(p, taken, original ? pixelArtOf(p) : undefined);
       taken.add(name);
       downloadBlob(blob, name);
     }
@@ -339,7 +339,11 @@ export class PixelArtsPage {
       const as = (id: string, label: string, icon: MenuItem['icon'], dialog = false): MenuItem => ({ id, label, icon, dialog, run: tray.get(id)!.run });
       return [
         [as('mover', `Mover as ${n} para pasta…`, ICON.guardarNaPasta, true), as('tags', `Tags das ${n}…`, ICON.etiquetas, true)],
-        [as('baixar', `Baixar as ${n}`, ICON.baixar), as('copiar', `Copiar as ${n} como widgets`, ICON.copiar)],
+        [
+          as('baixar', `Baixar as ${n}`, ICON.baixar),
+          { id: 'baixar-original', label: `Baixar as ${n} no tamanho original`, hint: 'Um pixel por ponto', icon: ICON.baixar, run: () => void this.downloadMany(this.marked(), true) },
+          as('copiar', `Copiar as ${n} como widgets`, ICON.copiar),
+        ],
         [{ ...as('apagar', `Apagar as ${n}`, ICON.apagar), danger: true }],
       ];
     }
@@ -349,7 +353,8 @@ export class PixelArtsPage {
         { id: 'atelie', label: 'Abrir no ateliê', icon: ICON.paleta, dialog: true, run: () => this.atelie(p.id) },
       ],
       [
-        { id: 'baixar', label: 'Baixar PNG', icon: ICON.baixar, run: () => void this.download(p.id) },
+        { id: 'baixar', label: 'Baixar PNG', hint: 'Grande, cada ponto um quadrado nítido', icon: ICON.baixar, run: () => void this.download(p.id) },
+        { id: 'baixar-original', label: `Baixar no tamanho original (${pixelArtOf(p).w} × ${pixelArtOf(p).h})`, hint: 'Um pixel por ponto, para abrir num editor de pixel art', icon: ICON.baixar, run: () => void this.download(p.id, true) },
         { id: 'widget', label: 'Copiar como widget', icon: ICON.copiar, hint: 'Para colar numa anotação', run: () => void this.copyWidget(p.id) },
         { id: 'duplicar', label: 'Duplicar', icon: ICON.camadas, run: () => this.duplicate(p.id) },
       ],
@@ -633,16 +638,16 @@ export class PixelArtsPage {
     this.follow(s.id, 'app-pixel-actions .atelie');
   }
 
-  /** O Baixar: o PNG nítido da obra. */
-  protected async download(id: string): Promise<void> {
+  /** O Baixar: o PNG nítido da obra (grande, ou no tamanho original: um pixel por ponto). */
+  protected async download(id: string, original = false): Promise<void> {
     const p = this.gallery.get(id);
     if (!p) return;
-    const blob = await pieceToPng(p);
+    const blob = await pieceToPng(p, original);
     if (!blob) {
       this.toasts.show('Não consegui montar a imagem agora. Tente de novo.');
       return;
     }
-    downloadBlob(blob, pngName(p));
+    downloadBlob(blob, pngName(p, new Set(), original ? pixelArtOf(p) : undefined));
   }
 
   // ===== As pastas: entrar, arrastar, dar nome, os menus, mover sem arrastar =====

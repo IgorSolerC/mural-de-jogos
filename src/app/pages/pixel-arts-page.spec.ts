@@ -205,7 +205,7 @@ describe('a galeria de pixel arts', () => {
   it('o botão direito numa obra: editar, o ateliê, o PNG, copiar como widget, duplicar e, sozinho no fim, apagar', async () => {
     await mount();
     await rightClick(host.querySelector('[data-ficha="pa"] .hit')!);
-    expect(labels()).toEqual(['Editar', 'Abrir no ateliê', 'Baixar PNG', 'Copiar como widget', 'Duplicar', 'Mover para pasta…', 'Apagar']);
+    expect(labels()).toEqual(['Editar', 'Abrir no ateliê', 'Baixar PNG', 'Baixar no tamanho original (2 × 2)', 'Copiar como widget', 'Duplicar', 'Mover para pasta…', 'Apagar']);
     option('Duplicar').click();
     await settle();
     const copy = gallery.pieces().find((p) => p.title === 'Gato (cópia)')!;
