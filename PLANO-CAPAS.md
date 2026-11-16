@@ -90,3 +90,9 @@ que já tem. O glued-media e a carta dos Flashcards passam a usar a mesma funç�
   Ajustes › Imagens contando a capa. O `/code-review mid` achou seis: corrigidos o colar seguido (vale a última) e
   o tracejado que ficava aceso; ficou como está a capa guardada que não chegou ficar "sem capa" até recarregar
   (precisa estar fora do aparelho e da nuvem, como o link quebrado).
+- 16/nov/2026, rodada 2 (pixel art da galeria), BUILD 904: `core/pixel-cover.ts` (o PNG 720 × 900 no papel
+  milimetrado, a linha grossa na borda do ponto quando ele é dividido, a metade se passar de 200 KB),
+  `ImageStore.addPng`, a tira Suas pixel arts no seletor (a busca de `pieceMatches`, a ordem de `sortPieces`), o
+  crédito "Pixel art" também ao abrir de novo (o PNG guardado). O `/code-review mid` achou três: o
+  `aria-haspopup` de uma tira que não é menu e um comentário, corrigidos; a galeria vazia sem saída fica para a
+  rodada 3 (Desenhar uma nova).

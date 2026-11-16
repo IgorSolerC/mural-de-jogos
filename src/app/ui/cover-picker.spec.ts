@@ -7,12 +7,13 @@ import { localImageId } from '../core/images';
 import { samplePng } from '../core/images.spec';
 import { PickedGame } from '../core/review';
 import { CoverPicker } from './cover-picker';
+import { PIXEL_GALLERY_KEY } from '../core/pixel-gallery-store';
 
 /** Um item sem catálogo: o seletor não sai procurando capas na rede. */
 const GAME: PickedGame = { name: 'Meu jogo', coverUrl: null, source: 'manual' };
 
-async function settle(fixture: ComponentFixture<unknown>, ok: () => boolean): Promise<void> {
-  for (let i = 0; i < 300 && !ok(); i++) {
+async function settle(fixture: ComponentFixture<unknown>, ok: () => boolean, max = 300): Promise<void> {
+  for (let i = 0; i < max && !ok(); i++) {
     await new Promise((r) => setTimeout(r, 10));
     fixture.detectChanges();
     await fixture.whenStable();
@@ -132,5 +133,94 @@ describe('a capa do aparelho no seletor de capa', () => {
     await settle(fixture, () => !!el.querySelector('.aviso'));
     expect(el.querySelector('.aviso')?.textContent).toContain('não abre aqui');
     expect(changed.length).toBe(0);
+  });
+});
+
+describe('a pixel art da galeria como capa', () => {
+  const at = '2026-11-16T10:00:00.000Z';
+  const pieces = [
+    { id: 'gato', title: 'Gato preto', art: ['2x2', '12/21'], createdAt: at, at, tags: ['bichos'] },
+    { id: 'sol', title: 'Sol', art: ['3x3', '010/111/010'], createdAt: at, at: '2026-11-16T11:00:00.000Z' },
+  ];
+  let timeout: number;
+  beforeEach(() => {
+    timeout = jasmine.DEFAULT_TIMEOUT_INTERVAL;
+    jasmine.DEFAULT_TIMEOUT_INTERVAL = 20_000;
+    return deleteDatabase(IMAGES_DB);
+  });
+  afterEach(() => {
+    jasmine.DEFAULT_TIMEOUT_INTERVAL = timeout;
+    localStorage.removeItem(PIXEL_GALLERY_KEY);
+  });
+  afterAll(() => deleteDatabase(IMAGES_DB));
+
+  async function make(list: unknown[], game: PickedGame = GAME) {
+    localStorage.setItem(PIXEL_GALLERY_KEY, JSON.stringify({ pieces: list, removed: {} }));
+    TestBed.configureTestingModule({
+      imports: [CoverPicker],
+      providers: [provideZonelessChangeDetection(), { provide: Cloud, useValue: { ready: Promise.resolve(), config: () => null } }],
+    });
+    const fixture = TestBed.createComponent(CoverPicker);
+    fixture.componentRef.setInput('game', game);
+    fixture.componentRef.setInput('kind', 'jogos');
+    const changed: PickedGame[] = [];
+    fixture.componentInstance.changed.subscribe((g) => changed.push(g));
+    await fixture.whenStable();
+    return { fixture, el: fixture.nativeElement as HTMLElement, changed };
+  }
+
+  it('o Pixel art abre a tira com todas (a mexida por último primeiro), a busca acha pelo nome e pela tag', async () => {
+    const { fixture, el } = await make(pieces);
+    el.querySelector<HTMLButtonElement>('.pixel-btn')!.click();
+    await fixture.whenStable();
+    const names = () => Array.from(el.querySelectorAll('.obra-nome'), (n) => n.textContent);
+    expect(names()).toEqual(['Sol', 'Gato preto']);
+    const search = el.querySelector<HTMLInputElement>('.galeria input[type="search"]')!;
+    search.value = 'bich';
+    search.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    expect(names()).toEqual(['Gato preto']);
+    search.value = 'dragão';
+    search.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    expect(names()).toEqual([]);
+    expect(el.querySelector('.galeria .dica-capa')?.textContent).toContain('dragão');
+  });
+
+  it('tocar numa obra a imprime em PNG e ela vira a capa, com o crédito "Pixel art"; a tira fecha', async () => {
+    const { fixture, el, changed } = await make(pieces);
+    el.querySelector<HTMLButtonElement>('.pixel-btn')!.click();
+    await fixture.whenStable();
+    el.querySelector<HTMLButtonElement>('.obra')!.click();
+    await settle(fixture, () => changed.length > 0);
+    const id = localImageId(changed[0].coverUrl ?? '');
+    const stored = await TestBed.inject(ImageStore).get(id!);
+    expect(stored?.tipo).toBe('image/png');
+    expect([stored?.largura, stored?.altura]).toEqual([720, 900]);
+    await settle(fixture, () => !el.querySelector('.galeria'));
+    expect(el.querySelector('.galeria')).toBeNull();
+    expect(el.querySelector('.capa.on .de')?.textContent).toBe('Pixel art');
+  });
+
+  it('a capa de pixel art que já estava diz "Pixel art" ao abrir de novo; a foto do aparelho, "Do aparelho"', async () => {
+    const store = (await make([])).fixture.debugElement.injector.get(ImageStore);
+    const png = await store.addPng(await samplePng(72, 90), 72, 90);
+    const photo = await store.add(await samplePng(300, 300));
+    TestBed.resetTestingModule();
+    const pixel = await make([], { ...GAME, coverUrl: `murall://imagem/${png.id}` });
+    await settle(pixel.fixture, () => pixel.el.querySelector('.capa.on .de')?.textContent === 'Pixel art');
+    expect(pixel.el.querySelector('.capa.on .de')?.textContent).toBe('Pixel art');
+    TestBed.resetTestingModule();
+    const own = await make([], { ...GAME, coverUrl: `murall://imagem/${photo.id}` });
+    await settle(own.fixture, () => false, 20);
+    expect(own.el.querySelector('.capa.on .de')?.textContent).toBe('Do aparelho');
+  });
+
+  it('com a galeria vazia, a tira diz isso', async () => {
+    const { fixture, el } = await make([]);
+    el.querySelector<HTMLButtonElement>('.pixel-btn')!.click();
+    await fixture.whenStable();
+    expect(el.querySelector('.galeria input')).toBeNull();
+    expect(el.querySelector('.galeria .dica-capa')?.textContent).toContain('ainda está vazia');
   });
 });

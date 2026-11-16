@@ -27,13 +27,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-16-capa-do-aparelho',
+    id: '2026-11-16-capa-pixel-art',
     version: '1.46.1',
     kind: 'ajustes',
     date: '2026-11-16',
     title: 'Capas sem link',
     melhorias: [
       'A capa das fichas, das anotações, dos recortes da Wishlist e do Pra depois pode vir do aparelho: o Escolher do aparelho na parte Capa, colar uma imagem copiada (Ctrl+V) ou soltar o arquivo em cima das capas. Ela é guardada como as imagens das anotações, também nos seus outros aparelhos e para quem vê a ficha pública.',
+      'Uma pixel art da sua galeria também vira capa: o Pixel art na parte Capa abre todas, com a busca pelo nome e pela tag, e a escolhida sai impressa no papel milimetrado, nítida, sem borrar.',
     ],
   },
   {

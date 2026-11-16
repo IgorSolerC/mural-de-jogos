@@ -14,14 +14,22 @@ import {
 } from '@angular/core';
 import { ICON, IconModule } from './icons';
 import { CoverChoice, GameLookup, LookupError, STORED_COVER, coverFrom, imageLoads } from '../core/game-lookup';
-import { ImageStore } from '../core/image-store';
-import { ImageProblem, imageFileOf, localImageUrl } from '../core/images';
+import { ImageStore, StoredImage } from '../core/image-store';
+import { ImageProblem, imageFileOf, localImageId, localImageUrl } from '../core/images';
+import { pixelCoverPng } from '../core/pixel-cover';
+import { PixelPiece, pieceTitle, pixelArtOf } from '../core/pixel-gallery';
+import { PixelGallery } from '../core/pixel-gallery-store';
+import { NO_PIXEL_FILTER, pieceMatches, sortPieces } from '../core/pixel-gallery-view';
+import { PixelThumb } from './pixel-thumb';
 import { Kind, PickedGame, initialOf } from '../core/review';
 import { Settings } from '../core/settings';
 import { plural } from '../core/text';
 import { MuralSrc } from './stored-image';
 
 const SOURCE_ARTICLE: Record<string, string> = { TMDB: 'no', Kitsu: 'no', AniList: 'no' };
+
+/** O crédito da capa que é uma pixel art da galeria. */
+const PIXEL_COVER = 'Pixel art';
 
 /** "na Wikipedia e na RAWG", "no Kitsu e no AniList". */
 function joinSources(list: string[]): string {
@@ -33,12 +41,13 @@ function joinSources(list: string[]): string {
  * A escolha da capa: as fotos que o catálogo tem do mesmo título, soltas na mesa, e a escolhida sai
  * do monte. Também dá para colar o link de uma imagem, trazer uma do aparelho (escolher, colar com
  * Ctrl+V ou soltar em cima das capas: ela é guardada como as imagens das anotações, PLANO-CAPAS.md),
- * ou ficar sem capa. Serve à wishlist, ao Pra depois e à ficha do mural; quem usa recebe o item com a
+ * usar uma pixel art da galeria (impressa no papel milimetrado, core/pixel-cover.ts), ou ficar sem capa.
+ * Serve à wishlist, ao Pra depois e à ficha do mural; quem usa recebe o item com a
  * capa nova em `changed`.
  */
 @Component({
   selector: 'app-cover-picker',
-  imports: [IconModule, MuralSrc],
+  imports: [IconModule, MuralSrc, PixelThumb],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '(dragenter)': 'onDrag($event)',
@@ -144,6 +153,46 @@ function joinSources(list: string[]): string {
         }
       </div>
     }
+
+    @if (picking()) {
+      <!-- as pixel arts da galeria, todas, com a busca: tocar numa vira a capa, impressa no papel milimetrado -->
+      <div class="galeria" role="group" [attr.aria-labelledby]="group() + '-px'" (keydown.escape)="onGalleryEscape($event)">
+        <div class="galeria-topo">
+          <span class="rotulo" [id]="group() + '-px'">Suas pixel arts</span>
+          <button type="button" class="btn-quiet" (click)="closeGallery(true)">Fechar</button>
+        </div>
+        @if (gallery.count()) {
+          <div class="tira-link busca-px">
+            <lucide-icon [img]="SearchIcon" [size]="18" aria-hidden="true" />
+            <input
+              #pixelSearch
+              type="search"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Procurar pelo nome ou pela tag…"
+              [attr.aria-label]="'Procurar nas suas ' + plural(gallery.count(), 'pixel art', 'pixel arts')"
+              [value]="pixelQuery()"
+              (input)="pixelQuery.set($any($event.target).value)"
+            />
+          </div>
+        }
+        <ul class="obras" role="list">
+          @for (p of pixelShown(); track p.id) {
+            <li>
+              <button type="button" class="obra" [disabled]="saving()" (click)="usePiece(p)" [attr.aria-label]="'Usar ' + pieceTitle(p) + ' de capa'">
+                <span class="obra-desenho" aria-hidden="true"><app-pixel-thumb [art]="artOf(p)" /></span>
+                <span class="obra-nome" aria-hidden="true">{{ pieceTitle(p) }}</span>
+              </button>
+            </li>
+          }
+        </ul>
+        @if (!gallery.count()) {
+          <p class="dica-capa">A sua galeria de pixel arts ainda está vazia.</p>
+        } @else if (!pixelShown().length) {
+          <p class="dica-capa">Nenhuma pixel art com “{{ pixelQuery().trim() }}”.</p>
+        }
+      </div>
+    }
     <div class="acoes">
       @if (!pasting()) {
         <button type="button" class="acao-caneta colar-btn" (click)="openPaste()">
@@ -155,6 +204,12 @@ function joinSources(list: string[]): string {
         <lucide-icon [img]="UploadIcon" [size]="16" aria-hidden="true" />
         Escolher do aparelho
       </button>
+      @if (!picking()) {
+        <button type="button" class="acao-caneta pixel-btn" (click)="openGallery()">
+          <lucide-icon [img]="PixelIcon" [size]="16" aria-hidden="true" />
+          Pixel art
+        </button>
+      }
       <input #fileField class="escolher-arquivo" type="file" accept="image/*" tabindex="-1" aria-hidden="true" hidden (change)="fromDevice($event)" />
       <ng-content />
     </div>
@@ -174,6 +229,8 @@ function joinSources(list: string[]): string {
     }
   `,
   styles: `
+    @use 'pixel-studio/xadrez' as x;
+
     :host {
       display: grid;
       gap: 10px;
@@ -380,7 +437,8 @@ function joinSources(list: string[]): string {
     }
 
     .colar-btn,
-    .aparelho-btn {
+    .aparelho-btn,
+    .pixel-btn {
       margin: 2px 0 0 -8px;
       font-size: 0.95rem;
     }
@@ -406,6 +464,92 @@ function joinSources(list: string[]): string {
     .colar {
       display: grid;
       gap: 2px;
+    }
+
+    /* ===== As pixel arts da galeria: a tira que abre no lugar, como a do link ===== */
+    .galeria {
+      display: grid;
+      gap: 8px;
+    }
+
+    .galeria-topo {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+
+      .rotulo {
+        margin: 0;
+      }
+    }
+
+    .busca-px input::-webkit-search-cancel-button {
+      cursor: pointer;
+    }
+
+    /* todas, sem teto: a tira rola */
+    .obras {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+      gap: 12px 14px;
+      max-height: 286px;
+      margin: 0;
+      padding: 6px 6px 4px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      list-style: none;
+      scrollbar-width: thin;
+      scrollbar-color: rgb(21 21 21 / 0.3) transparent;
+    }
+
+    .obra {
+      display: grid;
+      gap: 6px;
+      width: 100%;
+      padding: 0;
+      border: 0;
+      background: none;
+      color: var(--ink);
+      cursor: pointer;
+      text-align: center;
+      transition: translate var(--t-ui) var(--ease-ui);
+
+      &:hover:not(:disabled) {
+        translate: 0 -2px;
+      }
+
+      &:focus-visible {
+        outline: 2px dashed var(--ink);
+        outline-offset: 6px;
+        border-radius: 2px;
+      }
+
+      &:disabled {
+        cursor: progress;
+        opacity: 0.6;
+      }
+    }
+
+    /* o desenho no xadrez do transparente, quadrado como um ponto da folha */
+    .obra-desenho {
+      display: grid;
+      aspect-ratio: 1;
+      padding: 8px;
+      box-sizing: border-box;
+      @include x.xadrez(8px);
+      box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+    }
+
+    .obra-nome {
+      display: -webkit-box;
+      overflow: hidden;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      font-family: var(--f-ui);
+      font-weight: 600;
+      font-size: 0.8rem;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
     }
 
     .colar-linha {
@@ -503,11 +647,18 @@ export class CoverPicker {
 
   protected readonly LinkIcon = ICON.link;
   protected readonly UploadIcon = ICON.enviar;
+  protected readonly PixelIcon = ICON.pixelArt;
+  protected readonly SearchIcon = ICON.buscar;
+  protected readonly pieceTitle = pieceTitle;
+  protected readonly artOf = pixelArtOf;
+  protected readonly plural = plural;
   protected readonly initialOf = initialOf;
 
   private readonly pasteField = viewChild<ElementRef<HTMLInputElement>>('pasteField');
   private readonly fileField = viewChild<ElementRef<HTMLInputElement>>('fileField');
   private readonly images = inject(ImageStore);
+  protected readonly gallery = inject(PixelGallery);
+  private readonly pixelSearch = viewChild<ElementRef<HTMLInputElement>>('pixelSearch');
 
   /** As capas que dá para escolher; a primeira é a que veio com o item. */
   private readonly choices = signal<CoverChoice[]>([]);
@@ -537,6 +688,15 @@ export class CoverPicker {
   /** Uma imagem do aparelho sendo encolhida e guardada. */
   protected readonly saving = signal(false);
   protected readonly imageError = signal<string | null>(null);
+  /** A tira das pixel arts da galeria, aberta. */
+  protected readonly picking = signal(false);
+  protected readonly pixelQuery = signal('');
+  /** As obras da galeria, as mexidas por último primeiro; a busca acha no nome e nas tags. */
+  protected readonly pixelShown = computed(() => {
+    const query = this.pixelQuery();
+    const list = sortPieces(this.gallery.pieces(), { ordem: 'mudada', direcao: 'desc' });
+    return query.trim() ? list.filter((p) => pieceMatches(p, { ...NO_PIXEL_FILTER, query })) : list;
+  });
   /** Um arquivo arrastado por cima das capas. */
   protected readonly dropping = signal(false);
   /**
@@ -588,6 +748,7 @@ export class CoverPicker {
       this.notes.set([]);
       this.choices.set(gm.coverUrl ? [{ ...gm, from: coverFrom(gm) }] : []);
       this.cover.set(gm.coverUrl);
+      void this.creditStored(gm.coverUrl);
       void this.load(gm, kind);
       return;
     }
@@ -721,6 +882,48 @@ export class CoverPicker {
     this.focusLater('input:checked');
   }
 
+  /**
+   * A capa guardada que já estava: a pixel art (o único PNG guardado, a foto do aparelho vira WebP ou JPEG) diz
+   * "Pixel art" no crédito, e não "Do aparelho".
+   */
+  private async creditStored(url: string | null): Promise<void> {
+    const id = url ? localImageId(url) : null;
+    if (!id || (await this.images.get(id))?.tipo !== 'image/png') return;
+    this.choices.update((list) => list.map((c) => (c.coverUrl === url ? { ...c, from: PIXEL_COVER } : c)));
+  }
+
+  // ===== as pixel arts da galeria (PLANO-CAPAS.md, rodada 2) =====
+
+  protected openGallery(): void {
+    this.picking.set(true);
+    this.pixelQuery.set('');
+    setTimeout(() => (this.pixelSearch()?.nativeElement ?? this.host.nativeElement.querySelector<HTMLElement>('.galeria button'))?.focus());
+  }
+
+  /** Fecha a tira; pelo Fechar (ou o Esc), o teclado volta para o botão que a abre. */
+  protected closeGallery(refocus = false): void {
+    this.picking.set(false);
+    if (refocus) this.focusLater('.pixel-btn');
+  }
+
+  protected onGalleryEscape(e: Event): void {
+    // o Esc fecha só a tira, não o diálogo nem a parte da capa
+    e.preventDefault();
+    e.stopPropagation();
+    this.closeGallery(true);
+  }
+
+  /** A obra vira a capa: impressa no papel milimetrado, guardada como as imagens (sobe para a nuvem com a conta). */
+  protected async usePiece(p: PixelPiece): Promise<void> {
+    const used = await this.store(async () => {
+      const png = await pixelCoverPng(pixelArtOf(p));
+      if (!png) throw new ImageProblem('O navegador não conseguiu montar a imagem. Tente de novo.');
+      return { image: await this.images.addPng(png.blob, png.width, png.height), from: PIXEL_COVER };
+    });
+    // a tira fecha e a capa nova fica à vista, na frente do monte
+    if (used) this.closeGallery();
+  }
+
   // ===== a imagem do aparelho: escolher, colar ou soltar (guardada como as das anotações, core/image-store.ts) =====
 
   /** Abre a escolha de arquivo do aparelho (no celular, a galeria e a câmera). */
@@ -777,17 +980,27 @@ export class CoverPicker {
   private saveTurn = 0;
 
   private async saveImage(file: Blob): Promise<void> {
+    await this.store(async () => ({ image: await this.images.add(file), from: STORED_COVER }));
+  }
+
+  /**
+   * Guarda a imagem que `make` prepara e a põe de capa, com o "guardando" no monte e o erro na margem. True: virou
+   * a capa.
+   */
+  private async store(make: () => Promise<{ image: StoredImage; from: string }>): Promise<boolean> {
     const key = this.key;
     const turn = ++this.saveTurn;
     this.saving.set(true);
     this.imageError.set(null);
     try {
-      const image = await this.images.add(file);
+      const { image, from } = await make();
       // enquanto guardava, a pessoa trocou de item (a imagem não vai para o outro) ou trouxe outra
-      if (key !== this.key || turn !== this.saveTurn) return;
-      this.bring({ ...this.game(), coverUrl: localImageUrl(image.id), from: STORED_COVER });
+      if (key !== this.key || turn !== this.saveTurn) return false;
+      this.bring({ ...this.game(), coverUrl: localImageUrl(image.id), from });
+      return true;
     } catch (error) {
       if (key === this.key && turn === this.saveTurn) this.imageError.set(error instanceof ImageProblem ? error.message : 'A imagem não entrou. Tente de novo.');
+      return false;
     } finally {
       if (turn === this.saveTurn) this.saving.set(false);
     }

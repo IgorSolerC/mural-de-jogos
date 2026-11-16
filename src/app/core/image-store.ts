@@ -70,6 +70,17 @@ export class ImageStore {
   }
 
   /**
+   * Guarda um PNG feito pelo próprio Murall (a pixel art de capa, core/pixel-cover.ts) como está, sem encolher: o
+   * WebP borraria as bordas dos pontos. Ele já vem no tamanho e no teto que a nuvem confere (900 px e 200 KB).
+   */
+  async addPng(blob: Blob, largura: number, altura: number): Promise<StoredImage> {
+    if (blob.type !== 'image/png' || blob.size > MAX_BYTES || Math.max(largura, altura) > MAX_SIDE) throw new ImageProblem('Essa imagem não coube. Tente outra.');
+    if (storageFrozen()) throw new ImageProblem('O Murall está recarregando. Tente de novo daqui a pouco.');
+    const hash = await hashOf(blob);
+    return this.keepOnce(hash, () => ({ id: newImageId(), blob, tipo: 'image/png', largura, altura, bytes: blob.size, hash, criada: new Date().toISOString(), estado: 'local' }));
+  }
+
+  /**
    * A imagem de outra pessoa (de uma anotação compartilhada) vira sua: os mesmos bytes com um id novo, que
    * sobe como sua (PLANO-IMAGENS.md, decisão D3). Colada numa anotação sua, ela não some quando você sai
    * da compartilhada. A que já é sua volta como está; a que não está aqui (ou com a página congelada), null.
