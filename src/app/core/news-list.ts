@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-16-tamanho-original',
+    id: '2026-11-16-carimbo-por-cima',
     version: '1.47.1',
     kind: 'ajustes',
     date: '2026-11-16',
@@ -38,6 +38,10 @@ export const NEWS: NewsEntry[] = [
       'Na galeria de pixel arts, o botão direito numa obra (ou nas marcadas) também baixa no tamanho original: um pixel por ponto, o arquivo para abrir num editor de pixel art, com o tamanho no nome.',
       'No menu das cores do ateliê, o Tirar as cores sem uso apaga da paleta, de uma vez, todas as que nenhum ponto usa (em nenhuma camada, nem nas escondidas).',
       'A seleção do ateliê de pixel art estica e encolhe: com a Seleção ou o Mover, puxe uma das alças em volta do que está escolhido (com o Shift, na proporção), cada ponto continua nítido; no menu Imagem, o Tamanho da seleção faz o mesmo com os números.',
+      'A anotação finalizada tem o título riscado também na ficha do mural, como já tinha na Visão geral.',
+    ],
+    correcoes: [
+      'O carimbo de Finalizada fica por cima de tudo o que está escrito na ficha: numa anotação com callouts ou tarefas, ele aparecia por baixo deles.',
     ],
   },
   {

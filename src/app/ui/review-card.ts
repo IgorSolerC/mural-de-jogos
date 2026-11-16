@@ -1167,7 +1167,9 @@ export const CARD_STYLES = `
       position: absolute;
       right: 14px;
       bottom: 12px;
-      z-index: 3;
+      /* por cima de tudo o que está escrito, até do texto que se toca (callouts, widgets: z 5); vem
+         depois dele na ficha, então o empate fica com o carimbo. As reações (6) seguem por cima */
+      z-index: 5;
       mix-blend-mode: multiply;
       pointer-events: none;
     }
@@ -1532,7 +1534,8 @@ export const CARD_STYLES = `
     :host(.geral.feita) .words > :first-child {
       margin-right: 0;
     }
-    :host(.geral.feita) .title {
+    /* a finalizada tem o título riscado em todo jeito de ficha (na visão geral, no lugar do carimbo) */
+    :host(.feita) .title {
       text-decoration: line-through 2px;
       text-decoration-color: color-mix(in srgb, var(--ink) 55%, transparent);
       opacity: 0.72;

@@ -70,6 +70,20 @@ describe('a ficha na Visão geral e a orelha do assunto', () => {
     expect(getComputedStyle(el.querySelector('.title')!).textDecorationLine).toContain('line-through');
   });
 
+  it('a ficha cheia finalizada risca o título e bate o carimbo por cima do texto que se toca (callouts, tarefas)', async () => {
+    await show(note({ doneAt: '2026-10-02T10:00:00.000Z', text: '> [!dialogo] O diálogo\n> A: おはよう\n\n- [ ] Hoje: testes' }));
+    expect(el.classList).toContain('feita');
+    expect(getComputedStyle(el.querySelector('.title')!).textDecorationLine).toContain('line-through');
+    const texto = el.querySelector('.nota-texto.marcavel')!;
+    const carimbo = el.querySelector('.carimbo')!;
+    expect(texto).not.toBeNull();
+    // o carimbo vem depois do texto, no mesmo andar ou acima: ganha o empate e fica por cima
+    expect(texto.compareDocumentPosition(carimbo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(Number(getComputedStyle(carimbo).zIndex)).toBeGreaterThanOrEqual(Number(getComputedStyle(texto).zIndex));
+    // as reações seguem por cima do carimbo
+    expect(Number(getComputedStyle(carimbo).zIndex)).toBeLessThan(6);
+  });
+
   it('a simples de sempre (Kanban, Calendário, widget Nota) continua com a tachinha, a capa e a linha da data', async () => {
     await show(note(), { compact: true });
     expect(el.classList).not.toContain('geral');
