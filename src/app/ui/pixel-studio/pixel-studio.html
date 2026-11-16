@@ -20,7 +20,17 @@
         Ateliê
       </h2>
 
-      <div class="opcoes" role="toolbar" aria-label="Opções da ferramenta">
+      <div class="opcoes" role="toolbar" [attr.aria-label]="refLayer() ? 'Opções da referência' : 'Opções da ferramenta'">
+        @if (refLayer(); as r) {
+          <div class="grupo" role="group" [attr.aria-labelledby]="ids + '-opac'">
+            <span class="grupo-nome" [id]="ids + '-opac'">Opacidade</span>
+            <input class="opacidade" type="range" min="10" max="100" step="5" [value]="r.ref.opacity * 100" [attr.aria-valuetext]="round(r.ref.opacity * 100) + '%'" (input)="setRefOpacity(+$any($event.target).value)" (change)="setRefOpacity(+$any($event.target).value, true)" />
+            <output class="pincel-n opacidade-n">{{ round(r.ref.opacity * 100) }}%</output>
+          </div>
+          <button type="button" class="papel pequeno" title="A imagem inteira no papel, no meio" (click)="fitRefToCanvas()">Caber no papel</button>
+          <button type="button" class="papel pequeno" (click)="chooseRef(true)">Trocar a imagem</button>
+          <p class="opcao-dica" title="A referência não entra na pixel art">Arraste para mover; as alças mudam o tamanho</p>
+        } @else {
         @switch (active()) {
           @case ('selecao') {
             <ng-container *ngTemplateOutlet="selOpcoes" />
@@ -110,7 +120,8 @@
             }
           }
         }
-        @if (active() !== 'mao' && active() !== 'conta-gotas' && active() !== 'selecao' && active() !== 'varinha' && active() !== 'mover') {
+        }
+        @if (!refLayer() && active() !== 'mao' && active() !== 'conta-gotas' && active() !== 'selecao' && active() !== 'varinha' && active() !== 'mover') {
           <div class="grupo" role="radiogroup" [attr.aria-labelledby]="ids + '-sim'">
             <span class="grupo-nome" [id]="ids + '-sim'">Simetria</span>
             <span class="teclas">
@@ -178,7 +189,7 @@
     <nav class="ferramentas" aria-label="Ferramentas">
       <div class="ferr-lista" role="radiogroup" aria-label="Ferramenta">
         @for (t of TOOLS; track t.value) {
-          @let on = tool() === t.value;
+          @let on = !refLayer() && tool() === t.value;
           <button type="button" role="radio" class="ferr" [class.on]="on" [class.segurada]="held() === t.value" [attr.aria-checked]="on" [title]="t.label + ' (' + t.key + ')'" [attr.aria-label]="t.label" [attr.aria-keyshortcuts]="t.key" (click)="pickTool(t.value)">
             <lucide-icon [img]="t.icon" [size]="20" aria-hidden="true" />
             <kbd class="ferr-tecla" aria-hidden="true">{{ t.key.replace('Shift+', '⇧') }}</kbd>
@@ -208,7 +219,7 @@
       #mesa
       class="mesa"
       [class.arrastando]="active() === 'mao'"
-      [class.movendo]="active() === 'mover'"
+      [class.movendo]="active() === 'mover' || !!refLayer()"
       aria-label="Mesa de desenho"
       (pointerdown)="down($event)"
       (pointermove)="move($event)"
@@ -221,15 +232,25 @@
       (dragover)="dragOver($event)"
       (drop)="takeImage($event)"
     >
+      @if (refShown(); as r) {
+        <img class="referencia-fora" alt="" aria-hidden="true" draggable="false" [muralSrc]="r.ref.src" [style.left.px]="boardLeft() + r.ref.x * z" [style.top.px]="boardTop() + r.ref.y * z" [style.width.px]="r.ref.w * z" [style.height.px]="r.ref.h * z" [style.opacity]="r.ref.opacity * 0.4" />
+      }
       <div class="folha-papel" [style.left.px]="boardLeft()" [style.top.px]="boardTop()" [style.width.px]="iw * z" [style.height.px]="ih * z">
-        <!-- as camadas de pontos à mostra, de baixo para cima (a escondida não aparece nem entra na pixel art) -->
-        @for (l of boardLayers(); track l.id) {
-          <svg class="camada" [attr.viewBox]="'0 0 ' + iw + ' ' + ih" preserveAspectRatio="none" aria-hidden="true">
-            @for (p of l.paths; track p.ink) {
-              <path [attr.d]="p.d" [attr.fill]="inks()[p.ink]" shape-rendering="crispEdges" />
+        <!-- as camadas à mostra, de baixo para cima, cortadas na beirada do papel: as de pontos e as referências (a
+             escondida não aparece, e a referência nunca entra na pixel art) -->
+        <div class="camadas-papel">
+          @for (l of boardLayers(); track l.id) {
+            @if (l.paths) {
+              <svg class="camada" [attr.viewBox]="'0 0 ' + iw + ' ' + ih" preserveAspectRatio="none" aria-hidden="true">
+                @for (p of l.paths; track p.ink) {
+                  <path [attr.d]="p.d" [attr.fill]="inks()[p.ink]" shape-rendering="crispEdges" />
+                }
+              </svg>
+            } @else if (l.ref) {
+              <img class="referencia" alt="" aria-hidden="true" draggable="false" [muralSrc]="l.ref.src" [style.left.px]="l.ref.x * z" [style.top.px]="l.ref.y * z" [style.width.px]="l.ref.w * z" [style.height.px]="l.ref.h * z" [style.opacity]="l.ref.opacity" />
             }
-          </svg>
-        }
+          }
+        </div>
         <svg
           #folha
           class="folha"
@@ -290,6 +311,9 @@
       </div>
       <span class="regua-canto" aria-hidden="true"></span>
       <!-- as alças em volta do que está escolhido: puxar estica (o Tamanho da seleção, no menu Imagem, faz o mesmo pelo teclado) -->
+      @if (refShown(); as r) {
+        <span class="referencia-moldura" aria-hidden="true" [style.left.px]="boardLeft() + r.ref.x * z" [style.top.px]="boardTop() + r.ref.y * z" [style.width.px]="r.ref.w * z" [style.height.px]="r.ref.h * z"></span>
+      }
       @for (a of handles(); track a.h) {
         <span class="alca" [attr.data-alca]="a.h" [style.left.px]="a.left" [style.top.px]="a.top" aria-hidden="true"></span>
       }
@@ -404,7 +428,10 @@
               <button type="button" class="tecla" [title]="dotsTotal() >= LAYERS_MAX ? 'Cabem ' + LAYERS_MAX + ' camadas' : 'Camada nova (Shift N)'" aria-label="Camada nova" [disabled]="dotsTotal() >= LAYERS_MAX" (click)="addLayer()">
                 <lucide-icon [img]="I.novaCamada" [size]="18" aria-hidden="true" />
               </button>
-              <button type="button" class="tecla" title="Mais sobre a camada escolhida" aria-label="Mais sobre a camada escolhida" aria-haspopup="menu" (click)="openLayerMenu($event, current())">
+              <button type="button" class="tecla" [title]="refsTotal() >= REFS_MAX ? 'Cabem ' + REFS_MAX + ' referências' : 'Imagem de referência: fica no papel para copiar, não entra no desenho'" aria-label="Imagem de referência" [disabled]="refsTotal() >= REFS_MAX" (click)="chooseRef()">
+                <lucide-icon [img]="I.imagem" [size]="18" aria-hidden="true" />
+              </button>
+              <button type="button" class="tecla" title="Mais sobre a camada escolhida" aria-label="Mais sobre a camada escolhida" aria-haspopup="menu" (click)="openLayerMenu($event, chosenId())">
                 <lucide-icon [img]="I.maisOpcoes" [size]="18" aria-hidden="true" />
               </button>
               <button type="button" class="tecla cores-fechar" title="Fechar as camadas" aria-label="Fechar as camadas" (click)="colorsOpen.set(false)">
@@ -415,11 +442,12 @@
           <ul class="camadas-lista" role="list">
             @for (r of layerRows(); track r.layer.id) {
               @let l = r.layer;
-              @let on = l.id === current();
+              @let on = l.id === chosenId();
               <li
                 class="camada-linha"
                 [class.on]="on"
                 [class.escondida]="l.hidden"
+                [class.ref]="l.kind === 'ref'"
                 [class.arrastada]="layerDrag() === l.id"
                 [attr.data-camada]="l.id"
                 [attr.draggable]="naming() === l.id ? null : 'true'"
@@ -436,14 +464,18 @@
                   <span class="camada-miniatura" aria-hidden="true">
                     @if (r.art; as a) {
                       <app-pixel-thumb [art]="a" />
+                    } @else if (refSrc(l); as src) {
+                      <img alt="" [muralSrc]="src" />
                     }
                   </span>
                   <input class="camada-nome-campo" type="text" autocomplete="off" spellcheck="false" maxlength="40" [value]="l.name" [attr.aria-label]="'Nome da ' + l.name" (keydown)="renameKey($event, l.id)" (blur)="finishRename(l.id, $any($event.target).value)" />
                 } @else {
-                  <button type="button" class="camada-escolher" [attr.aria-current]="on ? 'true' : null" [attr.aria-label]="l.name + (l.hidden ? ', escondida' : '') + (on ? ', escolhida' : '')" [title]="on ? 'Dois cliques ou F2: renomear' : 'Pintar nesta camada'" (click)="selectLayer(l.id)" (dblclick)="startRename(l.id)">
+                  <button type="button" class="camada-escolher" [attr.aria-current]="on ? 'true' : null" [attr.aria-label]="l.name + (l.kind === 'ref' ? ', referência' : '') + (l.hidden ? ', escondida' : '') + (on ? ', escolhida' : '')" [title]="on ? 'Dois cliques ou F2: renomear' : l.kind === 'ref' ? 'Mover e mudar o tamanho da referência' : 'Pintar nesta camada'" (click)="selectLayer(l.id)" (dblclick)="startRename(l.id)">
                     <span class="camada-miniatura" aria-hidden="true">
                       @if (r.art; as a) {
                         <app-pixel-thumb [art]="a" />
+                      } @else if (refSrc(l); as src) {
+                        <img alt="" [muralSrc]="src" />
                       }
                     </span>
                     <span class="camada-nome">{{ l.name }}</span>

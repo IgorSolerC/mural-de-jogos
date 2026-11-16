@@ -132,12 +132,16 @@ export interface Anchor {
  * A tela de `w` × `h` com outro tamanho, `nw` × `nh` (de 1 a 64), o desenho preso na âncora: crescer põe
  * transparente em volta, diminuir corta a beirada do lado oposto à âncora (o Tamanho da tela do Aseprite).
  */
+/** Quanto o desenho anda quando a tela de `w` × `h` vira `nw` × `nh` presa na âncora (as referências andam junto). */
+export function anchorOffset(w: number, h: number, nw: number, nh: number, anchor: Anchor): { x: number; y: number } {
+  return { x: anchor.x === 0 ? 0 : anchor.x === 1 ? Math.floor((nw - w) / 2) : nw - w, y: anchor.y === 0 ? 0 : anchor.y === 1 ? Math.floor((nh - h) / 2) : nh - h };
+}
+
 export function resizeCanvas(rows: readonly string[], w: number, h: number, nw: number, nh: number, anchor: Anchor): string[] {
   const W = Math.max(1, Math.min(PIXEL_MAX, Math.round(nw)));
   const H = Math.max(1, Math.min(PIXEL_MAX, Math.round(nh)));
   // quanto o desenho anda: na âncora do meio, metade da diferença (a sobra ímpar vai para o fim)
-  const ox = anchor.x === 0 ? 0 : anchor.x === 1 ? Math.floor((W - w) / 2) : W - w;
-  const oy = anchor.y === 0 ? 0 : anchor.y === 1 ? Math.floor((H - h) / 2) : H - h;
+  const { x: ox, y: oy } = anchorOffset(w, h, W, H, anchor);
   const out: string[] = [];
   for (let y = 0; y < H; y++) {
     const src = rows[y - oy];

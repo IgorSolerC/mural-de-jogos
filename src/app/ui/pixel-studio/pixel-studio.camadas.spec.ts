@@ -1,8 +1,9 @@
-import { provideZonelessChangeDetection } from '@angular/core';
+import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { StoredLayer } from '../../core/pixel-layers';
 import { WidgetValues } from '../../core/widgets';
 import { Confirm } from '../confirm';
+import { ImageStore } from '../../core/image-store';
 import { PixelStudio } from './pixel-studio';
 
 /** As camadas do ateliê (PLANO-CAMADAS.md, rodada 2): pintar na escolhida, a pilha achatada, o painel e o widget sem camadas. */
@@ -322,5 +323,116 @@ describe('pixel art: esticar a seleção', () => {
     st.applySize();
     fixture.detectChanges();
     expect(values['pixels']).toBe('1122');
+  });
+});
+
+/** As camadas de referência (PLANO-CAMADAS.md, rodada 5): deitar, mover, esticar, a opacidade, e nunca no desenho. */
+describe('pixel art: as referências do ateliê', () => {
+  const ID = 'A'.repeat(22);
+  let fixture: ComponentFixture<PixelStudio>;
+  let values: WidgetValues;
+  let stack: StoredLayer[] | undefined;
+  let host: HTMLElement;
+
+  async function make(start: WidgetValues, stored?: StoredLayer[]): Promise<void> {
+    TestBed.configureTestingModule({
+      imports: [PixelStudio],
+      providers: [provideZonelessChangeDetection(), { provide: ImageStore, useValue: { add: async () => ({ id: ID, largura: 200, altura: 100 }), version: signal(0), url: async () => null } }],
+    });
+    fixture = TestBed.createComponent(PixelStudio);
+    values = { ...start };
+    stack = stored;
+    fixture.componentRef.setInput('values', values);
+    fixture.componentRef.setInput('layered', true);
+    if (stored) fixture.componentRef.setInput('stack', stored);
+    fixture.componentInstance.changed.subscribe((p) => (values = { ...values, ...p }));
+    fixture.componentInstance.stackChanged.subscribe((s) => (stack = s));
+    host = fixture.nativeElement;
+    document.body.appendChild(host);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+  afterEach(() => {
+    host?.querySelectorAll('dialog').forEach((d) => d.open && d.close());
+    host?.remove();
+    TestBed.resetTestingModule();
+  });
+  const board = () => host.querySelector('svg.folha') as SVGSVGElement;
+  const mesa = () => host.querySelector('.mesa') as HTMLElement;
+  const zoom = () => board().getBoundingClientRect().width / Number(board().getAttribute('viewBox')!.split(' ')[2]);
+  const st = () => fixture.componentInstance as unknown as Record<string, (...a: unknown[]) => unknown>;
+  const ref = () => stack?.find((l) => l.ref)?.ref;
+  function drag(from: Element, dx: number, dy: number, at?: { x: number; y: number }): void {
+    const r = (at ? board() : from).getBoundingClientRect();
+    const x = at ? r.left + at.x * zoom() : r.left + r.width / 2;
+    const y = at ? r.top + at.y * zoom() : r.top + r.height / 2;
+    const ev = (type: string, cx: number, cy: number) => from.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 1, pointerType: 'mouse', button: 0, buttons: type === 'pointerup' ? 0 : 1, clientX: cx, clientY: cy }));
+    ev('pointerdown', x, y);
+    fixture.detectChanges();
+    ev('pointermove', x + dx * zoom(), y + dy * zoom());
+    fixture.detectChanges();
+    ev('pointerup', x + dx * zoom(), y + dy * zoom());
+    fixture.detectChanges();
+  }
+
+  it('a referência deita inteira no papel, no fundo da pilha, e não entra no desenho', async () => {
+    await make({ width: '8', height: '8', pixels: '1' });
+    await (st()['addReference'] as (f: Blob) => Promise<void>)(new File([new Uint8Array(4)], 'gato.png'));
+    fixture.detectChanges();
+    expect(stack?.[0]).toEqual({ id: jasmine.any(String), name: 'gato', ref: { src: 'murall://imagem/' + ID, x: 0, y: 2, w: 8, h: 4, opacity: 0.5 } });
+    expect(values['pixels']).toBe('1');
+    expect(host.querySelectorAll('.camadas-papel img.referencia').length).toBe(1);
+    expect(host.querySelectorAll('.alca').length).toBe(8);
+  });
+
+  it('com ela escolhida, arrastar no papel a move; a alça estica na proporção; as setas andam um ponto; nada pinta', async () => {
+    await make({ width: '8', height: '8' }, [{ id: 'r', name: 'Foto', ref: { src: 'murall://imagem/' + ID, x: 0, y: 2, w: 8, h: 4, opacity: 0.5 } }, { id: 'c1', name: 'Camada 1', rows: '' }]);
+    st()['selectLayer']('r');
+    fixture.detectChanges();
+    drag(mesa(), 1, 1, { x: 4, y: 4 });
+    const near = (v: number | undefined, want: number) => expect(v ?? NaN).toBeCloseTo(want, 0);
+    near(ref()?.x, 1);
+    near(ref()?.y, 3);
+    expect(ref()).toEqual(jasmine.objectContaining({ w: 8, h: 4 }));
+    expect(values['pixels'] ?? '').toBe('');
+    drag(host.querySelector('.alca[data-alca="e"]')!, -4, 0);
+    near(ref()?.w, 4);
+    near(ref()?.h, 2);
+    const x = ref()!.x;
+    board().dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+    near(ref()?.x, x - 1);
+    board().dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+    near(ref()?.x, x);
+  });
+
+  it('a opacidade é um passo do desfazer; escolher uma ferramenta volta a pintar na camada de pontos', async () => {
+    await make({ width: '4', height: '4' }, [{ id: 'r', name: 'Foto', ref: { src: 'murall://imagem/' + ID, x: 0, y: 0, w: 4, h: 4, opacity: 0.5 } }, { id: 'c1', name: 'Camada 1', rows: '' }]);
+    st()['selectLayer']('r');
+    fixture.detectChanges();
+    expect(host.querySelector('.opacidade')).not.toBeNull();
+    st()['setRefOpacity'](30);
+    st()['setRefOpacity'](20, true);
+    expect(ref()?.opacity).toBe(0.2);
+    st()['undo']();
+    expect(ref()?.opacity).toBe(0.5);
+    st()['pickTool']('lapis');
+    fixture.detectChanges();
+    expect(host.querySelector('.opacidade')).toBeNull();
+    const r = board().getBoundingClientRect();
+    mesa().dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 1, clientX: r.left + 0.5 * zoom(), clientY: r.top + 0.5 * zoom() }));
+    mesa().dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, pointerId: 1, pointerType: 'mouse', button: 0, clientX: r.left + 0.5 * zoom(), clientY: r.top + 0.5 * zoom() }));
+    fixture.detectChanges();
+    expect(values['pixels']).toBe('1');
+  });
+
+  it('a tela que cresce leva a referência junto, presa na âncora', async () => {
+    await make({ width: '4', height: '4' }, [{ id: 'r', name: 'Foto', ref: { src: 'murall://imagem/' + ID, x: 0, y: 0, w: 4, h: 4, opacity: 0.5 } }, { id: 'c1', name: 'Camada 1', rows: '1' }]);
+    st()['openSize']();
+    st()['setSizing']({ w: 8, h: 8, anchor: { x: 1, y: 1 } });
+    st()['applySize']();
+    expect(ref()).toEqual(jasmine.objectContaining({ x: 2, y: 2 }));
   });
 });

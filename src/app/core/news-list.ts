@@ -47,6 +47,7 @@ export const NEWS: NewsEntry[] = [
     items: [
       'As pixel arts da galeria ganharam camadas: no painel do ateliê, embaixo das cores, a Camada nova (Shift+N) fica acima da escolhida, cada uma com a miniatura, o nome (dois cliques ou F2 renomeia) e o olho; arraste a fileira para mudar de lugar, e o botão direito tem Duplicar, Subir, Descer, Juntar com a de baixo (Ctrl+E) e Apagar.',
       'As ferramentas pintam só na camada escolhida; a camada escondida fica guardada mas não entra no desenho que vai para a parede, para a capa e para o widget. Virar, girar, o tamanho da tela e as cores valem para todas.',
+      'Imagens de referência: no painel das camadas (ou no menu Imagem), uma foto ou um print fica no papel, numa camada própria, para você desenhar por cima; escolhida, ela se arrasta, as alças mudam o tamanho e a régua muda a opacidade. Ela nunca entra na pixel art, e você pode ter várias, uma por imagem.',
       'As camadas ficam guardadas com a obra, também nos seus outros aparelhos; a pixel art de um widget, nas anotações e nas análises, continua com uma camada só.',
     ],
   },

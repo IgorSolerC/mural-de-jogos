@@ -291,3 +291,23 @@ export class RowsCache<T> {
     return v;
   }
 }
+
+// ===== as referências =====
+
+/** A imagem de `iw` × `ih` inteira no papel de `w` × `h` pontos, no meio, sem deformar (o lugar de uma referência nova). */
+export function fitRef(iw: number, ih: number, w: number, h: number): { x: number; y: number; w: number; h: number } {
+  const k = Math.min(w / Math.max(1, iw), h / Math.max(1, ih));
+  const rw = Math.round(iw * k * 100) / 100;
+  const rh = Math.round(ih * k * 100) / 100;
+  return { x: Math.round(((w - rw) / 2) * 100) / 100, y: Math.round(((h - rh) / 2) * 100) / 100, w: rw, h: rh };
+}
+
+/** Cada referência refeita por `fn` (a tela que cresce ou é recortada leva as referências junto). */
+export function mapRefs(layers: readonly Layer[], fn: (ref: PixelRef) => PixelRef): Layer[] {
+  return layers.map((l) => (l.kind === 'ref' ? { ...l, ref: fn(l.ref) } : l));
+}
+
+/** Quantas referências a pilha tem. */
+export function refsCount(layers: readonly Layer[]): number {
+  return layers.length - dotsCount(layers);
+}

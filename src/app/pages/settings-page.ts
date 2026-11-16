@@ -50,6 +50,9 @@ import { ApiRequestsSheet, RequestsSheetMode } from '../ui/api-requests-sheet';
 import { ImageSync, shortReason } from '../core/image-sync';
 import { localImageId, localImageIds, sizeLabel } from '../core/images';
 import { StudyStore } from '../core/study-store';
+import { PixelGallery } from '../core/pixel-gallery-store';
+import { pieceTitle } from '../core/pixel-gallery';
+import { refSources } from '../core/pixel-layers';
 
 
 type Tab = 'conta' | 'mural' | 'amigos' | 'backup' | 'imagens' | 'acessos' | 'busca' | 'desempenho';
@@ -202,6 +205,7 @@ export class SettingsPage {
   protected readonly store = inject(ReviewStore);
   /** Os Estudos ("Esconder o progresso nos Estudos" mora na configuração deles, e vai com eles para a nuvem). */
   protected readonly study = inject(StudyStore);
+  private readonly pixelGallery = inject(PixelGallery);
   protected readonly settings = inject(Settings);
   protected readonly codeThemes = CODE_THEMES;
   protected readonly codeThemeNames = CODE_THEME_NAMES;
@@ -964,7 +968,7 @@ export class SettingsPage {
 
   /**
    * Em quais fichas cada imagem aparece (pelo texto, como capa das fichas, dos recortes e do Pra depois, e na frente
-   * das cartas dos Estudos): o título de cada uma.
+   * das cartas dos Estudos, e as referências das pixel arts da galeria): o título de cada uma.
    */
   private readonly imageUse = computed(() => {
     const out = new Map<string, string[]>();
@@ -980,6 +984,7 @@ export class SettingsPage {
       const name = this.store.get(c.note)?.game.name ?? '';
       out.set(id, [...(out.get(id) ?? []), `Frente do flashcard: ${c.front.title || name}`]);
     }
+    for (const p of this.pixelGallery.pieces()) for (const src of refSources(p.layers)) add(localImageId(src), `Referência da pixel art ${pieceTitle(p)}`);
     return out;
   });
 

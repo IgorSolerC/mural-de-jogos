@@ -2,6 +2,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import {
   Cell,
+  InkPath,
   DEFAULT_PALETTE,
   INK_MAX,
   PALETTES,
@@ -33,12 +34,14 @@ import {
   writeColors,
   writeGrid,
 } from '../../core/pixel-art';
-import { Anchor, BRUSH_MAX, BrushShape, Dither, Symmetry, ZOOMS, ZOOM_KEYS, convertRows, ditherKeeps, medianCut, moveInk, removeInk, removeInks, unusedInks, usedInks, sortInks, ellipseCells, fitZoom, mirrored, perfectCorner, rectCells, replaceInk, resizeCanvas, shapeBox, snapLine, stampCells, stepZoom, zoomLabel } from '../../core/pixel-tools';
+import { Anchor, anchorOffset, BRUSH_MAX, BrushShape, Dither, Symmetry, ZOOMS, ZOOM_KEYS, convertRows, ditherKeeps, medianCut, moveInk, removeInk, removeInks, unusedInks, usedInks, sortInks, ellipseCells, fitZoom, mirrored, perfectCorner, rectCells, replaceInk, resizeCanvas, shapeBox, snapLine, stampCells, stepZoom, zoomLabel } from '../../core/pixel-tools';
 import { ALL_HANDLES, Box, Handle, resizeBox } from '../../core/resize-box';
 import { Float, Mask, scaleFloat, combineMask, composite, flipMask, flipRows, invertMask, lift, maskAny, maskBounds, maskOutline, outline, placedMask, rectMask, rotateMask, rotateRows, wandMask } from '../../core/pixel-selection';
 import { WidgetValues } from '../../core/widgets';
-import { imageFileOf } from '../../core/images';
-import { DotsLayer, RowsCache, Layer, PIXEL_LAYERS_MAX, StoredLayer, acrossDots, cleanLayerName, dotsBelow, dotsCount, duplicateLayer, flattenLayers, insertAbove, mapDots, mergeDown, moveLayerTo, newLayerId, nextLayerName, readLayers, sameStack, setRows, singleLayer, writeLayers } from '../../core/pixel-layers';
+import { ImageProblem, imageFileOf, localImageUrl } from '../../core/images';
+import { ImageStore } from '../../core/image-store';
+import { MuralSrc } from '../stored-image';
+import { DotsLayer, PIXEL_REFS_MAX, PixelRef, RefLayer, fitRef, mapRefs, refsCount, RowsCache, Layer, PIXEL_LAYERS_MAX, StoredLayer, acrossDots, cleanLayerName, dotsBelow, dotsCount, duplicateLayer, flattenLayers, insertAbove, mapDots, mergeDown, moveLayerTo, newLayerId, nextLayerName, readLayers, sameStack, setRows, singleLayer, writeLayers } from '../../core/pixel-layers';
 import { Confirm } from '../confirm';
 import { ContextMenu, MenuSections } from '../context-menu';
 import { PaletteSheet } from './palette-sheet';
@@ -76,7 +79,8 @@ type Drag =
   | { kind: 'mov'; from: Cell; x: number; y: number }
   | { kind: 'vista'; x: number; y: number; panX: number; panY: number }
   | { kind: 'pinca'; dist: number; mid: { x: number; y: number }; zoom: number; panX: number; panY: number }
-  | { kind: 'escala'; handle: Handle; start: Box; x: number; y: number };
+  | { kind: 'escala'; handle: Handle; start: Box; x: number; y: number }
+  | { kind: 'ref'; id: string; mode: Handle | 'mover'; start: Box; x: number; y: number; before: Snap };
 
 let uid = 0;
 
@@ -96,7 +100,7 @@ let uid = 0;
  */
 @Component({
   selector: 'app-pixel-studio',
-  imports: [ColorMap, ContextMenu, IconModule, NgTemplateOutlet, PaletteSheet, PixelThumb],
+  imports: [ColorMap, ContextMenu, IconModule, MuralSrc, NgTemplateOutlet, PaletteSheet, PixelThumb],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './pixel-studio.html',
   styleUrls: ['./pixel-studio.scss', './camadas.scss'],
@@ -120,6 +124,7 @@ export class PixelStudio {
 
   private readonly injector = inject(Injector);
   private readonly confirm = inject(Confirm);
+  private readonly images = inject(ImageStore);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly mesa = viewChild.required<ElementRef<HTMLElement>>('mesa');
   private readonly board = viewChild.required<ElementRef<SVGSVGElement>>('folha');
@@ -197,9 +202,26 @@ export class PixelStudio {
   private readonly pathCache = new RowsCache((rows) => inkPaths(rows, 'pixel'));
   protected readonly paths = computed(() => this.pathCache.of(this.flat()));
   /** As camadas que a folha desenha, de baixo para cima: as de pontos à mostra, cada uma num svg. */
-  protected readonly boardLayers = computed(() =>
-    this.stackNow().flatMap((l) => (l.kind === 'pontos' && !l.hidden ? [{ id: l.id, paths: this.pathCache.of(l.rows) }] : [])),
+  protected readonly boardLayers = computed<{ id: string; paths: readonly InkPath[] | null; ref: PixelRef | null }[]>(() =>
+    this.stackNow().flatMap((l): { id: string; paths: readonly InkPath[] | null; ref: PixelRef | null }[] => (l.hidden ? [] : l.kind === 'pontos' ? [{ id: l.id, paths: this.pathCache.of(l.rows), ref: null }] : [{ id: l.id, paths: null, ref: l.ref }])),
   );
+  /** A referência escolhida no painel (o id): enquanto ela está escolhida, o papel a move e estica, e nada pinta. */
+  protected readonly chosenRef = signal<string | null>(null);
+  protected readonly refLayer = computed(() => {
+    const id = this.chosenRef();
+    const l = id ? this.stackNow().find((x) => x.id === id) : null;
+    return l?.kind === 'ref' ? l : null;
+  });
+  /** A escolhida à mostra: só ela tem a moldura, as alças e o arrastar no papel (a escondida espera o olho). */
+  protected readonly refShown = computed(() => {
+    const r = this.refLayer();
+    return r && !r.hidden ? r : null;
+  });
+  /** A escolhida no painel: a referência, ou a camada de pontos onde se pinta. */
+  protected readonly chosenId = computed(() => this.refLayer()?.id ?? this.current());
+  protected readonly refsTotal = computed(() => refsCount(this.stackNow()));
+  protected readonly REFS_MAX = PIXEL_REFS_MAX;
+  protected readonly round = Math.round;
   /** A escolhida, e se ela está escondida (pintar nela não pinta). */
   protected readonly activeLayer = computed(() => this.stackNow().find((l) => l.id === this.current()) ?? this.stackNow()[0]);
   /** O painel, de cima para baixo (como a pilha se vê), com a miniatura de cada uma. */
@@ -520,6 +542,7 @@ export class PixelStudio {
     this.layers.set(s.layers);
     this.current.set(active.id);
     this.rows.set(active.rows);
+    if (this.chosenRef() && !s.layers.some((l) => l.id === this.chosenRef())) this.chosenRef.set(null);
     this.palette.set(s.palette);
     this.colors.set(s.colors);
     this.clampInks();
@@ -717,6 +740,7 @@ export class PixelStudio {
       this.deselect();
     }
     if ((d?.kind === 'pinta' || d?.kind === 'forma') && !sameRows(d.before, this.rows())) this.remember(this.snapWith(d.before));
+    if (d?.kind === 'ref' && !sameSnap(d.before, this.snap())) this.remember(d.before);
   }
 
   /** Desfaz o arrasto de agora sem guardar nada (o segundo dedo chegou: era um gesto, não um traço). */
@@ -726,6 +750,7 @@ export class PixelStudio {
     // a seleção puxada pela metade volta a ser a de antes; o pedaço que andava volta ao lugar
     if (d?.kind === 'sel') this.sel.set(d.base);
     if (d?.kind === 'escala' && this.scaleSrc) this.placeFloat(scaleFloat(this.scaleSrc, d.start));
+    if (d?.kind === 'ref') this.restore(d.before);
     if (d?.kind === 'mov') {
       const f = this.float();
       if (f) this.placeFloat({ ...f, x: d.x, y: d.y });
@@ -780,6 +805,11 @@ export class PixelStudio {
     }
     if (this.pointers.size > 2 || this.drag) return;
     const handle = (e.target as Element | null)?.closest?.('[data-alca]')?.getAttribute('data-alca') as Handle | null;
+    if (this.refLayer() && e.button === 0 && this.active() !== 'mao') {
+      if (this.refShown()) this.startRefDrag(handle ?? 'mover', e);
+      else this.said.set(`A ${this.refLayer()!.name} está escondida: mostre para mover`);
+      return;
+    }
     if (handle && e.button === 0 && this.startScale(handle, e)) return;
     if (e.button === 1 || this.active() === 'mao') {
       this.drag = { kind: 'vista', x: e.clientX, y: e.clientY, panX: this.panX(), panY: this.panY() };
@@ -842,6 +872,13 @@ export class PixelStudio {
         const y = d.y + c.y - d.from.y;
         if (x !== f.x || y !== f.y) this.placeFloat({ ...f, x, y });
       }
+    } else if (d.kind === 'ref' && e.pointerId === this.strokePointer) {
+      if (e.pointerType === 'mouse' && e.buttons === 0) {
+        this.pointers.delete(e.pointerId);
+        this.endStroke();
+        return;
+      }
+      this.refTo(d, e.clientX, e.clientY);
     } else if (d.kind === 'escala' && e.pointerId === this.strokePointer) {
       if (e.pointerType === 'mouse' && e.buttons === 0) {
         this.pointers.delete(e.pointerId);
@@ -1087,6 +1124,13 @@ export class PixelStudio {
     }
     if (!this.onBoard(e)) return;
     const step = ({ arrowleft: [-1, 0], arrowright: [1, 0], arrowup: [0, -1], arrowdown: [0, 1] } as Record<string, [number, number]>)[k];
+    const ref = this.refLayer();
+    if (step && ref) {
+      e.preventDefault();
+      const n = e.shiftKey ? 8 : 1;
+      this.setRef(ref.id, { ...ref.ref, x: ref.ref.x + step[0] * n, y: ref.ref.y + step[1] * n }, 'Referência movida');
+      return;
+    }
     if (step && this.hasSel()) {
       // as setas movem o que está escolhido (Shift: de 8 em 8)
       e.preventDefault();
@@ -1156,6 +1200,12 @@ export class PixelStudio {
   // ===== a régua de cima =====
 
   protected pickTool(t: StudioTool): void {
+    if (this.refLayer()) {
+      this.chosenRef.set(null);
+      this.tool.set(t);
+      this.said.set(`${this.TOOLS.find((o) => o.value === t)?.label ?? ''}, na ${this.activeLayer().name}`);
+      return;
+    }
     this.tool.set(t);
     this.said.set(this.TOOLS.find((o) => o.value === t)?.label ?? '');
   }
@@ -1222,7 +1272,10 @@ export class PixelStudio {
     const s = this.sel();
     const b = s && maskBounds(s);
     if (!b) return;
-    const layers = mapDots(this.stackNow(), (r) => r.slice(b.y, b.y + b.h).map((row) => row.slice(b.x, b.x + b.w)));
+    const layers = mapRefs(
+      mapDots(this.stackNow(), (r) => r.slice(b.y, b.y + b.h).map((row) => row.slice(b.x, b.x + b.w))),
+      (r) => ({ ...r, x: r.x - b.x, y: r.y - b.y }),
+    );
     this.change({ layers, w: b.w, h: b.h }, `Tela recortada em ${b.w} por ${b.h}`);
     this.sel.set(null);
     this.fit();
@@ -1441,6 +1494,7 @@ export class PixelStudio {
       ],
       [
         { id: 'imagem', label: 'Trazer de uma imagem…', hint: 'Nas cores de agora', icon: ICON.imagem, run: () => this.chooseImage() },
+        ...(this.layered() ? [{ id: 'referencia', label: 'Imagem de referência…', hint: 'Fica no papel para copiar; não entra no desenho', icon: ICON.camadas, run: () => this.chooseRef() }] : []),
         { id: 'imagem-cores', label: 'Trazer, com as cores dela…', hint: 'Cria a paleta com as cores da imagem', icon: ICON.paleta, run: () => this.chooseImage(true) },
       ],
       [{ id: 'limpar', label: this.dotsTotal() > 1 ? 'Limpar a camada' : 'Limpar a folha', icon: ICON.apagar, danger: true, run: () => this.clear() }],
@@ -1459,8 +1513,16 @@ export class PixelStudio {
 
   /** Escolhe a camada onde se pinta (não é um passo do desfazer: só muda onde se pinta). */
   protected selectLayer(id: string): void {
-    if (id === this.current()) return;
     const l = this.stackNow().find((x) => x.id === id);
+    if (l?.kind === 'ref') {
+      this.endStroke();
+      this.anchor();
+      this.chosenRef.set(id);
+      this.said.set(`${l.name}: arraste para mover, as alças mudam o tamanho`);
+      return;
+    }
+    this.chosenRef.set(null);
+    if (id === this.current()) return;
     if (!l || l.kind !== 'pontos') return;
     this.endStroke();
     this.anchor();
@@ -1483,16 +1545,31 @@ export class PixelStudio {
       return;
     }
     const layer: Layer = { id: newLayerId(), name: nextLayerName(base), hidden: false, kind: 'pontos', rows };
+    this.chosenRef.set(null);
     this.change({ ...extra, layers: insertAbove(base, this.current(), layer), current: layer.id }, said || `${layer.name} nova`);
   }
 
   protected duplicateLayer(id: string): void {
-    if (this.dotsTotal() >= PIXEL_LAYERS_MAX) {
-      this.said.set(`Cabem ${PIXEL_LAYERS_MAX} camadas numa pixel art`);
+    if (this.isFull(id)) {
+      this.said.set(this.stackNow().find((l) => l.id === id)?.kind === 'ref' ? `Cabem ${PIXEL_REFS_MAX} referências numa pixel art` : `Cabem ${PIXEL_LAYERS_MAX} camadas numa pixel art`);
       return;
     }
     const out = duplicateLayer(this.stackNow(), id);
-    if (out) this.change({ layers: out.layers, current: out.made }, 'Camada duplicada');
+    if (!out) return;
+    const copy = out.layers.find((l) => l.id === out.made)!;
+    // (a referência duplicada fica escolhida; a de pontos vira onde se pinta)
+    if (copy.kind === 'ref') {
+      this.change({ layers: out.layers }, 'Referência duplicada');
+      this.chosenRef.set(out.made);
+    } else {
+      this.chosenRef.set(null);
+      this.change({ layers: out.layers, current: out.made }, 'Camada duplicada');
+    }
+  }
+
+  /** Já não cabe outra camada do tipo da `id` (de pontos, ou referência)? */
+  private isFull(id: string): boolean {
+    return this.stackNow().find((l) => l.id === id)?.kind === 'ref' ? this.refsTotal() >= PIXEL_REFS_MAX : this.dotsTotal() >= PIXEL_LAYERS_MAX;
   }
 
   /** Apaga a camada (a última de pontos fica: uma pixel art tem sempre onde pintar). */
@@ -1601,7 +1678,7 @@ export class PixelStudio {
     const i = stack.findIndex((l) => l.id === id);
     const l = stack[i];
     if (!l || !id) return [];
-    const full = this.dotsTotal() >= PIXEL_LAYERS_MAX;
+    const full = this.isFull(id);
     const canMerge = l.kind === 'pontos' && !!dotsBelow(stack, id);
     return [
       [
@@ -1925,7 +2002,11 @@ export class PixelStudio {
     }
     const w = clampSide(s.w, this.w());
     const h = clampSide(s.h, this.h());
-    const layers = mapDots(this.stackNow(), (r) => resizeCanvas(r, this.w(), this.h(), w, h, s.anchor));
+    const off = anchorOffset(this.w(), this.h(), w, h, s.anchor);
+    const layers = mapRefs(
+      mapDots(this.stackNow(), (r) => resizeCanvas(r, this.w(), this.h(), w, h, s.anchor)),
+      (r) => ({ ...r, x: r.x + off.x, y: r.y + off.y }),
+    );
     this.change({ layers, w, h }, `Tela de ${w} por ${h} pontos`);
     this.closeSize();
     this.fit();
@@ -1944,8 +2025,9 @@ export class PixelStudio {
   /** As alças aparecem com a Seleção e o Mover, havendo o que esticar (e a camada à mostra). */
   protected readonly handles = computed(() => {
     const t = this.active();
-    const b = this.selBox();
-    if (!b || (t !== 'selecao' && t !== 'mover') || this.activeLayer().hidden) return [];
+    const r = this.refShown();
+    const b = r ? r.ref : this.refLayer() ? null : this.selBox();
+    if (!b || (!r && ((t !== 'selecao' && t !== 'mover') || this.activeLayer().hidden))) return [];
     const z = this.zoom();
     const left = this.boardLeft();
     const top = this.boardTop();
@@ -1989,6 +2071,109 @@ export class PixelStudio {
     this.said.set(`Seleção de ${w} por ${h}`);
   }
 
+  // ===== as referências (PLANO-CAMADAS.md, rodada 5) =====
+
+  /** O arquivo que vem é uma referência nova, ou a imagem nova da escolhida. */
+  private fileForRef: 'nova' | 'trocar' | null = null;
+  /** A pilha de antes de mexer na opacidade (a régua inteira é um passo do desfazer). */
+  private opacityBefore: Snap | null = null;
+
+  protected chooseRef(replace = false): void {
+    if (!replace && this.refsTotal() >= PIXEL_REFS_MAX) {
+      this.said.set(`Cabem ${PIXEL_REFS_MAX} referências numa pixel art`);
+      return;
+    }
+    this.fileForRef = replace ? 'trocar' : 'nova';
+    this.file().nativeElement.click();
+  }
+
+  /**
+   * Guarda a imagem (no armazém das imagens das anotações, encolhida a 900 px: ela sincroniza com a obra) e a deita no
+   * papel, inteira e no meio, na metade da opacidade, numa camada própria no fundo da pilha; ou troca a imagem da
+   * referência escolhida, no mesmo lugar e largura.
+   */
+  async addReference(file: Blob, replace = false): Promise<void> {
+    if (this.importing()) return;
+    if (!(replace && this.refLayer()) && this.refsTotal() >= PIXEL_REFS_MAX) {
+      this.said.set(`Cabem ${PIXEL_REFS_MAX} referências numa pixel art`);
+      this.importError.set(`Cabem ${PIXEL_REFS_MAX} referências numa pixel art: apague uma para trazer outra.`);
+      return;
+    }
+    this.importing.set(true);
+    this.importError.set(null);
+    try {
+      const img = await this.images.add(file);
+      const src = localImageUrl(img.id);
+      const old = this.refLayer();
+      if (replace && old) {
+        this.setRef(old.id, { ...old.ref, src, h: Math.round(((old.ref.w * img.altura) / Math.max(1, img.largura)) * 100) / 100 }, 'Imagem da referência trocada');
+        return;
+      }
+      const name = cleanLayerName(file instanceof File ? file.name.replace(/\.[a-z0-9]+$/i, '') : '') || nextLayerName(this.stackNow(), 'Referência');
+      const layer: RefLayer = { id: newLayerId(), name, hidden: false, kind: 'ref', ref: { src, ...fitRef(img.largura, img.altura, this.w(), this.h()), opacity: 0.5 } };
+      // no fundo da pilha: o desenho fica nítido por cima dela, como num decalque (arrastar a fileira a põe por cima)
+      this.change({ layers: [layer, ...this.stackNow()] }, `Referência ${name}: arraste para mover, as alças mudam o tamanho`);
+      this.chosenRef.set(layer.id);
+    } catch (err) {
+      this.importError.set(err instanceof ImageProblem ? err.message : 'Essa imagem não abriu. Tente outra (PNG, JPG, WebP, GIF).');
+      this.said.set('A imagem não abriu.');
+    } finally {
+      this.importing.set(false);
+    }
+  }
+
+  /** A referência num lugar novo (um passo do desfazer). */
+  private setRef(id: string, ref: PixelRef, said: string): void {
+    this.change({ layers: this.stackNow().map((l) => (l.id === id && l.kind === 'ref' ? { ...l, ref } : l)) }, said);
+  }
+
+  /** Começa a mover (no papel) ou a esticar (numa alça) a referência escolhida. */
+  private startRefDrag(mode: Handle | 'mover', e: PointerEvent): void {
+    const r = this.refLayer();
+    if (!r) return;
+    this.strokePointer = e.pointerId;
+    this.drag = { kind: 'ref', id: r.id, mode, start: { x: r.ref.x, y: r.ref.y, w: r.ref.w, h: r.ref.h }, x: e.clientX, y: e.clientY, before: this.snap() };
+  }
+
+  /** A referência até o ponteiro: movida, ou esticada sempre na proporção da foto (com fração: ela não é feita de pontos). */
+  private refTo(d: Extract<Drag, { kind: 'ref' }>, clientX: number, clientY: number): void {
+    const z = this.zoom();
+    const dx = (clientX - d.x) / z;
+    const dy = (clientY - d.y) / z;
+    const r2 = (v: number) => Math.round(v * 100) / 100;
+    const box = d.mode === 'mover' ? { ...d.start, x: r2(d.start.x + dx), y: r2(d.start.y + dy) } : resizeBox(d.start, d.mode, dx, dy, 'proporcao', { min: 0.5, round: r2, sizeRound: r2 });
+    this.layers.set(this.stackNow().map((l) => (l.id === d.id && l.kind === 'ref' ? { ...l, ref: { ...l.ref, ...box } } : l)));
+    this.emit();
+  }
+
+  /** A régua da opacidade: muda na hora; soltar (o change) fecha o passo do desfazer. */
+  protected setRefOpacity(value: number, done = false): void {
+    const r = this.refLayer();
+    if (!r) return;
+    this.opacityBefore ??= this.snap();
+    const opacity = Math.max(0.1, Math.min(1, Math.round(value) / 100));
+    if (opacity !== r.ref.opacity) {
+      this.layers.set(this.stackNow().map((l) => (l.id === r.id && l.kind === 'ref' ? { ...l, ref: { ...l.ref, opacity } } : l)));
+      this.emit();
+    }
+    if (!done) return;
+    const before = this.opacityBefore;
+    this.opacityBefore = null;
+    if (!sameSnap(before, this.snap())) this.remember(before);
+    this.said.set(`Opacidade da referência: ${Math.round(opacity * 100)}%`);
+  }
+
+  /** A referência inteira no papel de novo, no meio. */
+  protected fitRefToCanvas(): void {
+    const r = this.refLayer();
+    if (r) this.setRef(r.id, { ...r.ref, ...fitRef(r.ref.w, r.ref.h, this.w(), this.h()) }, 'Referência no tamanho do papel');
+  }
+
+  /** O endereço da imagem de uma camada de referência (para a miniatura do painel). */
+  protected refSrc(l: Layer): string | null {
+    return l.kind === 'ref' ? l.ref.src : null;
+  }
+
   // ===== trazer de uma imagem =====
 
   /** Trazer de uma imagem: nas cores de agora, ou (`own`) criando a paleta com as cores dela. */
@@ -2003,6 +2188,12 @@ export class PixelStudio {
     const input = e.target as HTMLInputElement;
     const file = input.files?.[0];
     input.value = '';
+    const forRef = this.fileForRef;
+    this.fileForRef = null;
+    if (forRef) {
+      if (file) void this.addReference(file, forRef === 'trocar');
+      return;
+    }
     if (file) void this.importImage(file, this.importOwn);
     this.importOwn = false;
   }
@@ -2088,6 +2279,8 @@ export class PixelStudio {
   protected readonly aim = computed(() => {
     const c = this.hover();
     const t = this.active();
+    // (com a referência escolhida o papel move a foto: nada pinta)
+    if (this.refLayer()) return [];
     if (!c || t === 'mao' || t === 'selecao' || t === 'varinha' || t === 'mover') return [];
     if (t === 'conta-gotas' || t === 'balde') return [c];
     return this.cover([c]);
@@ -2095,7 +2288,7 @@ export class PixelStudio {
   /** Os pontos do pincel que o pontilhado pula: a mira os contorna, para o pincel não sumir debaixo do mouse. */
   protected readonly aimSkipped = computed(() => {
     const c = this.hover();
-    if (!c || !this.dithering()) return [];
+    if (!c || !this.dithering() || this.refLayer()) return [];
     return this.footprint([c]).filter((p) => !ditherKeeps(p, this.dither()));
   });
   /** O eixo da simetria, nas contas da folha. */
@@ -2119,6 +2312,7 @@ export class PixelStudio {
 
   /** O que os modificadores fazem na ferramenta de agora, na barra de estado. */
   protected readonly hint = computed(() => {
+    if (this.refLayer()) return 'Arraste para mover a referência · as alças mudam o tamanho · setas: um ponto · escolha uma ferramenta para voltar a desenhar';
     switch (this.active()) {
       case 'selecao':
         return 'Puxe para escolher · Shift: soma · Shift+Alt: tira · arraste de dentro para mover · as alças esticam (Shift: na proporção) · Esc: tira';
@@ -2155,7 +2349,7 @@ export class PixelStudio {
   }
 
   /** O nome da ferramenta de agora (a barra de estado sem o mouse em cima, e as dicas do painel). */
-  protected readonly toolLabel = computed(() => this.TOOLS.find((t) => t.value === this.active())?.label ?? '');
+  protected readonly toolLabel = computed(() => (this.refLayer() ? 'Referência' : (this.TOOLS.find((t) => t.value === this.active())?.label ?? '')));
   /** As dicas da ferramenta, uma por linha. */
   protected readonly hintLines = computed(() => this.hint().split(' · ').map(cap));
 

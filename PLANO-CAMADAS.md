@@ -146,8 +146,8 @@ Duplicar. `SYNC_SCHEMA` 59. Testes: pixel-layers.spec e pixel-gallery.spec (a re
 
 ### Rodada 5: as camadas de referência
 - **Referência** no painel (e no menu da camada) escolhe uma imagem e a deita no papel, cabendo inteira, na
-  opacidade de 50%, numa camada própria logo acima da escolhida (**suposição**: por cima, que é onde se vê ao
-  decalcar, e a opacidade deixa ver o desenho; arrastar para baixo é um gesto).
+  opacidade de 50%, numa camada própria no fundo da pilha (**suposição**, mudada ao ver: por cima ela desbotava o
+  traço; embaixo o desenho fica nítido, como num decalque, e arrastar a fileira a põe por cima).
 - Escolhida a referência: arrastar no papel a move, as alças mudam o tamanho (sempre na proporção da foto), as
   setas andam um ponto (Shift: oito); a barra de contexto mostra a **Opacidade** (a régua do site, de 10% a 100%),
   **Caber na tela** e **Trocar a imagem**. Fora do papel, o pedaço que sobra aparece apagado na mesa enquanto ela
@@ -194,7 +194,7 @@ celular, commit no nome do dono e push.
 - [x] Rodada 2: o painel das camadas (BUILD 910, Novidades 1.47.0)
 - [x] Rodada 3: esticar a seleção (BUILD 911, Novidades 1.47.1)
 - [x] Rodada 4: o mapa de cor e tirar as cores sem uso (BUILD 912, Novidades 1.47.1)
-- [ ] Rodada 5: as referências
+- [x] Rodada 5: as referências (BUILD 913, item no 1.47.0)
 - [ ] Rodada 6: trazer uma imagem pergunta
 - [ ] Rodada 7: baixar no tamanho original
 - [ ] Rodada 8: crítica, `/code-review high`, DESIGN.md
