@@ -188,7 +188,7 @@ function joinSources(list: string[]): string {
       [(open)]="pixelPickerOpen"
       [chosen]="chosenPiece()"
       heading="Pixel art de capa"
-      hint="Uma da sua galeria vira a capa, impressa no papel milimetrado."
+      hint="Uma da sua galeria vira a capa, o desenho como ele é."
       footHint="Toque numa pixel art para usar de capa."
       [keepsNew]="true"
       (picked)="usePiece($event)"
@@ -763,7 +763,7 @@ export class CoverPicker {
 
   // ===== as pixel arts da galeria (PLANO-CAPAS.md): escolhidas na folha da galeria, ou desenhadas aqui =====
 
-  /** A obra vira a capa: impressa no papel milimetrado, guardada como as imagens (sobe para a nuvem com a conta). */
+  /** A obra vira a capa: o desenho sozinho (sem papel), guardada como as imagens (sobe para a nuvem com a conta). */
   protected async usePiece(p: PixelPiece): Promise<boolean> {
     this.drawnNote.set(null);
     return this.store(async () => {

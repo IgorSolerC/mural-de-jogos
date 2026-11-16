@@ -35,10 +35,9 @@ describe('a pixel art de capa, no papel milimetrado (core/pixel-cover.ts)', () =
     const inside = ctx.getImageData(x0 + cell - 1, y0 + cell - 1, 1, 1).data;
     const corner = ctx.getImageData(x0, y0, 1, 1).data;
     expect(Array.from(inside)).toEqual(Array.from(corner));
-    // o ponto do lado é transparente no desenho: ali aparece o papel (creme), não a tinta
-    const paper = ctx.getImageData(x0 + cell + 3, y0 + 3, 1, 1).data;
-    expect(Array.from(paper)).not.toEqual(Array.from(corner));
-    expect(paper[3]).toBe(255);
+    // o ponto do lado é transparente no desenho: fica transparente, sem papel nem quadriculado (16/nov)
+    expect(ctx.getImageData(x0 + cell + 3, y0 + 3, 1, 1).data[3]).toBe(0);
+    expect(ctx.getImageData(2, 2, 1, 1).data[3]).toBe(0);
   });
 
   it('o PNG cabe no teto das imagens, também com o maior desenho, todo pintado', async () => {
