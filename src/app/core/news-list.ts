@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-16-tabela-setas',
+    id: '2026-11-16-galeria-limpa',
     version: '1.47.1',
     kind: 'ajustes',
     date: '2026-11-16',
@@ -40,6 +40,7 @@ export const NEWS: NewsEntry[] = [
       'A seleção do ateliê de pixel art estica e encolhe: com a Seleção ou o Mover, puxe uma das alças em volta do que está escolhido (com o Shift, na proporção), cada ponto continua nítido; no menu Imagem, o Tamanho da seleção faz o mesmo com os números.',
       'A anotação finalizada tem o título riscado também na ficha do mural, como já tinha na Visão geral.',
       'O link para outra anotação tem um sublinhado mais leve: um fio fino de caneta azul clara, logo abaixo da letra, sem encostar nela (nem no japonês, nem nas pernas do g e do p).',
+      'A pixel art aparece como ela é fora do ateliê: sem o papel milimetrado, o xadrez do transparente, o cartão branco ou a margem, na Mostra, na Grade, nas pastas e nas folhas de escolher; na Mostra, todas do mesmo tamanho, em fileiras.',
     ],
     correcoes: [
       'O carimbo de Finalizada fica por cima de tudo o que está escrito na ficha: numa anotação com callouts ou tarefas, ele aparecia por baixo deles.',

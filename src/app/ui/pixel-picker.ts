@@ -62,7 +62,7 @@ import { PixelThumb } from './pixel-thumb';
                   @let meta = metaOf(p);
                   <li>
                     <button type="button" class="obra escolha" [class.on]="on" [attr.aria-current]="on ? 'true' : null" [title]="titleOf(p) + ' · ' + meta" (click)="pick(p)">
-                      <!-- o desenho no xadrez do transparente, a miniatura comum da galeria -->
+                      <!-- o desenho, a miniatura comum da galeria (sem o xadrez: o transparente mostra a folha) -->
                       <span class="desenho" aria-hidden="true"><app-pixel-thumb [art]="artOf(p)" /></span>
                       <span class="nome">{{ titleOf(p) }}</span>
                       <span class="sr-only">, {{ meta }}</span>
@@ -106,7 +106,6 @@ import { PixelThumb } from './pixel-thumb';
   `,
   styleUrls: ['./profile-picker.scss', './card-picker.scss'],
   styles: `
-    @use 'pixel-studio/xadrez' as x;
 
     /* as obras em grade: o desenho grande, quadrado, e o nome miúdo embaixo */
     .grade-px {
@@ -158,15 +157,10 @@ import { PixelThumb } from './pixel-thumb';
       }
     }
 
-    /* o desenho no xadrez do transparente, quadrado, com a sombra de papel solto */
+    /* o desenho sozinho, num quadrado, sem margem nem o xadrez (o xadrez é só do ateliê): o transparente mostra a folha */
     .desenho {
       display: grid;
       aspect-ratio: 1;
-      padding: 10px;
-      box-sizing: border-box;
-      border-radius: 2px;
-      @include x.xadrez(10px);
-      box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
     }
 
     .nome {

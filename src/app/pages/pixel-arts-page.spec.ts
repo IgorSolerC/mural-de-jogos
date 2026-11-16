@@ -73,11 +73,55 @@ describe('a galeria de pixel arts', () => {
   it('mostra todas na Mostra, as feitas há pouco primeiro, cada uma no jeito dela', async () => {
     await mount();
     expect(host.querySelectorAll('app-pixel-piece').length).toBe(3);
-    // na Mostra as colunas embaralham a leitura: a ordem é a da lista, coluna a coluna
-    expect(fixture.componentInstance['visible']().map((p: PixelPiece) => p.id)).toEqual(['pb', 'pa', 'pc']);
-    expect(host.querySelector('[data-ficha="pa"] .milimetrado')).not.toBeNull();
-    expect(host.querySelector('[data-ficha="pb"] .milimetrado')).toBeNull();
+    // em fileiras: a ordem da parede é a da lista, linha a linha
+    expect(shown()).toEqual(['pb', 'pa', 'pc']);
+    expect(host.querySelector('[data-ficha="pb"] app-pixel-art .jeito-ponto-cruz')).not.toBeNull();
     expect(host.querySelector('[data-ficha="pc"] .nome')!.textContent!.trim()).toBe('Sem título');
+  });
+
+  it('a Mostra põe todas do mesmo tamanho, em fileiras, sem papel milimetrado nem margem: o transparente mostra a parede', async () => {
+    await mount();
+    host.style.cssText = 'display: block; width: 900px';
+    await settle();
+    const boxes = [...host.querySelectorAll<HTMLElement>('app-pixel-piece .quadro')].map((q) => q.getBoundingClientRect());
+    expect(boxes.length).toBe(3);
+    for (const b of boxes) {
+      expect(b.width).toBeGreaterThan(150);
+      expect(Math.abs(b.width - boxes[0].width)).toBeLessThan(0.5);
+      expect(Math.abs(b.height - b.width)).toBeLessThan(0.5);
+      // lado a lado, numa fileira só (a mesma altura de topo)
+      expect(Math.abs(b.top - boxes[0].top)).toBeLessThan(0.5);
+    }
+    // nada de papel, de tachinha, de xadrez nem de giro: o desenho direto na parede
+    expect(host.querySelector('app-pixel-piece .milimetrado, app-pixel-piece app-pin')).toBeNull();
+    const pa = host.querySelector<HTMLElement>('[data-ficha="pa"]')!;
+    const quadro = getComputedStyle(pa.querySelector('.quadro')!);
+    expect(quadro.backgroundImage).toBe('none');
+    expect(quadro.backgroundColor).toBe('rgba(0, 0, 0, 0)');
+    expect(quadro.paddingLeft).toBe('0px');
+    expect(getComputedStyle(pa.querySelector('app-pixel-art')!).paddingTop).toBe('0px');
+    expect(getComputedStyle(pa).rotate).toBe('none');
+    // o desenho de 2 por 2 ocupa o quadrado inteiro, sem margem
+    const art = pa.querySelector('app-pixel-art svg.arte')!.getBoundingClientRect();
+    const box = pa.querySelector('.quadro')!.getBoundingClientRect();
+    expect(Math.abs(art.width - box.width)).toBeLessThan(1);
+    expect(Math.abs(art.height - box.height)).toBeLessThan(1);
+  });
+
+  it('a Grade é só o desenho, sem o cartão branco nem o xadrez, reto', async () => {
+    localStorage.setItem(PIXEL_PREFS_KEY, JSON.stringify({ vista: 'grade' }));
+    await mount();
+    const tile = host.querySelector<HTMLElement>('app-pixel-tile[data-ficha="pa"]')!;
+    expect(tile.querySelector('.cartao, .xadrez')).toBeNull();
+    const quadro = getComputedStyle(tile.querySelector('.quadro')!);
+    expect(quadro.backgroundImage).toBe('none');
+    expect(quadro.backgroundColor).toBe('rgba(0, 0, 0, 0)');
+    expect(quadro.boxShadow).toBe('none');
+    expect(quadro.paddingLeft).toBe('0px');
+    expect(getComputedStyle(tile).rotate).toBe('none');
+    const svg = tile.querySelector('app-pixel-thumb svg')!.getBoundingClientRect();
+    const box = tile.querySelector('.quadro')!.getBoundingClientRect();
+    expect(Math.abs(svg.width - box.width)).toBeLessThan(1);
   });
 
   it('a Grade mostra todas do mesmo tamanho, e a vista fica guardada no aparelho', async () => {

@@ -8,7 +8,7 @@ import { PixelThumb } from '../pixel-thumb';
 
 /**
  * O desenho da pixel art na folha do widget (o campo `pixels`): uma linha só, como a escolha do ícone. A
- * miniatura do desenho no xadrez, a tela e as cores ("16 × 16 · 12 cores · Sweetie 16") e o botão de papel
+ * miniatura do desenho (sem o xadrez, que é só do ateliê), a tela e as cores ("16 × 16 · 12 cores · Sweetie 16") e o botão de papel
  * que abre o ateliê (ui/pixel-studio/pixel-studio.ts) por cima de tudo. O desenho novo, ainda sem ponto
  * nenhum, já abre no ateliê. O ateliê manda as mudanças na hora; esta linha só passa adiante (`changed`).
  */
@@ -18,7 +18,7 @@ import { PixelThumb } from '../pixel-thumb';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="linha" [class.falta]="missing()">
-      <span class="miniatura" aria-hidden="true">
+      <span class="miniatura" [class.vazia]="!inked()" aria-hidden="true">
         @if (inked()) {
           <app-pixel-thumb [art]="drawing()" />
         } @else {

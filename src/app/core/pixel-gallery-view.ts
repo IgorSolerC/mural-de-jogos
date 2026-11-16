@@ -1,9 +1,7 @@
-import { placeFor } from './clipping';
-import { LOOK_PAD, PIXEL_LOOKS, PixelLook } from './pixel-art';
+import { PIXEL_LOOKS, PixelLook } from './pixel-art';
 import { PixelPiece, pieceTitle, pixelArtOf } from './pixel-gallery';
 import { plainText } from './rich-text';
 import { fold, nameCollator } from './text';
-import { wobble } from './wall-physics';
 
 /**
  * A vista da galeria de pixel arts (PLANO-PIXEL-ARTS.md, 3): como a parede aparece (a Mostra, cada obra no jeito
@@ -137,24 +135,4 @@ export function pixelLookOptions(list: readonly PixelPiece[], chosen: PixelLook 
   const n = new Map<PixelLook, number>();
   for (const p of list) n.set(pixelArtOf(p).look, (n.get(pixelArtOf(p).look) ?? 0) + 1);
   return PIXEL_LOOKS.map((l) => ({ value: l.value, label: l.label, n: n.get(l.value) ?? 0, on: chosen === l.value }));
-}
-
-// ===== a Mostra: o lugar de cada obra na colagem (a de `core/clipping.ts`, a da Wishlist) =====
-
-/**
- * O lugar da obra na coluna: a largura e o desvio sorteados como os do recorte (`placeFor`), o giro do papel
- * milimetrado (só o jeito Pixel tem papel; os outros jeitos são objetos e giram sozinhos, ver ui/pixel-art.ts; a
- * Miçanga pousa numa placa clara, torta como o papel),
- * e a altura estimada em larguras de coluna pela proporção do desenho (a colagem nunca mede a tela).
- */
-export function pieceLayout(p: PixelPiece): { width: number; shift: number; gap: number; tilt: number; height: number } {
-  const { width, shift, gap } = placeFor(p.id);
-  const art = pixelArtOf(p);
-  const pad = LOOK_PAD[art.look] * 2;
-  const ratio = (art.w + pad) / (art.h + pad);
-  // o papel milimetrado e a placa das contas põem uma margem em volta do desenho; a legenda (o título e as tags) vai embaixo
-  const paper = art.look === 'pixel' ? 1.24 : art.look === 'micanga' ? 1.16 : 1.04;
-  const tilt = art.look === 'pixel' || art.look === 'micanga' ? Math.round((wobble(p.id, 9100) * 2 - 1) * 180) / 100 : 0;
-  // o desenho alto e fino fica com no máximo 1,3 vez a largura (ui/pixel-piece.ts)
-  return { width, shift, gap, tilt, height: (width / 100) * paper * Math.min(1 / ratio, 1.3) + 0.26 + gap / 200 };
 }

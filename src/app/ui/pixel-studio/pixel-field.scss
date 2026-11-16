@@ -1,8 +1,7 @@
 @use '../paper-kit' as kit;
-@use 'xadrez' as x;
 
 /* O desenho na folha do widget (ver pixel-field.ts): uma linha, como a escolha do ícone (ui/icon-chart.scss),
-   com a miniatura do desenho no xadrez do transparente no lugar do adesivo */
+   com a miniatura do desenho no lugar do adesivo, sem o xadrez (o xadrez é só do ateliê) */
 :host {
   display: block;
   min-width: 0;
@@ -20,12 +19,13 @@
   place-items: center;
   width: 64px;
   height: 64px;
-  padding: 6px;
   box-sizing: border-box;
   border-radius: 2px;
-  @include x.xadrez(10px);
-  box-shadow: var(--campo-sombra);
   color: var(--ink-2);
+}
+/* ainda sem desenho: o lugar dele, tracejado, com o ícone */
+.miniatura.vazia {
+  border: 1.5px dashed color-mix(in srgb, var(--ink-2) 55%, transparent);
 }
 
 .linha-texto {

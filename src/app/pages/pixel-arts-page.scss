@@ -80,20 +80,15 @@ app-pixel-tile[data-marcada] {
   overflow-wrap: anywhere;
 }
 
-/* ===== A Mostra: colunas, cada obra de uma largura e um tanto fora do prumo (a colagem da Wishlist) ===== */
+/* ===== A Mostra: cada obra no jeito dela, todas do mesmo tamanho, em fileiras (a ordem da lista, linha a linha) ===== */
 .mostra {
   display: grid;
-  grid-template-columns: repeat(var(--colunas), minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(172px, 1fr));
   align-items: start;
-  column-gap: 34px;
+  gap: 40px 34px;
   min-height: 40vh;
   align-content: start;
   padding-top: 14px;
-}
-app-pixel-piece {
-  width: calc(var(--largura, 100) * 1%);
-  margin-left: calc(var(--desvio, 0) * 1%);
-  margin-bottom: var(--vao, 40px);
 }
 /* segurar o dedo numa obra abre o menu dela: sem o balão do sistema nem a seleção junto */
 @supports selector(:popover-open) {
@@ -178,7 +173,8 @@ app-pixel-piece {
 
 @media (max-width: 559px) {
   .mostra {
-    column-gap: 18px;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 30px 18px;
   }
   .grade {
     grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));

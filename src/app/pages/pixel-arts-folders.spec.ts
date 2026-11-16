@@ -90,6 +90,30 @@ describe('as pastas da galeria de pixel arts', () => {
     expect(box.querySelector('.qtd')!.textContent).toContain('2 pixel arts · 1 pasta');
   });
 
+  it('a pasta espia as artes de verdade: sem o papel branco, a margem, o xadrez nem a sombra de retângulo', async () => {
+    await mount();
+    const box = host.querySelector(`app-folder-card[data-pasta="${jogos}"]`)!;
+    // as miniaturas só montam perto da tela (ui/near-screen.ts): na suíte inteira a página pode estar rolada
+    box.scrollIntoView({ block: 'center' });
+    for (let i = 0; i < 40 && !box.querySelector('.espia-pixel'); i++) {
+      window.dispatchEvent(new Event('scroll'));
+      await new Promise((r) => setTimeout(r, 50));
+      await settle();
+    }
+    const peek = box.querySelector<HTMLElement>('.espia-pixel')!;
+    expect(peek).withContext('a pasta espia a obra').not.toBeNull();
+    expect(peek.querySelector('app-pixel-thumb svg')).not.toBeNull();
+    const look = getComputedStyle(peek);
+    expect(look.backgroundImage).toBe('none');
+    expect(look.backgroundColor).toBe('rgba(0, 0, 0, 0)');
+    expect(look.paddingLeft).toBe('0px');
+    expect(look.boxShadow).toBe('none');
+    // a sombra segue o contorno do desenho (o transparente não vira retângulo)
+    expect(look.filter).toContain('drop-shadow');
+    const svg = peek.querySelector('svg')!.getBoundingClientRect();
+    expect(Math.abs(svg.width - peek.getBoundingClientRect().width)).toBeLessThan(1);
+  });
+
   it('entrar: o caminho na barra, a pasta no endereço, as de dentro; o caminho volta', async () => {
     await mount();
     await open(jogos);

@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { PIXEL_TAG_SPACE, PixelPiece, pieceTitle, pixelArtOf } from '../core/pixel-gallery';
-import { wobble } from '../core/wall-physics';
 import { PixelActions } from './pixel-actions';
 import { PixelThumb } from './pixel-thumb';
 import { WishNote } from './wish-note';
@@ -8,9 +7,9 @@ import { WishTags } from './wish-tags';
 
 /**
  * Uma obra na Grade da galeria de pixel arts (PLANO-PIXEL-ARTS.md, 1): a vista para ver muitas de uma vez, como a
- * Grade da Wishlist. Todas do mesmo tamanho: um cartão branco quadrado com o desenho nítido, sem jeito, sobre o
- * xadrez do transparente do ateliê; o título em duas linhas e as tags embaixo. Tocar abre a ficha; com a mão em
- * cima, a etiqueta (Ateliê e Baixar) acima do cartão e, um instante depois, a descrição ao lado. Sem mouse, a
+ * Grade da Wishlist. Todas do mesmo tamanho e retas: o desenho nítido, sem jeito, num quadrado, sem cartão nem o
+ * xadrez do transparente (o xadrez é só do ateliê); o título em duas linhas e as tags embaixo. Tocar abre a ficha; com a mão em
+ * cima, a etiqueta (Ateliê e Baixar) acima do desenho e, um instante depois, a descrição ao lado. Sem mouse, a
  * etiqueta fica ao lado do título.
  */
 @Component({
@@ -19,17 +18,15 @@ import { WishTags } from './wish-tags';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '[class.is-landing]': 'landing()',
-    '[style.--cel-tilt]': 'tilt()',
   },
   template: `
     @let p = piece();
     @if (p.note) {
       <span class="ponta" aria-hidden="true"></span>
     }
-    <span class="cartao">
-      <span class="xadrez">
-        <app-pixel-thumb [art]="art()" />
-      </span>
+    <!-- o desenho sozinho, sem cartão nem xadrez: o transparente mostra a parede -->
+    <span class="quadro">
+      <app-pixel-thumb [art]="art()" />
     </span>
     <button type="button" class="hit" (click)="opened.emit(p.id)" [attr.aria-describedby]="p.note ? 'descricao-' + p.id : null">
       <span class="sr-only">Abrir {{ title() }}, {{ art().w }} por {{ art().h }}</span>
@@ -47,7 +44,6 @@ import { WishTags } from './wish-tags';
   `,
   styles: `
     @use 'obra-galeria' as obra;
-    @use 'pixel-studio/xadrez' as x;
 
     :host {
       position: relative;
@@ -55,44 +51,29 @@ import { WishTags } from './wish-tags';
       gap: 10px;
       align-content: start;
       isolation: isolate;
-      rotate: calc(var(--cel-tilt, 0) * 1deg);
     }
     :host(:hover),
     :host(:focus-within) {
       z-index: 30;
     }
 
-    /* o cartão branco, com a margem de passe-partout e o xadrez do transparente dentro */
-    .cartao {
+    /* o quadrado do desenho, do mesmo tamanho em todas: o desenho inteiro no meio, sem margem; com a mão em cima ele
+       sobe e ganha a sombra no próprio contorno (o transparente não vira retângulo) */
+    .quadro {
       display: block;
       aspect-ratio: 1;
-      padding: 7px;
-      background: #fdfcf9;
-      box-shadow:
-        0 1px 1px rgb(0 0 0 / 0.35),
-        0 4px 7px rgb(0 0 0 / 0.38);
       transition:
         translate var(--t-ui) var(--ease-ui),
-        box-shadow var(--t-ui) var(--ease-ui);
+        filter var(--t-ui) var(--ease-ui);
     }
-    :host(:hover) .cartao,
-    :host(:focus-within) .cartao {
+    :host(:hover) .quadro,
+    :host(:focus-within) .quadro {
       translate: 0 -3px;
-      box-shadow:
-        0 2px 2px rgb(0 0 0 / 0.3),
-        0 12px 14px rgb(0 0 0 / 0.45);
-    }
-    .xadrez {
-      display: block;
-      height: 100%;
-      padding: 9%;
-      box-sizing: border-box;
-      @include x.xadrez(8px);
-      box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.06);
+      filter: drop-shadow(0 8px 8px rgb(0 0 0 / 0.45));
     }
 
     /* a ponta, o toque, o título, a etiqueta, a descrição e o tapa: os mesmos da Mostra (ui/_obra-galeria.scss) */
-    @include obra.na-parede('.cartao');
+    @include obra.na-parede('.quadro');
 
     .tags {
       margin-top: -6px;
@@ -112,6 +93,4 @@ export class PixelTile {
   protected readonly tagSpace = PIXEL_TAG_SPACE;
   protected readonly art = computed(() => pixelArtOf(this.piece()));
   protected readonly title = computed(() => pieceTitle(this.piece()));
-  /** Um tico fora do esquadro, pelo id (±0,8 grau, como a capa da Grade da Wishlist). */
-  protected readonly tilt = computed(() => Math.round((wobble(this.piece().id, 9200) * 2 - 1) * 80) / 100);
 }

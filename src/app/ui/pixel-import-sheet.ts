@@ -11,7 +11,7 @@ let uid = 0;
 
 /**
  * Trazer das anotações (PLANO-PIXEL-ARTS.md, 6): as pixel arts que moram como widget no texto das anotações, numa
- * lista para escolher quais vão para a galeria. Cada uma com o desenho no xadrez, a legenda (que vira o nome) e a
+ * lista para escolher quais vão para a galeria. Cada uma com o desenho (sem o xadrez, que é só do ateliê), a legenda (que vira o nome) e a
  * anotação de onde vem; as que ainda não estão na galeria já vêm marcadas, e as que já estão (o mesmo desenho)
  * dizem isso e vêm desmarcadas. A ficha de fichário das folhas das Anotações (os arquivos de estilo dela).
  */
@@ -67,7 +67,6 @@ let uid = 0;
   `,
   styleUrls: ['./organize-sheet.scss', './bulk-edit-sheet.scss'],
   styles: `
-    @use 'pixel-studio/xadrez' as x;
 
     .achadas {
       display: grid;
@@ -101,11 +100,6 @@ let uid = 0;
       display: grid;
       width: 52px;
       height: 52px;
-      padding: 5px;
-      box-sizing: border-box;
-      border-radius: 2px;
-      @include x.xadrez(8px);
-      box-shadow: var(--campo-sombra);
     }
     .txt {
       display: grid;

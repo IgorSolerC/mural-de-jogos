@@ -198,29 +198,21 @@
       }
     </ul>
   } @else {
-    <!-- a Mostra: cada uma no material dela, em colunas como os recortes da Wishlist -->
+    <!-- a Mostra: cada uma no jeito dela, todas do mesmo tamanho, em fileiras -->
     <h2 class="sr-only">Pixel arts</h2>
-    <div class="mostra" [style.--colunas]="cols()" [appRealceBusca]="filter().query" realceEm=".nome">
-      @for (col of columns(); track $index) {
-        <div class="coluna">
-          @for (p of col; track p.id) {
-            @let at = layoutOf(p.id);
-            <app-pixel-piece
-              [attr.data-ficha]="p.id"
-              [style.--largura]="at.width"
-              [style.--desvio]="at.shift"
-              [style.--vao]="at.gap + 'px'"
-              [style.view-transition-name]="'obra-' + p.id"
-              [piece]="p"
-              [landing]="landing() === p.id"
-              [query]="filter().query"
-              [noteOpen]="byNote().has(p.id)"
-              (opened)="open($event)"
-              (atelie)="atelie($event)"
-              (download)="download($event)"
-            />
-          }
-        </div>
+    <div class="mostra" [appRealceBusca]="filter().query" realceEm=".nome">
+      @for (p of visible(); track p.id) {
+        <app-pixel-piece
+          [attr.data-ficha]="p.id"
+          [style.view-transition-name]="'obra-' + p.id"
+          [piece]="p"
+          [landing]="landing() === p.id"
+          [query]="filter().query"
+          [noteOpen]="byNote().has(p.id)"
+          (opened)="open($event)"
+          (atelie)="atelie($event)"
+          (download)="download($event)"
+        />
       }
     </div>
   }

@@ -58,6 +58,14 @@ describe('a folha da galeria de pixel arts (PixelPicker)', () => {
     expect(sheet.querySelector('.obra')?.getAttribute('title')).toContain('Miçanga · 3 × 3');
   });
 
+  it('cada obra é o desenho sozinho, sem o xadrez nem a margem (o xadrez é só do ateliê)', async () => {
+    const { sheet } = await make();
+    const look = getComputedStyle(sheet.querySelector('.obra .desenho')!);
+    expect(look.backgroundImage).toBe('none');
+    expect(look.paddingLeft).toBe('0px');
+    expect(look.boxShadow).toBe('none');
+  });
+
   it('a busca acha pelo nome e pela tag; Enter escolhe a primeira e fecha', async () => {
     const { fixture, sheet, host } = await make();
     const search = sheet.querySelector<HTMLInputElement>('input[type="search"]')!;

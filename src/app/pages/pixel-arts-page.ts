@@ -9,7 +9,6 @@ import { FolderCard, FolderCardInfo } from '../ui/folder-card';
 import { FolderMoveSheet } from '../ui/folder-move-sheet';
 import { FolderPath } from '../ui/folder-path';
 import { WallDrag, WallDragItem, WallDrop } from './wall-drag';
-import { collage, shelfColumns } from '../core/clipping';
 import { PixelLook } from '../core/pixel-art';
 import { FoundPixelArt, PIXEL_TAG_SPACE, PixelPiece, artValues, pieceTitle, pieceWidgetLine, pixelArtOf, pixelArtsInNotes, valuesArt } from '../core/pixel-gallery';
 import { StoredLayer } from '../core/pixel-layers';
@@ -25,7 +24,6 @@ import {
   PixelOrder,
   PixelView,
   pieceFoundByNote,
-  pieceLayout,
   pieceMatches,
   pixelDirectionLabel,
   pixelFiltering,
@@ -66,7 +64,7 @@ import { Toasts } from '../ui/toast';
  * Pixel arts (PLANO-PIXEL-ARTS.md): a galeria de todas as pixel arts guardadas, em Extras. A Wishlist das Análises
  * é a base: a pasta de cima com a busca (no título, nas tags e na descrição), o Filtrar (a folha das Anotações,
  * com o Jeito de uma por vez e as Tags nas cores), a ordem com o inverter e a vista. Na Mostra, cada obra no
- * material dela, em colunas como os recortes; na Grade, muitas de uma vez, todas do mesmo tamanho. Tocar abre a
+ * jeito dela, em fileiras de quadrados iguais; na Grade, mais de uma vez, menores e sem jeito. Tocar abre a
  * ficha (ui/pixel-sheet.ts); a etiqueta de hover abre o desenho direto no ateliê ou baixa o PNG. A vista e a
  * ordem ficam guardadas no aparelho.
  *
@@ -208,14 +206,6 @@ export class PixelArtsPage {
     return new Set(q.trim() ? this.visible().filter((p) => pieceFoundByNote(p, q)).map((p) => p.id) : []);
   });
 
-  /** Quantas colunas da Mostra cabem: obras de pelo menos 172px, com 34px entre elas (duas no celular). */
-  protected readonly cols = signal(6);
-  protected readonly columns = computed(() => collage(this.visible(), this.cols(), (id) => this.layoutOf(id).height));
-  private readonly layouts = computed(() => new Map(this.visible().map((p) => [p.id, pieceLayout(p)])));
-  protected layoutOf(id: string): ReturnType<typeof pieceLayout> {
-    return this.layouts().get(id) ?? { width: 100, shift: 0, gap: 40, tilt: 0, height: 1 };
-  }
-
   /** A obra que acabou de chegar (nova, ou salva): assenta com um tapa. */
   protected readonly landing = signal<string | null>(null);
 
@@ -238,7 +228,7 @@ export class PixelArtsPage {
     notes: () => this.byId(),
     // trocar de pasta desmarca (as marcas de antes eram de outra parede)
     reset: () => this.openFolder(),
-    layout: () => [this.columns(), this.prefs().vista, this.folderKids()],
+    layout: () => [this.visible(), this.prefs().vista, this.folderKids()],
     drags: true,
     mode: this.marking,
     // o Ctrl+C das marcadas: as linhas dos widgets, para colar numa anotação
@@ -395,7 +385,6 @@ export class PixelArtsPage {
   constructor() {
     const host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
     this.host = host;
-    const measure = () => this.cols.set(shelfColumns(host.clientWidth, 172, 34));
     effect(() => {
       if (this.menuOn() && !this.menuPiece()) untracked(() => this.menu().close(false));
     });
@@ -478,12 +467,6 @@ export class PixelArtsPage {
       if (n === asked) return;
       asked = n;
       untracked(() => this.add());
-    });
-    afterNextRender(() => {
-      measure();
-      const ro = new ResizeObserver(measure);
-      ro.observe(host);
-      this.destroyRef.onDestroy(() => ro.disconnect());
     });
   }
 
