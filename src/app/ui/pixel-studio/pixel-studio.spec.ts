@@ -474,7 +474,7 @@ describe('pixel art: o ateliê', () => {
     expect(host.querySelector('.previa svg')!.innerHTML.length).toBe(before.length);
   });
 
-  it('trazer de uma imagem colada: nas cores de agora ou com as cores dela', async () => {
+  it('trazer de uma imagem colada (ou do arquivo): a folha pergunta, nas cores de agora ou com as cores dela', async () => {
     await make({ width: '2', height: '1' });
     const canvas = document.createElement('canvas');
     canvas.width = 2;
@@ -490,19 +490,26 @@ describe('pixel art: o ateliê', () => {
       dt.items.add(new File([blob], 'cores.png', { type: 'image/png' }));
       mesa().dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: dt }));
     };
+    const studio = fixture.componentInstance as unknown as { applyImport(): void; setImportChoice(c: string): void };
     paste();
     await new Promise((r) => setTimeout(r, 300));
+    fixture.detectChanges();
+    // a folha pergunta antes; a resposta de sempre é a paleta
+    expect((host.querySelector('dialog.trazer') as HTMLDialogElement).open).toBeTrue();
+    studio.applyImport();
     fixture.detectChanges();
     // o vermelho e o azul da Clássica
     expect(values['pixels']).toBe('48');
     key('z', { ctrlKey: true });
-    (fixture.componentInstance as unknown as { importOwn: boolean }).importOwn = true;
     const input = host.querySelector('input.arquivo') as HTMLInputElement;
     const dt = new DataTransfer();
     dt.items.add(new File([blob], 'cores.png', { type: 'image/png' }));
     input.files = dt.files;
     input.dispatchEvent(new Event('change'));
     await new Promise((r) => setTimeout(r, 300));
+    fixture.detectChanges();
+    studio.setImportChoice('cores');
+    studio.applyImport();
     fixture.detectChanges();
     expect(values['palette']).toBe('propria');
     expect(values['colors']).toBe('1#0000ff 2#ff0000');

@@ -82,6 +82,23 @@ type Drag =
   | { kind: 'escala'; handle: Handle; start: Box; x: number; y: number }
   | { kind: 'ref'; id: string; mode: Handle | 'mover'; start: Box; x: number; y: number; before: Snap };
 
+/** As três respostas da folha "Trazer a imagem". */
+type ImportChoice = 'paleta' | 'cores' | 'referencia';
+
+/** A imagem que chegou, lida e convertida dos dois jeitos (as fileiras já na tela de agora). */
+interface ImportAsk {
+  file: Blob;
+  name: string;
+  /** O endereço da imagem para a prévia da referência (sai ao fechar a folha). */
+  url: string;
+  palRows: string[];
+  /** Com as cores dela; null se a imagem é toda transparente. */
+  ownRows: string[] | null;
+  ownInks: (string | null)[] | null;
+  ownColors: Record<number, string>;
+  choice: ImportChoice;
+}
+
 let uid = 0;
 
 /**
@@ -442,6 +459,11 @@ export class PixelStudio {
 
   constructor() {
     const destroy = inject(DestroyRef);
+    // a folha da imagem aberta quando o ateliê some: o endereço da prévia não fica segurando a imagem
+    destroy.onDestroy(() => {
+      const q = this.importAsk();
+      if (q) URL.revokeObjectURL(q.url);
+    });
     afterNextRender(() => {
       this.load(this.values());
       const el = this.dialog().nativeElement;
@@ -1493,9 +1515,8 @@ export class PixelStudio {
         ...(this.hasClip() ? [{ id: 'colar', label: 'Colar', icon: ICON.colar, keys: 'Ctrl+V', run: () => this.pasteClip() }] : []),
       ],
       [
-        { id: 'imagem', label: 'Trazer de uma imagem…', hint: 'Nas cores de agora', icon: ICON.imagem, run: () => this.chooseImage() },
+        { id: 'imagem', label: 'Trazer uma imagem…', hint: 'Nas cores da paleta, com as cores dela ou como referência', icon: ICON.imagem, dialog: true, run: () => this.chooseImage() },
         ...(this.layered() ? [{ id: 'referencia', label: 'Imagem de referência…', hint: 'Fica no papel para copiar; não entra no desenho', icon: ICON.camadas, run: () => this.chooseRef() }] : []),
-        { id: 'imagem-cores', label: 'Trazer, com as cores dela…', hint: 'Cria a paleta com as cores da imagem', icon: ICON.paleta, run: () => this.chooseImage(true) },
       ],
       [{ id: 'limpar', label: this.dotsTotal() > 1 ? 'Limpar a camada' : 'Limpar a folha', icon: ICON.apagar, danger: true, run: () => this.clear() }],
     ];
@@ -1538,13 +1559,13 @@ export class PixelStudio {
   }
 
   /** Uma camada nova com os pontos dados acima da escolhida (a imagem trazida, por exemplo), um passo do desfazer. */
-  private addLayerWith(rows: string[], said: string, extra: Partial<Snap> = {}): void {
+  private addLayerWith(rows: string[], said: string, extra: Partial<Snap> = {}, name = ''): void {
     const base = extra.layers ?? this.stackNow();
     if (dotsCount(base) >= PIXEL_LAYERS_MAX) {
       this.said.set(`Cabem ${PIXEL_LAYERS_MAX} camadas numa pixel art`);
       return;
     }
-    const layer: Layer = { id: newLayerId(), name: nextLayerName(base), hidden: false, kind: 'pontos', rows };
+    const layer: Layer = { id: newLayerId(), name: name || nextLayerName(base), hidden: false, kind: 'pontos', rows };
     this.chosenRef.set(null);
     this.change({ ...extra, layers: insertAbove(base, this.current(), layer), current: layer.id }, said || `${layer.name} nova`);
   }
@@ -1900,7 +1921,6 @@ export class PixelStudio {
         ? [{ id: 'sem-uso', label: this.unused().length === 1 ? 'Tirar a cor sem uso' : `Tirar as ${this.unused().length} cores sem uso`, hint: 'As que nenhum ponto usa, em nenhuma camada', icon: ICON.borracha, run: () => this.removeUnused() }]
         : []),
     ],
-    [{ id: 'imagem-cores', label: 'Trazer de uma imagem, com as cores dela…', icon: ICON.imagem, run: () => this.chooseImage(true) }],
     ...(this.fg() > 0 && this.count() > 1 ? [[{ id: 'tirar-cor', label: `Tirar a cor ${inkChar(this.fg())}`, icon: ICON.apagar, danger: true, run: () => this.removeFg() }]] : []),
   ]);
 
@@ -2174,13 +2194,13 @@ export class PixelStudio {
     return l.kind === 'ref' ? l.ref.src : null;
   }
 
-  // ===== trazer de uma imagem =====
+  // ===== trazer de uma imagem (PLANO-CAMADAS.md, rodada 6: a pergunta) =====
 
-  /** Trazer de uma imagem: nas cores de agora, ou (`own`) criando a paleta com as cores dela. */
-  private importOwn = false;
+  /** A imagem que chegou (pelo menu, colada ou solta), já lida e convertida dos dois jeitos, esperando a resposta. */
+  protected readonly importAsk = signal<ImportAsk | null>(null);
+  private readonly importSheet = viewChild<ElementRef<HTMLDialogElement>>('trazer');
 
-  protected chooseImage(own = false): void {
-    this.importOwn = own;
+  protected chooseImage(): void {
     this.file().nativeElement.click();
   }
 
@@ -2194,8 +2214,7 @@ export class PixelStudio {
       if (file) void this.addReference(file, forRef === 'trocar');
       return;
     }
-    if (file) void this.importImage(file, this.importOwn);
-    this.importOwn = false;
+    if (file) void this.askImport(file);
   }
 
   /**
@@ -2207,7 +2226,7 @@ export class PixelStudio {
     this.takeImage(e);
   }
 
-  /** Colar (Ctrl+V) ou soltar uma imagem na mesa: ela vira os pontos. */
+  /** Colar (Ctrl+V) ou soltar uma imagem na mesa: a folha pergunta como ela vem. */
   protected takeImage(e: ClipboardEvent | DragEvent): void {
     const file = imageFileOf(e instanceof ClipboardEvent ? e.clipboardData : e.dataTransfer);
     if (!file) {
@@ -2218,7 +2237,7 @@ export class PixelStudio {
       return;
     }
     e.preventDefault();
-    void this.importImage(file);
+    void this.askImport(file);
   }
 
   protected dragOver(e: DragEvent): void {
@@ -2226,11 +2245,13 @@ export class PixelStudio {
   }
 
   /**
-   * A imagem encolhida até a tela de agora (inteira, no meio, sem deformar) e cada ponto na cor mais perto
-   * das do desenho; o quase transparente fica transparente. Um passo no desfazer.
+   * Lê a imagem uma vez, encolhida até a tela de agora (inteira, no meio, sem deformar; o quase transparente fica
+   * transparente), e já a converte dos dois jeitos, para a folha "Trazer a imagem" mostrar como cada um fica: nas
+   * cores da paleta (cada ponto na mais perto), ou com as cores dela (o corte na mediana: 16 numa tela de 16, 32 numa
+   * de 32, até 61). Na galeria, a terceira resposta é deixá-la como referência.
    */
-  private async importImage(file: Blob, own = false): Promise<void> {
-    if (this.importing()) return;
+  async askImport(file: Blob): Promise<void> {
+    if (this.importing() || this.importAsk()) return;
     this.importing.set(true);
     this.importError.set(null);
     try {
@@ -2240,28 +2261,29 @@ export class PixelStudio {
       const fit = fitInGrid(bitmap.width, bitmap.height, w, h);
       const data = shrink(bitmap, fit.w, fit.h);
       bitmap.close();
-      // com as cores dela: a paleta própria, pelo corte na mediana (16 numa tela de 16, 32 numa de 32, até 61)
-      const ownInks = own ? [null, ...medianCut(data, Math.min(INK_MAX, Math.max(8, Math.round(Math.sqrt(w * h)))))] : null;
-      const part = quantize(data, fit.w, fit.h, ownInks ?? drawingInks(this.palette(), this.colors()));
-      const rows = blankGrid(w, h).map((row, y) => {
-        const line = part[y - fit.y];
-        return line === undefined ? row : row.slice(0, fit.x) + line + row.slice(fit.x + line.length);
+      const place = (part: string[]) =>
+        blankGrid(w, h).map((row, y) => {
+          const line = part[y - fit.y];
+          return line === undefined ? row : row.slice(0, fit.x) + line + row.slice(fit.x + line.length);
+        });
+      const own = medianCut(data, Math.min(INK_MAX, Math.max(8, Math.round(Math.sqrt(w * h)))));
+      const ownInks = own.length ? [null, ...own] : null;
+      const ownColors: Record<number, string> = {};
+      ownInks?.forEach((c, i) => c && (ownColors[i] = c));
+      // (a colada chega como "image.png": esse nome não diz nada)
+      const base = file instanceof File ? cleanLayerName(file.name.replace(/\.[a-z0-9]+$/i, '')) : '';
+      const name = base && !/^image$/i.test(base) ? base : 'Imagem colada';
+      this.importAsk.set({
+        file,
+        name,
+        url: URL.createObjectURL(file),
+        palRows: place(quantize(data, fit.w, fit.h, drawingInks(this.palette(), this.colors()))),
+        ownRows: ownInks ? place(quantize(data, fit.w, fit.h, ownInks)) : null,
+        ownInks,
+        ownColors,
+        choice: 'paleta',
       });
-      if (ownInks && ownInks.length > 1) {
-        const colors: Record<number, string> = {};
-        ownInks.forEach((c, i) => c && (colors[i] = c));
-        if (this.layered() && hasInk(this.flat())) {
-          // as outras camadas passam para a cor mais perto da paleta nova; a imagem vem numa camada nova
-          const from = drawingInks(this.palette(), this.colors());
-          const layers = mapDots(this.stackNow(), (r) => convertRows(r, from, ownInks));
-          this.addLayerWith(rows, `Imagem trazida numa camada nova, com ${ownInks.length - 1} cores dela`, { layers, palette: 'propria', colors });
-        } else this.change({ rows, palette: 'propria', colors }, `Imagem trazida para ${w} por ${h} pontos, com ${ownInks.length - 1} cores dela`);
-      } else if (own) {
-        this.importError.set('Essa imagem é toda transparente: não tem cor para trazer.');
-        this.said.set('Essa imagem é toda transparente.');
-      } else if (this.layered() && hasInk(this.flat())) {
-        this.addLayerWith(rows, `Imagem trazida numa camada nova, nas cores de agora`);
-      } else this.change({ rows }, `Imagem trazida para ${w} por ${h} pontos, nas cores de agora`);
+      afterNextRender(() => this.importSheet()?.nativeElement.showModal(), { injector: this.injector });
     } catch {
       this.importError.set('Essa imagem não abriu. Tente outra (PNG, JPG, WebP, GIF).');
       this.said.set('Essa imagem não abriu.');
@@ -2269,6 +2291,62 @@ export class PixelStudio {
       this.importing.set(false);
     }
   }
+
+  protected setImportChoice(choice: ImportChoice): void {
+    this.importAsk.update((q) => (q ? { ...q, choice } : q));
+  }
+
+  /** As outras camadas já têm desenho: os pontos da imagem vêm numa camada nova (na galeria). */
+  protected readonly importIntoLayer = computed(() => this.layered() && hasInk(this.flat()));
+
+  /** Fecha a folha sem trazer nada (Cancelar, Esc), ou depois de trazer. */
+  protected closeImport(): void {
+    const q = this.importAsk();
+    if (!q) return;
+    URL.revokeObjectURL(q.url);
+    this.importAsk.set(null);
+    const el = this.importSheet()?.nativeElement;
+    if (el?.open) el.close();
+    this.board().nativeElement.focus({ preventScroll: true });
+  }
+
+  /** A resposta: nas cores da paleta, com as cores dela, ou como referência. Os pontos são um passo do desfazer. */
+  protected applyImport(): void {
+    const q = this.importAsk();
+    if (!q) return;
+    this.closeImport();
+    const w = this.w();
+    const h = this.h();
+    if (q.choice === 'referencia' && this.layered()) {
+      void this.addReference(q.file);
+      return;
+    }
+    if (q.choice === 'cores' && q.ownRows && q.ownInks) {
+      const n = q.ownInks.length - 1;
+      if (this.importIntoLayer()) {
+        // as outras camadas passam para a cor mais perto da paleta nova; a imagem vem numa camada nova
+        const from = drawingInks(this.palette(), this.colors());
+        const to = q.ownInks;
+        const layers = mapDots(this.stackNow(), (r) => convertRows(r, from, to));
+        this.addLayerWith(q.ownRows, `${q.name} numa camada nova, com as ${n} cores dela`, { layers, palette: 'propria', colors: q.ownColors }, q.name);
+      } else this.change({ rows: q.ownRows, palette: 'propria', colors: q.ownColors }, `Imagem trazida para ${w} por ${h} pontos, com as ${n} cores dela`);
+      return;
+    }
+    if (this.importIntoLayer()) this.addLayerWith(q.palRows, `${q.name} numa camada nova, nas cores da paleta`, {}, q.name);
+    else this.change({ rows: q.palRows }, `Imagem trazida para ${w} por ${h} pontos, nas cores da paleta`);
+  }
+
+  /** As prévias de cada resposta, no tamanho da tela. */
+  protected readonly importPreviews = computed(() => {
+    const q = this.importAsk();
+    if (!q) return null;
+    const w = this.w();
+    const h = this.h();
+    return {
+      paleta: { w, h, rows: q.palRows, palette: this.palette(), colors: this.colors() },
+      cores: q.ownRows ? { w, h, rows: q.ownRows, palette: 'propria' as PaletteName, colors: q.ownColors } : null,
+    };
+  });
 
   // ===== o que a mesa desenha =====
 

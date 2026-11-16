@@ -586,6 +586,69 @@
     </dialog>
   }
 
+  <!-- Trazer a imagem (o menu Imagem, colar ou soltar na mesa): como ela vem, cada resposta com a prévia de como fica -->
+  @if (importAsk(); as q) {
+    @let pv = importPreviews();
+    <dialog #trazer class="sheet tamanho trazer" [attr.aria-labelledby]="ids + '-trazer'" (close)="closeImport()" (keydown)="$event.stopPropagation()">
+      <form class="tamanho-ficha" method="dialog" (submit)="$event.preventDefault(); applyImport()">
+        <h3 class="tamanho-titulo" [id]="ids + '-trazer'">Trazer a imagem</h3>
+        <p class="trazer-nome">
+          <img class="trazer-foto" alt="" [src]="q.url" />
+          <span>{{ q.name }} · vira {{ iw }} × {{ ih }} pontos</span>
+        </p>
+        <div class="trazer-escolhas" role="radiogroup" aria-label="Como a imagem vem">
+          <label class="trazer-cartao" [class.on]="q.choice === 'paleta'">
+            <input type="radio" [name]="ids + '-como'" [checked]="q.choice === 'paleta'" (change)="setImportChoice('paleta')" />
+            <span class="trazer-previa" aria-hidden="true">
+              @if (pv) {
+                <app-pixel-thumb [art]="pv.paleta" />
+              }
+            </span>
+            <span class="trazer-texto">
+              <span class="trazer-titulo">Nas cores da sua paleta</span>
+              <span class="trazer-desc">Cada ponto vira a cor mais perto das {{ count() }} da {{ paletteLabel() }}.</span>
+            </span>
+          </label>
+          <label class="trazer-cartao" [class.on]="q.choice === 'cores'" [class.off]="!pv?.cores">
+            <input type="radio" [name]="ids + '-como'" [checked]="q.choice === 'cores'" [disabled]="!pv?.cores" (change)="setImportChoice('cores')" />
+            <span class="trazer-previa" aria-hidden="true">
+              @if (pv?.cores; as c) {
+                <app-pixel-thumb [art]="c" />
+              }
+            </span>
+            <span class="trazer-texto">
+              <span class="trazer-titulo">Com as cores da imagem</span>
+              <span class="trazer-desc">
+                @if (q.ownInks) {
+                  A paleta vira as {{ q.ownInks.length - 1 }} cores dela{{ importIntoLayer() ? '; as outras camadas passam para a cor mais perto.' : '.' }}
+                } @else {
+                  A imagem é toda transparente: não tem cor para trazer.
+                }
+              </span>
+            </span>
+          </label>
+          @if (layered()) {
+            <label class="trazer-cartao" [class.on]="q.choice === 'referencia'" [class.off]="refsTotal() >= REFS_MAX">
+              <input type="radio" [name]="ids + '-como'" [checked]="q.choice === 'referencia'" [disabled]="refsTotal() >= REFS_MAX" (change)="setImportChoice('referencia')" />
+              <span class="trazer-previa foto" aria-hidden="true"><img alt="" [src]="q.url" /></span>
+              <span class="trazer-texto">
+                <span class="trazer-titulo">Como referência</span>
+                <span class="trazer-desc">{{ refsTotal() >= REFS_MAX ? 'Já há ' + REFS_MAX + ' referências: apague uma para trazer outra.' : 'Fica no papel para você desenhar por cima; não entra na pixel art.' }}</span>
+              </span>
+            </label>
+          }
+        </div>
+        @if (q.choice !== 'referencia') {
+          <p class="ancora-dica">{{ importIntoLayer() ? 'Os pontos vêm numa camada nova: nada do que já está se perde.' : 'Os pontos ficam no lugar do desenho de agora (o Desfazer volta).' }}</p>
+        }
+        <div class="tamanho-pe">
+          <button type="button" class="papel" (click)="closeImport()">Cancelar</button>
+          <button type="submit" class="pronto">Trazer</button>
+        </div>
+      </form>
+    </dialog>
+  }
+
   <!-- o Tamanho da tela (C): a largura, a altura e onde o desenho fica -->
   @if (sizing(); as s) {
     <dialog #tamanho class="sheet tamanho" [attr.aria-labelledby]="ids + '-tam'" (close)="closeSize()" (keydown)="$event.stopPropagation()">

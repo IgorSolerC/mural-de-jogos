@@ -436,3 +436,115 @@ describe('pixel art: as referências do ateliê', () => {
     expect(ref()).toEqual(jasmine.objectContaining({ x: 2, y: 2 }));
   });
 });
+
+/** Trazer uma imagem pergunta (PLANO-CAMADAS.md, rodada 6): as cores da paleta, as dela, ou a referência. */
+describe('pixel art: trazer uma imagem', () => {
+  const ID = 'B'.repeat(22);
+  let fixture: ComponentFixture<PixelStudio>;
+  let values: WidgetValues;
+  let stack: StoredLayer[] | undefined;
+  let host: HTMLElement;
+
+  async function make(start: WidgetValues, layered: boolean): Promise<void> {
+    TestBed.configureTestingModule({
+      imports: [PixelStudio],
+      providers: [provideZonelessChangeDetection(), { provide: ImageStore, useValue: { add: async () => ({ id: ID, largura: 4, altura: 4 }), version: signal(0), url: async () => null } }],
+    });
+    fixture = TestBed.createComponent(PixelStudio);
+    values = { ...start };
+    stack = undefined;
+    fixture.componentRef.setInput('values', values);
+    fixture.componentRef.setInput('layered', layered);
+    fixture.componentInstance.changed.subscribe((p) => (values = { ...values, ...p }));
+    fixture.componentInstance.stackChanged.subscribe((s) => (stack = s));
+    host = fixture.nativeElement;
+    document.body.appendChild(host);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+  afterEach(() => {
+    host?.querySelectorAll('dialog').forEach((d) => d.open && d.close());
+    host?.remove();
+    TestBed.resetTestingModule();
+  });
+  const st = () => fixture.componentInstance as unknown as Record<string, (...a: unknown[]) => unknown>;
+
+  /** Uma imagem de 4 × 4: a metade de cima vermelha, a de baixo azul. */
+  async function picture(): Promise<File> {
+    const cv = document.createElement('canvas');
+    cv.width = 4;
+    cv.height = 4;
+    const g = cv.getContext('2d')!;
+    g.fillStyle = '#e02020';
+    g.fillRect(0, 0, 4, 2);
+    g.fillStyle = '#2040e0';
+    g.fillRect(0, 2, 4, 2);
+    const blob = await new Promise<Blob>((r) => cv.toBlob((b) => r(b!), 'image/png'));
+    return new File([blob], 'bandeira.png', { type: 'image/png' });
+  }
+  async function ask(): Promise<void> {
+    await (st()['askImport'] as (f: Blob) => Promise<void>)(await picture());
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+  const choices = () => [...host.querySelectorAll('.trazer-cartao .trazer-titulo')].map((t) => t.textContent?.trim());
+
+  it('o menu tem um Trazer só; a imagem abre a folha com as três respostas e a prévia de cada uma', async () => {
+    await make({ width: '4', height: '4' }, true);
+    const items = (st()['imageItems'] as () => { id: string }[][])().flat().map((i) => i.id);
+    expect(items).toContain('imagem');
+    expect(items).not.toContain('imagem-cores');
+    await ask();
+    expect((host.querySelector('dialog.trazer') as HTMLDialogElement).open).toBeTrue();
+    expect(choices()).toEqual(['Nas cores da sua paleta', 'Com as cores da imagem', 'Como referência']);
+    expect(host.querySelectorAll('.trazer-previa app-pixel-thumb').length).toBe(2);
+    expect(host.querySelector('.trazer-nome')?.textContent).toContain('bandeira');
+  });
+
+  it('nas cores da paleta, com desenho na obra: os pontos vêm numa camada nova', async () => {
+    await make({ width: '4', height: '4', pixels: '1' }, true);
+    await ask();
+    st()['applyImport']();
+    fixture.detectChanges();
+    expect(stack?.length).toBe(2);
+    expect(stack?.[1].name).toBe('bandeira');
+    expect(values['palette']).toBe('classica');
+  });
+
+  it('com as cores da imagem: a paleta vira a dela, e o desenho de antes passa para a cor mais perto', async () => {
+    await make({ width: '4', height: '4', pixels: '1' }, true);
+    await ask();
+    st()['setImportChoice']('cores');
+    st()['applyImport']();
+    fixture.detectChanges();
+    expect(values['palette']).toBe('propria');
+    expect(stack?.length).toBe(2);
+  });
+
+  it('como referência: vira uma camada de referência; Cancelar não muda nada', async () => {
+    await make({ width: '4', height: '4', pixels: '1' }, true);
+    await ask();
+    st()['closeImport']();
+    fixture.detectChanges();
+    expect(stack).toBeUndefined();
+    await ask();
+    st()['setImportChoice']('referencia');
+    st()['applyImport']();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(stack?.[0].ref?.src).toBe('murall://imagem/' + ID);
+    expect(values['pixels']).toBe('1');
+  });
+
+  it('no widget: duas respostas, e os pontos no lugar do desenho', async () => {
+    await make({ width: '4', height: '4', pixels: '1' }, false);
+    await ask();
+    expect(choices()).toEqual(['Nas cores da sua paleta', 'Com as cores da imagem']);
+    st()['applyImport']();
+    fixture.detectChanges();
+    expect(values['pixels']).not.toBe('1');
+    expect(stack).toBeUndefined();
+  });
+});
