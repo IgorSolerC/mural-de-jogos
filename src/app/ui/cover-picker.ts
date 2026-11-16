@@ -78,7 +78,7 @@ function joinSources(list: string[]): string {
             [name]="group()"
             [checked]="cover() === c.coverUrl"
             (change)="choose(c)"
-            [attr.aria-label]="'Capa ' + (i + 1) + ' de ' + shown().length + ', ' + c.from + (isBroken(c.coverUrl) ? ', não abriu' : '')"
+            [attr.aria-label]="'Capa ' + (i + 1) + ' de ' + shown().length + ', ' + c.from + pieceNameOf(c.coverUrl) + (isBroken(c.coverUrl) ? ', não abriu' : '')"
           />
           <span class="foto">
             <img
@@ -185,6 +185,7 @@ function joinSources(list: string[]): string {
     <!-- a galeria de pixel arts: a folha do "Escolher a nota", com os filtros e o Desenhar uma nova -->
     <app-pixel-picker
       [(open)]="pixelPickerOpen"
+      [chosen]="chosenPiece()"
       heading="Pixel art de capa"
       hint="Uma da sua galeria vira a capa, impressa no papel milimetrado."
       footHint="Toque numa pixel art para usar de capa."
@@ -531,6 +532,9 @@ export class CoverPicker {
   protected readonly imageError = signal<string | null>(null);
   /** A folha da galeria de pixel arts, aberta. */
   protected readonly pixelPickerOpen = signal(false);
+  /** A obra da galeria de cada capa de pixel art (pelo endereço da capa): a escolhida na folha e o nome dela. */
+  private readonly pieceOfCover = signal<ReadonlyMap<string, string>>(new Map());
+  protected readonly chosenPiece = computed(() => this.pieceOfCover().get(this.cover() ?? '') ?? '');
   /** O ateliê aberto, desenhando uma nova (os valores do widget de pixel art); null fechado. */
   protected readonly studio = signal<WidgetValues | null>(null);
   /** A frase de depois de desenhar: a obra nova também ficou na galeria. */
@@ -563,7 +567,7 @@ export class CoverPicker {
     // Ctrl+V com uma imagem copiada, com o seletor aberto: vira a capa. Fora de um campo de texto (o texto da
     // anotação cola a imagem nele mesmo); o campo do link cuida do dele (onPaste)
     const pasted = (e: ClipboardEvent) => {
-      if (e.defaultPrevented || typesHere(e.target)) return;
+      if (e.defaultPrevented || typesHere(e.target) || this.elsewhere(e.target)) return;
       this.takeClipboard(e);
     };
     document.addEventListener('paste', pasted);
@@ -708,6 +712,15 @@ export class CoverPicker {
     this.bring({ ...this.game(), coverUrl: url, from: 'Link' });
   }
 
+  /**
+   * O colar caiu dentro de outro diálogo aberto por cima (a folha da galeria, uma folha de outra coisa): não é para a
+   * capa que está por baixo.
+   */
+  private elsewhere(target: EventTarget | null): boolean {
+    const dialog = target instanceof Element ? target.closest('dialog') : null;
+    return !!dialog && dialog !== this.host.nativeElement.closest('dialog');
+  }
+
   /** Uma capa trazida aqui (o link colado, a imagem do aparelho) entra na frente do monte, já escolhida. */
   private bring(choice: CoverChoice): void {
     const url = choice.coverUrl!;
@@ -729,8 +742,20 @@ export class CoverPicker {
    */
   private async creditStored(url: string | null): Promise<void> {
     const id = url ? localImageId(url) : null;
-    if (!id || (await this.images.get(id))?.tipo !== 'image/png') return;
+    const image = id ? await this.images.get(id) : null;
+    if (!url || image?.tipo !== 'image/png') return;
+    if (image.pixel) this.remember(url, image.pixel);
     this.choices.update((list) => list.map((c) => (c.coverUrl === url ? { ...c, from: PIXEL_COVER } : c)));
+  }
+
+  private remember(url: string, piece: string): void {
+    this.pieceOfCover.update((m) => new Map(m).set(url, piece));
+  }
+
+  /** ", Cogumelo da sorte": o nome da obra da capa de pixel art, para o leitor de tela. */
+  protected pieceNameOf(url: string | null): string {
+    const piece = url ? this.gallery.get(this.pieceOfCover().get(url) ?? '') : undefined;
+    return piece ? `, ${pieceTitle(piece)}` : '';
   }
 
   // ===== as pixel arts da galeria (PLANO-CAPAS.md): escolhidas na folha da galeria, ou desenhadas aqui =====
@@ -741,7 +766,9 @@ export class CoverPicker {
     return this.store(async () => {
       const png = await pixelCoverPng(pixelArtOf(p));
       if (!png) throw new ImageProblem('O navegador não conseguiu montar a imagem. Tente de novo.');
-      return { image: await this.images.addPng(png.blob, png.width, png.height), from: PIXEL_COVER };
+      const image = await this.images.addPng(png.blob, png.width, png.height, p.id);
+      this.remember(localImageUrl(image.id), p.id);
+      return { image, from: PIXEL_COVER };
     });
   }
 

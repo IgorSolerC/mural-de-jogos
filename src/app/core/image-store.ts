@@ -23,6 +23,11 @@ export interface StoredImage {
   criada: string;
   estado: ImageState;
   /**
+   * A pixel art da galeria impressa nesta imagem (a capa, ver core/pixel-cover.ts): o id da obra, para a folha da
+   * galeria marcar a escolhida e a capa dizer o nome. Só deste aparelho (não sobe nem vai no backup).
+   */
+  pixel?: string;
+  /**
    * De outra pessoa (de uma anotação compartilhada, ou do mural de quem você visita), baixada para mostrar:
    * não vai no backup baixado nem conta como mural seu.
    */
@@ -73,11 +78,11 @@ export class ImageStore {
    * Guarda um PNG feito pelo próprio Murall (a pixel art de capa, core/pixel-cover.ts) como está, sem encolher: o
    * WebP borraria as bordas dos pontos. Ele já vem no tamanho e no teto que a nuvem confere (900 px e 200 KB).
    */
-  async addPng(blob: Blob, largura: number, altura: number): Promise<StoredImage> {
+  async addPng(blob: Blob, largura: number, altura: number, pixel?: string): Promise<StoredImage> {
     if (blob.type !== 'image/png' || blob.size > MAX_BYTES || Math.max(largura, altura) > MAX_SIDE) throw new ImageProblem('Essa imagem não coube. Tente outra.');
     if (storageFrozen()) throw new ImageProblem('O Murall está recarregando. Tente de novo daqui a pouco.');
     const hash = await hashOf(blob);
-    return this.keepOnce(hash, () => ({ id: newImageId(), blob, tipo: 'image/png', largura, altura, bytes: blob.size, hash, criada: new Date().toISOString(), estado: 'local' }));
+    return this.keepOnce(hash, () => ({ id: newImageId(), blob, tipo: 'image/png', largura, altura, bytes: blob.size, hash, criada: new Date().toISOString(), estado: 'local', ...(pixel ? { pixel } : {}) }));
   }
 
   /**

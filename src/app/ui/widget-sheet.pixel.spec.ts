@@ -72,6 +72,34 @@ describe('a folha do widget com a pixel art', () => {
     }
   });
 
+  it('trocar pela galeria um desenho feito à mão tem o Desfazer', async () => {
+    const at = '2026-11-16T10:00:00.000Z';
+    localStorage.setItem(PIXEL_GALLERY_KEY, JSON.stringify({ pieces: [{ id: 'sol', title: 'Sol', art: ['3x3', '010/111/010'], createdAt: at, at }], removed: {} }));
+    try {
+      const { fixture, host } = await open({ width: '2', height: '1', pixels: '44', caption: 'Meu traço' }, true);
+      const toasts = TestBed.inject(Toasts);
+      const shown = spyOn(toasts, 'show').and.callThrough();
+      host.querySelector<HTMLButtonElement>('.escolher-galeria')!.click();
+      for (let i = 0; i < 3; i++) {
+        await fixture.whenStable();
+        fixture.detectChanges();
+      }
+      host.querySelector<HTMLButtonElement>('app-pixel-picker .obra')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(host.querySelector('app-pixel-field .linha-desc')?.textContent).toContain('3 × 3');
+      // a legenda escrita à mão fica
+      expect(host.querySelector<HTMLInputElement>('input[data-campo="caption"]')?.value).toBe('Meu traço');
+      const [text, action] = shown.calls.mostRecent().args;
+      expect(text).toContain('O desenho de antes saiu');
+      action!.run();
+      fixture.detectChanges();
+      expect(host.querySelector('app-pixel-field .linha-desc')?.textContent).toContain('2 × 1');
+    } finally {
+      localStorage.removeItem(PIXEL_GALLERY_KEY);
+    }
+  });
+
   it('mexendo num que já está no texto, a folha abre na linha do desenho; sem pontos, o Pôr leva ao ateliê', async () => {
     const { fixture, host, done } = await open({ width: '4', height: '4', pixels: '', palette: 'pico8' }, true);
     expect(host.querySelector('dialog.atelie')).toBeNull();

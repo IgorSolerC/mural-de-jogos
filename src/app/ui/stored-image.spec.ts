@@ -1,5 +1,6 @@
 import { Component, provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { ACCOUNT_KEY, SESSION_KEY } from '../core/cloud-account';
 import { Cloud } from '../core/cloud-config';
 import { deleteDatabase } from '../core/erase-save';
 import { IMAGES_DB, ImageStore } from '../core/image-store';
@@ -68,6 +69,21 @@ describe('a imagem guardada pelo Murall num <img> (MuralSrc)', () => {
     await settle(fixture, () => fixture.componentInstance.errors > 0);
     expect(fixture.componentInstance.errors).toBe(1);
     expect(img.hasAttribute('src')).toBeFalse();
+  });
+
+  it('na visita (sem conta), a capa guardada que não está aqui vem pelo endereço público da nuvem', async () => {
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(ACCOUNT_KEY);
+    TestBed.configureTestingModule({
+      imports: [CoverSleeve],
+      providers: [provideZonelessChangeDetection(), { provide: Cloud, useValue: { ready: Promise.resolve(), config: () => ({ api: 'https://api.teste', googleClientId: 'x' }) } }],
+    });
+    const fixture = TestBed.createComponent(CoverSleeve);
+    const id = 'v'.repeat(22);
+    fixture.componentRef.setInput('game', { name: 'Hades', coverUrl: localImageUrl(id), source: 'manual' });
+    const el = fixture.nativeElement as HTMLElement;
+    await settle(fixture, () => !!el.querySelector('img')?.getAttribute('src'));
+    expect(el.querySelector('img')?.getAttribute('src')).toBe(`https://api.teste/v1/imagens/${id}`);
   });
 
   it('a capa da ficha guardada no aparelho aparece na capinha, e a que falta vira "sem capa"', async () => {

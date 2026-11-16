@@ -206,6 +206,20 @@ describe('a pixel art da galeria como capa', () => {
     expect(own.el.querySelector('.capa.on .de')?.textContent).toBe('Do aparelho');
   });
 
+  it('reaberta, a capa de pixel art marca a obra na folha da galeria e diz o nome dela', async () => {
+    const first = await make(pieces);
+    const sheet = await openSheet(first.fixture, first.el);
+    Array.from(sheet.querySelectorAll<HTMLButtonElement>('.obra')).find((b) => b.textContent?.includes('Gato preto'))!.click();
+    await settle(first.fixture, () => first.changed.length > 0);
+    const cover = first.changed[0].coverUrl;
+    TestBed.resetTestingModule();
+    const again = await make(pieces, { ...GAME, coverUrl: cover });
+    await settle(again.fixture, () => !!again.el.querySelector('.capa.on input')?.getAttribute('aria-label')?.includes('Gato preto'));
+    expect(again.el.querySelector('.capa.on input')?.getAttribute('aria-label')).toContain('Pixel art, Gato preto');
+    const reopened = await openSheet(again.fixture, again.el);
+    expect(reopened.querySelector('.obra.on .nome')?.textContent).toBe('Gato preto');
+  });
+
   it('com a galeria vazia, a folha diz isso e oferece desenhar a primeira', async () => {
     const { fixture, el } = await make([]);
     const sheet = await openSheet(fixture, el);

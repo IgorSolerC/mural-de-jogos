@@ -105,3 +105,12 @@ que já tem. O glued-media e a carta dos Flashcards passam a usar a mesma funç�
   galeria com o nome da ficha e vira a capa. No widget, o novo abre a folha quando a galeria tem obras, e o Escolher
   da galeria fica ao lado do Guardar na galeria; o Desenhar uma nova abre o ateliê do próprio widget. O
   `/code-review mid` achou dois, corrigidos: a legenda velha ao trocar de obra e a tabela das Mexidas repetida.
+- 16/nov/2026, rodada 4 (o fim), BUILD 906: a crítica do Impeccable (duas avaliações isoladas, 29/40; o detector não
+  achou nada nos arquivos novos, e o injetor no navegador ficou de fora pela CSP do site) e as correções dela: a capa
+  de pixel art lembra a obra (`StoredImage.pixel`, só no aparelho), a folha a marca ao reabrir e a capa diz o nome
+  dela no leitor de tela; trocar no widget um desenho feito à mão tem o Desfazer; no celular a folha abre sem o
+  teclado por cima da grade; o foco tracejado; a galeria cheia dita em palavras; a busca mais curta. Ficaram como
+  estão: "Toque numa…" no pé (o mesmo do "Escolher a nota", que some no celular) e o nome "Pixel art" do botão. O
+  `/code-review high` achou cinco: o colar dentro de outra folha virava a capa de baixo, o `galleryMatch` refazia a
+  galeria a cada letra, as capas de link ouviam o armazém de imagens à toa e faltava o teste da visita, corrigidos; o
+  crédito "Pixel art" pelo PNG continua (é o único PNG guardado). As rodadas terminaram.

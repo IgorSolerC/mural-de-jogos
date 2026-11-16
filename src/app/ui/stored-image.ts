@@ -21,15 +21,16 @@ export function storedImageSrc(id: () => string | null): Signal<string | null | 
   let last: string | null = null;
   effect((onCleanup) => {
     const current = id();
-    images.version();
-    sync.round();
-    const signedIn = account.signedIn();
     untracked(() => {
       if (current === last) return;
       last = current;
       out.set(undefined);
     });
+    // sem id (um link comum), nada mais a ouvir: a capa de link não acorda a cada imagem guardada ou rodada
     if (!current) return;
+    images.version();
+    sync.round();
+    const signedIn = account.signedIn();
     let alive = true;
     onCleanup(() => (alive = false));
     void images

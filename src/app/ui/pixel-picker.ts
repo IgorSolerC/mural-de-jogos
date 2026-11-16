@@ -31,7 +31,7 @@ import { PixelThumb } from './pixel-thumb';
           <app-pin class="pin" />
           <header class="head">
             <div>
-              <h2 [id]="id + '-t'">{{ heading() }}</h2>
+              <h2 [id]="id + '-t'" tabindex="-1">{{ heading() }}</h2>
               <p class="para">{{ hint() }}</p>
             </div>
             <button type="button" class="icon-btn" aria-label="Fechar" (click)="open.set(false)">
@@ -47,7 +47,7 @@ import { PixelThumb } from './pixel-thumb';
                 #search
                 type="search"
                 autocomplete="off"
-                placeholder="Procurar pelo nome ou pela tag"
+                placeholder="Procurar nome ou tag"
                 [value]="query()"
                 (input)="query.set($any($event.target).value)"
                 (keydown.enter)="$event.preventDefault(); pickFirst()"
@@ -91,10 +91,10 @@ import { PixelThumb } from './pixel-thumb';
           </app-picker-filters>
 
           <footer class="foot">
-            <p class="conta">{{ footHint() }}</p>
+            <p class="conta">{{ full() ? 'A galeria está cheia: apague uma pixel art para desenhar outra.' : footHint() }}</p>
             <div class="actions">
               <button type="button" class="btn-quiet" (click)="open.set(false)">Cancelar</button>
-              <button type="button" class="btn-ink criar" [disabled]="gallery.full() && keepsNew()" [title]="gallery.full() && keepsNew() ? 'A galeria está cheia: apague uma pixel art para desenhar outra' : 'Abre o ateliê com a tela em branco'" (click)="createNew()">
+              <button type="button" class="btn-ink criar" [disabled]="full()" title="Abre o ateliê com a tela em branco" (click)="createNew()">
                 <lucide-icon [img]="DrawIcon" [size]="16" aria-hidden="true" />
                 Desenhar uma nova
               </button>
@@ -141,9 +141,10 @@ import { PixelThumb } from './pixel-thumb';
         translate: 0 -2px;
       }
 
+      /* o foco é tracejado (como no seletor de capa): não se confunde com a borda da escolhida */
       &:focus-visible {
-        outline: 3px solid var(--ink);
-        outline-offset: -1px;
+        outline: 2px dashed var(--ink);
+        outline-offset: 2px;
       }
 
       /* a escolhida: a borda de tinta no desenho (a da capa escolhida) e o tique no adesivo de tinta */
@@ -224,6 +225,8 @@ export class PixelPicker {
   protected readonly titleOf = pieceTitle;
   protected readonly query = signal('');
   protected readonly gallery = inject(PixelGallery);
+  /** O desenho novo iria para a galeria, e ela está cheia. */
+  protected readonly full = computed(() => this.keepsNew() && this.gallery.full());
   private readonly folders = inject(PixelFolders);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly search = viewChild<ElementRef<HTMLInputElement>>('search');
@@ -248,7 +251,9 @@ export class PixelPicker {
         this.before.set(this.chosen());
         this.query.set('');
         this.filters.reset();
-        this.search()?.nativeElement.focus();
+        // no celular, o teclado cobriria a grade: o foco fica na folha (a busca abre com um toque)
+        if (matchMedia('(pointer: fine)').matches) this.search()?.nativeElement.focus();
+        else el.querySelector<HTMLElement>('h2')?.focus();
       }
       wasOpen = open;
     });

@@ -316,11 +316,13 @@ export class WidgetSheet {
   /** A folha da galeria de pixel arts (ui/pixel-picker.ts), aberta. */
   protected readonly pixelPickerOpen = signal(false);
   /** A obra da galeria com o mesmo desenho do widget (o tique dela na folha), ou "". */
-  protected readonly galleryMatch = computed(() => {
-    if (this.name() !== 'pixel') return '';
-    const art = valuesArt(this.values());
-    const key = art && JSON.stringify(art);
-    return (key && this.gallery.pieces().find((p) => JSON.stringify(p.art) === key)?.id) || '';
+  protected readonly galleryMatch = computed(() => (this.name() === 'pixel' ? (this.galleryByArt().get(this.drawnKey()) ?? '') : ''));
+  /** As obras pelo desenho (montado uma vez por mudança na galeria, não a cada letra da legenda). */
+  private readonly galleryByArt = computed(() => new Map(this.gallery.pieces().map((p) => [JSON.stringify(p.art), p.id])));
+  /** O desenho do widget, sem a legenda: escrever nela não muda a chave. */
+  private readonly drawnKey = computed(() => {
+    const art = this.name() === 'pixel' ? valuesArt(this.values()) : null;
+    return art ? JSON.stringify(art) : '';
   });
 
   /**
@@ -329,11 +331,15 @@ export class WidgetSheet {
    * obra na galeria continua como está.
    */
   protected useGalleryPiece(p: PixelPiece): void {
-    const was = this.values()['caption']?.trim() ?? '';
+    const prev = this.values();
+    const was = prev['caption']?.trim() ?? '';
     const before = this.gallery.get(this.galleryMatch())?.title ?? null;
+    // um desenho feito aqui, que não está na galeria, sai do widget: dá para voltar
+    const lost = !!valuesArt(prev) && !this.galleryMatch();
     // a obra guardada não tem legenda (o nome é à parte)
     const { caption: _none, ...art } = artValues(p.art);
     this.patch({ ...art, caption: !was || was === before ? p.title : was });
+    if (lost) this.toasts.show('O desenho de antes saiu do widget.', { label: 'Desfazer', run: () => this.values.set(prev) });
   }
 
   /**
