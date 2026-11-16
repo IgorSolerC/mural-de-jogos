@@ -33,6 +33,7 @@ import {
   sortPieces,
 } from '../core/pixel-gallery-view';
 import { downloadBlob, pieceToPng, pngName } from '../core/pixel-png';
+import { lookKey } from '../core/category-looks';
 import { fold } from '../core/review';
 import { Settings } from '../core/settings';
 import { readJson, writeJson } from '../core/storage';
@@ -45,7 +46,10 @@ import { FilterCard, SubjectOption, activeFilters, removeActive } from '../ui/fi
 import { FilterChip, FilterTags } from '../ui/filter-sheet';
 import { focusAfterRemoval } from '../ui/focus';
 import { ICON, IconModule } from '../ui/icons';
+import { NoteSelection } from '../ui/note-selection';
 import { Pin } from '../ui/pin';
+import { PixelBulkTags, PixelTagsChange } from '../ui/pixel-bulk-tags';
+import { SelectionTray, TrayAction } from '../ui/selection-tray';
 import { PixelPieceCard } from '../ui/pixel-piece';
 import { PixelSheet } from '../ui/pixel-sheet';
 import { PixelStudio } from '../ui/pixel-studio/pixel-studio';
@@ -70,8 +74,9 @@ import { Toasts } from '../ui/toast';
  */
 @Component({
   selector: 'app-pixel-arts-page',
-  imports: [ContextMenu, FilterCard, FilterTags, FolderCard, FolderMoveSheet, FolderPath, IconModule, Pin, PixelPieceCard, PixelSheet, PixelStudio, PixelTile, SearchHighlight, SearchStrip],
+  imports: [ContextMenu, FilterCard, FilterTags, FolderCard, FolderMoveSheet, FolderPath, IconModule, Pin, PixelBulkTags, SelectionTray, PixelPieceCard, PixelSheet, PixelStudio, PixelTile, SearchHighlight, SearchStrip],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '[class.com-tira]': 'marking()' },
   templateUrl: './pixel-arts-page.html',
   styleUrl: './pixel-arts-page.scss',
 })
@@ -86,6 +91,7 @@ export class PixelArtsPage {
   protected readonly AddIcon = ICON.pixelArt;
   protected readonly ChevronIcon = ICON.abrir;
   protected readonly FilterIcon = ICON.filtrar;
+  protected readonly MarkIcon = ICON.marcado;
   protected readonly DescIcon = ICON.ordenarDecrescente;
   protected readonly AscIcon = ICON.ordenarCrescente;
   protected readonly orders = PIXEL_ORDERS;
@@ -210,6 +216,90 @@ export class PixelArtsPage {
   private readonly card = viewChild(FilterCard);
   private readonly host: HTMLElement;
 
+  // ===== Marcar várias (PLANO-PIXEL-ARTS.md, 5): a seleção das Anotações, com a tira no pé =====
+
+  /** Marcando: o toque marca em vez de abrir (o botão Marcar da barra, ou o Ctrl+clique). */
+  protected readonly marking = signal(false);
+  /** As obras que dá para marcar: todas (a marcada que a busca esconde continua marcada, "fora da vista"). */
+  private readonly byId = computed(() => new Map(this.gallery.pieces().map((p) => [p.id, p])));
+  readonly selection = new NoteSelection<PixelPiece>({
+    host: inject(ElementRef<HTMLElement>).nativeElement as HTMLElement,
+    markable: 'app-pixel-piece[data-ficha], app-pixel-tile[data-ficha]',
+    idOf: (el) => el.getAttribute('data-ficha'),
+    on: () => true,
+    notes: () => this.byId(),
+    // trocar de pasta desmarca (as marcas de antes eram de outra parede)
+    reset: () => this.openFolder(),
+    layout: () => [this.columns(), this.prefs().vista, this.folderKids()],
+    drags: true,
+    mode: this.marking,
+    // o Ctrl+C das marcadas: as linhas dos widgets, para colar numa anotação
+    copy: (items) => ({ text: items.map(pieceWidgetLine).join('\n\n'), done: items.length === 1 ? 'Copiei a pixel art como widget.' : `Copiei as ${items.length} pixel arts como widgets.` }),
+  });
+  /** As marcadas que a busca, os filtros ou a pasta não mostram agora. */
+  protected readonly hiddenMarked = computed(() => {
+    const shown = new Set(this.visible().map((p) => p.id));
+    return this.selection.ids().filter((id) => !shown.has(id)).length;
+  });
+  private readonly marked = computed(() => this.selection.ids().map((id) => this.gallery.get(id)).filter((p): p is PixelPiece => !!p));
+  /** A folha das tags das marcadas, aberta. */
+  protected readonly bulkTags = signal<readonly PixelPiece[] | null>(null);
+  /** O que a tira oferece: marcar todas as à mostra, copiar, baixar, as tags, apagar e, de tinta, mover. */
+  protected readonly trayActions = computed<TrayAction[]>(() => {
+    const n = this.selection.count();
+    const all = this.visible().length > 0 && this.visible().every((p) => this.selection.has(p.id));
+    return [
+      { id: 'todas', label: 'Marcar todas', icon: ICON.marcado, disabled: all, hint: 'As à mostra agora', run: () => this.selection.add(this.visible().map((p) => p.id)) },
+      { id: 'copiar', label: 'Copiar', icon: ICON.copiar, disabled: !n, hint: 'Como widgets, para colar numa anotação', run: () => void this.selection.copy() },
+      { id: 'baixar', label: 'Baixar', icon: ICON.baixar, disabled: !n, hint: 'Um PNG de cada', run: () => void this.downloadMany(this.marked()) },
+      { id: 'tags', label: 'Tags…', icon: ICON.etiquetas, disabled: !n, run: () => this.bulkTags.set(this.marked()) },
+      { id: 'apagar', label: 'Apagar', icon: ICON.apagar, disabled: !n, run: () => this.removeMany(this.selection.ids()) },
+      { id: 'mover', label: 'Mover para pasta…', icon: ICON.guardarNaPasta, primary: true, run: () => this.moving.set({ kind: 'obras', ids: [...this.selection.ids()], name: n === 1 ? pieceTitle(this.marked()[0]) : plural(n, 'pixel art', 'pixel arts'), from: this.openFolder() }) },
+    ];
+  });
+
+  protected toggleMarking(): void {
+    if (this.marking()) this.selection.done();
+    else this.selection.start();
+  }
+
+  /** Aplicou a folha das tags: em cada marcada, as que foram para todas entram e as que saíram de todas saem. */
+  protected applyTags(change: PixelTagsChange): void {
+    const drop = new Set([...change.drop, ...change.all].map(lookKey));
+    // as tags de agora de cada uma (o que mudou enquanto a folha estava aberta fica)
+    const list = (this.bulkTags() ?? [])
+      .map((p) => this.gallery.get(p.id))
+      .filter((p): p is PixelPiece => !!p)
+      .map((p) => ({ id: p.id, patch: { tags: [...(p.tags ?? []).filter((t) => !drop.has(lookKey(t))), ...change.all] } }));
+    const undo = this.gallery.updateMany(list);
+    if (undo) this.undoToast(`As tags de ${plural(list.length, 'pixel art', 'pixel arts')} mudaram.`, undo);
+  }
+
+  /** Apaga as marcadas (com o Desfazer), e sai do modo de marcar. */
+  private removeMany(ids: readonly string[]): void {
+    this.transitions.run(() => {
+      const gone = this.gallery.remove(ids);
+      if (!gone.length) return;
+      this.selection.done();
+      this.toasts.show(gone.length === 1 ? `“${pieceTitle(gone[0])}” saiu da galeria` : `${gone.length} pixel arts saíram da galeria`, {
+        label: 'Desfazer',
+        run: () => this.transitions.run(() => this.gallery.restore(gone)),
+      });
+    });
+  }
+
+  /** Um PNG de cada marcada, com nomes que não se repetem. */
+  private async downloadMany(list: readonly PixelPiece[]): Promise<void> {
+    const taken = new Set<string>();
+    for (const p of list) {
+      const blob = await pieceToPng(p);
+      if (!blob) continue;
+      const name = pngName(p, taken);
+      taken.add(name);
+      downloadBlob(blob, name);
+    }
+  }
+
   // ===== O menu do botão direito (e do dedo segurado, e do Shift+F10) =====
 
   private readonly menu = viewChild.required<ContextMenu>('menu');
@@ -234,6 +324,17 @@ export class PixelArtsPage {
     const p = this.menuPiece();
     // a obra do menu aberto saiu (apagada noutro aparelho): o menu fecha (o efeito do construtor)
     if (!p) return [];
+    // numa das marcadas (com outras): o que a tira faz, para todas elas
+    const n = this.selection.count();
+    if (n > 1 && this.selection.has(p.id)) {
+      const tray = new Map(this.trayActions().map((a) => [a.id, a]));
+      const as = (id: string, label: string, icon: MenuItem['icon'], dialog = false): MenuItem => ({ id, label, icon, dialog, run: tray.get(id)!.run });
+      return [
+        [as('mover', `Mover as ${n} para pasta…`, ICON.guardarNaPasta, true), as('tags', `Tags das ${n}…`, ICON.etiquetas, true)],
+        [as('baixar', `Baixar as ${n}`, ICON.baixar), as('copiar', `Copiar as ${n} como widgets`, ICON.copiar)],
+        [{ ...as('apagar', `Apagar as ${n}`, ICON.apagar), danger: true }],
+      ];
+    }
     return [
       [
         { id: 'editar', label: 'Editar', icon: ICON.ajustar, dialog: true, run: () => this.open(p.id) },
@@ -296,7 +397,7 @@ export class PixelArtsPage {
     const drag = new WallDrag({
       host,
       on: () => this.dragOn(),
-      marked: () => [],
+      marked: () => this.selection.ids(),
       openFolder: () => this.openFolder(),
       groupName: () => 'Pixel arts',
       folderName: (id) => this.folderTree().live(id)?.name ?? null,
@@ -698,7 +799,8 @@ export class PixelArtsPage {
   protected moveTo(id: string | null): void {
     const m = this.moving();
     this.moving.set(null);
-    if (!m || id === m.from) return;
+    // (as obras marcadas podem estar em pastas de dentro da aberta: escolher a aberta ainda as move)
+    if (!m || (m.kind === 'pasta' && id === m.from)) return;
     if (m.kind === 'pasta') this.dropped({ kind: 'pasta', id: m.id }, { kind: 'guardar', folder: id });
     else this.dropped({ kind: 'notas', lead: m.ids[0], ids: m.ids }, { kind: 'guardar', folder: id });
   }

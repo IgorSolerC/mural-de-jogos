@@ -1,0 +1,46 @@
+// A marcada (Ctrl+clique, Shift+clique, o Marcar do menu: ver ui/note-selection.ts): o tracejado de giz em volta da
+// peça, torto com ela (`--inclina`), e o adesivo de tinta com a ordem em que ela entrou, de beirada clara para não
+// sumir na parede escura, como as fichas marcadas do mural. Nos Flashcards (a carta) e na galeria de pixel arts.
+// Quem usa inclui dentro do seletor da peça marcada (`[data-marcada]`) e, no bloco, esconde o que mais precisar.
+@mixin marcada($inset: -7px, $raio: 8px, $adesivo: 34px, $topo: -16px, $direita: -14px, $letra: 1.1rem) {
+  counter-reset: marca var(--marca-n);
+
+  // o que a peça esconde enquanto marcada (as etiquetas de hover), antes do tracejado e do adesivo
+  @content;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: $inset;
+    z-index: 0;
+    border: 2.5px dashed var(--wall-ink);
+    border-radius: $raio;
+    rotate: var(--inclina, 0deg);
+    pointer-events: none;
+  }
+
+  &::after {
+    content: counter(marca);
+    position: absolute;
+    top: $topo;
+    right: $direita;
+    z-index: 6;
+    display: grid;
+    place-items: center;
+    width: $adesivo;
+    height: $adesivo;
+    border: 2.5px solid var(--wall-ink);
+    border-radius: 50%;
+    background: var(--ink);
+    box-shadow:
+      0 1px 1px rgb(0 0 0 / 0.35),
+      0 4px 6px -2px rgb(0 0 0 / 0.4);
+    color: var(--hi);
+    font-family: var(--f-marker);
+    font-size: $letra;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    rotate: -8deg;
+    pointer-events: none;
+  }
+}

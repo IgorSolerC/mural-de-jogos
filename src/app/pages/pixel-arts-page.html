@@ -48,6 +48,21 @@
           </button>
         </div>
 
+        <!-- marcar várias para mover, pôr tags, baixar ou apagar juntas (no toque, o jeito de marcar sem o Ctrl) -->
+        <div class="pasta-grupo">
+          <button
+            type="button"
+            class="tinta"
+            [attr.aria-pressed]="marking()"
+            (click)="toggleMarking()"
+            aria-label="Marcar pixel arts"
+            title="Marcar pixel arts para mover, pôr tags, baixar ou apagar juntas (ou Ctrl+clique e Shift+clique nelas)"
+          >
+            <lucide-icon [img]="MarkIcon" [size]="18" aria-hidden="true" />
+            <span aria-hidden="true">Marcar</span>
+          </button>
+        </div>
+
         <div class="pasta-grupo" role="group" aria-label="Vista">
           @for (v of views; track v.value) {
             <button type="button" class="tinta so-icone" [attr.aria-pressed]="prefs().vista === v.value" [attr.aria-label]="v.label" [title]="v.hint" (click)="setView(v.value)">
@@ -241,6 +256,25 @@
     (create)="moveToNew($event)"
     (closed)="moving.set(null)"
   />
+}
+
+<!-- marcando: a tira no pé da tela, com o que fazer com as marcadas -->
+@if (marking()) {
+  <app-selection-tray
+    [count]="selection.count()"
+    [hidden]="hiddenMarked()"
+    hint="Toque nas pixel arts para marcar"
+    label="Pixel arts marcadas"
+    [words]="['marcada', 'marcadas']"
+    [actions]="trayActions()"
+    (clear)="selection.clear()"
+    (done)="selection.done()"
+  />
+}
+
+<!-- as tags das marcadas -->
+@if (bulkTags(); as list) {
+  <app-pixel-bulk-tags [pieces]="list" (applied)="applyTags($event)" (closed)="bulkTags.set(null)" />
 }
 
 <!-- a ficha da obra: pôr e editar -->

@@ -72,21 +72,39 @@ export class PixelGallery {
    * os mudou de novo no meio. Null: nada mudou (ou a obra não existe, ou o desenho não vale).
    */
   update(id: string, patch: PixelPatch): (() => void) | null {
-    const before = this.get(id);
-    if (!before) return null;
-    const next = withPixelPatch(before, patch);
-    if (!next || JSON.stringify(next) === JSON.stringify(before)) return null;
-    this.put([next]);
-    const after = this.get(id)!;
+    return this.updateMany([{ id, patch }]);
+  }
+
+
+  /**
+   * Muda várias obras numa gravação só (a folha das marcadas) e devolve como desfazer: em cada uma, os campos que
+   * mudaram voltam como eram, onde ninguém os mudou de novo no meio. Null: nada mudou.
+   */
+  updateMany(list: readonly { id: string; patch: PixelPatch }[]): (() => void) | null {
+    const changed: { before: PixelPiece; after: PixelPiece }[] = [];
+    for (const { id, patch } of list) {
+      const before = this.get(id);
+      const after = before && withPixelPatch(before, patch);
+      if (before && after && JSON.stringify(after) !== JSON.stringify(before)) changed.push({ before, after });
+    }
+    if (!changed.length) return null;
+    this.put(changed.map((c) => c.after));
+    const keys = ['title', 'art', 'tags', 'folder', 'note'] as const;
+    const stamped = new Map(changed.map((c) => [c.before.id, this.get(c.before.id)!]));
     return () => {
-      const now = this.get(id);
-      if (!now) return;
-      // só o que esta mudança mudou, e só onde ainda está como ela deixou
-      const back: PixelPatch = {};
-      for (const k of ['title', 'art', 'tags', 'folder', 'note'] as const) {
-        if (JSON.stringify(after[k]) !== JSON.stringify(before[k]) && JSON.stringify(now[k]) === JSON.stringify(after[k])) (back as Record<string, unknown>)[k] = before[k] ?? (k === 'tags' ? [] : k === 'title' ? '' : undefined);
+      const back: PixelPiece[] = [];
+      for (const { before } of changed) {
+        const after = stamped.get(before.id)!;
+        const now = this.get(before.id);
+        if (!now) continue;
+        const patch: PixelPatch = {};
+        for (const k of keys) {
+          if (JSON.stringify(after[k]) !== JSON.stringify(before[k]) && JSON.stringify(now[k]) === JSON.stringify(after[k])) (patch as Record<string, unknown>)[k] = before[k] ?? (k === 'tags' ? [] : k === 'title' ? '' : undefined);
+        }
+        const next = Object.keys(patch).length ? withPixelPatch(now, patch) : null;
+        if (next) back.push(next);
       }
-      if (Object.keys(back).length) this.put([withPixelPatch(now, back) ?? now]);
+      if (back.length) this.put(back);
     };
   }
 

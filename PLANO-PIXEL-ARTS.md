@@ -179,3 +179,12 @@ aberto como obra.
   Pasta na ficha (`FolderPicker`, com o Criar; a obra nova nasce na pasta aberta). O `/code-review mid` achou dois,
   corrigidos: mudar a pasta pela ficha tirava a obra da parede sem dizer para onde (o aviso diz, e o foco vai para o
   caminho) e a galeria sem obra nenhuma escondia as pastas.
+- 16/nov, rodada 5 (BUILD 900): marcar várias. `NoteSelection` ficou genérica (`NoteSelection<T>`, com `copy` de quem
+  usa: aqui o Ctrl+C leva as linhas dos widgets); o Marcar na barra, a tira (`SelectionTray`: Marcar todas, Copiar,
+  Baixar um PNG de cada, Tags…, Apagar e, de tinta, Mover para pasta…), arrastar uma marcada leva todas
+  (`WallDrag.marked`), o botão direito numa marcada age em todas. O tracejado e o adesivo da marcada viraram o mixin
+  `ui/_marcada.scss` (o CSS dos Flashcards conferido idêntico com o sass comprimido). As Tags das marcadas são
+  `ui/pixel-bulk-tags.ts`, a linha das Tags da folha de editar as marcadas das Anotações (os mesmos arquivos de
+  estilo); `PixelGallery.updateMany` grava todas numa mudança com um Desfazer (e o `update` de uma passou a usá-lo).
+  O `/code-review mid` achou três, corrigidos: as marcadas de pastas de dentro não iam para a pasta aberta, as tags
+  das marcadas partiam do que elas tinham ao abrir a folha, e o menu numa marcada agia só nela.

@@ -1,6 +1,7 @@
 @use '../ui/sem-resultados' as sem;
 @use '../ui/pastas-parede' as pastas;
 @use '../ui/arrasto';
+@use '../ui/marcada' as marca;
 
 /* A galeria de pixel arts (PLANO-PIXEL-ARTS.md): a página da Wishlist, com a Mostra no lugar da colagem de
    recortes e o mesmo jeito de barra, de filtros, de Grade e de cartão vazio. */
@@ -39,6 +40,21 @@ app-pixel-tile[data-alvo] {
   outline: 2.5px dashed var(--hi);
   outline-offset: 10px;
   border-radius: 4px;
+}
+
+/* ===== Marcada (ver ui/note-selection.ts): o tracejado de giz e o adesivo com a ordem, os dos Flashcards ===== */
+app-pixel-piece[data-marcada],
+app-pixel-tile[data-marcada] {
+  @include marca.marcada($inset: -9px, $raio: 6px, $topo: -18px, $direita: -16px) {
+    /* marcando, o toque marca: a etiqueta de hover sairia por cima do adesivo com o número */
+    ::ng-deep app-pixel-actions {
+      display: none;
+    }
+  }
+}
+/* com a tira no pé, sobra chão embaixo para ela não esconder a última fileira */
+:host(.com-tira) {
+  padding-bottom: 150px;
 }
 
 /* o cartão de quando não há nada à mostra: o das Anotações (ui/_sem-resultados.scss) */

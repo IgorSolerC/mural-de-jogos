@@ -15,8 +15,12 @@ export interface SelectionStore {
   set(ids: readonly string[]): void;
 }
 
-/** Onde e como marcar: cada página diz quais são as fichas dela e quando as marcas deixam de valer. */
-export interface NoteSelectionConfig {
+/**
+ * Onde e como marcar: cada página diz quais são as fichas dela e quando as marcas deixam de valer. `T` é o que se
+ * marca: as anotações (o padrão) ou outra coisa com id, como as obras da galeria de pixel arts, que diz como copiar
+ * as marcadas (`copy`).
+ */
+export interface NoteSelectionConfig<T = Review> {
   /** A página: só as fichas dentro dela marcam. */
   host: HTMLElement;
   /** As fichas que marcam (o elemento que recebe o tracejado) e o atributo com o id da anotação. */
@@ -25,7 +29,12 @@ export interface NoteSelectionConfig {
   /** Se marcar vale agora (o seu mural, o seu quadro). */
   on: () => boolean;
   /** As fichas que dá para marcar (e copiar), pelo id. */
-  notes: () => ReadonlyMap<string, Review>;
+  notes: () => ReadonlyMap<string, T>;
+  /**
+   * O texto das marcadas para o Ctrl+C e o aviso de quando copiou. Sem ele, o das anotações (`notesAsText`): quem
+   * marca outra coisa que não anotações diz o seu.
+   */
+  copy?: (items: readonly T[]) => { text: string; done: string };
   /** O que, mudando, desmarca tudo (o quadro, o mural): as marcas de antes não valem mais. */
   reset: () => unknown;
   /** O que, mudando, redesenha as fichas: as marcas voltam para os elementos novos. */
@@ -53,7 +62,7 @@ export interface NoteSelectionConfig {
  * (ui/selection-tray.ts) diz quantas e o que fazer com elas. Criada no construtor da página (precisa do
  * contexto de injeção).
  */
-export class NoteSelection {
+export class NoteSelection<T = Review> {
   private readonly toasts = inject(Toasts);
   private readonly copyContexts = inject(CopyContexts);
 
@@ -69,7 +78,7 @@ export class NoteSelection {
   /** O modo foi ligado pelo botão Marcar: desmarcar a última não sai dele. */
   private sticky = false;
 
-  constructor(private readonly cfg: NoteSelectionConfig) {
+  constructor(private readonly cfg: NoteSelectionConfig<T>) {
     this.store = cfg.store ?? {
       ids: this.own,
       set: (ids) => this.own.set(ids),
@@ -274,13 +283,15 @@ export class NoteSelection {
   /** Copia as marcadas (o Ctrl+C, o Copiar da tira e o "Copiar as N marcadas" do menu da anotação). */
   async copy(): Promise<void> {
     const byId = this.cfg.notes();
-    const notes = this.ids()
+    const items = this.ids()
       .map((id) => byId.get(id))
-      .filter((r) => !!r);
-    if (!notes.length) return;
+      .filter((r): r is T => !!r);
+    if (!items.length) return;
+    const own = this.cfg.copy?.(items);
+    const notes = items as unknown as Review[];
     await this.toasts.copy(
-      notesAsText(notes, this.copyContexts.now()),
-      notes.length === 1 ? 'Copiei o texto da anotação.' : `Copiei o texto das ${notes.length} anotações.`,
+      own ? own.text : notesAsText(notes, this.copyContexts.now()),
+      own ? own.done : notes.length === 1 ? 'Copiei o texto da anotação.' : `Copiei o texto das ${notes.length} anotações.`,
       'Não deu para copiar. Tente de novo.',
     );
   }
