@@ -199,6 +199,33 @@ describe('pixel art: as camadas do ateliê', () => {
     expect(values['pixels']).toBe('1');
   });
 
+  it('o mapa de cor muda a frente na hora, e o arrasto inteiro é um passo do desfazer', async () => {
+    await make({ width: '1', height: '1', pixels: '1' }, { layered: false });
+    const map = host.querySelector('app-color-map .sv') as HTMLElement;
+    map.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', shiftKey: true, bubbles: true }));
+    map.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', shiftKey: true, bubbles: true }));
+    map.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowLeft', bubbles: true }));
+    fixture.detectChanges();
+    expect(values['colors']).toMatch(/^1#/);
+    key('z', { ctrlKey: true });
+    expect(values['colors'] ?? '').toBe('');
+    // o transparente na frente: o mapa apagado, e o porquê
+    studio()['chooseInk'](0);
+    fixture.detectChanges();
+    expect(host.querySelector('app-color-map')?.classList).toContain('apagado');
+    expect(host.querySelector('.mapa-dica')?.textContent).toContain('transparente');
+  });
+
+  it('tirar as cores sem uso conta todas as camadas, a escondida também', async () => {
+    await make({ width: '2', height: '1', pixels: '1' }, { stack: [{ id: 'a', name: 'A', rows: '1' }, { id: 'b', name: 'B', hidden: true, rows: '03' }] });
+    expect(studio()['unused']()).toEqual([2, 4, 5, 6, 7, 8, 9]);
+    studio()['removeUnused']();
+    fixture.detectChanges();
+    expect(values['palette']).toBe('propria');
+    expect(stack?.find((l) => l.id === 'b')?.rows).toBe('02');
+    expect(values['pixels']).toBe('1');
+  });
+
   it('no widget, uma camada só: sem painel, a linha que diz onde as camadas moram, e nada de pilha', async () => {
     await make({ width: '2', height: '1', pixels: '1' }, { layered: false });
     expect(host.querySelector('.camadas')).toBeNull();

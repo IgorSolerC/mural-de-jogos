@@ -314,6 +314,26 @@ export function removeInk(rows: readonly string[], inks: readonly (string | null
   return { rows: remapRows(rows, map), colors };
 }
 
+/** As cores que aparecem nos pontos (os números, sem o transparente). */
+export function usedInks(rows: readonly string[]): Set<number> {
+  const out = new Set<number>();
+  for (const r of rows) for (const ch of r) if (ch !== '0') out.add(inkIndex(ch));
+  return out;
+}
+
+/** As cores da paleta (do 1 até a última, `count`) que nenhum ponto usa. */
+export function unusedInks(used: ReadonlySet<number>, count: number): number[] {
+  const out: number[] = [];
+  for (let i = 1; i <= count; i++) if (!used.has(i)) out.push(i);
+  return out;
+}
+
+/** Tira várias cores de uma vez (as que ninguém usa): as que ficam descem para os números de baixo, na mesma ordem. */
+export function removeInks(rows: readonly string[], inks: readonly (string | null)[], gone: readonly number[]): { rows: string[]; colors: Record<number, string> } {
+  const out = new Set(gone);
+  return reorder(rows, inks, inks.map((_, i) => i).slice(1).filter((i) => !out.has(i)));
+}
+
 /** Leva a cor `from` para o lugar `to` na paleta própria; o desenho não muda (os pontos seguem a cor). */
 export function moveInk(rows: readonly string[], inks: readonly (string | null)[], from: number, to: number): { rows: string[]; colors: Record<number, string> } {
   const order = inks.map((_, i) => i).slice(1);

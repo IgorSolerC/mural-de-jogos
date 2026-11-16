@@ -33,17 +33,18 @@ import {
   writeColors,
   writeGrid,
 } from '../../core/pixel-art';
-import { Anchor, BRUSH_MAX, BrushShape, Dither, Symmetry, ZOOMS, ZOOM_KEYS, convertRows, ditherKeeps, medianCut, moveInk, removeInk, sortInks, ellipseCells, fitZoom, mirrored, perfectCorner, rectCells, replaceInk, resizeCanvas, shapeBox, snapLine, stampCells, stepZoom, zoomLabel } from '../../core/pixel-tools';
+import { Anchor, BRUSH_MAX, BrushShape, Dither, Symmetry, ZOOMS, ZOOM_KEYS, convertRows, ditherKeeps, medianCut, moveInk, removeInk, removeInks, unusedInks, usedInks, sortInks, ellipseCells, fitZoom, mirrored, perfectCorner, rectCells, replaceInk, resizeCanvas, shapeBox, snapLine, stampCells, stepZoom, zoomLabel } from '../../core/pixel-tools';
 import { ALL_HANDLES, Box, Handle, resizeBox } from '../../core/resize-box';
 import { Float, Mask, scaleFloat, combineMask, composite, flipMask, flipRows, invertMask, lift, maskAny, maskBounds, maskOutline, outline, placedMask, rectMask, rotateMask, rotateRows, wandMask } from '../../core/pixel-selection';
 import { WidgetValues } from '../../core/widgets';
 import { imageFileOf } from '../../core/images';
-import { DotsLayer, InkPathCache, Layer, PIXEL_LAYERS_MAX, StoredLayer, acrossDots, cleanLayerName, dotsBelow, dotsCount, duplicateLayer, flattenLayers, insertAbove, mapDots, mergeDown, moveLayerTo, newLayerId, nextLayerName, readLayers, sameStack, setRows, singleLayer, writeLayers } from '../../core/pixel-layers';
+import { DotsLayer, RowsCache, Layer, PIXEL_LAYERS_MAX, StoredLayer, acrossDots, cleanLayerName, dotsBelow, dotsCount, duplicateLayer, flattenLayers, insertAbove, mapDots, mergeDown, moveLayerTo, newLayerId, nextLayerName, readLayers, sameStack, setRows, singleLayer, writeLayers } from '../../core/pixel-layers';
 import { Confirm } from '../confirm';
 import { ContextMenu, MenuSections } from '../context-menu';
 import { PaletteSheet } from './palette-sheet';
 import { ICON, IconModule } from '../icons';
 import { PixelThumb } from '../pixel-thumb';
+import { ColorMap } from './color-map';
 
 /** As ferramentas do ateliê (as que pintam e a mão). */
 export type StudioTool = 'selecao' | 'varinha' | 'mover' | 'lapis' | 'borracha' | 'balde' | 'conta-gotas' | 'linha' | 'retangulo' | 'elipse' | 'mao';
@@ -95,7 +96,7 @@ let uid = 0;
  */
 @Component({
   selector: 'app-pixel-studio',
-  imports: [ContextMenu, IconModule, NgTemplateOutlet, PaletteSheet, PixelThumb],
+  imports: [ColorMap, ContextMenu, IconModule, NgTemplateOutlet, PaletteSheet, PixelThumb],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './pixel-studio.html',
   styleUrls: ['./pixel-studio.scss', './camadas.scss'],
@@ -122,7 +123,7 @@ export class PixelStudio {
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly mesa = viewChild.required<ElementRef<HTMLElement>>('mesa');
   private readonly board = viewChild.required<ElementRef<SVGSVGElement>>('folha');
-  private readonly picker = viewChild.required<ElementRef<HTMLInputElement>>('cor');
+  private readonly colorMap = viewChild<ColorMap>('mapa');
   private readonly file = viewChild.required<ElementRef<HTMLInputElement>>('arquivo');
   private readonly sizeSheet = viewChild<ElementRef<HTMLDialogElement>>('tamanho');
   private readonly keysSheet = viewChild<ElementRef<HTMLDialogElement>>('atalhos');
@@ -193,7 +194,7 @@ export class PixelStudio {
   protected readonly count = computed(() => inkCount(this.palette(), this.colors()));
   protected readonly swatches = computed(() => drawingInks(this.palette(), this.colors()).map((_, i) => i));
   /** Os caminhos de cada grade, guardados pela grade: pintar refaz só os da camada escolhida. */
-  private readonly pathCache = new InkPathCache((rows) => inkPaths(rows, 'pixel'));
+  private readonly pathCache = new RowsCache((rows) => inkPaths(rows, 'pixel'));
   protected readonly paths = computed(() => this.pathCache.of(this.flat()));
   /** As camadas que a folha desenha, de baixo para cima: as de pontos à mostra, cada uma num svg. */
   protected readonly boardLayers = computed(() =>
@@ -302,8 +303,6 @@ export class PixelStudio {
   protected readonly said = signal('');
   /** O celular: as cores numa folha que sobe. */
   protected readonly colorsOpen = signal(false);
-  /** A cor da frente sendo editada (o painel embaixo das pastilhas). */
-  protected readonly editing = signal(false);
   protected readonly importing = signal(false);
   protected readonly importError = signal<string | null>(null);
   /** A folha dos atalhos (?) aberta. */
@@ -336,7 +335,7 @@ export class PixelStudio {
       items: [
         ['X', 'Troca a frente com o fundo'],
         ['[ e ]  (9 e 0)', 'A cor anterior e a próxima'],
-        ['A ou F4', 'Editar a cor da frente'],
+        ['A ou F4', 'O mapa da cor da frente (as setas mudam a cor)'],
       ],
     },
     {
@@ -1734,7 +1733,30 @@ export class PixelStudio {
     const inks = drawingInks(this.palette(), this.colors());
     this.ownPalette((rows) => removeInk(rows, inks, n), `A ${this.inkName(n)} saiu da paleta`);
     this.fg.set(Math.min(n, this.count()));
-    this.editing.set(false);
+  }
+
+  /** As cores usadas em cada camada, guardadas pela grade dela (só a que se pinta refaz a conta). */
+  private readonly usedCache = new RowsCache((rows) => usedInks(rows));
+  /**
+   * As cores que nenhum ponto usa, em nenhuma camada (a escondida também: a cor dela está em uso). Vazio quando o
+   * desenho não tem ponto nenhum (tirar todas deixaria a paleta sem cor).
+   */
+  protected readonly unused = computed(() => {
+    const used = new Set<number>();
+    for (const l of this.stackNow()) if (l.kind === 'pontos') for (const i of this.usedCache.of(l.rows)) used.add(i);
+    return used.size ? unusedInks(used, this.count()) : [];
+  });
+
+  /** Tira da paleta todas as cores sem uso: as que ficam descem na mesma ordem, e a frente segue a cor dela. */
+  protected removeUnused(): void {
+    const gone = this.unused();
+    if (!gone.length) return;
+    const inks = drawingInks(this.palette(), this.colors());
+    const fgColor = this.fg() > 0 ? this.inks()[this.fg()] : null;
+    const n = gone.length;
+    this.ownPalette((rows) => removeInks(rows, inks, gone), n === 1 ? 'A cor sem uso saiu da paleta' : `${n} cores sem uso saíram da paleta`);
+    const at = fgColor ? this.inks().indexOf(fgColor, 1) : 0;
+    this.fg.set(at > 0 ? at : fgColor ? Math.min(1, this.count()) : 0);
   }
 
   /** Leva a cor da frente um lugar para trás ou para a frente (o desenho não muda). */
@@ -1797,6 +1819,9 @@ export class PixelStudio {
       { id: 'paletas', label: 'Trocar a paleta…', icon: ICON.paleta, dialog: true, run: () => this.paletteOpen.set(true) },
       { id: 'luz', label: 'Ordenar pela luz', icon: ICON.ordenarCrescente, run: () => this.sortPalette('luz') },
       { id: 'tom', label: 'Ordenar pelo tom', icon: ICON.brilho, run: () => this.sortPalette('tom') },
+      ...(this.unused().length
+        ? [{ id: 'sem-uso', label: this.unused().length === 1 ? 'Tirar a cor sem uso' : `Tirar as ${this.unused().length} cores sem uso`, hint: 'As que nenhum ponto usa, em nenhuma camada', icon: ICON.borracha, run: () => this.removeUnused() }]
+        : []),
     ],
     [{ id: 'imagem-cores', label: 'Trazer de uma imagem, com as cores dela…', icon: ICON.imagem, run: () => this.chooseImage(true) }],
     ...(this.fg() > 0 && this.count() > 1 ? [[{ id: 'tirar-cor', label: `Tirar a cor ${inkChar(this.fg())}`, icon: ICON.apagar, danger: true, run: () => this.removeFg() }]] : []),
@@ -1812,11 +1837,12 @@ export class PixelStudio {
     this.editInk();
   }
 
-  /** Abre o painel de editar a cor da frente (A, F4 ou dois toques na pastilha). */
+  /** O foco no mapa de cor da frente (A, F4 ou dois toques na pastilha); no celular, a folha das cores sobe. */
   protected editInk(): void {
     if (this.fg() < 1) return;
-    this.editing.set(true);
-    this.colorsOpen.set(true);
+    this.sheetTab.set('cores');
+    if (matchMedia(SHEET_MEDIA).matches) this.colorsOpen.set(true);
+    afterNextRender(() => this.colorMap()?.focus(), { injector: this.injector });
   }
 
   /**
@@ -1846,20 +1872,6 @@ export class PixelStudio {
     const n = this.fg();
     const { [n]: _, ...rest } = this.colors();
     this.change({ colors: rest }, `A ${this.inkName(n)} voltou à da paleta`);
-  }
-
-  protected openPicker(): void {
-    const el = this.picker().nativeElement;
-    el.value = this.inks()[this.fg()] ?? '#000000';
-    if (typeof el.showPicker === 'function') {
-      try {
-        el.showPicker();
-        return;
-      } catch {
-        // (sem o gesto que o navegador espera: o clique de sempre)
-      }
-    }
-    el.click();
   }
 
   /** A cor da frente é trocada (diferente da paleta) e dá para voltar. */

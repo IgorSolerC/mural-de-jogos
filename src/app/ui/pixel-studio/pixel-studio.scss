@@ -828,13 +828,9 @@
   }
 }
 
-.frente-texto {
-  display: grid;
+.frente-nome {
   flex: 1;
   min-width: 0;
-}
-
-.frente-nome {
   font-family: var(--f-label);
   font-weight: 800;
   font-size: 0.95rem;
@@ -856,29 +852,15 @@
   box-shadow: inset 0 0 0 1px rgb(21 21 21 / 0.1);
 }
 
-.editor-amostra {
-  height: 48px;
-  padding: 0;
-  border: 0;
-  border-radius: 2px;
-  background: var(--cor);
-  box-shadow:
-    inset 0 0 0 1px rgb(21 21 21 / 0.2),
-    0 1px 2px rgb(0 0 0 / 0.25);
-  cursor: pointer;
-
-  &:focus-visible {
-    outline: 3px solid var(--ink);
-    outline-offset: 2px;
-  }
-}
-
+/* o Hex, na linha da cor: o campo de papel curto, com o nome miúdo */
 .hex-campo {
   display: flex;
+  flex: none;
   align-items: center;
-  gap: 10px;
-  min-height: 40px;
-  padding: 0 10px;
+  gap: 8px;
+  width: 128px;
+  min-height: 36px;
+  padding: 0 8px;
   border-radius: 2px;
   background: var(--campo-papel);
   box-shadow: var(--campo-sombra);
@@ -890,7 +872,7 @@
   input {
     flex: 1;
     min-width: 0;
-    height: 38px;
+    height: 34px;
     border: 0;
     background: transparent;
     outline: none;
@@ -929,15 +911,16 @@
   text-align: center;
 }
 
-.editor-pe {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+/* o mapa apagado: por que (o transparente não tem cor) */
+.mapa-dica {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
 
-  .papel {
-    margin-left: auto;
-  }
+.voltar-paleta {
+  justify-self: start;
 }
 
 .link-voltar {
@@ -1076,14 +1059,6 @@
   &.ruim {
     color: var(--error-ink);
   }
-}
-
-.cor-escolha {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
 }
 
 .arquivo {

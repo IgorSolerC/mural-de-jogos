@@ -281,8 +281,8 @@ export function duplicateLayer(layers: readonly Layer[], id: string): { layers: 
   return { layers: insertAbove(layers, id, copy), made };
 }
 
-/** Os caminhos de cada grade, guardados pela própria grade (a pilha só refaz a conta da camada que mudou). */
-export class InkPathCache<T> {
+/** Uma conta por grade (os caminhos, as cores usadas), guardada pela própria grade: a pilha só refaz a da camada que mudou. */
+export class RowsCache<T> {
   private readonly cache = new WeakMap<readonly string[], T>();
   constructor(private readonly make: (rows: readonly string[]) => T) {}
   of(rows: readonly string[]): T {

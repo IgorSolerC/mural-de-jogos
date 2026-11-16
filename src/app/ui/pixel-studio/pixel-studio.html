@@ -322,7 +322,7 @@
             <lucide-icon [img]="I.maisOpcoes" [size]="18" aria-hidden="true" />
           </button>
           <!-- no celular: a folha cobre a fita das ferramentas (e o botão que a abriu), então fecha aqui -->
-          <button type="button" class="tecla cores-fechar" title="Fechar as cores" aria-label="Fechar as cores" (click)="colorsOpen.set(false); editing.set(false); inkEdited()">
+          <button type="button" class="tecla cores-fechar" title="Fechar as cores" aria-label="Fechar as cores" (click)="colorsOpen.set(false); inkEdited()">
             <lucide-icon [img]="I.fechar" [size]="18" aria-hidden="true" />
           </button>
         </span>
@@ -360,24 +360,24 @@
         }
       </div>
 
-      <!-- a cor da frente: o nome dela no texto, a cor e o que dá para fazer com ela -->
-      <div class="frente-linha parte-cores">
-        <span class="frente-amostra" [class.vazia]="fg() === 0" [style.--cor]="inks()[fg()] ?? 'transparent'" aria-hidden="true"></span>
-        <span class="frente-texto">
+      <!-- a cor da frente: o mapa sempre aberto (como o do Aseprite), o Hex, o lugar dela e o que dá para fazer com ela -->
+      <div class="editor-cor parte-cores">
+        <div class="frente-linha">
+          <span class="frente-amostra" [class.vazia]="fg() === 0" [style.--cor]="inks()[fg()] ?? 'transparent'" aria-hidden="true"></span>
           <span class="frente-nome">{{ fg() === 0 ? 'Transparente' : 'Cor ' + inkChar(fg()) }}</span>
-          <span class="frente-hex">{{ fg() === 0 ? 'apaga' : inks()[fg()] }}</span>
-        </span>
-        @if (fg() > 0 && !editing()) {
-          <button type="button" class="papel pequeno" (click)="editInk()">Editar</button>
-        }
-      </div>
-      @if (editing() && fg() > 0) {
-        <div class="editor-cor parte-cores">
-          <button type="button" class="editor-amostra" [style.--cor]="inks()[fg()]" aria-label="Escolher a cor no seletor do aparelho" (click)="openPicker()"></button>
-          <label class="hex-campo">
-            <span class="hex-nome">Hex</span>
-            <input type="text" spellcheck="false" autocomplete="off" maxlength="7" [value]="inks()[fg()]" (input)="setInkColor($any($event.target).value, true)" (change)="setInkColor($any($event.target).value); inkEdited()" (blur)="inkEdited()" />
-          </label>
+          @if (fg() > 0) {
+            <label class="hex-campo">
+              <span class="hex-nome">Hex</span>
+              <input type="text" spellcheck="false" autocomplete="off" maxlength="7" [value]="inks()[fg()]" (input)="setInkColor($any($event.target).value, true)" (change)="setInkColor($any($event.target).value); inkEdited()" (blur)="inkEdited()" />
+            </label>
+          } @else {
+            <span class="frente-hex">apaga</span>
+          }
+        </div>
+        <app-color-map #mapa [color]="fg() > 0 ? (inks()[fg()] ?? null) : null" [disabled]="fg() === 0" (picking)="setInkColor($event)" (picked)="inkEdited()" />
+        @if (fg() === 0) {
+          <p class="mapa-dica">O transparente não tem cor: escolha uma pastilha para mudar a dela.</p>
+        } @else {
           <div class="editor-lugar" role="group" aria-label="O lugar da cor na paleta">
             <button type="button" class="tecla" title="Um lugar para trás" aria-label="Um lugar para trás" [disabled]="fg() <= 1" (click)="moveFg(-1)">
               <lucide-icon [img]="I.anterior" [size]="18" aria-hidden="true" />
@@ -390,15 +390,11 @@
               <button type="button" class="link-voltar perigo" (click)="removeFg()">Tirar a cor</button>
             }
           </div>
-          <div class="editor-pe">
-            @if (fgSwapped()) {
-              <button type="button" class="link-voltar" (click)="resetInk()">Voltar à da paleta</button>
-            }
-            <button type="button" class="papel pequeno" (click)="editing.set(false); inkEdited()">Pronto</button>
-          </div>
-        </div>
-      }
-      <input #cor type="color" class="cor-escolha" tabindex="-1" aria-hidden="true" (input)="setInkColor($any($event.target).value)" (change)="inkEdited()" />
+          @if (fgSwapped()) {
+            <button type="button" class="link-voltar voltar-paleta" (click)="resetInk()">Voltar à da paleta</button>
+          }
+        }
+      </div>
       <!-- as camadas: de cima para baixo, como a pilha se vê; só nas obras da galeria -->
       @if (layered()) {
         <section class="camadas parte-camadas" [attr.aria-labelledby]="ids + '-camadas'">

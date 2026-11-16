@@ -1,4 +1,4 @@
-import { brushCells, convertRows, ditherKeeps, ellipseCells, fitZoom, medianCut, mirrored, moveInk, ownColors, perfectCorner, rectCells, remapRows, removeInk, replaceInk, resizeCanvas, shapeBox, snapLine, sortInks, stampCells, stepZoom, zoomLabel } from './pixel-tools';
+import { brushCells, convertRows, ditherKeeps, ellipseCells, fitZoom, medianCut, mirrored, moveInk, ownColors, perfectCorner, rectCells, remapRows, removeInk, removeInks, replaceInk, unusedInks, usedInks, resizeCanvas, shapeBox, snapLine, sortInks, stampCells, stepZoom, zoomLabel } from './pixel-tools';
 
 /** As contas das ferramentas do ateliê (PLANO-ATELIE.md, seção 3). */
 describe('pixel art: as ferramentas do ateliê', () => {
@@ -139,5 +139,18 @@ describe('pixel art: mexer na paleta', () => {
     expect(medianCut(data, 8)).toEqual(['#000000', '#ff0000', '#fafafa']);
     expect(medianCut(data, 1).length).toBe(1);
     expect(medianCut([], 4)).toEqual([]);
+  });
+});
+
+describe('as cores sem uso', () => {
+  it('acha as que nenhum ponto usa e as tira, descendo as outras na mesma ordem', () => {
+    const rows = ['0300', '0050'];
+    const used = usedInks(rows);
+    expect([...used].sort()).toEqual([3, 5]);
+    expect(unusedInks(used, 6)).toEqual([1, 2, 4, 6]);
+    const inks = [null, '#000000', '#111111', '#333333', '#444444', '#555555', '#666666'];
+    const out = removeInks(rows, inks, [1, 2, 4, 6]);
+    expect(out.rows).toEqual(['0100', '0020']);
+    expect(out.colors).toEqual({ 1: '#333333', 2: '#555555' });
   });
 });

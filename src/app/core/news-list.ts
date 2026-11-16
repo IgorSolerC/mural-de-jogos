@@ -27,12 +27,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-16-esticar-selecao',
+    id: '2026-11-16-mapa-de-cor',
     version: '1.47.1',
     kind: 'ajustes',
     date: '2026-11-16',
-    title: 'Esticar a seleção no ateliê',
+    title: 'O mapa de cor e esticar a seleção no ateliê',
     melhorias: [
+      'O ateliê de pixel art tem o mapa de cor sempre aberto embaixo das pastilhas, como o do Aseprite: o quadrado do brilho e da saturação e a fita do matiz mudam a cor da frente na hora, sem precisar do Editar; o Hex, o lugar da cor e o Tirar a cor ficam ali do lado.',
+      'No menu das cores do ateliê, o Tirar as cores sem uso apaga da paleta, de uma vez, todas as que nenhum ponto usa (em nenhuma camada, nem nas escondidas).',
       'A seleção do ateliê de pixel art estica e encolhe: com a Seleção ou o Mover, puxe uma das alças em volta do que está escolhido (com o Shift, na proporção), cada ponto continua nítido; no menu Imagem, o Tamanho da seleção faz o mesmo com os números.',
     ],
   },
