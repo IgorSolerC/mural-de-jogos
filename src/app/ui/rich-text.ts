@@ -735,14 +735,14 @@ import { ZoomKnob } from './zoom-knob';
     :host-context(.verso.cartolina[data-cor$='-escuro']) .elo:not(.cartao *),
     :host-context(app-review-card[data-cor='preto']) .elo:not(.cartao *),
     :host-context(.verso.cartolina[data-cor='preto']) .elo:not(.cartao *) {
-      --elo-traco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 6.4C16 4.9 31 7.3 49 5.7S82 4.6 99 5.9' fill='none' stroke='%238fd3ff' stroke-opacity='.85' stroke-width='1.1' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+      --elo-risco: rgb(143 211 255 / 0.85);
       --elo-marca: rgb(143 211 255 / 0.26);
     }
     :host-context(app-review-card[data-cor$='-escuro']) .elo.quebrado:not(.cartao *),
     :host-context(.verso.cartolina[data-cor$='-escuro']) .elo.quebrado:not(.cartao *),
     :host-context(app-review-card[data-cor='preto']) .elo.quebrado:not(.cartao *),
     :host-context(.verso.cartolina[data-cor='preto']) .elo.quebrado:not(.cartao *) {
-      --elo-traco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 6.2C16 5.2 31 7 49 5.8S82 4.9 99 6' fill='none' stroke='%23f3ece0' stroke-opacity='.6' stroke-width='1.1' stroke-dasharray='5 4' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+      --elo-risco: rgb(243 236 224 / 0.6);
     }
     :host-context(.cartolina[data-cor$='-escuro']) .feita .tarefa:not(.cartao *),
     :host-context(.cartolina[data-cor='preto']) .feita .tarefa:not(.cartao *),

@@ -539,7 +539,7 @@ describe('a sessão de estudo (ui/study-session.ts)', () => {
     it('na cartolina escura, o link é a caneta azul-céu, como na ficha do mural', async () => {
       const verso = await reveal('Ver [[Lua (月)|a lua]].', { stock: 'preto' });
       expect($('.verso')!.getAttribute('data-cor')).toBe('preto');
-      expect(getComputedStyle(verso.querySelector('.elo')!).getPropertyValue('--elo-traco')).toContain('8fd3ff');
+      expect(getComputedStyle(verso.querySelector('.elo')!).textDecorationColor).toBe('rgba(143, 211, 255, 0.85)');
     });
 
     it('Espaço no título do card que abre e fecha é do card: não responde a carta', async () => {

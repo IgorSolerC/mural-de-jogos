@@ -530,26 +530,25 @@ describe('o texto formatado na leitura', () => {
       expect(named.getAttribute('title')).toBe('Celeste');
     });
 
-    it('o risco é um fio fino de caneta azul clara, 1px abaixo do pé da caixa (longe das pernas da letra, sem descer na linha de baixo)', async () => {
+    it('o risco é o sublinhado fino de caneta azul clara, logo abaixo da linha de base, que dá a volta nas pernas da letra', async () => {
       const el = await render('[[comprar um console]] e [[Vender a TV]]', { resolve, open: () => {}, create: () => {} });
       const [ok, broken] = Array.from(el.querySelectorAll<HTMLElement>('.elo'));
       const s = getComputedStyle(ok);
-      // o lugar do risco: a faixa de 4px no pé da caixa, 1px abaixo da fonte (antes ele subia até a letra);
-      // mais que isso, ele encostaria na letra da linha de baixo nas fichas de linhas juntas
-      expect(s.paddingBottom).toBe('1px');
-      expect(s.backgroundSize.split(',')[0].trim()).toBe('100% 4px');
-      expect(s.backgroundPositionY.split(',')[0].trim()).toBe('100%');
-      // o marca-texto não desce até o risco
-      expect(s.backgroundClip.split(',').map((v) => v.trim())).toEqual(['border-box', 'content-box']);
-      // a tinta: azul claro, fino (nada do azul-marinho grosso de antes)
-      const traco = s.getPropertyValue('--elo-traco');
-      expect(traco).toContain('6f9be6');
-      expect(traco).toContain("stroke-width='1.1'");
-      expect(traco).not.toContain('1d3577');
-      // o quebrado: o tracejado a lápis, tão fino quanto, no mesmo lugar
+      // o sublinhado da letra (segue a linha de base, e não o pé da caixa da fonte, que fica longe do
+      // japonês), fino, perto da letra, e com vão nas pernas do g, do p e do q
+      expect(s.textDecorationLine).toBe('underline');
+      expect(s.textDecorationThickness).toBe('1.1px');
+      expect(parseFloat(s.textUnderlineOffset) / parseFloat(s.fontSize)).toBeCloseTo(0.16, 2);
+      expect(s.textDecorationSkipInk).toBe('auto');
+      // a tinta: azul claro (nada do azul-marinho grosso de antes), e o desenho de antes no fundo saiu
+      expect(s.textDecorationColor).toBe('rgba(111, 155, 230, 0.85)');
+      expect(s.backgroundImage).not.toContain('svg');
+      expect(s.paddingBottom).toBe('0px');
+      // o quebrado: o tracejado a lápis, no mesmo lugar
       const q = getComputedStyle(broken);
-      expect(q.backgroundSize.split(',')[0].trim()).toBe('100% 4px');
-      expect(q.getPropertyValue('--elo-traco')).toContain("stroke-width='1.1' stroke-dasharray");
+      expect(q.textDecorationStyle).toBe('dashed');
+      expect(q.textDecorationColor).toBe('rgba(21, 21, 21, 0.55)');
+      expect(q.textUnderlineOffset).toBe(s.textUnderlineOffset);
     });
   });
 });
