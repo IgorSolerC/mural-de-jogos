@@ -70,6 +70,21 @@ export function perfectCorner(path: readonly Cell[]): Cell | null {
   return diagonal && touchesA && touchesC ? b : null;
 }
 
+// ===== o pontilhado =====
+
+/**
+ * O pontilhado (o "dithering" em xadrez): o pincel pinta um ponto sim, um não. No `par`, só os pontos em
+ * que a coluna mais a fileira dá par (o do canto de cima, à esquerda, é pintado); no `impar`, os outros.
+ * A casa é a da grade, não a do traço: dois traços do mesmo jeito caem sempre no mesmo xadrez.
+ */
+export type Dither = 'nenhum' | 'par' | 'impar';
+
+/** O ponto entra no pontilhado `d` (sem pontilhado, todos entram). */
+export function ditherKeeps(c: Cell, d: Dither): boolean {
+  if (d === 'nenhum') return true;
+  return (((c.x + c.y) % 2) + 2) % 2 === (d === 'par' ? 0 : 1);
+}
+
 // ===== a simetria =====
 
 /** A simetria do Aseprite: nenhuma, de lado (o eixo em pé, no meio), de cima (o eixo deitado) ou as duas. */

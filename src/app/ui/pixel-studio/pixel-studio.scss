@@ -196,6 +196,33 @@
   border-color: var(--hi);
 }
 
+/* o pontilhado: o xadrez de 3 × 3 que a tecla pinta, com o nome ao lado (Não, Par, Ímpar) */
+.tecla.com-nome {
+  grid-auto-flow: column;
+  gap: 6px;
+  width: auto;
+  padding: 0 9px 0 8px;
+}
+
+.xadrez {
+  display: block;
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+
+  /* o ponto que o pontilhado pula: a casa vazia do xadrez, ainda à vista */
+  .pula {
+    fill-opacity: 0.16;
+  }
+}
+
+.tecla-nome {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.82rem;
+  line-height: 1;
+}
+
 .chave {
   display: inline-flex;
   align-items: center;
@@ -476,6 +503,13 @@
   stroke-width: 1px;
   vector-effect: non-scaling-stroke;
   pointer-events: none;
+}
+
+/* o ponto do pincel que o pontilhado pula: só o contorno, mais fino, para o pincel não sumir debaixo do mouse */
+.mira.pulada {
+  fill: none;
+  stroke-opacity: 0.45;
+  stroke-dasharray: 2 2;
 }
 
 .ferramenta-borracha .mira {

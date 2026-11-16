@@ -1,4 +1,4 @@
-import { brushCells, convertRows, ellipseCells, fitZoom, medianCut, mirrored, moveInk, ownColors, perfectCorner, rectCells, remapRows, removeInk, replaceInk, resizeCanvas, shapeBox, snapLine, sortInks, stampCells, stepZoom, zoomLabel } from './pixel-tools';
+import { brushCells, convertRows, ditherKeeps, ellipseCells, fitZoom, medianCut, mirrored, moveInk, ownColors, perfectCorner, rectCells, remapRows, removeInk, replaceInk, resizeCanvas, shapeBox, snapLine, sortInks, stampCells, stepZoom, zoomLabel } from './pixel-tools';
 
 /** As contas das ferramentas do ateliê (PLANO-ATELIE.md, seção 3). */
 describe('pixel art: as ferramentas do ateliê', () => {
@@ -24,6 +24,16 @@ describe('pixel art: as ferramentas do ateliê', () => {
     expect(perfectCorner([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }])).toEqual({ x: 1, y: 0 });
     expect(perfectCorner([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 }])).toBeNull();
     expect(perfectCorner([{ x: 0, y: 0 }, { x: 1, y: 1 }])).toBeNull();
+  });
+
+  it('o pontilhado: o par fica com o canto de cima e as casas dele no xadrez; o ímpar, com as outras', () => {
+    const grid = (d: 'nenhum' | 'par' | 'impar') => [0, 1, 2].map((y) => [0, 1, 2, 3].map((x) => (ditherKeeps({ x, y }, d) ? 'x' : '.')).join('')).join('/');
+    expect(grid('par')).toBe('x.x./.x.x/x.x.');
+    expect(grid('impar')).toBe('.x.x/x.x./.x.x');
+    expect(grid('nenhum')).toBe('xxxx/xxxx/xxxx');
+    // fora da grade (o pincel que passa da beirada) a conta continua a mesma
+    expect(ditherKeeps({ x: -1, y: 0 }, 'impar')).toBeTrue();
+    expect(ditherKeeps({ x: -1, y: -1 }, 'par')).toBeTrue();
   });
 
   it('a simetria pinta o outro lado do eixo, sem repetir o ponto do meio', () => {

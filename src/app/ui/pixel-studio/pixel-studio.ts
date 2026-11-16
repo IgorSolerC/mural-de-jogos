@@ -33,7 +33,7 @@ import {
   writeColors,
   writeGrid,
 } from '../../core/pixel-art';
-import { Anchor, BRUSH_MAX, BrushShape, Symmetry, ZOOMS, ZOOM_KEYS, convertRows, medianCut, moveInk, removeInk, sortInks, ellipseCells, fitZoom, mirrored, perfectCorner, rectCells, replaceInk, resizeCanvas, shapeBox, snapLine, stampCells, stepZoom, zoomLabel } from '../../core/pixel-tools';
+import { Anchor, BRUSH_MAX, BrushShape, Dither, Symmetry, ZOOMS, ZOOM_KEYS, convertRows, ditherKeeps, medianCut, moveInk, removeInk, sortInks, ellipseCells, fitZoom, mirrored, perfectCorner, rectCells, replaceInk, resizeCanvas, shapeBox, snapLine, stampCells, stepZoom, zoomLabel } from '../../core/pixel-tools';
 import { Float, Mask, combineMask, composite, flipMask, flipRows, invertMask, lift, maskAny, maskBounds, maskOutline, outline, placedMask, rectMask, rotateMask, rotateRows, wandMask } from '../../core/pixel-selection';
 import { WidgetValues } from '../../core/widgets';
 import { imageFileOf } from '../../core/images';
@@ -136,6 +136,14 @@ export class PixelStudio {
     { value: 'cima', label: 'De cima' },
     { value: 'ambas', label: 'As duas' },
   ];
+  /** O pontilhado do lápis e da borracha: o desenho de cada tecla é o xadrez que ela pinta. */
+  protected readonly DITHERS: readonly { value: Dither; label: string; title: string }[] = [
+    { value: 'nenhum', label: 'Sem pontilhado', title: 'Sem pontilhado: pinta todos os pontos' },
+    { value: 'par', label: 'Par', title: 'Pontilhado par: pinta um ponto sim, um não, começando no canto de cima' },
+    { value: 'impar', label: 'Ímpar', title: 'Pontilhado ímpar: pinta os pontos que o par pula' },
+  ];
+  /** Os nove pontos do desenho de cada tecla do pontilhado. */
+  protected readonly DITHER_CELLS = [0, 1, 2].flatMap((y) => [0, 1, 2].map((x) => ({ x, y })));
   protected readonly SIZES = [8, 16, 24, 32, 48, 64];
   protected readonly ANCHORS: readonly Anchor[] = [0, 1, 2].flatMap((y) => [0, 1, 2].map((x) => ({ x, y }) as Anchor));
   protected readonly PIXEL_MAX = PIXEL_MAX;
@@ -171,6 +179,8 @@ export class PixelStudio {
   protected readonly shape = signal<BrushShape>('quadrado');
   /** O lápis de um ponto sem os cantos do L (o "pixel perfect" do Aseprite). */
   protected readonly perfect = signal(false);
+  /** O pontilhado (dithering) do lápis e da borracha: um ponto sim, um não, no xadrez par ou no ímpar. */
+  protected readonly dither = signal<Dither>('nenhum');
   /** O balde só na mancha (contíguo) ou na cor inteira. */
   protected readonly contiguous = signal(true);
   protected readonly symmetry = signal<Symmetry>('nenhuma');
@@ -464,10 +474,19 @@ export class PixelStudio {
 
   /** Os pontos que o pincel cobre num caminho, com a simetria, dentro da tela. */
   private cover(path: readonly Cell[]): Cell[] {
+    const all = this.footprint(path);
+    return this.dithering() ? all.filter((c) => ditherKeeps(c, this.dither())) : all;
+  }
+
+  /** O que o pincel cobre, com a simetria, dentro da tela, antes do pontilhado (a mira desenha os pulados). */
+  private footprint(path: readonly Cell[]): Cell[] {
     const t = this.active();
     const size = t === 'lapis' || t === 'borracha' || SHAPES.includes(t) ? this.brush() : 1;
     return mirrored(stampCells(path, size, this.shape()), this.symmetry(), this.w(), this.h()).filter((c) => this.paintable(c));
   }
+
+  /** O pontilhado vale agora: escolhido, e com o lápis ou a borracha na mão. */
+  protected readonly dithering = computed(() => this.dither() !== 'nenhum' && (this.active() === 'lapis' || this.active() === 'borracha'));
 
   /** O ponto pode ser pintado: dentro da tela e, com uma seleção, dentro dela (como no Aseprite). */
   private paintable(c: Cell): boolean {
@@ -529,7 +548,8 @@ export class PixelStudio {
     const d = this.drag;
     if (d?.kind !== 'pinta') return;
     let rows = this.rows();
-    const perfect = this.perfect() && !d.erase && this.brush() === 1 && this.active() === 'lapis';
+    // (com o pontilhado não há L: os pontos pintados nunca se encostam pelo lado)
+    const perfect = this.perfect() && !this.dithering() && !d.erase && this.brush() === 1 && this.active() === 'lapis';
     for (const p of path) {
       const last = d.path.at(-1);
       if (last && last.x === p.x && last.y === p.y) continue;
@@ -1630,6 +1650,12 @@ export class PixelStudio {
     if (t === 'conta-gotas' || t === 'balde') return [c];
     return this.cover([c]);
   });
+  /** Os pontos do pincel que o pontilhado pula: a mira os contorna, para o pincel não sumir debaixo do mouse. */
+  protected readonly aimSkipped = computed(() => {
+    const c = this.hover();
+    if (!c || !this.dithering()) return [];
+    return this.footprint([c]).filter((p) => !ditherKeeps(p, this.dither()));
+  });
   /** O eixo da simetria, nas contas da folha. */
   protected readonly axes = computed(() => {
     const s = this.symmetry();
@@ -1659,9 +1685,9 @@ export class PixelStudio {
       case 'mover':
         return 'Arraste o que está escolhido (ou tudo) · Ctrl ao começar: uma cópia · setas: um ponto · Enter: assenta';
       case 'lapis':
-        return 'Shift: reta desde o último ponto · Alt: conta-gotas · Espaço: arrastar a vista';
+        return (this.dithering() ? 'Pontilhado: um ponto sim, um não · ' : '') + 'Shift: reta desde o último ponto · Alt: conta-gotas · Espaço: arrastar a vista';
       case 'borracha':
-        return 'Apaga para o transparente · Shift: reta desde o último ponto · Espaço: arrastar a vista';
+        return (this.dithering() ? 'Apaga um ponto sim, um não' : 'Apaga para o transparente') + ' · Shift: reta desde o último ponto · Espaço: arrastar a vista';
       case 'balde':
         return this.contiguous() ? 'Pinta a mancha da mesma cor · o direito, com a cor do fundo' : 'Pinta toda a cor, em qualquer lugar · o direito, com a do fundo';
       case 'conta-gotas':

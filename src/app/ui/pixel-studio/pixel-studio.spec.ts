@@ -644,4 +644,71 @@ describe('pixel art: o ateliê', () => {
     key('Enter');
     expect(values['pixels']).toBe('11');
   });
+  describe('o pontilhado (um ponto sim, um não)', () => {
+    const dither = (label: string) => {
+      (host.querySelector(`[role="radio"][aria-label="${label}"]`) as HTMLButtonElement).click();
+      fixture.detectChanges();
+    };
+    function drag(y: number, x0: number, x1: number): void {
+      pointer('pointerdown', x0, y);
+      pointer('pointermove', x1, y);
+      pointer('pointerup', x1, y);
+    }
+
+    it('o par e o ímpar pintam as casas do xadrez da grade, e o Não volta a pintar tudo', async () => {
+      await make({ width: '4', height: '3' });
+      expect(host.querySelector('[aria-label="Sem pontilhado"]')?.getAttribute('aria-checked')).toBe('true');
+      dither('Par');
+      expect(host.querySelector('[aria-label="Par"]')?.getAttribute('aria-checked')).toBe('true');
+      drag(0, 0, 3);
+      drag(1, 0, 3);
+      expect(values['pixels']).toBe('101/0101');
+      // o ímpar enche o que o par pulou: os dois juntos são o desenho cheio
+      dither('Ímpar');
+      drag(0, 0, 3);
+      expect(values['pixels']).toBe('1111/0101');
+      dither('Sem pontilhado');
+      drag(2, 0, 3);
+      expect(values['pixels']).toBe('1111/0101/1111');
+      // o traço do pontilhado é um passo só do desfazer
+      key('z', { ctrlKey: true });
+      key('z', { ctrlKey: true });
+      expect(values['pixels']).toBe('101/0101');
+    });
+
+    it('vale para o pincel grande e para a borracha; nas formas a opção nem aparece', async () => {
+      await make({ width: '4', height: '2' });
+      dither('Par');
+      key('+');
+      click(0, 0);
+      expect(values['pixels']).toBe('1/01');
+      key('-');
+      key('e');
+      expect(host.querySelector('[aria-label="Par"]')?.getAttribute('aria-checked')).toBe('true');
+      key('b');
+      dither('Sem pontilhado');
+      drag(0, 0, 3);
+      drag(1, 0, 3);
+      key('e');
+      dither('Ímpar');
+      drag(0, 0, 3);
+      expect(values['pixels']).toBe('101/1111');
+      key('u');
+      expect(host.querySelector('[aria-label="Par"]')).toBeNull();
+    });
+
+    it('a mira contorna os pontos que o pincel pula, e o pixel perfeito sai de cena', async () => {
+      await make({ width: '6', height: '6' });
+      expect(host.textContent).toContain('Pixel perfeito');
+      dither('Ímpar');
+      expect(host.textContent).not.toContain('Pixel perfeito');
+      key('+');
+      key('+');
+      pointer('pointermove', 2, 2, { buttons: 0 });
+      // o pincel de 3 no ímpar: 4 dos 9 pontos pintam, os outros 5 ficam só contornados
+      expect(host.querySelectorAll('.mira:not(.pulada)').length).toBe(4);
+      expect(host.querySelectorAll('.mira.pulada').length).toBe(5);
+      expect(host.querySelector('.estado')?.textContent).toContain('um ponto sim, um não');
+    });
+  });
 });
