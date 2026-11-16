@@ -10,6 +10,7 @@ import { NearScreen } from './near-screen';
 import { PixelThumb } from './pixel-thumb';
 import { PixelPiece, pixelArtOf } from '../core/pixel-gallery';
 import type { PixelArt } from '../core/pixel-art';
+import { MuralSrc } from './stored-image';
 
 /**
  * O que a pasta mostra: o `FolderInfo` das Anotações e da Wishlist, e também as obras da galeria de pixel arts
@@ -30,7 +31,7 @@ let hints = 0;
  */
 @Component({
   selector: 'app-folder-card',
-  imports: [MiniCartolina, NearScreen, NgTemplateOutlet, PixelThumb],
+  imports: [MiniCartolina, NearScreen, NgTemplateOutlet, PixelThumb, MuralSrc],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[attr.data-pasta]': 'folder().id' },
   template: `
@@ -83,7 +84,7 @@ let hints = 0;
               <!-- a pixel art: a miniatura nítida no xadrez do transparente -->
               <app-pixel-thumb [art]="px" />
             } @else if (coverOf(r); as url) {
-              <img [src]="url" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" (error)="lost(url)" />
+              <img [muralSrc]="url" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" (error)="lost(url)" />
             } @else if (asReview(r); as rv) {
               <app-mini-cartolina [review]="rv" />
             }

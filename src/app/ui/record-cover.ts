@@ -3,6 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, input, linkedSignal, sign
 import { PickedGame, initialOf } from '../core/review';
 import { parseAudio } from '../core/widgets';
 import { AudioTrack } from './audio-track';
+import { MuralSrc } from './stored-image';
 
 /**
  * A capa das fichas do mural de músicas: no lugar da foto encapada, o vinil saindo da capa do
@@ -18,7 +19,7 @@ import { AudioTrack } from './audio-track';
  */
 @Component({
   selector: 'app-record-cover',
-  imports: [AudioTrack, NgTemplateOutlet],
+  imports: [AudioTrack, NgTemplateOutlet, MuralSrc],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class.enfiado]': 'tucked()' },
   template: `
@@ -51,7 +52,7 @@ import { AudioTrack } from './audio-track';
         </div>
         <div class="capa" data-colado [class.parda]="!art()">
           @if (art(); as src) {
-            <img class="arte" [src]="src" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" (error)="failed.set(src)" />
+            <img class="arte" [muralSrc]="src" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" (error)="failed.set(src)" />
           } @else {
             <span class="capa-nome">{{ game().name || initial() }}</span>
           }

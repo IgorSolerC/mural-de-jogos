@@ -6,6 +6,7 @@ import { BUILD } from './build';
 import { migrateReview } from './migrations';
 import { cleanLabel, fold, nameKey, slugOf } from './text';
 import { PASTA_ID_RE } from '../../../contrato/api-v1/notas';
+import { localImageId } from './images';
 import { localDay, longDayFmt, longMonthFmt, parseDay, todayISO } from './dates';
 
 export type { Kind } from './kinds';
@@ -1045,7 +1046,8 @@ function sanitizeGame(raw: unknown): PickedGame | null {
   const source: GameSource = SOURCES.includes(g['source']) ? g['source'] : 'manual';
   return {
     name,
-    coverUrl: /^https:\/\//.test(cover) ? cover : null,
+    // o link, ou a imagem guardada pelo Murall (colada, do aparelho, ou a pixel art: PLANO-CAPAS.md)
+    coverUrl: /^https:\/\//.test(cover) ? cover : localImageId(cover) ? cover.trim() : null,
     source,
     sourceId: str(g['sourceId'], 100) || undefined,
     year: str(g['year'], 10) || undefined,

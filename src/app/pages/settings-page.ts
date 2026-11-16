@@ -962,12 +962,18 @@ export class SettingsPage {
     }
   }
 
-  /** Em quais fichas cada imagem aparece (pelo texto, e na frente das cartas dos Estudos): o título de cada uma. */
+  /**
+   * Em quais fichas cada imagem aparece (pelo texto, como capa das fichas, dos recortes e do Pra depois, e na frente
+   * das cartas dos Estudos): o título de cada uma.
+   */
   private readonly imageUse = computed(() => {
     const out = new Map<string, string[]>();
+    const add = (id: string | null, label: string) => id && out.set(id, [...(out.get(id) ?? []), label]);
     for (const r of this.store.reviews()) {
-      for (const id of localImageIds(r.text ?? '')) out.set(id, [...(out.get(id) ?? []), r.game.name]);
+      for (const id of localImageIds(r.text ?? '')) add(id, r.game.name);
+      add(localImageId(r.game.coverUrl ?? ''), `Capa de ${r.game.name}`);
     }
+    for (const w of [...this.store.wishes(), ...this.store.drafts()]) add(localImageId(w.game.coverUrl ?? ''), `Capa de ${w.game.name}`);
     for (const c of this.study.cards()) {
       const id = localImageId(c.front.image ?? '');
       if (!id) continue;

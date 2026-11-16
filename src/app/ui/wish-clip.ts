@@ -4,6 +4,7 @@ import { Wish, initialOf, relevanceOf } from '../core/review';
 import { SHAPE_RATIO, stripFor, tearFor } from '../core/tear';
 import { pinningFor } from '../core/wall-physics';
 import { RelevanceSticker } from './relevance-sticker';
+import { MuralSrc } from './stored-image';
 
 /**
  * Um desejo da wishlist: a capa arrancada de uma revista e colada na parede. Cada uma de um jeito
@@ -15,7 +16,7 @@ import { RelevanceSticker } from './relevance-sticker';
  */
 @Component({
   selector: 'app-wish-clip',
-  imports: [RelevanceSticker],
+  imports: [RelevanceSticker, MuralSrc],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '[class.is-landing]': 'landing()',
@@ -41,7 +42,7 @@ import { RelevanceSticker } from './relevance-sticker';
         <div class="foto" [style.aspect-ratio]="ratio()">
           @if (wish().game.coverUrl && failed() !== wish().game.coverUrl) {
             <img
-              [src]="wish().game.coverUrl"
+              [muralSrc]="wish().game.coverUrl"
               alt=""
               [class.revelada]="!loading()"
               [class.escondida]="loading()"

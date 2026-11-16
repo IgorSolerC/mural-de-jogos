@@ -1,4 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
+import { localImageId } from './images';
 import { LookupMeter } from './lookup-meter';
 import { Kind, PickedGame, fold, musicFormOf } from './review';
 import { CoverSource, Settings } from './settings';
@@ -69,6 +70,9 @@ export function isSteamCover(url: string | null | undefined): boolean {
 }
 
 /** Uma capa para escolher, com o nome de onde ela veio (a etiqueta embaixo da foto). */
+/** O crédito da capa guardada pelo Murall (a imagem colada, solta ou escolhida do aparelho). */
+export const STORED_COVER = 'Do aparelho';
+
 export interface CoverChoice extends PickedGame {
   from: string;
 }
@@ -86,6 +90,8 @@ const SOURCE_LABEL: Record<PickedGame['source'], string> = {
 
 /** De onde veio a capa de um item: a da Steam é a da Steam, mesmo quando o jogo foi achado na RAWG. */
 export function coverFrom(g: PickedGame): string {
+  // a guardada pelo Murall (colada ou escolhida do aparelho): a pixel art diz o dela no seletor (ui/cover-picker.ts)
+  if (g.coverUrl && localImageId(g.coverUrl)) return STORED_COVER;
   return isSteamCover(g.coverUrl) ? 'Steam' : SOURCE_LABEL[g.source];
 }
 

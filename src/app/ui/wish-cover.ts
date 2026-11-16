@@ -5,6 +5,7 @@ import { RelevanceSticker } from './relevance-sticker';
 import { WishActions } from './wish-actions';
 import { WishNote } from './wish-note';
 import { WishTags } from './wish-tags';
+import { MuralSrc } from './stored-image';
 
 /**
  * Um desejo na Grade da Wishlist (PLANO-WISHLIST.md, P8 e A3): a vista para ver muitas capas de uma vez. Todas
@@ -17,7 +18,7 @@ import { WishTags } from './wish-tags';
  */
 @Component({
   selector: 'app-wish-cover',
-  imports: [RelevanceSticker, WishActions, WishNote, WishTags],
+  imports: [RelevanceSticker, WishActions, WishNote, WishTags, MuralSrc],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '[style.--cel-tilt]': 'look().tilt',
@@ -32,7 +33,7 @@ import { WishTags } from './wish-tags';
     <span class="capa">
       <span class="foto" [class.velha]="look().old" [style.clip-path]="look().clip">
         @if (wish().game.coverUrl && failed() !== wish().game.coverUrl) {
-          <img [src]="wish().game.coverUrl" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" (error)="failed.set(wish().game.coverUrl)" />
+          <img [muralSrc]="wish().game.coverUrl" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" (error)="failed.set(wish().game.coverUrl)" />
         } @else {
           <span class="sem-capa" aria-hidden="true">{{ initial() }}</span>
         }

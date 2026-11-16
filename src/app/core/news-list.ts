@@ -27,6 +27,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-16-capa-do-aparelho',
+    version: '1.46.1',
+    kind: 'ajustes',
+    date: '2026-11-16',
+    title: 'Capas sem link',
+    melhorias: [
+      'A capa das fichas, das anotações, dos recortes da Wishlist e do Pra depois pode vir do aparelho: o Escolher do aparelho na parte Capa, colar uma imagem copiada (Ctrl+V) ou soltar o arquivo em cima das capas. Ela é guardada como as imagens das anotações, também nos seus outros aparelhos e para quem vê a ficha pública.',
+    ],
+  },
+  {
     id: '2026-11-16-pixel-arts',
     version: '1.46.0',
     kind: 'funcionalidade',

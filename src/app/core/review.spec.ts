@@ -180,6 +180,14 @@ describe('sanitizeReview', () => {
     expect(sanitizeReview({ ...base, game: { name: 'A', coverUrl: 'javascript:alert(1)' } })!.game.coverUrl).toBeNull();
   });
 
+  it('aceita a capa guardada pelo Murall (do aparelho ou a pixel art), e só com um id de verdade', () => {
+    const id = 'a'.repeat(22);
+    expect(sanitizeReview({ ...base, game: { name: 'A', coverUrl: `murall://imagem/${id}` } })!.game.coverUrl).toBe(`murall://imagem/${id}`);
+    expect(sanitizeReview({ ...base, game: { name: 'A', coverUrl: ` murall://imagem/${id} ` } })!.game.coverUrl).toBe(`murall://imagem/${id}`);
+    expect(sanitizeReview({ ...base, game: { name: 'A', coverUrl: 'murall://imagem/curto' } })!.game.coverUrl).toBeNull();
+    expect(sanitizeReview({ ...base, game: { name: 'A', coverUrl: `murall://outra/${id}` } })!.game.coverUrl).toBeNull();
+  });
+
   it('data nula é data não definida; data inválida vira o dia da criação', () => {
     expect(sanitizeReview({ ...base, completedAt: null })!.completedAt).toBeNull();
     expect(sanitizeReview({ ...base, completedAt: '2024-13-45x' })!.completedAt).toBe('2024-05-01');

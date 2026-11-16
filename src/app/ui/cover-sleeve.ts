@@ -1,16 +1,18 @@
 import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
 import { PickedGame, initialOf } from '../core/review';
+import { MuralSrc } from './stored-image';
 
 /** A foto do jogo encapada com plástico transparente, como capa de caderno. */
 @Component({
   selector: 'app-cover-sleeve',
+  imports: [MuralSrc],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class]': 'size()' },
   template: `
     <div class="frame">
       @if (game().coverUrl && failed() !== game().coverUrl) {
         <img
-          [src]="game().coverUrl"
+          [muralSrc]="game().coverUrl"
           [alt]="decorative() ? '' : 'Capa de ' + game().name"
           [class.revelada]="!loading()"
           [class.escondida]="loading()"

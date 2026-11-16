@@ -13,10 +13,13 @@ import {
   viewChild,
 } from '@angular/core';
 import { ICON, IconModule } from './icons';
-import { CoverChoice, GameLookup, LookupError, coverFrom, imageLoads } from '../core/game-lookup';
+import { CoverChoice, GameLookup, LookupError, STORED_COVER, coverFrom, imageLoads } from '../core/game-lookup';
+import { ImageStore } from '../core/image-store';
+import { ImageProblem, imageFileOf, localImageUrl } from '../core/images';
 import { Kind, PickedGame, initialOf } from '../core/review';
 import { Settings } from '../core/settings';
 import { plural } from '../core/text';
+import { MuralSrc } from './stored-image';
 
 const SOURCE_ARTICLE: Record<string, string> = { TMDB: 'no', Kitsu: 'no', AniList: 'no' };
 
@@ -28,15 +31,33 @@ function joinSources(list: string[]): string {
 
 /**
  * A escolha da capa: as fotos que o catálogo tem do mesmo título, soltas na mesa, e a escolhida sai
- * do monte. Também dá para colar o link de uma imagem, ou ficar sem capa. Serve à wishlist, ao Pra
- * depois e à ficha do mural; quem usa recebe o item com a capa nova em `changed`.
+ * do monte. Também dá para colar o link de uma imagem, trazer uma do aparelho (escolher, colar com
+ * Ctrl+V ou soltar em cima das capas: ela é guardada como as imagens das anotações, PLANO-CAPAS.md),
+ * ou ficar sem capa. Serve à wishlist, ao Pra depois e à ficha do mural; quem usa recebe o item com a
+ * capa nova em `changed`.
  */
 @Component({
   selector: 'app-cover-picker',
-  imports: [IconModule],
+  imports: [IconModule, MuralSrc],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    '(dragenter)': 'onDrag($event)',
+    '(dragover)': 'onDrag($event)',
+    '(dragleave)': 'onDragLeave($event)',
+    '(drop)': 'onDrop($event)',
+    // o arrasto acabou em outro lugar (soltou fora, Esc): o tracejado apaga
+    '(document:dragend)': 'dropping.set(false)',
+    '(document:drop)': 'dropping.set(false)',
+    '[class.soltando]': 'dropping()',
+  },
   template: `
     <div class="grade">
+      @if (saving()) {
+        <!-- a imagem do aparelho sendo encolhida e guardada: o lugar dela, na frente do monte -->
+        <span class="capa esperando guardando" aria-hidden="true">
+          <span class="foto"><span class="carregando-capa clara"><span class="roda"></span><span class="txt">guardando</span></span></span>
+        </span>
+      }
       @for (c of shown(); track c.coverUrl; let i = $index) {
         <label class="capa" [class.on]="cover() === c.coverUrl" [class.quebrada]="isBroken(c.coverUrl)">
           <input
@@ -49,7 +70,7 @@ function joinSources(list: string[]): string {
           />
           <span class="foto">
             <img
-              [src]="c.coverUrl"
+              [muralSrc]="c.coverUrl"
               alt=""
               [class.revelada]="isLoaded(c.coverUrl)"
               [class.escondida]="!isLoaded(c.coverUrl)"
@@ -110,6 +131,7 @@ function joinSources(list: string[]): string {
               [value]="pasteUrl()"
               (input)="pasteUrl.set($any($event.target).value)"
               (keydown)="onPasteKey($event)"
+              (paste)="onPaste($event)"
               [attr.aria-invalid]="pasteError() ? true : null"
               [attr.aria-describedby]="pasteError() ? group() + '-link-erro' : null"
             />
@@ -129,8 +151,20 @@ function joinSources(list: string[]): string {
           Colar link de imagem
         </button>
       }
+      <button type="button" class="acao-caneta aparelho-btn" (click)="chooseFile()">
+        <lucide-icon [img]="UploadIcon" [size]="16" aria-hidden="true" />
+        Escolher do aparelho
+      </button>
+      <input #fileField class="escolher-arquivo" type="file" accept="image/*" tabindex="-1" aria-hidden="true" hidden (change)="fromDevice($event)" />
       <ng-content />
     </div>
+    @if (imageError(); as err) {
+      <p class="aviso" role="alert">{{ err }}</p>
+    } @else if (saving()) {
+      <p class="sr-only" role="status">Guardando a imagem…</p>
+    }
+    <!-- a outra porta, sem botão: só onde há teclado e mouse (no celular não há Ctrl+V nem arrastar arquivo) -->
+    <p class="dica-capa dica-colar">Também dá para colar uma imagem (Ctrl+V) ou soltar o arquivo em cima das capas.</p>
     @if (error(); as err) {
       <p class="aviso" role="status">{{ err }} Dá para colar um link ou seguir sem capa.</p>
     } @else if (notes().length) {
@@ -345,9 +379,28 @@ function joinSources(list: string[]): string {
       }
     }
 
-    .colar-btn {
+    .colar-btn,
+    .aparelho-btn {
       margin: 2px 0 0 -8px;
       font-size: 0.95rem;
+    }
+
+    /* a dica de colar e soltar: só com mouse (o toque não tem Ctrl+V nem arrastar arquivo) */
+    .dica-colar {
+      margin-top: -4px;
+    }
+    @media not ((hover: hover) and (pointer: fine)) {
+      .dica-colar {
+        display: none;
+      }
+    }
+
+    /* um arquivo sendo arrastado por cima: o monte inteiro vira o lugar de soltar, tracejado como a foto que vai chegar */
+    :host(.soltando) .grade {
+      outline: 2px dashed var(--ink);
+      outline-offset: 2px;
+      border-radius: 3px;
+      background: rgb(21 21 21 / 0.04);
     }
 
     .colar {
@@ -449,9 +502,12 @@ export class CoverPicker {
   readonly changed = output<PickedGame>();
 
   protected readonly LinkIcon = ICON.link;
+  protected readonly UploadIcon = ICON.enviar;
   protected readonly initialOf = initialOf;
 
   private readonly pasteField = viewChild<ElementRef<HTMLInputElement>>('pasteField');
+  private readonly fileField = viewChild<ElementRef<HTMLInputElement>>('fileField');
+  private readonly images = inject(ImageStore);
 
   /** As capas que dá para escolher; a primeira é a que veio com o item. */
   private readonly choices = signal<CoverChoice[]>([]);
@@ -478,6 +534,16 @@ export class CoverPicker {
   protected readonly pasteUrl = signal('');
   protected readonly pasteBusy = signal(false);
   protected readonly pasteError = signal<string | null>(null);
+  /** Uma imagem do aparelho sendo encolhida e guardada. */
+  protected readonly saving = signal(false);
+  protected readonly imageError = signal<string | null>(null);
+  /** Um arquivo arrastado por cima das capas. */
+  protected readonly dropping = signal(false);
+  /**
+   * As capas que a pessoa trouxe aqui (um link colado, uma imagem do aparelho): ficam na frente quando os
+   * catálogos respondem depois, e saem só quando troca de item.
+   */
+  private readonly mine = new Set<string>();
   /** Capas que não abriram: somem da escolha, menos a escolhida (ela não sai da ficha sem a pessoa pedir). */
   private readonly broken = signal<ReadonlySet<string>>(new Set());
   protected readonly shown = computed(() =>
@@ -496,9 +562,17 @@ export class CoverPicker {
       const kind = this.kind();
       untracked(() => this.sync(gm, kind));
     });
+    // Ctrl+V com uma imagem copiada, com o seletor aberto: vira a capa. Fora de um campo de texto (o texto da
+    // anotação cola a imagem nele mesmo); o campo do link cuida do dele (onPaste)
+    const pasted = (e: ClipboardEvent) => {
+      if (e.defaultPrevented || typesHere(e.target)) return;
+      this.takeClipboard(e);
+    };
+    document.addEventListener('paste', pasted);
     inject(DestroyRef).onDestroy(() => {
       this.abort?.abort();
       this.pasteAbort?.abort();
+      document.removeEventListener('paste', pasted);
     });
   }
 
@@ -507,6 +581,8 @@ export class CoverPicker {
     if (key !== this.key) {
       this.key = key;
       this.closePaste();
+      this.mine.clear();
+      this.imageError.set(null);
       this.broken.set(new Set());
       this.error.set(null);
       this.notes.set([]);
@@ -535,7 +611,7 @@ export class CoverPicker {
       const before = this.choices();
       const show = (found: CoverChoice[]) => {
         const kept = before.filter((c) => c.coverUrl && !found.some((f) => f.coverUrl === c.coverUrl));
-        const pasted = this.choices().filter((c) => c.from === 'Link' && !before.includes(c) && !found.some((f) => f.coverUrl === c.coverUrl));
+        const pasted = this.choices().filter((c) => !!c.coverUrl && this.mine.has(c.coverUrl) && !before.includes(c) && !found.some((f) => f.coverUrl === c.coverUrl));
         this.choices.set([...pasted, ...kept, ...found]);
       };
       // cada fonte entra quando responde; as fotos por imprimir ficam até a última
@@ -625,18 +701,96 @@ export class CoverPicker {
       this.pasteError.set('Esse link não abriu como imagem. Copie o endereço da imagem, não o da página.');
       return;
     }
-    const pasted: CoverChoice = { ...this.game(), coverUrl: url, from: 'Link' };
-    if (!this.choices().some((c) => c.coverUrl === url)) this.choices.update((list) => [pasted, ...list]);
+    this.pasting.set(false);
+    this.pasteUrl.set('');
+    this.bring({ ...this.game(), coverUrl: url, from: 'Link' });
+  }
+
+  /** Uma capa trazida aqui (o link colado, a imagem do aparelho) entra na frente do monte, já escolhida. */
+  private bring(choice: CoverChoice): void {
+    const url = choice.coverUrl!;
+    this.mine.add(url);
+    if (!this.choices().some((c) => c.coverUrl === url)) this.choices.update((list) => [choice, ...list]);
     this.broken.update((set) => {
       const next = new Set(set);
       next.delete(url);
       return next;
     });
-    this.pasting.set(false);
-    this.pasteUrl.set('');
-    this.choose(this.choices().find((c) => c.coverUrl === url) ?? pasted);
-    // o campo sumiu: o teclado vai para a capa que acabou de entrar
+    this.choose(this.choices().find((c) => c.coverUrl === url) ?? choice);
+    // o teclado vai para a capa que acabou de entrar
     this.focusLater('input:checked');
+  }
+
+  // ===== a imagem do aparelho: escolher, colar ou soltar (guardada como as das anotações, core/image-store.ts) =====
+
+  /** Abre a escolha de arquivo do aparelho (no celular, a galeria e a câmera). */
+  protected chooseFile(): void {
+    this.fileField()?.nativeElement.click();
+  }
+
+  protected fromDevice(e: Event): void {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    // a mesma foto escolhida de novo também avisa
+    input.value = '';
+    if (file) void this.saveImage(file);
+  }
+
+  /** Colou no campo do link: uma imagem (sem texto junto) vira a capa; um texto segue para o campo. */
+  protected onPaste(e: ClipboardEvent): void {
+    if (e.clipboardData?.getData('text/plain')?.trim()) return;
+    this.takeClipboard(e);
+  }
+
+  /** A imagem do colar, se há uma (o texto puro fica com quem recebeu o colar). */
+  private takeClipboard(e: ClipboardEvent): void {
+    const file = imageFileOf(e.clipboardData);
+    if (!file) return;
+    e.preventDefault();
+    void this.saveImage(file);
+  }
+
+  protected onDrag(e: DragEvent): void {
+    if (!hasFiles(e)) return;
+    // sem isto o navegador abre o arquivo no lugar do site
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+    this.dropping.set(true);
+  }
+
+  protected onDragLeave(e: DragEvent): void {
+    // saiu de uma capa para outra (ainda dentro do seletor): continua aceso
+    if (e.relatedTarget instanceof Node && this.host.nativeElement.contains(e.relatedTarget)) return;
+    this.dropping.set(false);
+  }
+
+  protected onDrop(e: DragEvent): void {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    this.dropping.set(false);
+    const file = imageFileOf(e.dataTransfer);
+    if (file) void this.saveImage(file);
+    else this.imageError.set('Isso não é uma imagem. Solte uma foto (JPG, PNG ou WebP).');
+  }
+
+  /** Qual imagem do aparelho é a última pedida: colou outra enquanto a de antes encolhia, vale a nova. */
+  private saveTurn = 0;
+
+  private async saveImage(file: Blob): Promise<void> {
+    const key = this.key;
+    const turn = ++this.saveTurn;
+    this.saving.set(true);
+    this.imageError.set(null);
+    try {
+      const image = await this.images.add(file);
+      // enquanto guardava, a pessoa trocou de item (a imagem não vai para o outro) ou trouxe outra
+      if (key !== this.key || turn !== this.saveTurn) return;
+      this.bring({ ...this.game(), coverUrl: localImageUrl(image.id), from: STORED_COVER });
+    } catch (error) {
+      if (key === this.key && turn === this.saveTurn) this.imageError.set(error instanceof ImageProblem ? error.message : 'A imagem não entrou. Tente de novo.');
+    } finally {
+      if (turn === this.saveTurn) this.saving.set(false);
+    }
   }
 
   protected onPasteKey(e: KeyboardEvent): void {
@@ -650,4 +804,16 @@ export class CoverPicker {
       this.cancelPaste();
     }
   }
+}
+
+/** O que está sendo arrastado traz arquivos (e não um texto ou uma capa da própria página). */
+function hasFiles(e: DragEvent): boolean {
+  return !!e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files');
+}
+
+/** O colar caiu num lugar de escrever (um campo de texto, o texto da anotação): o colar é dele. */
+function typesHere(target: EventTarget | null): boolean {
+  if (target instanceof HTMLTextAreaElement) return true;
+  if (target instanceof HTMLInputElement) return !['radio', 'checkbox', 'button', 'submit', 'reset', 'file', 'range', 'color'].includes(target.type);
+  return target instanceof HTMLElement && target.isContentEditable;
 }

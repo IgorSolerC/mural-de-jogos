@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
 import { Stock } from '../core/review';
+import { MuralSrc } from './stored-image';
 
 /**
  * Uma polaroid pequena presa com um pedaço de fita: a foto (uma capa, um emoji ou a inicial, na
@@ -10,13 +11,14 @@ import { Stock } from '../core/review';
  */
 @Component({
   selector: 'app-mini-polaroid',
+  imports: [MuralSrc],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class.mp-retrato]': "shape() === 'retrato'" },
   template: `
     <span class="mp-fita" aria-hidden="true"></span>
     <span class="mp-foto cartolina" [attr.data-cor]="stock()" [style.--stock]="'var(--stock-' + stock() + ')'" aria-hidden="true">
       @if (photo(); as url) {
-        <img [src]="url" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" (error)="broken.set(url)" />
+        <img [muralSrc]="url" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" (error)="broken.set(url)" />
       } @else if (emoji()) {
         <span class="mp-emoji">{{ emoji() }}</span>
       } @else {

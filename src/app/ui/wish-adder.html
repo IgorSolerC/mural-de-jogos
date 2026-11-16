@@ -104,7 +104,7 @@
                     }
                     @case ('capa') {
                       @if (game()?.coverUrl; as url) {
-                        <img class="prop-capa" [src]="url" alt="" loading="lazy" referrerpolicy="no-referrer" />
+                        <img class="prop-capa" [muralSrc]="url" alt="" loading="lazy" referrerpolicy="no-referrer" />
                       } @else {
                         <lucide-icon [img]="p.icon" [size]="16" aria-hidden="true" />
                       }

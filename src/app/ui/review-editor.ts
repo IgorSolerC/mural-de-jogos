@@ -92,6 +92,7 @@ import { Confirm } from './confirm';
 import { categoryColorHex, lookKey, randomCategoryColor, tagColorHex } from '../core/category-looks';
 import { asksTag, newNoteAudience, prefsOf } from '../core/mural-config';
 import { CoverPicker } from './cover-picker';
+import { MuralSrc } from './stored-image';
 import { CoverSleeve } from './cover-sleeve';
 import { DifficultyPicker, Skulls } from './difficulty';
 import { GameSearch } from './game-search';
@@ -190,6 +191,7 @@ const MIN_YEAR = 1971;
     CardKit,
     CoverPicker,
     CoverSleeve,
+    MuralSrc,
     DifficultyPicker,
     GameSearch,
     MusicFields,

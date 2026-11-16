@@ -1,9 +1,7 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, booleanAttribute, computed, effect, inject, input, signal, untracked } from '@angular/core';
-import { CloudAccount } from '../core/cloud-account';
-import { ImageStore } from '../core/image-store';
-import { ImageSync } from '../core/image-sync';
 import { localImageId } from '../core/images';
+import { storedImageSrc } from './stored-image';
 import { LightStock, Stock, isDarkStock } from '../core/review';
 import { CardFace, CardLook, LEVEL_LABEL, deckLook, isPhraseTitle } from '../core/study';
 import { FitTitle } from './fit-title';
@@ -387,21 +385,18 @@ export class StudyCard {
 
   protected readonly iconOf = ICON_CHOICE;
 
-  private readonly images = inject(ImageStore);
-  private readonly imageSync = inject(ImageSync);
-  private readonly account = inject(CloudAccount);
 
   protected readonly shown = computed<CardLook>(() => this.look() ?? deckLook(this.deck()));
 
   protected readonly broken = signal(false);
   private readonly localId = computed(() => localImageId(this.image() ?? ''));
-  private readonly localSrc = signal<string | null>(null);
+  private readonly localSrc = storedImageSrc(this.localId);
   /** O que vai no `<img>`: o link, a guardada pelo Murall quando ela chega, ou nada (sem imagem, ou quebrada). */
   protected readonly src = computed(() => {
     if (this.broken()) return null;
     const url = this.image();
     if (!url) return null;
-    return this.localId() ? this.localSrc() : url;
+    return this.localId() ? (this.localSrc() ?? null) : url;
   });
   protected readonly fitKey = computed(() => `${this.shown()}|${this.title()}|${this.subtitle() ?? ''}|${this.src() ?? ''}`);
   /** O teto da letra do título, em fração da altura da área (ver TITLE_MAX). */
@@ -447,21 +442,6 @@ export class StudyCard {
     effect(() => {
       this.image();
       untracked(() => this.broken.set(false));
-    });
-    // a guardada pelo Murall: procura no aparelho; sem ela aqui, desce da nuvem (com a sessão)
-    effect((onCleanup) => {
-      const id = this.localId();
-      this.images.version();
-      this.imageSync.round();
-      const signedIn = this.account.signedIn();
-      if (!id) return untracked(() => this.localSrc.set(null));
-      let alive = true;
-      onCleanup(() => (alive = false));
-      void this.images
-        .url(id)
-        // fora da conta (quem visita sem entrar), o endereço público: a nuvem só entrega a que está à mostra
-        .then((url) => url ?? (signedIn ? this.imageSync.fetch(id) : this.imageSync.publicUrl(id)))
-        .then((url) => alive && this.localSrc.set(url));
     });
   }
 }

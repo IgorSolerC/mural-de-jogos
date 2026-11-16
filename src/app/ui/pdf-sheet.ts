@@ -1,6 +1,7 @@
 import { ApplicationRef, ChangeDetectionStrategy, Component, EnvironmentInjector, ViewEncapsulation, createComponent, input } from '@angular/core';
 import { NoteLinks } from '../core/note-links';
 import { RichText } from './rich-text';
+import { MuralSrc } from './stored-image';
 
 /** Um rótulo com cor (o grupo, uma tag); sem cor, o do papel. */
 export interface PdfLabel {
@@ -55,7 +56,7 @@ export interface PdfDoc {
  */
 @Component({
   selector: 'app-pdf-sheet',
-  imports: [RichText],
+  imports: [RichText, MuralSrc],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   host: { class: 'pdf-sheet' },
@@ -107,7 +108,7 @@ export interface PdfDoc {
           </p>
         }
         @if (d.cover) {
-          <img class="pdf-capa" [src]="d.cover" alt="" referrerpolicy="no-referrer" />
+          <img class="pdf-capa" [muralSrc]="d.cover" alt="" referrerpolicy="no-referrer" />
         }
       </header>
       @if (d.text.trim()) {

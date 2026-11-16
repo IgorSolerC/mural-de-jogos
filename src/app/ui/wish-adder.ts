@@ -27,6 +27,7 @@ import { DraftCard } from './draft-card';
 import { GameSearch } from './game-search';
 import { RelevanceSticker } from './relevance-sticker';
 import { WishClip } from './wish-clip';
+import { MuralSrc } from './stored-image';
 
 /** As etiquetas da folha do recorte. */
 export type WishProp = 'vontade' | 'tags' | 'pasta' | 'capa';
@@ -50,7 +51,7 @@ export type AdderMode = 'wish' | 'draft';
  */
 @Component({
   selector: 'app-wish-adder',
-  imports: [BackdropClose, CoverPicker, CoverSleeve, DraftCard, FolderPicker, GameSearch, IconModule, RelevanceSticker, RichEditor, TagPicker, WishClip, WishTags],
+  imports: [BackdropClose, CoverPicker, CoverSleeve, DraftCard, FolderPicker, GameSearch, IconModule, RelevanceSticker, RichEditor, TagPicker, WishClip, WishTags, MuralSrc],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wish-adder.html',
   styleUrl: './wish-adder.scss',
