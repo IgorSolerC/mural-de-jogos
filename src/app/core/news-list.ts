@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-16-link-de-nota-na-letra',
+    id: '2026-11-16-tabela-setas',
     version: '1.47.1',
     kind: 'ajustes',
     date: '2026-11-16',
@@ -43,6 +43,8 @@ export const NEWS: NewsEntry[] = [
     ],
     correcoes: [
       'O carimbo de Finalizada fica por cima de tudo o que está escrito na ficha: numa anotação com callouts ou tarefas, ele aparecia por baixo deles.',
+      'Na tabela do editor Visual, as setas andam de célula em célula (para cima e para baixo, na mesma coluna) e o Shift com a seta seleciona células: antes, o cursor podia parar entre duas células, e o que se escrevia ali abria uma coluna fantasma.',
+      'Clicar na margem do papel de uma tabela, no editor Visual, põe o cursor na célula mais perto: a letra escrita logo depois sumia.',
     ],
   },
   {

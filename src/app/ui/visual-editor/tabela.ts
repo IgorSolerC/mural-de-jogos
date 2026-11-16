@@ -15,9 +15,10 @@ import { AcaoTabela, EstadoTabela } from './visual-api';
 /**
  * A tabela escrita direto na folha, como no Docs (PLANO-EDITOR-VISUAL.md, 5.14 e a rodada 6): o nó
  * `tabela` › `fileira` › `cabeca` (só na primeira) e `celula`, cada célula com letras e marcas, sem
- * quebra de linha. O `prosemirror-tables` cuida da seleção de várias células, das setas entre elas e do
- * colar de células; aqui ficam as teclas do Murall (Enter desce, Shift+Enter sobe, Tab anda e cria a
- * fileira na última célula), o que o menu "Tabela" da régua faz, o colar de uma planilha (com tab, as
+ * quebra de linha. O `prosemirror-tables` cuida da seleção de várias células e do colar de células; aqui
+ * ficam as teclas do Murall (as setas, que o `prosemirror-tables` não sabe usar com as nossas células;
+ * Enter desce, Shift+Enter sobe, Tab anda e cria a fileira na última célula), o cursor sempre numa
+ * célula, o que o menu "Tabela" da régua faz, o colar de uma planilha (com tab, as
  * células se espalham; sem tab, as linhas se juntam com espaço) e as lições do apagar do Android (a
  * rodada 0, seção 12 do plano):
  *
@@ -387,6 +388,155 @@ function vizinha(t: PMNode, f: number, c: number, dir: 1 | -1): { f: number; c: 
   return nf < 0 || nf >= t.childCount ? null : { f: nf, c: nc };
 }
 
+// ===== As setas =====
+
+/**
+ * A posição no bloco de texto que começa em `de` (`bloco`) que fica no ponto `x` da tela (de lado): na
+ * última linha dele (`dir` -1, chegando de baixo) ou na primeira (1, chegando de cima). Sem a vista ou
+ * sem a medida, o fim (ou o começo) do bloco.
+ */
+function noX(view: EditorView | undefined, de: number, bloco: PMNode, x: number | null, dir: 1 | -1): number {
+  const [ini, fim] = [de + 1, de + 1 + bloco.content.size];
+  const padrao = dir < 0 ? fim : ini;
+  const dom = view?.nodeDOM(de);
+  if (!view || x === null || !(dom instanceof HTMLElement)) return padrao;
+  try {
+    const linha = view.coordsAtPos(padrao);
+    const r = dom.getBoundingClientRect();
+    const achou = view.posAtCoords({ left: Math.min(Math.max(x, r.left + 1), r.right - 1), top: (linha.top + linha.bottom) / 2 });
+    return achou && achou.pos >= ini && achou.pos <= fim ? achou.pos : padrao;
+  } catch {
+    return padrao;
+  }
+}
+
+/** O ponto do cursor na tela, de lado (null sem a vista). */
+function xDoCursor(view: EditorView | undefined, pos: number): number | null {
+  try {
+    return view ? view.coordsAtPos(pos).left : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Para onde a seta sai da tabela que começa em `pos`: a linha do lado (logo em cima ou embaixo do cursor,
+ * com a seta para cima ou para baixo; no fim dela, ou no começo, com a de lado); com a tabela no começo (ou no fim) do
+ * texto, o cursor de lacuna do lado de fora (a letra escrita ali abre a linha; ver `apagarNaTabela`).
+ */
+function saiDaTabela(state: EditorState, pos: number, t: PMNode, dir: 1 | -1, view: EditorView | undefined, x: number | null): Transaction {
+  const borda = dir < 0 ? pos : pos + t.nodeSize;
+  const $b = state.doc.resolve(borda);
+  const vizinho = dir < 0 ? $b.nodeBefore : $b.nodeAfter;
+  const tr = state.tr;
+  if (!vizinho) return tr.setSelection(new GapCursor($b));
+  if (vizinho.isTextblock) return tr.setSelection(TextSelection.create(state.doc, noX(view, dir < 0 ? borda - vizinho.nodeSize : borda, vizinho, x, dir)));
+  return tr.setSelection(Selection.near($b, dir));
+}
+
+/**
+ * As setas na tabela, como no Docs (o `prosemirror-tables` não vê as nossas células, que são o próprio
+ * bloco de texto, e o navegador sozinho deixava o cursor entre duas células, onde a letra escrita virava
+ * uma coluna fantasma):
+ *
+ * - de lado, no começo (ou no fim) da célula: o fim da célula de antes (ou o começo da próxima), na ordem
+ *   de leitura; na primeira (ou na última), sai da tabela;
+ * - para cima ou para baixo, na primeira (ou na última) linha da célula: a célula da mesma coluna na
+ *   fileira de cima (ou de baixo), logo em cima (ou embaixo) do cursor; no cabeçalho (ou na última fileira), sai da tabela;
+ * - na linha logo antes (ou logo depois) de uma tabela, a seta que sairia dela entra na tabela: a primeira
+ *   fileira (ou a última), logo embaixo (ou em cima) do cursor; de lado, o começo da primeira célula (ou o fim da última);
+ *   do cursor de lacuna do lado de fora (a tabela no começo ou no fim do texto), o mesmo;
+ * - com várias células selecionadas, o cursor fica na célula da ponta que anda.
+ *
+ * Dentro da célula (o meio dela, ou uma linha que quebrou), a seta é a do navegador.
+ */
+export function setaNaTabela(eixo: 'lado' | 'altura', dir: 1 | -1): Command {
+  return (state, dispatch, view) => {
+    const sel = state.selection;
+    // o cursor de lacuna do lado de fora de uma tabela no começo (ou no fim) do texto: a seta entra nela
+    if (sel instanceof GapCursor) {
+      const t = dir < 0 ? sel.$head.nodeBefore : sel.$head.nodeAfter;
+      if (t?.type !== TABELA) return false;
+      const pos = dir < 0 ? sel.head - t.nodeSize : sel.head;
+      if (dispatch) dispatch(state.tr.setSelection(dir < 0 ? naCelula(state.doc, pos, t.childCount - 1, t.lastChild!.childCount - 1, 'fim') : naCelula(state.doc, pos, 0, 0, 'comeco')).scrollIntoView());
+      return true;
+    }
+    if (sel instanceof CellSelection) {
+      const cel = sel.$headCell.nodeAfter!;
+      const de = sel.$headCell.pos + 1;
+      if (dispatch) dispatch(state.tr.setSelection(TextSelection.create(state.doc, dir < 0 ? de : de + cel.content.size)).scrollIntoView());
+      return true;
+    }
+    if (!(sel instanceof TextSelection) || (eixo === 'lado' && !sel.empty)) return false;
+    const $h = sel.$head;
+    const naBorda = eixo === 'lado' ? (dir < 0 ? $h.parentOffset === 0 : $h.parentOffset === $h.parent.content.size) : !view || view.endOfTextblock(dir < 0 ? 'up' : 'down');
+    if (!naBorda) return false;
+    const x = eixo === 'altura' ? xDoCursor(view, sel.head) : null;
+    let tr: Transaction | null = null;
+    const at = $h.depth >= 3 ? celulaDoCursor(state) : null;
+    if (at) {
+      const t = at.tabela.node;
+      if (eixo === 'lado') {
+        const v = vizinha(t, at.f, at.c, dir);
+        if (v) tr = state.tr.setSelection(naCelula(state.doc, at.tabela.pos, v.f, v.c, dir < 0 ? 'fim' : 'comeco'));
+      } else if (at.f + dir >= 0 && at.f + dir < t.childCount) {
+        const de = posDaCelula(t, at.tabela.pos, at.f + dir, at.c) - 1;
+        tr = state.tr.setSelection(TextSelection.create(state.doc, noX(view, de, state.doc.nodeAt(de)!, x, dir)));
+      }
+      tr ??= saiDaTabela(state, at.tabela.pos, t, dir, view, x);
+    } else {
+      // a linha do lado de uma tabela (as tabelas moram no alto do texto)
+      if ($h.depth !== 1) return false;
+      const t = state.doc.maybeChild($h.index(0) + dir);
+      if (t?.type !== TABELA) return false;
+      const pos = dir < 0 ? $h.before(1) - t.nodeSize : $h.after(1);
+      const f = dir < 0 ? t.childCount - 1 : 0;
+      if (eixo === 'lado') tr = state.tr.setSelection(naCelula(state.doc, pos, f, dir < 0 ? t.child(f).childCount - 1 : 0, dir < 0 ? 'fim' : 'comeco'));
+      else {
+        // a célula da fileira cuja coluna está embaixo (ou em cima) do cursor; fora delas, a mais perto
+        let c = 0;
+        const fileira = view?.nodeDOM(posDaCelula(t, pos, f, 0) - 2);
+        if (x !== null && fileira instanceof HTMLElement)
+          Array.from(fileira.children).forEach((cel, k) => {
+            if (cel.getBoundingClientRect().left <= x) c = k;
+          });
+        const de = posDaCelula(t, pos, f, c) - 1;
+        tr = state.tr.setSelection(TextSelection.create(state.doc, noX(view, de, state.doc.nodeAt(de)!, x, dir)));
+      }
+    }
+    if (dispatch) dispatch(tr.scrollIntoView());
+    return true;
+  };
+}
+
+/**
+ * Shift com a seta: no começo (ou no fim) da célula, a seleção vira de células e anda para a vizinha (como
+ * no Docs); com células já selecionadas, a ponta que anda vai para a próxima, sem passar da beirada da
+ * tabela.
+ */
+export function shiftSetaNaTabela(eixo: 'lado' | 'altura', dir: 1 | -1): Command {
+  return (state, dispatch, view) => {
+    const sel = state.selection;
+    let $ancora: ResolvedPos;
+    let $ponta: ResolvedPos;
+    if (sel instanceof CellSelection) [$ancora, $ponta] = [sel.$anchorCell, sel.$headCell];
+    else {
+      if (!(sel instanceof TextSelection)) return false;
+      const $h = sel.$head;
+      if ($h.depth < 3 || !tabelaEm($h) || !sel.$anchor.sameParent($h)) return false;
+      const naBorda = eixo === 'lado' ? (dir < 0 ? $h.parentOffset === 0 : $h.parentOffset === $h.parent.content.size) : !view || view.endOfTextblock(dir < 0 ? 'up' : 'down');
+      if (!naBorda) return false;
+      $ancora = $ponta = state.doc.resolve($h.before());
+    }
+    const inicio = $ponta.start(-1);
+    const prox = TableMap.get($ponta.node(-1)).nextCell($ponta.pos - inicio, eixo === 'lado' ? 'horiz' : 'vert', dir);
+    // na beirada: a seleção de células fica (a de texto segue a do navegador)
+    if (prox === null) return sel instanceof CellSelection;
+    if (dispatch) dispatch(state.tr.setSelection(new CellSelection($ancora, state.doc.resolve(inicio + prox))).scrollIntoView());
+    return true;
+  };
+}
+
 /**
  * O apagar nas bordas da célula (a lição do Android): no começo de uma célula, o Backspace passa para o
  * fim da de antes, sem juntar as duas (na primeira célula, para: a tecla fica com a tabela); no fim, o
@@ -670,7 +820,82 @@ function endireitar(t: PMNode): PMNode | null {
   return TABELA.create({ ...t.attrs, alinhar }, fileiras);
 }
 
-/** O `prosemirror-tables` (a seleção de células, as setas entre elas, o colar de células, o conserto de tabela torta). */
+// ===== O cursor nunca fica solto na tabela =====
+
+/**
+ * O lugar do navegador que não é de uma célula: o papel, o rolo, a `<table>` ou a fileira, por fora de
+ * qualquer `<td>` e `<th>`. Uma letra escrita ali caía fora do texto e sumia (o ProseMirror redesenha a
+ * tabela), e o cursor pulava para outra linha.
+ */
+function solto(view: EditorView, n: Node | null): boolean {
+  const el = n?.nodeType === 1 ? (n as Element) : (n?.parentElement ?? null);
+  return !!el && view.dom.contains(el) && !!el.closest('.tabela-rolo') && !el.closest('td, th, .vis-alcas');
+}
+
+/**
+ * O cursor sempre numa célula (16/nov/2026, junto da coluna fantasma):
+ *
+ * - o clique na margem do papel, numa borda entre células ou ao lado da tabela estreita põe o cursor na
+ *   célula mais perto (como no Docs), em vez de deixar o do navegador solto no papel; a barra de rolar de
+ *   lado da tabela larga continua dela;
+ * - o cursor do navegador que ainda cair solto (uma tecla que o navegador anda sozinho) volta para o lugar
+ *   do texto onde o ProseMirror diz que ele está (o ProseMirror só reescreve o do navegador quando a
+ *   seleção muda). Com o botão do mouse apertado, só depois de soltar; no meio de uma composição, nunca.
+ */
+export const cursorNaCelula = (): Plugin =>
+  new Plugin({
+    view(view) {
+      const doc = view.dom.ownerDocument;
+      let apertado = false;
+      const arruma = () => {
+        if (apertado || view.composing || !view.hasFocus()) return;
+        const s = doc.getSelection();
+        const sel = view.state.selection;
+        if (!s?.focusNode || !(sel instanceof TextSelection) || !(solto(view, s.focusNode) || solto(view, s.anchorNode))) return;
+        const [a, h] = [view.domAtPos(sel.anchor), view.domAtPos(sel.head)];
+        s.setBaseAndExtent(a.node, a.offset, h.node, h.offset);
+      };
+      const aperta = () => (apertado = true);
+      const solta = () => {
+        apertado = false;
+        setTimeout(arruma);
+      };
+      doc.addEventListener('selectionchange', arruma);
+      view.dom.addEventListener('pointerdown', aperta);
+      doc.addEventListener('pointerup', solta);
+      return {
+        destroy: () => {
+          doc.removeEventListener('selectionchange', arruma);
+          view.dom.removeEventListener('pointerdown', aperta);
+          doc.removeEventListener('pointerup', solta);
+        },
+      };
+    },
+    props: {
+      handleDOMEvents: {
+        mousedown(view, e) {
+          const alvo = e.target;
+          if (e.button !== 0 || e.shiftKey || !(alvo instanceof Element) || !solto(view, alvo)) return false;
+          const rolo = alvo.closest<HTMLElement>('.tabela-rolo')!;
+          const tabela = rolo.querySelector('table');
+          // a barra de rolar de lado (embaixo da parte que se vê do rolo) é do navegador
+          const r = rolo.getBoundingClientRect();
+          if (!tabela || e.clientY >= r.top + rolo.clientTop + rolo.clientHeight) return false;
+          const t = tabela.getBoundingClientRect();
+          const dentro = (v: number, de: number, ate: number) => Math.min(Math.max(v, de + 2), ate - 2);
+          const achou = view.posAtCoords({ left: dentro(e.clientX, t.left, t.right), top: dentro(e.clientY, t.top, t.bottom) });
+          const $p = achou && view.state.doc.resolve(achou.pos);
+          if (!$p || $p.depth < 3 || !tabelaEm($p)) return false;
+          e.preventDefault();
+          view.focus();
+          view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, $p.pos)));
+          return true;
+        },
+      },
+    },
+  });
+
+/** O `prosemirror-tables` (a seleção de células, o colar de células, o conserto de tabela torta; as setas são as de `setaNaTabela`). */
 export const edicaoDaTabela = (): Plugin => tableEditing({ allowTableNodeSelection: false });
 
 // ===== As alças: pôr e tirar fileira e coluna, e o jeito, direto na tabela =====

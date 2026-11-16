@@ -37,7 +37,7 @@ import { ItemView, desenhoDasListas, escritor, linhaNoItem, lista, marcarTarefa 
 import { CartaoView, acaoCartao, cartoes, estadoCartao } from './cartoes';
 import { CodigoView, acaoCodigo, estadoCodigo, realceDoCodigo, textoDoCodigo } from './codigos';
 import { Lugar, WidgetView, depoisDaPeca, envio, lugarDoCursor, marcaEnvio, pecas, poeBlocoNoLugar, poeNoLugar, tiraEm, tiraEnvio } from './pecas';
-import { TabelaView, acaoTabela, alcasDaTabela, celulaEm, colarNaCelula, edicaoDaTabela, estadoTabela, posDaCelula, protegeTabela, sliceNaCelula, tabelaEm, tabelaVazia, tabelasRetas, tiraTabela } from './tabela';
+import { TabelaView, acaoTabela, alcasDaTabela, celulaEm, colarNaCelula, cursorNaCelula, edicaoDaTabela, estadoTabela, posDaCelula, protegeTabela, sliceNaCelula, tabelaEm, tabelaVazia, tabelasRetas, tiraTabela } from './tabela';
 import { docDe, linhaDaPeca, linhaDe, noDe, schema, sliceDoTexto, textoDoCru } from './schema';
 import { AcaoVisual, EstadoVisual, ImagemVisual, ListaVisual, MalaVisual, MarcaVisual, PecaVisual, PedidoLink, VisualApi } from './visual-api';
 import { CopyContext, WidgetSize, widgetLines } from '../../core/widgets';
@@ -848,6 +848,8 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       // copiar e recortar: o texto limpo, o HTML e o markdown (antes do ProseMirror e da tabela)
       copiar({ fonte: (n) => this.fontes.get(n), contexto: () => this.contextoDaCopia() }),
       protegeTabela(),
+      // o cursor sempre numa célula: o clique na margem do papel, o do navegador que cai solto na tabela
+      cursorNaCelula(),
       pecas({ imagem: (arquivo, lugar) => this.recebeImagem(arquivo, lugar) }),
       atalhos(),
       keymap({ 'Mod-k': () => (this.pedeLinkAqui('url'), true) }),

@@ -196,7 +196,7 @@ export const schema = new Schema({
     },
     /**
      * A tabela (desde a rodada 6): as fileiras com as células escritas direto, como no Docs (ver
-     * tabela.ts), com o `prosemirror-tables` (a seleção de várias células, as setas, o colar de células).
+     * tabela.ts), com o `prosemirror-tables` (a seleção de várias células, o colar de células).
      * A primeira fileira é o cabeçalho (`cabeca`), as outras têm `celula`; sem célula mesclada. `jeito`:
      * o widget {{tabela: …}} em cima (null, a branca, sem marca); `alinhar`: o de cada coluna (a verdade:
      * as células só copiam o da coluna delas, para o desenho). Na tela, o rolo e o papel da leitura.
@@ -228,6 +228,10 @@ export const schema = new Schema({
       tableRole: 'row',
       // as células escritas além das do cabeçalho (a leitura esconde, a escrita devolve): andam com a fileira
       attrs: { sobra: { default: [] } },
+      // nunca o cursor de lacuna entre duas células: o que se escrevesse ali virava uma célula a mais (a
+      // coluna fantasma de 16/nov/2026; o que cabe entre células é uma célula, um bloco de texto, e o
+      // `prosemirror-gapcursor` achava o vão válido)
+      allowGapCursor: false,
       parseDOM: [{ tag: 'tr' }],
       toDOM: () => ['tr', 0],
     },

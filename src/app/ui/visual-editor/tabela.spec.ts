@@ -1,6 +1,7 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Fragment, Node as PMNode, Slice } from 'prosemirror-model';
+import { GapCursor } from 'prosemirror-gapcursor';
+import { Fragment, Node as PMNode, ResolvedPos, Slice } from 'prosemirror-model';
 import { AllSelection, TextSelection } from 'prosemirror-state';
 import { CellSelection } from 'prosemirror-tables';
 import { EditorView } from 'prosemirror-view';
@@ -650,6 +651,159 @@ describe('a tabela no modo Visual', () => {
       expect(riscadas('vis-alvo-por-fileira')).toEqual([]);
       alca('colunaDepois').dispatchEvent(new PointerEvent('pointerleave'));
       expect(riscadas('vis-alvo-por-coluna')).toEqual([]);
+    });
+  });
+
+  describe('as setas e o cursor sempre numa célula (a coluna fantasma de 16/nov)', () => {
+    const linhaDoCursor = () => view.state.selection.$head.parent.textContent;
+    const selecionadas = () => {
+      const out: string[] = [];
+      (view.state.selection as CellSelection).forEachCell((c) => out.push(c.textContent));
+      return out;
+    };
+
+    it('o vão entre duas células nunca aceita o cursor de lacuna (a letra escrita ali virava uma coluna a mais)', async () => {
+      await make(T);
+      // (a conta do próprio prosemirror-gapcursor, que não está nos tipos dele)
+      const valid = ($p: ResolvedPos) => (GapCursor as unknown as { valid($p: ResolvedPos): boolean }).valid($p);
+      for (const [f, c] of [
+        [0, 1],
+        [1, 1],
+        [2, 1],
+      ])
+        expect(valid(view.state.doc.resolve(celula(f, c) - 1))).withContext(`${f},${c}`).toBeFalse();
+      // do lado de fora da tabela, sim
+      expect(valid(view.state.doc.resolve(0))).toBeTrue();
+    });
+
+    it('de lado: no fim da célula, o começo da próxima (na ordem de leitura); no começo, o fim da de antes; nas pontas, a linha do lado, e ela entra de volta', async () => {
+      await make('antes\n' + T + '\ndepois');
+      cursor(celula(1, 0, true));
+      expect(tecla('ArrowRight').defaultPrevented).toBeTrue();
+      expect(naCelula()).toEqual([1, 1, 0]);
+      // no meio da célula, a seta é do navegador
+      cursor(celula(1, 0) + 2);
+      expect(tecla('ArrowRight').defaultPrevented).toBeFalse();
+      expect(tecla('ArrowLeft').defaultPrevented).toBeFalse();
+      cursor(celula(1, 1, true));
+      tecla('ArrowRight');
+      expect(naCelula()).toEqual([2, 0, 0]);
+      tecla('ArrowLeft');
+      expect(naCelula()).toEqual([1, 1, 2]);
+      cursor(celula(0, 0));
+      tecla('ArrowLeft');
+      expect([linhaDoCursor(), view.state.selection.$head.parentOffset]).toEqual(['antes', 5]);
+      tecla('ArrowRight');
+      expect(naCelula()).toEqual([0, 0, 0]);
+      cursor(celula(2, 1, true));
+      tecla('ArrowRight');
+      expect([linhaDoCursor(), view.state.selection.$head.parentOffset]).toEqual(['depois', 0]);
+      tecla('ArrowLeft');
+      expect(naCelula()).toEqual([2, 1, 1]);
+      expect(valor).toBeNull();
+    });
+
+    it('para cima e para baixo: a célula da mesma coluna, logo embaixo (ou em cima) do cursor; no cabeçalho e na última fileira, a linha do lado, e ela entra de volta', async () => {
+      await make('antes\n' + T + '\ndepois');
+      cursor(celula(1, 1, true));
+      tecla('ArrowDown');
+      expect(naCelula()!.slice(0, 2)).toEqual([2, 1]);
+      // "Had|es" desce para o meio de "Celeste", não para o começo
+      cursor(celula(1, 0) + 3);
+      tecla('ArrowDown');
+      expect(naCelula()!.slice(0, 2)).toEqual([2, 0]);
+      expect(naCelula()![2]).toBeGreaterThanOrEqual(2);
+      expect(naCelula()![2]).toBeLessThanOrEqual(4);
+      tecla('ArrowUp');
+      tecla('ArrowUp');
+      expect(naCelula()!.slice(0, 2)).toEqual([0, 0]);
+      tecla('ArrowUp');
+      expect(linhaDoCursor()).toBe('antes');
+      tecla('ArrowDown');
+      expect(naCelula()!.slice(0, 2)).toEqual([0, 0]);
+      cursor(celula(2, 1));
+      tecla('ArrowDown');
+      expect(linhaDoCursor()).toBe('depois');
+      tecla('ArrowUp');
+      expect(naCelula()).toEqual([2, 0, 0]);
+      expect(valor).toBeNull();
+    });
+
+    it('com a tabela no começo e no fim do texto, a seta sai para o cursor de lacuna do lado de fora (sem mudar o texto), e volta', async () => {
+      await make(T);
+      cursor(celula(0, 1));
+      tecla('ArrowUp');
+      expect(view.state.selection instanceof GapCursor).toBeTrue();
+      expect(view.state.selection.from).toBe(0);
+      tecla('ArrowDown');
+      expect(naCelula()).toEqual([0, 0, 0]);
+      cursor(celula(2, 1, true));
+      tecla('ArrowRight');
+      expect(view.state.selection instanceof GapCursor).toBeTrue();
+      expect(view.state.selection.from).toBe(view.state.doc.content.size);
+      tecla('ArrowUp');
+      expect(naCelula()).toEqual([2, 1, 1]);
+      expect(valor).toBeNull();
+    });
+
+    it('Shift com a seta na beirada da célula começa a seleção de células e a faz crescer; a seta sozinha volta ao cursor', async () => {
+      await make(T);
+      cursor(celula(1, 0, true));
+      tecla('ArrowRight', { shiftKey: true });
+      expect(view.state.selection instanceof CellSelection).toBeTrue();
+      expect(selecionadas()).toEqual(['Hades', '10']);
+      tecla('ArrowDown', { shiftKey: true });
+      expect(selecionadas()).toEqual(['Hades', '10', 'Celeste', '9']);
+      // na beirada da tabela, fica
+      expect(tecla('ArrowDown', { shiftKey: true }).defaultPrevented).toBeTrue();
+      expect(selecionadas().length).toBe(4);
+      tecla('ArrowLeft');
+      expect(naCelula()).toEqual([2, 1, 0]);
+      // no meio da célula, o Shift com a seta é do navegador
+      cursor(celula(1, 0) + 2);
+      expect(tecla('ArrowRight', { shiftKey: true }).defaultPrevented).toBeFalse();
+    });
+
+    it('o clique na margem do papel põe o cursor na célula mais perto (a letra escrita ali sumia)', async () => {
+      await make('antes\n' + T + '\ndepois');
+      view.focus();
+      cursor(1);
+      const papel = view.dom.querySelector<HTMLElement>('.tabela-papel')!;
+      const p = papel.getBoundingClientRect();
+      const clica = (x: number, y: number) => {
+        const e = new MouseEvent('mousedown', { clientX: x, clientY: y, button: 0, bubbles: true, cancelable: true });
+        papel.dispatchEvent(e);
+        return e;
+      };
+      const meio = (f: number, c: number) => {
+        const r = (view.nodeDOM(celula(f, c) - 1) as HTMLElement).getBoundingClientRect();
+        return [(r.left + r.right) / 2, (r.top + r.bottom) / 2];
+      };
+      // a margem da direita, na altura da última fileira
+      expect(clica(p.right - 1, meio(2, 1)[1]).defaultPrevented).toBeTrue();
+      expect(naCelula()!.slice(0, 2)).toEqual([2, 1]);
+      // a de cima, em cima da primeira coluna
+      clica(meio(0, 0)[0], p.top + 1);
+      expect(naCelula()!.slice(0, 2)).toEqual([0, 0]);
+      // a da esquerda, na altura da fileira do meio
+      clica(p.left + 1, meio(1, 0)[1]);
+      expect(naCelula()).toEqual([1, 0, 0]);
+      expect(valor).toBeNull();
+    });
+
+    it('o cursor do navegador que cai solto no papel volta para uma célula, a mesma do texto', async () => {
+      await make(T);
+      view.focus();
+      // o cursor já onde o ProseMirror lê o lugar solto (o fim da tabela): ele não muda a seleção, e por
+      // isso não reescreveria o do navegador
+      cursor(celula(2, 1, true));
+      getSelection()!.collapse(view.dom.querySelector('.tabela-papel')!, 1);
+      await new Promise((r) => setTimeout(r, 50));
+      const s = getSelection()!;
+      const no = s.focusNode!.nodeType === 1 ? (s.focusNode as Element) : s.focusNode!.parentElement!;
+      expect(no.closest('td, th')).not.toBeNull();
+      expect(view.posAtDOM(s.focusNode!, s.focusOffset)).toBe(view.state.selection.head);
+      expect(naCelula()).not.toBeNull();
     });
   });
 });

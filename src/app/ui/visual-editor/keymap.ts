@@ -11,7 +11,7 @@ import { linkarEndereco } from './links';
 import { enterNaLista, linhaNoItem, mapaDe, paraFrente, paraTras, recuarItem, recuoParaFora } from './listas';
 import { tabNaPeca } from './pecas';
 import { linhaDaPeca, schema, textoDoCru } from './schema';
-import { apagarNaTabela, apagarSelecao, enterNaTabela, entrarNaTabela, tabNaTabela, tabelaEm } from './tabela';
+import { apagarNaTabela, apagarSelecao, enterNaTabela, entrarNaTabela, setaNaTabela, shiftSetaNaTabela, tabNaTabela, tabelaEm } from './tabela';
 import { apagarNoCartao, enterNoCartao } from './cartoes';
 
 /**
@@ -538,8 +538,15 @@ export const teclas = (): Plugin =>
     'Mod-/': comentarNoCodigo,
     Home: homeNoCodigo(false),
     'Shift-Home': homeNoCodigo(true),
-    ArrowUp: setaParaFora(-1),
-    ArrowDown: setaParaFora(1),
+    // na tabela, as setas são as dela (ver tabela.ts): o navegador deixava o cursor entre duas células
+    ArrowUp: chainCommands(setaNaTabela('altura', -1), setaParaFora(-1)),
+    ArrowDown: chainCommands(setaNaTabela('altura', 1), setaParaFora(1)),
+    ArrowLeft: setaNaTabela('lado', -1),
+    ArrowRight: setaNaTabela('lado', 1),
+    'Shift-ArrowUp': shiftSetaNaTabela('altura', -1),
+    'Shift-ArrowDown': shiftSetaNaTabela('altura', 1),
+    'Shift-ArrowLeft': shiftSetaNaTabela('lado', -1),
+    'Shift-ArrowRight': shiftSetaNaTabela('lado', 1),
     // tudo (e, apagado, o texto vira uma linha vazia: a tabela sai junto, como no Docs); no bloco, as letras dele primeiro
     'Mod-a': chainCommands(selecionarNoCodigo, selectAll),
     'Mod-b': marca(M['negrito']),
