@@ -9,7 +9,7 @@ export interface FolderContents {
   folders: number;
 }
 
-/** O que mora nas pastas: as anotações, ou os recortes da Wishlist (`WISH_UNITS`). */
+/** O que mora nas pastas: as anotações, os recortes da Wishlist (`WISH_UNITS`) ou as pixel arts (`PIXEL_UNITS`). */
 export interface FolderUnits {
   one: string;
   many: string;
@@ -21,6 +21,7 @@ export interface FolderUnits {
 
 export const NOTE_UNITS: FolderUnits = { one: 'anotação', many: 'anotações', male: false, none: 'Nenhuma anotação é apagada.' };
 export const WISH_UNITS: FolderUnits = { one: 'recorte', many: 'recortes', male: true, none: 'Nenhum recorte sai da wishlist.' };
+export const PIXEL_UNITS: FolderUnits = { one: 'pixel art', many: 'pixel arts', male: false, none: 'Nenhuma pixel art é apagada.' };
 
 /**
  * A pergunta de desfazer a pasta, uma só para a parede (o menu da pasta) e para as configurações do mural

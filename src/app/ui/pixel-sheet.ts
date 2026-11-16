@@ -6,6 +6,7 @@ import type { TagEntry } from '../core/note-labels';
 import { PIXEL_LOOKS, PixelLook, readPixelArt } from '../core/pixel-art';
 import { PIXEL_NOTE_MAX, PIXEL_TAG_SPACE, PIXEL_TITLE_MAX, PixelPatch, PixelPiece, artValues, pieceTitle, pieceTitleOf, valuesArt } from '../core/pixel-gallery';
 import { PixelGallery } from '../core/pixel-gallery-store';
+import { PixelFolders } from '../core/pixel-folders';
 import { cleanWishNote, fold } from '../core/review';
 import { Settings } from '../core/settings';
 import { ViewTransitions } from '../core/view-transitions';
@@ -13,6 +14,7 @@ import { WidgetValues } from '../core/widgets';
 import { wishTagCounts, wishTagHex } from '../core/wishlist-view';
 import { BackdropClose } from './backdrop-close';
 import { Confirm } from './confirm';
+import { FolderPicker } from './folder-picker';
 import { ICON, IconModule } from './icons';
 import { PixelArt } from './pixel-art';
 import { PixelPieceCard } from './pixel-piece';
@@ -23,7 +25,7 @@ import { Toasts } from './toast';
 import { WishTags } from './wish-tags';
 
 /** As etiquetas da ficha da obra. */
-export type PixelProp = 'jeito' | 'tags';
+export type PixelProp = 'jeito' | 'tags' | 'pasta';
 
 /** O que a página faz no fim do editar (o foco na obra salva; apagar com o foco no vizinho). */
 export interface PixelSheetHooks {
@@ -42,7 +44,7 @@ export interface PixelSheetHooks {
  */
 @Component({
   selector: 'app-pixel-sheet',
-  imports: [BackdropClose, IconModule, PixelArt, PixelField, PixelPieceCard, RichEditor, TagPicker, WishTags],
+  imports: [BackdropClose, FolderPicker, IconModule, PixelArt, PixelField, PixelPieceCard, RichEditor, TagPicker, WishTags],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './pixel-sheet.html',
   // o leiaute da folha da Wishlist, o mesmo arquivo (não uma cópia), e o que muda nesta por cima
@@ -54,6 +56,7 @@ export class PixelSheet {
   private readonly toasts = inject(Toasts);
   private readonly transitions = inject(ViewTransitions);
   private readonly confirm = inject(Confirm);
+  protected readonly folders = inject(PixelFolders);
 
   /** A obra nova foi para a galeria (a página a assenta na parede). */
   readonly created = output<string>();
@@ -82,6 +85,8 @@ export class PixelSheet {
   protected readonly title = signal('');
   protected readonly tags = signal<string[]>([]);
   protected readonly note = signal('');
+  /** A pasta (o id; null: solta na raiz da galeria). A obra nova nasce na pasta aberta na página. */
+  protected readonly folder = signal<string | null>(null);
   /** Tentou salvar sem desenho. */
   protected readonly attempted = signal(false);
   /** A etiqueta aberta (a parte dela logo embaixo da fileira), ou nenhuma. */
@@ -111,14 +116,17 @@ export class PixelSheet {
 
   protected readonly props = computed(() => {
     const tags = this.tags();
+    const folder = this.folder();
+    const fname = folder ? (this.folders.tree().live(folder)?.name ?? null) : null;
     const look = PIXEL_LOOKS.find((l) => l.value === (this.values()['look'] || 'pixel'))?.label ?? 'Pixel';
     const out: { id: PixelProp; name: string; icon: LucideIconData; value: string; spoken: string; filled: boolean; off?: boolean }[] = [
       { id: 'jeito', name: 'Jeito', icon: ICON.pixelArt, value: look, spoken: look, filled: true, off: !this.art() },
       { id: 'tags', name: 'Tags', icon: ICON.etiquetas, value: 'Tags', spoken: tags.length ? tags.join(', ') : 'nenhuma', filled: tags.length > 0 },
+      { id: 'pasta', name: 'Pasta', icon: ICON.pastaDeNotas, value: fname ?? 'Pasta', spoken: fname ?? 'sem pasta', filled: !!fname },
     ];
     return out;
   });
-  protected readonly propNames: Record<PixelProp, string> = { jeito: 'Jeito', tags: 'Tags' };
+  protected readonly propNames: Record<PixelProp, string> = { jeito: 'Jeito', tags: 'Tags', pasta: 'Pasta' };
 
   /** As tags à mão: as da galeria, as mais usadas primeiro. */
   protected readonly tagLib = computed<TagEntry[]>(() => wishTagCounts(this.gallery.pieces()).map((t) => ({ label: t.label, n: t.n, pinned: false })));
@@ -133,9 +141,10 @@ export class PixelSheet {
     };
   });
 
-  /** Uma obra nova: a ficha em branco, e o ateliê abre sozinho por cima. */
-  open(): void {
+  /** Uma obra nova: a ficha em branco, na pasta `folder` (a aberta na página), e o ateliê abre sozinho por cima. */
+  open(folder: string | null = null): void {
     this.reset();
+    this.folder.set(folder);
     this.values.set(artValues([]));
     this.start();
   }
@@ -149,6 +158,7 @@ export class PixelSheet {
     this.title.set(piece.title);
     this.tags.set([...(piece.tags ?? [])]);
     this.note.set(piece.note ?? '');
+    this.folder.set(this.folders.of(piece));
     this.start();
   }
 
@@ -169,6 +179,7 @@ export class PixelSheet {
     this.title.set('');
     this.tags.set([]);
     this.note.set('');
+    this.folder.set(null);
     this.prop.set(null);
   }
 
@@ -213,7 +224,7 @@ export class PixelSheet {
 
   /** O que a pessoa pode ter mudado na ficha (o desenho, o nome, as tags, a descrição). */
   private serialize(): string {
-    return JSON.stringify([this.art(), pieceTitleOf(this.title()), this.tags(), cleanWishNote(this.note())]);
+    return JSON.stringify([this.art(), pieceTitleOf(this.title()), this.tags(), cleanWishNote(this.note()), this.folder()]);
   }
 
   /** Fechar (X, Cancelar, Esc, o fundo): com algo mudado, a pergunta de descartar antes. */
@@ -253,6 +264,7 @@ export class PixelSheet {
     if (from.title !== pieceTitleOf(this.title())) out.title = this.title();
     if ((from.tags ?? []).map(fold).join('\n') !== this.tags().map(fold).join('\n')) out.tags = this.tags();
     if ((from.note ?? '') !== cleanWishNote(this.note())) out.note = this.note();
+    if (this.folders.of(from) !== this.folder()) out.folder = this.folder() ?? undefined;
     return out;
   }
 
@@ -281,7 +293,7 @@ export class PixelSheet {
       this.saveEdit(editing, art);
       return;
     }
-    const made = this.gallery.create({ art, title: this.title(), tags: this.tags(), note: this.note() });
+    const made = this.gallery.create({ art, title: this.title(), tags: this.tags(), note: this.note(), folder: this.folder() ?? undefined });
     if (!made) {
       this.toasts.show('A galeria está cheia: apague uma pixel art para guardar outra.');
       return;
@@ -306,8 +318,18 @@ export class PixelSheet {
       const undo = this.gallery.update(editing.id, patch);
       if (!undo) return;
       saved?.();
-      this.toasts.show(`“${pieceTitle(this.gallery.get(editing.id) ?? editing)}” mudou na galeria`, { label: 'Desfazer', run: () => this.transitions.run(undo) });
+      const name = pieceTitle(this.gallery.get(editing.id) ?? editing);
+      // mudou de pasta: o aviso diz para onde (ela sai da parede aberta)
+      const moved = 'folder' in patch ? (patch.folder ? `foi para ${this.folders.tree().live(patch.folder)?.name ?? 'outra pasta'}` : 'saiu das pastas') : null;
+      this.toasts.show(`“${name}” ${moved ?? 'mudou na galeria'}`, { label: 'Desfazer', run: () => this.transitions.run(undo) });
     });
+  }
+
+  /** O "Criar" da escolha da pasta: a pasta nasce na hora (como no editor das anotações) e fica escolhida. */
+  protected makeFolder(e: { parent: string | null; name: string }): void {
+    const made = this.folders.create(e.parent, e.name);
+    if (made) this.folder.set(made.id);
+    else this.toasts.show('Não cabe mais nenhuma pasta aqui.');
   }
 
   /** Apagar pelo editar (com o Desfazer de quem apaga). */

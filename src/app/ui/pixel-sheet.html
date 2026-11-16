@@ -110,6 +110,19 @@
                 @case ('tags') {
                   <app-tag-picker [(tags)]="tags" [library]="tagLib()" [colors]="tagColors()" [pinnable]="false" [units]="['pixel art', 'pixel arts']" owner="Esta pixel art" />
                 }
+                @case ('pasta') {
+                  <app-folder-picker
+                    [(value)]="folder"
+                    [tree]="folders.tree()"
+                    [group]="folders.group"
+                    groupName="Pixel arts"
+                    [counts]="folders.counts()"
+                    rootLabel="Sem pasta"
+                    label="Pasta da pixel art"
+                    [units]="['pixel art', 'pixel arts']"
+                    (create)="makeFolder($event)"
+                  />
+                }
               }
               <button type="button" class="parte-pronto" (click)="closeProp()">
                 <lucide-icon [img]="DoneIcon" [size]="16" aria-hidden="true" />

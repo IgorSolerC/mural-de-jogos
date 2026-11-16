@@ -1,7 +1,17 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, afterNextRender, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { NoteFolder, siblingNamed } from '../core/folders';
+import { PixelFolders } from '../core/pixel-folders';
+import { plural } from '../core/text';
+import { FolderAsking, PIXEL_UNITS } from '../ui/folder-asking';
+import { FolderCard, FolderCardInfo } from '../ui/folder-card';
+import { FolderMoveSheet } from '../ui/folder-move-sheet';
+import { FolderPath } from '../ui/folder-path';
+import { WallDrag, WallDragItem, WallDrop } from './wall-drag';
 import { collage, shelfColumns } from '../core/clipping';
 import { PixelLook } from '../core/pixel-art';
-import { PIXEL_TAG_SPACE, artValues, pieceTitle, pieceWidgetLine, valuesArt } from '../core/pixel-gallery';
+import { PIXEL_TAG_SPACE, PixelPiece, artValues, pieceTitle, pieceWidgetLine, valuesArt } from '../core/pixel-gallery';
 import { plainText } from '../core/rich-text';
 import { PixelGallery } from '../core/pixel-gallery-store';
 import {
@@ -30,7 +40,7 @@ import { ViewTransitions } from '../core/view-transitions';
 import { WidgetValues } from '../core/widgets';
 import { wishTagCounts, wishTagHex } from '../core/wishlist-view';
 import { reducedMotion } from '../core/motion';
-import { ContextMenu, ContextMenuTrigger, MenuSections } from '../ui/context-menu';
+import { ContextMenu, ContextMenuTrigger, MenuItem, MenuSections } from '../ui/context-menu';
 import { FilterCard, SubjectOption, activeFilters, removeActive } from '../ui/filter-card';
 import { FilterChip, FilterTags } from '../ui/filter-sheet';
 import { focusAfterRemoval } from '../ui/focus';
@@ -52,10 +62,15 @@ import { Toasts } from '../ui/toast';
  * material dela, em colunas como os recortes; na Grade, muitas de uma vez, todas do mesmo tamanho. Tocar abre a
  * ficha (ui/pixel-sheet.ts); a etiqueta de hover abre o desenho direto no ateliê ou baixa o PNG. A vista e a
  * ordem ficam guardadas no aparelho.
+ *
+ * As pastas (PLANO-PIXEL-ARTS.md, rodada 4) são as das Anotações, como na Wishlist: as pastas manilha antes das
+ * obras, o caminho na pasta da barra, a aberta no endereço (`?pasta=`); arrastar uma obra até uma pasta (ou um
+ * pedaço do caminho) guarda nela, e soltar uma obra no miolo de outra cria uma pasta com as duas
+ * (pages/wall-drag.ts). Dentro de uma pasta, a busca e os filtros pegam ela e as de dentro.
  */
 @Component({
   selector: 'app-pixel-arts-page',
-  imports: [ContextMenu, FilterCard, FilterTags, IconModule, Pin, PixelPieceCard, PixelSheet, PixelStudio, PixelTile, SearchHighlight, SearchStrip],
+  imports: [ContextMenu, FilterCard, FilterTags, FolderCard, FolderMoveSheet, FolderPath, IconModule, Pin, PixelPieceCard, PixelSheet, PixelStudio, PixelTile, SearchHighlight, SearchStrip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './pixel-arts-page.html',
   styleUrl: './pixel-arts-page.scss',
@@ -87,16 +102,74 @@ export class PixelArtsPage {
   protected readonly orderLabel = computed(() => PIXEL_ORDERS.find((o) => o.value === this.prefs().ordem)!.label);
   protected readonly directionLabel = computed(() => pixelDirectionLabel(this.prefs().ordem, this.prefs().direcao));
 
-  /** Onde se procura: a galeria inteira. */
-  protected readonly pool = computed(() => this.gallery.pieces());
+  // ===== As pastas =====
+  private readonly folders = inject(PixelFolders);
+  private readonly asking = inject(FolderAsking);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  protected readonly folderTree = this.folders.tree;
+  protected readonly group = this.folders.group;
+  /** A pasta pedida no endereço (`?pasta=`). */
+  private readonly asked = signal<string | null>(null);
+  /** A pasta aberta: a pedida, se é da galeria (a desfeita vale pela de cima); null: a raiz. */
+  protected readonly openFolder = computed(() => this.folderTree().resolve(this.asked(), this.group));
+  protected readonly folderPath = computed(() => this.folderTree().path(this.openFolder()));
+  private whereIs(id: string): string | null {
+    return this.folders.folderOf().get(id) ?? null;
+  }
+
+  /** Onde se procura: a galeria, ou a pasta aberta e as de dentro. */
+  protected readonly pool = computed(() => {
+    const open = this.openFolder();
+    const all = this.gallery.pieces();
+    if (!open) return all;
+    const below = this.folderTree().below(open);
+    return all.filter((p) => below.has(this.whereIs(p.id) ?? ''));
+  });
   protected readonly filtering = computed(() => pixelFiltering(this.filter()));
+  /** Sem procurar, só as direto na pasta aberta (as de dentro moram nas pastas); procurando, ela e as de dentro. */
   protected readonly visible = computed(() => {
     const f = this.filter();
+    const open = this.openFolder();
+    const base = this.filtering() ? this.pool() : this.pool().filter((p) => this.whereIs(p.id) === open);
     return sortPieces(
-      this.pool().filter((p) => pieceMatches(p, f)),
+      base.filter((p) => pieceMatches(p, f)),
       this.prefs(),
     );
   });
+  /** As pastas na parede: as de dentro da aberta, sem procurar. */
+  protected readonly folderKids = computed<readonly NoteFolder[]>(() => (this.filtering() ? [] : this.folderTree().kids(this.group, this.openFolder())));
+  /** O que cada pasta mostra: quantas obras tem (com as das de dentro), quantas pastas logo dentro, e até três obras espiando, na ordem da parede. */
+  protected readonly folderInfo = computed<ReadonlyMap<string, FolderCardInfo>>(() => {
+    const kids = this.folderKids();
+    if (!kids.length) return new Map();
+    const tree = this.folderTree();
+    const kidIds = new Set(kids.map((f) => f.id));
+    const acc = new Map(kids.map((f) => [f.id, { n: 0, direct: [] as PixelPiece[], deep: [] as PixelPiece[] }]));
+    for (const p of sortPieces(this.gallery.pieces(), this.prefs())) {
+      const at = this.whereIs(p.id);
+      const kid = tree.path(at).find((f) => kidIds.has(f.id));
+      if (!kid) continue;
+      const a = acc.get(kid.id)!;
+      a.n++;
+      if (a.direct.length + a.deep.length < 6) (at === kid.id ? a.direct : a.deep).push(p);
+    }
+    const out = new Map<string, FolderCardInfo>();
+    for (const f of kids) {
+      const a = acc.get(f.id)!;
+      out.set(f.id, { notes: a.n, folders: tree.kids(f.group, f.id).length, peek: [...a.direct, ...a.deep].slice(0, 3) });
+    }
+    return out;
+  });
+  /** A pasta aberta não tem nada: nem obra, nem pasta. */
+  protected readonly folderEmpty = computed(() => this.openFolder() !== null && !this.filtering() && !this.visible().length && !this.folderKids().length);
+  /** Onde a busca procura: a galeria, ou a pasta aberta (e as de dentro). */
+  protected readonly searchWhere = computed(() => {
+    const f = this.folderPath().at(-1);
+    return f ? `Procurar em ${f.name}` : 'Procurar nas pixel arts';
+  });
+  /** O que o leitor de tela ouve depois de trocar de pasta: "Pasta Bichos, 4 pixel arts e 1 pasta". */
+  protected readonly folderSaid = signal('');
 
   /** As tags, na cor de cada uma, as mais usadas primeiro (o valor é a tag sem caixa e sem acento). */
   protected readonly tagChips = computed<TagChip[]>(() => {
@@ -140,7 +213,7 @@ export class PixelArtsPage {
   // ===== O menu do botão direito (e do dedo segurado, e do Shift+F10) =====
 
   private readonly menu = viewChild.required<ContextMenu>('menu');
-  /** A obra com o menu aberto; null com o menu do vão (ou nenhum). */
+  /** A obra com o menu aberto (ou nenhuma). */
   protected readonly menuOn = signal<string | null>(null);
   protected readonly menuPiece = computed(() => (this.menuOn() ? (this.gallery.get(this.menuOn()!) ?? null) : null));
   /** No alto do menu do dedo: o começo da descrição, sem as marcas do texto (como na Wishlist). */
@@ -150,17 +223,17 @@ export class PixelArtsPage {
   });
   protected readonly menuCaption = computed(() => {
     const p = this.menuPiece();
-    return p ? pieceTitle(p) : 'Pixel arts';
+    return p ? pieceTitle(p) : '';
   });
   /**
-   * O da obra: o que o toque faz (a ficha, para editar) e o Ateliê; o que sai dela (o PNG, a linha do widget para colar
-   * numa anotação, uma cópia); e, sozinho no fim, Apagar, com o Desfazer. O do vão: uma obra nova.
+   * O da obra: o que o toque faz (a ficha, para editar) e o Ateliê; o que sai dela (o PNG, a linha do widget para
+   * colar numa anotação, uma cópia); a pasta (mover, e dentro de uma, tirar); e, sozinho no fim, Apagar, com o
+   * Desfazer. (O do vão e o das pastas são o outro menu, `menuDaPasta`.)
    */
   protected readonly menuSections = computed<MenuSections>(() => {
     const p = this.menuPiece();
-    // a obra do menu aberto saiu (apagada noutro aparelho): o menu fecha (o efeito do construtor), não vira o do vão
-    if (this.menuOn() && !p) return [];
-    if (!p) return [[{ id: 'nova', label: 'Nova pixel art', icon: ICON.adicionar, dialog: true, keys: 'N', ariaKeys: 'N', run: () => this.add() }]];
+    // a obra do menu aberto saiu (apagada noutro aparelho): o menu fecha (o efeito do construtor)
+    if (!p) return [];
     return [
       [
         { id: 'editar', label: 'Editar', icon: ICON.ajustar, dialog: true, run: () => this.open(p.id) },
@@ -171,6 +244,7 @@ export class PixelArtsPage {
         { id: 'widget', label: 'Copiar como widget', icon: ICON.copiar, hint: 'Para colar numa anotação', run: () => void this.copyWidget(p.id) },
         { id: 'duplicar', label: 'Duplicar', icon: ICON.camadas, run: () => this.duplicate(p.id) },
       ],
+      this.folderItems(p),
       [{ id: 'apagar', label: 'Apagar', icon: ICON.apagar, danger: true, run: () => this.remove(p.id) }],
     ];
   });
@@ -185,24 +259,70 @@ export class PixelArtsPage {
     effect(() => {
       if (this.menuOn() && !this.menuPiece()) untracked(() => this.menu().close(false));
     });
-    // o botão direito numa obra (o menu dela) ou no vão da parede (uma obra nova)
-    new ContextMenuTrigger({
+    // o botão direito numa obra: o menu dela
+    const pieceTrigger = new ContextMenuTrigger({
       host,
-      targets: 'app-pixel-piece[data-ficha], app-pixel-tile[data-ficha], .mostra, .grade',
+      targets: 'app-pixel-piece[data-ficha], app-pixel-tile[data-ficha]',
       keyOf: (box) => {
         const id = box.getAttribute('data-ficha');
-        if (!id) return 'vao';
-        return this.gallery.get(id) ? id : null;
+        return id && this.gallery.get(id) ? id : null;
       },
-      hold: true,
+      // o dedo segurado e solto sem arrastar abre o menu pelo arrasto (o mesmo gesto)
+      hold: () => !this.dragOn(),
       isOpenFor: (key) => this.menu().isOpenFor(key),
       open: (key, box, x, y, by) => {
-        this.menuOn.set(key === 'vao' ? null : key);
+        this.menuOn.set(key);
         // o foco volta para onde estava na obra (Shift+F10 no Ateliê); senão, para o toque dela
         const active = document.activeElement;
-        this.menu().show({ key, x, y, by, back: active instanceof HTMLElement && box.contains(active) ? active : key === 'vao' ? null : box.querySelector<HTMLElement>('.hit') });
+        this.menu().show({ key, x, y, by, back: active instanceof HTMLElement && box.contains(active) ? active : box.querySelector<HTMLElement>('.hit') });
       },
     });
+    // o botão direito numa pasta da parede, ou no vão (a fileira das pastas e a parede das obras)
+    const folderTrigger = new ContextMenuTrigger({
+      host,
+      targets: 'app-folder-card[data-pasta], .pastas, .mostra, .grade',
+      ignore: 'app-pixel-piece, app-pixel-tile, input',
+      keyOf: (box) => (box.matches('app-folder-card') ? `pasta:${box.dataset['pasta']}` : 'vao'),
+      hold: (box) => !box.matches('app-folder-card') || !this.dragOn(),
+      isOpenFor: (key) => !!this.folderMenuRef()?.isOpenFor(key),
+      open: (key, box, x, y, by) => {
+        const f = key.startsWith('pasta:') ? this.folderTree().live(key.slice(6)) : undefined;
+        if (key !== 'vao' && !f) return;
+        this.folderMenu.set(f ? { caption: `Pasta ${f.name}`, sections: this.folderSections(f) } : { caption: this.folderName(this.openFolder()), sections: this.gapSections() });
+        this.folderMenuRef()?.show({ key, x, y, back: box.matches('app-folder-card') ? box.querySelector<HTMLElement>('button') : null, by });
+      },
+    });
+    // arrastar organiza: obra numa pasta guarda, obra no miolo de outra cria uma pasta com as duas
+    const drag = new WallDrag({
+      host,
+      on: () => this.dragOn(),
+      marked: () => [],
+      openFolder: () => this.openFolder(),
+      groupName: () => 'Pixel arts',
+      folderName: (id) => this.folderTree().live(id)?.name ?? null,
+      folderOf: (id) => this.whereIs(id),
+      below: (id) => this.folderTree().below(id),
+      parentOf: (id) => this.folderTree().parentOf(id),
+      drop: (item, to) => this.dropped(item, to),
+      open: (id) => this.enterFolder(id),
+      menu: (item, box, x, y) => {
+        if (item.kind === 'pasta') folderTrigger.openAt(`pasta:${item.id}`, x, y, box);
+        else pieceTrigger.openAt(item.lead, x, y, box);
+      },
+      scope: () => host.querySelector('.mostra, .grade, .pastas'),
+      gap: '.mostra, .grade, .pastas, .no-results',
+      pieces: {
+        selector: 'app-pixel-piece[data-ficha], app-pixel-tile[data-ficha]',
+        idOf: (el) => el.getAttribute('data-ficha'),
+        // só a obra (sem a legenda de baixo); o cartão da Grade inteiro
+        face: (el) => (el.matches('app-pixel-tile') ? el : (el.querySelector<HTMLElement>('.obra') ?? el)),
+        joinLabel: (n) => (n === 1 ? 'Nova pasta com as duas' : `Nova pasta com as ${n + 1}`),
+        core: 0.6,
+      },
+    });
+    this.destroyRef.onDestroy(() => drag.off());
+    // a pasta aberta mora no endereço (o Voltar do navegador sobe)
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((q) => this.asked.set(q.get('pasta')));
     // a vista e a ordem ficam no aparelho (writeJson respeita a trava da limpeza do logout)
     let saved = JSON.stringify(this.prefs());
     effect(() => {
@@ -316,15 +436,18 @@ export class PixelArtsPage {
 
   // ===== Criar, abrir, o ateliê, baixar, apagar =====
 
-  /** Uma obra nova: a ficha, com o ateliê aberto por cima. */
-  protected add(): void {
-    this.sheet().open();
+  /** Uma obra nova: a ficha, com o ateliê aberto por cima; ela nasce na pasta aberta (ou na pedida). */
+  protected add(folder: string | null = this.openFolder()): void {
+    this.sheet().open(folder);
   }
 
   /** A obra nova chegou: os filtros que a esconderiam saem da frente, e ela assenta na parede. */
   protected created(id: string): void {
     const p = this.gallery.get(id);
     if (p && !pieceMatches(p, this.filter())) this.filter.set(NO_PIXEL_FILTER);
+    // a ficha pode ter escolhido outra pasta: a parede vai até ela
+    const where = this.whereIs(id);
+    if (p && !this.filtering() && where !== this.openFolder()) this.enterFolder(where, true, false);
     this.land(id);
   }
 
@@ -332,7 +455,8 @@ export class PixelArtsPage {
   protected open(id: string): void {
     const p = this.gallery.get(id);
     if (!p) return;
-    this.sheet().edit(p, { remove: () => this.remove(id), saved: () => this.follow(id) });
+    // salva: o foco vai junto com a obra; se ela foi para outra pasta (e saiu da parede), fica no caminho ou na busca
+    this.sheet().edit(p, { remove: () => this.remove(id), saved: () => (this.filtering() || this.whereIs(id) === this.openFolder() ? this.follow(id) : this.focusWall()) });
   }
 
   /** O Ateliê da etiqueta: o desenho direto no ateliê, por cima de tudo; o que mudar vai para a obra ao fechar. */
@@ -374,6 +498,221 @@ export class PixelArtsPage {
     downloadBlob(blob, pngName(p));
   }
 
+  // ===== As pastas: entrar, arrastar, dar nome, os menus, mover sem arrastar =====
+
+  /** Arrastar organiza (fora do nome sendo escrito numa pasta). */
+  protected readonly dragOn = computed(() => !this.naming());
+  /** A pasta sendo nomeada (a nova, ou Renomear), e a irmã com o nome que está escrito. */
+  protected readonly naming = signal<string | null>(null);
+  protected readonly clash = signal<string | null>(null);
+  protected readonly folderMenu = signal<{ caption: string; sections: MenuSections }>({ caption: '', sections: [] });
+  private readonly folderMenuRef = viewChild<ContextMenu>('menuDaPasta');
+
+  /** O nome de uma pasta (null: Pixel arts). */
+  private folderName(id: string | null): string {
+    return id ? (this.folderTree().live(id)?.name ?? '') : 'Pixel arts';
+  }
+
+  /** Para onde vai: "Bichos", ou "a galeria". */
+  private goesTo(id: string | null): string {
+    return id ? this.folderName(id) : 'a galeria';
+  }
+
+  /** O que fica no menu de uma obra sobre a pasta dela: mover para outra e, dentro de uma, tirar dela. */
+  private folderItems(p: PixelPiece): MenuItem[] {
+    const items: MenuItem[] = [
+      { id: 'mover-pasta', label: 'Mover para pasta…', icon: ICON.guardarNaPasta, dialog: true, run: () => this.moving.set({ kind: 'obras', ids: [p.id], name: pieceTitle(p), from: this.whereIs(p.id) }) },
+    ];
+    const open = this.openFolder();
+    if (open !== null && this.whereIs(p.id) === open) {
+      const up = this.folderTree().parentOf(open);
+      items.push({ id: 'tirar-pasta', label: 'Tirar da pasta', icon: ICON.tirarDaPasta, hint: `Vai para ${this.goesTo(up)}`, run: () => this.dropped({ kind: 'notas', lead: p.id, ids: [p.id] }, { kind: 'guardar', folder: up }) });
+    }
+    return items;
+  }
+
+  /**
+   * Abre a pasta (null: a raiz da galeria). `push`: veio de um toque (o Voltar do navegador volta para cá). O foco
+   * vai para onde se está no caminho; subindo, para a pasta de onde se veio.
+   */
+  protected enterFolder(id: string | null, push = true, focus = push): void {
+    const from = this.openFolder();
+    if (id === from) return;
+    this.naming.set(null);
+    this.asked.set(id);
+    void this.router.navigate([], { relativeTo: this.route, queryParams: { pasta: id }, queryParamsHandling: 'merge', replaceUrl: !push });
+    if (!focus) return;
+    const info = id ? this.folderTree().live(id) : null;
+    const n = this.visible().length;
+    const k = this.folderKids().length;
+    const what = [n ? plural(n, 'pixel art', 'pixel arts') : '', k ? plural(k, 'pasta', 'pastas') : ''].filter(Boolean).join(' e ') || 'vazia';
+    this.folderSaid.set(`${info ? `Pasta ${info.name}` : 'Pixel arts'}, ${what}`);
+    afterNextRender(
+      () => {
+        const back = from && this.folderTree().parentOf(from) === id ? this.host.querySelector<HTMLElement>(`app-folder-card[data-pasta="${CSS.escape(from)}"] button`) : null;
+        const here = back ?? this.host.querySelector<HTMLElement>('app-folder-path .aqui') ?? this.host.querySelector<HTMLElement>('#busca-pixel');
+        here?.focus({ preventScroll: !!back });
+      },
+      { injector: this.injector },
+    );
+  }
+
+  private undoToast(text: string, undo: () => void): void {
+    this.toasts.show(text, { label: 'Desfazer', run: () => this.transitions.run(undo) });
+  }
+
+  /**
+   * Soltou arrastando (ou escolheu no menu): guarda as obras, junta numa pasta nova ou põe uma pasta dentro de
+   * outra, com o Desfazer. A parede muda com a transição, e o aviso sai de dentro dela.
+   */
+  private dropped(item: WallDragItem, to: WallDrop): void {
+    if (to.kind === 'juntar') {
+      if (item.kind !== 'notas') return;
+      const ids = [...item.ids, to.with];
+      this.transitions.run(() => {
+        const made = this.folders.gather(ids, this.openFolder());
+        if (!made) {
+          this.toasts.show('Não cabe mais nenhuma pasta aqui.');
+          return;
+        }
+        this.naming.set(made.folder.id);
+        this.undoToast(`Nova pasta com ${ids.length} pixel arts.`, made.undo);
+      });
+      return;
+    }
+    const where = this.folderName(to.folder);
+    if (item.kind === 'pasta') {
+      const was = this.folderName(item.id);
+      this.transitions.run(() => {
+        const undo = this.folders.move(item.id, to.folder);
+        if (undo) this.undoToast(to.folder ? `${was} guardada em ${where}.` : `${was} foi para a galeria.`, undo);
+      });
+      return;
+    }
+    const one = pieceTitle(this.gallery.get(item.lead) ?? { title: '' });
+    this.transitions.run(() => {
+      const done = this.folders.place(item.ids, to.folder);
+      if (!done.moved) return;
+      const text = to.folder
+        ? done.moved === 1
+          ? `“${one}” guardada em ${where}.`
+          : `${done.moved} pixel arts guardadas em ${where}.`
+        : done.moved === 1
+          ? `“${one}” saiu das pastas.`
+          : `${done.moved} pixel arts saíram das pastas.`;
+      this.undoToast(text, done.undo);
+    });
+  }
+
+  /** A cada letra do nome: a irmã que já tem esse nome (o Enter junta as duas). */
+  protected drafted(f: NoteFolder, value: string): void {
+    const tree = this.folderTree();
+    this.clash.set(siblingNamed(tree, f.group, tree.parentOf(f.id), value, f.id)?.name ?? null);
+  }
+
+  /** Acabou de dar nome à pasta: renomeia, ou junta com a irmã de mesmo nome; o foco volta para ela. */
+  protected named(f: NoteFolder, value: string | null): void {
+    this.naming.set(null);
+    this.clash.set(null);
+    const clean = value?.trim() ?? '';
+    let focus = f.id;
+    if (clean && clean !== f.name) {
+      const tree = this.folderTree();
+      const twin = siblingNamed(tree, f.group, tree.parentOf(f.id), clean, f.id);
+      if (twin) {
+        this.undoToast(`${f.name} entrou em ${twin.name}: agora é uma pasta só.`, this.folders.join(f.id, twin.id));
+        focus = twin.id;
+      } else {
+        this.folders.rename(f.id, clean);
+      }
+    }
+    afterNextRender(() => this.host.querySelector<HTMLElement>(`app-folder-card[data-pasta="${CSS.escape(focus)}"] button`)?.focus(), { injector: this.injector });
+  }
+
+  /** Uma pasta nova (vazia) em `parent`, já com o campo do nome. */
+  private newFolder(parent: string | null): void {
+    if (parent !== this.openFolder()) this.enterFolder(parent);
+    const made = this.folders.create(parent, '');
+    if (made) this.naming.set(made.id);
+    else this.toasts.show('Não cabe mais nenhuma pasta aqui.');
+  }
+
+  /** Desfaz a pasta: o que tinha dentro sobe (pergunta antes, se não estiver vazia), com o Desfazer. */
+  private async dissolve(f: NoteFolder): Promise<void> {
+    const up = this.goesTo(this.folderTree().parentOf(f.id));
+    if (!(await this.asking.dissolve(f.name, this.folders.contentsOf(f.id), up, PIXEL_UNITS)) || !this.folderTree().live(f.id)) return;
+    this.transitions.run(() => this.undoToast(`A pasta ${f.name} foi desfeita.`, this.folders.dissolve(f.id)));
+  }
+
+  /** As opções do menu de uma pasta da parede. */
+  private folderSections(f: NoteFolder): MenuSections {
+    return [
+      [{ id: 'abrir', label: 'Abrir', icon: ICON.pastaDeNotas, run: () => this.enterFolder(f.id) }],
+      [
+        {
+          id: 'nova-obra',
+          label: 'Nova pixel art aqui',
+          icon: ICON.adicionar,
+          dialog: true,
+          run: () => {
+            this.enterFolder(f.id);
+            this.add(f.id);
+          },
+        },
+        { id: 'nova-pasta', label: 'Nova pasta dentro', icon: ICON.novaPasta, run: () => this.newFolder(f.id) },
+        { id: 'renomear', label: 'Renomear', icon: ICON.editar, run: () => this.naming.set(f.id) },
+        { id: 'mover', label: 'Mover para…', icon: ICON.guardarNaPasta, dialog: true, run: () => this.moving.set({ kind: 'pasta', id: f.id, name: f.name, from: this.folderTree().parentOf(f.id) }) },
+      ],
+      [{ id: 'desfazer', label: 'Desfazer a pasta', icon: ICON.desfazerPasta, danger: true, hint: 'O que tem dentro sobe; nenhuma pixel art é apagada', run: () => void this.dissolve(f) }],
+    ];
+  }
+
+  /** O menu do vão da parede: uma obra ou uma pasta ali. */
+  private gapSections(): MenuSections {
+    return [
+      [
+        { id: 'nova-obra', label: 'Nova pixel art aqui', icon: ICON.adicionar, dialog: true, keys: 'N', ariaKeys: 'N', run: () => this.add() },
+        { id: 'nova-pasta', label: 'Nova pasta aqui', icon: ICON.novaPasta, run: () => this.newFolder(this.openFolder()) },
+      ],
+    ];
+  }
+
+  /** O que está sendo movido pela folha: obras, ou uma pasta. */
+  protected readonly moving = signal<{ kind: 'obras'; ids: readonly string[]; name: string; from: string | null } | { kind: 'pasta'; id: string; name: string; from: string | null } | null>(null);
+  /** O que a folha precisa saber: as contas, onde está e o que não se pode escolher. */
+  protected readonly moveSheet = computed(() => {
+    const m = this.moving();
+    if (!m) return null;
+    const tree = this.folderTree();
+    return {
+      title: m.kind === 'pasta' ? `Mover a pasta ${m.name}` : `Mover ${m.name}`,
+      sub: `Está em ${this.folderName(m.from)}`,
+      counts: this.folders.counts(),
+      blocked: m.kind === 'pasta' ? tree.below(m.id) : new Set<string>(),
+      rootLabel: m.kind === 'pasta' ? 'Direto em Pixel arts' : 'Sem pasta',
+      start: m.from,
+    };
+  });
+
+  /** Escolheu na folha: move (as obras, ou a pasta), com o aviso e o Desfazer. */
+  protected moveTo(id: string | null): void {
+    const m = this.moving();
+    this.moving.set(null);
+    if (!m || id === m.from) return;
+    if (m.kind === 'pasta') this.dropped({ kind: 'pasta', id: m.id }, { kind: 'guardar', folder: id });
+    else this.dropped({ kind: 'notas', lead: m.ids[0], ids: m.ids }, { kind: 'guardar', folder: id });
+  }
+
+  /** O nome escrito na folha que ainda não é pasta: cria ali e move para ela. */
+  protected moveToNew(e: { parent: string | null; name: string }): void {
+    const made = this.folders.create(e.parent, e.name);
+    if (made) this.moveTo(made.id);
+    else {
+      this.moving.set(null);
+      this.toasts.show('Não cabe mais nenhuma pasta aqui.');
+    }
+  }
+
   /** A linha do widget (`{{pixel: …}}`, com o nome de legenda) na área de transferência, para colar numa anotação. */
   protected copyWidget(id: string): Promise<void> {
     const p = this.gallery.get(id);
@@ -411,6 +750,14 @@ export class PixelArtsPage {
     setTimeout(() => this.landing.update((x) => (x === id ? null : x)), 900);
     this.follow(id);
   }
+
+  /** O foco no alto da parede (o caminho, ou a busca): a obra de antes saiu daqui. */
+  private focusWall(): void {
+    afterNextRender(() => (this.host.querySelector<HTMLElement>('app-folder-path .aqui') ?? this.host.querySelector<HTMLElement>('#busca-pixel'))?.focus(), { injector: this.injector });
+  }
+
+  /** A galeria tem algo para mostrar: obras, ou pastas (mesmo sem obra nenhuma, elas continuam à mão). */
+  protected readonly hasWall = computed(() => this.gallery.count() > 0 || this.folderTree().kids(this.group, null).length > 0);
 
   /** O teclado vai até a obra (no botão `at` dela, ou no toque), depois que a parede assenta. */
   private follow(id: string, at: string | null = null): void {

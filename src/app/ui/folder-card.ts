@@ -7,6 +7,15 @@ import type { FolderInfo } from '../core/wall-view';
 import type { Review } from '../core/review';
 import { MiniCartolina } from './mini-cartolina';
 import { NearScreen } from './near-screen';
+import { PixelThumb } from './pixel-thumb';
+import { PixelPiece, pixelArtOf } from '../core/pixel-gallery';
+import type { PixelArt } from '../core/pixel-art';
+
+/**
+ * O que a pasta mostra: o `FolderInfo` das Anotações e da Wishlist, e também as obras da galeria de pixel arts
+ * espiando (a miniatura do desenho).
+ */
+export type FolderCardInfo = Omit<FolderInfo, 'peek'> & { peek: readonly (FolderInfo['peek'][number] | PixelPiece)[] };
 
 /** Quantos avisos de nome repetido já nasceram (o id de cada um). */
 let hints = 0;
@@ -21,7 +30,7 @@ let hints = 0;
  */
 @Component({
   selector: 'app-folder-card',
-  imports: [MiniCartolina, NearScreen, NgTemplateOutlet],
+  imports: [MiniCartolina, NearScreen, NgTemplateOutlet, PixelThumb],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[attr.data-pasta]': 'folder().id' },
   template: `
@@ -69,9 +78,12 @@ let hints = 0;
            (a que não carrega volta à cartolina); a cartolina tem o desenho do papel, então só monta perto da tela -->
       <span class="boca" aria-hidden="true" [style.--vistas]="info().peek.length" appPerto #perto="perto">
         @for (r of perto.near() ? info().peek : []; track r.id; let j = $index) {
-          <span class="espia" [style.--j]="j">
-            @if (r.game.coverUrl && !broken().has(r.game.coverUrl)) {
-              <img [src]="r.game.coverUrl" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" (error)="lost(r.game.coverUrl)" />
+          <span class="espia" [class.espia-pixel]="!!asPixel(r)" [style.--j]="j">
+            @if (asPixel(r); as px) {
+              <!-- a pixel art: a miniatura nítida no xadrez do transparente -->
+              <app-pixel-thumb [art]="px" />
+            } @else if (coverOf(r); as url) {
+              <img [src]="url" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" (error)="lost(url)" />
             } @else if (asReview(r); as rv) {
               <app-mini-cartolina [review]="rv" />
             }
@@ -84,7 +96,7 @@ let hints = 0;
 })
 export class FolderCard {
   readonly folder = input.required<NoteFolder>();
-  readonly info = input<FolderInfo>({ notes: 0, folders: 0, peek: [] });
+  readonly info = input<FolderCardInfo>({ notes: 0, folders: 0, peek: [] });
   /** O que mora na pasta, no singular e no plural: as notas, ou os recortes da Wishlist. */
   readonly units = input<readonly [string, string]>(['nota', 'notas']);
   /** Tocou: abrir a pasta (o id). */
@@ -117,8 +129,19 @@ export class FolderCard {
   }
 
   /** A anotação, para a cartolina (o desejo da Wishlist sem capa não espia). */
-  protected asReview(r: FolderInfo['peek'][number]): Review | null {
+  protected asReview(r: FolderCardInfo['peek'][number]): Review | null {
     return 'scores' in r ? (r as Review) : null;
+  }
+
+  /** A obra da galeria de pixel arts, para a miniatura do desenho. */
+  protected asPixel(r: FolderCardInfo['peek'][number]): PixelArt | null {
+    return 'art' in r ? pixelArtOf(r) : null;
+  }
+
+  /** A capa (da anotação ou do desejo) que ainda não falhou ao carregar. */
+  protected coverOf(r: FolderCardInfo['peek'][number]): string | null {
+    const url = 'game' in r ? r.game.coverUrl : null;
+    return url && !this.broken().has(url) ? url : null;
   }
 
   /** As capas que não carregaram: a miniatura volta à cartolina. */

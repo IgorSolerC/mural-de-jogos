@@ -3,6 +3,7 @@
    do grão e das cartolinas do mural; a sombra é a das fichas. Um tamanho só, em todas as vistas: quem
    decide a largura é a grade das pastas (ver .pastas-lista em pages/wall-board.scss). */
 @use 'capas-na-boca' as boca;
+@use 'pixel-studio/xadrez' as x;
 
 :host {
   --pasta: #d6c391;
@@ -97,6 +98,14 @@
 }
 
 @include boca.tortas('.espia');
+
+/* a pixel art espiando: o desenho nítido no xadrez do transparente (o do ateliê), com uma margem */
+.espia-pixel {
+  display: block;
+  padding: 10%;
+  box-sizing: border-box;
+  @include x.xadrez(6px);
+}
 
 /* a frente da pasta, por cima das miniaturas: a mesma altura em todas, a de um nome em duas linhas e a conta
    (o nome curto fica embaixo, junto da conta). Abre um pouco (gira para trás pela base) com o mouse. */

@@ -37,6 +37,7 @@ export const NEWS: NewsEntry[] = [
       'Duas vistas: a Mostra, com cada desenho no jeito dele (o Pixel impresso em papel milimetrado, a Figurinha colada, o Ponto-cruz no pano e a Miçanga na placa), e a Grade, com muitas de uma vez; a busca acha no nome, nas tags e na descrição, e o Filtrar separa por jeito e por tag.',
       'O "Nova pixel art" do topo (ou o N) abre o ateliê na hora; a ficha mostra como a obra fica na parede, troca o jeito com o próprio desenho em miniatura e guarda tudo, também nos seus outros aparelhos.',
       'Com o mouse em cima de uma obra, o Ateliê abre o desenho direto para mexer (com o Desfazer) e o Baixar salva um PNG nítido, cada ponto um quadrado inteiro.',
+      'As pastas das anotações também na galeria: as pastas manilha antes das obras, com os desenhos espiando pela boca, o caminho na barra, arrastar uma obra até uma pasta para guardar, soltar uma sobre outra para criar uma pasta com as duas, e Renomear, Mover para… e Desfazer a pasta, todos com o Desfazer; a ficha tem a Pasta, e a obra nova nasce na pasta aberta.',
       'O botão direito (ou o dedo segurado) numa obra tem Editar, Abrir no ateliê, Baixar PNG, Copiar como widget (para colar o desenho numa anotação), Duplicar e Apagar, com o Desfazer.',
     ],
     notice: 'Novo: a galeria de pixel arts, em Extras. Desenhe, dê nome, tags e descrição, e baixe em PNG.',

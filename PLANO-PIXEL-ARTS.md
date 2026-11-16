@@ -170,3 +170,12 @@ aberto como obra.
   Nova pixel art. O desenho estreito fica no meio do papel. O `/code-review mid` achou três, corrigidos: o menu aberto
   de uma obra apagada noutro aparelho virava o do vão (agora fecha), Duplicar perdia a pasta, e o "Abrir" com o
   desenho do Editar (agora "Editar").
+- 16/nov, rodada 4 (BUILD 899): as pastas, como na Wishlist: `PixelFolders` na página (a aberta no endereço,
+  `?pasta=`; o caminho `FolderPath` na barra; a busca "Procurar em {pasta}" pega ela e as de dentro; as pastas
+  manilha `FolderCard` antes das obras, que agora aceita as obras espiando, `FolderCardInfo`, a miniatura no
+  xadrez, sem mexer no `FolderInfo` das Anotações), o arrastar (`WallDrag` com as obras como peças: o miolo de 60%
+  junta numa pasta nova), o menu da pasta e o do vão (Nova pixel art aqui, Nova pasta aqui), Mover para pasta… e
+  Tirar da pasta no menu da obra, a folha `FolderMoveSheet`, a pergunta de desfazer em pixel arts (`PIXEL_UNITS`) e a
+  Pasta na ficha (`FolderPicker`, com o Criar; a obra nova nasce na pasta aberta). O `/code-review mid` achou dois,
+  corrigidos: mudar a pasta pela ficha tirava a obra da parede sem dizer para onde (o aviso diz, e o foco vai para o
+  caminho) e a galeria sem obra nenhuma escondia as pastas.

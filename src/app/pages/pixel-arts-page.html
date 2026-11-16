@@ -1,17 +1,21 @@
 <!-- o nome está na barra embaixo do topo (ui/area-bar.ts), com a volta para Extras -->
 <h1 class="sr-only">Pixel arts</h1>
 
-@if (gallery.count()) {
+@if (hasWall()) {
   <!-- a pasta, como na Wishlist: a busca, o Filtrar, a ordem e a vista em tinta e, depois do picote, o que a
        busca achou -->
   <div class="pasta solta">
+    <!-- dentro de uma pasta, o caminho de volta (o mesmo das Anotações e da Wishlist) -->
+    @if (folderPath().length) {
+      <app-folder-path group="Pixel arts" [path]="folderPath()" (go)="enterFolder($event)" />
+    }
     <div class="pasta-linha">
       <app-search-strip
         class="pasta-busca"
         inputId="busca-pixel"
         [glued]="true"
-        label="Procurar nas pixel arts"
-        placeholder="Procurar nas pixel arts…"
+        [label]="searchWhere()"
+        [placeholder]="searchWhere() + '…'"
         [value]="filter().query"
         (valueChange)="setQuery($event)"
       />
@@ -65,6 +69,11 @@
         @if (filtering()) {
           <p class="achados" aria-live="polite">
             <span>Mostrando {{ visible().length }} de {{ pool().length }}</span>
+            <!-- procurando dentro de uma pasta: ela e as de dentro -->
+            @if (folderPath().at(-1); as f) {
+              <span>em {{ f.name }} e nas pastas de dentro</span>
+              <button type="button" class="tinta-link" (click)="enterFolder(null)">Procurar em todas</button>
+            }
             <button type="button" class="tinta-link" (click)="clear()">Limpar</button>
           </p>
         }
@@ -95,14 +104,51 @@
     />
   }
 
+  <p class="sr-only" aria-live="polite">{{ folderSaid() }}</p>
+
+  @if (folderKids().length) {
+    <!-- as pastas da aberta (ou da raiz), antes das obras: as mesmas das Anotações -->
+    <section class="pastas" aria-label="Pastas">
+      <ul class="pastas-lista">
+        @for (f of folderKids(); track f.id) {
+          <li>
+            <app-folder-card
+              [folder]="f"
+              [info]="folderInfo().get(f.id) ?? { notes: 0, folders: 0, peek: [] }"
+              [units]="['pixel art', 'pixel arts']"
+              [naming]="naming() === f.id"
+              [clash]="naming() === f.id ? clash() : null"
+              (opened)="enterFolder($event)"
+              (draft)="drafted(f, $event)"
+              (named)="named(f, $event)"
+            />
+          </li>
+        }
+      </ul>
+    </section>
+  }
+
   @if (filtering() && !visible().length) {
     <!-- a busca e os filtros não acharam nada: o cartão das Anotações -->
     <section class="no-results cartolina" aria-live="polite">
       <app-pin class="pin" color="#f4f4f0" />
-      <h2>Nada na galeria com esse filtro</h2>
+      <h2>{{ openFolder() ? 'Nada nesta pasta com esse filtro' : 'Nada na galeria com esse filtro' }}</h2>
       <p>{{ noneText() }}</p>
       <div class="acoes-vazio">
         <button type="button" class="btn-quiet" (click)="clear()">Limpar a busca e os filtros</button>
+      </div>
+    </section>
+  } @else if (folderEmpty()) {
+    <!-- a pasta aberta não tem nada: o cartão da pasta vazia das Anotações -->
+    <section class="no-results cartolina pasta-vazia" aria-live="polite">
+      <app-pin class="pin" color="#f4f4f0" />
+      <h2>{{ folderPath().at(-1)?.name }} está vazia</h2>
+      <p>Nenhuma pixel art nesta pasta ainda. A que você desenhar aqui já nasce nela, e dá para arrastar uma até o nome dela no caminho.</p>
+      <div class="acoes-vazio">
+        <button type="button" class="btn-ink" (click)="add()">
+          <lucide-icon [img]="AddIcon" [size]="19" aria-hidden="true" />
+          Nova pixel art
+        </button>
       </div>
     </section>
   }
@@ -175,6 +221,27 @@
 
 <!-- o menu do site: o da obra (o botão direito, o dedo segurado, Shift+F10) e o do vão -->
 <app-context-menu #menu [caption]="menuCaption()" [note]="menuNote()" [sections]="menuSections()" (closed)="menuOn.set(null)" />
+<!-- o menu de uma pasta da parede, ou do vão dela -->
+<app-context-menu #menuDaPasta [caption]="folderMenu().caption" [sections]="folderMenu().sections" />
+
+<!-- mover sem arrastar: a folha com a árvore das pastas da galeria -->
+@if (moveSheet(); as m) {
+  <app-folder-move-sheet
+    [title]="m.title"
+    [sub]="m.sub"
+    [tree]="folderTree()"
+    [group]="group"
+    groupName="Pixel arts"
+    [counts]="m.counts"
+    [blocked]="m.blocked"
+    [rootLabel]="m.rootLabel"
+    [start]="m.start"
+    [units]="['pixel art', 'pixel arts']"
+    (chosen)="moveTo($event)"
+    (create)="moveToNew($event)"
+    (closed)="moving.set(null)"
+  />
+}
 
 <!-- a ficha da obra: pôr e editar -->
 <app-pixel-sheet (created)="created($event)" />

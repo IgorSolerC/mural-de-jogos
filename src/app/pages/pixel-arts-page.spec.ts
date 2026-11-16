@@ -203,7 +203,7 @@ describe('a galeria de pixel arts', () => {
   it('o botão direito numa obra: editar, o ateliê, o PNG, copiar como widget, duplicar e, sozinho no fim, apagar', async () => {
     await mount();
     await rightClick(host.querySelector('[data-ficha="pa"] .hit')!);
-    expect(labels()).toEqual(['Editar', 'Abrir no ateliê', 'Baixar PNG', 'Copiar como widget', 'Duplicar', 'Apagar']);
+    expect(labels()).toEqual(['Editar', 'Abrir no ateliê', 'Baixar PNG', 'Copiar como widget', 'Duplicar', 'Mover para pasta…', 'Apagar']);
     option('Duplicar').click();
     await settle();
     const copy = gallery.pieces().find((p) => p.title === 'Gato (cópia)')!;
@@ -229,8 +229,8 @@ describe('a galeria de pixel arts', () => {
   it('o botão direito no vão da parede: uma obra nova', async () => {
     await mount();
     await rightClick(host.querySelector('.mostra')!);
-    expect(labels()).toEqual(['Nova pixel art']);
-    option('Nova pixel art').click();
+    expect(labels()).toEqual(['Nova pixel art aqui', 'Nova pasta aqui']);
+    option('Nova pixel art aqui').click();
     await settle();
     expect(host.querySelector<HTMLDialogElement>('dialog.obra')!.open).toBeTrue();
   });

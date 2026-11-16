@@ -87,7 +87,7 @@ const SHELVES: Shelf[] = [
       {
         path: PIXEL_ARTS_PATH,
         name: 'Pixel arts',
-        blurb: 'A galeria das suas pixel arts: desenhe no ateliê, guarde com nome, tags e descrição, e baixe em PNG.',
+        blurb: 'A galeria das suas pixel arts: desenhe no ateliê, guarde com nome, tags, descrição e pastas, e baixe em PNG.',
         icon: ICON.pixelArt,
         stock: 'var(--stock-verde)',
         pin: '#e62e2d',
