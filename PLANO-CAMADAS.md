@@ -191,7 +191,7 @@ celular, commit no nome do dono e push.
 ## 5. Andamento
 
 - [x] Rodada 1: dados (BUILD 909; sem item nas Novidades: base sem tela, o item vem com a rodada 2)
-- [ ] Rodada 2: o painel das camadas
+- [x] Rodada 2: o painel das camadas (BUILD 910, Novidades 1.47.0)
 - [ ] Rodada 3: esticar a seleção
 - [ ] Rodada 4: o mapa de cor
 - [ ] Rodada 5: as referências

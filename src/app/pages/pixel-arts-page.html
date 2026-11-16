@@ -305,6 +305,6 @@
 <!-- o Ateliê da etiqueta: o desenho direto no ateliê, por cima de tudo -->
 @if (studio(); as s) {
   @defer {
-    <app-pixel-studio [values]="s.values" (changed)="drawn($event)" (closed)="studioClosed()" />
+    <app-pixel-studio [values]="s.values" [layered]="true" [stack]="s.layers" (changed)="drawn($event)" (stackChanged)="restacked($event)" (closed)="studioClosed()" />
   }
 }

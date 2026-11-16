@@ -4,6 +4,7 @@ import type { TagEntry } from '../core/note-labels';
 import { PIXEL_LOOKS, PixelLook, readPixelArt } from '../core/pixel-art';
 import { PIXEL_NOTE_MAX, PIXEL_TAG_SPACE, PIXEL_TITLE_MAX, PixelPatch, PixelPiece, artValues, pieceTitle, pieceTitleOf, valuesArt } from '../core/pixel-gallery';
 import { PixelGallery } from '../core/pixel-gallery-store';
+import { StoredLayer } from '../core/pixel-layers';
 import { PixelFolders } from '../core/pixel-folders';
 import { cleanWishNote, fold } from '../core/review';
 import { ViewTransitions } from '../core/view-transitions';
@@ -79,6 +80,8 @@ export class PixelSheet {
   private hooks: PixelSheetHooks = {};
   /** O desenho, nos valores do widget (os pontos, a grade, a paleta, as cores e o jeito). */
   protected readonly values = signal<WidgetValues>(artValues([]));
+  /** As camadas do desenho (PLANO-CAMADAS.md); sem elas, uma só. */
+  protected readonly layers = signal<StoredLayer[] | undefined>(undefined);
   protected readonly title = signal('');
   protected readonly tags = signal<string[]>([]);
   protected readonly note = signal('');
@@ -134,6 +137,7 @@ export class PixelSheet {
     this.reset();
     this.folder.set(folder);
     this.values.set(artValues([]));
+    this.layers.set(undefined);
     this.start();
   }
 
@@ -143,6 +147,7 @@ export class PixelSheet {
     this.editing.set(piece);
     this.hooks = hooks;
     this.values.set(artValues(piece.art));
+    this.layers.set(piece.layers);
     this.title.set(piece.title);
     this.tags.set([...(piece.tags ?? [])]);
     this.note.set(piece.note ?? '');
@@ -213,7 +218,7 @@ export class PixelSheet {
 
   /** O que a pessoa pode ter mudado na ficha (o desenho, o nome, as tags, a descrição). */
   private serialize(): string {
-    return JSON.stringify([this.art(), pieceTitleOf(this.title()), this.tags(), cleanWishNote(this.note()), this.folder()]);
+    return JSON.stringify([this.art(), this.layers() ?? null, pieceTitleOf(this.title()), this.tags(), cleanWishNote(this.note()), this.folder()]);
   }
 
   /** Fechar (X, Cancelar, Esc, o fundo): com algo mudado, a pergunta de descartar antes. */
@@ -250,6 +255,8 @@ export class PixelSheet {
   private changes(from: PixelPiece, art: string[]): PixelPatch {
     const out: PixelPatch = {};
     if (JSON.stringify(from.art) !== JSON.stringify(art)) out.art = art;
+    // (as camadas vão junto quando mudaram: com elas, o desenho do art sai delas)
+    if (JSON.stringify(from.layers ?? null) !== JSON.stringify(this.layers() ?? null)) out.layers = this.layers();
     if (from.title !== pieceTitleOf(this.title())) out.title = this.title();
     if ((from.tags ?? []).map(fold).join('\n') !== this.tags().map(fold).join('\n')) out.tags = this.tags();
     if ((from.note ?? '') !== cleanWishNote(this.note())) out.note = this.note();
@@ -275,7 +282,7 @@ export class PixelSheet {
       this.saveEdit(editing, art);
       return;
     }
-    const made = this.gallery.create({ art, title: this.title(), tags: this.tags(), note: this.note(), folder: this.folder() ?? undefined });
+    const made = this.gallery.create({ art, layers: this.layers(), title: this.title(), tags: this.tags(), note: this.note(), folder: this.folder() ?? undefined });
     if (!made) {
       this.toasts.show('A galeria está cheia: apague uma pixel art para guardar outra.');
       return;

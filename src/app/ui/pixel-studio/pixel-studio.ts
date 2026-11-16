@@ -37,9 +37,12 @@ import { Anchor, BRUSH_MAX, BrushShape, Dither, Symmetry, ZOOMS, ZOOM_KEYS, conv
 import { Float, Mask, combineMask, composite, flipMask, flipRows, invertMask, lift, maskAny, maskBounds, maskOutline, outline, placedMask, rectMask, rotateMask, rotateRows, wandMask } from '../../core/pixel-selection';
 import { WidgetValues } from '../../core/widgets';
 import { imageFileOf } from '../../core/images';
+import { DotsLayer, InkPathCache, Layer, PIXEL_LAYERS_MAX, StoredLayer, acrossDots, cleanLayerName, dotsBelow, dotsCount, duplicateLayer, flattenLayers, insertAbove, mapDots, mergeDown, moveLayerTo, newLayerId, nextLayerName, readLayers, sameStack, setRows, singleLayer, writeLayers } from '../../core/pixel-layers';
+import { Confirm } from '../confirm';
 import { ContextMenu, MenuSections } from '../context-menu';
 import { PaletteSheet } from './palette-sheet';
 import { ICON, IconModule } from '../icons';
+import { PixelThumb } from '../pixel-thumb';
 
 /** As ferramentas do ateliê (as que pintam e a mão). */
 export type StudioTool = 'selecao' | 'varinha' | 'mover' | 'lapis' | 'borracha' | 'balde' | 'conta-gotas' | 'linha' | 'retangulo' | 'elipse' | 'mao';
@@ -53,9 +56,10 @@ const SHEET_MEDIA = '(max-width: 760px)';
 /** Quantos passos o desfazer guarda. */
 const UNDO_MAX = 120;
 
-/** Um passo do desfazer: o desenho inteiro (os pontos, a tela, a paleta e as cores). */
+/** Um passo do desfazer: o desenho inteiro (a pilha das camadas e a escolhida, a tela, a paleta e as cores). */
 interface Snap {
-  rows: string[];
+  layers: Layer[];
+  current: string;
   w: number;
   h: number;
   palette: PaletteName;
@@ -89,20 +93,30 @@ let uid = 0;
  */
 @Component({
   selector: 'app-pixel-studio',
-  imports: [ContextMenu, IconModule, NgTemplateOutlet, PaletteSheet],
+  imports: [ContextMenu, IconModule, NgTemplateOutlet, PaletteSheet, PixelThumb],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './pixel-studio.html',
-  styleUrl: './pixel-studio.scss',
+  styleUrls: ['./pixel-studio.scss', './camadas.scss'],
   host: { '(window:blur)': 'onBlur()' },
 })
 export class PixelStudio {
   /** Os valores da folha quando o ateliê abriu (os pontos, a grade, a paleta, as cores trocadas). */
   readonly values = input.required<WidgetValues>();
-  /** O desenho mudou: os valores novos do widget (`pixels`, `width`, `height`, `palette`, `colors`). */
+  /**
+   * Uma obra da galeria (PLANO-CAMADAS.md): o ateliê tem o painel das camadas e manda a pilha (`stackChanged`). Sem
+   * isso (o widget das anotações), uma camada só: o widget guarda só o desenho.
+   */
+  readonly layered = input(false);
+  /** As camadas guardadas da obra quando o ateliê abriu (sem elas, uma camada com o desenho). */
+  readonly stack = input<readonly StoredLayer[] | undefined>(undefined);
+  /** O desenho mudou: os valores novos do widget (`pixels`, `width`, `height`, `palette`, `colors`), o achatado. */
   readonly changed = output<WidgetValues>();
+  /** A pilha mudou (só com `layered`): as camadas como a obra guarda, ou nada quando é a camada única de sempre. */
+  readonly stackChanged = output<StoredLayer[] | undefined>();
   readonly closed = output<void>();
 
   private readonly injector = inject(Injector);
+  private readonly confirm = inject(Confirm);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly mesa = viewChild.required<ElementRef<HTMLElement>>('mesa');
   private readonly board = viewChild.required<ElementRef<SVGSVGElement>>('folha');
@@ -112,6 +126,7 @@ export class PixelStudio {
   private readonly keysSheet = viewChild<ElementRef<HTMLDialogElement>>('atalhos');
   private readonly imageMenu = viewChild.required<ContextMenu>('menuImagem');
   private readonly colorsMenu = viewChild.required<ContextMenu>('menuCores');
+  private readonly layerMenu = viewChild.required<ContextMenu>('menuCamada');
 
   protected readonly ids = 'at-' + ++uid;
   protected readonly I = ICON;
@@ -154,16 +169,62 @@ export class PixelStudio {
 
   protected readonly w = signal(16);
   protected readonly h = signal(16);
+  /** Os pontos da camada escolhida: onde toda ferramenta pinta (na pilha, `layers`, os dela ficam velhos até mudar de camada). */
   protected readonly rows = signal<string[]>(blankGrid(16, 16));
+  /** A pilha, de baixo para cima (a escolhida com os pontos de quando foi escolhida: os de agora são `rows`). */
+  protected readonly layers = signal<Layer[]>(singleLayer(blankGrid(16, 16)));
+  /** A camada escolhida (o id). */
+  protected readonly current = signal('c1');
   protected readonly palette = signal<PaletteName>(DEFAULT_PALETTE);
   protected readonly colors = signal<Record<number, string>>({});
 
+  /** A pilha de agora, com os pontos da escolhida em dia. */
+  protected readonly stackNow = computed<Layer[]>(() => {
+    const id = this.current();
+    const rows = this.rows();
+    return this.layers().map((l) => (l.id === id && l.kind === 'pontos' ? { ...l, rows } : l));
+  });
+  /** O desenho achatado: as camadas de pontos à mostra (o que a prévia, o conta-gotas e a folha do widget veem). */
+  protected readonly flat = computed(() => (this.layers().length === 1 && !this.layers()[0].hidden ? this.rows() : flattenLayers(this.stackNow(), this.w(), this.h())));
   protected readonly inks = computed(() => inkOf(this.palette(), this.colors()));
   /** Quantas cores o desenho tem (as pastilhas, fora o transparente). */
   protected readonly count = computed(() => inkCount(this.palette(), this.colors()));
   protected readonly swatches = computed(() => drawingInks(this.palette(), this.colors()).map((_, i) => i));
-  protected readonly paths = computed(() => inkPaths(this.rows(), 'pixel'));
-  protected readonly inked = computed(() => hasInk(this.rows()));
+  /** Os caminhos de cada grade, guardados pela grade: pintar refaz só os da camada escolhida. */
+  private readonly pathCache = new InkPathCache((rows) => inkPaths(rows, 'pixel'));
+  protected readonly paths = computed(() => this.pathCache.of(this.flat()));
+  /** As camadas que a folha desenha, de baixo para cima: as de pontos à mostra, cada uma num svg. */
+  protected readonly boardLayers = computed(() =>
+    this.stackNow().flatMap((l) => (l.kind === 'pontos' && !l.hidden ? [{ id: l.id, paths: this.pathCache.of(l.rows) }] : [])),
+  );
+  /** A escolhida, e se ela está escondida (pintar nela não pinta). */
+  protected readonly activeLayer = computed(() => this.stackNow().find((l) => l.id === this.current()) ?? this.stackNow()[0]);
+  /** O painel, de cima para baixo (como a pilha se vê), com a miniatura de cada uma. */
+  protected readonly layerRows = computed(() => {
+    const pal = this.palette();
+    const colors = this.colors();
+    const w = this.w();
+    const h = this.h();
+    return [...this.stackNow()].reverse().map((l) => ({ layer: l, art: l.kind === 'pontos' ? this.thumbArt(l.rows, w, h, pal, colors) : null }));
+  });
+  private thumbArts = new WeakMap<readonly string[], { w: number; h: number; rows: string[]; palette: PaletteName; colors: Record<number, string> }>();
+  private thumbArt(rows: string[], w: number, h: number, palette: PaletteName, colors: Record<number, string>) {
+    const had = this.thumbArts.get(rows);
+    if (had && had.w === w && had.h === h && had.palette === palette && had.colors === colors) return had;
+    const art = { w, h, rows, palette, colors };
+    this.thumbArts.set(rows, art);
+    return art;
+  }
+  protected readonly dotsTotal = computed(() => dotsCount(this.stackNow()));
+  protected readonly LAYERS_MAX = PIXEL_LAYERS_MAX;
+  /** A camada sendo renomeada ali mesmo (o id). */
+  protected readonly naming = signal<string | null>(null);
+  /** A camada sendo arrastada para outro lugar do painel (o id). */
+  protected readonly layerDrag = signal<string | null>(null);
+  /** No celular, qual das duas a folha que sobe mostra. */
+  protected readonly sheetTab = signal<'cores' | 'camadas'>('cores');
+  /** A camada do menu aberto (o "…" ou o botão direito numa fileira). */
+  protected readonly menuLayer = signal<string | null>(null);
   protected readonly paletteLabel = computed(() => PALETTES.find((p) => p.value === this.palette())?.label ?? '');
 
   // ===== as ferramentas =====
@@ -293,7 +354,16 @@ export class PixelStudio {
         ['Shift+H · Shift+V', 'Virar de lado · de cabeça para baixo'],
         ['Shift+O', 'Contorno com a cor da frente'],
         ['C', 'Tamanho da tela'],
-        ['Alt+setas', 'Empurrar o desenho um ponto'],
+        ['Alt+setas', 'Empurrar o desenho (a camada escolhida) um ponto'],
+      ],
+    },
+    {
+      title: 'Camadas',
+      items: [
+        ['Shift+N', 'Camada nova, acima da escolhida'],
+        ['Ctrl+E', 'Juntar com a de baixo'],
+        ['F2 · dois cliques', 'Renomear'],
+        ['Arrastar a fileira', 'Mudar de lugar na pilha'],
       ],
     },
     {
@@ -374,13 +444,23 @@ export class PixelStudio {
     const h = clampSide(v['height']);
     this.w.set(w);
     this.h.set(h);
-    this.rows.set(gridOf(v['pixels'] ?? '', w, h));
+    const rows = gridOf(v['pixels'] ?? '', w, h);
+    const stack = this.layered() ? readLayers(this.stack() as StoredLayer[] | undefined, { w, h, rows }) : singleLayer(rows);
+    // abre na camada de pontos de cima que está à mostra (onde se desenha por último; a escondida não pinta)
+    const dots = [...stack].reverse().filter((l): l is DotsLayer => l.kind === 'pontos');
+    const top = dots.find((l) => !l.hidden) ?? dots[0] ?? (stack[0] as DotsLayer);
+    this.layers.set(stack);
+    this.current.set(top.id);
+    this.rows.set(top.rows);
     this.palette.set(paletteWord(v['palette'] ?? '') ?? DEFAULT_PALETTE);
     this.colors.set(parseColors(v['colors'] ?? '') ?? {});
     if (this.fg() > this.count()) this.fg.set(Math.min(1, this.count()));
   }
 
-  protected close(): void {
+  protected async close(): Promise<void> {
+    this.endStroke();
+    this.anchor();
+    if (!(await this.readyToClose())) return;
     const el = this.dialog().nativeElement;
     if (el.open) el.close();
     else this.closed.emit();
@@ -389,18 +469,25 @@ export class PixelStudio {
   // ===== o desenho e o desfazer =====
 
   private snap(): Snap {
-    return { rows: this.rows(), w: this.w(), h: this.h(), palette: this.palette(), colors: this.colors() };
+    return { layers: this.stackNow(), current: this.current(), w: this.w(), h: this.h(), palette: this.palette(), colors: this.colors() };
   }
 
-  /** Manda o desenho de agora para a folha. */
+  /** O desenho de agora com outros pontos na camada escolhida (o de antes de um traço, para o desfazer). */
+  private snapWith(rows: string[]): Snap {
+    const s = this.snap();
+    return { ...s, layers: setRows(s.layers, s.current, rows) };
+  }
+
+  /** Manda o desenho de agora para a folha (o achatado) e, numa obra da galeria, a pilha. */
   private emit(): void {
     this.changed.emit({
-      pixels: writeGrid(this.rows()),
+      pixels: writeGrid(this.flat()),
       width: String(this.w()),
       height: String(this.h()),
       palette: this.palette(),
       colors: writeColors(this.colors(), this.palette()),
     });
+    if (this.layered()) this.stackChanged.emit(writeLayers(this.stackNow()));
   }
 
   /** Guarda no desfazer o desenho de antes de uma mudança. */
@@ -423,7 +510,11 @@ export class PixelStudio {
     if (s.w !== this.w() || s.h !== this.h()) this.sel.set(null);
     this.w.set(s.w);
     this.h.set(s.h);
-    this.rows.set(s.rows);
+    // (a escolhida que não existe mais nessa pilha: a de pontos de cima)
+    const active = s.layers.find((l): l is DotsLayer => l.id === s.current && l.kind === 'pontos') ?? [...s.layers].reverse().find((l): l is DotsLayer => l.kind === 'pontos')!;
+    this.layers.set(s.layers);
+    this.current.set(active.id);
+    this.rows.set(active.rows);
     this.palette.set(s.palette);
     this.colors.set(s.colors);
     this.clampInks();
@@ -431,11 +522,16 @@ export class PixelStudio {
     this.syncHistory();
   }
 
-  /** Uma mudança de uma vez só (o balde, virar, limpar, a tela): um passo no desfazer. */
-  private change(next: Partial<Snap>, said: string): void {
+  /**
+   * Uma mudança de uma vez só (o balde, virar, limpar, a tela): um passo no desfazer. `rows` são os pontos novos da
+   * camada escolhida; `layers`, a pilha nova inteira.
+   */
+  private change(next: Partial<Snap> & { rows?: string[] }, said: string): void {
     this.anchor();
     const before = this.snap();
-    const after = { ...before, ...next };
+    const { rows, ...rest } = next;
+    const after: Snap = { ...before, ...rest };
+    if (rows) after.layers = setRows(after.layers, after.current, rows);
     if (sameSnap(before, after)) return;
     this.remember(before);
     this.restore(after);
@@ -507,11 +603,12 @@ export class PixelStudio {
       this.pressSelection(c, tool, shift, shiftAlt, mod);
       return;
     }
+    if (tool !== 'conta-gotas' && this.blockedByHidden()) return;
     // pintar assenta o pedaço solto (a seleção continua, no lugar dele)
     this.anchor();
     if (tool === 'conta-gotas') {
       if (!this.inside(c)) return;
-      const n = Math.max(0, inkIndex(this.rows()[c.y][c.x]));
+      const n = Math.max(0, inkIndex(this.flat()[c.y][c.x]));
       const pick = n <= this.count() ? n : 0;
       if (alt) this.bg.set(pick);
       else this.fg.set(pick);
@@ -614,7 +711,7 @@ export class PixelStudio {
       this.sel.set(d.base);
       this.deselect();
     }
-    if ((d?.kind === 'pinta' || d?.kind === 'forma') && !sameRows(d.before, this.rows())) this.remember({ ...this.snap(), rows: d.before });
+    if ((d?.kind === 'pinta' || d?.kind === 'forma') && !sameRows(d.before, this.rows())) this.remember(this.snapWith(d.before));
   }
 
   /** Desfaz o arrasto de agora sem guardar nada (o segundo dedo chegou: era um gesto, não um traço). */
@@ -854,6 +951,9 @@ export class PixelStudio {
         if (!this.hasSel()) return;
         e.preventDefault();
         this.copySel(k === 'x');
+      } else if (k === 'e' && this.layered()) {
+        e.preventDefault();
+        this.mergeLayerDown(this.current());
       } else if (k === "'" || k === '"' || e.code === 'Quote') {
         e.preventDefault();
         if (e.shiftKey) this.toggleDots();
@@ -905,6 +1005,16 @@ export class PixelStudio {
     if (e.key === '?') {
       e.preventDefault();
       this.openKeys();
+      return;
+    }
+    if (this.layered() && e.shiftKey && k === 'n') {
+      e.preventDefault();
+      this.addLayer();
+      return;
+    }
+    if (this.layered() && k === 'f2') {
+      e.preventDefault();
+      this.startRename(this.current());
       return;
     }
     if (e.shiftKey && k === 'o') {
@@ -1013,7 +1123,8 @@ export class PixelStudio {
     const step = ({ ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] } as Record<string, [number, number]>)[e.key];
     if (!step) return;
     e.preventDefault();
-    this.change({ rows: shiftGrid(this.rows(), step[0], step[1], this.w(), this.h()) }, 'Desenho empurrado');
+    if (this.blockedByHidden()) return;
+    this.change({ rows: shiftGrid(this.rows(), step[0], step[1], this.w(), this.h()) }, this.dotsTotal() > 1 ? 'Camada empurrada' : 'Desenho empurrado');
   }
 
   private clampCursor(): Cell {
@@ -1024,7 +1135,7 @@ export class PixelStudio {
   }
 
   private sayCell(c: Cell): void {
-    this.said.set(`Linha ${c.y + 1}, coluna ${c.x + 1}: ${this.inkName(Math.max(0, inkIndex(this.rows()[c.y]?.[c.x] ?? '0')))}`);
+    this.said.set(`Linha ${c.y + 1}, coluna ${c.x + 1}: ${this.inkName(Math.max(0, inkIndex(this.flat()[c.y]?.[c.x] ?? '0')))}`);
   }
 
   // ===== a régua de cima =====
@@ -1056,12 +1167,12 @@ export class PixelStudio {
 
   protected flipSide(): void {
     if (this.transformSel((f) => ({ ...f, rows: flipRows(f.rows, 'h'), mask: flipMask(f.mask, 'h') }), 'Seleção virada de lado')) return;
-    this.change({ rows: flipH(this.rows(), this.w(), this.h()) }, 'Desenho virado de lado');
+    this.change({ layers: mapDots(this.stackNow(), (r) => flipH(r, this.w(), this.h())) }, 'Desenho virado de lado');
   }
 
   protected flipUpside(): void {
     if (this.transformSel((f) => ({ ...f, rows: flipRows(f.rows, 'v'), mask: flipMask(f.mask, 'v') }), 'Seleção de cabeça para baixo')) return;
-    this.change({ rows: flipV(this.rows(), this.w(), this.h()) }, 'Desenho de cabeça para baixo');
+    this.change({ layers: mapDots(this.stackNow(), (r) => flipV(r, this.w(), this.h())) }, 'Desenho de cabeça para baixo');
   }
 
   /** Girar: a seleção (no meio de onde estava) ou a tela inteira (a largura troca com a altura). */
@@ -1072,13 +1183,16 @@ export class PixelStudio {
       return { x: f.x + Math.floor((f.mask.w - mask.w) / 2), y: f.y + Math.floor((f.mask.h - mask.h) / 2), rows: rotateRows(f.rows, dir), mask };
     }, `Seleção ${said}`);
     if (moved) return;
-    const rows = rotateRows(this.rows(), dir);
-    this.change({ rows, w: rows[0]?.length ?? this.w(), h: rows.length }, `Desenho ${said}`);
+    const layers = mapDots(this.stackNow(), (r) => rotateRows(r, dir));
+    const w = dir === '180' ? this.w() : this.h();
+    const h = dir === '180' ? this.h() : this.w();
+    this.change({ layers, w, h }, `Desenho ${said}`);
     if (dir !== '180') this.fit();
   }
 
   /** Shift+O: o contorno com a cor da frente em volta do que está pintado (só na seleção, se tiver). */
   protected outlineInk(): void {
+    if (this.blockedByHidden()) return;
     if (this.fg() === 0) {
       this.said.set('Escolha uma cor para o contorno');
       return;
@@ -1093,10 +1207,8 @@ export class PixelStudio {
     const s = this.sel();
     const b = s && maskBounds(s);
     if (!b) return;
-    const rows = this.rows()
-      .slice(b.y, b.y + b.h)
-      .map((r) => r.slice(b.x, b.x + b.w));
-    this.change({ rows, w: b.w, h: b.h }, `Tela recortada em ${b.w} por ${b.h}`);
+    const layers = mapDots(this.stackNow(), (r) => r.slice(b.y, b.y + b.h).map((row) => row.slice(b.x, b.x + b.w)));
+    this.change({ layers, w: b.w, h: b.h }, `Tela recortada em ${b.w} por ${b.h}`);
     this.sel.set(null);
     this.fit();
   }
@@ -1112,7 +1224,7 @@ export class PixelStudio {
     const onFloat = !!f && c.x >= f.x && c.y >= f.y && c.x < f.x + f.mask.w && c.y < f.y + f.mask.h && f.mask.bits[(c.y - f.y) * f.mask.w + c.x - f.x] === 1;
     // o Mover (em qualquer lugar: o que está escolhido anda), ou a Seleção puxada de dentro dela; com o Ctrl, uma cópia
     if (tool === 'mover' || (tool === 'selecao' && mode === 'trocar' && (onFloat || (!f && insideSel(s))))) {
-      if (!this.liftSel(copy)) return;
+      if (this.blockedByHidden() || !this.liftSel(copy)) return;
       const lifted = this.float()!;
       this.drag = { kind: 'mov', from: c, x: lifted.x, y: lifted.y };
       return;
@@ -1207,6 +1319,7 @@ export class PixelStudio {
 
   /** Delete: o que está escolhido vira transparente (o pedaço solto some). */
   protected clearSel(): void {
+    if (this.blockedByHidden()) return;
     const f = this.float();
     if (f) {
       const before = this.floatBefore;
@@ -1234,6 +1347,7 @@ export class PixelStudio {
 
   /** Ctrl+C e Ctrl+X: o pedaço escolhido guardado para colar (recortar deixa o buraco). */
   protected copySel(cut: boolean): void {
+    if (cut && this.blockedByHidden()) return;
     const f = this.float();
     if (f) this.clip = { ...f, rows: [...f.rows] };
     else {
@@ -1248,7 +1362,7 @@ export class PixelStudio {
   /** Ctrl+V: o pedaço guardado solto no lugar de onde veio (dentro da tela), pronto para mover. */
   protected pasteClip(): void {
     const c = this.clip;
-    if (!c) return;
+    if (!c || this.blockedByHidden()) return;
     this.anchor();
     this.sel.set(null);
     const x = Math.max(0, Math.min(c.x, this.w() - c.mask.w));
@@ -1261,7 +1375,7 @@ export class PixelStudio {
   }
 
   protected clear(): void {
-    this.change({ rows: blankGrid(this.w(), this.h()) }, 'Folha limpa');
+    this.change({ rows: blankGrid(this.w(), this.h()) }, this.dotsTotal() > 1 ? `${this.activeLayer().name} limpa` : 'Folha limpa');
   }
 
   /** O menu Imagem (o que mexe no desenho todo), no botão dele. */
@@ -1303,9 +1417,220 @@ export class PixelStudio {
         { id: 'imagem', label: 'Trazer de uma imagem…', hint: 'Nas cores de agora', icon: ICON.imagem, run: () => this.chooseImage() },
         { id: 'imagem-cores', label: 'Trazer, com as cores dela…', hint: 'Cria a paleta com as cores da imagem', icon: ICON.paleta, run: () => this.chooseImage(true) },
       ],
-      [{ id: 'limpar', label: 'Limpar a folha', icon: ICON.apagar, danger: true, run: () => this.clear() }],
+      [{ id: 'limpar', label: this.dotsTotal() > 1 ? 'Limpar a camada' : 'Limpar a folha', icon: ICON.apagar, danger: true, run: () => this.clear() }],
     ];
   });
+
+  // ===== as camadas (PLANO-CAMADAS.md, rodada 2) =====
+
+  /** A escolhida está escondida: pintar não pinta (como no Aseprite), e o ateliê diz por quê. */
+  private blockedByHidden(): boolean {
+    const l = this.activeLayer();
+    if (!l.hidden) return false;
+    this.said.set(`A ${l.name} está escondida: mostre para pintar`);
+    return true;
+  }
+
+  /** Escolhe a camada onde se pinta (não é um passo do desfazer: só muda onde se pinta). */
+  protected selectLayer(id: string): void {
+    if (id === this.current()) return;
+    const l = this.stackNow().find((x) => x.id === id);
+    if (!l || l.kind !== 'pontos') return;
+    this.endStroke();
+    this.anchor();
+    this.layers.set(this.stackNow());
+    this.current.set(id);
+    this.rows.set(l.rows);
+    this.said.set(`${l.name}${l.hidden ? ', escondida' : ''}`);
+  }
+
+  /** Uma camada nova, em branco, logo acima da escolhida (Shift+N), já escolhida. */
+  protected addLayer(): void {
+    this.addLayerWith(blankGrid(this.w(), this.h()), '');
+  }
+
+  /** Uma camada nova com os pontos dados acima da escolhida (a imagem trazida, por exemplo), um passo do desfazer. */
+  private addLayerWith(rows: string[], said: string, extra: Partial<Snap> = {}): void {
+    const base = extra.layers ?? this.stackNow();
+    if (dotsCount(base) >= PIXEL_LAYERS_MAX) {
+      this.said.set(`Cabem ${PIXEL_LAYERS_MAX} camadas numa pixel art`);
+      return;
+    }
+    const layer: Layer = { id: newLayerId(), name: nextLayerName(base), hidden: false, kind: 'pontos', rows };
+    this.change({ ...extra, layers: insertAbove(base, this.current(), layer), current: layer.id }, said || `${layer.name} nova`);
+  }
+
+  protected duplicateLayer(id: string): void {
+    if (this.dotsTotal() >= PIXEL_LAYERS_MAX) {
+      this.said.set(`Cabem ${PIXEL_LAYERS_MAX} camadas numa pixel art`);
+      return;
+    }
+    const out = duplicateLayer(this.stackNow(), id);
+    if (out) this.change({ layers: out.layers, current: out.made }, 'Camada duplicada');
+  }
+
+  /** Apaga a camada (a última de pontos fica: uma pixel art tem sempre onde pintar). */
+  protected removeLayer(id: string): void {
+    const stack = this.stackNow();
+    const l = stack.find((x) => x.id === id);
+    if (!l || (l.kind === 'pontos' && dotsCount(stack) <= 1)) return;
+    const layers = stack.filter((x) => x.id !== id);
+    // a escolhida apagada: escolhe a de pontos logo abaixo (ou a de cima, se era a de baixo)
+    const next = id === this.current() ? (dotsBelow(stack, id) ?? [...layers].reverse().find((x): x is DotsLayer => x.kind === 'pontos')!).id : this.current();
+    this.change({ layers, current: next }, `${l.name} apagada`);
+  }
+
+  /** Juntar com a de baixo (Ctrl+E). */
+  protected mergeLayerDown(id: string): void {
+    const out = mergeDown(this.stackNow(), id);
+    if (!out) {
+      this.said.set('Não há camada embaixo para juntar');
+      return;
+    }
+    this.change({ layers: out.layers, current: out.into }, 'Camadas juntadas');
+  }
+
+  /** Mostra ou esconde a camada: a escondida não entra na pixel art (um passo do desfazer, porque muda o desenho). */
+  protected toggleLayer(id: string): void {
+    const l = this.stackNow().find((x) => x.id === id);
+    if (!l) return;
+    this.change({ layers: this.stackNow().map((x) => (x.id === id ? { ...x, hidden: !x.hidden } : x)) }, `${l.name} ${l.hidden ? 'à mostra' : 'escondida'}`);
+  }
+
+  /** Um lugar para cima (`1`) ou para baixo (`-1`) na pilha. */
+  protected stepLayer(id: string, dir: 1 | -1): void {
+    const i = this.stackNow().findIndex((l) => l.id === id);
+    const to = i + dir;
+    if (i < 0 || to < 0 || to >= this.stackNow().length) return;
+    this.change({ layers: moveLayerTo(this.stackNow(), id, to) }, dir > 0 ? 'Camada para cima' : 'Camada para baixo');
+  }
+
+  protected startRename(id: string): void {
+    this.naming.set(id);
+    afterNextRender(
+      () => {
+        const input = this.dialog().nativeElement.querySelector<HTMLInputElement>('.camada-nome-campo');
+        input?.focus();
+        input?.select();
+      },
+      { injector: this.injector },
+    );
+  }
+
+  /** O nome escrito ali mesmo: Enter (ou sair do campo) grava; vazio, volta ao de antes. */
+  protected finishRename(id: string, raw: string | null): void {
+    if (this.naming() !== id) return;
+    this.naming.set(null);
+    const name = raw === null ? '' : cleanLayerName(raw);
+    const l = this.stackNow().find((x) => x.id === id);
+    if (l && name && name !== l.name) this.change({ layers: this.stackNow().map((x) => (x.id === id ? { ...x, name } : x)) }, `Camada renomeada: ${name}`);
+    queueMicrotask(() => this.dialog().nativeElement.querySelector<HTMLElement>(`[data-camada="${CSS.escape(id)}"] .camada-escolher`)?.focus());
+  }
+
+  protected renameKey(e: KeyboardEvent, id: string): void {
+    e.stopPropagation();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      this.finishRename(id, (e.target as HTMLInputElement).value);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      this.finishRename(id, null);
+    }
+  }
+
+  // arrastar uma fileira do painel para outro lugar da pilha
+  protected layerDragStart(e: DragEvent, id: string): void {
+    this.layerDrag.set(id);
+    e.dataTransfer?.setData('text/plain', id);
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+  }
+
+  protected layerDragOver(e: DragEvent): void {
+    if (this.layerDrag() !== null) e.preventDefault();
+  }
+
+  /** Soltou em cima de outra fileira: vai para o lugar dela na pilha. */
+  protected layerDrop(e: DragEvent, onto: string): void {
+    const id = this.layerDrag();
+    this.layerDrag.set(null);
+    if (!id || id === onto) return;
+    e.preventDefault();
+    const to = this.stackNow().findIndex((l) => l.id === onto);
+    if (to >= 0) this.change({ layers: moveLayerTo(this.stackNow(), id, to) }, 'Camada mudou de lugar');
+  }
+
+  /** O menu de uma camada: no "…" do painel (a escolhida) ou no botão direito de uma fileira. */
+  protected openLayerMenu(e: MouseEvent, id: string): void {
+    e.preventDefault();
+    this.menuLayer.set(id);
+    const btn = e.currentTarget as HTMLElement;
+    const r = btn.getBoundingClientRect();
+    const byKeys = e.detail === 0;
+    this.layerMenu().show({ key: 'camada-' + id, x: byKeys || e.type === 'click' ? r.left : e.clientX, y: byKeys || e.type === 'click' ? r.bottom + 4 : e.clientY, back: btn, by: byKeys ? 'teclado' : 'mouse' });
+  }
+
+  protected readonly layerItems = computed<MenuSections>(() => {
+    const id = this.menuLayer();
+    const stack = this.stackNow();
+    const i = stack.findIndex((l) => l.id === id);
+    const l = stack[i];
+    if (!l || !id) return [];
+    const full = this.dotsTotal() >= PIXEL_LAYERS_MAX;
+    const canMerge = l.kind === 'pontos' && !!dotsBelow(stack, id);
+    return [
+      [
+        { id: 'renomear', label: 'Renomear', icon: ICON.editar, keys: 'F2', run: () => this.startRename(id) },
+        { id: 'esconder', label: l.hidden ? 'Mostrar' : 'Esconder', hint: 'A escondida não entra na pixel art', icon: l.hidden ? ICON.ver : ICON.esconder, run: () => this.toggleLayer(id) },
+        ...(full ? [] : [{ id: 'duplicar', label: 'Duplicar', icon: ICON.camadas, run: () => this.duplicateLayer(id) }]),
+      ],
+      [
+        ...(i < stack.length - 1 ? [{ id: 'subir', label: 'Subir', icon: ICON.acima, run: () => this.stepLayer(id, 1) }] : []),
+        ...(i > 0 ? [{ id: 'descer', label: 'Descer', icon: ICON.abaixo, run: () => this.stepLayer(id, -1) }] : []),
+        ...(canMerge ? [{ id: 'juntar', label: 'Juntar com a de baixo', icon: ICON.juntar, keys: 'Ctrl+E', run: () => this.mergeLayerDown(id) }] : []),
+      ],
+      ...(l.kind !== 'pontos' || this.dotsTotal() > 1 ? [[{ id: 'apagar', label: 'Apagar a camada', icon: ICON.apagar, danger: true, run: () => this.removeLayer(id) }]] : []),
+    ].filter((sec) => sec.length);
+  });
+
+  /**
+   * Fechar com as camadas com desenho todas escondidas: a pixel art precisa de algo à mostra, então pergunta antes
+   * (mostrar todas e sair, ou voltar). True: pode fechar.
+   */
+  private async readyToClose(): Promise<boolean> {
+    if (!this.layered() || hasInk(this.flat())) return true;
+    const hidden = this.stackNow().some((l) => l.kind === 'pontos' && l.hidden && hasInk(l.rows));
+    if (!hidden) return true;
+    const yes = await this.confirm.ask({
+      title: 'Tudo escondido',
+      text: 'As camadas com desenho estão todas escondidas, e a pixel art precisa de algo à mostra.',
+      confirm: 'Mostrar todas e sair',
+      cancel: 'Voltar ao ateliê',
+      tone: 'neutro',
+      icon: null,
+    });
+    if (yes) this.change({ layers: this.stackNow().map((l) => ({ ...l, hidden: false })) }, 'Todas as camadas à mostra');
+    return yes;
+  }
+
+  /** O nome no alto do menu da camada. */
+  protected readonly menuLayerName = computed(() => this.stackNow().find((l) => l.id === this.menuLayer())?.name ?? 'Camada');
+
+  /** Os atalhos da folha do ?: os das camadas só onde há camadas. */
+  protected readonly keyGroups = computed(() => (this.layered() ? this.KEYS : this.KEYS.filter((g) => g.title !== 'Camadas')));
+
+  /** No celular: a folha que sobe, nas cores ou nas camadas (o mesmo botão de novo fecha). */
+  protected openSheet(tab: 'cores' | 'camadas'): void {
+    const same = this.colorsOpen() && this.sheetTab() === tab;
+    this.sheetTab.set(tab);
+    this.colorsOpen.set(!same);
+  }
+
+  /** O Esc do ateliê: com tudo escondido, pergunta antes de fechar. */
+  protected onCancel(e: Event): void {
+    if (!this.layered() || hasInk(this.flat())) return;
+    e.preventDefault();
+    void this.close();
+  }
 
   // ===== as cores =====
 
@@ -1355,17 +1680,20 @@ export class PixelStudio {
       return;
     }
     if (p.palette === this.palette() && !Object.keys(this.colors()).length) return;
-    const rows = convertRows(this.rows(), drawingInks(this.palette(), this.colors()), drawingInks(p.palette, {}));
-    this.change({ rows, palette: p.palette, colors: {} }, `Paleta ${PALETTES.find((x) => x.value === p.palette)?.label ?? ''}, com as cores mais perto`);
+    const from = drawingInks(this.palette(), this.colors());
+    const to = drawingInks(p.palette, {});
+    const layers = mapDots(this.stackNow(), (r) => convertRows(r, from, to));
+    this.change({ layers, palette: p.palette, colors: {} }, `Paleta ${PALETTES.find((x) => x.value === p.palette)?.label ?? ''}, com as cores mais perto`);
   }
 
   /**
    * Uma mudança na ordem ou no tamanho da paleta: ela vira a própria (todas as cores escritas). A cor do fundo
    * segue a dela para o número novo (a que saiu vira o transparente).
    */
-  private ownPalette(out: { rows: string[]; colors: Record<number, string> }, said: string): void {
+  private ownPalette(fn: (rows: string[]) => { rows: string[]; colors: Record<number, string> }, said: string): void {
     const bgColor = this.bg() > 0 ? this.inks()[this.bg()] : null;
-    this.change({ rows: out.rows, palette: 'propria', colors: out.colors }, said);
+    const { layers, out } = acrossDots(this.stackNow(), fn);
+    this.change({ layers, palette: 'propria', colors: out.colors }, said);
     if (bgColor) {
       const at = Object.entries(out.colors).find(([, c]) => c === bgColor)?.[0];
       this.bg.set(at ? Number(at) : 0);
@@ -1376,7 +1704,8 @@ export class PixelStudio {
   protected removeFg(): void {
     const n = this.fg();
     if (n < 1 || this.count() <= 1) return;
-    this.ownPalette(removeInk(this.rows(), drawingInks(this.palette(), this.colors()), n), `A ${this.inkName(n)} saiu da paleta`);
+    const inks = drawingInks(this.palette(), this.colors());
+    this.ownPalette((rows) => removeInk(rows, inks, n), `A ${this.inkName(n)} saiu da paleta`);
     this.fg.set(Math.min(n, this.count()));
     this.editing.set(false);
   }
@@ -1391,7 +1720,8 @@ export class PixelStudio {
 
   private moveSwatch(from: number, to: number): void {
     if (from === to) return;
-    this.ownPalette(moveInk(this.rows(), drawingInks(this.palette(), this.colors()), from, to), `A cor ${inkChar(from)} agora é a ${inkChar(to)}`);
+    const inks = drawingInks(this.palette(), this.colors());
+    this.ownPalette((rows) => moveInk(rows, inks, from, to), `A cor ${inkChar(from)} agora é a ${inkChar(to)}`);
     // a frente segue a cor dela: a que andou vai junto; as do caminho andam um lugar
     const fg = this.fg();
     if (fg === from) this.fg.set(to);
@@ -1402,7 +1732,8 @@ export class PixelStudio {
   /** Ordena a paleta pela luz ou pelo tom (o desenho não muda). */
   protected sortPalette(by: 'luz' | 'tom'): void {
     const fgColor = this.inks()[this.fg()];
-    this.ownPalette(sortInks(this.rows(), drawingInks(this.palette(), this.colors()), by), by === 'luz' ? 'Paleta pela luz' : 'Paleta pelo tom');
+    const inks = drawingInks(this.palette(), this.colors());
+    this.ownPalette((rows) => sortInks(rows, inks, by), by === 'luz' ? 'Paleta pela luz' : 'Paleta pelo tom');
     const at = this.inks().indexOf(fgColor ?? null, 1);
     if (at > 0) this.fg.set(at);
   }
@@ -1548,8 +1879,8 @@ export class PixelStudio {
     if (!s) return;
     const w = clampSide(s.w, this.w());
     const h = clampSide(s.h, this.h());
-    const rows = resizeCanvas(this.rows(), this.w(), this.h(), w, h, s.anchor);
-    this.change({ rows, w, h }, `Tela de ${w} por ${h} pontos`);
+    const layers = mapDots(this.stackNow(), (r) => resizeCanvas(r, this.w(), this.h(), w, h, s.anchor));
+    this.change({ layers, w, h }, `Tela de ${w} por ${h} pontos`);
     this.closeSize();
     this.fit();
   }
@@ -1624,10 +1955,17 @@ export class PixelStudio {
       if (ownInks && ownInks.length > 1) {
         const colors: Record<number, string> = {};
         ownInks.forEach((c, i) => c && (colors[i] = c));
-        this.change({ rows, palette: 'propria', colors }, `Imagem trazida para ${w} por ${h} pontos, com ${ownInks.length - 1} cores dela`);
+        if (this.layered() && hasInk(this.flat())) {
+          // as outras camadas passam para a cor mais perto da paleta nova; a imagem vem numa camada nova
+          const from = drawingInks(this.palette(), this.colors());
+          const layers = mapDots(this.stackNow(), (r) => convertRows(r, from, ownInks));
+          this.addLayerWith(rows, `Imagem trazida numa camada nova, com ${ownInks.length - 1} cores dela`, { layers, palette: 'propria', colors });
+        } else this.change({ rows, palette: 'propria', colors }, `Imagem trazida para ${w} por ${h} pontos, com ${ownInks.length - 1} cores dela`);
       } else if (own) {
         this.importError.set('Essa imagem é toda transparente: não tem cor para trazer.');
         this.said.set('Essa imagem é toda transparente.');
+      } else if (this.layered() && hasInk(this.flat())) {
+        this.addLayerWith(rows, `Imagem trazida numa camada nova, nas cores de agora`);
       } else this.change({ rows }, `Imagem trazida para ${w} por ${h} pontos, nas cores de agora`);
     } catch {
       this.importError.set('Essa imagem não abriu. Tente outra (PNG, JPG, WebP, GIF).');
@@ -1671,7 +2009,7 @@ export class PixelStudio {
   protected readonly under = computed(() => {
     const c = this.hover();
     if (!c) return null;
-    const n = Math.max(0, inkIndex(this.rows()[c.y]?.[c.x] ?? '0'));
+    const n = Math.max(0, inkIndex(this.flat()[c.y]?.[c.x] ?? '0'));
     return { n, color: this.inks()[n] };
   });
 
@@ -1752,7 +2090,7 @@ function sameRows(a: readonly string[], b: readonly string[]): boolean {
 }
 
 function sameSnap(a: Snap, b: Snap): boolean {
-  return a.w === b.w && a.h === b.h && a.palette === b.palette && sameRows(a.rows, b.rows) && JSON.stringify(a.colors) === JSON.stringify(b.colors);
+  return a.w === b.w && a.h === b.h && a.palette === b.palette && a.current === b.current && sameStack(a.layers, b.layers) && JSON.stringify(a.colors) === JSON.stringify(b.colors);
 }
 
 function gridLines(w: number, h: number, keep: (i: number) => boolean): string {

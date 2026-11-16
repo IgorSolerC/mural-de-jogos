@@ -186,3 +186,108 @@ export function flattenStored(stored: readonly StoredLayer[], w: number, h: numb
 export function refSources(stored: readonly StoredLayer[] | undefined): string[] {
   return (stored ?? []).flatMap((l) => (l.ref ? [l.ref.src] : []));
 }
+
+// ===== a pilha no ateliê (ui/pixel-studio/): cada operação devolve a pilha nova, a de antes fica para o desfazer =====
+
+/** As duas pilhas são a mesma (os mesmos nomes, os mesmos pontos, as mesmas referências, na mesma ordem)? */
+export function sameStack(a: readonly Layer[], b: readonly Layer[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  return a.every((l, i) => {
+    const m = b[i];
+    if (l.id !== m.id || l.name !== m.name || l.hidden !== m.hidden || l.kind !== m.kind) return false;
+    if (l.kind === 'ref') return m.kind === 'ref' && JSON.stringify(l.ref) === JSON.stringify(m.ref);
+    const r = (m as DotsLayer).rows;
+    return l.rows === r || (l.rows.length === r.length && l.rows.every((row, y) => row === r[y]));
+  });
+}
+
+/** Os pontos de cada camada de pontos refeitos por `fn` (a tela, girar, virar, a paleta: o que vale para a pilha toda). */
+export function mapDots(layers: readonly Layer[], fn: (rows: string[]) => string[]): Layer[] {
+  return layers.map((l) => (l.kind === 'pontos' ? { ...l, rows: fn(l.rows) } : l));
+}
+
+/** A pilha com os pontos da camada `id` trocados. */
+export function setRows(layers: readonly Layer[], id: string, rows: string[]): Layer[] {
+  return layers.map((l) => (l.id === id && l.kind === 'pontos' ? { ...l, rows } : l));
+}
+
+/**
+ * Uma conta que mexe nas fileiras e na paleta juntas (tirar, mover, ordenar as cores) feita em todas as camadas de
+ * uma vez: as fileiras de todas, uma embaixo da outra, viram uma grade só, e depois voltam cada uma para a sua.
+ */
+export function acrossDots<T extends { rows: string[] }>(layers: readonly Layer[], fn: (rows: string[]) => T): { layers: Layer[]; out: T } {
+  const dots = layers.filter((l): l is DotsLayer => l.kind === 'pontos');
+  const out = fn(dots.flatMap((l) => l.rows));
+  let at = 0;
+  const next = layers.map((l) => {
+    if (l.kind !== 'pontos') return l;
+    const rows = out.rows.slice(at, at + l.rows.length);
+    at += l.rows.length;
+    return { ...l, rows };
+  });
+  return { layers: next, out };
+}
+
+/** Quantas camadas de pontos a pilha tem. */
+export function dotsCount(layers: readonly Layer[]): number {
+  return layers.reduce((n, l) => n + (l.kind === 'pontos' ? 1 : 0), 0);
+}
+
+/** A camada nova logo acima da `above` (ou no topo). */
+export function insertAbove(layers: readonly Layer[], above: string | null, layer: Layer): Layer[] {
+  const i = above === null ? -1 : layers.findIndex((l) => l.id === above);
+  const at = i < 0 ? layers.length : i + 1;
+  return [...layers.slice(0, at), layer, ...layers.slice(at)];
+}
+
+/** A camada `id` no lugar `to` da pilha (0 é a de baixo). */
+export function moveLayerTo(layers: readonly Layer[], id: string, to: number): Layer[] {
+  const from = layers.findIndex((l) => l.id === id);
+  if (from < 0) return [...layers];
+  const next = layers.filter((l) => l.id !== id);
+  next.splice(Math.max(0, Math.min(next.length, to)), 0, layers[from]);
+  return next;
+}
+
+/** A camada de pontos logo abaixo da `id` (as referências no meio são puladas), ou null. */
+export function dotsBelow(layers: readonly Layer[], id: string): DotsLayer | null {
+  const i = layers.findIndex((l) => l.id === id);
+  for (let j = i - 1; j >= 0; j--) {
+    const l = layers[j];
+    if (l.kind === 'pontos') return l;
+  }
+  return null;
+}
+
+/**
+ * Juntar com a de baixo (o Ctrl+E do Aseprite): os pontos da `id` pintados por cima dos da camada de pontos de baixo,
+ * que fica com o nome e o lugar dela; a `id` sai. Null: não há camada de pontos embaixo.
+ */
+export function mergeDown(layers: readonly Layer[], id: string): { layers: Layer[]; into: string } | null {
+  const top = layers.find((l) => l.id === id);
+  const below = dotsBelow(layers, id);
+  if (!top || top.kind !== 'pontos' || !below) return null;
+  const rows = below.rows.map((r, y) => [...r].map((c, x) => (top.rows[y]?.[x] && top.rows[y][x] !== '0' ? top.rows[y][x] : c)).join(''));
+  return { layers: layers.filter((l) => l.id !== id).map((l) => (l.id === below.id ? { ...below, rows } : l)), into: below.id };
+}
+
+/** Uma cópia da camada logo acima dela, com "cópia" no nome e um id novo. */
+export function duplicateLayer(layers: readonly Layer[], id: string): { layers: Layer[]; made: string } | null {
+  const l = layers.find((x) => x.id === id);
+  if (!l) return null;
+  const made = newLayerId();
+  const copy: Layer = l.kind === 'pontos' ? { ...l, id: made, name: cleanLayerName(`${l.name} cópia`), rows: [...l.rows] } : { ...l, id: made, name: cleanLayerName(`${l.name} cópia`), ref: { ...l.ref } };
+  return { layers: insertAbove(layers, id, copy), made };
+}
+
+/** Os caminhos de cada grade, guardados pela própria grade (a pilha só refaz a conta da camada que mudou). */
+export class InkPathCache<T> {
+  private readonly cache = new WeakMap<readonly string[], T>();
+  constructor(private readonly make: (rows: readonly string[]) => T) {}
+  of(rows: readonly string[]): T {
+    let v = this.cache.get(rows);
+    if (v === undefined) this.cache.set(rows, (v = this.make(rows)));
+    return v;
+  }
+}

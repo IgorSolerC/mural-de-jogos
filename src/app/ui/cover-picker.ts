@@ -22,6 +22,7 @@ import { PixelPicker } from './pixel-picker';
 import { WidgetValues } from '../core/widgets';
 import { PixelGallery } from '../core/pixel-gallery-store';
 import { PixelStudio } from './pixel-studio/pixel-studio';
+import { StoredLayer } from '../core/pixel-layers';
 import { Kind, PickedGame, initialOf } from '../core/review';
 import { Settings } from '../core/settings';
 import { plural } from '../core/text';
@@ -196,7 +197,7 @@ function joinSources(list: string[]): string {
     @if (studio(); as v) {
       <!-- já, e não quando a página sossegar: o ateliê abre logo depois do clique -->
       @defer (on immediate) {
-        <app-pixel-studio [values]="v" (changed)="drawing($event)" (closed)="studioClosed()" />
+        <app-pixel-studio [values]="v" [layered]="true" (changed)="drawing($event)" (stackChanged)="studioLayers = $event" (closed)="studioClosed()" />
       }
     }
     <!-- a outra porta, sem botão: só onde há teclado e mouse (no celular não há Ctrl+V nem arrastar arquivo) -->
@@ -537,6 +538,8 @@ export class CoverPicker {
   protected readonly chosenPiece = computed(() => this.pieceOfCover().get(this.cover() ?? '') ?? '');
   /** O ateliê aberto, desenhando uma nova (os valores do widget de pixel art); null fechado. */
   protected readonly studio = signal<WidgetValues | null>(null);
+  /** As camadas do desenho novo (ele vai para a galeria com elas). */
+  protected studioLayers: StoredLayer[] | undefined = undefined;
   /** A frase de depois de desenhar: a obra nova também ficou na galeria. */
   protected readonly drawnNote = signal<string | null>(null);
   /** Um arquivo arrastado por cima das capas. */
@@ -776,6 +779,7 @@ export class CoverPicker {
   protected drawNew(): void {
     this.imageError.set(null);
     this.drawnNote.set(null);
+    this.studioLayers = undefined;
     this.studio.set(artValues([]));
   }
 
@@ -795,7 +799,7 @@ export class CoverPicker {
       this.focusLater('.pixel-btn');
       return;
     }
-    const piece = this.gallery.create({ art, title: pieceTitleOf(this.game().name) });
+    const piece = this.gallery.create({ art, layers: this.studioLayers, title: pieceTitleOf(this.game().name) });
     if (!piece) {
       this.imageError.set('A galeria de pixel arts está cheia: apague alguma lá para guardar esta.');
       this.focusLater('.pixel-btn');

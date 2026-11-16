@@ -1,4 +1,4 @@
-import { FIRST_LAYER_NAME, Layer, PIXEL_LAYERS_MAX, PIXEL_REFS_MAX, cleanRef, flattenLayers, nextLayerName, readLayers, refSources, sanitizeLayers, singleLayer, writeLayers } from './pixel-layers';
+import { FIRST_LAYER_NAME, Layer, PIXEL_LAYERS_MAX, PIXEL_REFS_MAX, acrossDots, cleanRef, dotsCount, duplicateLayer, flattenLayers, insertAbove, mergeDown, moveLayerTo, nextLayerName, readLayers, refSources, sameStack, sanitizeLayers, singleLayer, writeLayers } from './pixel-layers';
 import { PixelPiece, sanitizePixelPiece, withPixelPatch } from './pixel-gallery';
 
 const IMG = 'murall://imagem/AAAAAAAAAAAAAAAAAAAAAA';
@@ -114,5 +114,41 @@ describe('as camadas na obra da galeria', () => {
     expect(p.layers).toBeUndefined();
     const ok = sanitizePixelPiece({ ...base, layers: [{ id: 'a', name: 'A', rows: '12/2' }, { id: 'b', name: 'B', rows: '/01' }] })!;
     expect(ok.layers?.length).toBe(2);
+  });
+});
+
+describe('a pilha das camadas (as operações do ateliê)', () => {
+  const a = (id: string, rows: string[], hidden = false): Layer => ({ id, name: id, hidden, kind: 'pontos', rows });
+  const ref: Layer = { id: 'r', name: 'Foto', hidden: false, kind: 'ref', ref: { src: IMG, x: 0, y: 0, w: 1, h: 1, opacity: 0.5 } };
+
+  it('juntar com a de baixo pula a referência e fica com o nome e o lugar da de baixo', () => {
+    const out = mergeDown([a('fundo', ['11']), ref, a('cima', ['02'])], 'cima')!;
+    expect(out.into).toBe('fundo');
+    expect(out.layers.map((l) => l.id)).toEqual(['fundo', 'r']);
+    expect((out.layers[0] as { rows: string[] }).rows).toEqual(['12']);
+    expect(mergeDown([a('so', ['1'])], 'so')).toBeNull();
+  });
+
+  it('a conta da paleta em todas as camadas juntas volta cada fileira para a sua', () => {
+    const { layers, out } = acrossDots([a('x', ['12', '00']), ref, a('y', ['21', '11'])], (rows) => ({ rows: rows.map((r) => r.replace(/1/g, '3')), n: rows.length }));
+    expect(out.n).toBe(4);
+    expect(layers.map((l) => (l.kind === 'pontos' ? l.rows : 'ref'))).toEqual([['32', '00'], 'ref', ['23', '33']]);
+  });
+
+  it('mudar de lugar, pôr acima e duplicar', () => {
+    const s = [a('x', ['1']), a('y', ['2']), a('z', ['3'])];
+    expect(moveLayerTo(s, 'z', 0).map((l) => l.id)).toEqual(['z', 'x', 'y']);
+    expect(insertAbove(s, 'x', a('n', ['0'])).map((l) => l.id)).toEqual(['x', 'n', 'y', 'z']);
+    const d = duplicateLayer(s, 'y')!;
+    expect(d.layers.map((l) => l.name)).toEqual(['x', 'y', 'y cópia', 'z']);
+    expect(d.layers[2].id).toBe(d.made);
+    expect(dotsCount([...s, ref])).toBe(3);
+  });
+
+  it('a mesma pilha é a mesma; um ponto ou um nome a mais, não', () => {
+    const s = [a('x', ['1'])];
+    expect(sameStack(s, [a('x', ['1'])])).toBeTrue();
+    expect(sameStack(s, [a('x', ['2'])])).toBeFalse();
+    expect(sameStack(s, [{ ...a('x', ['1']), name: 'outro' }])).toBeFalse();
   });
 });

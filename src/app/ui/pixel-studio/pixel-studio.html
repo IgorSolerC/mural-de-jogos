@@ -7,11 +7,12 @@
   class="atelie"
   [attr.aria-labelledby]="ids + '-titulo'"
   (close)="closed.emit()"
+  (cancel)="onCancel($event)"
   (keydown)="onKey($event); $event.stopPropagation()"
   (keyup)="onKeyUp($event)"
   (paste)="onPaste($event)"
 >
-  <div class="corpo" [class.cores-abertas]="colorsOpen()">
+  <div class="corpo" [class.cores-abertas]="colorsOpen()" [attr.data-folha]="sheetTab()">
     <!-- em cima: o nome, as opções da ferramenta de agora e o que mexe na vista e no desenho todo -->
     <header class="contexto">
       <h2 class="titulo" [id]="ids + '-titulo'">
@@ -192,9 +193,14 @@
         </button>
       </div>
       <!-- no celular: as cores sobem numa folha -->
-      <button type="button" class="ferr cores-botao" [attr.aria-expanded]="colorsOpen()" aria-label="Cores" (click)="colorsOpen.set(!colorsOpen())">
+      <button type="button" class="ferr cores-botao" [attr.aria-expanded]="colorsOpen() && sheetTab() === 'cores'" aria-label="Cores" (click)="openSheet('cores')">
         <lucide-icon [img]="I.paleta" [size]="20" aria-hidden="true" />
       </button>
+      @if (layered()) {
+        <button type="button" class="ferr cores-botao" [attr.aria-expanded]="colorsOpen() && sheetTab() === 'camadas'" aria-label="Camadas" (click)="openSheet('camadas')">
+          <lucide-icon [img]="I.camadas" [size]="20" aria-hidden="true" />
+        </button>
+      }
     </nav>
 
     <!-- a mesa: a base de corte, as réguas e a folha do desenho -->
@@ -216,6 +222,14 @@
       (drop)="takeImage($event)"
     >
       <div class="folha-papel" [style.left.px]="boardLeft()" [style.top.px]="boardTop()" [style.width.px]="iw * z" [style.height.px]="ih * z">
+        <!-- as camadas de pontos à mostra, de baixo para cima (a escondida não aparece nem entra na pixel art) -->
+        @for (l of boardLayers(); track l.id) {
+          <svg class="camada" [attr.viewBox]="'0 0 ' + iw + ' ' + ih" preserveAspectRatio="none" aria-hidden="true">
+            @for (p of l.paths; track p.ink) {
+              <path [attr.d]="p.d" [attr.fill]="inks()[p.ink]" shape-rendering="crispEdges" />
+            }
+          </svg>
+        }
         <svg
           #folha
           class="folha"
@@ -229,9 +243,6 @@
           [attr.aria-describedby]="ids + '-diz'"
           data-campo="pixels"
         >
-          @for (p of paths(); track p.ink) {
-            <path [attr.d]="p.d" [attr.fill]="inks()[p.ink]" shape-rendering="crispEdges" />
-          }
           @if (showDots()) {
             <path class="fios" [attr.d]="dotLines()" />
           }
@@ -281,7 +292,13 @@
     </section>
 
     <!-- à direita: a prévia do tamanho de verdade e as cores -->
-    <aside class="painel" aria-label="Cores">
+    <aside class="painel" [attr.aria-label]="layered() ? 'Cores e camadas' : 'Cores'">
+      @if (layered()) {
+        <div class="folha-orelhas plates" role="group" aria-label="Mostrar">
+          <button type="button" class="plate" [attr.aria-pressed]="sheetTab() === 'cores'" (click)="sheetTab.set('cores')">Cores</button>
+          <button type="button" class="plate" [attr.aria-pressed]="sheetTab() === 'camadas'" (click)="sheetTab.set('camadas')">Camadas <span class="count">{{ dotsTotal() }}</span></button>
+        </div>
+      }
       <div class="previa" aria-hidden="true">
         <svg class="previa-arte" [attr.viewBox]="'0 0 ' + iw + ' ' + ih" [style.width.px]="previewScale() * iw" [style.height.px]="previewScale() * ih" shape-rendering="crispEdges">
           @for (p of paths(); track p.ink) {
@@ -290,7 +307,7 @@
         </svg>
       </div>
 
-      <div class="cores-topo">
+      <div class="cores-topo parte-cores">
         <h3 class="painel-nome">Cores <span class="painel-n">{{ count() }}</span></h3>
         <span class="paleta-linha">
           <button type="button" class="paleta-campo" aria-haspopup="dialog" [attr.aria-label]="'Paleta ' + paletteLabel() + '. Trocar'" (click)="paletteOpen.set(true)">
@@ -307,7 +324,7 @@
         </span>
       </div>
 
-      <div class="pastilhas" role="radiogroup" aria-label="Cor da frente">
+      <div class="pastilhas parte-cores" role="radiogroup" aria-label="Cor da frente">
         @for (n of swatches(); track n) {
           @let on = fg() === n;
           <button
@@ -340,7 +357,7 @@
       </div>
 
       <!-- a cor da frente: o nome dela no texto, a cor e o que dá para fazer com ela -->
-      <div class="frente-linha">
+      <div class="frente-linha parte-cores">
         <span class="frente-amostra" [class.vazia]="fg() === 0" [style.--cor]="inks()[fg()] ?? 'transparent'" aria-hidden="true"></span>
         <span class="frente-texto">
           <span class="frente-nome">{{ fg() === 0 ? 'Transparente' : 'Cor ' + inkChar(fg()) }}</span>
@@ -351,7 +368,7 @@
         }
       </div>
       @if (editing() && fg() > 0) {
-        <div class="editor-cor">
+        <div class="editor-cor parte-cores">
           <button type="button" class="editor-amostra" [style.--cor]="inks()[fg()]" aria-label="Escolher a cor no seletor do aparelho" (click)="openPicker()"></button>
           <label class="hex-campo">
             <span class="hex-nome">Hex</span>
@@ -378,6 +395,67 @@
         </div>
       }
       <input #cor type="color" class="cor-escolha" tabindex="-1" aria-hidden="true" (input)="setInkColor($any($event.target).value)" (change)="inkEdited()" />
+      <!-- as camadas: de cima para baixo, como a pilha se vê; só nas obras da galeria -->
+      @if (layered()) {
+        <section class="camadas parte-camadas" [attr.aria-labelledby]="ids + '-camadas'">
+          <div class="cores-topo">
+            <h3 class="painel-nome" [id]="ids + '-camadas'">Camadas <span class="painel-n">{{ dotsTotal() }}</span></h3>
+            <span class="paleta-linha">
+              <button type="button" class="tecla" [title]="dotsTotal() >= LAYERS_MAX ? 'Cabem ' + LAYERS_MAX + ' camadas' : 'Camada nova (Shift N)'" aria-label="Camada nova" [disabled]="dotsTotal() >= LAYERS_MAX" (click)="addLayer()">
+                <lucide-icon [img]="I.novaCamada" [size]="18" aria-hidden="true" />
+              </button>
+              <button type="button" class="tecla" title="Mais sobre a camada escolhida" aria-label="Mais sobre a camada escolhida" aria-haspopup="menu" (click)="openLayerMenu($event, current())">
+                <lucide-icon [img]="I.maisOpcoes" [size]="18" aria-hidden="true" />
+              </button>
+              <button type="button" class="tecla cores-fechar" title="Fechar as camadas" aria-label="Fechar as camadas" (click)="colorsOpen.set(false)">
+                <lucide-icon [img]="I.fechar" [size]="18" aria-hidden="true" />
+              </button>
+            </span>
+          </div>
+          <ul class="camadas-lista" role="list">
+            @for (r of layerRows(); track r.layer.id) {
+              @let l = r.layer;
+              @let on = l.id === current();
+              <li
+                class="camada-linha"
+                [class.on]="on"
+                [class.escondida]="l.hidden"
+                [class.arrastada]="layerDrag() === l.id"
+                [attr.data-camada]="l.id"
+                [attr.draggable]="naming() === l.id ? null : 'true'"
+                (dragstart)="layerDragStart($event, l.id)"
+                (dragover)="layerDragOver($event)"
+                (drop)="layerDrop($event, l.id)"
+                (dragend)="layerDrag.set(null)"
+                (contextmenu)="openLayerMenu($event, l.id)"
+              >
+                <button type="button" class="camada-olho" [attr.aria-pressed]="!l.hidden" [title]="l.hidden ? 'Mostrar (a escondida não entra na pixel art)' : 'Esconder (não entra na pixel art)'" [attr.aria-label]="(l.hidden ? 'Mostrar ' : 'Esconder ') + l.name" (click)="toggleLayer(l.id)">
+                  <lucide-icon [img]="l.hidden ? I.esconder : I.ver" [size]="16" aria-hidden="true" />
+                </button>
+                @if (naming() === l.id) {
+                  <span class="camada-miniatura" aria-hidden="true">
+                    @if (r.art; as a) {
+                      <app-pixel-thumb [art]="a" />
+                    }
+                  </span>
+                  <input class="camada-nome-campo" type="text" autocomplete="off" spellcheck="false" maxlength="40" [value]="l.name" [attr.aria-label]="'Nome da ' + l.name" (keydown)="renameKey($event, l.id)" (blur)="finishRename(l.id, $any($event.target).value)" />
+                } @else {
+                  <button type="button" class="camada-escolher" [attr.aria-current]="on ? 'true' : null" [attr.aria-label]="l.name + (l.hidden ? ', escondida' : '') + (on ? ', escolhida' : '')" [title]="on ? 'Dois cliques ou F2: renomear' : 'Pintar nesta camada'" (click)="selectLayer(l.id)" (dblclick)="startRename(l.id)">
+                    <span class="camada-miniatura" aria-hidden="true">
+                      @if (r.art; as a) {
+                        <app-pixel-thumb [art]="a" />
+                      }
+                    </span>
+                    <span class="camada-nome">{{ l.name }}</span>
+                  </button>
+                }
+              </li>
+            }
+          </ul>
+        </section>
+      } @else {
+        <p class="camadas-so-galeria parte-cores">As camadas ficam nas pixel arts da galeria; aqui, o desenho é uma camada só.</p>
+      }
       <!-- o que as teclas fazem com a ferramenta de agora -->
       <div class="dicas">
         <p class="dicas-nome">{{ toolLabel() }}</p>
@@ -443,8 +521,9 @@
   <input #arquivo class="arquivo" type="file" accept="image/*" tabindex="-1" aria-hidden="true" (change)="fromFile($event)" />
   <app-context-menu #menuImagem caption="Imagem" [sections]="imageItems()" />
   <app-context-menu #menuCores caption="Cores" [sections]="colorItems()" />
+  <app-context-menu #menuCamada [caption]="menuLayerName()" [sections]="layerItems()" />
   @if (paletteOpen()) {
-    <app-palette-sheet [rows]="rows()" [w]="iw" [h]="ih" [palette]="palette()" [colors]="colors()" (picked)="applyPalette($event)" (closed)="paletteOpen.set(false)" />
+    <app-palette-sheet [rows]="flat()" [w]="iw" [h]="ih" [palette]="palette()" [colors]="colors()" (picked)="applyPalette($event)" (closed)="paletteOpen.set(false)" />
   }
   <p class="sr-only" [id]="ids + '-diz'" aria-live="polite">{{ said() }}</p>
 
@@ -454,7 +533,7 @@
       <div class="atalhos-ficha">
         <h3 class="tamanho-titulo" [id]="ids + '-atalhos'">Atalhos do ateliê</h3>
         <div class="atalhos-colunas">
-          @for (g of KEYS; track g.title) {
+          @for (g of keyGroups(); track g.title) {
             <section class="atalhos-grupo">
               <h4 class="atalhos-grupo-nome">{{ g.title }}</h4>
               <dl class="atalhos-lista">

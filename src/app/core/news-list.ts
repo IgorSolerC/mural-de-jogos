@@ -27,6 +27,18 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-16-camadas',
+    version: '1.47.0',
+    kind: 'funcionalidade',
+    date: '2026-11-16',
+    title: 'Camadas no ateliê de pixel art',
+    items: [
+      'As pixel arts da galeria ganharam camadas: no painel do ateliê, embaixo das cores, a Camada nova (Shift+N) fica acima da escolhida, cada uma com a miniatura, o nome (dois cliques ou F2 renomeia) e o olho; arraste a fileira para mudar de lugar, e o botão direito tem Duplicar, Subir, Descer, Juntar com a de baixo (Ctrl+E) e Apagar.',
+      'As ferramentas pintam só na camada escolhida; a camada escondida fica guardada mas não entra no desenho que vai para a parede, para a capa e para o widget. Virar, girar, o tamanho da tela e as cores valem para todas.',
+      'As camadas ficam guardadas com a obra, também nos seus outros aparelhos; a pixel art de um widget, nas anotações e nas análises, continua com uma camada só.',
+    ],
+  },
+  {
     id: '2026-11-16-jeitos-pixel',
     version: '1.46.1',
     kind: 'ajustes',

@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, signal } from '@angular/core';
 import { DEFAULT_PALETTE, PALETTES, clampSide, gridOf, hasInk, inkCount, paletteWord, parseColors } from '../../core/pixel-art';
+import { StoredLayer } from '../../core/pixel-layers';
 import { WidgetValues } from '../../core/widgets';
 import { ICON, IconModule } from '../icons';
 import { PixelStudio } from './pixel-studio';
@@ -38,7 +39,7 @@ import { PixelThumb } from '../pixel-thumb';
     }
     @defer (when open()) {
       @if (open()) {
-        <app-pixel-studio [values]="values()" (changed)="changed.emit($event)" (closed)="closed()" />
+        <app-pixel-studio [values]="values()" [layered]="layered()" [stack]="stack()" (changed)="changed.emit($event)" (stackChanged)="stackChanged.emit($event)" (closed)="closed()" />
       }
     }
   `,
@@ -52,7 +53,12 @@ export class PixelField {
   /** Abre o ateliê assim que aparece (o widget novo, sem desenho). */
   readonly autoOpen = input(false);
   readonly ids = input('px');
+  /** Uma obra da galeria: o ateliê tem as camadas (PLANO-CAMADAS.md). */
+  readonly layered = input(false);
+  /** As camadas da obra (sem elas, uma só). */
+  readonly stack = input<readonly StoredLayer[] | undefined>(undefined);
   readonly changed = output<WidgetValues>();
+  readonly stackChanged = output<StoredLayer[] | undefined>();
 
   protected readonly EmptyIcon = ICON.pixelArt;
   protected readonly BrushIcon = ICON.editar;
@@ -69,7 +75,8 @@ export class PixelField {
   protected readonly summary = computed(() => {
     const n = inkCount(this.palette(), this.colors());
     const label = PALETTES.find((p) => p.value === this.palette())?.label ?? '';
-    return `${this.w()} × ${this.h()} · ${n} ${n === 1 ? 'cor' : 'cores'} · ${label}`;
+    const layers = (this.stack() ?? []).filter((l) => l.rows !== undefined).length;
+    return `${this.w()} × ${this.h()} · ${n} ${n === 1 ? 'cor' : 'cores'} · ${label}${layers > 1 ? ` · ${layers} camadas` : ''}`;
   });
 
   constructor() {

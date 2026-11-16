@@ -12,6 +12,7 @@ import { WallDrag, WallDragItem, WallDrop } from './wall-drag';
 import { collage, shelfColumns } from '../core/clipping';
 import { PixelLook } from '../core/pixel-art';
 import { FoundPixelArt, PIXEL_TAG_SPACE, PixelPiece, artValues, pieceTitle, pieceWidgetLine, pixelArtsInNotes, valuesArt } from '../core/pixel-gallery';
+import { StoredLayer } from '../core/pixel-layers';
 import { ReviewStore } from '../core/review-store';
 import { plainText } from '../core/rich-text';
 import { PixelGallery } from '../core/pixel-gallery-store';
@@ -384,7 +385,7 @@ export class PixelArtsPage {
   }
 
   /** O desenho aberto direto no ateliê (o Ateliê da etiqueta), com o que mudou até agora. */
-  protected readonly studio = signal<{ id: string; values: WidgetValues } | null>(null);
+  protected readonly studio = signal<{ id: string; values: WidgetValues; layers: StoredLayer[] | undefined } | null>(null);
 
   constructor() {
     const host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
@@ -596,12 +597,16 @@ export class PixelArtsPage {
   /** O Ateliê da etiqueta: o desenho direto no ateliê, por cima de tudo; o que mudar vai para a obra ao fechar. */
   protected atelie(id: string): void {
     const p = this.gallery.get(id);
-    if (p) this.studio.set({ id, values: artValues(p.art) });
+    if (p) this.studio.set({ id, values: artValues(p.art), layers: p.layers });
   }
 
   protected drawn(v: WidgetValues): void {
     // o ateliê manda o desenho (os pontos, a grade, a paleta, as cores): o jeito fica o da obra
     this.studio.update((s) => (s ? { ...s, values: { ...s.values, ...v } } : s));
+  }
+
+  protected restacked(layers: StoredLayer[] | undefined): void {
+    this.studio.update((s) => (s ? { ...s, layers } : s));
   }
 
   /** O ateliê fechou: o desenho mudado vai para a obra (com o Desfazer), e o foco volta para o Ateliê dela. */
@@ -612,13 +617,13 @@ export class PixelArtsPage {
     const p = this.gallery.get(s.id);
     const art = valuesArt(s.values);
     if (p && art) {
-      const undo = this.gallery.update(s.id, { art });
+      const undo = this.gallery.update(s.id, { art, layers: s.layers });
       if (undo) this.toasts.show(`“${pieceTitle(p)}” mudou na galeria`, { label: 'Desfazer', run: () => this.transitions.run(undo) });
     } else if (p) {
       this.toasts.show('Uma pixel art precisa de pelo menos um ponto: o desenho ficou como era.');
     } else if (art) {
       // apagada noutro aparelho enquanto o ateliê estava aberto: o desenho não some, vira uma obra nova
-      const made = this.gallery.create({ art, folder: this.openFolder() ?? undefined });
+      const made = this.gallery.create({ art, layers: s.layers, folder: this.openFolder() ?? undefined });
       if (made) {
         this.toasts.show('A pixel art foi apagada noutro aparelho: guardei o desenho como uma obra nova.');
         this.land(made.id);
