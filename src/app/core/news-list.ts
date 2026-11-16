@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-16-capa-limpa',
+    id: '2026-11-16-voxel-3d',
     version: '1.47.1',
     kind: 'ajustes',
     date: '2026-11-16',
@@ -41,6 +41,7 @@ export const NEWS: NewsEntry[] = [
       'A anotação finalizada tem o título riscado também na ficha do mural, como já tinha na Visão geral.',
       'O link para outra anotação tem um sublinhado mais leve: um fio fino de caneta azul clara, logo abaixo da letra, sem encostar nela (nem no japonês, nem nas pernas do g e do p).',
       'A pixel art aparece como ela é fora do ateliê: sem o papel milimetrado, o xadrez do transparente, o cartão branco ou a margem, na Mostra, na Grade, nas pastas, nas folhas de escolher e na capa feita de pixel art; na Mostra, todas do mesmo tamanho, em fileiras.',
+      'O Voxel da pixel art ficou em 3D de verdade: o desenho de pé, girado para mostrar o lado e visto um pouco de cima, sem risco entre os cubinhos da mesma cor. Na Miçanga e no Ponto-cruz, as contas e os pontos vizinhos da mesma cor se juntam, e o fundo não aparece mais entre eles; o ponto sozinho continua como era.',
     ],
     correcoes: [
       'O carimbo de Finalizada fica por cima de tudo o que está escrito na ficha: numa anotação com callouts ou tarefas, ele aparecia por baixo deles.',

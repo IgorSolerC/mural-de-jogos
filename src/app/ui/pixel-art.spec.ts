@@ -1,6 +1,6 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { inkPaths } from '../core/pixel-art';
+import { beadPaths, inkPaths, stitchFills, voxelBox } from '../core/pixel-art';
 import { PixelArt } from './pixel-art';
 
 /** O desenho da pixel art na leitura: um caminho por cor, os quatro jeitos e o lugar vazio. */
@@ -46,17 +46,32 @@ describe('pixel art (o desenho)', () => {
     expect(stitch.querySelector('figure')!.hasAttribute('data-papel-proprio')).toBeTrue();
     expect(stitch.querySelector('figure')!.classList).toContain('objeto');
     TestBed.resetTestingModule();
-    // a miçanga: as contas furadas e o brilho, sem placa
-    const beads = make(['2x2', '11/11', 'micanga']);
-    expect(beads.querySelector('.contas')!.getAttribute('fill-rule')).toBe('evenodd');
-    expect(beads.querySelector('path.luz')!.getAttribute('fill')).toMatch(/-conta\)$/);
-    expect(beads.querySelector('rect')).toBeNull();
+    // entre os pontos iguais, a linha tapa o pano (o losango, mais fundo), antes das pernas
+    const filled = [...stitch.querySelectorAll('svg.arte > g > :not(defs)')].map((e) => e.getAttribute('class'));
+    expect(filled.slice(0, 3)).toEqual(['pano', 'linha-funda', 'funda']);
+    expect([...stitch.querySelectorAll('.linha-funda path')].map((p) => p.getAttribute('fill'))).toEqual(['#1d1b22']);
+    expect(stitch.querySelector('path.funda')!.getAttribute('d')).toBe(stitchFills(['12', '11'])[0].d);
     TestBed.resetTestingModule();
-    // o voxel: os lados claros em cima e escuros à direita, debaixo das frentes; reto
+    // a miçanga: as contas furadas (pelo sentido do furo, nonzero) e derretidas nas iguais, e o brilho por cima de tudo, sem placa
+    const beads = make(['2x2', '11/11', 'micanga']);
+    expect(beads.querySelector('.contas')!.getAttribute('fill-rule')).toBeNull();
+    const bead = beads.querySelector('.contas path')!.getAttribute('d')!;
+    expect(bead).toBe(beadPaths(['11', '11'])[0].d);
+    expect(beads.querySelector('path.luz')!.getAttribute('d')).toBe(bead);
+    expect(beads.querySelector('path.luz')!.getAttribute('fill')).toMatch(/-conta\)$/);
+    expect(beads.querySelector('svg.arte > g > rect')).toBeNull();
+    TestBed.resetTestingModule();
+    // o voxel: girado no espaço, os lados (o alto claro, o direito escuro) debaixo da frente, sem risco entre os cubinhos; reto na cartolina
     const voxel = make(['2x2', '11/1', 'voxel']);
-    const order = [...voxel.querySelectorAll('svg.arte > g > path')].map((p) => p.getAttribute('class') ?? 'cor');
-    expect(order).toEqual(['cor', 'cor', 'topo', 'lado', 'cor', 'luz']);
-    expect(voxel.querySelector('svg.arte')!.getAttribute('viewBox')).toBe('-0.45 -0.45 2.9 2.9');
+    const order = [...voxel.querySelectorAll('svg.arte > g > :not(defs)')].map((p) => p.getAttribute('class'));
+    expect(order).toEqual(['lados', 'topo', 'lado', 'frente', 'luz']);
+    const box = voxelBox(2, 2);
+    expect(voxel.querySelector('svg.arte')!.getAttribute('viewBox')).toBe(`${box.x} ${box.y} ${box.w} ${box.h}`);
+    // a luz da frente é uma só, sem padrão de 1 × 1 que desenhe a grade
+    expect(voxel.querySelector('pattern')).toBeNull();
+    expect(voxel.querySelector('path.luz')!.getAttribute('fill')).toMatch(/-face\)$/);
+    // a frente e os lados no traço da própria cor (tapa a fresta entre cores, nunca um risco escuro)
+    for (const p of voxel.querySelectorAll('.lados path, .frente path')) expect(p.getAttribute('stroke')).toBe(p.getAttribute('fill'));
     expect(voxel.querySelector('figure')!.style.getPropertyValue('--giro')).toBe('0deg');
     TestBed.resetTestingModule();
     for (const [look, tile] of [

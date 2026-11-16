@@ -1,12 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { BEAD_HOLE, BEAD_R, LOOK_PAD, PixelLook, beadPath, inkArea, inkPaths, stitchArms, stitchBack, stitchFront, voxelSides } from '../core/pixel-art';
+import { BEAD_HOLE, BEAD_R, InkPath, LOOK_PAD, PixelLook, inkArea, inkPaths, lookBox, n3, stitchArms, stitchBack, stitchFills, stitchFront, voxelFaces } from '../core/pixel-art';
 
 let uid = 0;
 
 /**
  * O desenho da pixel art num jeito, dentro de um <svg> (um ponto = 1 unidade, o canto de cima à esquerda no
- * 0 0; o pano e a profundidade do voxel passam para fora, `LOOK_PAD`): o mesmo no widget (ui/pixel-art.ts)
- * e nas miniaturas dos jeitos da folha (ui/widget-sheet.html).
+ * 0 0; o pano passa para fora, `LOOK_PAD`, e o voxel girado tem o quadro dele, `lookBox`): o mesmo no
+ * widget (ui/pixel-art.ts) e nas miniaturas dos jeitos da folha (ui/widget-sheet.html).
  *
  * Cada cor é um caminho só, qualquer que seja a grade; a luz e a sombra que se repetem em todo ponto (o
  * chanfro do bloco, o pino do lego, o brilho da conta, a linha torcida do bordado) são desenhadas uma vez
@@ -15,9 +15,12 @@ let uid = 0;
  * - Pixel: os quadrados rentes.
  * - Figurinha: recortada com a borda branca que segue o contorno e a sombra de colada.
  * - Ponto-cruz: o pano de étamine com os furos, e cada ponto um X de linha de canto a canto, a perna de
- *   cima por cima da de baixo, com os fios aparecendo.
- * - Miçanga: as contas de passar a ferro, gordas e quase encostando, com o furo e o brilho de plástico.
- * - Voxel: cubinhos, a frente do desenho e a profundidade em cima (mais clara) e à direita (mais escura).
+ *   cima por cima da de baixo, com os fios aparecendo; entre dois pontos da mesma cor, a linha tapa o pano
+ *   (`stitchFills`).
+ * - Miçanga: as contas de passar a ferro, gordas e quase encostando, com o furo e o brilho de plástico; as
+ *   vizinhas da mesma cor derretidas uma na outra, sem o fundo entre elas (`beadPaths`).
+ * - Voxel: o desenho de pé, um cubinho de fundo, girado e visto um pouco de cima (`voxelFaces`): a frente, o
+ *   alto (mais claro) e o lado direito (mais escuro), cada cor uma face só, sem grade.
  * - Blocos: cada ponto um bloco chanfrado, a luz no alto e à esquerda.
  * - Lego: pecinhas 1 × 1 vistas de cima, a fresta entre elas e o pino com o brilho e a sombra.
  */
@@ -87,6 +90,13 @@ let uid = 0;
           </svg:pattern>
         </svg:defs>
         <svg:rect class="pano" [attr.x]="-pad()" [attr.y]="-pad()" [attr.width]="w() + pad() * 2" [attr.height]="h() + pad() * 2" rx=".12" [attr.fill]="'url(#' + ids + '-pano)'" />
+        <!-- entre dois pontos iguais, a linha tapa o pano: o losango do meio, mais fundo que as pernas -->
+        <svg:g class="linha-funda">
+          @for (p of fills(); track p.ink) {
+            <svg:path [attr.d]="p.d" [attr.fill]="inks()[p.ink]" />
+          }
+        </svg:g>
+        <svg:path class="funda" [attr.d]="fillsAll()" fill="#2a2014" fill-opacity=".24" />
         <!-- a sombra da linha no pano, um tico abaixo -->
         <svg:g class="linha-sombra" transform="translate(.03 .06)" fill="#3a2e1c" fill-opacity=".26">
           @for (p of arms().back; track p.ink) {
@@ -109,48 +119,56 @@ let uid = 0;
       @case ('micanga') {
         <svg:defs>
           <!-- o plástico da conta: escuro na boca do furo, o brilho em volta dele puxado para o alto à esquerda, a beirada redonda -->
-          <svg:radialGradient [attr.id]="ids + '-plastico'" cx=".5" cy=".5" [attr.r]="beadR" fx=".38" fy=".34" gradientUnits="userSpaceOnUse">
-            <svg:stop offset=".3" stop-color="#000" stop-opacity=".16" />
-            <svg:stop offset=".5" stop-color="#fff" stop-opacity=".34" />
-            <svg:stop offset=".7" stop-color="#fff" stop-opacity="0" />
-            <svg:stop offset=".88" stop-color="#000" stop-opacity=".06" />
-            <svg:stop offset="1" stop-color="#000" stop-opacity=".3" />
+          <svg:radialGradient [attr.id]="ids + '-plastico'" cx=".5" cy=".5" [attr.r]="beadShade" fx=".38" fy=".34" gradientUnits="userSpaceOnUse">
+            <svg:stop offset=".256" stop-color="#000" stop-opacity=".16" />
+            <svg:stop offset=".427" stop-color="#fff" stop-opacity=".34" />
+            <svg:stop offset=".598" stop-color="#fff" stop-opacity="0" />
+            <svg:stop offset=".752" stop-color="#000" stop-opacity=".06" />
+            <svg:stop offset=".855" stop-color="#000" stop-opacity=".28" />
+            <!-- fora da conta: o vale entre as contas derretidas, mais claro que a beirada -->
+            <svg:stop offset="1" stop-color="#000" stop-opacity=".15" />
           </svg:radialGradient>
+          <!-- o ponto inteiro: fora da conta (a ponte e o miolo entre as iguais) fica a sombra da beirada, o vale entre as contas derretidas -->
           <svg:pattern [attr.id]="ids + '-conta'" width="1" height="1" patternUnits="userSpaceOnUse">
-            <svg:path [attr.d]="bead" fill-rule="evenodd" [attr.fill]="'url(#' + ids + '-plastico)'" />
+            <svg:rect width="1" height="1" [attr.fill]="'url(#' + ids + '-plastico)'" />
             <svg:circle cx=".5" cy=".5" [attr.r]="beadHole" fill="none" stroke="#000" stroke-opacity=".2" stroke-width=".035" />
           </svg:pattern>
         </svg:defs>
-        <svg:g class="contas" fill-rule="evenodd">
+        <svg:g class="contas">
           @for (p of paths(); track p.ink) {
             <svg:path [attr.d]="p.d" [attr.fill]="inks()[p.ink]" />
           }
         </svg:g>
-        <svg:path class="luz" [attr.d]="area()" [attr.fill]="'url(#' + ids + '-conta)'" />
+        <!-- a luz por cima das contas e das pontes de todas as cores (o furo fica de fora) -->
+        <svg:path class="luz" [attr.d]="pathsAll()" [attr.fill]="'url(#' + ids + '-conta)'" />
       }
       @case ('voxel') {
         <svg:defs>
-          <!-- a frente de cada cubinho: a aresta fininha e a luz que vem do alto à esquerda -->
-          <svg:linearGradient [attr.id]="ids + '-face'" x1="0" y1="0" x2="1" y2="1">
-            <svg:stop offset="0" stop-color="#fff" stop-opacity=".14" />
-            <svg:stop offset="1" stop-color="#000" stop-opacity=".07" />
+          <!-- a luz na frente inteira, do alto à esquerda (uma só, para os cubinhos não virarem grade) -->
+          <svg:linearGradient [attr.id]="ids + '-face'" gradientUnits="userSpaceOnUse" [attr.x1]="box().x" [attr.y1]="box().y" [attr.x2]="box().x + box().w" [attr.y2]="box().y + box().h">
+            <svg:stop offset="0" stop-color="#fff" stop-opacity=".16" />
+            <svg:stop offset=".55" stop-color="#fff" stop-opacity="0" />
+            <svg:stop offset="1" stop-color="#000" stop-opacity=".12" />
           </svg:linearGradient>
-          <svg:pattern [attr.id]="ids + '-cubo'" width="1" height="1" patternUnits="userSpaceOnUse">
-            <svg:rect width="1" height="1" [attr.fill]="'url(#' + ids + '-face)'" stroke="#000" stroke-opacity=".17" stroke-width=".07" />
-          </svg:pattern>
         </svg:defs>
-        @for (p of sides().tops; track p.ink) {
-          <svg:path [attr.d]="p.d" [attr.fill]="inks()[p.ink]" />
-        }
-        @for (p of sides().rights; track p.ink) {
-          <svg:path [attr.d]="p.d" [attr.fill]="inks()[p.ink]" />
-        }
-        <svg:path class="topo" [attr.d]="topsAll()" fill="#fff" fill-opacity=".38" stroke="#000" stroke-opacity=".14" stroke-width=".03" stroke-linejoin="round" />
-        <svg:path class="lado" [attr.d]="rightsAll()" fill="#000" fill-opacity=".34" stroke="#000" stroke-opacity=".14" stroke-width=".03" stroke-linejoin="round" />
-        @for (p of paths(); track p.ink) {
-          <svg:path [attr.d]="p.d" [attr.fill]="inks()[p.ink]" />
-        }
-        <svg:path class="luz" [attr.d]="area()" [attr.fill]="'url(#' + ids + '-cubo)'" />
+        <!-- os lados primeiro (o alto claro, o direito escuro), cada cor uma face, e a frente por cima -->
+        <svg:g class="lados" stroke-linejoin="round" stroke-width=".03">
+          @for (p of faces().tops; track p.ink) {
+            <svg:path [attr.d]="p.d" [attr.fill]="inks()[p.ink]" [attr.stroke]="inks()[p.ink]" />
+          }
+          @for (p of faces().rights; track p.ink) {
+            <svg:path [attr.d]="p.d" [attr.fill]="inks()[p.ink]" [attr.stroke]="inks()[p.ink]" />
+          }
+        </svg:g>
+        <svg:path class="topo" [attr.d]="topsAll()" fill="#fff" fill-opacity=".42" />
+        <svg:path class="lado" [attr.d]="rightsAll()" fill="#000" fill-opacity=".34" />
+        <!-- a frente: o traço da própria cor tapa a fresta entre duas cores vizinhas -->
+        <svg:g class="frente" stroke-linejoin="round" stroke-width=".03">
+          @for (p of faces().fronts; track p.ink) {
+            <svg:path [attr.d]="p.d" [attr.fill]="inks()[p.ink]" [attr.stroke]="inks()[p.ink]" />
+          }
+        </svg:g>
+        <svg:path class="luz" [attr.d]="frontsAll()" [attr.fill]="'url(#' + ids + '-face)'" />
       }
       @case ('blocos') {
         <svg:defs>
@@ -220,15 +238,26 @@ export class PixelLookArt {
     [1, 1],
   ];
   protected readonly stitch = { back: stitchBack(0, 0), front: stitchFront(0, 0) };
-  protected readonly bead = beadPath(0, 0);
-  protected readonly beadR = BEAD_R;
+  /** O brilho da conta vai até a beirada dela (0,855 do raio do brilho), e o resto é o vale das pontes. */
+  protected readonly beadShade = n3(BEAD_R / 0.855);
   protected readonly beadHole = BEAD_HOLE;
 
   protected readonly pad = computed(() => LOOK_PAD[this.look()]);
-  protected readonly paths = computed(() => (this.look() === 'ponto-cruz' ? [] : inkPaths(this.rows(), this.look())));
-  protected readonly area = computed(() => (this.look() === 'pixel' || this.look() === 'figurinha' ? '' : inkArea(this.rows())));
+  protected readonly box = computed(() => lookBox(this.look(), this.w(), this.h()));
+  /** Os pontos de cada cor no desenho do jeito (o voxel e o ponto-cruz desenham as partes deles, abaixo). */
+  protected readonly paths = computed(() => (this.look() === 'ponto-cruz' || this.look() === 'voxel' ? [] : inkPaths(this.rows(), this.look())));
+  protected readonly pathsAll = computed(() => joined(this.paths()));
+  protected readonly area = computed(() => (this.look() === 'blocos' || this.look() === 'lego' || this.look() === 'ponto-cruz' ? inkArea(this.rows()) : ''));
   protected readonly arms = computed(() => (this.look() === 'ponto-cruz' ? stitchArms(this.rows()) : { back: [], front: [] }));
-  protected readonly sides = computed(() => (this.look() === 'voxel' ? voxelSides(this.rows()) : { tops: [], rights: [] }));
-  protected readonly topsAll = computed(() => this.sides().tops.map((p) => p.d).join(''));
-  protected readonly rightsAll = computed(() => this.sides().rights.map((p) => p.d).join(''));
+  protected readonly fills = computed(() => (this.look() === 'ponto-cruz' ? stitchFills(this.rows()) : []));
+  protected readonly fillsAll = computed(() => joined(this.fills()));
+  protected readonly faces = computed(() => (this.look() === 'voxel' ? voxelFaces(this.rows()) : { fronts: [], tops: [], rights: [] }));
+  protected readonly topsAll = computed(() => joined(this.faces().tops));
+  protected readonly rightsAll = computed(() => joined(this.faces().rights));
+  protected readonly frontsAll = computed(() => joined(this.faces().fronts));
+}
+
+/** Os caminhos de todas as cores num só (onde vai a luz por cima de todas). */
+function joined(paths: readonly InkPath[]): string {
+  return paths.map((p) => p.d).join('');
 }

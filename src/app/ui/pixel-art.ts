@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { LOOK_PAD, PixelLook, hasInk, inkOf, readPixelArt } from '../core/pixel-art';
+import { PixelLook, hasInk, inkOf, lookBox, readPixelArt } from '../core/pixel-art';
 import { inlineField } from '../core/widgets';
 import { ICON, IconModule } from './icons';
 import { snapToLines } from './line-snap';
@@ -17,7 +17,7 @@ const OBJECTS: ReadonlySet<PixelLook> = new Set<PixelLook>(['ponto-cruz', 'mican
  *
  * Os jeitos (Pixel, Figurinha, Ponto-cruz, Miçanga, Voxel, Blocos e Lego) são desenhados por
  * ui/pixel-look-art.ts, a mesma peça das miniaturas da folha; os que são objeto pousam com sombra e
- * um giro pequeno (o pixel é impresso, reto; o voxel fica reto para a profundidade não entortar).
+ * um giro pequeno (o pixel é impresso, reto; o voxel já vem girado no espaço, de pé e reto na cartolina).
  *
  * A legenda vai embaixo, a caneta; no modo Visual, com a peça selecionada, vira o campo dela. O broche
  * de ampliar sobe o desenho para o meio da tela (ui/piece-lift.ts), nítido em qualquer zoom.
@@ -183,17 +183,13 @@ export class PixelArt {
   protected readonly inked = computed(() => hasInk(this.art().rows));
   protected readonly inks = computed(() => inkOf(this.art().palette, this.art().colors));
   protected readonly object = computed(() => OBJECTS.has(this.art().look));
-  protected readonly pad = computed(() => LOOK_PAD[this.art().look]);
+  /** O quadro do desenho: a grade com a sobra do jeito (a borda, o pano), ou o bloco girado do voxel. */
+  protected readonly box = computed(() => lookBox(this.art().look, this.art().w, this.art().h));
   protected readonly viewBox = computed(() => {
-    const { w, h } = this.art();
-    const p = this.pad();
-    return `${-p} ${-p} ${w + p * 2} ${h + p * 2}`;
+    const b = this.box();
+    return `${b.x} ${b.y} ${b.w} ${b.h}`;
   });
-  protected readonly ratio = computed(() => {
-    const { w, h } = this.art();
-    const p = this.pad() * 2;
-    return (w + p) / (h + p);
-  });
+  protected readonly ratio = computed(() => this.box().w / this.box().h);
   /** O giro dos objetos (a figurinha, o pano, as contas, as pecinhas), do próprio desenho: entre 0,5 e 1,6 grau; o pixel e o voxel são retos. */
   protected readonly tilt = computed(() => {
     const art = this.art();

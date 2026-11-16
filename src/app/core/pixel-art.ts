@@ -190,7 +190,7 @@ export function paletteWord(a: string): PaletteName | null {
  * - `figurinha`: recortado com a borda branca seguindo o contorno, colado;
  * - `ponto-cruz`: bordado num retalho de étamine, cada ponto um X de linha que vai de canto a canto;
  * - `micanga`: as contas de passar a ferro, cada ponto uma conta gorda com o furo no meio;
- * - `voxel`: cada ponto um cubinho, o desenho de pé com a profundidade aparecendo em cima e à direita;
+ * - `voxel`: cada ponto um cubinho, o desenho de pé, girado e visto um pouco de cima, sem grade;
  * - `blocos`: cada ponto um bloco chanfrado, a luz no alto e à esquerda;
  * - `lego`: cada ponto uma pecinha 1 × 1 vista de cima, com o pino.
  */
@@ -585,10 +585,23 @@ export interface InkPath {
 }
 
 /**
- * Quanto sobra em volta dos pontos em cada jeito, em pontos: a borda da figurinha, o pano do bordado, a
- * profundidade do voxel (que sobe e vai para a direita).
+ * Quanto sobra em volta dos pontos em cada jeito, em pontos: a borda da figurinha, o pano do bordado. O
+ * voxel não tem sobra: o quadro dele é o do bloco girado (`lookBox`).
  */
-export const LOOK_PAD: Readonly<Record<PixelLook, number>> = { pixel: 0, figurinha: 1, 'ponto-cruz': 0.8, micanga: 0.06, voxel: 0.45, blocos: 0, lego: 0 };
+export const LOOK_PAD: Readonly<Record<PixelLook, number>> = { pixel: 0, figurinha: 1, 'ponto-cruz': 0.8, micanga: 0.06, voxel: 0, blocos: 0, lego: 0 };
+
+/** O quadro do desenho num jeito (o `viewBox`), em pontos: a grade com a sobra, ou o bloco girado do voxel. */
+export interface LookBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+export function lookBox(look: PixelLook, w: number, h: number): LookBox {
+  if (look === 'voxel') return voxelBox(w, h);
+  const p = LOOK_PAD[look];
+  return { x: 0 - p, y: 0 - p, w: w + p * 2, h: h + p * 2 };
+}
 
 /** Um número do desenho com três casas, no máximo (os caminhos ficam curtos). */
 export const n3 = (v: number) => Math.round(v * 1000) / 1000;
@@ -597,13 +610,46 @@ export const n3 = (v: number) => Math.round(v * 1000) / 1000;
 export const BEAD_R = 0.47;
 export const BEAD_HOLE = 0.13;
 
-/** A conta da miçanga no ponto (x, y): o círculo e o furo, para pintar com `fill-rule="evenodd"`. */
+/**
+ * A conta da miçanga no ponto (x, y): o círculo no sentido do relógio e o furo no contrário, para pintar
+ * com `fill-rule="nonzero"` (o furo fura a conta, e a ponte com a vizinha soma com ela, ver `beadPaths`).
+ */
 export function beadPath(x: number, y: number): string {
   const cx = x + 0.5;
   const cy = y + 0.5;
   const r = BEAD_R;
   const h = BEAD_HOLE;
-  return `M${n3(cx - r)} ${n3(cy)}a${r} ${r} 0 1 0 ${n3(2 * r)} 0a${r} ${r} 0 1 0 ${n3(-2 * r)} 0M${n3(cx - h)} ${n3(cy)}a${h} ${h} 0 1 0 ${n3(2 * h)} 0a${h} ${h} 0 1 0 ${n3(-2 * h)} 0`;
+  return `M${n3(cx - r)} ${n3(cy)}a${r} ${r} 0 1 1 ${n3(2 * r)} 0a${r} ${r} 0 1 1 ${n3(-2 * r)} 0M${n3(cx - h)} ${n3(cy)}a${h} ${h} 0 1 0 ${n3(2 * h)} 0a${h} ${h} 0 1 0 ${n3(-2 * h)} 0`;
+}
+
+/** Onde a ponte sai da conta, a partir do eixo entre as duas (quanto maior, mais grossa a cintura). */
+const NECK_ANGLE = (58 * Math.PI) / 180;
+/** O raio do miolo que tapa o vão entre quatro contas iguais (longe dos furos: eles ficam a 0,58 do canto). */
+export const BEAD_CORNER_R = 0.3;
+
+/**
+ * A ponte entre duas contas vizinhas da mesma cor, de centro (ax, ay) ao (bx, by), um ponto adiante: as
+ * contas derretidas uma na outra, com a cintura curva que sai tangente às duas (no sentido do relógio).
+ */
+export function beadNeck(ax: number, ay: number, bx: number, by: number): string {
+  const ux = bx - ax;
+  const uy = by - ay;
+  // a normal, a 90° do eixo no sentido do relógio da tela (o eixo para a direita, ela para baixo)
+  const px = -uy;
+  const py = ux;
+  const r = BEAD_R;
+  const c = Math.cos(NECK_ANGLE);
+  const s = Math.sin(NECK_ANGLE);
+  // a tangente na saída da conta corta o meio do caminho a esta distância do eixo
+  const mid = r * s - ((0.5 - r * c) / s) * c;
+  const at = (u: number, v: number) => `${n3(ax + ux * u + px * v)} ${n3(ay + uy * u + py * v)}`;
+  return `M${at(r * c, -r * s)}Q${at(0.5, -mid)} ${at(1 - r * c, -r * s)}L${at(1 - r * c, r * s)}Q${at(0.5, mid)} ${at(r * c, r * s)}z`;
+}
+
+/** O miolo no canto (x, y) da grade, entre quatro contas iguais (no sentido do relógio). */
+function beadCorner(x: number, y: number): string {
+  const r = BEAD_CORNER_R;
+  return `M${n3(x - r)} ${y}a${r} ${r} 0 1 1 ${n3(2 * r)} 0a${r} ${r} 0 1 1 ${n3(-2 * r)} 0`;
 }
 
 /**
@@ -634,8 +680,57 @@ export function stitchFront(x: number, y: number): string {
   return stitchArm(x + 1 - STITCH_IN, y + STITCH_IN, x + STITCH_IN, y + 1 - STITCH_IN, STITCH_W, STITCH_TIP);
 }
 
-/** Para onde vai a profundidade do voxel, em pontos: um tico para a direita e para cima. */
-export const VOXEL_DEPTH = { dx: 0.42, dy: -0.36 } as const;
+/** O pano entre dois pontos-cruz vizinhos da mesma cor: quanto o miolo fica longe do furo da ponta. */
+const STITCH_FILL_TIP = 0.12;
+
+/**
+ * O voxel visto de lado: o desenho de pé, girado `yaw` para mostrar o lado direito e visto `pitch` de cima
+ * (uma projeção paralela, como a dos programas de voxel). Um ponto (x, y) a `d` de fundo vai para
+ * (x·ax + d·dx, x·ay + y·by + d·dy): as fileiras descem um tico para a direita, o fundo sobe e vai para a
+ * direita. Com estes ângulos um lado nunca cobre outro (o fundo anda menos que um ponto), e só a frente
+ * cobre os lados: eles vão primeiro, ela por cima.
+ */
+const YAW = (30 * Math.PI) / 180;
+const PITCH = (22 * Math.PI) / 180;
+export const VOXEL_VIEW = {
+  ax: Math.cos(YAW),
+  ay: Math.sin(YAW) * Math.sin(PITCH),
+  by: Math.cos(PITCH),
+  dx: Math.sin(YAW),
+  dy: -Math.cos(YAW) * Math.sin(PITCH),
+} as const;
+/** A sobra em volta do bloco girado, em pontos (a aresta e a sombra não encostam na beira). */
+const VOXEL_MARGIN = 0.12;
+
+/** Onde cai, no desenho, o ponto (x, y) a `d` de fundo do voxel. */
+export function voxelPoint(x: number, y: number, d: number): [number, number] {
+  const v = VOXEL_VIEW;
+  return [x * v.ax + d * v.dx, x * v.ay + y * v.by + d * v.dy];
+}
+
+/** O quadro do voxel de w × h pontos: o bloco girado inteiro (a grade toda, um ponto de fundo). */
+export function voxelBox(w: number, h: number): LookBox {
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (const x of [0, w]) {
+    for (const y of [0, h]) {
+      for (const d of [0, 1]) {
+        const [px, py] = voxelPoint(x, y, d);
+        xs.push(px);
+        ys.push(py);
+      }
+    }
+  }
+  const m = VOXEL_MARGIN;
+  const x = Math.min(...xs) - m;
+  const y = Math.min(...ys) - m;
+  return { x: n3(x), y: n3(y), w: n3(Math.max(...xs) + m - x), h: n3(Math.max(...ys) + m - y) };
+}
+
+/** Um quadrilátero do voxel pelos quatro cantos (x, y, d). */
+function voxelQuad(...corners: [number, number, number][]): string {
+  return 'M' + corners.map(([x, y, d]) => voxelPoint(x, y, d).map(n3).join(' ')).join('L') + 'z';
+}
 
 /** Os pontos pintados, um por um, com a cor de cada. */
 function inkCells(rows: readonly string[]): { x: number; y: number; ink: number }[] {
@@ -661,15 +756,23 @@ function byInk(parts: Iterable<{ ink: number; d: string }>): InkPath[] {
   return [...map].sort(([a], [b]) => a - b).map(([ink, ds]) => ({ ink, d: ds.join('') }));
 }
 
+/** A cor do ponto (x, y), ou 0 fora da grade e no transparente. */
+function inkAt(rows: readonly string[], x: number, y: number): number {
+  if (y < 0 || x < 0) return 0;
+  const ch = rows[y]?.[x];
+  return ch ? Math.max(0, inkIndex(ch)) : 0;
+}
+
 /**
  * Os pontos de cada cor num caminho só (um elemento por cor, qualquer que seja a grade), no desenho do
- * jeito: os quadrados, com as sequências da fileira juntas num retângulo (o voxel, os blocos e o lego
- * pintam a luz e a sombra por cima deles), o X do ponto-cruz (as duas pernas; ver `stitchArms`) ou a
- * conta da miçanga (com o furo no meio: `fill-rule="evenodd"`).
+ * jeito: os quadrados, com as sequências da fileira juntas num retângulo (os blocos e o lego pintam a luz e
+ * a sombra por cima deles), o X do ponto-cruz (as duas pernas; ver `stitchArms`), a conta da miçanga (com
+ * o furo no meio e as pontes, ver `beadPaths`) ou a frente do voxel girado (ver `voxelFaces`).
  */
 export function inkPaths(rows: readonly string[], look: PixelLook): InkPath[] {
-  if (look === 'micanga') return byInk(inkCells(rows).map((c) => ({ ink: c.ink, d: beadPath(c.x, c.y) })));
+  if (look === 'micanga') return beadPaths(rows);
   if (look === 'ponto-cruz') return byInk(inkCells(rows).map((c) => ({ ink: c.ink, d: stitchBack(c.x, c.y) + stitchFront(c.x, c.y) })));
+  if (look === 'voxel') return voxelFaces(rows).fronts;
   const parts: { ink: number; d: string }[] = [];
   rows.forEach((row, y) => {
     for (let x = 0; x < row.length; x++) {
@@ -684,6 +787,28 @@ export function inkPaths(rows: readonly string[], look: PixelLook): InkPath[] {
   return byInk(parts);
 }
 
+/**
+ * As contas da miçanga por cor, como depois de passar o ferro: cada conta com o furo e, entre duas
+ * vizinhas da mesma cor (do lado ou embaixo), a ponte que as derrete uma na outra; onde quatro iguais se
+ * encontram, o miolo tapa o vão do meio. Assim o fundo não aparece dentro de uma mancha de cor, e a conta
+ * sozinha (ou vizinha de outra cor, ou na diagonal) continua redonda. Pintar com `fill-rule="nonzero"`.
+ */
+export function beadPaths(rows: readonly string[]): InkPath[] {
+  const parts: { ink: number; d: string }[] = [];
+  for (const c of inkCells(rows)) {
+    const { x, y, ink } = c;
+    const cx = x + 0.5;
+    const cy = y + 0.5;
+    parts.push({ ink, d: beadPath(x, y) });
+    const right = inkAt(rows, x + 1, y) === ink;
+    const below = inkAt(rows, x, y + 1) === ink;
+    if (right) parts.push({ ink, d: beadNeck(cx, cy, cx + 1, cy) });
+    if (below) parts.push({ ink, d: beadNeck(cx, cy, cx, cy + 1) });
+    if (right && below && inkAt(rows, x + 1, y + 1) === ink) parts.push({ ink, d: beadCorner(x + 1, y + 1) });
+  }
+  return byInk(parts);
+}
+
 /** As pernas do X do ponto-cruz por cor: as de baixo de todos os pontos vão antes das de cima. */
 export function stitchArms(rows: readonly string[]): { back: InkPath[]; front: InkPath[] } {
   const cells = inkCells(rows);
@@ -694,17 +819,72 @@ export function stitchArms(rows: readonly string[]): { back: InkPath[]; front: I
 }
 
 /**
- * Os lados do voxel por cor: o de cima de cada cubinho sem vizinho em cima e o da direita de cada um sem
- * vizinho à direita (os outros ficam escondidos). Vão antes das frentes, que os cobrem onde precisa.
+ * O que a linha cobre entre dois pontos-cruz vizinhos da mesma cor (do lado ou embaixo): o losango de pano
+ * entre os dois X, do meio de um ao meio do outro, até perto dos furos das pontas. A linha de pontos
+ * cheios tapa o pano como um bordado bem fechado; o ponto sozinho, ou vizinho de outra cor, mostra o pano
+ * em volta. As bordas do losango correm por baixo das pernas, que o cobrem. Onde quatro iguais se
+ * encontram, o furo do canto também some debaixo da linha.
  */
-export function voxelSides(rows: readonly string[]): { tops: InkPath[]; rights: InkPath[] } {
-  const { dx, dy } = VOXEL_DEPTH;
-  const inked = (x: number, y: number) => y >= 0 && inkIndex(rows[y]?.[x] ?? '0') > 0;
-  const cells = inkCells(rows);
-  return {
-    tops: byInk(cells.map((c) => ({ ink: c.ink, d: inked(c.x, c.y - 1) ? '' : `M${c.x} ${c.y}l${dx} ${dy}h1l${-dx} ${-dy}z` }))),
-    rights: byInk(cells.map((c) => ({ ink: c.ink, d: inked(c.x + 1, c.y) ? '' : `M${c.x + 1} ${c.y}l${dx} ${dy}v1l${-dx} ${-dy}z` }))),
-  };
+export function stitchFills(rows: readonly string[]): InkPath[] {
+  const e = STITCH_FILL_TIP;
+  const parts: { ink: number; d: string }[] = [];
+  for (const { x, y, ink } of inkCells(rows)) {
+    const cx = x + 0.5;
+    const cy = y + 0.5;
+    const right = inkAt(rows, x + 1, y) === ink;
+    const below = inkAt(rows, x, y + 1) === ink;
+    if (right) parts.push({ ink, d: `M${cx} ${cy}L${x + 1} ${n3(y + e)}L${cx + 1} ${cy}L${x + 1} ${n3(y + 1 - e)}z` });
+    if (below) parts.push({ ink, d: `M${cx} ${cy}L${n3(x + 1 - e)} ${y + 1}L${cx} ${cy + 1}L${n3(x + e)} ${y + 1}z` });
+    if (right && below && inkAt(rows, x + 1, y + 1) === ink) {
+      const r = e + 0.12;
+      parts.push({ ink, d: `M${x + 1} ${n3(y + 1 - r)}L${n3(x + 1 + r)} ${y + 1}L${x + 1} ${n3(y + 1 + r)}L${n3(x + 1 - r)} ${y + 1}z` });
+    }
+  }
+  return byInk(parts);
+}
+
+/**
+ * As faces do voxel girado, por cor (ver `VOXEL_VIEW`): a frente de cada fileira, o alto dos cubinhos sem
+ * vizinho em cima e o lado direito dos sem vizinho à direita (os outros lados ficam escondidos). Cubinhos
+ * vizinhos da mesma cor viram uma face só, sem risco entre eles: a sequência da fileira (na frente e no
+ * alto) e a da coluna (no lado). Os lados vão antes das frentes, que os cobrem onde precisa.
+ */
+export function voxelFaces(rows: readonly string[]): { fronts: InkPath[]; tops: InkPath[]; rights: InkPath[] } {
+  const fronts: { ink: number; d: string }[] = [];
+  const tops: { ink: number; d: string }[] = [];
+  const rights: { ink: number; d: string }[] = [];
+  const width = Math.max(0, ...rows.map((r) => r.length));
+  rows.forEach((row, y) => {
+    for (let x = 0; x < row.length; x++) {
+      const ink = inkAt(rows, x, y);
+      if (!ink) continue;
+      let end = x;
+      while (inkAt(rows, end + 1, y) === ink) end++;
+      fronts.push({ ink, d: voxelQuad([x, y, 0], [end + 1, y, 0], [end + 1, y + 1, 0], [x, y + 1, 0]) });
+      x = end;
+    }
+    // o alto: a sequência da mesma cor sem ninguém em cima
+    for (let x = 0; x < row.length; x++) {
+      const ink = inkAt(rows, x, y);
+      if (!ink || inkAt(rows, x, y - 1)) continue;
+      let end = x;
+      while (inkAt(rows, end + 1, y) === ink && !inkAt(rows, end + 1, y - 1)) end++;
+      tops.push({ ink, d: voxelQuad([x, y, 0], [end + 1, y, 0], [end + 1, y, 1], [x, y, 1]) });
+      x = end;
+    }
+  });
+  // o lado direito: a sequência da mesma cor na coluna, sem ninguém à direita
+  for (let x = 0; x < width; x++) {
+    for (let y = 0; y < rows.length; y++) {
+      const ink = inkAt(rows, x, y);
+      if (!ink || inkAt(rows, x + 1, y)) continue;
+      let end = y;
+      while (inkAt(rows, x, end + 1) === ink && !inkAt(rows, x + 1, end + 1)) end++;
+      rights.push({ ink, d: voxelQuad([x + 1, y, 0], [x + 1, y, 1], [x + 1, end + 1, 1], [x + 1, end + 1, 0]) });
+      y = end;
+    }
+  }
+  return { fronts: byInk(fronts), tops: byInk(tops), rights: byInk(rights) };
 }
 
 /**

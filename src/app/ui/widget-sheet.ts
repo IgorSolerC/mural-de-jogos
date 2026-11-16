@@ -114,13 +114,16 @@ export class WidgetSheet {
   };
   /** As miniaturas dos jeitos da pixel art: um coraçãozinho de 7 × 6, desenhado como a peça desenha cada jeito. */
   protected readonly pixelTile = TILE_HEART;
-  /** Onde o coraçãozinho fica na miniatura de 64 × 48 de cada jeito: os objetos pousam um tico tortos. */
+  /**
+   * Onde o coraçãozinho fica na miniatura de 64 × 48 de cada jeito: os objetos pousam um tico tortos; o
+   * voxel, girado no espaço, é mais alto que a grade (`voxelBox`) e vai um tico menor, no meio.
+   */
   protected readonly pixelTileAt: Record<PixelLook, string> = {
     pixel: 'translate(14.5 9) scale(5)',
     figurinha: 'rotate(-4 32 24) translate(14.5 9) scale(5)',
     'ponto-cruz': 'rotate(2 32 24) translate(14.5 9) scale(5)',
     micanga: 'rotate(-2 32 24) translate(14.5 9) scale(5)',
-    voxel: 'translate(13.5 11) scale(5)',
+    voxel: 'translate(16.9 8.9) scale(4.6)',
     blocos: 'rotate(-2 32 24) translate(14.5 9) scale(5)',
     lego: 'rotate(2 32 24) translate(14.5 9) scale(5)',
   };

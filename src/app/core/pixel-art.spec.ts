@@ -1,4 +1,4 @@
-import { INK_MAX, PALETTES, PIXEL_LOOKS, compressRow, drawingInks, expandRow, gridOf, inkChar, inkCount, inkIndex, inkArea, inkOf, inkPaths, normalHex, paintCells, paletteWord, parseColors, parseDims, pixelLookWord, readPixelArt, stitchArms, voxelSides, writeColors, writeGrid, writePixelArt } from './pixel-art';
+import { BEAD_R, INK_MAX, PALETTES, PIXEL_LOOKS, VOXEL_VIEW, beadNeck, beadPath, beadPaths, compressRow, drawingInks, expandRow, gridOf, inkChar, inkCount, inkIndex, inkArea, inkOf, inkPaths, lookBox, normalHex, paintCells, paletteWord, parseColors, parseDims, pixelLookWord, readPixelArt, stitchArms, stitchFills, voxelBox, voxelFaces, voxelPoint, writeColors, writeGrid, writePixelArt } from './pixel-art';
 import { parseWidgetLine, widgetDef, widgetLine, widgetSpoken } from './widgets';
 
 /** A pixel art no texto (PLANO-PIXEL.md, seção 1): poucas letras, lidas em qualquer ordem, escritas sempre iguais. */
@@ -234,8 +234,8 @@ describe('pixel art: a marca no texto', () => {
     expect(readPixelArt(named).look).toBe('pixel');
   });
 
-  it('os caminhos de cada jeito: a conta com o furo, o X em duas pernas, os lados do voxel e a área de todos', () => {
-    // a conta: o círculo e o furo, os dois no mesmo caminho (o evenodd fura)
+  it('os caminhos de cada jeito: a conta com o furo, o X em duas pernas e a área de todos', () => {
+    // a conta: o círculo e o furo, os dois no mesmo caminho; na diagonal, nenhuma ponte
     const beads = inkPaths(['10', '01'], 'micanga');
     expect(beads.length).toBe(1);
     expect(beads[0].d.match(/M/g)!.length).toBe(4);
@@ -244,18 +244,148 @@ describe('pixel art: a marca no texto', () => {
     expect(arms.back.map((p) => p.ink)).toEqual([1, 2]);
     expect(arms.front.map((p) => p.ink)).toEqual([1, 2]);
     expect(inkPaths(['12'], 'ponto-cruz')[0].d).toBe(arms.back[0].d + arms.front[0].d);
-    // o voxel: em cima só sem vizinho em cima, à direita só sem vizinho à direita
-    const sides = voxelSides(['11', '10']);
-    expect(sides.tops[0].d.match(/M/g)!.length).toBe(2);
-    expect(sides.rights[0].d.match(/M/g)!.length).toBe(2);
-    expect(sides.rights[0].d).toContain('M2 0');
-    expect(sides.rights[0].d).toContain('M1 1');
     // os blocos e o lego são os quadrados do pixel, com a luz por cima
     expect(inkPaths(['1120'], 'blocos')).toEqual(inkPaths(['1120'], 'pixel'));
     expect(inkPaths(['1120'], 'lego')).toEqual(inkPaths(['1120'], 'pixel'));
     // a área: todos os pontos juntos, qualquer cor
     expect(inkArea(['12a0', '0Z00'])).toBe('M0 0h3v1h-3zM1 1h1v1h-1z');
     expect(inkArea(['000'])).toBe('');
+  });
+
+  /** Se o ponto (x, y) cai dentro do caminho, pintado como o desenho pinta (nonzero). */
+  function inside(d: string, x: number, y: number): boolean {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', d);
+    svg.appendChild(path);
+    document.body.appendChild(svg);
+    const p = svg.createSVGPoint();
+    p.x = x;
+    p.y = y;
+    const yes = path.isPointInFill(p);
+    svg.remove();
+    return yes;
+  }
+
+  it('a miçanga: as contas iguais vizinhas derretem uma na outra, e o fundo não aparece entre elas', () => {
+    const one = beadPaths(['1'])[0].d;
+    // a conta sozinha: redonda, furada (o furo no sentido contrário), sem ponte
+    expect(one).toBe(beadPath(0, 0));
+    expect(inside(one, 0.5, 0.5)).toBeFalse();
+    expect(inside(one, 0.5, 0.2)).toBeTrue();
+    expect(inside(one, 0.03, 0.03)).toBeFalse();
+    // duas iguais lado a lado: a ponte no meio, com a cintura mais fina que a conta e longe dos furos
+    const pair = beadPaths(['11'])[0].d;
+    expect(inside(pair, 1, 0.5)).toBeTrue();
+    expect(inside(pair, 1, 0.5 - 0.2)).toBeTrue();
+    expect(inside(pair, 1, 0.5 - BEAD_R + 0.02)).toBeFalse();
+    expect(inside(pair, 0.5, 0.5)).toBeFalse();
+    expect(inside(pair, 1.5, 0.5)).toBeFalse();
+    // e uma embaixo da outra
+    expect(inside(beadPaths(['1', '1'])[0].d, 0.5, 1)).toBeTrue();
+    // de cores diferentes, nenhuma ponte: o fundo aparece entre elas
+    const two = beadPaths(['12']);
+    expect(two.length).toBe(2);
+    expect(two.some((p) => inside(p.d, 1, 0.5))).toBeFalse();
+    // quatro iguais: o miolo tapa o vão do meio; os quatro furos continuam furados
+    const four = beadPaths(['11', '11'])[0].d;
+    expect(inside(four, 1, 1)).toBeTrue();
+    expect(inside(four, 1.15, 0.85)).toBeTrue();
+    for (const [x, y] of [[0.5, 0.5], [1.5, 0.5], [0.5, 1.5], [1.5, 1.5]]) expect(inside(four, x, y)).withContext(`furo ${x} ${y}`).toBeFalse();
+    // três num L: as pontes, sem miolo para o lado do que falta (o canto não incha)
+    const ell = beadPaths(['11', '10'])[0].d;
+    expect(inside(ell, 1, 0.5)).toBeTrue();
+    expect(inside(ell, 0.5, 1)).toBeTrue();
+    expect(inside(ell, 1.1, 1.1)).toBeFalse();
+    // na diagonal, cada uma redonda
+    expect(inside(beadPaths(['10', '01'])[0].d, 1, 1)).toBeFalse();
+    // a ponte sai tangente: os dois lados dela começam e acabam em cima da beirada das contas
+    const neck = beadNeck(0.5, 0.5, 1.5, 0.5);
+    for (const [x, y] of neck.match(/[ML]-?[\d.]+ -?[\d.]+/g)!.map((s) => s.slice(1).split(' ').map(Number))) {
+      const r = Math.min(Math.hypot(x - 0.5, y - 0.5), Math.hypot(x - 1.5, y - 0.5));
+      expect(Math.abs(r - BEAD_R)).toBeLessThan(0.002);
+    }
+  });
+
+  it('o ponto-cruz: entre dois pontos iguais a linha tapa o pano; o ponto sozinho e o de outra cor mostram o pano', () => {
+    expect(stitchFills(['1'])).toEqual([]);
+    expect(stitchFills(['12'])).toEqual([]);
+    expect(stitchFills(['10', '01'])).toEqual([]);
+    // lado a lado: o losango entre os dois X, de um meio ao outro, sem chegar no furo de cima nem no de baixo
+    const pair = stitchFills(['11'])[0].d;
+    expect(inside(pair, 1, 0.5)).toBeTrue();
+    expect(inside(pair, 0.75, 0.5)).toBeTrue();
+    expect(inside(pair, 1, 0.03)).toBeFalse();
+    expect(inside(pair, 1, 0.97)).toBeFalse();
+    // um embaixo do outro
+    expect(inside(stitchFills(['1', '1'])[0].d, 0.5, 1)).toBeTrue();
+    // quatro iguais: até o furo do canto do meio some; as beiradas de fora continuam pano
+    const four = stitchFills(['11', '11'])[0].d;
+    expect(inside(four, 1, 1)).toBeTrue();
+    expect(inside(four, 1.04, 0.96)).toBeTrue();
+    expect(inside(four, 0.05, 1)).toBeFalse();
+    // num L, o canto do que falta continua pano
+    const ell = stitchFills(['11', '10'])[0].d;
+    expect(inside(ell, 1.1, 1.1)).toBeFalse();
+    // a cor de cada um: o losango é da cor dos dois
+    expect(stitchFills(['22', '11']).map((p) => p.ink)).toEqual([1, 2]);
+  });
+
+  it('o voxel girado: a frente desce um tico para a direita, o fundo sobe e vai para a direita, e o quadro cabe tudo', () => {
+    const [x1] = voxelPoint(1, 0, 0);
+    const [, y1] = voxelPoint(1, 0, 0);
+    expect(x1).toBeLessThan(1);
+    expect(y1).toBeGreaterThan(0.1);
+    const [dx, dy] = voxelPoint(0, 0, 1);
+    expect(dx).toBeGreaterThan(0.4);
+    expect(dy).toBeLessThan(-0.25);
+    // com estes ângulos um lado nunca cobre o de outro cubinho: o fundo anda menos de um ponto até a frente
+    expect(VOXEL_VIEW.dx / VOXEL_VIEW.ax).toBeLessThan(1);
+    expect(-VOXEL_VIEW.dy / VOXEL_VIEW.by).toBeLessThan(1);
+    // o quadro: todos os cantos do bloco dentro dele
+    const box = voxelBox(16, 13);
+    for (const x of [0, 16]) {
+      for (const y of [0, 13]) {
+        for (const d of [0, 1]) {
+          const [px, py] = voxelPoint(x, y, d);
+          expect(px).toBeGreaterThan(box.x);
+          expect(px).toBeLessThan(box.x + box.w);
+          expect(py).toBeGreaterThan(box.y);
+          expect(py).toBeLessThan(box.y + box.h);
+        }
+      }
+    }
+    expect(lookBox('voxel', 16, 13)).toEqual(box);
+    // os outros jeitos: a grade com a sobra
+    expect(lookBox('ponto-cruz', 4, 3)).toEqual({ x: -0.8, y: -0.8, w: 5.6, h: 4.6 });
+    expect(lookBox('pixel', 4, 3)).toEqual({ x: 0, y: 0, w: 4, h: 3 });
+  });
+
+  it('o voxel sem grade: cubinhos vizinhos da mesma cor são uma face só, na frente, no alto e no lado', () => {
+    // três iguais numa fileira: uma frente, um alto e um lado, cada um um quadrilátero só
+    const row = voxelFaces(['111']);
+    expect(row.fronts.length).toBe(1);
+    for (const f of [row.fronts, row.tops, row.rights]) expect(f[0].d.match(/M/g)!.length).withContext(f[0].d).toBe(1);
+    expect(inside(row.fronts[0].d, ...voxelPoint(1, 0.5, 0))).toBeTrue();
+    expect(row.fronts[0].d).toBe(inkPaths(['111'], 'voxel')[0].d);
+    // uma coluna de três iguais: o lado direito de cima a baixo num quadrilátero só, o alto só no de cima
+    const col = voxelFaces(['1', '1', '1']);
+    expect(col.rights[0].d.match(/M/g)!.length).toBe(1);
+    expect(col.tops[0].d.match(/M/g)!.length).toBe(1);
+    expect(inside(col.rights[0].d, ...voxelPoint(1, 2.5, 0.5))).toBeTrue();
+    // cores diferentes: faces separadas, cada uma da sua cor
+    const two = voxelFaces(['12']);
+    expect(two.fronts.map((p) => p.ink)).toEqual([1, 2]);
+    expect(two.tops.map((p) => p.ink)).toEqual([1, 2]);
+    // o lado direito do 1 fica escondido pelo 2; o alto do de baixo, pelo de cima
+    expect(two.rights.map((p) => p.ink)).toEqual([2]);
+    const stack = voxelFaces(['1', '2']);
+    expect(stack.tops.map((p) => p.ink)).toEqual([1]);
+    // o alto de uma fileira com um vizinho em cima no meio: dois pedaços, um de cada lado
+    const notch = voxelFaces(['010', '111']);
+    expect(notch.tops.map((p) => p.d.match(/M/g)!.length)).toEqual([3]);
+    // o transparente não tem face
+    expect(voxelFaces(['000'])).toEqual({ fronts: [], tops: [], rights: [] });
   });
 
   it('as linhas antigas, só de algarismos, leem e se escrevem exatamente como antes', () => {
