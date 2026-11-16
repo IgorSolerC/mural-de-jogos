@@ -9,9 +9,10 @@ import { WishTags } from './wish-tags';
 
 /**
  * Uma obra na Mostra da galeria de pixel arts (PLANO-PIXEL-ARTS.md, 1): cada uma no material dela, como numa
- * mostra de trabalhos manuais pregada na parede. O desenho é o do widget (`app-pixel-art`, os quatro jeitos): o
+ * mostra de trabalhos manuais pregada na parede. O desenho é o do widget (`app-pixel-art`, os sete jeitos): o
  * Pixel impresso num quadrado de papel milimetrado preso com a tachinha; a Figurinha recortada, colada direto na
- * parede; o Ponto-cruz no retalho de étamine; a Miçanga na placa de pinos. Embaixo, fora da obra, a legenda de
+ * parede; o Ponto-cruz no retalho de étamine; a Miçanga pousada na placa de plástico clara (a conta preta sumiria na
+ * parede escura); o Voxel, os Blocos e o Lego direto na parede, a luz das peças marcando cada uma. Embaixo, fora da obra, a legenda de
  * museu: o título e as tags (a legenda da Wishlist). Tocar abre a ficha; com a mão em cima, a etiqueta (Ateliê e
  * Baixar) acima da obra e, um instante depois, a descrição na folha do caderno ao lado (a da Wishlist). Sem
  * mouse, a etiqueta fica no pé, ao lado do título.
@@ -35,6 +36,11 @@ import { WishTags } from './wish-tags';
         <!-- o Pixel é impresso: o papel milimetrado, preso com a tachinha -->
         <span class="milimetrado">
           <app-pin class="pin" [color]="pin()" />
+          <app-pixel-art class="arte" [args]="p.art" />
+        </span>
+      } @else if (look() === 'micanga') {
+        <!-- as contas pousam na placa de plástico clara (as escuras sumiriam na parede) -->
+        <span class="placa">
           <app-pixel-art class="arte" [args]="p.art" />
         </span>
       } @else {
@@ -78,7 +84,8 @@ import { WishTags } from './wish-tags';
 
     /* a obra e o papel são contêineres: o teto da altura do desenho (abaixo) se mede pela largura deles */
     .obra,
-    .milimetrado {
+    .milimetrado,
+    .placa {
       container-type: inline-size;
     }
     .obra {
@@ -136,10 +143,30 @@ import { WishTags } from './wish-tags';
       top: -10px;
       left: calc(50% - 13px);
     }
-    /* a placa de pinos é plástico claro: na cartolina ela é translúcida, mas na parede escura viraria cinza e
-       apagaria as contas; aqui fica do branco do plástico */
-    .jeito-micanga .arte ::ng-deep .placa {
-      fill: #eeebe3;
+    /* a placa das contas: plástico claro de cantos redondos, com a sombra de quem está pousado na parede, torta
+       pelo id como o papel milimetrado; as contas dentro ficam retas nela e sem a sombra do widget */
+    .placa {
+      display: block;
+      padding: 7%;
+      border-radius: 6%;
+      background: #e3ded3;
+      box-shadow:
+        inset 0 0 0 1px rgb(0 0 0 / 0.06),
+        var(--shadow-card);
+      rotate: calc(var(--tilt, 0) * 1deg);
+      transition: box-shadow var(--t-ui) var(--ease-ui);
+    }
+    .placa .arte ::ng-deep .desenho {
+      rotate: none;
+    }
+    .placa .arte ::ng-deep .objeto .arte {
+      filter: none;
+    }
+    :host(:hover) .placa,
+    :host(:focus-within) .placa {
+      box-shadow:
+        inset 0 0 0 1px rgb(0 0 0 / 0.06),
+        var(--shadow-lift);
     }
     /* a figurinha colada direto na parede: a sombra rente de quem está colado */
     .jeito-figurinha .arte {

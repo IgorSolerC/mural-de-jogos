@@ -1,4 +1,4 @@
-import { INK_MAX, PALETTES, compressRow, drawingInks, expandRow, gridOf, inkChar, inkCount, inkIndex, inkOf, inkPaths, normalHex, paintCells, paletteWord, parseColors, parseDims, readPixelArt, writeColors, writeGrid, writePixelArt } from './pixel-art';
+import { INK_MAX, PALETTES, PIXEL_LOOKS, compressRow, drawingInks, expandRow, gridOf, inkChar, inkCount, inkIndex, inkArea, inkOf, inkPaths, normalHex, paintCells, paletteWord, parseColors, parseDims, pixelLookWord, readPixelArt, stitchArms, voxelSides, writeColors, writeGrid, writePixelArt } from './pixel-art';
 import { parseWidgetLine, widgetDef, widgetLine, widgetSpoken } from './widgets';
 
 /** A pixel art no texto (PLANO-PIXEL.md, seção 1): poucas letras, lidas em qualquer ordem, escritas sempre iguais. */
@@ -219,6 +219,43 @@ describe('pixel art: a marca no texto', () => {
     const paths = inkPaths(['aab', '0Z0'], 'pixel');
     expect(paths.map((p) => p.ink)).toEqual([10, 11, 61]);
     expect(paths[0].d).toBe('M0 0h2v1h-2z');
+  });
+
+  it('os sete jeitos: cada um tem a palavra dele, e a legenda que é a palavra de um continua legenda', () => {
+    expect(PIXEL_LOOKS.map((l) => l.value)).toEqual(['pixel', 'figurinha', 'ponto-cruz', 'micanga', 'voxel', 'blocos', 'lego']);
+    for (const l of PIXEL_LOOKS) expect(pixelLookWord(l.value)).toBe(l.value);
+    expect(pixelLookWord('Voxels')).toBe('voxel');
+    expect(pixelLookWord('LEGO')).toBe('lego');
+    expect(readPixelArt(['2x1', '12', 'lego']).look).toBe('lego');
+    // a legenda "Blocos" vai depois do jeito escrito, e volta como legenda
+    const named = writePixelArt({ ...readPixelArt(['2x1', '12']), caption: 'Blocos' })!;
+    expect(named).toEqual(['2x1', '12', 'classica', 'pixel', 'Blocos']);
+    expect(readPixelArt(named).caption).toBe('Blocos');
+    expect(readPixelArt(named).look).toBe('pixel');
+  });
+
+  it('os caminhos de cada jeito: a conta com o furo, o X em duas pernas, os lados do voxel e a área de todos', () => {
+    // a conta: o círculo e o furo, os dois no mesmo caminho (o evenodd fura)
+    const beads = inkPaths(['10', '01'], 'micanga');
+    expect(beads.length).toBe(1);
+    expect(beads[0].d.match(/M/g)!.length).toBe(4);
+    // o X: uma perna de baixo e uma de cima por ponto, separadas por cor
+    const arms = stitchArms(['12']);
+    expect(arms.back.map((p) => p.ink)).toEqual([1, 2]);
+    expect(arms.front.map((p) => p.ink)).toEqual([1, 2]);
+    expect(inkPaths(['12'], 'ponto-cruz')[0].d).toBe(arms.back[0].d + arms.front[0].d);
+    // o voxel: em cima só sem vizinho em cima, à direita só sem vizinho à direita
+    const sides = voxelSides(['11', '10']);
+    expect(sides.tops[0].d.match(/M/g)!.length).toBe(2);
+    expect(sides.rights[0].d.match(/M/g)!.length).toBe(2);
+    expect(sides.rights[0].d).toContain('M2 0');
+    expect(sides.rights[0].d).toContain('M1 1');
+    // os blocos e o lego são os quadrados do pixel, com a luz por cima
+    expect(inkPaths(['1120'], 'blocos')).toEqual(inkPaths(['1120'], 'pixel'));
+    expect(inkPaths(['1120'], 'lego')).toEqual(inkPaths(['1120'], 'pixel'));
+    // a área: todos os pontos juntos, qualquer cor
+    expect(inkArea(['12a0', '0Z00'])).toBe('M0 0h3v1h-3zM1 1h1v1h-1z');
+    expect(inkArea(['000'])).toBe('');
   });
 
   it('as linhas antigas, só de algarismos, leem e se escrevem exatamente como antes', () => {

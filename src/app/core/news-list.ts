@@ -27,16 +27,18 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-16-pontilhado',
+    id: '2026-11-16-jeitos-pixel',
     version: '1.46.1',
     kind: 'ajustes',
     date: '2026-11-16',
-    title: 'Capas sem link e o pontilhado no ateliê',
+    title: 'Capas sem link, o pontilhado no ateliê e jeitos novos de pixel art',
     melhorias: [
       'A capa das fichas, das anotações, dos recortes da Wishlist e do Pra depois pode vir do aparelho: o Escolher do aparelho na parte Capa, colar uma imagem copiada (Ctrl+V) ou soltar o arquivo em cima das capas. Ela é guardada como as imagens das anotações, também nos seus outros aparelhos e para quem vê a ficha pública.',
       'Uma pixel art da sua galeria também vira capa: o Pixel art na parte Capa abre a folha da galeria, em grade, com a busca e os filtros (as pastas, o jeito, quando foi mexida e as tags), e a escolhida sai impressa no papel milimetrado, nítida, sem borrar. O Desenhar uma nova abre o ateliê ali mesmo: o desenho vira a capa e fica guardado na galeria com o nome da ficha.',
       'O widget de pixel art das anotações também anexa uma obra da galeria: o novo já abre a mesma folha (com o Desenhar uma nova, para desenhar na hora), e o Escolher da galeria troca o desenho de um que já está no texto.',
       'O lápis e a borracha do ateliê de pixel art ganharam o Pontilhado (o dithering): no Par ou no Ímpar, o traço pinta um ponto sim, um não, em xadrez, e pula os outros sozinho; cada tecla mostra o xadrez que pinta, e a mira contorna os pontos pulados.',
+      'A pixel art ganhou três jeitos: Voxel (cada ponto um cubinho, com a profundidade aparecendo), Blocos (blocos chanfrados) e Lego (pecinhas vistas de cima, com o pino).',
+      'O Ponto-cruz e a Miçanga foram refeitos para o desenho se ler de longe: o X de linha vai de canto a canto no pano de étamine, com os fios aparecendo, e as contas são as de passar a ferro, gordas e quase encostando; na galeria, a Miçanga pousa numa placa clara.',
     ],
   },
   {

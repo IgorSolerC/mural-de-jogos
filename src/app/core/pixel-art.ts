@@ -188,15 +188,21 @@ export function paletteWord(a: string): PaletteName | null {
  * Os jeitos do desenho:
  * - `pixel`: os quadradinhos rentes na cartolina (o de sempre);
  * - `figurinha`: recortado com a borda branca seguindo o contorno, colado;
- * - `ponto-cruz`: bordado num retalho de étamine, cada ponto um X de linha;
- * - `micanga`: contas redondas numa placa de pinos.
+ * - `ponto-cruz`: bordado num retalho de étamine, cada ponto um X de linha que vai de canto a canto;
+ * - `micanga`: as contas de passar a ferro, cada ponto uma conta gorda com o furo no meio;
+ * - `voxel`: cada ponto um cubinho, o desenho de pé com a profundidade aparecendo em cima e à direita;
+ * - `blocos`: cada ponto um bloco chanfrado, a luz no alto e à esquerda;
+ * - `lego`: cada ponto uma pecinha 1 × 1 vista de cima, com o pino.
  */
-export type PixelLook = 'pixel' | 'figurinha' | 'ponto-cruz' | 'micanga';
+export type PixelLook = 'pixel' | 'figurinha' | 'ponto-cruz' | 'micanga' | 'voxel' | 'blocos' | 'lego';
 export const PIXEL_LOOKS: readonly { value: PixelLook; label: string }[] = [
   { value: 'pixel', label: 'Pixel' },
   { value: 'figurinha', label: 'Figurinha' },
   { value: 'ponto-cruz', label: 'Ponto-cruz' },
   { value: 'micanga', label: 'Miçanga' },
+  { value: 'voxel', label: 'Voxel' },
+  { value: 'blocos', label: 'Blocos' },
+  { value: 'lego', label: 'Lego' },
 ];
 export const DEFAULT_PIXEL_LOOK: PixelLook = 'pixel';
 const LOOK_WORDS: Record<string, PixelLook> = {
@@ -210,6 +216,10 @@ const LOOK_WORDS: Record<string, PixelLook> = {
   micanga: 'micanga',
   micangas: 'micanga',
   contas: 'micanga',
+  voxel: 'voxel',
+  voxels: 'voxel',
+  blocos: 'blocos',
+  lego: 'lego',
 };
 export function pixelLookWord(a: string): PixelLook | null {
   const k = key(a);
@@ -574,41 +584,138 @@ export interface InkPath {
   d: string;
 }
 
-/** Quanto sobra em volta dos pontos em cada jeito, em pontos: a borda da figurinha, o pano, a placa. */
-export const LOOK_PAD: Readonly<Record<PixelLook, number>> = { pixel: 0, figurinha: 1, 'ponto-cruz': 0.8, micanga: 0.45 };
+/**
+ * Quanto sobra em volta dos pontos em cada jeito, em pontos: a borda da figurinha, o pano do bordado, a
+ * profundidade do voxel (que sobe e vai para a direita).
+ */
+export const LOOK_PAD: Readonly<Record<PixelLook, number>> = { pixel: 0, figurinha: 1, 'ponto-cruz': 0.8, micanga: 0.06, voxel: 0.45, blocos: 0, lego: 0 };
 
 /** Um número do desenho com três casas, no máximo (os caminhos ficam curtos). */
 export const n3 = (v: number) => Math.round(v * 1000) / 1000;
 
+/** O raio da conta da miçanga e o do furo dela, em pontos (a conta quase encosta na vizinha). */
+export const BEAD_R = 0.47;
+export const BEAD_HOLE = 0.13;
+
+/** A conta da miçanga no ponto (x, y): o círculo e o furo, para pintar com `fill-rule="evenodd"`. */
+export function beadPath(x: number, y: number): string {
+  const cx = x + 0.5;
+  const cy = y + 0.5;
+  const r = BEAD_R;
+  const h = BEAD_HOLE;
+  return `M${n3(cx - r)} ${n3(cy)}a${r} ${r} 0 1 0 ${n3(2 * r)} 0a${r} ${r} 0 1 0 ${n3(-2 * r)} 0M${n3(cx - h)} ${n3(cy)}a${h} ${h} 0 1 0 ${n3(2 * h)} 0a${h} ${h} 0 1 0 ${n3(-2 * h)} 0`;
+}
+
+/**
+ * Uma perna do X do ponto-cruz, de (ax, ay) a (bx, by): a linha da mesma grossura no meio (`w` para cada
+ * lado), afinando nas pontas, que entram nos furos do pano (`tip`).
+ */
+function stitchArm(ax: number, ay: number, bx: number, by: number, w: number, tip: number): string {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const len = Math.hypot(dx, dy);
+  const px = -dy / len;
+  const py = dx / len;
+  const at = (t: number, s: number) => `${n3(ax + dx * t + px * s)} ${n3(ay + dy * t + py * s)}`;
+  return (
+    `M${at(0, tip)}Q${at(0.06, w)} ${at(0.2, w)}L${at(0.8, w)}Q${at(0.94, w)} ${at(1, tip)}` +
+    `Q${at(1.02, 0)} ${at(1, -tip)}Q${at(0.94, -w)} ${at(0.8, -w)}L${at(0.2, -w)}Q${at(0.06, -w)} ${at(0, -tip)}Q${at(-0.02, 0)} ${at(0, tip)}z`
+  );
+}
+const STITCH_IN = 0.07;
+const STITCH_W = 0.17;
+const STITCH_TIP = 0.06;
+/** A perna de baixo do X (a primeira que se borda, do alto à esquerda ao pé à direita) no ponto (x, y). */
+export function stitchBack(x: number, y: number): string {
+  return stitchArm(x + STITCH_IN, y + STITCH_IN, x + 1 - STITCH_IN, y + 1 - STITCH_IN, STITCH_W, STITCH_TIP);
+}
+/** A perna de cima do X (do alto à direita ao pé à esquerda) no ponto (x, y). */
+export function stitchFront(x: number, y: number): string {
+  return stitchArm(x + 1 - STITCH_IN, y + STITCH_IN, x + STITCH_IN, y + 1 - STITCH_IN, STITCH_W, STITCH_TIP);
+}
+
+/** Para onde vai a profundidade do voxel, em pontos: um tico para a direita e para cima. */
+export const VOXEL_DEPTH = { dx: 0.42, dy: -0.36 } as const;
+
+/** Os pontos pintados, um por um, com a cor de cada. */
+function inkCells(rows: readonly string[]): { x: number; y: number; ink: number }[] {
+  const out: { x: number; y: number; ink: number }[] = [];
+  rows.forEach((row, y) => {
+    for (let x = 0; x < row.length; x++) {
+      const ink = inkIndex(row[x]);
+      if (ink > 0) out.push({ x, y, ink });
+    }
+  });
+  return out;
+}
+
+/** Junta os pedaços de cada cor num caminho só, na ordem das cores (os vazios ficam de fora). */
+function byInk(parts: Iterable<{ ink: number; d: string }>): InkPath[] {
+  const map = new Map<number, string[]>();
+  for (const { ink, d } of parts) {
+    if (!d) continue;
+    const list = map.get(ink);
+    if (list) list.push(d);
+    else map.set(ink, [d]);
+  }
+  return [...map].sort(([a], [b]) => a - b).map(([ink, ds]) => ({ ink, d: ds.join('') }));
+}
+
 /**
  * Os pontos de cada cor num caminho só (um elemento por cor, qualquer que seja a grade), no desenho do
- * jeito: os quadrados (no pixel e na figurinha, as sequências da fileira juntas num retângulo), o X
- * do ponto-cruz ou o anel da miçanga (a conta, com o furo no meio).
+ * jeito: os quadrados, com as sequências da fileira juntas num retângulo (o voxel, os blocos e o lego
+ * pintam a luz e a sombra por cima deles), o X do ponto-cruz (as duas pernas; ver `stitchArms`) ou a
+ * conta da miçanga (com o furo no meio: `fill-rule="evenodd"`).
  */
 export function inkPaths(rows: readonly string[], look: PixelLook): InkPath[] {
-  const parts = new Map<number, string[]>();
-  const add = (ink: number, d: string) => {
-    const list = parts.get(ink);
-    if (list) list.push(d);
-    else parts.set(ink, [d]);
-  };
+  if (look === 'micanga') return byInk(inkCells(rows).map((c) => ({ ink: c.ink, d: beadPath(c.x, c.y) })));
+  if (look === 'ponto-cruz') return byInk(inkCells(rows).map((c) => ({ ink: c.ink, d: stitchBack(c.x, c.y) + stitchFront(c.x, c.y) })));
+  const parts: { ink: number; d: string }[] = [];
   rows.forEach((row, y) => {
     for (let x = 0; x < row.length; x++) {
       const ink = inkIndex(row[x]);
       if (ink <= 0) continue;
-      if (look === 'pixel' || look === 'figurinha') {
-        let end = x;
-        while (end + 1 < row.length && row[end + 1] === row[x]) end++;
-        add(ink, `M${x} ${y}h${end - x + 1}v1h${-(end - x + 1)}z`);
-        x = end;
-      } else if (look === 'ponto-cruz') {
-        add(ink, `M${n3(x + 0.2)} ${n3(y + 0.2)}L${n3(x + 0.8)} ${n3(y + 0.8)}M${n3(x + 0.8)} ${n3(y + 0.2)}L${n3(x + 0.2)} ${n3(y + 0.8)}`);
-      } else {
-        add(ink, `M${n3(x + 0.21)} ${n3(y + 0.5)}a.29 .29 0 1 0 .58 0a.29 .29 0 1 0 -.58 0`);
-      }
+      let end = x;
+      while (end + 1 < row.length && row[end + 1] === row[x]) end++;
+      parts.push({ ink, d: `M${x} ${y}h${end - x + 1}v1h${-(end - x + 1)}z` });
+      x = end;
     }
   });
-  return [...parts].sort(([a], [b]) => a - b).map(([ink, ds]) => ({ ink, d: ds.join('') }));
+  return byInk(parts);
+}
+
+/** As pernas do X do ponto-cruz por cor: as de baixo de todos os pontos vão antes das de cima. */
+export function stitchArms(rows: readonly string[]): { back: InkPath[]; front: InkPath[] } {
+  const cells = inkCells(rows);
+  return {
+    back: byInk(cells.map((c) => ({ ink: c.ink, d: stitchBack(c.x, c.y) }))),
+    front: byInk(cells.map((c) => ({ ink: c.ink, d: stitchFront(c.x, c.y) }))),
+  };
+}
+
+/**
+ * Os lados do voxel por cor: o de cima de cada cubinho sem vizinho em cima e o da direita de cada um sem
+ * vizinho à direita (os outros ficam escondidos). Vão antes das frentes, que os cobrem onde precisa.
+ */
+export function voxelSides(rows: readonly string[]): { tops: InkPath[]; rights: InkPath[] } {
+  const { dx, dy } = VOXEL_DEPTH;
+  const inked = (x: number, y: number) => y >= 0 && inkIndex(rows[y]?.[x] ?? '0') > 0;
+  const cells = inkCells(rows);
+  return {
+    tops: byInk(cells.map((c) => ({ ink: c.ink, d: inked(c.x, c.y - 1) ? '' : `M${c.x} ${c.y}l${dx} ${dy}h1l${-dx} ${-dy}z` }))),
+    rights: byInk(cells.map((c) => ({ ink: c.ink, d: inked(c.x + 1, c.y) ? '' : `M${c.x + 1} ${c.y}l${dx} ${dy}v1l${-dx} ${-dy}z` }))),
+  };
+}
+
+/**
+ * Todos os pontos pintados num caminho só, sem olhar a cor: onde vão a luz e a sombra de cada jeito (o
+ * chanfro dos blocos, o pino do lego, o brilho da conta), desenhadas uma vez por ponto num padrão.
+ */
+export function inkArea(rows: readonly string[]): string {
+  const marks = rows.map((r) => [...r].map((ch) => (inkIndex(ch) > 0 ? '1' : '0')).join(''));
+  return inkPaths(marks, 'pixel')
+    .map((p) => p.d)
+    .join('');
 }
 
 

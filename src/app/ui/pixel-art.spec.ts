@@ -32,19 +32,43 @@ describe('pixel art (o desenho)', () => {
     expect(el.querySelector('app-zoom-knob')).not.toBeNull();
   });
 
-  it('os jeitos: a figurinha com o recorte, o ponto-cruz no pano, a miçanga na placa', () => {
+  it('os jeitos: a figurinha com o recorte, o ponto-cruz no pano, as contas, os cubinhos, os blocos e o lego', () => {
     const sticker = make(['2x2', '11/11', 'figurinha']);
     expect(sticker.querySelector('filter feMorphology')).not.toBeNull();
     expect(sticker.querySelector('svg.arte')!.getAttribute('viewBox')).toBe('-1 -1 4 4');
+    expect(sticker.querySelector('figure')!.classList).not.toContain('objeto');
     TestBed.resetTestingModule();
-    const stitch = make(['2x2', '11/11', 'ponto-cruz']);
-    expect(stitch.querySelector('rect.pano')).not.toBeNull();
-    expect(stitch.querySelector('.linha path')!.getAttribute('stroke')).toBe('#1d1b22');
+    // o bordado: o pano, as pernas de baixo antes das de cima, na cor do ponto, e os fios por cima
+    const stitch = make(['2x2', '12/11', 'ponto-cruz']);
+    expect(stitch.querySelector('rect.pano')!.getAttribute('fill')).toMatch(/^url\(#pl-\d+-pano\)$/);
+    expect([...stitch.querySelectorAll('.linha path')].map((p) => p.getAttribute('fill'))).toEqual(['#1d1b22', '#f7f3e8', '#1d1b22', '#f7f3e8']);
+    expect(stitch.querySelector('path.luz')!.getAttribute('fill')).toMatch(/-fio\)$/);
+    expect(stitch.querySelector('figure')!.hasAttribute('data-papel-proprio')).toBeTrue();
+    expect(stitch.querySelector('figure')!.classList).toContain('objeto');
     TestBed.resetTestingModule();
+    // a miçanga: as contas furadas e o brilho, sem placa
     const beads = make(['2x2', '11/11', 'micanga']);
-    expect(beads.querySelector('rect.placa')).not.toBeNull();
-    expect(beads.querySelector('.contas path')).not.toBeNull();
-    expect(beads.querySelector('figure')!.hasAttribute('data-papel-proprio')).toBeTrue();
+    expect(beads.querySelector('.contas')!.getAttribute('fill-rule')).toBe('evenodd');
+    expect(beads.querySelector('path.luz')!.getAttribute('fill')).toMatch(/-conta\)$/);
+    expect(beads.querySelector('rect')).toBeNull();
+    TestBed.resetTestingModule();
+    // o voxel: os lados claros em cima e escuros à direita, debaixo das frentes; reto
+    const voxel = make(['2x2', '11/1', 'voxel']);
+    const order = [...voxel.querySelectorAll('svg.arte > g > path')].map((p) => p.getAttribute('class') ?? 'cor');
+    expect(order).toEqual(['cor', 'cor', 'topo', 'lado', 'cor', 'luz']);
+    expect(voxel.querySelector('svg.arte')!.getAttribute('viewBox')).toBe('-0.45 -0.45 2.9 2.9');
+    expect(voxel.querySelector('figure')!.style.getPropertyValue('--giro')).toBe('0deg');
+    TestBed.resetTestingModule();
+    for (const [look, tile] of [
+      ['blocos', '-bloco'],
+      ['lego', '-peca'],
+    ]) {
+      const el = make(['2x1', '12', look]);
+      expect([...el.querySelectorAll('svg.arte > g > path:not(.luz)')].map((p) => p.getAttribute('fill'))).toEqual(['#1d1b22', '#f7f3e8']);
+      expect(el.querySelector('path.luz')!.getAttribute('d')).toBe('M0 0h2v1h-2z');
+      expect(el.querySelector('path.luz')!.getAttribute('fill')).toContain(tile);
+      TestBed.resetTestingModule();
+    }
   });
 
   it('sem ponto nenhum: o lugar tracejado, dizendo como escrever', () => {

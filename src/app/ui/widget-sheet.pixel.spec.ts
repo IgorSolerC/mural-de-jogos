@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { WidgetDone, WidgetSheet } from './widget-sheet';
 import { PIXEL_GALLERY_KEY, PixelGallery } from '../core/pixel-gallery-store';
 import { Toasts } from './toast';
+import { widgetDef } from '../core/widgets';
 
 /** A folha do widget com a pixel art: o desenho numa linha, o ateliê por cima, e o Pôr sai com a marca. */
 describe('a folha do widget com a pixel art', () => {
@@ -48,6 +49,20 @@ describe('a folha do widget com a pixel art', () => {
     fixture.detectChanges();
     (host.querySelector('.pe .ok') as HTMLButtonElement).click();
     expect(done).toEqual([{ name: 'pixel', args: ['2x1', '4', 'figurinha'], size: 'medio' }]);
+  });
+
+  it('os sete jeitos em duas fileiras (quatro e três), cada miniatura desenhada pela peça dos jeitos', async () => {
+    const { host } = await open(widgetDef('pixel')!.read(['3x3', '010/111/010', 'lego']), true);
+    const tiles = host.querySelector<HTMLElement>('.jeitos')!;
+    expect(tiles.style.getPropertyValue('--n')).toBe('4');
+    expect([...tiles.querySelectorAll<HTMLInputElement>('.jeito input')].map((i) => i.value)).toEqual(['pixel', 'figurinha', 'ponto-cruz', 'micanga', 'voxel', 'blocos', 'lego']);
+    expect(tiles.querySelectorAll('.jeito-desenho g[appPixelLookArt]').length).toBe(7);
+    expect(tiles.querySelector('.jeito.on input')!.getAttribute('value')).toBe('lego');
+    // a fileira de cima tem quatro, a de baixo três: a quinta começa embaixo da primeira
+    const box = (i: number) => tiles.querySelectorAll('.jeito')[i].getBoundingClientRect();
+    expect(Math.abs(box(4).left - box(0).left)).toBeLessThan(3);
+    expect(box(4).left).toBeLessThan(box(1).left);
+    expect(box(4).top).toBeGreaterThan(box(3).top);
   });
 
   it('com obras na galeria, o widget novo abre a folha da galeria; a escolhida vira o desenho, com o nome de legenda', async () => {

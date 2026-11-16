@@ -13,6 +13,7 @@ import { CardPicker } from './card-picker';
 import { CoverSleeve } from './cover-sleeve';
 import { NoteWidget } from './note-widget';
 import { Pin } from './pin';
+import { PixelLookArt } from './pixel-look-art';
 import { PixelField } from './pixel-studio/pixel-field';
 import { PixelGallery } from '../core/pixel-gallery-store';
 import { PixelPiece, artValues, valuesArt } from '../core/pixel-gallery';
@@ -20,7 +21,7 @@ import { PixelPicker } from './pixel-picker';
 import { PIXEL_ARTS_PATH } from '../core/areas';
 import { Router } from '@angular/router';
 import { Toasts } from './toast';
-import { PIXEL_LOOKS, inkOf, inkPaths } from '../core/pixel-art';
+import { PixelLook, inkOf } from '../core/pixel-art';
 import { TableLookArt } from './table-look-art';
 import { RichText } from './rich-text';
 import { TableGrid } from './table-grid';
@@ -58,7 +59,7 @@ interface FieldRow {
  */
 @Component({
   selector: 'app-widget-sheet',
-  imports: [BackdropClose, CardPicker, CoverSleeve, IconModule, NgTemplateOutlet, NoteWidget, Pin, PixelField, PixelPicker, RichText, TableGrid, TableLookArt],
+  imports: [BackdropClose, CardPicker, CoverSleeve, IconModule, NgTemplateOutlet, NoteWidget, Pin, PixelField, PixelLookArt, PixelPicker, RichText, TableGrid, TableLookArt],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './widget-sheet.html',
   styleUrl: './widget-sheet.scss',
@@ -112,7 +113,17 @@ export class WidgetSheet {
     grande: { w: 25, h: 13.5 },
   };
   /** As miniaturas dos jeitos da pixel art: um coraçãozinho de 7 × 6, desenhado como a peça desenha cada jeito. */
-  protected readonly pixelTiles: Record<string, ReturnType<typeof inkPaths>> = Object.fromEntries(PIXEL_LOOKS.map((l) => [l.value, inkPaths(TILE_HEART, l.value)]));
+  protected readonly pixelTile = TILE_HEART;
+  /** Onde o coraçãozinho fica na miniatura de 64 × 48 de cada jeito: os objetos pousam um tico tortos. */
+  protected readonly pixelTileAt: Record<PixelLook, string> = {
+    pixel: 'translate(14.5 9) scale(5)',
+    figurinha: 'rotate(-4 32 24) translate(14.5 9) scale(5)',
+    'ponto-cruz': 'rotate(2 32 24) translate(14.5 9) scale(5)',
+    micanga: 'rotate(-2 32 24) translate(14.5 9) scale(5)',
+    voxel: 'translate(13.5 11) scale(5)',
+    blocos: 'rotate(-2 32 24) translate(14.5 9) scale(5)',
+    lego: 'rotate(2 32 24) translate(14.5 9) scale(5)',
+  };
   protected readonly pixelInks = inkOf('classica', {});
   protected readonly views = [
     { value: 'ficha', label: 'Na ficha' },
@@ -369,6 +380,14 @@ export class WidgetSheet {
   /** Vários campos de uma vez (o ateliê da pixel art manda os pontos, a tela, a paleta e as cores). */
   protected patch(p: WidgetValues): void {
     this.values.update((v) => ({ ...v, ...p }));
+  }
+
+  /**
+   * Quantas miniaturas de jeito vão por fileira: todas numa só até seis (como sempre foi); mais que isso (os sete
+   * jeitos da pixel art) quebram em duas, a de cima com uma a mais, para cada miniatura caber com o nome inteiro.
+   */
+  protected tileCols(n: number): number {
+    return n > 6 ? Math.ceil(n / 2) : n;
   }
 
   protected valueOf(f: WidgetField): string {

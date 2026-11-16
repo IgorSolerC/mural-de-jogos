@@ -71,6 +71,10 @@ export const PDF_WIDGET_SAMPLES: Record<string, readonly string[]> = {
     '{{pixel: 8x8 | 0110011/14411441/14444441/14444441/0144441/001441/00011 | pastel | figurinha | pequeno}}',
     '{{pixel: 8x8 | 0110011/14411441/14444441/14444441/0144441/001441/00011 | 4#c2185b | ponto-cruz | Bordado da vó | pequeno}}',
     '{{pixel: 12x6 | 0*041111/000177771/0017777771/01111111111/001288882/0001111 | mar | micanga | pequeno}}',
+    // os jeitos de peças: os cubinhos, os blocos e o lego
+    '{{pixel: 8x8 | 0110011/14411441/14444441/14444441/0144441/001441/00011 | voxel | pequeno}}',
+    '{{pixel: 8x8 | 0110011/14411441/14444441/14444441/0144441/001441/00011 | terra | blocos | pequeno}}',
+    '{{pixel: 8x8 | 0110011/14411441/14444441/14444441/0144441/001441/00011 | lego | Pecinhas | pequeno}}',
     // as cores com letras (até 61), na Endesga 32
     '{{pixel: 10x8 | 0000pp/000phhp/00phiihp/0phiiiihp/0phijiiihp/0phikiiihp/00phiiihp/000pppp | endesga32 | Gota | pequeno}}',
   ],

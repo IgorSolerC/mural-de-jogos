@@ -143,7 +143,8 @@ export function pixelLookOptions(list: readonly PixelPiece[], chosen: PixelLook 
 
 /**
  * O lugar da obra na coluna: a largura e o desvio sorteados como os do recorte (`placeFor`), o giro do papel
- * milimetrado (só o jeito Pixel tem papel; os outros jeitos são objetos e giram sozinhos, ver ui/pixel-art.ts),
+ * milimetrado (só o jeito Pixel tem papel; os outros jeitos são objetos e giram sozinhos, ver ui/pixel-art.ts; a
+ * Miçanga pousa numa placa clara, torta como o papel),
  * e a altura estimada em larguras de coluna pela proporção do desenho (a colagem nunca mede a tela).
  */
 export function pieceLayout(p: PixelPiece): { width: number; shift: number; gap: number; tilt: number; height: number } {
@@ -151,9 +152,9 @@ export function pieceLayout(p: PixelPiece): { width: number; shift: number; gap:
   const art = pixelArtOf(p);
   const pad = LOOK_PAD[art.look] * 2;
   const ratio = (art.w + pad) / (art.h + pad);
-  // o papel milimetrado põe uma margem em volta do desenho; a legenda (o título e as tags) vai embaixo
-  const paper = art.look === 'pixel' ? 1.24 : 1.04;
-  const tilt = art.look === 'pixel' ? Math.round((wobble(p.id, 9100) * 2 - 1) * 180) / 100 : 0;
+  // o papel milimetrado e a placa das contas põem uma margem em volta do desenho; a legenda (o título e as tags) vai embaixo
+  const paper = art.look === 'pixel' ? 1.24 : art.look === 'micanga' ? 1.16 : 1.04;
+  const tilt = art.look === 'pixel' || art.look === 'micanga' ? Math.round((wobble(p.id, 9100) * 2 - 1) * 180) / 100 : 0;
   // o desenho alto e fino fica com no máximo 1,3 vez a largura (ui/pixel-piece.ts)
   return { width, shift, gap, tilt, height: (width / 100) * paper * Math.min(1 / ratio, 1.3) + 0.26 + gap / 200 };
 }

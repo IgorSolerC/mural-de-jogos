@@ -268,7 +268,7 @@
             @for (f of looks(); track f.key) {
               <fieldset class="bloco">
                 <legend class="rotulo">{{ f.label }}</legend>
-                <div class="jeitos" [style.--n]="f.options?.length ?? 3">
+                <div class="jeitos" [style.--n]="tileCols(f.options?.length ?? 3)">
                   @for (o of f.options ?? []; track o.value) {
                     @let on = valueOf(f) === o.value;
                     <label class="jeito" [class.on]="on">
@@ -512,47 +512,27 @@
     @case ('recibo') {
       <svg:g [appTableLookArt]="'recibo'" />
     }
-    <!-- a pixel art: o mesmo coraçãozinho nos quatro jeitos (os caminhos são os da peça, ui/pixel-art.ts) -->
+    <!-- a pixel art: o mesmo coraçãozinho em cada jeito, desenhado pela peça do widget (ui/pixel-look-art.ts) -->
     @case ('pixel') {
-      <svg:g transform="translate(14.5 9) scale(5)" shape-rendering="crispEdges">
-        @for (p of pixelTiles['pixel']; track p.ink) {
-          <svg:path [attr.d]="p.d" [attr.fill]="pixelInks[p.ink]" />
-        }
-      </svg:g>
+      <svg:g [attr.transform]="pixelTileAt['pixel']" appPixelLookArt [rows]="pixelTile" look="pixel" [inks]="pixelInks" [w]="7" [h]="6" />
     }
     @case ('figurinha') {
-      <svg:g transform="rotate(-4 32 24) translate(14.5 9) scale(5)">
-        <!-- a sombra rente e a borda branca do recorte, seguindo o contorno -->
-        @for (p of pixelTiles['figurinha']; track p.ink) {
-          <svg:path [attr.d]="p.d" transform="translate(0 .25)" fill="#151515" fill-opacity=".3" stroke="#151515" stroke-opacity=".3" stroke-width="1.2" stroke-linejoin="round" />
-        }
-        @for (p of pixelTiles['figurinha']; track p.ink) {
-          <svg:path [attr.d]="p.d" fill="#fffdf7" stroke="#fffdf7" stroke-width="1.2" stroke-linejoin="round" />
-        }
-        @for (p of pixelTiles['figurinha']; track p.ink) {
-          <svg:path [attr.d]="p.d" [attr.fill]="pixelInks[p.ink]" />
-        }
-      </svg:g>
+      <svg:g [attr.transform]="pixelTileAt['figurinha']" appPixelLookArt [rows]="pixelTile" look="figurinha" [inks]="pixelInks" [w]="7" [h]="6" />
     }
     @case ('ponto-cruz') {
-      <svg:g transform="rotate(2 32 24)">
-        <svg:rect x="10" y="4" width="44" height="40" rx="1" fill="#f4efe1" />
-        <svg:g transform="translate(14.5 9) scale(5)" fill="none" stroke-width=".26" stroke-linecap="round">
-          @for (p of pixelTiles['ponto-cruz']; track p.ink) {
-            <svg:path [attr.d]="p.d" [attr.stroke]="pixelInks[p.ink]" />
-          }
-        </svg:g>
-      </svg:g>
+      <svg:g [attr.transform]="pixelTileAt['ponto-cruz']" appPixelLookArt [rows]="pixelTile" look="ponto-cruz" [inks]="pixelInks" [w]="7" [h]="6" />
     }
     @case ('micanga') {
-      <svg:g transform="rotate(-2 32 24)">
-        <svg:rect x="11" y="5" width="42" height="38" rx="3" fill="#fbfaf6" fill-opacity=".85" stroke="#151515" stroke-opacity=".12" stroke-width=".6" />
-        <svg:g transform="translate(14.5 9) scale(5)" fill="none" stroke-width=".34">
-          @for (p of pixelTiles['micanga']; track p.ink) {
-            <svg:path [attr.d]="p.d" [attr.stroke]="pixelInks[p.ink]" />
-          }
-        </svg:g>
-      </svg:g>
+      <svg:g [attr.transform]="pixelTileAt['micanga']" appPixelLookArt [rows]="pixelTile" look="micanga" [inks]="pixelInks" [w]="7" [h]="6" />
+    }
+    @case ('voxel') {
+      <svg:g [attr.transform]="pixelTileAt['voxel']" appPixelLookArt [rows]="pixelTile" look="voxel" [inks]="pixelInks" [w]="7" [h]="6" />
+    }
+    @case ('blocos') {
+      <svg:g [attr.transform]="pixelTileAt['blocos']" appPixelLookArt [rows]="pixelTile" look="blocos" [inks]="pixelInks" [w]="7" [h]="6" />
+    }
+    @case ('lego') {
+      <svg:g [attr.transform]="pixelTileAt['lego']" appPixelLookArt [rows]="pixelTile" look="lego" [inks]="pixelInks" [w]="7" [h]="6" />
     }
     <!-- a nota colada: a ficha, a capa com o nome, a tira e o texto inteiro -->
     @case ('ficha') {
