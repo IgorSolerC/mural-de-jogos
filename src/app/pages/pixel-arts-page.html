@@ -1,0 +1,187 @@
+<!-- o nome está na barra embaixo do topo (ui/area-bar.ts), com a volta para Extras -->
+<h1 class="sr-only">Pixel arts</h1>
+
+@if (gallery.count()) {
+  <!-- a pasta, como na Wishlist: a busca, o Filtrar, a ordem e a vista em tinta e, depois do picote, o que a
+       busca achou -->
+  <div class="pasta solta">
+    <div class="pasta-linha">
+      <app-search-strip
+        class="pasta-busca"
+        inputId="busca-pixel"
+        [glued]="true"
+        label="Procurar nas pixel arts"
+        placeholder="Procurar nas pixel arts…"
+        [value]="filter().query"
+        (valueChange)="setQuery($event)"
+      />
+
+      <div class="pasta-controles">
+        <div class="pasta-grupo">
+          <button #filterBtn type="button" class="tinta" [attr.aria-expanded]="filterOpen()" aria-controls="cartela-pixel" (click)="toggleFilter($event)">
+            <lucide-icon [img]="FilterIcon" [size]="18" aria-hidden="true" />
+            <span>Filtrar</span>
+            @if (chips().length) {
+              <span class="tinta-n" aria-hidden="true">{{ chips().length }}</span>
+              <span class="sr-only">({{ chips().length }} ligados)</span>
+            }
+          </button>
+        </div>
+
+        <div class="pasta-grupo" role="group" aria-label="Ordenar">
+          <label class="tinta campo">
+            <span class="campo-pre">Ordenar</span>
+            <span class="campo-val" aria-hidden="true">{{ orderLabel() }}</span>
+            <lucide-icon class="campo-chev" [img]="ChevronIcon" [size]="15" aria-hidden="true" />
+            <select aria-label="Ordenar por" (change)="sort($any($event.target).value)">
+              @for (o of orders; track o.value) {
+                <option [value]="o.value" [selected]="o.value === prefs().ordem">{{ o.label }}</option>
+              }
+            </select>
+          </label>
+          <button type="button" class="tinta so-icone" (click)="flip()" [attr.aria-label]="directionLabel() + '. Inverter ordem'" [title]="directionLabel()">
+            <lucide-icon [img]="prefs().direcao === 'desc' ? DescIcon : AscIcon" [size]="18" aria-hidden="true" />
+          </button>
+        </div>
+
+        <div class="pasta-grupo" role="group" aria-label="Vista">
+          @for (v of views; track v.value) {
+            <button type="button" class="tinta so-icone" [attr.aria-pressed]="prefs().vista === v.value" [attr.aria-label]="v.label" [title]="v.hint" (click)="setView(v.value)">
+              <lucide-icon [img]="v.icon" [size]="18" aria-hidden="true" />
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- depois do picote: os filtros ligados, cada um com o seu X, e o que a busca e os filtros acharam -->
+    <div class="pasta-linha pasta-baixo">
+      @if (chips().length) {
+        <div class="pasta-filtros">
+          <app-filter-tags class="atalhos" [tags]="chips()" (remove)="removeChip($event)" />
+        </div>
+      }
+      <div class="pasta-estado">
+        @if (filtering()) {
+          <p class="achados" aria-live="polite">
+            <span>Mostrando {{ visible().length }} de {{ pool().length }}</span>
+            <button type="button" class="tinta-link" (click)="clear()">Limpar</button>
+          </p>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- a folha dos filtros das Anotações, presa embaixo da pasta: o Jeito (um por obra) e as Tags -->
+  @if (filterOpen()) {
+    <app-filter-card
+      id="cartela-pixel"
+      class="cartela"
+      animate.enter="desce"
+      animate.leave="sobe"
+      subjectTitle="Jeito"
+      subjectHint="Um por pixel art: escolha um para ver só ele."
+      [units]="['pixel art', 'pixel arts']"
+      [subjects]="lookOptions()"
+      [tags]="tagChips()"
+      [shown]="visible().length"
+      [total]="pool().length"
+      [filtering]="filtering()"
+      (subjectChosen)="chooseLook($event)"
+      (tagToggled)="toggleTag($event)"
+      (tagExcluded)="excludeTag($event)"
+      (cleared)="clearChoices()"
+      (done)="closeFilter()"
+    />
+  }
+
+  @if (filtering() && !visible().length) {
+    <!-- a busca e os filtros não acharam nada: o cartão das Anotações -->
+    <section class="no-results cartolina" aria-live="polite">
+      <app-pin class="pin" color="#f4f4f0" />
+      <h2>Nada na galeria com esse filtro</h2>
+      <p>{{ noneText() }}</p>
+      <div class="acoes-vazio">
+        <button type="button" class="btn-quiet" (click)="clear()">Limpar a busca e os filtros</button>
+      </div>
+    </section>
+  }
+
+  @if (prefs().vista === 'grade') {
+    <!-- a Grade: muitas de uma vez, todas do mesmo tamanho -->
+    <h2 class="sr-only">Pixel arts</h2>
+    <ul class="grade" [appRealceBusca]="filter().query" realceEm=".nome">
+      @for (p of visible(); track p.id) {
+        <li>
+          <app-pixel-tile
+            [attr.data-ficha]="p.id"
+            [style.view-transition-name]="'obra-' + p.id"
+            [piece]="p"
+            [landing]="landing() === p.id"
+            [query]="filter().query"
+            [noteOpen]="byNote().has(p.id)"
+            (opened)="open($event)"
+            (atelie)="atelie($event)"
+            (download)="download($event)"
+          />
+        </li>
+      }
+    </ul>
+  } @else {
+    <!-- a Mostra: cada uma no material dela, em colunas como os recortes da Wishlist -->
+    <h2 class="sr-only">Pixel arts</h2>
+    <div class="mostra" [style.--colunas]="cols()" [appRealceBusca]="filter().query" realceEm=".nome">
+      @for (col of columns(); track $index) {
+        <div class="coluna">
+          @for (p of col; track p.id) {
+            @let at = layoutOf(p.id);
+            <app-pixel-piece
+              [attr.data-ficha]="p.id"
+              [style.--largura]="at.width"
+              [style.--desvio]="at.shift"
+              [style.--vao]="at.gap + 'px'"
+              [style.view-transition-name]="'obra-' + p.id"
+              [piece]="p"
+              [landing]="landing() === p.id"
+              [query]="filter().query"
+              [noteOpen]="byNote().has(p.id)"
+              (opened)="open($event)"
+              (atelie)="atelie($event)"
+              (download)="download($event)"
+            />
+          }
+        </div>
+      }
+    </div>
+  }
+} @else {
+  <!-- o primeiro uso: uma folha de papel milimetrado pregada, com o convite -->
+  <section class="vazio" aria-labelledby="pixel-vazio">
+    <app-pin class="pin" color="#2f6bff" />
+    <span class="vazio-desenho" aria-hidden="true">
+      <svg viewBox="0 0 8 8" shape-rendering="crispEdges">
+        <path d="M1 2h2v1h-2zM5 2h2v1h-2zM0 3h8v2h-8zM1 5h6v1h-6zM2 6h4v1h-4zM3 7h2v1h-2z" fill="#e43b44" />
+        <path d="M1 3h1v1h-1z" fill="#fff" />
+      </svg>
+    </span>
+    <h2 id="pixel-vazio">Nenhuma pixel art na galeria</h2>
+    <p>Desenhe no ateliê, quadradinho por quadradinho, e guarde aqui com nome, tags e descrição. Dá para baixar cada uma em PNG ou colar numa anotação.</p>
+    <button type="button" class="btn-ink" (click)="add()" aria-keyshortcuts="n">
+      <lucide-icon [img]="AddIcon" [size]="19" aria-hidden="true" />
+      Nova pixel art
+    </button>
+  </section>
+}
+
+<!-- o menu do site: o da obra (o botão direito, o dedo segurado, Shift+F10) e o do vão -->
+<app-context-menu #menu [caption]="menuCaption()" [note]="menuNote()" [sections]="menuSections()" (closed)="menuOn.set(null)" />
+
+<!-- a ficha da obra: pôr e editar -->
+<app-pixel-sheet (created)="created($event)" />
+
+<!-- o Ateliê da etiqueta: o desenho direto no ateliê, por cima de tudo -->
+@if (studio(); as s) {
+  @defer {
+    <app-pixel-studio [values]="s.values" (changed)="drawn($event)" (closed)="studioClosed()" />
+  }
+}

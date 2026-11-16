@@ -142,13 +142,16 @@ export const API_USAGE_PATH = '/extras/uso-das-apis';
 /** O Pomodoro (PLANO-POMODORO.md): mora em Extras e também não depende de mural. */
 export const POMODORO_PATH = '/extras/pomodoro';
 
+/** A galeria de pixel arts (PLANO-PIXEL-ARTS.md): mora em Extras; as obras são da conta, não de um mural. */
+export const PIXEL_ARTS_PATH = '/extras/pixel-arts';
+
 /**
- * As páginas de Extras que não dependem de mural nenhum (o Uso das APIs e o Pomodoro): sem o seletor de murais
- * na barra e sem o mural no título da aba.
+ * As páginas de Extras que não dependem de mural nenhum (o Uso das APIs, o Pomodoro e as Pixel arts): sem o
+ * seletor de murais na barra e sem o mural no título da aba.
  */
 export function muralFree(path: string): boolean {
   const p = pathOf(path);
-  return p === API_USAGE_PATH || p === POMODORO_PATH;
+  return p === API_USAGE_PATH || p === POMODORO_PATH || p === PIXEL_ARTS_PATH;
 }
 
 /** Em que parte do site fica o caminho (nenhuma, no Perfil, em Amigos, nos Ajustes e nas Novidades). */

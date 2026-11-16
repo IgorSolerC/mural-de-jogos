@@ -27,6 +27,22 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-16-pixel-arts',
+    version: '1.46.0',
+    kind: 'funcionalidade',
+    date: '2026-11-16',
+    title: 'Galeria de pixel arts',
+    items: [
+      'Uma página nova em Extras, Pixel arts: a galeria com todas as pixel arts que você guardou, cada uma com nome, tags e uma descrição escrita com o editor das anotações.',
+      'Duas vistas: a Mostra, com cada desenho no jeito dele (o Pixel impresso em papel milimetrado, a Figurinha colada, o Ponto-cruz no pano e a Miçanga na placa), e a Grade, com muitas de uma vez; a busca acha no nome, nas tags e na descrição, e o Filtrar separa por jeito e por tag.',
+      'O "Nova pixel art" do topo (ou o N) abre o ateliê na hora; a ficha mostra como a obra fica na parede, troca o jeito com o próprio desenho em miniatura e guarda tudo, também nos seus outros aparelhos.',
+      'Com o mouse em cima de uma obra, o Ateliê abre o desenho direto para mexer (com o Desfazer) e o Baixar salva um PNG nítido, cada ponto um quadrado inteiro.',
+      'O botão direito (ou o dedo segurado) numa obra tem Editar, Abrir no ateliê, Baixar PNG, Copiar como widget (para colar o desenho numa anotação), Duplicar e Apagar, com o Desfazer.',
+    ],
+    notice: 'Novo: a galeria de pixel arts, em Extras. Desenhe, dê nome, tags e descrição, e baixe em PNG.',
+    until: '2026-11-30',
+  },
+  {
     id: '2026-11-15-wishlist-fim',
     version: '1.45.4',
     kind: 'ajustes',

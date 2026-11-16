@@ -6,7 +6,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { ICON, IconModule } from './ui/icons';
 import { filter, map } from 'rxjs';
-import { AUTHORIZE_PATH, CALENDAR_PATH, SPENDING_PATH, areaOf, isVisitPath, listOf, pathOf, reviewPath, wallPath } from './core/areas';
+import { AUTHORIZE_PATH, CALENDAR_PATH, PIXEL_ARTS_PATH, SPENDING_PATH, areaOf, isVisitPath, listOf, pathOf, reviewPath, wallPath } from './core/areas';
 import { Backup } from './core/backup';
 import { Desk, EditorPart, EditorTab } from './core/desk';
 import { keptMessage } from './core/kept-versions';
@@ -46,6 +46,7 @@ import { FreeBoardNoteAsk } from './core/free-board-note-ask';
 import { StudyStore } from './core/study-store';
 import { PublicDeckNudge } from './ui/public-deck-nudge';
 import { SpendingStore } from './core/spending-store';
+import { PixelGallery } from './core/pixel-gallery-store';
 import { KanbanDresser } from './core/kanban-dresser';
 import { doneChange, placeCard, setDeps, setImportance, setStatus, setWall } from './core/kanban';
 import { NoteDone } from './core/note-done';
@@ -78,6 +79,7 @@ export class App {
   private readonly folders = inject(NoteFolders);
   private readonly publicDeckNudge = inject(PublicDeckNudge);
   private readonly spending = inject(SpendingStore);
+  private readonly pixel = inject(PixelGallery);
   /** O card padrão das colunas do Kanban veste as anotações em qualquer página (o que chega da nuvem também). */
   private readonly dresser = inject(KanbanDresser);
   private readonly noteDone = inject(NoteDone);
@@ -677,6 +679,7 @@ export class App {
       else if (list === 'wishlist') this.desk.newWish();
       else if (this.path() === CALENDAR_PATH) this.calendar.ask();
       else if (this.path() === SPENDING_PATH) this.spending.ask();
+      else if (this.path() === PIXEL_ARTS_PATH) this.pixel.ask();
       else this.newReview();
     }
   }

@@ -110,10 +110,11 @@ aberto como obra.
 
 1. **Os dados:** `core/pixel-gallery.ts`, `core/pixel-gallery-store.ts`, a sincronização (58), as pastas
    (`PixelFolders`, a poda), `pixelTagColors`, a vista do aparelho, os testes (junção, limpeza do logout).
-2. **A página e a ficha:** a rota, a prateleira Criar, o topo e o N, a página com a Grade e o vazio, a ficha da
-   obra (desenho, título, jeito, tags, descrição), Salvar e Apagar com Desfazer.
-3. **A barra, a Mostra e os gestos:** busca, Filtrar, Ordenar, as duas vistas, a etiqueta de hover (Ateliê e
-   Baixar), o PNG, o menu do botão direito (Copiar como widget, Duplicar), a descrição na parede.
+2. **A página, as vistas e a ficha:** a rota, a prateleira Criar, o topo e o N, a barra (busca, Filtrar, Ordenar,
+   vista), a Mostra e a Grade, o vazio, a etiqueta de hover (Ateliê direto e Baixar o PNG), a descrição na parede,
+   e a ficha da obra (desenho, nome, jeito, tags, descrição), Salvar e Apagar com Desfazer.
+3. **O botão direito e o dedo segurado:** o menu da obra (Abrir, Abrir no ateliê; Baixar PNG, Copiar como
+   widget, Duplicar; Apagar) e o do vão (Nova pixel art).
 4. **As pastas:** na parede, o caminho, o endereço, o arrastar, criar, renomear, mover, desfazer, Mover para
    pasta…, a Pasta na ficha.
 5. **Marcar várias:** a seleção comum, a tira, a folha de Pasta e Tags, Baixar e Apagar em massa.
@@ -144,3 +145,28 @@ aberto como obra.
   por mural, guardada), e o `stampAfter` estava copiado em três armazéns (agora `core/dates.ts`). Ficaram: a galeria
   fora do arquivo de backup (como os Gastos e o Calendário, de propósito) e as pastas no índice local da API (o
   contexto das notas só lista as pastas dos grupos das notas: nada vaza).
+- 16/nov, rodada 2 (BUILD 898): `pages/pixel-arts-page.*` em `/extras/pixel-arts` (`muralFree`, a volta para
+  Extras na barra), a prateleira **Criar** em Extras, o "Nova pixel art" do topo e o N (`PixelGallery.ask`). A barra
+  é a pasta da Wishlist (busca no nome, nas tags e na descrição; Filtrar com o Jeito de uma por vez e as Tags;
+  Ordenar por Quando fez, Quando mudou, Nome e Tamanho, com o inverter; a vista, guardada em
+  `meu-mural:pixel-arts:vista:v1`, `core/pixel-gallery-view.ts`). A **Mostra** (`ui/pixel-piece.ts`) usa o próprio
+  widget (`app-pixel-art`) no jeito da obra, o Pixel num papel milimetrado com tachinha, na colagem da Wishlist
+  (`collage` + `placeFor`, a altura pela proporção, com teto de 1,3 vez a largura); a placa da Miçanga fica
+  opaca na parede escura. A **Grade** (`ui/pixel-tile.ts`) é o cartão branco com o xadrez e a miniatura comum
+  (`ui/pixel-thumb.ts`, tirada da folha do widget, que passou a usá-la). A etiqueta (`ui/pixel-actions.ts`): Ateliê
+  (o ateliê direto, por cima de tudo; ao fechar, o desenho vai para a obra com o Desfazer) e Baixar (`core/pixel-png.ts`,
+  o PNG com o lado maior de pelo menos 512 px). A descrição na parede é a folha do caderno da Wishlist
+  (`WishNote`, `WishTags` com o espaço `pixel`). A ficha (`ui/pixel-sheet.*`) usa o CSS da folha da Wishlist
+  (`styleUrls: wish-adder.scss` + o seu), a faixa de grafite do ateliê, o `PixelField` (abre o ateliê sozinho na obra
+  nova, e só existe com a ficha aberta: fechada, ele abria um ateliê invisível que travava a página), o Nome, as
+  etiquetas Jeito (os quatro jeitos desenhados com o próprio desenho) e Tags, e a Descrição. O `/code-review mid`
+  achou cinco, corrigidos: o desenho alto e fino ocupava telas inteiras (o teto, com `--widget-alto` em cqi do
+  contêiner de fora, porque a propriedade é registrada), a pergunta de descartar comparava o nome de outro jeito,
+  salvar uma obra apagada noutro aparelho sumia calado, um método sem uso, e a conversão dos valores do widget em
+  desenho repetida (agora `artValues`/`valuesArt`).
+- 16/nov, rodada 3 (no mesmo commit da 2, BUILD 898): o botão direito, o dedo segurado e o Shift+F10
+  (`ContextMenuTrigger`, o `ContextMenu` do site): na obra, Editar e Abrir no ateliê; Baixar PNG, Copiar como
+  widget (`pieceWidgetLine`, a linha `{{pixel}}` com o nome de legenda) e Duplicar (com o Desfazer); Apagar; no vão,
+  Nova pixel art. O desenho estreito fica no meio do papel. O `/code-review mid` achou três, corrigidos: o menu aberto
+  de uma obra apagada noutro aparelho virava o do vão (agora fecha), Duplicar perdia a pasta, e o "Abrir" com o
+  desenho do Editar (agora "Editar").

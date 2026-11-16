@@ -2,7 +2,7 @@ import { PASTA_ID_RE } from '../../../contrato/api-v1/notas';
 import { sanitizeTags } from './note-labels';
 import { PixelArt, hasInk, readPixelArt, writePixelArt } from './pixel-art';
 import { WISH_NOTE_MAX, WISH_TAGS_MAX, cleanWishNote } from './review';
-import { widgetLine } from './widgets';
+import { WidgetValues, widgetDef, widgetLine } from './widgets';
 
 /**
  * A galeria de pixel arts (PLANO-PIXEL-ARTS.md): as obras guardadas da conta, fora de qualquer mural. Cada obra
@@ -166,6 +166,24 @@ export function mergePixelGallery(here: PixelGalleryState, there: PixelGallerySt
 /** O que vai para a nuvem: null sem nenhuma obra nem apagada (o mural de antes da galeria fica com a mesma impressão). */
 export function pixelGalleryToSync(state: PixelGalleryState): PixelGalleryState | null {
   return state.pieces.length || Object.keys(state.removed).length ? state : null;
+}
+
+/** O widget da pixel art: o ateliê e a ficha falam pelos valores dele (os mesmos da folha do widget). */
+const PIXEL_WIDGET = widgetDef('pixel')!;
+
+/** O desenho da obra nos valores do widget (os pontos, a grade, a paleta, as cores e o jeito), para o ateliê. */
+export function artValues(art: readonly string[]): WidgetValues {
+  return PIXEL_WIDGET.read(art);
+}
+
+/** Os valores do widget de volta para o desenho guardado (sem a legenda); null sem nenhum ponto. */
+export function valuesArt(values: WidgetValues): string[] | null {
+  return cleanArt(PIXEL_WIDGET.write({ ...values, caption: '' }) ?? []);
+}
+
+/** O título como a obra o guarda (os espaços de sobra saem), para comparar o que a ficha tem com o guardado. */
+export function pieceTitleOf(raw: string): string {
+  return cleanTitle(raw);
 }
 
 /** O desenho da obra, lido uma vez por obra (a obra mudada é outro objeto, e a de antes sai sozinha). */

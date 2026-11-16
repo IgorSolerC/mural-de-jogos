@@ -1,6 +1,6 @@
 import { Routes, UrlMatchResult, UrlSegment } from '@angular/router';
 import { onlyAdmin } from './core/admin';
-import { POMODORO_PATH, SPENDING_PATH, enterExtras, enterNotes, enterReviews, toCalendar, toLastWall, toReviews } from './core/areas';
+import { PIXEL_ARTS_PATH, POMODORO_PATH, SPENDING_PATH, enterExtras, enterNotes, enterReviews, toCalendar, toLastWall, toReviews } from './core/areas';
 
 const wall = () => import('./pages/wall-page').then((m) => m.WallPage);
 const kanban = () => import('./pages/kanban-page').then((m) => m.KanbanPage);
@@ -130,6 +130,12 @@ export const routes: Routes = [
     path: POMODORO_PATH.slice(1),
     title: 'Pomodoro',
     loadComponent: () => import('./pages/pomodoro-page').then((m) => m.PomodoroPage),
+  },
+  {
+    // a galeria de pixel arts (PLANO-PIXEL-ARTS.md); sem o enterExtras, porque as obras não são de um mural
+    path: PIXEL_ARTS_PATH.slice(1),
+    title: 'Pixel arts',
+    loadComponent: () => import('./pages/pixel-arts-page').then((m) => m.PixelArtsPage),
   },
   {
     // só a conta de admin; sem o enterExtras, porque a página não depende do mural

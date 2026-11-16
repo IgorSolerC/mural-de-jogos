@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { API_USAGE_PATH, POMODORO_PATH } from '../core/areas';
+import { API_USAGE_PATH, PIXEL_ARTS_PATH, POMODORO_PATH } from '../core/areas';
 import { PomodoroStore } from '../core/pomodoro-store';
 import { CloudAccount } from '../core/cloud-account';
 import { Cloud } from '../core/cloud-config';
@@ -28,7 +28,7 @@ interface Shelf {
 
 /**
  * O que mora em Extras, em prateleiras: os números do mural (Ranking e Comparar, que já eram
- * abas, e as Estatísticas), o Foco (o Pomodoro) e os jogos. Cada jogo novo (os quizzes) entra na segunda e joga com o mural escolhido em
+ * abas, e as Estatísticas), o Foco (o Pomodoro), o Criar (a galeria de pixel arts) e os jogos. Cada jogo novo (os quizzes) entra na segunda e joga com o mural escolhido em
  * `Players`, o seu ou o de um colega.
  */
 const SHELVES: Shelf[] = [
@@ -76,6 +76,21 @@ const SHELVES: Shelf[] = [
         icon: ICON.cronometro,
         stock: 'var(--stock-vermelho)',
         pin: '#1fb65a',
+        go: 'Abrir',
+      },
+    ],
+  },
+  {
+    id: 'criar',
+    title: 'Criar',
+    entries: [
+      {
+        path: PIXEL_ARTS_PATH,
+        name: 'Pixel arts',
+        blurb: 'A galeria das suas pixel arts: desenhe no ateliê, guarde com nome, tags e descrição, e baixe em PNG.',
+        icon: ICON.pixelArt,
+        stock: 'var(--stock-verde)',
+        pin: '#e62e2d',
         go: 'Abrir',
       },
     ],

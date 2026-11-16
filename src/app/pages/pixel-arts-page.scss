@@ -1,0 +1,129 @@
+@use '../ui/sem-resultados' as sem;
+
+/* A galeria de pixel arts (PLANO-PIXEL-ARTS.md): a página da Wishlist, com a Mostra no lugar da colagem de
+   recortes e o mesmo jeito de barra, de filtros, de Grade e de cartão vazio. */
+
+:host {
+  display: block;
+}
+
+.pasta {
+  margin-bottom: 44px;
+}
+/* a folha dos filtros, presa embaixo da pasta, com o mesmo vão até a parede */
+app-filter-card.cartela {
+  margin-top: -22px;
+  margin-bottom: 44px;
+}
+
+/* o cartão de quando não há nada à mostra: o das Anotações (ui/_sem-resultados.scss) */
+@include sem.cartao;
+.acoes-vazio {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 18px;
+}
+
+/* ===== A Mostra: colunas, cada obra de uma largura e um tanto fora do prumo (a colagem da Wishlist) ===== */
+.mostra {
+  display: grid;
+  grid-template-columns: repeat(var(--colunas), minmax(0, 1fr));
+  align-items: start;
+  column-gap: 34px;
+  min-height: 40vh;
+  align-content: start;
+  padding-top: 14px;
+}
+app-pixel-piece {
+  width: calc(var(--largura, 100) * 1%);
+  margin-left: calc(var(--desvio, 0) * 1%);
+  margin-bottom: var(--vao, 40px);
+}
+/* segurar o dedo numa obra abre o menu dela: sem o balão do sistema nem a seleção junto */
+@supports selector(:popover-open) {
+  app-pixel-piece,
+  app-pixel-tile {
+    -webkit-touch-callout: none;
+    user-select: none;
+  }
+}
+
+/* ===== A Grade: muitas de uma vez, todas do mesmo tamanho (ui/pixel-tile.ts) ===== */
+.grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 28px 18px;
+  min-height: 40vh;
+  align-content: start;
+  margin: 0;
+  padding: 14px 0 0;
+  list-style: none;
+}
+.grade > li {
+  display: grid;
+  min-width: 0;
+}
+
+/* ===== Vazio: uma folha de papel milimetrado pregada, com um coração de pixel ===== */
+.vazio {
+  position: relative;
+  max-width: 540px;
+  padding: 40px 34px 30px;
+  rotate: -0.8deg;
+  background:
+    linear-gradient(rgb(60 140 120 / 0.24) 1px, transparent 1px) 0 0 / 20px 20px,
+    linear-gradient(90deg, rgb(60 140 120 / 0.24) 1px, transparent 1px) 0 0 / 20px 20px,
+    linear-gradient(rgb(60 140 120 / 0.1) 1px, transparent 1px) 0 0 / 4px 4px,
+    linear-gradient(90deg, rgb(60 140 120 / 0.1) 1px, transparent 1px) 0 0 / 4px 4px,
+    #f7f4ea;
+  color: var(--ink);
+  box-shadow: var(--shadow-card);
+
+  .pin {
+    position: absolute;
+    top: -12px;
+    left: calc(50% - 13px);
+  }
+
+  h2 {
+    font-family: var(--f-marker);
+    font-weight: 400;
+    font-size: 2rem;
+    line-height: 1.05;
+    text-wrap: balance;
+  }
+
+  p {
+    margin: 12px 0 22px;
+    max-width: 44ch;
+    font-family: var(--f-hand);
+    font-size: 1.15rem;
+    line-height: 1.45;
+    text-wrap: pretty;
+  }
+}
+.vazio-desenho {
+  display: block;
+  width: 64px;
+  margin-bottom: 14px;
+
+  svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+}
+
+@media (max-width: 559px) {
+  .mostra {
+    column-gap: 18px;
+  }
+  .grade {
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 22px 12px;
+  }
+  .vazio {
+    padding: 36px 22px 26px;
+  }
+}

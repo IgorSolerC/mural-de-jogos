@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, input } from '@an
 import type { Kind } from '../core/kinds';
 import { Settings } from '../core/settings';
 import { wishTagHex } from '../core/wishlist-view';
+import type { PIXEL_TAG_SPACE } from '../core/pixel-gallery';
 
 /**
  * As tags de um desejo da Wishlist, embaixo do recorte e da capa da Grade (PLANO-WISHLIST.md, D2): a legenda
@@ -64,7 +65,8 @@ import { wishTagHex } from '../core/wishlist-view';
 })
 export class WishTags {
   readonly tags = input.required<readonly string[]>();
-  readonly kind = input.required<Kind>();
+  /** O mural das tags (ou `PIXEL_TAG_SPACE`: as obras da galeria de pixel arts usam a mesma legenda). */
+  readonly kind = input.required<Kind | typeof PIXEL_TAG_SPACE>();
   /** As cores de outro lugar (a folha do recorte, com as sorteadas que só vão para as configurações ao salvar). */
   readonly colors = input<{ hex(tag: string): string | null } | null>(null);
 

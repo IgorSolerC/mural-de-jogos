@@ -30,29 +30,29 @@ describe('a página de Extras', () => {
     };
   }
 
-  const ALL = ['Ranking', 'Comparar', 'Estatísticas', 'Pomodoro', 'Mata-mata', 'Maior ou menor', 'Muraldle'];
+  const ALL = ['Ranking', 'Comparar', 'Estatísticas', 'Pomodoro', 'Pixel arts', 'Mata-mata', 'Maior ou menor', 'Muraldle'];
 
-  it('quem não entrou vê só Números, Foco e Jogos', async () => {
+  it('quem não entrou vê só Números, Foco, Criar e Jogos', async () => {
     const t = await open({ signedIn: false });
-    expect(t.shelves()).toEqual(['Números', 'Foco', 'Jogos']);
+    expect(t.shelves()).toEqual(['Números', 'Foco', 'Criar', 'Jogos']);
     expect(t.cards()).toEqual(ALL);
     expect(t.host.querySelector('[href*="uso-das-apis"]')).toBeNull();
   });
 
   it('outra conta vê a mesma página, sem nada a mais', async () => {
     const t = await open({ account: { codigo: 'K7QF-M2XA', nome: 'Ana' } });
-    expect(t.shelves()).toEqual(['Números', 'Foco', 'Jogos']);
+    expect(t.shelves()).toEqual(['Números', 'Foco', 'Criar', 'Jogos']);
     expect(t.cards()).toEqual(ALL);
   });
 
   it('com a nuvem desligada, nem a conta de admin vê a prateleira', async () => {
     const t = await open({ cloud: false, account: { codigo: 'G11T-G00D', nome: 'Igor', admin: true } });
-    expect(t.shelves()).toEqual(['Números', 'Foco', 'Jogos']);
+    expect(t.shelves()).toEqual(['Números', 'Foco', 'Criar', 'Jogos']);
   });
 
   it('a conta de admin ganha a prateleira Outros, por último, com a ficha do Uso das APIs', async () => {
     const t = await open({ account: { codigo: 'G11T-G00D', nome: 'Igor', admin: true } });
-    expect(t.shelves()).toEqual(['Números', 'Foco', 'Jogos', 'Outros']);
+    expect(t.shelves()).toEqual(['Números', 'Foco', 'Criar', 'Jogos', 'Outros']);
     expect(t.cards()).toEqual([...ALL, 'Uso das APIs']);
     expect(t.host.querySelector('a[href="/extras/uso-das-apis"]')).not.toBeNull();
   });

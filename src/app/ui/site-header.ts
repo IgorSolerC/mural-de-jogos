@@ -3,7 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { ICON, IconModule } from './icons';
 import { filter, map } from 'rxjs';
-import { CALENDAR_PATH, SPENDING_PATH, areaOf, listOf, pathOf, reviewPath } from '../core/areas';
+import { CALENDAR_PATH, PIXEL_ARTS_PATH, SPENDING_PATH, areaOf, listOf, pathOf, reviewPath } from '../core/areas';
 import { CalendarStore } from '../core/calendar-store';
 import { Desk } from '../core/desk';
 import { Follow } from '../core/follow';
@@ -11,6 +11,7 @@ import { Mural } from '../core/mural';
 import { ProfileStore } from '../core/profile-store';
 import { Settings } from '../core/settings';
 import { SpendingStore } from '../core/spending-store';
+import { PixelGallery } from '../core/pixel-gallery-store';
 import type { LucideIconData } from 'lucide-angular';
 import { BOTTONS, DESENHOS, INCLINACOES, PARTES_DO_SITE } from '../../../shared/topo-do-murall';
 import { Pin } from './pin';
@@ -45,6 +46,7 @@ export class SiteHeader {
   protected readonly desk = inject(Desk);
   private readonly calendar = inject(CalendarStore);
   private readonly spending = inject(SpendingStore);
+  private readonly pixel = inject(PixelGallery);
   protected readonly profiles = inject(ProfileStore);
   private readonly follow = inject(Follow);
   private readonly settings = inject(Settings);
@@ -86,18 +88,27 @@ export class SiteHeader {
   /** Nos Gastos: o botão lança um gasto no livro do mês. */
   protected readonly onSpending = computed(() => this.path() === SPENDING_PATH);
 
-  /** O que o botão de adicionar cria: "Nova resenha", "Nova anotação", no Calendário "Novo lembrete" e nos Gastos "Novo gasto". */
+  /** Nas Pixel arts: o botão abre a ficha de uma obra nova (com o ateliê por cima). */
+  protected readonly onPixel = computed(() => this.path() === PIXEL_ARTS_PATH);
+
+  /**
+   * O que o botão de adicionar cria: "Nova resenha", "Nova anotação", no Calendário "Novo lembrete", nos Gastos
+   * "Novo gasto" e nas Pixel arts "Nova pixel art".
+   */
   protected readonly addLabel = computed(() =>
     this.onCalendar()
       ? { verb: 'Novo', noun: 'lembrete' }
       : this.onSpending()
         ? { verb: 'Novo', noun: 'gasto' }
-        : { verb: 'Nova', noun: this.notes() ? 'anotação' : 'resenha' },
+        : this.onPixel()
+          ? { verb: 'Nova', noun: 'pixel art' }
+          : { verb: 'Nova', noun: this.notes() ? 'anotação' : 'resenha' },
   );
 
   protected add(): void {
     if (this.onCalendar()) this.calendar.ask();
     else if (this.onSpending()) this.spending.ask();
+    else if (this.onPixel()) this.pixel.ask();
     else this.desk.newReview();
   }
 

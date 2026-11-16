@@ -1,8 +1,9 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, signal } from '@angular/core';
-import { DEFAULT_PALETTE, PALETTES, clampSide, gridOf, hasInk, inkCount, inkOf, inkPaths, paletteWord, parseColors } from '../../core/pixel-art';
+import { DEFAULT_PALETTE, PALETTES, clampSide, gridOf, hasInk, inkCount, paletteWord, parseColors } from '../../core/pixel-art';
 import { WidgetValues } from '../../core/widgets';
 import { ICON, IconModule } from '../icons';
 import { PixelStudio } from './pixel-studio';
+import { PixelThumb } from '../pixel-thumb';
 
 /**
  * O desenho da pixel art na folha do widget (o campo `pixels`): uma linha só, como a escolha do ícone. A
@@ -12,19 +13,13 @@ import { PixelStudio } from './pixel-studio';
  */
 @Component({
   selector: 'app-pixel-field',
-  imports: [IconModule, PixelStudio],
+  imports: [IconModule, PixelStudio, PixelThumb],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    @let iw = w();
-    @let ih = h();
     <div class="linha" [class.falta]="missing()">
       <span class="miniatura" aria-hidden="true">
         @if (inked()) {
-          <svg [attr.viewBox]="'0 0 ' + iw + ' ' + ih" [style.aspect-ratio]="iw + ' / ' + ih" shape-rendering="crispEdges">
-            @for (p of paths(); track p.ink) {
-              <path [attr.d]="p.d" [attr.fill]="inks()[p.ink]" />
-            }
-          </svg>
+          <app-pixel-thumb [art]="drawing()" />
         } @else {
           <lucide-icon [img]="EmptyIcon" [size]="22" />
         }
@@ -69,8 +64,7 @@ export class PixelField {
   private readonly palette = computed(() => paletteWord(this.values()['palette'] ?? '') ?? DEFAULT_PALETTE);
   private readonly colors = computed(() => parseColors(this.values()['colors'] ?? '') ?? {});
   private readonly rows = computed(() => gridOf(this.values()['pixels'] ?? '', this.w(), this.h()));
-  protected readonly inks = computed(() => inkOf(this.palette(), this.colors()));
-  protected readonly paths = computed(() => inkPaths(this.rows(), 'pixel'));
+  protected readonly drawing = computed(() => ({ w: this.w(), h: this.h(), rows: this.rows(), palette: this.palette(), colors: this.colors() }));
   protected readonly inked = computed(() => hasInk(this.rows()));
   protected readonly summary = computed(() => {
     const n = inkCount(this.palette(), this.colors());

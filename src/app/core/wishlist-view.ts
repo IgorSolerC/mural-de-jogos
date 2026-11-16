@@ -145,8 +145,8 @@ export interface WishTagCount {
   n: number;
 }
 
-/** As tags dos desejos, as mais usadas primeiro (empate: de A a Z). */
-export function wishTagCounts(list: readonly Wish[]): WishTagCount[] {
+/** As tags dos desejos (ou das obras da galeria de pixel arts), as mais usadas primeiro (empate: de A a Z). */
+export function wishTagCounts(list: readonly { readonly tags?: readonly string[] }[]): WishTagCount[] {
   const by = new Map<string, { n: number; spell: Map<string, number> }>();
   for (const w of list)
     for (const t of new Set(w.tags ?? [])) {
@@ -166,7 +166,10 @@ export function wishVontadeOptions(list: readonly Wish[], kind: Kind, chosen: Re
   return RELEVANCES.map((r) => ({ value: r, label: relevanceLabel(kind, r), n: list.filter((w) => relevanceOf(w) === r).length, on: chosen === r }));
 }
 
-/** A cor que o dono deu à tag na Wishlist do mural (`NotesConfig.wishTagColors`), em hex; sem cor, null. */
-export function wishTagHex(colors: Readonly<Record<string, CategoryColorId>>, kind: Kind, tag: string): string | null {
+/**
+ * A cor que o dono deu à tag na Wishlist do mural (`NotesConfig.wishTagColors`), em hex; sem cor, null. `kind` é o
+ * mural, ou `PIXEL_TAG_SPACE` para as tags da galeria de pixel arts (core/pixel-gallery.ts).
+ */
+export function wishTagHex(colors: Readonly<Record<string, CategoryColorId>>, kind: string, tag: string): string | null {
   return categoryColorHex(colors[wishTagKey(kind, tag)]);
 }
