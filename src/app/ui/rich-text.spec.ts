@@ -529,6 +529,28 @@ describe('o texto formatado na leitura', () => {
       expect(plain.hasAttribute('title')).toBeFalse();
       expect(named.getAttribute('title')).toBe('Celeste');
     });
+
+    it('o risco é um fio fino de caneta azul clara, 1px abaixo do pé da caixa (longe das pernas da letra, sem descer na linha de baixo)', async () => {
+      const el = await render('[[comprar um console]] e [[Vender a TV]]', { resolve, open: () => {}, create: () => {} });
+      const [ok, broken] = Array.from(el.querySelectorAll<HTMLElement>('.elo'));
+      const s = getComputedStyle(ok);
+      // o lugar do risco: a faixa de 4px no pé da caixa, 1px abaixo da fonte (antes ele subia até a letra);
+      // mais que isso, ele encostaria na letra da linha de baixo nas fichas de linhas juntas
+      expect(s.paddingBottom).toBe('1px');
+      expect(s.backgroundSize.split(',')[0].trim()).toBe('100% 4px');
+      expect(s.backgroundPositionY.split(',')[0].trim()).toBe('100%');
+      // o marca-texto não desce até o risco
+      expect(s.backgroundClip.split(',').map((v) => v.trim())).toEqual(['border-box', 'content-box']);
+      // a tinta: azul claro, fino (nada do azul-marinho grosso de antes)
+      const traco = s.getPropertyValue('--elo-traco');
+      expect(traco).toContain('6f9be6');
+      expect(traco).toContain("stroke-width='1.1'");
+      expect(traco).not.toContain('1d3577');
+      // o quebrado: o tracejado a lápis, tão fino quanto, no mesmo lugar
+      const q = getComputedStyle(broken);
+      expect(q.backgroundSize.split(',')[0].trim()).toBe('100% 4px');
+      expect(q.getPropertyValue('--elo-traco')).toContain("stroke-width='1.1' stroke-dasharray");
+    });
   });
 });
 
