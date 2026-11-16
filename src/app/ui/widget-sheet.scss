@@ -709,12 +709,19 @@ div.bloco {
 }
 
 /* a pixel art: guardar uma cópia na galeria, embaixo da linha do desenho */
-.guardar-galeria {
-  justify-self: start;
+/* escolher da galeria e guardar nela: dois botões quietos lado a lado, embaixo do desenho */
+.galeria-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: -6px;
+}
+
+.guardar-galeria,
+.escolher-galeria {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  margin-top: -6px;
 }
 
 .btn-quiet {

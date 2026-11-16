@@ -62,12 +62,30 @@
                     }
                     @case ('pixels') {
                       <!-- a pixel art: a miniatura do desenho e o ateliê, que abre por cima (lá moram a tela, a paleta e as cores) -->
-                      <app-pixel-field class="largo" [values]="values()" [missing]="isMissing(f)" [autoOpen]="!swap()" [ids]="ids + '-pixel'" (changed)="patch($event)" />
-                      <!-- uma cópia do desenho na galeria de pixel arts (Extras), com a legenda de nome -->
-                      <button type="button" class="btn-quiet guardar-galeria largo" (click)="keepInGallery()">
-                        <lucide-icon [img]="GalleryIcon" [size]="16" aria-hidden="true" />
-                        Guardar na galeria de pixel arts
-                      </button>
+                      <!-- a nova, com a galeria vazia, já abre no ateliê; com obras, a folha da galeria abre antes (ver o construtor) -->
+                      <app-pixel-field #pixelField class="largo" [values]="values()" [missing]="isMissing(f)" [autoOpen]="!swap() && !gallery.count()" [ids]="ids + '-pixel'" (changed)="patch($event)" />
+                      <div class="galeria-acoes largo">
+                        @if (gallery.count()) {
+                          <!-- uma que já está na galeria de pixel arts (Extras): a folha da galeria, com os filtros -->
+                          <button type="button" class="btn-quiet escolher-galeria" aria-haspopup="dialog" (click)="pixelPickerOpen.set(true)">
+                            <lucide-icon [img]="PickIcon" [size]="16" aria-hidden="true" />
+                            Escolher da galeria
+                          </button>
+                        }
+                        <!-- uma cópia do desenho na galeria de pixel arts, com a legenda de nome -->
+                        <button type="button" class="btn-quiet guardar-galeria" (click)="keepInGallery()">
+                          <lucide-icon [img]="GalleryIcon" [size]="16" aria-hidden="true" />
+                          Guardar na galeria de pixel arts
+                        </button>
+                      </div>
+                      <app-pixel-picker
+                        [(open)]="pixelPickerOpen"
+                        [chosen]="galleryMatch()"
+                        hint="Uma da sua galeria vira o desenho do widget; a da galeria continua como está."
+                        footHint="Toque numa pixel art para usar no widget."
+                        (picked)="useGalleryPiece($event)"
+                        (create)="pixelField.openStudio()"
+                      />
                     }
                     @case ('card') {
                       <!-- a Nota: a ficha escolhida, colada como a etiqueta de papel; sem ela, o recorte de escolher -->

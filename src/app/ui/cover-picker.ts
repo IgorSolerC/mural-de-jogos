@@ -17,10 +17,11 @@ import { CoverChoice, GameLookup, LookupError, STORED_COVER, coverFrom, imageLoa
 import { ImageStore, StoredImage } from '../core/image-store';
 import { ImageProblem, imageFileOf, localImageId, localImageUrl } from '../core/images';
 import { pixelCoverPng } from '../core/pixel-cover';
-import { PixelPiece, pieceTitle, pixelArtOf } from '../core/pixel-gallery';
+import { PixelPiece, artValues, pieceTitle, pieceTitleOf, pixelArtOf, valuesArt } from '../core/pixel-gallery';
+import { PixelPicker } from './pixel-picker';
+import { WidgetValues } from '../core/widgets';
 import { PixelGallery } from '../core/pixel-gallery-store';
-import { NO_PIXEL_FILTER, pieceMatches, sortPieces } from '../core/pixel-gallery-view';
-import { PixelThumb } from './pixel-thumb';
+import { PixelStudio } from './pixel-studio/pixel-studio';
 import { Kind, PickedGame, initialOf } from '../core/review';
 import { Settings } from '../core/settings';
 import { plural } from '../core/text';
@@ -41,13 +42,15 @@ function joinSources(list: string[]): string {
  * A escolha da capa: as fotos que o catálogo tem do mesmo título, soltas na mesa, e a escolhida sai
  * do monte. Também dá para colar o link de uma imagem, trazer uma do aparelho (escolher, colar com
  * Ctrl+V ou soltar em cima das capas: ela é guardada como as imagens das anotações, PLANO-CAPAS.md),
- * usar uma pixel art da galeria (impressa no papel milimetrado, core/pixel-cover.ts), ou ficar sem capa.
+ * usar uma pixel art da galeria, escolhida na folha da galeria (ui/pixel-picker.ts) e impressa no papel
+ * milimetrado (core/pixel-cover.ts), ou desenhar uma ali mesmo no ateliê (ela fica também na galeria), ou
+ * ficar sem capa.
  * Serve à wishlist, ao Pra depois e à ficha do mural; quem usa recebe o item com a
  * capa nova em `changed`.
  */
 @Component({
   selector: 'app-cover-picker',
-  imports: [IconModule, MuralSrc, PixelThumb],
+  imports: [IconModule, MuralSrc, PixelPicker, PixelStudio],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '(dragenter)': 'onDrag($event)',
@@ -154,45 +157,6 @@ function joinSources(list: string[]): string {
       </div>
     }
 
-    @if (picking()) {
-      <!-- as pixel arts da galeria, todas, com a busca: tocar numa vira a capa, impressa no papel milimetrado -->
-      <div class="galeria" role="group" [attr.aria-labelledby]="group() + '-px'" (keydown.escape)="onGalleryEscape($event)">
-        <div class="galeria-topo">
-          <span class="rotulo" [id]="group() + '-px'">Suas pixel arts</span>
-          <button type="button" class="btn-quiet" (click)="closeGallery(true)">Fechar</button>
-        </div>
-        @if (gallery.count()) {
-          <div class="tira-link busca-px">
-            <lucide-icon [img]="SearchIcon" [size]="18" aria-hidden="true" />
-            <input
-              #pixelSearch
-              type="search"
-              autocomplete="off"
-              spellcheck="false"
-              placeholder="Procurar pelo nome ou pela tag…"
-              [attr.aria-label]="'Procurar nas suas ' + plural(gallery.count(), 'pixel art', 'pixel arts')"
-              [value]="pixelQuery()"
-              (input)="pixelQuery.set($any($event.target).value)"
-            />
-          </div>
-        }
-        <ul class="obras" role="list">
-          @for (p of pixelShown(); track p.id) {
-            <li>
-              <button type="button" class="obra" [disabled]="saving()" (click)="usePiece(p)" [attr.aria-label]="'Usar ' + pieceTitle(p) + ' de capa'">
-                <span class="obra-desenho" aria-hidden="true"><app-pixel-thumb [art]="artOf(p)" /></span>
-                <span class="obra-nome" aria-hidden="true">{{ pieceTitle(p) }}</span>
-              </button>
-            </li>
-          }
-        </ul>
-        @if (!gallery.count()) {
-          <p class="dica-capa">A sua galeria de pixel arts ainda está vazia.</p>
-        } @else if (!pixelShown().length) {
-          <p class="dica-capa">Nenhuma pixel art com “{{ pixelQuery().trim() }}”.</p>
-        }
-      </div>
-    }
     <div class="acoes">
       @if (!pasting()) {
         <button type="button" class="acao-caneta colar-btn" (click)="openPaste()">
@@ -204,12 +168,10 @@ function joinSources(list: string[]): string {
         <lucide-icon [img]="UploadIcon" [size]="16" aria-hidden="true" />
         Escolher do aparelho
       </button>
-      @if (!picking()) {
-        <button type="button" class="acao-caneta pixel-btn" (click)="openGallery()">
-          <lucide-icon [img]="PixelIcon" [size]="16" aria-hidden="true" />
-          Pixel art
-        </button>
-      }
+      <button type="button" class="acao-caneta pixel-btn" aria-haspopup="dialog" [disabled]="saving()" (click)="pixelPickerOpen.set(true)">
+        <lucide-icon [img]="PixelIcon" [size]="16" aria-hidden="true" />
+        Pixel art
+      </button>
       <input #fileField class="escolher-arquivo" type="file" accept="image/*" tabindex="-1" aria-hidden="true" hidden (change)="fromDevice($event)" />
       <ng-content />
     </div>
@@ -217,6 +179,24 @@ function joinSources(list: string[]): string {
       <p class="aviso" role="alert">{{ err }}</p>
     } @else if (saving()) {
       <p class="sr-only" role="status">Guardando a imagem…</p>
+    } @else if (drawnNote(); as note) {
+      <p class="dica-capa" role="status">{{ note }}</p>
+    }
+    <!-- a galeria de pixel arts: a folha do "Escolher a nota", com os filtros e o Desenhar uma nova -->
+    <app-pixel-picker
+      [(open)]="pixelPickerOpen"
+      heading="Pixel art de capa"
+      hint="Uma da sua galeria vira a capa, impressa no papel milimetrado."
+      footHint="Toque numa pixel art para usar de capa."
+      [keepsNew]="true"
+      (picked)="usePiece($event)"
+      (create)="drawNew()"
+    />
+    @if (studio(); as v) {
+      <!-- já, e não quando a página sossegar: o ateliê abre logo depois do clique -->
+      @defer (on immediate) {
+        <app-pixel-studio [values]="v" (changed)="drawing($event)" (closed)="studioClosed()" />
+      }
     }
     <!-- a outra porta, sem botão: só onde há teclado e mouse (no celular não há Ctrl+V nem arrastar arquivo) -->
     <p class="dica-capa dica-colar">Também dá para colar uma imagem (Ctrl+V) ou soltar o arquivo em cima das capas.</p>
@@ -229,8 +209,6 @@ function joinSources(list: string[]): string {
     }
   `,
   styles: `
-    @use 'pixel-studio/xadrez' as x;
-
     :host {
       display: grid;
       gap: 10px;
@@ -466,138 +444,6 @@ function joinSources(list: string[]): string {
       gap: 2px;
     }
 
-    /* ===== As pixel arts da galeria: a tira que abre no lugar, como a do link ===== */
-    .galeria {
-      display: grid;
-      gap: 8px;
-    }
-
-    .galeria-topo {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-
-      .rotulo {
-        margin: 0;
-      }
-    }
-
-    .busca-px input::-webkit-search-cancel-button {
-      cursor: pointer;
-    }
-
-    /* todas, sem teto: a tira rola */
-    .obras {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
-      gap: 12px 14px;
-      max-height: 286px;
-      margin: 0;
-      padding: 6px 6px 4px;
-      overflow-y: auto;
-      overscroll-behavior: contain;
-      list-style: none;
-      scrollbar-width: thin;
-      scrollbar-color: rgb(21 21 21 / 0.3) transparent;
-    }
-
-    .obra {
-      display: grid;
-      gap: 6px;
-      width: 100%;
-      padding: 0;
-      border: 0;
-      background: none;
-      color: var(--ink);
-      cursor: pointer;
-      text-align: center;
-      transition: translate var(--t-ui) var(--ease-ui);
-
-      &:hover:not(:disabled) {
-        translate: 0 -2px;
-      }
-
-      &:focus-visible {
-        outline: 2px dashed var(--ink);
-        outline-offset: 6px;
-        border-radius: 2px;
-      }
-
-      &:disabled {
-        cursor: progress;
-        opacity: 0.6;
-      }
-    }
-
-    /* o desenho no xadrez do transparente, quadrado como um ponto da folha */
-    .obra-desenho {
-      display: grid;
-      aspect-ratio: 1;
-      padding: 8px;
-      box-sizing: border-box;
-      @include x.xadrez(8px);
-      box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
-    }
-
-    .obra-nome {
-      display: -webkit-box;
-      overflow: hidden;
-      -webkit-box-orient: vertical;
-      -webkit-line-clamp: 2;
-      font-family: var(--f-ui);
-      font-weight: 600;
-      font-size: 0.8rem;
-      line-height: 1.2;
-      overflow-wrap: anywhere;
-    }
-
-    .colar-linha {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .tira-link {
-      flex: 1 1 220px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      min-height: 46px;
-      padding: 0 12px;
-      border-radius: 2px;
-      background: var(--campo-fundo);
-      box-shadow: var(--campo-sombra);
-
-      &:focus-within {
-        background: var(--campo-fundo-foco);
-        box-shadow: var(--campo-sombra-foco);
-      }
-
-      &.busy {
-        opacity: 0.7;
-      }
-
-      input {
-        flex: 1;
-        min-width: 0;
-        height: 44px;
-        border: 0;
-        background: transparent;
-        outline: none;
-        font-family: var(--f-ui);
-        font-weight: 500;
-        font-size: 1rem;
-        color: var(--ink);
-        caret-color: var(--red);
-
-        &::placeholder {
-          color: rgb(21 21 21 / 0.55);
-        }
-      }
-    }
-
     .btn-quiet {
       color: var(--ink);
     }
@@ -648,17 +494,12 @@ export class CoverPicker {
   protected readonly LinkIcon = ICON.link;
   protected readonly UploadIcon = ICON.enviar;
   protected readonly PixelIcon = ICON.pixelArt;
-  protected readonly SearchIcon = ICON.buscar;
-  protected readonly pieceTitle = pieceTitle;
-  protected readonly artOf = pixelArtOf;
-  protected readonly plural = plural;
   protected readonly initialOf = initialOf;
 
   private readonly pasteField = viewChild<ElementRef<HTMLInputElement>>('pasteField');
   private readonly fileField = viewChild<ElementRef<HTMLInputElement>>('fileField');
   private readonly images = inject(ImageStore);
-  protected readonly gallery = inject(PixelGallery);
-  private readonly pixelSearch = viewChild<ElementRef<HTMLInputElement>>('pixelSearch');
+  private readonly gallery = inject(PixelGallery);
 
   /** As capas que dá para escolher; a primeira é a que veio com o item. */
   private readonly choices = signal<CoverChoice[]>([]);
@@ -688,15 +529,12 @@ export class CoverPicker {
   /** Uma imagem do aparelho sendo encolhida e guardada. */
   protected readonly saving = signal(false);
   protected readonly imageError = signal<string | null>(null);
-  /** A tira das pixel arts da galeria, aberta. */
-  protected readonly picking = signal(false);
-  protected readonly pixelQuery = signal('');
-  /** As obras da galeria, as mexidas por último primeiro; a busca acha no nome e nas tags. */
-  protected readonly pixelShown = computed(() => {
-    const query = this.pixelQuery();
-    const list = sortPieces(this.gallery.pieces(), { ordem: 'mudada', direcao: 'desc' });
-    return query.trim() ? list.filter((p) => pieceMatches(p, { ...NO_PIXEL_FILTER, query })) : list;
-  });
+  /** A folha da galeria de pixel arts, aberta. */
+  protected readonly pixelPickerOpen = signal(false);
+  /** O ateliê aberto, desenhando uma nova (os valores do widget de pixel art); null fechado. */
+  protected readonly studio = signal<WidgetValues | null>(null);
+  /** A frase de depois de desenhar: a obra nova também ficou na galeria. */
+  protected readonly drawnNote = signal<string | null>(null);
   /** Um arquivo arrastado por cima das capas. */
   protected readonly dropping = signal(false);
   /**
@@ -743,6 +581,7 @@ export class CoverPicker {
       this.closePaste();
       this.mine.clear();
       this.imageError.set(null);
+      this.drawnNote.set(null);
       this.broken.set(new Set());
       this.error.set(null);
       this.notes.set([]);
@@ -809,6 +648,8 @@ export class CoverPicker {
 
   protected choose(c: CoverChoice | null): void {
     const gm = this.game();
+    // a frase do desenho novo fala da capa que ele virou: escolheu outra, ela sai
+    if (c?.coverUrl !== this.cover()) this.drawnNote.set(null);
     this.cover.set(c?.coverUrl ?? null);
     this.changed.emit(c?.coverUrl ? { ...gm, coverUrl: c.coverUrl, source: c.source, sourceId: c.sourceId } : { ...gm, coverUrl: null });
   }
@@ -892,36 +733,48 @@ export class CoverPicker {
     this.choices.update((list) => list.map((c) => (c.coverUrl === url ? { ...c, from: PIXEL_COVER } : c)));
   }
 
-  // ===== as pixel arts da galeria (PLANO-CAPAS.md, rodada 2) =====
-
-  protected openGallery(): void {
-    this.picking.set(true);
-    this.pixelQuery.set('');
-    setTimeout(() => (this.pixelSearch()?.nativeElement ?? this.host.nativeElement.querySelector<HTMLElement>('.galeria button'))?.focus());
-  }
-
-  /** Fecha a tira; pelo Fechar (ou o Esc), o teclado volta para o botão que a abre. */
-  protected closeGallery(refocus = false): void {
-    this.picking.set(false);
-    if (refocus) this.focusLater('.pixel-btn');
-  }
-
-  protected onGalleryEscape(e: Event): void {
-    // o Esc fecha só a tira, não o diálogo nem a parte da capa
-    e.preventDefault();
-    e.stopPropagation();
-    this.closeGallery(true);
-  }
+  // ===== as pixel arts da galeria (PLANO-CAPAS.md): escolhidas na folha da galeria, ou desenhadas aqui =====
 
   /** A obra vira a capa: impressa no papel milimetrado, guardada como as imagens (sobe para a nuvem com a conta). */
-  protected async usePiece(p: PixelPiece): Promise<void> {
-    const used = await this.store(async () => {
+  protected async usePiece(p: PixelPiece): Promise<boolean> {
+    this.drawnNote.set(null);
+    return this.store(async () => {
       const png = await pixelCoverPng(pixelArtOf(p));
       if (!png) throw new ImageProblem('O navegador não conseguiu montar a imagem. Tente de novo.');
       return { image: await this.images.addPng(png.blob, png.width, png.height), from: PIXEL_COVER };
     });
-    // a tira fecha e a capa nova fica à vista, na frente do monte
-    if (used) this.closeGallery();
+  }
+
+  /** O Desenhar uma nova da folha da galeria: o ateliê por cima de tudo, com a tela em branco. */
+  protected drawNew(): void {
+    this.imageError.set(null);
+    this.drawnNote.set(null);
+    this.studio.set(artValues([]));
+  }
+
+  protected drawing(v: WidgetValues): void {
+    this.studio.update((s) => (s ? { ...s, ...v } : s));
+  }
+
+  /**
+   * O ateliê fechou: com pelo menos um ponto, o desenho vai para a galeria com o nome do item e vira a capa; sem
+   * ponto, nada muda e o teclado volta para o Pixel art.
+   */
+  protected async studioClosed(): Promise<void> {
+    const values = this.studio();
+    this.studio.set(null);
+    const art = values && valuesArt(values);
+    if (!art) {
+      this.focusLater('.pixel-btn');
+      return;
+    }
+    const piece = this.gallery.create({ art, title: pieceTitleOf(this.game().name) });
+    if (!piece) {
+      this.imageError.set('A galeria de pixel arts está cheia: apague alguma lá para guardar esta.');
+      this.focusLater('.pixel-btn');
+      return;
+    }
+    if (await this.usePiece(piece)) this.drawnNote.set(`“${pieceTitle(piece)}” também ficou na sua galeria de pixel arts.`);
   }
 
   // ===== a imagem do aparelho: escolher, colar ou soltar (guardada como as das anotações, core/image-store.ts) =====

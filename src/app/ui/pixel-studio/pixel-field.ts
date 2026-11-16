@@ -78,6 +78,11 @@ export class PixelField {
     });
   }
 
+  /** Abre o ateliê por quem usa (o "Desenhar uma nova" da folha da galeria, na folha do widget). */
+  openStudio(): void {
+    this.open.set(true);
+  }
+
   /** O ateliê fechou: o foco volta para o botão que o abre. */
   protected closed(): void {
     this.open.set(false);

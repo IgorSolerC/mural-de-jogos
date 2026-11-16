@@ -29,9 +29,9 @@ escolha); as que ele poderia querer de outro jeito estão marcadas como **suposi
     ícone de enviar da folha do widget de imagem) e **Pixel art** (o ícone da pixel art). O "Do aparelho" diz no
     título que colar e soltar também servem; colar (Ctrl+V) funciona com o foco em qualquer lugar do seletor, e
     soltar um arquivo em cima das capas acende o monte com o tracejado de "pode soltar".
-  - **Pixel art** abre, no lugar (como a tira do link), a tira da galeria: a busca (nome e tags) e todas as obras
-    em quadradinhos no xadrez (a miniatura comum `ui/pixel-thumb.ts`), a primeira sendo **Desenhar uma nova**.
-    Sem teto nem "+N": a tira rola. Tocar numa obra vira a capa.
+  - **Pixel art** abre a folha da galeria (refeito a pedido do dono, ver o andamento): o modal do "Escolher a
+    nota", com a busca, os filtros (as pastas da galeria, o Jeito, as Mexidas, as tags) e a ordem, as obras em grade,
+    e o **Desenhar uma nova** no pé. A mesma folha serve ao widget de pixel art das anotações.
   - **Desenhar uma nova** abre o ateliê (`ui/pixel-studio`) por cima, já com a tela em branco. Ao fechar com pelo
     menos um ponto, o desenho vai para a galeria com o nome do item (e a pasta da raiz) e vira a capa; sem ponto,
     nada acontece. **Suposição:** guardar na galeria (e não só na capa), para a obra poder ser reaproveitada.
@@ -96,3 +96,12 @@ que já tem. O glued-media e a carta dos Flashcards passam a usar a mesma funç�
   crédito "Pixel art" também ao abrir de novo (o PNG guardado). O `/code-review mid` achou três: o
   `aria-haspopup` de uma tira que não é menu e um comentário, corrigidos; a galeria vazia sem saída fica para a
   rodada 3 (Desenhar uma nova).
+- 16/nov/2026, rodada 3 refeita (a folha da galeria), BUILD 905: o dono pediu, no meio da rodada 3, a galeria como
+  um modal "semelhante ao modal de seleção de anotações", com filtros, e o Desenhar uma nova dentro dele; e o mesmo
+  modal no widget de pixel art das anotações, para anexar uma obra da galeria. Depois, em grade ("pixelarts são 99%
+  arte"). A tira solta saiu. `PickerFilters` passou a ler `PickerFacets` (o `CardFilters` cumpre sem mudar nada no
+  "Escolher a nota"); `ui/pixel-filters.ts` (as pastas, o Jeito, as Mexidas, as tags, a ordem) e `ui/pixel-picker.ts`
+  (a folha, em grade). Na capa, o Pixel art abre a folha; o Desenhar uma nova abre o ateliê, e o desenho vai para a
+  galeria com o nome da ficha e vira a capa. No widget, o novo abre a folha quando a galeria tem obras, e o Escolher
+  da galeria fica ao lado do Guardar na galeria; o Desenhar uma nova abre o ateliê do próprio widget. O
+  `/code-review mid` achou dois, corrigidos: a legenda velha ao trocar de obra e a tabela das Mexidas repetida.

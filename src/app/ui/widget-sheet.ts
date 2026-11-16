@@ -15,7 +15,8 @@ import { NoteWidget } from './note-widget';
 import { Pin } from './pin';
 import { PixelField } from './pixel-studio/pixel-field';
 import { PixelGallery } from '../core/pixel-gallery-store';
-import { valuesArt } from '../core/pixel-gallery';
+import { PixelPiece, artValues, valuesArt } from '../core/pixel-gallery';
+import { PixelPicker } from './pixel-picker';
 import { PIXEL_ARTS_PATH } from '../core/areas';
 import { Router } from '@angular/router';
 import { Toasts } from './toast';
@@ -57,7 +58,7 @@ interface FieldRow {
  */
 @Component({
   selector: 'app-widget-sheet',
-  imports: [BackdropClose, CardPicker, CoverSleeve, IconModule, NgTemplateOutlet, NoteWidget, Pin, PixelField, RichText, TableGrid, TableLookArt],
+  imports: [BackdropClose, CardPicker, CoverSleeve, IconModule, NgTemplateOutlet, NoteWidget, Pin, PixelField, PixelPicker, RichText, TableGrid, TableLookArt],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './widget-sheet.html',
   styleUrl: './widget-sheet.scss',
@@ -283,8 +284,10 @@ export class WidgetSheet {
       this.values.set({ size: 'medio', ...s.values });
       const el = this.dialog().nativeElement;
       el.showModal();
-      // a Nota nova já abre a lista: escolher a ficha é a primeira coisa a fazer
+      // a Nota nova já abre a lista: escolher a ficha é a primeira coisa a fazer; a pixel art nova, com obras na
+      // galeria, abre a folha da galeria (lá dentro, o Desenhar uma nova abre o ateliê)
       if (this.name() === 'nota' && !this.swap() && !this.chosenCard()) this.cardPickerOpen.set(true);
+      else if (this.name() === 'pixel' && !this.swap() && this.gallery.count() && !valuesArt(this.values())) this.pixelPickerOpen.set(true);
       else afterNextRender(() => this.dialog().nativeElement.querySelector<HTMLElement>('[data-campo]')?.focus(), { injector: this.injector });
     });
   }
@@ -305,10 +308,33 @@ export class WidgetSheet {
     this.values.update((v) => ({ ...v, [key]: value }));
   }
 
-  private readonly gallery = inject(PixelGallery);
+  protected readonly gallery = inject(PixelGallery);
   private readonly toasts = inject(Toasts);
   private readonly router = inject(Router);
   protected readonly GalleryIcon = ICON.pixelArt;
+  protected readonly PickIcon = ICON.buscar;
+  /** A folha da galeria de pixel arts (ui/pixel-picker.ts), aberta. */
+  protected readonly pixelPickerOpen = signal(false);
+  /** A obra da galeria com o mesmo desenho do widget (o tique dela na folha), ou "". */
+  protected readonly galleryMatch = computed(() => {
+    if (this.name() !== 'pixel') return '';
+    const art = valuesArt(this.values());
+    const key = art && JSON.stringify(art);
+    return (key && this.gallery.pieces().find((p) => JSON.stringify(p.art) === key)?.id) || '';
+  });
+
+  /**
+   * A obra escolhida na folha da galeria vira o desenho do widget (os pontos, a tela, a paleta, as cores e o jeito);
+   * sem legenda, ou com o nome da obra de antes (escolhida aqui), o nome dela vira a legenda; a escrita à mão fica. A
+   * obra na galeria continua como está.
+   */
+  protected useGalleryPiece(p: PixelPiece): void {
+    const was = this.values()['caption']?.trim() ?? '';
+    const before = this.gallery.get(this.galleryMatch())?.title ?? null;
+    // a obra guardada não tem legenda (o nome é à parte)
+    const { caption: _none, ...art } = artValues(p.art);
+    this.patch({ ...art, caption: !was || was === before ? p.title : was });
+  }
 
   /**
    * Guarda uma cópia do desenho na galeria de pixel arts (PLANO-PIXEL-ARTS.md, 6), com a legenda de nome; o widget

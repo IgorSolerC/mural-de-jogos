@@ -80,12 +80,46 @@ const MARKS: readonly { value: PickerMark; label: string; chip: string; notesOnl
   { value: 'tarefas', label: 'Com tarefa por fazer', chip: 'Com tarefa por fazer', notesOnly: true },
   { value: 'privadas', label: 'Privadas', chip: 'Privadas', notesOnly: false },
 ];
-const WHENS: readonly { value: PickerWhen; label: string; chip: string }[] = [
+/** As faixas do "Mexidas" (as fichas e as pixel arts). */
+export const PICKER_WHENS: readonly { value: PickerWhen; label: string; chip: string }[] = [
   { value: 'hoje', label: 'Hoje', chip: 'Mexidas hoje' },
   { value: 'semana', label: 'Nos últimos 7 dias', chip: 'Últimos 7 dias' },
   { value: 'mes', label: 'Nos últimos 30 dias', chip: 'Últimos 30 dias' },
   { value: 'antes', label: 'Há mais de 30 dias', chip: 'Há mais de 30 dias' },
 ];
+/**
+ * O que a folha de escolher (`PickerFilters`) lê dos filtros de quem usa: as linhas de cada parte do índice, os
+ * adesivos dos ligados, as contas, a ordem e o nome das coisas. As fichas (`CardFilters`) e as pixel arts da
+ * galeria (ui/pixel-picker.ts) dão cada uma o seu; a folha não sabe o que está escolhendo.
+ */
+export interface PickerFacets {
+  /** As coisas da lista, no singular e no plural ("anotação", "anotações"). */
+  readonly noun: Signal<readonly [string, string]>;
+  readonly placeRows: Signal<readonly PlaceRow[]>;
+  choosePlace(p: PlaceRow, setKind: (k: Kind | null) => void): void;
+  /** A parte de uma escolha por vez (o Estado das anotações, o Jeito das pixel arts) e o título dela. */
+  readonly stateTitle: string;
+  readonly stateRows: Signal<readonly OptionRow<string>[]>;
+  stateIcon(value: string): LucideIconData | null;
+  toggleState(value: string): void;
+  readonly markRows: Signal<readonly OptionRow<string>[]>;
+  toggleMark(value: string): void;
+  readonly whenRows: Signal<readonly OptionRow<PickerWhen>[]>;
+  toggleWhen(w: PickerWhen): void;
+  readonly tagChips: Signal<readonly TagChip[]>;
+  toggleTag(value: string): void;
+  excludeTag(value: string): void;
+  readonly chips: Signal<readonly FilterChip[]>;
+  removeChip(c: FilterChip): void;
+  readonly active: Signal<boolean>;
+  readonly matching: Signal<readonly unknown[]>;
+  readonly before: Signal<number>;
+  clear(): void;
+  readonly orders: readonly { value: string; label: string }[];
+  readonly order: Signal<string>;
+  setOrder(value: string): void;
+}
+
 export const PICKER_ORDERS: readonly { value: PickerOrder; label: string }[] = [
   { value: 'mexidas', label: 'Mexidas há pouco' },
   { value: 'criadas', label: 'Criadas há pouco' },
@@ -102,7 +136,7 @@ export const PICKER_ORDERS: readonly { value: PickerOrder; label: string }[] = [
  * outros ligados, e as linhas não somem enquanto se filtra (a que não deixaria nenhuma desbota): elas
  * existem pelo que há no mural escolhido, e só as contas mudam.
  */
-export class CardFilters {
+export class CardFilters implements PickerFacets {
   readonly group = signal<string | null>(null);
   /** A pasta (o id, ou "sem"): uma só, como no mural; filtrar por ela pega as de dentro. */
   readonly folder = signal<string | null>(null);
@@ -136,6 +170,17 @@ export class CardFilters {
 
   /** A lista está nas anotações: o grupo, a pasta, as tags, o estado, a fixada e a tarefa valem. */
   readonly notesScope = computed(() => this.kind() === NOTES);
+  readonly noun = computed<readonly [string, string]>(() => (this.notesScope() ? ['anotação', 'anotações'] : ['ficha', 'fichas']));
+  readonly stateTitle = 'Estado';
+  readonly orders = PICKER_ORDERS;
+
+  stateIcon(s: string): LucideIconData {
+    return s === 'abertas' ? ICON.emAndamento : ICON.concluido;
+  }
+
+  setOrder(value: string): void {
+    if (PICKER_ORDERS.some((o) => o.value === value)) this.order.set(value as PickerOrder);
+  }
 
   private readonly facts = computed(() => {
     const tree = this.folders.tree();
@@ -416,7 +461,7 @@ export class CardFilters {
   readonly whenRows = computed<OptionRow<PickerWhen>[]>(() => {
     const on = this.when();
     if (!on && this.cards().length < 2) return [];
-    return WHENS.map((w) => ({ value: w.value, label: w.label, on: w.value === on, n: this.count(['when'], (r) => this.inWhen(r, w.value)) }));
+    return PICKER_WHENS.map((w) => ({ value: w.value, label: w.label, on: w.value === on, n: this.count(['when'], (r) => this.inWhen(r, w.value)) }));
   });
 
   /**
@@ -475,7 +520,7 @@ export class CardFilters {
     if (s !== 'todas' && this.notesScope()) out.push({ key: 'state', value: s, label: s === 'abertas' ? 'Abertas' : 'Finalizadas' });
     for (const m of this.marks()) out.push({ key: 'mark', value: m, label: MARKS.find((x) => x.value === m)!.chip });
     const w = this.when();
-    if (w) out.push({ key: 'when', value: w, label: WHENS.find((x) => x.value === w)!.chip });
+    if (w) out.push({ key: 'when', value: w, label: PICKER_WHENS.find((x) => x.value === w)!.chip });
     return out;
   });
 
@@ -662,12 +707,16 @@ let nextId = 0;
           @if (f.stateRows(); as rows) {
             @if (rows.length) {
               <section class="secao" [attr.aria-labelledby]="id + '-estado'">
-                <h3 class="secao-titulo" [id]="id + '-estado'">Estado</h3>
+                <h3 class="secao-titulo" [id]="id + '-estado'">{{ f.stateTitle }}</h3>
                 <ul class="opcoes">
                   @for (s of rows; track s.value) {
                     <li>
                       <button type="button" class="idx" [class.zero]="!s.n && !s.on" [attr.aria-pressed]="s.on" (click)="f.toggleState(s.value)">
-                        <lucide-icon class="idx-ico" [img]="stateIcon(s.value)" [size]="16" aria-hidden="true" />
+                        @if (f.stateIcon(s.value); as icon) {
+                          <lucide-icon class="idx-ico" [img]="icon" [size]="16" aria-hidden="true" />
+                        } @else {
+                          <span class="idx-ico" aria-hidden="true"></span>
+                        }
                         <span class="idx-nome">{{ s.label }}</span>
                         <span class="idx-n"><span class="sr-only">, </span>{{ s.n }}</span>
                       </button>
@@ -752,8 +801,8 @@ let nextId = 0;
             <span class="ordem-pre">Ordenar:</span>
             <span class="ordem-val">{{ orderLabel() }}</span>
             <lucide-icon class="ordem-chev" [img]="ChevronIcon" [size]="15" aria-hidden="true" />
-            <select aria-label="Ordenar a lista" (change)="f.order.set($any($event.target).value)">
-              @for (o of orders; track o.value) {
+            <select aria-label="Ordenar a lista" (change)="f.setOrder($any($event.target).value)">
+              @for (o of f.orders; track o.value) {
                 <option [value]="o.value" [selected]="o.value === f.order()">{{ o.label }}</option>
               }
             </select>
@@ -771,14 +820,13 @@ let nextId = 0;
   styleUrl: './picker-filters.scss',
 })
 export class PickerFilters {
-  readonly filters = input.required<CardFilters>();
+  readonly filters = input.required<PickerFacets>();
   readonly kind = model<Kind | null>(null);
 
   protected readonly id = `escolher-${nextId++}`;
   protected readonly FilterIcon = ICON.filtrar;
   protected readonly MoreIcon = ICON.proximo;
   protected readonly ChevronIcon = ICON.abrir;
-  protected readonly orders = PICKER_ORDERS;
   /** No celular, o índice aberto por cima da lista. */
   protected readonly drawer = signal(false);
   private readonly opener = viewChild<ElementRef<HTMLElement>>('abre');
@@ -793,7 +841,7 @@ export class PickerFilters {
     return f.placeRows().length > 0 || f.stateRows().length > 0 || f.markRows().length > 0 || f.whenRows().length > 0 || f.tagChips().length > 0;
   });
 
-  private readonly noun = computed(() => (this.filters().notesScope() ? ['anotação', 'anotações'] : ['ficha', 'fichas']));
+  private readonly noun = computed(() => this.filters().noun());
 
   protected readonly countLabel = computed(() => {
     const [one, many] = this.noun();
@@ -806,11 +854,10 @@ export class PickerFilters {
     return plural(this.filters().matching().length, one, many);
   });
 
-  protected readonly orderLabel = computed(() => PICKER_ORDERS.find((o) => o.value === this.filters().order())!.label);
-
-  protected stateIcon(s: PickerState): LucideIconData {
-    return s === 'abertas' ? ICON.emAndamento : ICON.concluido;
-  }
+  protected readonly orderLabel = computed(() => {
+    const f = this.filters();
+    return f.orders.find((o) => o.value === f.order())?.label ?? '';
+  });
 
   protected toggleDrawer(): void {
     if (this.drawer()) {

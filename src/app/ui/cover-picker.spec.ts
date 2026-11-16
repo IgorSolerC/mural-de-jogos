@@ -7,7 +7,8 @@ import { localImageId } from '../core/images';
 import { samplePng } from '../core/images.spec';
 import { PickedGame } from '../core/review';
 import { CoverPicker } from './cover-picker';
-import { PIXEL_GALLERY_KEY } from '../core/pixel-gallery-store';
+import { PIXEL_GALLERY_KEY, PixelGallery } from '../core/pixel-gallery-store';
+import { artValues } from '../core/pixel-gallery';
 
 /** Um item sem catálogo: o seletor não sai procurando capas na rede. */
 const GAME: PickedGame = { name: 'Meu jogo', coverUrl: null, source: 'manual' };
@@ -169,36 +170,25 @@ describe('a pixel art da galeria como capa', () => {
     return { fixture, el: fixture.nativeElement as HTMLElement, changed };
   }
 
-  it('o Pixel art abre a tira com todas (a mexida por último primeiro), a busca acha pelo nome e pela tag', async () => {
-    const { fixture, el } = await make(pieces);
+  /** O Pixel art abre a folha da galeria (ui/pixel-picker.ts), um <dialog> modal dentro do seletor. */
+  async function openSheet(fixture: ComponentFixture<unknown>, el: HTMLElement): Promise<HTMLDialogElement> {
     el.querySelector<HTMLButtonElement>('.pixel-btn')!.click();
-    await fixture.whenStable();
-    const names = () => Array.from(el.querySelectorAll('.obra-nome'), (n) => n.textContent);
-    expect(names()).toEqual(['Sol', 'Gato preto']);
-    const search = el.querySelector<HTMLInputElement>('.galeria input[type="search"]')!;
-    search.value = 'bich';
-    search.dispatchEvent(new Event('input'));
-    await fixture.whenStable();
-    expect(names()).toEqual(['Gato preto']);
-    search.value = 'dragão';
-    search.dispatchEvent(new Event('input'));
-    await fixture.whenStable();
-    expect(names()).toEqual([]);
-    expect(el.querySelector('.galeria .dica-capa')?.textContent).toContain('dragão');
-  });
+    await settle(fixture, () => !!el.querySelector('app-pixel-picker dialog[open]'));
+    return el.querySelector<HTMLDialogElement>('app-pixel-picker dialog')!;
+  }
 
-  it('tocar numa obra a imprime em PNG e ela vira a capa, com o crédito "Pixel art"; a tira fecha', async () => {
+  it('o Pixel art abre a folha da galeria, em grade; tocar numa obra a imprime em PNG e ela vira a capa, com o crédito "Pixel art"', async () => {
     const { fixture, el, changed } = await make(pieces);
-    el.querySelector<HTMLButtonElement>('.pixel-btn')!.click();
-    await fixture.whenStable();
-    el.querySelector<HTMLButtonElement>('.obra')!.click();
+    const sheet = await openSheet(fixture, el);
+    expect(sheet.open).toBeTrue();
+    expect(Array.from(sheet.querySelectorAll('.obra .nome'), (n) => n.textContent)).toEqual(['Sol', 'Gato preto']);
+    sheet.querySelector<HTMLButtonElement>('.obra')!.click();
     await settle(fixture, () => changed.length > 0);
+    expect(sheet.open).toBeFalse();
     const id = localImageId(changed[0].coverUrl ?? '');
     const stored = await TestBed.inject(ImageStore).get(id!);
     expect(stored?.tipo).toBe('image/png');
     expect([stored?.largura, stored?.altura]).toEqual([720, 900]);
-    await settle(fixture, () => !el.querySelector('.galeria'));
-    expect(el.querySelector('.galeria')).toBeNull();
     expect(el.querySelector('.capa.on .de')?.textContent).toBe('Pixel art');
   });
 
@@ -216,11 +206,48 @@ describe('a pixel art da galeria como capa', () => {
     expect(own.el.querySelector('.capa.on .de')?.textContent).toBe('Do aparelho');
   });
 
-  it('com a galeria vazia, a tira diz isso', async () => {
+  it('com a galeria vazia, a folha diz isso e oferece desenhar a primeira', async () => {
     const { fixture, el } = await make([]);
-    el.querySelector<HTMLButtonElement>('.pixel-btn')!.click();
+    const sheet = await openSheet(fixture, el);
+    expect(sheet.querySelector('.nada')?.textContent).toContain('ainda está vazia');
+    expect(sheet.querySelector('.nada .nada-link')?.textContent).toContain('Desenhar a primeira');
+  });
+
+  /** O ateliê, por dentro: abrir pelo Desenhar uma nova, pintar e fechar (o ateliê de verdade manda o mesmo). */
+  function studioOf(fixture: ComponentFixture<CoverPicker>) {
+    const picker = fixture.componentInstance as unknown as { drawing(v: Record<string, string>): void; studioClosed(): Promise<void>; studio(): unknown };
+    return picker;
+  }
+
+  it('o Desenhar uma nova da folha: o desenho vai para a galeria com o nome do item e vira a capa', async () => {
+    const { fixture, el, changed } = await make([]);
+    const sheet = await openSheet(fixture, el);
+    sheet.querySelector<HTMLButtonElement>('.foot .criar')!.click();
     await fixture.whenStable();
-    expect(el.querySelector('.galeria input')).toBeNull();
-    expect(el.querySelector('.galeria .dica-capa')?.textContent).toContain('ainda está vazia');
+    expect(sheet.open).toBeFalse();
+    const picker = studioOf(fixture as ComponentFixture<CoverPicker>);
+    expect(picker.studio()).not.toBeNull();
+    picker.drawing(artValues(['2x2', '10/01']));
+    await picker.studioClosed();
+    await settle(fixture, () => changed.length > 0);
+    const gallery = TestBed.inject(PixelGallery);
+    expect(gallery.pieces().map((p) => p.title)).toEqual(['Meu jogo']);
+    expect((await TestBed.inject(ImageStore).get(localImageId(changed[0].coverUrl ?? '')!))?.tipo).toBe('image/png');
+    expect(el.querySelector('.capa.on .de')?.textContent).toBe('Pixel art');
+    expect(el.querySelector('[role="status"].dica-capa')?.textContent).toContain('também ficou na sua galeria');
+  });
+
+  it('fechar o ateliê sem nenhum ponto não guarda nada nem muda a capa', async () => {
+    const { fixture, el, changed } = await make([]);
+    const sheet = await openSheet(fixture, el);
+    sheet.querySelector<HTMLButtonElement>('.foot .criar')!.click();
+    await fixture.whenStable();
+    expect(sheet.open).toBeFalse();
+    const picker = studioOf(fixture as ComponentFixture<CoverPicker>);
+    await picker.studioClosed();
+    await fixture.whenStable();
+    expect(picker.studio()).toBeNull();
+    expect(TestBed.inject(PixelGallery).count()).toBe(0);
+    expect(changed.length).toBe(0);
   });
 });

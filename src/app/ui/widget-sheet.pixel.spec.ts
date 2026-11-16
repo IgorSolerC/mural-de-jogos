@@ -1,7 +1,7 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { WidgetDone, WidgetSheet } from './widget-sheet';
-import { PixelGallery } from '../core/pixel-gallery-store';
+import { PIXEL_GALLERY_KEY, PixelGallery } from '../core/pixel-gallery-store';
 import { Toasts } from './toast';
 
 /** A folha do widget com a pixel art: o desenho numa linha, o ateliê por cima, e o Pôr sai com a marca. */
@@ -48,6 +48,28 @@ describe('a folha do widget com a pixel art', () => {
     fixture.detectChanges();
     (host.querySelector('.pe .ok') as HTMLButtonElement).click();
     expect(done).toEqual([{ name: 'pixel', args: ['2x1', '4', 'figurinha'], size: 'medio' }]);
+  });
+
+  it('com obras na galeria, o widget novo abre a folha da galeria; a escolhida vira o desenho, com o nome de legenda', async () => {
+    const at = '2026-11-16T10:00:00.000Z';
+    localStorage.setItem(PIXEL_GALLERY_KEY, JSON.stringify({ pieces: [{ id: 'sol', title: 'Sol', art: ['3x3', '010/111/010', 'miçanga'], createdAt: at, at }], removed: {} }));
+    try {
+      const { fixture, host, done } = await open();
+      expect(host.querySelector('dialog.atelie')).toBeNull();
+      const sheet = host.querySelector<HTMLDialogElement>('app-pixel-picker dialog')!;
+      expect(sheet.open).toBeTrue();
+      sheet.querySelector<HTMLButtonElement>('.obra')!.click();
+      for (let i = 0; i < 3; i++) {
+        await fixture.whenStable();
+        fixture.detectChanges();
+      }
+      expect(sheet.open).toBeFalse();
+      expect(host.querySelector('app-pixel-field .linha-desc')?.textContent).toContain('3 × 3');
+      (host.querySelector('.pe .ok') as HTMLButtonElement).click();
+      expect(done).toEqual([{ name: 'pixel', args: ['3x3', '01/111/01', 'micanga', 'Sol'], size: 'medio' }]);
+    } finally {
+      localStorage.removeItem(PIXEL_GALLERY_KEY);
+    }
   });
 
   it('mexendo num que já está no texto, a folha abre na linha do desenho; sem pontos, o Pôr leva ao ateliê', async () => {
