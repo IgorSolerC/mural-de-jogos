@@ -1,16 +1,16 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import type { TagEntry } from '../core/note-labels';
-import { PIXEL_TAG_SPACE, PixelPiece } from '../core/pixel-gallery';
+import { PixelPiece } from '../core/pixel-gallery';
 import { PixelGallery } from '../core/pixel-gallery-store';
-import { Settings } from '../core/settings';
 import { plural } from '../core/text';
 import { lookKey } from '../core/category-looks';
-import { wishTagCounts, wishTagHex } from '../core/wishlist-view';
+import { wishTagCounts } from '../core/wishlist-view';
 import { BackdropClose } from './backdrop-close';
 import { ICON, IconModule } from './icons';
 import { NoteTag } from './note-tag';
 import { Pin } from './pin';
 import { TagPicker } from './tag-picker';
+import { PixelTagColors } from './pixel-tag-colors';
 
 let uid = 0;
 
@@ -65,7 +65,7 @@ export interface PixelTagsChange {
                   }
                 </ul>
               }
-              <app-tag-picker [tags]="shown()" (tagsChange)="setTags($event)" [library]="lib()" [pinnable]="false" [units]="['pixel art', 'pixel arts']" owner="Estas pixel arts" />
+              <app-tag-picker [tags]="shown()" (tagsChange)="setTags($event)" [library]="lib()" [colors]="drafts.colors()" [pinnable]="false" [units]="['pixel art', 'pixel arts']" owner="Estas pixel arts" />
             </div>
           </div>
         </div>
@@ -90,7 +90,6 @@ export class PixelBulkTags {
   readonly closed = output<void>();
 
   private readonly gallery = inject(PixelGallery);
-  private readonly settings = inject(Settings);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
 
   protected readonly id = `pixel-tags-${++uid}`;
@@ -133,8 +132,11 @@ export class PixelBulkTags {
     afterNextRender(() => this.dialog().nativeElement.showModal());
   }
 
+  /** As cores das tags (a nova ganha uma sorteada, guardada só ao aplicar, como na ficha da obra). */
+  protected readonly drafts = new PixelTagColors();
+
   protected hex(tag: string): string | null {
-    return wishTagHex(this.settings.notesConfig().wishTagColors, PIXEL_TAG_SPACE, tag);
+    return this.drafts.colors().hex(tag);
   }
 
   /** O seletor mexeu nas que todas têm: a que saiu de lá sai de todas; a que voltou não sai mais. */
@@ -155,6 +157,7 @@ export class PixelBulkTags {
   }
 
   protected apply(): void {
+    this.drafts.keep(this.shown());
     this.applied.emit({ all: this.shown(), drop: this.drop() });
     this.close();
   }

@@ -98,7 +98,7 @@ export class PixelArtsPage {
   protected readonly AscIcon = ICON.ordenarCrescente;
   protected readonly orders = PIXEL_ORDERS;
   protected readonly views: readonly { value: PixelView; label: string; hint: string; icon: typeof ICON.grade }[] = [
-    { value: 'mostra', label: 'Mostra', hint: 'Mostra: cada uma no jeito dela', icon: ICON.parede },
+    { value: 'mostra', label: 'Mostra', hint: 'Mostra: cada uma no jeito dela', icon: ICON.imagem },
     { value: 'grade', label: 'Grade', hint: 'Grade: muitas de uma vez', icon: ICON.grade },
   ];
 
@@ -190,6 +190,11 @@ export class PixelArtsPage {
   });
   protected readonly lookOptions = computed<SubjectOption[]>(() => pixelLookOptions(this.pool(), this.filter().jeito));
   protected readonly chips = computed(() => activeFilters(this.lookOptions(), this.tagChips()));
+  /** Só a busca está ligada (nenhum filtro da folha). */
+  protected readonly onlySearch = computed(() => {
+    const f = this.filter();
+    return !!f.query.trim() && !f.jeito && !f.on.size && !f.out.size;
+  });
   protected readonly noneText = computed(() => {
     const f = this.filter();
     if (f.query.trim() && !f.jeito && !f.on.size && !f.out.size) return `Nenhuma pixel art tem “${f.query.trim()}” no nome, nas tags ou na descrição.`;
@@ -255,7 +260,7 @@ export class PixelArtsPage {
       { id: 'copiar', label: 'Copiar', icon: ICON.copiar, disabled: !n, hint: 'Como widgets, para colar numa anotação', run: () => void this.selection.copy() },
       { id: 'baixar', label: 'Baixar', icon: ICON.baixar, disabled: !n, hint: 'Um PNG de cada', run: () => void this.downloadMany(this.marked()) },
       { id: 'tags', label: 'Tags…', icon: ICON.etiquetas, disabled: !n, run: () => this.bulkTags.set(this.marked()) },
-      { id: 'apagar', label: 'Apagar', icon: ICON.apagar, disabled: !n, run: () => this.removeMany(this.selection.ids()) },
+      { id: 'apagar', label: 'Apagar', icon: ICON.apagar, disabled: !n, danger: true, run: () => this.removeMany(this.selection.ids()) },
       { id: 'mover', label: 'Mover para pasta…', icon: ICON.guardarNaPasta, primary: true, run: () => this.moving.set({ kind: 'obras', ids: [...this.selection.ids()], name: n === 1 ? pieceTitle(this.marked()[0]) : plural(n, 'pixel art', 'pixel arts'), from: this.openFolder() }) },
     ];
   });
@@ -340,7 +345,7 @@ export class PixelArtsPage {
     return [
       [
         { id: 'editar', label: 'Editar', icon: ICON.ajustar, dialog: true, run: () => this.open(p.id) },
-        { id: 'atelie', label: 'Abrir no ateliê', icon: ICON.editar, dialog: true, run: () => this.atelie(p.id) },
+        { id: 'atelie', label: 'Abrir no ateliê', icon: ICON.paleta, dialog: true, run: () => this.atelie(p.id) },
       ],
       [
         { id: 'baixar', label: 'Baixar PNG', icon: ICON.baixar, run: () => void this.download(p.id) },
@@ -611,6 +616,14 @@ export class PixelArtsPage {
       if (undo) this.toasts.show(`“${pieceTitle(p)}” mudou na galeria`, { label: 'Desfazer', run: () => this.transitions.run(undo) });
     } else if (p) {
       this.toasts.show('Uma pixel art precisa de pelo menos um ponto: o desenho ficou como era.');
+    } else if (art) {
+      // apagada noutro aparelho enquanto o ateliê estava aberto: o desenho não some, vira uma obra nova
+      const made = this.gallery.create({ art, folder: this.openFolder() ?? undefined });
+      if (made) {
+        this.toasts.show('A pixel art foi apagada noutro aparelho: guardei o desenho como uma obra nova.');
+        this.land(made.id);
+      }
+      return;
     }
     this.follow(s.id, 'app-pixel-actions .atelie');
   }

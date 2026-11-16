@@ -50,8 +50,11 @@ export class PixelGallery {
     this.compose.update((n) => n + 1);
   }
 
+  /** As obras pelo id (as páginas procuram muitas de uma vez: as marcadas, o menu, as pastas). */
+  private readonly byId = computed(() => new Map(this.pieces().map((p) => [p.id, p])));
+
   get(id: string): PixelPiece | undefined {
-    return this.pieces().find((p) => p.id === id);
+    return this.byId().get(id);
   }
 
   /** Cabe mais uma obra? */

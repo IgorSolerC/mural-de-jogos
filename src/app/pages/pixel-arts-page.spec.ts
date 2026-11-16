@@ -116,7 +116,7 @@ describe('a galeria de pixel arts', () => {
     await mount();
     fixture.componentInstance['setQuery']('dragão');
     await settle();
-    expect(host.querySelector('.no-results h2')!.textContent).toContain('Nada na galeria');
+    expect(host.querySelector('.no-results h2')!.textContent).toBe('Nada com “dragão”');
     button('Limpar a busca e os filtros').click();
     await settle();
     expect(host.querySelectorAll('app-pixel-piece').length).toBe(3);

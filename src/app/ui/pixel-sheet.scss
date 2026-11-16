@@ -17,9 +17,23 @@ dialog.obra {
     #25272a;
 }
 
-/* a obra na mesa, do tamanho de uma coluna da Mostra */
+/* a mesa mais larga que a da Wishlist: tocar numa obra é também olhar para ela, então o desenho vem grande */
+.obra .body {
+  grid-template-columns: 268px minmax(0, 1fr);
+}
 .obra .previa {
-  max-width: 172px;
+  max-width: 228px;
+}
+@media (max-width: 600px) {
+  .obra .body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .obra .mesa {
+    grid-template-columns: auto 160px;
+  }
+  .obra .previa {
+    max-width: 160px;
+  }
 }
 
 /* ainda sem desenho: o lugar dele, tracejado a giz */

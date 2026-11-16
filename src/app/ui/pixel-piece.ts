@@ -63,7 +63,7 @@ import { WishTags } from './wish-tags';
     }
   `,
   styles: `
-    @use 'caderno';
+    @use 'obra-galeria' as obra;
 
     :host {
       position: relative;
@@ -146,124 +146,14 @@ import { WishTags } from './wish-tags';
       filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 3px 4px rgb(0 0 0 / 0.3));
     }
 
-    /* a ponta da folha da descrição, atrás da obra, do lado de onde a folha sai */
-    .ponta {
-      @include caderno.ponta;
-      top: 26%;
-      right: -11px;
-      rotate: 7deg;
-    }
-    @media (hover: hover) {
-      :host(:hover) .ponta {
-        opacity: 0;
-        transition-delay: 300ms;
-      }
-    }
-    :host(:has(.hit:focus-visible)) .ponta,
-    :host(:has(app-wish-note.aberta)) .ponta {
-      opacity: 0;
-    }
-
-    /* tocar abre a ficha: o botão cobre a obra */
-    .hit {
-      position: absolute;
-      inset: 0;
-      z-index: 4;
-      padding: 0;
-      border: 0;
-      background: none;
-      cursor: pointer;
-    }
-    .hit:focus-visible {
-      outline: 3px solid var(--hi);
-      outline-offset: 5px;
-    }
-
     /* a legenda de museu, fora da obra (não torta nem com a sombra dela) */
     .legenda {
       display: grid;
       gap: 4px;
       min-width: 0;
     }
-    .linha {
-      display: flex;
-      align-items: flex-start;
-      gap: 6px;
-    }
-    .nome {
-      flex: 1;
-      min-width: 0;
-      display: -webkit-box;
-      overflow: hidden;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      font-family: var(--f-label);
-      font-weight: 700;
-      font-size: 0.95rem;
-      line-height: 1.15;
-      color: var(--wall-ink);
-      overflow-wrap: break-word;
-    }
-    .sem-titulo {
-      font-weight: 600;
-      font-style: italic;
-      color: var(--wall-ink-2);
-    }
-
-    /* a etiqueta: com o mouse, inteira acima da obra; sem mouse, ao lado do título */
-    .etiqueta {
-      position: absolute;
-      z-index: 6;
-      top: -16px;
-      right: 4px;
-    }
-    @media (hover: none) {
-      .linha {
-        flex-wrap: wrap;
-      }
-      .nome {
-        flex: 1 1 6em;
-      }
-      .etiqueta {
-        position: relative;
-        top: -3px;
-        right: 0;
-        flex: none;
-        margin-left: auto;
-      }
-    }
-
-    /* a descrição: um instante depois da mão parar em cima, na hora com o teclado; some na hora */
-    app-wish-note {
-      opacity: 0;
-      transition:
-        opacity var(--t-ui) var(--ease-ui),
-        translate var(--t-ui) var(--ease-ui);
-    }
-    @media (hover: hover) {
-      :host(:hover) app-wish-note {
-        opacity: 1;
-        translate: 0 0;
-        transition-delay: 300ms;
-      }
-    }
-    :host(:has(.hit:focus-visible)) app-wish-note,
-    app-wish-note.aberta {
-      opacity: 1;
-      translate: 0 0;
-    }
-
-    /* chegando na parede (uma obra nova, Salvar): assenta com um tapa */
-    :host(.is-landing) .obra {
-      animation: assenta var(--t-physical) var(--ease-physical);
-    }
-    @keyframes assenta {
-      0% {
-        translate: 0 -14px;
-        scale: 1.06;
-        opacity: 0;
-      }
-    }
+    /* a ponta, o toque, o título, a etiqueta, a descrição e o tapa: os mesmos da Grade (ui/_obra-galeria.scss) */
+    @include obra.na-parede('.obra', $toque-folga: 5px, $nome-tam: 0.95rem, $etiqueta-topo: -16px, $etiqueta-direita: 4px);
   `,
 })
 export class PixelPieceCard {

@@ -1,17 +1,14 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, output, signal, viewChild } from '@angular/core';
 import type { LucideIconData } from 'lucide-angular';
-import { CategoryColorId, categoryColorHex } from '../core/category-looks';
-import { wishTagKey } from '../core/mural-config';
 import type { TagEntry } from '../core/note-labels';
 import { PIXEL_LOOKS, PixelLook, readPixelArt } from '../core/pixel-art';
 import { PIXEL_NOTE_MAX, PIXEL_TAG_SPACE, PIXEL_TITLE_MAX, PixelPatch, PixelPiece, artValues, pieceTitle, pieceTitleOf, valuesArt } from '../core/pixel-gallery';
 import { PixelGallery } from '../core/pixel-gallery-store';
 import { PixelFolders } from '../core/pixel-folders';
 import { cleanWishNote, fold } from '../core/review';
-import { Settings } from '../core/settings';
 import { ViewTransitions } from '../core/view-transitions';
 import { WidgetValues } from '../core/widgets';
-import { wishTagCounts, wishTagHex } from '../core/wishlist-view';
+import { wishTagCounts } from '../core/wishlist-view';
 import { BackdropClose } from './backdrop-close';
 import { Confirm } from './confirm';
 import { FolderPicker } from './folder-picker';
@@ -20,8 +17,9 @@ import { PixelArt } from './pixel-art';
 import { PixelPieceCard } from './pixel-piece';
 import { PixelField } from './pixel-studio/pixel-field';
 import { RichEditor } from './rich-editor';
-import { TagColors, TagPicker } from './tag-picker';
+import { TagPicker } from './tag-picker';
 import { Toasts } from './toast';
+import { PixelTagColors } from './pixel-tag-colors';
 import { WishTags } from './wish-tags';
 
 /** As etiquetas da ficha da obra. */
@@ -52,7 +50,6 @@ export interface PixelSheetHooks {
 })
 export class PixelSheet {
   private readonly gallery = inject(PixelGallery);
-  private readonly settings = inject(Settings);
   private readonly toasts = inject(Toasts);
   private readonly transitions = inject(ViewTransitions);
   private readonly confirm = inject(Confirm);
@@ -94,8 +91,6 @@ export class PixelSheet {
   /** O que a ficha tinha ao abrir: fechar com algo diferente pergunta antes de descartar. */
   private snapshot = '';
   private askingDiscard = false;
-  /** As cores sorteadas das tags novas: só vão para as configurações ao salvar (como na Wishlist). */
-  private readonly newColors = signal<ReadonlyMap<string, CategoryColorId>>(new Map());
 
   /** O desenho escrito (sem a legenda), ou null sem nenhum ponto. */
   protected readonly art = computed(() => valuesArt(this.values()));
@@ -120,7 +115,7 @@ export class PixelSheet {
     const fname = folder ? (this.folders.tree().live(folder)?.name ?? null) : null;
     const look = PIXEL_LOOKS.find((l) => l.value === (this.values()['look'] || 'pixel'))?.label ?? 'Pixel';
     const out: { id: PixelProp; name: string; icon: LucideIconData; value: string; spoken: string; filled: boolean; off?: boolean }[] = [
-      { id: 'jeito', name: 'Jeito', icon: ICON.pixelArt, value: look, spoken: look, filled: true, off: !this.art() },
+      { id: 'jeito', name: 'Jeito', icon: ICON.pixelArt, value: `Jeito: ${look}`, spoken: look, filled: true, off: !this.art() },
       { id: 'tags', name: 'Tags', icon: ICON.etiquetas, value: 'Tags', spoken: tags.length ? tags.join(', ') : 'nenhuma', filled: tags.length > 0 },
       { id: 'pasta', name: 'Pasta', icon: ICON.pastaDeNotas, value: fname ?? 'Pasta', spoken: fname ?? 'sem pasta', filled: !!fname },
     ];
@@ -130,16 +125,9 @@ export class PixelSheet {
 
   /** As tags à mão: as da galeria, as mais usadas primeiro. */
   protected readonly tagLib = computed<TagEntry[]>(() => wishTagCounts(this.gallery.pieces()).map((t) => ({ label: t.label, n: t.n, pinned: false })));
-  /** As cores das tags da galeria (nas da Wishlist, no espaço `pixel`); a tag nova ganha uma sorteada. */
-  protected readonly tagColors = computed<TagColors>(() => {
-    const colors = this.settings.notesConfig().wishTagColors;
-    const fresh = this.newColors();
-    return {
-      hex: (tag) => wishTagHex(colors, PIXEL_TAG_SPACE, tag) ?? categoryColorHex(fresh.get(wishTagKey(PIXEL_TAG_SPACE, tag))),
-      has: (tag) => !!colors[wishTagKey(PIXEL_TAG_SPACE, tag)] || fresh.has(wishTagKey(PIXEL_TAG_SPACE, tag)),
-      set: (tag, color) => this.newColors.update((m) => new Map(m).set(wishTagKey(PIXEL_TAG_SPACE, tag), color)),
-    };
-  });
+  /** As cores das tags da galeria; a tag nova ganha uma sorteada, guardada só ao salvar. */
+  private readonly drafts = new PixelTagColors();
+  protected readonly tagColors = this.drafts.colors;
 
   /** Uma obra nova: a ficha em branco, na pasta `folder` (a aberta na página), e o ateliê abre sozinho por cima. */
   open(folder: string | null = null): void {
@@ -167,14 +155,15 @@ export class PixelSheet {
     this.snapshot = this.serialize();
     this.shown.set(true);
     this.dialog().nativeElement.showModal();
-    // a obra nova abre direto no ateliê (o PixelField); a de antes, com o foco no nome
-    if (this.editing()) setTimeout(() => this.dialog().nativeElement.querySelector<HTMLInputElement>('#obra-nome')?.focus());
+    // a obra nova abre direto no ateliê (o PixelField); a de antes, com o foco no nome, só com mouse (no toque, o
+    // teclado subiria e cobriria a folha de quem só quer olhar a obra)
+    if (this.editing() && matchMedia('(pointer: fine)').matches) setTimeout(() => this.dialog().nativeElement.querySelector<HTMLInputElement>('#obra-nome')?.focus());
   }
 
   private reset(): void {
     this.editing.set(null);
     this.hooks = {};
-    this.newColors.set(new Map());
+    this.drafts.reset();
     this.attempted.set(false);
     this.title.set('');
     this.tags.set([]);
@@ -270,14 +259,7 @@ export class PixelSheet {
 
   /** As cores sorteadas das tags novas que ficaram vão para as configurações, numa mudança só. */
   private keepNewColors(): void {
-    const fresh = this.newColors();
-    const keep = new Map<string, CategoryColorId>();
-    for (const tag of this.tags()) {
-      const c = fresh.get(wishTagKey(PIXEL_TAG_SPACE, tag));
-      if (c) keep.set(tag, c);
-    }
-    this.settings.setWishTagColors(PIXEL_TAG_SPACE, keep);
-    this.newColors.set(new Map());
+    this.drafts.keep(this.tags());
   }
 
   protected save(e: Event): void {

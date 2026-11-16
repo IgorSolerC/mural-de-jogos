@@ -131,7 +131,7 @@ let uid = 0;
       margin-top: 2px;
       font-family: var(--f-label);
       font-weight: 800;
-      font-size: 0.72rem;
+      font-size: 0.78rem;
       letter-spacing: 0.1em;
       text-transform: uppercase;
       color: var(--ink-2);

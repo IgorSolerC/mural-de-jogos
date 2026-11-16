@@ -12,6 +12,8 @@ export interface TrayAction {
   disabled?: boolean;
   /** O que o leitor de tela e a dica dizem, quando o rótulo não basta. */
   hint?: string;
+  /** Apagar: na tinta vermelha, para não passar por um vizinho quieto (o Limpar). */
+  danger?: boolean;
   run: () => void;
 }
 
@@ -42,7 +44,7 @@ export interface TrayAction {
       </p>
       <div class="acoes">
         @for (a of quiet(); track a.id) {
-          <button type="button" class="btn-quiet" [attr.data-acao]="a.id" [disabled]="a.disabled" [attr.title]="a.hint ?? null" (click)="a.run()">
+          <button type="button" class="btn-quiet" [class.danger]="a.danger" [attr.data-acao]="a.id" [disabled]="a.disabled" [attr.title]="a.hint ?? null" (click)="a.run()">
             @if (a.icon) {
               <lucide-icon [img]="a.icon" [size]="16" aria-hidden="true" />
             }

@@ -196,3 +196,18 @@ aberto como obra.
   (com o Trazer), e o menu do vão também tem. Na folha do widget, "Guardar na galeria de pixel arts" guarda uma cópia
   (com o Ver). O `/code-review mid` achou quatro, corrigidos: o trazer escondido no menu do vão, o guardar repetido
   que duplicava, os filtros escondendo as que chegavam, e os widgets dentro dos cartões.
+- 16/nov, rodada 7, o fim (BUILD 902): a crítica final do Impeccable (duas avaliações isoladas, arquivada em
+  `.impeccable/critique/`): **27/40**. O detector não achou nada primário (o fundo em grade e as cores são do papel
+  milimetrado, de propósito). Corrigido: a página ganhou nome (`PixelArtsLogo`, "Pixel arts" em letras de pontos num
+  papel milimetrado, no lugar do bilhete de Extras), a barra mais perto da parede e numa linha só, a ficha com o
+  desenho maior e o foco no nome só com mouse, a Mostra com a imagem (e o nome das vistas a partir de 1240px), a
+  paleta no lugar do lápis para o Ateliê, o Apagar da tira na tinta de perigo (`TrayAction.danger`), o cartão vazio
+  dizendo o que foi procurado, "Jeito: Pixel" na ficha e o 0.78rem da folha de trazer. Ficaram de propósito: a
+  etiqueta no pé sem mouse (o padrão aprovado na Wishlist), a vista só de olhar (uma pergunta para o dono) e a barra
+  em duas linhas no celular (peça comum das Anotações e da Wishlist). O `/code-review high` da galeria inteira achou
+  cinco, quatro corrigidos: o desenho feito no ateliê sumia se a obra fosse apagada noutro aparelho (vira obra nova),
+  as tags criadas na folha das marcadas não ganhavam cor (`ui/pixel-tag-colors.ts`, comum às duas folhas), o
+  `get` do armazém era uma busca linear (agora um índice) e o CSS das obras repetido entre a Mostra e a Grade
+  (`ui/_obra-galeria.scss`); as lápides das apagadas não são podadas, como nos Gastos (podar arriscaria trazer de
+  volta uma obra apagada num aparelho que ficou muito tempo sem sincronizar). DESIGN.md, seção "Pixel arts: a
+  galeria". **O plano está terminado.**

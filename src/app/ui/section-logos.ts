@@ -726,3 +726,85 @@ export class ExtrasLogo {}
   `,
 })
 export class SpendingLogo {}
+
+/** As letras de "Pixel arts" em pontos de 5 × 7 (o I de 3), cada fileira da esquerda para a direita. */
+const PIXEL_GLYPHS: Readonly<Record<string, readonly string[]>> = {
+  P: ['11110', '10001', '10001', '11110', '10000', '10000', '10000'],
+  I: ['111', '010', '010', '010', '010', '010', '111'],
+  X: ['10001', '10001', '01010', '00100', '01010', '10001', '10001'],
+  E: ['11111', '10000', '10000', '11110', '10000', '10000', '11111'],
+  L: ['10000', '10000', '10000', '10000', '10000', '10000', '11111'],
+  A: ['01110', '10001', '10001', '11111', '10001', '10001', '10001'],
+  R: ['11110', '10001', '10001', '11110', '10100', '10010', '10001'],
+  T: ['11111', '00100', '00100', '00100', '00100', '00100', '00100'],
+  S: ['01111', '10000', '10000', '01110', '00001', '00001', '11110'],
+};
+/** A tinta de cada letra: as da caixa de lápis de cor, escuras o bastante para o papel claro. */
+const PIXEL_INKS = ['#c42430', '#d9681c', '#2d7a3a', '#1f6fb0', '#6b3a8f', '#c42430', '#2d7a3a', '#d9681c', '#1f6fb0'];
+
+/** As letras desenhadas: um caminho por letra (cada ponto um quadrado), na posição dela, e a largura toda. */
+const PIXEL_WORDMARK = (() => {
+  const letters: { d: string; ink: string }[] = [];
+  let x = 0;
+  let n = 0;
+  for (const word of ['PIXEL', 'ARTS']) {
+    for (const ch of word) {
+      const rows = PIXEL_GLYPHS[ch];
+      const parts: string[] = [];
+      rows.forEach((row, y) => {
+        for (let i = 0; i < row.length; i++) if (row[i] === '1') parts.push(`M${x + i} ${y}h1v1h-1z`);
+      });
+      letters.push({ d: parts.join(''), ink: PIXEL_INKS[n++ % PIXEL_INKS.length] });
+      x += rows[0].length + 1;
+    }
+    x += 2;
+  }
+  return { letters, width: x - 3 };
+})();
+
+/**
+ * O logo das Pixel arts (PLANO-PIXEL-ARTS.md, a crítica final): "Pixel arts" desenhado de pontos, cada letra num
+ * lápis de cor, impresso numa tira de papel milimetrado (o mesmo papel do jeito Pixel na Mostra), um tico torta. A
+ * sombra fica no host. Entra no lugar do bilhete de Extras na página da galeria.
+ */
+@Component({
+  selector: 'app-pixel-arts-logo',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <span class="tira" aria-hidden="true">
+      <svg [attr.viewBox]="'0 0 ' + mark.width + ' 7'" shape-rendering="crispEdges">
+        @for (l of mark.letters; track $index) {
+          <path [attr.d]="l.d" [attr.fill]="l.ink" />
+        }
+      </svg>
+    </span>
+  `,
+  styles: `
+    :host {
+      display: inline-flex;
+      rotate: -1.6deg;
+      filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 6px 8px rgb(0 0 0 / 0.4));
+    }
+    .tira {
+      display: inline-flex;
+      align-items: center;
+      box-sizing: border-box;
+      height: 52px;
+      padding: 0 14px;
+      background:
+        linear-gradient(rgb(60 140 120 / 0.28) 1px, transparent 1px) 0 0 / 20px 20px,
+        linear-gradient(90deg, rgb(60 140 120 / 0.28) 1px, transparent 1px) 0 0 / 20px 20px,
+        linear-gradient(rgb(60 140 120 / 0.12) 1px, transparent 1px) 0 0 / 4px 4px,
+        linear-gradient(90deg, rgb(60 140 120 / 0.12) 1px, transparent 1px) 0 0 / 4px 4px,
+        #f7f4ea;
+    }
+    svg {
+      display: block;
+      height: 28px;
+      width: auto;
+    }
+  `,
+})
+export class PixelArtsLogo {
+  protected readonly mark = PIXEL_WORDMARK;
+}

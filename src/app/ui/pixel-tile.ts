@@ -46,7 +46,7 @@ import { WishTags } from './wish-tags';
     }
   `,
   styles: `
-    @use 'caderno';
+    @use 'obra-galeria' as obra;
     @use 'pixel-studio/xadrez' as x;
 
     :host {
@@ -91,116 +91,12 @@ import { WishTags } from './wish-tags';
       box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.06);
     }
 
-    .ponta {
-      @include caderno.ponta;
-      top: 26%;
-      right: -11px;
-      rotate: 7deg;
-    }
-    @media (hover: hover) {
-      :host(:hover) .ponta {
-        opacity: 0;
-        transition-delay: 300ms;
-      }
-    }
-    :host(:has(.hit:focus-visible)) .ponta,
-    :host(:has(app-wish-note.aberta)) .ponta {
-      opacity: 0;
-    }
+    /* a ponta, o toque, o título, a etiqueta, a descrição e o tapa: os mesmos da Mostra (ui/_obra-galeria.scss) */
+    @include obra.na-parede('.cartao');
 
-    .hit {
-      position: absolute;
-      inset: 0;
-      z-index: 4;
-      padding: 0;
-      border: 0;
-      background: none;
-      cursor: pointer;
-    }
-    .hit:focus-visible {
-      outline: 3px solid var(--hi);
-      outline-offset: 4px;
-    }
-
-    .linha {
-      display: flex;
-      align-items: flex-start;
-      gap: 6px;
-    }
-    .nome {
-      flex: 1;
-      min-width: 0;
-      display: -webkit-box;
-      overflow: hidden;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      font-family: var(--f-label);
-      font-weight: 700;
-      font-size: 0.92rem;
-      line-height: 1.15;
-      color: var(--wall-ink);
-      overflow-wrap: break-word;
-    }
-    .sem-titulo {
-      font-weight: 600;
-      font-style: italic;
-      color: var(--wall-ink-2);
-    }
     .tags {
       margin-top: -6px;
       font-size: 0.92em;
-    }
-
-    .etiqueta {
-      position: absolute;
-      z-index: 6;
-      top: -14px;
-      right: -4px;
-    }
-    @media (hover: none) {
-      .linha {
-        flex-wrap: wrap;
-      }
-      .nome {
-        flex: 1 1 6em;
-      }
-      .etiqueta {
-        position: relative;
-        top: -3px;
-        right: 0;
-        flex: none;
-        margin-left: auto;
-      }
-    }
-
-    app-wish-note {
-      opacity: 0;
-      transition:
-        opacity var(--t-ui) var(--ease-ui),
-        translate var(--t-ui) var(--ease-ui);
-    }
-    @media (hover: hover) {
-      :host(:hover) app-wish-note {
-        opacity: 1;
-        translate: 0 0;
-        transition-delay: 300ms;
-      }
-    }
-    :host(:has(.hit:focus-visible)) app-wish-note,
-    app-wish-note.aberta {
-      opacity: 1;
-      translate: 0 0;
-    }
-
-    :host(.is-landing) .cartao {
-      animation: assenta var(--t-physical) var(--ease-physical);
-    }
-    @keyframes assenta {
-      0% {
-        translate: 0 -14px;
-        scale: 1.06;
-        opacity: 0;
-      }
     }
   `,
 })

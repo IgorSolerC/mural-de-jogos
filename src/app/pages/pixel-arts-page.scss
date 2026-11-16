@@ -10,13 +10,24 @@
   display: block;
 }
 
+/* o nome das vistas só quando a barra cabe numa linha com ele */
+.vista-txt {
+  display: none;
+}
+@media (min-width: 1240px) {
+  .vista-txt {
+    display: inline;
+  }
+}
+
+/* a barra mais perto da parede que na Wishlist: aqui a obra manda, e ela começa logo (a crítica final) */
 .pasta {
-  margin-bottom: 44px;
+  margin-bottom: 28px;
 }
 /* a folha dos filtros, presa embaixo da pasta, com o mesmo vão até a parede */
 app-filter-card.cartela {
-  margin-top: -22px;
-  margin-bottom: 44px;
+  margin-top: -14px;
+  margin-bottom: 28px;
 }
 
 /* ===== As pastas (as das Anotações) e o arrastar (pages/wall-drag.ts), como na Wishlist ===== */

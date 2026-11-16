@@ -65,8 +65,10 @@
 
         <div class="pasta-grupo" role="group" aria-label="Vista">
           @for (v of views; track v.value) {
-            <button type="button" class="tinta so-icone" [attr.aria-pressed]="prefs().vista === v.value" [attr.aria-label]="v.label" [title]="v.hint" (click)="setView(v.value)">
+            <!-- o nome da vista à mostra quando cabe; mais estreito, só o desenho (e o nome no leitor de tela e na dica) -->
+            <button type="button" class="tinta vista" [attr.aria-pressed]="prefs().vista === v.value" [attr.aria-label]="v.label" [title]="v.hint" (click)="setView(v.value)">
               <lucide-icon [img]="v.icon" [size]="18" aria-hidden="true" />
+              <span class="vista-txt" aria-hidden="true">{{ v.label }}</span>
             </button>
           }
         </div>
@@ -154,7 +156,7 @@
     <!-- a busca e os filtros não acharam nada: o cartão das Anotações -->
     <section class="no-results cartolina" aria-live="polite">
       <app-pin class="pin" color="#f4f4f0" />
-      <h2>{{ openFolder() ? 'Nada nesta pasta com esse filtro' : 'Nada na galeria com esse filtro' }}</h2>
+      <h2>{{ onlySearch() ? 'Nada com “' + filter().query.trim() + '”' : openFolder() ? 'Nada nesta pasta com esse filtro' : 'Nada na galeria com esse filtro' }}</h2>
       <p>{{ noneText() }}</p>
       <div class="acoes-vazio">
         <button type="button" class="btn-quiet" (click)="clear()">Limpar a busca e os filtros</button>

@@ -3,7 +3,7 @@ import { ICON, IconModule } from './icons';
 
 /**
  * A etiqueta de hover de uma obra da galeria de pixel arts (PLANO-PIXEL-ARTS.md, 3), no padrão do Finalizar e do
- * Fixar (`ui/_etiqueta-acoes.scss`): Ateliê (o pincel, amarelo na mão: abre o desenho direto no ateliê) e Baixar
+ * Fixar (`ui/_etiqueta-acoes.scss`): Ateliê (a paleta, amarela na mão: abre o desenho direto no ateliê) e Baixar
  * (a seta, azul na mão: o PNG nítido). A mesma peça na Mostra e na Grade; quem usa decide onde ela fica (acima da
  * obra com o mouse; no pé, sem mouse) e a mostra com a mão em cima (`app-pixel-piece` e `app-pixel-tile`).
  */
@@ -54,6 +54,6 @@ export class PixelActions {
   /** Baixar o PNG. */
   readonly download = output<void>();
 
-  protected readonly BrushIcon = ICON.editar;
+  protected readonly BrushIcon = ICON.paleta;
   protected readonly DownloadIcon = ICON.baixar;
 }
