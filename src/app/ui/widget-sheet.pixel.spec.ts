@@ -1,6 +1,8 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { WidgetDone, WidgetSheet } from './widget-sheet';
+import { PixelGallery } from '../core/pixel-gallery-store';
+import { Toasts } from './toast';
 
 /** A folha do widget com a pixel art: o desenho numa linha, o ateliê por cima, e o Pôr sai com a marca. */
 describe('a folha do widget com a pixel art', () => {
@@ -57,5 +59,24 @@ describe('a folha do widget com a pixel art', () => {
     expect(done.length).toBe(0);
     expect(host.querySelector('.pe .falta')?.textContent).toContain('Falta desenhar');
     expect(document.activeElement).toBe(host.querySelector('app-pixel-field [data-campo="pixels"]'));
+  });
+
+  it('Guardar na galeria de pixel arts: uma cópia do desenho, com a legenda de nome; o widget fica como está', async () => {
+    localStorage.removeItem('meu-mural:pixel-arts:v1');
+    const { fixture, host, done } = await open({ width: '2', height: '1', pixels: '12', caption: 'Dupla' }, true);
+    const gallery = TestBed.inject(PixelGallery);
+    const before = gallery.count();
+    [...host.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent!.includes('Guardar na galeria'))!.click();
+    fixture.detectChanges();
+    expect(gallery.count()).toBe(before + 1);
+    expect(gallery.pieces().at(-1)).toEqual(jasmine.objectContaining({ title: 'Dupla', art: ['2x1', '12'] }));
+    expect(TestBed.inject(Toasts).current()!.text).toContain('Guardei uma cópia');
+    // de novo: o mesmo desenho já está lá
+    [...host.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent!.includes('Guardar na galeria'))!.click();
+    expect(gallery.count()).toBe(before + 1);
+    expect(TestBed.inject(Toasts).current()!.text).toBe('Este desenho já está na galeria de pixel arts.');
+    expect(done).toEqual([]);
+    gallery.remove([gallery.pieces().at(-1)!.id]);
+    localStorage.removeItem('meu-mural:pixel-arts:v1');
   });
 });

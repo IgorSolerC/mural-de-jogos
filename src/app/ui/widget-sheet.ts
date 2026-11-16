@@ -14,6 +14,11 @@ import { CoverSleeve } from './cover-sleeve';
 import { NoteWidget } from './note-widget';
 import { Pin } from './pin';
 import { PixelField } from './pixel-studio/pixel-field';
+import { PixelGallery } from '../core/pixel-gallery-store';
+import { valuesArt } from '../core/pixel-gallery';
+import { PIXEL_ARTS_PATH } from '../core/areas';
+import { Router } from '@angular/router';
+import { Toasts } from './toast';
 import { PIXEL_LOOKS, inkOf, inkPaths } from '../core/pixel-art';
 import { TableLookArt } from './table-look-art';
 import { RichText } from './rich-text';
@@ -298,6 +303,35 @@ export class WidgetSheet {
 
   protected set(key: string, value: string): void {
     this.values.update((v) => ({ ...v, [key]: value }));
+  }
+
+  private readonly gallery = inject(PixelGallery);
+  private readonly toasts = inject(Toasts);
+  private readonly router = inject(Router);
+  protected readonly GalleryIcon = ICON.pixelArt;
+
+  /**
+   * Guarda uma cópia do desenho na galeria de pixel arts (PLANO-PIXEL-ARTS.md, 6), com a legenda de nome; o widget
+   * continua no texto como está. O aviso leva até a galeria.
+   */
+  protected keepInGallery(): void {
+    const art = valuesArt(this.values());
+    if (!art) {
+      this.toasts.show('Desenhe pelo menos um ponto para guardar na galeria.');
+      return;
+    }
+    const go = { label: 'Ver', run: () => void this.router.navigateByUrl(PIXEL_ARTS_PATH) };
+    // o mesmo desenho já está lá: não guarda outra cópia
+    if (this.gallery.pieces().some((p) => JSON.stringify(p.art) === JSON.stringify(art))) {
+      this.toasts.show('Este desenho já está na galeria de pixel arts.', go);
+      return;
+    }
+    const made = this.gallery.create({ art, title: this.values()['caption'] ?? '' });
+    if (!made) {
+      this.toasts.show('A galeria está cheia: apague uma pixel art para guardar outra.');
+      return;
+    }
+    this.toasts.show('Guardei uma cópia na galeria de pixel arts.', go);
   }
 
   /** Vários campos de uma vez (o ateliê da pixel art manda os pontos, a tela, a paleta e as cores). */

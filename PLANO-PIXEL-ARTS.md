@@ -188,3 +188,11 @@ aberto como obra.
   estilo); `PixelGallery.updateMany` grava todas numa mudança com um Desfazer (e o `update` de uma passou a usá-lo).
   O `/code-review mid` achou três, corrigidos: as marcadas de pastas de dentro não iam para a pasta aberta, as tags
   das marcadas partiam do que elas tinham ao abrir a folha, e o menu numa marcada agia só nela.
+- 16/nov, rodada 6 (BUILD 901): trazer das anotações. `pixelArtsInText` e `pixelArtsInNotes` (core/pixel-gallery.ts)
+  acham os widgets `{{pixel}}` no texto das anotações e das resenhas (fora dos blocos de código; também dentro dos
+  cartões), cada um com a anotação de onde vem e se o mesmo desenho já está na galeria. A folha `ui/pixel-import-sheet.ts`
+  (a ficha de fichário das Anotações) lista todas, marcadas as que ainda não estão; as escolhidas viram obras na pasta
+  aberta, com a legenda de nome e o Desfazer. A galeria vazia convida a trazer, a barra avisa quantas ainda não estão
+  (com o Trazer), e o menu do vão também tem. Na folha do widget, "Guardar na galeria de pixel arts" guarda uma cópia
+  (com o Ver). O `/code-review mid` achou quatro, corrigidos: o trazer escondido no menu do vão, o guardar repetido
+  que duplicava, os filtros escondendo as que chegavam, e os widgets dentro dos cartões.

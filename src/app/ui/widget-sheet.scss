@@ -708,6 +708,15 @@ div.bloco {
   margin-left: 0;
 }
 
+/* a pixel art: guardar uma cópia na galeria, embaixo da linha do desenho */
+.guardar-galeria {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: -6px;
+}
+
 .btn-quiet {
   color: var(--ink);
 }

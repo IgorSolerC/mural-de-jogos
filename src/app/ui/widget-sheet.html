@@ -63,6 +63,11 @@
                     @case ('pixels') {
                       <!-- a pixel art: a miniatura do desenho e o ateliê, que abre por cima (lá moram a tela, a paleta e as cores) -->
                       <app-pixel-field class="largo" [values]="values()" [missing]="isMissing(f)" [autoOpen]="!swap()" [ids]="ids + '-pixel'" (changed)="patch($event)" />
+                      <!-- uma cópia do desenho na galeria de pixel arts (Extras), com a legenda de nome -->
+                      <button type="button" class="btn-quiet guardar-galeria largo" (click)="keepInGallery()">
+                        <lucide-icon [img]="GalleryIcon" [size]="16" aria-hidden="true" />
+                        Guardar na galeria de pixel arts
+                      </button>
                     }
                     @case ('card') {
                       <!-- a Nota: a ficha escolhida, colada como a etiqueta de papel; sem ela, o recorte de escolher -->

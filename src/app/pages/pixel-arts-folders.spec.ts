@@ -43,7 +43,7 @@ describe('as pastas da galeria de pixel arts', () => {
   const labels = () => [...panel().querySelectorAll('.escolha')].map(nameOf);
   const option = (label: string) => [...panel().querySelectorAll<HTMLButtonElement>('.escolha')].find((b) => nameOf(b) === label)!;
   async function rightClick(target: () => Element): Promise<void> {
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 6; i++) {
       const el = target();
       el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 2, pointerType: 'mouse', clientX: 30, clientY: 30 }));
       el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 30, clientY: 30 }));

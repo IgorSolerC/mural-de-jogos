@@ -147,6 +147,12 @@ app-pixel-piece {
     text-wrap: pretty;
   }
 }
+.acoes-convite {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+}
 .vazio-desenho {
   display: block;
   width: 64px;

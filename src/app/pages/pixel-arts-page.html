@@ -81,6 +81,13 @@
         </div>
       }
       <div class="pasta-estado">
+        <!-- as pixel arts das anotações que ainda não estão aqui: o convite discreto para trazer -->
+        @if (!filtering() && newInNotes(); as n) {
+          <p class="achados">
+            <span>{{ n === 1 ? '1 pixel art nas suas anotações ainda não está aqui' : n + ' pixel arts nas suas anotações ainda não estão aqui' }}</span>
+            <button type="button" class="tinta-link" (click)="importing.set(true)">Trazer</button>
+          </p>
+        }
         @if (filtering()) {
           <p class="achados" aria-live="polite">
             <span>Mostrando {{ visible().length }} de {{ pool().length }}</span>
@@ -227,11 +234,24 @@
     </span>
     <h2 id="pixel-vazio">Nenhuma pixel art na galeria</h2>
     <p>Desenhe no ateliê, quadradinho por quadradinho, e guarde aqui com nome, tags e descrição. Dá para baixar cada uma em PNG ou colar numa anotação.</p>
-    <button type="button" class="btn-ink" (click)="add()" aria-keyshortcuts="n">
-      <lucide-icon [img]="AddIcon" [size]="19" aria-hidden="true" />
-      Nova pixel art
-    </button>
+    <div class="acoes-convite">
+      <button type="button" class="btn-ink" (click)="add()" aria-keyshortcuts="n">
+        <lucide-icon [img]="AddIcon" [size]="19" aria-hidden="true" />
+        Nova pixel art
+      </button>
+      <!-- as que já moram como widget nas anotações: trazer de lá, sem desenhar de novo -->
+      @if (newInNotes(); as n) {
+        <button type="button" class="btn-quiet" (click)="importing.set(true)">
+          Trazer das anotações ({{ n }})
+        </button>
+      }
+    </div>
   </section>
+}
+
+<!-- trazer as pixel arts das anotações -->
+@if (importing()) {
+  <app-pixel-import-sheet [found]="inNotes()" (brought)="bring($event)" (closed)="importing.set(false)" />
 }
 
 <!-- o menu do site: o da obra (o botão direito, o dedo segurado, Shift+F10) e o do vão -->

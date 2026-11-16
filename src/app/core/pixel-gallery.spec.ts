@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { NoteFolders } from './note-folders';
-import { PIXEL_FOLDER_GROUP, PIXEL_GALLERY_MAX, PixelPiece, cleanArt, mergePixelGallery, pieceTitle, pieceWidgetLine, pixelGalleryToSync, sanitizePixelGallery, sanitizePixelPiece } from './pixel-gallery';
+import { PIXEL_FOLDER_GROUP, PIXEL_GALLERY_MAX, PixelPiece, pixelArtsInNotes, pixelArtsInText, cleanArt, mergePixelGallery, pieceTitle, pieceWidgetLine, pixelGalleryToSync, sanitizePixelGallery, sanitizePixelPiece } from './pixel-gallery';
 import { PixelGallery } from './pixel-gallery-store';
 import { PixelFolders } from './pixel-folders';
 import { parseWidgetLine } from './widgets';
@@ -47,6 +47,26 @@ describe('a galeria de pixel arts (os dados)', () => {
     const line = pieceWidgetLine(piece('a', '2026-11-16T10:00:00.000Z', { title: 'Gato' }));
     expect(parseWidgetLine(line)?.args).toEqual(['2x2', '12/21', 'Gato']);
     expect(pieceTitle({ title: '' })).toBe('Sem título');
+  });
+});
+
+describe('as pixel arts que moram nas anotações', () => {
+  it('acha os widgets de pixel art do texto, na ordem, fora dos blocos de código', () => {
+    const text = ['Um gato:', '{{pixel: 2x2 | 12/21 | Gato}}', '```', '{{pixel: 1x1 | 3 | No código}}', '```', '  {{pixel: 1x1 | 4}}  ', '{{contador: 2026-12-25}}', '> [!nota]', '> {{pixel: 1x1 | 5 | No cartão}}'].join('\n');
+    expect(pixelArtsInText(text)).toEqual([
+      { art: ['2x2', '12/21'], caption: 'Gato' },
+      { art: ['1x1', '4'], caption: '' },
+      { art: ['1x1', '5'], caption: 'No cartão' },
+    ]);
+  });
+
+  it('diz quais já estão na galeria, pelo desenho', () => {
+    const notes = [{ id: 'n1', text: '{{pixel: 2x2 | 12/21 | Gato}}\n{{pixel: 1x1 | 4}}', game: { name: 'Desenhos' } }];
+    const found = pixelArtsInNotes(notes, [piece('a', '2026-11-16T10:00:00.000Z')]);
+    expect(found.map((f) => [f.key, f.noteTitle, f.inGallery])).toEqual([
+      ['n1#0', 'Desenhos', true],
+      ['n1#1', 'Desenhos', false],
+    ]);
   });
 });
 

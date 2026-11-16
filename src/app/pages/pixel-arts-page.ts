@@ -11,7 +11,8 @@ import { FolderPath } from '../ui/folder-path';
 import { WallDrag, WallDragItem, WallDrop } from './wall-drag';
 import { collage, shelfColumns } from '../core/clipping';
 import { PixelLook } from '../core/pixel-art';
-import { PIXEL_TAG_SPACE, PixelPiece, artValues, pieceTitle, pieceWidgetLine, valuesArt } from '../core/pixel-gallery';
+import { FoundPixelArt, PIXEL_TAG_SPACE, PixelPiece, artValues, pieceTitle, pieceWidgetLine, pixelArtsInNotes, valuesArt } from '../core/pixel-gallery';
+import { ReviewStore } from '../core/review-store';
 import { plainText } from '../core/rich-text';
 import { PixelGallery } from '../core/pixel-gallery-store';
 import {
@@ -49,6 +50,7 @@ import { ICON, IconModule } from '../ui/icons';
 import { NoteSelection } from '../ui/note-selection';
 import { Pin } from '../ui/pin';
 import { PixelBulkTags, PixelTagsChange } from '../ui/pixel-bulk-tags';
+import { PixelImportSheet } from '../ui/pixel-import-sheet';
 import { SelectionTray, TrayAction } from '../ui/selection-tray';
 import { PixelPieceCard } from '../ui/pixel-piece';
 import { PixelSheet } from '../ui/pixel-sheet';
@@ -74,7 +76,7 @@ import { Toasts } from '../ui/toast';
  */
 @Component({
   selector: 'app-pixel-arts-page',
-  imports: [ContextMenu, FilterCard, FilterTags, FolderCard, FolderMoveSheet, FolderPath, IconModule, Pin, PixelBulkTags, SelectionTray, PixelPieceCard, PixelSheet, PixelStudio, PixelTile, SearchHighlight, SearchStrip],
+  imports: [ContextMenu, FilterCard, FilterTags, FolderCard, FolderMoveSheet, FolderPath, IconModule, Pin, PixelBulkTags, PixelImportSheet, SelectionTray, PixelPieceCard, PixelSheet, PixelStudio, PixelTile, SearchHighlight, SearchStrip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class.com-tira]': 'marking()' },
   templateUrl: './pixel-arts-page.html',
@@ -349,6 +351,32 @@ export class PixelArtsPage {
       [{ id: 'apagar', label: 'Apagar', icon: ICON.apagar, danger: true, run: () => this.remove(p.id) }],
     ];
   });
+
+  // ===== Trazer das anotações (PLANO-PIXEL-ARTS.md, 6) =====
+
+  private readonly reviews = inject(ReviewStore);
+  /** As pixel arts que moram como widget no texto das anotações (e das resenhas), e quais já estão aqui. */
+  protected readonly inNotes = computed(() => pixelArtsInNotes(this.reviews.reviews(), this.gallery.pieces()));
+  /** Quantas delas ainda não estão na galeria. */
+  protected readonly newInNotes = computed(() => this.inNotes().filter((f) => !f.inGallery).length);
+  /** A folha de trazer, aberta. */
+  protected readonly importing = signal(false);
+
+  /** As escolhidas viram obras, na pasta aberta, com a legenda de nome; o aviso tem o Desfazer. */
+  protected bring(list: readonly FoundPixelArt[]): void {
+    const folder = this.openFolder() ?? undefined;
+    const made = list.map((f) => this.gallery.create({ art: f.art, title: f.caption, folder })).filter((p): p is PixelPiece => !!p);
+    if (!made.length) {
+      this.toasts.show('A galeria está cheia: apague uma pixel art para guardar outra.');
+      return;
+    }
+    // os filtros que esconderiam as que chegaram saem da frente, como na obra nova
+    if (made.some((p) => !pieceMatches(p, this.filter()))) this.filter.set(NO_PIXEL_FILTER);
+    const left = list.length - made.length;
+    const text = (made.length === 1 ? `“${pieceTitle(made[0])}” veio das anotações` : `${made.length} pixel arts vieram das anotações`) + (left ? ` (${left} não couberam: a galeria encheu)` : '');
+    this.undoToast(text, () => this.gallery.remove(made.map((p) => p.id)));
+    this.land(made[0].id);
+  }
 
   /** O desenho aberto direto no ateliê (o Ateliê da etiqueta), com o que mudou até agora. */
   protected readonly studio = signal<{ id: string; values: WidgetValues } | null>(null);
@@ -775,6 +803,7 @@ export class PixelArtsPage {
         { id: 'nova-obra', label: 'Nova pixel art aqui', icon: ICON.adicionar, dialog: true, keys: 'N', ariaKeys: 'N', run: () => this.add() },
         { id: 'nova-pasta', label: 'Nova pasta aqui', icon: ICON.novaPasta, run: () => this.newFolder(this.openFolder()) },
       ],
+      ...(this.inNotes().length ? [[{ id: 'trazer', label: 'Trazer das anotações…', icon: ICON.anotacoes, dialog: true, count: this.newInNotes() ? { n: this.newInNotes(), say: `${this.newInNotes()} ainda fora da galeria` } : undefined, run: () => this.importing.set(true) }]] : []),
     ];
   }
 

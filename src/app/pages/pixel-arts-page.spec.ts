@@ -5,6 +5,8 @@ import { PixelPiece } from '../core/pixel-gallery';
 import { PixelGallery } from '../core/pixel-gallery-store';
 import { PIXEL_PREFS_KEY } from '../core/pixel-gallery-view';
 import { Toasts } from '../ui/toast';
+import { ReviewStore } from '../core/review-store';
+import { Review } from '../core/review';
 import { expectEtiquetaPadrao } from '../testing/etiqueta-acoes.spec';
 import { PixelArtsPage } from './pixel-arts-page';
 
@@ -37,9 +39,9 @@ describe('a galeria de pixel arts', () => {
   const nameOf = (b: Element) => (b.querySelector('.nome') ?? b.querySelector('.sr-only'))!.textContent!.trim();
   const labels = () => [...panel().querySelectorAll('.escolha')].map(nameOf);
   const option = (label: string) => [...panel().querySelectorAll<HTMLButtonElement>('.escolha')].find((b) => nameOf(b) === label)!;
-  /** O botão direito; tenta de novo até o menu abrir (no máximo três vezes), como nas pastas da Wishlist. */
+  /** O botão direito; tenta de novo até o menu abrir (no máximo seis vezes: na suíte inteira a parede às vezes ainda assenta), como nas pastas da Wishlist. */
   async function rightClick(el: Element): Promise<void> {
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 6; i++) {
       el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 2, pointerType: 'mouse', clientX: 30, clientY: 30 }));
       el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 30, clientY: 30 }));
       await settle();
@@ -249,5 +251,21 @@ describe('a galeria de pixel arts', () => {
     TestBed.inject(Toasts).current()!.action!.run();
     await settle();
     expect(gallery.get('pa')!.art).toEqual(['2x2', '12/21']);
+  });
+
+  it('trazer das anotações: o convite da galeria vazia, a folha com as que ainda não estão, e as escolhidas viram obras', async () => {
+    gallery.state.set({ pieces: [], removed: {} });
+    TestBed.inject(ReviewStore).add({ id: 'npix', kind: 'anotacoes', game: { name: 'Rascunhos', coverUrl: null, source: 'manual' }, text: '{{pixel: 2x2 | 12/21 | Gato}}\n{{pixel: 1x1 | 4 | Ponto}}', createdAt: at(1), updatedAt: at(1) } as unknown as Review);
+    await mount();
+    button('Trazer das anotações (2)').click();
+    await settle();
+    const sheet = document.querySelector('app-pixel-import-sheet')!;
+    expect([...sheet.querySelectorAll('.legenda')].map((e) => e.textContent!.trim())).toEqual(['Gato', 'Ponto']);
+    sheet.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')[1].click();
+    await settle();
+    [...sheet.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent!.includes('Trazer 1'))!.click();
+    await settle();
+    expect(gallery.pieces().map((p) => [p.title, p.art])).toEqual([['Gato', ['2x2', '12/21']]]);
+    expect(TestBed.inject(Toasts).current()!.text).toBe('“Gato” veio das anotações');
   });
 });

@@ -2,7 +2,7 @@ import { PASTA_ID_RE } from '../../../contrato/api-v1/notas';
 import { sanitizeTags } from './note-labels';
 import { PixelArt, hasInk, readPixelArt, writePixelArt } from './pixel-art';
 import { WISH_NOTE_MAX, WISH_TAGS_MAX, cleanWishNote } from './review';
-import { WidgetValues, widgetDef, widgetLine } from './widgets';
+import { WidgetValues, parseWidgetLine, widgetDef, widgetLine } from './widgets';
 
 /**
  * A galeria de pixel arts (PLANO-PIXEL-ARTS.md): as obras guardadas da conta, fora de qualquer mural. Cada obra
@@ -203,4 +203,54 @@ export function pieceTitle(p: Pick<PixelPiece, 'title'>): string {
 export function pieceWidgetLine(p: PixelPiece): string {
   const art = pixelArtOf(p);
   return widgetLine('pixel', writePixelArt({ ...art, caption: p.title }) ?? p.art);
+}
+
+// ===== As pixel arts que moram nas anotações (PLANO-PIXEL-ARTS.md, 6) =====
+
+/** Uma pixel art achada no texto de uma anotação (ou de uma resenha): o widget `{{pixel: …}}`. */
+export interface FoundPixelArt {
+  /** A anotação e a ordem do widget nela: o mesmo desenho duas vezes no texto são dois achados. */
+  key: string;
+  noteId: string;
+  noteTitle: string;
+  /** O desenho como a galeria guarda (sem a legenda). */
+  art: string[];
+  /** A legenda do widget: vira o nome da obra. */
+  caption: string;
+  /** Já tem uma obra com o mesmo desenho na galeria. */
+  inGallery: boolean;
+}
+
+/**
+ * Os widgets de pixel art de um texto, na ordem, fora dos blocos de código (lá é texto, não widget); também os de
+ * dentro dos cartões (`> {{pixel: …}}`), que o texto mostra como widget.
+ */
+export function pixelArtsInText(text: string): { art: string[]; caption: string }[] {
+  const out: { art: string[]; caption: string }[] = [];
+  let fence: string | null = null;
+  for (const raw of text.split('\n')) {
+    const line = raw.trim().replace(/^(>\s?)+/, '').trim();
+    const mark = /^(`{3,}|~{3,})/.exec(line)?.[1] ?? null;
+    if (mark && (!fence || mark.startsWith(fence))) {
+      fence = fence ? null : mark;
+      continue;
+    }
+    if (fence) continue;
+    const w = parseWidgetLine(line);
+    if (w?.name !== 'pixel') continue;
+    const art = cleanArt(w.args);
+    if (art) out.push({ art, caption: readPixelArt(w.args).caption });
+  }
+  return out;
+}
+
+/** Todas as pixel arts das anotações, e quais já estão na galeria (pelo desenho, sem ligar para o nome). */
+export function pixelArtsInNotes(notes: readonly { id: string; text: string; game: { name: string } }[], pieces: readonly PixelPiece[]): FoundPixelArt[] {
+  const kept = new Set(pieces.map((p) => JSON.stringify(p.art)));
+  const out: FoundPixelArt[] = [];
+  for (const n of notes) {
+    if (!n.text.includes('{{')) continue;
+    pixelArtsInText(n.text).forEach((f, i) => out.push({ key: `${n.id}#${i}`, noteId: n.id, noteTitle: n.game.name, art: f.art, caption: f.caption, inGallery: kept.has(JSON.stringify(f.art)) }));
+  }
+  return out;
 }
