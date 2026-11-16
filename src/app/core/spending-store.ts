@@ -1,5 +1,5 @@
 import { DestroyRef, Injectable, computed, effect, inject, signal } from '@angular/core';
-import { todayISO } from './dates';
+import { stampAfter, todayISO } from './dates';
 import { newId } from './review';
 import {
   Entry,
@@ -31,13 +31,6 @@ function read(): SpendingState {
   } catch {
     return sanitizeSpending(null);
   }
-}
-
-/** Agora, mas sempre depois de `prev` (duas mudanças no mesmo milissegundo continuam em ordem). */
-function stampAfter(prev: string | undefined): string {
-  const now = Date.now();
-  const before = prev ? Date.parse(prev) : NaN;
-  return new Date(Number.isFinite(before) && before >= now ? before + 1 : now).toISOString();
 }
 
 /**

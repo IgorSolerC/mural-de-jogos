@@ -1,6 +1,6 @@
 import { DestroyRef, Injectable, computed, effect, inject, signal } from '@angular/core';
 import { CalendarState, GoogleLink, Reminder, drawColor, mergeCalendar, remindersOn, sanitizeCalendar, skipDay } from './calendar';
-import { todayISO } from './dates';
+import { stampAfter, todayISO } from './dates';
 
 /** A hora do aparelho, 'HH:MM'. */
 function nowTime(): string {
@@ -20,13 +20,6 @@ function read(): CalendarState {
   } catch {
     return { reminders: [], removed: {} };
   }
-}
-
-/** Agora, mas sempre depois de `prev` (duas mudanças no mesmo milissegundo continuam em ordem). */
-function stampAfter(prev: string | undefined): string {
-  const now = Date.now();
-  const before = prev ? Date.parse(prev) : NaN;
-  return new Date(Number.isFinite(before) && before >= now ? before + 1 : now).toISOString();
 }
 
 /** O pedido de um lembrete novo (o botão do topo, o N, um dia da folha), com o dia em que ele nasce. */

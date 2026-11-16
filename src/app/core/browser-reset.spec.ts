@@ -54,6 +54,9 @@ describe('limpar o navegador (sair da conta)', () => {
     // os Estudos (PLANO-ESTUDOS.md): as cartas, os baralhos e o progresso, e a vista aberta
     localStorage.setItem('meu-mural:estudos:v1', '{"decks":[],"cards":[]}');
     localStorage.setItem('meu-mural:estudos-vista:v1', '"dkanji"');
+    // a galeria de pixel arts (PLANO-PIXEL-ARTS.md): as obras e a vista dela
+    localStorage.setItem('meu-mural:pixel-arts:v1', '{"pieces":[],"removed":{}}');
+    localStorage.setItem('meu-mural:pixel-arts:vista:v1', '{"vista":"grade"}');
     localStorage.setItem('mural-de-jogos:resenhas:v1', '[]');
     localStorage.setItem('mural-de-jogos:config:v1', '{}');
     localStorage.setItem('meu-mural:volume', '0.5');

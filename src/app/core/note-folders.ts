@@ -23,6 +23,7 @@ import { Review, isNote } from './review';
 import { ReviewStore } from './review-store';
 import { Settings } from './settings';
 import { GroupFolders } from './group-folders';
+import { PixelGallery } from './pixel-gallery-store';
 
 /**
  * As pastas das anotações do seu Murall (PLANO-PASTAS.md): a árvore pronta para ler (`tree`) e o que muda
@@ -39,6 +40,7 @@ export class NoteFolders {
   private readonly settings = inject(Settings);
   private readonly store = inject(ReviewStore);
   private readonly groups = inject(GroupFolders);
+  private readonly gallery = inject(PixelGallery);
 
   /**
    * Todas as pastas: as suas (das configurações) e as dos grupos compartilhados (do documento de cada grupo,
@@ -86,8 +88,9 @@ export class NoteFolders {
    * quem não é o dono, as do grupo não ficam nas configurações. O resto vai para as configurações, como sempre.
    */
   private save(folders: readonly NoteFolder[]): void {
-    // os desejos da Wishlist também apontam para pastas daqui (grupo desejos:<mural>): a lápide fica enquanto alguém aponta
-    const pruned = prunedFolders(folders, [...this.store.notes(), ...this.store.wishes()], Date.now());
+    // os desejos da Wishlist (grupo desejos:<mural>) e as obras da galeria de pixel arts também apontam para pastas
+    // daqui: a lápide fica enquanto alguém aponta
+    const pruned = prunedFolders(folders, [...this.store.notes(), ...this.store.wishes(), ...this.gallery.pieces()], Date.now());
     const shared = this.groups.groups();
     if (!shared.size) {
       this.settings.setNotesConfig({ folders: pruned });

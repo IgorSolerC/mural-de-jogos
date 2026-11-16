@@ -16,6 +16,16 @@ export const longDayFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', mon
 /** "março de 2024". */
 export const longMonthFmt = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
 
+/**
+ * A data de uma mudança (ISO): agora, mas sempre depois de `prev`, a mudança de antes (duas mudanças no mesmo
+ * milissegundo, ou depois de uma vinda de um aparelho com o relógio adiantado, continuam em ordem).
+ */
+export function stampAfter(prev: string | undefined): string {
+  const now = Date.now();
+  const before = prev ? Date.parse(prev) : NaN;
+  return new Date(Number.isFinite(before) && before >= now ? before + 1 : now).toISOString();
+}
+
 /** Uma data no fuso local, 'AAAA-MM-DD'. */
 export function localDay(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

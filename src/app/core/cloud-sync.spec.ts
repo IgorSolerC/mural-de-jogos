@@ -14,6 +14,7 @@ import { ProfileStore } from './profile-store';
 import { KanbanStore } from './kanban-store';
 import { CalendarStore } from './calendar-store';
 import { SpendingStore } from './spending-store';
+import { PixelGallery } from './pixel-gallery-store';
 import { StudyStore } from './study-store';
 import { placeCard, resetBoard } from './kanban';
 import { defaultProfile } from './profile';
@@ -201,6 +202,7 @@ interface Device {
   calendar: CalendarStore;
   spending: SpendingStore;
   study: StudyStore;
+  pixel: PixelGallery;
   sync: CloudSync;
   conflicts: SyncConflicts;
   kv: ReturnType<typeof memoryKv>;
@@ -282,6 +284,7 @@ describe('sincronização com a nuvem', () => {
         CalendarStore,
         SpendingStore,
         StudyStore,
+        PixelGallery,
         CloudAccount,
         CloudSync,
         // as imagens sobem com a conta deste aparelho (a da raiz é outra)
@@ -308,6 +311,7 @@ describe('sincronização com a nuvem', () => {
       calendar: injector.get(CalendarStore),
       spending: injector.get(SpendingStore),
       study: injector.get(StudyStore),
+      pixel: injector.get(PixelGallery),
       sync: injector.get(CloudSync),
       conflicts: injector.get(SyncConflicts),
       kv,
@@ -586,6 +590,46 @@ describe('sincronização com a nuvem', () => {
       a.calendar.save({ ...a.calendar.blank('2027-08-23'), title: 'Algo' });
       await a.sync.syncNow();
       expect((await cloud.read() as unknown as Record<string, unknown>)['gastos']).toBeUndefined();
+    });
+  });
+
+  describe('a galeria de pixel arts', () => {
+    it('vai só no mural privado, obra a obra, e a apagada fica apagada', async () => {
+      const a = device();
+      const gato = a.pixel.create({ art: ['2x2', '12/21'], title: 'Gato', tags: ['bichos'] })!;
+      await a.sync.syncNow();
+      const priv = (await cloud.read()) as unknown as { pixelArts?: { pieces: { title: string }[] } };
+      expect(priv.pixelArts!.pieces.map((p) => p.title)).toEqual(['Gato']);
+      // o público e o mural dos outros nunca levam
+      expect((await cloud.readPublic())['pixelArts']).toBeUndefined();
+
+      localStorage.removeItem('meu-mural:pixel-arts:v1');
+      const b = device();
+      expect(b.pixel.pieces()).toEqual([]);
+      await b.sync.syncNow();
+      expect(b.pixel.get(gato.id)?.tags).toEqual(['bichos']);
+
+      // cada um mexe numa obra: os dois ficam com as duas mudanças
+      await new Promise((r) => setTimeout(r, 5));
+      const sol = b.pixel.create({ art: ['1x1', '3'], title: 'Sol' })!;
+      a.pixel.update(gato.id, { title: 'Gato preto' });
+      await settle(a, b);
+      for (const d of [a, b]) expect(d.pixel.pieces().map((p) => p.title).sort()).toEqual(['Gato preto', 'Sol']);
+
+      // apagar num apaga no outro, e ela não volta
+      await new Promise((r) => setTimeout(r, 5));
+      b.pixel.remove([sol.id]);
+      await settle(b, a);
+      expect(a.pixel.get(sol.id)).toBeUndefined();
+      expect(await settle(a, b)).toBe(1);
+      expect(b.pixel.get(sol.id)).toBeUndefined();
+    });
+
+    it('sem nenhuma obra, o mural privado não ganha a chave', async () => {
+      const a = device();
+      a.calendar.save({ ...a.calendar.blank('2027-08-23'), title: 'Algo' });
+      await a.sync.syncNow();
+      expect(((await cloud.read()) as unknown as Record<string, unknown>)['pixelArts']).toBeUndefined();
     });
   });
 
@@ -1845,6 +1889,6 @@ describe('versão do formato (SYNC_SCHEMA)', () => {
     const source = [sanitizeReview, sanitizeNote, sanitizeDraft, sanitizeWish].map((f) => f.toString().replace(/\s+/g, '')).join('|');
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
     const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 57, hex: '7f2a06a0b04439093edd3c333637dfdab920648555a8e4cd2c5702b02ac68445' });
+    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 58, hex: '7f2a06a0b04439093edd3c333637dfdab920648555a8e4cd2c5702b02ac68445' });
   });
 });
