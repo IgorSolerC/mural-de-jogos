@@ -58,6 +58,7 @@ import { ICON, IconModule } from './icons';
     }
     .vontade-later {
       color: var(--etiqueta-azul);
+      @include et.cor-na-mao(var(--etiqueta-azul));
     }
     :host-context(.desejo:hover) .botao,
     :host-context(app-wish-cover:hover) .botao,

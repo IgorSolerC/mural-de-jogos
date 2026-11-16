@@ -232,12 +232,20 @@ export class NoteFolders {
    * A mesma regra da prévia da API (`pastaDoPedido`, contrato/api-v1/operacoes.ts).
    */
   forRequest(category: string | null, pasta: string): { id: string | null; aviso?: string } {
-    const group = lookKey(category ?? '');
+    const r = this.resolveRequest(lookKey(category ?? ''), pasta);
+    if (r.foreign) return { id: null, aviso: `A pasta "${r.foreign.name}" é de outro grupo: a nota ficou solta na raiz${category ? ` de ${category}` : ''}.` };
+    if (r.full) return { id: r.id, aviso: `Não coube mais pasta (o teto é de ${MAX_FOLDERS}): a nota ficou ${r.id ? `em ${this.nameOf(r.id)}` : 'solta na raiz'}.` };
+    return { id: r.id };
+  }
+
+  /**
+   * A regra de `forRequest`, pela chave do grupo (as Anotações e a Wishlist, core/wish-folders.ts): o id de uma
+   * pasta do grupo (a desfeita vale pela viva), ou o caminho a partir da raiz, criando as que faltam. `foreign`: o
+   * id é de uma pasta de outro grupo (fica na raiz); `full`: o teto de pastas parou o caminho no `id`.
+   */
+  resolveRequest(group: string, pasta: string): { id: string | null; foreign?: NoteFolder; full?: boolean } {
     const known = this.tree().index.get(pasta);
-    if (known) {
-      if (known.group !== group) return { id: null, aviso: `A pasta "${known.name}" é de outro grupo: a nota ficou solta na raiz${category ? ` de ${category}` : ''}.` };
-      return { id: this.tree().resolve(pasta, group) };
-    }
+    if (known) return known.group !== group ? { id: null, foreign: known } : { id: this.tree().resolve(pasta, group) };
     let parent: string | null = null;
     for (const name of pedacosDoCaminho(pasta)) {
       const found = siblingNamed(this.tree(), group, parent, name);
@@ -245,8 +253,8 @@ export class NoteFolders {
         parent = found.id;
         continue;
       }
-      const made = this.create(category, parent, name);
-      if (!made) return { id: parent, aviso: `Não coube mais pasta (o teto é de ${MAX_FOLDERS}): a nota ficou ${parent ? `em ${this.nameOf(parent)}` : 'solta na raiz'}.` };
+      const made = this.createIn(group, parent, name);
+      if (!made) return { id: parent, full: true };
       parent = made.id;
     }
     return { id: parent };

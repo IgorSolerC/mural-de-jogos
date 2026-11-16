@@ -1,6 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { pedacosDoCaminho } from '../../../contrato/api-v1/notas';
-import { FolderTree, MAX_FOLDERS, NoteFolder, siblingNamed } from './folders';
+import { FolderTree, MAX_FOLDERS, NoteFolder } from './folders';
 import type { Kind } from './kinds';
 import { wishFolderGroup } from './mural-config';
 import { NoteFolders } from './note-folders';
@@ -114,25 +113,10 @@ export class WishFolders {
    * (`pastaDoDesejoPedida`, contrato/api-v1/operacoes-murais.ts).
    */
   forRequest(kind: Kind, pasta: string): { id: string | null; aviso?: string } {
-    const group = wishFolderGroup(kind);
-    const tree = this.tree();
-    const known = tree.index.get(pasta);
-    if (known) {
-      if (known.group !== group) return { id: null, aviso: `A pasta "${known.name}" é de outra Wishlist: o desejo ficou solto na raiz.` };
-      return { id: tree.resolve(pasta, group) };
-    }
-    let parent: string | null = null;
-    for (const name of pedacosDoCaminho(pasta)) {
-      const found = siblingNamed(this.tree(), group, parent, name);
-      if (found) {
-        parent = found.id;
-        continue;
-      }
-      const made = this.create(kind, parent, name);
-      if (!made) return { id: parent, aviso: `Não coube mais pasta (o teto é de ${MAX_FOLDERS}): o desejo ficou ${parent ? `em ${this.tree().live(parent)?.name}` : 'solto na raiz'}.` };
-      parent = made.id;
-    }
-    return { id: parent };
+    const r = this.folders.resolveRequest(wishFolderGroup(kind), pasta);
+    if (r.foreign) return { id: null, aviso: `A pasta "${r.foreign.name}" é de outra Wishlist: o desejo ficou solto na raiz.` };
+    if (r.full) return { id: r.id, aviso: `Não coube mais pasta (o teto é de ${MAX_FOLDERS}): o desejo ficou ${r.id ? `em ${this.tree().live(r.id)?.name}` : 'solto na raiz'}.` };
+    return { id: r.id };
   }
 
   /** Quantos desejos e pastas a pasta tem logo dentro (o que sobe ao desfazê-la). */

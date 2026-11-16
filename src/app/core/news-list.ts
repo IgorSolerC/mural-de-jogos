@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-15-wishlist-api',
+    id: '2026-11-15-wishlist-fim',
     version: '1.45.4',
     kind: 'ajustes',
     date: '2026-11-15',
@@ -40,6 +40,7 @@ export const NEWS: NewsEntry[] = [
       'Na API e no MCP, o desejo da Wishlist traz as tags, a pasta (o id e o caminho) e a descrição; o contexto traz as pastas e as tags da Wishlist de cada mural; pôr e mudar desejo aceitam as três (a pasta pelo caminho, criando as que faltam), e ver_wishlist filtra pela pasta e pela tag.',
     ],
     correcoes: [
+      'A dica dentro da busca de jogos, livros, filmes e séries (ao pôr na wishlist, no Pra depois e no editor) ficou mais escura, para ler sem esforço.',
       'Num grupo compartilhado, as anotações continuam nas pastas: antes, ao compartilhar, elas saíam das pastas uma a uma, e qualquer mudança feita depois (uma tag, o texto, por qualquer pessoa do grupo) tirava a pasta para todos. Parar de compartilhar também mantém o grupo, a pasta e as tags de cada anotação.',
       'As pastas de um grupo compartilhado são do grupo: quem está nele vê as mesmas pastas do dono (antes, não via nenhuma), e criar, renomear, mover ou desfazer uma pasta vale para todos; quem só lê não mexe nelas.',
       'Apagar as marcadas leva também as compartilhadas: as suas saem para todos, das de outras pessoas você sai, e a pergunta diz quantas de cada (antes, o Apagar nem aparecia). Parar de compartilhar um grupo devolve ao seu mural, como anotações comuns, as que ficaram só com você, também nos seus outros aparelhos.',

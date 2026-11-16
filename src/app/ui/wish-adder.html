@@ -1,9 +1,9 @@
-<dialog #dialog class="sheet recortar" [class.modo-fila]="mode() === 'draft'" [class.editando]="!!editing()" aria-labelledby="desejo-titulo" (backdropClose)="close()">
+<dialog #dialog class="sheet recortar" [class.modo-fila]="mode() === 'draft'" [class.editando]="!!editing()" aria-labelledby="desejo-titulo" (cancel)="requestClose($event)" (backdropClose)="requestClose()">
   <form class="folha" (submit)="save($event)" novalidate>
     <!-- a faixa vermelha do catálogo, impressa em retícula (no Pra depois, a capa azul do caderno) -->
     <header class="masthead">
       <h2 id="desejo-titulo">{{ mode() === 'draft' ? 'Guardar pra depois' : editing() ? 'Editar recorte' : 'Pôr na wishlist' }}</h2>
-      <button type="button" class="fechar" (click)="close()" aria-label="Fechar">
+      <button type="button" class="fechar" (click)="requestClose()" aria-label="Fechar">
         <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
       </button>
     </header>
@@ -216,7 +216,7 @@
             Começar a resenha
           </button>
         } @else {
-          <button type="button" class="btn-quiet cancelar" (click)="close()">Cancelar</button>
+          <button type="button" class="btn-quiet cancelar" (click)="requestClose()">Cancelar</button>
         }
         <button type="submit" class="btn-ink">
           <lucide-icon [img]="mode() === 'draft' ? NoteIcon : editing() ? SaveIcon : CutIcon" [size]="19" aria-hidden="true" />

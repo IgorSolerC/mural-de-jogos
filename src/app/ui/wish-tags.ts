@@ -41,7 +41,11 @@ import { wishTagHex } from '../core/wishlist-view';
       line-height: 1.3;
       letter-spacing: 0.1em;
       text-transform: uppercase;
-      overflow-wrap: anywhere;
+      /* a tag nunca quebra no meio; a longa demais para a coluna termina em reticências */
+      max-width: 100%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .tag::before {
       content: '';

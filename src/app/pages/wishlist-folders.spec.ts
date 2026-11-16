@@ -44,10 +44,15 @@ describe('as pastas na Wishlist', () => {
   const nameOf = (b: Element) => (b.querySelector('.nome') ?? b.querySelector('.sr-only'))!.textContent!.trim();
   const labels = () => [...panel().querySelectorAll('.escolha')].map(nameOf);
   const option = (label: string) => [...panel().querySelectorAll<HTMLButtonElement>('.escolha')].find((b) => nameOf(b) === label)!;
-  async function rightClick(target: Element): Promise<void> {
-    target.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 2, pointerType: 'mouse', clientX: 30, clientY: 30 }));
-    target.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 30, clientY: 30 }));
-    await settle();
+  /** O botão direito; na suíte inteira a parede às vezes ainda assenta: tenta de novo até o menu abrir (no máximo três vezes). */
+  async function rightClick(target: Element | (() => Element)): Promise<void> {
+    for (let i = 0; i < 3; i++) {
+      const el = typeof target === 'function' ? target() : target;
+      el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 2, pointerType: 'mouse', clientX: 30, clientY: 30 }));
+      el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 30, clientY: 30 }));
+      await settle();
+      if (panel()) return;
+    }
   }
   async function open(id: string): Promise<void> {
     host.querySelector<HTMLButtonElement>(`app-folder-card[data-pasta="${id}"] button`)!.click();
@@ -143,7 +148,7 @@ describe('as pastas na Wishlist', () => {
     host.querySelector<HTMLButtonElement>('app-folder-path [data-caminho=""]')!.click();
     await settle();
     await open(coop);
-    await rightClick(host.querySelector('app-wish-cover[data-ficha="w2"]')!);
+    await rightClick(() => host.querySelector('app-wish-cover[data-ficha="w2"]')!);
     expect(labels()).toContain('Mover para pasta…');
     option('Tirar da pasta').click();
     await settle();
@@ -157,7 +162,7 @@ describe('as pastas na Wishlist', () => {
 
   it('o menu da pasta: Nova pasta dentro já com o nome para escrever, e Desfazer a pasta sobe o que tinha', async () => {
     await mount();
-    await rightClick(host.querySelector(`app-folder-card[data-pasta="${coop}"]`)!);
+    await rightClick(() => host.querySelector(`app-folder-card[data-pasta="${coop}"]`)!);
     expect(labels()).toEqual(['Abrir', 'Adicionar um jogo aqui', 'Nova pasta dentro', 'Renomear', 'Mover para…', 'Desfazer a pasta']);
     option('Renomear').click();
     await settle();
@@ -167,7 +172,7 @@ describe('as pastas na Wishlist', () => {
     name.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
     await settle();
     expect(folders.tree().live(coop)!.name).toBe('Com a Bia');
-    await rightClick(host.querySelector(`app-folder-card[data-pasta="${coop}"]`)!);
+    await rightClick(() => host.querySelector(`app-folder-card[data-pasta="${coop}"]`)!);
     option('Desfazer a pasta').click();
     // a pergunta (tem um recorte dentro)
     await settle();

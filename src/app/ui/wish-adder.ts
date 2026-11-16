@@ -20,6 +20,7 @@ import { WishTags } from './wish-tags';
 import type { LucideIconData } from 'lucide-angular';
 import { WishFolders } from '../core/wish-folders';
 import { Toasts } from './toast';
+import { Confirm } from './confirm';
 import { CoverPicker } from './cover-picker';
 import { CoverSleeve } from './cover-sleeve';
 import { DraftCard } from './draft-card';
@@ -61,6 +62,11 @@ export class WishAdder {
   private readonly desk = inject(Desk);
   private readonly toasts = inject(Toasts);
   private readonly transitions = inject(ViewTransitions);
+  private readonly confirm = inject(Confirm);
+  /** O que a folha tinha ao abrir: fechar com algo diferente pergunta antes de descartar. */
+  private snapshot = '';
+  /** A pergunta de descartar já está na tela: outro Esc (ou o fundo) não abre uma segunda. */
+  private askingDiscard = false;
   protected readonly wishFolders = inject(WishFolders);
   /** O desejo novo foi para a lista. */
   readonly wished = output<string>();
@@ -208,6 +214,7 @@ export class WishAdder {
     // a pasta aberta na Wishlist deste mural: o recorte nasce nela
     const open = this.wishFolders.open();
     this.folder.set(open && open.kind === this.kind() ? open.id : null);
+    this.snapshot = this.serialize();
     this.dialog().nativeElement.showModal();
     // a busca só nasce depois que o diálogo desenha (se ficou um item da última vez, ela não existia)
     setTimeout(() => this.search()?.focus());
@@ -228,6 +235,7 @@ export class WishAdder {
     this.tags.set([...(wish.tags ?? [])]);
     this.note.set(wish.note ?? '');
     this.folder.set(this.wishFolders.of(wish));
+    this.snapshot = this.serialize();
     this.dialog().nativeElement.showModal();
   }
 
@@ -256,7 +264,8 @@ export class WishAdder {
     this.prop.set(id);
     setTimeout(() => {
       const part = this.dialog().nativeElement.querySelector<HTMLElement>('#desejo-parte');
-      const first = part?.querySelector<HTMLElement>('input[type="text"], input:checked, input, button');
+      // na Vontade, o rádio escolhido; nas outras, a busca (ou o primeiro botão)
+      const first = id === 'vontade' ? part?.querySelector<HTMLElement>('input:checked') : (part?.querySelector<HTMLElement>('input[type="text"]') ?? part?.querySelector<HTMLElement>('button'));
       first?.focus();
     });
   }
@@ -285,6 +294,43 @@ export class WishAdder {
 
   close(): void {
     this.dialog().nativeElement.close();
+  }
+
+  /** O que a pessoa pode ter mudado na folha (o item, a vontade, as tags, a pasta, a descrição). */
+  private serialize(): string {
+    return JSON.stringify([this.game(), this.relevance(), this.tags(), this.folder(), this.note()]);
+  }
+
+  /**
+   * Fechar pelo X, pelo Cancelar, pelo Esc ou pelo fundo: com algo mudado, a pergunta de descartar antes (como no
+   * editor das anotações); "Continuar" volta para a folha como estava.
+   */
+  protected requestClose(e?: Event): void {
+    if (this.serialize() !== this.snapshot) {
+      e?.preventDefault();
+      void this.askDiscard();
+      return;
+    }
+    if (e?.type !== 'cancel') this.close();
+  }
+
+  private async askDiscard(): Promise<void> {
+    if (this.askingDiscard) return;
+    this.askingDiscard = true;
+    try {
+      const editing = !!this.editing();
+      const sure = await this.confirm.ask({
+        title: 'Descartar o que você mudou?',
+        text: editing
+          ? 'O recorte ainda não foi salvo. Fechando agora, o que você mudou nele se perde.'
+          : `${this.mode() === 'draft' ? 'O item ainda não foi guardado' : 'O recorte ainda não foi posto na wishlist'}. Fechando agora, o que você escreveu se perde.`,
+        confirm: 'Descartar',
+        cancel: 'Continuar',
+      });
+      if (sure) this.close();
+    } finally {
+      this.askingDiscard = false;
+    }
   }
 
   /** O que a folha muda no desejo: o item, a vontade (Comum sai do registro), as tags e o lembrete. */
@@ -388,9 +434,12 @@ export class WishAdder {
       const old = this.store.updateWish(editing.id, patch);
       if (!old) return;
       saved?.();
+      // o Desfazer volta só o que este Salvar mudou (o que mudou depois, aqui ou noutro aparelho, fica)
+      const back: WishPatch = {};
+      for (const k of Object.keys(patch) as (keyof WishPatch)[]) (back as Record<string, unknown>)[k] = old[k];
       this.toasts.show(`“${gm.name}” mudou na wishlist`, {
         label: 'Desfazer',
-        run: () => this.transitions.run(() => this.store.restoreWishes([old])),
+        run: () => this.transitions.run(() => this.store.updateWish(editing.id, back)),
       });
     });
   }

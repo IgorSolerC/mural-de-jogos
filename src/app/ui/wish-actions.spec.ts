@@ -76,6 +76,32 @@ describe('a etiqueta e a descrição do desejo', () => {
     el.remove();
   });
 
+  it('a descrição formatada só monta quando a mão (ou o teclado) chega no card; antes, o texto sem marcas', async () => {
+    const card = document.createElement('div');
+    document.body.appendChild(card);
+    const f = TestBed.createComponent(WishNote);
+    f.componentRef.setInput('wishId', 'w1');
+    f.componentRef.setInput('text', 'Com a **Bia**');
+    card.appendChild(f.nativeElement);
+    f.detectChanges();
+    await f.whenStable();
+    const el = f.nativeElement as HTMLElement;
+    expect(el.querySelector('app-rich-text')).toBeNull();
+    expect(el.querySelector('#descricao-w1')!.textContent).toContain('Com a Bia');
+    // a descrição longa: o leitor de tela ouve o começo
+    f.componentRef.setInput('text', 'palavra '.repeat(100));
+    f.detectChanges();
+    expect(el.querySelector('#descricao-w1')!.textContent!.length).toBeLessThan(230);
+    expect(el.querySelector('#descricao-w1')!.textContent).toContain('(continua no Editar)');
+    f.componentRef.setInput('text', 'Com a **Bia**');
+    f.detectChanges();
+    expect(el.textContent).not.toContain('**');
+    card.dispatchEvent(new PointerEvent('pointerenter'));
+    f.detectChanges();
+    expect(el.querySelector('app-rich-text .negrito')!.textContent).toBe('Bia');
+    card.remove();
+  });
+
   it('o menu do site mostra a descrição embaixo do nome só quando o dedo o abriu', () => {
     const f = TestBed.createComponent(ContextMenu);
     f.componentRef.setInput('caption', 'Hades');

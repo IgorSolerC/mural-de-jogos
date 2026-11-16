@@ -94,8 +94,8 @@ import { reducedMotion } from '../core/motion';
             class="pasta-busca"
             inputId="busca-desejos"
             [glued]="true"
-            label="Procurar na wishlist"
-            placeholder="Procurar na wishlist…"
+            [label]="searchWhere()"
+            [placeholder]="searchWhere() + '…'"
             [value]="filter().query"
             (valueChange)="setQuery($event)"
           />
@@ -518,6 +518,13 @@ import { reducedMotion } from '../core/motion';
       right: 6px;
     }
     @media (hover: none) {
+      /* as tags ao lado da etiqueta quando cabem; senão, a etiqueta desce, à direita */
+      .pe {
+        flex-wrap: wrap;
+      }
+      .pe .tags {
+        flex: 1 1 8em;
+      }
       .etiqueta {
         position: static;
         flex: none;
@@ -800,20 +807,31 @@ export class WishlistPage {
     const kids = this.folderKids();
     if (!kids.length) return new Map();
     const tree = this.folderTree();
-    const sorted = sortWishes(this.mural.wishes(), this.prefs());
+    const kidIds = new Set(kids.map((f) => f.id));
+    const acc = new Map(kids.map((f) => [f.id, { n: 0, direct: [] as Wish[], deep: [] as Wish[] }]));
+    // uma passada pela Wishlist na ordem da parede: cada desejo conta na pasta da parede que está no caminho dele
+    for (const w of sortWishes(this.mural.wishes(), this.prefs())) {
+      const at = this.whereIs(w.id);
+      const kid = tree.path(at).find((f) => kidIds.has(f.id));
+      if (!kid) continue;
+      const a = acc.get(kid.id)!;
+      a.n++;
+      if (w.game.coverUrl && a.direct.length + a.deep.length < 6) (at === kid.id ? a.direct : a.deep).push(w);
+    }
     const out = new Map<string, FolderInfo>();
     for (const f of kids) {
-      const below = tree.below(f.id);
-      const inside = sorted.filter((w) => below.has(this.whereIs(w.id) ?? ''));
-      const covered = inside.filter((w) => w.game.coverUrl);
-      const direct = covered.filter((w) => this.whereIs(w.id) === f.id);
-      const deep = covered.filter((w) => this.whereIs(w.id) !== f.id);
-      out.set(f.id, { notes: inside.length, folders: tree.kids(f.group, f.id).length, peek: [...direct, ...deep].slice(0, 3) });
+      const a = acc.get(f.id)!;
+      out.set(f.id, { notes: a.n, folders: tree.kids(f.group, f.id).length, peek: [...a.direct, ...a.deep].slice(0, 3) });
     }
     return out;
   });
   /** A pasta aberta não tem nada: nem recorte, nem pasta. */
   protected readonly folderEmpty = computed(() => this.openFolder() !== null && !this.filtering() && !this.visible().length && !this.folderKids().length);
+  /** Onde a busca procura: a Wishlist, ou a pasta aberta (e as de dentro). */
+  protected readonly searchWhere = computed(() => {
+    const f = this.folderPath().at(-1);
+    return f ? `Procurar em ${f.name}` : 'Procurar na wishlist';
+  });
   /** O que o leitor de tela ouve depois de trocar de pasta: "Pasta Co-op, 4 recortes e 1 pasta". */
   protected readonly folderSaid = signal('');
 
@@ -1171,10 +1189,14 @@ export class WishlistPage {
     if (!this.filtering() && where !== this.openFolder()) this.enterFolder(where, true, false);
     this.drawn.set(w.id);
     const reduced = reducedMotion();
-    requestAnimationFrame(() => {
-      document.querySelector(`[data-ficha="${w.id}"]`)?.scrollIntoView({ block: 'center', behavior: reduced ? 'auto' : 'smooth' });
-      this.startBtn()?.nativeElement.focus({ preventScroll: true });
-    });
+    // depois de a parede (talvez a de outra pasta) e o bilhete desenharem
+    afterNextRender(
+      () => {
+        this.host.querySelector(`[data-ficha="${CSS.escape(w.id)}"]`)?.scrollIntoView({ block: 'center', behavior: reduced ? 'auto' : 'smooth' });
+        this.startBtn()?.nativeElement.focus({ preventScroll: true });
+      },
+      { injector: this.injector },
+    );
   }
 
   protected closeDraw(): void {

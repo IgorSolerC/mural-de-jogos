@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, inject, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, inject, input, signal } from '@angular/core';
+import { plainText } from '../core/rich-text';
 import { SearchHighlight } from './search-highlight';
 import { RichText } from './rich-text';
 
@@ -18,9 +19,16 @@ import { RichText } from './rich-text';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class.aberta]': 'open()', 'aria-hidden': 'true' },
   template: `
-    <div class="folha" [id]="'descricao-' + wishId()" [appRealceBusca]="query()" realceEm=".texto">
-      <span class="sr-only">Descrição: </span>
-      <app-rich-text class="texto" [text]="text()" />
+    <!-- o que o toque cita (aria-describedby): o começo da descrição, sem as marcas -->
+    <span class="sr-only" [id]="'descricao-' + wishId()">Descrição: {{ spoken() }}</span>
+    <div class="folha" [appRealceBusca]="query()" realceEm=".texto">
+      <!-- o leitor do markdown só monta quando a folha pode aparecer (a mão chegou, o teclado, a busca); até lá,
+           o texto sem as marcas basta para o leitor de tela -->
+      @if (armed() || open()) {
+        <app-rich-text class="texto" [text]="text()" />
+      } @else {
+        <span class="texto">{{ plain() }}</span>
+      }
     </div>
   `,
   styles: `
@@ -75,6 +83,14 @@ export class WishNote {
   readonly query = input('');
   /** Fica aberta (a busca achou o desejo só pela descrição). */
   readonly open = input(false);
+  /** A mão (ou o teclado) já chegou no card: a descrição formatada monta. */
+  protected readonly armed = signal(false);
+  protected readonly plain = computed(() => plainText(this.text()));
+  /** O começo da descrição, para o leitor de tela (a longa continua no Editar). */
+  protected readonly spoken = computed(() => {
+    const p = this.plain().replace(/\s+/g, ' ').trim();
+    return p.length > 180 ? `${p.slice(0, 179).trimEnd()}… (continua no Editar)` : p;
+  });
 
   constructor() {
     const host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
@@ -85,16 +101,21 @@ export class WishNote {
       const r = card.getBoundingClientRect();
       host.dataset['lado'] = r.right + 230 > document.documentElement.clientWidth ? 'esq' : 'dir';
     };
+    // a mão (ou o teclado) chegou: a folha pode aparecer, e o texto formatado monta
+    const arrive = () => {
+      this.armed.set(true);
+      side();
+    };
     let card: HTMLElement | null = null;
     afterNextRender(() => {
       card = host.parentElement;
       side();
-      card?.addEventListener('pointerenter', side);
-      card?.addEventListener('focusin', side);
+      card?.addEventListener('pointerenter', arrive);
+      card?.addEventListener('focusin', arrive);
     });
     inject(DestroyRef).onDestroy(() => {
-      card?.removeEventListener('pointerenter', side);
-      card?.removeEventListener('focusin', side);
+      card?.removeEventListener('pointerenter', arrive);
+      card?.removeEventListener('focusin', arrive);
     });
   }
 }

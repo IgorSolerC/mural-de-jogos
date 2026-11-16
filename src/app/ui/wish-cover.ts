@@ -42,6 +42,10 @@ import { WishTags } from './wish-tags';
         <app-relevance-sticker class="adesivo" size="mini" [relevance]="rel()" [kind]="wish().kind" />
       }
     </span>
+    <!-- o toque vem antes da etiqueta no Tab, como no recorte -->
+    <button type="button" class="hit" (click)="opened.emit(wish().id)" [attr.aria-describedby]="wish().note ? 'descricao-' + wish().id : null">
+      <span class="sr-only">Começar a resenha de {{ wish().game.name }}</span>
+    </button>
     <span class="linha">
       <span class="nome" dir="auto">{{ wish().game.name }}</span>
       <app-wish-actions class="etiqueta" [wish]="wish()" [editable]="editable()" (edit)="edit.emit()" (vontade)="vontade.emit($event)" />
@@ -49,9 +53,6 @@ import { WishTags } from './wish-tags';
     @if (wish().tags?.length) {
       <app-wish-tags class="tags" [tags]="wish().tags!" [kind]="wish().kind" />
     }
-    <button type="button" class="hit" (click)="opened.emit(wish().id)" [attr.aria-describedby]="wish().note ? 'descricao-' + wish().id : null">
-      <span class="sr-only">Começar a resenha de {{ wish().game.name }}</span>
-    </button>
     @if (wish().note; as n) {
       <app-wish-note [wishId]="wish().id" [text]="n" [query]="query()" [open]="noteOpen()" />
     }
@@ -168,7 +169,7 @@ import { WishTags } from './wish-tags';
       font-size: 0.92rem;
       line-height: 1.15;
       color: var(--wall-ink);
-      overflow-wrap: anywhere;
+      overflow-wrap: break-word;
     }
     .tags {
       margin-top: -6px;
@@ -183,11 +184,20 @@ import { WishTags } from './wish-tags';
       right: -4px;
     }
     @media (hover: none) {
+      /* sem mouse, a etiqueta fica no pé: ao lado do nome quando cabe; senão, na linha de baixo, à direita (o nome
+         nunca quebra no meio da palavra para dar lugar a ela) */
+      .linha {
+        flex-wrap: wrap;
+      }
+      .nome {
+        flex: 1 1 6em;
+      }
       .etiqueta {
         position: relative;
         top: -3px;
         right: 0;
         flex: none;
+        margin-left: auto;
       }
     }
 

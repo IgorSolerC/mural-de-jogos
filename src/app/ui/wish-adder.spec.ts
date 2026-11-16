@@ -11,6 +11,7 @@ import { Toasts } from './toast';
 import { WishAdder } from './wish-adder';
 import { WishFolders } from '../core/wish-folders';
 import { comMarkdown } from '../testing/writing-mode.spec';
+import { Confirm } from './confirm';
 
 /** O "Editar recorte" (PLANO-WISHLIST.md, rodada 4): a folha do "Pôr na wishlist" aberta com um desejo. */
 
@@ -108,6 +109,25 @@ describe('a folha do desejo: editar sem resenhar', () => {
     expect(button('Começar a resenha')).toBeDefined();
   });
 
+  it('o Desfazer do Salvar volta só o que ele mudou; o foco da Vontade vai para a escolhida', async () => {
+    adder().edit(store.getWish('w1')!);
+    await settle();
+    await part('vontade');
+    expect(document.activeElement).toBe(host.querySelector('input[name="desejo-vontade"][aria-label="MUST PLAY"]'));
+    await write('Outra descrição');
+    button('Salvar')!.click();
+    await settle();
+    const undo = TestBed.inject(Toasts).current()!.action!.run;
+    // no meio, a vontade mudou pelo botão (e uma tag chegou de outro aparelho)
+    store.updateWish('w1', { relevance: 'later', tags: ['curto', 'presente'] });
+    undo();
+    await settle();
+    const w = store.getWish('w1')!;
+    expect(w.note).toBe('Indicação do Rafa');
+    expect(w.relevance).toBe('later');
+    expect(w.tags).toEqual(['curto', 'presente']);
+  });
+
   it('Salvar muda numa gravação só, mantém o id e a data de entrada, e o Desfazer volta como estava', async () => {
     adder().edit(store.getWish('w1')!);
     await settle();
@@ -154,6 +174,35 @@ describe('a folha do desejo: editar sem resenhar', () => {
     const w = store.getWish('w1')!;
     expect('note' in w).toBeFalse();
     expect('tags' in w).toBeFalse();
+  });
+
+  it('fechar com algo mudado pergunta antes de descartar; sem nada mudado, fecha direto', async () => {
+    const confirm = TestBed.inject(Confirm);
+    adder().edit(store.getWish('w1')!);
+    await settle();
+    host.querySelector<HTMLButtonElement>('.fechar')!.click();
+    await settle();
+    expect(confirm.current()).toBeNull();
+    expect(dialog().open).toBeFalse();
+    adder().edit(store.getWish('w1')!);
+    await settle();
+    await write('Mudei a descrição');
+    // o Esc da folha (o cancel do diálogo) também pergunta
+    const esc = new Event('cancel', { cancelable: true });
+    dialog().dispatchEvent(esc);
+    await settle();
+    expect(esc.defaultPrevented).toBeTrue();
+    expect(confirm.current()!.title).toBe('Descartar o que você mudou?');
+    confirm.current()!.resolve(null);
+    await settle();
+    expect(dialog().open).toBeTrue();
+    expect(noteField()!.value).toBe('Mudei a descrição');
+    host.querySelector<HTMLButtonElement>('.fechar')!.click();
+    await settle();
+    confirm.current()!.resolve('confirm');
+    await settle();
+    expect(dialog().open).toBeFalse();
+    expect(store.getWish('w1')!.note).toBe('Indicação do Rafa');
   });
 
   it('pôr é a mesma folha de editar, com tudo à vista desde o começo; a Capa espera o item; Esc fecha só a parte', async () => {
@@ -225,6 +274,9 @@ describe('a folha do desejo: editar sem resenhar', () => {
     expect(host.querySelector<HTMLElement>('app-tag-picker .op[aria-pressed="true"] app-note-tag')).not.toBeNull();
     button('Cancelar')?.click();
     host.querySelector<HTMLButtonElement>('.fechar')!.click();
+    await settle();
+    // a tag nova é coisa mudada: a pergunta de descartar, e descarta
+    TestBed.inject(Confirm).current()!.resolve('confirm');
     await settle();
     expect(colors()[wishTagKey('jogos', 'Explorar')]).toBeUndefined();
     adder().edit(store.getWish('w1')!);
