@@ -1,6 +1,7 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { LabelEdits } from '../core/label-edits';
+import { NoteFolders } from '../core/note-folders';
 import { Review, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { SharedGroup } from '../core/shared-groups';
@@ -91,6 +92,85 @@ describe('a folha de apagar o grupo (ui/group-delete-sheet.ts)', () => {
     el.querySelector<HTMLButtonElement>('app-group-picker .op')!.click();
     await settle();
     expect(lines()).toContain('Casa é compartilhado: Ana passa a ver tudo o que chega.');
+  });
+
+  /** Levar para Estudos, já escolhido. */
+  const toStudies = async () => {
+    await choose('Levar para outro grupo');
+    Array.from(el.querySelectorAll<HTMLButtonElement>('app-group-picker .op')).find((b) => b.textContent!.includes('Estudos'))!.click();
+    await settle();
+  };
+  const folderOps = () => Array.from(el.querySelectorAll('app-folder-picker .op .nome')).map((n) => n.textContent!.trim());
+
+  it('levar: escolhido o grupo, a pasta dele (direto nele, de começo); a frase e o destino seguem a pasta', async () => {
+    const folders = TestBed.inject(NoteFolders);
+    const arquivo = folders.create('Estudos', null, 'Arquivo')!;
+    folders.create('Trabalho', null, 'Reuniões');
+    const del = spyOn(TestBed.inject(LabelEdits), 'deleteCategory').and.resolveTo({ ok: true, moved: 2, removed: 0 });
+    await open('Trabalho', ['Trabalho', 'Estudos', 'Casa']);
+    await choose('Levar para outro grupo');
+    expect(el.querySelector('app-folder-picker')).toBeNull();
+    await toStudies();
+    expect(el.querySelector('#ag-pasta')!.textContent).toBe('Em qual pasta de Estudos');
+    // só as pastas de Estudos
+    expect(folderOps()).toEqual(['Direto em Estudos', 'Arquivo']);
+    Array.from(el.querySelectorAll<HTMLButtonElement>('app-folder-picker .op')).find((b) => b.textContent!.includes('Arquivo'))!.click();
+    await settle();
+    expect(lines()[0]).toBe('As 2 anotações e a pasta vão para Estudos, dentro da pasta Arquivo.');
+    // outro grupo: a pasta volta para direto nele
+    Array.from(el.querySelectorAll<HTMLButtonElement>('app-group-picker .op')).find((b) => b.textContent!.includes('Casa'))!.click();
+    await settle();
+    expect(lines()[0]).toBe('As 2 anotações e a pasta vão para Casa.');
+    await toStudies();
+    Array.from(el.querySelectorAll<HTMLButtonElement>('app-folder-picker .op')).find((b) => b.textContent!.includes('Arquivo'))!.click();
+    await settle();
+    el.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
+    await settle();
+    expect(del).toHaveBeenCalledOnceWith('Trabalho', { kind: 'levar', to: 'Estudos', folder: arquivo.id });
+  });
+
+  it('o Criar da escolha cria a pasta em Estudos e a escolhe; desistindo, a que ficou vazia sai', async () => {
+    const folders = TestBed.inject(NoteFolders);
+    await open('Trabalho', ['Trabalho', 'Estudos']);
+    await toStudies();
+    const search = el.querySelector<HTMLInputElement>('app-folder-picker input')!;
+    search.value = 'Antigos';
+    search.dispatchEvent(new Event('input'));
+    await settle();
+    search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    await settle();
+    const made = folders.tree().kids('estudos', null).find((f) => f.name === 'Antigos')!;
+    expect(made).toBeDefined();
+    expect(lines()[0]).toBe('As 2 anotações vão para Estudos, dentro da pasta Antigos.');
+    fixture.destroy();
+    expect(folders.tree().live(made.id)).toBeUndefined();
+  });
+
+  it('a pasta criada e usada fica; a criada e trocada por outra sai; apagando, nada sai', async () => {
+    const folders = TestBed.inject(NoteFolders);
+    let release!: () => void;
+    spyOn(TestBed.inject(LabelEdits), 'deleteCategory').and.callFake(
+      () => new Promise((r) => (release = () => r({ ok: true, moved: 2, removed: 0 }))),
+    );
+    await open('Trabalho', ['Trabalho', 'Estudos']);
+    await toStudies();
+    const search = el.querySelector<HTMLInputElement>('app-folder-picker input')!;
+    for (const name of ['Velha', 'Nova']) {
+      search.value = name;
+      search.dispatchEvent(new Event('input'));
+      await settle();
+      search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+      await settle();
+    }
+    const nova = folders.tree().index.get([...folders.tree().all].find((f) => f.name === 'Nova')!.id)!;
+    el.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
+    await settle();
+    // a folha sai da tela no meio: nada é desfeito ainda
+    fixture.destroy();
+    expect(folders.tree().live(nova.id)).toBeDefined();
+    release();
+    await new Promise((r) => setTimeout(r));
+    expect(folders.tree().all.filter((f) => !f.gone).map((f) => f.name)).toContain('Nova');
   });
 
   it('sem outro grupo para onde levar, diz o que fazer', async () => {

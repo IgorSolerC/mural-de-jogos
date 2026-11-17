@@ -136,5 +136,6 @@ Crítica do Impeccable (avaliadores isolados), `/code-review high` e os conserto
 - [x] Feature 2 (`/code-review mid`: 4 achados, 3 consertados: o aviso de quem passa a ver no grupo compartilhado de
   destino, a coluna do Kanban, a escolha parada enquanto apaga; ficou o botão antes de a lista dos grupos chegar,
   que a regra recusa com a frase certa)
-- [ ] Feature 3
+- [x] Feature 3 (`/code-review mid`: 3 achados, todos consertados: a pasta escolhida desfeita se a folha sai da tela
+  no meio do apagar, as criadas e trocadas por outra, o erro do teto de pastas preso)
 - [ ] Fechamento

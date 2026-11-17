@@ -7,6 +7,7 @@ import { KanbanStore } from '../core/kanban-store';
 import { LabelEdits } from '../core/label-edits';
 import { NoteBulk, removalAsk } from '../core/note-bulk';
 import { NoteFolders } from '../core/note-folders';
+import { pathLabel } from '../core/folders';
 import { categoryBonus } from '../core/note-labels';
 import { isNote } from '../core/review';
 import { ReviewStore } from '../core/review-store';
@@ -16,6 +17,7 @@ import { StudyStore } from '../core/study-store';
 import { plural } from '../core/text';
 import { BackdropClose } from './backdrop-close';
 import { Busy } from './busy';
+import { FolderPicker } from './folder-picker';
 import { GroupPicker } from './group-picker';
 import { ICON, IconModule } from './icons';
 import { Pin } from './pin';
@@ -52,7 +54,7 @@ function contentsWords(notes: number, folders: number): { words: string; many: b
  */
 @Component({
   selector: 'app-group-delete-sheet',
-  imports: [BackdropClose, Busy, GroupPicker, IconModule, Pin],
+  imports: [BackdropClose, Busy, FolderPicker, GroupPicker, IconModule, Pin],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet coluna-ajustes apagar-grupo" aria-labelledby="ag-titulo" aria-describedby="ag-sub" (cancel)="onEscape($event)" (close)="closed.emit()" (backdropClose)="close()">
@@ -101,6 +103,24 @@ function contentsWords(notes: number, folders: number): { words: string; many: b
                 <p class="vazio">Não há outro grupo seu para onde levar. Escolha deixar sem grupo, ou crie o grupo numa anotação antes.</p>
               }
             </section>
+            @if (target(); as to) {
+              <section class="grupo" aria-labelledby="ag-pasta">
+                <h3 class="grupo-titulo" id="ag-pasta">Em qual pasta de {{ to }}</h3>
+                <fieldset class="sem-moldura" [disabled]="busy()">
+                  <app-folder-picker
+                    [value]="folder()"
+                    (valueChange)="folder.set($event)"
+                    [tree]="folders.tree()"
+                    [group]="targetKey()"
+                    [groupName]="to"
+                    [counts]="targetCounts()"
+                    [rootLabel]="'Direto em ' + to"
+                    [label]="'Pasta de ' + to + ' onde tudo entra'"
+                    (create)="createFolder($event)"
+                  />
+                </fieldset>
+              </section>
+            }
           }
 
           <section class="grupo" aria-labelledby="ag-acontece">
@@ -233,7 +253,7 @@ export class GroupDeleteSheet {
 
   private readonly edits = inject(LabelEdits);
   private readonly store = inject(ReviewStore);
-  private readonly folders = inject(NoteFolders);
+  protected readonly folders = inject(NoteFolders);
   private readonly study = inject(StudyStore);
   private readonly freeBoards = inject(FreeBoardStore);
   private readonly kanban = inject(KanbanStore);
@@ -243,9 +263,15 @@ export class GroupDeleteSheet {
 
   protected readonly kind = signal<Kind>('soltar');
   protected readonly target = signal<string | null>(null);
+  /** A pasta do grupo de destino onde tudo entra (null: direto nele); outro grupo, ela volta para null. */
+  protected readonly folder = linkedSignal<string | null, string | null>({ source: () => this.target(), computation: () => null });
+  protected readonly targetKey = computed(() => lookKey(this.target() ?? ''));
+  protected readonly targetCounts = computed(() => this.folders.countsIn(this.target()));
+  /** As pastas criadas aqui (o "Criar" da escolha): se a pessoa desiste, as que ficaram vazias saem. */
+  private readonly made = new Set<string>();
   protected readonly busy = signal(false);
   /** O erro da última tentativa; mudar o destino já é outra tentativa, e ele sai. */
-  protected readonly error = linkedSignal<unknown, string | null>({ source: () => [this.kind(), this.target()], computation: () => null });
+  protected readonly error = linkedSignal<unknown, string | null>({ source: () => [this.kind(), this.target(), this.folder()], computation: () => null });
   /** A folha saiu da tela enquanto apagava. */
   private gone = false;
 
@@ -323,7 +349,8 @@ export class GroupDeleteSheet {
     if (kind === 'levar') {
       const to = this.target();
       if (!to) return [{ text: 'Escolha o grupo para onde tudo vai.' }];
-      if (words) out.push({ text: `${words} ${many ? 'vão' : 'vai'} para ${to}.` });
+      const path = pathLabel(this.folders.tree().path(this.folder()));
+      if (words) out.push({ text: `${words} ${many ? 'vão' : 'vai'} para ${to}${path ? `, dentro da pasta ${path}` : ''}.` });
       // um grupo compartilhado seu: quem está nele passa a ver o que chega (as privadas também, pelo grupo)
       const there = this.sharedGroups.ofCategory(to);
       const people = there?.membros.map((m) => m.nome) ?? [];
@@ -357,7 +384,11 @@ export class GroupDeleteSheet {
   });
 
   constructor() {
-    inject(DestroyRef).onDestroy(() => (this.gone = true));
+    inject(DestroyRef).onDestroy(() => {
+      this.gone = true;
+      // (apagando, a folha que sai da tela não mexe em nada: a pasta escolhida ainda vai receber tudo)
+      if (!this.busy()) this.dropUnused();
+    });
     afterNextRender(() => {
       const el = this.dialog().nativeElement;
       el.showModal();
@@ -380,7 +411,7 @@ export class GroupDeleteSheet {
     const kind = this.kind();
     if (kind === 'levar') {
       const to = this.target();
-      return to ? { kind, to, folder: null } : null;
+      return to ? { kind, to, folder: this.folder() } : null;
     }
     return { kind };
   }
@@ -406,6 +437,31 @@ export class GroupDeleteSheet {
     if (!this.gone) this.close();
   }
 
+  /** O "Criar" da escolha da pasta: a pasta nasce no grupo de destino, dentro da escolhida, e fica escolhida. */
+  protected createFolder(e: { parent: string | null; name: string }): void {
+    const to = this.target();
+    if (!to) return;
+    const made = this.folders.create(to, e.parent, e.name);
+    if (!made) {
+      this.error.set('Não cabe mais nenhuma pasta.');
+      return;
+    }
+    this.made.add(made.id);
+    this.folder.set(made.id);
+  }
+
+  /**
+   * Ao fechar: as pastas criadas aqui que ficaram vazias saem (as de dentro primeiro), a pessoa tendo desistido ou
+   * escolhido outra no fim.
+   */
+  private dropUnused(): void {
+    for (const id of [...this.made].reverse()) {
+      const tree = this.folders.tree();
+      const f = tree.live(id);
+      if (f && !tree.kids(f.group, id).length && !this.folders.countBelow(id)) this.folders.dissolve(id);
+    }
+  }
+
   /** A frase do aviso: "Trabalho foi apagado. 12 anotações foram para Estudos." */
   private said(fate: GroupFate, r: GroupDeleteResult): string {
     const name = this.name();
@@ -415,7 +471,10 @@ export class GroupDeleteSheet {
     }
     if (!r.moved) return `${name} foi apagado.`;
     const n = plural(r.moved, 'anotação', 'anotações');
-    if (fate.kind === 'levar') return `${name} foi apagado. ${n} ${r.moved === 1 ? 'foi' : 'foram'} para ${fate.to}.`;
+    if (fate.kind === 'levar') {
+      const path = pathLabel(this.folders.tree().path(fate.folder));
+      return `${name} foi apagado. ${n} ${r.moved === 1 ? 'foi' : 'foram'} para ${fate.to}${path ? `, na pasta ${path}` : ''}.`;
+    }
     // (sem lugar para a pasta nova, no teto de pastas, elas ficam soltas)
     if (!r.folder) return `${name} foi apagado. ${n} ${r.moved === 1 ? 'ficou' : 'ficaram'} sem grupo.`;
     return `${name} foi apagado. ${n} ${r.moved === 1 ? 'está' : 'estão'} na pasta “${r.folder}”, nas sem grupo.`;
