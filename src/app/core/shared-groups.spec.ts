@@ -201,11 +201,95 @@ describe('grupos compartilhados: o serviço (core/shared-groups-store.ts)', () =
     expect(groups.get(id)).toBeUndefined();
   });
 
+  describe('o nome do grupo de outra pessoa com uma anotação nova nele (o conserto de 17/nov)', () => {
+    const japones = () => parseGroup(raw({ id: 'gJapones0001', dados: { nome: 'Japones' } }))!;
+    const agora = () => ({ updatedAt: new Date().toISOString() });
+    /** O serviço com os grupos guardados da conta já lidos (senão a leitura, no primeiro tick, passa por cima). */
+    const start = () => {
+      const out = setup();
+      TestBed.tick();
+      return out;
+    };
+
+    it('quem escreve no grupo de outra pessoa e cria uma anotação nele: ela sobe para o grupo, e o nome não muda', async () => {
+      const { groups, shared } = start();
+      const g = japones();
+      groups.entries.set(new Map([[g.id, g]]));
+      TestBed.tick();
+      expect(groups.names().get(g.id)).toBe('Japones');
+      // (o editor, o Kanban, o editar em massa e a API das AIs põem a anotação no grupo pelo nome)
+      store.add(note('n-nova01', 'Japones', agora()));
+      TestBed.tick();
+      expect(groups.names().get(g.id)).toBe('Japones');
+      expect(groups.ofCategory('Japones')?.id).toBe(g.id);
+      await groups.adopt();
+      expect(shared.share.calls.allArgs().map(([r, people, grupo]) => [(r as Review).id, people, grupo])).toEqual([['n-nova01', [], g.id]]);
+    });
+
+    it('a que ainda não subiu continua a caminho do grupo ao abrir o site de novo', async () => {
+      let { groups, shared } = start();
+      const g = japones();
+      groups.entries.set(new Map([[g.id, g]]));
+      TestBed.tick();
+      store.add(note('n-nova01', 'Japones', agora()));
+      TestBed.tick();
+      TestBed.resetTestingModule();
+      ({ groups, shared } = start());
+      expect(groups.names().get(g.id)).toBe('Japones');
+      await groups.adopt();
+      expect(shared.share).toHaveBeenCalledOnceWith(jasmine.objectContaining({ id: 'n-nova01' }), [], g.id);
+    });
+
+    it('o grupo seu de mesmo nome, de antes do convite, continua seu e à parte: o dela fica "Japones · Ana"', async () => {
+      const { groups, shared } = start();
+      store.add(note('n-minha1', 'Japones'));
+      TestBed.tick();
+      const g = japones();
+      groups.entries.set(new Map([[g.id, g]]));
+      TestBed.tick();
+      expect(groups.names().get(g.id)).toBe('Japones · Ana');
+      // a nova no seu Japones fica sua; a nova no dela (pelo nome que ele tem aqui) sobe para ele
+      store.add(note('n-minha2', 'Japones', agora()));
+      store.add(note('n-dela01', 'Japones · Ana', agora()));
+      TestBed.tick();
+      expect(groups.names().get(g.id)).toBe('Japones · Ana');
+      expect(groups.ofCategory('Japones')).toBeUndefined();
+      await groups.adopt();
+      expect(shared.share.calls.allArgs().map(([r, , grupo]) => [(r as Review).id, grupo])).toEqual([['n-dela01', g.id]]);
+    });
+
+    it('as suas de antes que chegam depois do grupo (outro aparelho, a sincronização) não entram nele: ele ganha o "· Ana"', async () => {
+      const { groups, shared } = start();
+      const g = japones();
+      groups.entries.set(new Map([[g.id, g]]));
+      TestBed.tick();
+      expect(groups.names().get(g.id)).toBe('Japones');
+      store.add(note('n-minha1', 'Japones', { updatedAt: '2026-11-01T10:00:00.000Z' }));
+      TestBed.tick();
+      expect(groups.names().get(g.id)).toBe('Japones · Ana');
+      await groups.adopt();
+      expect(shared.share).not.toHaveBeenCalled();
+    });
+
+    it('num grupo em que você só lê, a anotação nova de mesmo nome é um grupo seu (ela não tem como subir)', () => {
+      const { groups } = start();
+      const g = parseGroup(raw({ id: 'gJapones0001', papel: 'leitor', dados: { nome: 'Japones' } }))!;
+      groups.entries.set(new Map([[g.id, g]]));
+      TestBed.tick();
+      store.add(note('n-nova01', 'Japones', agora()));
+      TestBed.tick();
+      expect(groups.names().get(g.id)).toBe('Japones · Ana');
+    });
+  });
+
   it('os grupos moram no banco do site (sai na limpeza de sair da conta), por conta', async () => {
     expect(DATA_KEYS as readonly string[]).toContain(GROUPS_KEY);
     const { groups } = setup();
     await groups.share('Trabalho', []);
+    TestBed.tick();
     expect(localStorage.getItem(GROUPS_KEY)).toContain('u-eu');
+    // (o nome de cada grupo aqui, e desde quando, mora junto: sai com ele)
+    expect(JSON.parse(localStorage.getItem(GROUPS_KEY)!).nomes['u-eu']['gTrabalho001'].nome).toBe('Trabalho');
     await wipeBrowser();
     expect(localStorage.getItem(GROUPS_KEY)).toBeNull();
   });

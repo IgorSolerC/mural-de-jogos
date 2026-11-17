@@ -364,10 +364,15 @@ describe('apagar o grupo com destino (LabelEdits.deleteCategory)', () => {
     spyOn(groups, 'ofCategory').and.callFake((c) => (c === 'Casa' ? ({ id: 'gCasa0000001', papel: 'leitor', dono: { nome: 'Ana' } } as unknown as SharedGroup) : undefined));
     const r = await edits.deleteCategory('Trabalho', { kind: 'levar', to: 'Casa', folder: null });
     expect(r).toEqual(jasmine.objectContaining({ ok: false, error: 'Em Casa você só lê: escolha outro grupo.' }));
-    // num grupo compartilhado de outra pessoa (mesmo escrevendo nele), não: o nome dele viraria outro
-    (groups.ofCategory as jasmine.Spy).and.callFake((c: string) => (c === 'Casa' ? ({ id: 'gCasa0000001', papel: 'editor', dono: { nome: 'Ana' } } as unknown as SharedGroup) : undefined));
-    expect(await edits.deleteCategory('Trabalho', { kind: 'levar', to: 'Casa', folder: null })).toEqual(jasmine.objectContaining({ ok: false, error: 'Casa é de Ana: leve para um grupo seu.' }));
     expect(store.notes().map((x) => x.category)).toEqual(['Trabalho', 'Trabalho', 'Estudos']);
+  });
+
+  it('levar para um grupo compartilhado de outra pessoa em que você escreve: tudo entra nele (D8, depois do conserto de 17/nov)', async () => {
+    const groups = TestBed.inject(SharedGroupsStore);
+    spyOn(groups, 'ofCategory').and.callFake((c) => (c === 'Casa' ? ({ id: 'gCasa0000001', papel: 'editor', dono: { nome: 'Ana' } } as unknown as SharedGroup) : undefined));
+    const r = await edits.deleteCategory('Trabalho', { kind: 'levar', to: 'Casa', folder: null });
+    expect(r).toEqual(jasmine.objectContaining({ ok: true, moved: 2 }));
+    expect(store.notes().map((x) => x.category)).toEqual(['Casa', 'Casa', 'Estudos']);
   });
 
   it('apagar tudo: as anotações, as pastas, o quadro, a cor das tags e as tags escondidas; as compartilhadas pelas regras do apagar em massa', async () => {

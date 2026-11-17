@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRe
 import { lookKey } from '../core/category-looks';
 import { FreeBoardStore } from '../core/free-board-store';
 import { GroupDeleteResult, GroupFate, deletedGroupFolderName } from '../core/group-delete';
+import { CloudAccount } from '../core/cloud-account';
 import { boardIdFor } from '../core/kanban';
 import { KanbanStore } from '../core/kanban-store';
 import { LabelEdits } from '../core/label-edits';
@@ -12,6 +13,7 @@ import { categoryBonus } from '../core/note-labels';
 import { isNote } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { SharedGroupsStore } from '../core/shared-groups-store';
+import { canWrite } from '../core/shared-notes';
 import { inGroup } from '../core/study';
 import { StudyStore } from '../core/study-store';
 import { listWords, plural } from '../core/text';
@@ -27,7 +29,7 @@ type Kind = GroupFate['kind'];
 /** Os três destinos, do que nunca perde nada ao que apaga (o primeiro é o escolhido ao abrir, D1). */
 const KINDS: readonly { kind: Kind; label: string; sub: string }[] = [
   { kind: 'soltar', label: 'Deixar sem grupo', sub: 'Numa pasta nova' },
-  { kind: 'levar', label: 'Levar para outro grupo', sub: 'Um grupo seu' },
+  { kind: 'levar', label: 'Levar para outro grupo', sub: 'Um grupo do seu mural' },
   { kind: 'apagar', label: 'Apagar tudo', sub: 'Não volta' },
 ];
 
@@ -106,7 +108,7 @@ function contentsWords(notes: number, folders: number): { words: string; many: b
                   <app-group-picker [required]="true" [canCreate]="false" groupLabel="Grupo para onde vai tudo" [category]="target()" (categoryChange)="target.set($event)" [categories]="targets()" />
                 </fieldset>
               } @else {
-                <p class="vazio">Não há outro grupo seu para onde levar. Escolha deixar sem grupo, ou crie o grupo numa anotação antes.</p>
+                <p class="vazio">Não há outro grupo em que você escreva para onde levar. Escolha deixar sem grupo, ou crie o grupo numa anotação antes.</p>
               }
             </section>
             @if (target(); as to) {
@@ -259,6 +261,7 @@ export class GroupDeleteSheet {
   private readonly kanban = inject(KanbanStore);
   private readonly bulk = inject(NoteBulk);
   private readonly sharedGroups = inject(SharedGroupsStore);
+  private readonly account = inject(CloudAccount);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
 
   protected readonly kind = signal<Kind>('soltar');
@@ -297,13 +300,13 @@ export class GroupDeleteSheet {
     return parts.length ? `${start}: ${parts.join(', e ')}.` : `${start}.`;
   });
 
-  /** Para onde levar: os outros grupos, sem os compartilhados de outra pessoa (PLANO-APAGAR-GRUPO.md, D8). */
+  /** Para onde levar: os outros grupos, sem os compartilhados em que você só lê (PLANO-APAGAR-GRUPO.md, D8). */
   protected readonly targets = computed(() =>
     this.groups()
       .filter((g) => lookKey(g) !== this.key())
       .filter((g) => {
         const s = this.sharedGroups.ofCategory(g);
-        return !s || s.papel === 'dono';
+        return !s || canWrite(s.papel);
       })
       .map(categoryBonus),
   );
@@ -352,9 +355,13 @@ export class GroupDeleteSheet {
       if (!to) return [{ text: 'Escolha o grupo para onde tudo vai.' }];
       const path = pathLabel(this.folders.tree().path(this.folder()));
       if (words) out.push({ text: `${words} ${many ? 'vão' : 'vai'} para ${to}${path ? `, dentro da pasta ${path}` : ''}.` });
-      // um grupo compartilhado seu: quem está nele passa a ver o que chega (as privadas também, pelo grupo)
+      // um grupo compartilhado: quem está nele passa a ver o que chega (as privadas também, pelo grupo); no de outra
+      // pessoa, ela também (e você não entra na conta)
       const there = this.sharedGroups.ofCategory(to);
-      const people = there?.membros.map((m) => m.nome) ?? [];
+      const me = this.account.account()?.codigo ?? null;
+      const people = there
+        ? [...(there.papel === 'dono' ? [] : [there.dono.nome]), ...there.membros.filter((m) => m.codigo !== me).map((m) => m.nome)]
+        : [];
       if (there && (people.length || there.publico)) {
         const who = people.length ? `${listWords(people)} ${people.length > 1 ? 'passam' : 'passa'} a ver o que chega` : 'qualquer pessoa passa a ver o que chega';
         out.push({ text: `${to} é compartilhado: ${who}${people.length && there.publico ? ', e ele é público' : ''}.`, strong: true });

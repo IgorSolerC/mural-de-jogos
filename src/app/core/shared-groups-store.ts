@@ -58,6 +58,12 @@ const DETAILS_PAGE = 10;
 /** Quanto depois da última mexida no documento do grupo ele sobe (as mexidas seguidas vão juntas). */
 const PUSH_DELAY = 1_500;
 
+/** O nome que um grupo compartilhado tem no seu mural, e desde quando (a hora daqui, ISO). */
+interface KnownName {
+  nome: string;
+  desde: string;
+}
+
 /** O que está acontecendo com um grupo agora (a peça Quem vê mostra). */
 export interface GroupMoving {
   grupo: string;
@@ -82,9 +88,37 @@ export class SharedGroupsStore {
   private timer: ReturnType<typeof setTimeout> | undefined;
   private running: Promise<void> | null = null;
 
-  /** Os grupos que são só seus (os das anotações que não são de um grupo compartilhado): para o nome não repetir. */
+  /**
+   * O nome que cada grupo compartilhado já tem no seu mural (id → nome) e desde quando: guardado por conta, com os
+   * grupos. É ele que deixa o nome parado enquanto as anotações novas do grupo ainda não subiram (ver `ownNames`).
+   */
+  private readonly known = signal<ReadonlyMap<string, KnownName>>(new Map());
+  /**
+   * Os grupos que são só seus, para o nome não repetir: os das anotações que não são de um grupo compartilhado e
+   * não estão a caminho de um. A caminho está a anotação sua que entrou num grupo em que você escreve depois de ele
+   * ganhar o nome que tem aqui (a criada nele pelo editor, pelo Kanban, em massa, pela API das AIs): ela vai
+   * subir para ele (`adopt`), e contá-la como um grupo seu de mesmo nome faria o grupo virar "Nome · Dona" e
+   * a deixaria só sua. As que já estavam com o nome antes (o grupo seu de antes do convite, as que chegam de
+   * outro aparelho) contam, e o grupo da outra pessoa fica com o "· Dona", à parte.
+   */
   private readonly ownNames = computed(
-    () => new Set(this.store.notes().filter((n) => isNote(n) && n.category && !this.shared.get(n.id)?.grupo).map((n) => n.category!)),
+    () => {
+      const heading = new Map<string, number>();
+      for (const [id, k] of this.known()) {
+        if (canWrite(this.entries().get(id)?.papel)) heading.set(labelKey(k.nome), Date.parse(k.desde));
+      }
+      const own = new Set<string>();
+      for (const n of this.store.notes()) {
+        if (!isNote(n) || !n.category) continue;
+        const e = this.shared.get(n.id);
+        if (e?.grupo) continue;
+        const since = heading.get(labelKey(n.category));
+        // (só a que `pending` leva: a compartilhada com você por outra pessoa não entra no grupo, e conta)
+        if (since !== undefined && Date.parse(n.updatedAt) >= since && (!e || e.papel === 'dono')) continue;
+        own.add(n.category);
+      }
+      return own;
+    },
     { equal: (a, b) => a.size === b.size && [...a].every((x) => b.has(x)) },
   );
   /** O nome de cada grupo no seu mural (id → nome). */
@@ -189,6 +223,11 @@ export class SharedGroupsStore {
       const names = this.names();
       untracked(() => this.shared.groupNames.set(names));
     });
+    // o nome de cada grupo aqui, e desde quando (o que entra nele depois disso está a caminho dele)
+    effect(() => {
+      const names = this.names();
+      untracked(() => this.remember(names));
+    });
     if (!this.auto) return;
     const destroy = inject(DestroyRef);
     destroy.onDestroy(() => {
@@ -222,6 +261,21 @@ export class SharedGroupsStore {
 
   get(id: string): SharedGroup | undefined {
     return this.entries().get(id);
+  }
+
+  /** Guarda o nome de cada grupo aqui: o que mudou (ou é novo) passa a valer de agora; o grupo que saiu sai. */
+  private remember(names: ReadonlyMap<string, string>): void {
+    if (!this.loadedFor) return;
+    const before = this.known();
+    const now = new Date().toISOString();
+    const next = new Map<string, KnownName>();
+    for (const [id, nome] of names) {
+      const k = before.get(id);
+      next.set(id, k && k.nome === nome ? k : { nome, desde: now });
+    }
+    if (next.size === before.size && [...next].every(([id, k]) => before.get(id) === k)) return;
+    this.known.set(next);
+    this.persist();
   }
 
   /** O grupo compartilhado de um grupo do mural (pelo nome), ou undefined: é só seu. */
@@ -678,11 +732,18 @@ export class SharedGroupsStore {
     if (account === this.loadedFor) return;
     this.loadedFor = account;
     if (!account) {
+      if (this.known().size) this.known.set(new Map());
       if (this.entries().size) this.entries.set(new Map());
       return;
     }
     const stored = this.readAll();
     const list = stored.contas[account] ?? [];
+    const known = new Map<string, KnownName>();
+    for (const [id, k] of Object.entries(stored.nomes[account] ?? {})) {
+      const v = k as Partial<KnownName> | null;
+      if (typeof v?.nome === 'string' && typeof v.desde === 'string' && Number.isFinite(Date.parse(v.desde))) known.set(id, { nome: v.nome, desde: v.desde });
+    }
+    this.known.set(known);
     this.entries.set(new Map(list.map(parseGroup).filter((g): g is SharedGroup => !!g).map((g) => [g.id, g])));
     // as mexidas que não chegaram a subir (a aba fechou antes): continuam esperando, e sobem
     this.bases.clear();
@@ -693,17 +754,19 @@ export class SharedGroupsStore {
     if (this.bases.size && this.auto) this.schedulePush(0);
   }
 
-  private readAll(): { contas: Record<string, unknown[]>; bases: Record<string, Record<string, unknown>> } {
+  private readAll(): { contas: Record<string, unknown[]>; bases: Record<string, Record<string, unknown>>; nomes: Record<string, Record<string, unknown>> } {
+    const objects = (v: unknown) =>
+      Object.fromEntries(Object.entries(v && typeof v === 'object' ? v : {}).filter(([, x]) => !!x && typeof x === 'object')) as Record<string, Record<string, unknown>>;
     try {
-      const raw = JSON.parse(this.data.getItem(GROUPS_KEY) ?? 'null') as { contas?: Record<string, unknown>; bases?: Record<string, unknown> } | null;
+      const raw = JSON.parse(this.data.getItem(GROUPS_KEY) ?? 'null') as { contas?: Record<string, unknown>; bases?: unknown; nomes?: unknown } | null;
       const contas = raw?.contas && typeof raw.contas === 'object' ? raw.contas : {};
-      const bases = raw?.bases && typeof raw.bases === 'object' ? raw.bases : {};
       return {
         contas: Object.fromEntries(Object.entries(contas).filter(([, v]) => Array.isArray(v))) as Record<string, unknown[]>,
-        bases: Object.fromEntries(Object.entries(bases).filter(([, v]) => !!v && typeof v === 'object')) as Record<string, Record<string, unknown>>,
+        bases: objects(raw?.bases),
+        nomes: objects(raw?.nomes),
       };
     } catch {
-      return { contas: {}, bases: {} };
+      return { contas: {}, bases: {}, nomes: {} };
     }
   }
 
@@ -716,6 +779,10 @@ export class SharedGroupsStore {
     // a base das mexidas que esperam subir: sem ela, uma aba fechada antes da subida perderia a mexida
     all.bases[account] = Object.fromEntries(this.bases);
     if (!this.bases.size) delete all.bases[account];
+    // o nome de cada grupo aqui e desde quando: sem ele, a anotação que ainda não subiu viraria um grupo seu ao abrir
+    const known = [...this.known()].filter(([id]) => this.entries().has(id));
+    all.nomes[account] = Object.fromEntries(known);
+    if (!known.length) delete all.nomes[account];
     try {
       void Promise.resolve(this.data.setItem(GROUPS_KEY, JSON.stringify(all))).catch(() => undefined);
     } catch {

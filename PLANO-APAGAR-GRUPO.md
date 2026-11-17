@@ -72,11 +72,13 @@ mexendo ao mesmo tempo. Processo pedido: este plano antes; uma feature por vez, 
 - **D7. Grupo compartilhado, você não é o dono**: não há "Apagar o grupo" (o grupo é de outra pessoa; P4: o que
   você escreveu fica nele). No lugar, o botão **Sair do grupo…**, que leva à parte Compartilhar desse grupo,
   onde o Sair do grupo de sempre (`GroupShare.leave`) pergunta e sai. Nada duplicado.
-- **D8. Levar para um grupo compartilhado**: só para um grupo **seu** compartilhado. As anotações entram nele, e o
-  caminho de sempre as leva à nuvem uma a uma (`SharedGroupsStore.adopt`, com a pasta); as pastas que chegam
-  vão para o documento do grupo (`NoteFolders.save`). Nada novo na nuvem. O grupo compartilhado de outra pessoa
-  fica de fora (achado do `/code-review` da feature 1): enquanto as anotações não sobem, o nome dele no seu mural
-  passa a ser de um grupo seu, e ele vira "Nome · Dona" (`groupNames`), deixando as anotações num grupo só seu.
+- **D8. Levar para um grupo compartilhado**: para um grupo compartilhado em que você escreve (seu ou de outra
+  pessoa). As anotações entram nele, e o caminho de sempre as leva à nuvem uma a uma (`SharedGroupsStore.adopt`,
+  com a pasta); as pastas que chegam vão para o documento do grupo (`NoteFolders.save`). Nada novo na nuvem. O de
+  outra pessoa ficou de fora até o conserto de 17/nov: enquanto as anotações não subiam, o nome dele no seu mural
+  passava a ser de um grupo seu, e ele virava "Nome · Dona" (`groupNames`). Agora o nome de cada grupo fica guardado
+  com a hora em que passou a valer, e a anotação que entra nele depois disso está a caminho dele, não é um grupo seu.
+  A folha avisa que a dona e as outras pessoas do grupo passam a ver o que chega. Num grupo em que você só lê, não.
 - **D9. Sem Desfazer**: hoje apagar o grupo também não tem (um Desfazer só das anotações voltaria um grupo pela
   metade, sem pastas, quadro e baralhos). A folha é a confirmação: o botão vermelho diz o
   destino ("Apagar o grupo e as 12 anotações", "Apagar e levar para Estudos", "Apagar e deixar sem grupo"), e a
@@ -147,3 +149,5 @@ Crítica do Impeccable (avaliadores isolados), `/code-review high` e os conserto
   fora, como tarefa à parte: um membro que põe uma anotação nova num grupo compartilhado de outra pessoa (pelo
   editor, pelo Kanban, em massa) faz o nome dele virar "Nome · Dona" (`groupNames` conta a anotação ainda não
   levada como um grupo seu), e ela não sobe; conferido com um teste.
+- [x] Conserto do nome "· Dona" (a tarefa à parte acima) e, com ele, o Levar para o grupo de outra pessoa em que você
+  escreve (D8).

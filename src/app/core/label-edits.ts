@@ -304,10 +304,9 @@ export class LabelEdits {
       const clean = cleanCategory(fate.to);
       if (!clean || lookKey(clean) === from) return { ok: false, error: 'Escolha outro grupo para onde levar.', ...none };
       const there = this.groups.ofCategory(clean);
+      // num grupo compartilhado (seu ou de outra pessoa) em que você escreve, as anotações entram pelo nome e sobem
+      // para ele uma a uma (SharedGroupsStore.adopt); o nome dele fica parado enquanto isso (D8)
       if (there && !canWrite(there.papel)) return { ok: false, error: `Em ${clean} você só lê: escolha outro grupo.`, ...none };
-      // num grupo compartilhado de outra pessoa, as anotações com o nome dele (antes de subirem) seriam um grupo seu
-      // de mesmo nome, e o dela viraria "Nome · Dona": só o seu recebe tudo de uma vez
-      if (there && there.papel !== 'dono') return { ok: false, error: `${clean} é de ${there.dono.nome}: leve para um grupo seu.`, ...none };
       // a grafia que o grupo já tem nas anotações
       target = this.existingCategory(clean, category) ?? clean;
     }

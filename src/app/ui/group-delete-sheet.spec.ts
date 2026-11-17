@@ -1,5 +1,6 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { CloudAccount } from '../core/cloud-account';
 import { LabelEdits } from '../core/label-edits';
 import { NoteFolders } from '../core/note-folders';
 import { SharedStore } from '../core/shared-store';
@@ -86,12 +87,24 @@ describe('a folha de apagar o grupo (ui/group-delete-sheet.ts)', () => {
     expect(el.querySelector('.compartilhado')!.textContent).toContain('Trabalho é compartilhado, e antes de apagar ele deixa de ser: Ana e Bia deixam de ver.');
   });
 
-  it('para onde levar: os grupos seus e os compartilhados seus; os de outra pessoa ficam de fora', async () => {
+  it('para onde levar: os grupos seus e os compartilhados em que você escreve (até os de outra pessoa); os em que só lê ficam de fora', async () => {
     shared['Japones'] = group('Japones', 'editor');
+    shared['Leitura'] = group('Leitura', 'leitor');
     shared['Casa'] = group('Casa', 'dono', ['Ana']);
-    await open('Trabalho', ['Trabalho', 'Estudos', 'Japones', 'Casa']);
+    await open('Trabalho', ['Trabalho', 'Estudos', 'Japones', 'Leitura', 'Casa']);
     await choose('Levar para outro grupo');
-    expect(Array.from(el.querySelectorAll('app-group-picker .op > .nome')).map((n) => n.textContent!.trim())).toEqual(['Casa', 'Estudos']);
+    expect(Array.from(el.querySelectorAll('app-group-picker .op > .nome')).map((n) => n.textContent!.trim())).toEqual(['Casa', 'Estudos', 'Japones']);
+  });
+
+  it('levar para o grupo de outra pessoa avisa que ela e as outras pessoas dele passam a ver o que chega (você não entra na conta)', async () => {
+    const g = group('Japones', 'editor', ['Bia']);
+    shared['Japones'] = { ...g, membros: [...g.membros, { nome: 'Eu', codigo: 'EEEE-0000', papel: 'editor' }] } as unknown as SharedGroup;
+    spyOn(TestBed.inject(CloudAccount), 'account').and.returnValue({ codigo: 'EEEE-0000' } as never);
+    await open('Trabalho', ['Trabalho', 'Japones']);
+    await choose('Levar para outro grupo');
+    el.querySelector<HTMLButtonElement>('app-group-picker .op')!.click();
+    await settle();
+    expect(lines()).toContain('Japones é compartilhado: Ana e Bia passam a ver o que chega.');
   });
 
   it('levar para um grupo compartilhado seu avisa quem passa a ver tudo o que chega', async () => {
@@ -197,7 +210,7 @@ describe('a folha de apagar o grupo (ui/group-delete-sheet.ts)', () => {
     await open('Trabalho', ['Trabalho']);
     await choose('Levar para outro grupo');
     expect(el.querySelector('app-group-picker')).toBeNull();
-    expect(el.querySelector('.vazio')!.textContent).toContain('Não há outro grupo seu para onde levar.');
+    expect(el.querySelector('.vazio')!.textContent).toContain('Não há outro grupo em que você escreva para onde levar.');
   });
 
   it('com baralhos, deixar sem grupo diz que eles vão embora; levar diz que vão junto, com o progresso', async () => {
