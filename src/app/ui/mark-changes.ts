@@ -64,8 +64,11 @@ interface Token {
 
 /** Os ideogramas e os kanas um a um (o japonês não tem espaço); o resto, palavra a palavra. */
 const TOKEN = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]|[\p{L}\p{N}]+|[^\s\p{L}\p{N}]/gu;
-/** O spoiler ainda escondido (o marca-texto contaria o segredo) e o que só o leitor de tela ouve ("A fazer:"). */
-const HIDDEN = '.spoiler-texto[inert], [aria-hidden="true"], .sr-only';
+/**
+ * O spoiler ainda escondido (o marca-texto contaria o segredo) e o que só o leitor de tela ouve ("A fazer:").
+ * A leitura em voz alta também não lê nada disso (ui/voz-frases.ts).
+ */
+export const HIDDEN = '.spoiler-texto[inert], [aria-hidden="true"], .sr-only';
 /** Trechos grandes demais ficam só com a faixa da linha (a conta das palavras seria cara). */
 const MAX_TOKENS = 3000;
 
