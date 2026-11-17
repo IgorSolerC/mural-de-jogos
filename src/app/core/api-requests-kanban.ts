@@ -61,7 +61,12 @@ export interface NoteBook {
   get(id: string): Review | undefined;
   update(r: Review, before?: Review): void;
   notes(): readonly Review[];
+  /** As compartilhadas (nunca vestidas pelo card padrão da coluna). */
   sharedIds(): ReadonlySet<string>;
+  /** As que a API não alcança (as compartilhadas, menos as dos grupos em que a conta é dono ou gestor: core/api-reach.ts). */
+  hidden(): ReadonlySet<string>;
+  /** Os grupos compartilhados em que a conta só edita ou lê (`categoryKey`): o quadro deles fica fora da API. */
+  closed(): ReadonlySet<string>;
 }
 
 export type KanbanResult = { cartao: CartaoV1 | null; aviso?: string } | { coluna: ColunaV1 | null } | { erro: string };
@@ -94,6 +99,8 @@ export interface ColumnBefore {
   cards?: KanbanCard[];
 }
 
+/** O quadro de um grupo compartilhado em que a conta não é dono nem gestor (core/api-reach.ts). */
+export const CLOSED_BOARD = 'O quadro é de um grupo compartilhado em que você não é dono nem gestor: a API não mexe nele.';
 const failed = (erro: string): KanbanApplied => ({ estado: 'falhou', resultado: { erro }, antes: null });
 const names = (b: KanbanBoard) => b.columns.map((c) => c.name).join(', ');
 
@@ -112,10 +119,10 @@ function columnOf(b: KanbanBoard, ref: string): KanbanColumn | undefined {
   return b.columns.find((c) => c.id === ref) ?? b.columns.find((c) => fold(c.name) === fold(ref));
 }
 
-/** As notas que a API alcança (sem as compartilhadas), pelo id. */
+/** As notas que a API alcança (das compartilhadas, só as dos grupos em que a conta é dono ou gestor), pelo id. */
 function reachable(notes: NoteBook): Map<string, Review> {
-  const shared = notes.sharedIds();
-  return new Map(notes.notes().filter((n) => !shared.has(n.id)).map((n) => [n.id, n]));
+  const hidden = notes.hidden();
+  return new Map(notes.notes().filter((n) => !hidden.has(n.id)).map((n) => [n.id, n]));
 }
 
 /** O cartão de uma nota como a v1 mostra, no quadro de agora. */
@@ -171,6 +178,7 @@ export function applyKanbanRequest(book: KanbanBook, notes: NoteBook, req: { op:
   const quadro = (checked.dados as { quadro: string }).quadro;
   const b = boardById(book, quadro);
   if (!b) return failed('O quadro não existe mais (o grupo dele ficou sem nota).');
+  if (notes.closed().has(b.category)) return failed(CLOSED_BOARD);
   const known = reachable(notes);
 
   switch (op) {

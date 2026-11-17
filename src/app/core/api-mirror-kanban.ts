@@ -18,7 +18,7 @@ export interface KanbanMirrorSource {
 }
 
 /**
- * Um quadro em v1. `notes` são as notas que a API alcança (sem as compartilhadas): o cartão de uma nota
+ * Um quadro em v1. `notes` são as notas que a API alcança (das compartilhadas, só as dos grupos em que a conta é dono ou gestor): o cartão de uma nota
  * fora dela não vai, nem a dependência dela.
  */
 export function quadroV1(b: KanbanBoard, label: string, kanbanOnly: boolean, notes: ReadonlyMap<string, Review>): QuadroV1 {

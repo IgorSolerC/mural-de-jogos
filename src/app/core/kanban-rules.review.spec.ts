@@ -101,7 +101,7 @@ describe('Kanban: revisão das regras do cartão', () => {
       kanban.update(ID, (b, at) => ({ ...b, at, cards: [...b.cards, { note: 'n3', column: 'bloq', importance: null }] }));
       TestBed.tick();
       expect(look('n3')).toEqual(VERMELHO);
-      undoKanban(kanban, store, { op: 'cartao.mover', alvo: 'n3', antes: { quadro: ID, card: null, index: -1, done: false } }, '2026-11-01T12:00:00.000Z');
+      undoKanban(kanban, { get: (id) => store.get(id), update: (r, b) => void store.update(r, b), notes: () => store.notes(), sharedIds: () => store.sharedIds(), hidden: () => store.sharedIds(), closed: () => new Set() }, { op: 'cartao.mover', alvo: 'n3', antes: { quadro: ID, card: null, index: -1, done: false } }, '2026-11-01T12:00:00.000Z');
       TestBed.tick();
       expect(kanban.get(ID)!.cards.some((c) => c.note === 'n3')).toBeFalse();
       expect(look('n3')).toEqual({ stock: 'rosa' });

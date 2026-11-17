@@ -31,10 +31,14 @@ export interface BoardApplyContext {
   noteTitle(id: string): string | undefined;
   /** Os grupos das Anotações, como o mural os escreve (o quadro novo entra num deles, nunca num grupo novo). */
   groups?(): readonly string[];
+  /** O grupo é um compartilhado em que a conta não é dono nem gestor (core/api-reach.ts): o quadro dele fica fora. */
+  closes?(group: string): boolean;
 }
 
 export const isBoardOp = ehOpQuadro;
 
+/** O quadro de um grupo compartilhado em que a conta não é dono nem gestor (core/api-reach.ts). */
+const CLOSED = 'O quadro é de um grupo compartilhado em que você não é dono nem gestor: a API não mexe nele.';
 const failed = (erro: string): BoardApplied => ({ estado: 'falhou', resultado: { quadro: null, erro }, antes: null });
 
 /** Aplica o pedido. Nunca joga erro: o que não deu vira "falhou", com o porquê. */
@@ -51,12 +55,14 @@ export async function applyBoardRequest(store: FreeBoardStore, req: { op: string
       if (here) return { estado: 'aplicado', resultado: { quadro: quadroLivreV1(here) }, antes: null };
       const groups = ctx.groups?.() ?? [];
       const group = groups.find((g) => dobra(g) === dobra(d.grupo));
+      if (ctx.closes?.(group ?? d.grupo)) return failed(CLOSED);
       if (groups.length && !group) return failed(`Não há o grupo "${d.grupo}" nas Anotações. Os grupos: ${groups.join(', ')}.`);
       const made = await store.create(d.nome, group ?? d.grupo, req.alvo);
       return { estado: 'aplicado', resultado: { quadro: quadroLivreV1(made) }, antes: null };
     }
     const board = store.get(req.alvo);
     if (!board) return failed('O quadro não está neste Murall (foi apagado, ou ainda não chegou neste aparelho).');
+    if (ctx.closes?.(board.grupo)) return failed(CLOSED);
     const out = addToBoard(board, checked.dados as AcrescentarNoQuadroV1, ctx, new Date().toISOString());
     if ('erro' in out) return failed(out.erro);
     const saved = await store.save(out.board, board);

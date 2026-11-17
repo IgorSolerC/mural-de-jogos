@@ -1,5 +1,5 @@
 import { signal } from '@angular/core';
-import { KanbanBook, NoteBook, applyKanbanRequest, columnNames, kanbanTitle, kanbanWords, placeNewNote, undoKanban } from './api-requests-kanban';
+import { CLOSED_BOARD, KanbanBook, NoteBook, applyKanbanRequest, columnNames, kanbanTitle, kanbanWords, placeNewNote, undoKanban } from './api-requests-kanban';
 import { BoardCategory, KanbanBoard, boardIdFor, cardsIn, freshBoard, placeCard, setDeps } from './kanban';
 import { Review, sanitizeReview } from './review';
 
@@ -70,6 +70,9 @@ class FakeNotes implements NoteBook {
   get = (id: string) => this.list().find((n) => n.id === id);
   notes = () => this.list();
   sharedIds = () => this.shared;
+  hidden = () => this.shared;
+  closedGroups = new Set<string>();
+  closed = () => this.closedGroups;
   update(r: Review): void {
     this.list.update((l) => l.map((n) => (n.id === r.id ? r : n)));
   }
@@ -142,6 +145,24 @@ describe('os pedidos do Kanban: os cartões', () => {
     expect(why(mover('r-pauta', { coluna: 'Revisão' }))).toContain('A fazer, Fazendo, Feito');
     expect(why({ op: 'cartao.mover', alvo: 'r-pauta', dados: { quadro: 'kb0000000000000000' } })).toContain('quadro não existe');
     expect(k.where()).toEqual(['A fazer: r-pauta r-relat', 'Fazendo: r-plan', 'Feito: ']);
+  });
+
+  it('o quadro de um grupo compartilhado em que a conta não é dona nem gestora: nenhum pedido mexe nele', () => {
+    const { k, n } = setup();
+    n.closedGroups = new Set(['trabalho']);
+    const out = applyKanbanRequest(k, n, mover('r-pauta', { coluna: FEITO }), NOW);
+    expect(out.estado).toBe('falhou');
+    expect((out.resultado as { erro: string }).erro).toBe(CLOSED_BOARD);
+    expect(applyKanbanRequest(k, n, { op: 'coluna.criar', alvo: 'kc-nova', dados: { quadro: TRAB, nome: 'Revisão' } }, NOW).estado).toBe('falhou');
+    expect(k.where()).toEqual(['A fazer: r-pauta r-relat', 'Fazendo: r-plan', 'Feito: ']);
+  });
+
+  it('a compartilhada que a API alcança (de um grupo em que a conta é gestora) entra como as outras', () => {
+    const { k, n } = setup();
+    n.list.update((l) => l.map((x) => (x.id === 'r-comp' ? { ...x, category: 'Trabalho' } : x)));
+    n.hidden = () => new Set();
+    expect(applyKanbanRequest(k, n, mover('r-comp', { coluna: FAZENDO }), NOW).estado).toBe('aplicado');
+    expect(k.where()[1]).toBe('Fazendo: r-comp r-plan');
   });
 
   it('tirar do quadro; o que já estava fora entra sem nada a desfazer', () => {

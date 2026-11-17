@@ -108,5 +108,19 @@ describe('Quadro livre: os pedidos da API das AIs', () => {
       await undoBoard(store, { op: 'quadro-livre.criar', alvo: id });
       expect(store.get(id)).toBeNull();
     });
+
+    it('o grupo compartilhado em que a conta não é dona nem gestora: nem criar quadro nele, nem mexer nos dele', async () => {
+      const store = TestBed.inject(FreeBoardStore);
+      const closed = { ...ctx, closes: (g: string) => g.toLowerCase() === 'viagem' };
+      const nope = await applyBoardRequest(store, { op: 'quadro-livre.criar', alvo: 'pedidoQuadroLivre00011', dados: { nome: 'Roteiro', grupo: 'Viagem' } }, closed);
+      expect(nope.estado).toBe('falhou');
+      expect(nope.resultado.erro).toContain('não é dono nem gestor');
+      expect(store.get('pedidoQuadroLivre00011')).toBeNull();
+      // (o quadro do grupo que já estava aqui, de quando a conta era gestora)
+      expect((await applyBoardRequest(store, { op: 'quadro-livre.criar', alvo: 'pedidoQuadroLivre00012', dados: { nome: 'Roteiro', grupo: 'Viagem' } }, ctx)).estado).toBe('aplicado');
+      const add = await applyBoardRequest(store, { op: 'quadro-livre.acrescentar', alvo: 'pedidoQuadroLivre00012', dados: { pecas: [{ bilhete: 'x' }] } }, closed);
+      expect(add.estado).toBe('falhou');
+      expect(store.get('pedidoQuadroLivre00012')!.n.length).toBe(0);
+    });
   });
 });

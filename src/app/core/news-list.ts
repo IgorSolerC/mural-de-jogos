@@ -27,13 +27,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-17-atelie-menus',
+    id: '2026-11-17-api-grupos',
     version: '1.47.2',
     kind: 'ajustes',
     date: '2026-11-17',
-    title: 'A barra de menus do ateliê',
+    title: 'A barra de menus do ateliê, e a API nos grupos compartilhados',
     melhorias: [
       'O ateliê de pixel art ficou mais limpo e ganhou menus no alto, como os de um programa de desenho (Arquivo, Editar, Selecionar, Imagem, Camada, Cores, Exibir, Ajuda), cada ação com o atalho ao lado e o que não vale agora apagado; a fita de cima mostra só a ferramenta de agora, o zoom foi para a barra de baixo, o Arquivo também baixa o desenho em PNG, e no celular o Menu junta todos.',
+      'A API das AIs (as chaves de Ajustes › Acessos) vê e mexe nas anotações dos grupos compartilhados em que você é dono ou gestor, como nas suas, também no Kanban e nos Estudos; os grupos em que você só edita ou lê continuam de fora, e nenhum pedido põe uma nota neles.',
     ],
   },
   {

@@ -2,7 +2,8 @@ import { QUADRO_TEXTO_MAX, type QuadroLivreV1 } from '../../../contrato/api-v1/q
 import { FreeBoard, pieceCount, shownEdges } from './free-board';
 import { FreeBoardStore } from './free-board-store';
 import { boardAsText } from './free-board-text';
-import { DestroyRef, Injectable, effect, inject, untracked } from '@angular/core';
+import { DestroyRef, Injectable, computed, effect, inject, untracked } from '@angular/core';
+import { ApiReach } from './api-reach';
 import { NoteFolders } from './note-folders';
 import { FolderTree, NO_FOLDERS, NoteFolder } from './folders';
 import type { AgendaDoMesV1, LembreteV1 } from '../../../contrato/api-v1/calendario';
@@ -238,6 +239,34 @@ export class ApiMirror {
   private readonly calendar = inject(CalendarStore);
   private readonly study = inject(StudyStore);
   private readonly freeBoards = inject(FreeBoardStore);
+  private readonly reach = inject(ApiReach);
+  /**
+   * As compartilhadas que a API alcança (as dos grupos em que a conta é dono ou gestor, core/api-reach.ts), como
+   * estão agora. Elas mudam pela nuvem delas, sem o mural mudar de rev: quando outra pessoa do grupo mexe numa
+   * (ou a conta passa a ser gestora, ou deixa de ser), o espelho confere de novo 5 s depois.
+   */
+  private readonly reached = computed(
+    () => {
+      const managed = this.reach.managed();
+      return managed.size ? this.store.notes().filter((n) => managed.has(n.id)) : [];
+    },
+    { equal: (a, b) => a.length === b.length && a.every((n, i) => n === b[i]) },
+  );
+  private reachedTimer: ReturnType<typeof setTimeout> | undefined;
+  private reachedSeen = false;
+  private readonly reachedWatch = effect(() => {
+    this.reached();
+    untracked(() => {
+      // (a primeira vez é a da abertura: a sincronização de sempre já manda tudo)
+      if (!this.reachedSeen) {
+        this.reachedSeen = true;
+        return;
+      }
+      clearTimeout(this.reachedTimer);
+      this.reachedTimer = setTimeout(() => void this.kick(), 5_000);
+    });
+  });
+  private readonly reachedTimerOff = inject(DestroyRef).onDestroy(() => clearTimeout(this.reachedTimer));
   /**
    * O Quadro livre muda sem o mural mudar: o espelho confere de novo só os quadros (5 s depois da última
    * mudança), sem refazer as notas, os gastos e o resto.
@@ -257,7 +286,7 @@ export class ApiMirror {
    * Os Estudos do último espelho, com as impressões: as filas pedem uma volta em todas as cartas por
    * baralho, e a maior parte das sincronizações não mexe nos Estudos (nem nas anotações, nem no dia).
    */
-  private studyMemo: { state: StudyState; notes: readonly Review[]; shared: ReadonlySet<string>; day: string; items: MirrorItem[] } | null = null;
+  private studyMemo: { state: StudyState; notes: readonly Review[]; hidden: ReadonlySet<string>; day: string; items: MirrorItem[] } | null = null;
   /** A última rev que o espelho alcançou nesta aba (a mesma rev não pede a nuvem de novo). */
   private doneRev: number | null = null;
   /** A última rev em sincronia que esta aba viu (para o `kick` depois de criar uma chave). */
@@ -294,8 +323,8 @@ export class ApiMirror {
   }
 
   /**
-   * Os itens das áreas pedidas no formato v1, com as impressões: nas Anotações, as notas da conta (as
-   * compartilhadas não) e o contexto; nos Gastos, os lançamentos, as visões dos meses e o contexto; no
+   * Os itens das áreas pedidas no formato v1, com as impressões: nas Anotações, as notas da conta (das
+   * compartilhadas, só as dos grupos em que ela é dono ou gestor: core/api-reach.ts) e o contexto; nos Gastos, os lançamentos, as visões dos meses e o contexto; no
    * Kanban, o quadro de cada grupo com nota; no Calendário, os lembretes e a agenda de cada mês da janela;
    * nos murais de resenhas, os desejos, os pra depois, as fichas e o que cada mural tem; nos Estudos, as
    * cartas, os baralhos e o contexto, com as filas de hoje e de amanhã.
@@ -307,9 +336,11 @@ export class ApiMirror {
       for (const i of spendingMirror(this.spending.state(), todayISO())) out.push({ ...i, hash: await hashOf(i.dados) });
     }
     if (areas.includes('kanban')) {
-      const shared = this.store.sharedIds();
-      const notes = new Map(this.store.notes().filter((n) => !shared.has(n.id)).map((n) => [n.id, n]));
-      const src = { categories: this.kanban.categories(), boardFor: (l: string) => this.kanban.boardFor(l), kanbanOnly: (l: string) => this.kanban.groupKanbanOnly(l) };
+      const hidden = this.reach.hidden();
+      const notes = new Map(this.store.notes().filter((n) => !hidden.has(n.id)).map((n) => [n.id, n]));
+      // (o quadro de um grupo compartilhado em que a conta só edita ou lê não vai: core/api-reach.ts)
+      const closed = this.reach.closed();
+      const src = { categories: this.kanban.categories().filter((c) => !closed.has(c.key)), boardFor: (l: string) => this.kanban.boardFor(l), kanbanOnly: (l: string) => this.kanban.groupKanbanOnly(l) };
       for (const q of kanbanMirror(src, notes)) out.push({ tipo: 'quadro', id: q.id, hash: await hashOf(q), dados: q });
     }
     if (areas.includes('calendario')) {
@@ -327,15 +358,15 @@ export class ApiMirror {
   private async studyItems(): Promise<MirrorItem[]> {
     const state = this.study.view();
     const all = this.store.notes();
-    const shared = this.store.sharedIds();
+    const hidden = this.reach.hidden();
     const now = new Date();
     const day = studyDay(now);
     const m = this.studyMemo;
-    if (m && m.state === state && m.notes === all && m.shared === shared && m.day === day) return m.items;
-    const notes = new Map(all.filter((n) => !shared.has(n.id)).map((n) => [n.id, n]));
+    if (m && m.state === state && m.notes === all && m.hidden === hidden && m.day === day) return m.items;
+    const notes = new Map(all.filter((n) => !hidden.has(n.id)).map((n) => [n.id, n]));
     const items: MirrorItem[] = [];
     for (const i of studyMirror(state, notes, now)) items.push({ ...i, hash: await hashOf(i.dados) });
-    this.studyMemo = { state, notes: all, shared, day, items };
+    this.studyMemo = { state, notes: all, hidden, day, items };
     return items;
   }
 
@@ -343,7 +374,8 @@ export class ApiMirror {
   private async boardItems(): Promise<MirrorItem[]> {
     await this.freeBoards.ready;
     const out: MirrorItem[] = [];
-    for (const b of this.freeBoards.boards()) {
+    // (os de um grupo compartilhado em que a conta só edita ou lê não vão: core/api-reach.ts)
+    for (const b of this.freeBoards.boards().filter((x) => !this.reach.closes(x.grupo))) {
       let item = this.boardMemo.get(b);
       if (!item) {
         const dados = quadroLivreV1(b);
@@ -356,8 +388,8 @@ export class ApiMirror {
   }
 
   private async noteItems(): Promise<MirrorItem[]> {
-    const shared = this.store.sharedIds();
-    const notes = this.store.notes().filter((n) => !shared.has(n.id));
+    const hidden = this.reach.hidden();
+    const notes = this.store.notes().filter((n) => !hidden.has(n.id));
     const boardOnly = this.kanban.boardOnly();
     const out: MirrorItem[] = [];
     // no espelho, a pasta vai só pelo id guardado na nota (o caminho e as desfeitas moram no contexto):

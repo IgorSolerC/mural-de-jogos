@@ -6,6 +6,8 @@ import { folderTree, withDissolvedFolder, withJoinedFolder } from './folders';
 import { TestBed } from '@angular/core/testing';
 import type { ContextoNotasV1, NotaV1 } from '../../../contrato/api-v1/notas';
 import { ApiMirror, contextoV1, hashOf, lots, notaV1, storedFolderOf } from './api-mirror';
+import { ApiReach } from './api-reach';
+import { categoryKey } from './kanban';
 import { CloudAccount, CloudError } from './cloud-account';
 import { KanbanStore } from './kanban-store';
 import { Review, sanitizeReview } from './review';
@@ -324,6 +326,63 @@ describe('o espelho da API: o serviço (ApiMirror)', () => {
     calls = [];
     await m.boardsOnly();
     expect(posts()).toEqual([]);
+  });
+
+  it('as compartilhadas dos grupos em que a conta é dono ou gestor vão ao espelho; as outras, não; nem o quadro livre de um grupo fechado', async () => {
+    const m = setup();
+    notes.update((l) => [...l, note('r-japo01', 'ください', { category: 'Japonês' }), note('r-viag01', 'Roteiro', { category: 'Viagem' }), note('r-solta1', 'Solta')]);
+    shared.set(new Set(['r-japo01', 'r-viag01', 'r-solta1']));
+    TestBed.inject(ApiReach).attach({ managed: () => new Set(['r-japo01']), closed: () => new Set([categoryKey('Viagem')]) });
+    const board = (id: string, grupo: string) => sanitizeFreeBoard({ v: 1, id, nome: grupo, grupo, em: '2026-11-09T00:00:00.000Z', n: [], e: [] })!;
+    boards.set([board('quadrojaponesabcdefghi', 'Japonês'), board('quadroviagemabcdefghij', 'Viagem')]);
+    await m.afterSync(3);
+    const poe = posts()[0]!.body.poe as { tipo: string; id: string; dados: ContextoNotasV1 }[];
+    expect(poe.filter((i) => i.tipo !== 'contexto').map((i) => `${i.tipo}:${i.id}`)).toEqual(['nota:r0001', 'nota:r0002', 'nota:r-japo01', 'quadro-livre:quadrojaponesabcdefghi']);
+    // o grupo compartilhado entra no contexto como os outros; o fechado, não
+    expect(poe.find((i) => i.tipo === 'contexto')!.dados.grupos.map((g) => g.nome).sort()).toEqual(['Japonês', 'Trabalho']);
+  });
+
+  it('o Kanban de um grupo fechado não vai ao espelho', async () => {
+    const m = setup();
+    remote.areas = ['kanban'];
+    const kanban = TestBed.inject(KanbanStore) as unknown as Record<string, unknown>;
+    const empty = (category: string) => ({ id: `kb-${categoryKey(category)}`, category: categoryKey(category), columns: [], cards: [], at: '' });
+    kanban['categories'] = () => [
+      { key: categoryKey('Japonês'), label: 'Japonês', notes: 1 },
+      { key: categoryKey('Trabalho'), label: 'Trabalho', notes: 1 },
+    ];
+    kanban['boardFor'] = empty;
+    kanban['groupKanbanOnly'] = () => false;
+    TestBed.inject(ApiReach).attach({ managed: () => new Set(), closed: () => new Set([categoryKey('Trabalho')]) });
+    const items = await m.items(['kanban']);
+    expect(items.map((i) => i.id)).toEqual([`kb-${categoryKey('Japonês')}`]);
+  });
+
+  it('outra pessoa mexe numa compartilhada que a API alcança: o espelho confere de novo, sem esperar a rev', async () => {
+    jasmine.clock().install();
+    try {
+      const m = setup();
+      const japo = note('r-japo01', 'ください', { category: 'Japonês' });
+      notes.update((l) => [...l, japo]);
+      shared.set(new Set(['r-japo01']));
+      TestBed.inject(ApiReach).attach({ managed: () => new Set(['r-japo01']), closed: () => new Set() });
+      TestBed.tick();
+      jasmine.clock().tick(6_000);
+      const kick = spyOn(m, 'kick').and.resolveTo();
+      // (uma nota só sua que muda não conta: ela vem com a rev nova do mural)
+      notes.update((l) => l.map((n) => (n.id === 'r0002' ? { ...n, text: 'outro' } : n)));
+      TestBed.tick();
+      jasmine.clock().tick(6_000);
+      expect(kick).not.toHaveBeenCalled();
+      notes.update((l) => l.map((n) => (n.id === 'r-japo01' ? { ...n, text: 'Bruna escreveu' } : n)));
+      TestBed.tick();
+      jasmine.clock().tick(4_000);
+      expect(kick).not.toHaveBeenCalled();
+      jasmine.clock().tick(1_500);
+      expect(kick).toHaveBeenCalledTimes(1);
+    } finally {
+      jasmine.clock().uninstall();
+    }
   });
 
   it('uma chave nova faz conferir de novo na rev de agora', async () => {

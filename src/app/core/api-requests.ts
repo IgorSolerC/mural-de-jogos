@@ -1,4 +1,6 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, Injector, inject, signal } from '@angular/core';
+import { ApiReach } from './api-reach';
+import { SharedStore } from './shared-store';
 import { andList } from './api-keys';
 import { plural } from './text';
 import { lookKey } from './category-looks';
@@ -33,7 +35,7 @@ import { CalendarStore } from './calendar-store';
 import { MuralResult, applyMuralRequest, isMuralOp, muralTitle, muralWords, undoMural } from './api-requests-murals';
 import { GameLookup } from './game-lookup';
 import { fold } from './text';
-import { ColumnNames, KanbanResult, applyKanbanRequest, boardById, columnNames, kanbanTitle, kanbanWords, placeNewNote, undoKanban } from './api-requests-kanban';
+import { ColumnNames, KanbanResult, NoteBook, applyKanbanRequest, boardById, columnNames, kanbanTitle, kanbanWords, placeNewNote, undoKanban } from './api-requests-kanban';
 import { KanbanStore } from './kanban-store';
 import { BoardResult, applyBoardRequest, boardTitle, boardWords, isBoardOp, undoBoard } from './api-requests-boards';
 import { FreeBoardStore } from './free-board-store';
@@ -133,7 +135,17 @@ export interface ApplyContext {
    * vai no resultado do pedido.
    */
   folder?(category: string | null, pasta: string): { id: string | null; aviso?: string };
+  /**
+   * As anotações que a API não alcança (core/api-reach.ts): as compartilhadas, menos as dos grupos em que a
+   * conta é dono ou gestor. Sem dizer, nenhuma compartilhada.
+   */
+  hidden?: ReadonlySet<string>;
+  /** O grupo é um compartilhado em que a conta não é dono nem gestor: nenhuma nota vai para ele por um pedido. */
+  closes?(group: string): boolean;
 }
+
+/** O porquê de um pedido não pôr a nota num grupo compartilhado em que a conta não é dono nem gestor. */
+export const closedGroup = (g: string) => `O grupo ${g} é compartilhado e você não é dono nem gestor dele: a API não põe notas nele.`;
 
 /** O nome como já existe no mural (sem ligar para caixa e acento), ou o novo, limpo. */
 function spelled(existing: Iterable<string | undefined>, raw: string, clean: (s: string) => string): string {
@@ -209,8 +221,9 @@ const failed = (erro: string, nota?: NotaV1) => ({ estado: 'falhou' as const, re
 
 /**
  * Aplica um pedido nas Anotações, pelas lojas, e diz como foi. Tudo passa pelas conferências de
- * sempre: a forma de novo (`conferirOp`, a mesma da API), e a anotação por `sanitizeReview`. A
- * compartilhada nunca é mexida pela API (ela não está no espelho).
+ * sempre: a forma de novo (`conferirOp`, a mesma da API), e a anotação por `sanitizeReview`. Das
+ * compartilhadas, a API só mexe nas dos grupos em que a conta é dono ou gestor (`ctx.hidden`, core/api-reach.ts),
+ * e pelo mesmo caminho da tela (`ReviewStore.update` as leva ao `SharedStore`, com as conferências do papel).
  */
 export function applyNoteRequest(
   store: ReviewStore,
@@ -220,12 +233,12 @@ export function applyNoteRequest(
   const op = req.op as OpNota;
   const checked = conferirOp(op, req.dados);
   if (!checked.ok) return { ...failed(`${checked.erro} (campo ${checked.campo})`), antes: null };
-  const shared = store.sharedIds();
+  const hidden = ctx.hidden ?? store.sharedIds();
   const mine = (id: string) => {
     const r = store.get(id);
-    return r && isNote(r) && !shared.has(id) ? r : undefined;
+    return r && isNote(r) && !hidden.has(id) ? r : undefined;
   };
-  const notes = store.notes().filter((n) => !shared.has(n.id));
+  const notes = store.notes().filter((n) => !hidden.has(n.id));
   const now = ctx.now;
 
   if (op === 'nota.criar') {
@@ -234,6 +247,7 @@ export function applyNoteRequest(
     if (there) return { estado: 'aplicado', resultado: { nota: ctx.v1(there) }, antes: null };
     const d = checked.dados as CriarNotaV1;
     const { clear: _c, ...l } = labels(notes, d);
+    if (l.category && ctx.closes?.(l.category)) return { ...failed(closedGroup(l.category)), antes: null };
     const base = sanitizeReview(
       {
         id: req.alvo,
@@ -295,6 +309,9 @@ export function applyNoteRequest(
         };
       }
       const { versao: _v, ...campos } = e;
+      // (a pasta só se resolve em `withFields`, que pode criá-la: o grupo fechado para antes)
+      const { clear: _c, category: to } = labels(notes, campos);
+      if (to && lookKey(to) !== lookKey(before.category ?? '') && ctx.closes?.(to)) return { ...failed(closedGroup(to), ctx.v1(before)), antes: null };
       const { next, aviso } = withFields(before, campos, notes, now, ctx.folder);
       if (campos.titulo !== undefined && campos.titulo !== before.game.name) {
         // os [[links]] das outras anotações (e das resenhas) seguem o título novo, como no editor
@@ -328,6 +345,8 @@ export function applyNoteRequest(
       return (before.noteRank === 'fixada') === pin ? same() : save(withPin(before, pin, now));
     }
     case 'nota.apagar':
+      // a de um grupo compartilhado se apaga pela tela (para todos, ou sai-se dela), nunca por um pedido
+      if (store.sharedIds().has(before.id)) return { ...failed('A nota é de um grupo compartilhado: apague pelo Murall.', ctx.v1(before)), antes: null };
       // apagar sempre tem volta: a nota fica em Versões guardadas (Ajustes › Backup) antes de sair
       store.keepVersions([before], 'api', false);
       store.remove(before.id);
@@ -553,6 +572,17 @@ export class ApiRequests {
   private readonly lookup = inject(GameLookup);
   private readonly folders = inject(NoteFolders);
   private readonly wishFolders = inject(WishFolders);
+  private readonly reach = inject(ApiReach);
+  private readonly injector = inject(Injector);
+  /** As anotações para o Kanban: o `ReviewStore`, com o alcance da API (core/api-reach.ts). */
+  private readonly book: NoteBook = {
+    get: (id) => this.store.get(id),
+    update: (r, before) => void this.store.update(r, before),
+    notes: () => this.store.notes(),
+    sharedIds: () => this.store.sharedIds(),
+    hidden: () => this.reach.hidden(),
+    closed: () => this.reach.closed(),
+  };
 
   /** Os pedidos abertos que a nuvem contou na última conversa: pendentes (para aplicar) e para aprovar. */
   readonly counts = signal({ pendentes: 0, aprovar: 0 });
@@ -615,7 +645,8 @@ export class ApiRequests {
       const out = isBoardOp(req.op)
         ? await applyBoardRequest(this.freeBoards, req, {
             noteTitle: (id) => (this.ownNote(id) ? this.store.get(id)!.game.name : undefined),
-            groups: () => [...new Set(this.store.notes().map((n) => n.category).filter((g): g is string => !!g))],
+            groups: () => [...new Set(this.store.notes().filter((n) => !this.reach.hidden().has(n.id)).map((n) => n.category).filter((g): g is string => !!g))],
+            closes: (g) => this.reach.closes(g),
           })
         : req.op.startsWith('nota.')
         ? applyNoteRequest(this.store, req, {
@@ -623,12 +654,14 @@ export class ApiRequests {
             today: todayISO(),
             stamps,
             v1: (r) => this.mirror.notaOf(r),
-            place: (r, k) => placeNewNote(this.kanban, this.store, r, k, now),
+            place: (r, k) => placeNewNote(this.kanban, this.book, r, k, now),
             study: (r, e) => placeInDecks(this.study, r.id, e),
             folder: (category, pasta) => this.folders.forRequest(category, pasta),
+            hidden: this.reach.hidden(),
+            closes: (g) => this.reach.closes(g),
           })
         : isKanbanOp(req.op)
-          ? applyKanbanRequest(this.kanban, this.store, req, now)
+          ? applyKanbanRequest(this.kanban, this.book, req, now)
           : isStudyOp(req.op)
             ? applyStudyRequest(this.study, req, {
                 ownNote: (id) => (this.ownNote(id) ? { name: this.store.get(id)!.game.name } : undefined),
@@ -718,7 +751,7 @@ export class ApiRequests {
   async undo(t: UndoTarget): Promise<void> {
     await this.account.request(`/v1/eu/pedidos/${t.id}/desfazer`, { method: 'POST' });
     if (isKanbanOp(t.op)) {
-      undoKanban(this.kanban, this.store, t, new Date().toISOString());
+      undoKanban(this.kanban, this.book, t, new Date().toISOString());
       return;
     }
     if (isCalendarOp(t.op)) {
@@ -741,14 +774,18 @@ export class ApiRequests {
       undoSpending(this.spending, t);
       return;
     }
-    const shared = this.store.sharedIds();
+    const hidden = this.reach.hidden();
     const found = this.store.get(t.alvo);
-    const cur = found && isNote(found) && !shared.has(found.id) ? found : undefined;
+    const cur = found && isNote(found) && !hidden.has(found.id) ? found : undefined;
     const after = (t.resultado as { nota?: NotaV1 | null } | null | undefined)?.nota;
     // mexida depois do pedido (por você, ou por outro pedido): a de agora não se perde
     if (cur && cur.updatedAt !== after?.versao) this.store.keepVersions([cur], 'api', false);
     if (t.op === 'nota.criar') {
-      if (cur) this.store.remove(cur.id);
+      // a nota nova que foi levada para um grupo compartilhado (core/shared-groups-store.ts) é sua: sai para todos
+      if (cur && this.store.sharedIds().has(cur.id)) {
+        const shared = this.injector.get(SharedStore);
+        if (shared.role(cur.id) === 'dono') await shared.deleteForAll(cur.id);
+      } else if (cur) this.store.remove(cur.id);
       // a nota que nasceu carta (o `estudos` do pedido; o id é novo, então a carta só pode ser dela) sai dos Estudos junto
       if (this.study.cardOf().has(t.alvo)) this.study.removeCard(t.alvo);
       return;
@@ -766,7 +803,7 @@ export class ApiRequests {
     const relinked =
       cur.game.name !== before.game.name
         ? relinkAfterRename(
-            this.store.notes().filter((n) => !shared.has(n.id)),
+            this.store.notes().filter((n) => !hidden.has(n.id)),
             cur,
             before.game.name,
             now,
@@ -779,7 +816,7 @@ export class ApiRequests {
 
   /** O título que a pessoa reconhece: o do pedido, o de agora, o de depois, o de antes. */
   titleOf(t: Pick<SiteRequest, 'op' | 'alvo' | 'dados'> & { resultado?: unknown; antes?: unknown }): string {
-    if (isKanbanOp(t.op)) return kanbanTitle(this.kanban, this.store, t);
+    if (isKanbanOp(t.op)) return kanbanTitle(this.kanban, this.book, t);
     if (isCalendarOp(t.op)) return calendarTitle(this.calendar, t);
     if (isBoardOp(t.op)) return boardTitle(this.freeBoards, t);
     if (isStudyOp(t.op)) return studyTitle(this.study, (id) => (this.ownNote(id) ? this.store.get(id)!.game.name : undefined), t);
@@ -875,10 +912,10 @@ export class ApiRequests {
     }
   }
 
-  /** A anotação é sua (não compartilhada) e existe: as que um lembrete pode prender. */
+  /** A anotação existe e a API a alcança (sua, ou de um grupo compartilhado em que a conta é dono ou gestor). */
   private ownNote(id: string): boolean {
     const r = this.store.get(id);
-    return !!r && isNote(r) && !this.store.sharedIds().has(id);
+    return !!r && isNote(r) && !this.reach.hidden().has(id);
   }
 
   /** Os abertos na nuvem (atualiza a contagem e a lista); null sem rede. */

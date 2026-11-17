@@ -11,11 +11,12 @@ import { labelKey } from './text';
 import { AccessPerson, AccessState } from './access';
 import { SharedRole } from './shared-notes';
 import type { SharedEntry } from './shared-store';
-import { FRESH_AT, KanbanBoard, boardIdFor, mergeBoards, sanitizeBoard } from './kanban';
+import { FRESH_AT, KanbanBoard, boardIdFor, categoryKey, mergeBoards, sanitizeBoard } from './kanban';
 import { lookKey } from './category-looks';
 import { GroupDocFolder, NoteFolder, docFolders, mergeFolders, toDocFolders } from './folders';
 import { Settings } from './settings';
 import { GroupFolders } from './group-folders';
+import { ApiReach } from './api-reach';
 
 const RANK: Record<SharedRole, number> = { leitor: 1, editor: 2, gestor: 3, dono: 4 };
 /** O papel mais aberto dos dois (o da anotação e o do grupo dela). */
@@ -150,12 +151,35 @@ export class SharedGroupsStore {
     }
     return out;
   }, { equal: (a, b) => JSON.stringify([...a]) === JSON.stringify([...b]) });
+  /**
+   * As anotações dos grupos compartilhados em que a conta é dono ou gestor: a API das AIs alcança estas como as
+   * suas (core/api-reach.ts). As de um grupo em que ela só edita ou lê, não.
+   */
+  readonly apiManaged = computed<ReadonlySet<string>>(
+    () => {
+      const out = new Set<string>();
+      const groups = this.entries();
+      const names = this.names();
+      for (const e of this.shared.entries().values()) {
+        if (e.grupo && names.has(e.grupo) && canManage(groups.get(e.grupo)?.papel)) out.add(e.id);
+      }
+      return out;
+    },
+    { equal: (a, b) => a.size === b.size && [...a].every((x) => b.has(x)) },
+  );
+  /** Os grupos compartilhados em que a conta só edita ou lê, pela chave do nome que têm aqui: fechados para a API. */
+  readonly apiClosed = computed<ReadonlySet<string>>(
+    () => new Set([...this.names()].filter(([id]) => !canManage(this.entries().get(id)?.papel)).map(([, name]) => categoryKey(name))),
+    { equal: (a, b) => a.size === b.size && [...a].every((x) => b.has(x)) },
+  );
   /** O último erro de levar uma anotação para um grupo (a peça dele mostra; some no próximo que dá certo). */
   readonly error = signal<{ grupo: string; mensagem: string } | null>(null);
 
   constructor() {
     // as pastas dos grupos para a árvore das pastas (NoteFolders), sem ela depender deste serviço
     inject(GroupFolders).attach({ folders: () => this.folders(), groups: () => this.folderGroups(), update: (id, list) => this.updateFolders(id, list) });
+    // as anotações dos grupos em que a conta é dono ou gestor, para a API das AIs
+    inject(ApiReach).attach({ managed: () => this.apiManaged(), closed: () => this.apiClosed() });
     effect(() => {
       const id = this.accountId();
       untracked(() => this.loadFor(id));

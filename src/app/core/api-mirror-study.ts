@@ -21,7 +21,7 @@ import { dayQueue } from './study-queue';
  * todos os baralhos e de cada um. A fila é a do app (`dayQueue`), pedida no fim do dia de estudo: as
  * cartas nos passos de 1 e 10 minutos entram todas, com a hora em que voltam, e a API separa as de agora
  * (`filaDeAgora` do contrato). Assim a fila não muda com o relógio, só com os Estudos, e o espelho não
- * regrava nada à toa. Só as cartas de anotações suas (`notes`: sem as compartilhadas). Só funções puras.
+ * regrava nada à toa. Só as cartas das anotações que a API alcança (`notes`: das compartilhadas, só as dos grupos em que a conta é dono ou gestor). Só funções puras.
  */
 
 /** O último instante de um dia de estudo (o dia vira às 4h). */
@@ -136,8 +136,8 @@ export interface StudyMirrorItem {
 }
 
 /**
- * Os Estudos inteiros para o espelho: as cartas das anotações suas que existem (a de uma apagada ou
- * compartilhada não vai, nem entra nas filas), os baralhos e o contexto.
+ * Os Estudos inteiros para o espelho: as cartas das anotações que a API alcança (a de uma apagada, ou de uma
+ * compartilhada fora de um grupo em que a conta é dono ou gestor, não vai, nem entra nas filas), os baralhos e o contexto.
  */
 export function studyMirror(st: StudyState, notes: ReadonlyMap<string, Review>, now: Date): StudyMirrorItem[] {
   const live = (note: string) => notes.has(note);
