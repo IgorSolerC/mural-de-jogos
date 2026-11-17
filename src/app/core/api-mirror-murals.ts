@@ -15,6 +15,13 @@ import { Draft, Review, SCORE_LABEL, Wish, isNote, musicFormOf, relevanceOf, sho
  * puras; quem chama é `ApiMirror`.
  */
 
+/**
+ * A capa para a API: só a que tem link. A capa sem link (a imagem do aparelho ou uma pixel art, guardadas pelo id
+ * delas) não abre fora do Murall, e a v1 só aceita https: com ela, a nuvem recusava a ficha, e a ficha ficava
+ * fora do espelho.
+ */
+const linkedCover = (url: string | null | undefined): string | null => (url && /^https:\/\//.test(url) ? url : null);
+
 /** O item da wishlist ou do Pra depois (sem a relevância, que só o desejo tem). */
 function itemV1(x: Draft | Wish): PraDepoisV1 {
   return {
@@ -23,7 +30,7 @@ function itemV1(x: Draft | Wish): PraDepoisV1 {
     nome: x.game.name,
     ano: x.game.year ?? null,
     por: x.game.by ?? null,
-    capa: x.game.coverUrl,
+    capa: linkedCover(x.game.coverUrl),
     criado_em: x.createdAt,
     versao: x.updatedAt,
   };
@@ -107,7 +114,7 @@ export function fichaV1(r: Review, boardOnly: ReadonlySet<string> = new Set()): 
     nome: r.game.name,
     por: r.game.by ?? null,
     ano: r.game.year ?? null,
-    capa: r.game.coverUrl,
+    capa: linkedCover(r.game.coverUrl),
     forma: music ? musicFormOf(r.game) : null,
     artista: music ? (r.category ?? null) : null,
     nota_final: r.scores.final,

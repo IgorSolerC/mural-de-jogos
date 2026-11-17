@@ -29,6 +29,14 @@ const ALBUM = review({ id: 'rm-album', kind: 'musicas', game: { name: 'Clube da 
 const NOTE = sanitizeReview({ id: 'n-nota', kind: 'anotacoes', game: { name: 'Uma nota', coverUrl: null, source: 'manual' }, text: 'x', createdAt: AT, updatedAt: AT })!;
 
 describe('o espelho da API: os murais em v1', () => {
+  it('a capa sem link (a imagem do aparelho, a pixel art) vai como sem capa: a v1 só aceita https', () => {
+    const local = { ...OUTER, game: { ...OUTER.game, coverUrl: 'img-abcdef123456' } };
+    expect(fichaV1(local).capa).toBeNull();
+    expect(desejoV1({ ...WISH, game: { ...WISH.game, coverUrl: 'img-abcdef123456' } }).capa).toBeNull();
+    expect(praDepoisV1({ ...DRAFT, game: { ...DRAFT.game, coverUrl: 'img-abcdef123456' } }).capa).toBeNull();
+    expect(desejoV1(WISH).capa).toBe('https://c/silk.jpg');
+  });
+
   it('o desejo e o pra depois: o mural, o nome, o ano, o por, a capa e a relevância', () => {
     expect(desejoV1(WISH)).toEqual({ id: 'dj-silk', mural: 'jogos', nome: 'Silksong', ano: '2025', por: null, capa: 'https://c/silk.jpg', relevancia: 'must', tags: [], pasta: null, descricao: null, criado_em: AT, versao: AT });
     expect(desejoV1(BOOK_WISH)).toEqual(jasmine.objectContaining({ mural: 'livros', por: 'Frank Herbert', relevancia: 'comum' }));

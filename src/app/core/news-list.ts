@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-17-api-grupos',
+    id: '2026-11-17-api-capas',
     version: '1.47.2',
     kind: 'ajustes',
     date: '2026-11-17',
@@ -35,6 +35,9 @@ export const NEWS: NewsEntry[] = [
     melhorias: [
       'O ateliê de pixel art ficou mais limpo e ganhou menus no alto, como os de um programa de desenho (Arquivo, Editar, Selecionar, Imagem, Camada, Cores, Exibir, Ajuda), cada ação com o atalho ao lado e o que não vale agora apagado; a fita de cima mostra só a ferramenta de agora, o zoom foi para a barra de baixo, o Arquivo também baixa o desenho em PNG, e no celular o Menu junta todos.',
       'A API das AIs (as chaves de Ajustes › Acessos) vê e mexe nas anotações dos grupos compartilhados em que você é dono ou gestor, como nas suas, também no Kanban e nos Estudos; os grupos em que você só edita ou lê continuam de fora, e nenhum pedido põe uma nota neles.',
+    ],
+    correcoes: [
+      'A API das AIs voltou a ficar em dia com as suas análises: uma ficha com capa sem link (a imagem do aparelho ou uma pixel art) fazia a nuvem recusar a cópia, e as outras mudanças ficavam de fora junto.',
     ],
   },
   {
