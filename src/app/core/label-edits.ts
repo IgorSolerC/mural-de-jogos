@@ -6,11 +6,16 @@ import { CategoryLook, CategoryLooks, lookKey, tagKeyPrefix, tagLookKey } from '
 import { KanbanStore } from './kanban-store';
 import { NotesConfig, savedSubjects, withSavedSubjects } from './mural-config';
 import { MAX_PINNED_TAGS, cleanCategory, cleanSubject, cleanTag, sanitizeTags } from './note-labels';
-import { Review } from './review';
+import type { Review } from './review';
 import { ReviewStore } from './review-store';
 import { Settings } from './settings';
 import { StudyStore } from './study-store';
 import { FreeBoardStore } from './free-board-store';
+import { NoteBulk } from './note-bulk';
+import { CloudError } from './cloud-account';
+import { canWrite } from './shared-notes';
+import { GroupDeleteResult, GroupFate, configWithoutGroup, deletedGroupFolderName, notesLeavingGroup } from './group-delete';
+import { isNote } from './review';
 
 /**
  * Renomear e apagar uma categoria, um assunto ou uma tag das anotações, pelas Configurações do mural. O nome mora
@@ -183,6 +188,7 @@ export class LabelEdits {
   private readonly freeBoards = inject(FreeBoardStore);
   private readonly folders = inject(NoteFolders);
   private readonly groups = inject(SharedGroupsStore);
+  private readonly bulk = inject(NoteBulk);
 
   /** Quantas anotações têm a categoria (pela chave). */
   categoryUses(category: string): number {
@@ -274,6 +280,86 @@ export class LabelEdits {
     this.study.moveGroup(category, to);
     // os quadros livres do grupo também (apagado, saem com ele: PLANO-QUADRO-LIVRE.md, decisão D12)
     void this.freeBoards.moveGroup(category, to);
+    return result;
+  }
+
+  /** As anotações do grupo (pela chave), as suas e as compartilhadas que estão nele no seu mural. */
+  private notesOf(key: string): Review[] {
+    return this.store.notes().filter((r) => isNote(r) && !!r.category && lookKey(r.category) === key);
+  }
+
+  /**
+   * Apaga o grupo, com o destino do que está nele (PLANO-APAGAR-GRUPO.md, D3): apagar tudo, levar para outro grupo
+   * (as soltas e as pastas de cima entram na pasta escolhida) ou deixar sem grupo (dentro da pasta "Grupo deletado:
+   * nome"). O ícone, a cor, os padrões e o lugar na ordem vão embora; o quadro do Kanban, os baralhos e os quadros
+   * livres vão para o outro grupo, ou embora. Um grupo compartilhado: só o dono apaga, e antes ele deixa de ser
+   * compartilhado (D6); se a nuvem falhar, nada muda aqui.
+   */
+  async deleteCategory(category: string, fate: GroupFate): Promise<GroupDeleteResult> {
+    const none = { moved: 0, removed: 0 };
+    const from = lookKey(category);
+    if (!from) return { ok: false, error: 'Esse grupo não existe.', ...none };
+    let target: string | null = null;
+    if (fate.kind === 'levar') {
+      const clean = cleanCategory(fate.to);
+      if (!clean || lookKey(clean) === from) return { ok: false, error: 'Escolha outro grupo para onde levar.', ...none };
+      const there = this.groups.ofCategory(clean);
+      if (there && !canWrite(there.papel)) return { ok: false, error: `Em ${clean} você só lê: escolha outro grupo.`, ...none };
+      // num grupo compartilhado de outra pessoa, as anotações com o nome dele (antes de subirem) seriam um grupo seu
+      // de mesmo nome, e o dela viraria "Nome · Dona": só o seu recebe tudo de uma vez
+      if (there && there.papel !== 'dono') return { ok: false, error: `${clean} é de ${there.dono.nome}: leve para um grupo seu.`, ...none };
+      // a grafia que o grupo já tem nas anotações
+      target = this.existingCategory(clean, category) ?? clean;
+    }
+    const shared = this.groups.ofCategory(category);
+    if (shared) {
+      if (shared.papel !== 'dono') return { ok: false, error: `${category} é de ${shared.dono.nome}: para tirá-lo do seu mural, saia do grupo.`, ...none };
+      try {
+        // tudo o que está nele, até o que os outros escreveram, fica com você, no grupo de mesmo nome (o quadro também)
+        const board = await this.groups.stop(shared.id);
+        if (board) this.kanban.keep(board);
+      } catch (err) {
+        return { ok: false, error: err instanceof CloudError ? err.message : 'Não deu para parar de compartilhar agora. Tente de novo.', ...none };
+      }
+    }
+    const at = new Date().toISOString();
+    const looks = looksMoved(this.settings.categoryLooks(), from, null);
+    const toKey = target === null ? null : lookKey(target);
+    let result: GroupDeleteResult;
+    if (fate.kind === 'apagar') {
+      const done = await this.bulk.removeNow(this.bulk.plan(this.notesOf(from).map((r) => r.id)));
+      // as que a nuvem não tirou ficam no grupo, nas pastas delas
+      if (!this.notesOf(from).length) this.folders.dropGroup(from);
+      this.settings.applyCategoryLooks(tagLooksMoved(looks, from, null), at);
+      // (as configurações lidas agora: as pastas acabaram de mudar nelas)
+      this.settings.setNotesConfig(configWithoutGroup(this.settings.notesConfig(), from, true));
+      // as tags fixas que não estão em mais nenhuma anotação soltam (como ao apagar a tag)
+      const used = new Set(this.store.notes().flatMap((r) => (r.tags ?? []).map(lookKey)));
+      const pinned = this.settings.pinnedTags();
+      if (pinned.some((t) => !used.has(lookKey(t)))) this.settings.applyPinnedTags(pinned.filter((t) => used.has(lookKey(t))), at);
+      result = { ok: true, moved: 0, removed: done.removed + done.cloud, failed: done.failed };
+    } else {
+      const tree = this.folders.tree();
+      let into: string | null = null;
+      let made: string | undefined;
+      if (fate.kind === 'levar') {
+        into = fate.folder && tree.live(fate.folder)?.group === toKey ? fate.folder : null;
+      } else if (this.store.notes().some((r) => r.category && lookKey(r.category) === from) || tree.kids(from, null).length) {
+        // a pasta nova das sem grupo (sem repetir uma irmã); sem lugar para ela, as anotações ficam na raiz
+        const folder = this.folders.createIn('', null, deletedGroupFolderName(category));
+        into = folder?.id ?? null;
+        made = folder?.name;
+      }
+      // as pastas primeiro: num grupo compartilhado, as anotações sobem já apontando para pastas que ele tem
+      this.folders.moveGroup(from, toKey, into);
+      const moved = this.save(notesLeavingGroup(this.store.notes(), tree, from, target, into, at)).changed;
+      this.settings.applyCategoryLooks(tagLooksMoved(looks, from, toKey ?? ''), at);
+      this.settings.setNotesConfig(configMoved(configWithoutGroup(this.settings.notesConfig(), from, false), from, toKey));
+      result = { ok: true, moved, removed: 0, ...(made ? { folder: made } : {}) };
+    }
+    this.kanban.moveCategory(from, toKey);
+    this.study.moveGroup(category, target);
+    void this.freeBoards.moveGroup(category, target);
     return result;
   }
 

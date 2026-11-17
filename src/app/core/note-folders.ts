@@ -13,6 +13,7 @@ import {
   siblingNamed,
   subjectFolderId,
   withDissolvedFolder,
+  withGoneGroup,
   withJoinedFolder,
   withMovedFolder,
   withNewFolder,
@@ -314,9 +315,18 @@ export class NoteFolders {
     return { notes, folders: tree.kids(f.group, id).length };
   }
 
-  /** As pastas vão com o grupo renomeado, juntado ou apagado (null: para o "Sem grupo"). */
-  moveGroup(from: string, to: string | null): void {
-    const next = foldersOfGroupMoved(this.folders, from, to, new Date().toISOString());
+  /**
+   * As pastas vão com o grupo renomeado, juntado ou apagado (null: para o "Sem grupo"); com `parent`, as de cima
+   * entram nessa pasta de `to` (PLANO-APAGAR-GRUPO.md).
+   */
+  moveGroup(from: string, to: string | null, parent: string | null = null): void {
+    const next = foldersOfGroupMoved(this.folders, from, to, new Date().toISOString(), parent);
+    if (next.some((f, i) => f !== this.folders[i])) this.save(next);
+  }
+
+  /** As pastas do grupo apagado com tudo viram lápide (as anotações que chegarem depois ficam na raiz). */
+  dropGroup(group: string): void {
+    const next = withGoneGroup(this.folders, group, new Date().toISOString());
     if (next.some((f, i) => f !== this.folders[i])) this.save(next);
   }
 

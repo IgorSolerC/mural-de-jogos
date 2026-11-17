@@ -268,13 +268,29 @@ export class NoteBulk {
     }
     const isNotes = all.map((id) => this.store.get(id)).every((r) => !r || isNote(r));
     if (!(await this.confirm.ask(removalAsk(plan, isNotes)))) return;
+    const shared = plan.forAll.length + plan.leave.length;
+    // as compartilhadas vão pela nuvem: com muitas, o bilhete diz que está indo (uma de cada vez seria minutos calado)
+    if (shared > 3) this.toasts.show(`Apagando ${plural(shared, 'anotação compartilhada', 'anotações compartilhadas')}…`);
+    const done = await this.removeNow(plan);
+    const n = done.removed + done.cloud;
+    const gone = isNotes ? plural(n, 'anotação apagada', 'anotações apagadas') : plural(n, 'ficha apagada', 'fichas apagadas');
+    const rest = done.failed ? ` Algumas compartilhadas ficaram: ${done.failed}` : '';
+    // o Desfazer volta as suas (as compartilhadas já saíram da nuvem)
+    if (done.removed) this.toasts.show(`${gone}.${rest}`, { label: 'Desfazer', run: () => this.motion.run(done.undo) }, 8000);
+    else this.toasts.show(`${gone}.${rest}`);
+  }
+
+  /**
+   * Faz o que o plano diz, sem perguntar (quem chama já perguntou: o apagar em massa, a folha de apagar o grupo):
+   * as suas saem daqui, com o Desfazer; as compartilhadas saem para todos ou você sai delas, pela nuvem, poucas
+   * de cada vez. `failed`: a mensagem da primeira que a nuvem não tirou (ela fica).
+   */
+  async removeNow(plan: RemovalPlan): Promise<{ removed: number; cloud: number; failed: string | null; undo: () => void }> {
     let done = { removed: 0, skipped: 0, undo: () => undefined as void };
     if (plan.own.length) this.motion.run(() => (done = this.remove(plan.own)));
     let cloud = 0;
     let failed: string | null = null;
     const shared = [...plan.forAll, ...plan.leave];
-    // as compartilhadas vão pela nuvem: com muitas, o bilhete diz que está indo (uma de cada vez seria minutos calado)
-    if (shared.length > 3) this.toasts.show(`Apagando ${plural(shared.length, 'anotação compartilhada', 'anotações compartilhadas')}…`);
     const forAll = new Set(plan.forAll);
     for (let i = 0; i < shared.length; i += BULK_CLOUD_AT_ONCE) {
       await Promise.all(
@@ -290,12 +306,7 @@ export class NoteBulk {
         }),
       );
     }
-    const n = done.removed + cloud;
-    const gone = isNotes ? plural(n, 'anotação apagada', 'anotações apagadas') : plural(n, 'ficha apagada', 'fichas apagadas');
-    const rest = failed ? ` Algumas compartilhadas ficaram: ${failed}` : '';
-    // o Desfazer volta as suas (as compartilhadas já saíram da nuvem)
-    if (done.removed) this.toasts.show(`${gone}.${rest}`, { label: 'Desfazer', run: () => this.motion.run(done.undo) }, 8000);
-    else this.toasts.show(`${gone}.${rest}`);
+    return { removed: done.removed, cloud, failed, undo: done.undo };
   }
 
   /** Muda as anotações `ids` com o que a folha pediu, com um Desfazer só. */

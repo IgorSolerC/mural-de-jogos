@@ -14,6 +14,7 @@ import {
   withCategory,
   withDissolvedFolder,
   withFolder,
+  withGoneGroup,
   withJoinedFolder,
   withLiveFolder,
   withMovedFolder,
@@ -174,6 +175,32 @@ describe('as pastas das anotações (core/folders.ts)', () => {
       expect(joined.of({ category: 'Estudos', folder: 'phist000002' })).toBe('phist000001');
       // apagado: para o Sem grupo
       expect(folderTree(foldersOfGroupMoved(BASE, 'Trabalho', null, AT)).kids('', null).map((x) => x.name)).toEqual(['Reuniões']);
+    });
+
+    it('apagando o grupo para dentro de uma pasta: as de cima entram nela, juntando com a de mesmo nome (PLANO-APAGAR-GRUPO.md)', () => {
+      const both = [...BASE, f('preun000002', 'reuniões', 'phist000001'), f('pata0000001', 'Atas', 'preun000001', 'trabalho')];
+      const out = folderTree(foldersOfGroupMoved(both, 'Trabalho', 'Estudos', AT, 'phist000001'));
+      expect(out.of({ category: 'Estudos', folder: 'preun000001' })).toBe('preun000002');
+      expect(out.path('pata0000001').map((x) => x.name)).toEqual(['História', 'reuniões', 'Atas']);
+      // a pasta que não é do grupo novo vale como a raiz
+      expect(folderTree(foldersOfGroupMoved(BASE, 'Trabalho', 'Estudos', AT, 'preun000001')).kids('estudos', null).map((x) => x.name)).toEqual(['História', 'Programação', 'Reuniões']);
+    });
+
+    it('a pasta de cima cuja árvore não cabe embaixo da escolhida (o teto de níveis) fica na raiz do grupo novo', () => {
+      const id = (i: number) => `pfun${String(i).padStart(7, '0')}`;
+      const deep: NoteFolder[] = [];
+      for (let i = 0; i < MAX_FOLDER_DEPTH - 1; i++) deep.push(f(id(i), `N${i}`, i ? id(i - 1) : null));
+      const last = id(MAX_FOLDER_DEPTH - 2);
+      const tall = folderTree(foldersOfGroupMoved([...deep, f('pa00000001', 'A', null, 'trabalho'), f('pb00000001', 'B', 'pa00000001', 'trabalho')], 'Trabalho', 'Estudos', AT, last));
+      expect(tall.parentOf('pa00000001')).toBeNull();
+      const short = folderTree(foldersOfGroupMoved([...deep, f('pa00000001', 'A', null, 'trabalho')], 'Trabalho', 'Estudos', AT, last));
+      expect(short.parentOf('pa00000001')).toBe(last);
+    });
+
+    it('o grupo apagado com tudo: as pastas dele viram lápide, as dos outros ficam', () => {
+      const out = withGoneGroup(BASE, 'Trabalho', AT);
+      expect(out.find((x) => x.id === 'preun000001')!.gone).toBe(AT);
+      expect(folderTree(out).kids('estudos', null).length).toBe(2);
     });
 
     it('a lápide velha sai quando ninguém aponta mais para ela', () => {

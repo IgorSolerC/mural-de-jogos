@@ -361,18 +361,32 @@ export function withJoinedFolder(folders: readonly NoteFolder[], from: string, i
  * grupo", com as anotações). Se `to` já tem pastas, as de cima com o mesmo nome viram uma só (a de `to`
  * fica, a que chega vira lápide apontando para ela).
  */
-export function foldersOfGroupMoved(folders: readonly NoteFolder[], from: string, to: string | null, at: string): NoteFolder[] {
+export function foldersOfGroupMoved(folders: readonly NoteFolder[], from: string, to: string | null, at: string, parent: string | null = null): NoteFolder[] {
   const src = lookKey(from);
   const dst = lookKey(to ?? '');
   if (src === dst) return [...folders];
   const tree = folderTree(folders);
-  let out = folders.map((f) => (f.group === src ? { ...f, group: dst } : f));
-  // as de cima com o mesmo nome de uma que já estava em `to`
+  // `parent`: a pasta de `to` onde as de cima entram (apagar o grupo levando tudo para uma pasta,
+  // PLANO-APAGAR-GRUPO.md); a que não é uma pasta viva de `to` vale como a raiz
+  const into = parent && tree.live(parent)?.group === dst ? parent : null;
+  const room = MAX_FOLDER_DEPTH - (into ? tree.path(into).length : 0);
+  const tops = new Set(tree.kids(src, null).map((f) => f.id));
+  // a de cima cuja árvore não cabe embaixo de `parent` (o teto de níveis) fica na raiz de `to`
+  const fits = (id: string) => Math.max(...[...tree.below(id)].map((x) => tree.path(x).length)) <= room;
+  const placed = new Map([...tops].map((id) => [id, into && fits(id) ? into : null]));
+  let out = folders.map((f) => (f.group === src ? { ...f, group: dst, ...(placed.has(f.id) ? { parent: placed.get(f.id)! } : {}) } : f));
+  // as de cima com o mesmo nome de uma que já estava onde elas entram
   for (const f of tree.kids(src, null)) {
-    const twin = tree.kids(dst, null).find((x) => lookKey(x.name) === lookKey(f.name));
+    const twin = tree.kids(dst, placed.get(f.id) ?? null).find((x) => lookKey(x.name) === lookKey(f.name));
     if (twin) out = withJoinedFolder(out, f.id, twin.id, at);
   }
   return out;
+}
+
+/** Todas as pastas do grupo viram lápide (o grupo foi apagado com tudo o que tinha, PLANO-APAGAR-GRUPO.md). */
+export function withGoneGroup(folders: readonly NoteFolder[], group: string, at: string): NoteFolder[] {
+  const g = lookKey(group);
+  return folders.map((f) => (f.group === g && !f.gone ? { ...f, gone: at } : f));
 }
 
 /** Sem as lápides velhas (mais de `TOMBSTONE_DAYS`) que nenhuma anotação nem pasta aponta mais. */

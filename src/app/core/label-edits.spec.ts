@@ -9,6 +9,12 @@ import { ReviewStore } from './review-store';
 import { Settings } from './settings';
 import { SharedStore } from './shared-store';
 import { FreeBoardStore } from './free-board-store';
+import { NoteFolders } from './note-folders';
+import { SharedGroupsStore } from './shared-groups-store';
+import { StudyStore } from './study-store';
+import { SharedGroup } from './shared-groups';
+import { deletedGroupFolderName, configWithoutGroup } from './group-delete';
+import { tagLookKey } from './category-looks';
 
 const T0 = '2026-10-01T10:00:00.000Z';
 const AT = '2026-10-17T10:00:00.000Z';
@@ -223,5 +229,215 @@ describe('renomear e apagar categorias e tags', () => {
       expect(edits.renameTag('Bug', 'Trabalho', '#')).toEqual({ changed: 0 });
       expect(store.notes().map((r) => r.category)).toEqual(['Trabalho', 'Trabalho', 'Estudos']);
     });
+  });
+});
+
+/** Apagar o grupo com o destino do que está nele (PLANO-APAGAR-GRUPO.md, feature 1). */
+describe('apagar o grupo com destino (LabelEdits.deleteCategory)', () => {
+  let store: ReviewStore;
+  let settings: Settings;
+  let kanban: KanbanStore;
+  let edits: LabelEdits;
+  let folders: NoteFolders;
+
+  beforeEach(() => {
+    localStorage.clear();
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+    store = TestBed.inject(ReviewStore);
+    settings = TestBed.inject(Settings);
+    kanban = TestBed.inject(KanbanStore);
+    edits = TestBed.inject(LabelEdits);
+    folders = TestBed.inject(NoteFolders);
+    store.reviews.set([note('n1', 'Trabalho', ['Bug']), note('n2', 'Trabalho'), note('n3', 'Estudos', ['bug'])]);
+  });
+  afterEach(() => localStorage.clear());
+
+  const byId = (id: string) => store.get(id)!;
+  /** Trabalho › Reuniões, com a n2 dentro. */
+  const withMeetings = () => {
+    const reun = folders.create('Trabalho', null, 'Reuniões')!;
+    folders.place(['n2'], reun.id);
+    return reun;
+  };
+
+  it('o nome da pasta: "Grupo deletado: nome", cortado com reticências quando passa de 32 letras', () => {
+    expect(deletedGroupFolderName('Trabalho')).toBe('Grupo deletado: Trabalho');
+    const long = deletedGroupFolderName('Estudo de Japonês com a Bruna');
+    expect([...long].length).toBe(32);
+    expect(long).toBe('Grupo deletado: Estudo de Japon…');
+    // o emoji conta como no nome da pasta (duas unidades) e nunca se parte
+    const emoji = deletedGroupFolderName('Jogos 🎮🎮🎮🎮🎮🎮🎮🎮');
+    expect(emoji.length).toBeLessThanOrEqual(32);
+    expect(emoji.endsWith('🎮…')).toBeTrue();
+  });
+
+  it('as configurações perdem só o que é do grupo; com tudo, também as tags escondidas e os assuntos', () => {
+    const cfg = {
+      ...settings.notesConfig(),
+      order: ['estudos', 'trabalho'],
+      categories: { trabalho: { hidden: true }, estudos: { hidden: true } },
+      hiddenTags: ['##trabalho#bug', '##trabalho#a#b', '##trabalho##x#bug', '##estudos#bug'],
+      subjects: { trabalho: ['X'] },
+    };
+    expect(configWithoutGroup(cfg, 'trabalho', false)).toEqual({ ...cfg, order: ['estudos'], categories: { estudos: { hidden: true } } });
+    expect(configWithoutGroup(cfg, 'trabalho', true)).toEqual({ ...cfg, order: ['estudos'], categories: { estudos: { hidden: true } }, hiddenTags: ['##trabalho##x#bug', '##estudos#bug'], subjects: {} });
+  });
+
+  it('deixar sem grupo: tudo vai para a pasta "Grupo deletado: Trabalho", nas sem grupo; as pastas dele dentro dela', async () => {
+    const reun = withMeetings();
+    settings.setCategoryLook('Trabalho', { color: 'azul' });
+    settings.setCategoryPrefs('Trabalho', { audience: 'publicar' });
+    settings.setTagColor('Bug', 'rosa', 'Trabalho');
+    kanban.state.set({ boards: [board('trabalho', [{ note: 'n1', column: 'trabalho-0', importance: null }])], removed: {}, legacy: [] });
+    const r = await edits.deleteCategory('Trabalho', { kind: 'soltar' });
+    expect(r).toEqual(jasmine.objectContaining({ ok: true, moved: 2, removed: 0, folder: 'Grupo deletado: Trabalho' }));
+    const tree = folders.tree();
+    const made = tree.kids('', null).find((x) => x.name === 'Grupo deletado: Trabalho')!;
+    expect(made).toBeDefined();
+    expect([byId('n1').category, tree.of(byId('n1'))]).toEqual([undefined, made.id]);
+    expect([byId('n2').category, tree.of(byId('n2'))]).toEqual([undefined, reun.id]);
+    expect(tree.path(reun.id).map((x) => x.name)).toEqual(['Grupo deletado: Trabalho', 'Reuniões']);
+    expect(settings.categoryLooks()['trabalho']).toBeUndefined();
+    expect(settings.notesConfig().categories['trabalho']).toBeUndefined();
+    // as tags levam a cor para as sem grupo, como antes
+    expect(settings.tagColor('bug', '')).toBe('rosa');
+    expect(kanban.get(boardIdFor('trabalho'))).toBeUndefined();
+    expect(byId('n3').category).toBe('Estudos');
+  });
+
+  it('a pasta das sem grupo não repete a de um grupo de mesmo nome apagado antes; grupo vazio não cria pasta', async () => {
+    await edits.deleteCategory('Trabalho', { kind: 'soltar' });
+    store.add({ ...note('n9', 'Trabalho'), id: 'n9' });
+    await edits.deleteCategory('Trabalho', { kind: 'soltar' });
+    expect(folders.tree().kids('', null).map((x) => x.name)).toEqual(['Grupo deletado: Trabalho', 'Grupo deletado: Trabalho 2']);
+    settings.setCategoryLook('Vazio', { color: 'azul' });
+    const r = await edits.deleteCategory('Vazio', { kind: 'soltar' });
+    expect(r.folder).toBeUndefined();
+    expect(folders.tree().kids('', null).length).toBe(2);
+    expect(settings.categoryLooks()['vazio']).toBeUndefined();
+  });
+
+  it('levar para outro grupo: na pasta escolhida, a de mesmo nome que já está lá junta; o grupo novo fica com o jeito dele', async () => {
+    const reun = withMeetings();
+    const arquivo = folders.create('Estudos', null, 'Arquivo')!;
+    const reunLa = folders.create('Estudos', arquivo.id, 'Reuniões')!;
+    settings.setCategoryLook('Trabalho', { color: 'azul' });
+    settings.setCategoryPrefs('Trabalho', { audience: 'publicar' });
+    settings.setNotesConfig({ order: ['trabalho', 'casa'] });
+    settings.setTagColor('Bug', 'rosa', 'Trabalho');
+    kanban.state.set({
+      boards: [board('trabalho', [{ note: 'n1', column: 'trabalho-1', importance: null }]), board('estudos', [{ note: 'n3', column: 'estudos-0', importance: null }])],
+      removed: {},
+      legacy: [],
+    });
+    const study = spyOn(TestBed.inject(StudyStore), 'moveGroup').and.callThrough();
+    const r = await edits.deleteCategory('Trabalho', { kind: 'levar', to: 'estudos', folder: arquivo.id });
+    expect(r).toEqual(jasmine.objectContaining({ ok: true, moved: 2 }));
+    const tree = folders.tree();
+    // a grafia do grupo que já existe
+    expect(store.notes().map((x) => x.category)).toEqual(['Estudos', 'Estudos', 'Estudos']);
+    expect(tree.of(byId('n1'))).toBe(arquivo.id);
+    expect(tree.of(byId('n2'))).toBe(reunLa.id);
+    expect(tree.live(reun.id)).toBeUndefined();
+    expect(settings.categoryLooks()['estudos']).toBeUndefined();
+    expect(settings.notesConfig().categories['estudos']).toBeUndefined();
+    expect(settings.notesConfig().order).toEqual(['casa']);
+    expect(settings.tagColor('bug', 'Estudos')).toBe('rosa');
+    expect(kanban.boardFor('Estudos').cards.map((c) => [c.note, c.column])).toEqual([
+      ['n3', 'estudos-0'],
+      ['n1', 'estudos-1'],
+    ]);
+    expect(study).toHaveBeenCalledOnceWith('Trabalho', 'Estudos');
+  });
+
+  it('levar sem pasta escolhida deixa as soltas na raiz; uma pasta que não é do grupo novo vale como a raiz', async () => {
+    const reun = withMeetings();
+    await edits.deleteCategory('Trabalho', { kind: 'levar', to: 'Estudos', folder: reun.id });
+    expect(folders.tree().of(byId('n1'))).toBeNull();
+    expect(folders.tree().kids('estudos', null).map((x) => x.name)).toEqual(['Reuniões']);
+  });
+
+  it('levar para ele mesmo, para nada ou para um grupo compartilhado em que você só lê não muda nada', async () => {
+    expect((await edits.deleteCategory('Trabalho', { kind: 'levar', to: 'TRABALHO', folder: null })).ok).toBeFalse();
+    expect((await edits.deleteCategory('Trabalho', { kind: 'levar', to: '  ', folder: null })).ok).toBeFalse();
+    const groups = TestBed.inject(SharedGroupsStore);
+    spyOn(groups, 'ofCategory').and.callFake((c) => (c === 'Casa' ? ({ id: 'gCasa0000001', papel: 'leitor', dono: { nome: 'Ana' } } as unknown as SharedGroup) : undefined));
+    const r = await edits.deleteCategory('Trabalho', { kind: 'levar', to: 'Casa', folder: null });
+    expect(r).toEqual(jasmine.objectContaining({ ok: false, error: 'Em Casa você só lê: escolha outro grupo.' }));
+    // num grupo compartilhado de outra pessoa (mesmo escrevendo nele), não: o nome dele viraria outro
+    (groups.ofCategory as jasmine.Spy).and.callFake((c: string) => (c === 'Casa' ? ({ id: 'gCasa0000001', papel: 'editor', dono: { nome: 'Ana' } } as unknown as SharedGroup) : undefined));
+    expect(await edits.deleteCategory('Trabalho', { kind: 'levar', to: 'Casa', folder: null })).toEqual(jasmine.objectContaining({ ok: false, error: 'Casa é de Ana: leve para um grupo seu.' }));
+    expect(store.notes().map((x) => x.category)).toEqual(['Trabalho', 'Trabalho', 'Estudos']);
+  });
+
+  it('apagar tudo: as anotações, as pastas, o quadro, a cor das tags e as tags escondidas; as compartilhadas pelas regras do apagar em massa', async () => {
+    withMeetings();
+    store.add({ ...note('n4', 'Trabalho'), id: 'n4' });
+    settings.setTagColor('Bug', 'rosa', 'Trabalho');
+    settings.setNotesConfig({ hiddenTags: [tagLookKey('bug', 'trabalho')] });
+    kanban.state.set({ boards: [board('trabalho', [{ note: 'n1', column: 'trabalho-0', importance: null }])], removed: {}, legacy: [] });
+    const shared = TestBed.inject(SharedStore);
+    const entries: Record<string, unknown> = {
+      n2: { id: 'n2', papel: 'dono', grupo: null, criadoPor: null },
+      n4: { id: 'n4', papel: 'editor', grupo: null, criadoPor: null },
+    };
+    spyOn(shared, 'get').and.callFake(((id: string) => entries[id]) as never);
+    // (a nuvem tira a compartilhada do mural)
+    const gone = async (id: string) => store.reviews.update((l) => l.filter((x) => x.id !== id));
+    const forAll = spyOn(shared, 'deleteForAll').and.callFake(gone);
+    const leave = spyOn(shared, 'leave').and.callFake(gone);
+    const r = await edits.deleteCategory('Trabalho', { kind: 'apagar' });
+    expect(r).toEqual(jasmine.objectContaining({ ok: true, removed: 3, moved: 0, failed: null }));
+    expect(forAll).toHaveBeenCalledOnceWith('n2');
+    expect(leave).toHaveBeenCalledOnceWith('n4');
+    expect(store.get('n1')).toBeUndefined();
+    expect(folders.tree().kids('trabalho', null)).toEqual([]);
+    expect(settings.tagColor('bug', 'Trabalho')).toBeUndefined();
+    expect(settings.tagColor('bug', '')).toBeUndefined();
+    expect(settings.notesConfig().hiddenTags).toEqual([]);
+    expect(kanban.get(boardIdFor('trabalho'))).toBeUndefined();
+  });
+
+  it('apagar tudo solta as tags fixas que sumiram; as pastas ficam quando a nuvem não tirou uma compartilhada', async () => {
+    withMeetings();
+    store.add({ ...note('n5', 'Trabalho', ['Sprint']), id: 'n5' });
+    settings.togglePinnedTag('Bug');
+    settings.togglePinnedTag('Sprint');
+    const shared = TestBed.inject(SharedStore);
+    spyOn(shared, 'get').and.callFake(((id: string) => (id === 'n2' ? { id: 'n2', papel: 'dono', grupo: null, criadoPor: null } : undefined)) as never);
+    spyOn(shared, 'deleteForAll').and.rejectWith(new Error('fora do ar'));
+    const r = await edits.deleteCategory('Trabalho', { kind: 'apagar' });
+    expect(r).toEqual(jasmine.objectContaining({ ok: true, removed: 2, failed: 'Não deu para falar com a nuvem agora.' }));
+    // a Bug ainda está em Estudos ("bug"): continua fixa; a Sprint, só em Trabalho, solta
+    expect(settings.pinnedTags()).toEqual(['Bug']);
+    expect(folders.tree().kids('trabalho', null).map((x) => x.name)).toEqual(['Reuniões']);
+    expect(folders.tree().of(byId('n2'))).not.toBeNull();
+  });
+
+  it('um grupo compartilhado: quem não é o dono não apaga; o dono para de compartilhar antes, e o quadro do grupo fica', async () => {
+    const groups = TestBed.inject(SharedGroupsStore);
+    let papel = 'editor';
+    spyOn(groups, 'ofCategory').and.callFake((c) => (c === 'Trabalho' ? ({ id: 'gTrab0000001', papel, dono: { nome: 'Ana' } } as unknown as SharedGroup) : undefined));
+    const groupBoard = board('trabalho', [{ note: 'n1', column: 'trabalho-0', importance: null }]);
+    const stop = spyOn(groups, 'stop').and.resolveTo(groupBoard);
+    const no = await edits.deleteCategory('Trabalho', { kind: 'soltar' });
+    expect(no).toEqual(jasmine.objectContaining({ ok: false, error: 'Trabalho é de Ana: para tirá-lo do seu mural, saia do grupo.' }));
+    expect(stop).not.toHaveBeenCalled();
+    papel = 'dono';
+    const keep = spyOn(kanban, 'keep').and.callThrough();
+    const r = await edits.deleteCategory('Trabalho', { kind: 'levar', to: 'Estudos', folder: null });
+    expect(stop).toHaveBeenCalledOnceWith('gTrab0000001');
+    expect(keep).toHaveBeenCalledOnceWith(groupBoard);
+    expect(r.ok).toBeTrue();
+    expect(kanban.boardFor('Estudos').cards.map((c) => c.note)).toEqual(['n1']);
+  });
+
+  it('a nuvem falhou ao parar de compartilhar: nada muda aqui', async () => {
+    const groups = TestBed.inject(SharedGroupsStore);
+    spyOn(groups, 'ofCategory').and.callFake((c) => (c === 'Trabalho' ? ({ id: 'gTrab0000001', papel: 'dono', dono: { nome: 'Eu' } } as unknown as SharedGroup) : undefined));
+    spyOn(groups, 'stop').and.rejectWith(new Error('fora do ar'));
+    const r = await edits.deleteCategory('Trabalho', { kind: 'apagar' });
+    expect(r).toEqual(jasmine.objectContaining({ ok: false, error: 'Não deu para parar de compartilhar agora. Tente de novo.' }));
+    expect(store.notes().length).toBe(3);
   });
 });
