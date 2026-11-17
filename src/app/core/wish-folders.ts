@@ -101,6 +101,11 @@ export class WishFolders {
     return this.folders.join(from, into);
   }
 
+  /** Apaga as pastas com tudo o que tinham (os recortes de dentro saem por quem chama), com o Desfazer. */
+  drop(ids: readonly string[]): () => void {
+    return this.folders.drop(ids);
+  }
+
   dissolve(id: string): () => void {
     return this.folders.dissolve(id);
   }

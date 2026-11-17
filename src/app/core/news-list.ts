@@ -27,12 +27,24 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-17-grupo-dela-nome',
+    id: '2026-11-17-pastas-para-outro-grupo',
+    version: '1.49.0',
+    kind: 'funcionalidade',
+    date: '2026-11-17',
+    title: 'Levar pastas para outro grupo',
+    items: [
+      'Marque pastas nas Anotações e, no Editar das marcadas, troque o Grupo: elas vão para o grupo novo com tudo o que está dentro (as pastas de dentro e as anotações, que continuam nelas), na raiz dele ou na pasta escolhida. A que encontra lá uma pasta de mesmo nome vira uma só com ela, e o Desfazer volta tudo.',
+    ],
+  },
+  {
+    id: '2026-11-17-marcar-pastas',
     version: '1.48.1',
     kind: 'ajustes',
     date: '2026-11-17',
-    title: 'Apagar um grupo escolhendo para onde vai o que está nele',
+    title: 'Apagar um grupo escolhendo o destino, e pastas marcadas junto com as anotações',
     melhorias: [
+      'Na galeria de pixel arts e na Wishlist, também: as pastas se marcam junto com as obras e os recortes, e a Wishlist ganhou o Marcar (na barra, ou Ctrl+clique e Shift+clique nos recortes), com mover, copiar, tirar da wishlist e a vontade de todos os marcados de uma vez. Na galeria, as marcadas continuam marcadas ao abrir outra pasta.',
+      'As pastas das Anotações também se marcam (Ctrl+clique, Shift+clique ou o Marcar do menu delas), junto com as anotações: arrastar uma marcada, ou o Mover para pasta da tira, leva as pastas, com tudo o que está dentro, e as anotações de uma vez, e soltar sobre outra anotação cria uma pasta com tudo. Marcando, dois toques abrem a pasta. O Copiar e o Editar valem também para as anotações de dentro das pastas marcadas, e o Apagar pergunta se as pastas saem com tudo ou se só se desfazem.',
       'Apagar um grupo (Configurações do mural › Grupos) pergunta o que fazer com o que está nele: deixar sem grupo, numa pasta "Grupo deletado: nome" com as pastas dele dentro; levar tudo para outro grupo em que você escreve (até um compartilhado de outra pessoa), até para dentro de uma pasta dele (ou uma nova), com o quadro do Kanban, os baralhos e os quadros livres; ou apagar tudo. A folha diz o que acontece em cada um, com os números.',
       'Num grupo compartilhado de outra pessoa, o botão virou Sair do grupo, que leva à parte Compartilhar.',
     ],

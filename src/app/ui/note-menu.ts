@@ -15,7 +15,7 @@ import { SharedStore } from '../core/shared-store';
 import { readText } from '../core/storage';
 import { ContextMenu, ContextMenuTrigger, MenuBy, MenuItem, MenuSections } from './context-menu';
 import { ICON } from './icons';
-import { COPY_KEY, NoteSelection } from './note-selection';
+import { NoteSelection, copyMarkedItem } from './note-selection';
 import { Toasts } from './toast';
 // só usada dentro do @defer do molde, e num import só dela: a folha de compartilhar chega num pedaço à parte
 import { ShareSheet } from './share-sheet';
@@ -140,10 +140,10 @@ export class NoteMenu {
     if (!this.secret().has(id) && (note || mine)) {
       copy.push({ id: 'copiar', label: 'Copiar o conteúdo', icon: ICON.copiar, hint: 'O título e o texto, sem as marcas', run: () => void this.copy(r) });
     }
-    // a anotação é uma das marcadas (Ctrl+clique): copiar todas, como o Ctrl+C
-    const marked = sel?.marking() ? sel.ids() : [];
-    if (sel && marked.length > 1 && marked.includes(id)) {
-      copy.push({ id: 'copiar-marcadas', label: `Copiar as ${marked.length} marcadas`, icon: ICON.camadas, keys: COPY_KEY, ariaKeys: COPY_KEY === '⌘C' ? 'Meta+C' : 'Control+C', run: () => void sel.copy() });
+    // a anotação é uma das marcadas (Ctrl+clique): copiar todas, como o Ctrl+C (com as de dentro das pastas marcadas)
+    const marked = sel?.marking() ? sel.count() : 0;
+    if (sel && marked > 1 && sel.has(id)) {
+      copy.push(copyMarkedItem(sel));
     }
     const code = this.linkCode(r, entry);
     // (a ficha em segredo de quem se visita não dá nada dela, nem o link)

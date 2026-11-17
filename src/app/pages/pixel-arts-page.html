@@ -276,8 +276,10 @@
 @if (marking()) {
   <app-selection-tray
     [count]="selection.count()"
+    [folders]="selection.folders().length"
+    [units]="['pixel art', 'pixel arts']"
     [hidden]="hiddenMarked()"
-    hint="Toque nas pixel arts para marcar"
+    [hint]="folderKids().length ? 'Toque nas pixel arts e nas pastas para marcar; dois toques abrem a pasta' : 'Toque nas pixel arts para marcar'"
     label="Pixel arts marcadas"
     [words]="['marcada', 'marcadas']"
     [actions]="trayActions()"

@@ -28,9 +28,11 @@
 
   @if (side.picking()) {
     <app-selection-tray
-      [count]="marks().length"
+      [count]="board()?.selection?.count() ?? 0"
+      [folders]="markedFolders().length"
+      [units]="['anotação', 'anotações']"
       [hidden]="hiddenMarks()"
-      [hint]="notes() ? 'Toque nas anotações para marcar' : 'Toque nas fichas que vão pro lado a lado'"
+      [hint]="trayHint()"
       [label]="notes() ? 'Anotações marcadas' : 'Marcando fichas pra ver lado a lado'"
       [actions]="trayActions()"
       (clear)="flow.clear()"
@@ -40,7 +42,14 @@
 
   @if (flow.editing(); as ids) {
     @defer (on immediate) {
-      <app-bulk-edit-sheet [notes]="flow.editingNotes()" place="mural" (apply)="bulk.run(ids, $event)" (act)="bulk.act(ids, $event)" (closed)="flow.editing.set(null)" />
+      <app-bulk-edit-sheet
+        [notes]="flow.editingNotes()"
+        [marks]="flow.editingMarks()"
+        place="mural"
+        (apply)="bulk.run(ids, $event, undefined, flow.editingMarks() ?? undefined)"
+        (act)="bulk.act(ids, $event, flow.editingMarks() ?? undefined)"
+        (closed)="flow.editing.set(null)"
+      />
     }
   }
 }

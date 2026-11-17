@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, input, output } from '@angular/core';
+import { marksLabel } from '../core/folder-marks';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, IconModule } from './icons';
 
@@ -33,8 +34,8 @@ export interface TrayAction {
       <p class="conta" aria-live="polite">
         @if (count(); as n) {
           <strong>{{ n }}</strong> {{ n === 1 ? words()[0] : words()[1] }}
-          @if (hidden(); as h) {
-            <span class="fora">{{ h === 1 ? '1 fora da vista' : h + ' fora da vista' }}</span>
+          @if (detail(); as d) {
+            <span class="fora">{{ d }}</span>
           }
         } @else {
           {{ hint() }}
@@ -250,6 +251,18 @@ export class SelectionTray {
   /** "marcada" e "marcadas" (nos Flashcards, "marcado" e "marcados"). */
   readonly words = input<readonly [string, string]>(['marcada', 'marcadas']);
   readonly actions = input<readonly TrayAction[]>([]);
+  /** Quantas das marcadas são pastas (PLANO-MARCAR-PASTAS.md, D3): a tira diz quantas de cada. */
+  readonly folders = input(0);
+  /** O que as outras marcadas são, no singular e no plural ("anotação", "recorte"…), para dizer quantas de cada. */
+  readonly units = input<readonly [string, string]>(['ficha', 'fichas']);
+  /** Ao lado da conta: quantas de cada (com pastas marcadas) e quantas estão fora da vista. */
+  protected readonly detail = computed(() => {
+    const f = this.folders();
+    const n = this.count() - f;
+    const kinds = f ? marksLabel(f, n, this.units()) : '';
+    const h = this.hidden();
+    return [kinds, h ? `${h} fora da vista` : ''].filter(Boolean).join(' · ');
+  });
   /** Limpar: desmarca tudo, continuando a marcar. */
   readonly clear = output<void>();
   /** Pronto: sai do modo de marcar. */

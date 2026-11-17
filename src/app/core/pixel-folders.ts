@@ -96,6 +96,14 @@ export class PixelFolders {
     return this.folders.dissolve(id);
   }
 
+  /** Apaga as pastas com tudo o que tinham (as obras de dentro saem por quem chama), com o Desfazer. */
+  drop(ids: readonly string[]): () => void {
+    return this.folders.drop(ids);
+  }
+
+  /** As pastas vivas da galeria (as que se marcam, PLANO-MARCAR-PASTAS.md). */
+  readonly live = computed<ReadonlySet<string>>(() => new Set(this.tree().all.flatMap((f) => (f.group === this.group && !f.gone ? [f.id] : []))));
+
   /** Quantas obras e pastas a pasta tem logo dentro (o que sobe ao desfazê-la). */
   contentsOf(id: string): { notes: number; folders: number } {
     const f = this.tree().live(id);

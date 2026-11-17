@@ -19,7 +19,14 @@
     </header>
 
     <div class="body">
-      <p class="vale" [id]="id + '-vale'">O que você mudar aqui vale para {{ allOf() }}. O resto de {{ masc() ? 'cada um' : 'cada uma' }} fica como está.</p>
+      @if (withFolders(); as who) {
+        <!-- com pastas marcadas: vale também para as de dentro, e a Pasta e o Grupo levam as pastas inteiras -->
+        <p class="vale" [id]="id + '-vale'">
+          O que você mudar aqui vale para {{ allOf() }}: {{ who }}. A Pasta e o Grupo levam as pastas inteiras, com o que está dentro. O resto de cada uma fica como está.
+        </p>
+      } @else {
+        <p class="vale" [id]="id + '-vale'">O que você mudar aqui vale para {{ allOf() }}. O resto de {{ masc() ? 'cada um' : 'cada uma' }} fica como está.</p>
+      }
 
       <!-- primeiro, o "Mostrar no mural" das abas Flashcard e Kanban do editor (onde quer que a folha abra, das
            marcadas que são flashcards ou estão no quadro) e a importância no quadro -->
@@ -215,7 +222,8 @@
                     [group]="groupKey()"
                     [groupName]="finalGroup() || 'Sem grupo'"
                     [counts]="folderCounts()"
-                    rootLabel="Sem pasta"
+                    [blocked]="folderBlocked()"
+                    [rootLabel]="markedFolders().length ? 'Direto em ' + (finalGroup() || 'Sem grupo') : 'Sem pasta'"
                     label="Pasta das marcadas"
                     (create)="createFolder($event)"
                   />

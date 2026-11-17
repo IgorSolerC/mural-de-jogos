@@ -1,5 +1,6 @@
 import { Signal, computed, inject, signal } from '@angular/core';
 import { Review } from '../core/review';
+import type { FolderMarksOf } from '../core/note-bulk';
 import { ICON } from './icons';
 import { COPY_KEY, NoteSelection } from './note-selection';
 import { TrayAction } from './selection-tray';
@@ -14,8 +15,10 @@ import { Toasts } from './toast';
 export class SelectionFlow {
   private readonly toasts = inject(Toasts);
 
-  /** As marcadas quando a folha abriu (null: fechada). */
+  /** As marcadas quando a folha abriu (null: fechada); com pastas marcadas, também as de dentro delas. */
   readonly editing = signal<readonly string[] | null>(null);
+  /** As pastas marcadas quando a folha abriu (PLANO-MARCAR-PASTAS.md, D9), ou null sem pastas. */
+  readonly editingMarks = signal<FolderMarksOf | null>(null);
   /** As da folha aberta, como estão agora. */
   readonly editingNotes: Signal<Review[]>;
 
@@ -26,6 +29,8 @@ export class SelectionFlow {
   constructor(
     private readonly selection: () => NoteSelection | null | undefined,
     notes: () => ReadonlyMap<string, Review>,
+    /** Com pastas marcadas: as anotações da folha (as marcadas e as de dentro) e as pastas (só as páginas com pastas). */
+    private readonly expand?: () => { ids: readonly string[]; marks: FolderMarksOf } | null,
   ) {
     this.editingNotes = computed(() => {
       const byId = notes();
@@ -35,7 +40,20 @@ export class SelectionFlow {
 
   /** Abre a folha (a tira e o menu de uma marcada). */
   readonly open = (): void => {
-    const ids = this.selection()?.ids() ?? [];
+    const sel = this.selection();
+    const more = sel?.folders().length ? this.expand?.() : null;
+    if (more) {
+      // (só pastas vazias: não há anotação para a folha mudar)
+      if (!more.ids.length) {
+        this.toasts.show(more.marks.folders.length === 1 ? 'A pasta marcada está vazia: não há anotação para editar.' : 'As pastas marcadas estão vazias: não há anotação para editar.');
+        return;
+      }
+      this.editingMarks.set(more.marks);
+      this.editing.set([...more.ids]);
+      return;
+    }
+    const ids = sel?.ids() ?? [];
+    this.editingMarks.set(null);
     if (ids.length) this.editing.set([...ids]);
   };
 

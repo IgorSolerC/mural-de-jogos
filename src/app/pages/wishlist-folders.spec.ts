@@ -163,7 +163,7 @@ describe('as pastas na Wishlist', () => {
   it('o menu da pasta: Nova pasta dentro já com o nome para escrever, e Desfazer a pasta sobe o que tinha', async () => {
     await mount();
     await rightClick(() => host.querySelector(`app-folder-card[data-pasta="${coop}"]`)!);
-    expect(labels()).toEqual(['Abrir', 'Adicionar um jogo aqui', 'Nova pasta dentro', 'Renomear', 'Mover para…', 'Desfazer a pasta']);
+    expect(labels()).toEqual(['Abrir', 'Marcar', 'Adicionar um jogo aqui', 'Nova pasta dentro', 'Renomear', 'Mover para…', 'Desfazer a pasta']);
     option('Renomear').click();
     await settle();
     const name = host.querySelector<HTMLInputElement>(`app-folder-card[data-pasta="${coop}"] input`)!;

@@ -112,7 +112,7 @@ export class Confirm {
   choose(options: ChoiceOptions): Promise<Choice> {
     this.current()?.resolve(null);
     return new Promise((resolve) =>
-      this.open({ title: 'O que fazer?', cancel: 'Agora não', icon: null, ...options, check: null, tone: 'neutro', id: ++this.seq, resolve }),
+      this.open({ title: 'O que fazer?', cancel: 'Agora não', icon: null, ...options, check: null, tone: options.tone ?? 'neutro', id: ++this.seq, resolve }),
     );
   }
 

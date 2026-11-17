@@ -11,7 +11,7 @@ import { FolderCard } from '../ui/folder-card';
 import { FolderMoveSheet } from '../ui/folder-move-sheet';
 import { FolderPath } from '../ui/folder-path';
 import { Pin } from '../ui/pin';
-import { WallDrag, WallDragItem, WallDrop } from './wall-drag';
+import { WallDrag, WallDragItem, WallDrop, grabOf } from './wall-drag';
 import { ICON, IconModule } from '../ui/icons';
 import { collage, placeFor, shelfColumns } from '../core/clipping';
 import { Desk } from '../core/desk';
@@ -55,6 +55,14 @@ import { WishActions } from '../ui/wish-actions';
 import { WishNote } from '../ui/wish-note';
 import { WishTags } from '../ui/wish-tags';
 import { reducedMotion } from '../core/motion';
+import { FOLDER_MARK, NoteSelection, copyMarkedItem, insideWords } from '../ui/note-selection';
+import { SelectionTray, TrayAction } from '../ui/selection-tray';
+import { foldersRemovalAsk, joinMarked, markedTops, marksLabel, moveMarked, movedText } from '../core/folder-marks';
+import { notesAsText } from '../core/note-copy';
+import { Confirm } from '../ui/confirm';
+
+/** O que mora na Wishlist, no singular e no plural (as contas dos marcados). */
+const WISH_WORDS = ['recorte', 'recortes'] as const;
 
 
 /**
@@ -74,9 +82,9 @@ import { reducedMotion } from '../core/motion';
  */
 @Component({
   selector: 'app-wishlist-page',
-  imports: [ContextMenu, Pin, FilterCard, FilterTags, FolderCard, FolderMoveSheet, FolderPath, IconModule, SearchHighlight, SearchStrip, WishActions, WishClip, WishCover, WishNote, WishTags],
+  imports: [ContextMenu, Pin, FilterCard, FilterTags, FolderCard, FolderMoveSheet, FolderPath, IconModule, SearchHighlight, SearchStrip, SelectionTray, WishActions, WishClip, WishCover, WishNote, WishTags],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { '(document:keydown.escape)': 'onEscape()', '[class.com-sorteio]': 'winner()' },
+  host: { '(document:keydown.escape)': 'onEscape()', '[class.com-sorteio]': 'winner()', '[class.com-tira]': 'marking()' },
   template: `
     <!-- o nome e a contagem estão no índice embaixo do topo (ui/area-bar.ts) -->
     <h1 class="sr-only">Wishlist</h1>
@@ -159,6 +167,21 @@ import { reducedMotion } from '../core/motion';
                   <lucide-icon [img]="v.icon" [size]="18" aria-hidden="true" />
                 </button>
               }
+            </div>
+
+            <!-- marcar vários para mover, copiar ou tirar juntos (no toque, o jeito de marcar sem o Ctrl) -->
+            <div class="pasta-grupo">
+              <button
+                type="button"
+                class="tinta"
+                [attr.aria-pressed]="marking()"
+                (click)="toggleMarking()"
+                aria-label="Marcar recortes"
+                title="Marcar recortes e pastas para mover, copiar ou tirar juntos (ou Ctrl+clique e Shift+clique neles)"
+              >
+                <lucide-icon [img]="MarkIcon" [size]="18" aria-hidden="true" />
+                <span aria-hidden="true">Marcar</span>
+              </button>
             </div>
 
             <div class="pasta-grupo">
@@ -367,6 +390,22 @@ import { reducedMotion } from '../core/motion';
       </section>
     }
 
+    <!-- marcando: a tira no pé da tela, com o que fazer com os marcados (PLANO-MARCAR-PASTAS.md, rodada 5) -->
+    @if (marking()) {
+      <app-selection-tray
+        [count]="selection.count()"
+        [folders]="selection.folders().length"
+        [units]="['recorte', 'recortes']"
+        [hidden]="hiddenMarked()"
+        [hint]="folderKids().length ? 'Toque nos recortes e nas pastas para marcar; dois toques abrem a pasta' : 'Toque nos recortes para marcar'"
+        label="Recortes marcados"
+        [words]="['marcado', 'marcados']"
+        [actions]="trayActions()"
+        (clear)="selection.clear()"
+        (done)="selection.done()"
+      />
+    }
+
     <!-- o menu do site: o do recorte (o botão direito, o dedo segurado, Shift+F10: começar a resenha, as
          vontades, tirar da wishlist) e o do Vontade da etiqueta (só as vontades, com os adesivos) -->
     <app-context-menu #menu [caption]="menuWish()?.game?.name ?? ''" [note]="menuNote()" [sections]="menuSections()" (closed)="menuOn.set(null)" />
@@ -397,9 +436,25 @@ import { reducedMotion } from '../core/motion';
     @use '../ui/arrasto';
     @use '../ui/caderno';
     @use '../ui/sem-resultados' as sem;
+    @use '../ui/marcada' as marca;
 
     :host {
       display: block;
+    }
+
+    /* ===== Marcado (ui/note-selection.ts): o tracejado de giz e o adesivo com a ordem, os das pixel arts ===== */
+    .desejo[data-marcada] > app-wish-clip,
+    app-wish-cover[data-marcada] {
+      @include marca.marcada($inset: -9px, $raio: 6px, $topo: -18px, $direita: -16px);
+    }
+    /* marcando, o toque marca: a etiqueta de hover sairia por cima do adesivo com o número */
+    .desejo[data-marcada] app-wish-actions,
+    app-wish-cover[data-marcada] ::ng-deep app-wish-actions {
+      display: none;
+    }
+    /* com a tira no pé, sobra chão embaixo para ela não esconder a última fileira */
+    :host(.com-tira) {
+      padding-bottom: 150px;
     }
 
     /* ===== As pastas (as das Anotações) e o arrastar (pages/wall-drag.ts) ===== */
@@ -739,6 +794,7 @@ export class WishlistPage {
   protected readonly AscIcon = ICON.ordenarCrescente;
   protected readonly orders = WISH_ORDERS;
   protected readonly CloseIcon = ICON.fechar;
+  protected readonly MarkIcon = ICON.marcado;
   protected readonly views: readonly { value: WishView; label: string; hint: string; icon: typeof ICON.grade }[] = [
     { value: 'recortes', label: 'Recortes', hint: 'Recortes: a colagem', icon: ICON.tesoura },
     { value: 'grade', label: 'Grade', hint: 'Grade: muitas capas de uma vez', icon: ICON.grade },
@@ -921,14 +977,20 @@ export class WishlistPage {
     const w = this.menuWish();
     if (!w) return [];
     if (this.menuOn()?.only === 'vontade') return [this.vontadeItems(w, true)];
+    const on = this.selection.has(w.id);
+    const many = this.marking() && on && this.selection.count() > 1;
     return [
+      ...this.markedItems(w.id, false),
       [
         { id: 'comecar', label: 'Começar a resenha', icon: ICON.editar, dialog: true, run: () => this.startDrawn(w) },
         { id: 'editar', label: 'Editar', icon: ICON.ajustar, dialog: true, run: () => this.edit(w) },
+        // marcar vários (no toque, o jeito de marcar sem o Ctrl)
+        { id: 'marcar', label: on ? 'Desmarcar' : 'Marcar', icon: on ? ICON.desmarcado : ICON.marcado, hint: on ? undefined : 'Para mover, copiar ou tirar vários juntos', run: () => this.selection.toggle(w.id) },
       ],
-      this.vontadeItems(w),
+      // marcado com outros: a vontade vale para todos os marcados (e os de dentro das pastas marcadas)
+      many ? this.vontadeItems(w).map((x) => ({ ...x, on: false, hint: `Para os ${this.selection.copied().items.length} marcados`, run: () => this.setRelevanceMany(this.selection.copied().items, x.id as Relevance) })) : this.vontadeItems(w),
       this.folderItems(w),
-      [{ id: 'tirar', label: 'Tirar da wishlist', icon: ICON.apagar, danger: true, run: () => this.remove(w.id) }],
+      [many ? { id: 'tirar', label: `Tirar os ${this.selection.count()} marcados`, icon: ICON.apagar, danger: true, run: () => void this.removeMarked() } : { id: 'tirar', label: 'Tirar da wishlist', icon: ICON.apagar, danger: true, run: () => this.remove(w.id) }],
     ];
   });
   /** Os desejos que a busca achou só pela descrição: a folha do caderno fica aberta neles. */
@@ -941,6 +1003,31 @@ export class WishlistPage {
   constructor() {
     const host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
     this.host = host;
+    // marcar vários (PLANO-MARCAR-PASTAS.md, rodada 5): a peça das Anotações e das pixel arts, com os recortes e as pastas
+    this.selection = new NoteSelection<Wish>({
+      host,
+      markable: '.desejo[data-ficha], app-wish-cover[data-ficha]',
+      idOf: (el) => el.getAttribute('data-ficha'),
+      on: () => true,
+      notes: () => this.wishById(),
+      // outro mural: os marcados eram de outra Wishlist
+      reset: () => this.mural.kind(),
+      layout: () => [this.visible(), this.prefs().vista, this.folderKids()],
+      drags: true,
+      mode: this.marking,
+      folders: {
+        markable: 'app-folder-card[data-pasta]',
+        idOf: (el) => el.getAttribute('data-pasta'),
+        live: this.liveFolders,
+        open: (id) => this.enterFolder(id),
+        inside: (id) => this.inside(id).map((w) => w.id),
+      },
+      // o Ctrl+C: o nome e a descrição de cada um, como as anotações
+      copy: (items, inside) => ({
+        text: notesAsText(items.map((w) => ({ game: w.game, text: w.note ?? '' }))),
+        done: `${items.length === 1 ? 'Copiei o recorte' : `Copiei os ${items.length} recortes`}${insideWords(inside, items.length, this.selection.folders().length)}.`,
+      }),
+    });
     const wishTrigger = new ContextMenuTrigger({
       host,
       targets: '.desejo[data-ficha], app-wish-cover[data-ficha]',
@@ -977,7 +1064,8 @@ export class WishlistPage {
     const drag = new WallDrag({
       host,
       on: () => this.dragOn(),
-      marked: () => [],
+      marked: () => this.selection.ids(),
+      markedFolders: () => this.selection.folders(),
       openFolder: () => this.openFolder(),
       groupName: () => 'Wishlist',
       folderName: (id) => this.folderTree().live(id)?.name ?? null,
@@ -987,8 +1075,9 @@ export class WishlistPage {
       drop: (item, to) => this.dropped(item, to),
       open: (id) => this.enterFolder(id),
       menu: (item, box, x, y) => {
-        if (item.kind === 'pasta') folderTrigger.openAt(`pasta:${item.id}`, x, y, box);
-        else wishTrigger.openAt(item.lead, x, y, box);
+        const grab = grabOf(item);
+        if (grab.kind === 'pasta') folderTrigger.openAt(`pasta:${grab.id}`, x, y, box);
+        else wishTrigger.openAt(grab.id, x, y, box);
       },
       scope: () => host.querySelector('.recortes, .grade, .pastas'),
       gap: '.recortes, .grade, .pastas, .no-results',
@@ -998,10 +1087,15 @@ export class WishlistPage {
         // só o papel do recorte (sem as tags e o lembrete de baixo); a capa da Grade inteira
         face: (el) => (el.matches('app-wish-cover') ? el : (el.querySelector<HTMLElement>('app-wish-clip') ?? el)),
         joinLabel: (n) => (n === 1 ? 'Nova pasta com os dois' : `Nova pasta com os ${n + 1}`),
+        units: WISH_WORDS,
         core: 0.6,
       },
     });
     this.destroyRef.onDestroy(() => drag.off());
+    // marcar fecha o sorteio: o bilhete e a tira moram no mesmo pé da tela
+    effect(() => {
+      if (this.marking()) untracked(() => this.drawn.set(null));
+    });
     // a pasta aberta mora no endereço (o Voltar do navegador sobe), e o "Pôr na wishlist" nasce nela
     this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((q) => this.asked.set(q.get('pasta')));
     effect(() => {
@@ -1181,6 +1275,8 @@ export class WishlistPage {
   protected readonly drawPool = computed(() => (this.filtering() ? this.visible() : this.pool()));
 
   protected draw(): void {
+    // (o bilhete e a tira moram no mesmo pé da tela: sortear sai de marcar)
+    if (this.marking()) this.selection.done();
     const pool = this.drawPool().filter((w) => w.id !== this.drawn());
     if (!pool.length) return;
     const w = pool[Math.floor(Math.random() * pool.length)];
@@ -1275,6 +1371,31 @@ export class WishlistPage {
    */
   private dropped(item: WallDragItem, to: WallDrop): void {
     const kind = this.mural.kind();
+    if (item.kind === 'varios') {
+      // os marcados com pastas no meio (PLANO-MARCAR-PASTAS.md, D6)
+      this.transitions.run(() => {
+        if (to.kind === 'juntar') {
+          const made = joinMarked((ids) => this.folders.gather(ids, kind, this.openFolder()), this.folders, [...item.ids, to.with], item.folders);
+          if (!made) {
+            this.toasts.show('Não cabe mais nenhuma pasta aqui.');
+            return;
+          }
+          this.selection.done();
+          this.naming.set(made.folder.id);
+          this.undoToast(`Nova pasta com ${marksLabel(made.folders, item.ids.length + 1, WISH_WORDS)}.`, made.undo);
+          return;
+        }
+        const done = moveMarked(this.folders, { folders: item.folders, items: item.ids }, to.folder);
+        const said = movedText(done, WISH_WORDS, to.folder ? this.folderName(to.folder) : 'a Wishlist', to.folder !== null, true);
+        if (!said.moved) {
+          this.toasts.show(said.text);
+          return;
+        }
+        this.selection.done();
+        this.undoToast(said.text, done.undo);
+      });
+      return;
+    }
     if (to.kind === 'juntar') {
       if (item.kind !== 'notas') return;
       const ids = [...item.ids, to.with];
@@ -1298,7 +1419,7 @@ export class WishlistPage {
       });
       return;
     }
-    const one = this.mural.wishes().find((w) => w.id === item.lead)?.game.name ?? 'O recorte';
+    const one = this.mural.wishes().find((w) => w.id === grabOf(item).id)?.game.name ?? 'O recorte';
     this.transitions.run(() => {
       const done = this.folders.place(item.ids, to.folder);
       if (!done.moved) return;
@@ -1357,7 +1478,8 @@ export class WishlistPage {
   private folderSections(f: NoteFolder): MenuSections {
     const p = this.mural.profile();
     return [
-      [{ id: 'abrir', label: 'Abrir', icon: ICON.pastaDeNotas, run: () => this.enterFolder(f.id) }],
+      ...this.markedItems(f.id, true),
+      [{ id: 'abrir', label: 'Abrir', icon: ICON.pastaDeNotas, run: () => this.enterFolder(f.id) }, this.markFolderItem(f.id)],
       [
         {
           id: 'novo-desejo',
@@ -1377,6 +1499,19 @@ export class WishlistPage {
     ];
   }
 
+  /** Marcar ou desmarcar a pasta, no menu dela (no toque, o jeito de marcar sem o Ctrl). */
+  private markFolderItem(id: string): MenuItem {
+    const on = this.selection.hasFolder(id);
+    return { id: 'marcar', label: on ? 'Desmarcar' : 'Marcar', icon: on ? ICON.desmarcado : ICON.marcado, hint: on ? undefined : 'Para mover, copiar ou tirar vários juntos', run: () => this.selection.toggleFolder(id) };
+  }
+
+  /** No alto do menu de um marcado (recorte ou pasta), com outros marcados: mover e copiar todos (PLANO-MARCAR-PASTAS.md, D11). */
+  private markedItems(id: string, folder: boolean): MenuSections {
+    const n = this.selection.count();
+    if (!this.marking() || n < 2 || !(folder ? this.selection.hasFolder(id) : this.selection.has(id))) return [];
+    return [[{ id: 'mover-marcados', label: `Mover os ${n} marcados…`, icon: ICON.guardarNaPasta, dialog: true, run: () => this.moveMarked() }, { ...copyMarkedItem(this.selection), label: `Copiar os ${n} marcados` }]];
+  }
+
   /** O menu do vão da parede: pôr um recorte ou criar uma pasta ali. */
   private gapSections(): MenuSections {
     const p = this.mural.profile();
@@ -1388,8 +1523,116 @@ export class WishlistPage {
     ];
   }
 
-  /** O que está sendo movido pela folha: recortes, ou uma pasta. */
-  protected readonly moving = signal<{ kind: 'desejos'; ids: readonly string[]; name: string; from: string | null } | { kind: 'pasta'; id: string; name: string; from: string | null } | null>(null);
+  // ===== Marcar vários (PLANO-MARCAR-PASTAS.md, rodada 5): a seleção das Anotações, com a tira no pé =====
+
+  private readonly confirm = inject(Confirm);
+  /** Marcando: o toque marca em vez de começar a resenha (o botão Marcar da barra, ou o Ctrl+clique). */
+  protected readonly marking = signal(false);
+  readonly selection: NoteSelection<Wish>;
+  private readonly wishById = computed(() => new Map(this.mural.wishes().map((w) => [w.id, w])));
+  /** As pastas da Wishlist deste mural, vivas (as que se marcam). */
+  private readonly liveFolders = computed<ReadonlySet<string>>(() => {
+    const group = this.group();
+    return new Set(this.folderTree().all.flatMap((f) => (f.group === group && !f.gone ? [f.id] : [])));
+  });
+  /** Os recortes de uma pasta e das de dentro dela, na ordem da parede: o que vai junto com a pasta marcada. */
+  private inside(id: string): Wish[] {
+    const below = this.folderTree().below(id);
+    return sortWishes(
+      this.mural.wishes().filter((w) => below.has(this.whereIs(w.id) ?? '')),
+      this.prefs(),
+    );
+  }
+  /** Os marcados de cima (o que está dentro de uma pasta marcada vai com ela). */
+  private readonly markedTop = computed(() => markedTops(this.folderTree(), { folders: this.selection.folders(), items: this.selection.ids() }, (id) => this.whereIs(id)));
+  /** Os marcados que a busca, os filtros ou a pasta não mostram agora (as pastas também). */
+  protected readonly hiddenMarked = computed(() => {
+    const shown = new Set(this.visible().map((w) => w.id));
+    const kids = new Set(this.folderKids().map((f) => f.id));
+    return this.selection.ids().filter((id) => !shown.has(id)).length + this.selection.folders().filter((id) => !kids.has(id)).length;
+  });
+  /** O que a tira oferece: marcar todos os à mostra, copiar, tirar da wishlist e, de tinta, mover. */
+  protected readonly trayActions = computed<TrayAction[]>(() => {
+    const n = this.selection.count();
+    const shown = [...this.folderKids().map((f) => FOLDER_MARK + f.id), ...this.visible().map((w) => w.id)];
+    const all = shown.length > 0 && shown.every((k) => this.selection.has(k));
+    return [
+      { id: 'todas', label: 'Marcar todos', icon: ICON.marcado, disabled: all, hint: 'Os à mostra agora', run: () => this.selection.add(shown) },
+      { id: 'copiar', label: 'Copiar', icon: ICON.copiar, disabled: !n, hint: 'O nome e a descrição de cada um', run: () => void this.selection.copy() },
+      { id: 'tirar', label: 'Tirar da wishlist', icon: ICON.apagar, disabled: !n, danger: true, run: () => void this.removeMarked() },
+      { id: 'mover', label: 'Mover para pasta…', icon: ICON.guardarNaPasta, primary: true, run: () => this.moveMarked() },
+    ];
+  });
+
+  protected toggleMarking(): void {
+    if (this.marking()) this.selection.done();
+    else this.selection.start();
+  }
+
+  /** "Mover para pasta…" da tira e do menu de um marcado: a folha, com as pastas marcadas indo inteiras. */
+  private moveMarked(): void {
+    const tops = this.markedTop();
+    const n = tops.folders.length + tops.items.length;
+    if (!n) return;
+    const from = new Set([...tops.folders.map((id) => this.folderTree().parentOf(id)), ...tops.items.map((id) => this.whereIs(id))]);
+    if (tops.folders.length) {
+      this.moving.set({ kind: 'varios', ids: tops.items, folders: tops.folders, name: marksLabel(tops.folders.length, tops.items.length, WISH_WORDS), from: from.size === 1 ? [...from][0] : null });
+      return;
+    }
+    const one = this.wishById().get(tops.items[0]);
+    this.moving.set({ kind: 'desejos', ids: tops.items, name: n === 1 && one ? one.game.name : plural(n, 'recorte', 'recortes'), from: from.size === 1 ? [...from][0] : null });
+  }
+
+  /** A vontade escolhida no menu de um marcado vale para todos os marcados (e os de dentro das pastas marcadas). */
+  private setRelevanceMany(list: readonly Wish[], r: Relevance): void {
+    const changed = list.filter((w) => relevanceOf(w) !== r);
+    if (!changed.length) return;
+    const before = new Map(changed.map((w) => [w.id, relevanceOf(w)]));
+    this.transitions.run(() => changed.forEach((w) => this.store.setRelevance(w.id, r)));
+    this.toasts.show(`${plural(changed.length, 'recorte', 'recortes')} agora ${changed.length === 1 ? 'é' : 'são'} ${r === 'comum' ? 'Comum' : relevanceLabel(changed[0].kind, r)}`, {
+      label: 'Desfazer',
+      run: () => this.transitions.run(() => before.forEach((was, id) => this.store.setRelevance(id, was))),
+    });
+  }
+
+  /**
+   * Tirar da wishlist os marcados, com um Desfazer só; com pastas marcadas, a pergunta das pastas
+   * (PLANO-MARCAR-PASTAS.md, D10): elas saem com tudo o que está dentro, ou só se desfazem.
+   */
+  private async removeMarked(): Promise<void> {
+    const tops = this.markedTop();
+    const nf = tops.folders.length;
+    const all = this.selection.copied().items.map((w) => w.id);
+    let choice: 'confirm' | 'secondary' | null = 'confirm';
+    if (nf) choice = await this.confirm.choose(foldersRemovalAsk(nf, all.length - tops.items.length, tops.items.length, WISH_WORDS, [], true));
+    if (!choice) return;
+    this.transitions.run(() => {
+      const ids = choice === 'secondary' ? tops.items : all;
+      const gone = ids.flatMap((id) => this.store.removeWish(id) ?? []);
+      const folderUndos = nf ? (choice === 'secondary' ? tops.folders.map((id) => this.folders.dissolve(id)) : [this.folders.drop(tops.folders)]) : [];
+      this.selection.done();
+      const text =
+        choice === 'secondary'
+          ? `${nf === 1 ? 'A pasta foi desfeita' : `As ${nf} pastas foram desfeitas`}${gone.length ? ` e ${plural(gone.length, 'recorte saiu', 'recortes saíram')} da wishlist` : ''}.`
+          : `${marksLabel(nf, gone.length, WISH_WORDS)} ${nf + gone.length === 1 ? 'saiu' : 'saíram'} da wishlist.`;
+      this.toasts.show(text, {
+        label: 'Desfazer',
+        run: () =>
+          this.transitions.run(() => {
+            [...folderUndos].reverse().forEach((u) => u());
+            gone.forEach((w) => this.store.restoreWish(w));
+          }),
+      });
+    });
+  }
+
+  /** O que está sendo movido pela folha: recortes, uma pasta, ou os marcados com pastas no meio. */
+  protected readonly moving = signal<
+    | { kind: 'desejos'; ids: readonly string[]; name: string; from: string | null }
+    | { kind: 'pasta'; id: string; name: string; from: string | null }
+    | { kind: 'varios'; ids: readonly string[]; folders: readonly string[]; name: string; from: string | null }
+    | null
+  >(null);
   /** O que a folha precisa saber: as contas, onde está e o que não se pode escolher. */
   protected readonly moveSheet = computed(() => {
     const m = this.moving();
@@ -1397,10 +1640,11 @@ export class WishlistPage {
     const tree = this.folderTree();
     return {
       title: m.kind === 'pasta' ? `Mover a pasta ${m.name}` : `Mover ${m.name}`,
-      sub: `Está em ${this.folderName(m.from)}`,
+      sub: m.kind === 'pasta' || (m.kind === 'desejos' && m.ids.length === 1) ? `Está em ${this.folderName(m.from)}` : m.from === null && m.kind === 'varios' ? 'Estão em lugares diferentes' : `Estão em ${this.folderName(m.from)}`,
       counts: this.folders.countsIn(this.mural.kind()),
-      blocked: m.kind === 'pasta' ? tree.below(m.id) : new Set<string>(),
-      rootLabel: m.kind === 'pasta' ? 'Direto na Wishlist' : 'Sem pasta',
+      // (nunca uma pasta dentro dela mesma)
+      blocked: m.kind === 'pasta' ? tree.below(m.id) : m.kind === 'varios' ? new Set(m.folders.flatMap((id) => [...tree.below(id)])) : new Set<string>(),
+      rootLabel: m.kind === 'desejos' ? 'Sem pasta' : 'Direto na Wishlist',
       start: m.from,
     };
   });
@@ -1409,8 +1653,9 @@ export class WishlistPage {
   protected moveTo(id: string | null): void {
     const m = this.moving();
     this.moving.set(null);
-    if (!m || id === m.from) return;
+    if (!m || (id === m.from && m.kind === 'pasta')) return;
     if (m.kind === 'pasta') this.dropped({ kind: 'pasta', id: m.id }, { kind: 'guardar', folder: id });
+    else if (m.kind === 'varios') this.dropped({ kind: 'varios', grab: { kind: 'pasta', id: m.folders[0] }, ids: m.ids, folders: m.folders }, { kind: 'guardar', folder: id });
     else this.dropped({ kind: 'notas', lead: m.ids[0], ids: m.ids }, { kind: 'guardar', folder: id });
   }
 

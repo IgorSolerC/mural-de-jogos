@@ -3,7 +3,8 @@ import { categoryColorHex, lookKey, tagColorHex } from '../core/category-looks';
 import { NO_FOLDERS } from '../core/folders';
 import { IMPORTANCES, IMPORTANCE_LABEL, Importance } from '../core/kanban';
 import { KanbanStore } from '../core/kanban-store';
-import { BulkPatch } from '../core/note-bulk';
+import { BulkPatch, FolderMarksOf } from '../core/note-bulk';
+import { marksLabel } from '../core/folder-marks';
 import { NoteFolders } from '../core/note-folders';
 import { categoryLibrary, tagLibrary } from '../core/note-labels';
 import { Review, STOCKS, STOCK_LABEL, Stock, isDone, isNote, isPinnedNote } from '../core/review';
@@ -71,8 +72,13 @@ export class BulkEditSheet {
   private readonly study = inject(StudyStore);
   protected readonly folders = inject(NoteFolders);
 
-  /** As marcadas, como estão agora. */
+  /** As marcadas, como estão agora (com pastas marcadas, também as de dentro delas). */
   readonly notes = input.required<readonly Review[]>();
+  /**
+   * As pastas marcadas (PLANO-MARCAR-PASTAS.md, D9): as de cima e as anotações marcadas soltas. A folha diz que vale
+   * também para as de dentro, e a Pasta e o Grupo levam as pastas inteiras.
+   */
+  readonly marks = input<FolderMarksOf | null>(null);
   readonly place = input<BulkPlace>('mural');
   /** Aplicar: só o que mudou. */
   readonly apply = output<BulkPatch>();
@@ -123,13 +129,33 @@ export class BulkEditSheet {
   protected readonly title = computed(() => `Editar ${this.word()}`);
   protected readonly sub = computed(() => {
     if (!this.isNotes()) return 'Quem vê e a cartolina';
-    const g = common(
-      this.notes().map((r) => r.category ?? ''),
-      lookKey,
-    );
+    const g = this.groupNow();
     if (!g.mixed) return g.value ? `Em ${g.value}` : 'Sem grupo';
-    const n = new Set(this.notes().map((r) => lookKey(r.category ?? ''))).size;
+    const n = new Set([...this.notes().map((r) => lookKey(r.category ?? '')), ...this.markedFolders().map((f) => f.group)]).size;
     return `Em ${n} grupos`;
+  });
+  /** As pastas marcadas, vivas. */
+  protected readonly markedFolders = computed(() => {
+    const tree = this.folders.tree();
+    return (this.marks()?.folders ?? []).flatMap((id) => tree.live(id) ?? []);
+  });
+  /**
+   * Com pastas marcadas, quem é quem: "as 3 marcadas e as 9 de dentro de 2 pastas" (a frase do alto diz que a Pasta
+   * e o Grupo levam as pastas inteiras); null sem pastas.
+   */
+  protected readonly withFolders = computed(() => {
+    const m = this.marks();
+    const nf = this.markedFolders().length;
+    if (!m || !nf) return null;
+    const tops = m.tops.length;
+    const inside = this.n() - tops;
+    const parts = [tops ? (tops === 1 ? 'a marcada' : `as ${tops} marcadas`) : '', inside ? `${inside === 1 ? 'a de dentro' : `as ${inside} de dentro`} ${nf === 1 ? 'da pasta' : `das ${nf} pastas`}` : ''];
+    return parts.filter(Boolean).join(' e ');
+  });
+  /** O que não se escolhe na Pasta: as pastas marcadas e as de dentro delas (nenhuma vai para dentro dela mesma). */
+  protected readonly folderBlocked = computed(() => {
+    const tree = this.folders.tree();
+    return new Set(this.markedFolders().flatMap((f) => [...tree.below(f.id)]));
   });
   /** A cor da faixa: a cartolina delas, se é uma só. */
   protected readonly headStock = computed(() => common(this.notes().map((r) => r.stock ?? 'branco')).value ?? 'branco');
@@ -152,12 +178,11 @@ export class BulkEditSheet {
 
   // ===== como estão =====
 
-  protected readonly groupNow = computed(() =>
-    common(
-      this.notes().map((r) => r.category ?? ''),
-      lookKey,
-    ),
-  );
+  protected readonly groupNow = computed(() => {
+    // (com pastas marcadas, o grupo delas conta, pelo nome que as anotações dele usam)
+    const names = new Map(this.store.notes().map((r) => [lookKey(r.category ?? ''), r.category ?? '']));
+    return common([...this.notes().map((r) => r.category ?? ''), ...this.markedFolders().map((f) => names.get(f.group) ?? f.group)], lookKey);
+  });
   protected readonly groupNames = computed(() => {
     const seen = new Map<string, string>();
     for (const r of this.notes()) if (!seen.has(lookKey(r.category ?? ''))) seen.set(lookKey(r.category ?? ''), r.category ?? 'Sem grupo');
@@ -178,7 +203,14 @@ export class BulkEditSheet {
   protected readonly groupColor = computed(() => categoryColorHex(this.groupLook().color));
   protected readonly categoryLib = computed(() => categoryLibrary(this.store.notes()));
 
-  protected readonly folderNow = computed(() => common(this.notes().map((r) => this.folders.tree().of(r) ?? '')));
+  /** Onde estão: com pastas marcadas, as marcadas de cima (as pastas e as soltas), que são o que a Pasta leva. */
+  protected readonly folderNow = computed(() => {
+    const tree = this.folders.tree();
+    const m = this.marks();
+    if (!m || !this.markedFolders().length) return common(this.notes().map((r) => tree.of(r) ?? ''));
+    const tops = new Set(m.tops);
+    return common([...this.markedFolders().map((f) => tree.parentOf(f.id) ?? ''), ...this.notes().flatMap((r) => (tops.has(r.id) ? [tree.of(r) ?? ''] : []))]);
+  });
   /** A pasta que a linha mostra: a escolhida, ou a de todas (mudar de grupo tira da pasta). */
   protected readonly folderShown = computed<Shared<string>>(() => {
     const f = this.folder();
@@ -479,6 +511,9 @@ export class BulkEditSheet {
   /** "Apagar a anotação", "Apagar as duas anotações", "Apagar as 5 fichas": quantas vão, como no Aplicar. */
   protected readonly removeLabel = computed(() => {
     const k = this.removable();
+    // com pastas marcadas: elas saem também (a pergunta oferece só desfazê-las)
+    const nf = this.markedFolders().length;
+    if (nf) return `Apagar ${marksLabel(nf, k, ['anotação', 'anotações'])}`;
     const what = this.isNotes() ? (k === 1 ? 'anotação' : 'anotações') : k === 1 ? 'ficha' : 'fichas';
     // das compartilhadas de outras pessoas você só sai: o botão não promete apagar o que fica com elas
     if (this.removal().leave.length === k) return k === 1 ? `Sair da ${what}` : `Sair das ${k} ${what}`;

@@ -20,10 +20,11 @@ import { NoteMenu, NoteMenuTrigger, WALL_NOTES, wallNoteId } from '../ui/note-me
 import { ContextMenu, ContextMenuTrigger, MenuItem, MenuSections } from '../ui/context-menu';
 import { FolderAsking } from '../ui/folder-asking';
 import { Toasts } from '../ui/toast';
-import { FolderActions, WallDrag, WallDragItem, WallDrop } from './wall-drag';
+import { FolderActions, WallDrag, WallDragItem, WallDrop, grabOf } from './wall-drag';
+import { MarksMoved, joinMarked, markedTops, marksLabel, moveMarked, movedText } from '../core/folder-marks';
 import { FolderMoveSheet } from '../ui/folder-move-sheet';
 import { lookKey } from '../core/category-looks';
-import { NoteSelection } from '../ui/note-selection';
+import { NoteSelection, copyMarkedItem } from '../ui/note-selection';
 import { Pin } from '../ui/pin';
 import { SearchHighlight } from '../ui/search-highlight';
 import { SectionHead } from '../ui/section-head';
@@ -34,6 +35,8 @@ import { stepFocus } from './wall-keys';
 const DATE_SORTS = ['criacao', 'alteracao', 'finalizacao'] as const;
 
 const NO_PICKS: ReadonlyMap<string, number> = new Map();
+/** Nenhuma pasta marca (a visita, as análises). */
+const NO_IDS: ReadonlySet<string> = new Set();
 
 /** Quantas folhas aparecem atrás da ficha de cima da pilha (as fichas da segunda à quinta). */
 const PILE_BACK = 4;
@@ -238,6 +241,10 @@ export class WallBoard {
   private dropped(item: WallDragItem, to: WallDrop): void {
     const fa = this.folderActions();
     if (!fa) return;
+    if (item.kind === 'varios') {
+      this.droppedMany(fa, item, to);
+      return;
+    }
     if (to.kind === 'juntar') {
       const group = this.view.folderGroup();
       if (item.kind !== 'notas' || group === null) return;
@@ -276,6 +283,44 @@ export class WallBoard {
     // as marcadas foram para a pasta: marcar terminou
     this.selection.done();
     this.undoToast(text, done.undo);
+  }
+
+  /**
+   * Soltou (ou escolheu na folha) as marcadas com pastas no meio (PLANO-MARCAR-PASTAS.md, D6 e D7): guarda tudo na
+   * pasta, ou cria a pasta nova com as anotações e as pastas dentro, com um Desfazer só. O que não pôde ir (de
+   * outro grupo, já estava lá, o teto de níveis) fica, e o bilhete diz.
+   */
+  private droppedMany(fa: FolderActions, item: Extract<WallDragItem, { kind: 'varios' }>, to: WallDrop): void {
+    const units = ['anotação', 'anotações'] as const;
+    if (to.kind === 'juntar') {
+      const group = this.view.folderGroup();
+      if (group === null) return;
+      const ids = [...item.ids, to.with];
+      let made: ReturnType<typeof joinMarked> = null;
+      this.motion.run(() => (made = joinMarked((list) => fa.gather(list, group, this.view.openFolder()), fa, ids, item.folders)));
+      const m = made as ReturnType<typeof joinMarked>;
+      if (!m) {
+        this.toasts.show('Não cabe mais nenhuma pasta aqui.');
+        return;
+      }
+      // (as de outro grupo não entram: a pasta é do grupo aberto)
+      const tree = this.view.folders();
+      const byId = new Map(this.view.wall().map((r) => [r.id, r]));
+      const inside = ids.filter((id) => byId.has(id) && tree.of(byId.get(id)!) === m.folder.id).length;
+      this.selection.done();
+      this.naming.set(m.folder.id);
+      this.undoToast(`Nova pasta com ${marksLabel(m.folders, inside, units)}.`, m.undo);
+      return;
+    }
+    let done: MarksMoved = { folders: 0, items: 0, stayed: 0, undo: () => undefined };
+    this.motion.run(() => (done = moveMarked(fa, { folders: item.folders, items: item.ids }, to.folder)));
+    const said = movedText(done, units, this.name(to.folder), to.folder !== null);
+    if (!said.moved) {
+      this.toasts.show(said.text);
+      return;
+    }
+    this.selection.done();
+    this.undoToast(said.text, done.undo);
   }
 
   /** A cada letra do nome: a irmã que já tem esse nome (o Enter junta as duas). */
@@ -332,7 +377,8 @@ export class WallBoard {
   /** As opções do menu de uma pasta da parede. */
   private folderSections(f: NoteFolder): MenuSections {
     return [
-      [{ id: 'abrir', label: 'Abrir', icon: ICON.pastaDeNotas, run: () => this.enter(f.id) }],
+      ...this.markedSections(f.id, true),
+      [{ id: 'abrir', label: 'Abrir', icon: ICON.pastaDeNotas, run: () => this.enter(f.id) }, ...this.markItem(f)],
       [
         {
           id: 'nova-nota',
@@ -359,6 +405,50 @@ export class WallBoard {
     ];
   }
 
+  /**
+   * No alto do menu de uma marcada (pasta ou anotação), com outras marcadas: o que se faz com todas, como na tira
+   * (PLANO-MARCAR-PASTAS.md, D11). A anotação já tem o Editar e o Copiar das marcadas no menu dela (ui/note-menu.ts):
+   * ganha só o Mover.
+   */
+  private markedSections(id: string, folder: boolean): MenuSections {
+    const sel = this.selection;
+    const n = sel.count();
+    if (!sel.marking() || n < 2 || !(folder ? sel.hasFolder(id) : sel.has(id))) return [];
+    const one = this.markedGroup() !== undefined;
+    const items: MenuItem[] = [];
+    const edit = this.bulkEdit();
+    if (folder && edit) items.push({ id: 'editar-marcadas', label: `Editar as ${n} marcadas…`, icon: ICON.camadas, dialog: true, hint: 'Grupo, pasta, tags, quem vê, cartolina…', run: edit });
+    items.push({
+      id: 'mover-marcadas',
+      label: `Mover as ${n} marcadas…`,
+      icon: ICON.guardarNaPasta,
+      dialog: true,
+      disabled: !one,
+      hint: one ? undefined : 'Estão em grupos diferentes: a pasta é de um grupo',
+      run: () => this.moveMarked(),
+    });
+    if (folder) items.push(copyMarkedItem(sel));
+    return [items];
+  }
+
+  /**
+   * Marcar (ou desmarcar) a pasta, no menu dela: no toque, o jeito de marcar sem o Ctrl, como o "Marcar" do menu de
+   * uma anotação (PLANO-MARCAR-PASTAS.md, D1).
+   */
+  private markItem(f: NoteFolder): MenuItem[] {
+    if (!this.selection.canMarkFolder(f.id)) return [];
+    const on = this.selection.hasFolder(f.id);
+    return [
+      {
+        id: 'marcar',
+        label: on ? 'Desmarcar' : 'Marcar',
+        icon: on ? ICON.desmarcado : ICON.marcado,
+        hint: on ? undefined : 'Para mover, copiar ou apagar várias juntas',
+        run: () => this.selection.toggleFolder(f.id),
+      },
+    ];
+  }
+
   /** O menu do vão da parede (numa aba de grupo): escrever ou criar uma pasta ali. */
   private gapSections(): MenuSections {
     const open = this.view.openFolder();
@@ -378,6 +468,7 @@ export class WallBoard {
     if (!this.folderActions() || !isNote(r)) return [];
     const tree = this.view.folders();
     const items: MenuItem[] = [
+      ...this.markedSections(r.id, false).flat(),
       {
         id: 'mover-pasta',
         label: 'Mover para pasta…',
@@ -406,6 +497,7 @@ export class WallBoard {
   protected readonly moving = signal<
     | { kind: 'notas'; ids: readonly string[]; name: string; category: string | null; from: string | null; stock: string; mixed?: boolean }
     | { kind: 'pasta'; id: string; name: string; category: string | null; from: string | null; stock: string }
+    | { kind: 'varios'; ids: readonly string[]; folders: readonly string[]; name: string; category: string | null; from: string | null; stock: string; mixed: boolean }
     | null
   >(null);
   /** O que a folha precisa saber: o grupo, as contas e o que não se pode escolher. */
@@ -418,12 +510,18 @@ export class WallBoard {
     const from = m.from ? (tree.live(m.from)?.name ?? groupName) : groupName;
     return {
       title: m.kind === 'pasta' ? `Mover a pasta ${m.name}` : `Mover ${m.name}`,
-      sub: m.kind === 'notas' && m.mixed ? 'Estão em pastas diferentes' : m.kind === 'notas' && m.ids.length > 1 ? `Estão em ${from}` : `Está em ${from}`,
+      sub:
+        m.kind !== 'pasta' && m.mixed
+          ? 'Estão em pastas diferentes'
+          : m.kind === 'varios' || (m.kind === 'notas' && m.ids.length > 1)
+            ? `Estão em ${from}`
+            : `Está em ${from}`,
       group: lookKey(m.category ?? ''),
       groupName,
       counts: fa.countsIn(m.category),
-      blocked: m.kind === 'pasta' ? tree.below(m.id) : new Set<string>(),
-      rootLabel: m.kind === 'pasta' ? `Direto em ${groupName}` : 'Sem pasta',
+      // (nunca uma pasta dentro dela mesma)
+      blocked: m.kind === 'pasta' ? tree.below(m.id) : m.kind === 'varios' ? new Set(m.folders.flatMap((id) => [...tree.below(id)])) : new Set<string>(),
+      rootLabel: m.kind === 'notas' ? 'Sem pasta' : `Direto em ${groupName}`,
       start: m.from,
       stock: m.stock,
     };
@@ -433,8 +531,15 @@ export class WallBoard {
   protected moveTo(id: string | null): void {
     const m = this.moving();
     this.moving.set(null);
-    if (!m || (id === m.from && !(m.kind === 'notas' && m.mixed))) return;
+    if (!m) return;
+    if (id === m.from && !(m.kind !== 'pasta' && m.mixed)) {
+      // (as várias já estavam todas lá: a folha não fecha calada)
+      if (m.kind === 'varios') this.toasts.show('Nada mudou: já estava tudo lá.');
+      return;
+    }
     if (m.kind === 'pasta') this.dropped({ kind: 'pasta', id: m.id }, { kind: 'guardar', folder: id });
+    else if (m.kind === 'varios')
+      this.dropped({ kind: 'varios', grab: m.folders.length ? { kind: 'pasta', id: m.folders[0] } : { kind: 'nota', id: m.ids[0] }, ids: m.ids, folders: m.folders }, { kind: 'guardar', folder: id });
     else this.dropped({ kind: 'notas', lead: m.ids[0], ids: m.ids }, { kind: 'guardar', folder: id });
   }
 
@@ -443,20 +548,71 @@ export class WallBoard {
     const byId = new Map(this.view.wall().map((r) => [r.id, r]));
     return this.selection.ids().flatMap((id) => byId.get(id) ?? []);
   });
-  /** O grupo das marcadas, se é um só (null: sem grupo); undefined: grupos diferentes, ou nenhuma marcada. */
+  /** As pastas marcadas, vivas (na ordem em que foram marcadas). */
+  readonly markedFolders = computed(() => {
+    const tree = this.view.folders();
+    return this.selection.folders().flatMap((id) => tree.live(id) ?? []);
+  });
+  /**
+   * O grupo das marcadas (as anotações e as pastas), se é um só (null: sem grupo); undefined: grupos diferentes,
+   * ou nada marcado.
+   */
   readonly markedGroup = computed<string | null | undefined>(() => {
-    const rs = this.marked();
-    if (!rs.length) return undefined;
-    const k = lookKey(rs[0].category ?? '');
-    return rs.every((r) => lookKey(r.category ?? '') === k) ? (rs[0].category ?? null) : undefined;
+    const keys = new Set([...this.marked().map((r) => lookKey(r.category ?? '')), ...this.markedFolders().map((f) => f.group)]);
+    if (keys.size !== 1) return undefined;
+    const [k] = keys;
+    return k === '' ? null : this.groupLabel(k);
   });
 
-  /** "Mover para pasta" da tira: a folha com a árvore do grupo das marcadas. */
+  /**
+   * O que a folha "Editar" muda com pastas marcadas (PLANO-MARCAR-PASTAS.md, D9): as anotações marcadas e as de dentro
+   * das pastas (todas, também as que a parede não mostra), e quem é de cima (as pastas e as anotações soltas, o que
+   * a Pasta e o Grupo levam). Null sem pastas marcadas.
+   */
+  markedForEdit(): { ids: string[]; marks: { folders: readonly string[]; tops: readonly string[] } } | null {
+    const folders = this.markedFolders();
+    if (!folders.length) return null;
+    const tree = this.view.folders();
+    const rs = this.marked();
+    const byId = new Map(rs.map((r) => [r.id, r]));
+    const tops = markedTops(tree, { folders: folders.map((f) => f.id), items: rs.map((r) => r.id) }, (id) => tree.of(byId.get(id)!));
+    const inside = tops.folders.flatMap((id) => this.view.folderNotes(id, true).map((r) => r.id));
+    return { ids: [...new Set([...rs.map((r) => r.id), ...inside])], marks: { folders: tops.folders, tops: tops.items } };
+  }
+
+  /** O nome de um grupo pela chave, como as anotações dele o escrevem. */
+  private groupLabel(key: string): string {
+    const named = this.view.wall().find((r) => lookKey(r.category ?? '') === key)?.category;
+    if (named) return named;
+    // (o grupo sem nenhuma anotação no mural, só com as pastas: o nome da aba aberta, se é ele)
+    const open = this.view.folderGroupLabel();
+    return lookKey(open) === key ? open : key;
+  }
+
+  /** "Mover para pasta" da tira e do menu de uma marcada: a folha com a árvore do grupo das marcadas. */
   moveMarked(): void {
     const rs = this.marked();
     const group = this.markedGroup();
-    if (!rs.length || group === undefined || !this.folderActions()) return;
+    if (group === undefined || !this.folderActions()) return;
     const tree = this.view.folders();
+    if (this.markedFolders().length) {
+      // com pastas: só as de cima (o que está dentro de uma pasta marcada vai com ela)
+      const byId = new Map(rs.map((r) => [r.id, r]));
+      const tops = markedTops(tree, { folders: this.markedFolders().map((f) => f.id), items: rs.map((r) => r.id) }, (id) => tree.of(byId.get(id)!));
+      const from = new Set([...tops.folders.map((id) => tree.parentOf(id)), ...tops.items.map((id) => tree.of(byId.get(id)!))]);
+      this.moving.set({
+        kind: 'varios',
+        ids: tops.items,
+        folders: tops.folders,
+        name: marksLabel(tops.folders.length, tops.items.length, ['anotação', 'anotações']),
+        category: group,
+        from: from.size === 1 ? [...from][0] : null,
+        mixed: from.size > 1,
+        stock: 'branco',
+      });
+      return;
+    }
+    if (!rs.length) return;
     const from = new Set(rs.map((r) => tree.of(r)));
     this.moving.set({
       kind: 'notas',
@@ -567,11 +723,19 @@ export class WallBoard {
       keep: () => !notes(),
       // arrastar uma marcada (para uma pasta) leva todas
       drags: true,
+      // as pastas também se marcam, no seu mural de anotações (PLANO-MARCAR-PASTAS.md): as que você pode mexer
+      folders: {
+        markable: 'app-folder-card[data-pasta]',
+        idOf: (el) => el.getAttribute('data-pasta'),
+        live: computed(() => (notes() && this.owner() === null && this.folderActions() ? (this.folderActions()?.movable() ?? NO_IDS) : NO_IDS)),
+        open: (id) => this.enter(id),
+        inside: (id) => this.view.folderNotes(id, true).map((r) => r.id),
+      },
       // outro mural (as anotações, as análises, o de outra pessoa): a busca, o filtro e a aba não desmarcam
       // (dá para procurar e marcar mais), e as marcadas escondidas continuam marcadas (a tira diz quantas)
       reset: computed(() => `${notes()}|${this.view.music()}|${this.owner()}`),
-      // as fichas redesenhadas recebem as marcas de volta
-      layout: this.view.visible,
+      // as fichas e as pastas redesenhadas recebem as marcas de volta
+      layout: () => [this.view.visible(), this.view.folderKids()],
     });
     // o botão direito, o dedo segurado ou Shift+F10 numa ficha de qualquer mural (o seu ou o de quem se
     // visita) abre o menu dela (o que ela é diz o que aparece: ver ui/note-menu.ts)
@@ -638,6 +802,7 @@ export class WallBoard {
       host: this.el,
       on: () => this.dragOn() && !this.naming(),
       marked: () => this.selection.ids(),
+      markedFolders: () => this.selection.folders(),
       openFolder: () => this.view.openFolder(),
       groupName: () => this.view.folderGroupLabel(),
       folderName: (id) => this.view.folders().live(id)?.name ?? null,
@@ -650,8 +815,9 @@ export class WallBoard {
       drop: (item, to) => this.dropped(item, to),
       open: (id) => this.motion.run(() => this.view.enterFolder(id)),
       menu: (item, box, x, y) => {
-        if (item.kind === 'pasta') this.folderTrigger?.openAt(`pasta:${item.id}`, x, y, box);
-        else this.noteTrigger?.openAt(item.lead, x, y, box);
+        const grab = grabOf(item);
+        if (grab.kind === 'pasta') this.folderTrigger?.openAt(`pasta:${grab.id}`, x, y, box);
+        else this.noteTrigger?.openAt(grab.id, x, y, box);
       },
     });
     inject(DestroyRef).onDestroy(() => drag.off());

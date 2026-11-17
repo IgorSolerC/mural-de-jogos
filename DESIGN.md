@@ -2304,3 +2304,14 @@ Deleting a notes group used to be a "Tem certeza?" that left every note ungroupe
 - **The button names the outcome** ("Apagar e deixar sem grupo", "Apagar e levar para Estudos", "Apagar o grupo e as 3 anotações"). Red with the trash can only for Apagar tudo; the other two are the ink button with a folder or an arrow, because nothing is lost.
 - **Shared groups**: the owner sees a people-icon line saying who stops seeing it; moving into a shared group (yours, or someone else's where you write) says who starts seeing what arrives (the owner too, never you). Someone else's shared group shows "Sair do grupo…" instead of the delete button.
 - The new folder for ungrouped notes is called "Grupo deletado: nome" (the owner's words), cut with an ellipsis at 32 letters.
+
+## Pastas marcadas (marking pass, 2026-11-17)
+
+Folders now mark together with the cards on the three walls that have folders (Anotações, the pixel-art gallery, the Wishlist, which gained marking). Plan and decisions in PLANO-MARCAR-PASTAS.md; critiqued by two isolated Impeccable assessments (29/40; the detector found nothing of the feature) and adjusted.
+
+- **One marking language**: a marked folder gets the same chalk dashed line and numbered ink sticker as a marked card (`ui/_marcada.scss`), tilted with it; the line sits 3px from the middle of the gap between folders (`--pastas-vao`), so two marked neighbours never read as one box, on phones too. The sticker order is the marking order across folders and cards.
+- **Gestures**: Ctrl/⌘+click, Shift+click (range in screen order, folders first), "Marcar" in the folder menu, and the toolbar "Marcar" (Wishlist and gallery). While marking, a tap marks; two taps open the folder and leave the mark as it was. The tray hint says so when folders are on screen.
+- **The tray** counts everything and breaks it down in the handwritten note: "3 marcadas · 2 pastas e 1 anotação · 1 fora da vista". Marks survive opening and closing folders on all three walls.
+- **Moving**: dragging any marked item drags a pile of all the top ones (folders included, never their own marking sticker); targets inside a dragged folder are refused. The move sheet greys out the marked folders and what is inside them. What could not move (another group, already there) is told in the toast.
+- **Contents**: Copy, Editar, Baixar, Tags and the Wishlist vontade reach what is inside the marked folders; the edit sheet says who is who ("a marcada e as 6 de dentro das 2 pastas") and that Pasta and Grupo carry whole folders. Changing Grupo moves the folders to the other group with everything inside.
+- **Deleting with folders** is the red confirmation card with two ways out: "Apagar tudo" (red ink button) and "Só desfazer as pastas"; the title counts only what was marked ("Apagar 2 pastas com o que está dentro e 1 anotação?"), the text gives the inside count. `Confirm.choose` accepts the danger tone for this.

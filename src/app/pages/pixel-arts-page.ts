@@ -8,7 +8,7 @@ import { FolderAsking, PIXEL_UNITS } from '../ui/folder-asking';
 import { FolderCard, FolderCardInfo } from '../ui/folder-card';
 import { FolderMoveSheet } from '../ui/folder-move-sheet';
 import { FolderPath } from '../ui/folder-path';
-import { WallDrag, WallDragItem, WallDrop } from './wall-drag';
+import { WallDrag, WallDragItem, WallDrop, grabOf } from './wall-drag';
 import { PixelLook } from '../core/pixel-art';
 import { FoundPixelArt, PIXEL_TAG_SPACE, PixelPiece, artValues, pieceTitle, pieceWidgetLine, pixelArtOf, pixelArtsInNotes, valuesArt } from '../core/pixel-gallery';
 import { StoredLayer } from '../core/pixel-layers';
@@ -46,7 +46,12 @@ import { FilterCard, SubjectOption, activeFilters, removeActive } from '../ui/fi
 import { FilterChip, FilterTags } from '../ui/filter-sheet';
 import { focusAfterRemoval } from '../ui/focus';
 import { ICON, IconModule } from '../ui/icons';
-import { NoteSelection } from '../ui/note-selection';
+import { FOLDER_MARK, NoteSelection, copyMarkedItem, insideWords } from '../ui/note-selection';
+import { foldersRemovalAsk, joinMarked, markedTops, marksLabel, moveMarked, movedText } from '../core/folder-marks';
+import { Confirm } from '../ui/confirm';
+
+/** O que a galeria tem, no singular e no plural (as contas das marcadas). */
+const PIXEL_WORDS = ['pixel art', 'pixel arts'] as const;
 import { Pin } from '../ui/pin';
 import { PixelBulkTags, PixelTagsChange } from '../ui/pixel-bulk-tags';
 import { PixelImportSheet } from '../ui/pixel-import-sheet';
@@ -86,6 +91,7 @@ export class PixelArtsPage {
   private readonly settings = inject(Settings);
   private readonly transitions = inject(ViewTransitions);
   private readonly toasts = inject(Toasts);
+  private readonly confirm = inject(Confirm);
   private readonly destroyRef = inject(DestroyRef);
   private readonly injector = inject(Injector);
 
@@ -220,41 +226,129 @@ export class PixelArtsPage {
   protected readonly marking = signal(false);
   /** As obras que dá para marcar: todas (a marcada que a busca esconde continua marcada, "fora da vista"). */
   private readonly byId = computed(() => new Map(this.gallery.pieces().map((p) => [p.id, p])));
-  readonly selection = new NoteSelection<PixelPiece>({
+  readonly selection: NoteSelection<PixelPiece> = new NoteSelection<PixelPiece>({
     host: inject(ElementRef<HTMLElement>).nativeElement as HTMLElement,
     markable: 'app-pixel-piece[data-ficha], app-pixel-tile[data-ficha]',
     idOf: (el) => el.getAttribute('data-ficha'),
     on: () => true,
     notes: () => this.byId(),
-    // trocar de pasta desmarca (as marcas de antes eram de outra parede)
-    reset: () => this.openFolder(),
+    // as marcas ficam ao abrir e fechar pastas, como nas Anotações: dá para marcar numa, subir, marcar mais e mover
+    // tudo de uma vez (PLANO-MARCAR-PASTAS.md, D4)
+    reset: () => null,
     layout: () => [this.visible(), this.prefs().vista, this.folderKids()],
     drags: true,
     mode: this.marking,
-    // o Ctrl+C das marcadas: as linhas dos widgets, para colar numa anotação
-    copy: (items) => ({ text: items.map(pieceWidgetLine).join('\n\n'), done: items.length === 1 ? 'Copiei a pixel art como widget.' : `Copiei as ${items.length} pixel arts como widgets.` }),
+    // as pastas também se marcam
+    folders: {
+      markable: 'app-folder-card[data-pasta]',
+      idOf: (el) => el.getAttribute('data-pasta'),
+      live: this.folders.live,
+      open: (id) => this.enterFolder(id),
+      inside: (id) => this.inside(id).map((p) => p.id),
+    },
+    // o Ctrl+C das marcadas: as linhas dos widgets, para colar numa anotação (com as de dentro das pastas marcadas)
+    copy: (items, inside) => ({
+      text: items.map(pieceWidgetLine).join('\n\n'),
+      done: `${items.length === 1 ? 'Copiei a pixel art como widget' : `Copiei as ${items.length} pixel arts como widgets`}${insideWords(inside, items.length, this.selection.folders().length)}.`,
+    }),
   });
-  /** As marcadas que a busca, os filtros ou a pasta não mostram agora. */
+
+  /** As obras de uma pasta e das de dentro dela, na ordem da galeria: o que vai junto com a pasta marcada. */
+  private inside(id: string): PixelPiece[] {
+    const below = this.folderTree().below(id);
+    return sortPieces(
+      this.gallery.pieces().filter((p) => below.has(this.whereIs(p.id) ?? '')),
+      this.prefs(),
+    );
+  }
+
+  /** As pastas marcadas, vivas, só as de cima (a de dentro de outra marcada vai com ela). */
+  private readonly markedTop = computed(() => markedTops(this.folderTree(), { folders: this.selection.folders(), items: this.selection.ids() }, (id) => this.whereIs(id)));
+  /** As marcadas que a busca, os filtros ou a pasta não mostram agora (as pastas também). */
   protected readonly hiddenMarked = computed(() => {
     const shown = new Set(this.visible().map((p) => p.id));
-    return this.selection.ids().filter((id) => !shown.has(id)).length;
+    const kids = new Set(this.folderKids().map((f) => f.id));
+    return this.selection.ids().filter((id) => !shown.has(id)).length + this.selection.folders().filter((id) => !kids.has(id)).length;
   });
-  private readonly marked = computed(() => this.selection.ids().map((id) => this.gallery.get(id)).filter((p): p is PixelPiece => !!p));
+  /** As obras marcadas e, das pastas marcadas, as de dentro (sem repetir): o que Baixar, Tags e Apagar levam. */
+  private readonly marked = computed(() => this.selection.copied().items);
   /** A folha das tags das marcadas, aberta. */
   protected readonly bulkTags = signal<readonly PixelPiece[] | null>(null);
   /** O que a tira oferece: marcar todas as à mostra, copiar, baixar, as tags, apagar e, de tinta, mover. */
   protected readonly trayActions = computed<TrayAction[]>(() => {
     const n = this.selection.count();
-    const all = this.visible().length > 0 && this.visible().every((p) => this.selection.has(p.id));
+    // (as pastas à mostra também: "todas" é tudo o que está na parede)
+    const shown = [...this.folderKids().map((f) => FOLDER_MARK + f.id), ...this.visible().map((p) => p.id)];
+    const all = shown.length > 0 && shown.every((k) => this.selection.has(k));
+    const pieces = this.marked().length;
+    const folders = this.selection.folders().length;
+    const inside = folders ? 'Também as de dentro das pastas marcadas' : undefined;
     return [
-      { id: 'todas', label: 'Marcar todas', icon: ICON.marcado, disabled: all, hint: 'As à mostra agora', run: () => this.selection.add(this.visible().map((p) => p.id)) },
+      { id: 'todas', label: 'Marcar todas', icon: ICON.marcado, disabled: all, hint: 'As à mostra agora', run: () => this.selection.add(shown) },
       { id: 'copiar', label: 'Copiar', icon: ICON.copiar, disabled: !n, hint: 'Como widgets, para colar numa anotação', run: () => void this.selection.copy() },
-      { id: 'baixar', label: 'Baixar', icon: ICON.baixar, disabled: !n, hint: 'Um PNG de cada', run: () => void this.downloadMany(this.marked()) },
-      { id: 'tags', label: 'Tags…', icon: ICON.etiquetas, disabled: !n, run: () => this.bulkTags.set(this.marked()) },
-      { id: 'apagar', label: 'Apagar', icon: ICON.apagar, disabled: !n, danger: true, run: () => this.removeMany(this.selection.ids()) },
-      { id: 'mover', label: 'Mover para pasta…', icon: ICON.guardarNaPasta, primary: true, run: () => this.moving.set({ kind: 'obras', ids: [...this.selection.ids()], name: n === 1 ? pieceTitle(this.marked()[0]) : plural(n, 'pixel art', 'pixel arts'), from: this.openFolder() }) },
+      { id: 'baixar', label: 'Baixar', icon: ICON.baixar, disabled: !pieces, hint: inside ?? 'Um PNG de cada', run: () => void this.downloadMany(this.marked()) },
+      { id: 'tags', label: 'Tags…', icon: ICON.etiquetas, disabled: !pieces, hint: inside, run: () => this.bulkTags.set(this.marked()) },
+      { id: 'apagar', label: 'Apagar', icon: ICON.apagar, disabled: !n, danger: true, run: () => void this.removeMarked() },
+      { id: 'mover', label: 'Mover para pasta…', icon: ICON.guardarNaPasta, primary: true, run: () => this.moveMarked() },
     ];
   });
+
+  /** "Mover para pasta…" da tira e do menu de uma marcada: a folha, com as pastas marcadas indo inteiras. */
+  private moveMarked(): void {
+    const tops = this.markedTop();
+    const n = tops.folders.length + tops.items.length;
+    if (!n) return;
+    if (tops.folders.length) {
+      const from = new Set([...tops.folders.map((id) => this.folderTree().parentOf(id)), ...tops.items.map((id) => this.whereIs(id))]);
+      this.moving.set({ kind: 'varios', ids: tops.items, folders: tops.folders, name: marksLabel(tops.folders.length, tops.items.length, PIXEL_WORDS), from: from.size === 1 ? [...from][0] : null });
+      return;
+    }
+    const one = this.gallery.get(tops.items[0]);
+    this.moving.set({ kind: 'obras', ids: tops.items, name: n === 1 && one ? pieceTitle(one) : plural(n, 'pixel art', 'pixel arts'), from: this.openFolder() });
+  }
+
+  /**
+   * Apagar da tira: as obras marcadas (com o Desfazer, como sempre); com pastas marcadas, a pergunta de sempre das
+   * pastas (PLANO-MARCAR-PASTAS.md, D10): elas saem com tudo o que está dentro, ou só se desfazem.
+   */
+  private async removeMarked(): Promise<void> {
+    const tops = this.markedTop();
+    if (!tops.folders.length) {
+      this.removeMany(tops.items);
+      return;
+    }
+    const all = this.marked().map((p) => p.id);
+    const nf = tops.folders.length;
+    const choice = await this.confirm.choose(foldersRemovalAsk(nf, all.length - tops.items.length, tops.items.length, PIXEL_WORDS));
+    if (!choice) return;
+    this.transitions.run(() => {
+      if (choice === 'secondary') {
+        const undos = tops.folders.map((id) => this.folders.dissolve(id));
+        const gone = this.gallery.remove(tops.items);
+        this.selection.done();
+        this.toasts.show(`${nf === 1 ? 'A pasta foi desfeita' : `As ${nf} pastas foram desfeitas`}${gone.length ? ` e ${plural(gone.length, 'pixel art saiu', 'pixel arts saíram')} da galeria` : ''}.`, {
+          label: 'Desfazer',
+          run: () =>
+            this.transitions.run(() => {
+              this.gallery.restore(gone);
+              [...undos].reverse().forEach((u) => u());
+            }),
+        });
+        return;
+      }
+      const gone = this.gallery.remove(all);
+      const undoFolders = this.folders.drop(tops.folders);
+      this.selection.done();
+      this.toasts.show(`${marksLabel(nf, gone.length, PIXEL_WORDS)} ${nf + gone.length === 1 ? 'saiu' : 'saíram'} da galeria.`, {
+        label: 'Desfazer',
+        run: () =>
+          this.transitions.run(() => {
+            undoFolders();
+            this.gallery.restore(gone);
+          }),
+      });
+    });
+  }
 
   protected toggleMarking(): void {
     if (this.marking()) this.selection.done();
@@ -327,12 +421,14 @@ export class PixelArtsPage {
     if (n > 1 && this.selection.has(p.id)) {
       const tray = new Map(this.trayActions().map((a) => [a.id, a]));
       const as = (id: string, label: string, icon: MenuItem['icon'], dialog = false): MenuItem => ({ id, label, icon, dialog, run: tray.get(id)!.run });
+      // (com pastas marcadas, as obras de dentro delas também: Tags, Baixar e Copiar contam as obras)
+      const k = this.marked().length;
       return [
-        [as('mover', `Mover as ${n} para pasta…`, ICON.guardarNaPasta, true), as('tags', `Tags das ${n}…`, ICON.etiquetas, true)],
+        [as('mover', `Mover as ${n} para pasta…`, ICON.guardarNaPasta, true), as('tags', `Tags das ${k}…`, ICON.etiquetas, true)],
         [
-          as('baixar', `Baixar as ${n}`, ICON.baixar),
-          { id: 'baixar-original', label: `Baixar as ${n} no tamanho original`, hint: 'Um pixel por ponto', icon: ICON.baixar, run: () => void this.downloadMany(this.marked(), true) },
-          as('copiar', `Copiar as ${n} como widgets`, ICON.copiar),
+          as('baixar', `Baixar as ${k}`, ICON.baixar),
+          { id: 'baixar-original', label: `Baixar as ${k} no tamanho original`, hint: 'Um pixel por ponto', icon: ICON.baixar, run: () => void this.downloadMany(this.marked(), true) },
+          as('copiar', `Copiar as ${k} como widgets`, ICON.copiar),
         ],
         [{ ...as('apagar', `Apagar as ${n}`, ICON.apagar), danger: true }],
       ];
@@ -426,6 +522,7 @@ export class PixelArtsPage {
       host,
       on: () => this.dragOn(),
       marked: () => this.selection.ids(),
+      markedFolders: () => this.selection.folders(),
       openFolder: () => this.openFolder(),
       groupName: () => 'Pixel arts',
       folderName: (id) => this.folderTree().live(id)?.name ?? null,
@@ -435,8 +532,9 @@ export class PixelArtsPage {
       drop: (item, to) => this.dropped(item, to),
       open: (id) => this.enterFolder(id),
       menu: (item, box, x, y) => {
-        if (item.kind === 'pasta') folderTrigger.openAt(`pasta:${item.id}`, x, y, box);
-        else pieceTrigger.openAt(item.lead, x, y, box);
+        const grab = grabOf(item);
+        if (grab.kind === 'pasta') folderTrigger.openAt(`pasta:${grab.id}`, x, y, box);
+        else pieceTrigger.openAt(grab.id, x, y, box);
       },
       scope: () => host.querySelector('.mostra, .grade, .pastas'),
       gap: '.mostra, .grade, .pastas, .no-results',
@@ -446,6 +544,7 @@ export class PixelArtsPage {
         // só a obra (sem a legenda de baixo); o cartão da Grade inteiro
         face: (el) => (el.matches('app-pixel-tile') ? el : (el.querySelector<HTMLElement>('.obra') ?? el)),
         joinLabel: (n) => (n === 1 ? 'Nova pasta com as duas' : `Nova pasta com as ${n + 1}`),
+        units: PIXEL_WORDS,
         core: 0.6,
       },
     });
@@ -701,6 +800,31 @@ export class PixelArtsPage {
    * outra, com o Desfazer. A parede muda com a transição, e o aviso sai de dentro dela.
    */
   private dropped(item: WallDragItem, to: WallDrop): void {
+    if (item.kind === 'varios') {
+      // as marcadas com pastas no meio (PLANO-MARCAR-PASTAS.md, D6)
+      this.transitions.run(() => {
+        if (to.kind === 'juntar') {
+          const made = joinMarked((ids) => this.folders.gather(ids, this.openFolder()), this.folders, [...item.ids, to.with], item.folders);
+          if (!made) {
+            this.toasts.show('Não cabe mais nenhuma pasta aqui.');
+            return;
+          }
+          this.selection.done();
+          this.naming.set(made.folder.id);
+          this.undoToast(`Nova pasta com ${marksLabel(made.folders, item.ids.length + 1, PIXEL_WORDS)}.`, made.undo);
+          return;
+        }
+        const done = moveMarked(this.folders, { folders: item.folders, items: item.ids }, to.folder);
+        const said = movedText(done, PIXEL_WORDS, to.folder ? this.folderName(to.folder) : 'a galeria', to.folder !== null);
+        if (!said.moved) {
+          this.toasts.show(said.text);
+          return;
+        }
+        this.selection.done();
+        this.undoToast(said.text, done.undo);
+      });
+      return;
+    }
     if (to.kind === 'juntar') {
       if (item.kind !== 'notas') return;
       const ids = [...item.ids, to.with];
@@ -724,7 +848,7 @@ export class PixelArtsPage {
       });
       return;
     }
-    const one = pieceTitle(this.gallery.get(item.lead) ?? { title: '' });
+    const one = pieceTitle(this.gallery.get(grabOf(item).id) ?? { title: '' });
     this.transitions.run(() => {
       const done = this.folders.place(item.ids, to.folder);
       if (!done.moved) return;
@@ -782,7 +906,8 @@ export class PixelArtsPage {
   /** As opções do menu de uma pasta da parede. */
   private folderSections(f: NoteFolder): MenuSections {
     return [
-      [{ id: 'abrir', label: 'Abrir', icon: ICON.pastaDeNotas, run: () => this.enterFolder(f.id) }],
+      ...this.markedItems(f.id),
+      [{ id: 'abrir', label: 'Abrir', icon: ICON.pastaDeNotas, run: () => this.enterFolder(f.id) }, this.markItem(f.id)],
       [
         {
           id: 'nova-obra',
@@ -802,6 +927,19 @@ export class PixelArtsPage {
     ];
   }
 
+  /** Marcar ou desmarcar a pasta, no menu dela (no toque, o jeito de marcar sem o Ctrl). */
+  private markItem(id: string): MenuItem {
+    const on = this.selection.hasFolder(id);
+    return { id: 'marcar', label: on ? 'Desmarcar' : 'Marcar', icon: on ? ICON.desmarcado : ICON.marcado, hint: on ? undefined : 'Para mover, baixar ou apagar várias juntas', run: () => this.selection.toggleFolder(id) };
+  }
+
+  /** No alto do menu de uma pasta marcada, com outras marcadas: mover e copiar todas (PLANO-MARCAR-PASTAS.md, D11). */
+  private markedItems(id: string): MenuSections {
+    const n = this.selection.count();
+    if (!this.marking() || n < 2 || !this.selection.hasFolder(id)) return [];
+    return [[{ id: 'mover-marcadas', label: `Mover as ${n} marcadas…`, icon: ICON.guardarNaPasta, dialog: true, run: () => this.moveMarked() }, copyMarkedItem(this.selection)]];
+  }
+
   /** O menu do vão da parede: uma obra ou uma pasta ali. */
   private gapSections(): MenuSections {
     return [
@@ -814,7 +952,12 @@ export class PixelArtsPage {
   }
 
   /** O que está sendo movido pela folha: obras, ou uma pasta. */
-  protected readonly moving = signal<{ kind: 'obras'; ids: readonly string[]; name: string; from: string | null } | { kind: 'pasta'; id: string; name: string; from: string | null } | null>(null);
+  protected readonly moving = signal<
+    | { kind: 'obras'; ids: readonly string[]; name: string; from: string | null }
+    | { kind: 'pasta'; id: string; name: string; from: string | null }
+    | { kind: 'varios'; ids: readonly string[]; folders: readonly string[]; name: string; from: string | null }
+    | null
+  >(null);
   /** O que a folha precisa saber: as contas, onde está e o que não se pode escolher. */
   protected readonly moveSheet = computed(() => {
     const m = this.moving();
@@ -822,10 +965,11 @@ export class PixelArtsPage {
     const tree = this.folderTree();
     return {
       title: m.kind === 'pasta' ? `Mover a pasta ${m.name}` : `Mover ${m.name}`,
-      sub: `Está em ${this.folderName(m.from)}`,
+      sub: m.kind === 'varios' ? (m.from === null && m.ids.length + m.folders.length > 1 ? 'Estão em lugares diferentes' : `Estão em ${this.folderName(m.from)}`) : `Está em ${this.folderName(m.from)}`,
       counts: this.folders.counts(),
-      blocked: m.kind === 'pasta' ? tree.below(m.id) : new Set<string>(),
-      rootLabel: m.kind === 'pasta' ? 'Direto em Pixel arts' : 'Sem pasta',
+      // (nunca uma pasta dentro dela mesma)
+      blocked: m.kind === 'pasta' ? tree.below(m.id) : m.kind === 'varios' ? new Set(m.folders.flatMap((id) => [...tree.below(id)])) : new Set<string>(),
+      rootLabel: m.kind === 'obras' ? 'Sem pasta' : 'Direto em Pixel arts',
       start: m.from,
     };
   });
@@ -837,6 +981,7 @@ export class PixelArtsPage {
     // (as obras marcadas podem estar em pastas de dentro da aberta: escolher a aberta ainda as move)
     if (!m || (m.kind === 'pasta' && id === m.from)) return;
     if (m.kind === 'pasta') this.dropped({ kind: 'pasta', id: m.id }, { kind: 'guardar', folder: id });
+    else if (m.kind === 'varios') this.dropped({ kind: 'varios', grab: { kind: 'pasta', id: m.folders[0] }, ids: m.ids, folders: m.folders }, { kind: 'guardar', folder: id });
     else this.dropped({ kind: 'notas', lead: m.ids[0], ids: m.ids }, { kind: 'guardar', folder: id });
   }
 

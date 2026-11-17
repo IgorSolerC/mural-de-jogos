@@ -3,6 +3,7 @@
    do grão e das cartolinas do mural; a sombra é a das fichas. Um tamanho só, em todas as vistas: quem
    decide a largura é a grade das pastas (ver .pastas-lista em pages/wall-board.scss). */
 @use 'capas-na-boca' as boca;
+@use 'marcada' as marca;
 
 :host {
   --pasta: #d6c391;
@@ -14,8 +15,18 @@
   --nome-alt: 1.08;
   --qtd-tam: 0.74rem;
   --qtd-alt: 1.25;
+  position: relative;
   display: block;
   min-width: 0;
+}
+
+/* marcada (Ctrl+clique, Shift+clique, o Marcar do menu: ver ui/note-selection.ts, PLANO-MARCAR-PASTAS.md): o
+   tracejado de giz e o adesivo com a ordem, os mesmos das fichas marcadas, tortos com a pasta; o tracejado fica
+   a 3px do meio do vão entre as pastas, para duas vizinhas marcadas não virarem uma caixa só */
+:host([data-marcada]) {
+  @include marca.marcada($inset: calc(var(--pastas-vao, 22px) * -0.5 + 3px), $raio: 9px, $topo: -12px, $direita: -12px) {
+    --inclina: var(--tilt, -0.6deg);
+  }
 }
 
 .pasta {

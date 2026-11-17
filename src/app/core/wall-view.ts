@@ -754,6 +754,34 @@ export abstract class WallState {
   }
 
   /**
+   * As anotações de uma pasta e das de dentro dela, como se veem abrindo uma por uma: as direto nela, na ordem
+   * da parede, depois as de cada pasta de dentro, de A a Z (PLANO-MARCAR-PASTAS.md, D8). Com `all`, também as
+   * que a parede não mostra (finalizadas, só no Kanban): o que sai junto quando a pasta sai.
+   */
+  folderNotes(id: string, all = false): Review[] {
+    const tree = this.folders();
+    const f = tree.live(id);
+    if (!f) return [];
+    const below = tree.below(id);
+    const at = new Map<string, Review[]>();
+    for (const r of this.wall()) {
+      const where = tree.of(r);
+      if (!where || !below.has(where) || (!all && !this.shows(r, this.togglesOf(noteTabKey(r))))) continue;
+      const list = at.get(where);
+      if (list) list.push(r);
+      else at.set(where, [r]);
+    }
+    const order = this.order();
+    const out: Review[] = [];
+    const walk = (folder: string) => {
+      out.push(...sortWall(at.get(folder) ?? [], order));
+      for (const kid of tree.kids(f.group, folder)) walk(kid.id);
+    };
+    walk(id);
+    return out;
+  }
+
+  /**
    * O mural da aba aberta, na pasta aberta: num grupo, só o que está direto nela; procurando, ela e as de
    * dentro (na raiz, o grupo inteiro). Fora de um grupo, a aba inteira. Finalizadas também.
    */

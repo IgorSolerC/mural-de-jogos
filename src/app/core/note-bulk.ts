@@ -15,6 +15,8 @@ import { KanbanDeps } from './kanban-deps';
 import { NoteDone } from './note-done';
 import { plural } from './text';
 import { WallMotion } from './wall-motion';
+import { NoteFolders } from './note-folders';
+import { foldersRemovalAsk, marksLabel, moveMarked } from './folder-marks';
 import { Confirm } from '../ui/confirm';
 import { Toasts } from '../ui/toast';
 
@@ -42,6 +44,8 @@ export interface BulkPatch {
 /** Como ficou: quantas mudaram, as que ficaram de fora e por quê, e o Desfazer de tudo. */
 export interface BulkResult {
   changed: number;
+  /** As que mudaram. */
+  ids?: readonly string[];
   /** As compartilhadas: quem vê muda em Compartilhar, e quem só lê não muda a cartolina. */
   skipped: number;
   undo: () => void;
@@ -86,7 +90,13 @@ export function removalPlan(
 export function removalAsk(plan: RemovalPlan, isNotes: boolean): { title?: string; text: string; confirm: string } {
   const n = plan.own.length + plan.forAll.length + plan.leave.length;
   const word = isNotes ? plural(n, 'anotação', 'anotações') : plural(n, 'ficha', 'fichas');
-  const parts = [`${n === 1 ? 'A marcada sai' : `As ${word} saem`} do mural, com o texto.`];
+  const parts = [`${n === 1 ? 'A marcada sai' : `As ${word} saem`} do mural, com o texto.`, ...sharedRemovalParts(plan)];
+  return { ...(plan.forAll.length ? { title: 'Apagar para todos?' } : {}), text: parts.join(' '), confirm: `Apagar ${word}` };
+}
+
+/** O que a pergunta de apagar diz das compartilhadas: as que saem para todos, as de que você sai, as que ficam. */
+export function sharedRemovalParts(plan: RemovalPlan): string[] {
+  const parts: string[] = [];
   if (plan.forAll.length)
     parts.push(
       plan.forAll.length === 1
@@ -105,7 +115,16 @@ export function removalAsk(plan: RemovalPlan, isNotes: boolean): { title?: strin
         ? 'Uma, de um grupo compartilhado, fica: nele, o editor apaga só as que escreveu.'
         : `${plan.held.length}, de um grupo compartilhado, ficam: nele, o editor apaga só as que escreveu.`,
     );
-  return { ...(plan.forAll.length ? { title: 'Apagar para todos?' } : {}), text: parts.join(' '), confirm: `Apagar ${word}` };
+  return parts;
+}
+
+/**
+ * As pastas marcadas na folha (PLANO-MARCAR-PASTAS.md): as de cima (`folders`) e as anotações marcadas que não estão
+ * dentro delas (`tops`); as outras anotações da folha são as de dentro das pastas.
+ */
+export interface FolderMarksOf {
+  folders: readonly string[];
+  tops: readonly string[];
 }
 
 /** Quantas compartilhadas o apagar em massa tira da nuvem ao mesmo tempo. */
@@ -118,13 +137,20 @@ const tagKey = (t: string) => fold(t);
  * A anotação com o que a folha pede (sem carimbar a hora). `can`: o que ela deixa mudar (numa compartilhada,
  * quem vê muda em Compartilhar, e a cartolina só com quem escreve nela).
  */
-export function patched(r: Review, p: BulkPatch, now: string, can: { audience: boolean; stock: boolean } = { audience: true, stock: true }): Review {
+export function patched(
+  r: Review,
+  p: BulkPatch,
+  now: string,
+  can: { audience: boolean; stock: boolean } = { audience: true, stock: true },
+  keepFolder = false,
+): Review {
   const next: Review = { ...r };
   if (p.category !== undefined) {
     if (p.category) next.category = p.category;
     else delete next.category;
-    // mudou de grupo: sai da pasta de antes (a pasta é do grupo)
-    if (lookKey(next.category ?? '') !== lookKey(r.category ?? '')) delete next.folder;
+    // mudou de grupo: sai da pasta de antes (a pasta é do grupo); a de dentro de uma pasta que vai junto para o
+    // grupo novo fica nela (`keepFolder`, PLANO-MARCAR-PASTAS.md, D9)
+    if (!keepFolder && lookKey(next.category ?? '') !== lookKey(r.category ?? '')) delete next.folder;
   }
   if (p.folder !== undefined && lookKey(next.category ?? '') === lookKey(p.category === undefined ? (r.category ?? '') : (p.category ?? ''))) {
     if (p.folder) next.folder = p.folder;
@@ -182,6 +208,7 @@ export class NoteBulk {
   private readonly motion = inject(WallMotion);
   private readonly groups = inject(SharedGroupsStore);
   private readonly account = inject(CloudAccount);
+  private readonly folders = inject(NoteFolders);
 
   /** O que apagar faria com as marcadas (ver `removalPlan`). */
   plan(ids: readonly string[]): RemovalPlan {
@@ -193,25 +220,107 @@ export class NoteBulk {
     );
   }
 
-  /** O Aplicar da folha: muda, e o bilhete diz quantas, com o Desfazer de todas. */
-  run(ids: readonly string[], p: BulkPatch, words?: readonly [string, string]): void {
+  /**
+   * O Aplicar da folha: muda, e o bilhete diz quantas, com o Desfazer de todas. Com pastas marcadas (`marks`,
+   * PLANO-MARCAR-PASTAS.md, D9), `ids` são as anotações marcadas e as de dentro delas: a pasta e o grupo levam as
+   * pastas inteiras (ver `applyMarked`).
+   */
+  run(ids: readonly string[], p: BulkPatch, words?: readonly [string, string], marks?: FolderMarksOf): void {
     let res: BulkResult = { changed: 0, skipped: 0, undo: () => undefined };
-    this.motion.run(() => (res = this.apply(ids, p)));
+    let folders = 0;
+    this.motion.run(() => {
+      if (marks?.folders.length) {
+        const m = this.applyMarked(ids, p, marks);
+        res = m;
+        folders = m.folders;
+      } else res = this.apply(ids, p);
+    });
     const r = res as BulkResult;
     const notes = ids.map((id) => this.store.get(id)).filter((x) => !!x);
     const word = words ?? (notes.every(isNote) ? ['anotação mudou', 'anotações mudaram'] : ['ficha mudou', 'fichas mudaram']);
     const out = r.skipped ? ` (${r.skipped === 1 ? '1 compartilhada ficou como estava' : `${r.skipped} compartilhadas ficaram como estavam`})` : '';
-    if (!r.changed) {
+    if (!r.changed && !folders) {
       this.toasts.show(r.skipped ? `Nada mudou${out}.` : 'Nada mudou: elas já estavam assim.');
       return;
     }
-    this.toasts.show(`${plural(r.changed, word[0], word[1])}${out}.`, { label: 'Desfazer', run: () => this.motion.run(r.undo) }, 8000);
+    // com pastas: "2 pastas e 12 anotações mudaram"
+    const text = folders ? `${marksLabel(folders, r.changed, ['anotação', 'anotações'])} ${folders + r.changed === 1 ? 'mudou' : 'mudaram'}` : plural(r.changed, word[0], word[1]);
+    this.toasts.show(`${text}${out}.`, { label: 'Desfazer', run: () => this.motion.run(r.undo) }, 8000);
   }
 
-  /** Finalizar, abrir de novo ou apagar as marcadas, na hora (o pé da folha). */
-  async act(ids: readonly string[], a: 'finalizar' | 'reabrir' | 'apagar'): Promise<void> {
+  /**
+   * A folha com pastas marcadas (PLANO-MARCAR-PASTAS.md, D9): o que não é lugar (tags, quem vê, cartolina…) vale
+   * para todas as anotações (`ids`: as marcadas e as de dentro das pastas); a Pasta leva as marcadas de cima (as
+   * pastas inteiras e as anotações soltas) para a escolhida; o Grupo leva as pastas para o grupo novo, com tudo
+   * dentro, e as de dentro trocam de grupo ficando nas pastas. Um Desfazer só. `folders`: quantas pastas mudaram.
+   */
+  applyMarked(ids: readonly string[], p: BulkPatch, marks: FolderMarksOf): BulkResult & { folders: number } {
+    const { category, folder, ...rest } = p;
+    const tops = new Set(marks.tops);
+    const undos: (() => void)[] = [];
+    const changed = new Set<string>();
+    let skipped = 0;
+    const take = (r: BulkResult) => {
+      undos.push(r.undo);
+      for (const id of r.ids ?? []) changed.add(id);
+      skipped += r.skipped;
+    };
+    if (Object.keys(rest).length) take(this.apply(ids, rest));
+    let folders = 0;
+    const tree = this.folders.tree();
+    if (category !== undefined) {
+      // as que vão para outro grupo (a de lá só muda de lugar, se escolheu a pasta)
+      const away = marks.folders.filter((id) => tree.live(id)?.group !== lookKey(category ?? ''));
+      const here = marks.folders.filter((id) => !away.includes(id));
+      // as anotações de dentro trocam de grupo só nas pastas que foram mesmo (a que não pôde ir fica com as dela)
+      const went = new Set<string>();
+      if (away.length) {
+        undos.push(this.folders.toGroup(away, category, folder ?? null));
+        const after = this.folders.tree();
+        for (const id of away) if (after.index.get(id)?.group === lookKey(category ?? '')) for (const x of tree.below(id)) went.add(x);
+        folders += away.filter((id) => went.has(id)).length;
+      }
+      if (here.length && folder !== undefined) {
+        const moved = moveMarked(this.folders, { folders: here, items: [] }, folder);
+        undos.push(moved.undo);
+        folders += moved.folders;
+      }
+      take(
+        this.apply(
+          ids.filter((id) => {
+            const r = this.store.get(id);
+            return !tops.has(id) && !!r && went.has(tree.of(r) ?? '');
+          }),
+          { category },
+          true,
+        ),
+      );
+    } else if (folder !== undefined) {
+      const moved = moveMarked(this.folders, { folders: marks.folders, items: [] }, folder);
+      undos.push(moved.undo);
+      folders += moved.folders;
+    }
+    if (category !== undefined || folder !== undefined) {
+      take(this.apply(marks.tops, { ...(category !== undefined ? { category } : {}), ...(folder !== undefined ? { folder } : {}) }));
+    }
+    return {
+      changed: changed.size,
+      ids: [...changed],
+      skipped,
+      folders,
+      // na ordem contrária: as anotações voltam antes das pastas
+      undo: () => [...undos].reverse().forEach((u) => u()),
+    };
+  }
+
+  /**
+   * Finalizar, abrir de novo ou apagar as marcadas, na hora (o pé da folha). Com pastas marcadas (`marks`), `ids`
+   * são as marcadas e as de dentro delas, e apagar pergunta o que fazer com as pastas (`removeWithFolders`).
+   */
+  async act(ids: readonly string[], a: 'finalizar' | 'reabrir' | 'apagar', marks?: FolderMarksOf): Promise<void> {
     if (a === 'apagar') {
-      await this.removeMarked(ids);
+      if (marks?.folders.length) await this.removeWithFolders(ids, marks);
+      else await this.removeMarked(ids);
       return;
     }
     const want = a === 'finalizar';
@@ -281,6 +390,45 @@ export class NoteBulk {
   }
 
   /**
+   * Apagar com pastas marcadas (PLANO-MARCAR-PASTAS.md, D10): a pergunta diz o que sai e oferece as duas saídas.
+   * "Apagar tudo": as anotações (as marcadas e as de dentro, pelas regras das compartilhadas) e as pastas, que viram
+   * lápide (a compartilhada que não saiu sobe). "Só desfazer as pastas": o que está nelas sobe para onde elas
+   * estavam, e só as anotações marcadas soltas saem. Um Desfazer volta as suas e as pastas.
+   */
+  private async removeWithFolders(ids: readonly string[], marks: FolderMarksOf): Promise<void> {
+    const nf = marks.folders.length;
+    const tops = marks.tops;
+    const inside = ids.length - tops.length;
+    const plan = this.plan(ids);
+    const choice = await this.confirm.choose(foldersRemovalAsk(nf, inside, tops.length, ['anotação', 'anotações'], sharedRemovalParts(plan), false, plan.forAll.length > 0));
+    if (!choice) return;
+    const undos: (() => void)[] = [];
+    if (choice === 'secondary') {
+      this.motion.run(() => marks.folders.forEach((id) => undos.push(this.folders.dissolve(id))));
+      let removed = 0;
+      if (tops.length) {
+        const done = await this.removeNow(this.plan(tops));
+        undos.push(done.undo);
+        removed = done.removed + done.cloud;
+      }
+      const text = `${nf === 1 ? 'A pasta foi desfeita' : `As ${nf} pastas foram desfeitas`}${removed ? ` e ${plural(removed, 'anotação apagada', 'anotações apagadas')}` : ''}.`;
+      this.toasts.show(text, { label: 'Desfazer', run: () => this.motion.run(() => [...undos].reverse().forEach((u) => u())) }, 8000);
+      return;
+    }
+    const shares = plan.forAll.length + plan.leave.length;
+    if (shares > 3) this.toasts.show(`Apagando ${plural(shares, 'anotação compartilhada', 'anotações compartilhadas')}…`);
+    const done = await this.removeNow(plan);
+    undos.push(done.undo);
+    this.motion.run(() => undos.push(this.folders.drop(marks.folders)));
+    const n = done.removed + done.cloud;
+    const rest = done.failed ? ` Algumas compartilhadas ficaram: ${done.failed}` : '';
+    this.toasts.show(`${marksLabel(nf, n, ['anotação', 'anotações'])} ${nf + n === 1 ? 'apagada' : 'apagadas'}.${rest}`, {
+      label: 'Desfazer',
+      run: () => this.motion.run(() => [...undos].reverse().forEach((u) => u())),
+    }, 8000);
+  }
+
+  /**
    * Faz o que o plano diz, sem perguntar (quem chama já perguntou: o apagar em massa, a folha de apagar o grupo):
    * as suas saem daqui, com o Desfazer; as compartilhadas saem para todos ou você sai delas, pela nuvem, poucas
    * de cada vez. `failed`: a mensagem da primeira que a nuvem não tirou (ela fica).
@@ -309,8 +457,11 @@ export class NoteBulk {
     return { removed: done.removed, cloud, failed, undo: done.undo };
   }
 
-  /** Muda as anotações `ids` com o que a folha pediu, com um Desfazer só. */
-  apply(ids: readonly string[], p: BulkPatch): BulkResult {
+  /**
+   * Muda as anotações `ids` com o que a folha pediu, com um Desfazer só. `keepFolder`: mudando de grupo, elas
+   * ficam na pasta (a pasta vai junto para o grupo novo).
+   */
+  apply(ids: readonly string[], p: BulkPatch, keepFolder = false): BulkResult {
     const now = new Date().toISOString();
     /** Cada anotação mudada e os campos dela como eram (só os que mudaram: o Desfazer não mexe no resto). */
     const before: { id: string; was: Partial<Record<keyof Review, unknown>> }[] = [];
@@ -324,7 +475,7 @@ export class NoteBulk {
       // (só conta como "ficou de fora" a que mudaria)
       const held = (p.audience !== undefined && !can.audience && !!r.private !== (p.audience === 'privada')) || (!!p.stock && !can.stock && (r.stock ?? 'branco') !== p.stock);
       if (held) skipped++;
-      const next = patched(r, p, now, can);
+      const next = patched(r, p, now, can, keepFolder);
       if (same(next, r)) continue;
       before.push({ id, was: changedFields(r, next) });
       this.store.update({ ...next, updatedAt: now }, r);
@@ -334,6 +485,7 @@ export class NoteBulk {
     const changedIds = new Set([...before.map((r) => r.id), ...(boardUndo?.ids ?? []), ...(studyUndo?.ids ?? [])]);
     return {
       changed: changedIds.size,
+      ids: [...changedIds],
       skipped,
       undo: () => {
         const back = new Date().toISOString();

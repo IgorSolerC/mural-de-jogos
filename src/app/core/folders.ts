@@ -363,24 +363,69 @@ export function withJoinedFolder(folders: readonly NoteFolder[], from: string, i
  */
 export function foldersOfGroupMoved(folders: readonly NoteFolder[], from: string, to: string | null, at: string, parent: string | null = null): NoteFolder[] {
   const src = lookKey(from);
+  if (src === lookKey(to ?? '')) return [...folders];
   const dst = lookKey(to ?? '');
-  if (src === dst) return [...folders];
   const tree = folderTree(folders);
-  // `parent`: a pasta de `to` onde as de cima entram (apagar o grupo levando tudo para uma pasta,
-  // PLANO-APAGAR-GRUPO.md); a que não é uma pasta viva de `to` vale como a raiz
+  const out = withFoldersToGroup(
+    folders,
+    tree.kids(src, null).map((f) => f.id),
+    to,
+    at,
+    parent,
+  );
+  // (as lápides soltas do grupo também vão)
+  return out.map((f) => (f.group === src ? { ...f, group: dst } : f));
+}
+
+/**
+ * Algumas pastas (`ids`, cada uma com tudo o que está dentro, a árvore inteira) levadas para o grupo `to` (null:
+ * sem grupo), na raiz dele ou dentro de `parent` (uma pasta viva de `to`; a que não é vale como a raiz). A de
+ * cima que já tem uma irmã de mesmo nome onde entra vira uma só com ela (a que chega vira lápide apontando
+ * para a de lá), e a que não cabe embaixo de `parent` (o teto de níveis) fica na raiz. A que já é de `to` não
+ * muda de grupo (só de lugar). As anotações não mudam aqui: quem chama troca o grupo delas, e elas ficam nas
+ * pastas (PLANO-MARCAR-PASTAS.md, D9; o levar do apagar o grupo, PLANO-APAGAR-GRUPO.md, é o caso de todas as de
+ * cima).
+ */
+export function withFoldersToGroup(folders: readonly NoteFolder[], ids: readonly string[], to: string | null, at: string, parent: string | null = null): NoteFolder[] {
+  const dst = lookKey(to ?? '');
+  const tree = folderTree(folders);
   const into = parent && tree.live(parent)?.group === dst ? parent : null;
   const room = MAX_FOLDER_DEPTH - (into ? tree.path(into).length : 0);
-  const tops = new Set(tree.kids(src, null).map((f) => f.id));
+  // (nunca dentro dela mesma: a pasta de destino não pode estar entre as que vão)
+  const tops = ids.filter((id) => !!tree.live(id) && !(into && tree.below(id).has(into)));
   // a de cima cuja árvore não cabe embaixo de `parent` (o teto de níveis) fica na raiz de `to`
-  const fits = (id: string) => Math.max(...[...tree.below(id)].map((x) => tree.path(x).length)) <= room;
-  const placed = new Map([...tops].map((id) => [id, into && fits(id) ? into : null]));
-  let out = folders.map((f) => (f.group === src ? { ...f, group: dst, ...(placed.has(f.id) ? { parent: placed.get(f.id)! } : {}) } : f));
+  const fits = (id: string) => Math.max(...[...tree.below(id)].map((x) => tree.path(x).length - tree.path(id).length + 1)) <= room;
+  const placed = new Map(tops.map((id) => [id, into && fits(id) ? into : null]));
+  const moving = new Map<string, string>();
+  for (const id of tops) for (const x of tree.below(id)) moving.set(x, id);
+  // (as lápides de dentro também vão: as anotações que apontam para elas seguem a viva de cima)
+  // (até não sobrar nenhuma: a lápide dentro de outra lápide também)
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const f of folders)
+      if (f.gone && !moving.has(f.id) && f.parent && moving.has(f.parent)) {
+        moving.set(f.id, moving.get(f.parent)!);
+        grew = true;
+      }
+  }
+  let out = folders.map((f) => (moving.has(f.id) ? { ...f, group: dst, ...(placed.has(f.id) ? { parent: placed.get(f.id)! } : {}) } : f));
   // as de cima com o mesmo nome de uma que já estava onde elas entram
-  for (const f of tree.kids(src, null)) {
-    const twin = tree.kids(dst, placed.get(f.id) ?? null).find((x) => lookKey(x.name) === lookKey(f.name));
-    if (twin) out = withJoinedFolder(out, f.id, twin.id, at);
+  for (const id of tops) {
+    const f = tree.live(id)!;
+    const twin = tree.kids(dst, placed.get(id) ?? null).find((x) => x.id !== id && !moving.has(x.id) && lookKey(x.name) === lookKey(f.name));
+    if (twin) out = withJoinedFolder(out, id, twin.id, at);
   }
   return out;
+}
+
+/**
+ * As pastas apagadas com tudo o que tinham (PLANO-MARCAR-PASTAS.md, D10): cada uma e as de dentro dela viram
+ * lápide. A anotação que ficou lá dentro (a compartilhada que não saiu) sobe até a primeira viva de cima.
+ */
+export function withGoneFolders(folders: readonly NoteFolder[], ids: readonly string[], at: string): NoteFolder[] {
+  const tree = folderTree(folders);
+  const gone = new Set(ids.flatMap((id) => [...tree.below(id)]));
+  return folders.map((f) => (gone.has(f.id) && !f.gone ? { ...f, gone: at } : f));
 }
 
 /** Todas as pastas do grupo viram lápide (o grupo foi apagado com tudo o que tinha, PLANO-APAGAR-GRUPO.md). */

@@ -14,6 +14,8 @@ import {
   subjectFolderId,
   withDissolvedFolder,
   withGoneGroup,
+  withGoneFolders,
+  withFoldersToGroup,
   withJoinedFolder,
   withMovedFolder,
   withNewFolder,
@@ -58,6 +60,15 @@ export class NoteFolders {
   });
 
   readonly tree = computed<FolderTree>(() => folderTree(this.all()));
+
+  /**
+   * As pastas vivas que você pode mexer (mover, marcar, apagar): as suas e as dos grupos compartilhados em que
+   * você escreve; as de um grupo em que você só lê, não (PLANO-MARCAR-PASTAS.md, D12).
+   */
+  readonly movable = computed<ReadonlySet<string>>(() => {
+    const shared = this.groups.groups();
+    return new Set(this.tree().all.flatMap((f) => (!f.gone && (shared.get(f.group)?.write ?? true) ? [f.id] : [])));
+  });
 
   constructor() {
     effect(() => {
@@ -322,6 +333,42 @@ export class NoteFolders {
   moveGroup(from: string, to: string | null, parent: string | null = null): void {
     const next = foldersOfGroupMoved(this.folders, from, to, new Date().toISOString(), parent);
     if (next.some((f, i) => f !== this.folders[i])) this.save(next);
+  }
+
+  /**
+   * Leva as pastas (cada uma com a árvore de dentro) para o grupo `category` (null: sem grupo), na raiz dele ou
+   * dentro de `parent` (PLANO-MARCAR-PASTAS.md, D9). As anotações de dentro trocam de grupo por quem chama. Devolve
+   * como desfazer: cada pasta que mudou volta como era, se ninguém mexeu nela no meio.
+   */
+  toGroup(ids: readonly string[], category: string | null | undefined, parent: string | null = null): () => void {
+    return this.changeAndUndo((folders) => withFoldersToGroup(folders, ids, category ?? null, new Date().toISOString(), parent));
+  }
+
+  /**
+   * Apaga as pastas com tudo o que tinham (cada uma e as de dentro viram lápide; a anotação que ficou lá dentro
+   * sobe). Devolve como desfazer: elas voltam, se ninguém mexeu nelas no meio.
+   */
+  drop(ids: readonly string[]): () => void {
+    return this.changeAndUndo((folders) => withGoneFolders(folders, ids, new Date().toISOString()));
+  }
+
+  /**
+   * Grava a mudança e devolve o Desfazer dela: cada pasta que mudou volta como era antes, se ainda está como a
+   * mudança a deixou (o que mudou de novo depois, aqui ou vindo de outro aparelho, fica).
+   */
+  private changeAndUndo(change: (folders: readonly NoteFolder[]) => NoteFolder[]): () => void {
+    const before = this.folders;
+    const after = change(before);
+    const was = new Map<string, NoteFolder>();
+    const now = new Map<string, string>();
+    after.forEach((f, i) => {
+      if (f === before[i]) return;
+      was.set(f.id, before[i]);
+      now.set(f.id, JSON.stringify(f));
+    });
+    if (!was.size) return () => undefined;
+    this.save(after);
+    return this.undoWith((f) => (was.has(f.id) && JSON.stringify(f) === now.get(f.id) ? was.get(f.id)! : f));
   }
 
   /** As pastas do grupo apagado com tudo viram lápide (as anotações que chegarem depois ficam na raiz). */

@@ -40,7 +40,12 @@ export class WallPage {
   protected readonly board = viewChild(WallBoard);
   private readonly byId = computed(() => new Map(this.mural.reviews().map((r) => [r.id, r])));
   /** A folha "Editar as marcadas", o Limpar e o Copiar e Editar da tira (ui/selection-flow.ts, igual nas três páginas). */
-  protected readonly flow = new SelectionFlow(() => this.board()?.selection, this.byId);
+  protected readonly flow = new SelectionFlow(
+    () => this.board()?.selection,
+    this.byId,
+    // com pastas marcadas, a folha muda também as de dentro delas (PLANO-MARCAR-PASTAS.md, D9)
+    () => this.board()?.markedForEdit() ?? null,
+  );
 
   protected readonly PlusIcon = ICON.adicionar;
   /** O mural de anotações: o vazio fala de anotação, não de resenha. */
@@ -59,12 +64,19 @@ export class WallPage {
     looks: this.settings.categoryLooks(),
   }));
 
-  /** As marcadas (ui/note-selection.ts, na parede). */
+  /** As marcadas (ui/note-selection.ts, na parede): as fichas e as pastas. */
   protected readonly marks = computed(() => this.board()?.selection.ids() ?? []);
-  /** As marcadas que a busca, o filtro ou a aba escondem agora. */
+  protected readonly markedFolders = computed(() => this.board()?.selection.folders() ?? []);
+  /** As marcadas que a busca, o filtro, a aba ou a pasta aberta escondem agora. */
   protected readonly hiddenMarks = computed(() => {
     const shown = new Set(this.view.visible().map((r) => r.id));
-    return this.marks().filter((id) => !shown.has(id)).length;
+    const kids = new Set(this.view.folderKids().map((f) => f.id));
+    return this.marks().filter((id) => !shown.has(id)).length + this.markedFolders().filter((id) => !kids.has(id)).length;
+  });
+  /** O que a tira diz sem nada marcado: nas anotações com pastas à mostra, que elas também marcam. */
+  protected readonly trayHint = computed(() => {
+    if (!this.notes()) return 'Toque nas fichas que vão pro lado a lado';
+    return this.view.folderKids().length ? 'Toque nas anotações e nas pastas para marcar; dois toques abrem a pasta' : 'Toque nas anotações para marcar';
   });
   /** As da parede que ainda não estão marcadas (o "Marcar as visíveis", com a busca ou o filtro ligado). */
   private readonly unmarked = computed(() => {
@@ -83,7 +95,7 @@ export class WallPage {
         run: () => this.board()?.selection.add(rest.map((r) => r.id)),
       });
     }
-    const n = this.marks().length;
+    const n = this.board()?.selection.count() ?? 0;
     if (this.notes()) {
       const copy = this.flow.copyAction();
       if (copy) out.push(copy);
@@ -98,7 +110,7 @@ export class WallPage {
           run: () => this.board()?.moveMarked(),
         });
       }
-      out.push(this.flow.editAction('Grupo, pasta, tags, quem vê, cartolina…'));
+      out.push(this.flow.editAction(this.markedFolders().length ? 'Também as de dentro das pastas: grupo, pasta, tags…' : 'Grupo, pasta, tags, quem vê, cartolina…'));
     } else {
       if (n) out.push(this.flow.editAction('Quem vê e a cartolina', false));
       out.push({
