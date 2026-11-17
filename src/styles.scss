@@ -348,6 +348,17 @@ body {
   color: #151515;
 }
 
+/* ouvir a nota (ui/voz-fita.ts): a frase sendo lida num laranja claro, o da faixa da etiqueta da fita
+   cassete (o amarelo já é da seleção e do ==marca-texto== da própria nota, e o verde-limão, da busca), e
+   a palavra dita, onde a voz avisa, no laranja cheio com a tinta preta por cima */
+::highlight(voz) {
+  background-color: rgb(244 150 86 / 0.3);
+}
+::highlight(voz-palavra) {
+  background-color: rgb(236 122 60 / 0.62);
+  color: #151515;
+}
+
 :focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 3px;

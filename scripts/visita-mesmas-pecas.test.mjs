@@ -79,6 +79,12 @@ const PECAS = [
     marcas: [/class="cabeca-secao"/],
     o: 'a cabeça de uma seção da parede, escrita a giz com o fio (PLANO-ETIQUETAS.md)',
   },
+  {
+    peca: 'src/app/ui/voz-fita.ts',
+    usa: 'app-voz-fita',
+    marcas: [/class="fita" role="group" aria-label="Ouvir a nota"/],
+    o: 'a fita da voz que lê a nota, ao pé da ficha aberta (PLANO-VOZ.md)',
+  },
 ];
 
 /** Os moldes da visita e as peças que precisam aparecer neles. */
@@ -87,6 +93,8 @@ const VISITA = [
   { molde: 'src/app/pages/colleague-wall-page.html', pecas: ['app-wall-board', 'app-wall-toolbar', 'app-review-reader', 'app-visit-study', 'app-visit-boards'] },
   { molde: 'src/app/ui/visit-boards.ts', pecas: ['app-study-group-tabs', 'app-free-board-card', 'app-free-board', 'app-free-board-top'] },
   { molde: 'src/app/ui/visit-kanban.ts', pecas: ['app-study-group-tabs', 'app-kanban-column-head', 'app-kanban-note'] },
+  // a ficha aberta (a mesma do dono, na visita) traz a fita da voz
+  { molde: 'src/app/ui/review-reader.ts', pecas: ['app-voz-fita'] },
 ];
 
 /** As peças que a visita monta e que só leem: nada delas pode importar o que escreve. */
@@ -113,6 +121,9 @@ const SO_LEEM = [
   'src/app/ui/kanban-note.ts',
   'src/app/core/visit-groups.ts',
   'src/app/ui/section-head.ts',
+  'src/app/ui/voz-fita.ts',
+  'src/app/ui/voz-frases.ts',
+  'src/app/core/voz.ts',
 ];
 /** O que escreve no seu Murall. */
 const ESCREVE = /from '[./]+(?:core\/)?(study-store|review-store|desk|kanban-store|calendar-store|spending-store)'/;

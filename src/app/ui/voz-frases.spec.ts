@@ -1,7 +1,7 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { RichText } from './rich-text';
-import { Sentence, findAgain, maxSpeech, rangesOf, sentenceAt, sentencesOf } from './voz-frases';
+import { Sentence, findAgain, maxSpeech, rangesOf, rangesOfChars, sentenceAt, sentencesOf } from './voz-frases';
 
 const PT = { lang: 'pt-BR', max: maxSpeech('pt-BR') };
 const JA = { lang: 'ja-JP', max: maxSpeech('ja-JP') };
@@ -101,6 +101,27 @@ describe('as frases para ler em voz alta', () => {
     expect(texts(sentencesOf([host], PT))).toEqual(['comprar pão', 'o fim: ele morre.', 'Dica', 'escondida', 'fim']);
   });
 
+  it('a conversa de japonês (cards que fecham, com o rōmaji e a tradução em spoiler): só o que está à mostra', async () => {
+    const card = (who: string, line: string, romaji: string, pt: string, open = false) =>
+      [`> [!cartolina]${open ? '+' : '-'} **${who}:** ${line}`, '> ### Romaji', `> ||${romaji}||`, '> ### Tradução', `> ||${pt}||`].join('\n');
+    const el = await rich(
+      [
+        '### O diálogo',
+        card('A', 'こんにちは！私のケーキはどこですか？', 'Konnichiwa! Watashi no keeki wa doko desu ka?', 'Oi! Cadê o meu bolo?'),
+        '',
+        card('B', 'すみません…昨日、学生とケーキを食べました。', 'Sumimasen... kinou, gakusei to keeki wo tabemashita.', 'Desculpe... ontem comi o bolo com o estudante.', true),
+      ].join('\n'),
+    );
+    // o card fechado: só o título; o aberto: os títulos de dentro, mas os spoilers fechados não
+    expect(texts(sentencesOf([el], JA))).toEqual(['O diálogo', 'A: こんにちは！', '私のケーキはどこですか？', 'B: すみません…昨日、学生とケーキを食べました。', 'Romaji', 'Tradução']);
+    // revelada a tradução, ela entra
+    const spoilers = [...el.querySelectorAll<HTMLElement>('.spoiler')];
+    spoilers[spoilers.length - 1].click();
+    await new Promise((r) => setTimeout(r));
+    expect(texts(sentencesOf([el], JA))).toContain('Desculpe... ontem comi o bolo com o estudante.');
+    expect(texts(sentencesOf([el], JA))).not.toContain('Sumimasen... kinou, gakusei to keeki wo tabemashita.');
+  });
+
   it('a tabela, célula por célula; o código, linha por linha', async () => {
     const el = await rich(['| Português | Japonês |', '| --- | --- |', '| Bom dia | おはよう |', '', '```', 'A: こんにちは', 'B: はい', '```'].join('\n'));
     expect(texts(sentencesOf([el], JA))).toEqual(['Português', 'Japonês', 'Bom dia', 'おはよう', 'A: こんにちは', 'B: はい']);
@@ -171,6 +192,17 @@ describe('as frases para ler em voz alta', () => {
     expect(findAgain('Cinco.', 1, list)).toBe(1);
     expect(findAgain('Cinco.', 9, list)).toBe(3);
     expect(findAgain('Um.', 0, [])).toBe(-1);
+  });
+
+  it('a palavra que a voz avisa (as letras do texto falado, com os espaços juntos) na tela, passando pelo negrito', () => {
+    host = html('<div class="linha">Bom   dia, <b>tu</b>do bem?</div>');
+    const [s] = sentencesOf([host], PT);
+    expect(s.text).toBe('Bom dia, tudo bem?');
+    // "dia": os espaços seguidos contam um só
+    expect(rangesOfChars(s, 4, 7).map((r) => r.toString())).toEqual(['dia']);
+    // "tudo": metade no negrito, metade fora
+    expect(rangesOfChars(s, 9, 13).map((r) => r.toString())).toEqual(['tu', 'do']);
+    expect(rangesOfChars(s, 40, 50)).toEqual([]);
   });
 
   it('o trecho que saiu da folha não vira marca-texto', () => {

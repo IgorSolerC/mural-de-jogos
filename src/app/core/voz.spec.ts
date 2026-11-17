@@ -1,67 +1,7 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { SPEECH, UTTERANCE, VOICE_LANGS, VOZ_KEY, Voz, voiceLabel, voicesFor } from './voz';
-
-/** A fala de mentira: um objeto comum (a de verdade recusa uma voz de mentira). */
-const fakeUtterance = (text: string) => ({ text, voice: null, lang: '', rate: 1, volume: 1 }) as unknown as SpeechSynthesisUtterance;
-
-/** Uma voz de mentira: só o que o serviço lê. */
-function voice(name: string, lang: string, localService = false): SpeechSynthesisVoice {
-  return { name, lang, localService, default: false, voiceURI: name } as SpeechSynthesisVoice;
-}
-
-const GOOGLE_JA = voice('Google 日本語', 'ja-JP');
-const GOOGLE_PT = voice('Google português do Brasil', 'pt-BR');
-const GOOGLE_UK_MALE = voice('Google UK English Male', 'en-GB');
-const MARIA = voice('Microsoft Maria - Portuguese (Brazil)', 'pt-BR', true);
-const DAVID = voice('Microsoft David - English (United States)', 'en-US', true);
-const NANAMI = voice('Microsoft Nanami Online (Natural) - Japanese (Japan)', 'ja-JP');
-const SONIA = voice('Microsoft Sonia Online (Natural) - English (United Kingdom)', 'en-GB');
-const ARIA = voice('Microsoft Aria Online (Natural) - English (United States)', 'en-US');
-
-/** O `speechSynthesis` de mentira: guarda a fila, e o teste diz quando cada fala começa, acaba ou falha. */
-class FakeSpeech {
-  list: SpeechSynthesisVoice[] = [];
-  queue: SpeechSynthesisUtterance[] = [];
-  spoken: SpeechSynthesisUtterance[] = [];
-  cancels = 0;
-  pauses = 0;
-  speaking = true;
-  private listeners: (() => void)[] = [];
-  getVoices = () => this.list;
-  addEventListener(_: string, fn: () => void) {
-    this.listeners.push(fn);
-  }
-  speak(u: SpeechSynthesisUtterance) {
-    this.queue.push(u);
-    this.spoken.push(u);
-  }
-  cancel() {
-    this.cancels++;
-    const old = this.queue;
-    this.queue = [];
-    // como o Chrome: a fila cancelada avisa "interrupted"
-    for (const u of old) u.onerror?.({ error: 'interrupted' } as SpeechSynthesisErrorEvent);
-  }
-  resume() {}
-  pause() {
-    this.pauses++;
-  }
-  setVoices(list: SpeechSynthesisVoice[]) {
-    this.list = list;
-    this.listeners.forEach((fn) => fn());
-  }
-  /** A primeira da fila começa (e, com `end`, acaba). */
-  begin(): SpeechSynthesisUtterance {
-    const u = this.queue[0];
-    u.onstart?.({} as SpeechSynthesisEvent);
-    return u;
-  }
-  end(): void {
-    const u = this.queue.shift()!;
-    u.onend?.({} as SpeechSynthesisEvent);
-  }
-}
+import { ARIA, DAVID, FakeSpeech, GOOGLE_JA, GOOGLE_PT, GOOGLE_UK_MALE, MARIA, NANAMI, SONIA, fakeUtterance, voice } from '../testing/fala-falsa';
 
 describe('a voz que lê a nota', () => {
   let fake: FakeSpeech;
@@ -229,6 +169,17 @@ describe('a voz que lê a nota', () => {
       old.onend?.({} as SpeechSynthesisEvent);
       expect(voz.at()).toBe(0);
       expect(voz.playing()).toBeTrue();
+    });
+
+    it('quem começou a leitura é o dono dela; outra que começa toma o lugar; parar esquece', () => {
+      const a = {};
+      const b = {};
+      voz.start(['Um.'], 'pt', 0, a);
+      expect(voz.owner()).toBe(a);
+      voz.start(['Dois.'], 'pt', 0, b);
+      expect(voz.owner()).toBe(b);
+      voz.stop();
+      expect(voz.owner()).toBeNull();
     });
 
     it('parar esquece tudo e cala', () => {

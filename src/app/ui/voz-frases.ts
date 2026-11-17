@@ -191,6 +191,39 @@ export function rangesOf(s: Sentence): Range[] {
 }
 
 /**
+ * As letras [from, to) do texto falado da frase (os espaços juntos num só, como em `text`) na tela: a
+ * palavra que a voz avisa que está dizendo. Vazio fora da frase.
+ */
+export function rangesOfChars(s: Sentence, from: number, to: number): Range[] {
+  // onde cada letra falada está: o nó e a letra nele (um espaço seguido conta uma vez só)
+  const at: { node: Text; i: number }[] = [];
+  let space = false;
+  for (const p of s.pieces) {
+    if (!p.node.isConnected || p.to > p.node.data.length) return [];
+    for (let i = p.from; i < p.to; i++) {
+      const isSpace = /\s/u.test(p.node.data[i]);
+      if (!isSpace || !space) at.push({ node: p.node, i });
+      space = isSpace;
+    }
+  }
+  const a = Math.max(0, from);
+  const b = Math.min(to, at.length);
+  const out: Range[] = [];
+  let r: Range | null = null;
+  for (let k = a; k < b; k++) {
+    const { node, i } = at[k];
+    if (r && r.endContainer === node && r.endOffset === i) r.setEnd(node, i + 1);
+    else {
+      r = node.ownerDocument.createRange();
+      r.setStart(node, i);
+      r.setEnd(node, i + 1);
+      out.push(r);
+    }
+  }
+  return out;
+}
+
+/**
  * A frase do ponto (o nó e a letra onde a pessoa tocou): a que tem o ponto dentro (as pontas contam: tocar
  * na metade direita da última letra dá a letra depois dela) ou, entre duas, a de depois; -1 depois da
  * última. Quem chama só pergunta por pontos dentro das raízes lidas.

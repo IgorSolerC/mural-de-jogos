@@ -27,6 +27,20 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-17-ouvir-a-nota',
+    version: '1.48.0',
+    kind: 'funcionalidade',
+    date: '2026-11-17',
+    title: 'Ouvir a nota em voz alta',
+    items: [
+      'A ficha aberta (na leitura e na tela cheia) ganhou os fones, na faixa do nome: escolha Português, Inglês ou Japonês, e a voz do próprio navegador lê o nome e o texto, frase por frase, sem custo e sem baixar nada. No Chrome, as vozes do Google; no Edge, as neurais da Microsoft.',
+      'A fita da leitura fica presa ao pé da folha, com as teclas do toca-fitas (a frase anterior, tocar e pausar, a próxima), a língua (troque ali, e a voz, quando há mais de uma), o contador das frases e a velocidade, de 0,75× a 1,5×. A frase lida ganha um marca-texto laranja e a folha rola até ela; tocar numa frase lê dali.',
+      'Só se lê o que está à mostra: o card fechado tem só o título lido, e o spoiler, só depois de revelado. A velocidade e a voz escolhida ficam no aparelho; nada é gravado na nota, então as compartilhadas e a visita leem do mesmo jeito.',
+    ],
+    notice: 'Novo: ouvir a nota em voz alta, em português, inglês ou japonês. Toque nos fones da ficha aberta.',
+    until: '2026-12-01',
+  },
+  {
     id: '2026-11-17-api-capas',
     version: '1.47.2',
     kind: 'ajustes',

@@ -76,6 +76,8 @@ import { ShareSheet } from './share-sheet';
 import { ConflictSheet } from './conflict-sheet';
 import { LinkSheet } from './link-sheet';
 import { CardConfig } from './card-config';
+import { VozFita } from './voz-fita';
+import { Voz } from '../core/voz';
 import { CALENDAR_PATH, studyPath, wallPath } from '../core/areas';
 import { LEVEL_LABEL, cardDecks, levelOf, studyGroupId, whenLabel } from '../core/study';
 import { StudyStore } from '../core/study-store';
@@ -130,7 +132,7 @@ interface ReadingPlace {
 
 @Component({
   selector: 'app-review-reader',
-  imports: [BackdropClose, CardConfig, CategoryLabel, CommentsPanel, ConflictSheet, LinkSheet, ShareSheet, OrganizeSheet, IconModule, KanbanDepsBadge, MoreMenu, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, NoteTag, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, ReviewCard, Skulls, StatusLabel],
+  imports: [BackdropClose, CardConfig, CategoryLabel, CommentsPanel, ConflictSheet, LinkSheet, ShareSheet, OrganizeSheet, IconModule, KanbanDepsBadge, MoreMenu, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, NoteTag, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, ReviewCard, Skulls, StatusLabel, VozFita],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog
@@ -161,7 +163,7 @@ interface ReadingPlace {
                 <lucide-icon [img]="BackIcon" [size]="22" aria-hidden="true" />
               </button>
             }
-            <h2 id="leitura-titulo" class="title" [class.longo]="r.game.name.length > 44" tabindex="-1">{{ r.game.name }}</h2>
+            <h2 #nomeFicha id="leitura-titulo" class="title" [class.longo]="r.game.name.length > 44" tabindex="-1">{{ r.game.name }}</h2>
             <!-- finalizada: o carimbo redondo batido na emenda da faixa com a folha -->
             @if (note() && r.doneAt && lendo()) {
               <span class="carimbo"><app-done-stamp size="big" [at]="r.doneAt" [hit]="stampedNow()" /></span>
@@ -171,6 +173,13 @@ interface ReadingPlace {
                  ficha aberta pelo link é a página inteira: não há para onde fechar, então não tem o X, e
                  o primeiro é o minimizar dela (a página mostra a ficha pregada no mural de quem
                  escreveu), no mesmo lugar e do mesmo jeito que o "só a cartolina" -->
+            <!-- ouvir a nota em voz alta (PLANO-VOZ.md): o menu das três línguas abre sempre; a fita vai ao pé
+                 da folha. Sem texto, ou com o texto escondido, ou num navegador sem voz, não aparece -->
+            @if (voz.speaks() && r.text.trim() && !masked() && vista() !== 'cartolina') {
+              <button #ouvir type="button" class="icon-btn vista-btn ouvir" aria-haspopup="menu" [class.ligado]="!!fita()?.reading()" aria-label="Ouvir a nota" title="Ouvir a nota" (click)="fita()?.choose($event, ouvir)">
+                <lucide-icon [img]="ListenIcon" [size]="16" aria-hidden="true" />
+              </button>
+            }
             <div class="vistas" role="group" aria-label="Jeito de ver a ficha">
               @if (solta()) {
                 <button type="button" class="icon-btn vista-btn minimizar" (click)="minimize()" aria-label="Minimizar: ver como fica no mural" title="Ver como fica no mural">
@@ -197,7 +206,7 @@ interface ReadingPlace {
             }
           </header>
 
-          <div class="body" appLuz (scroll)="watchSelection()">
+          <div #corpo class="body" appLuz (scroll)="watchSelection()">
             <!-- na tela cheia, a folha é só o texto: o resto (o aviso, as vezes, a data, as notas, as
                  reações e o pé) fica na leitura de sempre -->
             @if (lendo()) {
@@ -412,7 +421,7 @@ interface ReadingPlace {
               } @else {
                 <!-- com a formatação do editor; as tarefas se marcam aqui mesmo, na sua ficha. As feitas viram
                      uma conta, como no mural, e tocar nela mostra a sequência -->
-                <div class="text" data-citavel><app-rich-text [text]="r.text" [fold]="true" [foldKey]="r.id" [checkable]="owner() === null && writable()" [links]="noteLinks()" (toggled)="toggleTask($event)" /></div>
+                <div #textoFicha class="text" data-citavel><app-rich-text [text]="r.text" [fold]="true" [foldKey]="r.id" [checkable]="owner() === null && writable()" [links]="noteLinks()" (toggled)="toggleTask($event)" /></div>
               }
             } @else if (!note()) {
               <!-- a anotação pode ser só o título: sem aviso de texto em branco -->
@@ -436,6 +445,8 @@ interface ReadingPlace {
                 </div>
               }
             }
+            <!-- a fita da voz que lê a nota, presa ao pé da folha (só aparece lendo) -->
+            <app-voz-fita #vozFita [roots]="voiceRoots()" [scroller]="bodyEl()" [key]="r.id" [active]="vista() !== 'cartolina'" />
           </div>
 
           @if (lendo()) {
@@ -692,6 +703,15 @@ export class ReviewReader {
   /** Voltar à leitura, da cartolina: a folha escrita (os cantos ficam só para a tela cheia). */
   protected readonly ReadIcon = ICON.documento;
   protected readonly FullIcon = ICON.telaCheia;
+  protected readonly ListenIcon = ICON.fones;
+  protected readonly voz = inject(Voz);
+  protected readonly fita = viewChild<VozFita>('vozFita');
+  private readonly nameEl = viewChild<ElementRef<HTMLElement>>('nomeFicha');
+  private readonly textEl = viewChild<ElementRef<HTMLElement>>('textoFicha');
+  protected readonly bodyEl = computed(() => this.bodyRef()?.nativeElement ?? null);
+  private readonly bodyRef = viewChild<ElementRef<HTMLElement>>('corpo');
+  /** O que a voz lê: o nome da ficha e o texto desenhado (ver ui/voz-fita.ts). */
+  protected readonly voiceRoots = computed(() => [this.nameEl()?.nativeElement, this.textEl()?.nativeElement]);
   protected readonly LeaveFullIcon = ICON.sairDaTelaCheia;
   private readonly fichaLinks = inject(FichaLinks);
   private readonly store = inject(ReviewStore);
@@ -1324,6 +1344,7 @@ export class ReviewReader {
       return;
     }
     this.closing = false;
+    this.fita()?.stop();
     this.solta.set(null);
     this.vista.set('leitura');
     this.place = null;

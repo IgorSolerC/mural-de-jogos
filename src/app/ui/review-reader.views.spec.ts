@@ -1,4 +1,5 @@
 import { provideZonelessChangeDetection, signal } from '@angular/core';
+import { SPEECH } from '../core/voz';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { Cloud } from '../core/cloud-config';
@@ -68,6 +69,8 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
+        // sem voz: a faixa é a de sempre em qualquer máquina (ouvir a nota tem o spec dele, voz-fita.spec)
+        { provide: SPEECH, useValue: null },
         provideRouter([]),
         { provide: LocalData, useClass: MemoryData },
         { provide: SHARED_AUTO, useValue: false },

@@ -138,6 +138,8 @@ export class Voz {
 
   /** As vozes do navegador (chegam depois de abrir a página, no `voiceschanged`). */
   readonly voices = signal<readonly SpeechSynthesisVoice[]>([]);
+  /** Quem começou a leitura de agora (a fita da ficha aberta): só ela desenha a fita e o marca-texto. */
+  readonly owner = signal<object | null>(null);
   /** A língua da leitura de agora; null sem leitura. */
   readonly lang = signal<VoiceLang | null>(null);
   /** A frase sendo dita (ou onde a leitura parou); -1 sem leitura. */
@@ -206,7 +208,8 @@ export class Voz {
   }
 
   /** Começa a ler as frases na língua, a partir de `from` (no toque: o iPhone só fala começando num toque). */
-  start(texts: readonly string[], lang: VoiceLang, from = 0): void {
+  start(texts: readonly string[], lang: VoiceLang, from = 0, owner: object | null = null): void {
+    this.owner.set(owner);
     this.texts = texts;
     this.total.set(texts.length);
     this.lang.set(lang);
@@ -291,6 +294,7 @@ export class Voz {
   stop(): void {
     this.silence();
     this.texts = [];
+    this.owner.set(null);
     this.lang.set(null);
     this.at.set(-1);
     this.total.set(0);

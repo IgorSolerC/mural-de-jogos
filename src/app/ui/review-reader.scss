@@ -1318,6 +1318,20 @@ dialog.reader.solta[open] > .par {
   }
 }
 
+/* ouvir a nota (ui/voz-fita.ts): o mesmo botão dos jeitos de ver, antes deles; é ele quem empurra o grupo
+   para a direita. Lendo, ele fica aceso, como o desenho dos outros com o mouse em cima */
+.ouvir {
+  margin-left: auto;
+
+  & + .vistas {
+    margin-left: 0;
+  }
+
+  &.ligado {
+    opacity: 1;
+  }
+}
+
 /* o X logo depois deles, sem o empurrão para a direita */
 .vistas + .fecha {
   margin-left: 0;

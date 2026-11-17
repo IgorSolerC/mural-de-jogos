@@ -293,6 +293,7 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
   `,
   styles: `
     @use 'vinyl';
+    @use 'toca-fitas';
 
     :host {
       position: relative;
@@ -685,73 +686,9 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
       gap: 0.6em;
       margin-top: 0.45em;
     }
-    .teclas {
-      display: flex;
-      gap: 2px;
-      padding: 2px;
-      border-radius: 3px;
-      background: #1c1b1e;
-      box-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
-    }
-    .tecla {
-      display: grid;
-      place-items: center;
-      width: 2.5em;
-      height: 1.95em;
-      padding: 0;
-      border: 0;
-      border-bottom: 0.2em solid #8d887e;
-      border-radius: 2px 2px 3px 3px;
-      background: linear-gradient(#f2efe9, #d3cec4);
-      color: #151515;
-      font-size: 1em;
-      cursor: pointer;
-      transition:
-        translate var(--t-ui) var(--ease-ui),
-        border-bottom-width var(--t-ui) var(--ease-ui);
-    }
-    .tecla svg {
-      width: 1em;
-      height: 1em;
-      fill: currentColor;
-    }
-    .tecla:hover:not(:disabled) {
-      background: linear-gradient(#fbf9f5, #ddd8ce);
-    }
-    .tecla:active:not(:disabled),
-    .tecla.baixa {
-      translate: 0 0.14em;
-      border-bottom-width: 0.06em;
-      background: linear-gradient(#d9d4ca, #ebe7e0);
-    }
-    .tecla:disabled {
-      color: rgb(21 21 21 / 0.4);
-      cursor: default;
-    }
-    .tecla:focus-visible {
-      outline: 3px solid var(--hi);
-      outline-offset: 1px;
-      position: relative;
-      z-index: 1;
-    }
-    .tecla-tocar {
-      width: 3em;
-    }
-    /* o contador do toca-fitas: os números claros na janelinha preta */
-    .contagem {
-      padding: 0.3em 0.5em 0.25em;
-      border-radius: 2px;
-      background: #141316;
-      box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.7);
-      color: #f3efe6;
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 0.86em;
-      line-height: 1;
-      letter-spacing: 0.03em;
-      font-variant-numeric: tabular-nums;
-      white-space: nowrap;
-    }
+    /* as teclas e o contador: o parcial do toca-fitas, o mesmo da fita da voz (ui/voz-fita.ts) */
+    @include toca-fitas.teclas;
+    @include toca-fitas.contagem;
     /* a fita estreita (as teclas no mínimo): só as teclas; o tempo continua na barra de arrastar, para
        o leitor de tela */
     @container fita (width < 7.2em) {
@@ -767,10 +704,6 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
       .tecla:not(.tecla-tocar) {
         display: none;
       }
-    }
-    .contagem small {
-      font-size: 1em;
-      color: rgb(243 239 230 / 0.6);
     }
 
     /* ===== O VINIL: a capa e o disco saindo pela metade (tamanho em em de --s, a capa = 10em) ===== */

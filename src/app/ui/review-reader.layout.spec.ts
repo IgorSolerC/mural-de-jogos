@@ -1,4 +1,5 @@
 import { studyGroupId } from '../core/study';
+import { SPEECH } from '../core/voz';
 import { Settings } from '../core/settings';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -69,6 +70,8 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
+        // sem voz: a faixa é a de sempre em qualquer máquina (ouvir a nota tem o spec dele, voz-fita.spec)
+        { provide: SPEECH, useValue: null },
         provideRouter([]),
         { provide: LocalData, useClass: MemoryData },
         { provide: SHARED_AUTO, useValue: false },
