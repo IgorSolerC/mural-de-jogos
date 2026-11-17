@@ -139,6 +139,8 @@ export class SharedGroupsStore {
    * esperando para subir): a base da junção quando outra pessoa gravou antes.
    */
   private readonly bases = new Map<string, SharedGroup['dados']>();
+  /** As anotações já levadas a um grupo nesta sessão (a trava contra subir a mesma de novo, sem fim). */
+  private readonly adopted = new Set<string>();
   private pushTimer: ReturnType<typeof setTimeout> | undefined;
 
   /**
@@ -655,6 +657,10 @@ export class SharedGroupsStore {
         const entry = this.shared.get(note.id);
         const now = this.store.get(note.id);
         if (!now || this.ofCategory(now.category)?.id !== grupo) continue;
+        // trava: cada anotação sobe para um grupo uma vez só por sessão (a que voltava a "pendente" depois de subir
+        // era copiada de novo a cada rodada, sem fim)
+        if (this.adopted.has(note.id)) continue;
+        this.adopted.add(note.id);
         // num grupo público, a privada fica pública, fora do Feed (o editor pergunta antes; os outros caminhos
         // chegam aqui sem perguntar, e a nuvem já a mostraria pelo grupo: o que ela diz tem de bater)
         const g = this.entries().get(grupo);
@@ -686,7 +692,7 @@ export class SharedGroupsStore {
       const e = this.shared.get(n.id);
       // já está nele; ou é de outra pessoa (só quem é dono da anotação a põe num grupo)
       if (e && (e.grupo === g.id || e.papel !== 'dono')) continue;
-      if (e?.grupo) continue;
+      if (e?.grupo || this.adopted.has(n.id)) continue;
       out.push({ note: n, grupo: g.id });
     }
     return out;
