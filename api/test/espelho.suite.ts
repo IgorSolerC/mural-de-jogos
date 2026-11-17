@@ -166,6 +166,19 @@ export function espelhoSuite(label: string, getDb: () => Db) {
       expect(b.mensagem.toLowerCase()).toContain(word);
     });
 
+    it('a recusa diz os campos fora da forma (só os nomes): da nota e do contexto', async () => {
+      const t = await setup();
+      const me = await t.login('ana');
+      await t.newKey(me.token);
+      const rev = await t.push(me.token, 0);
+      const bad = { ...nota('x1'), texto: 'x'.repeat(20_001), capa: 'y'.repeat(2_001) };
+      const res = await t.mirror(me.token, { rev, poe: [{ tipo: 'nota', id: 'x1', hash: 'ab'.repeat(8), dados: bad }] });
+      expect((await t.body(res)).mensagem).toBe('A nota "x1" não tem a forma da v1 (texto, capa).');
+      const ctx = { ...CONTEXTO, grupos: [{ nome: 'Japonês', notas: 1, pastas: [{ id: 'nao-e-pasta', nome: 'A', pai: null, notas: 1 }], assuntos: [], tags: [] }] };
+      const res2 = await t.mirror(me.token, { rev, poe: [{ tipo: 'contexto', id: 'notas', hash: 'ab'.repeat(8), dados: ctx }] });
+      expect((await t.body(res2)).mensagem).toBe('O contexto das Anotações não tem a forma da v1 (grupos[0].pastas).');
+    });
+
     it('um campo a mais não entra no espelho', async () => {
       const t = await setup();
       const { secret, me } = await t.ready();

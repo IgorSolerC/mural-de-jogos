@@ -253,15 +253,11 @@ export class ApiMirror {
     { equal: (a, b) => a.length === b.length && a.every((n, i) => n === b[i]) },
   );
   private reachedTimer: ReturnType<typeof setTimeout> | undefined;
-  private reachedSeen = false;
   private readonly reachedWatch = effect(() => {
     this.reached();
+    // também a primeira vez: os grupos e as compartilhadas chegam do banco do aparelho depois da abertura, e a
+    // primeira sincronização pode ter espelhado antes deles (sem nenhuma rodada ainda, `kick` não faz nada)
     untracked(() => {
-      // (a primeira vez é a da abertura: a sincronização de sempre já manda tudo)
-      if (!this.reachedSeen) {
-        this.reachedSeen = true;
-        return;
-      }
       clearTimeout(this.reachedTimer);
       this.reachedTimer = setTimeout(() => void this.kick(), 5_000);
     });
@@ -414,6 +410,30 @@ export class ApiMirror {
     return notaV1(n, card, boardOnly, this.folders.tree());
   }
 
+  /**
+   * Manda um lote. Um lote que a nuvem recusa (400: um item fora da forma) vai de novo em duas metades, até sobrar
+   * só o item recusado, que fica de fora (tenta de novo na próxima rodada): um item só não leva junto os outros do
+   * lote (antes, uma nota fora da forma deixava fora do espelho as 49 do lote dela e o contexto). O resto (sem rede,
+   * a rev atrasada, a cota do dia) para a rodada.
+   */
+  private async send(batch: readonly (MirrorItem | { tipo: TipoDoEspelho; id: string })[], rev: number, fuso: string): Promise<void> {
+    try {
+      await this.account.request('/v1/eu/espelho', {
+        method: 'POST',
+        body: { rev, fuso, poe: batch.filter((i): i is MirrorItem => 'dados' in i), tira: batch.filter((i) => !('dados' in i)) },
+      });
+    } catch (err) {
+      if (!(err instanceof CloudError && err.status === 400)) throw err;
+      if (batch.length <= 1) {
+        console.warn('o espelho da API recusou um item', err.message);
+        return;
+      }
+      const half = Math.ceil(batch.length / 2);
+      await this.send(batch.slice(0, half), rev, fuso);
+      await this.send(batch.slice(half), rev, fuso);
+    }
+  }
+
   /** `boardsOnly`: só os quadros do Quadro livre (eles mudam sem o mural mudar). */
   private async mirror(rev: number, boardsOnly = false): Promise<void> {
     if (rev === this.doneRev && !boardsOnly) return;
@@ -442,20 +462,7 @@ export class ApiMirror {
       // tirar não pesa: vai junto com o primeiro lote (ou sozinho, quando não há o que pôr)
       const batches = lots<MirrorItem | { tipo: TipoDoEspelho; id: string }>([...drop, ...put], (i) => ('dados' in i ? JSON.stringify(i.dados).length : 40));
       if (!batches.length && remote.rev !== rev && !boardsOnly) batches.push([]);
-      for (const batch of batches) {
-        try {
-          await this.account.request('/v1/eu/espelho', {
-            method: 'POST',
-            body: { rev, fuso, poe: batch.filter((i): i is MirrorItem => 'dados' in i), tira: batch.filter((i) => !('dados' in i)) },
-          });
-        } catch (err) {
-          // um lote que a nuvem não aceita (um item fora da forma) não prende os outros: os lotes vão
-          // sempre na mesma ordem, e um só travava o espelho inteiro para sempre. Ele tenta de novo na
-          // próxima rev; o resto (sem rede, rev atrasada, a cota do dia) para aqui
-          if (!(err instanceof CloudError && err.status === 400)) throw err;
-          console.warn('o espelho da API recusou um lote', err.message);
-        }
-      }
+      for (const batch of batches) await this.send(batch, rev, fuso);
       if (!boardsOnly) this.doneRev = rev;
     } catch (err) {
       // a rev mudou no meio (a próxima sincronização refaz), a cota do dia acabou, sem rede: fica para depois

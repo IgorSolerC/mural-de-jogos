@@ -167,7 +167,10 @@ export function createApp(deps: Deps): Hono {
   app.onError((error, c) => {
     if (error instanceof HttpError) {
       // a rota pelo molde (/v1/murais/:codigo), sem o que vem nela nem a consulta
-      deps.log?.(`${c.req.method} ${routeOf(c.req.routePath, c.req.path)} ${error.status} ${error.code}`);
+      // a recusa do espelho diz o item e os campos fora da forma (só ids e nomes de campo): é o que acha o defeito
+      // do site sem abrir o mural de ninguém
+      const why = error.code === 'espelho-invalido' ? ` ${error.message}` : '';
+      deps.log?.(`${c.req.method} ${routeOf(c.req.routePath, c.req.path)} ${error.status} ${error.code}${why}`);
       return c.json({ erro: error.code, mensagem: error.message }, error.status);
     }
     // o molde da rota, para achar de onde veio (o erro em si pode ter a pilha, nunca o corpo do pedido)

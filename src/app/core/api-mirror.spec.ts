@@ -294,23 +294,27 @@ describe('o espelho da API: o serviço (ApiMirror)', () => {
     expect(posts().length).withContext('a mesma rev tenta de novo, porque não chegou').toBe(2);
   });
 
-  it('um lote que a nuvem recusa (400) não prende os outros', async () => {
+  it('um item que a nuvem recusa (400) não leva junto os outros do lote: o lote vai em metades, e só ele fica de fora', async () => {
     const m = setup();
     notes.set(Array.from({ length: 120 }, (_, i) => note(`r${String(i).padStart(4, '0')}`, `N${i}`)));
     const account = TestBed.inject(CloudAccount) as unknown as { request: (p: string, i?: { method?: string; body?: any }) => Promise<unknown> };
     const real = account.request;
-    let n = 0;
+    // a nuvem recusa todo envio que tem a r0007 (como o servidor, que confere o lote inteiro antes de gravar)
     account.request = async (path, init = {}) => {
-      if (init.method === 'POST' && n++ === 0) {
+      if (init.method === 'POST' && init.body.poe.some((i: { id: string }) => i.id === 'r0007')) {
         calls.push({ path, method: 'POST', body: init.body });
-        throw new CloudError('A nota "r0007" não tem a forma da v1.', 'espelho-invalido', 400);
+        throw new CloudError('A nota "r0007" não tem a forma da v1 (texto).', 'espelho-invalido', 400);
       }
       return real(path, init);
     };
-    spyOn(console, 'warn');
+    const warn = spyOn(console, 'warn');
     await m.afterSync(3);
-    expect(posts().map((p) => p.body.poe.length)).withContext('o primeiro recusado, os outros dois vão').toEqual([50, 50, 21]);
-    expect(Object.keys(remote.hashes['nota']!).length).toBe(70);
+    expect(Object.keys(remote.hashes['nota']!).length).toBe(119);
+    expect(remote.hashes['nota']!['r0007']).toBeUndefined();
+    expect(remote.hashes['contexto']!['notas']).withContext('o contexto vai').toBeDefined();
+    // a metade com ela cai até ela sozinha (r0000–r0049, r0000–r0024, r0000–r0012, r0007–r0012, r0007–r0009, r0007–r0008, r0007), e cada metade sem ela vai
+    expect(posts().filter((p) => p.body.poe.some((i: { id: string }) => i.id === 'r0007')).map((p) => p.body.poe.length)).toEqual([50, 25, 13, 6, 3, 2, 1]);
+    expect(warn).toHaveBeenCalledOnceWith('o espelho da API recusou um item', 'A nota "r0007" não tem a forma da v1 (texto).');
   });
 
   it('mudar um quadro confere só os quadros: as notas e o contexto não são refeitos nem mandados', async () => {

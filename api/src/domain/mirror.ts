@@ -165,25 +165,27 @@ function checkNota(n: Record<string, unknown>): NotaNoEspelhoV1 | NotaV1 {
   const byId = 'pasta_id' in n;
   const k = n['kanban'] as Record<string, unknown> | null;
   const t = n['tarefas'] as Record<string, unknown> | null;
-  const ok =
-    isStr(n['id'], 64) &&
-    isStr(n['titulo'], 200) &&
-    isStr(n['texto'], 20_000) &&
-    isStrOrNull(n['grupo'], 32) &&
-    (byId ? n['pasta_id'] === null || isFolderId(n['pasta_id']) : isStrOrNull(n['assunto'], 32)) &&
-    strList(n['tags'], 12, 32) &&
-    (n['data'] === null || (typeof n['data'] === 'string' && /^\d{4}(-\d{2}(-\d{2})?)?$/.test(n['data']))) &&
-    (n['finalizada_em'] === null || isIso(n['finalizada_em'])) &&
-    typeof n['fixada'] === 'boolean' &&
-    (n['visibilidade'] === 'privada' || n['visibilidade'] === 'publica') &&
-    isStrOrNull(n['capa'], 2_000) &&
-    !!t &&
-    Number.isInteger(t['feitas']) &&
-    Number.isInteger(t['total']) &&
-    (k === null || (!!k && isStr(k['coluna'], 40) && isStrOrNull(k['importancia'], 16) && isStrOrNull(k['status'], STATUS_UNITS) && typeof k['no_mural'] === 'boolean')) &&
-    isIso(n['criada_em']) &&
-    isIso(n['versao']);
-  if (!ok) throw bad(`A nota "${String(n['id']).slice(0, 64)}" não tem a forma da v1.`);
+  // cada campo com a sua conferência: a recusa diz quais falharam (só os nomes, nunca o conteúdo), para achar o
+  // que o site mandou fora da forma sem ler a nota de ninguém
+  const fields: [string, boolean][] = [
+    ['id', isStr(n['id'], 64)],
+    ['titulo', isStr(n['titulo'], 200)],
+    ['texto', isStr(n['texto'], 20_000)],
+    ['grupo', isStrOrNull(n['grupo'], 32)],
+    [byId ? 'pasta_id' : 'assunto', byId ? n['pasta_id'] === null || isFolderId(n['pasta_id']) : isStrOrNull(n['assunto'], 32)],
+    ['tags', strList(n['tags'], 12, 32)],
+    ['data', n['data'] === null || (typeof n['data'] === 'string' && /^\d{4}(-\d{2}(-\d{2})?)?$/.test(n['data']))],
+    ['finalizada_em', n['finalizada_em'] === null || isIso(n['finalizada_em'])],
+    ['fixada', typeof n['fixada'] === 'boolean'],
+    ['visibilidade', n['visibilidade'] === 'privada' || n['visibilidade'] === 'publica'],
+    ['capa', isStrOrNull(n['capa'], 2_000)],
+    ['tarefas', !!t && Number.isInteger(t['feitas']) && Number.isInteger(t['total'])],
+    ['kanban', k === null || (!!k && isStr(k['coluna'], 40) && isStrOrNull(k['importancia'], 16) && isStrOrNull(k['status'], STATUS_UNITS) && typeof k['no_mural'] === 'boolean')],
+    ['criada_em', isIso(n['criada_em'])],
+    ['versao', isIso(n['versao'])],
+  ];
+  const wrong = fields.filter(([, ok]) => !ok).map(([name]) => name);
+  if (wrong.length) throw bad(`A nota "${String(n['id']).slice(0, 64)}" não tem a forma da v1 (${wrong.join(', ')}).`);
   // só os campos da v1, na ordem dela (um campo a mais não entra no espelho)
   const v = n as unknown as NotaV1 & NotaNoEspelhoV1;
   return {
@@ -218,16 +220,16 @@ function checkContexto(c: Record<string, unknown>): ContextoNotasV1 {
     v === undefined || (Array.isArray(v) && v.length <= 2_000 && v.every((d: Record<string, unknown>) => d && isFolderId(d['id']) && (d['viva'] === null || isFolderId(d['viva']))));
   const grupos = c['grupos'];
   const semGrupo = c['sem_grupo'] as Record<string, unknown> | null;
-  const ok =
-    Array.isArray(grupos) &&
-    grupos.length <= 500 &&
-    grupos.every((g: Record<string, unknown>) => g && isStr(g['nome'], 32) && strList(g['assuntos'], 500, 32) && folderList(g['pastas']) && tagList(g['tags'])) &&
-    !!semGrupo &&
-    tagList(semGrupo['tags']) &&
-    folderList(semGrupo['pastas']) &&
-    strList(c['tags_fixas'], 40, 32) &&
-    goneList(c['desfeitas']);
-  if (!ok) throw bad('O contexto das Anotações não tem a forma da v1.');
+  // o que falhou, pelo nome (o grupo pela posição, nunca o nome dele): ver `checkNota`
+  const groupWrong = (g: Record<string, unknown>) =>
+    !g ? ['grupo'] : ([['nome', isStr(g['nome'], 32)], ['assuntos', strList(g['assuntos'], 500, 32)], ['pastas', folderList(g['pastas'])], ['tags', tagList(g['tags'])]] as [string, boolean][]).filter(([, ok]) => !ok).map(([n]) => n);
+  const wrong = [
+    ...(!Array.isArray(grupos) || grupos.length > 500 ? ['grupos'] : grupos.flatMap((g: Record<string, unknown>, i: number) => groupWrong(g).map((w) => `grupos[${i}].${w}`))),
+    ...(!semGrupo ? ['sem_grupo'] : [...(tagList(semGrupo['tags']) ? [] : ['sem_grupo.tags']), ...(folderList(semGrupo['pastas']) ? [] : ['sem_grupo.pastas'])]),
+    ...(strList(c['tags_fixas'], 40, 32) ? [] : ['tags_fixas']),
+    ...(goneList(c['desfeitas']) ? [] : ['desfeitas']),
+  ];
+  if (wrong.length) throw bad(`O contexto das Anotações não tem a forma da v1 (${wrong.join(', ')}).`);
   return c as unknown as ContextoNotasV1;
 }
 
