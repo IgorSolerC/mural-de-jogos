@@ -274,6 +274,18 @@ describe('a voz que lê a nota', () => {
       expect(voz.total()).toBe(3);
     });
 
+    it('depois do fim, a nota que muda não marca frase nenhuma', () => {
+      voz.start(['Um.'], 'pt');
+      fake.begin();
+      fake.end();
+      expect(voz.ended()).toBeTrue();
+      voz.update(['Um.', 'Dois.'], -1);
+      expect(voz.at()).toBe(-1);
+      expect(voz.total()).toBe(2);
+      voz.toggle();
+      expect(fake.queue.map((u) => u.text)).toEqual(['Um.', 'Dois.']);
+    });
+
     it('a nota ficou sem texto: a leitura acaba', () => {
       voz.start(['Um.'], 'pt');
       voz.update([], -1);

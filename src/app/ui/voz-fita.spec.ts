@@ -126,6 +126,16 @@ describe('Ouvir a nota na ficha aberta', () => {
     expect(q('.faixa-nome .ouvir')).toBeNull();
   });
 
+  it('o texto todo num spoiler fechado: as línguas ficam apagadas dizendo por quê (o nome sozinho não conta)', async () => {
+    fixture.componentInstance.open(note('n-1', 'Final do livro', '||o vilão era o pai||'));
+    await settle();
+    q<HTMLButtonElement>('.faixa-nome .ouvir')!.click();
+    await settle();
+    const items = [...document.querySelectorAll<HTMLButtonElement>('.menu-contexto [data-k]')];
+    expect(items.every((b) => b.disabled)).toBeTrue();
+    expect(items[0].title).toContain('Não há texto à mostra');
+  });
+
   it('o menu mostra sempre as três línguas; a sem voz neste navegador fica apagada', async () => {
     fixture.componentInstance.open(note('n-1', 'の (De / Posse)', NO));
     await settle();
@@ -170,13 +180,34 @@ describe('Ouvir a nota na ficha aberta', () => {
     expect(texts()[0]).toBe('私のケーキです。');
   });
 
+  it('a velocidade: as quatro à vista num menu, a de agora com o tique', async () => {
+    fixture.componentInstance.open(note('n-1', 'の (De / Posse)', NO));
+    await settle();
+    await listen('ja');
+    q<HTMLButtonElement>('.fita .velocidade')!.click();
+    await settle();
+    const items = [...document.querySelectorAll<HTMLButtonElement>('.menu-contexto [data-k]')];
+    expect(items.map((b) => b.querySelector('.nome')!.textContent!.trim())).toEqual(['0,75×', '1×', '1,25×', '1,5×']);
+    expect(items.map((b) => b.querySelector('.marcada') !== null)).toEqual([false, true, false, false]);
+    items[0].click();
+    await settle();
+    expect(q('.fita .velocidade')!.textContent!.trim()).toBe('0,75×');
+    expect(fake.queue[0].rate).toBe(0.75);
+  });
+
   it('tocar numa frase do texto lê dali', async () => {
     fixture.componentInstance.open(note('n-1', 'の (De / Posse)', NO));
     await settle();
     await listen('ja');
     const target = [...el.querySelectorAll<HTMLElement>('.text .sutil, .text .enf')].find((e) => e.textContent!.includes('Cadê'))!;
     const box = target.getBoundingClientRect();
-    target.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: box.left + 6, clientY: box.top + box.height / 2, button: 0 }));
+    const tap = () => target.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: box.left + 6, clientY: box.top + box.height / 2, button: 0 }));
+    // logo depois de o menu fechar, o clique é o que o fechou: não é escolher a frase
+    tap();
+    await settle();
+    expect(texts()[0]).toBe('の (De / Posse)');
+    await wait(420);
+    tap();
     await settle();
     expect(texts()).toEqual(['Cadê o seu café?']);
   });

@@ -1319,7 +1319,7 @@ dialog.reader.solta[open] > .par {
 }
 
 /* ouvir a nota (ui/voz-fita.ts): o mesmo botão dos jeitos de ver, antes deles; é ele quem empurra o grupo
-   para a direita. Lendo, ele fica aceso, como o desenho dos outros com o mouse em cima */
+   para a direita */
 .ouvir {
   margin-left: auto;
 
@@ -1327,8 +1327,23 @@ dialog.reader.solta[open] > .par {
     margin-left: 0;
   }
 
+  /* lendo: aceso, com o pontinho laranja da faixa da etiqueta da fita embaixo do desenho */
   &.ligado {
+    position: relative;
     opacity: 1;
+
+    &::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      bottom: 6px;
+      width: 6px;
+      height: 6px;
+      margin-left: -3px;
+      border-radius: 50%;
+      background: #df6a2c;
+      box-shadow: 0 0 0 1.5px rgb(255 255 255 / 0.7);
+    }
   }
 }
 

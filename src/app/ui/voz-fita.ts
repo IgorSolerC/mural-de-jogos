@@ -32,7 +32,7 @@ const OWN_TAP = 'a, button, input, label, summary, [role="button"], [role="link"
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class.lendo]': 'reading()' },
   template: `
-    <app-context-menu #menu caption="Ouvir a nota em" [sections]="menuSections()" />
+    <app-context-menu #menu [caption]="menuKind() === 'velocidade' ? 'Velocidade' : 'Ouvir a nota em'" [sections]="menuSections()" (closed)="menuClosedAt = now()" />
     @if (reading()) {
       <div class="fita" role="group" aria-label="Ouvir a nota">
         @if (voz.failure(); as f) {
@@ -59,7 +59,7 @@ const OWN_TAP = 'a, button, input, label, summary, [role="button"], [role="link"
             </button>
           </span>
           <span class="contagem" aria-hidden="true">{{ shownAt() }}<small> / {{ voz.total() }}</small></span>
-          <button type="button" class="velocidade tocavel" [attr.aria-label]="'Velocidade ' + rateLabel() + '. Trocar'" title="Velocidade" (click)="nextRate()">{{ rateLabel() }}</button>
+          <button #velocidade type="button" class="velocidade tocavel" aria-haspopup="menu" [attr.aria-label]="'Velocidade ' + rateLabel() + '. Trocar'" title="Velocidade" (click)="chooseRate($event, velocidade)">{{ rateLabel() }}</button>
           <button type="button" class="parar tocavel" aria-label="Parar de ouvir" title="Parar de ouvir" (click)="stop()">
             <lucide-icon [img]="CloseIcon" [size]="18" aria-hidden="true" />
           </button>
@@ -96,6 +96,11 @@ export class VozFita {
   private observer: MutationObserver | null = null;
   private rebuildTimer: ReturnType<typeof setTimeout> | null = null;
   private manualAt = 0;
+  /** A ficha da leitura de agora (outra ficha no lugar: a leitura acaba, não se refaz nela). */
+  private readingKey: string | null = null;
+  /** Quando o menu fechou: o clique que fecha o menu (no texto) não é tocar numa frase. */
+  protected menuClosedAt = 0;
+  protected readonly now = () => Date.now();
   /** Até quando a rolagem é a da própria fita (a suave leva um pouco). */
   private autoUntil = 0;
 
@@ -107,7 +112,9 @@ export class VozFita {
     const v = this.voz.voice();
     return v ? `Voz: ${voiceLabel(v)}` : 'A voz que o navegador escolher';
   });
-  protected readonly rateLabel = computed(() => `${String(this.voz.rate()).replace('.', ',')}×`);
+  protected readonly rateLabel = computed(() => rateName(this.voz.rate()));
+  /** O que o menu mostra: as línguas (o botão de ouvir, a etiqueta da fita) ou as velocidades. */
+  protected readonly menuKind = signal<'lingua' | 'velocidade'>('lingua');
   /** O número da frase no contador (no fim, a última; antes de tocar, a primeira). */
   protected readonly shownAt = computed(() => (this.voz.ended() ? this.voz.total() : Math.max(this.voz.at(), 0) + 1));
   protected readonly status = computed(() => {
@@ -118,6 +125,10 @@ export class VozFita {
 
   /** O menu: as três línguas (a sem voz neste navegador, apagada, dizendo por quê) e, lendo, as vozes da língua. */
   protected readonly menuSections = computed<MenuSections>(() => {
+    if (this.menuKind() === 'velocidade') {
+      const rate = this.voz.rate();
+      return [VOICE_RATES.map((r) => ({ id: `r${r}`, label: rateName(r), icon: ICON.desempenho, on: r === rate, run: () => this.voz.setRate(r) }))];
+    }
     const now = this.reading() ? this.voz.lang() : null;
     const langs: MenuItem[] = VOICE_LANG_ORDER.map((lang) => {
       const voice = this.voz.voiceOf(lang);
@@ -177,8 +188,8 @@ export class VozFita {
       this.roots();
       if (!untracked(this.reading)) return;
       untracked(() => {
-        // o texto escondido (o modo sem spoilers) não se lê: a leitura acaba
-        if (!this.roots().every(Boolean)) {
+        // o texto escondido (o modo sem spoilers) não se lê, e outra ficha no lugar não continua a leitura
+        if (!this.roots().every(Boolean) || this.key() !== this.readingKey) {
           this.stop();
           return;
         }
@@ -194,15 +205,30 @@ export class VozFita {
 
   /** O botão de ouvir (na faixa) ou a etiqueta da língua (na fita): abre o menu das línguas embaixo dele. */
   choose(e: MouseEvent, button: HTMLElement): void {
+    this.menuKind.set('lingua');
+    this.openMenu(e, button, 'ouvir');
+  }
+
+  /** A velocidade: as quatro à vista, a de agora com o tique. */
+  protected chooseRate(e: MouseEvent, button: HTMLElement): void {
+    this.menuKind.set('velocidade');
+    this.openMenu(e, button, 'velocidade');
+  }
+
+  private openMenu(e: MouseEvent, button: HTMLElement, key: string): void {
     const menu = this.menu();
-    if (menu.isOpenFor('ouvir')) {
+    if (menu.isOpenFor(key)) {
       menu.close(true);
       return;
     }
-    // nada à mostra para ler: as línguas ficam apagadas, dizendo por quê
-    this.nothing.set(!this.build('pt').length);
+    // nada à mostra para ler no texto (o nome sozinho não conta): as línguas ficam apagadas, dizendo por quê
+    if (key === 'ouvir') {
+      const text = this.roots().slice(1).filter((r): r is HTMLElement => !!r);
+      this.nothing.set(!sentencesOf(text, { lang: 'pt-BR', max: maxSpeech('pt-BR') }).length);
+    }
     const r = button.getBoundingClientRect();
-    menu.show({ key: 'ouvir', x: r.left, y: r.bottom + 4, back: button, by: e.detail === 0 ? 'teclado' : 'mouse' });
+    // embaixo do botão; na fita, presa ao pé da tela, o menu vira para cima sozinho (sem lugar embaixo)
+    menu.show({ key, x: r.left, y: r.bottom + 4, back: button, by: e.detail === 0 ? 'teclado' : 'mouse' });
   }
 
   /** Começa a ler na língua (ou troca a língua da leitura de agora, da frase onde estava). */
@@ -212,13 +238,9 @@ export class VozFita {
     this.list = this.build(lang);
     if (!this.list.length) return;
     const from = before === undefined ? 0 : Math.max(findAgain(before, near, this.list), 0);
+    this.readingKey = this.key();
     this.voz.start(this.list.map((s) => s.text), lang, from, this);
     this.watch();
-  }
-
-  protected nextRate(): void {
-    const i = VOICE_RATES.indexOf(this.voz.rate());
-    this.voz.setRate(VOICE_RATES[(i + 1) % VOICE_RATES.length]);
   }
 
   /** Acaba a leitura desta fita (o X, a ficha que fecha). */
@@ -291,7 +313,7 @@ export class VozFita {
 
   /** Tocou numa frase do texto (sem ser num link, numa caixinha, num spoiler fechado, nem escolhendo um trecho): lê dali. */
   private tap(e: MouseEvent): void {
-    if (e.defaultPrevented || e.button !== 0) return;
+    if (e.defaultPrevented || e.button !== 0 || Date.now() - this.menuClosedAt < 400) return;
     const target = e.target as Element | null;
     if (!target || target.closest(OWN_TAP) || target.closest('app-voz-fita')) return;
     if (!this.roots().some((r) => r?.contains(target))) return;
@@ -322,7 +344,8 @@ export class VozFita {
     const s = this.list[at];
     if (!scroller || !s || Date.now() - this.manualAt < HANDS_OFF_MS) return;
     const [first] = rangesOf(s);
-    if (!first) return;
+    // o nome da ficha fica na faixa, fora da folha que rola: a folha não volta ao alto por ele
+    if (!first || !scroller.contains(first.startContainer)) return;
     const box = first.getBoundingClientRect();
     const view = scroller.getBoundingClientRect();
     const tape = this.host.nativeElement.querySelector('.fita')?.getBoundingClientRect().height ?? 0;
@@ -330,6 +353,11 @@ export class VozFita {
     this.autoUntil = Date.now() + 900;
     scroller.scrollBy({ top: box.top - view.top - scroller.clientHeight / 3, behavior: reducedMotion() ? 'auto' : 'smooth' });
   }
+}
+
+/** "0,75×", "1×". */
+function rateName(r: number): string {
+  return `${String(r).replace('.', ',')}×`;
 }
 
 /** O nó de texto e a letra debaixo do ponto da tela (o Firefox tem um jeito, o Chrome e o Safari outro). */

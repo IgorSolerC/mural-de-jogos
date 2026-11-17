@@ -281,6 +281,8 @@ export class Voz {
       this.stop();
       return;
     }
+    // acabou: nenhuma frase fica marcada; tocar de novo começa do começo das novas
+    if (this.ended()) return;
     const to = Math.min(Math.max(at, 0), texts.length - 1);
     if (this.playing() && !same) {
       this.play(to);

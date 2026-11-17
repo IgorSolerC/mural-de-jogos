@@ -348,11 +348,15 @@ body {
   color: #151515;
 }
 
-/* ouvir a nota (ui/voz-fita.ts): a frase sendo lida num laranja claro, o da faixa da etiqueta da fita
+/* ouvir a nota (ui/voz-fita.ts): a frase sendo lida num laranja claro com o fio laranja embaixo, o da faixa da etiqueta da fita
    cassete (o amarelo já é da seleção e do ==marca-texto== da própria nota, e o verde-limão, da busca), e
    a palavra dita, onde a voz avisa, no laranja cheio com a tinta preta por cima */
 ::highlight(voz) {
-  background-color: rgb(244 150 86 / 0.3);
+  background-color: rgb(244 150 86 / 0.4);
+  /* o fio laranja embaixo: a frase continua à vista sobre o papel colorido de um card (o rosado quase a
+     engolia só com o fundo) */
+  text-decoration: underline 2px rgb(214 98 36);
+  text-underline-offset: 3px;
 }
 ::highlight(voz-palavra) {
   background-color: rgb(236 122 60 / 0.62);

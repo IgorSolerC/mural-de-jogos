@@ -89,3 +89,12 @@ Descartados:
    Testes da peça, da visita lendo, e fotos 2x no computador e no celular.
 4. **Fim**: crítica do Impeccable (revisão e detector), DESIGN.md, Novidades, /code-review high e o que
    ele achar.
+
+## Como ficou (17/nov/2026)
+
+- Rodada 1 (e65e9881, BUILD 929): as frases. Rodada 2 (4edfeec7, BUILD 930): a voz. Rodada 3 (1bd0ca16, BUILD 931,
+  Novidades 1.48.0): os fones, a fita e o marca-texto. Rodada 4 (BUILD 932): a crítica do Impeccable e o /code-review high.
+- Pedido no meio: o uso principal são as Conversas do JAPONES (cards que fecham com o rōmaji e a tradução em spoiler);
+  o card fechado lê só o título, e o spoiler fechado não é lido.
+- Da crítica, ficaram de fora por serem decisões do dono: pular o que não é japonês na leitura em Japonês e
+  adivinhar a língua pela nota.

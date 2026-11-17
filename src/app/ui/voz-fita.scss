@@ -71,10 +71,11 @@
   translate: 0 1px;
 }
 
-/* a velocidade: o número impresso na mesma janelinha clara, tocar troca (0,75× → 1× → 1,25× → 1,5×) */
+/* a velocidade: o número impresso na mesma etiqueta clara, da altura das teclas; tocar mostra as quatro */
 .velocidade {
   min-width: 2.7em;
-  height: 1.95em;
+  /* (a letra é 0,86 da chapa: a conta dá a altura das teclas, 1,95em da chapa) */
+  height: calc(1.95em / 0.86);
   padding: 0 0.4em;
   border: 0;
   border-radius: 3px;
@@ -95,9 +96,9 @@
 .parar {
   display: grid;
   place-items: center;
-  width: 2em;
-  height: 2em;
-  margin-left: -2px;
+  width: 2.3em;
+  height: 2.3em;
+  margin-left: -4px;
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -109,6 +110,26 @@
   &:hover {
     background: rgb(243 239 230 / 0.14);
   }
+}
+
+/* o dedo: cada botão da chapa pega o toque também na faixa de cima e de baixo dela (uns 45px de alto
+   no celular), e a velocidade e o X um pouco para os lados, onde há vão; o desenho não muda */
+.lingua,
+.velocidade,
+.parar,
+.tecla {
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: -7px 0;
+  }
+}
+
+.velocidade::after,
+.parar::after {
+  inset: -7px -4px;
 }
 
 .lingua,
