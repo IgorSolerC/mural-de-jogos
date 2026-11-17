@@ -205,7 +205,7 @@ interface ReadingPlace {
             @if (conflictHere()) {
               <div class="aviso-conflito" role="status">
                 <lucide-icon class="aviso-icone" [img]="ConflictIcon" [size]="22" aria-hidden="true" />
-                <p class="aviso-texto"><strong>Conflito de sincronização.</strong> {{ conflictLine() }}</p>
+                <p class="aviso-texto"><strong>Duas versões.</strong> {{ conflictLine() }}</p>
                 <button type="button" class="btn-ink aviso-btn" aria-haspopup="dialog" (click)="openConflict()">Escolher a versão</button>
               </div>
             }
@@ -976,9 +976,9 @@ export class ReviewReader {
   protected readonly conflictLine = computed(() => {
     const c = this.ownConflict();
     const what = this.review() && isNote(this.review()!) ? 'esta anotação' : 'esta ficha';
-    if (!c) return 'Duas versões desta anotação mudaram o mesmo trecho.';
-    if (c.a === null || c.b === null) return `Você apagou ${what} num aparelho e mudou no outro.`;
-    return `${what.charAt(0).toUpperCase()}${what.slice(1)} mudou em dois aparelhos seus ao mesmo tempo, no mesmo trecho.`;
+    if (!c) return 'Esta anotação mudou de dois jeitos ao mesmo tempo: falta escolher qual versão fica.';
+    if (c.a === null || c.b === null) return `Você apagou ${what} num aparelho e mudou no outro: falta escolher qual fica.`;
+    return `${what.charAt(0).toUpperCase()}${what.slice(1)} mudou em dois aparelhos seus ao mesmo tempo: falta escolher qual versão fica.`;
   });
   /**
    * A ficha aberta, pelo id: as folhas fecham quando abre outra ficha, não quando chega uma versão nova

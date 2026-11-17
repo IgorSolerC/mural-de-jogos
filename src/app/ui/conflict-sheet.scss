@@ -1,5 +1,6 @@
 @use 'sheet';
 @use 'paper-kit' as kit;
+@use 'divisorias';
 
 :host {
   display: contents;
@@ -8,7 +9,7 @@
 /* A ficha de fichário dos diálogos, larga para as duas versões caberem lado a lado. Reta: é de ler. */
 dialog.conflito {
   width: 100%;
-  max-width: min(980px, calc(100vw - 24px));
+  max-width: min(1040px, calc(100vw - 24px));
 }
 
 .ficha {
@@ -29,25 +30,44 @@ dialog.conflito {
   @include sheet.titulos;
 }
 
+/* o nome de um ajuste, impresso; o de uma ficha, à mão (é o título que a pessoa escreveu) */
 .sub {
-  @include sheet.sub-mao;
+  @include sheet.sub;
+
+  &.mao {
+    @include sheet.sub-mao;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+}
+
+/* quantos mais esperam (a folha da fila): a conta impressa, embaixo do nome */
+.faltam {
+  margin-top: 6px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.8;
 }
 
 .body {
-  gap: 22px;
+  gap: 20px;
   padding-top: 18px;
 }
 
-/* ===== A pergunta ===== */
+/* ===== O que aconteceu ===== */
 .duvida {
   display: grid;
   gap: 6px;
-  max-width: 66ch;
+  max-width: 70ch;
 }
 
 .quem-mexeu {
-  font-size: 1.02rem;
+  font-size: 1.06rem;
   line-height: 1.45;
+  text-wrap: pretty;
 }
 
 .quando {
@@ -61,54 +81,159 @@ dialog.conflito {
   white-space: nowrap;
 }
 
-/* a pergunta em si, a pincel: é o que a folha quer saber */
-.qual {
-  font-family: var(--f-marker);
-  font-size: 1.5rem;
-  line-height: 1.15;
-}
-
 .resto {
   font-size: 0.94rem;
-  line-height: 1.4;
+  line-height: 1.45;
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+
+/* onde o ajuste mora no site: a linha impressa de uma etiqueta de arquivo */
+.onde {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: start;
+  margin-top: 4px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--ink-2);
 }
 
-/* ===== As duas versões, separadas por um fio tracejado (nada de caixa dentro da ficha) ===== */
-.versoes {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-}
+/* ===== As orelhas (só no celular) ===== */
+.orelhas {
+  @include divisorias.pasta;
+  /* o mesmo respiro do lado da folha (ui/_sheet.scss): as orelhas vão de ponta a ponta */
+  --respiro: 24px;
+  --manilha: var(--paper);
+  display: none;
+  align-items: flex-end;
+  gap: 3px;
+  margin: 0 calc(-1 * var(--respiro)) -20px;
+  padding: 0 14px;
 
-.versao {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  min-width: 0;
-  padding: 4px 22px 4px 0;
+  @media (max-width: 560px) {
+    --respiro: 16px;
+    padding: 0 8px;
+  }
 
-  & + & {
-    padding: 4px 0 4px 22px;
-    border-left: 2px dashed rgb(21 21 21 / 0.25);
+  &::after {
+    @include divisorias.borda-da-pasta;
   }
 }
 
-.versao-cab {
+.orelha {
+  @include divisorias.aba('.on');
+  align-items: center;
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: center;
+  font-family: var(--f-marker);
+  font-size: 1rem;
+  line-height: 1.1;
+}
+
+.orelha-nome {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ===== A comparação, linha a linha ===== */
+.comparar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 0;
+}
+
+/* de quem é cada coluna: presa no alto enquanto a folha rola */
+.cabecas {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  position: sticky;
+  top: -18px;
+  z-index: 2;
+  margin-top: -18px;
+  padding-top: 18px;
+  background-color: var(--paper);
+}
+
+.cabeca {
   --foto: 40px;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding-bottom: 10px;
-  border-bottom: 1.5px solid rgb(21 21 21 / 0.2);
+  min-width: 0;
+  padding: 0 22px 12px 0;
+  border-bottom: 2px solid rgb(21 21 21 / 0.55);
+
+  &[data-lado='b'] {
+    padding-left: 22px;
+  }
+}
+
+.cabeca-texto {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.cabeca-nome {
+  font-family: var(--f-marker);
+  font-size: 1.32rem;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.cabeca-aparelho {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.45em;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
 }
 
 /* na conta, o aparelho no lugar da foto: um botão de lata com o desenho dele, do tamanho da foto */
+.cabeca-aparelho span:not(:last-child)::after {
+  content: '·';
+  margin-left: 0.45em;
+}
+
+/* a mudada por último: uma etiqueta de lápis vermelho, pequena, embaixo do nome */
+.mais-nova {
+  justify-self: start;
+  margin-top: 3px;
+  padding: 1px 7px;
+  border: 1.5px solid var(--red);
+  border-radius: 4px 3px 5px 3px;
+  color: var(--red-deep);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* de quem é o lado, só no celular (no computador, o alto da coluna diz) */
+.lado-quem {
+  display: none;
+}
+
 .aparelho {
   flex: none;
   display: grid;
   place-items: center;
-  width: var(--foto);
-  height: var(--foto);
+  width: var(--foto, 40px);
+  height: var(--foto, 40px);
   border-radius: 50%;
   color: var(--ink);
   background:
@@ -118,77 +243,119 @@ dialog.conflito {
     inset 0 0 0 2px rgb(21 21 21 / 0.55),
     inset 0 -3px 5px rgb(21 21 21 / 0.18),
     0 2px 4px rgb(21 21 21 / 0.28);
+
+  &.pequeno {
+    --foto: 26px;
+  }
 }
 
-.versao-quem {
+app-person-photo.pequeno {
+  --foto: 26px;
+}
+
+/* uma coisa que difere: o nome dela em cima das duas colunas, e o valor de cada versão embaixo */
+.dif {
+  grid-column: 1 / -1;
   display: grid;
-  gap: 2px;
-  min-width: 0;
+  grid-template-columns: subgrid;
+  row-gap: 10px;
+  padding: 16px 0 18px;
+  border-bottom: 1.5px dotted rgb(21 21 21 / 0.3);
 }
 
-.versao-aparelho {
+.dif-nome {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-family: var(--f-label);
   font-weight: 800;
-  font-size: 0.76rem;
+  font-size: 0.86rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-2);
-  overflow-wrap: anywhere;
+
+  lucide-icon {
+    flex: none;
+  }
 }
 
-.versao-nome {
-  font-family: var(--f-marker);
-  font-weight: 400;
-  font-size: 1.32rem;
-  line-height: 1.1;
-  overflow-wrap: anywhere;
+.legenda {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-size: 0.74rem;
 }
 
-.rotulo-campo {
-  display: block;
-  margin-bottom: 2px;
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.78rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-2);
+.amostra-marca {
+  width: 22px;
+  height: 12px;
+  border-radius: 0.2em 0.35em 0.25em 0.4em;
+  background: rgb(255 218 66 / 0.9);
 }
 
-.versao-titulo {
-  font-family: var(--f-hand);
-  font-weight: 700;
-  font-size: 1.14rem;
+.lado {
+  min-width: 0;
+  padding-right: 22px;
+
+  /* o fio tracejado de caneta entre as duas versões */
+  &[data-lado='b'] {
+    padding: 0 0 0 22px;
+    border-left: 2px dashed rgb(21 21 21 / 0.25);
+  }
 }
 
-/* o texto como está escrito, na letra das anotações; o que difere leva a marca-texto amarela */
-.texto {
-  flex: 1;
-  display: grid;
-  align-content: start;
-  gap: 2px;
-  max-height: min(46vh, 420px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding-right: 4px;
-  font-family: var(--f-hand);
+/* ===== Os valores ===== */
+.valor {
   font-size: 1.04rem;
-  line-height: 1.55;
-  scrollbar-color: rgb(21 21 21 / 0.35) transparent;
-}
-
-.trecho {
-  white-space: pre-wrap;
+  line-height: 1.4;
   overflow-wrap: anywhere;
-  color: rgb(21 21 21 / 0.72);
+
+  &.mao {
+    font-family: var(--f-hand);
+    font-weight: 700;
+    font-size: 1.16rem;
+  }
+
+  &.vazio {
+    font-family: var(--f-hand);
+    font-size: 1.08rem;
+    color: var(--ink-2);
+  }
 }
 
-.trecho.difere {
-  color: var(--ink);
+.com-desenho {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  lucide-icon {
+    flex: none;
+  }
+}
+
+/* o interruptor dos Ajustes, só mostrando (não se toca aqui) */
+.interruptor {
+  @include kit.interruptor;
+  flex: none;
+  pointer-events: none;
+}
+
+/* a amostra da cor: um quadradinho de cartolina com a borda de caneta */
+.amostra {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  box-shadow:
+    inset 0 0 0 1.5px rgb(21 21 21 / 0.55),
+    0 1px 2px rgb(21 21 21 / 0.25);
 }
 
 /* a marca-texto: uma faixa que não cobre a linha inteira, com a ponta torta da caneta */
-mark {
+mark,
+.so-aqui {
   padding: 0.05em 0.15em;
   margin: 0 -0.15em;
   border-radius: 0.2em 0.35em 0.25em 0.4em;
@@ -198,30 +365,127 @@ mark {
   -webkit-box-decoration-break: clone;
 }
 
-/* as linhas iguais recolhidas: uma linha pontilhada com a conta no meio */
-.recolhido {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 4px 0;
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.76rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-2);
+.etiquetas,
+.palavras {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
 
-  &::before,
-  &::after {
-    content: '';
-    flex: 1;
-    border-top: 1.5px dotted rgb(21 21 21 / 0.35);
+.etiquetas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 6px;
+
+  li {
+    display: inline-flex;
+  }
+
+  /* a tag que só esta versão tem: a faixa de marca-texto atrás da etiqueta */
+  .so-aqui {
+    margin: 0;
+    padding: 4px 6px;
   }
 }
 
-/* a versão que apaga: um carimbo de borracha vermelho, batido meio torto, no lugar do texto */
+.palavras {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 0;
+  font-size: 1.02rem;
+  line-height: 1.5;
+
+  li:not(:last-child)::after {
+    content: ',\00a0';
+  }
+
+  li.so-aqui {
+    margin: 0;
+    padding: 0;
+    background: none;
+  }
+
+  &.numeradas {
+    display: grid;
+    gap: 2px;
+    padding-left: 1.6em;
+    list-style: decimal;
+
+    li::after {
+      content: none;
+    }
+
+    li::marker {
+      font-family: var(--f-label);
+      font-weight: 800;
+      color: var(--ink-2);
+    }
+  }
+}
+
+.grupo {
+  flex-wrap: wrap;
+
+  .vazio {
+    font-family: var(--f-hand);
+    color: var(--ink-2);
+  }
+}
+
+.capa {
+  max-height: 140px;
+  width: auto;
+  border-radius: 3px;
+  box-shadow: 0 2px 6px rgb(21 21 21 / 0.3);
+}
+
+/* a ficha como fica no mural: a do mural mesmo, menor */
+.ficha-previa {
+  max-width: 260px;
+}
+
+/* ===== O texto, formatado como na leitura (a pauta, a letra à mão) ===== */
+.folha {
+  max-height: min(52vh, 480px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 3px;
+  scrollbar-color: rgb(21 21 21 / 0.35) transparent;
+
+  &.curta {
+    max-height: 220px;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 2px;
+  }
+}
+
+.texto-formatado {
+  --line: 1.76rem;
+  --texto-desce: 5px;
+  --cod-pauta-alfa: 20%;
+  --caixa-sobe: 3px;
+  padding: 6px 8px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--f-hand);
+  font-size: 1.12rem;
+  line-height: var(--line);
+  background: repeating-linear-gradient(to bottom, transparent 0 calc(var(--line) - 2px), rgb(64 110 190 / 0.2) calc(var(--line) - 2px) var(--line)) 0 6px;
+}
+
+.iguais {
+  grid-column: 1 / -1;
+  padding: 16px 0;
+  font-size: 1rem;
+  color: var(--ink-2);
+}
+
+/* a versão que apaga: um carimbo de borracha vermelho, batido meio torto */
 .carimbo-apagada {
-  flex: 1;
   display: grid;
   align-content: start;
   justify-items: start;
@@ -254,46 +518,107 @@ mark {
   color: var(--ink-2);
 }
 
-.sem-texto {
-  flex: 1;
-  font-size: 0.96rem;
-  color: var(--ink-2);
+/* ===== O pé: a escolha, sempre à vista, debaixo de cada coluna ===== */
+.foot {
+  row-gap: 12px;
+}
+
+.escolhas {
+  flex: 1 1 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 44px;
 }
 
 .manter {
-  align-self: stretch;
   justify-content: center;
-  margin-top: auto;
+  white-space: nowrap;
+
+
+  .curto {
+    display: none;
+  }
 }
 
-.enquanto {
-  font-size: 0.92rem;
-  color: var(--ink-2);
-}
 
-/* estreita: uma versão embaixo da outra, cada uma com o seu botão logo depois dela */
+/* ===== Estreita: uma versão por vez, nas orelhas ===== */
 @container conflito (max-width: 700px) {
-  .versoes {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 22px;
+  .orelhas {
+    display: flex;
   }
 
-  .versao,
-  .versao + .versao {
+  .orelha {
+    font-size: 0.94rem;
+  }
+
+  .cabecas {
+    display: none;
+  }
+
+  .comparar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* só o que não cabe empilhado vai pelas orelhas; o resto mostra os dois lados, cada um com o dono */
+  .comparar[data-mostra='a'] .dif.longa .lado[data-lado='b'],
+  .comparar[data-mostra='b'] .dif.longa .lado[data-lado='a'] {
+    display: none;
+  }
+
+  .orelhas:not(.com-longas) {
+    display: none;
+  }
+
+  .dif:not(.longa) .lado-quem {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.76rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+  }
+
+  .dif:not(.longa) .lado + .lado {
+    margin-top: 6px;
+  }
+
+  .lado,
+  .lado[data-lado='b'] {
     padding: 0;
     border-left: 0;
   }
 
-  .versao + .versao {
-    padding-top: 22px;
-    border-top: 2px dashed rgb(21 21 21 / 0.25);
+  .escolhas {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 8px;
   }
 
-  .texto {
-    max-height: 38vh;
+  .foot .actions {
+    display: none;
   }
 
-  .qual {
-    font-size: 1.32rem;
+  .folha {
+    max-height: 46vh;
+  }
+
+  .texto-formatado {
+    --line: 1.66rem;
+    font-size: 1.06rem;
+  }
+}
+
+/* bem estreita: a orelha só com o nome (o desenho tomava o lugar dele) */
+@container conflito (max-width: 440px) {
+  .orelha {
+    padding-inline: 10px;
+
+    .aparelho,
+    app-person-photo {
+      display: none;
+    }
   }
 }

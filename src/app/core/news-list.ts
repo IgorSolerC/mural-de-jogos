@@ -27,11 +27,11 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-16-voxel-3d',
+    id: '2026-11-16-qual-versao',
     version: '1.47.1',
     kind: 'ajustes',
     date: '2026-11-16',
-    title: 'O mapa de cor, trazer uma imagem e esticar a seleção no ateliê',
+    title: 'A escolha da versão refeita, e o mapa de cor e a seleção que estica no ateliê',
     melhorias: [
       'O ateliê de pixel art tem o mapa de cor sempre aberto embaixo das pastilhas, como o do Aseprite: o quadrado do brilho e da saturação e a fita do matiz mudam a cor da frente na hora, sem precisar do Editar; o Hex, o lugar da cor e o Tirar a cor ficam ali do lado.',
       'Trazer uma imagem para o ateliê (pelo menu Imagem, colando ou soltando na mesa) pergunta como ela vem, com a prévia de cada jeito: nas cores da sua paleta, com as cores dela ou, nas obras da galeria, como referência; numa obra que já tem desenho, os pontos vêm numa camada nova. O Trazer, com as cores dela saiu do menu.',
@@ -41,9 +41,12 @@ export const NEWS: NewsEntry[] = [
       'A anotação finalizada tem o título riscado também na ficha do mural, como já tinha na Visão geral.',
       'O link para outra anotação tem um sublinhado mais leve: um fio fino de caneta azul clara, logo abaixo da letra, sem encostar nela (nem no japonês, nem nas pernas do g e do p).',
       'A pixel art aparece como ela é fora do ateliê: sem o papel milimetrado, o xadrez do transparente, o cartão branco ou a margem, na Mostra, na Grade, nas pastas, nas folhas de escolher e na capa feita de pixel art; na Mostra, todas do mesmo tamanho, em fileiras.',
+      'A escolha da versão (quando a mesma anotação, um ajuste ou um quadro Kanban muda de dois jeitos ao mesmo tempo, em dois aparelhos seus ou com outra pessoa numa compartilhada) foi refeita: as duas versões lado a lado, só no que difere, cada coisa desenhada como aparece no site (a tag, a cor, o interruptor, a ficha do mural) e o texto formatado de verdade, com o que mudou no marca-texto. Os ajustes dizem onde ficam no site; no celular, os dois lados ficam juntos em cada linha, e o texto vai nas orelhas.',
+      'As versões para escolher ganharam um número no botão de Ajustes e ficam no topo de Ajustes › Conta, também as das compartilhadas; a escolha abre em qualquer página (também pelo aviso) e, depois de escolher, já passa para a próxima.',
       'O Voxel da pixel art ficou em 3D de verdade: o desenho de pé, girado para mostrar o lado e visto um pouco de cima, sem risco entre os cubinhos da mesma cor. Na Miçanga e no Ponto-cruz, as contas e os pontos vizinhos da mesma cor se juntam, e o fundo não aparece mais entre eles; o ponto sozinho continua como era.',
     ],
     correcoes: [
+      'A folha de escolher a versão não fica mais vazia quando outra pessoa, ou outro aparelho seu, escolhe antes: ela fecha (ou passa para a próxima) e avisa.',
       'O carimbo de Finalizada fica por cima de tudo o que está escrito na ficha: numa anotação com callouts ou tarefas, ele aparecia por baixo deles.',
       'Na tabela do editor Visual, as setas andam de célula em célula (para cima e para baixo, na mesma coluna) e o Shift com a seta seleciona células: antes, o cursor podia parar entre duas células, e o que se escrevia ali abria uma coluna fantasma.',
       'Clicar na margem do papel de uma tabela, no editor Visual, põe o cursor na célula mais perto: a letra escrita logo depois sumia.',

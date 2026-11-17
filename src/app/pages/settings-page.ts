@@ -13,8 +13,7 @@ import { takeErased } from '../core/erase-save';import { ReviewStore } from '../
 import { KEEP_VERSION_DAYS, KeptReason, KeptVersion, sameContent, versionKey } from '../core/kept-versions';
 import { OWNER_NAME_MAX, ScoreDisplay, Settings, PerformanceKey, PerformancePreset, WritingMode } from '../core/settings';
 import { Confirm } from '../ui/confirm';
-import { ConflictSheet } from '../ui/conflict-sheet';
-import { SyncConflicts, conflictKey, splitTarget } from '../core/sync-conflicts';
+import { ConflictQueue } from '../core/conflict-queue';
 import { Review } from '../core/review';
 import { Toasts } from '../ui/toast';
 import { Pin } from '../ui/pin';
@@ -99,7 +98,7 @@ interface ImageRow {
  */
 @Component({
   selector: 'app-settings-page',
-  imports: [Busy, IconModule, Pin, GoogleButton, RouterLink, NgTemplateOutlet, JudgeLabel, BonusSticker, Rabisco, ConflictSheet, ApiKeySheet, ApiRequestsSheet, RichText],
+  imports: [Busy, IconModule, Pin, GoogleButton, RouterLink, NgTemplateOutlet, JudgeLabel, BonusSticker, Rabisco, ApiKeySheet, ApiRequestsSheet, RichText],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './settings-page.html',
   styleUrl: './settings-page.scss',
@@ -632,23 +631,24 @@ export class SettingsPage {
     }),
   );
 
-  /** Os conflitos da sincronização da conta que esperam a pessoa (ver core/sync-conflicts.ts). */
-  protected readonly syncConflicts = inject(SyncConflicts);
-  /** O conflito aberto na folha (a chave). */
-  protected readonly openConflict = signal<string | null>(null);
-  protected readonly pendingConflicts = computed(() =>
-    this.syncConflicts.pending().map((c) => {
-      const [tipo] = splitTarget(c.alvo);
-      const ficha = tipo === 'ficha' ? ((c.a ?? c.b) as Review) : null;
-      return {
-        key: conflictKey(c),
-        name: this.syncConflicts.titleOf(c),
-        icon: ficha ? this.kindIcon[ficha.kind] : tipo === 'kanban' ? ICON.colunas : ICON.ajustar,
-        wall: ficha ? cap(profileOf(ficha.kind).singular) : tipo === 'kanban' ? 'Kanban' : 'Ajuste',
-        why: c.a === null || c.b === null ? 'apagada num aparelho e mudada no outro' : 'mudou em dois aparelhos',
-        when: new Date(c.em).toLocaleString('pt-BR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),
-      };
-    }),
+  /**
+   * O que espera a pessoa escolher a versão (ver core/conflict-queue.ts): os conflitos da conta e os das
+   * compartilhadas em que ela escreve. "Escolher" abre a folha por cima da página (app.ts), que passa
+   * sozinha para o próximo.
+   */
+  protected readonly conflictQueue = inject(ConflictQueue);
+  /** Duas versões (as camadas): o que espera não é um erro, nada se perde. */
+  protected readonly VersionsIcon = ICON.camadas;
+  protected readonly toChoose = computed(() =>
+    this.conflictQueue.list().map((q) => ({
+      key: q.key,
+      ref: q.ref,
+      name: q.name,
+      icon: q.ficha ? this.kindIcon[q.ficha.kind] : q.what === 'kanban' ? ICON.colunas : ICON.ajustar,
+      wall: q.what === 'compartilhada' ? 'Compartilhada' : q.ficha ? cap(profileOf(q.ficha.kind).singular) : q.what === 'kanban' ? 'Kanban' : 'Ajuste',
+      why: q.what === 'compartilhada' ? 'mudou com outra pessoa ao mesmo tempo' : q.parts ? `mudou ${q.parts} em dois aparelhos` : 'mudou em dois aparelhos',
+      when: new Date(q.em).toLocaleString('pt-BR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),
+    })),
   );
 
   protected restoreVersion(v: KeptVersion): void {

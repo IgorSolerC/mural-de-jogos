@@ -8,7 +8,6 @@ import { Notice, SharedNotice, groupNotices, noticeSpoken } from '../core/notice
 import { Review, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { SharedEntry, SharedStore } from '../core/shared-store';
-import { ConflictSheet, differences, textPieces } from './conflict-sheet';
 import { Confirm } from './confirm';
 import { NoticeList } from './notice-list';
 import { ShareSheet } from './share-sheet';
@@ -18,7 +17,8 @@ import { deleteAsk, removalOf } from '../core/shared-notes';
 
 /**
  * As telas das anotações compartilhadas: o aviso em Amigos ("Ana compartilhou uma nota com você"), a
- * folha Compartilhar (quem gere chama e muda papéis; quem não gere só vê e sai) e a do conflito.
+ * folha Compartilhar (quem gere chama e muda papéis; quem não gere só vê e sai). A do conflito tem o
+ * dela, conflict-sheet.spec.ts.
  */
 
 const ANA = { codigo: 'AAAA-1111', nome: 'Ana' };
@@ -340,96 +340,5 @@ describe('anotações compartilhadas: a folha Compartilhar', () => {
     });
     expect(deleteAsk('Relatório', ['Bia'], null).text).toBe('“Relatório” sai do seu mural e do mural de Bia com quem você compartilhou. Não dá para desfazer.');
     expect(deleteAsk('Relatório', [], null)).toEqual({ text: '“Relatório” sai do mural, com o texto. Não dá para desfazer.', confirm: 'Apagar anotação' });
-  });
-});
-
-describe('anotações compartilhadas: a folha do conflito', () => {
-  it('o texto em pedaços: o diferente marcado, o igual recolhido longe dele', () => {
-    const base = Array.from({ length: 12 }, (_, i) => `linha ${i}`);
-    const a = [...base];
-    a[6] = 'de Ana';
-    const b = [...base];
-    b[6] = 'de Bia';
-    const [pa, pb] = textPieces(a.join('\n'), b.join('\n'));
-    expect(pa).toEqual([{ kind: 'gap', n: 4 }, { kind: 'same', text: 'linha 4\nlinha 5' }, { kind: 'diff', text: 'de Ana' }, { kind: 'same', text: 'linha 7\nlinha 8' }, { kind: 'gap', n: 3 }]);
-    expect(pb.find((p) => p.kind === 'diff')).toEqual({ kind: 'diff', text: 'de Bia' });
-  });
-
-  it('o que difere, nas palavras da tela', () => {
-    expect(differences(note('a'), note('b', { game: { name: 'Outro' }, stock: 'azul' }))).toEqual(['titulo', 'texto', 'aparencia']);
-    expect(differences(note(), note())).toEqual([]);
-  });
-
-  it('as tags e o estar finalizada também contam (PLANO-CONSERTO-GRUPOS.md, rodada 4)', () => {
-    expect(differences(note('a', { tags: ['Kana'] }), note('a', { tags: ['Kana', 'Estudo'] }))).toEqual(['tags']);
-    expect(differences(note('a'), note('a', { doneAt: '2026-11-14' }))).toEqual(['finalizada']);
-    // a mesma tag em outra ordem ou grafia não é diferença
-    expect(differences(note('a', { tags: ['Kana', 'Estudo'] }), note('a', { tags: ['estudo', 'Kana'] }))).toEqual([]);
-  });
-
-  it('a versão finalizada diz que sai do mural (as duas, quando as duas estão), e as tags aparecem quando diferem', async () => {
-    const conflito = {
-      a: note('O gato branco.', { doneAt: '2026-11-14', tags: ['Kana'] }),
-      b: note('O gato cinza.', { tags: ['Kana', 'Estudo'] }),
-      autorA: { ...ANA, foto: null },
-      autorB: { ...BIA, foto: null },
-      em: new Date().toISOString(),
-    };
-    TestBed.configureTestingModule({
-      providers: [
-        provideZonelessChangeDetection(),
-        { provide: SharedStore, useValue: { get: () => entry('dono', { conflito }), resolve: () => undefined } },
-        { provide: CloudAccount, useValue: { signedIn: () => true, account: () => ({ ...ANA }) } },
-        { provide: SharedGroupsStore, useValue: { boards: () => [], groupOfBoard: () => undefined } },
-      ],
-    });
-    const f = TestBed.createComponent(ConflictSheet);
-    f.componentRef.setInput('noteId', 'nota-1');
-    f.detectChanges();
-    await f.whenStable();
-    const el = f.nativeElement as HTMLElement;
-    const lines = [...el.querySelectorAll('.versao')].map((v) =>
-      [...v.querySelectorAll('.versao-titulo')].map((p) => `${p.querySelector('.rotulo-campo')!.textContent}: ${p.querySelector('mark')!.textContent}`),
-    );
-    expect(lines).toEqual([
-      ['Estado: Finalizada (sai do mural)', 'Tags: Kana'],
-      ['Estado: Aberta', 'Tags: Kana, Estudo'],
-    ]);
-    expect(el.querySelector('.quem-mexeu')?.textContent).toContain('as tags');
-    TestBed.resetTestingModule();
-  });
-
-  it('toda a aparência conta (o espaço da estampa, a tinta do rabisco), e a ordem das chaves não', () => {
-    const look = (extra: Record<string, unknown>) => ({ ...note(), ...extra }) as unknown as Review;
-    expect(differences(look({ pattern: 'bolinhas', patternSpacing: 1 }), look({ pattern: 'bolinhas', patternSpacing: 2 }))).toEqual(['aparencia']);
-    expect(differences(look({ scribble: 'espiral', scribbleInk: 1 }), look({ scribble: 'espiral', scribbleInk: 2 }))).toEqual(['aparencia']);
-    expect(differences(look({ stains: [{ stain: 'cafe', seed: 4 }] }), look({ stains: [{ seed: 4, stain: 'cafe' }] }))).toEqual([]);
-  });
-
-  it('mostra as duas versões com quem fez cada uma; "Manter esta" escolhe', async () => {
-    const chosen: Review[] = [];
-    const conflito = { a: note('O gato branco.'), b: note('O gato cinza.'), autorA: { ...ANA, foto: null }, autorB: { ...BIA, foto: null }, em: new Date().toISOString() };
-    TestBed.configureTestingModule({
-      providers: [
-        provideZonelessChangeDetection(),
-        { provide: SharedStore, useValue: { get: () => entry('dono', { conflito }), resolve: (_id: string, r: Review) => chosen.push(r) } },
-        { provide: CloudAccount, useValue: { signedIn: () => true, account: () => ({ ...ANA }) } },
-        // (o Kanban, que a folha traz, pergunta aos grupos compartilhados pelos quadros deles)
-        { provide: SharedGroupsStore, useValue: { boards: () => [], groupOfBoard: () => undefined } },
-      ],
-    });
-    const f = TestBed.createComponent(ConflictSheet);
-    f.componentRef.setInput('noteId', 'nota-1');
-    f.detectChanges();
-    await f.whenStable();
-    const el = f.nativeElement as HTMLElement;
-    expect(el.querySelector('h2')?.textContent).toBe('Conflito de sincronização');
-    expect(el.querySelector('.qual')?.textContent).toBe('Deseja manter qual versão?');
-    expect(el.querySelector('.quem-mexeu')?.textContent).toContain('Você e Bia mudaram o texto ao mesmo tempo');
-    expect([...el.querySelectorAll('.versao-nome')].map((h) => h.textContent)).toEqual(['A sua versão', 'A versão de Bia']);
-    expect([...el.querySelectorAll('.difere mark')].map((m) => m.textContent)).toEqual(['O gato branco.', 'O gato cinza.']);
-    el.querySelectorAll<HTMLButtonElement>('.manter')[1].click();
-    expect(chosen[0].text).toBe('O gato cinza.');
-    TestBed.resetTestingModule();
   });
 });

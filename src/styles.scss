@@ -334,6 +334,20 @@ body {
   background-color: #ff9ccb;
 }
 
+/* a folha do conflito (ui/conflict-sheet.ts, ui/mark-changes.ts): a linha que mudou numa faixa clara
+   de marca-texto, sem mexer no lugar das letras (a faixa sai pela sombra), e as palavras que só uma
+   versão tem no marca-texto amarelo cheio. Fica aqui porque as linhas são desenhadas pelo texto
+   formatado (ui/rich-text.ts), de outro componente */
+.conflito .mudou {
+  border-radius: 3px;
+  background-color: rgb(255 218 66 / 0.3);
+  box-shadow: 0 0 0 4px rgb(255 218 66 / 0.3);
+}
+::highlight(conflito) {
+  background-color: rgb(255 206 38 / 0.95);
+  color: #151515;
+}
+
 :focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 3px;

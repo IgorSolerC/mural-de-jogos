@@ -1,22 +1,15 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { ICON, IconModule } from './icons';
-import { CardLook, sanitizeLook } from '../core/card-look';
+import { CardLook, sampleNote, sanitizeLook } from '../core/card-look';
 import { updateColumn } from '../core/kanban';
 import { KanbanStore } from '../core/kanban-store';
 import { DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, Damage, DecorMark, Paper, Pattern, PatternLook, Scribble, StainMark, lookOf } from '../core/paper';
-import { Review, Stock, sanitizeReview } from '../core/review';
+import { Stock } from '../core/review';
 import { pinningFor } from '../core/wall-physics';
 import { BackdropClose } from './backdrop-close';
 import { CardKit } from './card-kit';
 import { KanbanReviewCard } from './kanban-note';
 import { Toasts } from './toast';
-import { todayISO } from '../core/dates';
-
-/** Uma anotação de mentira com o visual do card padrão, para a prévia (a ficha do quadro de verdade). */
-export function sampleNote(id: string, name: string, look: CardLook): Review {
-  const r = sanitizeReview({ kind: 'anotacoes', game: { name }, text: 'Assim fica cada anotação que chega aqui.', completedAt: todayISO(), ...look })!;
-  return { ...r, id };
-}
 
 /**
  * Montar o card padrão de uma coluna do Kanban (a folha "Card padrão", aberta dos ajustes da coluna):

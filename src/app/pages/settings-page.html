@@ -71,6 +71,41 @@
       @if (tab() === 'conta') {
         <h2>Conta</h2>
 
+        <!-- o que mudou de dois jeitos ao mesmo tempo (em dois aparelhos seus, ou com outra pessoa numa
+             compartilhada) e espera a pessoa escolher a versão: em cima de tudo, para quem chega pelo selo -->
+        @if (toChoose().length) {
+          <div class="grupo para-escolher" role="group" aria-labelledby="g-escolher">
+            <h3 class="grupo-titulo" id="g-escolher">
+              <lucide-icon class="escolher-icone" [img]="VersionsIcon" [size]="18" aria-hidden="true" />
+              {{ toChoose().length === 1 ? 'Uma versão para escolher' : toChoose().length + ' versões para escolher' }}
+            </h3>
+            <div class="linha versoes-cabeca">
+              <div class="linha-texto">
+                <p class="linha-desc">
+                  A mesma coisa mudou de dois jeitos ao mesmo tempo. O resto já se juntou sozinho; falta você dizer qual versão fica. Até lá, nada se perde.
+                </p>
+              </div>
+              @if (toChoose().length > 1) {
+                <button type="button" class="btn-papel forte" aria-haspopup="dialog" (click)="conflictQueue.open()">Escolher uma por uma</button>
+              }
+            </div>
+            <ul class="versoes conflitos" aria-labelledby="g-escolher">
+              @for (k of toChoose(); track k.key) {
+                <li class="versao">
+                  <lucide-icon class="versao-mural" [img]="k.icon" [size]="20" aria-hidden="true" />
+                  <div class="versao-texto">
+                    <p class="versao-nome">{{ k.name }}</p>
+                    <p class="versao-meta">
+                      <span>{{ k.wall }}</span><span>{{ k.why }}</span><span>{{ k.when }}</span>
+                    </p>
+                  </div>
+                  <button type="button" class="btn-papel" aria-haspopup="dialog" (click)="conflictQueue.open(k.ref)" [attr.aria-label]="'Escolher a versão de ' + k.name">Escolher</button>
+                </li>
+              }
+            </ul>
+          </div>
+        }
+
         <div class="grupo" role="group" aria-labelledby="g-voce">
           <h3 class="grupo-titulo" id="g-voce">Você</h3>
 
@@ -153,42 +188,6 @@
                 </p>
               }
 
-              <!-- o que mudou em dois aparelhos ao mesmo tempo e espera a pessoa escolher a versão -->
-              @if (pendingConflicts().length) {
-                <div class="linha versoes-cabeca">
-                  <div class="linha-texto">
-                    <p class="linha-titulo" id="conflitos-titulo">
-                      <lucide-icon class="conflitos-icone" [img]="AlertIcon" [size]="18" aria-hidden="true" />
-                      {{ pendingConflicts().length === 1 ? 'Um conflito para escolher' : pendingConflicts().length + ' conflitos para escolher' }}
-                    </p>
-                    <p class="linha-desc">
-                      A mesma coisa mudou em dois aparelhos seus ao mesmo tempo. O resto já está junto; falta escolher qual versão fica. Até lá, as duas
-                      ficam guardadas.
-                    </p>
-                  </div>
-                </div>
-                <ul class="versoes conflitos" aria-labelledby="conflitos-titulo">
-                  @for (k of pendingConflicts(); track k.key) {
-                    <li class="versao">
-                      <lucide-icon class="versao-mural" [img]="k.icon" [size]="20" aria-hidden="true" />
-                      <div class="versao-texto">
-                        <p class="versao-nome">{{ k.name }}</p>
-                        <p class="versao-meta">
-                          <span>{{ k.wall }}</span><span>{{ k.why }}</span><span>{{ k.when }}</span>
-                        </p>
-                      </div>
-                      <button type="button" class="btn-papel forte" aria-haspopup="dialog" (click)="openConflict.set(k.key)" [attr.aria-label]="'Escolher a versão de ' + k.name">
-                        Escolher
-                      </button>
-                    </li>
-                  }
-                </ul>
-              }
-              @if (openConflict(); as key) {
-                @defer (on immediate) {
-                  <app-conflict-sheet [chave]="key" (closed)="openConflict.set(null)" />
-                }
-              }
 
               <div class="linha larga">
                 <div class="linha-texto">

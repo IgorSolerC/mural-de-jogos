@@ -1,4 +1,4 @@
-import { Component, provideZonelessChangeDetection, signal } from '@angular/core';
+import { Component, computed, provideZonelessChangeDetection, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { Follow } from '../core/follow';
@@ -7,6 +7,7 @@ import { Mural } from '../core/mural';
 import { SiteHeader } from './site-header';
 import { CalendarStore } from '../core/calendar-store';
 import { Desk } from '../core/desk';
+import { ConflictQueue } from '../core/conflict-queue';
 
 @Component({ template: '' })
 class Blank {}
@@ -19,7 +20,7 @@ class Blank {}
 const WIDTHS = Array.from({ length: (1384 - 288) / 2 + 1 }, (_, i) => 288 + i * 2);
 
 /** Os cenários que mudam o tamanho das coisas: o botão de cada página, o mural de nome mais comprido, com e sem Amigos. */
-const SCENES: { name: string; kind: Kind; url: string; friends: boolean; unseen: number }[] = [
+const SCENES: { name: string; kind: Kind; url: string; friends: boolean; unseen: number; choose?: number }[] = [
   { name: 'mural de jogos, com amigos', kind: 'jogos', url: '/analises/jogos', friends: true, unseen: 12 },
   { name: 'Pra depois', kind: 'jogos', url: '/analises/jogos/pra-depois', friends: true, unseen: 3 },
   { name: 'Wishlist', kind: 'jogos', url: '/analises/jogos/wishlist', friends: true, unseen: 0 },
@@ -27,6 +28,9 @@ const SCENES: { name: string; kind: Kind; url: string; friends: boolean; unseen:
   { name: 'anotações', kind: 'anotacoes', url: '/anotacoes', friends: true, unseen: 150 },
   { name: 'Wishlist de séries, sem conta', kind: 'series', url: '/analises/series/wishlist', friends: false, unseen: 0 },
   { name: 'Ajustes', kind: 'animes', url: '/ajustes', friends: true, unseen: 7 },
+  // o selo das versões para escolher no botton de Ajustes, junto do de Amigos (PLANO-CONFLITOS.md)
+  { name: 'versões para escolher, com amigos', kind: 'jogos', url: '/analises/jogos', friends: true, unseen: 12, choose: 3 },
+  { name: 'versões para escolher, no Ajustes e muitas', kind: 'anotacoes', url: '/ajustes', friends: true, unseen: 150, choose: 120 },
 ];
 
 type Box = { name: string; r: DOMRect; el: Element };
@@ -136,6 +140,7 @@ describe('o topo do site', () => {
     const loaded: FontFace[] = [];
     const available = signal(true);
     const unseen = signal(0);
+    const choose = signal(0);
 
     beforeAll(async () => {
       // as letras do site: o teste serve os arquivos em /media (o CSS global os pede em /base/media)
@@ -171,6 +176,7 @@ describe('o topo do site', () => {
           provideZonelessChangeDetection(),
           provideRouter([{ path: '**', component: Blank }]),
           { provide: Follow, useValue: { available, unseen } },
+          { provide: ConflictQueue, useValue: { list: computed(() => Array.from({ length: choose() }, () => ({}))) } },
         ],
       });
       fixture = TestBed.createComponent(SiteHeader);
@@ -194,6 +200,7 @@ describe('o topo do site', () => {
       it(scene.name, async () => {
         available.set(scene.friends);
         unseen.set(scene.unseen);
+        choose.set(scene.choose ?? 0);
         TestBed.inject(Mural).kind.set(scene.kind);
         await TestBed.inject(Router).navigateByUrl(scene.url);
         await fixture.whenStable();

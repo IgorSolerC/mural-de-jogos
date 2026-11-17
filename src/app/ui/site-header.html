@@ -63,13 +63,17 @@
     <a
       class="botton"
       [routerLink]="botton.ajustes.caminho"
+      [queryParams]="settingsQuery()"
       [class.on]="onSettings()"
       [attr.aria-current]="onSettings() ? 'page' : null"
-      [title]="botton.ajustes.title"
+      [title]="toChoose() ? botton.ajustes.title + ': ' + (toChoose() === 1 ? '1 versão para escolher' : toChoose() + ' versões para escolher') : botton.ajustes.title"
     >
       <span class="face">
         <lucide-icon class="desenho" [img]="GearIcon" [size]="21" aria-hidden="true" />
       </span>
+      @if (toChoose(); as n) {
+        <span class="selo" data-conflitos>{{ n > 99 ? '99+' : n }}<span class="sr-only"> {{ n === 1 ? 'versão para escolher' : 'versões para escolher' }}</span></span>
+      }
       <span class="legenda">{{ botton.ajustes.label }}</span>
     </a>
   </nav>

@@ -1,4 +1,4 @@
-import { sampleNote } from './kanban-template-sheet';
+import { sampleNote } from '../core/card-look';
 
 describe('sampleNote (a prévia do card padrão)', () => {
   afterEach(() => jasmine.clock().uninstall());

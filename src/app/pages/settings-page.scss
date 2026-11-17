@@ -763,11 +763,11 @@ fieldset.linha,
   padding: 16px 0;
 }
 
-/* os conflitos da sincronização: o mesmo jeito das versões guardadas, com o aviso a caneta vermelha */
-.conflitos-icone {
+/* as versões para escolher: o mesmo jeito das versões guardadas, com o desenho das duas camadas em tinta
+   (não é um erro: nada se perde até a escolha) */
+.escolher-icone {
   vertical-align: -3px;
   margin-right: 4px;
-  color: var(--red-deep);
 }
 
 /* ===== Botões de papel: a ação secundária dentro da folha ===== */

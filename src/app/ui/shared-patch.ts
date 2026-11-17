@@ -27,7 +27,7 @@ import { SyncConflicts } from '../core/sync-conflicts';
         (click)="open($event)"
       >
         <lucide-icon [img]="s.conflict ? ConflictIcon : PeopleIcon" [size]="16" aria-hidden="true" />
-        <span class="n" aria-hidden="true">{{ s.conflict ? 'Conflito' : s.n }}</span>
+        <span class="n" aria-hidden="true">{{ s.conflict ? '2 versões' : s.n }}</span>
       </button>
     }
   `,
@@ -43,13 +43,13 @@ export class SharedPatch {
 
   protected readonly state = computed(() => {
     const e = this.shared.get(this.noteId());
-    if (!e) return this.conflicts.forFicha(this.noteId()) ? { conflict: true, n: 0, spoken: 'Conflito de sincronização: escolher a versão' } : null;
+    if (!e) return this.conflicts.forFicha(this.noteId()) ? { conflict: true, n: 0, spoken: 'Duas versões: escolher qual fica' } : null;
     const conflict = !!e.conflito && canWrite(e.papel);
     // as pessoas além de você: no seu, quem você chamou; na dos outros, o dono e os outros (você está na lista)
     const n = e.membros.length;
     if (!n && !conflict) return null;
     const who = e.papel === 'dono' ? (n === 1 ? `com ${e.membros[0].nome}` : `com ${n} pessoas`) : `de ${e.dono.nome}`;
-    return { conflict, n, spoken: conflict ? 'Conflito de sincronização: escolher a versão' : `Anotação compartilhada ${who}` };
+    return { conflict, n, spoken: conflict ? 'Duas versões: escolher qual fica' : `Anotação compartilhada ${who}` };
   });
 
   /** Costurado meio torto, sempre do mesmo jeito na mesma ficha, para o outro lado do vizinho. */

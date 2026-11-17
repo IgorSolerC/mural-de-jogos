@@ -4,8 +4,11 @@
       <app-pin class="pin" />
       <header class="head">
         <div class="titulos">
-          <h2 id="conflito-titulo" tabindex="-1">Conflito de sincronização</h2>
-          <p class="sub">{{ v.sub }}</p>
+          <h2 id="conflito-titulo" tabindex="-1">Qual versão fica?</h2>
+          <p class="sub" [class.mao]="v.subHand">{{ v.sub }}</p>
+          @if (more(); as n) {
+            <p class="faltam">{{ n === 1 ? 'Depois deste, mais 1 para escolher' : 'Depois deste, mais ' + n + ' para escolher' }}</p>
+          }
         </div>
         <button type="button" class="icon-btn" aria-label="Decidir depois" (click)="close()">
           <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
@@ -13,7 +16,7 @@
       </header>
 
       <div class="body">
-        <!-- a pergunta, e o que já está resolvido (para ninguém ter medo de perder o resto) -->
+        <!-- o que aconteceu, e o que já está resolvido (para ninguém ter medo de perder o resto) -->
         <div class="duvida" id="conflito-pergunta">
           <p class="quem-mexeu">
             {{ v.sentence }}
@@ -21,83 +24,117 @@
               <time class="quando" [attr.datetime]="w.iso" [title]="w.full">{{ w.ago }}</time>
             }
           </p>
-          <p class="qual">Deseja manter qual versão?</p>
           <p class="resto">{{ v.rest }}</p>
+          @if (v.where; as where) {
+            <p class="onde"><lucide-icon [img]="WhereIcon" [size]="16" aria-hidden="true" /><span>Onde fica: {{ where }}</span></p>
+          }
         </div>
 
-        <div class="versoes">
+        <!-- no celular, uma versão por vez: as orelhas de pasta trocam qual está à mostra -->
+        <div class="orelhas" [class.com-longas]="v.long" role="tablist" aria-label="As duas versões" (keydown)="earKey($event)">
           @for (s of v.sides; track s.key) {
-            <section class="versao" [class.apagada]="s.deleted" [attr.aria-labelledby]="'versao-' + s.key">
-              <header class="versao-cab">
-                @if (s.device; as d) {
-                  <!-- o aparelho no lugar da foto: um botão de lata com o desenho dele -->
-                  <span class="aparelho" aria-hidden="true">
-                    <lucide-icon [img]="d.icon" [size]="20" />
-                  </span>
-                } @else {
-                  <app-person-photo [code]="s.who?.codigo ?? s.key" [name]="s.name" [face]="s.who?.foto" />
-                }
-                <div class="versao-quem">
-                  <h3 class="versao-nome" [id]="'versao-' + s.key">{{ s.heading }}</h3>
-                  @if (s.device?.label; as label) {
-                    <p class="versao-aparelho">{{ label }}</p>
+            <button
+              type="button"
+              role="tab"
+              class="orelha"
+              [id]="'orelha-' + s.key"
+              [class.on]="shown() === s.key"
+              [attr.aria-selected]="shown() === s.key"
+              [attr.tabindex]="shown() === s.key ? 0 : -1"
+              (click)="shown.set(s.key)"
+            >
+              <ng-container *ngTemplateOutlet="quem; context: { $implicit: s, small: true }" />
+              <span class="orelha-nome">{{ s.heading }}</span>
+            </button>
+          }
+        </div>
+
+        <div class="comparar" [attr.data-mostra]="shown()">
+          <!-- de quem é cada coluna (fica presa no alto quando o texto rola) -->
+          <div class="cabecas" aria-hidden="true">
+            @for (s of v.sides; track s.key) {
+              <div class="cabeca" [attr.data-lado]="s.key">
+                <ng-container *ngTemplateOutlet="quem; context: { $implicit: s, small: false }" />
+                <div class="cabeca-texto">
+                  <p class="cabeca-nome">{{ s.heading }}</p>
+                  @if (s.device?.label || s.changed) {
+                    <p class="cabeca-aparelho">
+                      @if (s.device?.label; as label) {
+                        <span>{{ label }}</span>
+                      }
+                      @if (s.changed; as when) {
+                        <span>mudada {{ when }}</span>
+                      }
+                    </p>
+                  }
+                  @if (s.newest) {
+                    <p class="mais-nova">a mais recente</p>
                   }
                 </div>
-              </header>
+              </div>
+            }
+          </div>
 
-              @if (s.deleted) {
-                <!-- a versão que apaga: um carimbo no lugar do texto -->
-                <div class="carimbo-apagada">
-                  <span class="carimbo-texto">
-                    <lucide-icon [img]="DeletedIcon" [size]="18" aria-hidden="true" />
-                    Apagada
-                  </span>
-                  <p class="apagada-desc">Neste lado, ela foi tirada do mural.</p>
+          @for (row of v.rows; track row.id) {
+            <section class="dif" [class.longa]="isLong(row)" [attr.aria-labelledby]="'dif-' + $index">
+              <h3 class="dif-nome" [id]="'dif-' + $index">
+                <lucide-icon [img]="row.icon" [size]="16" aria-hidden="true" />
+                <span>{{ row.label }}</span>
+              </h3>
+              @for (s of v.sides; track s.key) {
+                <div class="lado" [attr.data-lado]="s.key" role="group" [attr.aria-label]="s.spoken">
+                  <!-- no celular, a linha curta mostra os dois lados empilhados: de quem é cada um -->
+                  <p class="lado-quem" aria-hidden="true">
+                    <ng-container *ngTemplateOutlet="quem; context: { $implicit: s, small: true }" />{{ s.heading }}
+                  </p>
+                  <ng-container *ngTemplateOutlet="celula; context: { $implicit: s.key === 'a' ? row.a : row.b }" />
                 </div>
-              } @else {
-                @if (s.title) {
-                  <p class="versao-titulo"><span class="rotulo-campo">Título</span> <mark>{{ s.title }}</mark></p>
-                }
-                @if (s.state) {
-                  <p class="versao-titulo"><span class="rotulo-campo">Estado</span> <mark>{{ s.state }}</mark></p>
-                }
-                @if (s.tags) {
-                  <p class="versao-titulo"><span class="rotulo-campo">Tags</span> <mark>{{ s.tags }}</mark></p>
-                }
-
-                @if (s.pieces; as pieces) {
-                  <!-- o texto como está escrito (com as marcas), o que difere a marca-texto -->
-                  <div class="texto" role="group" [attr.aria-label]="'Texto da ' + s.spoken">
-                    @for (p of pieces; track $index) {
-                      @switch (p.kind) {
-                        @case ('diff') {
-                          <p class="trecho difere"><mark>{{ p.text || ' ' }}</mark><span class="sr-only"> (diferente)</span></p>
-                        }
-                        @case ('same') {
-                          <p class="trecho">{{ p.text }}</p>
-                        }
-                        @case ('gap') {
-                          <p class="recolhido">{{ p.n === 1 ? '1 linha igual' : p.n + ' linhas iguais' }}</p>
-                        }
-                      }
-                    }
-                  </div>
-                } @else if (!s.title) {
-                  <p class="sem-texto">O texto é igual nas duas; muda {{ v.parts }}.</p>
-                }
               }
-
-              <button type="button" class="btn-ink manter" [attr.aria-label]="'Manter a ' + s.spoken" (click)="keep(s)">
-                <lucide-icon [img]="s.deleted ? DeletedIcon : KeepIcon" [size]="20" aria-hidden="true" />
-                {{ s.keep }}
-              </button>
             </section>
+          }
+
+          @if (v.text; as t) {
+            <section class="dif texto longa" aria-labelledby="dif-texto">
+              <h3 class="dif-nome" id="dif-texto">
+                <lucide-icon [img]="TextIcon" [size]="16" aria-hidden="true" />
+                <span>Texto</span>
+                @if (t.a !== null && t.b !== null) {
+                  <span class="legenda"><span class="amostra-marca" aria-hidden="true"></span>o que mudou</span>
+                }
+              </h3>
+              @for (s of v.sides; track s.key) {
+                <div class="lado" [attr.data-lado]="s.key" role="group" [attr.aria-label]="'Texto de ' + s.spoken">
+                  @if ((s.key === 'a' ? t.a : t.b); as body) {
+                    <div class="folha" [attr.tabindex]="0" [attr.aria-label]="'Texto de ' + s.spoken">
+                      @if (s.key === 'a') {
+                        <div #textoA class="texto-formatado"><app-rich-text [text]="body" [anchors]="true" [links]="links()" /></div>
+                      } @else {
+                        <div #textoB class="texto-formatado"><app-rich-text [text]="body" [anchors]="true" [links]="links()" /></div>
+                      }
+                    </div>
+                  } @else {
+                    <ng-container *ngTemplateOutlet="celula; context: { $implicit: { kind: 'gone', text: 'Apagada' } }" />
+                  }
+                </div>
+              }
+            </section>
+          }
+
+          @if (!v.rows.length && !v.text) {
+            <p class="iguais">As duas versões ficaram iguais na tela: escolher qualquer uma dá no mesmo.</p>
           }
         </div>
       </div>
 
       <footer class="foot">
-        <p class="enquanto">{{ v.meanwhile }}</p>
+        <div class="escolhas">
+          @for (s of v.sides; track s.key) {
+            <button type="button" class="btn-ink manter" [attr.data-lado]="s.key" (click)="keep(s)">
+              <lucide-icon [img]="s.deleted ? DeletedIcon : KeepIcon" [size]="20" aria-hidden="true" />
+              <span>{{ s.deleted ? 'Manter apagada' : 'Ficar com ' + s.short }}</span>
+            </button>
+          }
+        </div>
         <div class="actions">
           <button type="button" class="btn-quiet" (click)="close()">Decidir depois</button>
         </div>
@@ -105,3 +142,101 @@
     </div>
   }
 </dialog>
+
+<!-- a foto da pessoa, ou o aparelho no lugar dela -->
+<ng-template #quem let-s let-small="small">
+  @if (s.device; as d) {
+    <span class="aparelho" [class.pequeno]="small" aria-hidden="true"><lucide-icon [img]="d.icon" [size]="small ? 15 : 20" /></span>
+  } @else {
+    <app-person-photo [class.pequeno]="small" [code]="s.who?.codigo ?? s.key" [name]="s.name" [face]="s.who?.foto" />
+  }
+</ng-template>
+
+<!-- um valor, desenhado como aparece no site -->
+<ng-template #celula let-c>
+  @switch (c.kind) {
+    @case ('text') {
+      <p class="valor" [class.mao]="c.hand">{{ c.text }}</p>
+    }
+    @case ('empty') {
+      <p class="valor vazio">{{ c.text }}</p>
+    }
+    @case ('icon') {
+      <p class="valor com-desenho"><lucide-icon [img]="c.icon" [size]="18" aria-hidden="true" /><span>{{ c.text }}</span></p>
+    }
+    @case ('switch') {
+      <p class="valor com-desenho">
+        <span class="interruptor" [attr.aria-checked]="c.on" aria-hidden="true"><span class="bolinha"></span></span>
+        <span class="sr-only">{{ c.on ? 'Ligado: ' : 'Desligado: ' }}</span>
+        <span>{{ c.text }}</span>
+      </p>
+    }
+    @case ('swatch') {
+      <p class="valor com-desenho"><span class="amostra" [style.background]="c.color" aria-hidden="true"></span><span>{{ c.text }}</span></p>
+    }
+    @case ('tags') {
+      <ul class="etiquetas">
+        @for (t of c.items; track $index) {
+          <li [class.so-aqui]="t.only">
+            <app-note-tag [label]="t.label" [color]="t.color ?? null" />
+            @if (t.only) {
+              <span class="sr-only"> (só nesta versão)</span>
+            }
+          </li>
+        }
+      </ul>
+    }
+    @case ('list') {
+      @if (c.ordered) {
+        <ol class="palavras numeradas">
+          @for (t of c.items; track $index) {
+            <li [class.so-aqui]="t.only">{{ t.label }}</li>
+          }
+        </ol>
+      } @else {
+        <ul class="palavras">
+          @for (t of c.items; track $index) {
+            <li [class.so-aqui]="t.only">
+              @if (t.only) {
+                <mark>{{ t.label }}</mark><span class="sr-only"> (só nesta versão)</span>
+              } @else {
+                {{ t.label }}
+              }
+            </li>
+          }
+        </ul>
+      }
+    }
+    @case ('group') {
+      <p class="valor grupo com-desenho">
+        <app-cat-label [label]="c.label" [look]="c.look" [iconSize]="15" [tint]="true" />
+        @if (c.color; as cor) {
+          <span class="amostra" [style.background]="cor.hex" aria-hidden="true"></span><span>{{ cor.name }}</span>
+        } @else {
+          <span class="vazio">sem cor</span>
+        }
+      </p>
+    }
+    @case ('cover') {
+      <img class="capa" [src]="c.url" alt="" loading="lazy" referrerpolicy="no-referrer" />
+    }
+    @case ('card') {
+      <div class="ficha-previa"><app-review-card [review]="c.review" [compact]="true" [preview]="true" /></div>
+    }
+    @case ('rich') {
+      <div class="folha curta"><div class="texto-formatado"><app-rich-text [text]="c.text" [links]="links()" /></div></div>
+    }
+    @case ('secret') {
+      <p class="valor com-desenho"><lucide-icon [img]="SecretIcon" [size]="18" aria-hidden="true" /><span>••••{{ c.end }}</span><span class="sr-only"> (termina em {{ c.end }})</span></p>
+    }
+    @case ('gone') {
+      <div class="carimbo-apagada">
+        <span class="carimbo-texto">
+          <lucide-icon [img]="DeletedIcon" [size]="18" aria-hidden="true" />
+          {{ c.text }}
+        </span>
+        <p class="apagada-desc">Nesta versão, ela foi tirada do mural.</p>
+      </div>
+    }
+  }
+</ng-template>

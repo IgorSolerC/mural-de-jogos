@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
+import { ConflictQueue } from '../core/conflict-queue';
 import { ICON, IconModule } from './icons';
 import { filter, map } from 'rxjs';
 import { CALENDAR_PATH, PIXEL_ARTS_PATH, SPENDING_PATH, areaOf, listOf, pathOf, reviewPath } from '../core/areas';
@@ -51,6 +52,7 @@ export class SiteHeader {
   private readonly follow = inject(Follow);
   private readonly settings = inject(Settings);
   private readonly router = inject(Router);
+  private readonly conflictQueue = inject(ConflictQueue);
 
   protected readonly PlusIcon = ICON.adicionar;
   protected readonly NoteIcon = ICON.praDepois;
@@ -119,6 +121,13 @@ export class SiteHeader {
   protected readonly friends = computed(() => this.follow.available());
   /** O adesivo amarelo do botton de Amigos: quantas novidades chegaram (se a pessoa quer ver o número). */
   protected readonly unseen = computed(() => (this.settings.mailCount() && this.follow.unseen()) || 0);
+
+  /**
+   * O adesivo do botton de Ajustes: quantas versões esperam a pessoa escolher (ver core/conflict-queue.ts).
+   * Some sozinho quando ela escolhe; a lista mora em Ajustes › Conta, para onde o botton leva enquanto há.
+   */
+  protected readonly toChoose = computed(() => this.conflictQueue.list().length);
+  protected readonly settingsQuery = computed(() => (this.toChoose() ? { aba: 'conta' } : null));
 
   /** O seu perfil (o seu, ou editando); o perfil de outra pessoa não acende o seu botton. */
   protected readonly onProfile = computed(() => this.path() === '/perfil' || this.path() === '/perfil/editar');

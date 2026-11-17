@@ -1,3 +1,4 @@
+import { todayISO } from './dates';
 import { Review, sanitizeReview } from './review';
 
 /**
@@ -54,4 +55,10 @@ export function withLook<T extends CardLook>(r: T, look: CardLook): T {
   const out: Record<string, unknown> = { ...r };
   for (const k of LOOK_FIELDS) delete out[k];
   return { ...out, ...lookFrom(look) } as T;
+}
+
+/** Uma anotação de mentira com o visual dado, para a prévia (o card padrão do Kanban, a folha do conflito). */
+export function sampleNote(id: string, name: string, look: CardLook): Review {
+  const r = sanitizeReview({ kind: 'anotacoes', game: { name }, text: 'Assim fica cada anotação que chega aqui.', completedAt: todayISO(), ...look })!;
+  return { ...r, id };
 }

@@ -109,6 +109,18 @@
     <app-pomodoro-corner />
   }
 }
+<!-- a folha do conflito por cima de qualquer página (ver core/conflict-queue.ts): o bilhete de um ajuste
+     ou de um quadro, o selo de Ajustes e a lista da Conta abrem aqui, e escolher passa para o próximo -->
+@if (conflictQueue.opened(); as ref) {
+  <app-conflict-sheet
+    [noteId]="ref.noteId ?? null"
+    [chave]="ref.chave ?? null"
+    [chained]="true"
+    (resolved)="nextConflict(ref, true)"
+    (vanished)="nextConflict(ref, false)"
+    (closed)="conflictQueue.close()"
+  />
+}
 <app-confirm />
 <app-toast />
 <app-paper-defs />

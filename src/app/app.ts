@@ -40,6 +40,8 @@ import { SharedStore } from './core/shared-store';
 import { deleteAsk } from './core/shared-notes';
 import { SharedGroupsStore } from './core/shared-groups-store';
 import { SyncConflicts, splitTarget } from './core/sync-conflicts';
+import { ConflictQueue, ConflictRef } from './core/conflict-queue';
+import { ConflictSheet } from './ui/conflict-sheet';
 import { KanbanStore } from './core/kanban-store';
 import { CalendarStore } from './core/calendar-store';
 import { FreeBoardNoteAsk } from './core/free-board-note-ask';
@@ -57,7 +59,7 @@ import { PomodoroCorner } from './ui/pomodoro-corner';
 
 @Component({
   selector: 'app-root',
-  imports: [AreaBar, PageWall, ConfirmDialog, PomodoroCorner, GoogleButton, IconModule, PaperDefs, ReactionSheetView, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, SiteHeader, Toast, WishAdder],
+  imports: [AreaBar, PageWall, ConfirmDialog, ConflictSheet, PomodoroCorner, GoogleButton, IconModule, PaperDefs, ReactionSheetView, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, SiteHeader, Toast, WishAdder],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -109,6 +111,8 @@ export class App {
   private readonly sharedGroups = inject(SharedGroupsStore);
   /** Os conflitos da sincronização da conta (ver core/sync-conflicts.ts): o bilhete avisa quando chega um. */
   private readonly syncConflicts = inject(SyncConflicts);
+  /** Tudo o que espera a pessoa escolher a versão, e a folha que abre por cima de qualquer página. */
+  protected readonly conflictQueue = inject(ConflictQueue);
 
   /** O caminho aberto, sem query nem fragmento: em que página o N age e de onde o mural de anotações sai. */
   private readonly path = toSignal(
@@ -212,7 +216,7 @@ export class App {
       if (!n) return;
       untracked(() => {
         if (n.tipo === 'conflito') {
-          this.toasts.show(`Conflito de sincronização em “${n.titulo}”`, { label: 'Resolver', run: () => this.desk.openReview(n.id) }, 12000);
+          this.toasts.show(`“${n.titulo}” mudou de dois jeitos ao mesmo tempo: escolha a versão que fica`, { label: 'Escolher', run: () => this.desk.openReview(n.id) }, 12000);
         } else if (n.tipo === 'escolhido') {
           this.toasts.show(`${n.por} já tinha escolhido uma versão de “${n.titulo}”: ficou a dela`, undefined, 9000);
         } else {
@@ -226,9 +230,12 @@ export class App {
       if (!n) return;
       untracked(() => {
         const [tipo, id] = splitTarget(n.alvo);
-        const titulo = tipo === 'ficha' ? `“${n.titulo}”` : n.titulo.charAt(0).toLowerCase() + n.titulo.slice(1);
-        const run = tipo === 'ficha' ? () => this.desk.openReview(id) : () => void this.router.navigate(['/ajustes'], { queryParams: { aba: 'conta' } });
-        this.toasts.show(`Conflito de sincronização em ${titulo}`, { label: 'Resolver', run }, 12000);
+        // "o quadro Kanban de “Casa”", "as tags fixas" (o nome do ajuste já vem com o artigo)
+        const lower = n.titulo.charAt(0).toLowerCase() + n.titulo.slice(1);
+        const titulo = tipo === 'ficha' ? `“${n.titulo}”` : tipo === 'kanban' ? `o ${lower}` : lower;
+        // a ficha abre na leitura (a pergunta abre junto); um ajuste ou um quadro, a folha aqui mesmo
+        const run = tipo === 'ficha' ? () => this.desk.openReview(id) : () => this.conflictQueue.open({ chave: n.chave });
+        this.toasts.show(`Você mudou ${titulo} em dois aparelhos ao mesmo tempo: escolha a versão que fica`, { label: 'Escolher', run }, 12000);
       });
     });
     this.desk.register({
@@ -404,6 +411,21 @@ export class App {
   }
 
   /** O Desfazer do bilhete: cada pedido volta, do mais novo para o mais velho. */
+  /**
+   * A folha da fila escolheu (ou o conflito saiu sem ela): passa para o próximo que espera, ou fecha.
+   * Depois de uma escolha, o bilhete diz que deu certo e quantos faltam.
+   */
+  protected nextConflict(done: ConflictRef, chose: boolean): void {
+    const next = this.conflictQueue.nextAfter(done);
+    // (a da compartilhada ainda vai à nuvem e pode perder para quem escolheu antes: o aviso dela é o da loja)
+    if (chose && !(done.noteId && this.shared.get(done.noteId))) {
+      const left = this.conflictQueue.remaining(done);
+      this.toasts.show(left ? `Pronto, ficou a versão escolhida. ${left === 1 ? 'Falta 1' : `Faltam ${left}`}.` : 'Pronto, ficou a versão escolhida.', undefined, 5000);
+    }
+    if (next) this.conflictQueue.open(next);
+    else this.conflictQueue.close();
+  }
+
   private async undoRequests(items: readonly AppliedItem[]): Promise<void> {
     try {
       for (const i of [...items].reverse()) await this.apiRequests.undo(i);
