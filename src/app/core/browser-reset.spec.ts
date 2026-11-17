@@ -16,6 +16,7 @@ import { SETTINGS_KEY } from './settings';
 import { STUDY_SIZE_KEY } from './study';
 import { COLLEAGUES_DB, ColleagueStore } from './colleague-store';
 import { POMODORO_KEY, POMODORO_DEFAULT, start } from './pomodoro';
+import { VOZ_KEY } from './voz';
 
 function databases(): Promise<string[]> {
   return indexedDB.databases().then((list) => list.map((d) => d.name ?? ''));
@@ -286,6 +287,16 @@ describe('limpar o navegador (sair da conta)', () => {
     localStorage.setItem(RESET_KEY, JSON.stringify({ keep: [], motivo: 'saiu' }));
     expect(await resetOnBoot()).toBeTrue();
     expect(localStorage.getItem(POMODORO_KEY)).toBeNull();
+  });
+
+  it('a velocidade e as vozes escolhidas para ouvir a nota (PLANO-VOZ.md) saem junto', async () => {
+    signedInBrowser();
+    writeJson(VOZ_KEY, { rate: 1.25, voices: { ja: 'Google 日本語' } });
+    expect(localStorage.getItem(VOZ_KEY)).toContain('1.25');
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.setItem(RESET_KEY, JSON.stringify({ keep: [], motivo: 'saiu' }));
+    expect(await resetOnBoot()).toBeTrue();
+    expect(localStorage.getItem(VOZ_KEY)).toBeNull();
   });
 
   it('o jeito de escrever escolhido nos Ajustes (o Visual ou o Markdown, por aparelho) sai junto', async () => {

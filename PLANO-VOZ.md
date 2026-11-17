@@ -75,7 +75,7 @@ Descartados:
 
 ## Rodadas (uma por vez; cada uma com /code-review mid antes da próxima, commit e push)
 
-1. **As frases** (`core/voz-frases.ts`): do texto desenhado na folha (o DOM do `app-rich-text`) às
+1. **As frases** (`ui/voz-frases.ts`, e65e9881, BUILD 929): do texto desenhado na folha (o DOM do `app-rich-text`) às
    frases, cada uma com os `Range`s dela na tela. Funções puras
    sobre nós de texto, com spec: a nota の inteira (título, card USOS, frases e traduções), tabela,
    código, spoiler fechado, tarefas recolhidas, frase longa partida, só japonês, só português.
