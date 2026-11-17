@@ -27,6 +27,18 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-17-apagar-grupo',
+    version: '1.48.1',
+    kind: 'ajustes',
+    date: '2026-11-17',
+    title: 'Apagar um grupo escolhendo para onde vai o que está nele',
+    melhorias: [
+      'Apagar um grupo (Configurações do mural › Grupos) pergunta o que fazer com o que está nele: deixar sem grupo, numa pasta "Grupo deletado: nome" com as pastas dele dentro; levar tudo para outro grupo seu, com o quadro do Kanban, os baralhos e os quadros livres; ou apagar tudo. A folha diz o que acontece em cada um, com os números.',
+      'Num grupo compartilhado de outra pessoa, o botão virou Sair do grupo, que leva à parte Compartilhar.',
+    ],
+    correcoes: ['Apagar um grupo compartilhado seu não fazia nada e dizia que ele tinha sido apagado: agora ele deixa de ser compartilhado (a folha avisa quem deixa de ver) e segue o destino escolhido.'],
+  },
+  {
     id: '2026-11-17-ouvir-a-nota',
     version: '1.48.0',
     kind: 'funcionalidade',

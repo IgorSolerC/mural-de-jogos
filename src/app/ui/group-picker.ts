@@ -15,7 +15,8 @@ import { roveRadios } from './focus';
  * anotações tem; a escolhida com o traço de marca-texto. A busca filtra e cria. Um só: tocar escolhe (e
  * o editor fecha a parte); "Sem grupo", a primeira linha, tira.
  * O ícone e a cor de cada grupo moram nas configurações do mural, não aqui. Também escolhe o grupo do
- * baralho copiado (ui/study-copy-sheet.ts), onde o grupo é obrigatório: `required` tira o "Sem grupo".
+ * baralho copiado (ui/study-copy-sheet.ts), onde o grupo é obrigatório: `required` tira o "Sem grupo", e o grupo
+ * para onde vai o que estava num grupo apagado (ui/group-delete-sheet.ts), só entre os que existem (`canCreate`).
  */
 @Component({
   selector: 'app-group-picker',
@@ -24,13 +25,13 @@ import { roveRadios } from './focus';
   template: `
     <label class="campo">
       <lucide-icon class="lupa" [img]="SearchIcon" [size]="18" aria-hidden="true" />
-      <span class="sr-only">Buscar ou criar grupo</span>
+      <span class="sr-only">{{ searchLabel() }}</span>
       <input
         type="text"
         autocomplete="off"
         enterkeyhint="done"
         [maxLength]="max"
-        placeholder="Buscar ou criar grupo"
+        [placeholder]="searchLabel()"
         [value]="query()"
         (input)="query.set($any($event.target).value)"
         (keydown.enter)="$event.preventDefault(); enter()"
@@ -74,6 +75,12 @@ export class GroupPicker {
   readonly none = input(false);
   /** O nome da lista para o leitor de tela. */
   readonly groupLabel = input('Grupo da anotação');
+  /**
+   * A busca oferece criar o grupo escrito que não existe. Sem (levar o que está num grupo apagado para outro,
+   * ui/group-delete-sheet.ts): só os grupos da lista; levar para um nome novo seria renomear.
+   */
+  readonly canCreate = input(true);
+  protected readonly searchLabel = computed(() => (this.canCreate() ? 'Buscar ou criar grupo' : 'Buscar grupo'));
 
   protected readonly max = LABEL_MAX;
   protected readonly SearchIcon = ICON.buscar;
@@ -115,7 +122,7 @@ export class GroupPicker {
   /** O escrito, quando ainda não é nenhum grupo: "Criar “Viagens”". */
   protected readonly fresh = computed(() => {
     const name = cleanNewCategory(this.query());
-    return name && !this.shown().some((g) => g.key === fold(name)) ? name : null;
+    return this.canCreate() && name && !this.shown().some((g) => g.key === fold(name)) ? name : null;
   });
 
   /** Enter: o primeiro que bate com a busca, ou o grupo novo. */

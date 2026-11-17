@@ -375,10 +375,17 @@
                               Voltar a seguir o mural
                             </button>
                           }
-                          <button type="button" class="papel perigo apagar" (click)="deleteCategory(c)">
-                            <lucide-icon [img]="DeleteIcon" [size]="17" aria-hidden="true" />
-                            Apagar o grupo
-                          </button>
+                          @if (othersGroup(c)) {
+                            <button type="button" class="papel perigo sair" (click)="toLeave(c)">
+                              <lucide-icon [img]="LeaveIcon" [size]="17" aria-hidden="true" />
+                              Sair do grupo…
+                            </button>
+                          } @else {
+                            <button type="button" class="papel perigo apagar" aria-haspopup="dialog" (click)="deleteCategory(c)">
+                              <lucide-icon [img]="DeleteIcon" [size]="17" aria-hidden="true" />
+                              Apagar o grupo…
+                            </button>
+                          }
                         </div>
                       </div>
                     }
@@ -432,6 +439,10 @@
               }
             </ol>
             <p class="sr-only" aria-live="polite">{{ said() }}</p>
+
+            @if (deleting(); as d) {
+              <app-group-delete-sheet [name]="d" [groups]="groupNames()" (done)="groupDeleted($event)" (closed)="deleting.set(null)" />
+            }
           }
 
           @case ('assuntos') {

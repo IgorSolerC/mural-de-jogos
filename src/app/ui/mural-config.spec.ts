@@ -7,6 +7,8 @@ import { Settings } from '../core/settings';
 import { Confirm, ConfirmOptions } from './confirm';
 import { MuralConfig } from './mural-config';
 import { FreeBoardStore } from '../core/free-board-store';
+import { SharedGroupsStore } from '../core/shared-groups-store';
+import { SharedGroup } from '../core/shared-groups';
 
 let seq = 0;
 const note = (category: string | null, tags: string[] = []): Review =>
@@ -448,27 +450,43 @@ describe('as configurações do mural (a folha)', () => {
       expect(rows()).toEqual(['Roadmap site', 'Viagens!']);
     });
 
-    it('apagar a categoria pergunta antes, avisando quantas a usam; as anotações ficam sem categoria', async () => {
+    /** A folha de apagar o grupo (PLANO-APAGAR-GRUPO.md). */
+    const sheet = () => el.querySelector<HTMLElement>('app-group-delete-sheet');
+    const sheetLines = () => Array.from(sheet()!.querySelectorAll('.acontece li')).map((li) => li.textContent!.trim());
+    const sheetButton = () => sheet()!.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+
+    it('apagar o grupo abre a folha dos destinos; Cancelar não muda nada; deixar sem grupo põe tudo na pasta "Grupo deletado"', async () => {
       settings.setCategoryLook('Roadmap site', { color: 'verde' });
       await go('categorias');
       const row = await openCat('Roadmap site');
-      answer = false;
       row.querySelector<HTMLButtonElement>('.apagar')!.click();
       await settle();
-      expect(asked.length).toBe(1);
-      expect(asked[0].title).toBe('Apagar o grupo Roadmap site?');
-      expect(asked[0].text).toContain('2 anotações usam este grupo');
+      expect(asked.length).toBe(0);
+      expect(sheet()!.querySelector('h2')!.textContent!.trim()).toBe('Apagar o grupo Roadmap site');
+      expect(sheet()!.querySelector('.sub')!.textContent).toContain('2 anotações');
+      // começa no que nunca perde nada
+      expect(segment(sheet()!, 'Deixar sem grupo').checked).toBeTrue();
+      expect(sheetLines()[0]).toBe('As 2 anotações vão para a pasta “Grupo deletado: Roadmap site”, nas anotações sem grupo.');
+      expect(sheetButton().textContent!.trim()).toBe('Apagar e deixar sem grupo');
+      Array.from(sheet()!.querySelectorAll<HTMLButtonElement>('button')).find((b) => b.textContent!.trim() === 'Cancelar')!.click();
+      // (o close do diálogo chega numa tarefa depois)
+      for (let i = 0; i < 20 && sheet(); i++) await settle();
+      expect(sheet()).toBeNull();
       expect(notes().filter((r) => r.category === 'Roadmap site').length).toBe(2);
-      answer = true;
       row.querySelector<HTMLButtonElement>('.apagar')!.click();
       await settle();
+      sheetButton().click();
+      for (let i = 0; i < 20 && sheet(); i++) await settle();
+      expect(sheet()).toBeNull();
       expect(notes().filter((r) => !r.category).length).toBe(3);
+      const folder = TestBed.inject(NoteFolders).tree().kids('', null).find((f) => f.name === 'Grupo deletado: Roadmap site')!;
+      expect(notes().filter((r) => r.folder === folder.id).length).toBe(2);
       expect(settings.categoryLooks()['roadmap site']).toBeUndefined();
       expect(rows()).toEqual(['Viagens!', 'Receitas']);
-      expect(el.querySelector('.aviso')!.textContent).toContain('Roadmap site foi apagado em 2 anotações.');
+      expect(el.querySelector('.aviso')!.textContent).toContain('Roadmap site foi apagado. 2 anotações estão na pasta “Grupo deletado: Roadmap site”, nas sem grupo.');
     });
 
-    it('apagar o grupo com quadros livres diz quais vão embora junto, e eles vão (PLANO-QUADRO-LIVRE.md, D12)', async () => {
+    it('deixar sem grupo avisa que os quadros livres vão embora, e eles vão (PLANO-QUADRO-LIVRE.md, D12)', async () => {
       const boards = TestBed.inject(FreeBoardStore);
       const a = await boards.create('Blue Prince', 'Roadmap site');
       const b = await boards.create('Rotas', 'roadmap site');
@@ -478,14 +496,74 @@ describe('as configurações do mural (a folha)', () => {
       row.querySelector<HTMLButtonElement>('.apagar')!.click();
       await settle();
       // os dois, na ordem da lista (o mais novo primeiro; no mesmo instante, pelo nome)
-      expect(asked[0].text).toMatch(/Os quadros livres (Rotas e Blue Prince|Blue Prince e Rotas) também vão embora\./);
-      expect(asked[0].confirm).toBe('Apagar o grupo e os quadros');
+      expect(sheetLines().join(' ')).toMatch(/Os quadros livres (Rotas e Blue Prince|Blue Prince e Rotas) vão embora: quadro livre sem grupo não existe\./);
+      sheetButton().click();
+      await settle();
       await boards.ready;
       for (let i = 0; i < 20 && boards.get(a.id); i++) await new Promise((r) => setTimeout(r, 10));
       expect(boards.get(a.id)).toBeNull();
       expect(boards.get(b.id)).toBeNull();
       expect(boards.get(other.id)?.grupo).toBe('Receitas');
       await boards.remove(other.id);
+    });
+
+    it('levar para outro grupo: escolhe entre os outros (sem criar um novo), e tudo vai para ele', async () => {
+      await go('categorias');
+      const row = await openCat('Roadmap site');
+      row.querySelector<HTMLButtonElement>('.apagar')!.click();
+      await settle();
+      segment(sheet()!, 'Levar para outro grupo').click();
+      await settle();
+      expect(sheetButton().disabled).toBeTrue();
+      expect(sheetLines()).toEqual(['Escolha o grupo para onde tudo vai.']);
+      const picker = sheet()!.querySelector('app-group-picker')!;
+      expect(Array.from(picker.querySelectorAll('.op > .nome')).map((b) => b.textContent!.trim())).toEqual(['Receitas', 'Viagens!']);
+      const search = picker.querySelector<HTMLInputElement>('input')!;
+      search.value = 'Novo grupo';
+      search.dispatchEvent(new Event('input'));
+      await settle();
+      expect(picker.querySelector('.criar')).toBeNull();
+      search.value = '';
+      search.dispatchEvent(new Event('input'));
+      await settle();
+      Array.from(picker.querySelectorAll<HTMLButtonElement>('.op')).find((b) => b.textContent!.includes('Receitas'))!.click();
+      await settle();
+      expect(sheetLines()[0]).toBe('As 2 anotações vão para Receitas.');
+      expect(sheetButton().textContent!.trim()).toBe('Apagar e levar para Receitas');
+      sheetButton().click();
+      await settle();
+      expect(notes().filter((r) => r.category === 'Receitas').length).toBe(3);
+      expect(el.querySelector('.aviso')!.textContent).toContain('Roadmap site foi apagado. 2 anotações foram para Receitas.');
+    });
+
+    it('o grupo compartilhado de outra pessoa não se apaga: o botão leva ao Sair do grupo da parte Compartilhar', async () => {
+      const groups = TestBed.inject(SharedGroupsStore);
+      spyOn(groups, 'ofCategory').and.callFake((c) => (c === 'Roadmap site' ? ({ id: 'gRoad0000001', papel: 'editor', dono: { nome: 'Ana', codigo: 'ANA1-AAAA' }, membros: [], publico: false, dados: { nome: 'Roadmap site' } } as unknown as SharedGroup) : undefined));
+      await go('categorias');
+      const row = await openCat('Roadmap site');
+      expect(row.querySelector('.apagar')).toBeNull();
+      const leave = row.querySelector<HTMLButtonElement>('.sair')!;
+      expect(leave.textContent!.trim()).toBe('Sair do grupo…');
+      leave.click();
+      await settle();
+      expect(tab('compartilhar').getAttribute('aria-selected')).toBe('true');
+      expect(sheet()).toBeNull();
+    });
+
+    it('apagar tudo diz que não volta, e as anotações saem', async () => {
+      await go('categorias');
+      const row = await openCat('Roadmap site');
+      row.querySelector<HTMLButtonElement>('.apagar')!.click();
+      await settle();
+      segment(sheet()!, 'Apagar tudo').click();
+      await settle();
+      expect(sheetLines()).toContain('Não dá para desfazer.');
+      expect(sheetLines()[0]).toBe('As 2 anotações saem do mural, com o texto.');
+      expect(sheetButton().textContent!.trim()).toBe('Apagar o grupo e as 2 anotações');
+      sheetButton().click();
+      await settle();
+      expect(notes().length).toBe(5);
+      expect(el.querySelector('.aviso')!.textContent).toContain('Roadmap site foi apagado com 2 anotações.');
     });
 
     const group = (label: string) => Array.from(el.querySelectorAll<HTMLElement>('.tags-grupo')).find((g) => g.querySelector('.tags-cat .orelha')!.textContent!.trim() === label)!;

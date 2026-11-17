@@ -3,8 +3,7 @@ import { NoteFolders } from '../core/note-folders';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, ICON_CHOICE, IconModule } from './icons';
 import { StudyStore } from '../core/study-store';
-import { FreeBoardStore } from '../core/free-board-store';
-import { MAX_NEW_PER_DAY, MAX_REVIEWS_CAP, inGroup } from '../core/study';
+import { MAX_NEW_PER_DAY, MAX_REVIEWS_CAP } from '../core/study';
 import { CategoryLook, categoryColorHex, lookKey, tagColorHex } from '../core/category-looks';
 import { Cloud } from '../core/cloud-config';
 import { KanbanStore } from '../core/kanban-store';
@@ -29,6 +28,7 @@ import { TagColors } from './tag-colors';
 import { nameCollator, plural } from '../core/text';
 import { tabStep } from './focus';
 import { GroupShare } from './group-share';
+import { GroupDeleteSheet } from './group-delete-sheet';
 import { SharedGroupsStore } from '../core/shared-groups-store';
 import { accessSummary } from '../core/access';
 import { CloudAccount } from '../core/cloud-account';
@@ -176,7 +176,7 @@ interface Drag {
  */
 @Component({
   selector: 'app-mural-config',
-  imports: [BackdropClose, CategoryLabel, CategoryStyle, FolderMoveSheet, GroupShare, IconModule, NoteTag, Pin, TagColors],
+  imports: [BackdropClose, CategoryLabel, CategoryStyle, FolderMoveSheet, GroupDeleteSheet, GroupShare, IconModule, NoteTag, Pin, TagColors],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './mural-config.html',
   styleUrls: ['./mural-config.scss', './mural-config-estudos.scss'],
@@ -218,6 +218,7 @@ export class MuralConfig {
   protected readonly HiddenIcon = ICON.esconder;
   protected readonly RenameIcon = ICON.editar;
   protected readonly DeleteIcon = ICON.apagar;
+  protected readonly LeaveIcon = ICON.sair;
   protected readonly OkIcon = ICON.pronto;
   protected readonly AddIcon = ICON.adicionar;
   protected readonly FolderIcon = ICON.pastaDeNotas;
@@ -230,7 +231,6 @@ export class MuralConfig {
     this.study() ? SECTIONS.filter((s) => STUDY_SECTIONS.includes(s.id)) : SECTIONS.filter((s) => !STUDY_SECTIONS.includes(s.id) && (s.id !== 'quadro' || !!this.board())),
   );
   protected readonly studyStore = inject(StudyStore);
-  private readonly freeBoards = inject(FreeBoardStore);
   protected readonly retentions = RETENTIONS;
   protected readonly maxNew = MAX_NEW_PER_DAY;
   protected readonly maxReviews = MAX_REVIEWS_CAP;
@@ -543,51 +543,34 @@ export class MuralConfig {
     this.notice.set(other ? `${row.label} entrou em ${other} ${this.told(r)}` : `${row.label} virou ${name} ${this.told(r)}`);
   }
 
-  /**
-   * Os baralhos dos Estudos que vão embora com o grupo, para a pergunta de apagar (PLANO-ESTUDOS-GRUPOS.md,
-   * G7): "os baralhos Kana e Kanji dos Estudos, com o progresso de 101 cartas", ou '' sem baralho. Contam
-   * todas as cartas que perdem o progresso, também as guardadas de anotações que já mudaram de grupo.
-   */
-  private decksGoing(group: string): string {
-    const decks = this.studyStore.decks().filter((d) => inGroup(d, group));
-    if (!decks.length) return '';
-    const ids = new Set(decks.map((d) => d.id));
-    const cards = this.studyStore.state().cards.filter((c) => c.decks.every((d) => ids.has(d))).length;
-    const names = decks.map((d) => d.name);
-    const list = names.length === 1 ? `o baralho ${names[0]}` : `os baralhos ${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`;
-    const what = cards === 0 ? '' : `, com o progresso de ${plural(cards, 'flashcard', 'flashcards')}`;
-    return `${list} dos Flashcards${what}`;
-  }
+  /** O grupo que a folha de apagar está perguntando (PLANO-APAGAR-GRUPO.md). */
+  protected readonly deleting = signal<string | null>(null);
+  /** Os nomes dos grupos, para a folha de apagar escolher para onde levar. */
+  protected readonly groupNames = computed(() => this.categories().map((c) => c.label));
 
   /**
-   * Os quadros do Quadro livre que vão embora com o grupo (PLANO-QUADRO-LIVRE.md, decisão D12), para a
-   * pergunta de apagar: "Os quadros livres Blue Prince e Rotas também vão embora.", ou '' sem quadro.
+   * Apagar o grupo: a folha pergunta para onde vai o que está nele. Num grupo compartilhado de outra pessoa, não
+   * há apagar (o que você escreveu fica nele, P4): o botão leva ao Sair do grupo da parte Compartilhar.
    */
-  private boardsGoing(group: string): string {
-    const names = this.freeBoards.goingWithGroup(group).map((b) => b.nome);
-    if (!names.length) return '';
-    if (names.length === 1) return `O quadro livre ${names[0]} também vai embora.`;
-    return `Os quadros livres ${names.slice(0, -1).join(', ')} e ${names[names.length - 1]} também vão embora.`;
+  protected deleteCategory(row: CategoryRow): void {
+    this.deleting.set(row.label);
   }
 
-  protected async deleteCategory(row: CategoryRow): Promise<void> {
-    const decks = this.decksGoing(row.label);
-    const boards = this.boardsGoing(row.label);
-    const sure = await this.confirm.ask({
-      title: `Apagar o grupo ${row.label}?`,
-      // com baralhos nos Estudos ou quadros livres, o que vai embora (e não volta) vem primeiro
-      text: decks
-        ? `Vão embora o ícone, a cor, os padrões, o quadro do Kanban e ${decks}. ${boards ? boards + ' ' : ''}${this.uses(row.n)} este grupo: elas continuam no mural, sem grupo.`
-        : boards
-          ? `${boards} Vão embora também o ícone, a cor, os padrões e o quadro do Kanban. ${this.uses(row.n)} este grupo: elas continuam no mural, sem grupo.`
-          : `${this.uses(row.n)} este grupo. Elas continuam no mural, sem grupo; o ícone, a cor, os padrões e o quadro do Kanban dele vão embora.`,
-      confirm: decks && boards ? 'Apagar o grupo, os baralhos e os quadros' : decks ? 'Apagar o grupo e os baralhos' : boards ? 'Apagar o grupo e os quadros' : 'Apagar o grupo',
-      icon: this.DeleteIcon,
-    });
-    if (!sure) return;
+  /** O grupo é compartilhado e de outra pessoa (não se apaga: sai-se dele). */
+  protected othersGroup(row: CategoryRow): boolean {
+    const g = this.sharedGroups.ofCategory(row.label);
+    return !!g && g.papel !== 'dono';
+  }
+
+  /** "Sair do grupo…": a parte Compartilhar, já nesse grupo, onde está o Sair do grupo de sempre. */
+  protected toLeave(row: CategoryRow): void {
+    this.sharePicked.set(row.label);
+    this.pick('compartilhar');
+  }
+
+  protected groupDeleted(text: string): void {
     this.open.set(null);
-    const r = this.edits.renameCategory(row.label, null);
-    this.notice.set(`${row.label} foi apagado ${this.told(r)}`);
+    this.notice.set(text);
   }
 
   /** O id de uma tag na folha: a categoria e a tag (a mesma tag aparece em cada categoria). */

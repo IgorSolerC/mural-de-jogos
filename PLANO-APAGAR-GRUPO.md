@@ -113,16 +113,17 @@ mexendo ao mesmo tempo. Processo pedido: este plano antes; uma feature por vez, 
 
 ### Feature 2 — A folha
 
-- `ui/group-delete-sheet.ts` (D1, D2, D6) nas configurações do mural, no lugar do `Confirm`; o botão vira
-  "Sair do grupo…" para quem não é o dono (D7). Bilhete do resultado.
+- `ui/group-delete-sheet.ts` (D1, D2, D6) nas configurações do mural, no lugar do `Confirm`, já com a escolha do
+  grupo de destino (o `GroupPicker` ganhou `canCreate`); o botão vira "Sair do grupo…" para quem não é o dono (D7);
+  o aviso das configurações diz o que aconteceu. Grupo compartilhado seu: o aviso de quem deixa de ver (D6); levar
+  para um grupo compartilhado seu: o aviso de quem passa a ver.
 - Testes: `group-delete-sheet.spec.ts` e `mural-config.spec.ts` (os testes da pergunta de hoje viram os da folha).
 
-### Feature 3 — O grupo e a pasta de destino
+### Feature 3 — A pasta de destino
 
-- O `GroupPicker` ganha `exclude` e `canCreate`; a folha monta o `FolderPicker` do grupo escolhido, com o
-  "Criar" de pasta (que cria a pasta no grupo, como o "Mover para…").
-- Grupos compartilhados: o dono (D6, parar antes), o destino compartilhado (D8), os de leitura fora da lista.
-- Testes de ponta a ponta na folha e com o `SharedGroupsStore` falso dos specs de compartilhar.
+- Escolhido o grupo, a folha monta o `FolderPicker` dele ("Direto em Estudos" no topo), com o "Criar" de pasta
+  (a pasta criada e não usada sai se a pessoa desistir).
+- Testes na folha: escolher, criar, desistir, e a frase do que acontece com o caminho da pasta.
 
 ### Fechamento
 
@@ -132,6 +133,8 @@ Crítica do Impeccable (avaliadores isolados), `/code-review high` e os conserto
 
 - [x] Feature 1 (`/code-review mid`: 6 achados, todos consertados: o destino compartilhado de outra pessoa, o
   corte do nome com emoji, o Desfazer pela metade, as pastas das que ficaram, as tags fixas, a lista repetida)
-- [ ] Feature 2
+- [x] Feature 2 (`/code-review mid`: 4 achados, 3 consertados: o aviso de quem passa a ver no grupo compartilhado de
+  destino, a coluna do Kanban, a escolha parada enquanto apaga; ficou o botão antes de a lista dos grupos chegar,
+  que a regra recusa com a frase certa)
 - [ ] Feature 3
 - [ ] Fechamento
