@@ -328,8 +328,10 @@ export class LabelEdits {
     let result: GroupDeleteResult;
     if (fate.kind === 'apagar') {
       const done = await this.bulk.removeNow(this.bulk.plan(this.notesOf(from).map((r) => r.id)));
-      // as que a nuvem não tirou ficam no grupo, nas pastas delas
-      if (!this.notesOf(from).length) this.folders.dropGroup(from);
+      // as que a nuvem não tirou ficam no grupo, e ele fica como estava (as pastas, o quadro, os baralhos, o jeito):
+      // apagar de novo depois tira o resto
+      if (this.notesOf(from).length) return { ok: true, moved: 0, removed: done.removed + done.cloud, failed: done.failed, kept: true };
+      this.folders.dropGroup(from);
       this.settings.applyCategoryLooks(tagLooksMoved(looks, from, null), at);
       // (as configurações lidas agora: as pastas acabaram de mudar nelas)
       this.settings.setNotesConfig(configWithoutGroup(this.settings.notesConfig(), from, true));
@@ -359,7 +361,8 @@ export class LabelEdits {
     }
     this.kanban.moveCategory(from, toKey);
     this.study.moveGroup(category, target);
-    void this.freeBoards.moveGroup(category, target);
+    // (os quadros livres moram no IndexedDB: a falha de um não desfaz o resto)
+    await this.freeBoards.moveGroup(category, target).catch(() => undefined);
     return result;
   }
 

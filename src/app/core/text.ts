@@ -42,6 +42,11 @@ export function cleanLabel(raw: string, max: number): string {
   return cap(raw.replace(/\s+/g, ' ').trim().slice(0, max).trim());
 }
 
+/** "a", "a e b", "a, b e c": uma lista como se fala. */
+export function listWords(list: readonly string[]): string {
+  return list.length < 2 ? (list[0] ?? '') : `${list.slice(0, -1).join(', ')} e ${list.at(-1)}`;
+}
+
 /** A contagem com a palavra no número certo: plural(1, 'ficha', 'fichas') → "1 ficha"; plural(3, …) → "3 fichas". */
 export function plural(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`;

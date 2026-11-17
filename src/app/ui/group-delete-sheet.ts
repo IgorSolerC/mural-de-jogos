@@ -14,7 +14,7 @@ import { ReviewStore } from '../core/review-store';
 import { SharedGroupsStore } from '../core/shared-groups-store';
 import { inGroup } from '../core/study';
 import { StudyStore } from '../core/study-store';
-import { plural } from '../core/text';
+import { listWords, plural } from '../core/text';
 import { BackdropClose } from './backdrop-close';
 import { Busy } from './busy';
 import { FolderPicker } from './folder-picker';
@@ -26,15 +26,10 @@ type Kind = GroupFate['kind'];
 
 /** Os três destinos, do que nunca perde nada ao que apaga (o primeiro é o escolhido ao abrir, D1). */
 const KINDS: readonly { kind: Kind; label: string; sub: string }[] = [
-  { kind: 'soltar', label: 'Deixar sem grupo', sub: 'Numa pasta' },
-  { kind: 'levar', label: 'Levar para outro grupo', sub: 'Você escolhe' },
+  { kind: 'soltar', label: 'Deixar sem grupo', sub: 'Numa pasta nova' },
+  { kind: 'levar', label: 'Levar para outro grupo', sub: 'Um grupo seu' },
   { kind: 'apagar', label: 'Apagar tudo', sub: 'Não volta' },
 ];
-
-/** "a, b e c". */
-function listWords(list: readonly string[]): string {
-  return list.length < 2 ? (list[0] ?? '') : `${list.slice(0, -1).join(', ')} e ${list.at(-1)}`;
-}
 
 /**
  * "As 12 anotações e as 3 pastas", "A anotação", "As 2 pastas": o que está no grupo, para as frases da folha
@@ -74,12 +69,12 @@ function contentsWords(notes: number, folders: number): { words: string; many: b
           @if (sharedWith(); as who) {
             <p class="compartilhado">
               <lucide-icon [img]="PeopleIcon" [size]="18" aria-hidden="true" />
-              <span>{{ name() }} é compartilhado. Antes de apagar, ele deixa de ser: {{ who }}. Tudo o que está nele, até o que outras pessoas escreveram, segue o destino que você escolher.</span>
+              <span>{{ who }} Tudo o que está nele, até o que outras pessoas escreveram, segue o destino que você escolher.</span>
             </p>
           }
 
           <fieldset class="grupo destinos" [disabled]="busy()">
-            <legend class="grupo-titulo">O que está nele</legend>
+            <legend class="grupo-titulo">Para onde vai o que está nele</legend>
             <div class="segmentos">
               @for (o of kinds; track o.kind) {
                 <label class="segmento" [class.perigo]="o.kind === 'apagar'">
@@ -90,6 +85,17 @@ function contentsWords(notes: number, folders: number): { words: string; many: b
               }
             </div>
           </fieldset>
+
+          <section class="grupo" aria-labelledby="ag-acontece">
+            <h3 class="grupo-titulo" id="ag-acontece">O que acontece</h3>
+            <!-- (o leitor de tela ouve só a primeira frase quando ela muda, não a lista toda de novo) -->
+            <p class="sr-only" aria-live="polite">{{ lines()[0]?.text }}</p>
+            <ul class="acontece">
+              @for (line of lines(); track $index) {
+                <li [class.forte]="line.strong">{{ line.text }}</li>
+              }
+            </ul>
+          </section>
 
           @if (kind() === 'levar') {
             <section class="grupo" aria-labelledby="ag-para">
@@ -123,15 +129,6 @@ function contentsWords(notes: number, folders: number): { words: string; many: b
             }
           }
 
-          <section class="grupo" aria-labelledby="ag-acontece">
-            <h3 class="grupo-titulo" id="ag-acontece">O que acontece</h3>
-            <ul class="acontece" aria-live="polite">
-              @for (line of lines(); track $index) {
-                <li [class.forte]="line.strong">{{ line.text }}</li>
-              }
-            </ul>
-          </section>
-
           @if (error(); as e) {
             <p class="erro" role="alert">{{ e }}</p>
           }
@@ -140,8 +137,9 @@ function contentsWords(notes: number, folders: number): { words: string; many: b
         <footer class="foot">
           <button type="button" class="papel" [disabled]="busy()" (click)="close()">Cancelar</button>
           <div class="actions">
-            <button type="submit" class="btn-ink danger" [disabled]="!ready()" [appBusy]="busy()">
-              <lucide-icon [img]="DeleteIcon" [size]="18" aria-hidden="true" />
+            <!-- vermelho, com a lixeira, só quando algo não volta; os outros dois destinos não perdem nada -->
+            <button type="submit" class="btn-ink" [class.danger]="kind() === 'apagar'" [disabled]="!ready()" [appBusy]="busy()">
+              <lucide-icon [img]="kind() === 'apagar' ? DeleteIcon : kind() === 'levar' ? GoIcon : FolderIcon" [size]="18" aria-hidden="true" />
               {{ busy() ? 'Apagando…' : confirmLabel() }}
             </button>
           </div>
@@ -250,6 +248,8 @@ export class GroupDeleteSheet {
   protected readonly CloseIcon = ICON.fechar;
   protected readonly DeleteIcon = ICON.apagar;
   protected readonly PeopleIcon = ICON.pessoas;
+  protected readonly GoIcon = ICON.ir;
+  protected readonly FolderIcon = ICON.pastaDeNotas;
 
   private readonly edits = inject(LabelEdits);
   private readonly store = inject(ReviewStore);
@@ -292,8 +292,9 @@ export class GroupDeleteSheet {
     const g = this.sharedGroups.ofCategory(this.name());
     if (!g) return null;
     const names = g.membros.map((m) => m.nome);
-    if (!names.length) return g.publico ? 'ele deixa de ser público' : 'ninguém mais está nele';
-    return `${listWords(names)} ${names.length > 1 ? 'deixam' : 'deixa'} de ver${g.publico ? ', e ele deixa de ser público' : ''}`;
+    const start = `${this.name()} é compartilhado, e antes de apagar ele deixa de ser`;
+    const parts = [names.length ? `${listWords(names)} ${names.length > 1 ? 'deixam' : 'deixa'} de ver` : '', g.publico ? 'ele deixa de ser público' : ''].filter(Boolean);
+    return parts.length ? `${start}: ${parts.join(', e ')}.` : `${start}.`;
   });
 
   /** Para onde levar: os outros grupos, sem os compartilhados de outra pessoa (PLANO-APAGAR-GRUPO.md, D8). */
@@ -355,8 +356,11 @@ export class GroupDeleteSheet {
       const there = this.sharedGroups.ofCategory(to);
       const people = there?.membros.map((m) => m.nome) ?? [];
       if (there && (people.length || there.publico)) {
-        const who = people.length ? `${listWords(people)} ${people.length > 1 ? 'passam' : 'passa'} a ver tudo o que chega` : 'qualquer pessoa passa a ver tudo o que chega';
+        const who = people.length ? `${listWords(people)} ${people.length > 1 ? 'passam' : 'passa'} a ver o que chega` : 'qualquer pessoa passa a ver o que chega';
         out.push({ text: `${to} é compartilhado: ${who}${people.length && there.publico ? ', e ele é público' : ''}.`, strong: true });
+        // as compartilhadas com você por outra pessoa não entram no grupo (só quem é dono da anotação a põe nele)
+        const theirs = this.bulk.plan(this.notes().map((r) => r.id)).leave.length;
+        if (theirs) out.push({ text: theirs === 1 ? 'A anotação que outra pessoa compartilhou com você fica só no seu mural, sem entrar no grupo.' : `As ${theirs} anotações que outras pessoas compartilharam com você ficam só no seu mural, sem entrar no grupo.` });
       }
       if (this.kanbanCards()) out.push({ text: `Os cartões do quadro do Kanban entram no quadro de ${to}, na coluna de mesmo nome (ou na primeira).` });
       if (decks) out.push({ text: `${this.decksWords()} dos Flashcards ${decks > 1 ? 'vão' : 'vai'} para ${to}, com o progresso.` });
@@ -466,6 +470,8 @@ export class GroupDeleteSheet {
   private said(fate: GroupFate, r: GroupDeleteResult): string {
     const name = this.name();
     if (fate.kind === 'apagar') {
+      // a nuvem não tirou alguma compartilhada: o grupo continua, com ela, e apagar de novo tira o resto
+      if (r.kept) return `${plural(r.removed, 'anotação saiu', 'anotações saíram')}, mas ${name} continua, com as compartilhadas que ficaram: ${r.failed ?? 'a nuvem não respondeu'}`;
       const rest = r.failed ? ` Algumas compartilhadas ficaram: ${r.failed}` : '';
       return r.removed ? `${name} foi apagado com ${plural(r.removed, 'anotação', 'anotações')}.${rest}` : `${name} foi apagado.${rest}`;
     }

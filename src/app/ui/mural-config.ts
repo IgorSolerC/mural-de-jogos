@@ -25,7 +25,7 @@ import { FolderAsking } from './folder-asking';
 import { NoteTag } from './note-tag';
 import { Pin } from './pin';
 import { TagColors } from './tag-colors';
-import { nameCollator, plural } from '../core/text';
+import { listWords, nameCollator, plural } from '../core/text';
 import { tabStep } from './focus';
 import { GroupShare } from './group-share';
 import { GroupDeleteSheet } from './group-delete-sheet';
@@ -95,11 +95,6 @@ const SORT_SAID: Record<GroupSort, string> = {
   quem: 'Por quem vê',
   dono: 'Por dono',
 };
-
-/** "a", "a e b", "a, b e c". */
-function listWords(list: readonly string[]): string {
-  return list.length < 2 ? (list[0] ?? '') : `${list.slice(0, -1).join(', ')} e ${list.at(-1)}`;
-}
 
 /** Uma categoria ou uma tag das anotações, na lista da folha. */
 interface CategoryRow {

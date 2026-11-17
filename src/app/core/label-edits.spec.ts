@@ -375,6 +375,9 @@ describe('apagar o grupo com destino (LabelEdits.deleteCategory)', () => {
     store.add({ ...note('n4', 'Trabalho'), id: 'n4' });
     settings.setTagColor('Bug', 'rosa', 'Trabalho');
     settings.setNotesConfig({ hiddenTags: [tagLookKey('bug', 'trabalho')] });
+    store.add({ ...note('n5', 'Trabalho', ['Sprint']), id: 'n5' });
+    settings.togglePinnedTag('Bug');
+    settings.togglePinnedTag('Sprint');
     kanban.state.set({ boards: [board('trabalho', [{ note: 'n1', column: 'trabalho-0', importance: null }])], removed: {}, legacy: [] });
     const shared = TestBed.inject(SharedStore);
     const entries: Record<string, unknown> = {
@@ -387,7 +390,9 @@ describe('apagar o grupo com destino (LabelEdits.deleteCategory)', () => {
     const forAll = spyOn(shared, 'deleteForAll').and.callFake(gone);
     const leave = spyOn(shared, 'leave').and.callFake(gone);
     const r = await edits.deleteCategory('Trabalho', { kind: 'apagar' });
-    expect(r).toEqual(jasmine.objectContaining({ ok: true, removed: 3, moved: 0, failed: null }));
+    expect(r).toEqual(jasmine.objectContaining({ ok: true, removed: 4, moved: 0, failed: null }));
+    // a Bug ainda está em Estudos ("bug"): continua fixa; a Sprint, só em Trabalho, solta
+    expect(settings.pinnedTags()).toEqual(['Bug']);
     expect(forAll).toHaveBeenCalledOnceWith('n2');
     expect(leave).toHaveBeenCalledOnceWith('n4');
     expect(store.get('n1')).toBeUndefined();
@@ -398,8 +403,9 @@ describe('apagar o grupo com destino (LabelEdits.deleteCategory)', () => {
     expect(kanban.get(boardIdFor('trabalho'))).toBeUndefined();
   });
 
-  it('apagar tudo solta as tags fixas que sumiram; as pastas ficam quando a nuvem não tirou uma compartilhada', async () => {
+  it('apagar tudo: quando a nuvem não tira uma compartilhada, o grupo fica como estava, com ela', async () => {
     withMeetings();
+    kanban.state.set({ boards: [board('trabalho', [{ note: 'n2', column: 'trabalho-0', importance: null }])], removed: {}, legacy: [] });
     store.add({ ...note('n5', 'Trabalho', ['Sprint']), id: 'n5' });
     settings.togglePinnedTag('Bug');
     settings.togglePinnedTag('Sprint');
@@ -407,11 +413,12 @@ describe('apagar o grupo com destino (LabelEdits.deleteCategory)', () => {
     spyOn(shared, 'get').and.callFake(((id: string) => (id === 'n2' ? { id: 'n2', papel: 'dono', grupo: null, criadoPor: null } : undefined)) as never);
     spyOn(shared, 'deleteForAll').and.rejectWith(new Error('fora do ar'));
     const r = await edits.deleteCategory('Trabalho', { kind: 'apagar' });
-    expect(r).toEqual(jasmine.objectContaining({ ok: true, removed: 2, failed: 'Não deu para falar com a nuvem agora.' }));
-    // a Bug ainda está em Estudos ("bug"): continua fixa; a Sprint, só em Trabalho, solta
-    expect(settings.pinnedTags()).toEqual(['Bug']);
+    expect(r).toEqual(jasmine.objectContaining({ ok: true, removed: 2, failed: 'Não deu para falar com a nuvem agora.', kept: true }));
+    // o grupo fica como estava, com a que ficou: as pastas, o quadro, as tags fixas
+    expect(settings.pinnedTags()).toEqual(['Bug', 'Sprint']);
     expect(folders.tree().kids('trabalho', null).map((x) => x.name)).toEqual(['Reuniões']);
     expect(folders.tree().of(byId('n2'))).not.toBeNull();
+    expect(kanban.get(boardIdFor('trabalho'))).toBeDefined();
   });
 
   it('um grupo compartilhado: quem não é o dono não apaga; o dono para de compartilhar antes, e o quadro do grupo fica', async () => {

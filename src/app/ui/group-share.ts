@@ -9,6 +9,7 @@ import { muralLink } from '../core/cloud-murals';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { MemberRole, canManage } from '../core/shared-notes';
+import { listWords } from '../core/text';
 import { SharedGroupsStore } from '../core/shared-groups-store';
 import { SharedStore } from '../core/shared-store';
 import { KanbanStore } from '../core/kanban-store';
@@ -294,7 +295,7 @@ export class GroupShare {
     const g = this.group();
     if (!g || g.papel !== 'dono') return;
     const names = g.membros.map((m) => m.nome);
-    const who = names.length <= 1 ? (names[0] ?? 'Ninguém') : `${names.slice(0, -1).join(', ')} e ${names.at(-1)}`;
+    const who = names.length ? listWords(names) : 'Ninguém';
     const sure = await this.confirm.ask({
       title: `Parar de compartilhar ${this.name()}?`,
       text: `${who} ${names.length > 1 ? 'deixam' : 'deixa'} de ver o grupo. Tudo o que está nele, até o que ${names.length > 1 ? 'eles escreveram' : 'foi escrito por outra pessoa'}, fica no grupo, só com você.`,

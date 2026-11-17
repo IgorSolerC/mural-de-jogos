@@ -2,6 +2,7 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { LabelEdits } from '../core/label-edits';
 import { NoteFolders } from '../core/note-folders';
+import { SharedStore } from '../core/shared-store';
 import { Review, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { SharedGroup } from '../core/shared-groups';
@@ -71,10 +72,18 @@ describe('a folha de apagar o grupo (ui/group-delete-sheet.ts)', () => {
     expect(document.activeElement).toBe(el.querySelector('input[value="soltar"]'));
   });
 
+  it('o botão só é vermelho, com a lixeira, quando algo não volta', async () => {
+    await open('Trabalho', ['Trabalho', 'Estudos']);
+    const button = () => el.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+    expect(button().classList.contains('danger')).toBeFalse();
+    await choose('Apagar tudo');
+    expect(button().classList.contains('danger')).toBeTrue();
+  });
+
   it('o dono de um grupo compartilhado é avisado de que ele deixa de ser, e de quem deixa de ver', async () => {
     shared['Trabalho'] = group('Trabalho', 'dono', ['Ana', 'Bia']);
     await open('Trabalho', ['Trabalho', 'Estudos']);
-    expect(el.querySelector('.compartilhado')!.textContent).toContain('Trabalho é compartilhado. Antes de apagar, ele deixa de ser: Ana e Bia deixam de ver.');
+    expect(el.querySelector('.compartilhado')!.textContent).toContain('Trabalho é compartilhado, e antes de apagar ele deixa de ser: Ana e Bia deixam de ver.');
   });
 
   it('para onde levar: os grupos seus e os compartilhados seus; os de outra pessoa ficam de fora', async () => {
@@ -91,7 +100,7 @@ describe('a folha de apagar o grupo (ui/group-delete-sheet.ts)', () => {
     await choose('Levar para outro grupo');
     el.querySelector<HTMLButtonElement>('app-group-picker .op')!.click();
     await settle();
-    expect(lines()).toContain('Casa é compartilhado: Ana passa a ver tudo o que chega.');
+    expect(lines()).toContain('Casa é compartilhado: Ana passa a ver o que chega.');
   });
 
   /** Levar para Estudos, já escolhido. */
@@ -171,6 +180,17 @@ describe('a folha de apagar o grupo (ui/group-delete-sheet.ts)', () => {
     release();
     await new Promise((r) => setTimeout(r));
     expect(folders.tree().all.filter((f) => !f.gone).map((f) => f.name)).toContain('Nova');
+  });
+
+  it('a compartilhada de outra pessoa não entra no grupo compartilhado de destino, e a folha diz isso', async () => {
+    shared['Casa'] = group('Casa', 'dono', ['Ana']);
+    const theirs = TestBed.inject(ReviewStore).notes().find((r) => r.category === 'Trabalho')!.id;
+    spyOn(TestBed.inject(SharedStore), 'get').and.callFake(((id: string) => (id === theirs ? { id, papel: 'editor', grupo: null, criadoPor: null } : undefined)) as never);
+    await open('Trabalho', ['Trabalho', 'Casa']);
+    await choose('Levar para outro grupo');
+    el.querySelector<HTMLButtonElement>('app-group-picker .op')!.click();
+    await settle();
+    expect(lines()).toContain('A anotação que outra pessoa compartilhou com você fica só no seu mural, sem entrar no grupo.');
   });
 
   it('sem outro grupo para onde levar, diz o que fazer', async () => {

@@ -29,6 +29,8 @@ export interface GroupDeleteResult {
   removed: number;
   /** A primeira compartilhada que a nuvem não tirou (ela ficou). */
   failed?: string | null;
+  /** Apagar tudo e algumas compartilhadas ficaram: o grupo continua, com elas, como estava. */
+  kept?: boolean;
   /** A pasta criada para elas (soltar): o nome. */
   folder?: string;
 }

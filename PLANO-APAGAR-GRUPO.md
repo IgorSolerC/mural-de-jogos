@@ -138,4 +138,12 @@ Crítica do Impeccable (avaliadores isolados), `/code-review high` e os conserto
   que a regra recusa com a frase certa)
 - [x] Feature 3 (`/code-review mid`: 3 achados, todos consertados: a pasta escolhida desfeita se a folha sai da tela
   no meio do apagar, as criadas e trocadas por outra, o erro do teto de pastas preso)
-- [ ] Fechamento
+- [x] Fechamento: crítica do Impeccable em dois avaliadores isolados (29/40; .impeccable/critique/…group-delete-sheet-ts):
+  o botão vermelho só em Apagar tudo, "O que acontece" logo abaixo dos destinos (no celular ficava embaixo das
+  escolhas), a legenda "Para onde vai o que está nele"; o detector não achou nada na folha. `/code-review high`:
+  7 achados, 6 consertados (apagar tudo com uma compartilhada que fica deixa o grupo como estava; o aviso de quem
+  passa a ver não conta as compartilhadas de outras pessoas; os quadros livres aguardados; `listWords` em
+  core/text.ts; o leitor de tela ouve só a primeira frase; a frase do grupo compartilhado sem ninguém). Ficou de
+  fora, como tarefa à parte: um membro que põe uma anotação nova num grupo compartilhado de outra pessoa (pelo
+  editor, pelo Kanban, em massa) faz o nome dele virar "Nome · Dona" (`groupNames` conta a anotação ainda não
+  levada como um grupo seu), e ela não sobe; conferido com um teste.
