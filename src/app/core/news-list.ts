@@ -27,6 +27,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-17-atelie-menus',
+    version: '1.47.2',
+    kind: 'ajustes',
+    date: '2026-11-17',
+    title: 'A barra de menus do ateliê',
+    melhorias: [
+      'O ateliê de pixel art ficou mais limpo e ganhou menus no alto, como os de um programa de desenho (Arquivo, Editar, Selecionar, Imagem, Camada, Cores, Exibir, Ajuda), cada ação com o atalho ao lado e o que não vale agora apagado; a fita de cima mostra só a ferramenta de agora, o zoom foi para a barra de baixo, o Arquivo também baixa o desenho em PNG, e no celular o Menu junta todos.',
+    ],
+  },
+  {
     id: '2026-11-16-qual-versao',
     version: '1.47.1',
     kind: 'ajustes',

@@ -43,7 +43,8 @@ import { ImageStore } from '../../core/image-store';
 import { MuralSrc } from '../stored-image';
 import { REF_REACH, DotsLayer, PIXEL_REFS_MAX, PixelRef, RefLayer, fitRef, mapRefs, refsCount, RowsCache, Layer, PIXEL_LAYERS_MAX, StoredLayer, acrossDots, cleanLayerName, dotsBelow, dotsCount, duplicateLayer, flattenLayers, insertAbove, mapDots, mergeDown, moveLayerTo, newLayerId, nextLayerName, readLayers, sameStack, setRows, singleLayer, writeLayers } from '../../core/pixel-layers';
 import { Confirm } from '../confirm';
-import { ContextMenu, MenuSections } from '../context-menu';
+import { ContextMenu, MenuBy, MenuItem, MenuSections } from '../context-menu';
+import { downloadBlob, drawPixelArt, pngName, pngScale } from '../../core/pixel-png';
 import { PaletteSheet } from './palette-sheet';
 import { ICON, IconModule } from '../icons';
 import { PixelThumb } from '../pixel-thumb';
@@ -57,6 +58,14 @@ const SHAPES: readonly StudioTool[] = ['linha', 'retangulo', 'elipse'];
 
 /** Quando as cores viram a folha que sobe (o celular): o mesmo corte do pixel-studio.scss. */
 const SHEET_MEDIA = '(max-width: 760px)';
+
+/** Um menu da barra de cima (Arquivo, Editar…): o nome e as opções, em levas. */
+interface BarMenu {
+  id: string;
+  label: string;
+  icon: typeof ICON.editar;
+  sections: MenuSections;
+}
 
 /** Quantos passos o desfazer guarda. */
 const UNDO_MAX = 120;
@@ -138,6 +147,8 @@ export class PixelStudio {
   /** A pilha mudou (só com `layered`): as camadas como a obra guarda, ou nada quando é a camada única de sempre. */
   readonly stackChanged = output<StoredLayer[] | undefined>();
   readonly closed = output<void>();
+  /** O nome da obra (o nome do PNG baixado pelo Arquivo); sem nome, "pixel-art". */
+  readonly artName = input('');
 
   private readonly injector = inject(Injector);
   private readonly confirm = inject(Confirm);
@@ -149,7 +160,7 @@ export class PixelStudio {
   private readonly file = viewChild.required<ElementRef<HTMLInputElement>>('arquivo');
   private readonly sizeSheet = viewChild<ElementRef<HTMLDialogElement>>('tamanho');
   private readonly keysSheet = viewChild<ElementRef<HTMLDialogElement>>('atalhos');
-  private readonly imageMenu = viewChild.required<ContextMenu>('menuImagem');
+  private readonly barMenu = viewChild.required<ContextMenu>('menuBarra');
   private readonly colorsMenu = viewChild.required<ContextMenu>('menuCores');
   private readonly layerMenu = viewChild.required<ContextMenu>('menuCamada');
 
@@ -267,6 +278,8 @@ export class PixelStudio {
   protected readonly sheetTab = signal<'cores' | 'camadas'>('cores');
   /** A camada do menu aberto (o "…" ou o botão direito numa fileira). */
   protected readonly menuLayer = signal<string | null>(null);
+  /** A prévia do tamanho de verdade no alto do painel (Exibir › Prévia). */
+  protected readonly previewOn = signal(true);
   protected readonly paletteLabel = computed(() => PALETTES.find((p) => p.value === this.palette())?.label ?? '');
 
   // ===== as ferramentas =====
@@ -415,6 +428,7 @@ export class PixelStudio {
         ['Ctrl + e Ctrl -', 'Aproximar e afastar'],
         ['Ctrl+0', 'Caber na tela'],
         ["Ctrl+' · Ctrl+Shift+'", 'Grade de 8 · fios de cada ponto'],
+        ['F10', 'A barra de menus (as setas andam entre eles)'],
         ['Ctrl+Z · Ctrl+Y', 'Desfazer · refazer'],
         ['?', 'Estes atalhos'],
       ],
@@ -1004,6 +1018,11 @@ export class PixelStudio {
     if (this.shapeKeys(e)) return;
     const mod = e.ctrlKey || e.metaKey;
     const k = e.key.toLowerCase();
+    if (k === 'f10' && !mod && !e.shiftKey && !e.altKey) {
+      e.preventDefault();
+      this.focusBar();
+      return;
+    }
     if (mod && !e.altKey) {
       if (k === 'z' || k === 'y') {
         e.preventDefault();
@@ -1493,53 +1512,301 @@ export class PixelStudio {
     this.change({ rows: blankGrid(this.w(), this.h()) }, this.dotsTotal() > 1 ? `${this.activeLayer().name} limpa` : 'Folha limpa');
   }
 
-  /** O menu Imagem (o que mexe no desenho todo), no botão dele. */
-  protected openImageMenu(e: MouseEvent): void {
-    const btn = e.currentTarget as HTMLElement;
-    const r = btn.getBoundingClientRect();
-    this.imageMenu().show({ key: 'imagem', x: r.left, y: r.bottom + 4, back: btn, by: e.detail === 0 ? 'teclado' : 'mouse' });
-  }
+  // ===== a barra de menus (Arquivo, Editar, Selecionar, Imagem, Camada, Cores, Exibir, Ajuda) =====
 
-  protected readonly imageItems = computed<MenuSections>(() => {
+  /**
+   * Os menus da barra de cima, como os de todo programa de desenho: cada ação do ateliê mora num deles, com o atalho
+   * impresso na ponta (quem não decorou acha; quem decorou confere). O que não vale agora aparece apagado.
+   */
+  protected readonly barMenus = computed<BarMenu[]>(() => {
     const sel = this.hasSel();
     const what = sel ? 'a seleção' : 'o desenho';
-    return [
-      [
-        { id: 'tamanho', label: 'Tamanho da tela…', icon: ICON.tamanhoDaTela, keys: 'C', dialog: true, run: () => this.openSize() },
-        ...(sel
-          ? [
-              { id: 'tamanho-sel', label: 'Tamanho da seleção…', hint: 'Esticar ou encolher o que está escolhido', icon: ICON.tamanhoDaTela, dialog: true, run: () => this.openSize('selecao') },
-              { id: 'recortar-tela', label: 'Recortar na seleção', icon: ICON.recortarTela, run: () => this.cropToSel() },
-            ]
-          : []),
-      ],
-      [
-        { id: 'lado', label: 'Virar de lado', hint: `Vira ${what}`, icon: ICON.virarDeLado, keys: 'Shift+H', run: () => this.flipSide() },
-        { id: 'cabeca', label: 'Virar de cabeça para baixo', hint: `Vira ${what}`, icon: ICON.virarDeCabeca, keys: 'Shift+V', run: () => this.flipUpside() },
-        { id: 'direita', label: 'Girar 90° para a direita', hint: `Gira ${what}`, icon: ICON.girarDireita, run: () => this.rotate('cw') },
-        { id: 'esquerda', label: 'Girar 90° para a esquerda', hint: `Gira ${what}`, icon: ICON.girarEsquerda, run: () => this.rotate('ccw') },
-        { id: 'meia-volta', label: 'Girar 180°', hint: `Gira ${what}`, icon: ICON.girarMeiaVolta, run: () => this.rotate('180') },
-        { id: 'contorno', label: 'Contorno com a cor da frente', icon: ICON.moldura, keys: 'Shift+O', run: () => this.outlineInk() },
-      ],
-      [
-        { id: 'tudo', label: 'Selecionar tudo', icon: ICON.semDesenho, keys: 'Ctrl+A', run: () => this.selectAll() },
-        ...(sel
-          ? [
-              { id: 'copiar', label: 'Copiar', icon: ICON.copiar, keys: 'Ctrl+C', run: () => this.copySel(false) },
-              { id: 'recortar', label: 'Recortar', icon: ICON.tesoura, keys: 'Ctrl+X', run: () => this.copySel(true) },
-              { id: 'inverter', label: 'Inverter a seleção', icon: ICON.trocarCores, keys: 'Ctrl+Shift+I', run: () => this.invertSel() },
-              { id: 'tirar', label: 'Tirar a seleção', icon: ICON.fechar, keys: 'Ctrl+D', run: () => this.deselect() },
-            ]
-          : []),
-        ...(this.hasClip() ? [{ id: 'colar', label: 'Colar', icon: ICON.colar, keys: 'Ctrl+V', run: () => this.pasteClip() }] : []),
-      ],
-      [
-        { id: 'imagem', label: 'Trazer uma imagem…', hint: 'Nas cores da paleta, com as cores dela ou como referência', icon: ICON.imagem, dialog: true, run: () => this.chooseImage() },
-        ...(this.layered() ? [{ id: 'referencia', label: 'Imagem de referência…', hint: 'Fica no papel para copiar; não entra no desenho', icon: ICON.imagem, run: () => this.chooseRef() }] : []),
-      ],
-      [{ id: 'limpar', label: this.dotsTotal() > 1 ? 'Limpar a camada' : 'Limpar a folha', icon: ICON.apagar, danger: true, run: () => this.clear() }],
+    const layered = this.layered();
+    const menus: BarMenu[] = [
+      {
+        id: 'arquivo',
+        label: 'Arquivo',
+        icon: ICON.pasta,
+        sections: [
+          [
+            { id: 'imagem', label: 'Trazer uma imagem…', hint: 'Nas cores da paleta, com as cores dela ou como referência (também colando ou soltando na mesa)', icon: ICON.imagem, dialog: true, run: () => this.chooseImage() },
+            ...(layered ? [{ id: 'referencia', label: 'Imagem de referência…', hint: 'Fica no papel para copiar; não entra no desenho', icon: ICON.imagem, disabled: this.refsTotal() >= PIXEL_REFS_MAX, run: () => this.chooseRef() }] : []),
+          ],
+          [
+            { id: 'baixar', label: 'Baixar em PNG', hint: 'Cada ponto um quadrado, para mostrar', icon: ICON.baixar, run: () => void this.download(false) },
+            { id: 'baixar-original', label: 'Baixar no tamanho original', hint: 'Um pixel por ponto, para abrir num editor de pixel art', icon: ICON.baixar, run: () => void this.download(true) },
+          ],
+          [{ id: 'pronto', label: 'Pronto', hint: 'Fecha o ateliê; o desenho já está guardado', icon: ICON.pronto, keys: 'Esc', run: () => void this.close() }],
+        ],
+      },
+      {
+        id: 'editar',
+        label: 'Editar',
+        icon: ICON.editar,
+        sections: [
+          [
+            { id: 'desfazer', label: 'Desfazer', icon: ICON.desfazer, keys: 'Ctrl+Z', disabled: !this.canUndo(), run: () => this.undo() },
+            { id: 'refazer', label: 'Refazer', icon: ICON.refazer, keys: 'Ctrl+Y', disabled: !this.canRedo(), run: () => this.redo() },
+          ],
+          [
+            { id: 'recortar', label: 'Recortar', icon: ICON.tesoura, keys: 'Ctrl+X', disabled: !sel, run: () => this.copySel(true) },
+            { id: 'copiar', label: 'Copiar', icon: ICON.copiar, keys: 'Ctrl+C', disabled: !sel, run: () => this.copySel(false) },
+            { id: 'colar', label: 'Colar', icon: ICON.colar, keys: 'Ctrl+V', disabled: !this.hasClip(), run: () => this.pasteClip() },
+            { id: 'apagar-sel', label: 'Apagar a seleção', icon: ICON.borracha, keys: 'Delete', disabled: !sel, run: () => this.clearSel() },
+          ],
+          [{ id: 'limpar', label: this.dotsTotal() > 1 ? 'Limpar a camada' : 'Limpar a folha', icon: ICON.apagar, danger: true, run: () => this.clear() }],
+        ],
+      },
+      {
+        id: 'selecionar',
+        label: 'Selecionar',
+        icon: ICON.semDesenho,
+        sections: [
+          [
+            { id: 'tudo', label: 'Selecionar tudo', icon: ICON.semDesenho, keys: 'Ctrl+A', run: () => this.selectAll() },
+            { id: 'tirar', label: 'Tirar a seleção', icon: ICON.fechar, keys: 'Ctrl+D', disabled: !sel, run: () => this.deselect() },
+            { id: 'de-volta', label: 'Trazer a seleção de volta', icon: ICON.desfazer, keys: 'Ctrl+Shift+D', run: () => this.reselect() },
+            { id: 'inverter', label: 'Inverter a seleção', icon: ICON.trocarCores, keys: 'Ctrl+Shift+I', run: () => this.invertSel() },
+          ],
+          [
+            { id: 'tamanho-sel', label: 'Tamanho da seleção…', hint: 'Esticar ou encolher o que está escolhido', icon: ICON.tamanhoDaTela, dialog: true, disabled: !sel, run: () => this.openSize('selecao') },
+            { id: 'recortar-tela', label: 'Recortar a tela na seleção', icon: ICON.recortarTela, disabled: !sel, run: () => this.cropToSel() },
+            ...(this.float() ? [{ id: 'assentar', label: 'Assentar o pedaço', icon: ICON.pronto, keys: 'Enter', run: () => this.anchorNow() }] : []),
+          ],
+        ],
+      },
+      {
+        id: 'imagem',
+        label: 'Imagem',
+        icon: ICON.imagem,
+        sections: [
+          [{ id: 'tamanho', label: 'Tamanho da tela…', icon: ICON.tamanhoDaTela, keys: 'C', dialog: true, run: () => this.openSize() }],
+          [
+            { id: 'lado', label: 'Virar de lado', hint: `Vira ${what}`, icon: ICON.virarDeLado, keys: 'Shift+H', run: () => this.flipSide() },
+            { id: 'cabeca', label: 'Virar de cabeça para baixo', hint: `Vira ${what}`, icon: ICON.virarDeCabeca, keys: 'Shift+V', run: () => this.flipUpside() },
+            { id: 'direita', label: 'Girar 90° para a direita', hint: `Gira ${what}`, icon: ICON.girarDireita, run: () => this.rotate('cw') },
+            { id: 'esquerda', label: 'Girar 90° para a esquerda', hint: `Gira ${what}`, icon: ICON.girarEsquerda, run: () => this.rotate('ccw') },
+            { id: 'meia-volta', label: 'Girar 180°', hint: `Gira ${what}`, icon: ICON.girarMeiaVolta, run: () => this.rotate('180') },
+          ],
+          [{ id: 'contorno', label: 'Contorno com a cor da frente', icon: ICON.moldura, keys: 'Shift+O', run: () => this.outlineInk() }],
+        ],
+      },
+      ...(layered
+        ? [
+            {
+              id: 'camada',
+              label: 'Camada',
+              icon: ICON.camadas,
+              sections: [
+                [
+                  { id: 'nova', label: 'Camada nova', icon: ICON.novaCamada, keys: 'Shift+N', disabled: this.dotsTotal() >= PIXEL_LAYERS_MAX, run: () => this.addLayer() },
+                  { id: 'nova-ref', label: 'Imagem de referência…', icon: ICON.imagem, disabled: this.refsTotal() >= PIXEL_REFS_MAX, run: () => this.chooseRef() },
+                ],
+                ...this.layerSections(this.chosenId()),
+              ],
+            },
+          ]
+        : []),
+      {
+        id: 'cores',
+        label: 'Cores',
+        icon: ICON.paleta,
+        sections: [
+          [
+            { id: 'trocar-ff', label: 'Trocar a frente com o fundo', icon: ICON.trocarCores, keys: 'X', run: () => this.swapInks() },
+            { id: 'cor-antes', label: 'A cor anterior', icon: ICON.anterior, keys: '[', run: () => this.stepInk(-1) },
+            { id: 'cor-depois', label: 'A próxima cor', icon: ICON.proximo, keys: ']', run: () => this.stepInk(1) },
+            { id: 'nova-cor', label: 'Acrescentar uma cor', icon: ICON.adicionar, disabled: this.count() >= INK_MAX, run: () => this.addInk() },
+          ],
+          ...this.colorItems(),
+        ],
+      },
+      {
+        id: 'exibir',
+        label: 'Exibir',
+        icon: ICON.ver,
+        sections: [
+          [
+            { id: 'aproximar', label: 'Aproximar', icon: ICON.aproximar, keys: 'Ctrl++', run: () => this.zoomAt(this.zoomStep(1)) },
+            { id: 'afastar', label: 'Afastar', icon: ICON.afastar, keys: 'Ctrl+-', run: () => this.zoomAt(this.zoomStep(-1)) },
+            { id: 'caber', label: 'Caber na tela', icon: ICON.caber, keys: 'Ctrl+0', run: () => this.fit() },
+            { id: 'real', label: 'Tamanho de verdade (100%)', icon: ICON.tamanhoDaTela, keys: '1', run: () => this.zoomAt(ZOOM_KEYS[0]) },
+          ],
+          [
+            { id: 'grade', label: 'Grade de 8 em 8', hint: "Ctrl+' liga e desliga", icon: ICON.grade, on: this.grid8(), keys: "Ctrl+'", run: () => this.toggleGrid() },
+            { id: 'fios', label: 'Fios de cada ponto', hint: "Ctrl+Shift+' liga e desliga", icon: ICON.fios, on: this.gridDots(), keys: "Ctrl+Shift+'", run: () => this.toggleDots() },
+            { id: 'previa', label: 'Prévia no painel', hint: 'O desenho do tamanho de verdade, no alto do painel', icon: ICON.ver, on: this.previewOn(), run: () => this.togglePreview() },
+          ],
+        ],
+      },
+      {
+        id: 'ajuda',
+        label: 'Ajuda',
+        icon: ICON.ajuda,
+        sections: [[{ id: 'atalhos', label: 'Atalhos do teclado', icon: ICON.ajuda, keys: '?', dialog: true, run: () => this.openKeys() }]],
+      },
     ];
+    return menus;
   });
+
+  /**
+   * Os nomes da barra, na ordem (o Camada só nas obras da galeria). À parte das opções: os nomes não mudam ao pintar, e
+   * as opções (que leem a pilha, a seleção, as cores em uso) só se montam com um menu aberto.
+   */
+  protected readonly barNames = computed(() =>
+    [
+      { id: 'arquivo', label: 'Arquivo', icon: ICON.pasta },
+      { id: 'editar', label: 'Editar', icon: ICON.editar },
+      { id: 'selecionar', label: 'Selecionar', icon: ICON.semDesenho },
+      { id: 'imagem', label: 'Imagem', icon: ICON.imagem },
+      { id: 'camada', label: 'Camada', icon: ICON.camadas },
+      { id: 'cores', label: 'Cores', icon: ICON.paleta },
+      { id: 'exibir', label: 'Exibir', icon: ICON.ver },
+      { id: 'ajuda', label: 'Ajuda', icon: ICON.ajuda },
+    ].filter((m) => m.id !== 'camada' || this.layered()),
+  );
+
+  /** O menu da barra aberto agora ("tudo": o Menu do celular, com os nomes dos outros); null, nenhum. */
+  protected readonly barOpen = signal<string | null>(null);
+  /** O menu da barra que o Tab alcança (o último com o foco; as setas andam entre os outros). */
+  protected readonly barFocus = signal('arquivo');
+  /**
+   * O último menu da barra que fechou e o último aperto num nome, e quando: o aperto no nome do menu aberto o fecha (o
+   * menu fecha com qualquer aperto fora dele), e o clique desse aperto não o reabre.
+   */
+  private barShut = { id: '', at: 0 };
+  private barDown = { id: '', at: 0 };
+
+  protected readonly barCaption = computed(() => {
+    const id = this.barOpen();
+    return id === 'tudo' ? 'Menu' : (this.barNames().find((m) => m.id === id)?.label ?? '');
+  });
+
+  protected readonly barSections = computed<MenuSections>(() => {
+    const id = this.barOpen();
+    if (!id) return [];
+    if (id === 'tudo') return [this.barNames().map((m) => ({ id: m.id, label: m.label, icon: m.icon, run: () => this.openBar(m.id, this.barBy) }))];
+    return this.barMenus().find((m) => m.id === id)?.sections ?? [];
+  });
+
+  /** Quem abriu o Menu do celular (o menu escolhido nele abre do mesmo jeito). */
+  private barBy: MenuBy = 'mouse';
+
+  /** O botão de um menu da barra (no celular, os nomes ficam escondidos: o do Menu). */
+  private barButton(id: string): HTMLElement | null {
+    const root = this.dialog().nativeElement;
+    const own = root.querySelector<HTMLElement>(`.barra-menus [data-menu="${id}"]`);
+    return own?.offsetParent ? own : root.querySelector<HTMLElement>('.barra-menus .menu-geral');
+  }
+
+  /** Abre um menu da barra embaixo do nome dele; pelo teclado, o foco vai para a primeira opção. */
+  protected openBar(id: string, by: MenuBy, back?: HTMLElement): void {
+    const btn = back ?? this.barButton(id);
+    if (!btn) return;
+    this.endStroke();
+    const r = btn.getBoundingClientRect();
+    this.barOpen.set(id);
+    this.barMenu().show({ key: 'barra-' + id, x: r.left, y: r.bottom + 2, back: btn, by });
+  }
+
+  protected barPress(id: string): void {
+    this.barDown = { id, at: performance.now() };
+  }
+
+  protected barClick(id: string, e: MouseEvent): void {
+    // o mesmo nome de novo fecha: o aperto nele (fora do menu) já o fechou, e este clique não reabre
+    const shut = this.barShut;
+    if (shut.id === id && this.barDown.id === id && this.barDown.at >= shut.at && this.barDown.at - shut.at < 80) {
+      this.barShut = { id: '', at: 0 };
+      return;
+    }
+    const by: MenuBy = e.detail === 0 ? 'teclado' : 'mouse';
+    if (id === 'tudo') this.barBy = by;
+    this.openBar(id, by, e.currentTarget as HTMLElement);
+  }
+
+  /** Com um menu aberto, passar o mouse no nome de outro abre aquele (como nos programas). */
+  protected barHover(id: string, e: PointerEvent): void {
+    const open = this.barOpen();
+    if (e.pointerType !== 'mouse' || !open || open === 'tudo' || open === id) return;
+    this.openBar(id, 'mouse', e.currentTarget as HTMLElement);
+  }
+
+  protected barClosed(): void {
+    this.barShut = { id: this.barOpen() ?? '', at: performance.now() };
+    this.barOpen.set(null);
+  }
+
+  /** As setas dos lados dentro de um menu: o vizinho abre, com o foco na primeira opção. */
+  protected barSide(dir: 1 | -1): void {
+    const open = this.barOpen();
+    if (!open || open === 'tudo') return;
+    const ids = this.barNames().map((m) => m.id);
+    const next = ids[(ids.indexOf(open) + dir + ids.length) % ids.length];
+    this.barFocus.set(next);
+    this.openBar(next, 'teclado');
+  }
+
+  /** No nome de um menu: as setas dos lados andam entre eles, a de baixo (Enter, espaço) abre. */
+  protected barKey(e: KeyboardEvent, id: string): void {
+    const ids = this.barNames().map((m) => m.id);
+    const i = ids.indexOf(id);
+    let to: string | null = null;
+    if (e.key === 'ArrowRight' && i >= 0) to = ids[(i + 1) % ids.length];
+    else if (e.key === 'ArrowLeft' && i >= 0) to = ids[(i - 1 + ids.length) % ids.length];
+    else if (e.key === 'Home') to = ids[0];
+    else if (e.key === 'End') to = ids[ids.length - 1];
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (id === 'tudo') this.barBy = 'teclado';
+      this.openBar(id, 'teclado', e.currentTarget as HTMLElement);
+      return;
+    } else if (e.key === 'Escape') {
+      // o Esc no nome volta para a folha (o ateliê não fecha por engano)
+      e.preventDefault();
+      e.stopPropagation();
+      this.board().nativeElement.focus({ preventScroll: true });
+      return;
+    }
+    if (!to) return;
+    e.preventDefault();
+    e.stopPropagation();
+    this.barFocus.set(to);
+    this.dialog().nativeElement.querySelector<HTMLElement>(`.barra-menus [data-menu="${to}"]`)?.focus();
+  }
+
+  /** F10: o foco no primeiro menu da barra (no celular, no Menu). */
+  private focusBar(): void {
+    const first = this.barNames()[0]?.id ?? 'arquivo';
+    this.barFocus.set(first);
+    this.barButton(first)?.focus();
+  }
+
+  protected togglePreview(): void {
+    this.previewOn.update((v) => !v);
+    this.said.set(this.previewOn() ? 'Prévia à mostra' : 'Prévia escondida');
+  }
+
+  /** O Assentar do menu Selecionar (o Enter na folha faz o mesmo). */
+  private anchorNow(): void {
+    this.anchor();
+    this.said.set('Pedaço assentado');
+  }
+
+  /** Baixa o desenho (o achatado, como a pixel art fica) em PNG: grande, ou um pixel por ponto (`original`). */
+  protected async download(original: boolean): Promise<void> {
+    this.anchor();
+    const art = { w: this.w(), h: this.h(), rows: this.flat(), palette: this.palette(), colors: this.colors() };
+    const canvas = drawPixelArt(art, original ? 1 : pngScale(art.w, art.h));
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) {
+      this.say('O navegador não conseguiu fazer o PNG');
+      return;
+    }
+    downloadBlob(blob, pngName({ title: this.artName() }, new Set(), original ? { w: art.w, h: art.h } : undefined));
+    this.said.set(original ? 'Baixando no tamanho original' : 'Baixando em PNG');
+  }
 
   // ===== as camadas (PLANO-CAMADAS.md, rodada 2) =====
 
@@ -1739,8 +2006,9 @@ export class PixelStudio {
     this.layerMenu().show({ key: 'camada-' + id, x: byKeys || e.type === 'click' ? r.left : e.clientX, y: byKeys || e.type === 'click' ? r.bottom + 4 : e.clientY, back: btn, by: byKeys ? 'teclado' : 'mouse' });
   }
 
-  protected readonly layerItems = computed<MenuSections>(() => {
-    const id = this.menuLayer();
+  protected readonly layerItems = computed<MenuSections>(() => this.layerSections(this.menuLayer()));
+
+  private layerSections(id: string | null): MenuItem[][] {
     const stack = this.stackNow();
     const i = stack.findIndex((l) => l.id === id);
     const l = stack[i];
@@ -1760,7 +2028,7 @@ export class PixelStudio {
       ],
       ...(l.kind !== 'pontos' || this.dotsTotal() > 1 ? [[{ id: 'apagar', label: 'Apagar a camada', icon: ICON.apagar, danger: true, run: () => this.removeLayer(id) }]] : []),
     ].filter((sec) => sec.length);
-  });
+  }
 
   /**
    * Fechar com as camadas com desenho todas escondidas: a pixel art precisa de algo à mostra, então pergunta antes
@@ -1967,6 +2235,15 @@ export class PixelStudio {
         ? [{ id: 'sem-uso', label: this.unused().length === 1 ? 'Tirar a cor sem uso' : `Tirar as ${this.unused().length} cores sem uso`, hint: 'As que nenhum ponto usa, em nenhuma camada', icon: ICON.borracha, run: () => this.removeUnused() }]
         : []),
     ],
+    ...(this.fg() > 0
+      ? [
+          [
+            { id: 'lugar-tras', label: 'Um lugar para trás', hint: 'A cor da frente troca de lugar com a de antes (o desenho não muda)', icon: ICON.anterior, disabled: this.fg() <= 1, run: () => this.moveFg(-1) },
+            { id: 'lugar-frente', label: 'Um lugar para a frente', hint: 'A cor da frente troca de lugar com a de depois (o desenho não muda)', icon: ICON.proximo, disabled: this.fg() >= this.count(), run: () => this.moveFg(1) },
+            ...(this.fgSwapped() ? [{ id: 'voltar-paleta', label: 'Voltar à da paleta', icon: ICON.desfazer, run: () => this.resetInk() }] : []),
+          ],
+        ]
+      : []),
     ...(this.fg() > 0 && this.count() > 1 ? [[{ id: 'tirar-cor', label: `Tirar a cor ${inkChar(this.fg())}`, icon: ICON.apagar, danger: true, run: () => this.removeFg() }]] : []),
   ]);
 
@@ -2475,6 +2752,8 @@ export class PixelStudio {
   }
 
   /** O nome da ferramenta de agora (a barra de estado sem o mouse em cima, e as dicas do painel). */
+  /** O desenho da ferramenta de agora (a referência escolhida: o da imagem), ao lado do nome na fita das opções. */
+  protected readonly toolIcon = computed(() => (this.refLayer() ? ICON.imagem : (this.TOOLS.find((t) => t.value === this.active())?.icon ?? ICON.editar)));
   protected readonly toolLabel = computed(() => (this.refLayer() ? 'Referência' : (this.TOOLS.find((t) => t.value === this.active())?.label ?? '')));
   /** As dicas da ferramenta, uma por linha. */
   protected readonly hintLines = computed(() => this.hint().split(' · ').map(cap));

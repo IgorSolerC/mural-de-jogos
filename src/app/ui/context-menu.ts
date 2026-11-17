@@ -44,6 +44,11 @@ export interface MenuItem {
   /** A escolhida agora (a amostra ganha o tique). */
   on?: boolean;
   /**
+   * Não vale agora (o Desfazer sem nada para desfazer, o Colar sem nada copiado): aparece apagada, como nos menus dos
+   * programas, e as setas pulam por ela.
+   */
+  disabled?: boolean;
+  /**
    * O adesivo de uma vontade da Wishlist (MUST PLAY, LATER): a opção mostra o adesivo de verdade, em
    * miniatura, no lugar do desenho e do nome (o nome vai para o leitor de tela).
    */
@@ -140,6 +145,8 @@ export interface MenuAt {
                 [attr.aria-haspopup]="x.dialog ? 'dialog' : null"
                 [attr.aria-keyshortcuts]="x.ariaKeys ?? null"
                 [attr.title]="x.hint ?? null"
+                [disabled]="x.disabled ?? false"
+                [attr.aria-disabled]="x.disabled ? 'true' : null"
                 tabindex="-1"
                 (click)="choose(x)"
               >
@@ -176,6 +183,11 @@ export class ContextMenu {
   readonly note = input('');
   /** Fechou (escolhendo ou não): quem usa esquece o que estava aberto. */
   readonly closed = output<void>();
+  /**
+   * As setas dos lados num menu que não é paleta (`1`: a direita; `-1`: a esquerda): a barra de menus passa para o
+   * vizinho, como nos programas. Quem não ouve, nada muda.
+   */
+  readonly sideways = output<1 | -1>();
 
   /** O que se clicou (e onde o menu abriu). */
   protected readonly at = signal<MenuAt | null>(null);
@@ -350,7 +362,10 @@ export class ContextMenu {
       return;
     }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    const list = this.options().map((o) => o.nativeElement);
+    // (a opção apagada não recebe o foco: as setas pulam por ela)
+    const list = this.options()
+      .map((o) => o.nativeElement)
+      .filter((b) => !b.disabled);
     if (!list.length) return;
     const at = list.indexOf(document.activeElement as HTMLButtonElement);
     let next: number | null = null;
@@ -359,6 +374,11 @@ export class ContextMenu {
     else if (e.key === 'ArrowUp') next = at < 0 ? list.length - 1 : Math.max(0, at - 1);
     // na paleta, as setas dos lados andam entre as amostras
     else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && list[at]?.classList.contains('amostra')) next = Math.max(0, Math.min(list.length - 1, at + (e.key === 'ArrowRight' ? 1 : -1)));
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      this.sideways.emit(e.key === 'ArrowRight' ? 1 : -1);
+      return;
+    }
     else if (e.key === 'Home') next = 0;
     else if (e.key === 'End') next = list.length - 1;
     else if (e.key.length === 1 && /\S/.test(e.key)) {
@@ -378,7 +398,9 @@ export class ContextMenu {
   }
 
   private focusAt(i: number): void {
-    const el = this.options()[i]?.nativeElement;
+    const el = this.options()
+      .map((o) => o.nativeElement)
+      .filter((b) => !b.disabled)[i];
     el?.focus({ preventScroll: true });
     el?.scrollIntoView({ block: 'nearest' });
   }

@@ -139,6 +139,16 @@
   &.perigo:focus-visible {
     outline-color: var(--red-deep);
   }
+
+  /* a que não vale agora: apagada, sem o mouse acender (como nos menus dos programas) */
+  &:disabled {
+    opacity: 0.42;
+    cursor: default;
+
+    &:hover {
+      background: transparent;
+    }
+  }
 }
 
 .ico {

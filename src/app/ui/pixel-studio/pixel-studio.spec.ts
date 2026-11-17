@@ -382,7 +382,7 @@ describe('pixel art: o ateliê', () => {
 
   it('girar a tela inteira troca a largura com a altura; com seleção, gira só ela', async () => {
     await make({ width: '3', height: '1', pixels: '123' });
-    const menu = host.querySelector('.menu-imagem') as HTMLButtonElement;
+    const menu = host.querySelector('.barra-menus [data-menu="imagem"]') as HTMLButtonElement;
     menu.click();
     fixture.detectChanges();
     (Array.from(host.querySelectorAll('.menu-contexto button')) as HTMLButtonElement[]).find((b) => b.textContent?.includes('Girar 90° para a direita'))!.click();
@@ -447,7 +447,9 @@ describe('pixel art: o ateliê', () => {
     host.querySelectorAll('.pastilha')[3].dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
     key(']');
     key('a');
-    (Array.from(host.querySelectorAll('.editor-lugar button')) as HTMLButtonElement[]).find((b) => b.textContent?.includes('Tirar a cor'))!.click();
+    (host.querySelector('.cores-topo .tecla') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (Array.from(host.querySelectorAll('.menu-contexto button')) as HTMLButtonElement[]).find((b) => b.textContent?.includes('Tirar a cor'))!.click();
     fixture.detectChanges();
     expect(values['palette']).toBe('propria');
     expect(values['pixels']).toBe('102');
@@ -460,7 +462,9 @@ describe('pixel art: o ateliê', () => {
   it('mover a cor de lugar não muda o desenho; ordenar pela luz também não', async () => {
     await make({ width: '3', height: '1', pixels: '123' });
     key('a');
-    (host.querySelector('.editor-lugar button[aria-label="Um lugar para a frente"]') as HTMLButtonElement).click();
+    (host.querySelector('.cores-topo .tecla') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (Array.from(host.querySelectorAll('.menu-contexto button')) as HTMLButtonElement[]).find((b) => b.textContent?.includes('Um lugar para a frente'))!.click();
     fixture.detectChanges();
     expect(values['pixels']).toBe('213');
     expect(host.querySelector('.frente-nome')?.textContent).toContain('Cor 2');
@@ -516,11 +520,12 @@ describe('pixel art: o ateliê', () => {
     expect(values['pixels']).toBe('21');
   });
 
-  it('o ? abre os atalhos; o painel diz o que as teclas fazem com a ferramenta de agora', async () => {
+  it('o ? abre os atalhos; a fita diz a ferramenta de agora e a barra de baixo, o que as teclas fazem com ela', async () => {
     await make({ width: '2', height: '2' });
-    expect(host.querySelector('.dicas-nome')?.textContent).toContain('Lápis');
+    expect(host.querySelector('.ferr-atual')?.textContent).toContain('Lápis');
     key('u');
-    expect(host.querySelector('.dicas-lista')?.textContent).toContain('quadrado e círculo');
+    expect(host.querySelector('.ferr-atual')?.textContent).toContain('Retângulo');
+    expect(host.querySelector('.estado-dica')?.textContent).toContain('quadrado e círculo');
     key('?');
     await fixture.whenStable();
     fixture.detectChanges();
@@ -639,7 +644,7 @@ describe('pixel art: o ateliê', () => {
     key('a', { ctrlKey: true });
     key('c', { ctrlKey: true });
     key('d', { ctrlKey: true });
-    const menu = host.querySelector('.menu-imagem') as HTMLButtonElement;
+    const menu = host.querySelector('.barra-menus [data-menu="imagem"]') as HTMLButtonElement;
     menu.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: new DataTransfer() }));
     fixture.detectChanges();
     expect(host.querySelector('.estado')?.textContent).toContain('Seleção 4 × 1');

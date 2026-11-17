@@ -244,10 +244,11 @@ describe('pixel art: as camadas do ateliê', () => {
     expect(values['pixels']).toBe('1');
   });
 
-  it('no widget, uma camada só: sem painel, a linha que diz onde as camadas moram, e nada de pilha', async () => {
+  it('no widget, uma camada só: sem painel, sem o menu Camada, e nada de pilha', async () => {
     await make({ width: '2', height: '1', pixels: '1' }, { layered: false });
     expect(host.querySelector('.camadas')).toBeNull();
-    expect(host.querySelector('.camadas-so-galeria')?.textContent).toContain('galeria');
+    expect(host.querySelector('.barra-menus [data-menu="camada"]')).toBeNull();
+    expect(host.querySelector('.barra-menus [data-menu="imagem"]')).not.toBeNull();
     click(1, 0);
     expect(values['pixels']).toBe('11');
     key('N', { shiftKey: true });
@@ -528,7 +529,7 @@ describe('pixel art: trazer uma imagem', () => {
 
   it('o menu tem um Trazer só; a imagem abre a folha com as três respostas e a prévia de cada uma', async () => {
     await make({ width: '4', height: '4' }, true);
-    const items = (st()['imageItems'] as () => { id: string }[][])().flat().map((i) => i.id);
+    const items = (st()['barMenus'] as () => { sections: { id: string }[][] }[])().flatMap((m) => m.sections.flat()).map((i) => i.id);
     expect(items).toContain('imagem');
     expect(items).not.toContain('imagem-cores');
     await ask();

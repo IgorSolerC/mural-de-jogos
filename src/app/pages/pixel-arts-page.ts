@@ -380,7 +380,7 @@ export class PixelArtsPage {
   }
 
   /** O desenho aberto direto no ateliê (o Ateliê da etiqueta), com o que mudou até agora. */
-  protected readonly studio = signal<{ id: string; values: WidgetValues; layers: StoredLayer[] | undefined } | null>(null);
+  protected readonly studio = signal<{ id: string; title: string; values: WidgetValues; layers: StoredLayer[] | undefined } | null>(null);
 
   constructor() {
     const host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
@@ -585,7 +585,7 @@ export class PixelArtsPage {
   /** O Ateliê da etiqueta: o desenho direto no ateliê, por cima de tudo; o que mudar vai para a obra ao fechar. */
   protected atelie(id: string): void {
     const p = this.gallery.get(id);
-    if (p) this.studio.set({ id, values: artValues(p.art), layers: p.layers });
+    if (p) this.studio.set({ id, title: p.title, values: artValues(p.art), layers: p.layers });
   }
 
   protected drawn(v: WidgetValues): void {

@@ -13,175 +13,172 @@
   (paste)="onPaste($event)"
 >
   <div class="corpo" [class.cores-abertas]="colorsOpen()" [attr.data-folha]="sheetTab()">
-    <!-- em cima: o nome, as opções da ferramenta de agora e o que mexe na vista e no desenho todo -->
-    <header class="contexto">
-      <h2 class="titulo" [id]="ids + '-titulo'">
-        <lucide-icon [img]="I.pixelArt" [size]="20" aria-hidden="true" />
-        Ateliê
-      </h2>
-
-      <div class="opcoes" role="toolbar" [attr.aria-label]="refLayer() ? 'Opções da referência' : 'Opções da ferramenta'">
-        @if (refLayer(); as r) {
-          <div class="grupo" role="group" [attr.aria-labelledby]="ids + '-opac'">
-            <span class="grupo-nome" [id]="ids + '-opac'">Opacidade</span>
-            <input class="opacidade" type="range" aria-label="Opacidade da referência" min="10" max="100" step="5" [value]="r.ref.opacity * 100" [attr.aria-valuetext]="round(r.ref.opacity * 100) + '%'" (input)="setRefOpacity(+$any($event.target).value)" (change)="setRefOpacity(+$any($event.target).value, true)" />
-            <output class="pincel-n opacidade-n">{{ round(r.ref.opacity * 100) }}%</output>
-          </div>
-          <button type="button" class="papel pequeno" title="A imagem inteira no papel, no meio" (click)="fitRefToCanvas()">Caber no papel</button>
-          <button type="button" class="papel pequeno" (click)="chooseRef(true)">Trocar a imagem</button>
-          <p class="opcao-dica" title="A referência não entra na pixel art">Arraste para mover; as alças mudam o tamanho</p>
-        } @else {
-        @switch (active()) {
-          @case ('selecao') {
-            <ng-container *ngTemplateOutlet="selOpcoes" />
+    <!-- em cima, duas fitas: a barra de menus (como a de todo programa: Arquivo, Editar, Selecionar…), com o desfazer
+         e o Pronto na ponta; embaixo dela, só as opções da ferramenta de agora -->
+    <header class="topo">
+      <div class="barra">
+        <h2 class="titulo" [id]="ids + '-titulo'">
+          <lucide-icon [img]="I.pixelArt" [size]="18" aria-hidden="true" />
+          Ateliê
+        </h2>
+        <div class="barra-menus" role="menubar" aria-label="Menus do ateliê">
+          <!-- no celular, os menus moram num botão só (não cabem lado a lado) -->
+          <button type="button" role="menuitem" class="menu-topo menu-geral" data-menu="tudo" aria-haspopup="menu" [attr.aria-expanded]="barOpen() === 'tudo'" [attr.tabindex]="0" (pointerdown)="barPress('tudo')" (click)="barClick('tudo', $event)" (keydown)="barKey($event, 'tudo')">
+            <lucide-icon [img]="I.lista" [size]="18" aria-hidden="true" />
+            Menu
+          </button>
+          @for (m of barNames(); track m.id) {
+            <button
+              type="button"
+              role="menuitem"
+              class="menu-topo"
+              [attr.data-menu]="m.id"
+              aria-haspopup="menu"
+              [attr.aria-expanded]="barOpen() === m.id"
+              [attr.tabindex]="barFocus() === m.id ? 0 : -1"
+              (focus)="barFocus.set(m.id)"
+              (pointerdown)="barPress(m.id)"
+              (click)="barClick(m.id, $event)"
+              (pointerenter)="barHover(m.id, $event)"
+              (keydown)="barKey($event, m.id)"
+            >{{ m.label }}</button>
           }
-          @case ('varinha') {
-            <label class="chave">
-              <button type="button" role="switch" class="interruptor" [attr.aria-checked]="contiguous()" (click)="contiguous.set(!contiguous())">
-                <span class="bolinha"></span>
-              </button>
-              <span class="chave-nome">Só a mancha</span>
-            </label>
-            <ng-container *ngTemplateOutlet="selOpcoes" />
-          }
-          @case ('mover') {
-            <p class="opcao-dica">Arraste o que está escolhido; sem seleção, o desenho todo</p>
-            <ng-container *ngTemplateOutlet="selOpcoes" />
-          }
-          @case ('balde') {
-            <label class="chave">
-              <button type="button" role="switch" class="interruptor" [attr.aria-checked]="contiguous()" (click)="contiguous.set(!contiguous())">
-                <span class="bolinha"></span>
-              </button>
-              <span class="chave-nome">Só a mancha</span>
-            </label>
-          }
-          @case ('conta-gotas') {
-            <p class="opcao-dica">Toque num ponto para pegar a cor dele</p>
-          }
-          @case ('mao') {
-            <p class="opcao-dica">Arraste para mover a vista</p>
-          }
-          @default {
-            <div class="grupo" role="group" [attr.aria-labelledby]="ids + '-pincel'">
-              <span class="grupo-nome" [id]="ids + '-pincel'">Pincel</span>
-              <span class="teclas">
-                <button type="button" class="tecla" title="Pincel menor (-)" aria-label="Pincel menor" [disabled]="brush() <= 1" (click)="setBrush(brush() - 1)">
-                  <lucide-icon [img]="I.tirar" [size]="16" aria-hidden="true" />
-                </button>
-                <output class="pincel-n" [attr.aria-label]="'Pincel de ' + brush()">{{ brush() }}</output>
-                <button type="button" class="tecla" title="Pincel maior (+)" aria-label="Pincel maior" [disabled]="brush() >= BRUSH_MAX" (click)="setBrush(brush() + 1)">
-                  <lucide-icon [img]="I.adicionar" [size]="16" aria-hidden="true" />
-                </button>
-              </span>
-              <span class="teclas" role="radiogroup" aria-label="Jeito do pincel">
-                <button type="button" role="radio" class="tecla" [class.on]="shape() === 'quadrado'" [attr.aria-checked]="shape() === 'quadrado'" title="Pincel quadrado" aria-label="Quadrado" (click)="shape.set('quadrado')">
-                  <span class="forma quadrada" aria-hidden="true"></span>
-                </button>
-                <button type="button" role="radio" class="tecla" [class.on]="shape() === 'redondo'" [attr.aria-checked]="shape() === 'redondo'" title="Pincel redondo" aria-label="Redondo" (click)="shape.set('redondo')">
-                  <span class="forma redonda" aria-hidden="true"></span>
-                </button>
-              </span>
-            </div>
-            @if (active() === 'lapis' || active() === 'borracha') {
-              <!-- o pontilhado: cada tecla desenha o xadrez que pinta (o Não, todos os pontos) -->
-              <div class="grupo" role="radiogroup" [attr.aria-labelledby]="ids + '-ponti'">
-                <span class="grupo-nome" [id]="ids + '-ponti'" title="Dithering: um ponto sim, um não, em xadrez">Pontilhado</span>
-                <span class="teclas">
-                  @for (d of DITHERS; track d.value) {
-                    @let on = dither() === d.value;
-                    <button type="button" role="radio" class="tecla com-nome" [class.on]="on" [attr.aria-checked]="on" [title]="d.title" [attr.aria-label]="d.label" (click)="dither.set(d.value)">
-                      <svg class="xadrez" viewBox="0 0 3 3" aria-hidden="true" shape-rendering="crispEdges">
-                        @for (q of DITHER_CELLS; track $index) {
-                          <rect [attr.x]="q.x" [attr.y]="q.y" width="1" height="1" [class.pula]="d.value !== 'nenhum' && (q.x + q.y) % 2 !== (d.value === 'par' ? 0 : 1)" />
-                        }
-                      </svg>
-                      <span class="tecla-nome" aria-hidden="true">{{ d.value === 'nenhum' ? 'Não' : d.label }}</span>
-                    </button>
-                  }
-                </span>
-              </div>
-            }
-            @if (active() === 'retangulo' || active() === 'elipse') {
-              <label class="chave" title="Cheia ou só a beirada (U de novo)">
-                <button type="button" role="switch" class="interruptor" [attr.aria-checked]="filled()" (click)="toggleFilled()">
-                  <span class="bolinha"></span>
-                </button>
-                <span class="chave-nome">Cheia</span>
-              </label>
-            }
-            @if (active() === 'lapis' && dither() === 'nenhum') {
-              <label class="chave" title="Tira o canto dos traços de um ponto, para a linha não engrossar">
-                <button type="button" role="switch" class="interruptor" [attr.aria-checked]="perfect()" (click)="perfect.set(!perfect())">
-                  <span class="bolinha"></span>
-                </button>
-                <span class="chave-nome">Pixel perfeito</span>
-              </label>
-            }
-          }
-        }
-        }
-        @if (!refLayer() && active() !== 'mao' && active() !== 'conta-gotas' && active() !== 'selecao' && active() !== 'varinha' && active() !== 'mover') {
-          <div class="grupo" role="radiogroup" [attr.aria-labelledby]="ids + '-sim'">
-            <span class="grupo-nome" [id]="ids + '-sim'">Simetria</span>
-            <span class="teclas">
-              @for (s of SYMMETRIES; track s.value) {
-                @let on = symmetry() === s.value;
-                <button type="button" role="radio" class="tecla sim" [class.on]="on" [attr.aria-checked]="on" [title]="'Simetria: ' + s.label" [attr.aria-label]="s.label" (click)="symmetry.set(s.value)">
-                  <span class="sim-desenho" [attr.data-sim]="s.value" aria-hidden="true"></span>
-                </button>
-              }
-            </span>
-          </div>
-        }
+        </div>
+        <div class="barra-acoes">
+          <button type="button" class="tecla" title="Desfazer (Ctrl Z)" aria-label="Desfazer" [disabled]="!canUndo()" (click)="undo()">
+            <lucide-icon [img]="I.desfazer" [size]="18" aria-hidden="true" />
+          </button>
+          <button type="button" class="tecla" title="Refazer (Ctrl Y)" aria-label="Refazer" [disabled]="!canRedo()" (click)="redo()">
+            <lucide-icon [img]="I.refazer" [size]="18" aria-hidden="true" />
+          </button>
+          <button type="button" class="pronto" (click)="close()">
+            <lucide-icon [img]="I.pronto" [size]="16" aria-hidden="true" />
+            Pronto
+          </button>
+        </div>
       </div>
 
-      <div class="vista-botoes">
-        <div class="grupo grupo-zoom" role="group" aria-label="Zoom">
-          <span class="teclas">
-            <button type="button" class="tecla" title="Afastar (Ctrl -)" aria-label="Afastar" (click)="zoomAt(zoomStep(-1))">
-              <lucide-icon [img]="I.afastar" [size]="18" aria-hidden="true" />
-            </button>
-            <output class="zoom-n" aria-live="off">{{ zoomLabel(z) }}</output>
-            <button type="button" class="tecla" title="Aproximar (Ctrl +)" aria-label="Aproximar" (click)="zoomAt(zoomStep(1))">
-              <lucide-icon [img]="I.aproximar" [size]="18" aria-hidden="true" />
-            </button>
-            <button type="button" class="tecla" title="Caber na tela (Ctrl 0)" aria-label="Caber na tela" (click)="fit()">
-              <lucide-icon [img]="I.caber" [size]="18" aria-hidden="true" />
-            </button>
-          </span>
+      <div class="contexto">
+        <!-- a ferramenta de agora, pelo nome: as opções ao lado são dela -->
+        <p class="ferr-atual">
+          <lucide-icon [img]="toolIcon()" [size]="18" aria-hidden="true" />
+          <span class="ferr-atual-nome">{{ toolLabel() }}</span>
+        </p>
+        <div class="opcoes" role="toolbar" [attr.aria-label]="refLayer() ? 'Opções da referência' : 'Opções da ferramenta'">
+          @if (refLayer(); as r) {
+            <div class="grupo" role="group" [attr.aria-labelledby]="ids + '-opac'">
+              <span class="grupo-nome" [id]="ids + '-opac'">Opacidade</span>
+              <input class="opacidade" type="range" aria-label="Opacidade da referência" min="10" max="100" step="5" [value]="r.ref.opacity * 100" [attr.aria-valuetext]="round(r.ref.opacity * 100) + '%'" (input)="setRefOpacity(+$any($event.target).value)" (change)="setRefOpacity(+$any($event.target).value, true)" />
+              <output class="pincel-n opacidade-n">{{ round(r.ref.opacity * 100) }}%</output>
+            </div>
+            <button type="button" class="papel pequeno" title="A imagem inteira no papel, no meio" (click)="fitRefToCanvas()">Caber no papel</button>
+            <button type="button" class="papel pequeno" (click)="chooseRef(true)">Trocar a imagem</button>
+            <p class="opcao-dica" title="A referência não entra na pixel art">Arraste para mover; as alças mudam o tamanho</p>
+          } @else {
+          @switch (active()) {
+            @case ('selecao') {
+              <ng-container *ngTemplateOutlet="selOpcoes" />
+            }
+            @case ('varinha') {
+              <label class="chave">
+                <button type="button" role="switch" class="interruptor" [attr.aria-checked]="contiguous()" (click)="contiguous.set(!contiguous())">
+                  <span class="bolinha"></span>
+                </button>
+                <span class="chave-nome">Só a mancha</span>
+              </label>
+              <ng-container *ngTemplateOutlet="selOpcoes" />
+            }
+            @case ('mover') {
+              <p class="opcao-dica">Arraste o que está escolhido; sem seleção, o desenho todo</p>
+              <ng-container *ngTemplateOutlet="selOpcoes" />
+            }
+            @case ('balde') {
+              <label class="chave">
+                <button type="button" role="switch" class="interruptor" [attr.aria-checked]="contiguous()" (click)="contiguous.set(!contiguous())">
+                  <span class="bolinha"></span>
+                </button>
+                <span class="chave-nome">Só a mancha</span>
+              </label>
+            }
+            @case ('conta-gotas') {
+              <p class="opcao-dica">Toque num ponto para pegar a cor dele</p>
+            }
+            @case ('mao') {
+              <p class="opcao-dica">Arraste para mover a vista</p>
+            }
+            @default {
+              <div class="grupo" role="group" [attr.aria-labelledby]="ids + '-pincel'">
+                <span class="grupo-nome" [id]="ids + '-pincel'">Pincel</span>
+                <span class="teclas">
+                  <button type="button" class="tecla" title="Pincel menor (-)" aria-label="Pincel menor" [disabled]="brush() <= 1" (click)="setBrush(brush() - 1)">
+                    <lucide-icon [img]="I.tirar" [size]="16" aria-hidden="true" />
+                  </button>
+                  <output class="pincel-n" [attr.aria-label]="'Pincel de ' + brush()">{{ brush() }}</output>
+                  <button type="button" class="tecla" title="Pincel maior (+)" aria-label="Pincel maior" [disabled]="brush() >= BRUSH_MAX" (click)="setBrush(brush() + 1)">
+                    <lucide-icon [img]="I.adicionar" [size]="16" aria-hidden="true" />
+                  </button>
+                </span>
+                <span class="teclas" role="radiogroup" aria-label="Jeito do pincel">
+                  <button type="button" role="radio" class="tecla" [class.on]="shape() === 'quadrado'" [attr.aria-checked]="shape() === 'quadrado'" title="Pincel quadrado" aria-label="Quadrado" (click)="shape.set('quadrado')">
+                    <span class="forma quadrada" aria-hidden="true"></span>
+                  </button>
+                  <button type="button" role="radio" class="tecla" [class.on]="shape() === 'redondo'" [attr.aria-checked]="shape() === 'redondo'" title="Pincel redondo" aria-label="Redondo" (click)="shape.set('redondo')">
+                    <span class="forma redonda" aria-hidden="true"></span>
+                  </button>
+                </span>
+              </div>
+              @if (active() === 'lapis' || active() === 'borracha') {
+                <!-- o pontilhado: cada tecla desenha o xadrez que pinta (o Não, todos os pontos) -->
+                <div class="grupo" role="radiogroup" [attr.aria-labelledby]="ids + '-ponti'">
+                  <span class="grupo-nome" [id]="ids + '-ponti'" title="Dithering: um ponto sim, um não, em xadrez">Pontilhado</span>
+                  <span class="teclas">
+                    @for (d of DITHERS; track d.value) {
+                      @let on = dither() === d.value;
+                      <button type="button" role="radio" class="tecla com-nome" [class.on]="on" [attr.aria-checked]="on" [title]="d.title" [attr.aria-label]="d.label" (click)="dither.set(d.value)">
+                        <svg class="xadrez" viewBox="0 0 3 3" aria-hidden="true" shape-rendering="crispEdges">
+                          @for (q of DITHER_CELLS; track $index) {
+                            <rect [attr.x]="q.x" [attr.y]="q.y" width="1" height="1" [class.pula]="d.value !== 'nenhum' && (q.x + q.y) % 2 !== (d.value === 'par' ? 0 : 1)" />
+                          }
+                        </svg>
+                        <span class="tecla-nome" aria-hidden="true">{{ d.value === 'nenhum' ? 'Não' : d.label }}</span>
+                      </button>
+                    }
+                  </span>
+                </div>
+              }
+              @if (active() === 'retangulo' || active() === 'elipse') {
+                <label class="chave" title="Cheia ou só a beirada (U de novo)">
+                  <button type="button" role="switch" class="interruptor" [attr.aria-checked]="filled()" (click)="toggleFilled()">
+                    <span class="bolinha"></span>
+                  </button>
+                  <span class="chave-nome">Cheia</span>
+                </label>
+              }
+              @if (active() === 'lapis' && dither() === 'nenhum') {
+                <label class="chave" title="Tira o canto dos traços de um ponto, para a linha não engrossar">
+                  <button type="button" role="switch" class="interruptor" [attr.aria-checked]="perfect()" (click)="perfect.set(!perfect())">
+                    <span class="bolinha"></span>
+                  </button>
+                  <span class="chave-nome">Pixel perfeito</span>
+                </label>
+              }
+            }
+          }
+          }
+          @if (!refLayer() && active() !== 'mao' && active() !== 'conta-gotas' && active() !== 'selecao' && active() !== 'varinha' && active() !== 'mover') {
+            <div class="grupo" role="radiogroup" [attr.aria-labelledby]="ids + '-sim'">
+              <span class="grupo-nome" [id]="ids + '-sim'">Simetria</span>
+              <span class="teclas">
+                @for (s of SYMMETRIES; track s.value) {
+                  @let on = symmetry() === s.value;
+                  <button type="button" role="radio" class="tecla sim" [class.on]="on" [attr.aria-checked]="on" [title]="'Simetria: ' + s.label" [attr.aria-label]="s.label" (click)="symmetry.set(s.value)">
+                    <span class="sim-desenho" [attr.data-sim]="s.value" aria-hidden="true"></span>
+                  </button>
+                }
+              </span>
+            </div>
+          }
         </div>
-        <div class="grupo grupo-grades" role="group" aria-label="Grades">
-          <span class="teclas">
-            <button type="button" class="tecla" [class.on]="gridDots()" [attr.aria-pressed]="gridDots()" title="Os fios de cada ponto (Ctrl Shift ')" aria-label="Fios dos pontos" (click)="toggleDots()">
-              <lucide-icon [img]="I.fios" [size]="18" aria-hidden="true" />
-            </button>
-            <button type="button" class="tecla" [class.on]="grid8()" [attr.aria-pressed]="grid8()" title="A grade de 8 em 8 (Ctrl ')" aria-label="Grade de 8" (click)="toggleGrid()">
-              <lucide-icon [img]="I.grade" [size]="18" aria-hidden="true" />
-            </button>
-          </span>
-        </div>
-        <div class="grupo" role="group" aria-label="Desfazer">
-          <span class="teclas">
-            <button type="button" class="tecla" title="Desfazer (Ctrl Z)" aria-label="Desfazer" [disabled]="!canUndo()" (click)="undo()">
-              <lucide-icon [img]="I.desfazer" [size]="18" aria-hidden="true" />
-            </button>
-            <button type="button" class="tecla" title="Refazer (Ctrl Y)" aria-label="Refazer" [disabled]="!canRedo()" (click)="redo()">
-              <lucide-icon [img]="I.refazer" [size]="18" aria-hidden="true" />
-            </button>
-            <button type="button" class="tecla" title="Os atalhos (?)" aria-label="Os atalhos" aria-haspopup="dialog" (click)="openKeys()">
-              <lucide-icon [img]="I.ajuda" [size]="18" aria-hidden="true" />
-            </button>
-          </span>
-        </div>
-        <button type="button" class="papel menu-imagem" aria-haspopup="menu" (click)="openImageMenu($event)">
-          Imagem
-          <lucide-icon [img]="I.abrir" [size]="16" aria-hidden="true" />
-        </button>
-        <button type="button" class="pronto" (click)="close()">
-          <lucide-icon [img]="I.pronto" [size]="18" aria-hidden="true" />
-          Pronto
-        </button>
       </div>
     </header>
 
@@ -328,13 +325,15 @@
           <button type="button" class="plate" [attr.aria-pressed]="sheetTab() === 'camadas'" (click)="sheetTab.set('camadas')">Camadas <span class="count">{{ layerRows().length }}</span></button>
         </div>
       }
-      <div class="previa" aria-hidden="true">
-        <svg class="previa-arte" [attr.viewBox]="'0 0 ' + iw + ' ' + ih" [style.width.px]="previewScale() * iw" [style.height.px]="previewScale() * ih" shape-rendering="crispEdges">
-          @for (p of paths(); track p.ink) {
-            <path [attr.d]="p.d" [attr.fill]="inks()[p.ink]" />
-          }
-        </svg>
-      </div>
+      @if (previewOn()) {
+        <div class="previa" aria-hidden="true">
+          <svg class="previa-arte" [attr.viewBox]="'0 0 ' + iw + ' ' + ih" [style.width.px]="previewScale() * iw" [style.height.px]="previewScale() * ih" shape-rendering="crispEdges">
+            @for (p of paths(); track p.ink) {
+              <path [attr.d]="p.d" [attr.fill]="inks()[p.ink]" />
+            }
+          </svg>
+        </div>
+      }
 
       <div class="cores-topo parte-cores">
         <h3 class="painel-nome">Cores <span class="painel-n">{{ count() }}</span></h3>
@@ -385,7 +384,8 @@
         }
       </div>
 
-      <!-- a cor da frente: o mapa sempre aberto (como o do Aseprite), o Hex, o lugar dela e o que dá para fazer com ela -->
+      <!-- a cor da frente: o mapa sempre aberto (como o do Aseprite) e o Hex; o lugar dela e o tirar ficam no menu Cores -->
+
       <div class="editor-cor parte-cores">
         <div class="frente-linha">
           <span class="frente-amostra" [class.vazia]="fg() === 0" [style.--cor]="inks()[fg()] ?? 'transparent'" aria-hidden="true"></span>
@@ -402,22 +402,8 @@
         <app-color-map #mapa [color]="fg() > 0 ? (inks()[fg()] ?? null) : null" [disabled]="fg() === 0" (picking)="setInkColor($event)" (picked)="inkEdited()" />
         @if (fg() === 0) {
           <p class="mapa-dica">O transparente não tem cor: escolha uma pastilha para mudar a dela.</p>
-        } @else {
-          <div class="editor-lugar" role="group" aria-label="O lugar da cor na paleta">
-            <button type="button" class="tecla" title="Um lugar para trás" aria-label="Um lugar para trás" [disabled]="fg() <= 1" (click)="moveFg(-1)">
-              <lucide-icon [img]="I.anterior" [size]="18" aria-hidden="true" />
-            </button>
-            <span class="editor-lugar-nome">Lugar {{ inkChar(fg()) }}</span>
-            <button type="button" class="tecla" title="Um lugar para a frente" aria-label="Um lugar para a frente" [disabled]="fg() >= count()" (click)="moveFg(1)">
-              <lucide-icon [img]="I.proximo" [size]="18" aria-hidden="true" />
-            </button>
-            @if (count() > 1) {
-              <button type="button" class="link-voltar perigo" (click)="removeFg()">Tirar a cor</button>
-            }
-          </div>
-          @if (fgSwapped()) {
-            <button type="button" class="link-voltar voltar-paleta" (click)="resetInk()">Voltar à da paleta</button>
-          }
+        } @else if (fgSwapped()) {
+          <button type="button" class="link-voltar voltar-paleta" (click)="resetInk()">Voltar à da paleta</button>
         }
       </div>
       <!-- as camadas: de cima para baixo, como a pilha se vê; só nas obras da galeria -->
@@ -486,19 +472,7 @@
             }
           </ul>
         </section>
-      } @else {
-        <p class="camadas-so-galeria parte-cores">As camadas ficam nas pixel arts da galeria; aqui, o desenho é uma camada só.</p>
       }
-      <!-- o que as teclas fazem com a ferramenta de agora -->
-      <div class="dicas">
-        <p class="dicas-nome">{{ toolLabel() }}</p>
-        <ul class="dicas-lista">
-          @for (d of hintLines(); track d) {
-            <li>{{ d }}</li>
-          }
-        </ul>
-        <button type="button" class="dicas-todas" aria-haspopup="dialog" (click)="openKeys()">Todos os atalhos (?)</button>
-      </div>
       @if (importing() || importError()) {
         <p class="painel-aviso" [class.ruim]="!!importError()">{{ importing() ? 'Trazendo a imagem…' : importError() }}</p>
       }
@@ -509,8 +483,6 @@
       <span class="estado-item pos">
         @if (hover(); as hv) {
           x {{ hv.x }} · y {{ hv.y }}
-        } @else {
-          {{ toolLabel() }}
         }
       </span>
       @if (under(); as u) {
@@ -526,7 +498,18 @@
         <span class="estado-item forma-tam">{{ sz }}</span>
       }
       <button type="button" class="estado-item tela" title="Tamanho da tela (C)" (click)="openSize()">{{ iw }} × {{ ih }}</button>
-      <span class="estado-item">{{ zoomLabel(z) }}</span>
+      <span class="estado-zoom" role="group" aria-label="Zoom">
+        <button type="button" class="estado-botao" title="Afastar (Ctrl -)" aria-label="Afastar" (click)="zoomAt(zoomStep(-1))">
+          <lucide-icon [img]="I.afastar" [size]="15" aria-hidden="true" />
+        </button>
+        <output class="zoom-n" aria-live="off">{{ zoomLabel(z) }}</output>
+        <button type="button" class="estado-botao" title="Aproximar (Ctrl +)" aria-label="Aproximar" (click)="zoomAt(zoomStep(1))">
+          <lucide-icon [img]="I.aproximar" [size]="15" aria-hidden="true" />
+        </button>
+        <button type="button" class="estado-botao" title="Caber na tela (Ctrl 0)" aria-label="Caber na tela" (click)="fit()">
+          <lucide-icon [img]="I.caber" [size]="15" aria-hidden="true" />
+        </button>
+      </span>
       <span class="estado-dica" [class.aviso]="!!notice()">{{ notice() ?? hint() }}</span>
     </footer>
   </div>
@@ -552,7 +535,7 @@
   </ng-template>
 
   <input #arquivo class="arquivo" type="file" accept="image/*" tabindex="-1" aria-hidden="true" (change)="fromFile($event)" />
-  <app-context-menu #menuImagem caption="Imagem" [sections]="imageItems()" />
+  <app-context-menu #menuBarra [caption]="barCaption()" [sections]="barSections()" (closed)="barClosed()" (sideways)="barSide($event)" />
   <app-context-menu #menuCores caption="Cores" [sections]="colorItems()" />
   <app-context-menu #menuCamada [caption]="menuLayerName()" [sections]="layerItems()" />
   @if (paletteOpen()) {

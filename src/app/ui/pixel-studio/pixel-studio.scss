@@ -55,7 +55,7 @@
   grid-template-columns: 64px minmax(0, 1fr) 288px;
   grid-template-rows: auto minmax(0, 1fr) 30px;
   grid-template-areas:
-    'contexto contexto contexto'
+    'topo topo topo'
     'ferramentas mesa painel'
     'estado estado estado';
   width: 100%;
@@ -63,37 +63,138 @@
   background: var(--mat);
 }
 
-/* ===== em cima: a barra de contexto ===== */
-.contexto {
+/* ===== em cima: a barra de menus e, embaixo dela, a fita das opções da ferramenta ===== */
+.topo {
   @extend %tira;
-  grid-area: contexto;
+  grid-area: topo;
   position: relative;
   z-index: 3;
   display: flex;
-  align-items: center;
-  gap: 22px;
-  min-height: 56px;
-  padding: 6px 14px;
+  flex-direction: column;
+  min-width: 0;
   box-shadow:
     0 1px 1px rgb(0 0 0 / 0.35),
     0 6px 14px -6px rgb(0 0 0 / 0.6);
-  overflow-x: auto;
-  scrollbar-width: thin;
+}
+
+/* a barra de menus: o nome do ateliê, os menus impressos (como os de todo programa) e, na ponta, desfazer e Pronto */
+.barra {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 42px;
+  padding: 3px 10px 3px 14px;
+  border-bottom: 1px solid rgb(21 21 21 / 0.12);
 }
 
 .titulo {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   margin: 0;
   flex: none;
   font-family: var(--f-marker);
   font-weight: 400;
-  font-size: 1.3rem;
+  font-size: 1.12rem;
   line-height: 1;
 }
 
-/* as opções da ferramenta encolhem e rolam de lado; o resto da barra (o zoom, desfazer, Imagem e Pronto) fica parado */
+.barra-menus {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* o nome de um menu: tinta no papel, um tom por baixo com o mouse e enquanto está aberto */
+.menu-topo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.98rem;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.07);
+  }
+
+  &[aria-expanded='true'] {
+    background: rgb(21 21 21 / 0.13);
+  }
+
+  &:focus-visible {
+    outline: 2.5px solid var(--ink);
+    outline-offset: -2px;
+  }
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+/* o Menu que junta todos: só no celular */
+.menu-geral {
+  display: none;
+}
+
+.barra-acoes {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+  margin-left: auto;
+
+  .pronto {
+    margin-left: 10px;
+  }
+}
+
+/* a fita das opções: o nome da ferramenta de agora e o que dá para mudar nela */
+.contexto {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  min-height: 50px;
+  padding: 4px 14px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.ferr-atual {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  margin: 0;
+  padding-right: 18px;
+  border-right: 1px solid rgb(21 21 21 / 0.14);
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.92rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+/* as opções da ferramenta encolhem e rolam de lado */
 .opcoes {
   display: flex;
   align-items: center;
@@ -103,13 +204,6 @@
   padding: 4px 2px;
   overflow-x: auto;
   scrollbar-width: thin;
-}
-
-.vista-botoes {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex: none;
 }
 
 .grupo {
@@ -261,19 +355,15 @@
   }
 }
 
-.menu-imagem lucide-icon {
-  display: inline-flex;
-}
-
 /* Pronto: a ação que conclui, o pincel atômico */
 .pronto {
   @include kit.tinta;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 42px;
-  padding: 9px 16px 8px;
-  font-size: 1.05rem;
+  min-height: 34px;
+  padding: 6px 14px 5px;
+  font-size: 1rem;
   cursor: pointer;
 
   &:focus-visible {
@@ -335,6 +425,22 @@
   font-size: 0.7rem;
   line-height: 1.1;
   text-align: center;
+}
+
+/* na tela baixa (o notebook de 720), as teclas encolhem um pouco para a frente e o fundo caberem no pé da fita */
+@media (min-width: 761px) and (max-height: 820px) {
+  .ferramentas {
+    gap: 10px;
+    padding: 8px 0 10px;
+  }
+
+  .ferr-lista {
+    gap: 2px;
+  }
+
+  .ferr {
+    height: 38px;
+  }
 }
 
 /* no dedo, a letra do atalho não diz nada */
@@ -652,7 +758,7 @@
 .previa {
   display: grid;
   place-items: center;
-  min-height: 128px;
+  min-height: 112px;
   padding: 8px;
   border-radius: 2px;
   @include x.xadrez(12px);
@@ -891,30 +997,6 @@
   @include rt.grupo-nome;
 }
 
-.editor-lugar {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-
-  .tecla {
-    @include rt.tecla;
-  }
-
-  .perigo {
-    margin-left: auto;
-    color: var(--red-deep);
-  }
-}
-
-.editor-lugar-nome {
-  min-width: 64px;
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.86rem;
-  letter-spacing: 0.04em;
-  text-align: center;
-}
-
 /* o mapa apagado: por que (o transparente não tem cor) */
 .mapa-dica {
   margin: 0;
@@ -938,53 +1020,6 @@
   text-decoration: underline;
   text-underline-offset: 3px;
   cursor: pointer;
-}
-
-/* as teclas da ferramenta de agora, no pé do painel: o que o Shift, o Alt e o Ctrl fazem, sem decorar */
-.dicas {
-  display: grid;
-  gap: 8px;
-  margin-top: auto;
-  padding: 12px 14px 14px;
-  border-radius: 2px;
-  background: rgb(21 21 21 / 0.04);
-  box-shadow: inset 0 0 0 1px rgb(21 21 21 / 0.08);
-}
-
-.dicas-nome {
-  @include rt.grupo-nome;
-  margin: 0;
-  color: var(--ink);
-}
-
-.dicas-lista {
-  display: grid;
-  gap: 4px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  color: var(--ink-2);
-  font-size: 0.86rem;
-  line-height: 1.35;
-}
-
-.dicas-todas {
-  justify-self: start;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--ink);
-  font: inherit;
-  font-size: 0.86rem;
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-
-  &:focus-visible {
-    outline: 3px solid var(--ink);
-    outline-offset: 2px;
-  }
 }
 
 /* ===== os Atalhos (?) ===== */
@@ -1128,6 +1163,44 @@ button.estado-item {
 
   &:focus-visible {
     outline: 2px solid var(--hi);
+  }
+}
+
+/* o zoom, como nos programas de desenho: afastar, o tanto de agora, aproximar e caber */
+.estado-zoom {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+
+  .zoom-n {
+    min-width: 50px;
+    font: inherit;
+    color: var(--wall-ink);
+  }
+}
+
+.estado-botao {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--wall-ink);
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(255 255 255 / 0.1);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--hi);
+  }
+
+  lucide-icon {
+    display: inline-flex;
   }
 }
 
@@ -1299,45 +1372,56 @@ button.estado-item {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr) auto;
     grid-template-areas:
-      'contexto'
+      'topo'
       'mesa'
       'ferramentas';
   }
 
-  .titulo {
+  /* os menus não cabem lado a lado: o Menu junta todos (cada nome abre o dele); o zoom é a pinça dos dedos */
+  .titulo,
+  .menu-topo:not(.menu-geral) {
     display: none;
   }
 
-  .contexto {
-    flex-wrap: wrap;
-    gap: 4px 16px;
-    padding: 6px 10px;
-    overflow: visible;
+  .menu-geral {
+    display: inline-flex;
+    height: 40px;
   }
 
-  /* a linha de cima fica parada: desfazer, refazer, o Imagem e o Pronto (o zoom é a pinça dos dedos) */
-  .vista-botoes {
-    order: -1;
-    width: 100%;
-    justify-content: space-between;
+  .barra {
     gap: 8px;
+    padding: 3px 8px;
   }
 
-  .grupo-zoom,
-  .grupo-grades {
-    display: none;
+  .barra-acoes .tecla {
+    width: 40px;
+    height: 40px;
   }
 
-  /* as opções da ferramenta rolam de lado, embaixo dela */
-  .opcoes {
-    width: 100%;
-    min-width: 0;
-    overflow-x: auto;
+  /* as opções da ferramenta rolam de lado; o nome dela vira só o desenho */
+  .contexto {
+    gap: 16px;
+    min-height: 48px;
+    padding: 2px 10px;
     scrollbar-width: none;
   }
 
-  .dicas {
-    display: none;
+  .ferr-atual {
+    padding-right: 12px;
+  }
+
+  /* (fica para o leitor de tela) */
+  .ferr-atual-nome {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .opcoes {
+    overflow: visible;
   }
 
   .ferramentas {
