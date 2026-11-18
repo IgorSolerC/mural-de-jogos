@@ -145,14 +145,27 @@ describe('Duas anotações lado a lado (ReviewReader, PLANO-DUAS-NOTAS.md)', () 
     expect(beside()).toBeNull();
   });
 
-  it('o X da segunda fecha as duas (o pedido: fechar uma fecha a outra)', async () => {
+  it('o X da segunda fecha só ela: a primeira fica, com o foco no nome (pedido do dono, 18/nov)', async () => {
     await both();
     // o X diz o que faz, nas duas
-    expect(beside()!.querySelector('.faixa-nome .fecha')!.getAttribute('aria-label')).toBe('Fechar as duas');
+    expect(beside()!.querySelector('.faixa-nome .fecha')!.getAttribute('aria-label')).toBe('Fechar só esta');
     expect(outer().querySelector(':scope > .par .faixa-nome .fecha')!.getAttribute('title')).toBe('Fechar as duas');
     await click('.faixa-nome .fecha', beside()!);
-    expect(outer().open).toBeFalse();
     expect(beside()).toBeNull();
+    expect(outer().open).toBeTrue();
+    expect(outer().classList).not.toContain('dupla');
+    expect(nameOf(outer())).toBe('Receita de pão');
+    expect(document.activeElement?.id).toBe('leitura-titulo');
+    // e o "+" volta, para abrir outra
+    expect(outer().querySelector(':scope > .par .orelha.abrir-ao-lado')).not.toBeNull();
+    expect(outer().querySelector(':scope > .par .faixa-nome .fecha')!.getAttribute('aria-label')).toBe('Fechar');
+  });
+
+  it('um caminho para fora da leitura, na segunda, fecha as duas', async () => {
+    await both();
+    (reader as unknown as { ladoB(): { close(): void } }).ladoB()!.close();
+    await settle();
+    expect(outer().open).toBeFalse();
   });
 
   describe('com a conta aberta (os comentários)', () => {

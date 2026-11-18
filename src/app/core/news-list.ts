@@ -33,7 +33,7 @@ export const NEWS: NewsEntry[] = [
     date: '2026-11-18',
     title: 'Duas anotações lado a lado',
     items: [
-      'Com uma anotação aberta, o "+ Abrir ao lado" na beirada da direita abre o Escolher a nota, e a escolhida abre à direita da primeira, as duas inteiras, para ler e marcar uma olhando a outra (também no mural de quem você visita). Editar, fechar, ver só a cartolina ou ler em tela cheia uma delas fecha a outra; a que fica continua no trecho onde você estava. No computador, onde cabem as duas.',
+      'Com uma anotação aberta, o "+ Abrir ao lado" na beirada da direita abre o Escolher a nota, e a escolhida abre à direita da primeira, as duas inteiras, para ler e marcar uma olhando a outra (também no mural de quem você visita). O X da segunda fecha só ela; Editar, o X da primeira, ver só a cartolina ou ler em tela cheia fecham a outra, e a que fica continua no trecho onde você estava. No computador, onde cabem as duas.',
     ],
     notice: 'Novo: duas anotações lado a lado. Abra uma e toque no "+ Abrir ao lado" da direita.',
     until: '2026-12-02',

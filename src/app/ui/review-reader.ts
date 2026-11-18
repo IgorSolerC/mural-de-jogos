@@ -232,9 +232,10 @@ interface AlonePlea {
               }
             </div>
             @if (!solta()) {
-              <!-- com duas abertas, o X fecha as duas (o pedido): ele diz -->
-              @let duas = aoLado() || !!segunda();
-              <button type="button" class="icon-btn fecha" (click)="close()" [attr.aria-label]="duas ? 'Fechar as duas' : 'Fechar'" [attr.title]="duas ? 'Fechar as duas' : null">
+              <!-- com duas abertas, o X diz o que faz: o da primeira fecha as duas; o da segunda, só ela (pedido do
+                   dono, 18/nov), e a primeira fica -->
+              @let rotulo = aoLado() ? 'Fechar só esta' : segunda() ? 'Fechar as duas' : 'Fechar';
+              <button type="button" class="icon-btn fecha" (click)="aoLado() ? leave() : close()" [attr.aria-label]="rotulo" [attr.title]="aoLado() || segunda() ? rotulo : null">
                 <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
               </button>
             }
@@ -754,9 +755,9 @@ export class ReviewReader {
    * aberto sem ser modal, no fluxo do de fora). O que ela faz que é da página passa pela de fora.
    */
   readonly aoLado = input(false);
-  /** (Ao lado) Fechou: a leitura inteira fecha, as duas (o X, um caminho para fora da leitura). */
+  /** (Ao lado) A leitura inteira fecha, as duas (um caminho para fora dela: o quadro, a pasta, o perfil). */
   readonly closeAll = output<void>();
-  /** (Ao lado) Só ela sai (finalizada, saiu do mural, a pessoa saiu da compartilhada): a primeira fica. */
+  /** (Ao lado) Só ela sai (o X dela, finalizada, saiu do mural, a pessoa saiu da compartilhada): a primeira fica. */
   readonly left = output<void>();
   /** (Ao lado) Pediu a leitura inteira: ela fica sozinha, no lugar da primeira. */
   readonly alone = output<AlonePlea>();
@@ -1972,7 +1973,7 @@ export class ReviewReader {
     afterNextRender(() => this.dialog().nativeElement.querySelector<HTMLElement>('#leitura-titulo')?.focus({ preventScroll: true }), { injector: this.injector });
   }
 
-  /** Esta anotação sai da leitura sem fechar a outra (a segunda), ou fecha a leitura (a primeira, sozinha). */
+  /** Esta anotação sai da leitura sem fechar a outra (a segunda: o X dela, finalizada), ou fecha a leitura (a primeira). */
   protected leave(): void {
     if (this.aoLado()) this.left.emit();
     else this.close();
@@ -2031,7 +2032,7 @@ export class ReviewReader {
   });
 
   close(): void {
-    // a segunda anotação não fecha sozinha: fechar uma fecha as duas (PLANO-DUAS-NOTAS.md, D5)
+    // da segunda, o caminho para fora da leitura fecha as duas (o X dela fecha só ela: `leave`, PLANO-DUAS-NOTAS.md, D5)
     if (this.aoLado()) return this.closeAll.emit();
     const el = this.dialog().nativeElement;
     if (!el.open) return;

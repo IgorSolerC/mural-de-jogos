@@ -44,8 +44,9 @@ Impeccable no começo e no fim; `/code-review high` no final.
   a largura por igual (nunca mais largas que a leitura de hoje). A da direita chega puxada de trás da primeira, como a
   folha de comentários (`puxa-folha`; sem, com o movimento reduzido). As orelhas da direita (Comentários e o "+") saem
   enquanto há duas: o lugar delas é o da outra ficha. O foco vai para o nome da que abriu.
-- **D5. O que fecha a outra** (o pedido): Editar (de qualquer uma) fecha as duas e abre o editor naquela; o X fecha
-  as duas (o Esc e o toque no fundo também, como hoje); "Ver só a cartolina" ou "Ler em tela cheia" numa delas fecha a
+- **D5. O que fecha a outra** (o pedido): Editar (de qualquer uma) fecha as duas e abre o editor naquela; o X
+  da primeira fecha as duas (o Esc e o toque no fundo também, como hoje), e o da segunda fecha só ela (pedido do dono
+  depois de ver pronto, 18/nov: a primeira fica); "Ver só a cartolina" ou "Ler em tela cheia" numa delas fecha a
   outra, e ela fica sozinha naquele jeito, no mesmo trecho onde se lia. Abrir os comentários (a orelha não está, mas o
   "Comentar" e o "Citar" sim) também: a folha de comentários precisa do lado direito. O que sai da leitura (o quadro
   do Kanban, a pasta, o dia do Calendário, o perfil, o Apagar) fecha as duas, como hoje.
