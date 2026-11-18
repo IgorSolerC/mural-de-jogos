@@ -396,8 +396,9 @@ export class SharedStore implements SharedSink {
       const e = this.entries().get(id);
       if (!e) continue;
       // (noutro grupo, a pasta de antes não vale: ela é do grupo de onde a anotação saiu)
-      const { folder: _f, ...moved } = outOfGroupPlace(e, category);
-      const pessoal = keepFolder ? outOfGroupPlace(e, category) : moved;
+      const place = outOfGroupPlace(e, category);
+      const { folder: _f, ...moved } = place;
+      const pessoal = keepFolder ? place : moved;
       this.setPlace(id, pessoal);
       this.put({ ...e, pessoal });
     }

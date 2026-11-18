@@ -815,6 +815,15 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
       void bia;
     });
 
+    it('a daqui igual à compartilhada de outra pessoa é a mesma anotação: entra no lugar dela, sem uma cópia', async () => {
+      await sharedNote('da Ana');
+      const outra = person('bia');
+      outra.store.add(note('nota-1', 'da Ana'));
+      TestBed.tick();
+      await sync(outra);
+      expect(outra.store.reviews().filter((r) => r.text === 'da Ana').map((r) => r.id)).toEqual(['nota-1']);
+    });
+
     it('a anotação que a editora sobe no grupo de outra pessoa continua uma só (não ganha outro id nem sobe de novo, sem fim)', async () => {
       // o caso de 17/nov: a Bruna (editora) pôs uma anotação no grupo do dono, e ela se copiava sem parar no mural dele
       cloud.groupOwners.set('gJapones001', USERS['ana'].id);

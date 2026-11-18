@@ -1774,7 +1774,8 @@ export class ReviewEditor {
     const e = this.editing() ? this.shared.get(this.id()) : null;
     // o dono do grupo muda o grupo dela daqui (ver `SharedGroupsStore.moveNote`)
     if (!e?.grupo || this.sharedGroups.movesNotesOf(e.grupo)) return null;
-    return this.sharedGroups.names().get(e.grupo) ?? null;
+    // (com os grupos ainda chegando, o nome que a anotação mostra: o grupo continua preso)
+    return this.sharedGroups.names().get(e.grupo) ?? e.view?.category ?? 'compartilhado';
   });
 
   /** Guarda só o nome e a capa, fora do mural, para terminar a resenha depois. */

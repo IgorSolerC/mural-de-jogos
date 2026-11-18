@@ -236,7 +236,8 @@ describe('grupos compartilhados: o serviço (core/shared-groups-store.ts)', () =
       put(groups, { papel: 'gestor' });
       inGroup('gTrabalho001');
       expect(groups.movesNotesOf('gTrabalho001')).toBeFalse();
-      await groups.moveNote('n-um0001', 'Pessoal');
+      // (diz por quê, para o editor avisar, em vez de voltar calado)
+      await expectAsync(groups.moveNote('n-um0001', 'Pessoal')).toBeRejectedWith(jasmine.objectContaining({ code: 'so-dono' }));
       expect(shared.moveToGroup).not.toHaveBeenCalled();
     });
   });
@@ -281,6 +282,34 @@ describe('grupos compartilhados: o serviço (core/shared-groups-store.ts)', () =
       replies['GET /v1/eu/grupos'] = { grupos: [{ id: g.id, versao: g.versao }] };
       await groups.sync();
       expect(shared.share).toHaveBeenCalledTimes(2);
+    });
+
+    it('a que a nuvem recusa de vez não segura as outras, e só tenta de novo quando ela muda', async () => {
+      const { groups, shared, replies } = start();
+      const g = japones();
+      groups.entries.set(new Map([[g.id, g]]));
+      TestBed.tick();
+      store.add(note('n-grande1', 'Japones', agora()));
+      store.add(note('n-nova01', 'Japones', agora()));
+      TestBed.tick();
+      shared.share.and.callFake(async (r: Review) => {
+        if (r.id === 'n-grande1') throw new CloudError('A anotação é grande demais.', 'grande-demais', 413);
+        return {} as SharedEntry;
+      });
+      await groups.adopt();
+      expect(shared.share.calls.allArgs().map(([r]) => (r as Review).id).sort()).toEqual(['n-grande1', 'n-nova01']);
+      expect(groups.error()?.mensagem).toBe('A anotação é grande demais.');
+      // a conferida de cada minuto não pede de novo a recusada (nem a que já foi)
+      shared.share.calls.reset();
+      entries.set(new Map([['n-nova01', { id: 'n-nova01', papel: 'editor', grupo: g.id } as unknown as SharedEntry]]));
+      replies['GET /v1/eu/grupos'] = { grupos: [{ id: g.id, versao: g.versao }] };
+      await groups.sync();
+      expect(shared.share).not.toHaveBeenCalled();
+      // mudou (encurtada): tenta de novo
+      store.update({ ...store.get('n-grande1')!, text: 'curta', updatedAt: new Date(Date.now() + 60_000).toISOString() });
+      TestBed.tick();
+      await groups.adopt();
+      expect(shared.share).toHaveBeenCalledOnceWith(jasmine.objectContaining({ id: 'n-grande1' }), [], g.id);
     });
 
     it('a que ainda não subiu continua a caminho do grupo ao abrir o site de novo', async () => {

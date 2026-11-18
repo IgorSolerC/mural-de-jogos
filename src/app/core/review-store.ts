@@ -834,7 +834,7 @@ export class ReviewStore {
    * Uma anotação do próprio mural com o mesmo id de uma compartilhada passa a ser a compartilhada: ela
    * foi compartilhada em outro aparelho (a daqui sai do mural, marcada como apagada para os outros
    * aparelhos fazerem o mesmo; se dizia outra coisa e é mais nova, fica guardada). `foreign`: as de
-   * outros donos; uma anotação daqui com o id de uma delas (vinda do backup de outra pessoa) ganha um id
+   * outros donos; uma anotação daqui com o id de uma delas (vinda do backup de outra pessoa) e que diz outra coisa ganha um id
    * novo, para as duas não se misturarem.
    */
   setShared(list: readonly Review[], foreign: ReadonlySet<string> = new Set()): void {
@@ -848,7 +848,8 @@ export class ReviewStore {
     for (const r of this.reviews()) {
       if (before.has(r.id)) continue;
       if (!next.has(r.id)) own.push(r);
-      else if (foreign.has(r.id)) {
+      // (igual à compartilhada, ela é a mesma anotação: entra no lugar dela, sem uma cópia que iria para o grupo)
+      else if (foreign.has(r.id) && !sameContent(withoutRank(r), withoutRank(next.get(r.id)!))) {
         renamed.push({ ...r, id: newId(), updatedAt: new Date().toISOString() });
         renamedFrom.push(r);
       } else absorbed.push(r);

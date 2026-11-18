@@ -139,6 +139,8 @@ export class SharedGroupsStore {
    * esperando para subir): a base da junção quando outra pessoa gravou antes.
    */
   private readonly bases = new Map<string, SharedGroup['dados']>();
+  /** As anotações que a nuvem recusou de vez ao levá-las para um grupo (id → `refusalKey`): ver `adopt`. */
+  private readonly refused = new Map<string, string>();
   private pushTimer: ReturnType<typeof setTimeout> | undefined;
 
   /**
@@ -651,6 +653,8 @@ export class SharedGroupsStore {
     const queue = this.pending();
     if (!queue.length) return;
     const tried = new Set(queue.map((q) => q.note.id));
+    // cada anotação vai por conta própria: a que a nuvem não levou não segura as outras
+    let failed: { grupo: string; mensagem: string } | null = null;
     try {
       for (let i = 0; i < queue.length; i++) {
         const { note, grupo } = queue[i]!;
@@ -658,21 +662,26 @@ export class SharedGroupsStore {
         const entry = this.shared.get(note.id);
         const now = this.store.get(note.id);
         if (!now || this.ofCategory(now.category)?.id !== grupo) continue;
-        // num grupo público, a privada fica pública, fora do Feed (o editor pergunta antes; os outros caminhos
-        // chegam aqui sem perguntar, e a nuvem já a mostraria pelo grupo: o que ela diz tem de bater)
-        const g = this.entries().get(grupo);
-        // (a daqui muda antes de subir: o envio compara com ela, e a privada voltaria por cima)
-        if (g?.publico && now.private) this.store.update(withAudience(now, 'visivel', new Date().toISOString()));
-        const ready = this.store.get(note.id) ?? now;
-        if (entry) await this.shared.moveToGroup(note.id, grupo);
-        else await this.shared.share(ready, [], grupo);
+        try {
+          // num grupo público, a privada fica pública, fora do Feed (o editor pergunta antes; os outros caminhos
+          // chegam aqui sem perguntar, e a nuvem já a mostraria pelo grupo: o que ela diz tem de bater)
+          const g = this.entries().get(grupo);
+          // (a daqui muda antes de subir: o envio compara com ela, e a privada voltaria por cima)
+          if (g?.publico && now.private) this.store.update(withAudience(now, 'visivel', new Date().toISOString()));
+          const ready = this.store.get(note.id) ?? now;
+          if (entry) await this.shared.moveToGroup(note.id, grupo);
+          else await this.shared.share(ready, [], grupo);
+          this.refused.delete(note.id);
+        } catch (err) {
+          // a recusa que não muda sozinha (o grupo cheio, quem virou leitor, a anotação grande demais) não é pedida
+          // de novo até a anotação ou o grupo mudarem; sem rede, a nuvem fora, a pressa e o conflito, sim
+          if (err instanceof CloudError && !passing(err)) this.refused.set(note.id, refusalKey(this.store.get(note.id) ?? now, this.entries().get(grupo)));
+          failed ??= { grupo, mensagem: err instanceof CloudError ? err.message : 'Não deu para levar as anotações para o grupo agora. Elas vão na próxima vez.' };
+        }
       }
-      this.error.set(null);
-    } catch (err) {
-      const grupo = this.moving()?.grupo ?? queue[0]!.grupo;
-      this.error.set({ grupo, mensagem: err instanceof CloudError ? err.message : 'Não deu para levar as anotações para o grupo agora. Elas vão na próxima vez.' });
     } finally {
       this.moving.set(null);
+      this.error.set(failed);
     }
     // o que entrou enquanto isso (cada anotação uma vez por rodada: a que a nuvem não levou espera a próxima)
     if (!this.error() && this.pending().some((q) => !tried.has(q.note.id))) void this.adopt();
@@ -690,6 +699,8 @@ export class SharedGroupsStore {
       // já está nele; ou é de outra pessoa (só quem é dono da anotação a põe num grupo)
       if (e && (e.grupo === g.id || e.papel !== 'dono')) continue;
       if (e?.grupo) continue;
+      // a que a nuvem recusou de vez, enquanto nem ela nem o grupo mudam
+      if (this.refused.get(n.id) === refusalKey(n, g)) continue;
       out.push({ note: n, grupo: g.id });
     }
     return out;
@@ -729,7 +740,8 @@ export class SharedGroupsStore {
    */
   async moveNote(noteId: string, category: string | null): Promise<void> {
     const e = this.shared.get(noteId);
-    if (!e?.grupo || !this.movesNotesOf(e.grupo)) return;
+    if (!e?.grupo) return;
+    if (!this.movesNotesOf(e.grupo)) throw new CloudError('Só o dono do grupo muda o grupo desta anotação.', 'so-dono', 403);
     const target = category ? this.ofCategory(category) : undefined;
     if (target?.id === e.grupo) return;
     if (target) {
@@ -818,4 +830,14 @@ export class SharedGroupsStore {
       /* sem espaço: fica na memória */
     }
   }
+}
+
+/** A falha que passa sozinha (sem rede, a nuvem fora, a pressa, outra pessoa gravando antes): tentar de novo vale. */
+function passing(err: CloudError): boolean {
+  return err.status === 0 || err.status === 408 || err.status === 429 || err.status >= 500 || (err.status === 409 && err.code === 'conflito');
+}
+
+/** A anotação e o grupo como estavam quando a nuvem recusou levá-la: mudou um dos dois, ela tenta de novo. */
+function refusalKey(note: { updatedAt: string; category?: string | null }, group: SharedGroup | undefined): string {
+  return JSON.stringify([note.updatedAt, note.category ?? '', group?.id ?? '', group?.papel ?? '', group?.versao ?? 0]);
 }

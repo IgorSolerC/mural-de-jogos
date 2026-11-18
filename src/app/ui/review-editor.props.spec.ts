@@ -8,6 +8,7 @@ import { Review, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { SharedStore } from '../core/shared-store';
+import { SharedGroupsStore } from '../core/shared-groups-store';
 import { Confirm } from './confirm';
 import { ReviewEditor } from './review-editor';
 import { comMarkdown } from '../testing/writing-mode.spec';
@@ -640,6 +641,42 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
       await saveAndClose();
       expect(cardOf().importance).toBe('importante');
       expect(store.get('nabre001')).toBe(before);
+    });
+  });
+
+  describe('a de um grupo compartilhado (17/nov)', () => {
+    /** "nagrupo1" está no grupo compartilhado Trabalho; `owner`: quem está aqui é o dono do grupo. */
+    const inSharedGroup = (owner: boolean) => {
+      store.add(note('nagrupo1', { category: 'Trabalho' }));
+      store.add(note('naoutra1', { category: 'Estudos' }));
+      const shared = TestBed.inject(SharedStore);
+      const real = shared.get.bind(shared);
+      spyOn(shared, 'get').and.callFake((id: string) => (id === 'nagrupo1' ? ({ id, grupo: 'gTrabalho001', papel: 'dono' } as never) : real(id)));
+      const groups = TestBed.inject(SharedGroupsStore);
+      spyOn(groups, 'names').and.returnValue(new Map([['gTrabalho001', 'Trabalho']]));
+      spyOn(groups, 'movesNotesOf').and.returnValue(owner);
+      return spyOn(groups, 'moveNote').and.resolveTo(undefined);
+    };
+
+    it('o dono do grupo troca o grupo dela: a nuvem a leva (moveNote) com o grupo escolhido', async () => {
+      const move = inSharedGroup(true);
+      await edit(store.get('nagrupo1')!);
+      const p = await openPart('grupo');
+      expect(p.querySelector('.grupo-preso')).toBeNull();
+      Array.from(p.querySelectorAll<HTMLButtonElement>('.op')).find((b) => b.textContent!.includes('Estudos'))!.click();
+      await fixture.whenStable();
+      await saveAndClose();
+      expect(move).toHaveBeenCalledOnceWith('nagrupo1', 'Estudos');
+    });
+
+    it('quem não é o dono do grupo: o grupo fica preso, e salvar não muda o grupo', async () => {
+      const move = inSharedGroup(false);
+      await edit(store.get('nagrupo1')!);
+      const p = await openPart('grupo');
+      expect(p.querySelector('.grupo-preso')!.textContent).toContain('só pelo dono dele');
+      expect(p.querySelector('app-group-picker')).toBeNull();
+      await saveAndClose();
+      expect(move).not.toHaveBeenCalled();
     });
   });
 
