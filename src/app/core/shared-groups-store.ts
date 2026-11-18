@@ -738,9 +738,10 @@ export class SharedGroupsStore {
       const e = this.shared.get(n.id);
       // já está nele; ou é de outra pessoa (só quem é dono da anotação a põe num grupo)
       if (e && (e.grupo === g.id || e.papel !== 'dono')) continue;
-      // a que saiu de um grupo (o dono a tirou) e espera voltar a ser comum: não volta sozinha para um grupo,
-      // mesmo com o lugar ainda no nome dele (a volta a comum é que a deixa no grupo escolhido)
-      if (e && !e.grupo && e.criadoPor) continue;
+      // a que saiu de um grupo (o dono a tirou) sem ninguém e espera voltar a ser comum: não volta sozinha para um
+      // grupo, mesmo com o lugar ainda no nome dele (a volta a comum é que a deixa no grupo escolhido). Com gente
+      // nela, ela é uma compartilhada solta como as outras, e vai para o grupo em que a pessoa a puser
+      if (e && !e.grupo && e.criadoPor && !e.membros.length) continue;
       if (e?.grupo) continue;
       // a que a nuvem recusou de vez, enquanto nem ela nem o grupo mudam
       if (this.refused.get(n.id) === refusalKey(n, g)) continue;

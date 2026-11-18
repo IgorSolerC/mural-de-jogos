@@ -673,6 +673,59 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
       expect(ana.store.get('nota-b')!.category).toBe('Japones');
     });
 
+    it('a de três (com quem estava nela antes do grupo) sai do grupo e vai para outro: continua com quem estava, e vai', async () => {
+      cloud.group('gJapones0001', 'ana', { bia: 'editor' });
+      cloud.group('gEstudos0001', 'ana', {});
+      const ana = person('ana');
+      const bia = person('bia');
+      const cris = person('cris');
+      const all: [Person, Who][] = [[ana, 'ana'], [bia, 'bia'], [cris, 'cris']];
+      await rounds(all, 1);
+      bia.store.add(note('nota-b', 'de três', now()));
+      TestBed.tick();
+      await bia.shared.share(bia.store.get('nota-b')!, [{ codigo: USERS['cris'].codigo, papel: 'editor' }]);
+      TestBed.tick();
+      bia.edit('nota-b', { category: 'Japones' });
+      await rounds(all, 3);
+      expect(cloud.notes.get('nota-b')?.grupo).toBe('gJapones0001');
+      // a Ana a tira do Japones: a Cris continua nela (estava antes do grupo), e ela fica solta, da Ana
+      await ana.groups.moveNote('nota-b', 'Pessoal');
+      await rounds(all, 3);
+      expect(cloud.notes.get('nota-b')?.grupo).toBeUndefined();
+      expect(copies(cris, 'de três')).toEqual(['nota-b']);
+      // e a põe no Estudos, outro grupo dela: vai
+      ana.edit('nota-b', { category: 'Estudos' });
+      await rounds(all, 3);
+      expect(cloud.notes.get('nota-b')?.grupo).toBe('gEstudos0001');
+      expect(cloud.notes.size).toBe(1);
+      for (const p of [ana, cris]) expect(copies(p, 'de três')).toEqual(['nota-b']);
+      expect(copies(bia, 'de três')).toEqual([]);
+    });
+
+    it('o "· Dona" que aparece (uma sua de mesmo nome chega de outro aparelho): a que ia para o grupo vai junto, e as suas ficam', async () => {
+      cloud.group('gJapones0001', 'ana', { bia: 'editor' });
+      const ana = person('ana');
+      const bia = person('bia');
+      await rounds([[ana, 'ana'], [bia, 'bia']], 1);
+      expect(bia.groups.names().get('gJapones0001')).toBe('Japones');
+      cloud.offline = true;
+      bia.store.add(note('nota-g', 'ia para o grupo', { category: 'Japones', ...now() }));
+      TestBed.tick();
+      await bia.groups.adopt();
+      // uma sua de antes, do grupo seu Japones, chega de outro aparelho (a sincronização do mural)
+      bia.store.add(note('nota-s', 'minha de antes', { category: 'Japones', updatedAt: '2026-10-01T10:00:00.000Z' }));
+      TestBed.tick();
+      expect(bia.groups.names().get('gJapones0001')).toBe('Japones · Ana');
+      expect(bia.store.get('nota-g')!.category).toBe('Japones · Ana');
+      expect(bia.store.get('nota-s')!.category).toBe('Japones');
+      cloud.offline = false;
+      await rounds([[bia, 'bia'], [ana, 'ana']], 3);
+      expect(cloud.notes.size).toBe(1);
+      expect(copies(ana, 'ia para o grupo')).toEqual(['nota-g']);
+      expect(copies(ana, 'minha de antes')).toEqual([]);
+      expect(copies(bia, 'minha de antes')).toEqual(['nota-s']);
+    });
+
     it('quem perdeu o poder de escrever não leva a anotação: ela fica sua, num grupo seu, sem cópia; e vai quando ela a põe no grupo', async () => {
       cloud.group('gJapones0001', 'ana', { bia: 'editor' });
       const ana = person('ana');
