@@ -224,6 +224,8 @@ export class SharedStore implements SharedSink {
    * no mural: só a sincronização espera.
    */
   private readonly accountId = computed(() => (this.account.signedIn() ? (this.account.account()?.id ?? null) : null));
+  /** O código de quem está aqui (quem escreveu uma de grupo é você: ver `setShared` no efeito do mural). */
+  private readonly meCode = computed(() => (this.account.signedIn() ? (this.account.account()?.codigo ?? null) : null));
   /** Sincroniza: com conta e com a nuvem ligada. */
   readonly active = computed(() => this.accountId() !== null && this.cloud.config() !== null);
   /** As anotações com conflito que quem está aqui resolve (o dono, os gestores e os editores). */
@@ -260,7 +262,7 @@ export class SharedStore implements SharedSink {
     effect(() => {
       const list = [...this.entries().values()];
       const names = this.groupNames();
-      const me = this.account.account()?.codigo ?? null;
+      const me = this.meCode();
       untracked(() =>
         this.store.setShared(
           list.map((e) => this.shown(e, names)),
@@ -389,11 +391,13 @@ export class SharedStore implements SharedSink {
    * Põe estas compartilhadas no grupo `category` do mural de quem está aqui (o dono parando de compartilhar
    * um grupo: elas ficam no grupo de mesmo nome, só dele).
    */
-  placeInGroup(ids: readonly string[], category: string): void {
+  placeInGroup(ids: readonly string[], category: string, keepFolder = true): void {
     for (const id of ids) {
       const e = this.entries().get(id);
       if (!e) continue;
-      const pessoal = outOfGroupPlace(e, category);
+      // (noutro grupo, a pasta de antes não vale: ela é do grupo de onde a anotação saiu)
+      const { folder: _f, ...moved } = outOfGroupPlace(e, category);
+      const pessoal = keepFolder ? outOfGroupPlace(e, category) : moved;
       this.setPlace(id, pessoal);
       this.put({ ...e, pessoal });
     }

@@ -114,7 +114,7 @@ import { Desk, type EditorPart, type EditorTab } from '../core/desk';
 import { canManage, canWrite, removalOf } from '../core/shared-notes';
 import { accessSummary, namesOf } from '../core/access';
 import { SharedGroupsStore } from '../core/shared-groups-store';
-import { CloudAccount } from '../core/cloud-account';
+import { CloudAccount, CloudError } from '../core/cloud-account';
 import { ShareSheet } from './share-sheet';
 import { MONTHS_LONG } from '../core/dates';
 import { KanbanStore } from '../core/kanban-store';
@@ -1660,9 +1660,18 @@ export class ReviewEditor {
       : born
         ? relinkAfterRename([...notes, born], born, name, now, others)
         : [];
+    // numa de grupo compartilhado, o dono do grupo muda o grupo dela pela nuvem (o grupo dela é o do documento)
+    const inGroup = prev ? this.shared.get(clean.id)?.grupo : null;
+    const fromGroup = inGroup ? (this.sharedGroups.names().get(inGroup) ?? null) : null;
+    const moveTo = inGroup && fromGroup !== null && this.sharedGroups.movesNotesOf(inGroup) && lookKey(clean.category ?? '') !== lookKey(fromGroup) ? (clean.category ?? null) : undefined;
     if (prev) this.store.update(clean, prev);
     else this.store.add(clean);
     for (const n of relinked) this.store.update(n);
+    if (moveTo !== undefined) {
+      this.sharedGroups.moveNote(clean.id, moveTo).catch((err: unknown) => {
+        this.toasts.show(err instanceof CloudError ? err.message : `Não deu para tirar “${name}” do grupo ${fromGroup} agora. Tente de novo.`);
+      });
+    }
     this.finishNote(clean.id, { isNew: !prev, relinked: relinked.length });
   }
 
@@ -1763,7 +1772,9 @@ export class ReviewEditor {
   /** O grupo compartilhado em que a anotação aberta já está (o Grupo dela não se troca aqui). */
   protected readonly lockedGroup = computed(() => {
     const e = this.editing() ? this.shared.get(this.id()) : null;
-    return e?.grupo ? (this.sharedGroups.names().get(e.grupo) ?? null) : null;
+    // o dono do grupo muda o grupo dela daqui (ver `SharedGroupsStore.moveNote`)
+    if (!e?.grupo || this.sharedGroups.movesNotesOf(e.grupo)) return null;
+    return this.sharedGroups.names().get(e.grupo) ?? null;
   });
 
   /** Guarda só o nome e a capa, fora do mural, para terminar a resenha depois. */

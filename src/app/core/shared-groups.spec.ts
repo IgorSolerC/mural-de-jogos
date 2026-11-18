@@ -122,7 +122,7 @@ describe('grupos compartilhados: o serviço (core/shared-groups-store.ts)', () =
       ],
     });
     store = TestBed.inject(ReviewStore);
-    return { groups: TestBed.inject(SharedGroupsStore), shared };
+    return { groups: TestBed.inject(SharedGroupsStore), shared, replies };
   }
 
   beforeEach(() => localStorage.clear());
@@ -201,6 +201,46 @@ describe('grupos compartilhados: o serviço (core/shared-groups-store.ts)', () =
     expect(groups.get(id)).toBeUndefined();
   });
 
+  describe('o dono do grupo muda o grupo de uma anotação dele pelo editor (17/nov)', () => {
+    const put = (groups: SharedGroupsStore, ...gs: Record<string, unknown>[]) => {
+      // (os grupos guardados da conta são lidos no primeiro tick, e passariam por cima)
+      TestBed.tick();
+      groups.entries.set(new Map(gs.map((x) => parseGroup(raw(x))!).map((g) => [g.id, g])));
+      TestBed.tick();
+    };
+    const inGroup = (grupo: string) => entries.set(new Map([['n-um0001', { id: 'n-um0001', papel: 'dono', grupo } as unknown as SharedEntry]]));
+
+    it('para fora: sai do grupo na nuvem e fica no grupo escolhido, só dele, sem a pasta do grupo', async () => {
+      const { groups, shared } = setup();
+      put(groups, { papel: 'dono', dono: EU });
+      inGroup('gTrabalho001');
+      expect(groups.movesNotesOf('gTrabalho001')).toBeTrue();
+      await groups.moveNote('n-um0001', 'Pessoal');
+      expect(shared.moveToGroup).toHaveBeenCalledOnceWith('n-um0001', null);
+      expect(shared.placeInGroup).toHaveBeenCalledOnceWith(['n-um0001'], 'Pessoal', false);
+    });
+
+    it('para outro grupo compartilhado em que escreve: vai para ele; o mesmo grupo, nada', async () => {
+      const { groups, shared } = setup();
+      put(groups, { papel: 'dono', dono: EU }, { id: 'gEstudos0001', papel: 'editor', dados: { nome: 'Estudos' } });
+      inGroup('gTrabalho001');
+      await groups.moveNote('n-um0001', 'Trabalho');
+      expect(shared.moveToGroup).not.toHaveBeenCalled();
+      await groups.moveNote('n-um0001', 'Estudos');
+      expect(shared.moveToGroup).toHaveBeenCalledOnceWith('n-um0001', 'gEstudos0001');
+      expect(shared.placeInGroup).not.toHaveBeenCalled();
+    });
+
+    it('o gestor e o editor não mudam (tirada do grupo, ela sairia do mural de quem tirou)', async () => {
+      const { groups, shared } = setup();
+      put(groups, { papel: 'gestor' });
+      inGroup('gTrabalho001');
+      expect(groups.movesNotesOf('gTrabalho001')).toBeFalse();
+      await groups.moveNote('n-um0001', 'Pessoal');
+      expect(shared.moveToGroup).not.toHaveBeenCalled();
+    });
+  });
+
   describe('o nome do grupo de outra pessoa com uma anotação nova nele (o conserto de 17/nov)', () => {
     const japones = () => parseGroup(raw({ id: 'gJapones0001', dados: { nome: 'Japones' } }))!;
     const agora = () => ({ updatedAt: new Date().toISOString() });
@@ -226,28 +266,8 @@ describe('grupos compartilhados: o serviço (core/shared-groups-store.ts)', () =
       expect(shared.share.calls.allArgs().map(([r, people, grupo]) => [(r as Review).id, people, grupo])).toEqual([['n-nova01', [], g.id]]);
     });
 
-    it('a rede de segurança: uma cópia igual da que já subiu para o grupo não sobe de novo sozinha (o laço de 17/nov)', async () => {
-      const { groups, shared } = start();
-      const g = japones();
-      groups.entries.set(new Map([[g.id, g]]));
-      TestBed.tick();
-      const same = { game: { name: '何 + の', coverUrl: null, source: 'manual' }, text: 'partículas', ...agora() };
-      store.add(note('n-nova01', 'Japones', same));
-      TestBed.tick();
-      await groups.adopt();
-      // a mesma anotação voltou com outro id (como fazia a troca de id do mural): fica, e não sobe
-      store.add(note('n-copia1', 'Japones', same));
-      TestBed.tick();
-      await groups.adopt();
-      // uma diferente sobe normalmente
-      store.add(note('n-outra1', 'Japones', agora()));
-      TestBed.tick();
-      await groups.adopt();
-      expect(shared.share.calls.allArgs().map(([r]) => (r as Review).id)).toEqual(['n-nova01', 'n-outra1']);
-    });
-
-    it('a que falhou ao subir tenta de novo na próxima vez', async () => {
-      const { groups, shared } = start();
+    it('a que falhou ao subir tenta de novo na próxima conferida da nuvem', async () => {
+      const { groups, shared, replies } = start();
       const g = japones();
       groups.entries.set(new Map([[g.id, g]]));
       TestBed.tick();
@@ -257,7 +277,9 @@ describe('grupos compartilhados: o serviço (core/shared-groups-store.ts)', () =
       await groups.adopt();
       expect(groups.error()).not.toBeNull();
       shared.share.and.resolveTo({} as SharedEntry);
-      await groups.adopt();
+      // a conferida de cada minuto tenta de novo, sem nada no mural mudar (a nuvem com o grupo igual)
+      replies['GET /v1/eu/grupos'] = { grupos: [{ id: g.id, versao: g.versao }] };
+      await groups.sync();
       expect(shared.share).toHaveBeenCalledTimes(2);
     });
 

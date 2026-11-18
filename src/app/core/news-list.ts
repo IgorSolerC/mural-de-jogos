@@ -37,7 +37,7 @@ export const NEWS: NewsEntry[] = [
     ],
   },
   {
-    id: '2026-11-17-copias-no-grupo',
+    id: '2026-11-17-grupo-da-anotacao',
     version: '1.48.1',
     kind: 'ajustes',
     date: '2026-11-17',
@@ -47,11 +47,13 @@ export const NEWS: NewsEntry[] = [
       'As pastas das Anotações também se marcam (Ctrl+clique, Shift+clique ou o Marcar do menu delas), junto com as anotações: arrastar uma marcada, ou o Mover para pasta da tira, leva as pastas, com tudo o que está dentro, e as anotações de uma vez, e soltar sobre outra anotação cria uma pasta com tudo. Marcando, dois toques abrem a pasta. O Copiar e o Editar valem também para as anotações de dentro das pastas marcadas, e o Apagar pergunta se as pastas saem com tudo ou se só se desfazem.',
       'Apagar um grupo (Configurações do mural › Grupos) pergunta o que fazer com o que está nele: deixar sem grupo, numa pasta "Grupo deletado: nome" com as pastas dele dentro; levar tudo para outro grupo em que você escreve (até um compartilhado de outra pessoa), até para dentro de uma pasta dele (ou uma nova), com o quadro do Kanban, os baralhos e os quadros livres; ou apagar tudo. A folha diz o que acontece em cada um, com os números.',
       'Num grupo compartilhado de outra pessoa, o botão virou Sair do grupo, que leva à parte Compartilhar.',
+      'Quem é dono de um grupo compartilhado muda o grupo de uma anotação dele pelo editor, como as outras: para outro grupo compartilhado em que escreve, ou para fora, só sua.',
     ],
     correcoes: [
       'Apagar um grupo compartilhado seu não fazia nada e dizia que ele tinha sido apagado: agora ele deixa de ser compartilhado (a folha avisa quem deixa de ver) e segue o destino escolhido.',
       'A anotação nova num grupo compartilhado de outra pessoa (criada no editor, no Kanban, em várias de uma vez ou pela API) fazia o grupo virar "Nome · Dona" no seu mural e ficava só sua: agora ela entra no grupo, e o nome não muda.',
       'A anotação que uma editora punha no grupo compartilhado de outra pessoa se copiava sem parar (a dela ganhava outro id ao ir para o grupo, e a cópia subia de novo): agora ela vai uma vez só, e continua a mesma no mural dela.',
+      'A anotação que não conseguia ir para um grupo compartilhado (sem internet, por exemplo) ficava fora dele até o mural mudar; agora vai na próxima conferida com a nuvem, em até um minuto.',
     ],
   },
   {

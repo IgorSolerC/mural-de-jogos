@@ -139,8 +139,6 @@ export class SharedGroupsStore {
    * esperando para subir): a base da junção quando outra pessoa gravou antes.
    */
   private readonly bases = new Map<string, SharedGroup['dados']>();
-  /** O que subiu para cada grupo nesta sessão (grupo, título e texto): a rede de segurança de `adopt`. */
-  private readonly uploaded = new Set<string>();
   private pushTimer: ReturnType<typeof setTimeout> | undefined;
 
   /**
@@ -532,6 +530,9 @@ export class SharedGroupsStore {
     if (!this.active()) return;
     if (this.running) return this.running;
     this.running = this.pull()
+      // o que ficou sem ir para o grupo (sem rede, a nuvem fora) vai na conferida: nada mais a chama de novo
+      // quando o mural não muda
+      .then(() => this.adopt())
       .catch(() => undefined)
       .finally(() => {
         this.running = null;
@@ -664,15 +665,7 @@ export class SharedGroupsStore {
         if (g?.publico && now.private) this.store.update(withAudience(now, 'visivel', new Date().toISOString()));
         const ready = this.store.get(note.id) ?? now;
         if (entry) await this.shared.moveToGroup(note.id, grupo);
-        else {
-          // a rede de segurança contra cópias sem fim: uma anotação igual (título e texto) a outra que já subiu
-          // para este grupo nesta sessão não sobe de novo sozinha (o conserto de 17/nov: a que voltava com outro
-          // id subia de novo a cada rodada). Só depois de a nuvem aceitar: a que falhou tenta de novo.
-          const twin = `${grupo}\n${ready.game.name}\n${ready.text}`;
-          if (this.uploaded.has(twin)) continue;
-          await this.shared.share(ready, [], grupo);
-          this.uploaded.add(twin);
-        }
+        else await this.shared.share(ready, [], grupo);
       }
       this.error.set(null);
     } catch (err) {
@@ -721,6 +714,32 @@ export class SharedGroupsStore {
     next.set(g.id, g);
     this.entries.set(next);
     this.persist();
+  }
+
+  /** Quem muda o grupo de uma anotação que está num grupo compartilhado: só o dono do grupo (ver `moveNote`). */
+  movesNotesOf(groupId: string | null | undefined): boolean {
+    return !!groupId && this.entries().get(groupId)?.papel === 'dono';
+  }
+
+  /**
+   * O dono do grupo compartilhado em que a anotação está a muda de grupo (pelo editor): para outro grupo
+   * compartilhado em que escreve (ela passa a ser do dono dele), ou para fora (`category` só sua, ou null: sem
+   * grupo), e ela continua dele, no grupo escolhido. Um gestor não: tirada do grupo, ela continua do dono do grupo
+   * e sairia do mural de quem a tirou.
+   */
+  async moveNote(noteId: string, category: string | null): Promise<void> {
+    const e = this.shared.get(noteId);
+    if (!e?.grupo || !this.movesNotesOf(e.grupo)) return;
+    const target = category ? this.ofCategory(category) : undefined;
+    if (target?.id === e.grupo) return;
+    if (target) {
+      if (!canWrite(target.papel)) throw new CloudError('Você pode ler esse grupo, mas não escrever nele.', 'so-leitura', 403);
+      await this.shared.moveToGroup(noteId, target.id);
+      return;
+    }
+    await this.shared.moveToGroup(noteId, null);
+    // fora do grupo, ela fica no grupo escolhido (a nuvem a deixa no de mesmo nome do de antes)
+    this.shared.placeInGroup([noteId], category ?? '', false);
   }
 
   private drop(id: string): void {
