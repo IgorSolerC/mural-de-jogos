@@ -434,6 +434,27 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     expect(go).toHaveBeenCalledWith(['/utilidades/calendario'], { queryParams: { vista: 'dia', dia: '2026-10-20' } });
   });
 
+  it('a pauta vai de uma beirada da folha à outra: nenhum vão em branco à direita das linhas', async () => {
+    const longo = 'Vamos supor que vou viajar e não quero ter que lidar com meus flashcards por um mês inteiro. '.repeat(4);
+    fixture.componentInstance.open(note('n-largo', 'Viagem', { text: `${longo}\n\nCurta.` }));
+    await settle();
+    const body = q('.body')!;
+    const text = q<HTMLElement>('.text[data-citavel]')!;
+    const pad = getComputedStyle(body);
+    // a largura de layout (a ficha aberta pode estar inclinada ou chegando, o que muda o retângulo na tela)
+    const folha = body.clientWidth - parseFloat(pad.paddingLeft) - parseFloat(pad.paddingRight);
+    // a pauta enche a largura que a folha dá (era 68ch, e sobrava um vão de ~150px à direita)
+    expect(getComputedStyle(text).maxWidth).toBe('none');
+    expect(text.offsetWidth).toBeCloseTo(folha, 0);
+    // e a linha comprida quebra perto da beirada, não antes: a letra mais à direita fica no último décimo
+    const linha = qa('.text .linha.paragrafo').find((e) => words(e).startsWith('Vamos'))!;
+    const range = document.createRange();
+    range.selectNodeContents(linha);
+    const caixa = text.getBoundingClientRect();
+    const maisLonge = Math.max(...[...range.getClientRects()].map((r) => r.right));
+    expect((caixa.right - maisLonge) / caixa.width).toBeLessThan(0.1);
+  });
+
   it('a pauta da leitura é mais clara que a do editor, o texto comum desce 5px na linha (o título não) e a caixinha da tarefa sobe 3px', async () => {
     fixture.componentInstance.open(note('n-mercado', 'Mercado', { text: 'Pão\n# Feira\n- Leite\n  Corpo do item\n  ## No corpo\n  - Neto\n---\n- [ ] Lavar o carro' }));
     await settle();

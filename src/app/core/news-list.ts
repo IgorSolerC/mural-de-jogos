@@ -27,6 +27,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-18-pauta-inteira',
+    version: '1.50.1',
+    kind: 'ajustes',
+    date: '2026-11-18',
+    title: 'O texto na folha inteira da anotação aberta',
+    melhorias: [
+      'Na anotação aberta, as linhas vão de uma beirada da folha à outra: o texto não para mais antes da direita, deixando um vão em branco, e cabe mais em cada linha.',
+    ],
+  },
+  {
     id: '2026-11-18-duas-anotacoes',
     version: '1.50.0',
     kind: 'funcionalidade',

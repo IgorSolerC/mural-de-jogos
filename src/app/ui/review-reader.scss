@@ -433,7 +433,8 @@ app-judge-label {
    ficava 8,6px acima da linha, longe dela e perto da de cima; assim ela assenta como o título, a 3,6px.
    A caixinha da tarefa (e o tique das feitas) sobe 3px, para ficar no meio das letras, não abaixo delas.
    A letra e a pauta são as da tela cheia (1,12rem em 1,76rem; no celular, 1,06rem em 1,66rem): a ficha
-   aberta também serve para ver muito de uma vez. */
+   aberta também serve para ver muito de uma vez. A pauta vai de uma beirada da folha à outra: o teto de
+   68ch deixava um vão em branco à direita de toda linha (o dono pediu o texto na folha inteira, 18/nov). */
 .text {
   --line: 1.76rem;
   --texto-desce: 5px;
@@ -443,7 +444,6 @@ app-judge-label {
   padding: 6px 8px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  max-width: 68ch;
   font-family: var(--f-hand);
   font-size: calc(1.12rem * var(--e-texto, 1));
   line-height: var(--line);
