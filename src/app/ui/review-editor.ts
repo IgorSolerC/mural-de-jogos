@@ -114,6 +114,7 @@ import { Desk, type EditorPart, type EditorTab } from '../core/desk';
 import { canManage, canWrite, removalOf } from '../core/shared-notes';
 import { accessSummary, namesOf } from '../core/access';
 import { SharedGroupsStore } from '../core/shared-groups-store';
+import type { SharedGroup } from '../core/shared-groups';
 import { CloudAccount, CloudError } from '../core/cloud-account';
 import { ShareSheet } from './share-sheet';
 import { MONTHS_LONG } from '../core/dates';
@@ -1668,11 +1669,13 @@ export class ReviewEditor {
       if (prev) this.store.update(clean, prev);
       else this.store.add(clean);
       for (const n of relinked) this.store.update(n);
-      this.finishNote(clean.id, { isNew: !prev, relinked: relinked.length });
     };
-    if (moveTo === undefined) return commit();
-    // para fora do grupo: quem está nele deixa de vê-la (e quem a escreveu também), então pergunta antes
-    if (!this.sharedGroups.ofCategory(moveTo) && !(await this.okOutOfSharedGroup(inGroup!, fromGroup!))) return;
+    if (moveTo === undefined) {
+      commit();
+      return this.finishNote(clean.id, { isNew: !prev, relinked: relinked.length });
+    }
+    // saindo do grupo (para fora ou para outro): quem está nele e não no novo deixa de vê-la, então pergunta antes
+    if (!(await this.okOutOfSharedGroup(inGroup!, fromGroup!, this.sharedGroups.ofCategory(moveTo)))) return;
     // o grupo muda na nuvem antes de tudo: recusado (sem rede, sem poder), nada muda aqui, nem o quadro, e o
     // editor continua aberto com a escolha
     if (this.movingGroup()) return;
@@ -1680,7 +1683,9 @@ export class ReviewEditor {
     this.sharedGroups.moveNote(clean.id, moveTo).then(
       () => {
         this.movingGroup.set(false);
-        if (this.editing()?.id === clean.id) commit();
+        // a edição vale mesmo com o editor fechado enquanto a nuvem respondia
+        commit();
+        if (this.editing()?.id === clean.id) this.finishNote(clean.id, { isNew: !prev, relinked: relinked.length });
       },
       (err: unknown) => {
         this.movingGroup.set(false);
@@ -1742,19 +1747,22 @@ export class ReviewEditor {
   }
 
   /**
-   * O dono tira a anotação do grupo compartilhado: quem está nele deixa de vê-la, até quem a escreveu (ela fica
-   * só dele). Voltar abre o Grupo.
+   * O dono tira a anotação do grupo compartilhado, para fora (`to` vazio: ela fica só dele) ou para outro grupo
+   * compartilhado: quem está no de agora e não no novo deixa de vê-la, até quem a escreveu. Voltar abre o Grupo.
    */
-  private async okOutOfSharedGroup(groupId: string, name: string): Promise<boolean> {
+  private async okOutOfSharedGroup(groupId: string, name: string, to?: SharedGroup): Promise<boolean> {
     const g = this.sharedGroups.get(groupId);
     const me = this.account.account()?.codigo ?? null;
-    const others = (g?.membros ?? []).filter((p) => p.codigo !== me).map((p) => p.nome);
-    if (!others.length) return true;
+    const staying = new Set(to ? [to.dono.codigo, ...to.membros.map((p) => p.codigo)] : []);
+    const leaving = (g?.membros ?? []).filter((p) => p.codigo !== me && !staying.has(p.codigo));
+    if (!leaving.length) return true;
+    const others = leaving.map((p) => p.nome);
     const author = this.shared.get(this.id())?.criadoPor;
-    const wrote = author && author.codigo !== me ? ` ${author.nome} escreveu esta anotação e também deixa de vê-la.` : '';
+    const wrote = author && leaving.some((p) => p.codigo === author.codigo) ? ` ${author.nome} escreveu esta anotação e também deixa de vê-la.` : '';
+    const where = to ? `No grupo ${this.noteCategory()}` : 'Fora do grupo, ela fica só sua';
     const ok = await this.confirm.ask({
       title: `Tirar do grupo ${name}?`,
-      text: `Fora do grupo, ela fica só sua: ${namesOf(others)} ${others.length > 1 ? 'deixam' : 'deixa'} de vê-la.${wrote}`,
+      text: `${where}: ${namesOf(others)} ${others.length > 1 ? 'deixam' : 'deixa'} de vê-la.${wrote}`,
       confirm: 'Salvar assim',
       cancel: 'Voltar',
       icon: null,

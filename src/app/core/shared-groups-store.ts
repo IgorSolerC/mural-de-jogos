@@ -767,6 +767,8 @@ export class SharedGroupsStore {
     await this.shared.moveToGroup(noteId, null);
     // fora do grupo, ela fica no grupo escolhido (a nuvem a deixa no de mesmo nome do de antes)
     this.shared.placeInGroup([noteId], category ?? '', false);
+    // e, sem ninguém nela, volta a ser uma anotação comum do seu mural, como ao parar de compartilhar o grupo
+    await this.shared.unshare(noteId);
   }
 
   private drop(id: string): void {

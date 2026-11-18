@@ -684,6 +684,49 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
       expect(store.get('nagrupo1')!.category).toBe('Trabalho');
     });
 
+    it('a edição vale mesmo com o editor fechado enquanto a nuvem leva a anotação para o outro grupo', async () => {
+      const move = inSharedGroup(true);
+      let done!: () => void;
+      move.and.returnValue(new Promise<void>((r) => (done = r)));
+      await edit(store.get('nagrupo1')!);
+      const p = await openPart('grupo');
+      Array.from(p.querySelectorAll<HTMLButtonElement>('.op')).find((b) => b.textContent!.includes('Estudos'))!.click();
+      await fixture.whenStable();
+      el.querySelector<HTMLButtonElement>('.pregar .btn-ink')!.click();
+      await new Promise((r) => setTimeout(r, 0));
+      // fechado antes de a nuvem responder (o editor abre outra anotação)
+      await edit(store.get('naoutra1')!);
+      done();
+      await new Promise((r) => setTimeout(r, 0));
+      await fixture.whenStable();
+      expect(store.get('nagrupo1')!.category).toBe('Estudos');
+    });
+
+    it('para outro grupo compartilhado: pergunta antes, dizendo quem do grupo de agora deixa de vê-la (e que escreveu)', async () => {
+      inSharedGroup(true);
+      const groups = TestBed.inject(SharedGroupsStore);
+      const person = (codigo: string, nome: string) => ({ codigo, nome, foto: null });
+      const trabalho = { id: 'gTrabalho001', dono: person('EU000001', 'Eu'), membros: [{ ...person('BRUNA001', 'Bruna'), papel: 'editor' }, { ...person('CRIS0001', 'Cris'), papel: 'leitor' }] };
+      const estudos = { id: 'gEstudos0001', papel: 'dono', dono: person('EU000001', 'Eu'), membros: [{ ...person('CRIS0001', 'Cris'), papel: 'editor' }] };
+      spyOn(groups, 'get').and.returnValue(trabalho as never);
+      spyOn(groups, 'ofCategory').and.callFake((c: string | null | undefined) => (c === 'Estudos' ? (estudos as never) : undefined));
+      const shared = TestBed.inject(SharedStore);
+      (shared.get as jasmine.Spy).and.callFake((id: string) => (id === 'nagrupo1' ? ({ id, grupo: 'gTrabalho001', papel: 'dono', criadoPor: person('BRUNA001', 'Bruna') } as never) : undefined));
+      // (o "Pôr no grupo Estudos?" vem antes: sim; o de tirar do de agora: Voltar)
+      const ask = spyOn(TestBed.inject(Confirm), 'ask').and.callFake(async (o) => !o.title?.startsWith('Tirar'));
+      await edit(store.get('nagrupo1')!);
+      const p = await openPart('grupo');
+      Array.from(p.querySelectorAll<HTMLButtonElement>('.op')).find((b) => b.textContent!.includes('Estudos'))!.click();
+      await fixture.whenStable();
+      el.querySelector<HTMLButtonElement>('.pregar .btn-ink')!.click();
+      await new Promise((r) => setTimeout(r, 0));
+      await fixture.whenStable();
+      const texts = ask.calls.allArgs().map(([o]) => o.text);
+      expect(texts.some((t) => t.includes('Bruna deixa de vê-la') && !t.includes('Cris') && t.includes('Bruna escreveu esta anotação'))).toBeTrue();
+      // Voltar: nada muda
+      expect(groups.moveNote).not.toHaveBeenCalled();
+    });
+
     it('quem não é o dono do grupo: o grupo fica preso, e salvar não muda o grupo', async () => {
       const move = inSharedGroup(false);
       await edit(store.get('nagrupo1')!);

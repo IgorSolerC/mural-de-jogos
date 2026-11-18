@@ -218,6 +218,8 @@ describe('grupos compartilhados: o serviço (core/shared-groups-store.ts)', () =
       await groups.moveNote('n-um0001', 'Pessoal');
       expect(shared.moveToGroup).toHaveBeenCalledOnceWith('n-um0001', null);
       expect(shared.placeInGroup).toHaveBeenCalledOnceWith(['n-um0001'], 'Pessoal', false);
+      // sem ninguém nela, volta a ser uma anotação comum (como ao parar de compartilhar o grupo)
+      expect(shared.unshare).toHaveBeenCalledOnceWith('n-um0001');
     });
 
     it('para outro grupo compartilhado em que escreve: vai para ele; o mesmo grupo, nada', async () => {
