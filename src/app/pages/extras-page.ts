@@ -1,311 +1,196 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { API_USAGE_PATH, PIXEL_ARTS_PATH, POMODORO_PATH } from '../core/areas';
-import { PomodoroStore } from '../core/pomodoro-store';
-import { CloudAccount } from '../core/cloud-account';
-import { Cloud } from '../core/cloud-config';
-import { Mural } from '../core/mural';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { LucideIconData } from 'lucide-angular';
+import { API_USAGE_PATH, PIXEL_ARTS_PATH, POMODORO_PATH } from '../core/areas';
+import { Clock } from '../core/clock';
+import { CloudAccount } from '../core/cloud-account';
+import { Cloud } from '../core/cloud-config';
+import { ColleagueStore } from '../core/colleague-store';
+import { todayISO } from '../core/dates';
+import { friendsPreview, knockoutPreview, muraldlePreview, podiumPreview, recordPreview, statsPreview } from '../core/extras-previews';
+import { getRecord, recordKey } from '../core/game-records';
+import { SCORED_KINDS } from '../core/kinds';
+import { loadKnockout } from '../core/knockout-save';
+import { Mural } from '../core/mural';
+import { loadDaily, loadStats } from '../core/muraldle-save';
+import { pixelArtOf } from '../core/pixel-gallery';
+import { PixelGallery } from '../core/pixel-gallery-store';
+import { ME, Players } from '../core/players';
+import { phaseMs, remainingMs } from '../core/pomodoro';
+import { PomodoroStore } from '../core/pomodoro-store';
+import { originalsOf } from '../core/review';
 import { ICON, IconModule } from '../ui/icons';
-import { Pin } from '../ui/pin';
+import { KindSwitcher } from '../ui/kind-switcher';
+import { PixelThumb } from '../ui/pixel-thumb';
+import { PlasticLetters } from '../ui/plastic-letters';
+import { PomodoroDial } from '../ui/pomodoro-dial';
 
-interface Entry {
-  path: string;
-  name: string;
-  blurb: string;
-  icon: LucideIconData;
-  stock: string;
-  pin: string;
-  /** O que vai na etiqueta preta do canto. */
-  go: string;
-}
-
-interface Shelf {
+/** Uma linha do letreiro: o nome em letras de plástico e, embaixo, como está. */
+interface Linha {
   id: string;
-  title: string;
-  entries: Entry[];
+  path: string;
+  nome: string;
+  icon: LucideIconData;
+  /** Como está, em poucas palavras ("hoje · 3 chutes"); também vai no nome do link. */
+  estado: string;
+  /** Amarelo: o que está esperando você hoje (o Muraldle de hoje, o torneio pela metade). */
+  tom: 'amarela' | 'rosa';
 }
 
-/**
- * O que mora em Extras, em prateleiras: os números do mural (Ranking e Comparar, que já eram
- * abas, e as Estatísticas), o Foco (o Pomodoro), o Criar (a galeria de pixel arts) e os jogos. Cada jogo novo (os quizzes) entra na segunda e joga com o mural escolhido em
- * `Players`, o seu ou o de um colega.
- */
-const SHELVES: Shelf[] = [
-  {
-    id: 'numeros',
-    title: 'Números',
-    entries: [
-      {
-        path: '/ranking',
-        name: 'Ranking',
-        blurb: 'O mural em ordem de nota, por média ou por categoria, com os totais.',
-        icon: ICON.barras,
-        stock: 'var(--stock-azul)',
-        pin: '#f4f4f0',
-        go: 'Ver',
-      },
-      {
-        path: '/comparar',
-        name: 'Comparar',
-        blurb: 'Escolha um amigo, ou digite o código de alguém, e veja onde vocês combinam e o que cada um recomenda.',
-        icon: ICON.pessoas,
-        stock: 'var(--stock-verde)',
-        pin: '#ffd23f',
-        go: 'Abrir',
-      },
-      {
-        path: '/extras/estatisticas',
-        name: 'Estatísticas',
-        blurb: 'Tudo o que o mural conta sobre você: notas, manias, recordes, a folhinha do ano e muito gráfico de papel.',
-        icon: ICON.pizza,
-        stock: 'var(--stock-laranja)',
-        pin: '#2f6bff',
-        go: 'Ver',
-      },
-    ],
-  },
-  {
-    id: 'foco',
-    title: 'Foco',
-    entries: [
-      {
-        path: POMODORO_PATH,
-        name: 'Pomodoro',
-        blurb: 'Estudo e pausa em turnos, com um relógio no canto da tela em qualquer página e música para concentrar.',
-        icon: ICON.cronometro,
-        stock: 'var(--stock-vermelho)',
-        pin: '#1fb65a',
-        go: 'Abrir',
-      },
-    ],
-  },
-  {
-    id: 'criar',
-    title: 'Criar',
-    entries: [
-      {
-        path: PIXEL_ARTS_PATH,
-        name: 'Pixel arts',
-        blurb: 'A galeria das suas pixel arts: desenhe no ateliê, guarde com nome, tags, descrição e pastas, e baixe em PNG.',
-        icon: ICON.pixelArt,
-        stock: 'var(--stock-verde)',
-        pin: '#e62e2d',
-        go: 'Abrir',
-      },
-    ],
-  },
-  {
-    id: 'jogos',
-    title: 'Jogos',
-    entries: [
-      {
-        path: '/extras/mata-mata',
-        name: 'Mata-mata',
-        blurb: 'As fichas duelam de duas em duas e você escolhe quem passa, até sobrar a favorita.',
-        icon: ICON.espadas,
-        stock: 'var(--stock-amarelo)',
-        pin: '#e62e2d',
-        go: 'Jogar',
-      },
-      {
-        path: '/extras/maior-ou-menor',
-        name: 'Maior ou menor',
-        blurb: 'Uma ficha com a nota à mostra, a próxima escondida: a dela é maior ou menor? Vale a sequência até errar.',
-        icon: ICON.maiorOuMenor,
-        stock: 'var(--stock-rosa)',
-        pin: '#2f6bff',
-        go: 'Jogar',
-      },
-      {
-        path: '/extras/muraldle',
-        name: 'Muraldle',
-        blurb: 'Uma ficha secreta por dia. Chute outras fichas e os quadradinhos dizem o que bate: nota, status, ano, cartolina…',
-        icon: ICON.quebraCabeca,
-        stock: 'var(--stock-lilas)',
-        pin: '#1fb65a',
-        go: 'Jogar',
-      },
-    ],
-  },
-];
+interface Letreiro {
+  id: string;
+  titulo: string;
+  linhas: Linha[];
+}
 
-/** A prateleira só da conta de admin: quem não é vê a página de sempre, sem diferença nenhuma. */
-const ADMIN_SHELF: Shelf = {
-  id: 'outros',
-  title: 'Outros',
-  entries: [
-    {
-      path: API_USAGE_PATH,
-      name: 'Uso das APIs',
-      blurb: 'Quanto cada serviço do Murall já gastou, quanto falta e o que falhou. Só você vê esta ficha.',
-      icon: ICON.ritmo,
-      stock: 'var(--stock-azul)',
-      pin: '#ffd23f',
-      go: 'Ver',
-    },
-  ],
-};
+const vezes = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
 
 /**
- * Extras: o Ranking, o Comparar, as Estatísticas e os jogos feitos com as fichas do mural (o seu ou o de um colega
- * carregado em Comparar). Cada um é uma ficha pregada no quadro.
+ * Extras (PLANO-EXTRAS.md): em cima, a prateleira "Sempre à mão" com o que serve para qualquer mural (o tomate do
+ * Pomodoro, o cavalete das Pixel arts e, só para a conta de admin, a prancheta do Uso das APIs); embaixo, o seletor
+ * de mural e os dois letreiros de feltro, Jogar e Números, com o estado de cada um. A página só lê: o que os jogos
+ * guardam, o mural aberto, os amigos abertos em Comparar, o Pomodoro e a galeria.
  */
 @Component({
   selector: 'app-extras-page',
-  imports: [IconModule, Pin, RouterLink],
+  imports: [IconModule, KindSwitcher, PixelThumb, PlasticLetters, PomodoroDial, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <!-- o mural e o logo ficam na barra embaixo do topo (ui/area-bar.ts); o que é Extras, aqui, escrito na parede -->
-    <h1 class="sr-only">Extras</h1>
-    <p class="nota">
-      Números e jogos com as fichas do seu mural de {{ mural.profile().plural }}. Os jogos também dá para jogar com o mural de
-      um colega aberto em <a routerLink="/comparar">Comparar</a>.
-    </p>
-
-    @for (shelf of shelves(); track shelf.id) {
-      <section class="prateleira-extras" [attr.aria-labelledby]="'extras-' + shelf.id">
-        <h2 class="tape-label" [id]="'extras-' + shelf.id">{{ shelf.title }}</h2>
-        <ul class="jogos" role="list">
-          @for (j of shelf.entries; track j.path; let i = $index) {
-            <li>
-              <a class="jogo cartolina" [routerLink]="j.path" [style.--stock]="j.stock" [style.--tilt]="i % 2 ? 1.2 : -1.4">
-                <app-pin class="pin" [color]="j.pin" />
-                <lucide-icon class="icone" [img]="j.icon" [size]="34" aria-hidden="true" />
-                <h3>{{ j.name }}</h3>
-                <p>{{ j.blurb }}</p>
-                @if (j.path === pomodoroPath && pomodoro.on()) {
-                  <span class="ligado">Ligado</span>
-                }
-                <span class="jogar" aria-hidden="true">{{ j.go }}</span>
-              </a>
-            </li>
-          }
-        </ul>
-      </section>
-    }
-  `,
-  styles: `
-    :host {
-      display: block;
-    }
-
-    /* O que é Extras, escrito à mão na parede */
-    .nota {
-      max-width: 78ch;
-      margin: 0 0 30px;
-      color: var(--wall-ink);
-      font-family: var(--f-hand);
-      font-size: 1.06rem;
-      line-height: 1.35;
-      text-wrap: pretty;
-
-      a {
-        color: inherit;
-        text-decoration-thickness: 2px;
-        text-underline-offset: 3px;
-      }
-    }
-
-    .prateleira-extras + .prateleira-extras {
-      margin-top: 56px;
-    }
-
-    .jogos {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
-      gap: 40px 32px;
-      margin: 0;
-      padding: 34px 0 0;
-      list-style: none;
-    }
-
-    .jogo {
-      position: relative;
-      display: grid;
-      gap: 8px;
-      min-height: 220px;
-      padding: 30px 24px 22px;
-      color: var(--ink);
-      text-decoration: none;
-      box-shadow: var(--shadow-card);
-      rotate: calc(var(--tilt, 0) * 1deg);
-      transition:
-        rotate var(--t-physical) var(--ease-physical),
-        translate var(--t-physical) var(--ease-physical),
-        box-shadow var(--t-ui) var(--ease-ui);
-
-      &:hover {
-        rotate: 0deg;
-        translate: 0 -3px;
-        box-shadow: var(--shadow-lift);
-      }
-
-      &:focus-visible {
-        outline: 3px solid var(--hi);
-        outline-offset: 5px;
-      }
-    }
-
-    .pin {
-      position: absolute;
-      top: -12px;
-      left: calc(50% - 13px);
-    }
-
-    .icone {
-      display: inline-flex;
-    }
-
-    h3 {
-      margin: 0;
-      font-family: var(--f-marker);
-      font-weight: 400;
-      font-size: 2rem;
-      line-height: 1;
-    }
-
-    p {
-      margin: 0;
-      font-family: var(--f-hand);
-      font-size: 1.1rem;
-      line-height: 1.3;
-    }
-
-    /* o Pomodoro ligado: o adesivo amarelo no canto, para quem esqueceu */
-    .ligado {
-      position: absolute;
-      top: 18px;
-      right: 16px;
-      padding: 5px 10px 4px;
-      background: var(--hi);
-      color: var(--ink);
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 0.8rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      rotate: 4deg;
-      box-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
-    }
-
-    .jogar {
-      justify-self: end;
-      align-self: end;
-      padding: 8px 16px 6px;
-      background: var(--ink);
-      color: var(--hi);
-      font-family: var(--f-marker);
-      font-size: 1.1rem;
-      rotate: -2deg;
-    }
-  `,
+  templateUrl: './extras-page.html',
+  styleUrl: './extras-page.scss',
 })
 export class ExtrasPage {
-  protected readonly mural = inject(Mural);
-  protected readonly pomodoro = inject(PomodoroStore);
-  protected readonly pomodoroPath = POMODORO_PATH;
+  private readonly mural = inject(Mural);
+  private readonly players = inject(Players);
+  private readonly colleagues = inject(ColleagueStore);
+  private readonly pomodoro = inject(PomodoroStore);
+  private readonly gallery = inject(PixelGallery);
   private readonly cloud = inject(Cloud);
   private readonly account = inject(CloudAccount);
-  protected readonly shelves = computed(() => (this.cloud.config() && this.account.signedIn() && this.account.account()?.admin ? [...SHELVES, ADMIN_SHELF] : SHELVES));
+  private readonly clock = inject(Clock);
+
+  protected readonly kinds = SCORED_KINDS;
+  protected readonly pomodoroPath = POMODORO_PATH;
+  protected readonly pixelArtsPath = PIXEL_ARTS_PATH;
+  protected readonly apiUsagePath = API_USAGE_PATH;
+  /**
+   * Os jogos guardam no navegador, fora dos sinais: a página relê quando outra aba grava (`storage`) e quando a aba
+   * volta a aparecer, e aí o dia também é relido (a página aberta de um dia para o outro).
+   */
+  private readonly reread = signal(0);
+
+  private readonly signedIn = computed(() => !!this.cloud.config() && this.account.signedIn());
+  /** A prancheta do Uso das APIs: só a conta de admin a vê (quem não é vê a página de sempre). */
+  protected readonly admin = computed(() => this.signedIn() && !!this.account.account()?.admin);
+
+  constructor() {
+    // o relógio do site anda quando o Pomodoro está ligado (o do canto da tela o usa): o tomate corre junto
+    const again = () => this.reread.update((n) => n + 1);
+    const visible = () => document.visibilityState === 'visible' && again();
+    window.addEventListener('storage', again);
+    document.addEventListener('visibilitychange', visible);
+    inject(DestroyRef).onDestroy(() => {
+      window.removeEventListener('storage', again);
+      document.removeEventListener('visibilitychange', visible);
+    });
+  }
+
+  protected readonly pomo = computed(() => {
+    const s = this.pomodoro.save();
+    const paused = s.on && s.pausedAt !== null;
+    const estado = !s.on ? 'desligado' : paused ? 'pausado' : s.phase === 'estudo' ? 'estudando' : 'na pausa';
+    return {
+      on: s.on,
+      paused,
+      phase: s.phase,
+      estado,
+      total: phaseMs(s),
+      ms: s.on ? remainingMs(s, this.clock.now()) : phaseMs(s, 'estudo'),
+    };
+  });
+
+  /** A obra mais nova no cavalete e as duas de antes encostadas na parede. */
+  protected readonly galeria = computed(() => {
+    const pieces = this.gallery.pieces();
+    const recentes = pieces.slice(-3).reverse().map(pixelArtOf);
+    return {
+      cavalete: recentes[0] ?? null,
+      encostadas: recentes.slice(1),
+      estado: pieces.length ? vezes(pieces.length, 'obra', 'obras') : 'nenhuma obra ainda',
+    };
+  });
+
+  private readonly jogos = computed<Linha[]>(() => {
+    this.reread();
+    const kind = this.mural.kind();
+    const pool = this.mural.reviews();
+    const slot = `${kind}|${ME}`;
+    const today = todayISO();
+
+    const m = muraldlePreview(pool, loadDaily(slot), loadStats(slot, today), today);
+    const muraldle =
+      m.state === 'pouco'
+        ? 'precisa de 3 fichas'
+        : m.state === 'novo'
+          ? 'a de hoje te espera'
+          : m.state === 'jogando'
+            ? `hoje · ${vezes(m.guesses, 'chute', 'chutes')}`
+            : m.state === 'acertou'
+              ? `acertou hoje em ${m.guesses}`
+              : 'hoje: desistiu';
+
+    const saved = loadKnockout(kind);
+    const owner = saved ? (this.players.byId(saved.owner)?.reviews ?? pool) : pool;
+    const names = new Map(owner.map((r) => [r.id, r.game.name]));
+    const k = knockoutPreview(pool, saved, (id) => names.get(id));
+    const mata =
+      k.state === 'pouco'
+        ? 'precisa de 2 fichas'
+        : k.state === 'nenhum'
+          ? 'comece um torneio'
+          : k.state === 'acabou'
+            ? k.champion
+              ? `campeã: ${k.champion}`
+              : 'torneio acabado'
+            : `${k.round ? k.round + ' · ' : ''}${k.duel} de ${k.total}`;
+
+    const r = recordPreview(kind, pool, (measure) => getRecord(recordKey('maior-ou-menor', kind, ME, measure)));
+    const maior = r.state === 'pouco' ? 'precisa de 2 fichas' : r.state === 'nenhum' ? 'sem recorde ainda' : `recorde ${r.best}`;
+
+    return [
+      { id: 'muraldle', path: '/extras/muraldle', nome: 'Muraldle', icon: ICON.quebraCabeca, estado: muraldle, tom: m.state === 'novo' || m.state === 'jogando' ? 'amarela' : 'rosa' },
+      { id: 'mata-mata', path: '/extras/mata-mata', nome: 'Mata-mata', icon: ICON.espadas, estado: mata, tom: k.state === 'jogando' ? 'amarela' : 'rosa' },
+      { id: 'maior-ou-menor', path: '/extras/maior-ou-menor', nome: 'Maior ou menor', icon: ICON.maiorOuMenor, estado: maior, tom: 'rosa' },
+    ];
+  });
+
+  private readonly numeros = computed<Linha[]>(() => {
+    const kind = this.mural.kind();
+    const p = this.mural.profile();
+    const reviews = this.mural.reviews();
+
+    const s = statsPreview(reviews);
+    const stats = s.count ? `${vezes(s.count, p.singular, p.plural)} · média ${s.mean}` : 'nada no mural ainda';
+
+    const [first] = podiumPreview(reviews);
+    const ranking = first ? `1º ${first.name} ${first.score}` : 'nada no mural ainda';
+
+    let comparar: string;
+    if (!this.signedIn()) comparar = 'entre na sua conta';
+    else {
+      const open = this.colleagues.colleagues().map((c) => ({ id: c.id, name: c.name, reviews: originalsOf(c.reviews.filter((x) => x.kind === kind)) }));
+      const [f] = friendsPreview(reviews, open, this.colleagues.selected()?.id ?? null);
+      comparar = !f ? 'escolha um amigo' : f.percent === null ? `${f.name} · nada em comum` : `${f.name} ${f.percent}%`;
+    }
+
+    return [
+      { id: 'estatisticas', path: '/extras/estatisticas', nome: 'Estatísticas', icon: ICON.pizza, estado: stats, tom: 'rosa' },
+      { id: 'ranking', path: '/ranking', nome: 'Ranking', icon: ICON.trofeu, estado: ranking, tom: 'rosa' },
+      { id: 'comparar', path: '/comparar', nome: 'Comparar', icon: ICON.pessoas, estado: comparar, tom: 'rosa' },
+    ];
+  });
+
+  protected readonly letreiros = computed<Letreiro[]>(() => [
+    { id: 'jogar', titulo: 'Jogar', linhas: this.jogos() },
+    { id: 'numeros', titulo: 'Números', linhas: this.numeros() },
+  ]);
 }

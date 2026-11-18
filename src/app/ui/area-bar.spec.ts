@@ -155,8 +155,10 @@ describe('o índice embaixo do topo', () => {
   });
 
   it('nos Extras, o mural (sem o de anotações) e a volta para Extras; no mural de um colega, nada', async () => {
+    // na própria página de Extras o seletor fica dentro dela (PLANO-EXTRAS.md): a barra traz só o logo
     await go('/extras');
-    expect(picker()).not.toBeNull();
+    expect(picker()).toBeNull();
+    expect(host.querySelector('app-extras-logo')).not.toBeNull();
     expect(host.querySelector('.volta')).toBeNull();
     // o que é Extras é escrito na própria página, não na barra
     expect(host.querySelector('.nota')).toBeNull();

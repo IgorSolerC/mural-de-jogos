@@ -1,0 +1,125 @@
+<!-- o logo de Extras fica na barra embaixo do topo (ui/area-bar.ts); o seletor de mural, aqui, em cima do que depende dele -->
+<h1 class="sr-only">Extras</h1>
+
+<!-- ===== A prateleira: o que serve para qualquer mural ===== -->
+<section class="mao" aria-labelledby="extras-mao">
+  <header class="mao-cab">
+    <h2 id="extras-mao" class="tape-label">Sempre à mão</h2>
+    <span class="mao-nota">servem para qualquer mural</span>
+  </header>
+
+  <div class="estante">
+    <div class="estante-coisas">
+      <div class="coluna">
+        @let p = pomo();
+        <a class="coisa coisa-tomate" [routerLink]="pomodoroPath" [attr.aria-label]="'Pomodoro: ' + p.estado">
+          <span class="em-pe">
+            <span class="sombra-chao" aria-hidden="true"></span>
+            <app-pomodoro-dial class="tomate" skin="tomate" [ms]="p.ms" [total]="p.total" [phase]="p.phase" [paused]="p.paused" [idle]="!p.on" />
+          </span>
+          <span class="tabua-mini" aria-hidden="true"></span>
+          <span class="dymo-fita" aria-hidden="true">Pomodoro · {{ p.estado }}</span>
+        </a>
+
+        @if (admin()) {
+          <a class="coisa coisa-prancheta" [routerLink]="apiUsagePath" aria-label="Uso das APIs: só você vê">
+            <span class="em-pe">
+              <span class="prancheta" aria-hidden="true">
+                <span class="prendedor"></span>
+                <span class="folha">
+                  <i style="--h: 40%"></i><i style="--h: 75%"></i><i style="--h: 55%"></i><i style="--h: 90%"></i><i style="--h: 30%"></i>
+                </span>
+              </span>
+            </span>
+            <span class="tabua-mini" aria-hidden="true"></span>
+            <span class="dymo-fita" aria-hidden="true">Uso das APIs · só você vê</span>
+          </a>
+        }
+      </div>
+
+      <div class="coluna">
+        @let g = galeria();
+        <a class="coisa coisa-arte" [routerLink]="pixelArtsPath" [attr.aria-label]="'Pixel arts: ' + g.estado">
+          <span class="em-pe">
+            <span class="encostadas" aria-hidden="true">
+              @if (g.encostadas[0]; as a) {
+                <span class="tela t-1"><app-pixel-thumb [art]="a" /></span>
+              }
+              @if (g.encostadas[1]; as a) {
+                <span class="tela t-2"><app-pixel-thumb [art]="a" /></span>
+              }
+            </span>
+            <span class="cavalete" aria-hidden="true">
+              <span class="perna p-tras"></span>
+              <span class="perna p-esq"></span>
+              <span class="perna p-dir"></span>
+              <span class="trave"></span>
+              <span class="tela t-grande" [class.em-branco]="!g.cavalete">
+                @if (g.cavalete; as a) {
+                  <app-pixel-thumb [art]="a" />
+                } @else {
+                  <span class="primeira">a primeira obra</span>
+                }
+              </span>
+              <span class="aparador"></span>
+            </span>
+            <span class="pote" aria-hidden="true">
+              <span class="lapis l-1"></span>
+              <span class="lapis l-2"></span>
+              <span class="lapis l-3"></span>
+              <span class="lapis l-4"></span>
+              <span class="lata"></span>
+            </span>
+          </span>
+          <span class="tabua-mini" aria-hidden="true"></span>
+          <span class="dymo-fita" aria-hidden="true">Pixel arts · {{ g.estado }}</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="tabua" aria-hidden="true">
+      <span class="tampo"></span>
+      <span class="frente"></span>
+      @for (lado of ['m-1', 'm-2']; track lado) {
+        <svg class="mao-francesa" [attr.data-lado]="lado" viewBox="0 0 40 52">
+          <path d="M3 0 H37 V8 H11 V50 H3 Z" />
+          <path class="reforco" d="M11 8 L33 8 L11 40 Z" />
+          <circle cx="7" cy="20" r="1.8" />
+          <circle cx="7" cy="40" r="1.8" />
+        </svg>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- ===== O seletor e os dois letreiros: o que depende do mural ===== -->
+<div class="de-quem">
+  <span>com o mural de</span>
+  <app-kind-switcher [kinds]="kinds" />
+</div>
+
+<div class="letreiros">
+  @for (b of letreiros(); track b.id) {
+    <section class="letreiro" [attr.aria-labelledby]="'extras-' + b.id">
+      <h2 class="letreiro-cab" [id]="'extras-' + b.id">
+        <span class="sr-only">{{ b.titulo }}</span>
+        <app-plastic-letters [text]="b.titulo" tone="amarela" size="cab" />
+      </h2>
+      <ul class="linhas" role="list">
+        @for (l of b.linhas; track l.id) {
+          <li>
+            <a class="linha" [routerLink]="l.path" [attr.aria-label]="l.nome + ': ' + l.estado">
+              <span class="icone" aria-hidden="true"><lucide-icon [img]="l.icon" [size]="22" /></span>
+              <span class="linha-txt">
+                <app-plastic-letters [text]="l.nome" />
+                <span class="previa">
+                  <app-plastic-letters [text]="l.estado" [tone]="l.tom" size="mini" />
+                </span>
+              </span>
+            </a>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+</div>

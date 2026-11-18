@@ -66,6 +66,9 @@ interface Summary {
       <div class="indice" [class.sem-mural]="!ks" [class.em-extras]="inExtras()">
         @if (ks) {
           <app-kind-switcher class="mural" [kinds]="ks" />
+        } @else if (extrasHome()) {
+          <!-- na página de Extras o seletor fica dentro dela; a vaga dele fica, para a barra ter a altura das outras -->
+          <span class="mural vaga" aria-hidden="true"></span>
         }
         @if (tabs().length) {
           <nav class="secoes" [class.quatro]="tabs().length >= 4" [attr.aria-label]="navLabel()">
@@ -185,6 +188,9 @@ interface Summary {
     .mural {
       grid-area: mural;
       justify-self: start;
+    }
+    .vaga {
+      min-height: 46px;
     }
     .secoes {
       grid-area: secoes;
@@ -510,7 +516,8 @@ export class AreaBar {
 
   /** Os murais do seletor, nas páginas que dependem do mural; `null` onde ele não aparece. */
   protected readonly picker = computed<readonly Kind[] | null>(() => {
-    if (this.noMural()) return null;
+    // na própria página de Extras o seletor fica dentro dela, em cima do que depende do mural (PLANO-EXTRAS.md)
+    if (this.noMural() || this.extrasHome()) return null;
     if (this.area() === 'analises' || this.inExtras()) return SCORED_KINDS;
     if (this.path() === '/amigos' && this.settings.friendKinds() === 'separado') return KINDS;
     return null;
@@ -597,7 +604,7 @@ export class AreaBar {
    * Nas Utilidades a barra aparece mesmo sem o cofre: ela traz o logo e o quanto saiu no mês. No Uso das
    * APIs e no Pomodoro, sem o seletor de murais, ela ainda traz a volta para Extras.
    */
-  protected readonly shown = computed(() => !!this.picker() || this.tabs().length > 0 || this.area() === 'utilidades' || this.noMural());
+  protected readonly shown = computed(() => !!this.picker() || this.tabs().length > 0 || this.area() === 'utilidades' || this.noMural() || this.extrasHome());
 
   protected readonly navLabel = computed(() =>
     this.area() === 'analises' ? 'Seções das análises' : this.area() === 'utilidades' ? 'Seções das utilidades' : 'Seções das anotações',

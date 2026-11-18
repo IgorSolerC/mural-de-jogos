@@ -1,0 +1,669 @@
+@use '../ui/dymo';
+@use '../ui/letreiro';
+
+/* Extras (PLANO-EXTRAS.md). Em cima, a prateleira de madeira presa na parede: o tomate do Pomodoro de pé numa
+   ponta, o cavalete das Pixel arts na outra, cada um embaixo do letreiro da mesma coluna. Embaixo, o seletor de
+   mural e os dois letreiros de feltro. */
+
+:host {
+  display: block;
+}
+
+$madeira-clara: #d8a66c;
+$madeira: #b9844f;
+$madeira-escura: #8a5a2f;
+
+/* os veios da madeira: listras finas e irregulares, e a fibra do papel por cima */
+@mixin veios($cor) {
+  background-color: $cor;
+  background-image:
+    repeating-linear-gradient(179.4deg, transparent 0 3px, rgb(70 35 10 / 0.12) 3px 4px, transparent 4px 9px, rgb(70 35 10 / 0.07) 9px 10px, transparent 10px 17px),
+    repeating-linear-gradient(180.5deg, rgb(255 230 190 / 0.1) 0 1px, transparent 1px 6px),
+    radial-gradient(ellipse 60px 5px at 22% 55%, rgb(70 35 10 / 0.18), transparent),
+    radial-gradient(ellipse 90px 4px at 71% 35%, rgb(70 35 10 / 0.14), transparent),
+    var(--paper-grain);
+  background-blend-mode: normal, normal, normal, normal, multiply;
+}
+
+.mao {
+  padding-bottom: 64px;
+}
+
+.mao-cab {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-bottom: 30px;
+
+  .tape-label {
+    margin: 0;
+  }
+}
+
+.mao-nota {
+  color: var(--wall-ink-2);
+  font-family: var(--f-hand);
+  font-size: 1.05rem;
+}
+
+.estante {
+  position: relative;
+}
+
+/* as coisas ficam de pé no tampo: descem um pouco sobre ele */
+.estante-coisas {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 34px;
+  align-items: end;
+  margin-bottom: -10px;
+}
+
+.coluna {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 40px 56px;
+}
+
+.coisa {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  color: inherit;
+  text-decoration: none;
+  border-radius: 8px;
+
+  &:focus-visible {
+    outline: 3px solid var(--hi);
+    outline-offset: 10px;
+  }
+}
+
+.em-pe {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+}
+
+/* a fita Dymo de cada coisa, colada na frente da tábua (a mesma fita dos assuntos do perfil) */
+.dymo-fita {
+  @include dymo.fita;
+  position: absolute;
+  top: 100%;
+  margin-top: 3px;
+  white-space: nowrap;
+}
+
+.coisa-arte .dymo-fita {
+  rotate: 1.2deg;
+}
+
+/* ---------- o tomate ---------- */
+
+.coisa-tomate {
+  .tomate {
+    position: relative;
+    --dial: 27px;
+    filter: drop-shadow(-6px 8px 6px rgb(0 0 0 / 0.35));
+    transition: translate var(--t-physical) var(--ease-physical);
+  }
+
+  /* a sombra no tampo, embaixo do tomate */
+  .sombra-chao {
+    position: absolute;
+    left: 22%;
+    right: 22%;
+    bottom: 10px;
+    height: 16px;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgb(40 15 0 / 0.55), transparent);
+    transition:
+      scale var(--t-physical) var(--ease-physical),
+      opacity var(--t-physical) var(--ease-physical);
+  }
+
+  &:hover {
+    .tomate {
+      translate: 0 -8px;
+    }
+
+    .sombra-chao {
+      scale: 0.75;
+      opacity: 0.6;
+    }
+  }
+}
+
+/* ---------- o cavalete, as telas encostadas e o pote de lápis ---------- */
+
+.coisa-arte .em-pe {
+  gap: 0;
+}
+
+.cavalete {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 200px;
+  height: 262px;
+  margin: 0 -8px;
+}
+
+.perna {
+  position: absolute;
+  bottom: 0;
+  width: 10px;
+  height: 262px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, $madeira-escura, $madeira-clara 45%, $madeira);
+  box-shadow: 1px 2px 3px rgb(0 0 0 / 0.35);
+  transform-origin: 50% 0;
+
+  &.p-esq {
+    left: 52px;
+    rotate: 10deg;
+  }
+
+  &.p-dir {
+    right: 52px;
+    rotate: -10deg;
+  }
+
+  /* a de trás, mais longe: mais curta e mais escura */
+  &.p-tras {
+    left: calc(50% - 4px);
+    width: 8px;
+    height: 248px;
+    bottom: 10px;
+    filter: brightness(0.7);
+    box-shadow: none;
+  }
+}
+
+/* a trave de cima, que prende a tela */
+.trave {
+  position: absolute;
+  z-index: 2;
+  top: 4px;
+  left: calc(50% - 22px);
+  width: 44px;
+  height: 12px;
+  border-radius: 2px;
+  background: linear-gradient($madeira-clara, $madeira-escura);
+  box-shadow: 0 2px 2px rgb(0 0 0 / 0.4);
+}
+
+/* a tela de pintura: linho esticado, com a beirada do chassi aparecendo do lado */
+.tela {
+  position: absolute;
+  display: block;
+  padding: 14px;
+  background-color: #f6f1e4;
+  background-image:
+    repeating-linear-gradient(0deg, rgb(90 70 40 / 0.035) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgb(90 70 40 / 0.035) 0 1px, transparent 1px 3px);
+  box-shadow:
+    inset -3px 0 0 rgb(0 0 0 / 0.06),
+    4px 0 0 #ddd3bc,
+    4px 1px 0 #cfc4aa,
+    0 8px 10px -2px rgb(0 0 0 / 0.5);
+  transition:
+    rotate var(--t-physical) var(--ease-physical),
+    translate var(--t-physical) var(--ease-physical);
+
+  &.t-grande {
+    z-index: 1;
+    top: 12px;
+    left: calc(50% - 82px);
+    width: 164px;
+    height: 164px;
+    padding: 18px;
+  }
+}
+
+/* o aparador onde a tela apoia */
+.aparador {
+  position: absolute;
+  z-index: 2;
+  top: 172px;
+  left: 14px;
+  right: 14px;
+  height: 10px;
+  border-radius: 2px;
+  background: linear-gradient($madeira-clara, $madeira-escura);
+  box-shadow: 0 3px 3px rgb(0 0 0 / 0.45);
+}
+
+.coisa-arte:hover .t-grande {
+  rotate: -2.5deg;
+  translate: 0 -3px;
+}
+
+/* as telas menores, encostadas na parede atrás do cavalete */
+.encostadas {
+  position: relative;
+  display: block;
+  width: 120px;
+  height: 140px;
+
+  .tela {
+    bottom: 0;
+    padding: 9px;
+  }
+
+  .t-1 {
+    left: 0;
+    width: 96px;
+    height: 120px;
+    rotate: -7deg;
+    transform-origin: 50% 100%;
+  }
+
+  .t-2 {
+    left: 46px;
+    width: 72px;
+    height: 72px;
+    rotate: 4deg;
+    transform-origin: 50% 100%;
+  }
+}
+
+/* o pote de lápis de cor: uma lata, os lápis saindo em leque */
+.pote {
+  position: relative;
+  display: block;
+  width: 56px;
+  height: 112px;
+  margin-left: 6px;
+}
+
+.lata {
+  position: absolute;
+  z-index: 1;
+  left: 4px;
+  bottom: 0;
+  width: 48px;
+  height: 58px;
+  border-radius: 3px 3px 6px 6px;
+  background:
+    repeating-linear-gradient(180deg, transparent 0 9px, rgb(0 0 0 / 0.12) 9px 10px),
+    linear-gradient(90deg, #7d848b, #e6e9ec 38%, #b9bfc5 60%, #737a81);
+  box-shadow:
+    inset 0 3px 0 rgb(255 255 255 / 0.4),
+    -4px 6px 6px rgb(0 0 0 / 0.35);
+}
+
+.lapis {
+  position: absolute;
+  bottom: 30px;
+  left: calc(50% - 4px);
+  width: 8px;
+  height: 74px;
+  background: linear-gradient(90deg, rgb(0 0 0 / 0.2), transparent 40%, rgb(255 255 255 / 0.25) 60%, rgb(0 0 0 / 0.15)), var(--c);
+  transform-origin: 50% 100%;
+
+  /* a ponta: a madeira apontada e o grafite colorido */
+  &::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    width: 8px;
+    height: 13px;
+    background: linear-gradient(to top, #e9c79a 0 65%, var(--c) 65%);
+    clip-path: polygon(0 100%, 100% 100%, 50% 0);
+  }
+
+  &.l-1 {
+    --c: #e2554a;
+    rotate: -16deg;
+  }
+  &.l-2 {
+    --c: #f2c230;
+    height: 82px;
+    rotate: -4deg;
+  }
+  &.l-3 {
+    --c: #2f6bff;
+    height: 70px;
+    rotate: 8deg;
+  }
+  &.l-4 {
+    --c: #1fb65a;
+    height: 78px;
+    rotate: 18deg;
+  }
+}
+
+/* ---------- a tábua ---------- */
+
+.tabua {
+  position: relative;
+  height: 38px;
+}
+
+/* o tampo, visto um pouco de cima: mais claro, com a luz da frente */
+.tampo {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 16px;
+  @include veios($madeira-clara);
+  box-shadow: inset 0 -1px 0 rgb(255 240 210 / 0.5);
+}
+
+/* a frente da tábua, de onde pendem as fitas Dymo */
+.frente {
+  position: absolute;
+  inset: 16px 0 0;
+  border-radius: 0 0 2px 2px;
+  @include veios($madeira);
+  box-shadow:
+    inset 0 1px 0 rgb(255 230 190 / 0.35),
+    inset 0 -2px 0 rgb(0 0 0 / 0.2),
+    0 18px 22px -10px rgb(0 0 0 / 0.75);
+}
+
+/* as mãos-francesas de metal, parafusadas na parede embaixo da tábua */
+.mao-francesa {
+  position: absolute;
+  top: 38px;
+  width: 40px;
+  height: 52px;
+  fill: #6d6a64;
+  filter: drop-shadow(0 3px 3px rgb(0 0 0 / 0.55));
+
+  .reforco {
+    fill: #57544f;
+  }
+
+  circle {
+    fill: #2b2a28;
+  }
+
+  &[data-lado='m-1'] {
+    left: 6%;
+  }
+
+  &[data-lado='m-2'] {
+    right: 6%;
+    scale: -1 1;
+  }
+}
+
+/* uma tábua para cada coisa, só no celular */
+.tabua-mini {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coisa-tomate .tomate,
+  .coisa-tomate .sombra-chao,
+  .tela {
+    transition: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .estante-coisas {
+    grid-template-columns: 1fr;
+    gap: 70px;
+    margin-bottom: 0;
+  }
+
+  .tabua {
+    display: none;
+  }
+
+  .coisa {
+    width: 100%;
+  }
+
+  .tabua-mini {
+    display: block;
+    position: relative;
+    z-index: -1;
+    width: min(100%, 340px);
+    height: 34px;
+    margin-top: -10px;
+    border-radius: 2px;
+    background:
+      linear-gradient(rgb(255 240 210 / 0.25), rgb(255 240 210 / 0.25)) 0 0 / 100% 14px no-repeat,
+      linear-gradient(transparent 14px, rgb(0 0 0 / 0.12) 14px 15px, transparent 15px),
+      linear-gradient($madeira, $madeira-escura);
+    box-shadow: 0 16px 18px -10px rgb(0 0 0 / 0.75);
+  }
+
+  .dymo-fita {
+    position: relative;
+    top: auto;
+    margin-top: -22px;
+  }
+
+  .coisa-tomate .tomate {
+    --dial: 22px;
+  }
+
+  .cavalete {
+    width: 170px;
+    height: 230px;
+  }
+
+  .perna {
+    height: 230px;
+
+    &.p-esq {
+      left: 44px;
+    }
+    &.p-dir {
+      right: 44px;
+    }
+    &.p-tras {
+      height: 218px;
+    }
+  }
+
+  .tela.t-grande {
+    left: calc(50% - 70px);
+    width: 140px;
+    height: 140px;
+    padding: 15px;
+  }
+
+  .aparador {
+    top: 148px;
+  }
+
+  .encostadas {
+    width: 74px;
+    height: 110px;
+
+    .t-1 {
+      width: 70px;
+      height: 92px;
+    }
+
+    .t-2 {
+      display: none;
+    }
+  }
+
+  .pote {
+    width: 46px;
+    margin-left: 0;
+  }
+
+  .lata {
+    left: 2px;
+    width: 40px;
+    height: 48px;
+  }
+}
+
+/* a tela em branco, quando a galeria ainda não tem obra */
+.tela.em-branco {
+  display: grid;
+  place-items: center;
+}
+
+.primeira {
+  color: rgb(21 21 21 / 0.55);
+  font-family: var(--f-hand);
+  font-size: 1.05rem;
+  line-height: 1.15;
+  text-align: center;
+  rotate: -4deg;
+}
+
+/* ---------- a prancheta do Uso das APIs (só a conta de admin) ---------- */
+
+.prancheta {
+  position: relative;
+  display: block;
+  width: 104px;
+  height: 138px;
+  padding: 22px 10px 10px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #9a6a3b, #c08a52 45%, #8a5a2f);
+  box-shadow:
+    inset 0 1px 0 rgb(255 230 190 / 0.35),
+    -5px 8px 8px rgb(0 0 0 / 0.4);
+  rotate: -6deg;
+  transform-origin: 50% 100%;
+  transition: rotate var(--t-physical) var(--ease-physical);
+
+  .prendedor {
+    position: absolute;
+    z-index: 1;
+    top: -6px;
+    left: calc(50% - 20px);
+    width: 40px;
+    height: 18px;
+    border-radius: 4px 4px 2px 2px;
+    background: linear-gradient(#e6e9ec, #8d949b);
+    box-shadow: 0 2px 2px rgb(0 0 0 / 0.45);
+  }
+
+  /* a folha com as barrinhas do gasto, presa pelo prendedor */
+  .folha {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 5px;
+    height: 100%;
+    padding: 10px 8px 8px;
+    background: #f7f4ec;
+    background-image: repeating-linear-gradient(180deg, transparent 0 13px, rgb(64 110 190 / 0.25) 13px 14px);
+
+    i {
+      width: 10px;
+      height: var(--h);
+      background: #2f6bff;
+    }
+  }
+}
+
+.coisa-prancheta:hover .prancheta {
+  rotate: -2deg;
+}
+
+/* ---------- o seletor de mural, logo acima do que depende dele ---------- */
+
+.de-quem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 18px;
+  color: var(--wall-ink);
+  font-family: var(--f-marker);
+  font-size: 1.5rem;
+}
+
+/* ---------- os dois letreiros de feltro ---------- */
+
+.letreiros {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 34px;
+  align-items: start;
+}
+
+.letreiro {
+  @include letreiro.quadro;
+}
+
+.letreiro-cab {
+  margin: 0 0 14px;
+  font: inherit;
+}
+
+.linhas {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.linha {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 10px 8px;
+  border-radius: 3px;
+  color: inherit;
+  text-decoration: none;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(255 255 255 / 0.06);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--hi);
+    outline-offset: 2px;
+  }
+}
+
+li:nth-child(even) .icone {
+  rotate: 2deg;
+}
+
+.icone {
+  @include letreiro.icone;
+}
+
+.linha-txt {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.previa {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+@media (max-width: 900px) {
+  .letreiros {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .de-quem {
+    font-size: 1.2rem;
+  }
+
+  .linha {
+    gap: 12px;
+    padding: 8px 2px;
+  }
+}

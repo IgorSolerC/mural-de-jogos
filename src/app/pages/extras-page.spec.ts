@@ -3,11 +3,43 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { CloudAccount, CloudAccountInfo } from '../core/cloud-account';
 import { Cloud } from '../core/cloud-config';
-import { ExtrasPage } from './extras-page';
+import { todayISO } from '../core/dates';
+import { PixelGallery } from '../core/pixel-gallery-store';
 import { PomodoroStore } from '../core/pomodoro-store';
+import { Review } from '../core/review';
+import { ReviewStore } from '../core/review-store';
+import { ExtrasPage } from './extras-page';
+
+/** Extras repensado (PLANO-EXTRAS.md): a prateleira "Sempre à mão", o seletor de mural e os dois letreiros. */
+
+const at = '2026-11-01T12:00:00.000Z';
+function review(id: string, name: string, final: number): Review {
+  return {
+    id,
+    kind: 'jogos',
+    game: { name, coverUrl: null, source: 'manual' },
+    scores: { historia: final, diversao: final, jogabilidade: final, visual: final, final },
+    status: 'finalizado',
+    difficulty: 'media',
+    verdict: null,
+    weights: {},
+    bonuses: [],
+    hoursPlayed: 10,
+    text: '',
+    stock: 'amarelo',
+    private: false,
+    createdAt: at,
+    updatedAt: at,
+    completedAt: '2026-11-01',
+  } as unknown as Review;
+}
 
 describe('a página de Extras', () => {
-  async function open(options: { cloud?: boolean; signedIn?: boolean; account?: Partial<CloudAccountInfo> | null }) {
+  afterEach(() => localStorage.clear());
+
+  /** Abre a página; com `keep`, sem limpar o que o teste guardou no navegador antes. */
+  async function open(options: { cloud?: boolean; signedIn?: boolean; account?: Partial<CloudAccountInfo> | null; reviews?: Review[]; keep?: boolean }) {
+    if (!options.keep) localStorage.clear();
     const account = signal(options.account === undefined ? null : options.account);
     TestBed.configureTestingModule({
       imports: [ExtrasPage],
@@ -18,66 +50,135 @@ describe('a página de Extras', () => {
         { provide: CloudAccount, useValue: { account, signedIn: () => options.signedIn !== false && account() !== null } },
       ],
     });
+    const store = TestBed.inject(ReviewStore);
+    for (const r of options.reviews ?? []) store.add(r);
     const fixture = TestBed.createComponent(ExtrasPage);
     await fixture.whenStable();
     const host: HTMLElement = fixture.nativeElement;
+    const linha = (href: string) => host.querySelector<HTMLAnchorElement>(`a[href="${href}"]`);
     return {
       account,
       fixture,
       host,
-      shelves: () => [...host.querySelectorAll('h2')].map((h) => h.textContent?.trim()),
-      cards: () => [...host.querySelectorAll('h3')].map((h) => h.textContent?.trim()),
+      linha,
+      /** O nome acessível da linha: o nome e como está. */
+      label: (href: string) => linha(href)?.getAttribute('aria-label'),
+      boards: () => [...host.querySelectorAll('.letreiro-cab .sr-only')].map((h) => h.textContent?.trim()),
     };
   }
 
-  const ALL = ['Ranking', 'Comparar', 'Estatísticas', 'Pomodoro', 'Pixel arts', 'Mata-mata', 'Maior ou menor', 'Muraldle'];
+  const MURAL = ['/extras/muraldle', '/extras/mata-mata', '/extras/maior-ou-menor', '/extras/estatisticas', '/ranking', '/comparar'];
 
-  it('quem não entrou vê só Números, Foco, Criar e Jogos', async () => {
+  it('tem a prateleira com o Pomodoro e as Pixel arts, e os letreiros Jogar e Números com as seis linhas', async () => {
     const t = await open({ signedIn: false });
-    expect(t.shelves()).toEqual(['Números', 'Foco', 'Criar', 'Jogos']);
-    expect(t.cards()).toEqual(ALL);
-    expect(t.host.querySelector('[href*="uso-das-apis"]')).toBeNull();
+    expect(t.host.querySelector('#extras-mao')?.textContent?.trim()).toBe('Sempre à mão');
+    expect(t.linha('/extras/pomodoro')).not.toBeNull();
+    expect(t.linha('/extras/pixel-arts')).not.toBeNull();
+    expect(t.boards()).toEqual(['Jogar', 'Números']);
+    for (const href of MURAL) expect(t.linha(href)).withContext(href).not.toBeNull();
+    expect(t.linha('/extras/uso-das-apis')).toBeNull();
   });
 
-  it('outra conta vê a mesma página, sem nada a mais', async () => {
+  it('o seletor de mural fica na página, logo antes dos letreiros (a prateleira vale para qualquer mural)', async () => {
+    const t = await open({ signedIn: false });
+    const seletor = t.host.querySelector('.de-quem app-kind-switcher')!;
+    expect(seletor).not.toBeNull();
+    const shelf = t.host.querySelector('.mao')!;
+    const boards = t.host.querySelector('.letreiros')!;
+    expect(shelf.compareDocumentPosition(seletor) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(seletor.compareDocumentPosition(boards) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('cada linha diz como está no nome do link; as letras de plástico ficam fora do leitor de tela', async () => {
+    const t = await open({ signedIn: false, reviews: [review('a', 'Hades', 9.4), review('b', 'Celeste', 8), review('c', 'Tunic', 7)] });
+    expect(t.label('/extras/muraldle')).toBe('Muraldle: a de hoje te espera');
+    expect(t.label('/extras/mata-mata')).toBe('Mata-mata: comece um torneio');
+    expect(t.label('/extras/maior-ou-menor')).toBe('Maior ou menor: sem recorde ainda');
+    expect(t.label('/extras/estatisticas')).toBe('Estatísticas: 3 jogos · média 8,1');
+    expect(t.label('/ranking')).toBe('Ranking: 1º Hades 9,4');
+    expect(t.label('/comparar')).toBe('Comparar: entre na sua conta');
+    for (const l of t.host.querySelectorAll('app-plastic-letters')) expect(l.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('o mural vazio diz o que falta em cada linha', async () => {
+    const t = await open({ signedIn: false });
+    expect(t.label('/extras/muraldle')).toBe('Muraldle: precisa de 3 fichas');
+    expect(t.label('/extras/mata-mata')).toBe('Mata-mata: precisa de 2 fichas');
+    expect(t.label('/extras/estatisticas')).toBe('Estatísticas: nada no mural ainda');
+    expect(t.label('/extras/pixel-arts')).toBe('Pixel arts: nenhuma obra ainda');
+  });
+
+  it('o Muraldle de hoje começado e o recorde do Maior ou menor aparecem', async () => {
+    const reviews = [review('a', 'Hades', 9), review('b', 'Celeste', 8), review('c', 'Tunic', 7)];
+    localStorage.setItem('mural-de-jogos:muraldle:v1', JSON.stringify({ games: { 'jogos|eu': { day: todayISO(), secretId: 'a', guesses: ['b', 'c'], done: null } }, stats: {} }));
+    localStorage.setItem('mural-de-jogos:recordes:v1', JSON.stringify({ 'maior-ou-menor|jogos|eu|final': 6, 'maior-ou-menor|jogos|eu|diversao': 11 }));
+    const t = await open({ signedIn: false, reviews, keep: true });
+    expect(t.label('/extras/muraldle')).toBe('Muraldle: hoje · 2 chutes');
+    expect(t.label('/extras/maior-ou-menor')).toBe('Maior ou menor: recorde 11');
+
+    // outra aba acerta a de hoje: a página relê sem recarregar
+    localStorage.setItem('mural-de-jogos:muraldle:v1', JSON.stringify({ games: { 'jogos|eu': { day: todayISO(), secretId: 'a', guesses: ['b', 'c', 'a'], done: 'acertou' } }, stats: {} }));
+    window.dispatchEvent(new StorageEvent('storage', { key: 'mural-de-jogos:muraldle:v1' }));
+    await t.fixture.whenStable();
+    expect(t.label('/extras/muraldle')).toBe('Muraldle: acertou hoje em 3');
+  });
+
+  it('outra conta vê a mesma página, sem a prancheta', async () => {
     const t = await open({ account: { codigo: 'K7QF-M2XA', nome: 'Ana' } });
-    expect(t.shelves()).toEqual(['Números', 'Foco', 'Criar', 'Jogos']);
-    expect(t.cards()).toEqual(ALL);
+    expect(t.linha('/extras/uso-das-apis')).toBeNull();
+    expect(t.label('/comparar')).toBe('Comparar: escolha um amigo');
   });
 
-  it('com a nuvem desligada, nem a conta de admin vê a prateleira', async () => {
+  it('com a nuvem desligada, nem a conta de admin vê a prancheta', async () => {
     const t = await open({ cloud: false, account: { codigo: 'G11T-G00D', nome: 'Igor', admin: true } });
-    expect(t.shelves()).toEqual(['Números', 'Foco', 'Criar', 'Jogos']);
+    expect(t.linha('/extras/uso-das-apis')).toBeNull();
   });
 
-  it('a conta de admin ganha a prateleira Outros, por último, com a ficha do Uso das APIs', async () => {
+  it('a conta de admin ganha a prancheta do Uso das APIs na prateleira', async () => {
     const t = await open({ account: { codigo: 'G11T-G00D', nome: 'Igor', admin: true } });
-    expect(t.shelves()).toEqual(['Números', 'Foco', 'Criar', 'Jogos', 'Outros']);
-    expect(t.cards()).toEqual([...ALL, 'Uso das APIs']);
-    expect(t.host.querySelector('a[href="/extras/uso-das-apis"]')).not.toBeNull();
+    const p = t.linha('/extras/uso-das-apis')!;
+    expect(p).not.toBeNull();
+    expect(p.closest('.estante')).not.toBeNull();
+    expect(p.getAttribute('aria-label')).toBe('Uso das APIs: só você vê');
   });
 
-  it('a bandeira que chega depois (a conferida da conta) faz a prateleira aparecer sem recarregar', async () => {
+  it('a bandeira que chega depois (a conferida da conta) faz a prancheta aparecer sem recarregar', async () => {
     const t = await open({ account: { codigo: 'G11T-G00D', nome: 'Igor' } });
-    expect(t.shelves()).not.toContain('Outros');
+    expect(t.linha('/extras/uso-das-apis')).toBeNull();
     t.account.set({ codigo: 'G11T-G00D', nome: 'Igor', admin: true });
     await t.fixture.whenStable();
-    expect(t.shelves()).toContain('Outros');
+    expect(t.linha('/extras/uso-das-apis')).not.toBeNull();
   });
 
-  it('o Pomodoro ligado ganha o adesivo "Ligado" na ficha, e desligado ele some', async () => {
-    localStorage.removeItem('meu-mural:pomodoro');
+  it('o Pomodoro ligado muda a fita e o nome do link, e o tomate corre', async () => {
     const t = await open({ signedIn: false });
-    const ficha = () => t.host.querySelector('a[href="/extras/pomodoro"]')!;
-    expect(ficha()).not.toBeNull();
-    expect(ficha().querySelector('.ligado')).toBeNull();
+    const tomate = () => t.linha('/extras/pomodoro')!;
+    expect(tomate().getAttribute('aria-label')).toBe('Pomodoro: desligado');
+    expect(tomate().querySelector('.dymo-fita')?.textContent?.trim()).toBe('Pomodoro · desligado');
     const store = TestBed.inject(PomodoroStore);
     store.start();
     await t.fixture.whenStable();
-    expect(ficha().querySelector('.ligado')?.textContent?.trim()).toBe('Ligado');
+    expect(tomate().getAttribute('aria-label')).toBe('Pomodoro: estudando');
+    expect(tomate().querySelector('app-pomodoro-dial')!.classList).not.toContain('parado');
     store.stop();
     await t.fixture.whenStable();
-    expect(ficha().querySelector('.ligado')).toBeNull();
-    localStorage.removeItem('meu-mural:pomodoro');
+    expect(tomate().getAttribute('aria-label')).toBe('Pomodoro: desligado');
+  });
+
+  it('o cavalete mostra a obra mais nova e conta as obras; sem obra, a tela em branco', async () => {
+    const t = await open({ signedIn: false });
+    expect(t.host.querySelector('.t-grande.em-branco')).not.toBeNull();
+    TestBed.inject(PixelGallery).state.set({
+      pieces: [
+        { id: 'p1', title: 'Gato', art: ['2x2', '12/21'], createdAt: at, at },
+        { id: 'p2', title: 'Espada', art: ['1x1', '4'], createdAt: at, at },
+      ],
+      removed: {},
+    });
+    await t.fixture.whenStable();
+    expect(t.label('/extras/pixel-arts')).toBe('Pixel arts: 2 obras');
+    expect(t.host.querySelector('.t-grande.em-branco')).toBeNull();
+    expect(t.host.querySelectorAll('.cavalete app-pixel-thumb').length).toBe(1);
+    expect(t.host.querySelectorAll('.encostadas app-pixel-thumb').length).toBe(1);
   });
 });
