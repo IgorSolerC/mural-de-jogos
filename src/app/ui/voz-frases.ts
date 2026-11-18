@@ -179,8 +179,25 @@ export function sentencesOf(roots: readonly Element[], opts: SentenceOptions): S
   return out;
 }
 
-/** Os trechos da frase na tela, para o marca-texto. O nó que saiu da folha fica de fora. */
-export function rangesOf(s: Sentence): Range[] {
+/**
+ * As palavras à mostra, na ordem da tela, cada uma com os pedaços dos nós de texto de onde veio (a palavra
+ * com um pedaço em negrito tem dois): o modo estudo da voz as cobre de rabisco (ui/voz-estudo.ts). Só o que
+ * tem letra ou número (kana e kanji são letras); a pontuação, os espaços, os símbolos e os emojis ficam de
+ * fora. O japonês, sem espaços, se parte em palavras pelo dicionário do navegador (私|の|ケーキ|です).
+ */
+export function wordsOf(roots: readonly Element[], lang: string): Piece[][] {
+  const out: Piece[][] = [];
+  const word = new Intl.Segmenter(lang, { granularity: 'word' });
+  for (const flow of flowsOf(roots)) {
+    for (const s of word.segment(flow.text)) {
+      if (SPEAKS.test(s.segment)) out.push(piecesOf(flow, s.index, s.index + s.segment.length));
+    }
+  }
+  return out;
+}
+
+/** Os trechos da frase (ou da palavra) na tela, para o marca-texto. O nó que saiu da folha fica de fora. */
+export function rangesOf(s: Pick<Sentence, 'pieces'>): Range[] {
   const out: Range[] = [];
   for (const p of s.pieces) {
     if (!p.node.isConnected || p.to > p.node.data.length) continue;

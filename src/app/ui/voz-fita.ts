@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, e
 import { ContextMenu, MenuItem, MenuSections } from './context-menu';
 import { ICON, IconModule } from './icons';
 import { Sentence, findAgain, maxSpeech, rangesOf, rangesOfChars, sentenceAt, sentencesOf } from './voz-frases';
+import { VozEstudo } from './voz-estudo';
 import { VOICE_LANGS, VOICE_LANG_ORDER, VOICE_RATES, VoiceLang, Voz, voiceLabel } from '../core/voz';
 import { reducedMotion } from '../core/motion';
 
@@ -34,7 +35,8 @@ const PRESS_MS = 150;
  * a frase anterior, tocar e pausar, a próxima; a etiqueta da língua (troca a língua e a voz), o contador
  * ("3 / 24"), a velocidade e parar. A frase lida ganha o marca-texto (`::highlight(voz)`) e a folha rola
  * até ela; tocar numa frase lê dali. Com a fita à mostra, o teclado também a toca (PLANO-VOZ-ESTUDO.md): ← e
- * → a frase anterior e a próxima, Espaço pausa e continua, ↑ e ↓ a velocidade.
+ * → a frase anterior e a próxima, Espaço pausa e continua, ↑ e ↓ a velocidade. E o modo estudo (a etiqueta do
+ * rabisco): lendo, o que a voz lê vira rabisco, e tocar numa palavra a revela (ui/voz-estudo.ts).
  *
  * Quem usa dá o que se lê (`roots`: o nome e o texto desenhado) e a folha que rola (`scroller`), e chama
  * `choose` no botão de ouvir: o menu das três línguas abre sempre (a pessoa escolhe toda vez). Só lê: nada
@@ -56,6 +58,7 @@ const PRESS_MS = 150;
         <div class="chapa">
           <button #lingua type="button" class="lingua tocavel" aria-haspopup="menu" [attr.aria-label]="'Língua: ' + langName() + '. Trocar a língua ou a voz'" [title]="voiceName()" (click)="choose($event, lingua)">
             <span class="lingua-nome">{{ langName() }}</span>
+            <span class="lingua-sigla" aria-hidden="true">{{ langCode() }}</span>
             <lucide-icon [img]="OpenIcon" [size]="14" aria-hidden="true" />
           </button>
           <span class="teclas">
@@ -75,6 +78,11 @@ const PRESS_MS = 150;
           </span>
           <span class="contagem" aria-hidden="true">{{ shownAt() }}<small> / {{ voz.total() }}</small></span>
           <button #velocidade type="button" class="velocidade tocavel" aria-haspopup="menu" [attr.aria-label]="'Velocidade ' + rateLabel() + '. Trocar'" title="Velocidade (↑ ↓)" aria-keyshortcuts="ArrowUp ArrowDown" (click)="chooseRate($event, velocidade)">{{ rateLabel() }}</button>
+          @if (canStudy) {
+            <button type="button" class="estudo tocavel" [class.ligado]="voz.study()" [attr.aria-pressed]="voz.study()" aria-label="Modo estudo: o texto vira rabisco" [title]="voz.study() ? 'Modo estudo: toque numa palavra para vê-la. Tocar aqui mostra o texto' : 'Modo estudo: o texto vira rabisco, e tocar numa palavra a revela'" (click)="toggleStudy()">
+              <lucide-icon [img]="StudyIcon" [size]="20" aria-hidden="true" />
+            </button>
+          }
           <button type="button" class="parar tocavel" aria-label="Parar de ouvir" title="Parar de ouvir" (click)="stop()">
             <lucide-icon [img]="CloseIcon" [size]="18" aria-hidden="true" />
           </button>
@@ -101,9 +109,16 @@ export class VozFita {
 
   protected readonly OpenIcon = ICON.abrir;
   protected readonly CloseIcon = ICON.fechar;
+  protected readonly StudyIcon = ICON.kitRabisco;
+  /** O navegador sabe esconder as letras (o realce)? Sem isso, a etiqueta do modo estudo não aparece. */
+  protected readonly canStudy = VozEstudo.supported();
+  /** Os rabiscos do modo estudo (ui/voz-estudo.ts): só nesta fita, só lendo. */
+  private readonly estudo = new VozEstudo();
 
   /** Lendo aqui (esta fita começou a leitura de agora; o serviço é um só no site): a fita aparece, e o marca-texto e o tocar valem. */
   readonly reading = computed(() => this.voz.owner() === this && this.voz.lang() !== null);
+  /** O texto em rabisco agora: o modo estudo ligado, lendo aqui. */
+  readonly studying = computed(() => this.canStudy && this.reading() && this.voz.study());
   /** Nada à mostra para ler (só spoilers fechados, só widgets): o menu diz, em vez de não fazer nada. */
   private readonly nothing = signal(false);
 
@@ -132,6 +147,8 @@ export class VozFita {
     const l = this.voz.lang();
     return l ? VOICE_LANGS[l].name : '';
   });
+  /** A sigla da língua ("JA"), no lugar do nome na chapa do celular estreito. */
+  protected readonly langCode = computed(() => this.voz.lang()?.toUpperCase() ?? '');
   protected readonly voiceName = computed(() => {
     const v = this.voz.voice();
     return v ? `Voz: ${voiceLabel(v)}` : 'A voz que o navegador escolher';
@@ -201,6 +218,22 @@ export class VozFita {
       const word = this.voz.word();
       if (!this.reading()) return;
       untracked(() => this.paint(at, word));
+    });
+    // o modo estudo: os rabiscos nas raízes lidas, na língua da leitura (a mesma folha guarda as reveladas;
+    // a folha desenhada de novo, o modo sem spoilers, recomeça nela)
+    effect(() => {
+      const on = this.studying();
+      const lang = this.voz.lang();
+      const roots = this.roots().filter((r): r is HTMLElement => !!r);
+      untracked(() => {
+        if (!on || !lang || !roots.length) {
+          if (this.estudo.on) this.estudo.stop();
+          return;
+        }
+        const tag = VOICE_LANGS[lang].tag;
+        if (this.estudo.has(roots)) this.estudo.refresh(tag);
+        else this.estudo.start(roots, tag);
+      });
     });
     // a frase lida (ou a escolhida nas teclas, pausado) vem para a vista
     effect(() => {
@@ -346,6 +379,13 @@ export class VozFita {
     label.animate(frames, { duration: changed ? 260 : 300, easing: 'ease-out' });
   }
 
+  /** Liga ou desliga o modo estudo (fica guardado neste aparelho); o leitor de tela ouve o que mudou. */
+  protected toggleStudy(): void {
+    const on = !this.voz.study();
+    this.voz.setStudy(on);
+    this.say(on ? 'Modo estudo: o texto virou rabisco. Toque numa palavra para vê-la.' : 'O texto está à mostra de novo.');
+  }
+
   private press(key: 'prev' | 'next'): void {
     if (this.pressTimer !== null) clearTimeout(this.pressTimer);
     this.pressed.set(key);
@@ -372,6 +412,7 @@ export class VozFita {
 
   private forget(): void {
     this.list = [];
+    this.estudo.stop();
     this.observer?.disconnect();
     this.observer = null;
     if (this.rebuildTimer !== null) clearTimeout(this.rebuildTimer);
@@ -417,7 +458,10 @@ export class VozFita {
   /** Acompanha a nota que muda (o texto que a folha desenha de novo), o tocar numa frase e a mão que rola. */
   private watch(): void {
     if (this.observer) return;
-    this.observer = new MutationObserver(() => {
+    this.observer = new MutationObserver((records) => {
+      // os rabiscos do modo estudo desenhados de novo não são o texto mudando
+      if (records.every((r) => this.estudo.owns(r.target) || (r.type === 'childList' && [...r.addedNodes, ...r.removedNodes].every((n) => this.estudo.owns(n))))) return;
+      if (this.estudo.on) this.estudo.refreshSoon();
       if (this.rebuildTimer !== null) clearTimeout(this.rebuildTimer);
       this.rebuildTimer = setTimeout(() => this.rebuild(), 200);
     });
@@ -456,7 +500,8 @@ export class VozFita {
 
   /** Tocou numa frase do texto (sem ser num link, numa caixinha, num spoiler fechado, nem escolhendo um trecho): lê dali. */
   private tap(e: MouseEvent): void {
-    if (e.defaultPrevented || e.button !== 0 || Date.now() - this.menuClosedAt < 400) return;
+    // no modo estudo, tocar no texto é para revelar (ui/voz-estudo.ts), não para mudar a frase lida
+    if (e.defaultPrevented || e.button !== 0 || this.studying() || Date.now() - this.menuClosedAt < 400) return;
     const target = e.target as Element | null;
     if (!target || target.closest(OWN_TAP) || target.closest('app-voz-fita')) return;
     if (!this.roots().some((r) => r?.contains(target))) return;

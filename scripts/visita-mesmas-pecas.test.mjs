@@ -130,6 +130,7 @@ const SO_LEEM = [
   'src/app/ui/section-head.ts',
   'src/app/ui/voz-fita.ts',
   'src/app/ui/voz-frases.ts',
+  'src/app/ui/voz-estudo.ts',
   'src/app/core/voz.ts',
 ];
 /** O que escreve no seu Murall. */

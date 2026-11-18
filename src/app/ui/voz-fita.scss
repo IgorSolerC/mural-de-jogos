@@ -32,6 +32,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  /* sem lugar numa fileira (o celular de 320px), a chapa quebra em duas, centradas */
+  flex-wrap: wrap;
+  justify-content: center;
+  row-gap: 8px;
   max-width: 100%;
   padding: 6px 8px 6px 6px;
   border-radius: 7px;
@@ -67,8 +71,12 @@
   }
 }
 
-.lingua-nome {
+.lingua-nome,
+.lingua-sigla {
   translate: 0 1px;
+}
+.lingua-sigla {
+  display: none;
 }
 
 /* a velocidade: o número impresso na mesma etiqueta clara, da altura das teclas; tocar mostra as quatro */
@@ -92,6 +100,39 @@
   }
 
   /* (↑ ↓ a fazem acender e saltar de leve, pela animação da página: ver flashRate em voz-fita.ts) */
+}
+
+/* o modo estudo: o rabisco do estojo na mesma etiqueta creme da velocidade; ligado, a etiqueta fica laranja
+   (a faixa da etiqueta da língua) e afundada, como a tecla de tocar */
+.estudo {
+  display: grid;
+  place-items: center;
+  width: 2.2em;
+  height: 1.95em;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: #f4ecd6;
+  color: #1d2340;
+  cursor: pointer;
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    translate var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: #fbf4e2;
+  }
+
+  &.ligado {
+    background: #df6a2c;
+    color: #fff8ec;
+    translate: 0 0.08em;
+    box-shadow: inset 0 0.12em 0.2em rgb(0 0 0 / 0.3);
+
+    &:hover {
+      background: #ec7a3c;
+    }
+  }
 }
 
 /* parar: o X claro na chapa, redondo como o de fechar a ficha */
@@ -118,6 +159,7 @@
    no celular), e a velocidade e o X um pouco para os lados, onde há vão; o desenho não muda */
 .lingua,
 .velocidade,
+.estudo,
 .parar,
 .tecla {
   position: relative;
@@ -130,12 +172,14 @@
 }
 
 .velocidade::after,
+.estudo::after,
 .parar::after {
   inset: -7px -4px;
 }
 
 .lingua,
 .velocidade,
+.estudo,
 .parar {
   &:focus-visible {
     outline: 3px solid var(--hi);
@@ -157,14 +201,21 @@
   text-align: center;
 }
 
-/* o celular estreito: sem o contador (o leitor de tela já ouve o andamento), a chapa mais justa */
-@media (max-width: 420px) {
+/* o celular estreito: sem o contador (o leitor de tela já ouve o andamento), a língua na sigla (o nome inteiro
+   fica no nome do botão), a chapa mais justa */
+@media (max-width: 520px) {
   .chapa {
     font-size: 16px;
-    gap: 6px;
+    gap: 5px;
   }
   .contagem {
     display: none;
+  }
+  .lingua-nome {
+    display: none;
+  }
+  .lingua-sigla {
+    display: inline;
   }
 }
 

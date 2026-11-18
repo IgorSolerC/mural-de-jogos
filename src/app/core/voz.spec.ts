@@ -219,6 +219,20 @@ describe('a voz que lê a nota', () => {
       expect(JSON.parse(localStorage.getItem(VOZ_KEY)!)).toEqual({ rate: 0.75, voices: { ja: 'Google 日本語' } });
     });
 
+    it('o modo estudo fica neste aparelho, junto da velocidade; desligado não fica guardado; o estragado vale como desligado', () => {
+      expect(voz.study()).toBeFalse();
+      voz.setRate(0.5);
+      voz.setStudy(true);
+      expect(voz.study()).toBeTrue();
+      expect(JSON.parse(localStorage.getItem(VOZ_KEY)!)).toEqual({ rate: 0.5, estudo: true });
+      voz = make();
+      expect(voz.study()).toBeTrue();
+      voz.setStudy(false);
+      expect(JSON.parse(localStorage.getItem(VOZ_KEY)!)).toEqual({ rate: 0.5 });
+      localStorage.setItem(VOZ_KEY, JSON.stringify({ estudo: 'sim' }));
+      expect(make().study()).toBeFalse();
+    });
+
     it('outra aba trocou a velocidade: esta acompanha', () => {
       localStorage.setItem(VOZ_KEY, JSON.stringify({ rate: 1.5 }));
       window.dispatchEvent(new StorageEvent('storage', { key: VOZ_KEY, storageArea: localStorage }));

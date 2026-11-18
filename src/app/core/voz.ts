@@ -39,24 +39,26 @@ export const VOICE_LANG_ORDER: readonly VoiceLang[] = ['pt', 'en', 'ja'];
 /** As velocidades à escolha (1 é a da voz). Abaixo de 0,75×, as falas ficam mais curtas (ui/voz-frases.ts, `maxSpeech`). */
 export const VOICE_RATES: readonly number[] = [0.25, 0.5, 0.75, 1, 1.25, 1.5];
 
-/** A preferência deste aparelho: a velocidade e a voz escolhida em cada língua (pelo nome). */
+/** A preferência deste aparelho: a velocidade, a voz escolhida em cada língua (pelo nome) e o modo estudo. */
 export const VOZ_KEY = 'meu-mural:voz';
 
 interface Stored {
   rate?: number;
   voices?: Partial<Record<VoiceLang, string>>;
+  /** O modo estudo (PLANO-VOZ-ESTUDO.md): lendo, o texto vira rabisco. */
+  estudo?: boolean;
 }
 
 /** A preferência guardada, só se tem a forma certa (um valor estragado vale como nada guardado). */
 function readStored(): Stored {
   const raw = readJson<unknown>(VOZ_KEY);
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
-  const { rate, voices } = raw as Stored;
+  const { rate, voices, estudo } = raw as Stored;
   const names: Partial<Record<VoiceLang, string>> = {};
   if (voices && typeof voices === 'object') {
     for (const lang of VOICE_LANG_ORDER) if (typeof voices[lang] === 'string') names[lang] = voices[lang];
   }
-  return { ...(typeof rate === 'number' ? { rate } : {}), ...(Object.keys(names).length ? { voices: names } : {}) };
+  return { ...(typeof rate === 'number' ? { rate } : {}), ...(Object.keys(names).length ? { voices: names } : {}), ...(estudo === true ? { estudo } : {}) };
 }
 
 /**
@@ -158,6 +160,8 @@ export class Voz {
     const r = this.stored().rate;
     return typeof r === 'number' && VOICE_RATES.includes(r) ? r : 1;
   });
+  /** O modo estudo, neste aparelho: lendo, o texto vira rabisco (ui/voz-estudo.ts). */
+  readonly study = computed(() => this.stored().estudo === true);
   /** A voz da leitura de agora. */
   readonly voice = computed(() => {
     const lang = this.lang();
@@ -268,6 +272,14 @@ export class Voz {
       if (!this.ended()) this.at.set(Math.min(Math.max(again.at, 0), again.texts.length - 1));
     }
     if (this.playing()) this.play(this.at());
+  }
+
+  /** Liga ou desliga o modo estudo, para este aparelho (desligado não fica guardado). */
+  setStudy(on: boolean): void {
+    if (on === this.study()) return;
+    const next: Stored = { ...this.stored(), estudo: true };
+    if (!on) delete next.estudo;
+    this.save(next);
   }
 
   /** Escolhe a voz da língua (pelo nome), para este aparelho. */

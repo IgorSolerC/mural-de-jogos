@@ -289,9 +289,9 @@ describe('limpar o navegador (sair da conta)', () => {
     expect(localStorage.getItem(POMODORO_KEY)).toBeNull();
   });
 
-  it('a velocidade e as vozes escolhidas para ouvir a nota (PLANO-VOZ.md) saem junto', async () => {
+  it('a velocidade, as vozes e o modo estudo de ouvir a nota (PLANO-VOZ.md, PLANO-VOZ-ESTUDO.md) saem junto', async () => {
     signedInBrowser();
-    writeJson(VOZ_KEY, { rate: 1.25, voices: { ja: 'Google 日本語' } });
+    writeJson(VOZ_KEY, { rate: 1.25, voices: { ja: 'Google 日本語' }, estudo: true });
     expect(localStorage.getItem(VOZ_KEY)).toContain('1.25');
     localStorage.removeItem(SESSION_KEY);
     localStorage.setItem(RESET_KEY, JSON.stringify({ keep: [], motivo: 'saiu' }));

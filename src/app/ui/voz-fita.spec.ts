@@ -388,6 +388,91 @@ describe('Ouvir a nota na ficha aberta', () => {
     expect(q('.vez-nome')?.textContent).toBe('Rejogada');
   });
 
+  // ===== o modo estudo (PLANO-VOZ-ESTUDO.md, feature 2) =====
+  const hiddenWords = () => [...((CSS.highlights.get('voz-estudo') as Highlight | undefined) ?? [])].map((r) => (r as Range).toString());
+  const scribbles = (where: string) => [...el.querySelectorAll<HTMLElement>(`${where} .voz-rabiscos > span`)];
+
+  it('o modo estudo: o nome e o texto lidos viram rabisco, só a pontuação à mostra; tocar numa palavra a revela, sem mudar a frase lida', async () => {
+    fixture.componentInstance.open(note('n-1', 'の (De / Posse)', NO));
+    await settle();
+    await listen('ja');
+    const button = q<HTMLButtonElement>('.fita .estudo')!;
+    expect(button.getAttribute('aria-pressed')).toBe('false');
+    expect(hiddenWords()).toEqual([]);
+    button.click();
+    await settle();
+    expect(q('.fita .estudo')!.getAttribute('aria-pressed')).toBe('true');
+    expect(said()).toContain('o texto virou rabisco');
+    expect(hiddenWords().slice(0, 9)).toEqual(['の', 'De', 'Posse', 'USOS', '私', 'の', 'ケーキ', 'です', 'É']);
+    expect(hiddenWords().some((w) => /[。？()/]/.test(w))).toBeFalse();
+    expect(scribbles('.faixa-nome').length).toBe(3);
+    expect(scribbles('.text').length).toBeGreaterThan(10);
+    expect(JSON.parse(localStorage.getItem(VOZ_KEY)!).estudo).toBeTrue();
+    fake.begin();
+    // 私 (a quinta palavra lida): revelada, e a leitura continua no nome, onde estava
+    const watashi = scribbles('.text').find((b) => b.dataset['p'] === '4')!;
+    const shape = q('.text')!.getBoundingClientRect().toJSON();
+    watashi.click();
+    await settle();
+    expect(hiddenWords()).not.toContain('私');
+    expect(hiddenWords()).toContain('ケーキ');
+    expect(texts()[0]).toBe('の (De / Posse)');
+    expect(q('.text')!.getBoundingClientRect().toJSON()).withContext('o texto não se mexe').toEqual(shape);
+    // tocar entre as palavras também não muda a frase (no modo estudo, o toque é para revelar)
+    await wait(420);
+    const line = [...el.querySelectorAll<HTMLElement>('.text .sutil, .text .enf')].find((e) => e.textContent!.includes('Cadê'))!;
+    const box = line.getBoundingClientRect();
+    line.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: box.right - 2, clientY: box.top + box.height / 2, button: 0 }));
+    await settle();
+    expect(texts()[0]).toBe('の (De / Posse)');
+  });
+
+  it('o modo estudo fica guardado: parar devolve o texto, ouvir de novo já vem em rabisco; desligar mostra tudo', async () => {
+    fixture.componentInstance.open(note('n-1', 'の (De / Posse)', NO));
+    await settle();
+    await listen('ja');
+    q<HTMLButtonElement>('.fita .estudo')!.click();
+    await settle();
+    q<HTMLButtonElement>('.fita .parar')!.click();
+    await settle();
+    expect(hiddenWords()).toEqual([]);
+    expect(el.querySelector('.voz-rabiscos')).toBeNull();
+    expect(q('.text')!.hasAttribute('data-voz-estudo')).toBeFalse();
+    await listen('pt');
+    expect(hiddenWords()).toContain('Posse');
+    q<HTMLButtonElement>('.fita .estudo')!.click();
+    await settle();
+    expect(hiddenWords()).toEqual([]);
+    expect(said()).toBe('O texto está à mostra de novo.');
+    expect(JSON.parse(localStorage.getItem(VOZ_KEY)!).estudo).toBeUndefined();
+  });
+
+  it('o card que abre no meio já mostra o texto dele em rabisco, e a leitura segue', async () => {
+    fixture.componentInstance.open(note('n-1', 'Card', ['Antes.', '', '> [!aviso]- Fechado', '> Dentro do card.'].join('\n')));
+    await settle();
+    await listen('pt');
+    q<HTMLButtonElement>('.fita .estudo')!.click();
+    await settle();
+    expect(hiddenWords()).not.toContain('Dentro');
+    q<HTMLDetailsElement>('.text details')!.open = true;
+    await wait(60);
+    await settle();
+    expect(hiddenWords()).toContain('Dentro');
+    expect(scribbles('.text').some((b) => b.dataset['p'] !== undefined)).toBeTrue();
+  });
+
+  it('na visita, o modo estudo é igual (só muda o que se vê neste aparelho)', async () => {
+    fixture.componentInstance.open(note('n-1', 'の (De / Posse)', NO), 'Bruna', [], false, 'BRUN-A123');
+    await settle();
+    await listen('ja');
+    q<HTMLButtonElement>('.fita .estudo')!.click();
+    await settle();
+    expect(hiddenWords()).toContain('ケーキ');
+    scribbles('.text')[0].click();
+    await settle();
+    expect(hiddenWords()).not.toContain('USOS');
+  });
+
   it('tocar numa frase do texto lê dali', async () => {
     fixture.componentInstance.open(note('n-1', 'の (De / Posse)', NO));
     await settle();

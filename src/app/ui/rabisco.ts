@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 
-/** Um laço de letra cursiva, repetido pela palavra: o "texto" que o desenhista não quis escrever. */
-const LACO =
+/** Um laço de letra cursiva, repetido pela palavra: o "texto" que o desenhista não quis escrever (o modo estudo da voz, ui/voz-estudo.ts, usa o mesmo). */
+export const LACO =
   "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 16'%3E%3Cpath d='M0 11C3 11 6 7 6 5C6 3 4 3 3.5 5C3 8 5 11 8 11' fill='none' stroke='%23000' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E\")";
 
 /**

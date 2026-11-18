@@ -46,8 +46,9 @@ Continua o PLANO-VOZ.md (a fita, `ui/voz-fita.ts`; a voz, `core/voz.ts`; as fras
   por cima, medida em cada palavra (`Range.getClientRects`), com o mesmo laço e a mesma força do
   `app-rabisco`. Revelar só apaga o realce e o rabisco daquela palavra: nada muda de tamanho.
 - **Revelar**: o mouse em cima de uma palavra escondida a acende (o rabisco laranja, a mãozinha); clicar
-  a revela. Clicar de novo esconde. No modo estudo, tocar no texto não muda a frase lida (seria clicar
-  para ver e perder o lugar). O marca-texto da frase lida continua por baixo dos rabiscos: dá para seguir
+  a revela. A revelada volta a ser texto comum (o link funciona, o card abre); para esconder de novo,
+  desligar e ligar o modo. No modo estudo, tocar no texto não muda a frase lida (seria clicar para ver e
+  perder o lugar), e o clique na palavra escondida não chega ao link ou ao card de baixo. O marca-texto da frase lida continua por baixo dos rabiscos: dá para seguir
   onde a voz está.
 - **Selecionar** o texto fica desligado no modo estudo (arrastar revelaria tudo). O leitor de tela lê o
   texto de sempre (o rabisco é só para os olhos).
