@@ -1,6 +1,6 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { RichText } from './rich-text';
+import { CODE_COPY, RichText } from './rich-text';
 import { iconMask } from './icons';
 import { Toasts } from './toast';
 import { NoteLinks } from '../core/note-links';
@@ -832,6 +832,7 @@ describe('o código na leitura', () => {
     expect(cod.getAttribute('role')).toBe('button');
     expect(cod.tabIndex).toBe(0);
     expect(cod.title).toBe('Copiar');
+    expect(cod.getAttribute('aria-label')).toBe('Copiar: tejo-2026');
     expect(getComputedStyle(cod).cursor).toBe('pointer');
     const copiou = spyOn(TestBed.inject(Toasts), 'copy').and.resolveTo();
     let subiu = false;
@@ -868,6 +869,39 @@ describe('o código na leitura', () => {
     await Promise.resolve();
     expect(escrito).toHaveBeenCalledWith('tejo-2026');
     expect(disse).toHaveBeenCalledWith('O navegador não deixou copiar o código');
+  });
+
+  it('quem está em volta diz que não copia (CODE_COPY): vale para todo texto de dentro, também o dos widgets', async () => {
+    TestBed.configureTestingModule({ imports: [RichText], providers: [provideZonelessChangeDetection(), { provide: CODE_COPY, useValue: false }] });
+    const fixture = TestBed.createComponent(RichText);
+    fixture.componentRef.setInput('text', 'a senha `tejo-2026` e mais');
+    document.body.appendChild(fixture.nativeElement);
+    await fixture.whenStable();
+    const cod = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('code.cod')!;
+    expect(cod.hasAttribute('role')).toBeFalse();
+    expect(cod.classList).not.toContain('copia');
+  });
+
+  it('a linguagem que chega depois (o texto mudou, a primeira linha não) ganha a reserva do canto', async () => {
+    const { fitCodePaper } = await import('./code-paper');
+    TestBed.configureTestingModule({ imports: [RichText], providers: [provideZonelessChangeDetection()] });
+    const fixture = TestBed.createComponent(RichText);
+    const longa = 'const primeira = "uma linha bem comprida que passa do canto e mais";';
+    fixture.componentRef.setInput('text', '```\n' + longa + '\n```');
+    const el = fixture.nativeElement as HTMLElement;
+    el.style.cssText = 'display: block; width: 420px; --line: 24px';
+    document.body.appendChild(el);
+    await fixture.whenStable();
+    await new Promise((r) => requestAnimationFrame(() => r(null)));
+    const peca = el.querySelector<HTMLElement>('.codigo-peca')!;
+    fitCodePaper(peca);
+    const antes = parseFloat(peca.style.getPropertyValue('--cod-reserva')) || 0;
+    fixture.componentRef.setInput('text', '```powershell\n' + longa + '\n```');
+    await fixture.whenStable();
+    // o observador do papel pede a medida no quadro seguinte
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null))));
+    expect(el.querySelector('.codigo-peca')).toBe(peca);
+    expect(parseFloat(peca.style.getPropertyValue('--cod-reserva'))).toBeGreaterThan(antes);
   });
 
   it('sem o copiar (a ficha do mural): a fita é só desenho, e o clique chega a quem está em volta', async () => {

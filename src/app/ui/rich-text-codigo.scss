@@ -16,7 +16,7 @@
 @include formatado.codigo-temas('.codigo-peca');
 /* o código na linha que copia com um clique (ui/rich-text.ts, `codeCopy`): a mão e, com o mouse em cima, a fita
    num tom a mais da própria letra (a mesma conta, sem cor escrita, também na folha pautada); no foco do teclado,
-   o contorno na cor da letra (sem as pontas cortadas: a máscara cortaria o contorno junto) */
+   o mesmo tom e um fio embaixo na cor da letra, cortado nas pontas como a fita (um contorno viraria uma pílula) */
 .cod.copia {
   cursor: pointer;
   transition: background-color var(--t-ui, 160ms) var(--ease-ui, ease-out);
@@ -30,10 +30,10 @@
   background: color-mix(in srgb, currentColor 16%, var(--cod-pauta, color-mix(in srgb, currentColor 13%, transparent)));
 }
 .cod.copia:focus-visible {
-  -webkit-mask: none;
-  mask: none;
-  outline: 2px solid currentColor;
-  outline-offset: 1px;
+  outline: none;
+  background:
+    linear-gradient(currentColor 0 0) bottom / 100% 2px no-repeat,
+    color-mix(in srgb, currentColor 10%, var(--cod-pauta, color-mix(in srgb, currentColor 13%, transparent)));
 }
 @media (prefers-reduced-motion: reduce) {
   .cod.copia {
@@ -79,6 +79,9 @@
   white-space: pre;
   /* a barra de verdade sai: a desenhada (ui/code-paper.ts) fica por cima do pé da última linha */
   scrollbar-width: none;
+  /* rolando, as letras somem no vão antes do picote: nenhum pedaço delas por cima da tira dos furos */
+  -webkit-mask: linear-gradient(to right, transparent 0.15rem, #000 #{formatado.$cod-vao}) border-box;
+  mask: linear-gradient(to right, transparent 0.15rem, #000 #{formatado.$cod-vao}) border-box;
 }
 .codigo-peca > .codigo::-webkit-scrollbar {
   display: none;
@@ -143,8 +146,13 @@
   .codigo-copiar-nome {
     display: none;
   }
+  /* no celular a linha é curta: a linguagem ocupa menos dela (até 30%, com o esmaecido mais curto) */
   .codigo-lingua {
+    /* (30% da linha para a palavra, fora o lugar do Copiar ao lado) */
+    max-width: calc(30% + 8px + 26px + 8px);
+    padding-left: 1.8em;
     padding-right: calc(8px + 26px + 8px);
+    background: linear-gradient(to right, transparent, var(--cod-faixa, #e8f1e0) 1.4em);
   }
 }
 @media (pointer: coarse) {

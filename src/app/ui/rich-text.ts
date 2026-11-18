@@ -1,5 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, input, linkedSignal, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, InjectionToken, computed, inject, input, linkedSignal, output, signal } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
 import { calloutFallbackTitle, calloutPaper } from '../core/callouts';
 import { Block, blockLine, foldDone, hasFormatting, linesOf, parseRich, reminderLinkId, snapshotDone } from '../core/rich-text';
@@ -18,6 +18,13 @@ import { Toasts } from './toast';
 import { NoteWidget } from './note-widget';
 import { PieceLift } from './piece-lift';
 import { ZoomKnob } from './zoom-knob';
+
+/**
+ * Se o código na linha copia com um clique em tudo o que está dentro de quem dá (o padrão é sim). A ficha do
+ * mural (onde o clique abre a anotação, como o Copiar do bloco, que lá não existe) e as peças do quadro livre
+ * (que se pegam e se arrastam pelo texto) dão `false`, e o texto dos widgets dentro delas também não copia.
+ */
+export const CODE_COPY = new InjectionToken<boolean>('CODE_COPY');
 
 /**
  * O texto da ficha na leitura, com a formatação do editor (ver core/rich-text.ts): negrito, itálico,
@@ -233,7 +240,7 @@ import { ZoomKnob } from './zoom-knob';
     </ng-template>
     <!-- o spoiler: a tarja preta por cima do pedaço (o pedaço por dentro, com as marcas dele, fica inerte até revelar) -->
     <ng-template #span let-s>@if (s.spoiler) {<span class="spoiler" role="button" tabindex="0" aria-label="Spoiler escondido: revelar" title="Spoiler: toque para revelar" (click)="reveal($event)" (keydown.enter)="reveal($event)" (keydown.space)="reveal($event)"><span class="spoiler-texto" inert><ng-container *ngTemplateOutlet="pedaco; context: { $implicit: s }" /></span></span>} @else {<ng-container *ngTemplateOutlet="pedaco; context: { $implicit: s }" />}</ng-template>
-    <ng-template #pedaco let-s>@if (s.link) {<ng-container *ngTemplateOutlet="elo; context: { $implicit: s }" />} @else if (s.href) {@let rid = reminderId(s.href); @if (rid) {<ng-container *ngTemplateOutlet="lembrete; context: { $implicit: s, id: rid }" />} @else {<a class="elo url" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" [href]="s.href" target="_blank" rel="noopener noreferrer" [title]="s.href" (click)="$event.stopPropagation()">{{ s.text }}<span class="sr-only"> (abre em outra aba)</span></a>}} @else if (s.code) {<code class="cod" [class.marca]="s.mark" [class.riscado]="s.strike" [class.sutil]="s.subtle" [class.copia]="codeCopy()" [attr.role]="codeCopy() ? 'button' : null" [attr.tabindex]="codeCopy() ? 0 : null" [attr.title]="codeCopy() ? 'Copiar' : null" (click)="copyInline($event, s.text)" (keydown.enter)="copyInline($event, s.text)" (keydown.space)="copyInline($event, s.text)">{{ s.text }}</code>} @else if (s.bold || s.italic || s.strike || s.mark || s.subtle) {<span class="enf" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" [class.riscado]="s.strike" [class.marca]="s.mark">{{ s.text }}</span>} @else {{{ s.text }}}</ng-template>
+    <ng-template #pedaco let-s>@if (s.link) {<ng-container *ngTemplateOutlet="elo; context: { $implicit: s }" />} @else if (s.href) {@let rid = reminderId(s.href); @if (rid) {<ng-container *ngTemplateOutlet="lembrete; context: { $implicit: s, id: rid }" />} @else {<a class="elo url" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" [href]="s.href" target="_blank" rel="noopener noreferrer" [title]="s.href" (click)="$event.stopPropagation()">{{ s.text }}<span class="sr-only"> (abre em outra aba)</span></a>}} @else if (s.code) {<code class="cod" [class.marca]="s.mark" [class.riscado]="s.strike" [class.sutil]="s.subtle" [class.copia]="codeCopy()" [attr.role]="codeCopy() ? 'button' : null" [attr.tabindex]="codeCopy() ? 0 : null" [attr.title]="codeCopy() ? 'Copiar' : null" [attr.aria-label]="codeCopy() ? 'Copiar: ' + s.text : null" (click)="copyInline($event, s.text)" (keydown.enter)="copyInline($event, s.text)" (keydown.space)="copyInline($event, s.text)">{{ s.text }}</code>} @else if (s.bold || s.italic || s.strike || s.mark || s.subtle) {<span class="enf" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" [class.riscado]="s.strike" [class.marca]="s.mark">{{ s.text }}</span>} @else {{{ s.text }}}</ng-template>
     <!-- o link de lembrete ("[texto](murall://lembrete/ID)", ver core/reminder-links.ts): a caneta do link
          com o desenho do calendário depois; o dia no title e no leitor de tela (e no PDF, pelo data-quando).
          Tracejado, o que não está no seu Calendário; sem como saber (o mural de outra pessoa), só aparece -->
@@ -780,10 +787,11 @@ export class RichText {
    */
   readonly anchors = input(false);
   /**
-   * O código na linha copia com um clique (PLANO-CODIGO-COMPACTO.md, D6): a fita vira um botão. Quem não quer
-   * diz `false` (a ficha do mural, onde o clique abre a anotação, como o Copiar do bloco, que lá não existe).
+   * O código na linha copia com um clique (PLANO-CODIGO-COMPACTO.md, D6): a fita vira um botão. O padrão vem
+   * de quem está em volta (`CODE_COPY`): a ficha do mural e as peças do quadro livre dizem não, e vale também
+   * para o texto dos widgets dentro delas (o Nota).
    */
-  readonly codeCopy = input(true);
+  readonly codeCopy = input(inject(CODE_COPY, { optional: true }) ?? true);
 
   /** O número da linha do texto da `i`-ésima linha do bloco (só com `anchors`). */
   protected at(b: Block, i = 0): number | null {

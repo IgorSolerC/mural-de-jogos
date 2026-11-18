@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-17-codigo-na-linha-copia',
+    id: '2026-11-17-codigo-fechamento',
     version: '1.49.1',
     kind: 'ajustes',
     date: '2026-11-17',

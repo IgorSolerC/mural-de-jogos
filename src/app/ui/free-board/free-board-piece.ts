@@ -8,7 +8,7 @@ import { parseWidgetLine, readCardRef, widgetDef, widgetSpoken } from '../../cor
 import { HOLE } from '../../core/free-board-geometry';
 import { ICON, IconModule } from '../icons';
 import { NoteWidget } from '../note-widget';
-import { RichText } from '../rich-text';
+import { CODE_COPY, RichText } from '../rich-text';
 import { DEFAULT_FRAME } from './far-layer';
 import { PieceInfo } from './scene';
 import { PieceMeasure, sameMeasure } from './edit-ops';
@@ -34,6 +34,8 @@ export type PieceMeasured = PieceMeasure & { id: string; settled: boolean };
 @Component({
   selector: 'app-free-board-piece',
   imports: [NoteWidget, RichText, IconModule],
+  // a peça se pega e se arrasta pelo texto: o código na linha não copia aqui (nem no dos widgets dela)
+  providers: [{ provide: CODE_COPY, useValue: false }],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     role: 'group',
@@ -70,8 +72,7 @@ export type PieceMeasured = PieceMeasure & { id: string; settled: boolean };
             </div>
           }
           @if (level() === 'perto' && parts().body.trim()) {
-            <!-- (a peça se pega e se arrasta pelo texto: o código na linha não copia aqui, como na ficha do mural) -->
-            <app-rich-text class="cartao-corpo" [text]="parts().body" [links]="links()" [codeCopy]="false" />
+            <app-rich-text class="cartao-corpo" [text]="parts().body" [links]="links()" />
           }
         </div>
       }
@@ -80,7 +81,7 @@ export type PieceMeasured = PieceMeasure & { id: string; settled: boolean };
           @if (widget(); as w) {
             @if (w.body) {
               <!-- a tabela enche a caixa: as linhas quebram na largura e as fileiras esticam até a altura dela -->
-              <app-rich-text #tabela class="tabela encher" [text]="src()" [links]="links()" [codeCopy]="false" />
+              <app-rich-text #tabela class="tabela encher" [text]="src()" [links]="links()" />
             } @else {
               <!-- o widget desenhado no tamanho de base e ampliado por igual até encher a caixa (ver measure) -->
               <div #escala class="escala" [style.width.px]="baseW" [style.--line.px]="baseLine">

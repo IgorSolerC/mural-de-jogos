@@ -56,7 +56,9 @@ export function watchCodePaper(host: HTMLElement, scroller: HTMLElement): void {
   const mutations = new MutationObserver((records) => {
     const paper = papers.get(host);
     if (!paper) return;
-    if (records.some((r) => r.type === 'attributes') || firstLine(scroller) !== paper.line) schedule(host);
+    // (uma peça do canto que entra ou sai, como a linguagem na leitura, é um filho do papel)
+    const corner = records.some((r) => r.type === 'attributes' || (r.type === 'childList' && r.target === host));
+    if (corner || firstLine(scroller) !== paper.line) schedule(host);
     else schedule(host, true);
   });
   mutations.observe(host, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['class', 'hidden', 'data-lingua'] });
@@ -243,11 +245,16 @@ function placeThumb(host: HTMLElement, paper: Paper): void {
   thumb.style.transform = `translateX(${left}px)`;
 }
 
-/** As letras da primeira linha (sem medir nada). */
+/** As letras da primeira linha (sem medir nada, e sem montar o texto inteiro do bloco a cada tecla). */
 function firstLine(scroller: HTMLElement): string {
-  const t = scroller.textContent ?? '';
-  const i = t.indexOf('\n');
-  return i < 0 ? t : t.slice(0, i);
+  const walker = document.createTreeWalker(scroller, NodeFilter.SHOW_TEXT);
+  let out = '';
+  for (let n = walker.nextNode() as Text | null; n; n = walker.nextNode() as Text | null) {
+    const i = n.data.indexOf('\n');
+    if (i >= 0) return out + n.data.slice(0, i);
+    out += n.data;
+  }
+  return out;
 }
 
 /** Da beirada direita do papel até a peça do canto que vai mais para a esquerda, com o vão; 0 sem nenhuma. */

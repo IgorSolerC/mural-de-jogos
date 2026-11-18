@@ -53,7 +53,7 @@ import { SharedPatch } from './shared-patch';
 import { SharedStore } from '../core/shared-store';
 import { SyncConflicts } from '../core/sync-conflicts';
 import { canWrite } from '../core/shared-notes';
-import { RichText } from './rich-text';
+import { CODE_COPY, RichText } from './rich-text';
 import { Corta } from './clamp';
 import { ReviewStore } from '../core/review-store';
 import { tickTask } from '../core/rich-text';
@@ -388,7 +388,7 @@ export const CARD_TEMPLATE = `
         <!-- o começo da anotação, já formatado (listas, tarefas): a parede mostra o que tem nela -->
         <!-- o estrago queima o texto de dentro: o esmaecido do fim fica na caixa (os dois juntos) -->
         <div class="nota-texto" [class.marcavel]="interactive()" appCorta>
-          <app-rich-text data-queima [text]="review().text" [fold]="true" [foldKey]="review().id" [checkable]="ticks()" [links]="noteLinks()" [anchors]="preview()" [codeCopy]="false" (toggled)="toggleTask($event)" />
+          <app-rich-text data-queima [text]="review().text" [fold]="true" [foldKey]="review().id" [checkable]="ticks()" [links]="noteLinks()" [anchors]="preview()" (toggled)="toggleTask($event)" />
         </div>
       }
     } @else if (!compact() && !capas()) {
@@ -397,7 +397,7 @@ export const CARD_TEMPLATE = `
         @if (masked()) {
           <p class="texto-inteiro" data-queima><app-rabisco [text]="fullMasked()" /><span class="sr-only">Texto escondido</span></p>
         } @else {
-          <div class="texto-inteiro" [class.marcavel]="interactive()" data-queima><app-rich-text [text]="review().text" [fold]="true" [foldKey]="review().id" [checkable]="ticks()" [links]="noteLinks()" [anchors]="preview()" [codeCopy]="false" (toggled)="toggleTask($event)" /></div>
+          <div class="texto-inteiro" [class.marcavel]="interactive()" data-queima><app-rich-text [text]="review().text" [fold]="true" [foldKey]="review().id" [checkable]="ticks()" [links]="noteLinks()" [anchors]="preview()" (toggled)="toggleTask($event)" /></div>
         }
       } @else if (lead(); as line) {
         @if (masked() && !bare()) {
@@ -1056,6 +1056,10 @@ export const CARD_STYLES = `
     :is(.nota-texto, .texto-inteiro) ::ng-deep .codigo-copiar {
       display: none;
     }
+    /* sem o Copiar ao lado (no toque ele fica junto), a linguagem vai até o canto */
+    :is(.nota-texto, .texto-inteiro) ::ng-deep .codigo-lingua {
+      padding-right: 0.9rem;
+    }
     /* só o texto que passou da ficha esmaece no fim (ver ui/clamp.ts) */
     .nota-texto[data-corta] {
       -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--pe-folga) - var(--line) * 1.2), transparent calc(100% - var(--pe-folga)));
@@ -1607,6 +1611,8 @@ export const CARD_STYLES = `
   template: CARD_TEMPLATE,
   styles: [CARD_STYLES],
   styleUrl: './review-card-acoes.scss',
+  // o código na linha da ficha (e dos widgets dela) é só desenho: o clique abre a anotação (ui/rich-text.ts)
+  providers: [{ provide: CODE_COPY, useValue: false }],
 })
 export class ReviewCard {
   readonly review = input.required<Review>();

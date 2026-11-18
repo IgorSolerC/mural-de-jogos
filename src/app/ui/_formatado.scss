@@ -88,8 +88,8 @@ $cod-temas: (
       --cod-beira: rgb(255 255 255 / 0.1);
       --cod-tinta: #{map.get($c, tinta)};
       --cod-etiqueta: #{map.get($c, eti)};
-      --cod-rolo: rgb(255 255 255 / 0.32);
-      --cod-rolo-forte: rgb(255 255 255 / 0.56);
+      --cod-rolo: rgb(255 255 255 / 0.4);
+      --cod-rolo-forte: rgb(255 255 255 / 0.62);
       --cod-selecao: #{map.get($c, sel)};
       --cod-cursor: #{map.get($c, cursor)};
       --tk-pal: #{map.get($c, pal)};
@@ -290,6 +290,8 @@ $cod-vao: 0.7rem;
 // tomando o lugar). O esmaecido vai até a beirada: nenhuma letra aparece entre ela e o Copiar
 @mixin codigo-lingua {
   position: absolute;
+  // por cima das letras (quem rola é uma camada própria na leitura, pela máscara do vão)
+  z-index: 1;
   // (um tico para dentro: o fio da beirada do papel continua à vista)
   top: 1px;
   right: 1px;
@@ -343,13 +345,26 @@ $cod-vao: 0.7rem;
   #{$papel} > .codigo-rolo.arrastando > .codigo-rolo-polegar {
     pointer-events: auto;
   }
+  // o trilho: o mesmo fio, bem leve, da largura toda (sozinho, o polegar parecia um sublinhado da última linha)
+  #{$papel} > .codigo-rolo::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 3px;
+    height: 4px;
+    border-radius: 3px;
+    background: var(--cod-rolo, rgb(47 107 58 / 0.72));
+    opacity: 0.22;
+  }
   #{$papel} > .codigo-rolo > .codigo-rolo-polegar {
     position: absolute;
     left: 0;
     bottom: 3px;
     height: 4px;
     border-radius: 3px;
-    background: var(--cod-rolo, rgb(47 107 58 / 0.45));
+    // (3:1 ou mais no papel e na faixa, em todo tema: o fio é o que mostra que dá para rolar)
+    background: var(--cod-rolo, rgb(47 107 58 / 0.72));
     cursor: default;
     touch-action: none;
     transition:
@@ -361,7 +376,7 @@ $cod-vao: 0.7rem;
     // cresce para baixo, sem chegar nas letras da última linha
     bottom: 2px;
     height: 6px;
-    background: var(--cod-rolo-forte, rgb(47 107 58 / 0.72));
+    background: var(--cod-rolo-forte, rgb(47 107 58 / 0.92));
   }
   // a área de pegar vai um pouco além do fio (4px é pouco para o dedo e para o mouse)
   #{$papel} > .codigo-rolo > .codigo-rolo-polegar::before {
