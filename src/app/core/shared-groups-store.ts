@@ -139,8 +139,8 @@ export class SharedGroupsStore {
    * esperando para subir): a base da junção quando outra pessoa gravou antes.
    */
   private readonly bases = new Map<string, SharedGroup['dados']>();
-  /** As anotações já levadas a um grupo nesta sessão (a trava contra subir a mesma de novo, sem fim). */
-  private readonly adopted = new Set<string>();
+  /** O que subiu para cada grupo nesta sessão (grupo, título e texto): a rede de segurança de `adopt`. */
+  private readonly uploaded = new Set<string>();
   private pushTimer: ReturnType<typeof setTimeout> | undefined;
 
   /**
@@ -657,10 +657,6 @@ export class SharedGroupsStore {
         const entry = this.shared.get(note.id);
         const now = this.store.get(note.id);
         if (!now || this.ofCategory(now.category)?.id !== grupo) continue;
-        // trava: cada anotação sobe para um grupo uma vez só por sessão (a que voltava a "pendente" depois de subir
-        // era copiada de novo a cada rodada, sem fim)
-        if (this.adopted.has(note.id)) continue;
-        this.adopted.add(note.id);
         // num grupo público, a privada fica pública, fora do Feed (o editor pergunta antes; os outros caminhos
         // chegam aqui sem perguntar, e a nuvem já a mostraria pelo grupo: o que ela diz tem de bater)
         const g = this.entries().get(grupo);
@@ -668,7 +664,15 @@ export class SharedGroupsStore {
         if (g?.publico && now.private) this.store.update(withAudience(now, 'visivel', new Date().toISOString()));
         const ready = this.store.get(note.id) ?? now;
         if (entry) await this.shared.moveToGroup(note.id, grupo);
-        else await this.shared.share(ready, [], grupo);
+        else {
+          // a rede de segurança contra cópias sem fim: uma anotação igual (título e texto) a outra que já subiu
+          // para este grupo nesta sessão não sobe de novo sozinha (o conserto de 17/nov: a que voltava com outro
+          // id subia de novo a cada rodada). Só depois de a nuvem aceitar: a que falhou tenta de novo.
+          const twin = `${grupo}\n${ready.game.name}\n${ready.text}`;
+          if (this.uploaded.has(twin)) continue;
+          await this.shared.share(ready, [], grupo);
+          this.uploaded.add(twin);
+        }
       }
       this.error.set(null);
     } catch (err) {
@@ -692,7 +696,7 @@ export class SharedGroupsStore {
       const e = this.shared.get(n.id);
       // já está nele; ou é de outra pessoa (só quem é dono da anotação a põe num grupo)
       if (e && (e.grupo === g.id || e.papel !== 'dono')) continue;
-      if (e?.grupo || this.adopted.has(n.id)) continue;
+      if (e?.grupo) continue;
       out.push({ note: n, grupo: g.id });
     }
     return out;

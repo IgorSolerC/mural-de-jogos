@@ -66,11 +66,18 @@ interface FakeNote {
   membros: Map<string, Role>;
   /** O grupo compartilhado dela (PLANO-COMPARTILHAR.md). */
   grupo?: string;
+  /** Quem a escreveu, numa de grupo (o `criado_por` da API). */
+  criadoPor?: string;
 }
 
 /** A nuvem das anotações compartilhadas, de mentira, com as regras de api/src/routes/notes.ts. */
 class FakeNotes {
   readonly notes = new Map<string, FakeNote>();
+  /**
+   * O dono de cada grupo compartilhado (id do grupo → id do dono). A que alguém sobe num grupo de outra pessoa
+   * é do dono do grupo, e quem a escreveu fica em `criadoPor` (como `createInGroup` da API).
+   */
+  readonly groupOwners = new Map<string, string>();
   /** O último envio do mural de cada um: o público, as fichas à mostra e as novas. */
   readonly murals = new Map<string, { publico: { notas: Record<string, unknown>[] }; fichas: string[]; novas: { ref: string }[] }>();
   offline = false;
@@ -129,7 +136,7 @@ class FakeNotes {
       membros: [...n.membros].map(([id, papel]) => ({ ...this.person(id), papel, desde: '2026-10-16T00:00:00.000Z' })),
       atualizadoEm: n.em,
       atualizadoPor: this.person(n.por),
-      ...(n.grupo ? { grupo: n.grupo } : {}),
+      ...(n.grupo ? { grupo: n.grupo, criadoPor: n.criadoPor ? this.person(n.criadoPor) : null } : {}),
       ...(writes && n.conflito ? { conflito: { ...n.conflito, autorA: this.person(n.conflito.autorA), autorB: this.person(n.conflito.autorB) } } : {}),
     };
   }
@@ -184,8 +191,15 @@ class FakeNotes {
       const at = new Date().toISOString();
       const n: FakeNote = { id: body.id, dono: me.id, rev: 1, versao: 1, dados: this.stored(body.dados, !!body.grupo), conflito: null, por: me.id, em: at, membros: new Map(), ...(body.grupo ? { grupo: body.grupo } : {}) };
       for (const m of body.membros ?? []) n.membros.set(this.byCode(m.codigo)!.id, m.papel);
+      // num grupo de outra pessoa: a anotação é do dono do grupo, e quem a escreveu fica em `criadoPor`
+      const owner = body.grupo ? this.groupOwners.get(body.grupo) : undefined;
+      if (owner && owner !== me.id) {
+        n.dono = owner;
+        n.criadoPor = me.id;
+        n.membros.set(me.id, 'editor');
+      }
       this.notes.set(n.id, n);
-      return json({ nota: this.detail(n, 'dono') }, 201);
+      return json({ nota: this.detail(n, this.access(n, me)!) }, 201);
     }
     // pôr num grupo compartilhado ou tirar dele (o dono e os gestores; a pasta e as tags só ficam dentro de um grupo)
     const g = /^\/v1\/notas\/([^/]+)\/grupo$/.exec(path);
@@ -799,6 +813,23 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
       expect(outra.text('nota-1')).toBe('da Ana');
       expect(outra.store.reviews().some((r) => r.id !== 'nota-1' && r.text === 'da Bia, de um backup antigo')).toBeTrue();
       void bia;
+    });
+
+    it('a anotação que a editora sobe no grupo de outra pessoa continua uma só (não ganha outro id nem sobe de novo, sem fim)', async () => {
+      // o caso de 17/nov: a Bruna (editora) pôs uma anotação no grupo do dono, e ela se copiava sem parar no mural dele
+      cloud.groupOwners.set('gJapones001', USERS['ana'].id);
+      const bia = person('bia');
+      bia.shared.groupNames.set(new Map([['gJapones001', 'Japones']]));
+      bia.store.add(note('nota-g', '何 + の', { category: 'Japones' }));
+      TestBed.tick();
+      await bia.shared.share(bia.store.get('nota-g')!, [], 'gJapones001');
+      TestBed.tick();
+      await sync(bia);
+      expect(cloud.notes.get('nota-g')?.dono).toBe(USERS['ana'].id);
+      expect(bia.shared.role('nota-g')).toBe('editor');
+      // a daqui é a mesma da nuvem: nenhuma cópia com outro id
+      expect(bia.store.reviews().filter((r) => r.text === '何 + の').map((r) => r.id)).toEqual(['nota-g']);
+      expect(cloud.notes.size).toBe(1);
     });
 
     it('juntar um backup não troca nem apaga a compartilhada (uma versão diferente e mais nova fica guardada)', async () => {

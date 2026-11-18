@@ -260,10 +260,14 @@ export class SharedStore implements SharedSink {
     effect(() => {
       const list = [...this.entries().values()];
       const names = this.groupNames();
+      const me = this.account.account()?.codigo ?? null;
       untracked(() =>
         this.store.setShared(
           list.map((e) => this.shown(e, names)),
-          new Set(list.filter((e) => e.papel !== 'dono').map((e) => e.id)),
+          // de outra pessoa: a de outro dono que você não escreveu. A que você pôs num grupo compartilhado de
+          // outra pessoa passa a ser do dono do grupo, mas é a mesma anotação daqui: ela entra no lugar da daqui.
+          // Contá-la como de outra pessoa dava um id novo à daqui, que subia de novo para o grupo, sem fim.
+          new Set(list.filter((e) => e.papel !== 'dono' && !(me && e.criadoPor?.codigo === me)).map((e) => e.id)),
         ),
       );
     });

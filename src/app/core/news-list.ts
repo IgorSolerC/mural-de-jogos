@@ -37,7 +37,7 @@ export const NEWS: NewsEntry[] = [
     ],
   },
   {
-    id: '2026-11-17-marcar-pastas',
+    id: '2026-11-17-copias-no-grupo',
     version: '1.48.1',
     kind: 'ajustes',
     date: '2026-11-17',
@@ -51,6 +51,7 @@ export const NEWS: NewsEntry[] = [
     correcoes: [
       'Apagar um grupo compartilhado seu não fazia nada e dizia que ele tinha sido apagado: agora ele deixa de ser compartilhado (a folha avisa quem deixa de ver) e segue o destino escolhido.',
       'A anotação nova num grupo compartilhado de outra pessoa (criada no editor, no Kanban, em várias de uma vez ou pela API) fazia o grupo virar "Nome · Dona" no seu mural e ficava só sua: agora ela entra no grupo, e o nome não muda.',
+      'A anotação que uma editora punha no grupo compartilhado de outra pessoa se copiava sem parar (a dela ganhava outro id ao ir para o grupo, e a cópia subia de novo): agora ela vai uma vez só, e continua a mesma no mural dela.',
     ],
   },
   {
