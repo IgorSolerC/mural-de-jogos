@@ -36,8 +36,8 @@ export const VOICE_LANGS: Readonly<Record<VoiceLang, VoiceLangInfo>> = {
 /** As línguas na ordem do menu. */
 export const VOICE_LANG_ORDER: readonly VoiceLang[] = ['pt', 'en', 'ja'];
 
-/** As velocidades à escolha (1 é a da voz). */
-export const VOICE_RATES: readonly number[] = [0.75, 1, 1.25, 1.5];
+/** As velocidades à escolha (1 é a da voz). Abaixo de 0,75×, as falas ficam mais curtas (ui/voz-frases.ts, `maxSpeech`). */
+export const VOICE_RATES: readonly number[] = [0.25, 0.5, 0.75, 1, 1.25, 1.5];
 
 /** A preferência deste aparelho: a velocidade e a voz escolhida em cada língua (pelo nome). */
 export const VOZ_KEY = 'meu-mural:voz';
@@ -255,9 +255,18 @@ export class Voz {
     if (this.playing()) this.play(this.at());
   }
 
-  setRate(rate: number): void {
+  /**
+   * A velocidade, para este aparelho; a frase de agora recomeça nela. Com `again`, as frases da leitura de
+   * agora partidas de novo para a velocidade nova (`maxSpeech`) e a frase de agora entre elas.
+   */
+  setRate(rate: number, again?: { texts: readonly string[]; at: number }): void {
     if (!VOICE_RATES.includes(rate) || rate === this.rate()) return;
     this.save({ ...this.stored(), rate });
+    if (again?.texts.length && this.texts.length) {
+      this.texts = again.texts;
+      this.total.set(again.texts.length);
+      if (!this.ended()) this.at.set(Math.min(Math.max(again.at, 0), again.texts.length - 1));
+    }
     if (this.playing()) this.play(this.at());
   }
 

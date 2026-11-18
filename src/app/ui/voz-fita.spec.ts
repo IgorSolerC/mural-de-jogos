@@ -180,19 +180,212 @@ describe('Ouvir a nota na ficha aberta', () => {
     expect(texts()[0]).toBe('私のケーキです。');
   });
 
-  it('a velocidade: as quatro à vista num menu, a de agora com o tique', async () => {
+  it('a velocidade: as seis à vista num menu, a de agora com o tique', async () => {
     fixture.componentInstance.open(note('n-1', 'の (De / Posse)', NO));
     await settle();
     await listen('ja');
     q<HTMLButtonElement>('.fita .velocidade')!.click();
     await settle();
     const items = [...document.querySelectorAll<HTMLButtonElement>('.menu-contexto [data-k]')];
-    expect(items.map((b) => b.querySelector('.nome')!.textContent!.trim())).toEqual(['0,75×', '1×', '1,25×', '1,5×']);
-    expect(items.map((b) => b.querySelector('.marcada') !== null)).toEqual([false, true, false, false]);
-    items[0].click();
+    expect(items.map((b) => b.querySelector('.nome')!.textContent!.trim())).toEqual(['0,25×', '0,5×', '0,75×', '1×', '1,25×', '1,5×']);
+    expect(items.map((b) => b.querySelector('.marcada') !== null)).toEqual([false, false, false, true, false, false]);
+    items[2].click();
     await settle();
     expect(q('.fita .velocidade')!.textContent!.trim()).toBe('0,75×');
     expect(fake.queue[0].rate).toBe(0.75);
+  });
+
+  it('devagar, as falas ficam mais curtas: a frase de agora se parte e a leitura segue dela', async () => {
+    const long = 'Depois vem uma frase mais comprida, que passa das quarenta letras e se parte devagar.';
+    fixture.componentInstance.open(note('n-1', 'Devagar', `Uma frase curta. ${long}`));
+    await settle();
+    await listen('pt');
+    expect(texts()).toEqual(['Devagar', 'Uma frase curta.', long]);
+    for (let i = 0; i < 2; i++) {
+      fake.begin();
+      fake.end();
+    }
+    fake.begin();
+    await settle();
+    q<HTMLButtonElement>('.fita .velocidade')!.click();
+    await settle();
+    document.querySelectorAll<HTMLButtonElement>('.menu-contexto [data-k]')[0].click();
+    await settle();
+    expect(q('.fita .velocidade')!.textContent!.trim()).toBe('0,25×');
+    expect(texts().length).toBeGreaterThan(2);
+    expect(texts().every((t) => t.length <= 40)).toBeTrue();
+    expect(texts().join(' ')).toBe(long);
+    expect(fake.queue.every((u) => u.rate === 0.25)).toBeTrue();
+    // de volta a 1×, a mesma frase inteira de novo, do pedaço onde estava
+    q<HTMLButtonElement>('.fita .velocidade')!.click();
+    await settle();
+    document.querySelectorAll<HTMLButtonElement>('.menu-contexto [data-k]')[3].click();
+    await settle();
+    expect(texts()).toEqual([long]);
+  });
+
+  // ===== os atalhos (PLANO-VOZ-ESTUDO.md, feature 1) =====
+  /** Aperta a tecla em `on` (por padrão, no texto da ficha), como o teclado: desce e sobe. */
+  function key(k: string, on: Element = q('.text')!, extra: KeyboardEventInit = {}): KeyboardEvent {
+    const down = new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...extra });
+    on.dispatchEvent(down);
+    on.dispatchEvent(new KeyboardEvent('keyup', { key: k, bubbles: true, cancelable: true, ...extra }));
+    return down;
+  }
+  const said = () => q('.fita [aria-live]')!.textContent!.trim();
+
+  it('← e → andam as frases como as teclas da chapa, que afundam um instante; nas pontas, nada', async () => {
+    fixture.componentInstance.open(note('n-1', 'の (De / Posse)', NO));
+    await settle();
+    await listen('ja');
+    fake.begin();
+    key('ArrowLeft');
+    await settle();
+    expect(texts()[0]).withContext('na primeira, a anterior não faz nada').toBe('の (De / Posse)');
+    expect(fake.queue[0].onstart).toBeDefined();
+    expect(q('.fita .tecla[aria-keyshortcuts="ArrowLeft"]')!.classList).not.toContain('baixa');
+    expect(key('ArrowRight').defaultPrevented).toBeTrue();
+    await settle();
+    expect(texts()[0]).toBe('USOS');
+    expect(q('.fita .tecla[aria-keyshortcuts="ArrowRight"]')!.classList).toContain('baixa');
+    await wait(200);
+    await settle();
+    expect(q('.fita .tecla[aria-keyshortcuts="ArrowRight"]')!.classList).not.toContain('baixa');
+    key('ArrowRight');
+    key('ArrowRight');
+    key('ArrowLeft');
+    await settle();
+    expect(texts()[0]).toBe('私のケーキです。');
+    expect(q('.fita .contagem')!.textContent!.replace(/\s+/g, ' ').trim()).toBe('3 / 6');
+    // pausado, também: a frase fica marcada para continuar dela
+    key(' ');
+    key('ArrowRight');
+    await settle();
+    expect(fake.queue).toEqual([]);
+    expect(q('.fita .contagem')!.textContent!.replace(/\s+/g, ' ').trim()).toBe('4 / 6');
+    for (let i = 0; i < 4; i++) key('ArrowRight');
+    await settle();
+    expect(q('.fita .contagem')!.textContent!.replace(/\s+/g, ' ').trim()).toBe('6 / 6');
+  });
+
+  it('Espaço pausa e continua, mesmo com o foco num botão da fita (que não é apertado junto)', async () => {
+    fixture.componentInstance.open(note('n-1', 'の (De / Posse)', NO));
+    await settle();
+    await listen('ja');
+    expect(key(' ').defaultPrevented).toBeTrue();
+    await settle();
+    expect(fake.queue).toEqual([]);
+    expect(q('.fita .tecla-tocar')!.getAttribute('aria-label')).toBe('Ouvir');
+    key(' ');
+    await settle();
+    expect(texts()[0]).toBe('の (De / Posse)');
+    // o foco na "próxima" (o mouse clicou nela): o Espaço pausa, não avança de novo
+    const next = q<HTMLButtonElement>('.fita .tecla[aria-keyshortcuts="ArrowRight"]')!;
+    next.focus();
+    const up = new KeyboardEvent('keyup', { key: ' ', bubbles: true, cancelable: true });
+    next.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }));
+    next.dispatchEvent(up);
+    expect(up.defaultPrevented).withContext('a subida do Espaço é da fita').toBeTrue();
+    await settle();
+    expect(fake.queue).toEqual([]);
+    expect(q('.fita .contagem')!.textContent!.replace(/\s+/g, ' ').trim()).toBe('1 / 6');
+    // segurar o Espaço não fica pausando e continuando
+    key(' ', q('.text')!, { repeat: true });
+    await settle();
+    expect(fake.queue).toEqual([]);
+  });
+
+  it('o card que fecha com o foco fica com o Espaço dele (a leitura não pausa)', async () => {
+    fixture.componentInstance.open(note('n-1', 'Card', ['Antes.', '', '> [!aviso]- Fechado', '> Dentro.'].join('\n')));
+    await settle();
+    await listen('pt');
+    const summary = q<HTMLElement>('.text summary')!;
+    summary.focus();
+    expect(key(' ', summary).defaultPrevented).toBeFalse();
+    await settle();
+    expect(fake.queue.length).toBeGreaterThan(0);
+    // o botão da fita com o foco, não: o Espaço pausa
+    q<HTMLButtonElement>('.fita .velocidade')!.focus();
+    expect(key(' ', q('.fita .velocidade')!).defaultPrevented).toBeTrue();
+  });
+
+  it('↑ e ↓ trocam a velocidade, um passo por vez, até as pontas; o leitor de tela ouve a nova', async () => {
+    fixture.componentInstance.open(note('n-1', 'の (De / Posse)', NO));
+    await settle();
+    await listen('ja');
+    key('ArrowUp');
+    await settle();
+    expect(q('.fita .velocidade')!.textContent!.trim()).toBe('1,25×');
+    expect(q('.fita .velocidade')!.getAnimations().length).withContext('a etiqueta acende').toBe(1);
+    expect(said()).toBe('Velocidade 1,25×.');
+    expect(fake.queue[0].rate).toBe(1.25);
+    key('ArrowUp');
+    key('ArrowUp');
+    await settle();
+    expect(q('.fita .velocidade')!.textContent!.trim()).toBe('1,5×');
+    expect(said()).toBe('1,5×: a mais rápida.');
+    expect(q('.fita .velocidade')!.getAnimations().length).withContext('na ponta, ela balança').toBeGreaterThan(0);
+    for (let i = 0; i < 7; i++) key('ArrowDown');
+    await settle();
+    expect(q('.fita .velocidade')!.textContent!.trim()).toBe('0,25×');
+    expect(said()).toBe('0,25×: a mais devagar.');
+    expect(fake.queue.every((u) => u.rate === 0.25)).toBeTrue();
+    expect(JSON.parse(localStorage.getItem(VOZ_KEY)!).rate).toBe(0.25);
+  });
+
+  it('as teclas não valem digitando, com Ctrl ou Shift, num menu aberto, numa folha por cima, nem sem a fita', async () => {
+    fixture.componentInstance.open(note('n-1', 'の (De / Posse)', NO));
+    await settle();
+    // sem a fita, o Espaço e as setas são da página
+    expect(key(' ').defaultPrevented).toBeFalse();
+    await listen('ja');
+    const dialog = q('dialog')!;
+    const field = dialog.appendChild(document.createElement('input'));
+    expect(key(' ', field).defaultPrevented).toBeFalse();
+    expect(key('ArrowRight', field).defaultPrevented).toBeFalse();
+    field.remove();
+    const editable = dialog.appendChild(document.createElement('div'));
+    editable.contentEditable = 'true';
+    expect(key('ArrowLeft', editable).defaultPrevented).toBeFalse();
+    editable.remove();
+    expect(key('ArrowRight', q('.text')!, { ctrlKey: true }).defaultPrevented).toBeFalse();
+    expect(key('ArrowRight', q('.text')!, { shiftKey: true }).defaultPrevented).toBeFalse();
+    const sheet = dialog.appendChild(document.createElement('dialog'));
+    const inside = sheet.appendChild(document.createElement('button'));
+    expect(key(' ', inside).defaultPrevented).withContext('a folha por cima').toBeFalse();
+    sheet.remove();
+    // o menu da velocidade aberto: as setas andam nele
+    q<HTMLButtonElement>('.fita .velocidade')!.click();
+    await settle();
+    const item = document.querySelector<HTMLButtonElement>('.menu-contexto [data-k]')!;
+    key('ArrowDown', item);
+    await settle();
+    expect(q('.fita .velocidade')!.textContent!.trim()).toBe('1×');
+    expect(texts()[0]).toBe('の (De / Posse)');
+    // parou: as teclas voltam para a página
+    document.querySelectorAll('.menu-contexto').forEach((m) => (m as HTMLElement).hidePopover?.());
+    q<HTMLButtonElement>('.fita .parar')!.click();
+    await settle();
+    expect(key(' ').defaultPrevented).toBeFalse();
+  });
+
+  it('com a fita à mostra, as setas são dela, e não viram as vezes de uma obra rejogada', async () => {
+    const base = { kind: 'jogos', scores: { historia: 8 }, status: 'finalizado', difficulty: 'nenhuma', verdict: null, text: 'Valeu cada hora.', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' };
+    const original = sanitizeReview({ ...base, id: 'r-hades', game: { name: 'Hades', coverUrl: null, source: 'manual' }, completedAt: '2026-01-01' })!;
+    const revisit = sanitizeReview({ ...base, id: 'r-hades-2', game: { name: 'Hades', coverUrl: null, source: 'manual' }, revisitOf: 'r-hades', completedAt: '2026-02-01' })!;
+    fixture.componentInstance.open(original, 'Ana', [original, revisit]);
+    await settle();
+    expect(q('.vez-nome')?.textContent).toBe('Original');
+    await listen('pt');
+    key('ArrowRight', q('dialog')!);
+    await settle();
+    expect(q('.vez-nome')?.textContent).toBe('Original');
+    expect(texts()[0]).toBe('Valeu cada hora.');
+    q<HTMLButtonElement>('.fita .parar')!.click();
+    await settle();
+    key('ArrowRight', q('dialog')!);
+    await settle();
+    expect(q('.vez-nome')?.textContent).toBe('Rejogada');
   });
 
   it('tocar numa frase do texto lê dali', async () => {

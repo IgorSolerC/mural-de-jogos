@@ -182,6 +182,20 @@ describe('a voz que lê a nota', () => {
       expect(voz.owner()).toBeNull();
     });
 
+    it('a velocidade com as frases partidas de novo: segue nelas, da frase dada', () => {
+      voz.start(['Um.', 'Dois, três e quatro.'], 'pt');
+      fake.begin();
+      fake.end();
+      fake.begin();
+      voz.setRate(0.25, { texts: ['Um.', 'Dois,', 'três e quatro.'], at: 1 });
+      expect(voz.total()).toBe(3);
+      expect(voz.at()).toBe(1);
+      expect(fake.queue.map((u) => [u.text, u.rate])).toEqual([
+        ['Dois,', 0.25],
+        ['três e quatro.', 0.25],
+      ]);
+    });
+
     it('parar esquece tudo e cala', () => {
       voz.start(['Um.'], 'pt');
       voz.stop();

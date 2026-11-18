@@ -13,13 +13,28 @@ export const VOICE_WORD_HIGHLIGHT = 'voz-palavra';
 const HANDS_OFF_MS = 4000;
 /** Tocar nisso não é escolher a frase: é o que a coisa faz (o link, a caixinha, o spoiler, o card). */
 const OWN_TAP = 'a, button, input, label, summary, [role="button"], [role="link"], .spoiler:not(.revelado)';
+/** Onde a pessoa digita: as teclas da fita não valem ali (a caixinha da tarefa fica com o Espaço dela). */
+const TYPING = 'input, textarea, select, [contenteditable]:not([contenteditable="false"])';
+/** Um menu ou uma lista com o foco: as setas são dele. */
+const OWN_KEYS = '[role="menu"], [role="menubar"], [role="listbox"], [role="tablist"], [role="slider"], .menu-contexto';
+/** Os atalhos da fita (PLANO-VOZ-ESTUDO.md): o que cada tecla faz. */
+const KEYS: Readonly<Record<string, 'prev' | 'next' | 'play' | 'faster' | 'slower'>> = {
+  ArrowLeft: 'prev',
+  ArrowRight: 'next',
+  ' ': 'play',
+  ArrowUp: 'faster',
+  ArrowDown: 'slower',
+};
+/** Quanto a tecla de metal fica afundada quando o atalho a aperta (ms). */
+const PRESS_MS = 150;
 
 /**
  * Ouvir a nota em voz alta (PLANO-VOZ.md): a fita presa ao pé da folha da ficha aberta (na leitura e na tela
  * cheia), com as teclas de metal do toca-fitas (o parcial ui/_toca-fitas.scss, o mesmo do widget de som):
  * a frase anterior, tocar e pausar, a próxima; a etiqueta da língua (troca a língua e a voz), o contador
  * ("3 / 24"), a velocidade e parar. A frase lida ganha o marca-texto (`::highlight(voz)`) e a folha rola
- * até ela; tocar numa frase lê dali.
+ * até ela; tocar numa frase lê dali. Com a fita à mostra, o teclado também a toca (PLANO-VOZ-ESTUDO.md): ← e
+ * → a frase anterior e a próxima, Espaço pausa e continua, ↑ e ↓ a velocidade.
  *
  * Quem usa dá o que se lê (`roots`: o nome e o texto desenhado) e a folha que rola (`scroller`), e chama
  * `choose` no botão de ouvir: o menu das três línguas abre sempre (a pessoa escolhe toda vez). Só lê: nada
@@ -44,27 +59,27 @@ const OWN_TAP = 'a, button, input, label, summary, [role="button"], [role="link"
             <lucide-icon [img]="OpenIcon" [size]="14" aria-hidden="true" />
           </button>
           <span class="teclas">
-            <button type="button" class="tecla tocavel" aria-label="Frase anterior" title="Frase anterior" [disabled]="voz.at() <= 0" (click)="voz.prev()">
+            <button type="button" class="tecla tocavel" [class.baixa]="pressed() === 'prev'" aria-label="Frase anterior" title="Frase anterior (←)" aria-keyshortcuts="ArrowLeft" [disabled]="voz.at() <= 0" (click)="voz.prev()">
               <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.6" y="6.2" width="2.4" height="11.6" rx="0.6" /><path d="M19.2 6.6v10.8L8.6 12z" /></svg>
             </button>
-            <button type="button" class="tecla tecla-tocar tocavel" [class.baixa]="voz.playing()" [attr.aria-pressed]="voz.playing()" [attr.aria-label]="voz.playing() ? 'Pausar' : 'Ouvir'" [title]="voz.playing() ? 'Pausar' : 'Ouvir'" (click)="voz.toggle()">
+            <button type="button" class="tecla tecla-tocar tocavel" [class.baixa]="voz.playing()" [attr.aria-pressed]="voz.playing()" [attr.aria-label]="voz.playing() ? 'Pausar' : 'Ouvir'" [title]="voz.playing() ? 'Pausar (Espaço)' : 'Ouvir (Espaço)'" aria-keyshortcuts="Space" (click)="voz.toggle()">
               @if (voz.playing()) {
                 <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.2" y="5" width="4.1" height="14" rx="1.2" /><rect x="13.7" y="5" width="4.1" height="14" rx="1.2" /></svg>
               } @else {
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.6 5.6c0-.9 1-1.5 1.8-1l9 6.4c.7.5.7 1.5 0 2l-9 6.4c-.8.5-1.8 0-1.8-1z" /></svg>
               }
             </button>
-            <button type="button" class="tecla tocavel" aria-label="Próxima frase" title="Próxima frase" [disabled]="voz.at() >= voz.total() - 1" (click)="voz.next()">
+            <button type="button" class="tecla tocavel" [class.baixa]="pressed() === 'next'" aria-label="Próxima frase" title="Próxima frase (→)" aria-keyshortcuts="ArrowRight" [disabled]="voz.at() >= voz.total() - 1" (click)="voz.next()">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.8 6.6v10.8L15.4 12z" /><rect x="17" y="6.2" width="2.4" height="11.6" rx="0.6" /></svg>
             </button>
           </span>
           <span class="contagem" aria-hidden="true">{{ shownAt() }}<small> / {{ voz.total() }}</small></span>
-          <button #velocidade type="button" class="velocidade tocavel" aria-haspopup="menu" [attr.aria-label]="'Velocidade ' + rateLabel() + '. Trocar'" title="Velocidade" (click)="chooseRate($event, velocidade)">{{ rateLabel() }}</button>
+          <button #velocidade type="button" class="velocidade tocavel" aria-haspopup="menu" [attr.aria-label]="'Velocidade ' + rateLabel() + '. Trocar'" title="Velocidade (↑ ↓)" aria-keyshortcuts="ArrowUp ArrowDown" (click)="chooseRate($event, velocidade)">{{ rateLabel() }}</button>
           <button type="button" class="parar tocavel" aria-label="Parar de ouvir" title="Parar de ouvir" (click)="stop()">
             <lucide-icon [img]="CloseIcon" [size]="18" aria-hidden="true" />
           </button>
         </div>
-        <p class="sr-only" aria-live="polite">{{ status() }}</p>
+        <p class="sr-only" aria-live="polite">{{ said() || status() }}</p>
       </div>
     }
   `,
@@ -103,6 +118,15 @@ export class VozFita {
   protected readonly now = () => Date.now();
   /** Até quando a rolagem é a da própria fita (a suave leva um pouco). */
   private autoUntil = 0;
+  /** A tecla da chapa que um atalho acabou de apertar (ela afunda um instante, como se fosse o dedo). */
+  protected readonly pressed = signal<'prev' | 'next' | null>(null);
+  private pressTimer: ReturnType<typeof setTimeout> | null = null;
+  /** O que o leitor de tela ouve de um atalho (a velocidade nova), no lugar do andamento, por um instante. */
+  protected readonly said = signal('');
+  private saidTimer: ReturnType<typeof setTimeout> | null = null;
+  /** O Espaço desceu na fita: a subida dele também é dela (senão o botão com o foco seria apertado). */
+  private spaceDown = false;
+  private unlistenKeys: (() => void) | null = null;
 
   protected readonly langName = computed(() => {
     const l = this.voz.lang();
@@ -127,7 +151,7 @@ export class VozFita {
   protected readonly menuSections = computed<MenuSections>(() => {
     if (this.menuKind() === 'velocidade') {
       const rate = this.voz.rate();
-      return [VOICE_RATES.map((r) => ({ id: `r${r}`, label: rateName(r), icon: ICON.desempenho, on: r === rate, run: () => this.voz.setRate(r) }))];
+      return [VOICE_RATES.map((r) => ({ id: `r${r}`, label: rateName(r), icon: ICON.desempenho, on: r === rate, run: () => this.setRate(r) }))];
     }
     const now = this.reading() ? this.voz.lang() : null;
     const langs: MenuItem[] = VOICE_LANG_ORDER.map((lang) => {
@@ -209,7 +233,7 @@ export class VozFita {
     this.openMenu(e, button, 'ouvir');
   }
 
-  /** A velocidade: as quatro à vista, a de agora com o tique. */
+  /** A velocidade: as seis à vista, a de agora com o tique. */
   protected chooseRate(e: MouseEvent, button: HTMLElement): void {
     this.menuKind.set('velocidade');
     this.openMenu(e, button, 'velocidade');
@@ -241,6 +265,103 @@ export class VozFita {
     this.readingKey = this.key();
     this.voz.start(this.list.map((s) => s.text), lang, from, this);
     this.watch();
+    this.listenKeys();
+  }
+
+  /** Os atalhos, enquanto a fita está à mostra: no documento, porque o foco pode estar solto na página. */
+  private listenKeys(): void {
+    if (this.unlistenKeys) return;
+    const down = (e: KeyboardEvent) => this.onKey(e);
+    const up = (e: KeyboardEvent) => {
+      if (e.key !== ' ' || !this.spaceDown) return;
+      this.spaceDown = false;
+      e.preventDefault();
+    };
+    document.addEventListener('keydown', down);
+    document.addEventListener('keyup', up);
+    this.unlistenKeys = () => {
+      document.removeEventListener('keydown', down);
+      document.removeEventListener('keyup', up);
+    };
+  }
+
+  /** Um atalho da fita: ← → a frase, Espaço pausa e continua, ↑ ↓ a velocidade (cada um como a tecla dele na chapa). */
+  private onKey(e: KeyboardEvent): void {
+    const action = KEYS[e.key];
+    if (!action || e.defaultPrevented || e.ctrlKey || e.altKey || e.metaKey || e.shiftKey || e.isComposing || !this.reading()) return;
+    if (!keysHere(e.target) || (action === 'play' && this.inText(e.target))) return;
+    e.preventDefault();
+    switch (action) {
+      case 'play':
+        this.spaceDown = true;
+        if (!e.repeat) this.voz.toggle();
+        return;
+      case 'prev':
+        if (this.voz.at() <= 0) return;
+        this.press('prev');
+        this.voz.prev();
+        return;
+      case 'next':
+        if (this.voz.at() >= this.voz.total() - 1) return;
+        this.press('next');
+        this.voz.next();
+        return;
+      default: {
+        const rate = this.voz.rate();
+        const next = VOICE_RATES[VOICE_RATES.indexOf(rate) + (action === 'faster' ? 1 : -1)];
+        if (next === undefined) {
+          this.flashRate(false);
+          this.say(`${rateName(rate)}: ${action === 'faster' ? 'a mais rápida' : 'a mais devagar'}.`);
+          return;
+        }
+        this.flashRate(true);
+        this.setRate(next);
+        this.say(`Velocidade ${rateName(next)}.`);
+      }
+    }
+  }
+
+  /**
+   * Um controle do texto com o foco (o card que fecha, o Copiar do código, o spoiler): o Espaço é dele. Os
+   * botões da fita e da faixa não contam: quem clicou neles com o mouse e aperta Espaço quer pausar.
+   */
+  private inText(target: EventTarget | null): boolean {
+    const control = target instanceof Element ? target.closest('a, button, summary, [role="button"], [role="link"]') : null;
+    return !!control && this.roots().some((r) => r?.contains(control));
+  }
+
+  /**
+   * A etiqueta da velocidade responde a ↑ ↓: acende e salta de leve com o número novo; na ponta, balança de
+   * lado ("não dá mais"). Pelas animações da página, que recomeçam a cada tecla (uma classe não recomeçaria).
+   */
+  private flashRate(changed: boolean): void {
+    const label = this.host.nativeElement.querySelector<HTMLElement>('.fita .velocidade');
+    if (!label || typeof label.animate !== 'function') return;
+    const still = reducedMotion();
+    const frames: Keyframe[] = changed
+      ? [{}, { offset: 0.35, background: '#fff', scale: still ? '1' : '1.1' }, {}]
+      : still
+        ? [{}, { offset: 0.4, background: '#fff' }, {}]
+        : [{}, { translate: '-3px 0' }, { translate: '3px 0' }, { translate: '-2px 0' }, {}];
+    label.animate(frames, { duration: changed ? 260 : 300, easing: 'ease-out' });
+  }
+
+  private press(key: 'prev' | 'next'): void {
+    if (this.pressTimer !== null) clearTimeout(this.pressTimer);
+    this.pressed.set(key);
+    this.pressTimer = setTimeout(() => {
+      this.pressTimer = null;
+      this.pressed.set(null);
+    }, PRESS_MS);
+  }
+
+  private say(text: string): void {
+    if (this.saidTimer !== null) clearTimeout(this.saidTimer);
+    this.said.set(text);
+    this.saidTimer = setTimeout(() => {
+      this.saidTimer = null;
+      this.said.set('');
+    }, 2500);
   }
 
   /** Acaba a leitura desta fita (o X, a ficha que fecha). */
@@ -257,6 +378,13 @@ export class VozFita {
     this.rebuildTimer = null;
     this.unwatchScroller?.();
     this.unwatchScroller = null;
+    this.unlistenKeys?.();
+    this.unlistenKeys = null;
+    this.spaceDown = false;
+    for (const t of [this.pressTimer, this.saidTimer]) if (t !== null) clearTimeout(t);
+    this.pressTimer = this.saidTimer = null;
+    this.pressed.set(null);
+    this.said.set('');
     // o marca-texto é um só na página: o de outra fita que lê agora fica
     const other = untracked(this.voz.owner);
     if (typeof CSS !== 'undefined' && 'highlights' in CSS && (other === null || other === this)) {
@@ -265,10 +393,25 @@ export class VozFita {
     }
   }
 
-  private build(lang: VoiceLang): Sentence[] {
+  private build(lang: VoiceLang, rate = this.voz.rate()): Sentence[] {
     const tag = VOICE_LANGS[lang].tag;
     const roots = this.roots().filter((r): r is HTMLElement => !!r);
-    return sentencesOf(roots, { lang: tag, max: maxSpeech(tag) });
+    return sentencesOf(roots, { lang: tag, max: maxSpeech(tag, rate) });
+  }
+
+  /** Troca a velocidade; lendo, as frases se partem de novo no tamanho dela, e a leitura segue de onde estava. */
+  private setRate(rate: number): void {
+    const lang = this.voz.lang();
+    if (rate === this.voz.rate() || !lang || !this.reading()) {
+      this.voz.setRate(rate);
+      return;
+    }
+    const was = this.list[this.voz.at()]?.pieces[0];
+    const next = this.build(lang, rate);
+    const at = was ? sentenceAt(next, was.node, was.from) : -1;
+    this.list = next;
+    this.voz.setRate(rate, { texts: next.map((s) => s.text), at: Math.max(at, 0) });
+    this.paint(this.voz.at(), this.voz.word());
   }
 
   /** Acompanha a nota que muda (o texto que a folha desenha de novo), o tocar numa frase e a mão que rola. */
@@ -358,6 +501,22 @@ export class VozFita {
 /** "0,75×", "1×". */
 function rateName(r: number): string {
   return `${String(r).replace('.', ',')}×`;
+}
+
+/**
+ * O atalho vale aqui? Não onde a pessoa digita, num menu, nem numa folha aberta por cima da ficha
+ * (comentários, compartilhar); na ficha aberta (as duas lado a lado também) e no foco solto na página, sim.
+ */
+function keysHere(target: EventTarget | null): boolean {
+  const el = target instanceof Element ? target : null;
+  if (el?.closest(TYPING) || el?.closest(OWN_KEYS)) return false;
+  const sheet = el?.closest('dialog');
+  if (sheet) return sheet.classList.contains('reader');
+  try {
+    return !document.querySelector('dialog:modal:not(.reader)');
+  } catch {
+    return true;
+  }
 }
 
 /** O nó de texto e a letra debaixo do ponto da tela (o Firefox tem um jeito, o Chrome e o Safari outro). */

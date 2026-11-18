@@ -27,14 +27,15 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-18-extras-refeito',
+    id: '2026-11-18-voz-atalhos',
     version: '1.50.1',
     kind: 'ajustes',
     date: '2026-11-18',
-    title: 'Extras refeito, e o texto na folha inteira da anotação aberta',
+    title: 'Extras refeito, o texto na folha inteira e a leitura em voz alta mais devagar e pelo teclado',
     melhorias: [
       'Na anotação aberta, as linhas vão de uma beirada da folha à outra: o texto não para mais antes da direita, deixando um vão em branco, e cabe mais em cada linha.',
       'Extras foi refeito: em cima, a prateleira "Sempre à mão", com o tomate do Pomodoro e o cavalete das Pixel arts (a obra mais nova na tela), que servem para qualquer mural; embaixo, o seletor de mural e dois letreiros de feltro, Jogar e Números, em que cada linha diz como está, com peças de plástico coloridas: o último chute do Muraldle de hoje e os dias seguidos, um tracinho por duelo do Mata-mata, o recorde do Maior ou menor, as notas do mural em varetinhas com o total e a média, as medalhas do pódio do Ranking e cada amigo aberto em Comparar numa bolinha, com quanto vocês combinam.',
+      'A leitura em voz alta ganhou duas velocidades mais devagar, 0,25× e 0,5×, e atalhos de teclado enquanto a fita está à mostra: ← e → a frase anterior e a próxima, Espaço pausa e continua, ↑ e ↓ a velocidade.',
     ],
   },
   {

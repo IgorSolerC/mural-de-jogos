@@ -16,6 +16,12 @@ function html(markup: string): HTMLElement {
 const texts = (list: readonly Sentence[]) => list.map((s) => s.text);
 
 describe('as frases para ler em voz alta', () => {
+  it('o tamanho da fala cabe em uns 10 segundos: o de 0,75× de 0,75× para cima, menor abaixo', () => {
+    expect([1.5, 1, 0.75, 0.5, 0.25].map((r) => maxSpeech('pt-BR', r))).toEqual([120, 120, 120, 80, 40]);
+    expect([1, 0.5, 0.25].map((r) => maxSpeech('ja-JP', r))).toEqual([50, 33, 17]);
+    expect(maxSpeech('en-GB')).toBe(120);
+  });
+
   let host: HTMLElement | null = null;
   afterEach(() => {
     host?.remove();

@@ -36,11 +36,13 @@ export interface SentenceOptions {
 }
 
 /**
- * O máximo de letras de uma fala na língua, para caber em uns 10 segundos mesmo a 0,75×: o japonês fala
- * umas 6 letras por segundo (cada kanji leva mais de um som); o português e o inglês, umas 14.
+ * O máximo de letras de uma fala na língua, para caber em uns 10 segundos na velocidade: o japonês fala
+ * umas 6 letras por segundo (cada kanji leva mais de um som); o português e o inglês, umas 14. De 0,75×
+ * para cima, o tamanho de 0,75×; abaixo, menor na mesma proporção (a 0,25×, um terço).
  */
-export function maxSpeech(lang: string): number {
-  return lang.toLowerCase().startsWith('ja') ? 50 : 120;
+export function maxSpeech(lang: string, rate = 1): number {
+  const at075 = lang.toLowerCase().startsWith('ja') ? 50 : 120;
+  return Math.round(at075 * Math.min(1, rate / 0.75));
 }
 
 /** Fora da leitura: o que o leitor de tela ouve, o spoiler fechado, os botões, os widgets e o desenho. */
