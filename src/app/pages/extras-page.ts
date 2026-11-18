@@ -7,11 +7,12 @@ import { CloudAccount } from '../core/cloud-account';
 import { Cloud } from '../core/cloud-config';
 import { ColleagueStore } from '../core/colleague-store';
 import { todayISO } from '../core/dates';
-import { friendsPreview, knockoutPreview, muraldlePreview, podiumPreview, recordPreview, statsPreview } from '../core/extras-previews';
+import { DuelPiece, duelPieces, friendsPreview, knockoutPreview, muraldlePreview, podiumPreview, recordPreview, statsPreview } from '../core/extras-previews';
 import { getRecord, recordKey } from '../core/game-records';
 import { SCORED_KINDS } from '../core/kinds';
 import { loadKnockout } from '../core/knockout-save';
 import { Mural } from '../core/mural';
+import { Mark, columnsFor } from '../core/muraldle';
 import { loadDaily, loadStats } from '../core/muraldle-save';
 import { pixelArtOf } from '../core/pixel-gallery';
 import { PixelGallery } from '../core/pixel-gallery-store';
@@ -35,6 +36,20 @@ interface Linha {
   estado: string;
   /** Amarelo: o que está esperando você hoje (o Muraldle de hoje, o torneio pela metade). */
   tom: 'amarela' | 'rosa';
+  /** O que vai em letras embaixo do nome, ao lado das peças; sem ele, o estado. */
+  letras?: string;
+  /*
+   * As peças de plástico da prévia (PLANO-EXTRAS.md), cada linha com as dela: só desenho, o estado inteiro vai
+   * no nome do link.
+   */
+  /** O último chute do Muraldle (cinza, sem chute hoje). */
+  marcas?: Mark[];
+  /** A sequência de dias do Muraldle (0: sem a peça). */
+  chama?: number;
+  /** Os tracinhos do Mata-mata. */
+  duelos?: DuelPiece[];
+  /** As setas do Maior ou menor, e o recorde ao lado (null: ainda sem). */
+  recorde?: number | null;
 }
 
 interface Letreiro {
@@ -69,6 +84,9 @@ export class ExtrasPage {
   private readonly clock = inject(Clock);
 
   protected readonly kinds = SCORED_KINDS;
+  protected readonly chama = ICON.chama;
+  protected readonly acima = ICON.acima;
+  protected readonly abaixo = ICON.abaixo;
   protected readonly pomodoroPath = POMODORO_PATH;
   protected readonly pixelArtsPath = PIXEL_ARTS_PATH;
   protected readonly apiUsagePath = API_USAGE_PATH;
@@ -127,16 +145,20 @@ export class ExtrasPage {
     const today = todayISO();
 
     const m = muraldlePreview(pool, loadDaily(slot), loadStats(slot, today), today);
-    const muraldle =
+    const muraldleLetras =
       m.state === 'pouco'
         ? 'precisa de 3 fichas'
         : m.state === 'novo'
           ? 'a de hoje te espera'
           : m.state === 'jogando'
-            ? `hoje · ${vezes(m.guesses, 'chute', 'chutes')}`
+            ? vezes(m.guesses, 'chute', 'chutes')
             : m.state === 'acertou'
-              ? `acertou hoje em ${m.guesses}`
-              : 'hoje: desistiu';
+              ? `acertou em ${m.guesses}`
+              : 'desistiu';
+    const seguidos = m.streak ? `, ${vezes(m.streak, 'dia seguido', 'dias seguidos')}` : '';
+    const muraldle = (m.state === 'pouco' || m.state === 'novo' ? muraldleLetras : `hoje · ${muraldleLetras}`) + seguidos;
+    // sem chute hoje, a fileira vazia (cinza), do tamanho da tabela do jogo
+    const marcas: Mark[] = m.last ?? columnsFor(kind).map(() => 'desconhecido');
 
     const saved = loadKnockout(kind);
     const owner = saved ? (this.players.byId(saved.owner)?.reviews ?? pool) : pool;
@@ -157,9 +179,36 @@ export class ExtrasPage {
     const maior = r.state === 'pouco' ? 'precisa de 2 fichas' : r.state === 'nenhum' ? 'sem recorde ainda' : `recorde ${r.best}`;
 
     return [
-      { id: 'muraldle', path: '/extras/muraldle', nome: 'Muraldle', icon: ICON.quebraCabeca, estado: muraldle, tom: m.state === 'novo' || m.state === 'jogando' ? 'amarela' : 'rosa' },
-      { id: 'mata-mata', path: '/extras/mata-mata', nome: 'Mata-mata', icon: ICON.espadas, estado: mata, tom: k.state === 'jogando' ? 'amarela' : 'rosa' },
-      { id: 'maior-ou-menor', path: '/extras/maior-ou-menor', nome: 'Maior ou menor', icon: ICON.maiorOuMenor, estado: maior, tom: 'rosa' },
+      {
+        id: 'muraldle',
+        path: '/extras/muraldle',
+        nome: 'Muraldle',
+        icon: ICON.quebraCabeca,
+        estado: muraldle,
+        letras: muraldleLetras,
+        tom: m.state === 'novo' || m.state === 'jogando' ? 'amarela' : 'rosa',
+        marcas: m.state === 'pouco' ? undefined : marcas,
+        chama: m.state === 'pouco' ? 0 : m.streak,
+      },
+      {
+        id: 'mata-mata',
+        path: '/extras/mata-mata',
+        nome: 'Mata-mata',
+        icon: ICON.espadas,
+        estado: mata,
+        tom: k.state === 'jogando' ? 'amarela' : 'rosa',
+        duelos: duelPieces(k),
+      },
+      {
+        id: 'maior-ou-menor',
+        path: '/extras/maior-ou-menor',
+        nome: 'Maior ou menor',
+        icon: ICON.maiorOuMenor,
+        estado: maior,
+        letras: r.state === 'recorde' ? 'recorde' : undefined,
+        tom: 'rosa',
+        recorde: r.state === 'pouco' ? undefined : r.state === 'recorde' ? r.best : null,
+      },
     ];
   });
 

@@ -34,7 +34,7 @@ export const NEWS: NewsEntry[] = [
     title: 'Extras refeito, e o texto na folha inteira da anotação aberta',
     melhorias: [
       'Na anotação aberta, as linhas vão de uma beirada da folha à outra: o texto não para mais antes da direita, deixando um vão em branco, e cabe mais em cada linha.',
-      'Extras foi refeito: em cima, a prateleira "Sempre à mão", com o tomate do Pomodoro e o cavalete das Pixel arts (a obra mais nova na tela), que servem para qualquer mural; embaixo, o seletor de mural e dois letreiros de feltro, Jogar e Números, em que cada linha diz como está: o Muraldle de hoje, o torneio do Mata-mata, o recorde do Maior ou menor, quantas fichas e a média, o primeiro do Ranking e o amigo de Comparar.',
+      'Extras foi refeito: em cima, a prateleira "Sempre à mão", com o tomate do Pomodoro e o cavalete das Pixel arts (a obra mais nova na tela), que servem para qualquer mural; embaixo, o seletor de mural e dois letreiros de feltro, Jogar e Números, em que cada linha diz como está, com peças de plástico coloridas: o último chute do Muraldle de hoje e os dias seguidos, um tracinho por duelo do Mata-mata, o recorde do Maior ou menor, quantas fichas e a média, o primeiro do Ranking e o amigo de Comparar.',
     ],
   },
   {

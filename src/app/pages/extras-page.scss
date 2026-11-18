@@ -667,3 +667,116 @@ li:nth-child(even) .icone {
     padding: 8px 2px;
   }
 }
+
+/* ---------- as prévias em peças de plástico, encaixadas no feltro ---------- */
+
+/* o último chute do Muraldle: um quadradinho por coluna, na cor da marca; sem chute hoje, cinzas */
+.pc-fila {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.pc {
+  @include letreiro.peca;
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  background: #5a5752;
+
+  &[data-m='certo'] {
+    background: #3fbf5f;
+  }
+  &[data-m='perto'] {
+    background: #f2c230;
+  }
+  &[data-m='errado'] {
+    background: #e2554a;
+  }
+}
+
+/* a sequência de dias, numa peça laranja com a chama */
+.pc-chama {
+  @include letreiro.peca;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 6px 2px 4px;
+  border-radius: 10px;
+  background: #ff8a1f;
+  color: #2a1200;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+
+/* os duelos do Mata-mata: os decididos amarelos, o da vez rosa, piscando devagar */
+.pc-duelos {
+  display: inline-flex;
+  gap: 3px;
+
+  i {
+    @include letreiro.peca;
+    width: 7px;
+    height: 16px;
+    border-radius: 2px;
+    background: rgb(241 239 232 / 0.22);
+
+    &[data-s='feito'] {
+      background: var(--hi);
+    }
+
+    &[data-s='agora'] {
+      background: #ff79a8;
+      animation: agora 1.6s ease-in-out infinite alternate;
+    }
+  }
+}
+
+@keyframes agora {
+  to {
+    opacity: 0.45;
+  }
+}
+
+/* as setas do Maior ou menor e o recorde numa peça amarela */
+.pc-setas {
+  display: inline-flex;
+  gap: 3px;
+
+  i {
+    @include letreiro.peca;
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 3px;
+    background: #3fbf5f;
+    color: #0b2a12;
+
+    & + i {
+      background: #e2554a;
+      color: #2a0805;
+    }
+  }
+}
+
+.pc-numero {
+  @include letreiro.peca;
+  display: inline-grid;
+  place-items: center;
+  min-width: 34px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--hi);
+  color: #151515;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 1.2rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pc-duelos i[data-s='agora'] {
+    animation: none;
+  }
+}

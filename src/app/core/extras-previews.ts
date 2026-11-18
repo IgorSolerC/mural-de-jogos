@@ -75,6 +75,21 @@ export function knockoutPreview(pool: readonly Review[], saved: SavedKnockout | 
   };
 }
 
+/** Um tracinho do Mata-mata: o duelo decidido, o da vez ou um que falta. */
+export type DuelPiece = 'feito' | 'agora' | 'falta';
+
+/**
+ * Os tracinhos do torneio: um por duelo; acima de `max` duelos (o "Todos" de um mural grande), `max` tracinhos
+ * que se enchem na proporção, para a linha não estourar.
+ */
+export function duelPieces(k: Pick<KnockoutPreview, 'state' | 'played' | 'total'>, max = 24): DuelPiece[] {
+  if (k.state !== 'jogando' && k.state !== 'acabou') return [];
+  const n = Math.min(k.total, max);
+  if (k.state === 'acabou') return Array.from({ length: n }, () => 'feito');
+  const done = k.total <= max ? k.played : Math.floor((k.played / k.total) * max);
+  return Array.from({ length: n }, (_, i) => (i < done ? 'feito' : i === done ? 'agora' : 'falta'));
+}
+
 // ---------- Maior ou menor ----------
 
 export interface RecordPreview {

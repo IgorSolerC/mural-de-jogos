@@ -113,7 +113,32 @@
               <span class="linha-txt">
                 <app-plastic-letters [text]="l.nome" />
                 <span class="previa">
-                  <app-plastic-letters [text]="l.estado" [tone]="l.tom" size="mini" />
+                  @if (l.marcas) {
+                    <span class="pc-fila" aria-hidden="true">
+                      @for (mk of l.marcas; track $index) {
+                        <i class="pc" [attr.data-m]="mk"></i>
+                      }
+                    </span>
+                  }
+                  @if (l.duelos?.length) {
+                    <span class="pc-duelos" aria-hidden="true">
+                      @for (d of l.duelos; track $index) {
+                        <i [attr.data-s]="d"></i>
+                      }
+                    </span>
+                  }
+                  @if (l.recorde !== undefined) {
+                    <span class="pc-setas" aria-hidden="true">
+                      <i><lucide-icon [img]="acima" [size]="14" /></i><i><lucide-icon [img]="abaixo" [size]="14" /></i>
+                    </span>
+                  }
+                  <app-plastic-letters [text]="l.letras ?? l.estado" [tone]="l.tom" size="mini" />
+                  @if (l.chama) {
+                    <span class="pc-chama" aria-hidden="true"><lucide-icon [img]="chama" [size]="14" />{{ l.chama }}</span>
+                  }
+                  @if (l.recorde) {
+                    <span class="pc-numero" aria-hidden="true">{{ l.recorde }}</span>
+                  }
                 </span>
               </span>
             </a>

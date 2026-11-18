@@ -120,7 +120,39 @@ describe('a página de Extras', () => {
     localStorage.setItem('mural-de-jogos:muraldle:v1', JSON.stringify({ games: { 'jogos|eu': { day: todayISO(), secretId: 'a', guesses: ['b', 'c', 'a'], done: 'acertou' } }, stats: {} }));
     window.dispatchEvent(new StorageEvent('storage', { key: 'mural-de-jogos:muraldle:v1' }));
     await t.fixture.whenStable();
-    expect(t.label('/extras/muraldle')).toBe('Muraldle: acertou hoje em 3');
+    expect(t.label('/extras/muraldle')).toBe('Muraldle: hoje · acertou em 3');
+  });
+
+  it('as peças: a fileira do último chute, a sequência, os duelos e o recorde', async () => {
+    const reviews = [review('a', 'Hades', 9), review('b', 'Celeste', 8), review('c', 'Tunic', 7), review('d', 'Inside', 6)];
+    localStorage.setItem('mural-de-jogos:muraldle:v1', JSON.stringify({ games: {}, stats: { 'jogos|eu': { played: 6, won: 6, streak: 6, best: 6, lastWon: todayISO(), recent: [] } } }));
+    localStorage.setItem('mural-de-jogos:mata-mata:v1', JSON.stringify({ jogos: { owner: 'eu', option: 'todos', slots: ['a', 'b', 'c', 'd'], picks: ['a'], masked: true, startedAt: '' } }));
+    localStorage.setItem('mural-de-jogos:recordes:v1', JSON.stringify({ 'maior-ou-menor|jogos|eu|final': 14 }));
+    const t = await open({ signedIn: false, reviews, keep: true });
+    const linha = (href: string) => t.linha(href)!;
+
+    // sem chute hoje: a fileira cinza, uma peça por coluna do jogo; a sequência na peça da chama
+    const pecas = [...linha('/extras/muraldle').querySelectorAll('.pc')];
+    expect(pecas.length).toBe(9);
+    expect(pecas.every((p) => p.getAttribute('data-m') === 'desconhecido')).toBeTrue();
+    expect(linha('/extras/muraldle').querySelector('.pc-chama')?.textContent?.trim()).toBe('6');
+    expect(t.label('/extras/muraldle')).toBe('Muraldle: a de hoje te espera, 6 dias seguidos');
+
+    // o torneio de 4: 3 duelos, o primeiro feito e o segundo agora
+    const duelos = [...linha('/extras/mata-mata').querySelectorAll('.pc-duelos i')].map((i) => i.getAttribute('data-s'));
+    expect(duelos).toEqual(['feito', 'agora', 'falta']);
+    expect(t.label('/extras/mata-mata')).toBe('Mata-mata: Semifinal · 2 de 3');
+
+    expect(linha('/extras/maior-ou-menor').querySelector('.pc-numero')?.textContent?.trim()).toBe('14');
+    expect(linha('/extras/maior-ou-menor').querySelectorAll('.pc-setas i').length).toBe(2);
+    for (const p of t.host.querySelectorAll('.pc-fila, .pc-chama, .pc-duelos, .pc-setas, .pc-numero')) expect(p.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('sem fichas bastantes, nenhuma peça: só o que falta', async () => {
+    const t = await open({ signedIn: false, reviews: [review('a', 'Hades', 9)] });
+    expect(t.linha('/extras/muraldle')!.querySelector('.pc-fila')).toBeNull();
+    expect(t.linha('/extras/maior-ou-menor')!.querySelector('.pc-setas')).toBeNull();
+    expect(t.linha('/extras/mata-mata')!.querySelector('.pc-duelos')).toBeNull();
   });
 
   it('outra conta vê a mesma página, sem a prancheta', async () => {

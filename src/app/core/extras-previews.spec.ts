@@ -1,4 +1,4 @@
-import { friendsPreview, knockoutPreview, muraldlePreview, podiumPreview, recordPreview, statsPreview } from './extras-previews';
+import { duelPieces, friendsPreview, knockoutPreview, muraldlePreview, podiumPreview, recordPreview, statsPreview } from './extras-previews';
 import { DailyStats } from './muraldle-save';
 import { Review } from './review';
 
@@ -78,6 +78,16 @@ describe('as prévias de Extras', () => {
       expect(p.state).toBe('acabou');
       expect(p.champion).toBe('Celeste');
     });
+  });
+
+  it('os tracinhos do torneio: um por duelo; num torneio grande, a proporção', () => {
+    expect(duelPieces({ state: 'nenhum', played: 0, total: 0 })).toEqual([]);
+    expect(duelPieces({ state: 'jogando', played: 2, total: 4 })).toEqual(['feito', 'feito', 'agora', 'falta']);
+    expect(duelPieces({ state: 'acabou', played: 3, total: 3 })).toEqual(['feito', 'feito', 'feito']);
+    const big = duelPieces({ state: 'jogando', played: 63, total: 127 }, 24);
+    expect(big.length).toBe(24);
+    expect(big.filter((d) => d === 'feito').length).toBe(11);
+    expect(big[11]).toBe('agora');
   });
 
   it('o recorde do Maior ou menor é o maior entre as medidas, com o nome dela', () => {
