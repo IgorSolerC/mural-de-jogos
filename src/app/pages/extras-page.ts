@@ -112,6 +112,7 @@ export class ExtrasPage {
    */
   private readonly reread = signal(0);
 
+  protected readonly plural = computed(() => this.mural.profile().plural);
   private readonly signedIn = computed(() => !!this.cloud.config() && this.account.signedIn());
   /** A prancheta do Uso das APIs: só a conta de admin a vê (quem não é vê a página de sempre). */
   protected readonly admin = computed(() => this.signedIn() && !!this.account.account()?.admin);
@@ -189,7 +190,7 @@ export class ExtrasPage {
             ? k.champion
               ? `campeã: ${k.champion}`
               : 'torneio acabado'
-            : `${k.round ? k.round + ' · ' : ''}${k.duel} de ${k.total}`;
+            : `${k.round ? k.round + ' · ' : ''}duelo ${k.duel} de ${k.total}`;
 
     const r = recordPreview(kind, pool, (measure) => getRecord(recordKey('maior-ou-menor', kind, ME, measure)));
     const maior = r.state === 'pouco' ? 'precisa de 2 fichas' : r.state === 'nenhum' ? 'sem recorde ainda' : `recorde ${r.best}`;
@@ -236,6 +237,7 @@ export class ExtrasPage {
     const s = statsPreview(reviews);
     const stats = s.count ? `${vezes(s.count, p.singular, p.plural)} · média ${s.mean}` : 'nada no mural ainda';
     const maior = Math.max(...s.histogram);
+    // a nota sem ficha fica vazia (sem tracinho), sobre o risco de baixo
     const barras = maior ? s.histogram.map((n, nota) => ({ h: n / maior, alta: nota >= 7 })) : undefined;
 
     const podio = podiumPreview(reviews);
@@ -243,7 +245,7 @@ export class ExtrasPage {
 
     let comparar: string;
     let amigos: Linha['amigos'];
-    if (!this.signedIn()) comparar = 'entre na sua conta';
+    if (!this.signedIn()) comparar = 'só com conta';
     else {
       const open = this.colleagues.colleagues().map((c) => ({ id: c.id, name: c.name, reviews: originalsOf(c.reviews.filter((x) => x.kind === kind)) }));
       const list = friendsPreview(reviews, open, this.colleagues.selected()?.id ?? null);
@@ -261,7 +263,7 @@ export class ExtrasPage {
         icon: ICON.trofeu,
         estado: ranking,
         letras: podio.length ? `${podio[0].name} ${podio[0].score}` : undefined,
-        tom: podio.length ? 'amarela' : 'rosa',
+        tom: 'rosa',
         medalhas: podio.length,
       },
       // com amigos, as bolinhas dizem tudo (sem letras ao lado)

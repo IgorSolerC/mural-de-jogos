@@ -26,7 +26,7 @@ $madeira-escura: #8a5a2f;
 }
 
 .mao {
-  padding-bottom: 64px;
+  padding-bottom: 56px;
 }
 
 .mao-cab {
@@ -34,7 +34,7 @@ $madeira-escura: #8a5a2f;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 16px;
-  margin-bottom: 30px;
+  margin-bottom: 14px;
 
   .tape-label {
     margin: 0;
@@ -81,6 +81,11 @@ $madeira-escura: #8a5a2f;
   &:focus-visible {
     outline: 3px solid var(--hi);
     outline-offset: 10px;
+
+    .dymo-fita {
+      outline: 3px solid var(--hi);
+      outline-offset: 3px;
+    }
   }
 }
 
@@ -108,7 +113,7 @@ $madeira-escura: #8a5a2f;
 .coisa-tomate {
   .tomate {
     position: relative;
-    --dial: 27px;
+    --dial: 23px;
     filter: drop-shadow(-6px 8px 6px rgb(0 0 0 / 0.35));
     transition: translate var(--t-physical) var(--ease-physical);
   }
@@ -149,8 +154,8 @@ $madeira-escura: #8a5a2f;
   position: relative;
   z-index: 1;
   display: block;
-  width: 200px;
-  height: 262px;
+  width: 170px;
+  height: 214px;
   margin: 0 -8px;
 }
 
@@ -158,19 +163,19 @@ $madeira-escura: #8a5a2f;
   position: absolute;
   bottom: 0;
   width: 10px;
-  height: 262px;
+  height: 214px;
   border-radius: 2px;
   background: linear-gradient(90deg, $madeira-escura, $madeira-clara 45%, $madeira);
   box-shadow: 1px 2px 3px rgb(0 0 0 / 0.35);
   transform-origin: 50% 0;
 
   &.p-esq {
-    left: 52px;
+    left: 44px;
     rotate: 10deg;
   }
 
   &.p-dir {
-    right: 52px;
+    right: 44px;
     rotate: -10deg;
   }
 
@@ -178,8 +183,8 @@ $madeira-escura: #8a5a2f;
   &.p-tras {
     left: calc(50% - 4px);
     width: 8px;
-    height: 248px;
-    bottom: 10px;
+    height: 202px;
+    bottom: 8px;
     filter: brightness(0.7);
     box-shadow: none;
   }
@@ -219,10 +224,10 @@ $madeira-escura: #8a5a2f;
   &.t-grande {
     z-index: 1;
     top: 12px;
-    left: calc(50% - 82px);
-    width: 164px;
-    height: 164px;
-    padding: 18px;
+    left: calc(50% - 66px);
+    width: 132px;
+    height: 132px;
+    padding: 15px;
   }
 }
 
@@ -230,9 +235,9 @@ $madeira-escura: #8a5a2f;
 .aparador {
   position: absolute;
   z-index: 2;
-  top: 172px;
-  left: 14px;
-  right: 14px;
+  top: 140px;
+  left: 12px;
+  right: 12px;
   height: 10px;
   border-radius: 2px;
   background: linear-gradient($madeira-clara, $madeira-escura);
@@ -395,10 +400,6 @@ $madeira-escura: #8a5a2f;
   }
 }
 
-/* uma tábua para cada coisa, só no celular */
-.tabua-mini {
-  display: none;
-}
 
 @media (prefers-reduced-motion: reduce) {
   .coisa-tomate .tomate,
@@ -408,99 +409,112 @@ $madeira-escura: #8a5a2f;
   }
 }
 
+/* No celular a prateleira continua uma tábua só, com as duas coisas lado a lado, menores: o cavalete sem as telas
+   encostadas e o pote, e a fita Dymo em duas linhas se precisar. Assim os letreiros chegam logo. */
 @media (max-width: 720px) {
   .estante-coisas {
-    grid-template-columns: 1fr;
-    gap: 70px;
-    margin-bottom: 0;
+    gap: 8px;
   }
 
-  .tabua {
-    display: none;
-  }
-
-  .coisa {
-    width: 100%;
-  }
-
-  .tabua-mini {
-    display: block;
-    position: relative;
-    z-index: -1;
-    width: min(100%, 340px);
-    height: 34px;
-    margin-top: -10px;
-    border-radius: 2px;
-    background:
-      linear-gradient(rgb(255 240 210 / 0.25), rgb(255 240 210 / 0.25)) 0 0 / 100% 14px no-repeat,
-      linear-gradient(transparent 14px, rgb(0 0 0 / 0.12) 14px 15px, transparent 15px),
-      linear-gradient($madeira, $madeira-escura);
-    box-shadow: 0 16px 18px -10px rgb(0 0 0 / 0.75);
-  }
-
-  .dymo-fita {
-    position: relative;
-    top: auto;
-    margin-top: -22px;
+  .coluna {
+    gap: 12px;
   }
 
   .coisa-tomate .tomate {
-    --dial: 22px;
+    --dial: 14px;
+  }
+
+  .coisa-tomate .sombra-chao {
+    bottom: 6px;
+    height: 10px;
   }
 
   .cavalete {
-    width: 170px;
-    height: 230px;
+    width: 110px;
+    height: 150px;
+    margin: 0;
+  }
+
+  .tela.t-grande .primeira {
+    font-size: 0.8rem;
   }
 
   .perna {
-    height: 230px;
+    height: 150px;
 
     &.p-esq {
-      left: 44px;
+      left: 28px;
     }
     &.p-dir {
-      right: 44px;
+      right: 28px;
     }
     &.p-tras {
-      height: 218px;
+      height: 142px;
+      bottom: 6px;
     }
+  }
+
+  .trave {
+    top: 2px;
+    left: calc(50% - 15px);
+    width: 30px;
+    height: 9px;
   }
 
   .tela.t-grande {
-    left: calc(50% - 70px);
-    width: 140px;
-    height: 140px;
-    padding: 15px;
+    top: 8px;
+    left: calc(50% - 45px);
+    width: 90px;
+    height: 90px;
+    padding: 10px;
   }
 
   .aparador {
-    top: 148px;
+    top: 96px;
+    left: 8px;
+    right: 8px;
+    height: 8px;
   }
 
-  .encostadas {
-    width: 74px;
-    height: 110px;
+  .encostadas,
+  .pote {
+    display: none;
+  }
 
-    .t-1 {
-      width: 70px;
-      height: 92px;
-    }
+  .primeira {
+    font-size: 0.85rem;
+  }
 
-    .t-2 {
+  /* a fita numa linha só, com o estado: o tomate e o cavalete já dizem o que são */
+  .dymo-fita {
+    padding: 5px 8px 4px;
+    font-size: 0.74rem;
+
+    .nome,
+    .sep {
       display: none;
     }
   }
 
-  .pote {
-    width: 46px;
-    margin-left: 0;
-  }
+  .prancheta {
+    width: 60px;
+    height: 82px;
+    padding: 14px 6px 6px;
 
-  .lata {
-    left: 2px;
-    width: 40px;
-    height: 48px;
+    .prendedor {
+      left: calc(50% - 14px);
+      width: 28px;
+      height: 13px;
+    }
+
+    .folha {
+      gap: 3px;
+      padding: 6px 4px 4px;
+
+      i {
+        width: 6px;
+      }
+    }
   }
 }
 
@@ -644,6 +658,19 @@ li:nth-child(even) .icone {
   min-width: 0;
 }
 
+/* as letras e a chama juntas; num estado comprido as letras quebram dentro do bloco, sem passar da linha */
+.junto {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  min-width: 0;
+
+  app-plastic-letters {
+    min-width: 0;
+  }
+}
+
 .previa {
   display: flex;
   flex-wrap: wrap;
@@ -700,9 +727,10 @@ li:nth-child(even) .icone {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 2px 6px 2px 4px;
+  padding: 2px 7px 2px 4px;
   border-radius: 10px;
   background: #ff8a1f;
+  white-space: nowrap;
   color: #2a1200;
   font-family: var(--f-label);
   font-weight: 800;
@@ -781,11 +809,11 @@ li:nth-child(even) .icone {
   align-items: flex-end;
   gap: 2px;
   height: 26px;
+  border-bottom: 2px solid rgb(241 239 232 / 0.25);
 
   i {
     @include letreiro.peca;
     width: 6px;
-    min-height: 2px;
     border-radius: 2px 2px 0 0;
     background: #f4f2ec;
 

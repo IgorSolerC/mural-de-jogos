@@ -86,6 +86,16 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
       }
     }
 
+    /* nas letras pequenas (o estado), a peça torta e o brilho de cima confundiam (o "I" virava um "i" com
+       pingo): ficam retas, só com a sombra */
+    :host([data-tam='mini']) .pl {
+      rotate: none;
+      translate: none;
+      text-shadow:
+        0 1px 0 rgb(0 0 0 / 0.55),
+        0 2px 2px rgb(0 0 0 / 0.55);
+    }
+
     @media (max-width: 560px) {
       :host {
         font-size: 1.35rem;

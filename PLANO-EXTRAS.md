@@ -63,6 +63,13 @@ De cima para baixo:
 2. **As prévias dos jogos** em peças: os quadradinhos do Muraldle, os duelos do Mata-mata, o recorde.
 3. **As prévias dos números** em peças: as varetinhas, as medalhas, os amigos.
 4. **A prateleira ao vivo**: o tomate correndo quando ligado, a obra mais recente, os vazios, a prancheta do admin.
-5. **Celular, teclado e leitor de tela**, a crítica do Impeccable e o DESIGN.md.
+   (Entrou inteira na feature 1; aqui só se conferiu na build de produção que o tomate corre.)
+5. **Celular, teclado e leitor de tela**, a crítica do Impeccable e o DESIGN.md. No celular a prateleira ficou uma
+   tábua só, com as duas coisas lado a lado e menores (empilhadas, ocupavam ~620px antes dos letreiros). Da crítica
+   (dois avaliadores isolados; o detector sem nada que impeça, contrastes AAA) entraram: a prateleira mais baixa, as
+   letras pequenas retas, o amarelo só para "a sua vez", "6 dias" na chama, "duelo 5 de 11", as notas sem ficha sem
+   tracinho, "desenhe a primeira", a fita do celular numa linha, o título da segunda parte para o leitor de tela e
+   "só com conta". Ficaram de fora, por mudarem o pedido: tocar no tomate para ligar o Pomodoro e encolher a
+   prateleira até a altura da primeira linha dos letreiros (o dono quis a prateleira em cima).
 
 Depois: `/code-review high` e os consertos.

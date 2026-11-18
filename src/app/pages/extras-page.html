@@ -17,8 +17,7 @@
             <span class="sombra-chao" aria-hidden="true"></span>
             <app-pomodoro-dial class="tomate" skin="tomate" [ms]="p.ms" [total]="p.total" [phase]="p.phase" [paused]="p.paused" [idle]="!p.on" />
           </span>
-          <span class="tabua-mini" aria-hidden="true"></span>
-          <span class="dymo-fita" aria-hidden="true">Pomodoro · {{ p.estado }}</span>
+          <span class="dymo-fita" aria-hidden="true"><span class="nome">Pomodoro</span><span class="sep">&nbsp;·&nbsp;</span><span>{{ p.estado }}</span></span>
         </a>
 
         @if (admin()) {
@@ -31,8 +30,7 @@
                 </span>
               </span>
             </span>
-            <span class="tabua-mini" aria-hidden="true"></span>
-            <span class="dymo-fita" aria-hidden="true">Uso das APIs · só você vê</span>
+            <span class="dymo-fita" aria-hidden="true"><span class="nome">Uso das APIs</span><span class="sep">&nbsp;·&nbsp;</span><span>só você vê</span></span>
           </a>
         }
       </div>
@@ -58,7 +56,7 @@
                 @if (g.cavalete; as a) {
                   <app-pixel-thumb [art]="a" />
                 } @else {
-                  <span class="primeira">a primeira obra</span>
+                  <span class="primeira">desenhe a primeira</span>
                 }
               </span>
               <span class="aparador"></span>
@@ -71,8 +69,7 @@
               <span class="lata"></span>
             </span>
           </span>
-          <span class="tabua-mini" aria-hidden="true"></span>
-          <span class="dymo-fita" aria-hidden="true">Pixel arts · {{ g.estado }}</span>
+          <span class="dymo-fita" aria-hidden="true"><span class="nome">Pixel arts</span><span class="sep">&nbsp;·&nbsp;</span><span>{{ g.estado }}</span></span>
         </a>
       </div>
     </div>
@@ -93,6 +90,8 @@
 </section>
 
 <!-- ===== O seletor e os dois letreiros: o que depende do mural ===== -->
+<section aria-labelledby="extras-mural">
+<h2 id="extras-mural" class="sr-only">Com o mural de {{ plural() }}</h2>
 <div class="de-quem">
   <span>com o mural de</span>
   <app-kind-switcher [kinds]="kinds" />
@@ -146,17 +145,20 @@
                       }
                     </span>
                   }
-                  @if (!l.semLetras) {
-                    <app-plastic-letters [text]="l.letras ?? l.estado" [tone]="l.tom" size="mini" />
-                  }
+                  <!-- as letras e a chama juntas: a chama não desce sozinha para outra linha -->
+                  <span class="junto">
+                    @if (!l.semLetras) {
+                      <app-plastic-letters [text]="l.letras ?? l.estado" [tone]="l.tom" size="mini" />
+                    }
+                    @if (l.chama) {
+                      <span class="pc-chama" aria-hidden="true"><lucide-icon [img]="chama" [size]="14" />{{ l.chama }} {{ l.chama === 1 ? 'dia' : 'dias' }}</span>
+                    }
+                  </span>
                   @for (a of l.amigos ?? []; track a.id) {
                     <span class="pc-amigo" aria-hidden="true">
                       <span class="pc-rosto" [style.--s]="a.cor">{{ a.inicial }}</span>
                       <app-plastic-letters [text]="a.quanto" tone="rosa" size="mini" />
                     </span>
-                  }
-                  @if (l.chama) {
-                    <span class="pc-chama" aria-hidden="true"><lucide-icon [img]="chama" [size]="14" />{{ l.chama }}</span>
                   }
                   @if (l.recorde) {
                     <span class="pc-numero" aria-hidden="true">{{ l.recorde }}</span>
@@ -170,3 +172,4 @@
     </section>
   }
 </div>
+</section>

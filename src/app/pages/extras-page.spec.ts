@@ -97,7 +97,7 @@ describe('a página de Extras', () => {
     expect(t.label('/extras/maior-ou-menor')).toBe('Maior ou menor: sem recorde ainda');
     expect(t.label('/extras/estatisticas')).toBe('Estatísticas: 3 jogos · média 8,1');
     expect(t.label('/ranking')).toBe('Ranking: 1º Hades 9,4');
-    expect(t.label('/comparar')).toBe('Comparar: entre na sua conta');
+    expect(t.label('/comparar')).toBe('Comparar: só com conta');
     for (const l of t.host.querySelectorAll('app-plastic-letters')) expect(l.getAttribute('aria-hidden')).toBe('true');
   });
 
@@ -136,13 +136,13 @@ describe('a página de Extras', () => {
     const pecas = [...linha('/extras/muraldle').querySelectorAll('.pc')];
     expect(pecas.length).toBe(9);
     expect(pecas.every((p) => p.getAttribute('data-m') === 'desconhecido')).toBeTrue();
-    expect(linha('/extras/muraldle').querySelector('.pc-chama')?.textContent?.trim()).toBe('6');
+    expect(linha('/extras/muraldle').querySelector('.pc-chama')?.textContent?.trim()).toBe('6 dias');
     expect(t.label('/extras/muraldle')).toBe('Muraldle: a de hoje te espera, 6 dias seguidos');
 
     // o torneio de 4: 3 duelos, o primeiro feito e o segundo agora
     const duelos = [...linha('/extras/mata-mata').querySelectorAll('.pc-duelos i')].map((i) => i.getAttribute('data-s'));
     expect(duelos).toEqual(['feito', 'agora', 'falta']);
-    expect(t.label('/extras/mata-mata')).toBe('Mata-mata: Semifinal · 2 de 3');
+    expect(t.label('/extras/mata-mata')).toBe('Mata-mata: Semifinal · duelo 2 de 3');
 
     expect(linha('/extras/maior-ou-menor').querySelector('.pc-numero')?.textContent?.trim()).toBe('14');
     expect(linha('/extras/maior-ou-menor').querySelectorAll('.pc-setas i').length).toBe(2);
@@ -217,7 +217,7 @@ describe('a página de Extras', () => {
     const t = await open({ signedIn: false });
     const tomate = () => t.linha('/extras/pomodoro')!;
     expect(tomate().getAttribute('aria-label')).toBe('Pomodoro: desligado');
-    expect(tomate().querySelector('.dymo-fita')?.textContent?.trim()).toBe('Pomodoro · desligado');
+    expect(tomate().querySelector('.dymo-fita')?.textContent?.replace(/\s+/g, ' ').trim()).toBe('Pomodoro · desligado');
     const store = TestBed.inject(PomodoroStore);
     store.start();
     await t.fixture.whenStable();
