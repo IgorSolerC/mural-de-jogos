@@ -227,7 +227,8 @@ export class CardPicker {
         this.query.set('');
         this.filters.reset({ onlyOpen: this.doneOption() });
         // já tem uma escolhida: abre no mural dela (trocar costuma ser por outra parecida)
-        this.kind.set(this.cards().find((r) => r.id === this.chosen())?.kind ?? null);
+        const id = this.chosen();
+        this.kind.set((this.source()?.find((r) => r.id === id) ?? this.store.get(id))?.kind ?? null);
         this.search()?.nativeElement.focus();
       }
       wasOpen = open;

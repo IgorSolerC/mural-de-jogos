@@ -232,7 +232,9 @@ interface AlonePlea {
               }
             </div>
             @if (!solta()) {
-              <button type="button" class="icon-btn fecha" (click)="close()" aria-label="Fechar">
+              <!-- com duas abertas, o X fecha as duas (o pedido): ele diz -->
+              @let duas = aoLado() || !!segunda();
+              <button type="button" class="icon-btn fecha" (click)="close()" [attr.aria-label]="duas ? 'Fechar as duas' : 'Fechar'" [attr.title]="duas ? 'Fechar as duas' : null">
                 <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
               </button>
             }
@@ -1483,6 +1485,7 @@ export class ReviewReader {
     this.closing = false;
     this.fita()?.stop();
     this.segunda.set(null);
+    this.pickBeside.set(false);
     this.solta.set(null);
     this.vista.set('leitura');
     this.place = null;

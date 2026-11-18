@@ -147,9 +147,44 @@ describe('Duas anotações lado a lado (ReviewReader, PLANO-DUAS-NOTAS.md)', () 
 
   it('o X da segunda fecha as duas (o pedido: fechar uma fecha a outra)', async () => {
     await both();
+    // o X diz o que faz, nas duas
+    expect(beside()!.querySelector('.faixa-nome .fecha')!.getAttribute('aria-label')).toBe('Fechar as duas');
+    expect(outer().querySelector(':scope > .par .faixa-nome .fecha')!.getAttribute('title')).toBe('Fechar as duas');
     await click('.faixa-nome .fecha', beside()!);
     expect(outer().open).toBeFalse();
     expect(beside()).toBeNull();
+  });
+
+  describe('com a conta aberta (os comentários)', () => {
+    type Inner = { toggleComments(open?: boolean): void; picked: { set(v: unknown): void }; quoteSelection(): void };
+    type Outer = { ladoB(): Inner | undefined; commentsOpen(): boolean; quote(): { text: string } | null };
+    beforeEach(() => {
+      spyOn(window, 'fetch').and.callFake(async () => new Response('', { status: 404 }));
+      const account = TestBed.inject(CloudAccount) as unknown as { signedIn: { set(v: boolean): void }; account: { set(v: unknown): void } };
+      account.signedIn.set(true);
+      account.account.set({ id: 'u1', codigo: 'ABCDEF', nome: 'Eu' });
+    });
+
+    it('abrir os comentários na segunda: ela fica sozinha, com a folha aberta', async () => {
+      await both();
+      (reader as unknown as Outer).ladoB()!.toggleComments(true);
+      await settle();
+      expect(beside()).toBeNull();
+      expect(nameOf(outer())).toBe('Cronograma');
+      expect((reader as unknown as Outer).commentsOpen()).toBeTrue();
+    });
+
+    it('citar um trecho da segunda: ela fica sozinha, com o trecho na folha de comentários', async () => {
+      await both();
+      const inner = (reader as unknown as Outer).ladoB()!;
+      inner.picked.set({ text: 'Linha 3 do texto comprido.', left: 0, top: 0 });
+      inner.quoteSelection();
+      await settle();
+      expect(beside()).toBeNull();
+      expect(nameOf(outer())).toBe('Cronograma');
+      expect((reader as unknown as Outer).commentsOpen()).toBeTrue();
+      expect((reader as unknown as Outer).quote()?.text).toBe('Linha 3 do texto comprido.');
+    });
   });
 
   it('o toque no vão entre as duas não fecha a leitura (o vão é da segunda)', async () => {

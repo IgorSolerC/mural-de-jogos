@@ -971,11 +971,12 @@ app-judge-label {
   /* os marcadores saem da beirada da ficha, nunca do pé: a ficha curta fica alta o bastante para eles (o do "+"
      sozinho, ou os dois empilhados), como uma ficha de fichário com as abas dela */
   .par:has(> .orelhas > .abrir-ao-lado) > article {
-    min-height: 300px;
+    min-height: min(300px, calc(100dvh - 52px));
   }
 
   .par:has(> .orelhas > .orelha + .abrir-ao-lado) > article {
-    min-height: 500px;
+    /* (numa janela baixa, nunca mais alta que ela: o pé da ficha continua à vista) */
+    min-height: min(500px, calc(100dvh - 52px));
   }
 }
 
