@@ -261,4 +261,12 @@ describe('o título no texto da ficha do mural', () => {
     expect(top).toBeLessThan(1);
     expect(bottom).toBeGreaterThan(0.2);
   });
+
+  it('o código na linha na ficha é só desenho: o clique abre a anotação, não copia (como o bloco, sem o Copiar)', async () => {
+    await show(card('anotacoes', 'A senha `tejo-2026` do wifi.'), { checkable: false });
+    const cod = el.querySelector<HTMLElement>('code.cod')!;
+    expect(cod.hasAttribute('role')).toBeFalse();
+    expect(cod.hasAttribute('tabindex')).toBeFalse();
+    expect(getComputedStyle(cod).cursor).not.toBe('pointer');
+  });
 });

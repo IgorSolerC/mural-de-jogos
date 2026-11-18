@@ -14,6 +14,32 @@
 
 @include formatado.codigo;
 @include formatado.codigo-temas('.codigo-peca');
+/* o código na linha que copia com um clique (ui/rich-text.ts, `codeCopy`): a mão e, com o mouse em cima, a fita
+   num tom a mais da própria letra (a mesma conta, sem cor escrita, também na folha pautada); no foco do teclado,
+   o contorno na cor da letra (sem as pontas cortadas: a máscara cortaria o contorno junto) */
+.cod.copia {
+  cursor: pointer;
+  transition: background-color var(--t-ui, 160ms) var(--ease-ui, ease-out);
+}
+@media (hover: hover) {
+  .cod.copia:not(.marca):hover {
+    background: color-mix(in srgb, currentColor 10%, var(--cod-pauta, color-mix(in srgb, currentColor 13%, transparent)));
+  }
+}
+.cod.copia:active:not(.marca) {
+  background: color-mix(in srgb, currentColor 16%, var(--cod-pauta, color-mix(in srgb, currentColor 13%, transparent)));
+}
+.cod.copia:focus-visible {
+  -webkit-mask: none;
+  mask: none;
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cod.copia {
+    transition: none;
+  }
+}
 /* o código com outra marca, na mesma peça (no Visual, uma peça dentro da outra, que já fica assim): o
    marca-texto soma à fita, sem tirar o respiro que afasta a letra das pontas cortadas; o sutil diminui a
    letra do código, não a troca pela dele */

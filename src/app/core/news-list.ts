@@ -27,13 +27,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-17-codigo-barra-fina',
+    id: '2026-11-17-codigo-na-linha-copia',
     version: '1.49.1',
     kind: 'ajustes',
     date: '2026-11-17',
-    title: 'O bloco de código mais baixo',
+    title: 'O bloco de código mais baixo, e o código na linha que copia',
     melhorias: [
       'O bloco de código ficou duas linhas mais baixo. A linha do cabeçalho saiu: a linguagem fica no canto da primeira linha do código, e com o mouse em cima o Copiar toma o lugar dela (no celular, o Copiar fica sempre, só o desenho, ao lado da linguagem); no Visual, a escolha da linguagem e o Copiar ficam no mesmo canto, e a primeira linha comprida rola até aparecer inteira antes deles. A barra de rolar também não ocupa mais uma linha: virou um fio fino por cima do pé da última linha, que aparece com o mouse em cima ou rolando e se arrasta.',
+      'O código na linha copia com um clique (na leitura e em todo lugar onde o texto aparece pronto, menos na ficha do mural e nas peças do quadro livre, que se pegam pelo texto): com o mouse em cima a fita fica um tom mais forte, e o bilhete diz "Código copiado". Selecionar um pedaço dele continua selecionando, e pelo teclado é Enter.',
     ],
   },
   {

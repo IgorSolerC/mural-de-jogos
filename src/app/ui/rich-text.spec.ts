@@ -2,6 +2,7 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { RichText } from './rich-text';
 import { iconMask } from './icons';
+import { Toasts } from './toast';
 import { NoteLinks } from '../core/note-links';
 import { Review, sanitizeReview } from '../core/review';
 
@@ -823,6 +824,69 @@ describe('o código na leitura', () => {
     expect(s.backgroundColor).toMatch(/0\.13\)$/);
     expect(s.backgroundColor).toMatch(/0\.78\d* 0\.03\d* 0\.07\d*/);
     expect(s.maskImage || s.getPropertyValue('-webkit-mask-image')).toContain('linear-gradient');
+  });
+
+  it('o código na linha copia com um clique: um botão com a mão, só as letras, e o bilhete diz que copiou', async () => {
+    const el = await render('a senha `tejo-2026` e mais');
+    const cod = el.querySelector<HTMLElement>('code.cod')!;
+    expect(cod.getAttribute('role')).toBe('button');
+    expect(cod.tabIndex).toBe(0);
+    expect(cod.title).toBe('Copiar');
+    expect(getComputedStyle(cod).cursor).toBe('pointer');
+    const copiou = spyOn(TestBed.inject(Toasts), 'copy').and.resolveTo();
+    let subiu = false;
+    el.addEventListener('click', () => (subiu = true));
+    cod.click();
+    expect(copiou).toHaveBeenCalledWith('tejo-2026', 'Código copiado', 'O navegador não deixou copiar o código');
+    // o clique é dele: quem está em volta (a carta do flashcard, a frase lida em voz alta) não o recebe
+    expect(subiu).toBeFalse();
+    // pelo teclado também
+    cod.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    cod.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+    expect(copiou).toHaveBeenCalledTimes(3);
+    // a tecla segurada e a tecla com Ctrl não copiam
+    cod.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', repeat: true, bubbles: true }));
+    cod.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true }));
+    expect(copiou).toHaveBeenCalledTimes(3);
+  });
+
+  it('o código na linha: o clique que termina uma seleção não copia, e o bilhete diz quando o navegador não deixa', async () => {
+    const el = await render('a senha `tejo-2026` e mais');
+    const cod = el.querySelector<HTMLElement>('code.cod')!;
+    const range = document.createRange();
+    range.setStart(cod.firstChild!, 1);
+    range.setEnd(cod.firstChild!, 4);
+    getSelection()!.removeAllRanges();
+    getSelection()!.addRange(range);
+    const escrito = spyOn(navigator.clipboard, 'writeText').and.rejectWith(new Error('negado'));
+    const disse = spyOn(TestBed.inject(Toasts), 'show');
+    cod.click();
+    expect(escrito).not.toHaveBeenCalled();
+    getSelection()!.removeAllRanges();
+    cod.click();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(escrito).toHaveBeenCalledWith('tejo-2026');
+    expect(disse).toHaveBeenCalledWith('O navegador não deixou copiar o código');
+  });
+
+  it('sem o copiar (a ficha do mural): a fita é só desenho, e o clique chega a quem está em volta', async () => {
+    TestBed.configureTestingModule({ imports: [RichText], providers: [provideZonelessChangeDetection()] });
+    const fixture = TestBed.createComponent(RichText);
+    fixture.componentRef.setInput('text', 'a senha `tejo-2026` e mais');
+    fixture.componentRef.setInput('codeCopy', false);
+    document.body.appendChild(fixture.nativeElement);
+    await fixture.whenStable();
+    const cod = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('code.cod')!;
+    expect(cod.hasAttribute('role')).toBeFalse();
+    expect(cod.hasAttribute('tabindex')).toBeFalse();
+    expect(cod.classList).not.toContain('copia');
+    const copiou = spyOn(TestBed.inject(Toasts), 'copy');
+    let subiu = false;
+    fixture.nativeElement.addEventListener('click', () => (subiu = true));
+    cod.click();
+    expect(copiou).not.toHaveBeenCalled();
+    expect(subiu).toBeTrue();
   });
 
   it('o código com marca-texto ou sutil: a letra continua longe das pontas cortadas, e o sutil só diminui', async () => {

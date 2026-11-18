@@ -70,7 +70,8 @@ export type PieceMeasured = PieceMeasure & { id: string; settled: boolean };
             </div>
           }
           @if (level() === 'perto' && parts().body.trim()) {
-            <app-rich-text class="cartao-corpo" [text]="parts().body" [links]="links()" />
+            <!-- (a peça se pega e se arrasta pelo texto: o código na linha não copia aqui, como na ficha do mural) -->
+            <app-rich-text class="cartao-corpo" [text]="parts().body" [links]="links()" [codeCopy]="false" />
           }
         </div>
       }
@@ -79,7 +80,7 @@ export type PieceMeasured = PieceMeasure & { id: string; settled: boolean };
           @if (widget(); as w) {
             @if (w.body) {
               <!-- a tabela enche a caixa: as linhas quebram na largura e as fileiras esticam até a altura dela -->
-              <app-rich-text #tabela class="tabela encher" [text]="src()" [links]="links()" />
+              <app-rich-text #tabela class="tabela encher" [text]="src()" [links]="links()" [codeCopy]="false" />
             } @else {
               <!-- o widget desenhado no tamanho de base e ampliado por igual até encher a caixa (ver measure) -->
               <div #escala class="escala" [style.width.px]="baseW" [style.--line.px]="baseLine">

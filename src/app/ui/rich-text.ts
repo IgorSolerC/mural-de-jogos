@@ -14,6 +14,7 @@ import { Settings } from '../core/settings';
 import { ICON, IconModule, iconMask } from './icons';
 import { BarOnRuling } from './bar-on-ruling';
 import { CodePaper } from './code-paper';
+import { Toasts } from './toast';
 import { NoteWidget } from './note-widget';
 import { PieceLift } from './piece-lift';
 import { ZoomKnob } from './zoom-knob';
@@ -232,7 +233,7 @@ import { ZoomKnob } from './zoom-knob';
     </ng-template>
     <!-- o spoiler: a tarja preta por cima do pedaço (o pedaço por dentro, com as marcas dele, fica inerte até revelar) -->
     <ng-template #span let-s>@if (s.spoiler) {<span class="spoiler" role="button" tabindex="0" aria-label="Spoiler escondido: revelar" title="Spoiler: toque para revelar" (click)="reveal($event)" (keydown.enter)="reveal($event)" (keydown.space)="reveal($event)"><span class="spoiler-texto" inert><ng-container *ngTemplateOutlet="pedaco; context: { $implicit: s }" /></span></span>} @else {<ng-container *ngTemplateOutlet="pedaco; context: { $implicit: s }" />}</ng-template>
-    <ng-template #pedaco let-s>@if (s.link) {<ng-container *ngTemplateOutlet="elo; context: { $implicit: s }" />} @else if (s.href) {@let rid = reminderId(s.href); @if (rid) {<ng-container *ngTemplateOutlet="lembrete; context: { $implicit: s, id: rid }" />} @else {<a class="elo url" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" [href]="s.href" target="_blank" rel="noopener noreferrer" [title]="s.href" (click)="$event.stopPropagation()">{{ s.text }}<span class="sr-only"> (abre em outra aba)</span></a>}} @else if (s.code) {<code class="cod" [class.marca]="s.mark" [class.riscado]="s.strike" [class.sutil]="s.subtle">{{ s.text }}</code>} @else if (s.bold || s.italic || s.strike || s.mark || s.subtle) {<span class="enf" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" [class.riscado]="s.strike" [class.marca]="s.mark">{{ s.text }}</span>} @else {{{ s.text }}}</ng-template>
+    <ng-template #pedaco let-s>@if (s.link) {<ng-container *ngTemplateOutlet="elo; context: { $implicit: s }" />} @else if (s.href) {@let rid = reminderId(s.href); @if (rid) {<ng-container *ngTemplateOutlet="lembrete; context: { $implicit: s, id: rid }" />} @else {<a class="elo url" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" [href]="s.href" target="_blank" rel="noopener noreferrer" [title]="s.href" (click)="$event.stopPropagation()">{{ s.text }}<span class="sr-only"> (abre em outra aba)</span></a>}} @else if (s.code) {<code class="cod" [class.marca]="s.mark" [class.riscado]="s.strike" [class.sutil]="s.subtle" [class.copia]="codeCopy()" [attr.role]="codeCopy() ? 'button' : null" [attr.tabindex]="codeCopy() ? 0 : null" [attr.title]="codeCopy() ? 'Copiar' : null" (click)="copyInline($event, s.text)" (keydown.enter)="copyInline($event, s.text)" (keydown.space)="copyInline($event, s.text)">{{ s.text }}</code>} @else if (s.bold || s.italic || s.strike || s.mark || s.subtle) {<span class="enf" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" [class.riscado]="s.strike" [class.marca]="s.mark">{{ s.text }}</span>} @else {{{ s.text }}}</ng-template>
     <!-- o link de lembrete ("[texto](murall://lembrete/ID)", ver core/reminder-links.ts): a caneta do link
          com o desenho do calendário depois; o dia no title e no leitor de tela (e no PDF, pelo data-quando).
          Tracejado, o que não está no seu Calendário; sem como saber (o mural de outra pessoa), só aparece -->
@@ -778,6 +779,11 @@ export class RichText {
    * acha nelas o trecho onde está o cursor (ver ReviewEditor.followCaret). Só lá.
    */
   readonly anchors = input(false);
+  /**
+   * O código na linha copia com um clique (PLANO-CODIGO-COMPACTO.md, D6): a fita vira um botão. Quem não quer
+   * diz `false` (a ficha do mural, onde o clique abre a anotação, como o Copiar do bloco, que lá não existe).
+   */
+  readonly codeCopy = input(true);
 
   /** O número da linha do texto da `i`-ésima linha do bloco (só com `anchors`). */
   protected at(b: Block, i = 0): number | null {
@@ -790,6 +796,21 @@ export class RichText {
   private lift: PieceLift | null = null;
   private readonly destroyRef = inject(DestroyRef);
   private readonly settings = inject(Settings);
+  private readonly toasts = inject(Toasts);
+
+  /**
+   * Copiar o código na linha (só as letras) e dizer no bilhete. Quem arrastou para selecionar um pedaço dele
+   * continua selecionando: o clique que termina uma seleção não copia.
+   */
+  protected copyInline(e: Event, text: string): void {
+    if (!this.codeCopy()) return;
+    if (e.type === 'click' && getSelection()?.isCollapsed === false) return;
+    // a tecla segurada não copia de novo a cada repetição, e a tecla com Ctrl, Alt ou ⌘ é de outro atalho
+    if (e instanceof KeyboardEvent && (e.repeat || e.ctrlKey || e.altKey || e.metaKey)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    void this.toasts.copy(text, 'Código copiado', 'O navegador não deixou copiar o código');
+  }
   protected liftTable(peca: HTMLElement): void {
     if (!this.lift) {
       const lift = (this.lift = new PieceLift());
