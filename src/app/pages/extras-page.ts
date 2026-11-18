@@ -8,12 +8,12 @@ import { Cloud } from '../core/cloud-config';
 import { ColleagueStore } from '../core/colleague-store';
 import { todayISO } from '../core/dates';
 import { DuelPiece, duelPieces, friendsPreview, knockoutPreview, muraldlePreview, podiumPreview, recordPreview, statsPreview } from '../core/extras-previews';
-import { getRecord, recordKey } from '../core/game-records';
+import { RECORDS_KEY, getRecord, recordKey } from '../core/game-records';
 import { SCORED_KINDS } from '../core/kinds';
-import { loadKnockout } from '../core/knockout-save';
+import { KNOCKOUT_SAVE_KEY, loadKnockout } from '../core/knockout-save';
 import { Mural } from '../core/mural';
 import { Mark, columnsFor } from '../core/muraldle';
-import { loadDaily, loadStats } from '../core/muraldle-save';
+import { MURALDLE_SAVE_KEY, loadDaily, loadStats } from '../core/muraldle-save';
 import { pixelArtOf } from '../core/pixel-gallery';
 import { PixelGallery } from '../core/pixel-gallery-store';
 import { ME, Players } from '../core/players';
@@ -121,10 +121,13 @@ export class ExtrasPage {
     // o relógio do site anda quando o Pomodoro está ligado (o do canto da tela o usa): o tomate corre junto
     const again = () => this.reread.update((n) => n + 1);
     const visible = () => document.visibilityState === 'visible' && again();
-    window.addEventListener('storage', again);
+    // só o que os jogos guardam (ou o navegador inteiro limpo): as outras chaves mudam o tempo todo
+    const games = new Set([MURALDLE_SAVE_KEY, KNOCKOUT_SAVE_KEY, RECORDS_KEY]);
+    const stored = (e: StorageEvent) => (e.key === null || games.has(e.key)) && again();
+    window.addEventListener('storage', stored);
     document.addEventListener('visibilitychange', visible);
     inject(DestroyRef).onDestroy(() => {
-      window.removeEventListener('storage', again);
+      window.removeEventListener('storage', stored);
       document.removeEventListener('visibilitychange', visible);
     });
   }
@@ -178,8 +181,11 @@ export class ExtrasPage {
     const marcas: Mark[] = m.last ?? columnsFor(kind).map(() => 'desconhecido');
 
     const saved = loadKnockout(kind);
-    const owner = saved ? (this.players.byId(saved.owner)?.reviews ?? pool) : pool;
+    const player = saved ? this.players.byId(saved.owner) : undefined;
+    const owner = player?.reviews ?? pool;
     const names = new Map(owner.map((r) => [r.id, r.game.name]));
+    // o torneio jogado com o mural de um colega diz de quem é
+    const deQuem = player && !player.mine ? ` · com ${player.name}` : '';
     const k = knockoutPreview(pool, saved, (id) => names.get(id));
     const mata =
       k.state === 'pouco'
@@ -190,7 +196,7 @@ export class ExtrasPage {
             ? k.champion
               ? `campeã: ${k.champion}`
               : 'torneio acabado'
-            : `${k.round ? k.round + ' · ' : ''}duelo ${k.duel} de ${k.total}`;
+            : `${k.round ? k.round + ' · ' : ''}duelo ${k.duel} de ${k.total}${deQuem}`;
 
     const r = recordPreview(kind, pool, (measure) => getRecord(recordKey('maior-ou-menor', kind, ME, measure)));
     const maior = r.state === 'pouco' ? 'precisa de 2 fichas' : r.state === 'nenhum' ? 'sem recorde ainda' : `recorde ${r.best}`;

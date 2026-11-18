@@ -106,6 +106,8 @@ describe('as prévias de Extras', () => {
     expect(s.histogram[8]).toBe(1);
     expect(s.histogram[7]).toBe(1);
     expect(statsPreview([]).mean).toBeNull();
+    // a nota como aparece, por baixo (como o histograma das Estatísticas): 7,5 é um 7, não um 8
+    expect(statsPreview([review('m', 'Meio', 7.5)]).histogram[7]).toBe(1);
   });
 
   it('o pódio: as três maiores médias, o empate pelo nome', () => {

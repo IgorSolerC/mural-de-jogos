@@ -186,6 +186,15 @@ describe('a página de Extras', () => {
     expect(t.label('/comparar')).toBe('Comparar: Bia 100%, Léo nada em comum');
   });
 
+  it('o torneio jogado com o mural de um colega diz de quem é', async () => {
+    const theirs = [review('b1', 'Hades', 9), review('b2', 'Celeste', 8), review('b3', 'Tunic', 7), review('b4', 'Inside', 6)];
+    localStorage.setItem('mural-de-jogos:mata-mata:v1', JSON.stringify({ jogos: { owner: 'bia', option: 'todos', slots: ['b1', 'b2', 'b3', 'b4'], picks: ['b1'], masked: true, startedAt: '' } }));
+    const t = await open({ signedIn: false, reviews: [review('a', 'Hades', 9), review('b', 'Celeste', 8)], keep: true });
+    TestBed.inject(ColleagueStore).colleagues.set([{ id: 'bia', name: 'Bia', fileName: '', loadedAt: at, reviews: theirs } as unknown as Colleague]);
+    await t.fixture.whenStable();
+    expect(t.label('/extras/mata-mata')).toBe('Mata-mata: Semifinal · duelo 2 de 3 · com Bia');
+  });
+
   it('outra conta vê a mesma página, sem a prancheta', async () => {
     const t = await open({ account: { codigo: 'K7QF-M2XA', nome: 'Ana' } });
     expect(t.linha('/extras/uso-das-apis')).toBeNull();

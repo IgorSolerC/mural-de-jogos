@@ -5,7 +5,8 @@ import { Kind } from './kinds';
 import { Mark, compare } from './muraldle';
 import { DailyGame, DailyStats } from './muraldle-save';
 import { SavedKnockout } from './knockout-save';
-import { Review, formatScore, scoreOf } from './review';
+import { Review, formatScore, scoreOf, shownFinal } from './review';
+import { nameCollator } from './text';
 import { playOut } from './tournament';
 
 /**
@@ -120,14 +121,15 @@ export interface StatsPreview {
   count: number;
   /** A média das médias, já escrita ("7,8"); null sem fichas. */
   mean: string | null;
-  /** Quantas fichas em cada nota inteira, de 0 a 10. */
+  /** Quantas fichas em cada nota inteira, de 0 a 10 (a nota como aparece, como no histograma das Estatísticas; o 11 dado à mão
+   * entra no 10). */
   histogram: number[];
 }
 
 export function statsPreview(reviews: readonly Review[]): StatsPreview {
   const histogram = Array.from({ length: 11 }, () => 0);
   const finals = reviews.map((r) => scoreOf(r.scores, 'final')).filter((v): v is number => v !== null);
-  for (const v of finals) histogram[Math.min(10, Math.max(0, Math.round(v)))]++;
+  for (const r of reviews) if (scoreOf(r.scores, 'final') !== null) histogram[Math.min(10, Math.max(0, Math.floor(shownFinal(r))))]++;
   const mean = finals.length ? formatScore(finals.reduce((s, v) => s + v, 0) / finals.length) : null;
   return { count: reviews.length, mean, histogram };
 }
@@ -137,11 +139,14 @@ export interface RankedPreview {
   score: string;
 }
 
-/** As três de maior Média (empate: a de nome primeiro, como no Ranking). */
+/** As três de maior Média, na ordem da página do Ranking (empate: a nota como aparece, depois o nome). */
 export function podiumPreview(reviews: readonly Review[]): RankedPreview[] {
   return reviews
     .filter((r) => scoreOf(r.scores, 'final') !== null)
-    .sort((a, b) => scoreOf(b.scores, 'final')! - scoreOf(a.scores, 'final')! || a.game.name.localeCompare(b.game.name, 'pt-BR'))
+    .sort(
+      (a, b) =>
+        scoreOf(b.scores, 'final')! - scoreOf(a.scores, 'final')! || shownFinal(b) - shownFinal(a) || nameCollator.compare(a.game.name, b.game.name),
+    )
     .slice(0, 3)
     .map((r) => ({ name: r.game.name, score: formatScore(scoreOf(r.scores, 'final')) }));
 }

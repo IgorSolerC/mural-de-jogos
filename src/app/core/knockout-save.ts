@@ -3,6 +3,8 @@ import { DUEL_OPTIONS, DuelOption, Slot } from './tournament';
 import { writeJson } from './storage';
 
 const KEY = 'mural-de-jogos:mata-mata:v1';
+/** A chave onde o Mata-mata guarda (a página de Extras relê quando outra aba grava nela). */
+export const KNOCKOUT_SAVE_KEY = KEY;
 
 /** Um mata-mata em andamento (ou acabado, até começar outro), um por mural. Fica só neste navegador. */
 export interface SavedKnockout {

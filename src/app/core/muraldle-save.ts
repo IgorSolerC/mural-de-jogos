@@ -2,6 +2,8 @@ import { previousDay } from './muraldle';
 import { writeJson } from './storage';
 
 const KEY = 'mural-de-jogos:muraldle:v1';
+/** A chave onde o Muraldle guarda (a página de Extras relê quando outra aba grava nela). */
+export const MURALDLE_SAVE_KEY = KEY;
 
 /** O jogo do dia de um mural e dono ("jogos|eu"): a secreta, os chutes e como acabou. */
 export interface DailyGame {

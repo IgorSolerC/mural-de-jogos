@@ -1,5 +1,7 @@
 import { writeJson } from './storage';
 const KEY = 'mural-de-jogos:recordes:v1';
+/** A chave dos recordes (a página de Extras relê quando outra aba grava nela). */
+export const RECORDS_KEY = KEY;
 
 /**
  * Os recordes dos jogos de Extras, neste navegador: um número por jogo, mural, dono e variação
