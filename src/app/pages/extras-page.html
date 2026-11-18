@@ -132,7 +132,29 @@
                       <i><lucide-icon [img]="acima" [size]="14" /></i><i><lucide-icon [img]="abaixo" [size]="14" /></i>
                     </span>
                   }
-                  <app-plastic-letters [text]="l.letras ?? l.estado" [tone]="l.tom" size="mini" />
+                  @if (l.barras) {
+                    <span class="pc-barras" aria-hidden="true">
+                      @for (b of l.barras; track $index) {
+                        <i [style.height.%]="b.h * 100" [class.alta]="b.alta"></i>
+                      }
+                    </span>
+                  }
+                  @if (l.medalhas) {
+                    <span class="pc-medalhas" aria-hidden="true">
+                      @for (n of [1, 2, 3].slice(0, l.medalhas); track n) {
+                        <i [attr.data-m]="n">{{ n }}</i>
+                      }
+                    </span>
+                  }
+                  @if (!l.semLetras) {
+                    <app-plastic-letters [text]="l.letras ?? l.estado" [tone]="l.tom" size="mini" />
+                  }
+                  @for (a of l.amigos ?? []; track a.id) {
+                    <span class="pc-amigo" aria-hidden="true">
+                      <span class="pc-rosto" [style.--s]="a.cor">{{ a.inicial }}</span>
+                      <app-plastic-letters [text]="a.quanto" tone="rosa" size="mini" />
+                    </span>
+                  }
                   @if (l.chama) {
                     <span class="pc-chama" aria-hidden="true"><lucide-icon [img]="chama" [size]="14" />{{ l.chama }}</span>
                   }

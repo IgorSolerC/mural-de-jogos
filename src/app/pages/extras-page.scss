@@ -775,6 +775,76 @@ li:nth-child(even) .icone {
   font-size: 1.2rem;
 }
 
+/* as notas do mural, de 0 a 10: varetinhas de plástico; as de 7 para cima em amarelo */
+.pc-barras {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 26px;
+
+  i {
+    @include letreiro.peca;
+    width: 6px;
+    min-height: 2px;
+    border-radius: 2px 2px 0 0;
+    background: #f4f2ec;
+
+    &.alta {
+      background: var(--hi);
+    }
+  }
+}
+
+/* o pódio do Ranking: ouro, prata e bronze */
+.pc-medalhas {
+  display: inline-flex;
+  gap: 4px;
+
+  i {
+    @include letreiro.peca;
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    color: #151515;
+    font-family: var(--f-label);
+    font-style: normal;
+    font-weight: 800;
+    font-size: 0.85rem;
+
+    &[data-m='1'] {
+      background: radial-gradient(circle at 35% 30%, #fff1a8, #e2b520 60%, #a87a00);
+    }
+    &[data-m='2'] {
+      background: radial-gradient(circle at 35% 30%, #ffffff, #c4c4c4 60%, #858585);
+    }
+    &[data-m='3'] {
+      background: radial-gradient(circle at 35% 30%, #ffd2a8, #c27a3e 60%, #7d4615);
+    }
+  }
+}
+
+/* cada amigo de Comparar: a inicial numa bolinha da cor dele e quanto combinam */
+.pc-amigo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pc-rosto {
+  @include letreiro.peca;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--s);
+  color: #151515;
+  font-family: var(--f-marker);
+  font-size: 0.85rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pc-duelos i[data-s='agora'] {
     animation: none;

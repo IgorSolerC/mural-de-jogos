@@ -38,6 +38,8 @@ interface Linha {
   tom: 'amarela' | 'rosa';
   /** O que vai em letras embaixo do nome, ao lado das peças; sem ele, o estado. */
   letras?: string;
+  /** Só as peças, sem letras ao lado (as bolinhas dos amigos já dizem quanto). */
+  semLetras?: boolean;
   /*
    * As peças de plástico da prévia (PLANO-EXTRAS.md), cada linha com as dela: só desenho, o estado inteiro vai
    * no nome do link.
@@ -50,6 +52,20 @@ interface Linha {
   duelos?: DuelPiece[];
   /** As setas do Maior ou menor, e o recorde ao lado (null: ainda sem). */
   recorde?: number | null;
+  /** As varetinhas das Estatísticas: a altura (0 a 1) de cada nota, de 0 a 10; as de 7 para cima, altas. */
+  barras?: { h: number; alta: boolean }[];
+  /** Quantas medalhas do pódio do Ranking (até três). */
+  medalhas?: number;
+  /** Os amigos de Comparar: a inicial numa bolinha da cor dele e quanto combinam. */
+  amigos?: { id: string; inicial: string; cor: string; quanto: string }[];
+}
+
+/** As cores das bolinhas dos amigos, sempre a mesma para a mesma pessoa. */
+const CORES_AMIGO = ['var(--stock-rosa)', 'var(--stock-azul)', 'var(--stock-verde)', 'var(--stock-laranja)', 'var(--stock-lilas)'];
+function corDe(id: string): string {
+  let h = 0;
+  for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return CORES_AMIGO[h % CORES_AMIGO.length];
 }
 
 interface Letreiro {
@@ -219,22 +235,37 @@ export class ExtrasPage {
 
     const s = statsPreview(reviews);
     const stats = s.count ? `${vezes(s.count, p.singular, p.plural)} · média ${s.mean}` : 'nada no mural ainda';
+    const maior = Math.max(...s.histogram);
+    const barras = maior ? s.histogram.map((n, nota) => ({ h: n / maior, alta: nota >= 7 })) : undefined;
 
-    const [first] = podiumPreview(reviews);
-    const ranking = first ? `1º ${first.name} ${first.score}` : 'nada no mural ainda';
+    const podio = podiumPreview(reviews);
+    const ranking = podio.length ? `1º ${podio[0].name} ${podio[0].score}` : 'nada no mural ainda';
 
     let comparar: string;
+    let amigos: Linha['amigos'];
     if (!this.signedIn()) comparar = 'entre na sua conta';
     else {
       const open = this.colleagues.colleagues().map((c) => ({ id: c.id, name: c.name, reviews: originalsOf(c.reviews.filter((x) => x.kind === kind)) }));
-      const [f] = friendsPreview(reviews, open, this.colleagues.selected()?.id ?? null);
-      comparar = !f ? 'escolha um amigo' : f.percent === null ? `${f.name} · nada em comum` : `${f.name} ${f.percent}%`;
+      const list = friendsPreview(reviews, open, this.colleagues.selected()?.id ?? null);
+      const quanto = (f: (typeof list)[number]) => (f.percent === null ? 'nada em comum' : `${f.percent}%`);
+      comparar = list.length ? list.map((f) => `${f.name} ${quanto(f)}`).join(', ') : 'escolha um amigo';
+      amigos = list.map((f) => ({ id: f.id, inicial: [...f.name.trim()][0]?.toLocaleUpperCase('pt-BR') ?? '?', cor: corDe(f.id), quanto: f.percent === null ? '–' : `${f.percent}%` }));
     }
 
     return [
-      { id: 'estatisticas', path: '/extras/estatisticas', nome: 'Estatísticas', icon: ICON.pizza, estado: stats, tom: 'rosa' },
-      { id: 'ranking', path: '/ranking', nome: 'Ranking', icon: ICON.trofeu, estado: ranking, tom: 'rosa' },
-      { id: 'comparar', path: '/comparar', nome: 'Comparar', icon: ICON.pessoas, estado: comparar, tom: 'rosa' },
+      { id: 'estatisticas', path: '/extras/estatisticas', nome: 'Estatísticas', icon: ICON.pizza, estado: stats, tom: 'rosa', barras },
+      {
+        id: 'ranking',
+        path: '/ranking',
+        nome: 'Ranking',
+        icon: ICON.trofeu,
+        estado: ranking,
+        letras: podio.length ? `${podio[0].name} ${podio[0].score}` : undefined,
+        tom: podio.length ? 'amarela' : 'rosa',
+        medalhas: podio.length,
+      },
+      // com amigos, as bolinhas dizem tudo (sem letras ao lado)
+      { id: 'comparar', path: '/comparar', nome: 'Comparar', icon: ICON.pessoas, estado: comparar, semLetras: !!amigos?.length, tom: 'rosa', amigos },
     ];
   });
 

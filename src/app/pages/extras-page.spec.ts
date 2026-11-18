@@ -2,6 +2,7 @@ import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { CloudAccount, CloudAccountInfo } from '../core/cloud-account';
+import { Colleague, ColleagueStore } from '../core/colleague-store';
 import { Cloud } from '../core/cloud-config';
 import { todayISO } from '../core/dates';
 import { PixelGallery } from '../core/pixel-gallery-store';
@@ -153,6 +154,36 @@ describe('a página de Extras', () => {
     expect(t.linha('/extras/muraldle')!.querySelector('.pc-fila')).toBeNull();
     expect(t.linha('/extras/maior-ou-menor')!.querySelector('.pc-setas')).toBeNull();
     expect(t.linha('/extras/mata-mata')!.querySelector('.pc-duelos')).toBeNull();
+  });
+
+  it('os números em peças: as varetinhas das notas, as medalhas do pódio', async () => {
+    const t = await open({ signedIn: false, reviews: [review('a', 'Hades', 9.4), review('b', 'Celeste', 8), review('c', 'Tunic', 7), review('d', 'Inside', 3)] });
+    const barras = [...t.linha('/extras/estatisticas')!.querySelectorAll('.pc-barras i')];
+    expect(barras.length).toBe(11);
+    // as de 7 para cima em amarelo; a maior vareta do tamanho todo
+    expect(barras.map((b) => b.classList.contains('alta'))).toEqual([false, false, false, false, false, false, false, true, true, true, true]);
+    expect((barras[9] as HTMLElement).style.height).toBe('100%');
+    expect((barras[0] as HTMLElement).style.height).toBe('0%');
+    expect([...t.linha('/ranking')!.querySelectorAll('.pc-medalhas i')].map((m) => m.textContent?.trim())).toEqual(['1', '2', '3']);
+    expect(t.label('/ranking')).toBe('Ranking: 1º Hades 9,4');
+  });
+
+  it('sem fichas, nem varetinhas nem medalhas', async () => {
+    const t = await open({ signedIn: false });
+    expect(t.host.querySelector('.pc-barras')).toBeNull();
+    expect(t.host.querySelector('.pc-medalhas')).toBeNull();
+  });
+
+  it('Comparar: cada amigo aberto numa bolinha com a inicial e quanto combinam, o escolhido primeiro', async () => {
+    const t = await open({ account: { codigo: 'K7QF-M2XA', nome: 'Ana' }, reviews: [review('a', 'Hades', 9.4), review('b', 'Celeste', 8)] });
+    const friend = (id: string, name: string, reviews: Review[]) => ({ id, name, fileName: '', loadedAt: at, reviews }) as unknown as Colleague;
+    const store = TestBed.inject(ColleagueStore);
+    store.colleagues.set([friend('bia', 'Bia', [review('x', 'Hades', 9.4), review('y', 'Celeste', 8)]), friend('leo', 'Léo', [review('z', 'Outra', 5)])]);
+    await t.fixture.whenStable();
+    const rostos = [...t.linha('/comparar')!.querySelectorAll('.pc-amigo')];
+    expect(rostos.map((r) => r.querySelector('.pc-rosto')!.textContent!.trim())).toEqual(['B', 'L']);
+    expect(rostos.map((r) => r.querySelector('app-plastic-letters')!.textContent!.replace(/\s+/g, ''))).toEqual(['100%', '–']);
+    expect(t.label('/comparar')).toBe('Comparar: Bia 100%, Léo nada em comum');
   });
 
   it('outra conta vê a mesma página, sem a prancheta', async () => {
