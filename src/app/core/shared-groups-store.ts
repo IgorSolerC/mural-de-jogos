@@ -113,7 +113,9 @@ export class SharedGroupsStore {
         const e = this.shared.get(n.id);
         if (e?.grupo) continue;
         const since = heading.get(labelKey(n.category));
-        // (só a que `pending` leva: a compartilhada com você por outra pessoa não entra no grupo, e conta)
+        // (só a que `pending` leva: a compartilhada com você por outra pessoa não entra no grupo, e conta. O nome
+        // guardado é o que o grupo mostra: com um grupo seu de mesmo nome, "Nome · Dona", e as suas de "Nome",
+        // editadas ou não, nunca batem com ele)
         if (since !== undefined && Date.parse(n.updatedAt) >= since && (!e || e.papel === 'dono')) continue;
         own.add(n.category);
       }
@@ -651,7 +653,11 @@ export class SharedGroupsStore {
   async adopt(): Promise<void> {
     if (!this.active() || this.moving()) return;
     const queue = this.pending();
-    if (!queue.length) return;
+    if (!queue.length) {
+      // a recusada saiu (apagada, noutro grupo, mudou): o aviso dela sai junto
+      if (this.error() && !this.stillRefused()) this.error.set(null);
+      return;
+    }
     const tried = new Set(queue.map((q) => q.note.id));
     // cada anotação vai por conta própria: a que a nuvem não levou não segura as outras
     let failed: { grupo: string; mensagem: string } | null = null;
@@ -685,6 +691,15 @@ export class SharedGroupsStore {
     }
     // o que entrou enquanto isso (cada anotação uma vez por rodada: a que a nuvem não levou espera a próxima)
     if (!this.error() && this.pending().some((q) => !tried.has(q.note.id))) void this.adopt();
+  }
+
+  /** Alguma anotação que a nuvem recusou continua como estava, esperando no grupo. */
+  private stillRefused(): boolean {
+    for (const [id, key] of this.refused) {
+      const n = this.store.get(id);
+      if (n && n.category && refusalKey(n, this.ofCategory(n.category)) === key && !this.shared.get(id)?.grupo) return true;
+    }
+    return false;
   }
 
   /** As anotações suas que estão num grupo compartilhado (pelo nome) e ainda não foram para ele na nuvem. */
@@ -837,7 +852,10 @@ function passing(err: CloudError): boolean {
   return err.status === 0 || err.status === 408 || err.status === 429 || err.status >= 500 || (err.status === 409 && err.code === 'conflito');
 }
 
-/** A anotação e o grupo como estavam quando a nuvem recusou levá-la: mudou um dos dois, ela tenta de novo. */
+/**
+ * A anotação e o grupo como estavam quando a nuvem recusou levá-la: mudou a anotação, o grupo dela ou o papel de
+ * quem está aqui nele, ela tenta de novo (não a `versao`, que anda com qualquer mexida no quadro do grupo).
+ */
 function refusalKey(note: { updatedAt: string; category?: string | null }, group: SharedGroup | undefined): string {
-  return JSON.stringify([note.updatedAt, note.category ?? '', group?.id ?? '', group?.papel ?? '', group?.versao ?? 0]);
+  return JSON.stringify([note.updatedAt, note.category ?? '', group?.id ?? '', group?.papel ?? '']);
 }

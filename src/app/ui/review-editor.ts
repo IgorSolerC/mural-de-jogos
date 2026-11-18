@@ -1664,15 +1664,29 @@ export class ReviewEditor {
     const inGroup = prev ? this.shared.get(clean.id)?.grupo : null;
     const fromGroup = inGroup ? (this.sharedGroups.names().get(inGroup) ?? null) : null;
     const moveTo = inGroup && fromGroup !== null && this.sharedGroups.movesNotesOf(inGroup) && lookKey(clean.category ?? '') !== lookKey(fromGroup) ? (clean.category ?? null) : undefined;
-    if (prev) this.store.update(clean, prev);
-    else this.store.add(clean);
-    for (const n of relinked) this.store.update(n);
-    if (moveTo !== undefined) {
-      this.sharedGroups.moveNote(clean.id, moveTo).catch((err: unknown) => {
+    const commit = () => {
+      if (prev) this.store.update(clean, prev);
+      else this.store.add(clean);
+      for (const n of relinked) this.store.update(n);
+      this.finishNote(clean.id, { isNew: !prev, relinked: relinked.length });
+    };
+    if (moveTo === undefined) return commit();
+    // para fora do grupo: quem está nele deixa de vê-la (e quem a escreveu também), então pergunta antes
+    if (!this.sharedGroups.ofCategory(moveTo) && !(await this.okOutOfSharedGroup(inGroup!, fromGroup!))) return;
+    // o grupo muda na nuvem antes de tudo: recusado (sem rede, sem poder), nada muda aqui, nem o quadro, e o
+    // editor continua aberto com a escolha
+    if (this.movingGroup()) return;
+    this.movingGroup.set(true);
+    this.sharedGroups.moveNote(clean.id, moveTo).then(
+      () => {
+        this.movingGroup.set(false);
+        if (this.editing()?.id === clean.id) commit();
+      },
+      (err: unknown) => {
+        this.movingGroup.set(false);
         this.toasts.show(err instanceof CloudError ? err.message : `Não deu para tirar “${name}” do grupo ${fromGroup} agora. Tente de novo.`);
-      });
-    }
-    this.finishNote(clean.id, { isNew: !prev, relinked: relinked.length });
+      },
+    );
   }
 
   /** O lugar no quadro do grupo, como ficou na aba Kanban, e a carta, como ficou na aba Flashcard; e o editor fecha. */
@@ -1728,6 +1742,29 @@ export class ReviewEditor {
   }
 
   /**
+   * O dono tira a anotação do grupo compartilhado: quem está nele deixa de vê-la, até quem a escreveu (ela fica
+   * só dele). Voltar abre o Grupo.
+   */
+  private async okOutOfSharedGroup(groupId: string, name: string): Promise<boolean> {
+    const g = this.sharedGroups.get(groupId);
+    const me = this.account.account()?.codigo ?? null;
+    const others = (g?.membros ?? []).filter((p) => p.codigo !== me).map((p) => p.nome);
+    if (!others.length) return true;
+    const author = this.shared.get(this.id())?.criadoPor;
+    const wrote = author && author.codigo !== me ? ` ${author.nome} escreveu esta anotação e também deixa de vê-la.` : '';
+    const ok = await this.confirm.ask({
+      title: `Tirar do grupo ${name}?`,
+      text: `Fora do grupo, ela fica só sua: ${namesOf(others)} ${others.length > 1 ? 'deixam' : 'deixa'} de vê-la.${wrote}`,
+      confirm: 'Salvar assim',
+      cancel: 'Voltar',
+      icon: null,
+      tone: 'neutro',
+    });
+    if (!ok) this.openProp('grupo');
+    return ok;
+  }
+
+  /**
    * A anotação vai para um grupo compartilhado em que ainda não estava: quem está nele passa a vê-la
    * (PLANO-COMPARTILHAR.md, 4.4.4); no grupo de outra pessoa, ela passa a ser do grupo. Voltar abre o Grupo.
    */
@@ -1769,6 +1806,8 @@ export class ReviewEditor {
     return ok;
   }
   private readonly sharedGroups = inject(SharedGroupsStore);
+  /** O grupo de uma anotação de grupo compartilhado mudando na nuvem (o Salvar espera, e não vai duas vezes). */
+  protected readonly movingGroup = signal(false);
   /** O grupo compartilhado em que a anotação aberta já está (o Grupo dela não se troca aqui). */
   protected readonly lockedGroup = computed(() => {
     const e = this.editing() ? this.shared.get(this.id()) : null;

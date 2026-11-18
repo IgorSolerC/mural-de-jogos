@@ -669,6 +669,21 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
       expect(move).toHaveBeenCalledOnceWith('nagrupo1', 'Estudos');
     });
 
+    it('a nuvem recusa a troca: nada muda aqui (nem o grupo, nem o quadro), e o editor continua aberto com a escolha', async () => {
+      const move = inSharedGroup(true);
+      move.and.rejectWith(new Error('sem rede'));
+      await edit(store.get('nagrupo1')!);
+      const p = await openPart('grupo');
+      Array.from(p.querySelectorAll<HTMLButtonElement>('.op')).find((b) => b.textContent!.includes('Estudos'))!.click();
+      await fixture.whenStable();
+      el.querySelector<HTMLButtonElement>('.pregar .btn-ink')!.click();
+      await new Promise((r) => setTimeout(r, 0));
+      await fixture.whenStable();
+      expect(move).toHaveBeenCalledTimes(1);
+      expect(el.querySelector('dialog')!.open).toBeTrue();
+      expect(store.get('nagrupo1')!.category).toBe('Trabalho');
+    });
+
     it('quem não é o dono do grupo: o grupo fica preso, e salvar não muda o grupo', async () => {
       const move = inSharedGroup(false);
       await edit(store.get('nagrupo1')!);

@@ -344,6 +344,72 @@ describe('grupos compartilhados: o serviço (core/shared-groups-store.ts)', () =
       expect(shared.share.calls.allArgs().map(([r, , grupo]) => [(r as Review).id, grupo])).toEqual([['n-dela01', g.id]]);
     });
 
+    it('a sua de antes do grupo, editada depois, continua sua: o grupo dela não vira o seu, e ela não sobe', async () => {
+      // o grupo de outra pessoa ganhou o nome de um grupo só seu (o convite, ou ela o renomeou): mexer na sua
+      // anotação não é pô-la no grupo dela
+      const { groups, shared } = start();
+      store.add(note('n-minha1', 'Japones'));
+      TestBed.tick();
+      const g = japones();
+      groups.entries.set(new Map([[g.id, g]]));
+      TestBed.tick();
+      expect(groups.names().get(g.id)).toBe('Japones · Ana');
+      store.update({ ...store.get('n-minha1')!, text: 'corrigida', updatedAt: new Date(Date.now() + 60_000).toISOString() });
+      TestBed.tick();
+      expect(groups.names().get(g.id)).toBe('Japones · Ana');
+      expect(groups.ofCategory('Japones')).toBeUndefined();
+      await groups.adopt();
+      expect(shared.share).not.toHaveBeenCalled();
+      // e assim continua ao abrir o site de novo
+      TestBed.resetTestingModule();
+      const again = start();
+      expect(again.groups.names().get(g.id)).toBe('Japones · Ana');
+      await again.groups.adopt();
+      expect(again.shared.share).not.toHaveBeenCalled();
+    });
+
+    it('a recusada que sai do grupo leva o aviso junto', async () => {
+      const { groups, shared } = start();
+      const g = japones();
+      groups.entries.set(new Map([[g.id, g]]));
+      TestBed.tick();
+      store.add(note('n-grande1', 'Japones', agora()));
+      TestBed.tick();
+      shared.share.and.rejectWith(new CloudError('A anotação é grande demais.', 'grande-demais', 413));
+      await groups.adopt();
+      expect(groups.error()).not.toBeNull();
+      store.update({ ...store.get('n-grande1')!, category: 'Outro', updatedAt: new Date(Date.now() + 60_000).toISOString() });
+      TestBed.tick();
+      await groups.adopt();
+      expect(groups.error()).toBeNull();
+    });
+
+    it('o que tenta de novo: sem rede, a nuvem fora, a pressa e o conflito de versão; o id em uso e o sem poder, não', async () => {
+      const { groups, shared, replies } = start();
+      const g = japones();
+      groups.entries.set(new Map([[g.id, g]]));
+      replies['GET /v1/eu/grupos'] = { grupos: [{ id: g.id, versao: g.versao }] };
+      TestBed.tick();
+      const cases: [string, CloudError, boolean][] = [
+        ['n-semrede', new CloudError('Sem conexão.', 'sem-rede', 0), true],
+        ['n-fora001', new CloudError('A nuvem caiu.', 'erro', 503), true],
+        ['n-pressa1', new CloudError('Devagar.', 'devagar', 429), true],
+        ['n-confl01', new CloudError('Outra pessoa gravou antes.', 'conflito', 409), true],
+        ['n-emuso01', new CloudError('Essa anotação não pode ser compartilhada assim.', 'nota-id-em-uso', 409), false],
+        ['n-leitor1', new CloudError('Você pode ler este grupo, mas não escrever nele.', 'so-leitura', 403), false],
+      ];
+      for (const [id] of cases) store.add(note(id, 'Japones', agora()));
+      TestBed.tick();
+      shared.share.and.callFake(async (r: Review) => {
+        throw cases.find(([id]) => id === r.id)![1];
+      });
+      await groups.adopt();
+      shared.share.calls.reset();
+      await groups.sync();
+      const again = shared.share.calls.allArgs().map(([r]) => (r as Review).id).sort();
+      expect(again).toEqual(cases.filter(([, , retry]) => retry).map(([id]) => id).sort());
+    });
+
     it('as suas de antes que chegam depois do grupo (outro aparelho, a sincronização) não entram nele: ele ganha o "· Ana"', async () => {
       const { groups, shared } = start();
       const g = japones();
