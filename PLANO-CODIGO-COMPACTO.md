@@ -48,8 +48,10 @@ Impeccable no começo e no fim; `/code-review high` no final.
 - **D5. A barra fina, por cima.** A barra de verdade sai do bloco de código (some em todo navegador), e no lugar
   dela uma barra desenhada: 4px, a tinta `--cod-rolo` de cada tema, no pé da última linha, da tira dos furos até
   a beirada. Aparece com o mouse em cima do bloco, com o foco dentro dele e enquanto rola (no toque e no
-  touchpad); sem nada para rolar, não existe. O polegar se arrasta (cresce com o mouse, 6px), e o clique no
-  trilho rola uma tela para aquele lado. A roda com Shift, o touchpad, as setas e o dedo rolam como sempre.
+  touchpad); sem nada para rolar, não existe. O polegar se arrasta (cresce com o mouse, 6px). Só ele pega o
+  mouse, e só à vista: o trilho não, senão o pé da última linha deixaria de ser do texto (no Visual, o clique ali
+  rolaria em vez de pôr o cursor), e por isso o clique no trilho ficou de fora. A roda com Shift, o touchpad, as
+  setas e o dedo rolam como sempre. No Visual, o bloco do cursor mostra a barra enquanto se escreve nele.
   `bar-on-ruling.ts` fica só para a tabela (sai o modo `pai`).
 - **D6. O código na linha copia.** Fora da escrita (a leitura e todo lugar que desenha o texto pronto), a fita
   vira um botão: cursor de mão, e com o mouse em cima a fita fica num tom a mais da própria letra (a mesma conta
@@ -71,8 +73,8 @@ mudam; duas pessoas lendo o mesmo bloco veem cada uma o seu (o tema de cada leit
 1. **A linguagem no canto** (D1–D4, D7): o papel sem o cabeçalho, nas três vestes (leitura, Visual, card no
    Visual), a linguagem e o Copiar no canto, o canto reservado (`code-paper.ts`), o toque. Testes: a altura de N
    linhas, o canto, a reserva com a primeira linha comprida e não com a curta, o Visual, o PDF.
-2. **A barra fina** (D5): a barra desenhada em `code-paper.ts`, a de verdade escondida, arrastar, clicar no
-   trilho, aparecer e sumir; `bar-on-ruling.ts` sem o `pai`. Testes: o polegar do tamanho e no lugar, o arrasto,
+2. **A barra fina** (D5): a barra desenhada em `code-paper.ts`, a de verdade escondida, arrastar, aparecer e
+   sumir; `bar-on-ruling.ts` sem o `pai`. Testes: o polegar do tamanho e no lugar, o arrasto,
    o clique, sem rolar não existe, a tabela como antes.
 3. **O código na linha copia** (D6): o botão na leitura, o tom a mais, o bilhete, o teclado, a ficha que abre, o
    flashcard que não vira. Testes de cada um.

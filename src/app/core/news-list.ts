@@ -27,13 +27,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-17-codigo-mais-baixo',
+    id: '2026-11-17-codigo-barra-fina',
     version: '1.49.1',
     kind: 'ajustes',
     date: '2026-11-17',
     title: 'O bloco de código mais baixo',
     melhorias: [
-      'O bloco de código perdeu a linha do cabeçalho: a linguagem fica no canto da primeira linha do código, e com o mouse em cima o Copiar toma o lugar dela (no celular, o Copiar fica sempre, só o desenho, ao lado da linguagem). No Visual, a escolha da linguagem e o Copiar ficam no mesmo canto. A primeira linha comprida rola até aparecer inteira antes deles.',
+      'O bloco de código ficou duas linhas mais baixo. A linha do cabeçalho saiu: a linguagem fica no canto da primeira linha do código, e com o mouse em cima o Copiar toma o lugar dela (no celular, o Copiar fica sempre, só o desenho, ao lado da linguagem); no Visual, a escolha da linguagem e o Copiar ficam no mesmo canto, e a primeira linha comprida rola até aparecer inteira antes deles. A barra de rolar também não ocupa mais uma linha: virou um fio fino por cima do pé da última linha, que aparece com o mouse em cima ou rolando e se arrasta.',
     ],
   },
   {

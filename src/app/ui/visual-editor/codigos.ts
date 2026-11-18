@@ -3,7 +3,6 @@ import { Command, EditorState, Plugin, PluginKey } from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView, NodeView } from 'prosemirror-view';
 import { CodeRange, codeHighlightLoaded, codeRanges, loadCodeHighlight } from '../../core/code-highlight';
 import { CodeTheme, codeLangName, codeLangOf, codeThemeOf, withCodeLang, withCodeTheme } from '../../core/code-langs';
-import { unwatchBar, watchBar } from '../bar-on-ruling';
 import { unwatchCodePaper, watchCodePaper } from '../code-paper';
 import { ICON } from '../icons';
 import { desenho, etiqueta } from './controles';
@@ -92,16 +91,13 @@ export class CodigoView implements NodeView {
     this.controles.dataset['canto'] = '';
     this.dom.append(this.etiqueta, this.contentDOM, this.controles);
     this.desenha();
-    // quem rola é o <code>; a sobra da barra (ver ui/bar-on-ruling.ts) é escrita no <pre>, cujos atributos
-    // o ProseMirror não relê (ver ignoreMutation)
-    watchBar(this.contentDOM, 'pai');
-    // a linguagem (ou os botões do bloco do cursor) no canto da primeira linha: a reserva dele (`--cod-reserva`)
-    // também é escrita no <pre>
+    // quem rola é o <code>. A linguagem (ou os botões do bloco do cursor) no canto da primeira linha e a barra
+    // fina desenhada (ui/code-paper.ts): a reserva (`--cod-reserva`) e as marcas da barra são escritas no <pre>,
+    // cujos atributos o ProseMirror não relê, e a barra mora nele (ver ignoreMutation e stopEvent)
     watchCodePaper(this.dom, this.contentDOM);
   }
 
   destroy(): void {
-    unwatchBar(this.contentDOM);
     unwatchCodePaper(this.dom);
   }
 
@@ -153,7 +149,8 @@ export class CodigoView implements NodeView {
 
   /** Os botões são deles: o toque não põe o cursor no bloco. */
   stopEvent(e: Event): boolean {
-    return this.controles.contains(e.target as Node | null);
+    const t = e.target as Element | null;
+    return this.controles.contains(t) || !!t?.closest?.('.codigo-rolo');
   }
 
   update(node: PMNode): boolean {
@@ -166,6 +163,8 @@ export class CodigoView implements NodeView {
   ignoreMutation(m: MutationRecord | { type: 'selection'; target: Node }): boolean {
     if (m.type === 'selection') return false;
     if (this.etiqueta.contains(m.target) || this.controles.contains(m.target)) return true;
+    // a barra desenhada (ui/code-paper.ts) não é do documento
+    if ((m.target as Element).closest?.('.codigo-rolo') || (m.type === 'childList' && [...m.addedNodes, ...m.removedNodes].some((n) => (n as Element).classList?.contains('codigo-rolo')))) return true;
     return m.type === 'attributes' && m.target === this.dom;
   }
 }

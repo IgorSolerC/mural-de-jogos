@@ -1407,17 +1407,16 @@ describe('o modo Visual do texto', () => {
           expect(inteiro(emLinhas(r.top - parseFloat(cs.marginTop)))).withContext(`alto de "${nome}"`).toBeLessThan(0.03);
           expect(inteiro(emLinhas(r.bottom + parseFloat(cs.marginBottom)))).withContext(`pé de "${nome}"`).toBeLessThan(0.03);
         }
-        // a barra ocupa lugar (sem ela, a conta acima não provaria nada) e ganha uma linha só dela
+        // a barra da tabela ocupa lugar (sem ela, a conta acima não provaria nada) e ganha uma linha só dela; a
+        // do código é a fina desenhada, por cima (ui/code-paper.ts): a de verdade não ocupa nada
         const code = pm.querySelector<HTMLElement>('pre.codigo:not(.vis-no-cartao) > code')!;
         const larga = [...pm.querySelectorAll<HTMLElement>('.tabela-rolo')].find((t) => t.scrollWidth > t.clientWidth)!;
         expect(code.scrollWidth).toBeGreaterThan(code.clientWidth);
-        expect(code.offsetHeight - code.clientHeight).toBeGreaterThan(5);
-        expect(parseFloat(getComputedStyle(code.parentElement!).getPropertyValue('--sobra-barra'))).toBeGreaterThan(0);
+        expect(code.offsetHeight - code.clientHeight).toBe(0);
+        expect(getComputedStyle(code.parentElement!).paddingBottom).toBe('0px');
+        expect(code.parentElement!.querySelector('.codigo-rolo')).not.toBeNull();
         expect(larga.offsetHeight - larga.clientHeight).toBeGreaterThan(5);
         expect(parseFloat(getComputedStyle(larga).getPropertyValue('--sobra-barra'))).toBeGreaterThan(0);
-        // o bloco sem barra não ganha nada
-        const curto = [...pm.querySelectorAll<HTMLElement>('pre.codigo')].find((p) => p.textContent?.includes('curto'))!;
-        expect(parseFloat(getComputedStyle(curto).getPropertyValue('--sobra-barra'))).toBe(0);
       } finally {
         bars.remove();
       }
@@ -1432,7 +1431,7 @@ describe('o modo Visual do texto', () => {
         const pre = folha().querySelector<HTMLElement>('pre.codigo')!;
         const rolo = folha().querySelector<HTMLElement>('.tabela-rolo')!;
         await espera(120);
-        expect(pre.style.getPropertyValue('--sobra-barra')).not.toBe('');
+        expect(pre.hasAttribute('data-rola')).toBeTrue();
         expect(rolo.style.getPropertyValue('--sobra-barra')).not.toBe('');
         expect(folha().querySelector('pre.codigo')).toBe(pre);
         expect(folha().querySelector('.tabela-rolo')).toBe(rolo);

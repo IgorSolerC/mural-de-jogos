@@ -97,7 +97,7 @@
     text-indent: 0;
     margin-left: calc(var(--vis-corpo, 0) * var(--vis-letra) + max(0px, calc((var(--recuo, 0) - var(--vis-tira, 0)) * var(--vis-espaco, 0.27em))));
     // embaixo, a sobra da barra de rolar do <code> (ui/bar-on-ruling.ts): com ela, o papel fecha linhas inteiras
-    padding: 0 0 var(--sobra-barra, 0px) (formatado.$cod-margem + formatado.$cod-vao);
+    padding: 0 0 0 (formatado.$cod-margem + formatado.$cod-vao);
     white-space: pre;
   }
   > pre.codigo > code {
@@ -111,8 +111,19 @@
     white-space: pre;
     overflow-wrap: normal;
     caret-color: var(--cod-cursor, var(--red));
-    scrollbar-width: thin;
-    scrollbar-color: var(--cod-rolo, rgb(47 107 58 / 0.45)) transparent;
+    // a barra de verdade sai: a desenhada (ui/code-paper.ts) fica por cima do pé da última linha
+    scrollbar-width: none;
+  }
+  > pre.codigo > code::-webkit-scrollbar {
+    display: none;
+  }
+  @include formatado.codigo-rolo('> pre.codigo');
+  // o foco do Visual é da folha, não do bloco: o bloco do cursor mostra a barra enquanto se escreve nele
+  &:focus-within > pre.codigo.vis-codigo-ativo[data-rola] > .codigo-rolo {
+    opacity: 1;
+  }
+  &:focus-within > pre.codigo.vis-codigo-ativo[data-rola] > .codigo-rolo > .codigo-rolo-polegar {
+    pointer-events: auto;
   }
   @include formatado.codigo-temas('> pre.codigo');
   > pre.codigo::before {

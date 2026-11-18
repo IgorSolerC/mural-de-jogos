@@ -117,7 +117,7 @@ import { ZoomKnob } from './zoom-knob';
               @if (lingua) {
                 <span class="codigo-lingua" data-canto aria-hidden="true">{{ lingua }}</span>
               }
-              <pre class="codigo" appBarOnRuling [attr.data-lingua]="b.lang ?? null"><code>@for (t of codeTokens(b); track $index) {@if (t.c) {<span [class]="t.c">{{ t.t }}</span>} @else {{{ t.t }}}}</code></pre>
+              <pre class="codigo" [attr.data-lingua]="b.lang ?? null"><code>@for (t of codeTokens(b); track $index) {@if (t.c) {<span [class]="t.c">{{ t.t }}</span>} @else {{{ t.t }}}}</code></pre>
               <button type="button" class="codigo-copiar tocavel" data-canto aria-label="Copiar o código" title="Copiar o código" (click)="copyCode($event, b.text)"><lucide-icon [img]="CopyIcon" [size]="13" aria-hidden="true" /><span class="codigo-copiar-nome" aria-hidden="true">Copiar</span><span class="codigo-copiado" aria-hidden="true">Copiado</span></button>
             </div>
           }

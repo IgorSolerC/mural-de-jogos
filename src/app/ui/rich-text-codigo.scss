@@ -46,14 +46,19 @@
 .codigo-peca > .codigo {
   margin-left: formatado.$cod-margem;
   /* desde a primeira linha (a linguagem fica no canto dela); à direita, a largura do canto quando a primeira
-     linha chega embaixo dele (ui/code-paper.ts); embaixo, a sobra da barra de rolar (ui/bar-on-ruling.ts) */
-  padding: 0 max(0.9em, var(--cod-reserva, 0px)) var(--sobra-barra, 0px) formatado.$cod-vao;
+     linha chega embaixo dele (ui/code-paper.ts) */
+  padding: 0 max(0.9em, var(--cod-reserva, 0px)) 0 formatado.$cod-vao;
   overflow-x: auto;
   overflow-y: hidden;
   white-space: pre;
-  scrollbar-width: thin;
-  scrollbar-color: var(--cod-rolo, rgb(47 107 58 / 0.45)) transparent;
+  /* a barra de verdade sai: a desenhada (ui/code-paper.ts) fica por cima do pé da última linha */
+  scrollbar-width: none;
 }
+.codigo-peca > .codigo::-webkit-scrollbar {
+  display: none;
+}
+/* (a barra é posta pelo código, sem a marca do Angular: o estilo chega a ela por ::ng-deep, só aqui dentro) */
+@include formatado.codigo-rolo(':host ::ng-deep .codigo-peca');
 .codigo-lingua {
   @include formatado.codigo-lingua;
 }

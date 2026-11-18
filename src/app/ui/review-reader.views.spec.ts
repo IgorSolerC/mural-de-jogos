@@ -495,14 +495,15 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
           expect(Math.abs(o.top - Math.round(o.top))).withContext(`${view}: alto de "${o.what}" (${o.top.toFixed(3)} linhas)`).toBeLessThan(0.03);
           expect(Math.abs(o.height - Math.round(o.height))).withContext(`${view}: altura de "${o.what}" (${o.height.toFixed(3)} linhas)`).toBeLessThan(0.03);
         }
-        // a barra do código e a da tabela ficam numa linha só delas
-        for (const sel of ['.codigo-peca', '.tabela-rolo']) {
-          const scroller = q(sel === '.codigo-peca' ? '.codigo' : '.tabela-rolo')!;
-          expect(scroller.scrollWidth).withContext(`${view}: ${sel} rola de lado`).toBeGreaterThan(scroller.clientWidth);
-          // e a barra ocupa lugar (sem ela, a conta acima não provaria nada)
-          expect(scroller.offsetHeight - scroller.clientHeight).withContext(`${view}: a barra de ${sel}`).toBeGreaterThan(5);
-          expect(parseFloat(getComputedStyle(scroller).getPropertyValue('--sobra-barra'))).withContext(`${view}: a sobra de ${sel}`).toBeGreaterThan(0);
-        }
+        // a barra da tabela fica numa linha só dela, e ocupa lugar (sem ela, a conta acima não provaria nada)
+        const tabela = q('.tabela-rolo')!;
+        expect(tabela.scrollWidth).withContext(`${view}: a tabela rola de lado`).toBeGreaterThan(tabela.clientWidth);
+        expect(tabela.offsetHeight - tabela.clientHeight).withContext(`${view}: a barra da tabela`).toBeGreaterThan(5);
+        expect(parseFloat(getComputedStyle(tabela).getPropertyValue('--sobra-barra'))).withContext(`${view}: a sobra da tabela`).toBeGreaterThan(0);
+        // a do código é a fina desenhada, por cima do pé da última linha: a de verdade não ocupa nada
+        const codigo = q('.codigo')!;
+        expect(codigo.scrollWidth).withContext(`${view}: o código rola de lado`).toBeGreaterThan(codigo.clientWidth);
+        expect(codigo.offsetHeight - codigo.clientHeight).withContext(`${view}: sem a barra de verdade no código`).toBe(0);
       }
     } finally {
       bars.remove();

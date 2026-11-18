@@ -422,7 +422,8 @@
     box-decoration-break: clone;
   }
   .codigo-peca:not(app-note-widget *)::before,
-  .codigo-copiar:not(app-note-widget *) {
+  .codigo-copiar:not(app-note-widget *),
+  .codigo-rolo:not(app-note-widget *) {
     display: none;
   }
   .codigo-peca:not(app-note-widget *) > .codigo {

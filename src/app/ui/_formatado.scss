@@ -89,6 +89,7 @@ $cod-temas: (
       --cod-tinta: #{map.get($c, tinta)};
       --cod-etiqueta: #{map.get($c, eti)};
       --cod-rolo: rgb(255 255 255 / 0.32);
+      --cod-rolo-forte: rgb(255 255 255 / 0.56);
       --cod-selecao: #{map.get($c, sel)};
       --cod-cursor: #{map.get($c, cursor)};
       --tk-pal: #{map.get($c, pal)};
@@ -123,6 +124,7 @@ $cod-temas: (
   --cod-tinta: initial;
   --cod-etiqueta: initial;
   --cod-rolo: initial;
+  --cod-rolo-forte: initial;
   --cod-selecao: initial;
   --cod-cursor: initial;
   --tk-pal: initial;
@@ -309,6 +311,70 @@ $cod-vao: 0.7rem;
   pointer-events: none;
   user-select: none;
   transition: opacity var(--t-ui, 160ms) var(--ease-ui, ease-out);
+}
+
+// A barra de rolar do bloco (ui/code-paper.ts): a de verdade sai (ela ocupava uma linha inteira da pauta) e no
+// lugar dela fica um fio de 4px na tinta do rolo, por cima do pé da última linha, da tira dos furos até a beirada.
+// Só existe quando há o que rolar (`data-rola`); aparece com o mouse em cima, com o foco dentro e enquanto rola.
+// O polegar reage ao mouse como os botões do site: cresce (6px) e escurece. Só ele pega o mouse, e só à vista: o
+// resto do pé da última linha continua do texto (clicar, selecionar, pôr o cursor).
+@mixin codigo-rolo($papel) {
+  #{$papel} > .codigo-rolo {
+    position: absolute;
+    z-index: 2;
+    left: $cod-margem + $cod-vao;
+    right: 0.9em;
+    bottom: var(--cod-rolo-pe, 0px);
+    height: 10px;
+    display: none;
+    opacity: 0;
+    pointer-events: none;
+    user-select: none;
+    transition: opacity var(--t-ui, 160ms) var(--ease-ui, ease-out);
+  }
+  #{$papel}[data-rola] > .codigo-rolo {
+    display: block;
+  }
+  #{$papel}[data-rola]:is(:hover, :focus-within, [data-rolando]) > .codigo-rolo,
+  #{$papel} > .codigo-rolo.arrastando {
+    opacity: 1;
+  }
+  #{$papel}[data-rola]:is(:hover, :focus-within, [data-rolando]) > .codigo-rolo > .codigo-rolo-polegar,
+  #{$papel} > .codigo-rolo.arrastando > .codigo-rolo-polegar {
+    pointer-events: auto;
+  }
+  #{$papel} > .codigo-rolo > .codigo-rolo-polegar {
+    position: absolute;
+    left: 0;
+    bottom: 3px;
+    height: 4px;
+    border-radius: 3px;
+    background: var(--cod-rolo, rgb(47 107 58 / 0.45));
+    cursor: default;
+    touch-action: none;
+    transition:
+      height var(--t-ui, 160ms) var(--ease-ui, ease-out),
+      background-color var(--t-ui, 160ms) var(--ease-ui, ease-out);
+  }
+  #{$papel} > .codigo-rolo:hover > .codigo-rolo-polegar,
+  #{$papel} > .codigo-rolo.arrastando > .codigo-rolo-polegar {
+    // cresce para baixo, sem chegar nas letras da última linha
+    bottom: 2px;
+    height: 6px;
+    background: var(--cod-rolo-forte, rgb(47 107 58 / 0.72));
+  }
+  // a área de pegar vai um pouco além do fio (4px é pouco para o dedo e para o mouse)
+  #{$papel} > .codigo-rolo > .codigo-rolo-polegar::before {
+    content: '';
+    position: absolute;
+    inset: -4px 0 -2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #{$papel} > .codigo-rolo,
+    #{$papel} > .codigo-rolo > .codigo-rolo-polegar {
+      transition: none;
+    }
+  }
 }
 
 @mixin titulos {
