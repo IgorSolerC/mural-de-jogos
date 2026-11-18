@@ -1049,6 +1049,65 @@ app-judge-label {
   }
 }
 
+/* ===== Duas anotações lado a lado (PLANO-DUAS-NOTAS.md) =====
+   A segunda é a mesma leitura, num <dialog> aberto sem ser modal dentro deste: as duas fichas inteiras, cada
+   uma com a tachinha, a faixa, a orelha do grupo e o pé, 28px uma da outra, dividindo a largura por igual
+   (nunca mais largas que a leitura sozinha). As duas descem o lugar da orelha do grupo, tenham ou não, para as
+   faixas ficarem na mesma altura. As orelhas da direita saem: o lugar delas é o da outra ficha. */
+dialog.reader.dupla {
+  max-width: min(1548px, calc(100vw - 112px));
+}
+
+dialog.reader.dupla[open] {
+  display: flex;
+  align-items: flex-start;
+}
+
+.dupla .par {
+  flex: 1 1 0;
+  min-width: 0;
+  margin-top: 28px;
+  max-height: calc(100dvh - 52px);
+}
+
+.dupla .par > .ficha {
+  max-height: calc(100dvh - 52px);
+}
+
+/* a primeira fica por cima: a segunda chega puxada de trás dela, como a folha de comentários */
+.dupla > .par {
+  z-index: 1;
+}
+
+.dupla .orelhas {
+  display: none;
+}
+
+/* o vão entre as duas é da segunda (o toque nele não fecha a leitura, como o toque no escuro em volta) */
+dialog.reader.ao-lado {
+  box-sizing: content-box;
+  padding-left: 28px;
+  position: relative;
+  z-index: 0;
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  inset: auto;
+
+  &[open] {
+    animation: puxa-folha 320ms var(--ease-physical);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  dialog.reader.ao-lado[open] {
+    animation: none;
+  }
+}
+
 /* a ficha em segredo: antes da conversa, o aviso */
 .guarda {
   display: grid;

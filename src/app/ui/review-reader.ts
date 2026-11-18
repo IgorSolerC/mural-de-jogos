@@ -13,6 +13,7 @@ import {
   computed,
   effect,
   inject,
+  input,
   linkedSignal,
   untracked,
   output,
@@ -93,6 +94,15 @@ import { canManage, canWrite, removalOf } from '../core/shared-notes';
 /** O vão entre o trecho selecionado e o remendo "Citar" (e entre o remendo e o rodapé). */
 const PATCH_GAP = 8;
 
+/** As linhas do texto onde se lê (as de dentro de uma lista também), para guardar o trecho no alto da folha. */
+const LINES = ':is(.linha, pre, .widget, .tabela-peca)';
+
+/**
+ * Onde cabem duas anotações lado a lado (PLANO-DUAS-NOTAS.md): a medida da folha de comentários ao lado. A
+ * tela que estreita para menos fecha a segunda.
+ */
+export const BESIDE_MEDIA = '(min-width: 1180px)';
+
 /**
  * Como a ficha aberta se mostra: a leitura de sempre; a tela cheia, só com o nome e o texto, para ler
  * uma anotação comprida; ou só a cartolina, a ficha como fica pregada no mural, grande, para ver o
@@ -123,11 +133,29 @@ interface TrailStop {
 
 interface ReadingPlace {
   block: HTMLElement | null;
+  /**
+   * A posição da linha entre as do texto, para achá-la em outra folha com o mesmo texto (a segunda anotação
+   * que fica sozinha: a folha dela some, e a de fora desenha o mesmo texto); -1 sem linha.
+   */
+  index: number;
   /** A distância do alto da folha até o começo da linha (a linha que começa abaixo do alto). */
   offset: number;
   /** Quanto da linha já passou do alto, de 0 a 1 (a linha alta, que começa acima dele). */
   passed: number;
   scrollTop: number;
+}
+
+/**
+ * A segunda anotação pediu a leitura inteira (a tela cheia, só a cartolina, os comentários): ela, o caminho dos
+ * links por onde chegou, o jeito pedido, o trecho onde se lia e, abrindo os comentários, o que mandou citar.
+ */
+interface AlonePlea {
+  review: Review;
+  trail: readonly TrailStop[];
+  view: ReaderView;
+  place: ReadingPlace | null;
+  comments: boolean;
+  quote: string | null;
 }
 
 @Component({
@@ -142,8 +170,10 @@ interface ReadingPlace {
       [class.solta]="!!solta()"
       [class.tela-cheia]="vista() === 'tela-cheia'"
       [class.so-a-cartolina]="vista() === 'cartolina'"
-      aria-labelledby="leitura-titulo"
-      (backdropClose)="solta() || close()"
+      [class.dupla]="!!segunda()"
+      [class.ao-lado]="aoLado()"
+      [attr.aria-labelledby]="'leitura-titulo' + sufixo()"
+      (backdropClose)="solta() || aoLado() || close()"
       (cancel)="onCancel($event)"
       (keydown)="onKey($event)"
       (close)="onClosed()"
@@ -163,7 +193,7 @@ interface ReadingPlace {
                 <lucide-icon [img]="BackIcon" [size]="22" aria-hidden="true" />
               </button>
             }
-            <h2 #nomeFicha id="leitura-titulo" class="title" [class.longo]="r.game.name.length > 44" tabindex="-1">{{ r.game.name }}</h2>
+            <h2 #nomeFicha [id]="'leitura-titulo' + sufixo()" class="title" [class.longo]="r.game.name.length > 44" tabindex="-1">{{ r.game.name }}</h2>
             <!-- finalizada: o carimbo redondo batido na emenda da faixa com a folha -->
             @if (note() && r.doneAt && lendo()) {
               <span class="carimbo"><app-done-stamp size="big" [at]="r.doneAt" [hit]="stampedNow()" /></span>
@@ -436,7 +466,7 @@ interface ReadingPlace {
                     <app-reaction-picker [target]="t" />
                   }
                   @if (commentButton()) {
-                    <button type="button" class="acao-caneta comentar" [attr.aria-expanded]="commentsOpen()" aria-controls="leitura-comentarios" (click)="toggleComments()">
+                    <button type="button" class="acao-caneta comentar" [attr.aria-expanded]="commentsOpen()" [attr.aria-controls]="'leitura-comentarios' + sufixo()" (click)="toggleComments()">
                       <lucide-icon [img]="CommentIcon" [size]="17" aria-hidden="true" />
                       {{ commentCount() ? commentsLabel() : 'Comentar' }}
                     </button>
@@ -513,7 +543,7 @@ interface ReadingPlace {
               [style]="headPaper()"
               [style.--stock]="'var(--stock-' + pin().stock + ')'"
               [attr.aria-expanded]="commentsOpen()"
-              aria-controls="leitura-comentarios"
+              [attr.aria-controls]="'leitura-comentarios' + sufixo()"
               [attr.aria-label]="commentCount() ? 'Comentários: ' + commentCount() : 'Comentários'"
               (click)="toggleComments()"
             >
@@ -529,7 +559,7 @@ interface ReadingPlace {
         @if (lendo() && commentable()) {
           @if (commentTarget(); as ct) {
             @if (commentsOpen()) {
-              <aside id="leitura-comentarios" class="ficha cartolina lado" tabindex="-1" [style.--stock]="'var(--stock-' + pin().stock + ')'" [attr.data-cor]="pin().stock" aria-labelledby="comentarios-titulo">
+              <aside [id]="'leitura-comentarios' + sufixo()" class="ficha cartolina lado" tabindex="-1" [style.--stock]="'var(--stock-' + pin().stock + ')'" [attr.data-cor]="pin().stock" aria-labelledby="comentarios-titulo">
                 <app-pin class="pin" [color]="pin().pinColor" />
                 <header class="head" [style]="headPaper()">
                   <!-- em tela estreita a folha cobre a ficha: o caminho de volta fica à esquerda, escrito -->
@@ -571,6 +601,25 @@ interface ReadingPlace {
           </button>
         }
         </div>
+
+        <!-- a segunda anotação, lado a lado (PLANO-DUAS-NOTAS.md): a mesma leitura, no modo ao lado, dentro
+             desta. O que ela faz que é da página (o editor, apagar) passa por aqui; o que pede a leitura
+             inteira (a tela cheia, só a cartolina, os comentários) a deixa sozinha, no lugar desta -->
+        @if (segunda()) {
+          <app-review-reader
+            #ladoB
+            [aoLado]="true"
+            (edit)="edit.emit($event)"
+            (editBoard)="editBoard.emit($event)"
+            (remove)="remove.emit($event)"
+            (revisit)="revisit.emit($event)"
+            (createNote)="createNote.emit($event)"
+            (revealedChange)="revealedChange.emit($event)"
+            (closeAll)="close()"
+            (left)="closeBeside()"
+            (alone)="takeOver($event)"
+          />
+        }
 
         <!-- só a cartolina: a ficha como fica pregada no mural, grande, no meio da tela, com os mesmos
              botões da faixa em cima dela (o primeiro volta à leitura). Um toque na ficha também volta, e
@@ -628,7 +677,7 @@ interface ReadingPlace {
         <!-- as folhas das compartilhadas: cada uma num pedaço à parte, só quando abre -->
         @if (shareOpen()) {
           @defer (on immediate) {
-            <app-share-sheet [noteId]="r.id" (closed)="closeShare()" (left)="close()" />
+            <app-share-sheet [noteId]="r.id" (closed)="closeShare()" (left)="leave()" />
           }
         }
         @if (conflictOpen()) {
@@ -657,6 +706,24 @@ export class ReviewReader {
   readonly createNote = output<{ title: string; from: string }>();
   /** "Revelar a nota" (ou "Esconder a nota") na ficha em segredo: as vezes da obra, para o mural de quem abriu seguir. */
   readonly revealedChange = output<{ ids: string[]; revealed: boolean }>();
+
+  // ===== Duas anotações lado a lado (PLANO-DUAS-NOTAS.md) =====
+  /**
+   * A segunda anotação, aberta à direita da primeira: esta leitura é ela, dentro da de fora (um `<dialog>`
+   * aberto sem ser modal, no fluxo do de fora). O que ela faz que é da página passa pela de fora.
+   */
+  readonly aoLado = input(false);
+  /** (Ao lado) Fechou: a leitura inteira fecha, as duas (o X, um caminho para fora da leitura). */
+  readonly closeAll = output<void>();
+  /** (Ao lado) Só ela sai (finalizada, saiu do mural, a pessoa saiu da compartilhada): a primeira fica. */
+  readonly left = output<void>();
+  /** (Ao lado) Pediu a leitura inteira: ela fica sozinha, no lugar da primeira. */
+  readonly alone = output<AlonePlea>();
+  /** Os ids da página: os da segunda ganham o "-2" (o nome dela é quem a anuncia). */
+  protected readonly sufixo = computed(() => (this.aoLado() ? '-2' : ''));
+  /** A anotação aberta ao lado desta (só na de fora), ou null. */
+  protected readonly segunda = signal<Review | null>(null);
+  private readonly ladoB = viewChild<ReviewReader>('ladoB');
 
   protected readonly side = inject(SideBySide);
   private readonly settings = inject(Settings);
@@ -1052,7 +1119,7 @@ export class ReviewReader {
     if (!r || this.owner() !== null) return;
     const now = this.store.get(r.id);
     if (now) this.review.set(now);
-    else this.close();
+    else this.leave();
   }
 
   /** A compartilhada aberta acompanha o que chega da nuvem (outra pessoa escrevendo). */
@@ -1220,6 +1287,8 @@ export class ReviewReader {
   private readonly stopWatching = inject(DestroyRef).onDestroy(() => {
     document.removeEventListener('selectionchange', this.onSelectionChange);
     clearTimeout(this.selectionTimer);
+    // a segunda anotação some sem fechar: a compartilhada dela deixa de ser olhada por ela
+    this.watchShared(null);
   });
 
   /** Quem abriu a folha de comentários (a orelha ou o "Comentar"): é para onde o foco volta ao fechar. */
@@ -1230,6 +1299,9 @@ export class ReviewReader {
    * quem a abriu, sempre sem rolar a ficha: ela fica onde a pessoa estava lendo.
    */
   protected toggleComments(open = !this.commentsOpen()): void {
+    // a folha de comentários precisa do lado direito: a anotação fica sozinha com ela (PLANO-DUAS-NOTAS.md, D5)
+    if (open && this.aoLado()) return this.askAlone('leitura', true);
+    if (open) this.segunda.set(null);
     const dialog = this.dialog().nativeElement;
     const active = document.activeElement instanceof HTMLElement && dialog.contains(document.activeElement) ? document.activeElement : null;
     if (open) this.commentsOpener = active?.matches('.orelha, .comentar') ? active : null;
@@ -1237,9 +1309,9 @@ export class ReviewReader {
     this.picked.set(null);
     if (!open) this.quote.set(null);
     setTimeout(() => {
-      if (open) return dialog.querySelector<HTMLElement>('#leitura-comentarios')?.focus({ preventScroll: true });
+      if (open) return dialog.querySelector<HTMLElement>(`#leitura-comentarios${this.sufixo()}`)?.focus({ preventScroll: true });
       // fechou pela própria porta (a orelha, o "Comentar"): o foco já está nela, e fica
-      if (active?.isConnected && !active.closest('#leitura-comentarios')) return;
+      if (active?.isConnected && !active.closest(`#leitura-comentarios${this.sufixo()}`)) return;
       // o foco estava dentro da folha, que sumiu: volta para quem abriu; sem saber quem foi (a ficha
       // já abriu com os comentários), para a porta que está à vista (a orelha some nas telas estreitas)
       const doors = [...dialog.querySelectorAll<HTMLElement>('.orelha, .comentar')];
@@ -1322,6 +1394,8 @@ export class ReviewReader {
     if (!p) return;
     this.picked.set(null);
     document.getSelection()?.removeAllRanges();
+    if (this.aoLado()) return this.askAlone('leitura', true, p.text);
+    this.segunda.set(null);
     this.commentsOpen.set(true);
     this.quote.set({ text: p.text, n: ++this.quoteCount });
   }
@@ -1345,6 +1419,7 @@ export class ReviewReader {
     }
     this.closing = false;
     this.fita()?.stop();
+    this.segunda.set(null);
     this.solta.set(null);
     this.vista.set('leitura');
     this.place = null;
@@ -1410,12 +1485,13 @@ export class ReviewReader {
     const stay = !done || this.view.showDone();
     // veio por um link: volta para a anotação de antes (o bilhete com Desfazer ficaria por baixo da leitura)
     const backTo = !stay && !!this.backTo();
-    this.noteDone.set(r.id, done, { quiet: stay || backTo });
+    // a segunda que sai deixa a primeira aberta: o bilhete com Desfazer também ficaria por baixo dela
+    this.noteDone.set(r.id, done, { quiet: stay || backTo || this.aoLado() });
     if (stay) {
       this.review.set(this.store.get(r.id) ?? r);
       this.stampedNow.set(done);
     } else if (backTo) this.back();
-    else this.close();
+    else this.leave();
   }
   /** Acabou de finalizar com a leitura aberta: o carimbo bate. */
   protected readonly stampedNow = signal(false);
@@ -1507,7 +1583,7 @@ export class ReviewReader {
     const dialog = this.dialog().nativeElement;
     dialog.scrollTop = 0;
     // o foco no título: o leitor de tela anuncia a anotação que abriu
-    setTimeout(() => dialog.querySelector<HTMLElement>('#leitura-titulo')?.focus());
+    setTimeout(() => dialog.querySelector<HTMLElement>(`#leitura-titulo${this.sufixo()}`)?.focus());
   }
 
   protected readonly pin = computed(() => pinningFor(this.review()?.id ?? 'x', this.review()?.stock));
@@ -1565,6 +1641,8 @@ export class ReviewReader {
   /** As setas do teclado viram a página, fora de um campo de texto. */
   protected onKey(e: KeyboardEvent): void {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    // as teclas de dentro da segunda anotação são dela (ela as ouve no diálogo dela)
+    if (!this.aoLado() && (e.target as HTMLElement | null)?.closest?.('dialog.ao-lado')) return;
     // só na leitura de sempre, onde a tira das vezes mostra qual é a de agora
     if (!this.lendo()) return;
     if ((e.target as HTMLElement | null)?.closest('input, textarea, select')) return;
@@ -1590,10 +1668,14 @@ export class ReviewReader {
    * continua no alto (a folha muda de largura e o texto quebra em outras linhas); a cartolina guarda o
    * lugar e o devolve na volta. O foco fica no botão que foi tocado ou no que faz o caminho de volta.
    */
-  protected setView(next: ReaderView): void {
+  protected setView(next: ReaderView, given?: ReadingPlace | null): void {
     const now = this.vista();
     if (next === now || !this.review()) return;
-    if (now !== 'cartolina') this.place = this.readingPlace();
+    // a segunda anotação não muda de jeito ao lado da outra: ela fica sozinha naquele jeito (PLANO-DUAS-NOTAS.md, D5)
+    if (this.aoLado()) return this.askAlone(next);
+    // e a primeira, mudando de jeito, fecha a segunda
+    this.segunda.set(null);
+    if (now !== 'cartolina') this.place = given !== undefined ? given : this.readingPlace();
     // a folha de comentários e o "Citar" são da leitura de sempre
     if (next !== 'leitura') {
       this.commentsOpen.set(false);
@@ -1645,16 +1727,17 @@ export class ReviewReader {
     if (!body || body.scrollTop < 2) return null;
     const top = body.getBoundingClientRect().top;
     const scale = this.sheetScale(body);
-    const LINES = ':is(.linha, pre, .widget, .tabela-peca)';
-    const first = (root: Element): HTMLElement | null =>
-      [...root.querySelectorAll<HTMLElement>(LINES)].find((b) => b.getBoundingClientRect().bottom > top + 1) ?? null;
-    let block = first(body.querySelector('.text') ?? body);
+    const first = (lines: readonly HTMLElement[]): HTMLElement | null => lines.find((b) => b.getBoundingClientRect().bottom > top + 1) ?? null;
+    const all = [...(body.querySelector('.text') ?? body).querySelectorAll<HTMLElement>(LINES)];
+    let block = first(all);
     // desce para a linha de dentro que está no alto, enquanto houver
-    for (let inner = block && first(block); inner; inner = first(inner)) block = inner;
-    if (!block) return { block: null, offset: 0, passed: 0, scrollTop: body.scrollTop };
+    const inside = (b: HTMLElement) => first([...b.querySelectorAll<HTMLElement>(LINES)]);
+    for (let inner = block && inside(block); inner; inner = inside(inner)) block = inner;
+    if (!block) return { block: null, index: -1, offset: 0, passed: 0, scrollTop: body.scrollTop };
     const box = block.getBoundingClientRect();
     const passed = box.top < top && box.height > 0 ? (top - box.top) / box.height : 0;
-    return { block, offset: passed ? 0 : (box.top - top) / scale, passed, scrollTop: body.scrollTop };
+    const index = all.indexOf(block);
+    return { block, index, offset: passed ? 0 : (box.top - top) / scale, passed, scrollTop: body.scrollTop };
   }
 
   /**
@@ -1669,14 +1752,20 @@ export class ReviewReader {
       body.scrollTop = 0;
       return;
     }
-    if (!place.block?.isConnected) {
+    // a linha guardada é de outra folha (a segunda anotação que ficou sozinha): a mesma linha, achada nesta
+    const block = place.block?.isConnected
+      ? place.block
+      : place.index >= 0
+        ? ([...(body.querySelector('.text') ?? body).querySelectorAll<HTMLElement>(LINES)][place.index] ?? null)
+        : null;
+    if (!block) {
       body.scrollTop = place.scrollTop;
       return;
     }
     const scale = this.sheetScale(body);
-    const box = place.block.getBoundingClientRect();
+    const box = block.getBoundingClientRect();
     const at = (box.top - body.getBoundingClientRect().top) / scale;
-    const line = parseFloat(getComputedStyle(place.block).lineHeight);
+    const line = parseFloat(getComputedStyle(block).lineHeight);
     const lines = place.passed * (box.height / scale);
     const passed = line > 0 ? Math.round(lines / line) * line : lines;
     body.scrollTop += at + passed - place.offset;
@@ -1743,6 +1832,8 @@ export class ReviewReader {
     solta: 'conta' | 'visita' | null = null,
   ): void {
     this.solta.set(solta);
+    // abrir de novo (a mesma, ou outra) é com uma só
+    this.segunda.set(null);
     // toda ficha abre na leitura de sempre
     this.vista.set('leitura');
     this.place = null;
@@ -1778,13 +1869,104 @@ export class ReviewReader {
     document.addEventListener('selectionchange', this.onSelectionChange);
     // as fichas montadas fora da tela dormem: o navegador recalcula a página inteira quando um diálogo abre
     napWall();
-    this.dialog().nativeElement.showModal();
+    const el = this.dialog().nativeElement;
+    if (!this.aoLado()) el.showModal();
+    else {
+      // ao lado: no fluxo do diálogo de fora (que é o modal), com o foco no nome dela
+      if (!el.open) el.show();
+      afterNextRender(() => el.querySelector<HTMLElement>('#leitura-titulo-2')?.focus({ preventScroll: true }), { injector: this.injector });
+    }
     this.watchShared(owner === null ? review.id : null);
     // uma compartilhada com conflito: a pergunta abre já (para quem escreve nela)
     if (this.conflictHere()) setTimeout(() => this.conflictOpen.set(true), 120);
   }
 
+  /**
+   * Abre `review` ao lado da anotação aberta (PLANO-DUAS-NOTAS.md): a segunda leitura, com o mesmo dono, as
+   * mesmas fichas para os links e o mesmo código (na visita, as da pessoa). Só na leitura de sempre.
+   */
+  openBeside(review: Review): void {
+    const a = this.review();
+    if (this.aoLado() || !a || review.id === a.id || this.vista() !== 'leitura' || this.solta()) return;
+    // a folha de comentários e o "Citar" são da anotação sozinha
+    this.commentsOpen.set(false);
+    this.picked.set(null);
+    this.quote.set(null);
+    const owner = this.owner();
+    const pool = this.pool();
+    const code = this.ownerCode();
+    this.segunda.set(review);
+    afterNextRender(() => this.ladoB()?.open(review, owner, pool, false, code), { injector: this.injector });
+  }
+
+  /** Só a segunda sai (ela pediu, ou a tela estreitou): a primeira fica, com o foco nela. */
+  protected closeBeside(): void {
+    if (!this.segunda()) return;
+    this.segunda.set(null);
+    afterNextRender(() => this.dialog().nativeElement.querySelector<HTMLElement>('#leitura-titulo')?.focus({ preventScroll: true }), { injector: this.injector });
+  }
+
+  /** Esta anotação sai da leitura sem fechar a outra (a segunda), ou fecha a leitura (a primeira, sozinha). */
+  protected leave(): void {
+    if (this.aoLado()) this.left.emit();
+    else this.close();
+  }
+
+  /** (Ao lado) Pede a leitura inteira, no jeito `view`, com o trecho onde se lia. */
+  private askAlone(view: ReaderView, comments = false, quote: string | null = null): void {
+    const r = this.review();
+    if (!r) return;
+    this.fita()?.stop();
+    this.alone.emit({ review: r, trail: this.trail(), view, place: this.readingPlace(), comments, quote });
+  }
+
+  /**
+   * A segunda pediu a leitura inteira: ela fica sozinha, aqui, no lugar da primeira (que fecha), no jeito
+   * pedido e no mesmo trecho; com os comentários, abertos (e com o que mandou citar).
+   */
+  protected takeOver(p: AlonePlea): void {
+    this.segunda.set(null);
+    this.trail.set(p.trail);
+    this.review.set(p.review);
+    this.stampedNow.set(false);
+    this.watchShared(this.owner() === null ? p.review.id : null);
+    this.picked.set(null);
+    if (p.view !== 'leitura') {
+      this.setView(p.view, p.place);
+      // o botão tocado era da segunda: o foco vai para o mesmo, nesta (a cartolina já cuida do dela)
+      if (p.view === 'tela-cheia') afterNextRender(() => this.dialog().nativeElement.querySelector<HTMLElement>('.faixa-nome .ler-tela-cheia')?.focus({ preventScroll: true }), { injector: this.injector });
+      return;
+    }
+    // (os sinais ligados à anotação são lidos antes, para a troca dela não os desligar de novo)
+    this.commentsOpen();
+    this.quote();
+    afterNextRender(
+      () => {
+        this.restorePlace(p.place);
+        if (!p.comments) this.dialog().nativeElement.querySelector<HTMLElement>('#leitura-titulo')?.focus({ preventScroll: true });
+      },
+      { injector: this.injector },
+    );
+    if (p.comments) {
+      this.toggleComments(true);
+      if (p.quote) this.quote.set({ text: p.quote, n: ++this.quoteCount });
+    }
+  }
+
+  /** A tela estreitou para não caberem duas: a segunda fecha (PLANO-DUAS-NOTAS.md, D6). */
+  private readonly narrowCloses = effect((onCleanup) => {
+    if (!this.segunda() || typeof matchMedia === 'undefined') return;
+    const mq = matchMedia(BESIDE_MEDIA);
+    const check = () => {
+      if (!mq.matches) this.closeBeside();
+    };
+    mq.addEventListener('change', check);
+    onCleanup(() => mq.removeEventListener('change', check));
+  });
+
   close(): void {
+    // a segunda anotação não fecha sozinha: fechar uma fecha as duas (PLANO-DUAS-NOTAS.md, D5)
+    if (this.aoLado()) return this.closeAll.emit();
     const el = this.dialog().nativeElement;
     if (!el.open) return;
     this.closing = true;

@@ -899,6 +899,24 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
       expect(bia.data.map.get('meu-mural:compartilhadas:v1')).toContain('nota-1');
     });
 
+    it('a mesma aberta em duas folhas (duas leituras lado a lado) só deixa de ser olhada quando as duas saem', async () => {
+      const { bia } = await sharedNote();
+      const watching = () => (bia.shared as unknown as { watching(): ReadonlyMap<string, number> }).watching();
+      bia.shared.watch('nota-1', true);
+      bia.shared.watch('nota-1', true);
+      bia.shared.watch('nota-1', false);
+      expect(watching().has('nota-1')).toBeTrue();
+      bia.shared.watch('nota-1', false);
+      expect(watching().has('nota-1')).toBeFalse();
+      // fechar de novo o que não estava aberto não conta para baixo de zero
+      bia.shared.watch('nota-1', false);
+      bia.shared.watch('nota-1', true);
+      expect(watching().get('nota-1')).toBe(1);
+      // a que não é compartilhada não entra
+      bia.shared.watch('outra', true);
+      expect(watching().has('outra')).toBeFalse();
+    });
+
     it('abre de novo (outro dia, sem rede) com as compartilhadas guardadas', async () => {
       const { bia } = await sharedNote();
       cloud.offline = true;

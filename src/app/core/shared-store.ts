@@ -244,8 +244,11 @@ export class SharedStore implements SharedSink {
   readonly groupNames = signal<ReadonlyMap<string, string>>(new Map());
   /** A anotação de grupo como o mural a vê (com o nome do grupo), uma por versão, para o mural não refazer a ficha. */
   private readonly inGroup = new Map<string, { view: Review; name: string; out: Review }>();
-  /** As anotações abertas agora na leitura ou no editor: conferidas mais seguido. */
-  private readonly watching = signal<ReadonlySet<string>>(new Set());
+  /**
+   * As anotações abertas agora na leitura ou no editor, e por quantas folhas (as duas leituras lado a lado
+   * podem mostrar a mesma): conferidas mais seguido enquanto alguma está aberta.
+   */
+  private readonly watching = signal<ReadonlyMap<string, number>>(new Map());
 
   /** De qual conta são as `entries` (null: nenhuma carregada). */
   private loadedFor: string | null = null;
@@ -409,11 +412,17 @@ export class SharedStore implements SharedSink {
     }
   }
 
-  /** A leitura ou o editor abriu (ou fechou) uma compartilhada: enquanto aberta, ela é conferida mais seguido. */
+  /**
+   * A leitura ou o editor abriu (ou fechou) uma compartilhada: enquanto aberta, ela é conferida mais seguido.
+   * Cada folha conta: a mesma aberta em duas só deixa de ser olhada quando as duas saem.
+   */
   watch(id: string, on: boolean): void {
-    if (!this.entries().has(id) && on) return;
-    const next = new Set(this.watching());
-    if (on) next.add(id);
+    const n = this.watching().get(id) ?? 0;
+    if (on && !this.entries().has(id)) return;
+    if (!on && !n) return;
+    const next = new Map(this.watching());
+    if (on) next.set(id, n + 1);
+    else if (n > 1) next.set(id, n - 1);
     else next.delete(id);
     this.watching.set(next);
     if (on && this.auto) this.schedule(0);
@@ -664,7 +673,7 @@ export class SharedStore implements SharedSink {
     if (!this.auto || !this.active()) return;
     const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
     if (hidden) return;
-    const open = [...this.watching()].some((id) => this.entries().has(id));
+    const open = [...this.watching().keys()].some((id) => this.entries().has(id));
     this.schedule(failed ? 2 * MINUTE : open ? POLL_OPEN : POLL_EVERY);
   }
 

@@ -501,7 +501,7 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     shared.entries.set(new Map([['nota-1', entry('nota-1', 'Viagem')], ['nota-2', entry('nota-2', 'Hotel')]]));
     await settle();
     const store = TestBed.inject(ReviewStore);
-    const watching = () => [...(shared as unknown as { watching(): ReadonlySet<string> }).watching()];
+    const watching = () => [...(shared as unknown as { watching(): ReadonlyMap<string, number> }).watching().keys()];
     fixture.componentInstance.open(store.get('nota-1')!);
     await settle();
     expect(watching()).toEqual(['nota-1']);
