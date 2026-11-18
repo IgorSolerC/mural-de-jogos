@@ -237,7 +237,8 @@ export function noteRoutes(app: Hono, deps: Deps): void {
       // a de um grupo compartilhado: o grupo e quem a escreveu (o dono dela é o dono do grupo); quem a escreveu
       // fica também na que saiu do grupo (é como o site do dono sabe que ela veio de um e volta a ser só dele)
       ...(n.grupo_id ? { grupo: n.grupo_id } : {}),
-      ...(n.grupo_id || n.criado_por ? { criadoPor: n.criado_por ? who(n.criado_por) : null } : {}),
+      // (na solta, só para o dono: quem está nela por ele não esteve no grupo, e não vê quem a escreveu lá)
+      ...(n.grupo_id || (n.criado_por && access === 'dono') ? { criadoPor: n.criado_por ? who(n.criado_por) : null } : {}),
       ...(conflict ? { conflito: { a: conflict.a, b: conflict.b, autorA: who(conflict.autorA), autorB: who(conflict.autorB), em: conflict.em } } : {}),
     };
   }

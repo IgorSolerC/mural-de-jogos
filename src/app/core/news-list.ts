@@ -37,7 +37,7 @@ export const NEWS: NewsEntry[] = [
     ],
   },
   {
-    id: '2026-11-17-grupo-da-anotacao',
+    id: '2026-11-17-grupos-previsiveis',
     version: '1.48.1',
     kind: 'ajustes',
     date: '2026-11-17',
@@ -54,6 +54,8 @@ export const NEWS: NewsEntry[] = [
       'A anotação nova num grupo compartilhado de outra pessoa (criada no editor, no Kanban, em várias de uma vez ou pela API) fazia o grupo virar "Nome · Dona" no seu mural e ficava só sua: agora ela entra no grupo, e o nome não muda.',
       'A anotação que uma editora punha no grupo compartilhado de outra pessoa se copiava sem parar (a dela ganhava outro id ao ir para o grupo, e a cópia subia de novo): agora ela vai uma vez só, e continua a mesma no mural dela.',
       'A anotação que não conseguia ir para um grupo compartilhado (sem internet, por exemplo) ficava fora dele até o mural mudar; agora vai na próxima conferida com a nuvem, em até um minuto.',
+      'A anotação posta num grupo compartilhado de outra pessoa que aparecia como "Nome · Dona" (por você ter um grupo seu de mesmo nome) podia ficar num grupo que não existia mais, quando era a última do seu: agora ela segue o nome do grupo e vai para ele. O mesmo quando a dona renomeia o grupo.',
+      'A anotação que o dono tira do grupo volta a ser uma anotação comum do mural dele, mesmo se a internet cair no meio, e não volta sozinha para o grupo.',
     ],
   },
   {

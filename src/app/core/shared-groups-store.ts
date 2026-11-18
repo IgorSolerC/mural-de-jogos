@@ -267,19 +267,44 @@ export class SharedGroupsStore {
     return this.entries().get(id);
   }
 
-  /** Guarda o nome de cada grupo aqui: o que mudou (ou é novo) passa a valer de agora; o grupo que saiu sai. */
+  /**
+   * Guarda o nome de cada grupo aqui: o que mudou (ou é novo) passa a valer de agora; o grupo que saiu sai. As
+   * anotações a caminho de um grupo cujo nome mudou aqui vão junto para o nome novo (ver `follow`).
+   */
   private remember(names: ReadonlyMap<string, string>): void {
     if (!this.loadedFor) return;
     const before = this.known();
     const now = new Date().toISOString();
     const next = new Map<string, KnownName>();
+    const renamed: [KnownName, string][] = [];
     for (const [id, nome] of names) {
       const k = before.get(id);
       next.set(id, k && k.nome === nome ? k : { nome, desde: now });
+      if (k && labelKey(k.nome) !== labelKey(nome) && canWrite(this.entries().get(id)?.papel)) renamed.push([k, nome]);
     }
     if (next.size === before.size && [...next].every(([id, k]) => before.get(id) === k)) return;
     this.known.set(next);
     this.persist();
+    for (const [old, nome] of renamed) this.follow(old, nome, now);
+  }
+
+  /**
+   * O nome que o grupo mostra aqui mudou (o "· Dona" que apareceu ou saiu, o dono renomeou): as anotações que
+   * estavam a caminho dele pelo nome de antes (as que `ownNames` não conta como suas: entraram nele depois de o nome
+   * chegar) passam para o nome novo. Sem isso, a anotação que a pessoa punha em "Nome · Dona" e era a última do
+   * grupo seu de mesmo nome ficava num grupo que não existe mais, fora do grupo compartilhado. As suas de antes
+   * ficam onde estão.
+   */
+  private follow(old: KnownName, nome: string, now: string): void {
+    const key = labelKey(old.nome);
+    const since = Date.parse(old.desde);
+    for (const n of this.store.notes()) {
+      if (!isNote(n) || !n.category || labelKey(n.category) !== key) continue;
+      const e = this.shared.get(n.id);
+      // (a do grupo já está nele, com o nome dele; a de outra pessoa e a sua de antes do nome ficam)
+      if (e?.grupo || (e && e.papel !== 'dono') || Date.parse(n.updatedAt) < since) continue;
+      this.store.update({ ...n, category: nome, updatedAt: now });
+    }
   }
 
   /** O grupo compartilhado de um grupo do mural (pelo nome), ou undefined: é só seu. */
@@ -713,6 +738,9 @@ export class SharedGroupsStore {
       const e = this.shared.get(n.id);
       // já está nele; ou é de outra pessoa (só quem é dono da anotação a põe num grupo)
       if (e && (e.grupo === g.id || e.papel !== 'dono')) continue;
+      // a que saiu de um grupo (o dono a tirou) e espera voltar a ser comum: não volta sozinha para um grupo,
+      // mesmo com o lugar ainda no nome dele (a volta a comum é que a deixa no grupo escolhido)
+      if (e && !e.grupo && e.criadoPor) continue;
       if (e?.grupo) continue;
       // a que a nuvem recusou de vez, enquanto nem ela nem o grupo mudam
       if (this.refused.get(n.id) === refusalKey(n, g)) continue;

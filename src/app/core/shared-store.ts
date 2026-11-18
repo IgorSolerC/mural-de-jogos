@@ -1,3 +1,4 @@
+import { labelKey } from './text';
 import { DestroyRef, Injectable, InjectionToken, Injector, computed, effect, inject, signal, untracked } from '@angular/core';
 import { CloudAccount, CloudError } from './cloud-account';
 import { Cloud } from './cloud-config';
@@ -51,6 +52,8 @@ import { oneTabAtATime } from './tab-lock';
  */
 
 export const SHARED_KEY: DataKey = 'meu-mural:compartilhadas:v1';
+/** Quanto espera para tentar de novo a volta a comum de uma que saiu do grupo, quando a nuvem não a apagou. */
+const RELEASE_RETRY_MS = 10 * 60_000;
 /** Sincronizar sozinho (ao entrar, de tempos em tempos, depois de editar). Os testes desligam e chamam à mão. */
 export const SHARED_AUTO = new InjectionToken<boolean>('SHARED_AUTO', { providedIn: 'root', factory: () => true });
 
@@ -224,6 +227,8 @@ export class SharedStore implements SharedSink {
    * no mural: só a sincronização espera.
    */
   private readonly accountId = computed(() => (this.account.signedIn() ? (this.account.account()?.id ?? null) : null));
+  /** Quando tentar de novo a volta a comum de cada uma que saiu do grupo e que a nuvem não apagou (`releaseOutOfGroup`). */
+  private readonly releaseAt = new Map<string, number>();
   /** O código de quem está aqui (quem escreveu uma de grupo é você: ver `setShared` no efeito do mural). */
   private readonly meCode = computed(() => (this.account.signedIn() ? (this.account.account()?.codigo ?? null) : null));
   /** Sincroniza: com conta e com a nuvem ligada. */
@@ -578,8 +583,17 @@ export class SharedStore implements SharedSink {
    * (sem rede, a aba fechou no meio) volta na conferida seguinte, em qualquer aparelho.
    */
   private async releaseOutOfGroup(): Promise<void> {
+    const groups = new Set([...this.groupNames().values()].map(labelKey));
     for (const e of [...this.entries().values()]) {
-      if (e.papel === 'dono' && !e.grupo && !e.membros.length && e.criadoPor) await this.unshare(e.id);
+      if (e.papel !== 'dono' || e.grupo || e.membros.length || !e.criadoPor) continue;
+      if ((this.releaseAt.get(e.id) ?? 0) > Date.now()) continue;
+      // no nome de um grupo compartilhado (o lugar de outro aparelho ainda não chegou, ou o de mesmo nome que a
+      // nuvem dá a quem tira), ela voltaria para ele como uma anotação nova: fica sem grupo
+      if (e.pessoal.category && groups.has(labelKey(e.pessoal.category))) this.placeInGroup([e.id], '', false);
+      if (await this.unshare(e.id)) this.releaseAt.delete(e.id);
+      // a nuvem não apagou (fora do ar): ela volta como a compartilhada, e a próxima tentativa espera um pouco,
+      // em vez de ir e voltar a cada conferida
+      else this.releaseAt.set(e.id, Date.now() + RELEASE_RETRY_MS);
     }
   }
 

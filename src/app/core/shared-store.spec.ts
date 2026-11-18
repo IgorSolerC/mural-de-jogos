@@ -28,6 +28,7 @@ import { BrowserReset } from './browser-reset';
 import { checkOtherTabs } from './storage';
 import { NoteBulk } from './note-bulk';
 import { GROUPS_AUTO, SharedGroupsStore } from './shared-groups-store';
+import { parseGroup } from './shared-groups';
 import { StudyStore } from './study-store';
 import { KanbanDeps } from './kanban-deps';
 import { GroupFolders } from './group-folders';
@@ -78,6 +79,20 @@ class FakeNotes {
    * é do dono do grupo, e quem a escreveu fica em `criadoPor` (como `createInGroup` da API).
    */
   readonly groupOwners = new Map<string, string>();
+  /** Quem está em cada grupo compartilhado, além do dono (id do grupo → id da pessoa → papel). */
+  readonly groupMembers = new Map<string, Map<string, Role>>();
+
+  /** Um grupo compartilhado na nuvem: o dono e quem está nele (como `grupos` e `grupo_membros` da API). */
+  group(id: string, owner: keyof typeof USERS, members: Partial<Record<keyof typeof USERS, Role>> = {}): void {
+    this.groupOwners.set(id, USERS[owner].id);
+    this.groupMembers.set(id, new Map(Object.entries(members).map(([k, r]) => [USERS[k].id, r as Role])));
+  }
+
+  /** O papel de alguém num grupo (o dono do grupo, ou o de quem está nele), como `groupRole` da API. */
+  private groupRole(grupo: string, u: User): 'dono' | Role | null {
+    if (this.groupOwners.get(grupo) === u.id) return 'dono';
+    return this.groupMembers.get(grupo)?.get(u.id) ?? null;
+  }
   /** O último envio do mural de cada um: o público, as fichas à mostra e as novas. */
   readonly murals = new Map<string, { publico: { notas: Record<string, unknown>[] }; fichas: string[]; novas: { ref: string }[] }>();
   offline = false;
@@ -115,8 +130,12 @@ class FakeNotes {
     return Object.values(USERS).find((u) => u.codigo === code);
   }
 
+  /** O papel na anotação: o de dono, o de quem está nela, ou o do grupo dela (o maior, como `widest` da API). */
   private access(n: FakeNote, u: User): 'dono' | Role | null {
-    return n.dono === u.id ? 'dono' : (n.membros.get(u.id) ?? null);
+    if (n.dono === u.id) return 'dono';
+    const rank = { dono: 4, gestor: 3, editor: 2, leitor: 1 } as const;
+    const roles = [n.membros.get(u.id) ?? null, n.grupo ? this.groupRole(n.grupo, u) : null].filter((r): r is 'dono' | Role => r !== null);
+    return roles.sort((a, b) => rank[b] - rank[a])[0] ?? null;
   }
 
   private person(id: string) {
@@ -137,7 +156,7 @@ class FakeNotes {
       atualizadoEm: n.em,
       atualizadoPor: this.person(n.por),
       ...(n.grupo ? { grupo: n.grupo } : {}),
-      ...(n.grupo || n.criadoPor ? { criadoPor: n.criadoPor ? this.person(n.criadoPor) : null } : {}),
+      ...(n.grupo || (n.criadoPor && access === 'dono') ? { criadoPor: n.criadoPor ? this.person(n.criadoPor) : null } : {}),
       ...(writes && n.conflito ? { conflito: { ...n.conflito, autorA: this.person(n.conflito.autorA), autorB: this.person(n.conflito.autorB) } } : {}),
     };
   }
@@ -189,15 +208,26 @@ class FakeNotes {
       return json({ notas: out.map((n) => this.detail(n, this.access(n, me)!)) });
     }
     if (path === '/v1/notas' && method === 'POST') {
+      // já compartilhada (o pedido de antes chegou, ou outra aba pediu): volta como está, como a API
+      const existing = this.notes.get(body.id);
+      if (existing) {
+        const a = this.access(existing, me);
+        if (existing.dono === me.id) return json({ nota: this.detail(existing, 'dono') });
+        if (body.grupo && existing.grupo === body.grupo && a) return json({ nota: this.detail(existing, a) });
+        return json({ erro: 'nota-id-em-uso', mensagem: 'Essa anotação não pode ser compartilhada assim.' }, 409);
+      }
+      if (body.grupo && this.groupOwners.has(body.grupo)) {
+        const role = this.groupRole(body.grupo, me);
+        if (!role || role === 'leitor') return json({ erro: 'so-leitura', mensagem: 'Você pode ler este grupo, mas não escrever nele.' }, 403);
+      }
       const at = new Date().toISOString();
       const n: FakeNote = { id: body.id, dono: me.id, rev: 1, versao: 1, dados: this.stored(body.dados, !!body.grupo), conflito: null, por: me.id, em: at, membros: new Map(), ...(body.grupo ? { grupo: body.grupo } : {}) };
       for (const m of body.membros ?? []) n.membros.set(this.byCode(m.codigo)!.id, m.papel);
       // num grupo de outra pessoa: a anotação é do dono do grupo, e quem a escreveu fica em `criadoPor`
       const owner = body.grupo ? this.groupOwners.get(body.grupo) : undefined;
-      if (owner && owner !== me.id) {
+      if (owner) {
         n.dono = owner;
         n.criadoPor = me.id;
-        n.membros.set(me.id, 'editor');
       }
       this.notes.set(n.id, n);
       return json({ nota: this.detail(n, this.access(n, me)!) }, 201);
@@ -208,13 +238,42 @@ class FakeNotes {
       const gn = this.notes.get(decodeURIComponent(g[1]));
       const ga = gn ? this.access(gn, me) : null;
       if (!gn || !ga) return json({ erro: 'nota-nao-encontrada', mensagem: 'Essa anotação não está mais compartilhada com você.' }, 404);
-      if (ga !== 'dono' && ga !== 'gestor') return json({ erro: 'so-gestor', mensagem: 'Só o dono e os gestores.' }, 403);
-      if (body.grupo) gn.grupo = body.grupo;
+      const target: string | null = body.grupo ?? null;
+      const known = (gn.grupo && this.groupOwners.has(gn.grupo)) || (target && this.groupOwners.has(target));
+      if (!known) {
+        // (um grupo que a nuvem de mentira não conhece: o de antes, só o dono e os gestores da anotação)
+        if (ga !== 'dono' && ga !== 'gestor') return json({ erro: 'so-gestor', mensagem: 'Só o dono e os gestores.' }, 403);
+        if (target) gn.grupo = target;
+        else delete gn.grupo;
+        gn.dados = this.stored(gn.dados, !!gn.grupo);
+        gn.rev++;
+        gn.versao++;
+        return json({ nota: this.detail(gn, ga) });
+      }
+      // as regras de PUT /v1/notas/:id/grupo da API
+      if ((gn.grupo ?? null) === target) return json({ nota: this.detail(gn, ga) });
+      if (gn.grupo) {
+        const r = this.groupRole(gn.grupo, me);
+        if (r !== 'dono' && r !== 'gestor') return json({ erro: 'so-gestor', mensagem: 'Só o dono e os gestores tiram uma anotação do grupo.' }, 403);
+      } else if (gn.dono !== me.id) return json({ erro: 'so-dono', mensagem: 'Só o dono da anotação a põe num grupo.' }, 403);
+      let owner = gn.dono;
+      if (target) {
+        const r = this.groupRole(target, me);
+        if (!r || r === 'leitor') return json({ erro: 'so-leitura', mensagem: 'Você pode ler este grupo, mas não escrever nele.' }, 403);
+        owner = this.groupOwners.get(target)!;
+      }
+      gn.criadoPor ??= gn.dono;
+      gn.dono = owner;
+      if (target) gn.grupo = target;
       else delete gn.grupo;
       gn.dados = this.stored(gn.dados, !!gn.grupo);
       gn.rev++;
       gn.versao++;
-      return json({ nota: this.detail(gn, ga) });
+      gn.por = me.id;
+      const now = this.access(gn, me);
+      // quem tirou e não está mais nela não a vê
+      if (!now) return json({ ok: true });
+      return json({ nota: this.detail(gn, now) });
     }
     const m = /^\/v1\/notas\/([^/]+)(?:\/membros\/([^/]+))?$/.exec(path);
     const n = m ? this.notes.get(decodeURIComponent(m[1])) : undefined;
@@ -312,6 +371,7 @@ interface Person {
   mural: CloudSync;
   store: ReviewStore;
   shared: SharedStore;
+  groups: SharedGroupsStore;
   kanban: KanbanStore;
   actions: KanbanActions;
   toasts: Toasts;
@@ -401,6 +461,7 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
       mural: injector.get(CloudSync),
       store,
       shared,
+      groups: injector.get(SharedGroupsStore),
       kanban: injector.get(KanbanStore),
       actions: injector.get(KanbanActions),
       toasts: injector.get(Toasts),
@@ -441,6 +502,309 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
     await sync(bia, cris);
     return { ana, bia, cris };
   }
+
+  describe('grupos compartilhados de ponta a ponta: nada se copia, some ou volta (17/nov)', () => {
+    type Who = keyof typeof USERS;
+    const NOMES: Record<string, string> = { gJapones0001: 'Japones', gEstudos0001: 'Estudos' };
+    const pessoa = (id: string) => {
+      const u = Object.values(USERS).find((x) => x.id === id)!;
+      return { codigo: u.codigo, nome: u.nome, foto: null };
+    };
+    /** Os grupos em que `me` está, como a conferida dos grupos os traz da nuvem para o aparelho `p`. */
+    const seeGroups = (p: Person, me: Who) => {
+      // (os grupos guardados do aparelho são lidos no primeiro tick do serviço, e passariam por cima)
+      TestBed.tick();
+      const id = USERS[me].id;
+      const list = [...cloud.groupOwners]
+        .filter(([g, owner]) => owner === id || cloud.groupMembers.get(g)?.has(id))
+        .map(([g, owner]) =>
+          parseGroup({
+            id: g,
+            dono: pessoa(owner),
+            papel: owner === id ? 'dono' : cloud.groupMembers.get(g)!.get(id),
+            rev: 1,
+            versao: 1,
+            dados: { nome: NOMES[g] },
+            publico: false,
+            notas: 0,
+            membros: [...cloud.groupMembers.get(g)!].map(([uid, papel]) => ({ ...pessoa(uid), papel, desde: '2026-10-16T00:00:00.000Z' })),
+            atualizadoEm: '2026-10-16T00:00:00.000Z',
+          })!,
+        );
+      p.groups.entries.set(new Map(list.map((g) => [g.id, g])));
+      TestBed.tick();
+    };
+    /** Algumas voltas de cada aparelho: os grupos da nuvem, a conferida das anotações, e o que vai para os grupos. */
+    const rounds = async (people: [Person, Who][], times = 3) => {
+      for (let i = 0; i < times; i++) {
+        for (const [p, me] of people) {
+          seeGroups(p, me);
+          await p.shared.sync();
+          TestBed.tick();
+          await p.groups.adopt();
+          TestBed.tick();
+        }
+      }
+    };
+    /** As anotações de `p` com este texto (os ids): uma só, sempre. */
+    const copies = (p: Person, text: string) => p.store.reviews().filter((r) => r.text === text).map((r) => r.id);
+    const now = () => ({ updatedAt: new Date().toISOString() });
+
+    it('a editora cria no grupo da dona: uma anotação só, em todo lugar, por muitas conferidas (o laço de 17/nov)', async () => {
+      cloud.group('gJapones0001', 'ana', { bia: 'editor' });
+      const ana = person('ana');
+      const bia = person('bia');
+      await rounds([[ana, 'ana'], [bia, 'bia']], 1);
+      bia.store.add(note('nota-g', '何 + の', { category: 'Japones', ...now() }));
+      TestBed.tick();
+      await rounds([[ana, 'ana'], [bia, 'bia']], 6);
+      expect(cloud.notes.size).toBe(1);
+      expect(cloud.notes.get('nota-g')).toEqual(jasmine.objectContaining({ dono: USERS['ana'].id, grupo: 'gJapones0001', criadoPor: USERS['bia'].id }));
+      expect(copies(bia, '何 + の')).toEqual(['nota-g']);
+      expect(copies(ana, '何 + の')).toEqual(['nota-g']);
+      expect(ana.store.get('nota-g')!.category).toBe('Japones');
+      expect(bia.store.get('nota-g')!.category).toBe('Japones');
+    });
+
+    it('duas janelas da editora levam a mesma anotação ao mesmo tempo: uma só na nuvem e em cada janela', async () => {
+      cloud.group('gJapones0001', 'ana', { bia: 'editor' });
+      const ana = person('ana');
+      const janela1 = person('bia');
+      seeGroups(janela1, 'bia');
+      janela1.store.add(note('nota-g', 'nas duas janelas', { category: 'Japones', ...now() }));
+      TestBed.tick();
+      // a segunda janela abre com o que a primeira gravou
+      const janela2 = person('bia', janela1.data);
+      seeGroups(janela2, 'bia');
+      await Promise.all([janela1.groups.adopt(), janela2.groups.adopt()]);
+      TestBed.tick();
+      await rounds([[janela1, 'bia'], [janela2, 'bia'], [ana, 'ana']], 4);
+      expect(cloud.notes.size).toBe(1);
+      expect(copies(janela1, 'nas duas janelas')).toEqual(['nota-g']);
+      expect(copies(janela2, 'nas duas janelas')).toEqual(['nota-g']);
+      expect(copies(ana, 'nas duas janelas')).toEqual(['nota-g']);
+    });
+
+    it('a dona e a editora escrevem na mesma anotação do grupo ao mesmo tempo: as duas edições ficam, numa anotação só', async () => {
+      cloud.group('gJapones0001', 'ana', { bia: 'editor' });
+      const ana = person('ana');
+      const bia = person('bia');
+      await rounds([[ana, 'ana'], [bia, 'bia']], 1);
+      ana.store.add(note('nota-j', 'linha 1\nlinha 2\nlinha 3', { category: 'Japones', ...now() }));
+      TestBed.tick();
+      await rounds([[ana, 'ana'], [bia, 'bia']]);
+      ana.edit('nota-j', { text: 'linha 1 da Ana\nlinha 2\nlinha 3' });
+      bia.edit('nota-j', { text: 'linha 1\nlinha 2\nlinha 3 da Bia' });
+      await rounds([[ana, 'ana'], [bia, 'bia']], 4);
+      expect(cloud.notes.size).toBe(1);
+      expect(ana.text('nota-j')).toBe('linha 1 da Ana\nlinha 2\nlinha 3 da Bia');
+      expect(bia.text('nota-j')).toBe('linha 1 da Ana\nlinha 2\nlinha 3 da Bia');
+      expect(ana.store.reviews().filter((r) => r.text.includes('linha 2')).length).toBe(1);
+      expect(bia.store.reviews().filter((r) => r.text.includes('linha 2')).length).toBe(1);
+    });
+
+    it('duas pessoas criam no mesmo grupo ao mesmo tempo: as duas anotações, uma vez cada, para todos', async () => {
+      cloud.group('gJapones0001', 'ana', { bia: 'editor', cris: 'editor' });
+      const ana = person('ana');
+      const bia = person('bia');
+      const cris = person('cris');
+      await rounds([[ana, 'ana'], [bia, 'bia'], [cris, 'cris']], 1);
+      bia.store.add(note('nota-b', 'da Bia', { category: 'Japones', ...now() }));
+      cris.store.add(note('nota-c', 'da Cris', { category: 'Japones', ...now() }));
+      TestBed.tick();
+      await rounds([[bia, 'bia'], [cris, 'cris'], [ana, 'ana']], 4);
+      expect(cloud.notes.size).toBe(2);
+      for (const p of [ana, bia, cris]) {
+        expect(copies(p, 'da Bia')).toEqual(['nota-b']);
+        expect(copies(p, 'da Cris')).toEqual(['nota-c']);
+      }
+    });
+
+    it('a anotação passa por grupos de donos diferentes e sai: sem cópia, e quem sai de cada grupo deixa de vê-la', async () => {
+      cloud.group('gJapones0001', 'ana', { bia: 'editor' });
+      cloud.group('gEstudos0001', 'cris', { ana: 'editor' });
+      const ana = person('ana');
+      const bia = person('bia');
+      const cris = person('cris');
+      const all: [Person, Who][] = [[ana, 'ana'], [bia, 'bia'], [cris, 'cris']];
+      await rounds(all, 1);
+      ana.store.add(note('nota-a', 'passa pelos grupos', { category: 'Japones', ...now() }));
+      TestBed.tick();
+      await rounds(all);
+      expect(copies(bia, 'passa pelos grupos')).toEqual(['nota-a']);
+      // a dona do Japones a leva para o Estudos, da Cris (em que ela escreve): passa a ser da Cris
+      await ana.groups.moveNote('nota-a', 'Estudos');
+      await rounds(all, 4);
+      expect(cloud.notes.get('nota-a')).toEqual(jasmine.objectContaining({ dono: USERS['cris'].id, grupo: 'gEstudos0001' }));
+      expect(copies(ana, 'passa pelos grupos')).toEqual(['nota-a']);
+      expect(ana.store.get('nota-a')!.category).toBe('Estudos');
+      expect(copies(cris, 'passa pelos grupos')).toEqual(['nota-a']);
+      expect(copies(bia, 'passa pelos grupos')).toEqual([]);
+      // a Cris, dona do Estudos, a tira do grupo: volta a ser uma anotação comum só dela
+      await cris.groups.moveNote('nota-a', 'Pessoal');
+      await rounds(all, 4);
+      expect(cloud.notes.size).toBe(0);
+      expect(copies(cris, 'passa pelos grupos')).toEqual(['nota-a']);
+      expect(cris.shared.get('nota-a')).toBeUndefined();
+      expect(cris.store.get('nota-a')!.category).toBe('Pessoal');
+      expect(copies(ana, 'passa pelos grupos')).toEqual([]);
+      expect(copies(bia, 'passa pelos grupos')).toEqual([]);
+    });
+
+    it('criada sozinha, compartilhada com quem não está no grupo, e depois posta no grupo: a mesma anotação para os três', async () => {
+      cloud.group('gJapones0001', 'ana', { bia: 'editor' });
+      const ana = person('ana');
+      const bia = person('bia');
+      const cris = person('cris');
+      const all: [Person, Who][] = [[ana, 'ana'], [bia, 'bia'], [cris, 'cris']];
+      await rounds(all, 1);
+      bia.store.add(note('nota-b', 'da Bia, com a Cris', now()));
+      TestBed.tick();
+      await bia.shared.share(bia.store.get('nota-b')!, [{ codigo: USERS['cris'].codigo, papel: 'editor' }]);
+      await rounds(all);
+      expect(copies(cris, 'da Bia, com a Cris')).toEqual(['nota-b']);
+      // a Bia a põe no Japones, da Ana
+      bia.edit('nota-b', { category: 'Japones' });
+      await rounds(all, 4);
+      expect(cloud.notes.size).toBe(1);
+      expect(cloud.notes.get('nota-b')).toEqual(jasmine.objectContaining({ dono: USERS['ana'].id, grupo: 'gJapones0001', criadoPor: USERS['bia'].id }));
+      for (const p of [ana, bia, cris]) expect(copies(p, 'da Bia, com a Cris')).toEqual(['nota-b']);
+      expect(bia.store.get('nota-b')!.category).toBe('Japones');
+      expect(ana.store.get('nota-b')!.category).toBe('Japones');
+    });
+
+    it('quem perdeu o poder de escrever não leva a anotação: ela fica sua, num grupo seu, sem cópia; e vai quando ela a põe no grupo', async () => {
+      cloud.group('gJapones0001', 'ana', { bia: 'editor' });
+      const ana = person('ana');
+      const bia = person('bia');
+      await rounds([[ana, 'ana'], [bia, 'bia']], 1);
+      // a Ana a fez leitora; o aparelho da Bia ainda não sabe
+      cloud.group('gJapones0001', 'ana', { bia: 'leitor' });
+      bia.store.add(note('nota-b', 'da leitora', { category: 'Japones', ...now() }));
+      TestBed.tick();
+      await bia.groups.adopt();
+      expect(cloud.notes.size).toBe(0);
+      expect(bia.groups.error()).not.toBeNull();
+      await rounds([[bia, 'bia'], [ana, 'ana']], 3);
+      expect(cloud.notes.size).toBe(0);
+      expect(copies(bia, 'da leitora')).toEqual(['nota-b']);
+      // a que ela não pôde levar ficou dela: o grupo seu Japones, e o da Ana "Japones · Ana" (D8)
+      cloud.group('gJapones0001', 'ana', { bia: 'editor' });
+      await rounds([[bia, 'bia'], [ana, 'ana']], 3);
+      expect(cloud.notes.size).toBe(0);
+      expect(bia.groups.names().get('gJapones0001')).toBe('Japones · Ana');
+      expect(bia.store.get('nota-b')!.category).toBe('Japones');
+      // de volta a editora, ela a põe no grupo da Ana: vai, uma vez
+      bia.edit('nota-b', { category: 'Japones · Ana' });
+      await rounds([[bia, 'bia'], [ana, 'ana']], 3);
+      expect(cloud.notes.size).toBe(1);
+      expect(copies(bia, 'da leitora')).toEqual(['nota-b']);
+      expect(copies(ana, 'da leitora')).toEqual(['nota-b']);
+    });
+
+    it('a dona tira do grupo enquanto a editora escrevia: a edição dela fica guardada, e nada volta para o grupo', async () => {
+      cloud.group('gJapones0001', 'ana', { bia: 'editor' });
+      const ana = person('ana');
+      const bia = person('bia');
+      await rounds([[ana, 'ana'], [bia, 'bia']], 1);
+      bia.store.add(note('nota-b', 'antes', { category: 'Japones', ...now() }));
+      TestBed.tick();
+      await rounds([[bia, 'bia'], [ana, 'ana']]);
+      bia.edit('nota-b', { text: 'a edição da Bia' });
+      await ana.groups.moveNote('nota-b', 'Pessoal');
+      await rounds([[bia, 'bia'], [ana, 'ana']], 4);
+      expect(cloud.notes.size).toBe(0);
+      expect(copies(ana, 'antes')).toEqual(['nota-b']);
+      expect(bia.store.get('nota-b')).toBeUndefined();
+      expect(bia.store.versions().some((v) => v.ficha.text === 'a edição da Bia')).toBeTrue();
+    });
+
+    it('tirada do grupo num aparelho da dona sem ter voltado a comum: o outro aparelho não a põe de volta no grupo', async () => {
+      cloud.group('gJapones0001', 'ana', { bia: 'editor' });
+      const ana = person('ana');
+      const bia = person('bia');
+      await rounds([[ana, 'ana'], [bia, 'bia']], 1);
+      bia.store.add(note('nota-b', 'tirada', { category: 'Japones', ...now() }));
+      TestBed.tick();
+      await rounds([[bia, 'bia'], [ana, 'ana']]);
+      // outro aparelho da Ana a tirou do grupo (PUT /grupo) e a aba fechou antes de ela voltar a comum
+      const fake = cloud.notes.get('nota-b')!;
+      fake.criadoPor ??= fake.dono;
+      delete fake.grupo;
+      fake.versao++;
+      fake.rev++;
+      await rounds([[ana, 'ana'], [bia, 'bia']], 4);
+      // o lugar dela neste aparelho ainda dizia Japones: ela volta a comum sem grupo, e não entra no grupo de novo
+      expect(cloud.notes.size).toBe(0);
+      expect(copies(ana, 'tirada')).toEqual(['nota-b']);
+      expect(ana.store.get('nota-b')!.category ?? '').toBe('');
+      expect(copies(bia, 'tirada')).toEqual([]);
+    });
+
+    it('a dona renomeia o grupo enquanto a anotação da editora espera a rede: ela segue o nome novo e vai, uma vez', async () => {
+      cloud.group('gJapones0001', 'ana', { bia: 'editor' });
+      const ana = person('ana');
+      const bia = person('bia');
+      await rounds([[ana, 'ana'], [bia, 'bia']], 1);
+      cloud.offline = true;
+      bia.store.add(note('nota-b', 'esperando a rede', { category: 'Japones', ...now() }));
+      TestBed.tick();
+      await bia.groups.adopt();
+      expect(cloud.notes.size).toBe(0);
+      cloud.offline = false;
+      NOMES['gJapones0001'] = 'Nihongo';
+      try {
+        await rounds([[bia, 'bia'], [ana, 'ana']], 4);
+      } finally {
+        NOMES['gJapones0001'] = 'Japones';
+      }
+      expect(cloud.notes.size).toBe(1);
+      expect(bia.store.get('nota-b')!.category).toBe('Nihongo');
+      expect(copies(bia, 'esperando a rede')).toEqual(['nota-b']);
+      expect(copies(ana, 'esperando a rede')).toEqual(['nota-b']);
+    });
+
+    it('a dona para de compartilhar o grupo (em outro aparelho): as anotações dele voltam a ser só dela, comuns; quem estava nele as perde', async () => {
+      cloud.group('gJapones0001', 'ana', { bia: 'editor' });
+      const ana = person('ana');
+      const bia = person('bia');
+      await rounds([[ana, 'ana'], [bia, 'bia']], 1);
+      bia.store.add(note('nota-b', 'da Bia no grupo', { category: 'Japones', ...now() }));
+      ana.store.add(note('nota-a', 'da Ana no grupo', { category: 'Japones', ...now() }));
+      TestBed.tick();
+      await rounds([[bia, 'bia'], [ana, 'ana']]);
+      expect(cloud.notes.size).toBe(2);
+      // como DELETE /v1/grupos/:id da API: as anotações ficam da dona, sem grupo, e quem estava nele sai
+      cloud.groupOwners.delete('gJapones0001');
+      cloud.groupMembers.delete('gJapones0001');
+      for (const n of cloud.notes.values()) {
+        delete n.grupo;
+        n.versao++;
+      }
+      await rounds([[ana, 'ana'], [bia, 'bia']], 4);
+      expect(cloud.notes.size).toBe(0);
+      expect(copies(ana, 'da Bia no grupo')).toEqual(['nota-b']);
+      expect(copies(ana, 'da Ana no grupo')).toEqual(['nota-a']);
+      expect(ana.shared.get('nota-b')).toBeUndefined();
+      expect(copies(bia, 'da Bia no grupo')).toEqual([]);
+      expect(copies(bia, 'da Ana no grupo')).toEqual([]);
+    });
+
+    it('quem sai do grupo perde as anotações dele, sem cópia no seu mural; elas ficam no grupo para a dona', async () => {
+      cloud.group('gJapones0001', 'ana', { bia: 'editor' });
+      const ana = person('ana');
+      const bia = person('bia');
+      await rounds([[ana, 'ana'], [bia, 'bia']], 1);
+      bia.store.add(note('nota-b', 'fica no grupo', { category: 'Japones', ...now() }));
+      TestBed.tick();
+      await rounds([[bia, 'bia'], [ana, 'ana']]);
+      cloud.group('gJapones0001', 'ana', {});
+      await rounds([[bia, 'bia'], [ana, 'ana']], 4);
+      expect(copies(bia, 'fica no grupo')).toEqual([]);
+      expect(copies(ana, 'fica no grupo')).toEqual(['nota-b']);
+      expect(cloud.notes.size).toBe(1);
+    });
+  });
 
   describe('compartilhar e receber', () => {
     it('a de um grupo compartilhado aparece no grupo, com o nome dele aqui, e nunca vai no mural público de cada um', async () => {
@@ -827,7 +1191,7 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
 
     it('a anotação que a editora sobe no grupo de outra pessoa continua uma só (não ganha outro id nem sobe de novo, sem fim)', async () => {
       // o caso de 17/nov: a Bruna (editora) pôs uma anotação no grupo do dono, e ela se copiava sem parar no mural dele
-      cloud.groupOwners.set('gJapones001', USERS['ana'].id);
+      cloud.group('gJapones001', 'ana', { bia: 'editor' });
       const bia = person('bia');
       bia.shared.groupNames.set(new Map([['gJapones001', 'Japones']]));
       bia.store.add(note('nota-g', '何 + の', { category: 'Japones' }));
@@ -843,7 +1207,7 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
     });
 
     it('a que saiu do grupo e ficou sem ninguém volta a ser uma anotação comum da dona na conferida (a volta que falhou na hora)', async () => {
-      cloud.groupOwners.set('gJapones001', USERS['ana'].id);
+      cloud.group('gJapones001', 'ana', { bia: 'editor' });
       const ana = person('ana');
       ana.shared.groupNames.set(new Map([['gJapones001', 'Japones']]));
       const bia = person('bia');
