@@ -234,8 +234,10 @@ export function noteRoutes(app: Hono, deps: Deps): void {
       criadoEm: n.criado_em,
       atualizadoEm: n.atualizado_em,
       atualizadoPor: who(n.atualizado_por),
-      // a de um grupo compartilhado: o grupo e quem a escreveu (o dono dela é o dono do grupo)
-      ...(n.grupo_id ? { grupo: n.grupo_id, criadoPor: n.criado_por ? who(n.criado_por) : null } : {}),
+      // a de um grupo compartilhado: o grupo e quem a escreveu (o dono dela é o dono do grupo); quem a escreveu
+      // fica também na que saiu do grupo (é como o site do dono sabe que ela veio de um e volta a ser só dele)
+      ...(n.grupo_id ? { grupo: n.grupo_id } : {}),
+      ...(n.grupo_id || n.criado_por ? { criadoPor: n.criado_por ? who(n.criado_por) : null } : {}),
       ...(conflict ? { conflito: { a: conflict.a, b: conflict.b, autorA: who(conflict.autorA), autorB: who(conflict.autorB), em: conflict.em } } : {}),
     };
   }

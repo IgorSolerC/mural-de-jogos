@@ -572,6 +572,17 @@ export class SharedStore implements SharedSink {
     return true;
   }
 
+  /**
+   * As suas que saíram de um grupo compartilhado (a nuvem guarda quem as escreveu) e ficaram sem ninguém voltam a
+   * ser anotações comuns do seu mural. Quem as tira do grupo já faz isso na hora (`unshare`); aqui, a que não voltou
+   * (sem rede, a aba fechou no meio) volta na conferida seguinte, em qualquer aparelho.
+   */
+  private async releaseOutOfGroup(): Promise<void> {
+    for (const e of [...this.entries().values()]) {
+      if (e.papel === 'dono' && !e.grupo && !e.membros.length && e.criadoPor) await this.unshare(e.id);
+    }
+  }
+
   /** Apaga para todos (só o dono). */
   async deleteForAll(id: string): Promise<void> {
     try {
@@ -662,6 +673,7 @@ export class SharedStore implements SharedSink {
     try {
       await this.pull();
       await this.pushAll();
+      await this.releaseOutOfGroup();
     } catch (err) {
       failed = true;
       if (!(err instanceof CloudError)) console.error(err);

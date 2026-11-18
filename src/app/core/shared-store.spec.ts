@@ -136,7 +136,8 @@ class FakeNotes {
       membros: [...n.membros].map(([id, papel]) => ({ ...this.person(id), papel, desde: '2026-10-16T00:00:00.000Z' })),
       atualizadoEm: n.em,
       atualizadoPor: this.person(n.por),
-      ...(n.grupo ? { grupo: n.grupo, criadoPor: n.criadoPor ? this.person(n.criadoPor) : null } : {}),
+      ...(n.grupo ? { grupo: n.grupo } : {}),
+      ...(n.grupo || n.criadoPor ? { criadoPor: n.criadoPor ? this.person(n.criadoPor) : null } : {}),
       ...(writes && n.conflito ? { conflito: { ...n.conflito, autorA: this.person(n.conflito.autorA), autorB: this.person(n.conflito.autorB) } } : {}),
     };
   }
@@ -839,6 +840,28 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
       // a daqui é a mesma da nuvem: nenhuma cópia com outro id
       expect(bia.store.reviews().filter((r) => r.text === '何 + の').map((r) => r.id)).toEqual(['nota-g']);
       expect(cloud.notes.size).toBe(1);
+    });
+
+    it('a que saiu do grupo e ficou sem ninguém volta a ser uma anotação comum da dona na conferida (a volta que falhou na hora)', async () => {
+      cloud.groupOwners.set('gJapones001', USERS['ana'].id);
+      const ana = person('ana');
+      ana.shared.groupNames.set(new Map([['gJapones001', 'Japones']]));
+      const bia = person('bia');
+      bia.shared.groupNames.set(new Map([['gJapones001', 'Japones']]));
+      bia.store.add(note('nota-g', 'da Bia', { category: 'Japones' }));
+      TestBed.tick();
+      await bia.shared.share(bia.store.get('nota-g')!, [], 'gJapones001');
+      await sync(ana);
+      expect(ana.shared.get('nota-g')?.grupo).toBe('gJapones001');
+      // a dona a tirou do grupo em outro aparelho, e a volta a comum não chegou à nuvem (sem rede, a aba fechou)
+      const fake = cloud.notes.get('nota-g')!;
+      delete fake.grupo;
+      fake.membros.clear();
+      fake.versao++;
+      await sync(ana);
+      expect(ana.shared.get('nota-g')).toBeUndefined();
+      expect(ana.store.get('nota-g')?.text).toBe('da Bia');
+      expect(cloud.notes.has('nota-g')).toBeFalse();
     });
 
     it('juntar um backup não troca nem apaga a compartilhada (uma versão diferente e mais nova fica guardada)', async () => {

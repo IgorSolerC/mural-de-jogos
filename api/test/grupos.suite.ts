@@ -222,6 +222,10 @@ export function gruposSuite(label: string, getDb: () => Db) {
       expect(out.status).toBe(200);
       expect(await t.notes(t.davi.token)).toEqual([]);
       expect(await t.notes(t.ana.token)).toEqual([{ id: 'n-solta1', versao: 3, papel: 'dono' }]);
+      // fora do grupo, quem a escreveu continua dito: é como o site da Ana sabe que ela volta a ser só dela
+      const d = await t.res(t.json('GET', '/v1/eu/notas/detalhes?ids=n-solta1', undefined, t.ana.token));
+      expect(d.body.notas[0].grupo).toBeUndefined();
+      expect(d.body.notas[0].criadoPor).toMatchObject({ nome: 'Cris' });
     });
 
     it('sair do grupo: quem sai perde o acesso a tudo, até ao que escreveu, que fica no grupo (P4)', async () => {

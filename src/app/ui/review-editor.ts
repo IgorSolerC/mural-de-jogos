@@ -1665,8 +1665,10 @@ export class ReviewEditor {
     const inGroup = prev ? this.shared.get(clean.id)?.grupo : null;
     const fromGroup = inGroup ? (this.sharedGroups.names().get(inGroup) ?? null) : null;
     const moveTo = inGroup && fromGroup !== null && this.sharedGroups.movesNotesOf(inGroup) && lookKey(clean.category ?? '') !== lookKey(fromGroup) ? (clean.category ?? null) : undefined;
-    const commit = () => {
-      if (prev) this.store.update(clean, prev);
+    // (`moved`: a nuvem acabou de mudar o grupo, e a anotação daqui mudou por isso, não por outro aparelho: a edição
+    // parte dela, sem guardar a de antes como uma versão que chegou enquanto o editor estava aberto)
+    const commit = (moved = false) => {
+      if (prev) this.store.update(moved ? { ...clean, updatedAt: new Date().toISOString() } : clean, moved ? (this.store.get(clean.id) ?? prev) : prev);
       else this.store.add(clean);
       for (const n of relinked) this.store.update(n);
     };
@@ -1684,7 +1686,7 @@ export class ReviewEditor {
       () => {
         this.movingGroup.set(false);
         // a edição vale mesmo com o editor fechado enquanto a nuvem respondia
-        commit();
+        commit(true);
         if (this.editing()?.id === clean.id) this.finishNote(clean.id, { isNew: !prev, relinked: relinked.length });
       },
       (err: unknown) => {
