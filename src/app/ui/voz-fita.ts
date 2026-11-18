@@ -3,7 +3,7 @@ import { ContextMenu, MenuItem, MenuSections } from './context-menu';
 import { ICON, IconModule } from './icons';
 import { Sentence, findAgain, maxSpeech, rangesOf, rangesOfChars, sentenceAt, sentencesOf } from './voz-frases';
 import { VozEstudo } from './voz-estudo';
-import { VOICE_LANGS, VOICE_LANG_ORDER, VOICE_RATES, VoiceLang, Voz, voiceLabel } from '../core/voz';
+import { VOICE_LANGS, VOICE_LANG_ORDER, VOICE_RATES, VoiceHint, VoiceLang, Voz, voiceLabel } from '../core/voz';
 import { reducedMotion } from '../core/motion';
 
 /** Os nomes do realce no CSS (styles.scss): a frase sendo lida e, dentro dela, a palavra. */
@@ -28,6 +28,8 @@ const KEYS: Readonly<Record<string, 'prev' | 'next' | 'play' | 'faster' | 'slowe
 };
 /** Quanto a tecla de metal fica afundada quando o atalho a aperta (ms). */
 const PRESS_MS = 150;
+/** Quanto a dica de primeira vez fica em cima da chapa (ms). */
+const HINT_MS = 8000;
 
 /**
  * Ouvir a nota em voz alta (PLANO-VOZ.md): a fita presa ao pé da folha da ficha aberta (na leitura e na tela
@@ -54,6 +56,15 @@ const PRESS_MS = 150;
       <div class="fita" role="group" aria-label="Ouvir a nota">
         @if (voz.failure(); as f) {
           <p class="aviso" role="alert">{{ f }}</p>
+        } @else if (hint(); as h) {
+          <!-- a dica de primeira vez (uma por aparelho); o leitor de tela já ouve o mesmo (aria-keyshortcuts, o aviso do modo estudo) -->
+          <p class="dica" aria-hidden="true">
+            @if (h === 'teclas') {
+              <kbd>←</kbd><kbd>→</kbd> frases <span class="ponto">·</span> <kbd>Espaço</kbd> pausa <span class="ponto">·</span> <kbd>↑</kbd><kbd>↓</kbd> velocidade
+            } @else {
+              Toque numa palavra para vê-la.
+            }
+          </p>
         }
         <div class="chapa">
           <button #lingua type="button" class="lingua tocavel" aria-haspopup="menu" [attr.aria-label]="'Língua: ' + langName() + '. Trocar a língua ou a voz'" [title]="voiceName()" (click)="choose($event, lingua)">
@@ -76,10 +87,12 @@ const PRESS_MS = 150;
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.8 6.6v10.8L15.4 12z" /><rect x="17" y="6.2" width="2.4" height="11.6" rx="0.6" /></svg>
             </button>
           </span>
+          <!-- no celular de 320px a chapa quebra aqui: as teclas em cima, a velocidade, o estudo e o X embaixo -->
+          <span class="quebra" aria-hidden="true"></span>
           <span class="contagem" aria-hidden="true">{{ shownAt() }}<small> / {{ voz.total() }}</small></span>
           <button #velocidade type="button" class="velocidade tocavel" aria-haspopup="menu" [attr.aria-label]="'Velocidade ' + rateLabel() + '. Trocar'" title="Velocidade (↑ ↓)" aria-keyshortcuts="ArrowUp ArrowDown" (click)="chooseRate($event, velocidade)">{{ rateLabel() }}</button>
           @if (canStudy) {
-            <button type="button" class="estudo tocavel" [class.ligado]="voz.study()" [attr.aria-pressed]="voz.study()" aria-label="Modo estudo: o texto vira rabisco" [title]="voz.study() ? 'Modo estudo: toque numa palavra para vê-la. Tocar aqui mostra o texto' : 'Modo estudo: o texto vira rabisco, e tocar numa palavra a revela'" (click)="toggleStudy()">
+            <button type="button" class="estudo tocavel" [class.ligado]="voz.study()" [attr.aria-pressed]="voz.study()" aria-label="Modo estudo: o texto vira rabisco na tela" [title]="voz.study() ? 'Modo estudo: toque numa palavra para vê-la. Tocar aqui mostra o texto' : 'Modo estudo: o texto vira rabisco, e tocar numa palavra a revela'" (click)="toggleStudy()">
               <lucide-icon [img]="StudyIcon" [size]="20" aria-hidden="true" />
             </button>
           }
@@ -141,6 +154,9 @@ export class VozFita {
   private saidTimer: ReturnType<typeof setTimeout> | null = null;
   /** O Espaço desceu na fita: a subida dele também é dela (senão o botão com o foco seria apertado). */
   private spaceDown = false;
+  /** A dica de primeira vez à mostra em cima da chapa (os atalhos, o tocar para revelar). */
+  protected readonly hint = signal<VoiceHint | null>(null);
+  private hintTimer: ReturnType<typeof setTimeout> | null = null;
   private unlistenKeys: (() => void) | null = null;
 
   protected readonly langName = computed(() => {
@@ -299,6 +315,19 @@ export class VozFita {
     this.voz.start(this.list.map((s) => s.text), lang, from, this);
     this.watch();
     this.listenKeys();
+    // os atalhos só servem com teclado: no computador (mouse fino), a dica aparece uma vez
+    if (!this.voz.hintSeen('teclas') && typeof matchMedia === 'function' && matchMedia('(hover: hover) and (pointer: fine)').matches) this.showHint('teclas');
+  }
+
+  /** Mostra a dica de primeira vez por um tempo, e ela não volta neste aparelho. */
+  private showHint(kind: VoiceHint): void {
+    if (this.hintTimer !== null) clearTimeout(this.hintTimer);
+    this.hint.set(kind);
+    this.voz.markHint(kind);
+    this.hintTimer = setTimeout(() => {
+      this.hintTimer = null;
+      this.hint.set(null);
+    }, HINT_MS);
   }
 
   /** Os atalhos, enquanto a fita está à mostra: no documento, porque o foco pode estar solto na página. */
@@ -383,6 +412,8 @@ export class VozFita {
   protected toggleStudy(): void {
     const on = !this.voz.study();
     this.voz.setStudy(on);
+    if (on && !this.voz.hintSeen('estudo')) this.showHint('estudo');
+    else if (!on && this.hint() === 'estudo') this.hint.set(null);
     this.say(on ? 'Modo estudo: o texto virou rabisco. Toque numa palavra para vê-la.' : 'O texto está à mostra de novo.');
   }
 
@@ -422,8 +453,9 @@ export class VozFita {
     this.unlistenKeys?.();
     this.unlistenKeys = null;
     this.spaceDown = false;
-    for (const t of [this.pressTimer, this.saidTimer]) if (t !== null) clearTimeout(t);
-    this.pressTimer = this.saidTimer = null;
+    for (const t of [this.pressTimer, this.saidTimer, this.hintTimer]) if (t !== null) clearTimeout(t);
+    this.pressTimer = this.saidTimer = this.hintTimer = null;
+    this.hint.set(null);
     this.pressed.set(null);
     this.said.set('');
     // o marca-texto é um só na página: o de outra fita que lê agora fica

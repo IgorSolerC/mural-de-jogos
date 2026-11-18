@@ -47,18 +47,25 @@ interface Stored {
   voices?: Partial<Record<VoiceLang, string>>;
   /** O modo estudo (PLANO-VOZ-ESTUDO.md): lendo, o texto vira rabisco. */
   estudo?: boolean;
+  /** As dicas de primeira vez já mostradas neste aparelho (os atalhos da fita, o tocar para revelar). */
+  dicas?: VoiceHint[];
 }
+
+/** As dicas de primeira vez da fita (ui/voz-fita.ts): cada uma aparece uma vez por aparelho. */
+export type VoiceHint = 'teclas' | 'estudo';
+const HINTS: readonly VoiceHint[] = ['teclas', 'estudo'];
 
 /** A preferência guardada, só se tem a forma certa (um valor estragado vale como nada guardado). */
 function readStored(): Stored {
   const raw = readJson<unknown>(VOZ_KEY);
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
-  const { rate, voices, estudo } = raw as Stored;
+  const { rate, voices, estudo, dicas } = raw as Stored;
+  const seen = Array.isArray(dicas) ? HINTS.filter((h) => dicas.includes(h)) : [];
   const names: Partial<Record<VoiceLang, string>> = {};
   if (voices && typeof voices === 'object') {
     for (const lang of VOICE_LANG_ORDER) if (typeof voices[lang] === 'string') names[lang] = voices[lang];
   }
-  return { ...(typeof rate === 'number' ? { rate } : {}), ...(Object.keys(names).length ? { voices: names } : {}), ...(estudo === true ? { estudo } : {}) };
+  return { ...(typeof rate === 'number' ? { rate } : {}), ...(Object.keys(names).length ? { voices: names } : {}), ...(estudo === true ? { estudo } : {}), ...(seen.length ? { dicas: seen } : {}) };
 }
 
 /**
@@ -272,6 +279,17 @@ export class Voz {
       if (!this.ended()) this.at.set(Math.min(Math.max(again.at, 0), again.texts.length - 1));
     }
     if (this.playing()) this.play(this.at());
+  }
+
+  /** A dica já foi mostrada neste aparelho? */
+  hintSeen(hint: VoiceHint): boolean {
+    return this.stored().dicas?.includes(hint) ?? false;
+  }
+
+  /** A dica foi mostrada: não aparece mais neste aparelho. */
+  markHint(hint: VoiceHint): void {
+    if (this.hintSeen(hint)) return;
+    this.save({ ...this.stored(), dicas: [...(this.stored().dicas ?? []), hint] });
   }
 
   /** Liga ou desliga o modo estudo, para este aparelho (desligado não fica guardado). */

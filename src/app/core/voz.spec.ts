@@ -233,6 +233,18 @@ describe('a voz que lê a nota', () => {
       expect(make().study()).toBeFalse();
     });
 
+    it('as dicas de primeira vez: cada uma uma vez neste aparelho; o que não é dica não entra', () => {
+      expect(voz.hintSeen('teclas')).toBeFalse();
+      voz.markHint('teclas');
+      voz.markHint('teclas');
+      expect(voz.hintSeen('teclas')).toBeTrue();
+      expect(JSON.parse(localStorage.getItem(VOZ_KEY)!)).toEqual({ dicas: ['teclas'] });
+      localStorage.setItem(VOZ_KEY, JSON.stringify({ dicas: ['estudo', 'outra', 3] }));
+      voz = make();
+      expect(voz.hintSeen('estudo')).toBeTrue();
+      expect(voz.hintSeen('teclas')).toBeFalse();
+    });
+
     it('outra aba trocou a velocidade: esta acompanha', () => {
       localStorage.setItem(VOZ_KEY, JSON.stringify({ rate: 1.5 }));
       window.dispatchEvent(new StorageEvent('storage', { key: VOZ_KEY, storageArea: localStorage }));

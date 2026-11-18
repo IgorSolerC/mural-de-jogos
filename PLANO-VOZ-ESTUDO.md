@@ -72,3 +72,16 @@ aberta, então ganha tudo sem nada à parte.
    (o tamanho igual ao da palavra, nada se mexe ao revelar), do clique, da nota que muda, da limpeza no
    logout; fotos 2x no computador e no celular.
 3. **Fim**: crítica do Impeccable, DESIGN.md, /code-review high e o que ele achar.
+
+## Como ficou (18/nov/2026)
+
+- Feature 1 (37796288, BUILD 961): os atalhos e as velocidades devagar. Feature 2 (4e009c38, BUILD 962): o modo estudo.
+- Fim (BUILD 963): a crítica do Impeccable em dois avaliadores isolados (27/40; o detector sem nada de verdade: as cores e
+  medidas da chapa são de objeto desenhado). Entraram: o alvo do toque de 24px nas palavras curtas (o desenho num filho, porque
+  a máscara recorta o toque), as dicas de primeira vez (os atalhos no computador, o tocar para revelar), as duas fileiras
+  equilibradas da chapa a 320px e o nome do botão para o leitor de tela ("o texto vira rabisco na tela"). O /code-review high
+  achou que outra fita que parava (a anotação ao lado fechando) apagava o realce desta, e os alvos de duas palavras curtas
+  vizinhas se cobrindo; os dois consertados.
+- Ficaram de fora, por mudarem o pedido (oferecer só se o dono pedir): esconder de novo uma palavra revelada; ↑ ↓ e Espaço
+  devolvidos à rolagem quando o foco está num bloco que rola; uma tecla que revela a frase lida; o modo estudo sem a voz;
+  esconder só a língua da leitura e deixar a tradução; as palavras reveladas virarem cartas dos Flashcards.

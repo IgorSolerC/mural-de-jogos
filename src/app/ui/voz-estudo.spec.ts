@@ -17,6 +17,11 @@ describe('o modo estudo da voz: o texto em rabisco', () => {
   const layer = () => host.querySelector<HTMLElement>(`.${STUDY_LAYER}`)!;
   const boxes = () => [...layer().querySelectorAll<HTMLElement>('span')];
   const hidden = () => [...((CSS.highlights.get(STUDY_HIGHLIGHT) as Highlight | undefined) ?? [])].map((r) => (r as Range).toString());
+  /** O número da palavra do alvo debaixo do ponto. */
+  const indexAt = (x: number, y: number) => {
+    const el = document.elementFromPoint(x, y) as HTMLElement | null;
+    return (el?.tagName === 'I' ? el.parentElement : el)?.dataset['p'] ?? null;
+  };
   const frame = () => new Promise((res) => requestAnimationFrame(() => setTimeout(res)));
 
   beforeEach(() => (study = new VozEstudo()));
@@ -46,14 +51,30 @@ describe('o modo estudo da voz: o texto em rabisco', () => {
       range.setStart(node, at);
       range.setEnd(node, at + words[i].length);
       const want = range.getBoundingClientRect();
-      const got = box.getBoundingClientRect();
+      const got = box.firstElementChild!.getBoundingClientRect();
       expect(Math.abs(got.left - want.left)).toBeLessThan(0.6);
       expect(Math.abs(got.top - want.top)).toBeLessThan(0.6);
       expect(Math.abs(got.width - want.width)).toBeLessThan(0.6);
       expect(box.style.color).toBe('rgb(29, 35, 64)');
       expect(box.style.fontSize).toBe('20px');
     });
-    expect(getComputedStyle(boxes()[0]).maskImage || getComputedStyle(boxes()[0]).webkitMaskImage).toContain('svg');
+    const drawing = boxes()[0].firstElementChild!;
+    expect(getComputedStyle(drawing).maskImage || getComputedStyle(drawing).webkitMaskImage).toContain('svg');
+  });
+
+  it('a palavra curta ("o", の) pega o dedo em 24px de largura, e o rabisco continua do tamanho dela', () => {
+    mount('<p style="padding-left: 40px">o</p>');
+    study.start([host], 'pt-BR');
+    const o = boxes()[0];
+    const target = o.getBoundingClientRect();
+    const drawing = o.firstElementChild!.getBoundingClientRect();
+    expect(target.width).toBeCloseTo(24, 0);
+    expect(drawing.width).toBeLessThan(15);
+    expect(Math.abs(target.left + target.width / 2 - (drawing.left + drawing.width / 2))).toBeLessThan(0.6);
+    // tocar na beirada do alvo, fora do desenho, revela
+    const edge = document.elementFromPoint(target.left + 1, target.top + target.height / 2)!;
+    edge.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    expect(hidden()).not.toContain('o');
   });
 
   it('a palavra que quebra a linha ganha um rabisco por pedaço; tocar em qualquer um revela a palavra inteira', () => {
@@ -100,6 +121,24 @@ describe('o modo estudo da voz: o texto em rabisco', () => {
     expect(hidden()).toEqual(['do', 'card']);
   });
 
+  it('duas palavras curtas vizinhas ("e o"): o alvo de cada uma para no meio do vão, sem pegar a outra', () => {
+    mount('<p>pão e o vinho</p>');
+    study.start([host], 'pt-BR');
+    const [e, o] = ['1', '2'].map((p) => boxes().find((b) => b.dataset['p'] === p)!.getBoundingClientRect());
+    expect(e.right).toBeLessThanOrEqual(o.left + 0.5);
+    const between = (e.right + o.left) / 2;
+    expect(indexAt(between - 1, e.top + e.height / 2)).toBe('1');
+    expect(indexAt(between + 1, o.top + o.height / 2)).toBe('2');
+  });
+
+  it('outra camada que para (a outra anotação aberta ao lado fechou) não apaga o realce desta', () => {
+    mount('<p>Um dois.</p>');
+    study.start([host], 'pt-BR');
+    const other = new VozEstudo();
+    other.stop();
+    expect(hidden()).toEqual(['Um', 'dois']);
+  });
+
   it('o mouse em cima acende a palavra inteira', () => {
     mount('<p style="width: 50px; word-break: break-all">Paralelepípedo e mais</p>');
     study.start([host], 'pt-BR');
@@ -144,7 +183,7 @@ describe('o modo estudo da voz: o texto em rabisco', () => {
     mount('<pre style="width: 100px; overflow-x: auto; white-space: pre">curta palavracomprida demais</pre>');
     study.start([host], 'pt-BR');
     const pre = host.querySelector('pre')!.getBoundingClientRect();
-    for (const b of boxes()) expect(b.getBoundingClientRect().right).toBeLessThanOrEqual(pre.right + 0.5);
+    for (const b of boxes()) expect(b.firstElementChild!.getBoundingClientRect().right).toBeLessThanOrEqual(pre.right + 0.5);
     expect(boxes().length).withContext('"demais" está fora da vista').toBe(2);
   });
 

@@ -8,6 +8,8 @@ export const STUDY_HIGHLIGHT = 'voz-estudo';
 export const STUDY_LAYER = 'voz-rabiscos';
 /** Quanto o rabisco leva para sumir quando a palavra é revelada (ms). */
 const FADE_MS = 160;
+/** A largura mínima de onde o dedo pega uma palavra ("o", "e", の são um laço só): o rabisco continua do tamanho dela. */
+const MIN_TAP = 24;
 
 /** Como cada letra é pintada (a cor e o tamanho), por elemento: o rabisco sai da mesma tinta e do mesmo corpo. */
 interface Look {
@@ -36,6 +38,8 @@ export class VozEstudo {
   private revealed = new WeakMap<Text, Set<number>>();
   private readonly layers = new Map<HTMLElement, HTMLElement>();
   private hovered = -1;
+  /** O realce desta camada (o nome é um só na página: outra fita que para não apaga o desta). */
+  private highlight: Highlight | null = null;
   /** O tamanho de cada raiz no último desenho ("largura×altura"). */
   private readonly drawnAt = new Map<HTMLElement, string>();
   /** Onde o mouse está (para a palavra debaixo dele continuar acesa depois de os rabiscos se redesenharem). */
@@ -132,7 +136,8 @@ export class VozEstudo {
     this.hovered = -1;
     this.pointer = null;
     this.revealed = new WeakMap();
-    if (VozEstudo.supported()) CSS.highlights.delete(STUDY_HIGHLIGHT);
+    if (this.highlight && CSS.highlights.get(STUDY_HIGHLIGHT) === this.highlight) CSS.highlights.delete(STUDY_HIGHLIGHT);
+    this.highlight = null;
   }
 
   /** Já ligado nestas raízes? (A mesma folha: as palavras reveladas continuam.) */
@@ -194,7 +199,7 @@ export class VozEstudo {
     this.hovered = -1;
     // primeiro mede tudo, depois desenha: pôr um rabisco na página no meio das medidas faria o navegador
     // refazer a página inteira a cada palavra
-    const marks: { i: number; layer: HTMLElement; css: string }[] = [];
+    const marks: Mark[] = [];
     this.words.forEach((pieces, i) => {
       if (this.isRevealed(pieces)) return;
       for (const range of this.ranges[i]) {
@@ -207,16 +212,22 @@ export class VozEstudo {
         const origin = origins.get(root)!;
         for (const rect of range.getClientRects()) {
           const r = clipped(rect, parent, root, clips);
-          if (r) marks.push({ i, layer, css: `left:${r.left - origin.x}px;top:${r.top - origin.y}px;width:${r.width}px;height:${r.height}px;color:${look.color};font-size:${look.size}` });
+          if (!r) continue;
+          // o alvo do toque cresce para os lados até MIN_TAP; o desenho (o filho) fica do tamanho da palavra
+          const pad = Math.max(0, (MIN_TAP - r.width) / 2);
+          marks.push({ i, layer, x: r.left - origin.x, y: r.top - origin.y, w: r.width, h: r.height, left: pad, right: pad, look });
         }
       }
     });
-    for (const { i, layer, css } of marks) {
+    trimPads(marks);
+    for (const { i, layer, x, y, w, h, left, right, look } of marks) {
       const box = layer.ownerDocument.createElement('span');
       box.dataset['p'] = String(i);
       // uma palavra um pouco mais alta que a outra, como no app-rabisco (a mão que rabisca depressa)
       if (i % 3 === 1) box.className = 'alto';
-      box.style.cssText = css;
+      box.style.cssText = `left:${x - left}px;top:${y}px;width:${w + left + right}px;height:${h}px;--pad-l:${left}px;--pad-r:${right}px;color:${look.color};font-size:${look.size}`;
+      // o desenho num filho: a máscara do rabisco também recorta onde o toque pega, e o alvo é maior que ele
+      box.append(layer.ownerDocument.createElement('i'));
       layer.append(box);
       this.boxes[i].push(box);
     }
@@ -224,6 +235,7 @@ export class VozEstudo {
     // acima do marca-texto da frase e da palavra lidas (que pintam a letra de preto): a letra escondida continua escondida
     hl.priority = 2;
     CSS.highlights.set(STUDY_HIGHLIGHT, hl);
+    this.highlight = hl;
     // o mouse parado em cima de uma palavra: ela continua acesa nos rabiscos novos
     if (this.pointer) this.hover(indexOf(this.roots[0].ownerDocument.elementFromPoint(this.pointer.x, this.pointer.y)));
   }
@@ -263,9 +275,49 @@ function sizeOf(el: HTMLElement): string {
   return `${el.clientWidth}x${el.clientHeight}`;
 }
 
+/** Um pedaço de linha de uma palavra a rabiscar: o lugar na camada, a folga do toque de cada lado e a tinta. */
+interface Mark {
+  i: number;
+  layer: HTMLElement;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  left: number;
+  right: number;
+  look: Look;
+}
+
+/**
+ * A folga do toque de duas palavras curtas vizinhas ("e o") não passa do meio do vão entre elas: tocar perto de
+ * uma nunca revela a outra.
+ */
+function trimPads(marks: Mark[]): void {
+  const lines = new Map<HTMLElement, Map<number, Mark[]>>();
+  for (const m of marks) {
+    let byY = lines.get(m.layer);
+    if (!byY) lines.set(m.layer, (byY = new Map()));
+    const y = Math.round(m.y);
+    let line = byY.get(y);
+    if (!line) byY.set(y, (line = []));
+    line.push(m);
+  }
+  for (const line of [...lines.values()].flatMap((byY) => [...byY.values()])) {
+    line.sort((a, b) => a.x - b.x);
+    for (let k = 1; k < line.length; k++) {
+      const a = line[k - 1];
+      const b = line[k];
+      const half = Math.max(0, (b.x - (a.x + a.w)) / 2);
+      a.right = Math.min(a.right, half);
+      b.left = Math.min(b.left, half);
+    }
+  }
+}
+
 /** O número da palavra do rabisco tocado (-1 fora de um). */
 function indexOf(target: EventTarget | null): number {
-  const p = target instanceof HTMLElement ? target.dataset['p'] : undefined;
+  const box = target instanceof HTMLElement && target.tagName === 'I' ? target.parentElement : target;
+  const p = box instanceof HTMLElement ? box.dataset['p'] : undefined;
   return p === undefined ? -1 : Number(p);
 }
 

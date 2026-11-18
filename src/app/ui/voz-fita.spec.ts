@@ -427,6 +427,26 @@ describe('Ouvir a nota na ficha aberta', () => {
     expect(texts()[0]).toBe('の (De / Posse)');
   });
 
+  it('as dicas de primeira vez: os atalhos ao começar a ouvir e o tocar para revelar ao ligar o modo estudo, uma vez cada', async () => {
+    fixture.componentInstance.open(note('n-1', 'の (De / Posse)', NO));
+    await settle();
+    await listen('ja');
+    const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
+    expect(q('.fita .dica')?.textContent?.replace(/\s+/g, '') ?? null).toBe(fine ? '←→frases·Espaçopausa·↑↓velocidade' : null);
+    q<HTMLButtonElement>('.fita .estudo')!.click();
+    await settle();
+    expect(q('.fita .dica')!.textContent!.trim()).toBe('Toque numa palavra para vê-la.');
+    q<HTMLButtonElement>('.fita .estudo')!.click();
+    await settle();
+    expect(q('.fita .dica')).toBeNull();
+    q<HTMLButtonElement>('.fita .parar')!.click();
+    await settle();
+    await listen('pt');
+    q<HTMLButtonElement>('.fita .estudo')!.click();
+    await settle();
+    expect(q('.fita .dica')).withContext('cada dica, uma vez por aparelho').toBeNull();
+  });
+
   it('o modo estudo fica guardado: parar devolve o texto, ouvir de novo já vem em rabisco; desligar mostra tudo', async () => {
     fixture.componentInstance.open(note('n-1', 'の (De / Posse)', NO));
     await settle();

@@ -75,7 +75,8 @@
 .lingua-sigla {
   translate: 0 1px;
 }
-.lingua-sigla {
+.lingua-sigla,
+.quebra {
   display: none;
 }
 
@@ -187,6 +188,40 @@
   }
 }
 
+/* a dica de primeira vez: uma tira da etiqueta creme em cima da chapa, com as teclas desenhadas como as da chapa */
+.dica {
+  margin: 0;
+  padding: 5px 10px;
+  border-radius: 3px;
+  background: #f4ecd6;
+  box-shadow: 0 4px 12px -6px rgb(0 0 0 / 0.5);
+  color: #1d2340;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  text-align: center;
+  animation: sobe 220ms var(--ease-ui) both;
+
+  kbd {
+    display: inline-block;
+    min-width: 1.6em;
+    margin-right: 2px;
+    padding: 0 0.35em;
+    border-radius: 2px;
+    border-bottom: 2px solid #8d887e;
+    background: linear-gradient(#fbf9f5, #ddd8ce);
+    color: #151515;
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.82em;
+    line-height: 1.5;
+    text-align: center;
+  }
+  .ponto {
+    margin: 0 4px;
+    color: rgb(29 35 64 / 0.55);
+  }
+}
+
 /* a voz falhou: o bilhete em cima da chapa, com o que fazer */
 .aviso {
   max-width: 34ch;
@@ -219,8 +254,18 @@
   }
 }
 
+/* 320px: duas fileiras equilibradas (a língua e as teclas; a velocidade, o estudo e o X), e não o X sozinho */
+@media (max-width: 359px) {
+  .quebra {
+    display: block;
+    flex-basis: 100%;
+    height: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .fita {
+  .fita,
+  .dica {
     animation: none;
   }
 }
