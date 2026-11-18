@@ -11,6 +11,7 @@ import { KIND_ICON } from './kind-switcher';
 import { Pin } from './pin';
 import { CardFilters, PickerFilters } from './picker-filters';
 import { NoteFolders } from '../core/note-folders';
+import type { FolderTree } from '../core/folders';
 import { localDay } from '../core/dates';
 
 /** As abas dos murais: as anotações primeiro (é delas que mais se cola), depois os de resenhas. */
@@ -165,6 +166,13 @@ export class CardPicker {
    */
   readonly createLabel = input<string | null>(null);
   readonly create = output<string>();
+  /**
+   * As fichas para escolher, de quem usa (na visita, as que a pessoa publicou: o "+" da leitura, PLANO-DUAS-NOTAS.md);
+   * null: as suas, do seu mural.
+   */
+  readonly source = input<readonly Review[] | null>(null);
+  /** As pastas de quem são as fichas de `source` (as da pessoa visitada); null: as suas. */
+  readonly folderTree = input<FolderTree | null>(null);
 
   protected readonly CloseIcon = ICON.fechar;
   protected readonly SearchIcon = ICON.buscar;
@@ -187,15 +195,17 @@ export class CardPicker {
     const only = this.onlyKind();
     const out = new Set(this.exclude());
     const cat = this.onlyCategory();
-    return this.store.reviews().filter((r) => r.id !== self && !out.has(r.id) && (!only || r.kind === only) && (!cat || belongs({ category: cat }, r)));
+    return (this.source() ?? this.store.reviews()).filter((r) => r.id !== self && !out.has(r.id) && (!only || r.kind === only) && (!cat || belongs({ category: cat }, r)));
   });
   /** O mural da lista: o escolhido no "Onde", ou o único (o "Buscar nota" do Kanban). */
   private readonly listKind = computed(() => this.onlyKind() ?? this.kind());
   /** Os murais do "Onde" (num mural só, nenhum: a árvore começa nos grupos). */
   private readonly kindOrder = computed(() => (this.onlyKind() ? null : ORDER));
   /** O lugar, as tags, o estado, as marcas, o quando e a ordem (ver ui/picker-filters.ts). */
-  protected readonly filters = new CardFilters(this.cards, this.listKind, this.query, this.onlyCategory, this.kindOrder);
   private readonly folders = inject(NoteFolders);
+  /** As pastas das fichas da lista: as de quem usa, ou as suas. */
+  private readonly tree = computed(() => this.folderTree() ?? this.folders.tree());
+  protected readonly filters = new CardFilters(this.cards, this.listKind, this.query, this.onlyCategory, this.kindOrder, this.folderTree);
   /** A escolhida quando a folha abriu: ela vem primeiro, e nada pula enquanto se procura. */
   private readonly before = signal('');
   /** A escolhida primeiro, depois na ordem escolhida (de começo, as mexidas mais recentemente). */
@@ -217,7 +227,7 @@ export class CardPicker {
         this.query.set('');
         this.filters.reset({ onlyOpen: this.doneOption() });
         // já tem uma escolhida: abre no mural dela (trocar costuma ser por outra parecida)
-        this.kind.set(this.store.get(this.chosen())?.kind ?? null);
+        this.kind.set(this.cards().find((r) => r.id === this.chosen())?.kind ?? null);
         this.search()?.nativeElement.focus();
       }
       wasOpen = open;
@@ -289,7 +299,7 @@ export class CardPicker {
   protected metaOf(r: Review): string {
     const kind = cap(profileOf(r.kind).singular);
     if (isNote(r)) {
-      const tree = this.folders.tree();
+      const tree = this.tree();
       const where = [r.category, ...tree.path(tree.of(r)).map((f) => f.name)].filter(Boolean).join(' › ');
       return [kind, where, this.dateOf(r)].filter(Boolean).join(' · ');
     }

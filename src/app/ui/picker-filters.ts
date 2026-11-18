@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, Injector, Signal, afterNextRender, computed, inject, input, model, signal, viewChild } from '@angular/core';
 import { NoteFolders } from '../core/note-folders';
+import type { FolderTree } from '../core/folders';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, IconModule } from './icons';
 import { Kind, NOTES, cap, profileOf } from '../core/kinds';
@@ -166,7 +167,12 @@ export class CardFilters implements PickerFacets {
     private readonly fixedGroup: Signal<string | null> = signal(null),
     /** Os murais do "Onde", na ordem (null: a lista é de um mural só). */
     private readonly kinds: Signal<readonly Kind[] | null> = signal(null),
+    /** As pastas de quem são as fichas (na visita, as da pessoa); null: as suas. */
+    private readonly folderTree: Signal<FolderTree | null> = signal(null),
   ) {}
+
+  /** As pastas das fichas da lista: as de quem usa, ou as suas. */
+  private readonly tree = computed(() => this.folderTree() ?? this.folders.tree());
 
   /** A lista está nas anotações: o grupo, a pasta, as tags, o estado, a fixada e a tarefa valem. */
   readonly notesScope = computed(() => this.kind() === NOTES);
@@ -183,7 +189,7 @@ export class CardFilters implements PickerFacets {
   }
 
   private readonly facts = computed(() => {
-    const tree = this.folders.tree();
+    const tree = this.tree();
     const out = new Map<Review, Facts>();
     for (const r of this.cards()) {
       const note = isNote(r);
@@ -276,7 +282,7 @@ export class CardFilters implements PickerFacets {
   private folderRows(depth: number): PlaceRow[] {
     const g = this.group();
     if (!this.fixedGroup() && (!g || g === NO_CATEGORY_TAB)) return [];
-    const tree = this.folders.tree();
+    const tree = this.tree();
     const facts = this.facts();
     const seen = new Set<string>();
     for (const r of this.notes()) {
@@ -413,7 +419,7 @@ export class CardFilters implements PickerFacets {
       else this.group.set(p.value);
       this.folder.set(null);
     } else {
-      this.folder.set(p.on ? (this.folders.tree().parentOf(p.value!) ?? null) : p.value);
+      this.folder.set(p.on ? (this.tree().parentOf(p.value!) ?? null) : p.value);
     }
   }
 
@@ -530,7 +536,7 @@ export class CardFilters implements PickerFacets {
     const g = this.group();
     const folder = this.folder();
     const group = g ? (this.groupTabs().find((t) => t.key === g)?.label ?? null) : null;
-    const tree = this.folders.tree();
+    const tree = this.tree();
     const where = folder === NO_FOLDER ? 'Sem pasta' : folder ? tree.path(folder).map((f) => f.name).join(' › ') : null;
     return [group, where].filter(Boolean).join(' › ') || null;
   });

@@ -27,6 +27,18 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-18-duas-anotacoes',
+    version: '1.50.0',
+    kind: 'funcionalidade',
+    date: '2026-11-18',
+    title: 'Duas anotações lado a lado',
+    items: [
+      'Com uma anotação aberta, o "+ Abrir ao lado" na beirada da direita abre o Escolher a nota, e a escolhida abre à direita da primeira, as duas inteiras, para ler e marcar uma olhando a outra (também no mural de quem você visita). Editar, fechar, ver só a cartolina ou ler em tela cheia uma delas fecha a outra; a que fica continua no trecho onde você estava. No computador, onde cabem as duas.',
+    ],
+    notice: 'Novo: duas anotações lado a lado. Abra uma e toque no "+ Abrir ao lado" da direita.',
+    until: '2026-12-02',
+  },
+  {
     id: '2026-11-17-codigo-fechamento',
     version: '1.49.1',
     kind: 'ajustes',

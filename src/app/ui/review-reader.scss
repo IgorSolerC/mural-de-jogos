@@ -844,6 +844,9 @@ app-judge-label {
   top: 92px;
   left: calc(100% - 3px);
   z-index: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 /* A orelha do grupo: a orelha de divisória da ficha do mural, igual (o papel manilha, ou o claro com a
@@ -951,6 +954,28 @@ app-judge-label {
 @media (min-width: 900px) {
   .orelha {
     display: flex;
+  }
+}
+
+/* O "+" (PLANO-DUAS-NOTAS.md): o mesmo marcador, abaixo do de Comentários, só onde cabem duas anotações lado a
+   lado (a medida de BESIDE_MEDIA, em review-reader.ts, e da folha de comentários ao lado). */
+.orelha.abrir-ao-lado {
+  display: none;
+}
+
+@media (min-width: 1180px) {
+  .orelha.abrir-ao-lado {
+    display: flex;
+  }
+
+  /* os marcadores saem da beirada da ficha, nunca do pé: a ficha curta fica alta o bastante para eles (o do "+"
+     sozinho, ou os dois empilhados), como uma ficha de fichário com as abas dela */
+  .par:has(> .orelhas > .abrir-ao-lado) > article {
+    min-height: 300px;
+  }
+
+  .par:has(> .orelhas > .orelha + .abrir-ao-lado) > article {
+    min-height: 500px;
   }
 }
 

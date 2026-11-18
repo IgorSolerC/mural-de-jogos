@@ -265,4 +265,97 @@ describe('Duas anotações lado a lado (ReviewReader, PLANO-DUAS-NOTAS.md)', () 
     // nenhuma das duas tem vezes: só não pode dar erro nem trocar a primeira
     expect(nameOf(outer())).toBe('Receita de pão');
   });
+
+  // ===== o "+" e o seletor (feature 2) =====
+  const ear = () => outer().querySelector<HTMLButtonElement>(':scope > .par .orelha.abrir-ao-lado');
+  const fits = (yes: boolean) => spyOn(reader as unknown as { fitsBeside(): boolean }, 'fitsBeside').and.returnValue(yes);
+
+  async function pickFromEar(name: string): Promise<void> {
+    ear()!.click();
+    await settle();
+    await wait(50);
+    await settle();
+    const item = [...document.querySelectorAll<HTMLButtonElement>('app-card-picker .escolha')].find((b) => b.textContent?.includes(name));
+    expect(item).withContext('no seletor: ' + name).toBeDefined();
+    item!.click();
+    await settle();
+  }
+
+  it('o "+" é um marcador da ficha: só numa anotação, na leitura de sempre, e some com duas abertas', async () => {
+    reader.open(store.get('nota-a')!);
+    await settle();
+    expect(ear()).not.toBeNull();
+    expect(ear()!.getAttribute('aria-label')).toBe('Abrir outra anotação ao lado');
+    expect(ear()!.getAttribute('aria-haspopup')).toBe('dialog');
+    expect(ear()!.classList).toContain('cartolina');
+    await click('.faixa-nome .ler-tela-cheia');
+    expect(ear()).toBeNull();
+    await click('.faixa-nome .ler-tela-cheia');
+    reader.openBeside(store.get('nota-b')!);
+    await settle();
+    expect(ear()).toBeNull();
+    expect(beside()!.querySelector('.orelha.abrir-ao-lado')).toBeNull();
+  });
+
+  it('a resenha não tem o "+" (ela tem o Lado a lado dela)', async () => {
+    store.add(sanitizeReview({ id: 'jogo-1', kind: 'jogos', game: { name: 'Hollow Knight', coverUrl: null, source: 'manual' }, scores: { diversao: 9, historia: 8, jogabilidade: 9, visual: 8 }, status: 'finalizado', text: 'Bom.', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' })!);
+    reader.open(store.get('jogo-1')!);
+    await settle();
+    expect(ear()).toBeNull();
+  });
+
+  it('o "+" abre o Escolher a nota de sempre, só com as outras anotações, e a escolhida abre ao lado', async () => {
+    fits(true);
+    store.add(sanitizeReview({ id: 'jogo-1', kind: 'jogos', game: { name: 'Hollow Knight', coverUrl: null, source: 'manual' }, scores: { diversao: 9, historia: 8, jogabilidade: 9, visual: 8 }, status: 'finalizado', text: 'Bom.', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' })!);
+    reader.open(store.get('nota-a')!);
+    await settle();
+    ear()!.click();
+    await settle();
+    await wait(50);
+    await settle();
+    expect(document.querySelector('app-card-picker h2')?.textContent?.trim()).toBe('Abrir ao lado');
+    const names = [...document.querySelectorAll('app-card-picker .escolha .nome')].map((n) => n.textContent!.trim()).sort();
+    expect(names).toEqual(['Cronograma', 'Curta']);
+    const item = [...document.querySelectorAll<HTMLButtonElement>('app-card-picker .escolha')].find((b) => b.textContent?.includes('Curta'))!;
+    item.click();
+    await settle();
+    expect(nameOf(beside())).toBe('Curta');
+    expect(nameOf(outer())).toBe('Receita de pão');
+  });
+
+  it('escolhida quando já não cabem duas (a tela estreitou), ela abre no lugar desta, com o Voltar', async () => {
+    fits(false);
+    reader.open(store.get('nota-a')!);
+    await settle();
+    await pickFromEar('Curta');
+    expect(beside()).toBeNull();
+    expect(nameOf(outer())).toBe('Curta');
+    expect(outer().querySelector('.voltar-elo')).not.toBeNull();
+  });
+
+  it('na de outra pessoa sem outra anotação à mostra, o "+" não aparece (o seletor abriria vazio)', async () => {
+    const sozinha = note('dela-9', 'Só esta');
+    reader.open(sozinha, 'Ana', [sozinha], false, 'ANA123');
+    await settle();
+    expect(ear()).toBeNull();
+  });
+
+  it('na visita, o "+" mostra as anotações que a pessoa publicou (não as suas), e a segunda é dela', async () => {
+    fits(true);
+    const dela = [note('dela-1', 'Diário da viagem'), note('dela-2', 'Roteiro do Japão'), note('dela-3', 'Lista de malas')];
+    reader.open(dela[0], 'Ana', dela, false, 'ANA123');
+    await settle();
+    ear()!.click();
+    await settle();
+    await wait(50);
+    await settle();
+    const names = [...document.querySelectorAll('app-card-picker .escolha .nome')].map((n) => n.textContent!.trim()).sort();
+    expect(names).toEqual(['Lista de malas', 'Roteiro do Japão']);
+    [...document.querySelectorAll<HTMLButtonElement>('app-card-picker .escolha')].find((b) => b.textContent?.includes('Roteiro'))!.click();
+    await settle();
+    expect(nameOf(beside())).toBe('Roteiro do Japão');
+    // de outra pessoa: só lê (sem o Editar nem o Finalizar), como a primeira
+    expect(beside()!.querySelector('.foot .finalizar')).toBeNull();
+    expect(beside()!.querySelector('.foot')?.textContent).toContain('Anotação de Ana');
+  });
 });

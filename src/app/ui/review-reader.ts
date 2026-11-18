@@ -74,6 +74,8 @@ import { CommentTarget, Comments, QuoteRequest, spokenComments } from '../core/c
 import { CommentsPanel } from './comments-panel';
 // as folhas das anotações compartilhadas, também em pedaços à parte (cada uma num import só dela)
 import { ShareSheet } from './share-sheet';
+// o "Escolher a nota" do "+" (abrir outra ao lado), num pedaço à parte, só quando abre
+import { CardPicker } from './card-picker';
 import { ConflictSheet } from './conflict-sheet';
 import { LinkSheet } from './link-sheet';
 import { CardConfig } from './card-config';
@@ -160,7 +162,7 @@ interface AlonePlea {
 
 @Component({
   selector: 'app-review-reader',
-  imports: [BackdropClose, CardConfig, CategoryLabel, CommentsPanel, ConflictSheet, LinkSheet, ShareSheet, OrganizeSheet, IconModule, KanbanDepsBadge, MoreMenu, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, NoteTag, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, ReviewCard, Skulls, StatusLabel, VozFita],
+  imports: [BackdropClose, CardConfig, CardPicker, CategoryLabel, CommentsPanel, ConflictSheet, LinkSheet, ShareSheet, OrganizeSheet, IconModule, KanbanDepsBadge, MoreMenu, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, NoteTag, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, ReviewCard, Skulls, StatusLabel, VozFita],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog
@@ -554,6 +556,24 @@ interface AlonePlea {
               }
             </button>
           }
+          <!-- o "+": outra anotação, aberta ao lado desta (PLANO-DUAS-NOTAS.md). O mesmo marcador, abaixo do de
+               Comentários (ou no lugar dele); só onde cabem as duas -->
+          @if (canBeside()) {
+            <button
+              type="button"
+              class="orelha cartolina abrir-ao-lado"
+              [attr.data-cor]="pin().stock"
+              [style]="headPaper()"
+              [style.--stock]="'var(--stock-' + pin().stock + ')'"
+              aria-haspopup="dialog"
+              aria-label="Abrir outra anotação ao lado"
+              title="Abrir outra anotação ao lado"
+              (click)="pickBeside.set(true)"
+            >
+              <lucide-icon [img]="AddIcon" [size]="20" aria-hidden="true" />
+              <span class="orelha-txt" aria-hidden="true">Abrir ao lado</span>
+            </button>
+          }
         </div>
 
         @if (lendo() && commentable()) {
@@ -667,6 +687,25 @@ interface AlonePlea {
           }
         }
 
+        <!-- o "Escolher a nota" do "+": as anotações de quem é a ficha (as suas, ou as que a pessoa visitada
+             publicou), sem a aberta; a escolhida abre ao lado -->
+        @if (pickBeside()) {
+          @defer (on immediate) {
+            <app-card-picker
+              [(open)]="pickBeside"
+              onlyKind="anotacoes"
+              [selfId]="r.id"
+              [source]="owner() === null ? null : pool()"
+              [folderTree]="owner() === null ? null : folderTree()"
+              heading="Abrir ao lado"
+              hint="Uma anotação para ler ao lado desta."
+              footHint="Toque numa anotação para abrir ao lado."
+              [emptyText]="owner() === null ? 'Você ainda não tem outras anotações.' : 'Não há outras anotações à mostra aqui.'"
+              (picked)="pickedBeside($event)"
+            />
+          }
+        }
+
         <!-- as configurações da ficha (os comentários), num pedaço à parte, só quando abre -->
         @if (configOpen()) {
           @defer (on immediate) {
@@ -719,6 +758,30 @@ export class ReviewReader {
   readonly left = output<void>();
   /** (Ao lado) Pediu a leitura inteira: ela fica sozinha, no lugar da primeira. */
   readonly alone = output<AlonePlea>();
+  /** O "Escolher a nota" do "+" está aberto. */
+  protected readonly pickBeside = signal(false);
+  protected readonly AddIcon = ICON.adicionar;
+  /**
+   * O "+" aparece: na leitura de sempre de uma anotação (as resenhas têm o Lado a lado delas), na primeira e só
+   * com ela sozinha, fora da ficha aberta pelo link. A largura (onde cabem as duas) fica no CSS.
+   */
+  protected readonly canBeside = computed(() => {
+    if (!this.lendo() || !this.note() || this.aoLado() || this.segunda() || this.solta()) return false;
+    // a de outra pessoa: só com outra anotação dela à mostra (sem nenhuma, o seletor abriria vazio)
+    const id = this.review()?.id;
+    return this.owner() === null || this.pool().some((n) => isNote(n) && n.id !== id);
+  });
+  /** As pastas de quem é a ficha: as suas, ou as de quem você visita. */
+  protected readonly folderTree = computed(() => (this.owner() === null ? this.ownFolders.tree() : (this.visitFolders?.folders() ?? NO_FOLDERS)));
+  /** Ainda cabem duas: a tela pode ter estreitado com o seletor aberto. */
+  protected fitsBeside(): boolean {
+    return typeof matchMedia === 'undefined' || matchMedia(BESIDE_MEDIA).matches;
+  }
+  /** Escolheu no seletor do "+": abre ao lado, se ainda couber; senão, abre no lugar desta. */
+  protected pickedBeside(r: Review): void {
+    if (this.fitsBeside()) this.openBeside(r);
+    else this.follow(r);
+  }
   /** Os ids da página: os da segunda ganham o "-2" (o nome dela é quem a anuncia). */
   protected readonly sufixo = computed(() => (this.aoLado() ? '-2' : ''));
   /** A anotação aberta ao lado desta (só na de fora), ou null. */
@@ -1161,7 +1224,7 @@ export class ReviewReader {
   protected readonly folderPath = computed(() => {
     const r = this.review();
     if (!r || !isNote(r)) return null;
-    const tree = this.owner() === null ? this.ownFolders.tree() : (this.visitFolders?.folders() ?? NO_FOLDERS);
+    const tree = this.folderTree();
     const path = tree.path(tree.of(r));
     const last = path.at(-1);
     return last ? { id: last.id, name: last.name, label: pathLabel(path) } : null;
@@ -1595,7 +1658,7 @@ export class ReviewReader {
   });
 
   /** As fichas de um colega, para andar entre as vezes de uma obra no mural dele. */
-  private readonly pool = signal<readonly Review[]>([]);
+  protected readonly pool = signal<readonly Review[]>([]);
   /** Todas as vezes da obra aberta: a original e as rejogadas, na ordem. */
   protected readonly times = computed(() => {
     const r = this.review();

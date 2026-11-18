@@ -3,6 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Review, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { CardPicker } from './card-picker';
+import { folderTree } from '../core/folders';
 
 function card(id: string, name: string, kind: string, updatedAt: string, extra: Record<string, unknown> = {}): Review {
   return sanitizeReview({
@@ -55,6 +56,22 @@ describe('escolher a ficha da Nota', () => {
     el?.remove();
     fixture?.destroy();
     localStorage.clear();
+  });
+
+  it('com a lista e as pastas de quem usa (a visita: as que a pessoa publicou), só elas, nunca as suas', async () => {
+    fixture = TestBed.createComponent(CardPicker);
+    fixture.componentRef.setInput('source', [
+      card('rvisit1', 'Diário da viagem', 'anotacoes', '2026-10-07T10:00:00.000Z', { folder: 'pviagem01' }),
+      card('rvisit2', 'Roteiro', 'anotacoes', '2026-10-02T10:00:00.000Z'),
+    ]);
+    fixture.componentRef.setInput('folderTree', folderTree([{ id: 'pviagem01', name: 'Japão', parent: null, group: '' } as never]));
+    fixture.componentRef.setInput('onlyKind', 'anotacoes');
+    el = fixture.nativeElement as HTMLElement;
+    document.body.appendChild(el);
+    fixture.componentInstance.open.set(true);
+    await fixture.whenStable();
+    expect(names()).toEqual(['Diário da viagem', 'Roteiro']);
+    expect(el.querySelector('.escolha .meta')!.textContent).toContain('Japão');
   });
 
   it('todas as suas, de todos os murais, das mexidas por último primeiro; menos aquela onde vai ser colada', async () => {

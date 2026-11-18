@@ -80,6 +80,12 @@ const PECAS = [
     o: 'a cabeça de uma seção da parede, escrita a giz com o fio (PLANO-ETIQUETAS.md)',
   },
   {
+    peca: 'src/app/ui/card-picker.ts',
+    usa: 'app-card-picker',
+    marcas: [/aria-labelledby="colar-titulo"/, /class="item escolha"/],
+    o: 'o "Escolher a nota", com a busca e os filtros (na leitura, o "+" que abre outra anotação ao lado: PLANO-DUAS-NOTAS.md)',
+  },
+  {
     peca: 'src/app/ui/voz-fita.ts',
     usa: 'app-voz-fita',
     marcas: [/class="fita" role="group" aria-label="Ouvir a nota"/],
@@ -94,7 +100,8 @@ const VISITA = [
   { molde: 'src/app/ui/visit-boards.ts', pecas: ['app-study-group-tabs', 'app-free-board-card', 'app-free-board', 'app-free-board-top'] },
   { molde: 'src/app/ui/visit-kanban.ts', pecas: ['app-study-group-tabs', 'app-kanban-column-head', 'app-kanban-note'] },
   // a ficha aberta (a mesma do dono, na visita) traz a fita da voz
-  { molde: 'src/app/ui/review-reader.ts', pecas: ['app-voz-fita'] },
+  // e o "+" que abre outra anotação ao lado, com o seletor de sempre (as anotações que a pessoa publicou)
+  { molde: 'src/app/ui/review-reader.ts', pecas: ['app-voz-fita', 'app-card-picker', 'app-review-reader'] },
 ];
 
 /** As peças que a visita monta e que só leem: nada delas pode importar o que escreve. */
