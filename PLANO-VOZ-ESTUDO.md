@@ -85,6 +85,9 @@ aberta, então ganha tudo sem nada à parte.
 - Pedido depois (18/nov): tocar de novo na revelada a esconde (BUILD 964). O alvo do toque fica sobre a revelada (sem o
   desenho); com o mouse em cima, um tracejado laranja no pé da linha diz que tocar esconde. No modo estudo, o link de uma
   palavra revelada não abre (o toque é de esconder); com o modo desligado, abre.
+- Conserto (18/nov, BUILD 965): o spoiler revelado no modo estudo ficava sem rabisco (a letra dele sai do transparente numa
+  transição de 160ms, e o rabisco pegava a cor no meio dela). Agora a camada se redesenha no fim de uma transição de cor do
+  texto (as dos próprios rabiscos não contam, senão o mouse parado redesenharia em laço) e nunca pinta com tinta transparente.
 - Ficaram de fora, por mudarem o pedido (oferecer só se o dono pedir): ↑ ↓ e Espaço
   devolvidos à rolagem quando o foco está num bloco que rola; uma tecla que revela a frase lida; o modo estudo sem a voz;
   esconder só a língua da leitura e deixar a tradução; as palavras reveladas virarem cartas dos Flashcards.

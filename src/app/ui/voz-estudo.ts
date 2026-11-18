@@ -94,7 +94,16 @@ export class VozEstudo {
       this.layers.set(root, layer);
       // um bloco de código ou uma tabela que rola de lado leva as palavras junto
       root.addEventListener('scroll', schedule, { capture: true, passive: true });
-      this.undo.push(() => root.removeEventListener('scroll', schedule, { capture: true }));
+      // a cor que muda devagar (o spoiler revelado sai do transparente em 160ms): o rabisco pega a cor de chegada
+      // (só a cor do texto: as transições dos próprios rabiscos, o laranja do mouse e o sumir, não redesenham)
+      const colored = (e: TransitionEvent) => {
+        if (e.propertyName === 'color' && !this.owns(e.target as Node)) schedule();
+      };
+      root.addEventListener('transitionend', colored, { passive: true });
+      this.undo.push(() => {
+        root.removeEventListener('scroll', schedule, { capture: true });
+        root.removeEventListener('transitionend', colored);
+      });
     }
     if (typeof ResizeObserver === 'function') {
       // (a primeira chamada, logo ao observar, costuma trazer o tamanho já desenhado: só redesenha se mudou)
@@ -206,7 +215,7 @@ export class VozEstudo {
         const layer = root && this.layers.get(root);
         if (!parent || !root || !layer) continue;
         if (!open) hidden.push(range);
-        const look = lookOf(parent, looks);
+        const look = lookOf(parent, root, looks);
         const origin = origins.get(root)!;
         for (const rect of range.getClientRects()) {
           const r = clipped(rect, parent, root, clips);
@@ -323,14 +332,30 @@ function indexOf(target: EventTarget | null): number {
   return p === undefined ? -1 : Number(p);
 }
 
-function lookOf(el: Element, memo: Map<Element, Look>): Look {
+/**
+ * A tinta e o corpo da letra. A letra transparente (o spoiler no meio de se revelar, que sai do transparente
+ * devagar) não dá um rabisco invisível: vale a tinta do primeiro em volta que tem cor, até a raiz.
+ */
+function lookOf(el: Element, root: Element, memo: Map<Element, Look>): Look {
   let look = memo.get(el);
   if (!look) {
     const css = getComputedStyle(el);
-    look = { color: css.color, size: css.fontSize };
+    let color = css.color;
+    for (let up: Element | null = el; up && clear(color) && up !== root; ) {
+      up = up.parentElement;
+      if (up) color = getComputedStyle(up).color;
+    }
+    look = { color, size: css.fontSize };
     memo.set(el, look);
   }
   return look;
+}
+
+/** A cor não pinta nada (transparente, ou quase)? O navegador devolve "rgb(r, g, b)" ou "rgba(r, g, b, a)". */
+function clear(color: string): boolean {
+  if (color === 'transparent') return true;
+  const alpha = /^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\s*\)$/.exec(color)?.[1];
+  return alpha !== undefined && parseFloat(alpha) < 0.05;
 }
 
 /**

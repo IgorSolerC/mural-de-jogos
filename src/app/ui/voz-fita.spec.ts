@@ -486,6 +486,22 @@ describe('Ouvir a nota na ficha aberta', () => {
     expect(scribbles('.text').some((b) => b.dataset['p'] !== undefined)).toBeTrue();
   });
 
+  it('o spoiler revelado no modo estudo vira rabisco visível, na tinta do texto (e não na transparente do meio da transição)', async () => {
+    fixture.componentInstance.open(note('n-1', 'Spoiler', 'Antes. ||O fim chega.|| Depois.'));
+    await settle();
+    await listen('pt');
+    q<HTMLButtonElement>('.fita .estudo')!.click();
+    await settle();
+    expect(hiddenWords()).not.toContain('fim');
+    q<HTMLElement>('.text .spoiler')!.click();
+    await wait(400);
+    await settle();
+    expect(hiddenWords()).toContain('fim');
+    const fim = scribbles('.text').find((b) => hiddenWords()[Number(b.dataset['p'])] === 'fim')!;
+    expect(fim).toBeDefined();
+    expect(fim.style.color).not.toMatch(/rgba\([^)]*,\s*0\)|transparent/);
+  });
+
   it('na visita, o modo estudo é igual (só muda o que se vê neste aparelho)', async () => {
     fixture.componentInstance.open(note('n-1', 'の (De / Posse)', NO), 'Bruna', [], false, 'BRUN-A123');
     await settle();

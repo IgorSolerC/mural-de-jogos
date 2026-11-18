@@ -186,6 +186,37 @@ describe('o modo estudo da voz: o texto em rabisco', () => {
     expect(boxes().filter((b) => b.classList.contains('mao')).map((b) => b.dataset['p'])).toEqual(['1']);
   });
 
+  it('a letra que sai do transparente devagar (o spoiler revelado): o rabisco pega a cor de chegada, nunca a transparente', async () => {
+    mount('<p>Antes <span class="sp" style="color: transparent; transition: color 60ms linear">segredo</span>.</p>');
+    study.start([host], 'pt-BR');
+    const sp = () => boxes().find((b) => b.dataset['p'] === '1')!;
+    expect(sp().style.color).withContext('transparente: a tinta de fora').toBe('rgb(29, 35, 64)');
+    host.querySelector<HTMLElement>('.sp')!.style.color = 'rgb(200, 0, 0)';
+    study.refresh();
+    await new Promise((res) => setTimeout(res, 150));
+    await frame();
+    expect(sp().style.color).withContext('depois da transição, a cor dela').toBe('rgb(200, 0, 0)');
+  });
+
+  it('as transições dos próprios rabiscos (o laranja do mouse) não redesenham a camada', async () => {
+    mount('<p>Uma frase curta.</p>');
+    study.start([host], 'pt-BR');
+    const first = boxes()[1];
+    first.firstElementChild!.dispatchEvent(new TransitionEvent('transitionend', { bubbles: true, propertyName: 'background-color' }));
+    first.firstElementChild!.dispatchEvent(new TransitionEvent('transitionend', { bubbles: true, propertyName: 'color' }));
+    await frame();
+    expect(boxes()[1]).withContext('os mesmos rabiscos, sem redesenhar').toBe(first);
+    host.querySelector('p')!.dispatchEvent(new TransitionEvent('transitionend', { bubbles: true, propertyName: 'color' }));
+    await frame();
+    expect(boxes()[1]).withContext('a cor do texto que mudou redesenha').not.toBe(first);
+  });
+
+  it('a letra preta continua preta (rgb(0, 0, 0) não é transparente)', () => {
+    mount('<p style="color: rgb(0, 0, 0)">Preto.</p>');
+    study.start([host], 'pt-BR');
+    expect(boxes()[0].style.color).toBe('rgb(0, 0, 0)');
+  });
+
   it('o texto que muda (refresh): as palavras novas escondidas, a revelada continua revelada', () => {
     mount('<p>Um dois.</p>');
     study.start([host], 'pt-BR');
