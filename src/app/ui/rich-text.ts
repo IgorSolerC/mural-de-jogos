@@ -13,6 +13,7 @@ import { codeLangName, codeThemeOf } from '../core/code-langs';
 import { Settings } from '../core/settings';
 import { ICON, IconModule, iconMask } from './icons';
 import { BarOnRuling } from './bar-on-ruling';
+import { CodePaper } from './code-paper';
 import { NoteWidget } from './note-widget';
 import { PieceLift } from './piece-lift';
 import { ZoomKnob } from './zoom-knob';
@@ -110,14 +111,14 @@ import { ZoomKnob } from './zoom-knob';
           }
           @case ('code') {
             <!-- o bloco de código: a folha de formulário contínuo (o papel fica na peça; as letras rolam de
-                 lado por cima dele), a linguagem impressa no alto e Copiar no canto -->
+                 lado por cima dele), a linguagem impressa no canto da primeira linha e Copiar no lugar dela (ui/code-paper.ts) -->
             @let lingua = codeName(b);
-            <div class="codigo-peca" [attr.data-l]="at(b)" [attr.data-tema]="codeTheme(b)" [style.--recuo]="b.indent ?? null" role="group" [attr.aria-label]="lingua ? 'Código em ' + lingua : 'Código'">
+            <div class="codigo-peca" appCodePaper [attr.data-l]="at(b)" [attr.data-tema]="codeTheme(b)" [style.--recuo]="b.indent ?? null" role="group" [attr.aria-label]="lingua ? 'Código em ' + lingua : 'Código'">
               @if (lingua) {
-                <span class="codigo-lingua" aria-hidden="true">{{ lingua }}</span>
+                <span class="codigo-lingua" data-canto aria-hidden="true">{{ lingua }}</span>
               }
               <pre class="codigo" appBarOnRuling [attr.data-lingua]="b.lang ?? null"><code>@for (t of codeTokens(b); track $index) {@if (t.c) {<span [class]="t.c">{{ t.t }}</span>} @else {{{ t.t }}}}</code></pre>
-              <button type="button" class="codigo-copiar tocavel" aria-label="Copiar o código" title="Copiar o código" (click)="copyCode($event, b.text)"><lucide-icon [img]="CopyIcon" [size]="13" aria-hidden="true" /><span class="codigo-copiar-nome" aria-hidden="true">Copiar</span><span class="codigo-copiado" aria-hidden="true">Copiado</span></button>
+              <button type="button" class="codigo-copiar tocavel" data-canto aria-label="Copiar o código" title="Copiar o código" (click)="copyCode($event, b.text)"><lucide-icon [img]="CopyIcon" [size]="13" aria-hidden="true" /><span class="codigo-copiar-nome" aria-hidden="true">Copiar</span><span class="codigo-copiado" aria-hidden="true">Copiado</span></button>
             </div>
           }
           @case ('widget') {
@@ -241,7 +242,7 @@ import { ZoomKnob } from './zoom-knob';
     <!-- o link: um span com papel de link (quebra a linha junto com o texto, o que um botão não faz) -->
     <ng-template #elo let-s>@let l = links(); @let title = s.ref ?? s.text; @if (!l) {{{ '[[' + (s.ref ? s.ref + '|' : '') + s.text + ']]' }}} @else if (!l.resolve) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" [attr.title]="s.ref ?? null">{{ s.text }}</span>} @else {@let note = l.resolve(title); @if (note && l.open) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" role="link" tabindex="0" [attr.aria-label]="(s.ref ? s.text + ': ' : '') + 'abrir a anotação ' + note.game.name" (click)="go($event, note)" (keydown.enter)="go($event, note)">{{ s.text }}</span>} @else if (note) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle">{{ s.text }}</span>} @else if (l.create) {<span class="elo quebrado" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" role="button" tabindex="0" [attr.aria-label]="'Criar a anotação ' + title" [title]="'Ainda não tem uma anotação ' + title + '. Toque para criar.'" (click)="make($event, title)" (keydown.enter)="make($event, title)" (keydown.space)="make($event, title)">{{ s.text }}</span>} @else {<span class="elo quebrado" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" title="Essa anotação não existe ou não está à mostra">{{ s.text }}</span>}}</ng-template>
   `,
-  imports: [NgTemplateOutlet, NoteWidget, ZoomKnob, IconModule, BarOnRuling],
+  imports: [NgTemplateOutlet, NoteWidget, ZoomKnob, IconModule, BarOnRuling, CodePaper],
   styleUrl: './rich-text-codigo.scss',
   styles: `
     @use 'formatado';

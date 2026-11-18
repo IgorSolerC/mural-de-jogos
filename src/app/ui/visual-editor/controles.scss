@@ -280,15 +280,20 @@
 
 // ===== O bloco de código do cursor =====
 
-// na linha do cabeçalho do papel, como etiquetas coladas nele: a linguagem (no lugar do nome impresso, à
-// esquerda; abre o menu "Código" da régua) e Copiar, à direita
+// no canto direito da primeira linha do papel, como etiquetas coladas nele, no lugar do nome impresso: a
+// linguagem (abre o menu "Código" da régua) e Copiar. A primeira linha comprida ganha a largura delas para
+// rolar até aparecer inteira (ui/code-paper.ts)
+// Atrás deles, o esmaecido da faixa até a beirada (como atrás da linguagem impressa): a letra que passa por
+// baixo some nele, sem aparecer entre um e outro
 .vis-folha > .ProseMirror > pre.codigo > .vis-codigo-controles {
   position: absolute;
   z-index: 3;
-  top: calc((var(--line) - 24px) / 2);
-  left: calc(#{formatado.$cod-margem} + 0.4rem);
-  right: 8px;
-  justify-content: space-between;
+  top: 1px;
+  right: 1px;
+  height: calc(var(--line) - 1px);
+  padding: 0 8px 0 1.6rem;
+  background: linear-gradient(to right, transparent, var(--cod-faixa, #e8f1e0) 1.4rem);
+  justify-content: flex-end;
   // o toque no papel entre os dois chega ao bloco
   pointer-events: none;
   > * {
@@ -301,11 +306,6 @@
 }
 .vis-folha:focus-within > .ProseMirror > pre.codigo.vis-codigo-ativo > .vis-codigo-controles {
   display: flex;
-}
-@media (pointer: coarse) {
-  .vis-folha > .ProseMirror > pre.codigo > .vis-codigo-controles {
-    top: calc((var(--line) - 30px) / 2);
-  }
 }
 
 // ===== A tabela do cursor =====

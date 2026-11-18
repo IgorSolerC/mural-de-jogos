@@ -288,6 +288,41 @@ describe('o modo Visual do texto', () => {
         expect(pre.classList).not.toContain('vis-codigo-ativo');
       });
 
+      it('sem a linha do cabeçalho: o papel começa no código, e a pílula e o Copiar ficam no canto da primeira linha', async () => {
+        await make('fora\n```sql\nselect 1\nfrom t\n```');
+        const pre = fixture.nativeElement.querySelector('pre.codigo') as HTMLElement;
+        const code = pre.querySelector('code')!;
+        const line = parseFloat(getComputedStyle(pre).lineHeight);
+        expect(getComputedStyle(pre).paddingTop).toBe('0px');
+        expect(pre.getBoundingClientRect().height).toBeCloseTo(line * 2, 0);
+        expect(code.getBoundingClientRect().top).toBeCloseTo(pre.getBoundingClientRect().top, 0);
+        const lingua = pre.querySelector<HTMLElement>('.codigo-lingua')!;
+        expect(pre.getBoundingClientRect().right - lingua.getBoundingClientRect().right).toBeLessThan(20);
+        (view.dom as HTMLElement).focus();
+        noTexto(12);
+        const controles = pre.querySelector<HTMLElement>('.vis-codigo-controles')!;
+        const c = controles.getBoundingClientRect();
+        const p = pre.getBoundingClientRect();
+        expect(getComputedStyle(controles).display).toBe('flex');
+        expect(c.top + c.height / 2).toBeCloseTo(p.top + line / 2, 0);
+        expect(p.right - c.right).toBeLessThan(12);
+        expect(c.left).toBeGreaterThan(p.left + p.width / 2);
+      });
+
+      it('a primeira linha comprida ganha a largura do canto, sem o ProseMirror reler o bloco', async () => {
+        const { fitCodePaper } = await import('../code-paper');
+        await make('```ts\nconst primeira = "uma linha comprida que chega embaixo do canto";\nb\n```');
+        (fixture.nativeElement as HTMLElement).style.width = '420px';
+        const pre = fixture.nativeElement.querySelector('pre.codigo') as HTMLElement;
+        fitCodePaper(pre);
+        const reserva = parseFloat(pre.style.getPropertyValue('--cod-reserva'));
+        expect(reserva).toBeGreaterThan(30);
+        expect(parseFloat(getComputedStyle(pre.querySelector('code')!).paddingRight)).toBeCloseTo(reserva, 0);
+        await fixture.whenStable();
+        expect(fixture.nativeElement.querySelector('pre.codigo')).toBe(pre);
+        expect(valor).toBeNull();
+      });
+
       it('as cores chegam do colorir como decorações (o texto continua só letras)', async () => {
         const { loadCodeHighlight } = await import('../../core/code-highlight');
         await loadCodeHighlight();

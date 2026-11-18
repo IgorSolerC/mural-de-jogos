@@ -45,8 +45,9 @@
 }
 .codigo-peca > .codigo {
   margin-left: formatado.$cod-margem;
-  /* embaixo, a sobra da barra de rolar (ui/bar-on-ruling.ts): com ela, o papel fecha linhas inteiras */
-  padding: var(--line, 1.5em) 0.9em var(--sobra-barra, 0px) formatado.$cod-vao;
+  /* desde a primeira linha (a linguagem fica no canto dela); à direita, a largura do canto quando a primeira
+     linha chega embaixo dele (ui/code-paper.ts); embaixo, a sobra da barra de rolar (ui/bar-on-ruling.ts) */
+  padding: 0 max(0.9em, var(--cod-reserva, 0px)) var(--sobra-barra, 0px) formatado.$cod-vao;
   overflow-x: auto;
   overflow-y: hidden;
   white-space: pre;
@@ -56,8 +57,8 @@
 .codigo-lingua {
   @include formatado.codigo-lingua;
 }
-/* Copiar: a etiqueta de papel do site, pequena, na ponta direita do cabeçalho; aparece com o mouse em
-   cima ou o foco (no toque, sempre) */
+/* Copiar: a etiqueta de papel do site, pequena, no canto da primeira linha; com o mouse em cima ou o foco,
+   toma o lugar da linguagem (no toque fica sempre, só o desenho, com a linguagem ao lado) */
 .codigo-copiar {
   @include kit.botao-papel;
   & {
@@ -91,6 +92,15 @@
 .codigo-copiar.copiado {
   opacity: 1;
 }
+@media (hover: hover) {
+  .codigo-peca:is(:hover, :has(> .codigo-copiar:focus-visible)) > .codigo-lingua {
+    opacity: 0;
+  }
+}
+/* o "Copiado" é mais largo: enquanto ele está, a linguagem sai (também no toque, onde ela fica ao lado) */
+.codigo-peca:has(> .codigo-copiar.copiado) > .codigo-lingua {
+  opacity: 0;
+}
 .codigo-copiar:focus-visible {
   outline: 2.5px solid var(--ink, #151515);
   outline-offset: 2px;
@@ -99,13 +109,26 @@
   .codigo-copiar {
     opacity: 1;
   }
+  .codigo-copiar-nome {
+    display: none;
+  }
+  .codigo-lingua {
+    padding-right: calc(8px + 26px + 8px);
+  }
 }
 @media (pointer: coarse) {
   .codigo-copiar {
     min-height: 26px;
     height: 26px;
+    min-width: 26px;
+    justify-content: center;
     top: calc((var(--line, 1.5em) - 26px) / 2);
     padding: 0 9px 0 8px;
+  }
+  @media (hover: none) {
+    .codigo-copiar {
+      padding: 0;
+    }
   }
   .codigo-copiar::before {
     content: '';

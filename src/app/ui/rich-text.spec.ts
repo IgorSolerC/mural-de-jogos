@@ -731,9 +731,70 @@ describe('o código na leitura', () => {
     expect(pre.querySelector('.tk-pal')!.textContent).toBe('const');
     expect(getComputedStyle(pre.querySelector('.tk-pal')!).color).toBe('rgb(91, 45, 142)');
     expect(pre.querySelector('.tk-com')!.textContent).toBe('// um');
-    // o bloco ocupa linhas inteiras: meia linha em cima e embaixo
+    // o bloco ocupa só a linha dele: sem a linha do cabeçalho (a linguagem fica no canto dela)
     const line = parseFloat(getComputedStyle(pre).lineHeight);
-    expect(pre.getBoundingClientRect().height).toBeCloseTo(line * 2, 0);
+    expect(pre.getBoundingClientRect().height).toBeCloseTo(line, 0);
+  });
+
+  it('o papel começa no código: N linhas são N linhas da pauta, a primeira com a faixa', async () => {
+    const el = await render('```js\na\nb\nc\n```');
+    const peca = el.querySelector<HTMLElement>('.codigo-peca')!;
+    const pre = peca.querySelector<HTMLElement>('pre.codigo')!;
+    const line = parseFloat(getComputedStyle(pre).lineHeight);
+    expect(peca.getBoundingClientRect().height).toBeCloseTo(line * 3, 0);
+    expect(pre.getBoundingClientRect().top).toBeCloseTo(peca.getBoundingClientRect().top, 0);
+    expect(getComputedStyle(pre).paddingTop).toBe('0px');
+    // as faixas começam no alto do papel (antes, uma linha abaixo, depois do cabeçalho)
+    expect(getComputedStyle(peca, '::before').backgroundPosition.split(',')[2].trim()).toMatch(/ 0px$/);
+  });
+
+  it('a linguagem no canto direito da primeira linha, sobre o esmaecido da faixa, e o Copiar no mesmo canto', async () => {
+    const el = await render('```ts\nlet a = 1\nlet b = 2\n```');
+    // como na leitura, a pauta é dita por quem usa (sem ela, cada peça teria a linha da própria letra)
+    el.style.setProperty('--line', '24px');
+    const peca = el.querySelector<HTMLElement>('.codigo-peca')!;
+    const pre = peca.querySelector<HTMLElement>('pre.codigo')!;
+    const line = parseFloat(getComputedStyle(pre).lineHeight);
+    const lingua = peca.querySelector<HTMLElement>('.codigo-lingua')!;
+    const copiar = peca.querySelector<HTMLElement>('.codigo-copiar')!;
+    const p = peca.getBoundingClientRect();
+    const l = lingua.getBoundingClientRect();
+    // um tico para dentro: o fio da beirada do papel continua à vista
+    expect(l.top - p.top).toBeCloseTo(1, 0);
+    expect(l.height).toBeCloseTo(line - 1, 0);
+    expect(p.right - l.right).toBeLessThan(20);
+    expect(getComputedStyle(lingua).backgroundImage).toContain('linear-gradient');
+    const c = copiar.getBoundingClientRect();
+    expect(c.top).toBeGreaterThanOrEqual(p.top - 1);
+    expect(c.bottom).toBeLessThanOrEqual(p.top + line + 1);
+    expect(p.right - c.right).toBeLessThan(20);
+    expect(lingua.hasAttribute('data-canto')).toBeTrue();
+    expect(copiar.hasAttribute('data-canto')).toBeTrue();
+  });
+
+  it('a primeira linha comprida ganha a largura do canto (rolando até o fim ela aparece inteira); a curta, não', async () => {
+    const { fitCodePaper, firstLineEnd } = await import('./code-paper');
+    const longa1 = 'const primeira = "uma linha bem comprida que passa do canto";';
+    const longa2 = 'const segunda = "uma linha bem comprida que passa do canto";';
+    const el = await render('```ts\n' + longa1 + '\nb\n```\n\n```ts\na\n' + longa2 + '\n```');
+    el.style.cssText = 'display: block; width: 320px';
+    const [longa, curta] = [...el.querySelectorAll<HTMLElement>('.codigo-peca')];
+    fitCodePaper(longa);
+    fitCodePaper(curta);
+    const reserva = parseFloat(longa.style.getPropertyValue('--cod-reserva'));
+    expect(reserva).toBeGreaterThan(30);
+    const pre = longa.querySelector<HTMLElement>('pre.codigo')!;
+    expect(parseFloat(getComputedStyle(pre).paddingRight)).toBeCloseTo(reserva, 0);
+    pre.scrollLeft = pre.scrollWidth;
+    const fim = pre.getBoundingClientRect().left + firstLineEnd(pre) - pre.scrollLeft;
+    const canto = Math.min(...[...longa.querySelectorAll<HTMLElement>('[data-canto]')].map((e) => e.getBoundingClientRect().left));
+    expect(fim).toBeLessThanOrEqual(canto);
+    // a primeira linha curta não paga nada, mesmo com a segunda comprida
+    expect(curta.style.getPropertyValue('--cod-reserva')).toBe('');
+    // ficou curta: a reserva sai
+    el.style.width = '2000px';
+    fitCodePaper(longa);
+    expect(longa.style.getPropertyValue('--cod-reserva')).toBe('');
   });
 
   it('sem linguagem, sem etiqueta nem cores; o Copiar leva só as letras e diz que copiou', async () => {

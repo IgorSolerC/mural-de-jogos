@@ -442,6 +442,10 @@
     right: 0.9em;
     left: auto;
     max-width: 50%;
+    padding: 0;
+    // o esmaecido da tela (a letra some embaixo dela): no PDF, a caixa tem o vão para ela
+    background: none;
+    opacity: 1;
     color: var(--pdf-tinta-3);
     font-family: var(--pdf-letra);
     font-weight: 600;

@@ -4,6 +4,7 @@ import { Decoration, DecorationSet, EditorView, NodeView } from 'prosemirror-vie
 import { CodeRange, codeHighlightLoaded, codeRanges, loadCodeHighlight } from '../../core/code-highlight';
 import { CodeTheme, codeLangName, codeLangOf, codeThemeOf, withCodeLang, withCodeTheme } from '../../core/code-langs';
 import { unwatchBar, watchBar } from '../bar-on-ruling';
+import { unwatchCodePaper, watchCodePaper } from '../code-paper';
 import { ICON } from '../icons';
 import { desenho, etiqueta } from './controles';
 import { codigo } from './keymap';
@@ -13,9 +14,9 @@ import type { AcaoCodigo, EstadoCodigo } from './visual-api';
 /**
  * O bloco de código no Visual (ver core/code-langs.ts e ui/_formatado.scss): a folha de formulário contínuo
  * da leitura, com o que se escreve direto nela. A linguagem ("```js") é o atributo `lingua` do nó: a
- * etiqueta dela fica impressa no alto do papel, e as cores vêm do mesmo colorir da leitura
+ * etiqueta dela fica impressa no canto da primeira linha, e as cores vêm do mesmo colorir da leitura
  * (core/code-highlight.ts), como decorações (o texto continua só letras). Com o cursor no bloco, dois botões
- * do kit (controles.ts) presos no canto de cima do papel: a linguagem (que abre o menu "Código" da régua,
+ * do kit (controles.ts) no lugar dela (ui/code-paper.ts): a linguagem (que abre o menu "Código" da régua,
  * com as comuns e o campo para escrever outra) e Copiar.
  */
 
@@ -81,21 +82,27 @@ export class CodigoView implements NodeView {
     this.etiqueta.className = 'codigo-lingua';
     this.etiqueta.contentEditable = 'false';
     this.etiqueta.setAttribute('aria-hidden', 'true');
+    this.etiqueta.dataset['canto'] = '';
     this.contentDOM = document.createElement('code');
     this.controles = document.createElement('span');
     this.controles.className = 'vis-controles vis-codigo-controles';
     this.controles.contentEditable = 'false';
     this.controles.setAttribute('role', 'toolbar');
     this.controles.setAttribute('aria-label', 'Bloco de código');
+    this.controles.dataset['canto'] = '';
     this.dom.append(this.etiqueta, this.contentDOM, this.controles);
     this.desenha();
     // quem rola é o <code>; a sobra da barra (ver ui/bar-on-ruling.ts) é escrita no <pre>, cujos atributos
     // o ProseMirror não relê (ver ignoreMutation)
     watchBar(this.contentDOM, 'pai');
+    // a linguagem (ou os botões do bloco do cursor) no canto da primeira linha: a reserva dele (`--cod-reserva`)
+    // também é escrita no <pre>
+    watchCodePaper(this.dom, this.contentDOM);
   }
 
   destroy(): void {
     unwatchBar(this.contentDOM);
+    unwatchCodePaper(this.dom);
   }
 
   private desenha(): void {

@@ -264,16 +264,17 @@ $cod-vao: 0.7rem;
   }
 }
 
-// O papel do formulário, nas linhas da pauta: a primeira linha é o cabeçalho impresso (a linguagem e, na
-// leitura, o Copiar), e cada linha de código cai numa linha da pauta, como o texto à mão. As faixas verdes
-// ficam atrás de uma linha de código sim, uma não (a beirada de cada uma na linha da pauta); na tira da
-// esquerda, o picote em pé e os furos do trator, um no meio de cada linha, com o anel verde em volta.
+// O papel do formulário, nas linhas da pauta: cada linha de código cai numa linha da pauta, como o texto à
+// mão, desde a primeira (a linguagem fica no canto dela, ver `codigo-lingua` e ui/code-paper.ts). As faixas
+// verdes ficam atrás de uma linha de código sim, uma não, a primeira com faixa (a beirada de cada uma na linha
+// da pauta); na tira da esquerda, o picote em pé e os furos do trator, um no meio de cada linha, com o anel
+// verde em volta.
 // O fio verde fino em volta é a beirada do papel na cartolina.
 @mixin codigo-papel {
   background:
     repeating-linear-gradient(to bottom, var(--cod-picote, rgb(47 107 58 / 0.42)) 0 2px, transparent 2px 5px) #{$cod-margem} 0 / 1px 100% no-repeat,
     radial-gradient(circle, transparent 3.2px, var(--cod-furo, rgb(47 107 58 / 0.3)) 3.5px 4.3px, transparent 4.7px) 0 0 / #{$cod-margem} var(--line, 1.5em) repeat-y,
-    repeating-linear-gradient(to bottom, var(--cod-faixa, #e8f1e0) 0 var(--line, 1.5em), transparent var(--line, 1.5em) calc(var(--line, 1.5em) * 2)) #{$cod-margem} var(--line, 1.5em) / calc(100% - #{$cod-margem}) calc(100% - var(--line, 1.5em)) no-repeat,
+    repeating-linear-gradient(to bottom, var(--cod-faixa, #e8f1e0) 0 var(--line, 1.5em), transparent var(--line, 1.5em) calc(var(--line, 1.5em) * 2)) #{$cod-margem} 0 / calc(100% - #{$cod-margem}) 100% no-repeat,
     var(--cod-fundo, #fbfcf6);
   border-radius: 2px;
   box-shadow: inset 0 0 0 1px var(--cod-beira, rgb(47 107 58 / 0.16));
@@ -281,24 +282,33 @@ $cod-vao: 0.7rem;
   mask: radial-gradient(circle at calc(#{$cod-margem} / 2) 50%, #0000 3.1px, #000 3.7px) 0 0 / 100% var(--line, 1.5em) repeat-y;
 }
 
-// a linguagem, impressa miúda na linha do cabeçalho (na tinta verde do papel)
+// a linguagem, impressa miúda no canto direito da primeira linha de código (na tinta verde do papel), sobre
+// um esmaecido da cor da faixa: a letra que passa por baixo some nele, como some na beirada. Quem usa diz o
+// vão à direita dela (`padding-right`: o lugar do Copiar, quando ele fica junto) e quando ela some (o Copiar
+// tomando o lugar). O esmaecido vai até a beirada: nenhuma letra aparece entre ela e o Copiar
 @mixin codigo-lingua {
   position: absolute;
-  top: 0;
-  left: $cod-margem + $cod-vao;
-  max-width: calc(100% - #{$cod-margem + $cod-vao} - 6rem);
+  // (um tico para dentro: o fio da beirada do papel continua à vista)
+  top: 1px;
+  right: 1px;
+  padding-right: 0.9rem;
+  /* a palavra escrita à mão comprida não cobre a linha: corta em reticências */
+  max-width: 45%;
   overflow: hidden;
+  padding-left: 2.6em;
+  background: linear-gradient(to right, transparent, var(--cod-faixa, #e8f1e0) 2.2em);
   color: var(--cod-etiqueta, #2f6b3a);
   font-family: var(--f-label);
   font-weight: 800;
   font-size: 0.62rem;
   letter-spacing: 0.14em;
-  line-height: var(--line, 1.5em);
+  line-height: calc(var(--line, 1.5em) - 1px);
   text-overflow: ellipsis;
   text-transform: uppercase;
   white-space: nowrap;
   pointer-events: none;
   user-select: none;
+  transition: opacity var(--t-ui, 160ms) var(--ease-ui, ease-out);
 }
 
 @mixin titulos {

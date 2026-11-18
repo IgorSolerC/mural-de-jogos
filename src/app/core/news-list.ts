@@ -27,6 +27,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-17-codigo-mais-baixo',
+    version: '1.49.1',
+    kind: 'ajustes',
+    date: '2026-11-17',
+    title: 'O bloco de código mais baixo',
+    melhorias: [
+      'O bloco de código perdeu a linha do cabeçalho: a linguagem fica no canto da primeira linha do código, e com o mouse em cima o Copiar toma o lugar dela (no celular, o Copiar fica sempre, só o desenho, ao lado da linguagem). No Visual, a escolha da linguagem e o Copiar ficam no mesmo canto. A primeira linha comprida rola até aparecer inteira antes deles.',
+    ],
+  },
+  {
     id: '2026-11-17-pastas-para-outro-grupo',
     version: '1.49.0',
     kind: 'funcionalidade',
