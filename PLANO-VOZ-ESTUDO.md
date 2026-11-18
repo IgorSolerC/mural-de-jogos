@@ -82,6 +82,9 @@ aberta, então ganha tudo sem nada à parte.
   equilibradas da chapa a 320px e o nome do botão para o leitor de tela ("o texto vira rabisco na tela"). O /code-review high
   achou que outra fita que parava (a anotação ao lado fechando) apagava o realce desta, e os alvos de duas palavras curtas
   vizinhas se cobrindo; os dois consertados.
-- Ficaram de fora, por mudarem o pedido (oferecer só se o dono pedir): esconder de novo uma palavra revelada; ↑ ↓ e Espaço
+- Pedido depois (18/nov): tocar de novo na revelada a esconde (BUILD 964). O alvo do toque fica sobre a revelada (sem o
+  desenho); com o mouse em cima, um tracejado laranja no pé da linha diz que tocar esconde. No modo estudo, o link de uma
+  palavra revelada não abre (o toque é de esconder); com o modo desligado, abre.
+- Ficaram de fora, por mudarem o pedido (oferecer só se o dono pedir): ↑ ↓ e Espaço
   devolvidos à rolagem quando o foco está num bloco que rola; uma tecla que revela a frase lida; o modo estudo sem a voz;
   esconder só a língua da leitura e deixar a tradução; as palavras reveladas virarem cartas dos Flashcards.

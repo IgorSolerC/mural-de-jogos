@@ -388,6 +388,8 @@ body {
   position: absolute;
   pointer-events: auto;
   cursor: pointer;
+  /* revelar e esconder com dois toques seguidos, sem o zoom do toque duplo do celular */
+  touch-action: manipulation;
 }
 /* o desenho, do tamanho exato da palavra, dentro do alvo do toque (que cresce para os lados nas palavras curtas) */
 .voz-rabiscos > span > i {
@@ -410,11 +412,19 @@ body {
   background-color: rgb(214 98 36);
   opacity: 1;
 }
-.voz-rabiscos > .saindo {
-  pointer-events: none;
-}
-.voz-rabiscos > .saindo > i {
+.voz-rabiscos > .aberta > i {
   opacity: 0;
+}
+/* a revelada com o mouse em cima: um tracejado laranja embaixo dela diz que tocar a esconde de novo (no pé da
+   linha, abaixo do fio laranja da frase lida, que fica 3px sob a letra) */
+.voz-rabiscos > .aberta.mao > i {
+  inset: auto var(--pad-r, 0px) -1px var(--pad-l, 0px);
+  height: 0;
+  border-bottom: 2px dashed rgb(214 98 36);
+  background: none;
+  opacity: 1;
+  -webkit-mask: none;
+  mask: none;
 }
 @media (prefers-reduced-motion: reduce) {
   .voz-rabiscos > span > i {

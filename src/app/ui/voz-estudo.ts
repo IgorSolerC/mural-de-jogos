@@ -1,13 +1,10 @@
 import { LACO } from './rabisco';
 import { Piece, rangesOf, wordsOf } from './voz-frases';
-import { reducedMotion } from '../core/motion';
 
 /** O nome do realce que deixa as letras escondidas transparentes (styles.scss). */
 export const STUDY_HIGHLIGHT = 'voz-estudo';
 /** A camada dos rabiscos, dentro de cada raiz (o CSS dela mora em styles.scss: ela é criada aqui, fora de um componente). */
 export const STUDY_LAYER = 'voz-rabiscos';
-/** Quanto o rabisco leva para sumir quando a palavra é revelada (ms). */
-const FADE_MS = 160;
 /** A largura mínima de onde o dedo pega uma palavra ("o", "e", の são um laço só): o rabisco continua do tamanho dela. */
 const MIN_TAP = 24;
 
@@ -20,12 +17,12 @@ interface Look {
 /**
  * O modo estudo da voz (PLANO-VOZ-ESTUDO.md): o que a voz lê vira rabisco, cada palavra (letra, kana, kanji,
  * número) um laço cursivo do tamanho dela, como o texto das descrições secretas (ui/rabisco.ts); a pontuação,
- * os espaços e os símbolos ficam. Tocar numa palavra a revela.
+ * os espaços e os símbolos ficam. Tocar numa palavra a revela; tocar de novo a esconde.
  *
  * O HTML que o Angular desenha não é tocado: as letras ficam onde estão, transparentes por um realce
  * (`::highlight(voz-estudo)`, acima do marca-texto da voz), e os rabiscos vão numa camada por cima, um por
  * pedaço de linha de cada palavra (`Range.getClientRects`). Por isso nada se mexe ao revelar: só o realce e o
- * rabisco daquela palavra saem. A camada se redesenha quando a folha muda de largura, a fonte chega, um bloco
+ * rabisco daquela palavra saem (o alvo do toque fica, para esconder de novo). A camada se redesenha quando a folha muda de largura, a fonte chega, um bloco
  * rola de lado ou o texto muda (`refresh`, chamado por quem observa o texto).
  */
 export class VozEstudo {
@@ -85,10 +82,10 @@ export class VozEstudo {
       const click = (e: MouseEvent) => {
         const i = indexOf(e.target);
         if (i < 0) return;
-        // a palavra escondida é só para revelar: não abre o link, o card ou a frase que está embaixo
+        // no modo estudo, tocar numa palavra é revelar ou esconder: não abre o link, o card ou a frase que está embaixo
         e.preventDefault();
         e.stopPropagation();
-        this.reveal(i);
+        this.toggle(i);
       };
       layer.addEventListener('pointerover', over);
       layer.addEventListener('pointerout', out);
@@ -201,13 +198,14 @@ export class VozEstudo {
     // refazer a página inteira a cada palavra
     const marks: Mark[] = [];
     this.words.forEach((pieces, i) => {
-      if (this.isRevealed(pieces)) return;
+      // a revelada também ganha o alvo do toque (sem o desenho), para esconder de novo
+      const open = this.isRevealed(pieces);
       for (const range of this.ranges[i]) {
         const parent = range.startContainer.parentElement;
         const root = parent && this.roots.find((r) => r.contains(parent));
         const layer = root && this.layers.get(root);
         if (!parent || !root || !layer) continue;
-        hidden.push(range);
+        if (!open) hidden.push(range);
         const look = lookOf(parent, looks);
         const origin = origins.get(root)!;
         for (const rect of range.getClientRects()) {
@@ -215,16 +213,17 @@ export class VozEstudo {
           if (!r) continue;
           // o alvo do toque cresce para os lados até MIN_TAP; o desenho (o filho) fica do tamanho da palavra
           const pad = Math.max(0, (MIN_TAP - r.width) / 2);
-          marks.push({ i, layer, x: r.left - origin.x, y: r.top - origin.y, w: r.width, h: r.height, left: pad, right: pad, look });
+          marks.push({ i, open, layer, x: r.left - origin.x, y: r.top - origin.y, w: r.width, h: r.height, left: pad, right: pad, look });
         }
       }
     });
     trimPads(marks);
-    for (const { i, layer, x, y, w, h, left, right, look } of marks) {
+    for (const { i, open, layer, x, y, w, h, left, right, look } of marks) {
       const box = layer.ownerDocument.createElement('span');
       box.dataset['p'] = String(i);
       // uma palavra um pouco mais alta que a outra, como no app-rabisco (a mão que rabisca depressa)
-      if (i % 3 === 1) box.className = 'alto';
+      if (i % 3 === 1) box.classList.add('alto');
+      if (open) box.classList.add('aberta');
       box.style.cssText = `left:${x - left}px;top:${y}px;width:${w + left + right}px;height:${h}px;--pad-l:${left}px;--pad-r:${right}px;color:${look.color};font-size:${look.size}`;
       // o desenho num filho: a máscara do rabisco também recorta onde o toque pega, e o alvo é maior que ele
       box.append(layer.ownerDocument.createElement('i'));
@@ -248,26 +247,27 @@ export class VozEstudo {
     for (const box of this.boxes[i] ?? []) box.classList.add('mao');
   }
 
-  /** Revela a palavra: o realce sai dela, e o rabisco some (num instante). Nada muda de tamanho. */
-  reveal(i: number): void {
+  /**
+   * Revela a palavra escondida, ou esconde de novo a revelada: o realce sai ou volta, e o rabisco some ou volta
+   * (num instante, pelo CSS). O alvo do toque fica no lugar. Nada muda de tamanho.
+   */
+  toggle(i: number): void {
     const pieces = this.words[i];
-    if (!pieces?.length || this.isRevealed(pieces)) return;
+    if (!pieces?.length) return;
     const first = pieces[0];
     let set = this.revealed.get(first.node);
     if (!set) this.revealed.set(first.node, (set = new Set()));
-    set.add(first.from);
+    const open = !set.has(first.from);
+    if (open) set.add(first.from);
+    else set.delete(first.from);
     const hl = CSS.highlights.get(STUDY_HIGHLIGHT);
-    for (const range of this.ranges[i]) hl?.delete(range);
-    if (this.hovered === i) this.hovered = -1;
-    const boxes = this.boxes[i];
-    this.boxes[i] = [];
-    if (reducedMotion()) {
-      boxes.forEach((b) => b.remove());
-      return;
+    for (const range of this.ranges[i]) {
+      if (open) hl?.delete(range);
+      else hl?.add(range);
     }
-    for (const box of boxes) box.classList.add('saindo');
-    setTimeout(() => boxes.forEach((b) => b.remove()), FADE_MS);
+    for (const box of this.boxes[i]) box.classList.toggle('aberta', open);
   }
+
 }
 
 /** O tamanho da raiz como o observador de tamanho a vê (a caixa do conteúdo). */
@@ -278,6 +278,8 @@ function sizeOf(el: HTMLElement): string {
 /** Um pedaço de linha de uma palavra a rabiscar: o lugar na camada, a folga do toque de cada lado e a tinta. */
 interface Mark {
   i: number;
+  /** A palavra revelada: o alvo fica, sem o desenho. */
+  open: boolean;
   layer: HTMLElement;
   x: number;
   y: number;

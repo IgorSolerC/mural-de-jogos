@@ -10,7 +10,8 @@ describe('o modo estudo da voz: o texto em rabisco', () => {
 
   function mount(markup: string): HTMLElement {
     host = document.body.appendChild(document.createElement('div'));
-    host.style.cssText = 'width: 420px; font: 20px/1.6 sans-serif; color: rgb(29, 35, 64)';
+    // preso no alto da tela, por cima de tudo: o que outros testes deixam na página não cobre o ponto que se toca
+    host.style.cssText = 'position: fixed; top: 0; left: 0; z-index: 2147483647; background: #fff; width: 420px; font: 20px/1.6 sans-serif; color: rgb(29, 35, 64)';
     host.innerHTML = markup;
     return host;
   }
@@ -107,10 +108,32 @@ describe('o modo estudo da voz: o texto em rabisco', () => {
       .filter((b) => b.dataset['p'] !== '1')
       .forEach((b) => expect(shape).toContain(b.getBoundingClientRect().toJSON()));
     await new Promise((res) => setTimeout(res, 220));
-    expect(boxes().some((b) => b.dataset['p'] === '1')).withContext('o rabisco revelado saiu').toBeFalse();
+    const open = boxes().filter((b) => b.dataset['p'] === '1');
+    expect(open.length).withContext('o alvo do toque fica, para esconder de novo').toBe(1);
+    expect(open[0].classList).toContain('aberta');
+    expect(getComputedStyle(open[0].firstElementChild!).opacity).withContext('o rabisco sumiu').toBe('0');
   });
 
-  it('o clique na palavra escondida só revela: não chega ao link nem ao card que está embaixo', () => {
+  it('tocar de novo na revelada a esconde outra vez, no mesmo lugar; e assim fica depois de redesenhar', () => {
+    mount('<p>Uma frase curta.</p>');
+    study.start([host], 'pt-BR');
+    const frase = () => boxes().find((b) => b.dataset['p'] === '1')!;
+    const shape = host.querySelector('p')!.getBoundingClientRect().toJSON();
+    frase().click();
+    expect(hidden()).toEqual(['Uma', 'curta']);
+    frase().click();
+    expect(hidden()).toEqual(['Uma', 'curta', 'frase']);
+    expect(frase().classList).not.toContain('aberta');
+    expect(host.querySelector('p')!.getBoundingClientRect().toJSON()).toEqual(shape);
+    study.refresh();
+    expect(hidden()).toEqual(['Uma', 'frase', 'curta']);
+    frase().click();
+    study.refresh();
+    expect(hidden()).toEqual(['Uma', 'curta']);
+    expect(frase().classList).withContext('a revelada, redesenhada, continua um alvo').toContain('aberta');
+  });
+
+  it('no modo estudo, o clique na palavra só revela ou esconde: não chega ao link nem ao card que está embaixo', () => {
     mount('<details><summary><a href="#x">Título</a> do card</summary><div>Dentro.</div></details>');
     let clicked = 0;
     host.addEventListener('click', () => clicked++);
@@ -119,6 +142,10 @@ describe('o modo estudo da voz: o texto em rabisco', () => {
     expect(clicked).toBe(0);
     expect(host.querySelector('details')!.open).toBeFalse();
     expect(hidden()).toEqual(['do', 'card']);
+    boxes()[0].click();
+    expect(clicked).withContext('a revelada também não abre o link').toBe(0);
+    expect(host.querySelector('details')!.open).toBeFalse();
+    expect(hidden()).toEqual(['do', 'card', 'Título']);
   });
 
   it('duas palavras curtas vizinhas ("e o"): o alvo de cada uma para no meio do vão, sem pegar a outra', () => {
