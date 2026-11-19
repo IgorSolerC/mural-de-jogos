@@ -27,6 +27,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-19-forno-das-cartolinas',
+    version: '1.50.2',
+    kind: 'ajustes',
+    date: '2026-11-19',
+    title: 'As cartolinas do mural guardadas como imagem',
+    melhorias: [
+      'O papel das cartolinas do mural (a textura, a estampa, o rabisco, o estrago, as manchas e as decorações) é desenhado uma vez e guardado como imagem, igual à de sempre: o navegador não refaz esses desenhos e recortes a cada vez que a ficha muda ou a página rola.',
+    ],
+  },
+  {
     id: '2026-11-18-titulo-dos-cards',
     version: '1.50.1',
     kind: 'ajustes',

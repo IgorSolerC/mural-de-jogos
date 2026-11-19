@@ -21,6 +21,7 @@ import { dropMask, holdMask, maskClass } from './mask-rules';
 import { isVeiled, reveal, veil } from './veil';
 import { reducedMotion } from '../core/motion';
 import { IdleDeadlineLike, whenIdle } from '../core/idle';
+import { Assada, Fornada, Grupo, desenfornar, enfornar, fornoEpoca, grupos, pegar, receita, retomar, soltar } from './forno';
 
 let uids = 0;
 
@@ -159,7 +160,8 @@ export class PaperDefs {}
     }
     <div class="papel camada" [class]="maskCls()"></div>
     @if (glitter()) {
-      <div class="faisca camada" [class]="maskCls()"></div>
+      <!-- acende com o mouse: fica viva, fora do forno -->
+      <div class="faisca camada" data-forno-viva [class]="maskCls()"></div>
     }
     @if (art(); as a) {
       @if (a.fundo) {
@@ -299,6 +301,28 @@ export class PaperDefs {}
       opacity: calc(var(--luz, 0) * var(--faisca-forca, 0.9));
       transition: opacity 600ms var(--ease-physical);
     }
+    /* Assada (ver ui/forno.ts): a camada mostra a imagem do grupo dela, que já traz o recorte, o
+       desenho e o que passa da beirada; as outras camadas do grupo e o desenho vivo saem de cena (e
+       voltam na hora em que a imagem deixa de valer). A que tem a mistura assada junto entra por cima,
+       sem misturar de novo; a que mistura sozinha (o relevo) continua misturando ao vivo. */
+    .camada.assada {
+      inset: var(--assada-inset) !important;
+      background: var(--assada) 0 0 / 100% 100% no-repeat !important;
+      background-blend-mode: normal !important;
+      mask: none !important;
+      -webkit-mask: none !important;
+      border-radius: 0 !important;
+      overflow: visible !important;
+    }
+    .camada.assada.fundida {
+      mix-blend-mode: normal !important;
+      opacity: 1 !important;
+    }
+    /* (o desenho entra pelo innerHTML, sem o atributo do componente: daí o ::ng-deep) */
+    .camada.assada > ::ng-deep *,
+    .camada.assada-junto {
+      display: none !important;
+    }
   `,
 })
 export class PaperArtLayer {
@@ -329,6 +353,11 @@ export class PaperArtLayer {
   readonly dark = input(false);
   /** Muda quando o que está escrito na ficha muda: hora de medir de novo onde cada texto está. */
   readonly content = input<unknown>(null);
+  /**
+   * O que pinta o papel por fora destas camadas (a cor, a textura e a estampa, que chegam por
+   * variáveis de CSS da ficha): quando muda, a imagem do forno deixa de valer.
+   */
+  readonly look = input<string>('');
 
   // o carvão dos queimados (e do furinho do raio) cobre a beirada do recorte, sem vazar para o buraco
   protected readonly burnDamage = computed(() => this.damage() === 'furado' || this.damage() === 'queimado' || this.damage() === 'raio');
@@ -480,9 +509,31 @@ export class PaperArtLayer {
         this.held = now;
       });
     });
+    // o desenho ou o que o pinta por fora mudou (a pessoa trocou o papel, a outra pessoa da anotação
+    // compartilhada também, a página trocou de classe ou de densidade): a imagem do forno sai na hora,
+    // antes de o molde mostrar o desenho novo, e a ficha assa de novo quando der
+    effect(() => {
+      this.html();
+      this.decorHtml();
+      this.lapisHtml();
+      this.maskCls();
+      this.burnCls();
+      this.outerCls();
+      this.look();
+      this.dark();
+      this.glitter();
+      fornoEpoca();
+      untracked(() => {
+        this.lembrada = null;
+        this.desassar();
+        this.querAssar();
+      });
+    });
     const destroy = inject(DestroyRef);
     destroy.onDestroy(() => {
       forget(this);
+      desenfornar(this.fornada);
+      this.desassar();
       for (const v of this.held) dropMask(v);
       this.held = [];
     });
@@ -551,15 +602,132 @@ export class PaperArtLayer {
     const s = this.size();
     const changed = !s || s.W !== at.W || s.H !== at.H;
     const ghosts = crossfade && changed && s && this.needsArt() ? this.ghost() : [];
+    // a imagem do forno era do tamanho velho (a cópia que some leva a imagem junto)
+    if (changed) this.desassar();
     if (changed) this.size.set(at);
     this.waking = false;
     this.cdr.detectChanges();
     for (const { el, from } of ghosts) {
       const a = el.animate([{ opacity: from }, { opacity: 0 }], { duration: CROSSFADE, easing: 'ease-in-out', fill: 'forwards' });
       a.finished.then(
-        () => el.remove(),
+        () => {
+          el.remove();
+          // o papel velho sumiu: agora dá para assar o novo
+          this.querAssar();
+        },
         () => el.remove(),
       );
+    }
+  }
+
+  // ===== o forno (ver ui/forno.ts) =====
+
+  /** As imagens assadas em uso, cada uma na camada que a mostra, e as camadas que ela esconde. */
+  private assadas: { lider: HTMLElement; juntas: HTMLElement[]; assada: Assada }[] = [];
+  /** Muda a cada vez que a imagem deixa de valer: o que estava assando para isso é jogado fora. */
+  private fornadas = 0;
+  /**
+   * As imagens da última fornada, no tamanho e na densidade em que foram assadas: a ficha que dormiu
+   * e acordou pega de volta do cache do forno, sem refazer a receita. Some quando o papel muda.
+   */
+  private lembrada: { W: number; H: number; escala: number; assadas: Assada[] } | null = null;
+
+  /** O papel desta ficha no forno: assa quando a ficha está quieta na página. */
+  private readonly fornada: Fornada = {
+    pronta: () => {
+      const card = this.card;
+      return (
+        !!card &&
+        card.isConnected &&
+        this.veils &&
+        !this.assadas.length &&
+        !!this.size() &&
+        !card.hasAttribute(ASLEEP) &&
+        !isVeiled(card) &&
+        !this.ghosts.some((g) => g.isConnected) &&
+        !waiting.has(this)
+      );
+    },
+    distancia: () => {
+      const r = this.card!.getBoundingClientRect();
+      return r.bottom < 0 ? -r.bottom : r.top > innerHeight ? r.top - innerHeight : 0;
+    },
+    assar: () => this.assar(),
+  };
+
+  /** Pede ao forno que asse esta ficha (só as do mural: a prévia do editor muda a cada clique). */
+  querAssar(): void {
+    if (this.veils) enfornar(this.fornada);
+  }
+
+  /** As camadas voltam a ser desenhadas ao vivo, e as imagens são devolvidas ao forno. */
+  desassar(): void {
+    this.fornadas++;
+    for (const { lider, juntas, assada } of this.assadas) {
+      lider.classList.remove('assada', 'fundida');
+      lider.style.removeProperty('--assada');
+      lider.style.removeProperty('--assada-inset');
+      for (const el of juntas) el.classList.remove('assada-junto');
+      soltar(assada);
+    }
+    this.assadas = [];
+  }
+
+  private async assar(): Promise<void> {
+    const s = this.size();
+    const card = this.card;
+    if (!s || !card || !this.fornada.pronta()) return;
+    // o tamanho mudou e a fila ainda não redesenhou: depois
+    const now = this.readSize();
+    if (!now || now.W !== s.W || now.H !== s.H) return;
+    const vez = ++this.fornadas;
+    const camadas = Array.from(this.host.children).filter(
+      (el): el is HTMLElement => el instanceof HTMLElement && el.classList.contains('camada') && !el.hasAttribute('data-fantasma'),
+    );
+    const prontas: { grupo: Grupo; assada: Assada }[] = [];
+    const larga = () => {
+      for (const p of prontas) soltar(p.assada);
+    };
+    const escala = devicePixelRatio;
+    const todos = grupos(camadas);
+    // acordou sem nada mudar: as mesmas imagens, se o forno ainda as tem
+    const l = this.lembrada;
+    if (l && l.W === s.W && l.H === s.H && l.escala === escala && l.assadas.length === todos.length) {
+      for (let i = 0; i < todos.length; i++) {
+        const de = retomar(l.assadas[i]);
+        if (!de) break;
+        prontas.push({ grupo: todos[i], assada: de });
+      }
+      if (prontas.length === todos.length) return this.aplicar(prontas, s, escala);
+      larga();
+      prontas.length = 0;
+    }
+    try {
+      for (const grupo of todos) {
+        const r = await receita(grupo, s.W, s.H);
+        if (vez !== this.fornadas) return larga();
+        prontas.push({ grupo, assada: await pegar(r, escala, grupo.fundida) });
+        // mudou enquanto assava (o tamanho, o papel, a ficha saiu da página): a imagem já não vale
+        if (vez !== this.fornadas || !card.isConnected) return larga();
+      }
+    } catch (err) {
+      larga();
+      throw err;
+    }
+    this.aplicar(prontas, s, escala);
+  }
+
+  /** Põe as imagens nas camadas: a líder mostra a do grupo, as outras saem de cena. */
+  private aplicar(prontas: { grupo: Grupo; assada: Assada }[], s: Size, escala: number): void {
+    this.lembrada = { W: s.W, H: s.H, escala, assadas: prontas.map((p) => p.assada) };
+    for (const { grupo, assada } of prontas) {
+      const [lider, ...juntas] = grupo.camadas;
+      lider.style.setProperty('--assada', `url("${assada.url}")`);
+      lider.style.setProperty('--assada-inset', assada.inset);
+      lider.classList.add('assada');
+      if (assada.fundida) lider.classList.add('fundida');
+      for (const el of juntas) el.classList.add('assada-junto');
+      this.assadas.push({ lider, juntas, assada });
     }
   }
 
@@ -785,6 +953,14 @@ export function wakePaper(card: Element): boolean {
   return true;
 }
 
+/**
+ * A ficha foi dormir longe da tela (ver pages/wall-cards.ts): devolve as imagens do forno, que ficam
+ * no cache dele um tempo (voltando, ela pega de novo sem assar).
+ */
+export function sleepPaper(card: Element): void {
+  layers.get(card)?.desassar();
+}
+
 /** A ficha dorme longe da tela: sem conteúdo calculado nem pintado (ver `data-dorme` em review-card.ts). */
 export const ASLEEP = 'data-dorme';
 
@@ -954,6 +1130,8 @@ function step(far: boolean, budget: number, maxCostly: number): { urgent: boolea
   for (const job of done) {
     waiting.delete(job.layer);
     reveal(job.card, job.onScreen);
+    // desenhada e à vista: a vez do forno, com o navegador à toa
+    job.layer.querAssar();
   }
   const rest = list.filter((job) => waiting.has(job.layer));
   return { urgent: rest.some((job) => job.urgent), far: rest.some((job) => !job.urgent) };

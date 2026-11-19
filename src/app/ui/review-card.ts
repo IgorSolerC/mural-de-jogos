@@ -150,7 +150,7 @@ export const CARD_TEMPLATE = `
          ui/veil.ts); a marca tracejada da vaga fica na própria ficha, por baixo -->
     <div class="corpo">
     <!-- o papel da ficha: a cartolina, o rabisco e o estrago, por baixo da foto e dos adesivos -->
-    <app-paper-art [id]="artId()" [scribble]="review().scribble" [scribbleSeed]="review().scribbleSeed" [scribbleInk]="review().scribbleInk" [paper]="review().paper" [paperSeed]="review().paperSeed" [damage]="review().damage" [seed]="review().damageSeed" [stains]="review().stains" [decors]="review().decors" [glitter]="review().paper === 'glitter'" [dark]="dark()" [content]="review()" />
+    <app-paper-art [id]="artId()" [scribble]="review().scribble" [scribbleSeed]="review().scribbleSeed" [scribbleInk]="review().scribbleInk" [paper]="review().paper" [paperSeed]="review().paperSeed" [damage]="review().damage" [seed]="review().damageSeed" [stains]="review().stains" [decors]="review().decors" [glitter]="review().paper === 'glitter'" [dark]="dark()" [content]="review()" [look]="paperLook()" />
     <!-- na Visão geral as fichas estão soltas na mesa: sem a tachinha que finge segurá-las -->
     @if (!overview()) {
       <app-pin class="pin" [color]="pin().pinColor" />
@@ -1905,6 +1905,8 @@ export class ReviewCard {
   /** Cartolina escura: tinta, lápis e estampa claros. */
   protected readonly dark = computed(() => isDarkStock(this.pin().stock));
   protected readonly paperVars = computed(() => paperVars(this.review().paper, this.review().pattern, lookOf(this.review()), this.review().patternSeed, this.dark(), this.review().id));
+  /** O que pinta o papel por fora das camadas dele (a cor e as variáveis do papel): a chave do forno (ver ui/forno.ts). */
+  protected readonly paperLook = computed(() => `${this.pin().stock}|${JSON.stringify(this.paperVars())}`);
   protected readonly cut = computed(() => cutsPaper(this.review().damage) || !!this.review().stains?.some((m) => cutsPaper(m.stain)) || !!this.review().decors?.some((m) => decorCuts(m.decor)));
   /** "Nome do jogo", "Nome da série". */
   protected readonly emptyName = computed(() =>

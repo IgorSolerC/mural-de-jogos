@@ -21,7 +21,7 @@ import { pinningFor } from '../core/wall-physics';
 import { onWallSettle } from '../core/wall-settle';
 import { HeightMemo } from '../ui/height-memo';
 import { budget, perFrame, rest, setForcedSlow, slow, spend, struggling, tick } from '../ui/pace';
-import { ASLEEP, wakePaper } from '../ui/paper-layer';
+import { ASLEEP, sleepPaper, wakePaper } from '../ui/paper-layer';
 import { DateFrom, ReviewCard } from '../ui/review-card';
 import { isVeiled, veil } from '../ui/veil';
 import { cancelIdle, IdleDeadlineLike, whenIdle } from '../core/idle';
@@ -715,7 +715,8 @@ export class WallCardPool implements OnDestroy {
     el.style.setProperty('--dorme-h', `${bodyHeight}px`);
     veil(el);
     el.setAttribute(ASLEEP, '');
-    // dormindo não há o que desenhar: a camada dela no compositor é devolvida
+    // dormindo não há o que desenhar: a camada dela no compositor e as imagens do forno são devolvidas
+    sleepPaper(el);
     slot.box.removeAttribute(LIVE);
     slot.asleep = true;
   }
