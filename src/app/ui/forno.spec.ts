@@ -455,6 +455,30 @@ describe('o forno nas fichas do mural', () => {
     done();
   }, 30000);
 
+  it('a ficha nova é assada escondida e aparece já assada e com a sombra: nunca há papel vivo à vista', async () => {
+    await deleteDatabase(FORNO_DB);
+    resetForno();
+    const desenhos = spyOn(HTMLCanvasElement.prototype, 'toBlob').and.callThrough();
+    const aoAparecer: boolean[] = [];
+    const mo = new MutationObserver((ms) => {
+      for (const m of ms) {
+        const el = m.target as HTMLElement;
+        if (m.attributeName === 'data-veu' && !el.hasAttribute('data-veu')) aoAparecer.push(!!el.querySelector('.camada.assada') && el.hasAttribute(SOMBRA_ASSADA));
+      }
+    });
+    mo.observe(document.body, { attributes: true, subtree: true, attributeFilter: ['data-veu'] });
+    const a = await montar({ recortada: true });
+    expect(await until(() => !a.card.hasAttribute('data-veu'))).withContext('apareceu').toBeTrue();
+    mo.disconnect();
+    expect(a.ok).withContext(`assou (${String(fornoErro())})`).toBeTrue();
+    expect(aoAparecer).withContext('assada e com a sombra no instante em que aparece').toEqual([true]);
+    // assada mesmo (desenhada agora), e não pelo atalho
+    expect(desenhos).toHaveBeenCalled();
+    // a sombra da tachinha e das peças sai com elas visíveis, mesmo assada com o véu
+    expect(a.card.querySelector('.sombra-assada')).not.toBeNull();
+    a.done();
+  }, 40000);
+
   it('a ficha já assada noutra visita entra assada: no instante em que aparece, já com as imagens, sem desenhar nada (o atalho)', async () => {
     const a = await montar({ recortada: true });
     expect(a.ok).toBeTrue();

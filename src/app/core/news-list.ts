@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-19-forno-sem-piscar',
+    id: '2026-11-19-forno-com-veu',
     version: '1.50.2',
     kind: 'ajustes',
     date: '2026-11-19',
@@ -39,6 +39,7 @@ export const NEWS: NewsEntry[] = [
       'Voltando ao mural, as cartolinas que já foram desenhadas entram direto como imagem, sem passar pelo desenho de novo: a rolagem da volta engasga bem menos.',
       'Nas telas rápidas (120 Hz ou mais), as cartolinas nunca chegavam a virar imagem e as de mais adiante não eram preparadas antes de a rolagem chegar: o mural continuava pesado. Agora isso acontece em qualquer tela.',
       'As cartolinas não piscam mais: na troca do desenho pela imagem, o enfeite, o canto rasgado e a textura sumiam por um instante, e as capas ficavam pretas por um instante quando uma ficha voltava a aparecer na rolagem.',
+      'Cada cartolina agora só aparece já pronta como imagem, com a sombra: enquanto ela é preparada, fica a vaga tracejada no lugar dela, e o computador nunca precisa desenhar o papel ao vivo na tela.',
     ],
   },
   {

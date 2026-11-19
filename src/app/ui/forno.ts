@@ -664,7 +664,8 @@ async function copiaComEstilo(el: Element): Promise<Element> {
     for (let k = 0; k < cs.length; k++) {
       const p = cs[k];
       if (p.startsWith('--') || p === 'transition' || p.startsWith('transition-') || p.startsWith('animation')) continue;
-      style += `${p}:${cs.getPropertyValue(p)};`;
+      // a ficha com o véu (escondida até ficar assada) passa o visibility: hidden para as peças
+      style += `${p}:${p === 'visibility' ? 'visible' : cs.getPropertyValue(p)};`;
     }
     const c = copias[i];
     c.setAttribute('style', marcarUrls(style));
@@ -966,18 +967,29 @@ export interface Fornada {
   distancia(): number;
   /** Assa (e põe as imagens na ficha). */
   assar(): Promise<void>;
+  /**
+   * Escondida, esperando ficar assada para aparecer (a vaga no lugar dela): passa na frente das outras e
+   * não espera a rolagem parar, porque é ela que a pessoa está esperando.
+   */
+  urgente?(): boolean;
+  /** O forno desistiu dela (falhou de vez, ou o navegador não deixa assar): ela aparece viva. */
+  desistiu?(): void;
 }
 
 const fila = new Set<Fornada>();
 let marcado = false;
 let trabalhando = false;
 let rolouEm = -Infinity;
+/** O forno está assando uma ficha escondida que a pessoa espera (ver `Fornada.urgente` e `calma`). */
+let pressa = false;
 let ultimoErro: unknown = null;
 /** As vezes que cada ficha falhou no forno (ela fica viva entre uma e outra). */
 const tentativas = new WeakMap<Fornada, number>();
 const TENTATIVAS = 3;
 /** Sem nenhuma pronta, a fila olha de novo depois disto. */
 const DE_NOVO_SEM_PRONTA = 2000;
+/** O máximo que um passo da ficha escondida espera o navegador ficar à toa (ver `calma`). */
+const ESPERA_URGENTE = 100;
 /** Quantas voltas a fila dá sem nenhuma pronta antes de esperar alguém chamar (um minuto). */
 const VOLTAS_VAZIAS = 30;
 let voltasVazias = 0;
@@ -1004,21 +1016,25 @@ export function desenfornar(f: Fornada): void {
 function agendar(): void {
   if (marcado || trabalhando || !fila.size) return;
   marcado = true;
-  whenIdle(rodar, 3000, { after: 120, deadline: { timeRemaining: () => 10 } });
+  // a ficha escondida que a pessoa espera não espera o navegador ficar à toa por muito tempo
+  const urgente = [...fila].some((f) => f.urgente?.());
+  whenIdle(rodar, urgente ? ESPERA_URGENTE : 3000, { after: urgente ? 16 : 120, deadline: { timeRemaining: () => 10 } });
 }
 
 async function rodar(prazo: IdleDeadlineLike): Promise<void> {
   marcado = false;
   if (!fila.size || trabalhando) return;
   const desde = performance.now() - rolouEm;
-  // rolando, ou o navegador sem folga: depois (com o prazo vencido, vai assim mesmo, uma ficha)
-  if (desde < DEPOIS_DA_ROLAGEM || !idleFits(prazo, 8)) {
-    setTimeout(agendar, desde < DEPOIS_DA_ROLAGEM ? DEPOIS_DA_ROLAGEM - desde : 50);
+  const urgentes = [...fila].filter((f) => f.urgente?.() && f.pronta());
+  // rolando, ou o navegador sem folga: depois (com o prazo vencido, vai assim mesmo, uma ficha). A ficha
+  // escondida que a pessoa espera não espera a rolagem parar: cada passo dela cede a vez (ver `calma`)
+  if ((!urgentes.length && desde < DEPOIS_DA_ROLAGEM) || !idleFits(prazo, 8)) {
+    setTimeout(agendar, !urgentes.length && desde < DEPOIS_DA_ROLAGEM ? DEPOIS_DA_ROLAGEM - desde : urgentes.length ? 16 : 50);
     return;
   }
   let melhor: Fornada | null = null;
   let perto = Infinity;
-  for (const f of fila) {
+  for (const f of urgentes.length ? urgentes : fila) {
     if (!f.pronta()) continue;
     const d = f.distancia();
     if (d < perto) {
@@ -1035,6 +1051,7 @@ async function rodar(prazo: IdleDeadlineLike): Promise<void> {
   voltasVazias = 0;
   fila.delete(melhor);
   trabalhando = true;
+  pressa = !!melhor.urgente?.();
   try {
     await melhor.assar();
   } catch (err) {
@@ -1043,16 +1060,21 @@ async function rodar(prazo: IdleDeadlineLike): Promise<void> {
     // tudo fica vivo, como antes. Outra falha (uma textura que não veio, sem rede) deixa só esta ficha viva.
     if (err instanceof DOMException && err.name === 'SecurityError') {
       desligado = true;
+      const todas = [melhor, ...fila];
       fila.clear();
+      for (const f of todas) f.desistiu?.();
     } else {
-      // passageira (sem rede, uma textura que não veio): tenta de novo daqui a pouco, poucas vezes
+      // passageira (sem rede, uma textura que não veio): tenta de novo daqui a pouco, poucas vezes; a
+      // escondida não espera as tentativas para aparecer (aparece viva, e a próxima tentativa a assa)
       const n = (tentativas.get(melhor) ?? 0) + 1;
       tentativas.set(melhor, n);
       const f = melhor;
+      f.desistiu?.();
       if (n <= TENTATIVAS) setTimeout(() => enfornar(f), DE_NOVO * n);
     }
   } finally {
     trabalhando = false;
+    pressa = false;
   }
   agendar();
 }
@@ -1064,6 +1086,7 @@ export function resetForno(): void {
   trabalhando = false;
   desligado = false;
   rolouEm = -Infinity;
+  pressa = false;
   ultimoErro = null;
   voltasVazias = 0;
   for (const e of cache.values()) fecha(e);
@@ -1077,6 +1100,12 @@ export function resetForno(): void {
  * forno volta aqui, e quem voltou a rolar não espera ele acabar a ficha.
  */
 export async function calma(): Promise<void> {
+  // a ficha escondida que a pessoa espera: só cede a vez ao navegador (um quadro, no máximo um instante),
+  // sem esperar a rolagem parar
+  if (pressa) {
+    await new Promise<void>((r) => whenIdle(() => r(), ESPERA_URGENTE, { after: 16, deadline: { timeRemaining: () => 10 } }));
+    return;
+  }
   for (;;) {
     const desde = performance.now() - rolouEm;
     if (desde < DEPOIS_DA_ROLAGEM) {

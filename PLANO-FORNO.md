@@ -180,6 +180,70 @@ ganhar.
 A mesma medição do começo, antes e depois, com a tabela nas Novidades; Impeccable (critique) e
 /code-review high.
 
+## Parte 2: a esteira (19/nov, depois das medidas no Chrome do dono)
+
+### O que as medidas no Chrome do dono mostraram
+
+- **A sombra viva** (`filter: drop-shadow`) estava ~100× mais lenta no Chrome dele do que num Chrome limpo
+  no mesmo PC (página sintética de 30 linhas: 10 q/s × 120). Atualizar o Chrome resolveu (57 q/s), mas
+  mostrou o risco: qualquer ficha viva na tela pesa o que o Chrome daquela pessoa cobra por ela.
+- **O forno não assava em telas de 120 Hz** (folga de 8 ms pedida, quadro de 8,3 ms): 40 s e nenhuma ficha
+  assada. Corrigido (`idleFits`, BUILD 972).
+- **Piscadas**: a troca pelo assado antes de a imagem decodificar, e a capa da ficha que acorda. Corrigido
+  (BUILD 973).
+- As minhas medições de antes esperavam todas as fichas assarem antes de medir: nunca mediam o começo, que
+  é justamente o que o dono sente ("lento ao abrir, melhora depois de 10 ou 20 s").
+
+### O pedido do dono
+
+1. Toda cartolina assada; cada uma preparada uma vez só, e trocada pela assada sem nenhuma piscada.
+2. Poucas por vez, para não pesar em PC velho: **até 5 ao mesmo tempo**, e **uma por vez** com o ajuste de
+   desempenho dos Ajustes ("Menos fichas prontas", que já é "uma de cada vez" na montagem).
+3. O dormir, o montar perto da tela e o desmontar longe funcionando perfeitamente.
+Nos murais de Anotações, Análises, Wishlist, Kanban e Pra depois.
+
+### Como é hoje (três filas que correm uma atrás da outra)
+
+`WallCardPool` monta as fichas (as da tela todas de uma vez, até 28 ms; as de perto aos poucos; as de mais
+adiante com o navegador à toa) → a fila do papel desenha e **tira o véu com o papel vivo** → o forno assa
+depois (esperando 900 ms sem rolar) e troca. Toda ficha nova aparece viva e fica viva até o forno alcançar.
+
+### Como fica: uma esteira só
+
+Cada ficha passa por montar → desenhar o papel → assar → aparecer, **com o véu o tempo todo** (a vaga
+tracejada no lugar), e só aparece assada, com a sombra assada. Nunca há papel vivo à vista, então não há
+troca à vista (nada a piscar) e nenhum Chrome paga o desenho vivo na rolagem.
+
+- **Vagas na esteira**: até 5 fichas entre montar e aparecer (1 com "Menos fichas prontas"). A próxima só é
+  montada quando uma das que estão na esteira aparece. As da tela primeiro, na ordem de leitura; depois as
+  de perto, no sentido da rolagem; depois as de mais adiante.
+- **Assar com o véu**: o véu é `visibility: hidden` no corpo; a receita copia o estilo calculado, então o
+  clone tem de voltar a `visible`. A sombra assada sai da silhueta assada (já não depende de a ficha estar à vista).
+- **Sem esperar a rolagem parar** para as fichas com véu (são elas que a pessoa está esperando): cada passo
+  pesado do forno numa tarefa curta, cedendo a vez entre um passo e outro. A rolagem do Chrome anda em
+  outra linha de execução: tarefa curta na principal não trava a rolagem.
+- **Volta**: a ficha que já foi assada (o atalho, ou acordando com as imagens) aparece sem passar pelo forno.
+- **Falhou** (Safari, sem forno, erro depois das tentativas): aparece viva, como hoje. Nunca fica escondida.
+- **Mudou o papel de uma ficha à vista** (edição, a outra pessoa da compartilhada): continua como hoje
+  (volta viva e assa de novo) — é raro e a ficha não pode sumir da tela.
+- **Saiu da folga antes de aparecer**: sai da esteira e libera a vaga.
+
+### As rodadas
+
+- **E1 (feita, BUILD 972–973)**: a folga nas telas rápidas e as duas piscadas.
+- **E2: o forno com o véu**: assar a ficha escondida e só tirar o véu com ela assada e com a sombra.
+  Medir: nenhuma ficha viva à vista no começo e na rolagem (contagem a cada quadro), 0 piscadas.
+- **E3: a esteira**: o limite de 5 / 1, `WallCardPool` montando só com vaga na esteira, a ordem, o forno
+  sem esperar a rolagem para as fichas com véu, em passos curtos. Medir as tarefas longas (LoAF) abrindo e
+  rolando, no Chrome do dono e num limpo.
+- **E4: os outros murais**: Kanban (ui/near-screen.ts), Pra depois e Wishlist (as capas com drop-shadow).
+  Medir cada um do mesmo jeito.
+- **E5: a abertura**: as tarefas de 0,6–1,3 s dos primeiros segundos (montar o mural, os dados).
+- **Fechamento**: tabela antes/depois, Impeccable (critique), /code-review high.
+
+Ferramentas: `.angular/pptr/_inicio3.mjs` (a abertura, por ficha: A assada, S sombra), `_piscada.mjs` +
+`_flash.py` (cada quadro da tela, acha o que muda e volta), `__bench.html` (a sombra sintética).
+
 ## Compartilhados e várias pessoas
 
 O forno não sincroniza nada e não muda nenhum dado: assa a partir do que a ficha já mostra. Numa anotação

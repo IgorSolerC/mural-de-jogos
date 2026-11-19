@@ -551,11 +551,12 @@ export const CARD_STYLES = `
     :host([data-capa='borrada']) .cover :is(app-cover-sleeve, app-record-cover) {
       filter: blur(6px);
     }
-    /* As camadas do papel saem de vez (são absolutas: a ficha não muda de tamanho). Só esconder não
-       bastava: o Chrome pinta mesmo assim o relevo do papel amassado (um filtro que gera a textura
-       sozinho, sem depender do desenho), e a vaga aparecia como um retângulo cinza. */
-    :host([data-veu]) ::ng-deep .camada {
-      display: none;
+    /* O papel não é pintado. Só esconder não bastava: o Chrome pinta mesmo assim o relevo do papel
+       amassado (um filtro que gera a textura sozinho, sem depender do desenho), e a vaga aparecia como
+       um retângulo cinza. Com a opacidade zero nada é pintado, e as camadas continuam com tamanho: o
+       forno assa a ficha escondida (ver ui/forno.ts), e precisa medir o desenho que passa da beirada. */
+    :host([data-veu]) .corpo > app-paper-art {
+      opacity: 0;
     }
     :host([data-veu]) {
       box-shadow: none;

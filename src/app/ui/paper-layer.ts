@@ -646,7 +646,6 @@ export class PaperArtLayer {
         !this.assadas.length &&
         !!this.size() &&
         !card.hasAttribute(ASLEEP) &&
-        !isVeiled(card) &&
         !this.ghosts.some((g) => g.isConnected) &&
         !waiting.has(this) &&
         // levantada pelo mouse, a sombra da ficha é outra: espera ela assentar
@@ -658,6 +657,8 @@ export class PaperArtLayer {
       return r.bottom < 0 ? -r.bottom : r.top > innerHeight ? r.top - innerHeight : 0;
     },
     assar: () => this.assar(),
+    urgente: () => !!this.aoAssar && !!this.card && isVeiled(this.card),
+    desistiu: () => this.avisarAssada(),
   };
 
   /** Pede ao forno que asse esta ficha (só as do mural: a prévia do editor muda a cada clique). */
@@ -680,7 +681,47 @@ export class PaperArtLayer {
     this.tirarSombra();
   }
 
+  /** Conta as vezes em que a fila esperou esta ficha aparecer (só a última vale, ver a fila). */
+  vezDoVeu = 0;
+  /** Quem espera a ficha escondida ficar assada para tirar o véu (ver `aparecerAssada`). */
+  private aoAssar: (() => void) | null = null;
+
+  /**
+   * A ficha escondida (a vaga no lugar dela) só aparece assada: pelo atalho, se já foi assada noutra
+   * visita, ou pelo forno, escondida mesmo, na frente das outras. Nunca aparece com o papel vivo, então
+   * não há troca à vista (nada a piscar) e nenhum navegador paga o desenho vivo na rolagem. Resolve
+   * também quando não dá para assar (sem forno, ou o forno desistiu): aí ela aparece viva, como antes.
+   */
+  async aparecerAssada(): Promise<void> {
+    if (!this.veils) return;
+    await this.porAtalho().catch(() => undefined);
+    if (this.assadas.length || !fornoLigado() || !this.card || !isVeiled(this.card)) return;
+    await new Promise<void>((resolve) => {
+      // (a que foi redesenhada no meio deixa de esperar: quem a chamou já não vale, ver a fila do papel)
+      this.avisarAssada();
+      this.aoAssar = resolve;
+      enfornar(this.fornada);
+    });
+  }
+
+  private avisarAssada(): void {
+    const aviso = this.aoAssar;
+    this.aoAssar = null;
+    aviso?.();
+  }
+
   private async assar(): Promise<void> {
+    await this.assarAgora();
+    if (this.assadas.length) {
+      this.avisarAssada();
+      return;
+    }
+    // não deu agora (o tamanho mudou, foi redesenhada, dormiu): a escondida volta para a fila
+    const card = this.card;
+    if (this.aoAssar && card?.isConnected && isVeiled(card)) setTimeout(() => this.aoAssar && enfornar(this.fornada), 100);
+  }
+
+  private async assarAgora(): Promise<void> {
     const s = this.size();
     const card = this.card;
     if (!s || !card || !this.fornada.pronta()) return;
@@ -994,8 +1035,11 @@ function decodificadas(card: HTMLElement): Promise<unknown> {
   return Promise.all(imgs.map((img) => img.decode().catch(() => undefined)));
 }
 
-/** O máximo que a ficha escondida espera o atalho do forno antes de aparecer viva. */
-const ESPERA_DO_ATALHO = 300;
+/**
+ * O máximo que a ficha escondida espera ficar assada. Assar uma ficha leva bem menos; isto é só para
+ * ela nunca ficar escondida se algo prender o forno (ela aparece viva, e ele a assa depois).
+ */
+const ESPERA_MAXIMA = 5000;
 
 /** Na ficha com a sombra assada por baixo (ver PaperArtLayer.assarSombra). */
 export const SOMBRA_ASSADA = 'data-sombra-assada';
@@ -1321,11 +1365,15 @@ function step(far: boolean, budget: number, maxCostly: number): { urgent: boolea
       // desenhada e à vista: a vez do forno, com o navegador à toa
       job.layer.querAssar();
     };
-    // a ficha escondida espera um instante: a que já foi assada noutra visita entra assada (o atalho), e
-    // as imagens dela (a capa) chegam decodificadas, sem um quadro vazio no lugar
+    // a ficha escondida só aparece assada (ver aparecerAssada), com as imagens dela (a capa) já
+    // decodificadas, sem um quadro vazio no lugar. Se algo prender o forno, ela aparece viva no limite.
     if (job.layer.veils && isVeiled(job.card)) {
-      const pronta = Promise.all([job.layer.porAtalho().catch(() => undefined), decodificadas(job.card)]);
-      Promise.race([pronta, new Promise((r) => setTimeout(r, ESPERA_DO_ATALHO))]).then(mostrar);
+      const vez = ++job.layer.vezDoVeu;
+      const pronta = Promise.all([job.layer.aparecerAssada(), decodificadas(job.card)]);
+      Promise.race([pronta, new Promise((r) => setTimeout(r, ESPERA_MAXIMA))]).then(() => {
+        // (redesenhada no meio: quem a mostra é a vez nova; fora da página, nada a mostrar)
+        if (job.layer.vezDoVeu === vez && job.card.isConnected) mostrar();
+      });
     } else mostrar();
   }
   const rest = list.filter((job) => waiting.has(job.layer));
