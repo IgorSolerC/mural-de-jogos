@@ -446,9 +446,11 @@ export async function assar(r: Receita, escala: number): Promise<Blob> {
 // ===================== O cache =====================
 
 interface Entrada {
-  readonly pronta: Promise<{ url: string; bytes: number }>;
+  readonly pronta: Promise<Aberta>;
   url: string | null;
   bytes: number;
+  /** A imagem já decodificada (ver `aberta`): segurada enquanto a entrada vive, para não ser decodificada de novo. */
+  img: HTMLImageElement | null;
   usos: number;
   usada: number;
 }
@@ -465,6 +467,38 @@ export const FORNO_VERSAO = 1;
 /** A chave de uma receita no cache e no aparelho. */
 export async function chaveDe(r: Receita, escala: number): Promise<string> {
   return `${FORNO_VERSAO}|${escala}|${await resumo(r.svg)}`;
+}
+
+/** A imagem do forno pronta para pintar: o endereço, o tamanho e ela já decodificada. */
+interface Aberta {
+  url: string;
+  bytes: number;
+  img: HTMLImageElement | null;
+}
+
+/**
+ * O endereço da imagem, já carregada e decodificada. Sem isto, a ficha trocava as camadas vivas pela
+ * imagem no mesmo instante em que o navegador começava a ler o blob: por um ou dois quadros não havia nem
+ * o desenho vivo nem a imagem (o enfeite, o canto rasgado e a textura piscavam).
+ */
+async function aberta(blob: Blob): Promise<Aberta> {
+  const url = URL.createObjectURL(blob);
+  if (typeof Image === 'undefined') return { url, bytes: blob.size, img: null };
+  const img = new Image();
+  img.src = url;
+  try {
+    await img.decode();
+  } catch {
+    /* não decodificou aqui: a camada ainda carrega a imagem pelo CSS, como antes */
+  }
+  return { url, bytes: blob.size, img };
+}
+
+/** Solta a imagem de uma entrada que sai do cache. */
+function fecha(e: Entrada): void {
+  if (e.url) URL.revokeObjectURL(e.url);
+  if (e.img) e.img.src = '';
+  e.img = null;
 }
 
 /** A imagem guardada ainda abre (não foi cortada nem estragada no disco). */
@@ -516,12 +550,13 @@ async function pegarPela(chave: string, desenhar: () => Promise<Blob>, inset: st
         void guardarNoForno(chave, blob);
         return blob;
       })
-      .then((blob) => ({ url: URL.createObjectURL(blob), bytes: blob.size }));
-    const nova: Entrada = { pronta, url: null, bytes: 0, usos: 0, usada: performance.now() };
+      .then(aberta);
+    const nova: Entrada = { pronta, url: null, bytes: 0, img: null, usos: 0, usada: performance.now() };
     pronta.then(
       (v) => {
         nova.url = v.url;
         nova.bytes = v.bytes;
+        nova.img = v.img;
       },
       () => cache.delete(chave),
     );
@@ -565,14 +600,17 @@ export async function pegarGuardada(chave: string, inset: string, fundida: boole
   }
   const blob = await lerDoForno(chave);
   if (!blob) return null;
+  const a = await aberta(blob);
   const ja = cache.get(chave);
   if (ja?.url) {
+    // (outra ficha trouxe a mesma enquanto esta decodificava)
+    URL.revokeObjectURL(a.url);
+    if (a.img) a.img.src = '';
     ja.usos++;
     return { url: ja.url, inset, fundida, chave };
   }
-  const url = URL.createObjectURL(blob);
-  cache.set(chave, { pronta: Promise.resolve({ url, bytes: blob.size }), url, bytes: blob.size, usos: 1, usada: performance.now() });
-  return { url, inset, fundida, chave };
+  cache.set(chave, { pronta: Promise.resolve(a), url: a.url, bytes: a.bytes, img: a.img, usos: 1, usada: performance.now() });
+  return { url: a.url, inset, fundida, chave };
 }
 
 /** O resumo de um texto (SHA-1), para as chaves. */
@@ -597,7 +635,7 @@ function aparar(): void {
   let total = livres.reduce((s, [, e]) => s + e.bytes, 0);
   for (const [chave, e] of livres) {
     if (total <= SOBRA_BYTES) break;
-    URL.revokeObjectURL(e.url!);
+    fecha(e);
     cache.delete(chave);
     total -= e.bytes;
   }
@@ -1028,7 +1066,7 @@ export function resetForno(): void {
   rolouEm = -Infinity;
   ultimoErro = null;
   voltasVazias = 0;
-  for (const e of cache.values()) if (e.url) URL.revokeObjectURL(e.url);
+  for (const e of cache.values()) fecha(e);
   cache.clear();
 }
 

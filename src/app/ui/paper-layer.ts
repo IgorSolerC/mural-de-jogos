@@ -984,6 +984,16 @@ export class PaperArtLayer {
   }
 }
 
+/**
+ * As imagens já carregadas da ficha, decodificadas. A ficha que dormia (ver `data-dorme`) não tinha a capa
+ * pintada, e o navegador pode ter jogado fora a capa decodificada: tirando o véu na hora, a capa ficava
+ * preta por um quadro. As que ainda estão chegando entram como sempre (ver a capa que se revela).
+ */
+function decodificadas(card: HTMLElement): Promise<unknown> {
+  const imgs = Array.from(card.querySelectorAll('img')).filter((img) => img.complete && img.naturalWidth > 0);
+  return Promise.all(imgs.map((img) => img.decode().catch(() => undefined)));
+}
+
 /** O máximo que a ficha escondida espera o atalho do forno antes de aparecer viva. */
 const ESPERA_DO_ATALHO = 300;
 
@@ -1311,9 +1321,11 @@ function step(far: boolean, budget: number, maxCostly: number): { urgent: boolea
       // desenhada e à vista: a vez do forno, com o navegador à toa
       job.layer.querAssar();
     };
-    // a ficha escondida que já foi assada noutra visita entra assada: espera o atalho um instante
+    // a ficha escondida espera um instante: a que já foi assada noutra visita entra assada (o atalho), e
+    // as imagens dela (a capa) chegam decodificadas, sem um quadro vazio no lugar
     if (job.layer.veils && isVeiled(job.card)) {
-      Promise.race([job.layer.porAtalho().catch(() => undefined), new Promise((r) => setTimeout(r, ESPERA_DO_ATALHO))]).then(mostrar);
+      const pronta = Promise.all([job.layer.porAtalho().catch(() => undefined), decodificadas(job.card)]);
+      Promise.race([pronta, new Promise((r) => setTimeout(r, ESPERA_DO_ATALHO))]).then(mostrar);
     } else mostrar();
   }
   const rest = list.filter((job) => waiting.has(job.layer));

@@ -323,6 +323,22 @@ describe('o forno nas fichas do mural', () => {
     done();
   }, 30000);
 
+  it('a imagem chega à camada já decodificada (sem um quadro sem papel nem imagem na troca)', async () => {
+    await deleteDatabase(FORNO_DB);
+    const decodificadas: string[] = [];
+    const decode = HTMLImageElement.prototype.decode;
+    spyOn(HTMLImageElement.prototype, 'decode').and.callFake(function (this: HTMLImageElement) {
+      return decode.call(this).then(() => void decodificadas.push(this.src));
+    });
+    const { ok, assadas, done } = await montar();
+    expect(ok).withContext(`assou (${String(fornoErro())})`).toBeTrue();
+    for (const el of Array.from(assadas()) as HTMLElement[]) {
+      const url = /url\("(.+)"\)/.exec(el.style.getPropertyValue('--assada'))?.[1];
+      expect(decodificadas).withContext('decodificada antes de entrar').toContain(url!);
+    }
+    done();
+  }, 30000);
+
   it('numa tela de 120 Hz, com algo animando (a folga do navegador à toa fica em 1 a 7 ms), a ficha assa do mesmo jeito', async () => {
     // a tela rápida: os quadros de trabalho a cada 8,3 ms
     for (let i = 0, t = 1000; i < 20; i++, t += 8.33) tick(t);
