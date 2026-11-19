@@ -1,7 +1,7 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { paperVars } from '../core/paper-art';
-import { CamadaInfo, agrupar, alcanceDaSombra, assar, chaveDe, embutirUrls, filaDoForno, fornoCache, fornoEpoca, fornoErro, pegarSombra, grupos, pegar, receita, resetForno, soltar } from './forno';
+import { CamadaInfo, agrupar, alcanceDaSombra, assar, chaveDe, marcarUrls, materializar, embutirUrls, filaDoForno, fornoCache, fornoEpoca, fornoErro, pegarSombra, grupos, pegar, receita, resetForno, soltar } from './forno';
 import { ASLEEP, PaperArtLayer, PaperDefs, SOMBRA_ASSADA } from './paper-layer';
 import { Pin } from './pin';
 import { FORNO_DB, guardarNoForno, lerDoForno } from '../core/forno-store';
@@ -89,6 +89,22 @@ describe('o forno: as imagens de fora entram embutidas', () => {
     expect(out).toContain('url("data:image/svg+xml;base64,');
     expect(out).not.toContain(arquivo);
     expect(out).toContain('url(#papel-lapis)');
+    URL.revokeObjectURL(arquivo);
+  });
+});
+
+describe('o forno: os arquivos marcados', () => {
+  it('a receita leva a marca do arquivo; na hora de desenhar ele entra uma vez só, mesmo usado em várias camadas', async () => {
+    const arquivo = URL.createObjectURL(new Blob(['<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="4" height="4" fill="red"/></svg>'], { type: 'image/svg+xml' }));
+    const marcado = marcarUrls(`url("${arquivo}")`);
+    expect(marcado).toMatch(/^url\(forno-arquivo:/);
+    expect(marcado).not.toContain('data:');
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg"><foreignObject><div xmlns="http://www.w3.org/1999/xhtml" style="--forno-arquivos:0;"><p style="background:${marcado}"></p><p style="background:${marcado}"></p></div></foreignObject></svg>`;
+    const pronto = await materializar(svg);
+    expect(pronto.match(/data:/g)?.length).toBe(1);
+    expect(pronto.match(/var\(--forno-a0\)/g)?.length).toBe(2);
+    // e continua sendo um XML que abre
+    expect(new DOMParser().parseFromString(pronto, 'image/svg+xml').querySelector('parsererror')).toBeNull();
     URL.revokeObjectURL(arquivo);
   });
 });

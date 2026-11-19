@@ -185,6 +185,42 @@ function embutir(url: string): Promise<string> {
   return p;
 }
 
+/** A marca de um arquivo na receita: `url(forno-arquivo:<endereço>)`, trocada pelo arquivo só na hora de desenhar. */
+const MARCA = 'forno-arquivo:';
+const MARCA_RE = /url\(forno-arquivo:([^)\s]+)\)/g;
+
+/**
+ * Troca os `url(...)` que apontam para arquivos (a fibra fotográfica da cartolina, a foto das tachinhas)
+ * por uma marca com o endereço deles. A receita fica pequena (a fibra sozinha tem quase 1 MB embutida, e
+ * aparecia uma vez por camada): o resumo da chave sai rápido, e a imagem guardada é achada sem montar
+ * megabytes. O arquivo só entra na hora de desenhar (ver `materializar`).
+ */
+export function marcarUrls(valor: string): string {
+  return valor.replace(URL_RE, (tudo, a?: string, b?: string, c?: string) => {
+    const u = a ?? b ?? c ?? '';
+    if (!u || u.startsWith('data:') || u.startsWith('#') || u.startsWith(MARCA)) return tudo;
+    return `url(${MARCA}${encodeURI(new URL(u, document.baseURI).href)})`;
+  });
+}
+
+/** O lugar, no estilo da raiz do SVG, em que as variáveis dos arquivos entram. */
+const VARIAVEIS_DOS_ARQUIVOS = '--forno-arquivos:0;';
+
+/**
+ * O SVG pronto para desenhar: cada arquivo marcado entra uma vez, numa variável no começo do documento
+ * (`--forno-a0`, ...), e cada marca vira a variável (o mesmo arquivo em várias camadas não se repete).
+ */
+export async function materializar(svg: string): Promise<string> {
+  const enderecos = [...new Set([...svg.matchAll(MARCA_RE)].map((m) => m[1]))];
+  if (!enderecos.length) return svg.replace(VARIAVEIS_DOS_ARQUIVOS, '');
+  const dados = await Promise.all(enderecos.map((u) => embutir(decodeURI(u))));
+  const indice = new Map(enderecos.map((u, i) => [u, i]));
+  // (vão dentro do atributo style da raiz, entre aspas duplas: escapadas como no XML)
+  const xml = (v: string) => v.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  const variaveis = dados.map((d, i) => `--forno-a${i}:url(${xml(`"${d}"`)});`).join('');
+  return svg.replace(MARCA_RE, (_, u: string) => `var(--forno-a${indice.get(u)})`).replace(VARIAVEIS_DOS_ARQUIVOS, variaveis);
+}
+
 /** Troca os `url(...)` que apontam para arquivos pelo arquivo embutido. */
 export async function embutirUrls(valor: string): Promise<string> {
   const achados = [...valor.matchAll(URL_RE)].map((m) => m[1] ?? m[2] ?? m[3]).filter((u) => u && !u.startsWith('data:') && !u.startsWith('#'));
@@ -195,6 +231,11 @@ export async function embutirUrls(valor: string): Promise<string> {
     const t = trocas.get(u);
     return t ? `url("${t}")` : tudo;
   });
+}
+
+/** O CSS sem as declarações de fundo e de máscara (as variáveis delas não vão para dentro do desenho). */
+function semFundo(css: string): string {
+  return css.replace(/(^|[;{])\s*(?:-webkit-)?(?:background|mask)[\w-]*\s*:[^;}]*/g, '$1');
 }
 
 const regrasPorAtributo = new Map<string, Promise<string>>();
@@ -220,7 +261,7 @@ function regras(atributos: readonly string[]): Promise<string> {
         /* folha de outro endereço: não tem regra do papel */
       }
     }
-    p = embutirUrls(out.join('\n'));
+    p = Promise.resolve(marcarUrls(out.join('\n')));
     regrasPorAtributo.set(chave, p);
   }
   return p;
@@ -291,6 +332,7 @@ function atributoNg(el: Element, prefixo: '_ngcontent' | '_nghost'): string {
  * do lápis e as fontes dos rabiscos com letra.
  */
 export async function receita(grupo: Grupo, W: number, H: number): Promise<Receita> {
+  await calma();
   const [primeira] = grupo.camadas;
   const host = primeira.parentElement!;
   // o que passa da beirada (as camadas com overflow visível, como as decorações)
@@ -328,12 +370,14 @@ export async function receita(grupo: Grupo, W: number, H: number): Promise<Recei
     // tudo lido de uma vez (o estilo calculado é ao vivo: depois de um await ele já poderia ser outro)
     const lidas: [string, string][] = COPIA.map((p) => [p, cs.getPropertyValue(p)]);
     // as variáveis que o desenho e as regras usam (o lápis claro da cartolina escura, a cor)
-    for (const m of new Set([...`${el.innerHTML}\n${css}`.matchAll(/var\((--[\w-]+)/g)].map((x) => x[1]))) {
+    // (só as que pegam no desenho de dentro: as do fundo e da máscara da camada já estão resolvidas
+    // no estilo calculado copiado acima, e copiar a da fibra embutia o arquivo de novo em cada camada)
+    for (const m of new Set([...`${el.innerHTML}\n${semFundo(css)}`.matchAll(/var\((--[\w-]+)/g)].map((x) => x[1]))) {
       const v = cs.getPropertyValue(m);
       if (v) lidas.push([m, v]);
     }
     const mistura = grupo.fundida ? COPIA_MISTURA.map((p) => `${p}:${cs.getPropertyValue(p)};`).join('') : 'mix-blend-mode:normal;opacity:1;';
-    const valores = await Promise.all(lidas.map(([, v]) => embutirUrls(v)));
+    const valores = lidas.map(([, v]) => marcarUrls(v));
     const style =
       `position:absolute;inset:auto;left:${-l}px;top:${-t}px;width:${W}px;height:${H}px;margin:0;` +
       lidas.map(([p], i) => `${p}:${valores[i]};`).join('') +
@@ -365,7 +409,7 @@ export async function receita(grupo: Grupo, W: number, H: number): Promise<Recei
   // `<` dentro do <style> quebraria o XML: o escape de CSS diz a mesma coisa
   const estilo = `${fontes}\n${css}`.replace(/</g, '\\3c ');
   const html =
-    `<div xmlns="http://www.w3.org/1999/xhtml" style="position:relative;width:${largura}px;height:${altura}px;margin:0;padding:0;isolation:isolate">` +
+    `<div xmlns="http://www.w3.org/1999/xhtml" style="position:relative;width:${largura}px;height:${altura}px;margin:0;padding:0;isolation:isolate;${VARIAVEIS_DOS_ARQUIVOS}">` +
     `<style>${estilo}</style>${defs ? ser.serializeToString(defs) : ''}${ser.serializeToString(pagina)}</div>`;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${largura}" height="${altura}" viewBox="0 0 ${largura} ${altura}"><foreignObject x="0" y="0" width="${largura}" height="${altura}">${html}</foreignObject></svg>`;
   return { svg, esquerda: l, topo: t, largura, altura, W, H };
@@ -380,10 +424,12 @@ export async function receita(grupo: Grupo, W: number, H: number): Promise<Recei
 export async function assar(r: Receita, escala: number): Promise<Blob> {
   // Por data:, e não por blob: (que pouparia codificar o texto): com o <foreignObject>, o Chrome suja o
   // canvas de um SVG vindo de blob: e não deixa ler a imagem (o forno.spec confere)
+  await calma();
   const img = new Image();
   img.decoding = 'sync';
-  img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(r.svg)}`;
+  img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(await materializar(r.svg))}`;
   await img.decode();
+  await calma();
   const cv = document.createElement('canvas');
   cv.width = Math.max(1, Math.round(r.largura * escala));
   cv.height = Math.max(1, Math.round(r.altura * escala));
@@ -553,7 +599,7 @@ async function copiaComEstilo(el: Element): Promise<Element> {
       style += `${p}:${cs.getPropertyValue(p)};`;
     }
     const c = copias[i];
-    c.setAttribute('style', await embutirUrls(style));
+    c.setAttribute('style', marcarUrls(style));
     if (c instanceof HTMLImageElement) {
       c.removeAttribute('src');
       c.removeAttribute('srcset');
@@ -647,7 +693,7 @@ export async function receitaDaSombra(p: PedidoDeSombra, escala: number): Promis
   if (p.pecas.length) {
     const ser = new XMLSerializer();
     const copias = await Promise.all(p.pecas.map(copiaComEstilo));
-    const raiz = `<div xmlns="http://www.w3.org/1999/xhtml" style="position:relative;width:${largura}px;height:${altura}px;margin:0;padding:0"><div style="position:absolute;left:${-l}px;top:${-t}px;width:${p.W}px;height:${p.H}px">${copias.map((c) => ser.serializeToString(c)).join('')}</div></div>`;
+    const raiz = `<div xmlns="http://www.w3.org/1999/xhtml" style="position:relative;width:${largura}px;height:${altura}px;margin:0;padding:0;${VARIAVEIS_DOS_ARQUIVOS}"><div style="position:absolute;left:${-l}px;top:${-t}px;width:${p.W}px;height:${p.H}px">${copias.map((c) => ser.serializeToString(c)).join('')}</div></div>`;
     pecasSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${largura}" height="${altura}" viewBox="0 0 ${largura} ${altura}"><foreignObject x="0" y="0" width="${largura}" height="${altura}">${raiz}</foreignObject></svg>`;
   }
   const chave = `${FORNO_VERSAO}|sombra|${escala}|${p.filtro}|${l},${t},${largura},${altura}|${p.imagens.map((a) => `${a.chave}@${a.inset}`).join(';')}|${await resumo(pecasSvg)}|${JSON.stringify(posicoes)}`;
@@ -657,13 +703,14 @@ export async function receitaDaSombra(p: PedidoDeSombra, escala: number): Promis
     const sil = document.createElement('canvas');
     sil.width = cw;
     sil.height = ch;
-    const sx = sil.getContext('2d', { willReadFrequently: true })!;
+    await calma();
+    const sx = sil.getContext('2d')!;
     sx.scale(escala, escala);
     for (const a of p.imagens) {
       const [it, ir, ib, il] = a.inset.split(' ').map((v) => Number.parseFloat(v));
       sx.drawImage(await imagem(a.url), il - l, it - t, p.W - il - ir, p.H - it - ib);
     }
-    if (pecasSvg) sx.drawImage(await imagem(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(pecasSvg)}`), 0, 0, largura, altura);
+    if (pecasSvg) sx.drawImage(await imagem(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(await materializar(pecasSvg))}`), 0, 0, largura, altura);
     // a silhueta em preto, com o alfa de cada pixel
     sx.setTransform(1, 0, 0, 1, 0, 0);
     sx.globalCompositeOperation = 'source-in';
@@ -672,9 +719,11 @@ export async function receitaDaSombra(p: PedidoDeSombra, escala: number): Promis
     const com = document.createElement('canvas');
     com.width = cw;
     com.height = ch;
-    const cx = com.getContext('2d', { willReadFrequently: true })!;
+    // (na GPU: o borrão do filtro na CPU levava centenas de ms; lido uma vez só, no fim)
+    const cx = com.getContext('2d')!;
     cx.filter = filtroNaEscala(p.filtro, escala);
     cx.drawImage(sil, 0, 0);
+    await calma();
     const silD = sx.getImageData(0, 0, cw, ch).data;
     const img = cx.getImageData(0, 0, cw, ch);
     const d = img.data;
@@ -833,7 +882,10 @@ function vigiar(): void {
     });
   };
   densidade();
-  addEventListener('scroll', () => (rolouEm = performance.now()), { passive: true, capture: true });
+  // a roda e o dedo contam desde o primeiro movimento (no fim da página a roda não rola, mas a pessoa
+  // ainda está rolando)
+  const mexeu = () => (rolouEm = performance.now());
+  for (const ev of ['scroll', 'wheel', 'touchmove']) addEventListener(ev, mexeu, { passive: true, capture: true });
 }
 
 // ===================== A fila =====================
@@ -867,7 +919,7 @@ export function fornoErro(): unknown {
   return ultimoErro;
 }
 /** A rolagem precisa de um respiro antes de o forno voltar: assar é um pedaço de trabalho de uma vez só. */
-const DEPOIS_DA_ROLAGEM = 400;
+const DEPOIS_DA_ROLAGEM = 900;
 
 export function enfornar(f: Fornada): void {
   if (!fornoLigado()) return;
@@ -948,6 +1000,24 @@ export function resetForno(): void {
   voltasVazias = 0;
   for (const e of cache.values()) if (e.url) URL.revokeObjectURL(e.url);
   cache.clear();
+}
+
+/**
+ * Espera a página ficar quieta: sem rolagem há `DEPOIS_DA_ROLAGEM` e com o navegador à toa. Cada passo
+ * pesado do forno (ler as camadas, desenhar o SVG, a conta da sombra) é uma tarefa só, de dezenas a
+ * centenas de ms: começar um deles com a pessoa rolando travava a rolagem. Entre um passo e outro, o
+ * forno volta aqui, e quem voltou a rolar não espera ele acabar a ficha.
+ */
+export async function calma(): Promise<void> {
+  for (;;) {
+    const desde = performance.now() - rolouEm;
+    if (desde < DEPOIS_DA_ROLAGEM) {
+      await new Promise((r) => setTimeout(r, DEPOIS_DA_ROLAGEM - desde));
+      continue;
+    }
+    await new Promise<void>((r) => whenIdle(() => r(), 1000, { after: 50, deadline: { timeRemaining: () => 10 } }));
+    if (performance.now() - rolouEm >= DEPOIS_DA_ROLAGEM) return;
+  }
 }
 
 /** Para os testes: quantas fichas esperam o forno. */
