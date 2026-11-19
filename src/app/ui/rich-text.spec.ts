@@ -45,6 +45,20 @@ describe('o texto formatado na leitura', () => {
     expect(toggled).toEqual([1]);
   });
 
+  it('o título do card é na letra do título da cartolina, na escala dela, sem mudar a altura da linha', async () => {
+    const el = await render('> [!nota] Ingredientes\n> tilápia');
+    el.style.cssText = 'display: block; width: 420px; font-size: 16px; --line: 24px';
+    const topo = el.querySelector<HTMLElement>('.cartao-topo')!;
+    const titulo = topo.querySelector<HTMLElement>('.cartao-titulo')!;
+    const raiz = getComputedStyle(document.documentElement);
+    const familia = raiz.getPropertyValue('--f-caneta').trim().split(',')[0].replace(/['"]/g, '');
+    expect(getComputedStyle(titulo).fontFamily).toContain(familia);
+    expect(getComputedStyle(titulo).fontWeight).toBe(raiz.getPropertyValue('--w-titulo-ficha').trim());
+    const escala = Number(raiz.getPropertyValue('--e-titulo-ficha'));
+    expect(parseFloat(getComputedStyle(titulo).fontSize)).toBeCloseTo(16 * escala, 1);
+    expect(topo.getBoundingClientRect().height).toBe(24);
+  });
+
   it('o Estudo: o livro no papel rosa, com o nome no lugar do título', async () => {
     const el = await render('> [!study]\n> a');
     const card = el.querySelector<HTMLElement>('.cartao')!;

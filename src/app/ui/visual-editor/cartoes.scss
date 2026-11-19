@@ -80,6 +80,7 @@
   }
   // a setinha logo depois do título, como na leitura
   .vis-cartao-titulo {
+    @include formatado.cartao-titulo;
     flex: 0 1 auto;
     min-width: 0;
   }

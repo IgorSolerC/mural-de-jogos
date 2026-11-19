@@ -582,6 +582,9 @@ export const CODE_COPY = new InjectionToken<boolean>('CODE_COPY');
     .cartao-topo {
       @include formatado.cartao-topo;
     }
+    .cartao-titulo {
+      @include formatado.cartao-titulo;
+    }
     .cartao-icone {
       @include formatado.cartao-icone;
     }

@@ -365,6 +365,10 @@
     line-height: 1.4;
     break-after: avoid;
   }
+  // a letra do PDF no título, sem a escala da caneta
+  .cartao-titulo:not(app-note-widget *) {
+    font-size: inherit;
+  }
   .cartao-icone:not(app-note-widget *) {
     rotate: none;
   }

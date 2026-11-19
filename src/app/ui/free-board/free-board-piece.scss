@@ -136,6 +136,9 @@
 
 /* o título quebra como nas anotações (até três linhas; o resto do texto fica embaixo) */
 .cartao-titulo {
+  @include formatado.cartao-titulo;
+  /* a caneta passa da caixa à direita: a folga para a última letra não perder a ponta no corte */
+  padding-right: var(--caneta-folga);
   min-width: 0;
   display: -webkit-box;
   -webkit-box-orient: vertical;
