@@ -21,7 +21,7 @@ import { dropMask, holdMask, maskClass } from './mask-rules';
 import { isVeiled, reveal, veil } from './veil';
 import { reducedMotion } from '../core/motion';
 import { IdleDeadlineLike, whenIdle } from '../core/idle';
-import { Assada, Fornada, Grupo, desenfornar, enfornar, fornoEpoca, grupos, pegar, pegarSombra, receita, retomar, soltar } from './forno';
+import { Assada, Fornada, Grupo, desenfornar, enfornar, fornoEpoca, grupos, pegar, pegarSombra, receita, retomar, soltar, trocarIds } from './forno';
 
 let uids = 0;
 
@@ -987,24 +987,7 @@ let ghostIds = 0;
 
 /** Renomeia os ids da cópia e tudo o que aponta para eles dentro dela (url(#id), href="#id"). */
 function renameIds(root: Element, suffix: string): void {
-  const ids = new Set<string>();
-  for (const el of Array.from(root.querySelectorAll('[id]'))) {
-    ids.add(el.id);
-    el.id += suffix;
-  }
-  if (!ids.size) return;
-  const fix = (v: string) => v.replace(/url\(\s*['"]?#([^'")\s]+)['"]?\s*\)/g, (m, id: string) => (ids.has(id) ? `url(#${id}${suffix})` : m));
-  for (const el of [root, ...Array.from(root.querySelectorAll('*'))]) {
-    for (const attr of Array.from(el.attributes)) {
-      const v = attr.value;
-      if (v.includes('url(')) {
-        const w = fix(v);
-        if (w !== v) el.setAttribute(attr.name, w);
-      } else if ((attr.name === 'href' || attr.name === 'xlink:href') && v.startsWith('#') && ids.has(v.slice(1))) {
-        el.setAttribute(attr.name, v + suffix);
-      }
-    }
-  }
+  trocarIds(root, (id) => id + suffix);
 }
 
 /**

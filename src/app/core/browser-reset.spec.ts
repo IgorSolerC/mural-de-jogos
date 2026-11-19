@@ -6,6 +6,7 @@ import { DATA_DB } from './local-data';
 import { eraseSave, takeErased } from './erase-save';
 import { IMAGES_DB, ImageStore } from './image-store';
 import { BOARDS_DB, FreeBoardStore } from './free-board-store';
+import { FORNO_DB, fornoGuardado, guardarNoForno, lerDoForno } from './forno-store';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { APPLIED_KEY } from './api-requests';
@@ -392,6 +393,26 @@ describe('limpar o navegador (sair da conta)', () => {
     expect(await resetOnBoot()).toBeTrue();
     expect(await databases()).not.toContain(IMAGES_DB);
     expect(await new ImageStore().get(id)).toBeNull();
+  });
+
+  it('as imagens assadas do forno (o banco delas, PLANO-FORNO.md) saem junto, mesmo com a conexão aberta nesta aba', async () => {
+    signedInBrowser();
+    await guardarNoForno('1|papel-da-conta', new Blob(['png'], { type: 'image/png' }));
+    expect(await lerDoForno('1|papel-da-conta')).not.toBeNull();
+    expect(await databases()).toContain(FORNO_DB);
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.setItem(RESET_KEY, JSON.stringify({ keep: [], motivo: 'saiu' }));
+    expect(await resetOnBoot()).toBeTrue();
+    expect(await databases()).not.toContain(FORNO_DB);
+    expect(await lerDoForno('1|papel-da-conta')).toBeNull();
+    expect((await fornoGuardado()).imagens).toBe(0);
+  });
+
+  it('enquanto a página recarrega para limpar, o forno não guarda nada', async () => {
+    freezeStorage();
+    await guardarNoForno('1|congelado', new Blob(['png'], { type: 'image/png' }));
+    thawStorage();
+    expect(await lerDoForno('1|congelado')).toBeNull();
   });
 
   it('os quadros livres (o banco deles) saem junto, mesmo com a conexão aberta nesta aba (PLANO-QUADRO-LIVRE.md)', async () => {

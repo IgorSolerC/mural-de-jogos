@@ -1,9 +1,11 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { paperVars } from '../core/paper-art';
-import { CamadaInfo, agrupar, alcanceDaSombra, assar, embutirUrls, filaDoForno, fornoCache, fornoEpoca, fornoErro, pegarSombra, grupos, pegar, receita, resetForno, soltar } from './forno';
+import { CamadaInfo, agrupar, alcanceDaSombra, assar, chaveDe, embutirUrls, filaDoForno, fornoCache, fornoEpoca, fornoErro, pegarSombra, grupos, pegar, receita, resetForno, soltar } from './forno';
 import { ASLEEP, PaperArtLayer, PaperDefs, SOMBRA_ASSADA } from './paper-layer';
 import { Pin } from './pin';
+import { FORNO_DB, guardarNoForno, lerDoForno } from '../core/forno-store';
+import { deleteDatabase } from '../core/erase-save';
 
 const info = (z: number, mistura = 'normal', opacidade = 1, viva = false): CamadaInfo => ({ z, mistura, opacidade, viva });
 
@@ -130,6 +132,23 @@ describe('o forno: assar', () => {
     done();
   });
 
+  it('a imagem guardada que não abre (cortada, estragada) sai do aparelho e é desenhada de novo', async () => {
+    const { camada, done } = ficha('background:rgb(20 90 160)');
+    const r = await receita({ camadas: [camada], fundida: true }, 100, 60);
+    const chave = await chaveDe(r, 1);
+    await guardarNoForno(chave, new Blob(['não é um png'], { type: 'image/png' }));
+    const a = await pegar(r, 1, true);
+    const img = new Image();
+    img.src = a.url;
+    await img.decode();
+    expect(img.naturalWidth).toBe(100);
+    // o novo, que abre, ficou no lugar
+    await until(() => false, 200);
+    expect((await lerDoForno(chave))!.size).toBeGreaterThan(20);
+    soltar(a);
+    done();
+  });
+
   it('a mesma receita é a mesma imagem (a ficha montada de novo não assa outra vez)', async () => {
     const { camada, done } = ficha('background:rgb(10 120 60)');
     const antes = fornoCache();
@@ -145,6 +164,36 @@ describe('o forno: assar', () => {
     expect(fornoCache().imagens).toBe(antes.imagens + 1);
     expect(fornoCache().emUso).toBe(antes.emUso);
     done();
+  });
+});
+
+describe('o forno guardado no aparelho', () => {
+  it('guarda e devolve a imagem pela chave; passando do teto, saem as usadas há mais tempo', async () => {
+    const espera = () => new Promise((r) => setTimeout(r, 5));
+    const png = (n: number) => new Blob(['x'.repeat(n)], { type: 'image/png' });
+    await guardarNoForno('t|velha', png(10), 25);
+    await espera();
+    await guardarNoForno('t|meio', png(10), 25);
+    await espera();
+    await guardarNoForno('t|nova', png(10), 25);
+    expect(await lerDoForno('t|velha')).toBeNull();
+    expect((await lerDoForno('t|meio'))?.size).toBe(10);
+    expect((await lerDoForno('t|nova'))?.size).toBe(10);
+    expect(await lerDoForno('t|nunca')).toBeNull();
+  });
+
+  it('um banco com o nome do forno e sem a tabela (criado vazio antes do site) não impede de guardar', async () => {
+    await deleteDatabase(FORNO_DB);
+    await new Promise<void>((res, rej) => {
+      const r = indexedDB.open(FORNO_DB, 1);
+      r.onsuccess = () => {
+        r.result.close();
+        res();
+      };
+      r.onerror = () => rej(r.error);
+    });
+    await guardarNoForno('t|depois-do-vazio', new Blob(['png'], { type: 'image/png' }));
+    expect((await lerDoForno('t|depois-do-vazio'))?.size).toBe(3);
   });
 });
 
@@ -277,6 +326,28 @@ describe('o forno nas fichas do mural', () => {
     expect(assadas().length).toBe(0);
     expect(await until(() => assadas().length > 0)).toBeTrue();
     done();
+  }, 30000);
+
+  it('a mesma ficha montada outra vez dá a mesma receita (e acha a imagem guardada na visita de antes)', async () => {
+    const receitas = async (m: Awaited<ReturnType<typeof montar>>) => {
+      // assada, ela volta a ser viva para a receita ler as camadas
+      (m.fixture.componentInstance as PaperArtLayer).desassar();
+      const camadas = Array.from(m.card.querySelectorAll<HTMLElement>('.camada')).filter((el) => !el.hasAttribute('data-fantasma'));
+      return Promise.all(grupos(camadas).map((g) => receita(g, 300, 200).then((r) => r.svg)));
+    };
+    // (o TestBed tira o componente anterior da página ao montar outro: uma de cada vez)
+    const a = await montar();
+    expect(a.ok).toBeTrue();
+    const ra = await receitas(a);
+    a.done();
+    const b = await montar();
+    expect(b.ok).toBeTrue();
+    const rb = await receitas(b);
+    b.done();
+    expect(ra.length).toBeGreaterThan(0);
+    // os ids do desenho levam o número de cada ficha na página (pa12): na receita, os da ordem
+    expect(ra.join('')).not.toMatch(/id="pa\d/);
+    expect(rb).toEqual(ra);
   }, 30000);
 
   it('a página que muda de classe sem mexer no papel (o arrasto, a bandeja) não faz as fichas assarem de novo; o lápis liso faz', async () => {

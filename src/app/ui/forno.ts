@@ -1,5 +1,6 @@
 import { signal } from '@angular/core';
 import { IdleDeadlineLike, whenIdle } from '../core/idle';
+import { apagarDoForno, guardarNoForno, lerDoForno } from '../core/forno-store';
 
 /**
  * O forno (PLANO-FORNO.md): as camadas do papel de uma ficha (a fibra, a textura, a estampa, o rabisco,
@@ -252,6 +253,32 @@ function fonte(familia: string): Promise<string> {
   return p;
 }
 
+/**
+ * Troca os ids de dentro de `root` e tudo o que aponta para eles ali dentro (`url(#id)`, `href="#id"`);
+ * os de fora (os filtros do lápis da página) ficam. `novo` recebe o id e a ordem dele no documento.
+ */
+export function trocarIds(root: Element, novo: (id: string, i: number) => string): void {
+  const nomes = new Map<string, string>();
+  for (const el of Array.from(root.querySelectorAll('[id]'))) {
+    const n = novo(el.id, nomes.size);
+    nomes.set(el.id, n);
+    el.id = n;
+  }
+  if (!nomes.size) return;
+  const fix = (v: string) => v.replace(/url\(\s*['"]?#([^'")\s]+)['"]?\s*\)/g, (m, id: string) => (nomes.has(id) ? `url(#${nomes.get(id)})` : m));
+  for (const el of [root, ...Array.from(root.querySelectorAll('*'))]) {
+    for (const attr of Array.from(el.attributes)) {
+      const v = attr.value;
+      if (v.includes('url(')) {
+        const w = fix(v);
+        if (w !== v) el.setAttribute(attr.name, w);
+      } else if ((attr.name === 'href' || attr.name === 'xlink:href') && v.startsWith('#') && nomes.has(v.slice(1))) {
+        el.setAttribute(attr.name, `#${nomes.get(v.slice(1))}`);
+      }
+    }
+  }
+}
+
 /** O atributo do Angular que marca o elemento como de um componente (`_ngcontent-…`, `_nghost-…`). */
 function atributoNg(el: Element, prefixo: '_ngcontent' | '_nghost'): string {
   return Array.from(el.attributes).find((a) => a.name.startsWith(prefixo))?.name ?? '';
@@ -312,7 +339,9 @@ export async function receita(grupo: Grupo, W: number, H: number): Promise<Recei
       lidas.map(([p], i) => `${p}:${valores[i]};`).join('') +
       mistura;
     copia.setAttribute('style', style);
-    copia.classList.remove('assada', 'assada-junto');
+    // as classes que mudam de uma visita para outra (o número do recorte, o forno) saem: as regras
+    // delas não vêm junto, e o estilo calculado já está na cópia
+    for (const c of Array.from(copia.classList)) if (c === 'assada' || c === 'assada-junto' || c === 'fundida' || c.startsWith('mascara-')) copia.classList.remove(c);
     copia.removeAttribute('data-fantasma');
     falso.append(copia);
     for (const tx of Array.from(el.querySelectorAll('text'))) for (const f of getComputedStyle(tx).fontFamily.split(',')) familias.add(f.replace(/['"]/g, '').trim());
@@ -320,9 +349,15 @@ export async function receita(grupo: Grupo, W: number, H: number): Promise<Recei
   const fontes = (await Promise.all([...familias].map(fonte))).join('\n');
   // as mesmas classes da página e do corpo em volta (as regras como `.lapis-liso app-paper-art …` pegam)
   const pagina = document.createElement('div');
-  pagina.setAttribute('class', document.documentElement.className);
+  // só as classes que as regras do papel olham (as de passagem, como a do arrasto, mudariam a chave)
+  const doPapelAgora = lidoPeloPapel().classes;
+  const nossas = (el: Element) => Array.from(el.classList).filter((c) => doPapelAgora.has(c)).sort().join(' ');
+  // os ids do desenho levam o número da ficha na página (pa12): na cópia, os da ordem, para a mesma
+  // ficha dar a mesma receita em qualquer visita (e a imagem guardada ser achada)
+  trocarIds(falso, (_, i) => `f${i}`);
+  pagina.setAttribute('class', nossas(document.documentElement));
   const corpo = document.createElement('div');
-  corpo.setAttribute('class', document.body.className);
+  corpo.setAttribute('class', nossas(document.body));
   corpo.append(falso);
   pagina.append(corpo);
   const ser = new XMLSerializer();
@@ -372,6 +407,28 @@ interface Entrada {
 }
 
 const cache = new Map<string, Entrada>();
+
+/**
+ * A versão do jeito de desenhar do forno (a conta da sombra, o PNG, a escala do filtro): entra na chave
+ * das imagens, e subir ela faz as guardadas nos aparelhos (core/forno-store.ts) serem desenhadas de novo.
+ * O desenho do papel em si já muda a receita sozinho.
+ */
+export const FORNO_VERSAO = 1;
+
+/** A chave de uma receita no cache e no aparelho. */
+export async function chaveDe(r: Receita, escala: number): Promise<string> {
+  return `${FORNO_VERSAO}|${escala}|${await resumo(r.svg)}`;
+}
+
+/** A imagem guardada ainda abre (não foi cortada nem estragada no disco). */
+async function abre(blob: Blob): Promise<boolean> {
+  try {
+    (await createImageBitmap(blob)).close();
+    return true;
+  } catch {
+    return false;
+  }
+}
 /** Quanto o forno guarda de imagens que nenhuma ficha está usando (as que voltam com a rolagem). */
 export const SOBRA_BYTES = 24 * 1024 * 1024;
 /** O tempo em que a imagem recém-solta não sai do cache (mais que o fade do papel velho). */
@@ -394,7 +451,7 @@ async function resumo(texto: string): Promise<string> {
  * receita (a mesma ficha montada de novo, a cópia arrastada) usa a mesma imagem.
  */
 export async function pegar(r: Receita, escala: number, fundida: boolean): Promise<Assada> {
-  const chave = `${escala}|${await resumo(r.svg)}`;
+  const chave = await chaveDe(r, escala);
   return pegarPela(chave, () => assar(r, escala), `${r.topo}px ${r.W - r.esquerda - r.largura}px ${r.H - r.topo - r.altura}px ${r.esquerda}px`, fundida);
 }
 
@@ -402,7 +459,17 @@ export async function pegar(r: Receita, escala: number, fundida: boolean): Promi
 async function pegarPela(chave: string, desenhar: () => Promise<Blob>, inset: string, fundida: boolean): Promise<Assada> {
   let e = cache.get(chave);
   if (!e) {
-    const pronta = desenhar().then((blob) => ({ url: URL.createObjectURL(blob), bytes: blob.size }));
+    // guardada neste aparelho numa visita de antes (core/forno-store.ts), ou desenhada agora e guardada
+    const pronta = lerDoForno(chave)
+      .then(async (guardada) => {
+        // (a guardada que não abre, cortada pela cota do disco ou estragada, sai e é desenhada de novo)
+        if (guardada && (await abre(guardada))) return guardada;
+        if (guardada) void apagarDoForno(chave);
+        const blob = await desenhar();
+        void guardarNoForno(chave, blob);
+        return blob;
+      })
+      .then((blob) => ({ url: URL.createObjectURL(blob), bytes: blob.size }));
     const nova: Entrada = { pronta, url: null, bytes: 0, usos: 0, usada: performance.now() };
     pronta.then(
       (v) => {
@@ -583,7 +650,7 @@ export async function receitaDaSombra(p: PedidoDeSombra, escala: number): Promis
     const raiz = `<div xmlns="http://www.w3.org/1999/xhtml" style="position:relative;width:${largura}px;height:${altura}px;margin:0;padding:0"><div style="position:absolute;left:${-l}px;top:${-t}px;width:${p.W}px;height:${p.H}px">${copias.map((c) => ser.serializeToString(c)).join('')}</div></div>`;
     pecasSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${largura}" height="${altura}" viewBox="0 0 ${largura} ${altura}"><foreignObject x="0" y="0" width="${largura}" height="${altura}">${raiz}</foreignObject></svg>`;
   }
-  const chave = `sombra|${escala}|${p.filtro}|${l},${t},${largura},${altura}|${p.imagens.map((a) => `${a.chave}@${a.inset}`).join(';')}|${await resumo(pecasSvg)}|${JSON.stringify(posicoes)}`;
+  const chave = `${FORNO_VERSAO}|sombra|${escala}|${p.filtro}|${l},${t},${largura},${altura}|${p.imagens.map((a) => `${a.chave}@${a.inset}`).join(';')}|${await resumo(pecasSvg)}|${JSON.stringify(posicoes)}`;
   const desenhar = async (): Promise<Blob> => {
     const cw = Math.max(1, Math.round(largura * escala)),
       ch = Math.max(1, Math.round(altura * escala));

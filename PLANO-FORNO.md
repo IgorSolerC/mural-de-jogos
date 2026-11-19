@@ -157,6 +157,18 @@ velhas saem): abrir o site de novo não assa nada. Pela regra do CLAUDE.md: o ba
 (browser-reset.ts), quem grava confere `storageFrozen()`, e browser-reset.spec.ts mostra que ele sai no
 logout. Não é dado de conta (é desenho, refeito a partir das fichas), então não entra em `localHasContent`.
 
+**Feita (19/nov, BUILD 969).** `core/forno-store.ts`: o banco `meu-mural:forno` (tabela `imagens`, pela
+chave, com a data de uso), teto de 80 MB (saem as usadas há mais tempo), na lista do `wipeBrowser`, e
+quem grava confere `storageFrozen()`. Para a mesma ficha dar a mesma chave em qualquer visita, a receita
+troca os ids do desenho pelos da ordem (`trocarIds`, que a cópia do fade também usa), tira as classes que
+mudam de visita para visita (o número do recorte) e só leva da página as classes que as regras do papel
+olham. A chave leva `FORNO_VERSAO` (subir quando a conta do forno mudar). A imagem guardada que não abre
+sai e é desenhada de novo; um banco com o nome certo e sem a tabela é aberto na versão seguinte.
+Medido (build de produção, as fichas do dono): a primeira visita desenha as 15 da tela no canvas; a
+volta, nenhuma (as receitas são as mesmas, conferidas byte a byte). O tempo até a tela ficar assada
+(~7 s) é o site carregando e a fila esperando o navegador ficar à toa: as fichas aparecem vivas e iguais
+nesse meio-tempo.
+
 ### Rodada 4: ficar acordada por mais tempo (só se a medida pedir)
 
 Com a ficha barata, dormir e acordar na rolagem (o `data-dorme`, que tira e põe milhares de traços de SVG
