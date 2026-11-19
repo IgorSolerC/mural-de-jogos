@@ -21,7 +21,7 @@ import { pinningFor } from '../core/wall-physics';
 import { onWallSettle } from '../core/wall-settle';
 import { HeightMemo } from '../ui/height-memo';
 import { budget, esteira, idleFits, perFrame, rest, setForcedSlow, slow, spend, struggling, tick } from '../ui/pace';
-import { ASLEEP, onPaperShown, wakePaper } from '../ui/paper-layer';
+import { ASLEEP, REVELANDO, onPaperShown, wakePaper } from '../ui/paper-layer';
 import { DateFrom, ReviewCard } from '../ui/review-card';
 import { isVeiled, veil } from '../ui/veil';
 import { cancelIdle, IdleDeadlineLike, whenIdle } from '../core/idle';
@@ -651,12 +651,13 @@ export class WallCardPool implements OnDestroy {
   }
 
   /**
-   * As fichas na esteira: montadas, acordadas e ainda com o véu (o papel sendo desenhado e assado). A que
-   * está numa seção escondida (sem tamanho, a fila do papel nem a desenha) não conta: prenderia a esteira.
+   * As fichas na esteira: montadas e acordadas, com o véu ou com o papel ainda se revelando (sendo
+   * desenhado e assado). A que está numa seção escondida (sem tamanho, a fila do papel nem a desenha) não
+   * conta: prenderia a esteira.
    */
   private preparing(): number {
     let n = 0;
-    for (const s of this.slots.values()) if (s.ref && !s.asleep && isVeiled(s.el) && s.box.isConnected && s.box.offsetParent !== null) n++;
+    for (const s of this.slots.values()) if (s.ref && !s.asleep && preparando(s.el) && s.box.isConnected && s.box.offsetParent !== null) n++;
     return n;
   }
 
@@ -856,7 +857,7 @@ export class WallCardPool implements OnDestroy {
         continue;
       }
       // (a que ainda espera o papel, montada de antemão, dorme depois de desenhada: acordar não desenha nada)
-      if (now - slot.farSince < WALL_TUNING.sleepAfter || busy(slot.el) || isVeiled(slot.el)) {
+      if (now - slot.farSince < WALL_TUNING.sleepAfter || busy(slot.el) || preparando(slot.el)) {
         pending = true;
         continue;
       }
@@ -951,6 +952,11 @@ function heightOf(el: HTMLElement): number {
 }
 
 /** A ficha não pode dormir agora: tem o foco, está deslizando ou sumindo, caindo na parede ou levando o carimbo. */
+/** Com o véu, ou com o papel ainda se revelando (ver `revelar` em ui/paper-layer.ts). */
+function preparando(el: HTMLElement): boolean {
+  return isVeiled(el) || el.hasAttribute(REVELANDO);
+}
+
 function busy(el: HTMLElement): boolean {
   return el.matches(':focus-within, .is-landing, .carimbando') || (typeof el.getAnimations === 'function' && el.getAnimations().length > 0);
 }

@@ -532,6 +532,9 @@ export class PaperArtLayer {
     });
     const destroy = inject(DestroyRef);
     destroy.onDestroy(() => {
+      // (os avisos e as voltas à fila que ainda estão por vir não a põem de volta no forno)
+      this.destruida = true;
+      this.avisarAssada();
       forget(this);
       desenfornar(this.fornada);
       this.desassar();
@@ -657,15 +660,18 @@ export class PaperArtLayer {
       return r.bottom < 0 ? -r.bottom : r.top > innerHeight ? r.top - innerHeight : 0;
     },
     assar: () => this.assar(),
-    urgente: () => !!this.aoAssar && !!this.card && isVeiled(this.card),
+    urgente: () => !!this.aoAssar && !!this.card && this.card.hasAttribute(REVELANDO),
     desistiu: () => this.avisarAssada(),
   };
 
   /** Pede ao forno que asse esta ficha (só as do mural: a prévia do editor muda a cada clique). */
   querAssar(): void {
     // (a que entrou assada pelo atalho não tem o que fazer no forno)
-    if (this.veils && !this.assadas.length) enfornar(this.fornada);
+    if (this.veils && !this.assadas.length && !this.destruida) enfornar(this.fornada);
   }
+
+  /** Saiu da página: nada mais a fazer no forno (ver o DestroyRef no construtor). */
+  private destruida = false;
 
   /** As camadas voltam a ser desenhadas ao vivo, e as imagens são devolvidas ao forno. */
   desassar(): void {
@@ -687,15 +693,14 @@ export class PaperArtLayer {
   private aoAssar: (() => void) | null = null;
 
   /**
-   * A ficha escondida (a vaga no lugar dela) só aparece assada: pelo atalho, se já foi assada noutra
-   * visita, ou pelo forno, escondida mesmo, na frente das outras. Nunca aparece com o papel vivo, então
-   * não há troca à vista (nada a piscar) e nenhum navegador paga o desenho vivo na rolagem. Resolve
-   * também quando não dá para assar (sem forno, ou o forno desistiu): aí ela aparece viva, como antes.
+   * Espera a ficha que está se revelando (ver `revelar`) ficar assada: pelo atalho, se já foi assada
+   * noutra visita, ou pelo forno, com o papel escondido, na frente das outras. Resolve também quando não
+   * dá para assar (sem forno, ou o forno desistiu): aí o papel aparece vivo, como antes.
    */
-  async aparecerAssada(): Promise<void> {
+  private async aparecerAssada(): Promise<void> {
     if (!this.veils) return;
     await this.porAtalho().catch(() => undefined);
-    if (this.assadas.length || !fornoLigado() || !this.card || !isVeiled(this.card)) return;
+    if (this.assadas.length || !fornoLigado() || this.destruida || !this.card || !this.card.hasAttribute(REVELANDO)) return;
     await new Promise<void>((resolve) => {
       // (a que foi redesenhada no meio deixa de esperar: quem a chamou já não vale, ver a fila do papel)
       this.avisarAssada();
@@ -718,7 +723,33 @@ export class PaperArtLayer {
     }
     // não deu agora (o tamanho mudou, foi redesenhada, dormiu): a escondida volta para a fila
     const card = this.card;
-    if (this.aoAssar && card?.isConnected && isVeiled(card)) setTimeout(() => this.aoAssar && enfornar(this.fornada), 100);
+    if (this.aoAssar && card?.isConnected && card.hasAttribute(REVELANDO)) setTimeout(() => this.aoAssar && !this.destruida && enfornar(this.fornada), 100);
+  }
+
+  /**
+   * A ficha entra antes de o papel ficar pronto: o conteúdo (a capa, o título, as notas, o texto) sobre a
+   * cor lisa da cartolina, que não custa nada desenhar (`data-revelando`, ver review-card.ts). O papel é
+   * assado escondido e se revela por cima: a cor lisa some num fade sobre a base dele, e o que vai por
+   * cima do texto (o relevo, o estrago, o enfeite) e a sombra entram num fade cada um, na altura dele.
+   * Antes a ficha esperava inteira com a vaga no lugar, e a parede ficava vazia um bom tempo.
+   */
+  async revelar(): Promise<void> {
+    const card = this.card;
+    if (!card) return;
+    if (!this.assadas.length) {
+      card.setAttribute(REVELANDO, '');
+      await Promise.race([this.aparecerAssada(), new Promise((r) => setTimeout(r, ESPERA_MAXIMA))]);
+    }
+    if (this.card !== card || !card.hasAttribute(REVELANDO)) return;
+    card.removeAttribute(REVELANDO);
+    if (!reducedMotion() && card.isConnected) {
+      const vem = Array.from(this.host.children).filter(
+        (el): el is HTMLElement => el instanceof HTMLElement && (el.classList.contains('sombra-assada') || (el.classList.contains('camada') && Number.parseFloat(getComputedStyle(el).zIndex) > 0)),
+      );
+      for (const el of vem) el.animate([{ opacity: 0 }, {}], { duration: REVELA, easing: 'ease-out' });
+    }
+    // não assou a tempo (sem forno, ou ele desistiu): o papel fica vivo, e o forno o assa depois
+    if (!this.assadas.length) this.querAssar();
   }
 
   private async assarAgora(): Promise<void> {
@@ -792,7 +823,7 @@ export class PaperArtLayer {
     if (!card) return null;
     const desenho = JSON.stringify([this.art(), this.decorDrawing(), !!this.lapisHtml(), this.mask(), this.burnMask(), this.outer(), this.glitter(), this.dark(), this.plain()]).split(this.uid).join('§');
     const componente = Array.from(this.host.attributes).find((a) => a.name.startsWith('_nghost'))?.name ?? '';
-    const sombra = card.classList.contains('recortada') ? getComputedStyle(card).filter : '';
+    const sombra = card.classList.contains('recortada') ? filtroParado(card) : '';
     return resumoDe(`${FORNO_VERSAO}|${escala}|${s.W}x${s.H}|${this.look()}|${sombra}|${componente}|${assinaturaDaPagina()}|${desenho}`);
   }
 
@@ -864,7 +895,7 @@ export class PaperArtLayer {
     const card = this.card;
     const s = this.size();
     if (!card || !s || vez !== this.fornadas || !card.classList.contains('recortada')) return;
-    const filtro = getComputedStyle(card).filter;
+    const filtro = filtroParado(card);
     if (!filtro || filtro === 'none') return;
     const imagens = this.assadas.map((a) => a.assada);
     const pecas = Array.from(card.querySelectorAll(':scope > .corpo > app-pin, :scope > .corpo > .aba-cat'));
@@ -1044,6 +1075,9 @@ export function onPaperShown(cb: () => void): () => void {
   return () => aoAparecer.delete(cb);
 }
 
+/** O máximo que a ficha escondida espera o atalho (a imagem guardada noutra visita) antes de entrar. */
+const ESPERA_DO_ATALHO = 300;
+
 /**
  * O máximo que a ficha escondida espera ficar assada. Assar uma ficha leva bem menos; isto é só para
  * ela nunca ficar escondida se algo prender o forno (ela aparece viva, e ele a assa depois).
@@ -1052,6 +1086,24 @@ const ESPERA_MAXIMA = 5000;
 
 /** Na ficha com a sombra assada por baixo (ver PaperArtLayer.assarSombra). */
 export const SOMBRA_ASSADA = 'data-sombra-assada';
+/** A ficha que entrou com o conteúdo sobre a cor lisa, com o papel sendo assado escondido (ver `revelar`). */
+export const REVELANDO = 'data-revelando';
+/** Lendo o filtro que a ficha revelando vai ter (ver `filtroParado`). */
+const LENDO_SOMBRA = 'data-lendo-sombra';
+/** O fade do papel se revelando, em ms. */
+const REVELA = 320;
+
+/**
+ * O filtro da ficha parada (a sombra das recortadas). A que está se revelando fica sem ele (a sombra
+ * entra assada, no fade): ele é lido como vai ficar.
+ */
+function filtroParado(card: HTMLElement): string {
+  if (!card.hasAttribute(REVELANDO)) return getComputedStyle(card).filter;
+  card.setAttribute(LENDO_SOMBRA, '');
+  const filtro = getComputedStyle(card).filter;
+  card.removeAttribute(LENDO_SOMBRA);
+  return filtro;
+}
 
 /**
  * Troca a sombra viva pela assada (ou o contrário) sem a transição do filtro da ficha: com ela, o
@@ -1374,14 +1426,18 @@ function step(far: boolean, budget: number, maxCostly: number): { urgent: boolea
       // desenhada e à vista: a vez do forno, com o navegador à toa
       job.layer.querAssar();
     };
-    // a ficha escondida só aparece assada (ver aparecerAssada), com as imagens dela (a capa) já
-    // decodificadas, sem um quadro vazio no lugar. Se algo prender o forno, ela aparece viva no limite.
+    // a ficha escondida entra num instante: a que já foi assada noutra visita entra assada (o atalho), e
+    // a capa chega decodificada, sem um quadro vazio no lugar; as outras entram com o conteúdo sobre a cor
+    // lisa, e o papel se revela quando ficar assado (ver revelar). A esteira (wall-cards.ts) anda quando
+    // ele se revela.
     if (job.layer.veils && isVeiled(job.card)) {
       const vez = ++job.layer.vezDoVeu;
-      const pronta = Promise.all([job.layer.aparecerAssada(), decodificadas(job.card)]);
-      Promise.race([pronta, new Promise((r) => setTimeout(r, ESPERA_MAXIMA))]).then(() => {
+      const pronta = Promise.all([job.layer.porAtalho().catch(() => undefined), decodificadas(job.card)]);
+      Promise.race([pronta, new Promise((r) => setTimeout(r, ESPERA_DO_ATALHO))]).then(async () => {
         // (redesenhada no meio: quem a mostra é a vez nova; fora da página, nada a mostrar)
-        if (job.layer.vezDoVeu === vez && job.card.isConnected) mostrar();
+        if (job.layer.vezDoVeu !== vez || !job.card.isConnected) return;
+        reveal(job.card, job.onScreen);
+        await job.layer.revelar();
         for (const cb of aoAparecer) cb();
       });
     } else mostrar();

@@ -551,12 +551,46 @@ export const CARD_STYLES = `
     :host([data-capa='borrada']) .cover :is(app-cover-sleeve, app-record-cover) {
       filter: blur(6px);
     }
-    /* O papel não é pintado. Só esconder não bastava: o Chrome pinta mesmo assim o relevo do papel
-       amassado (um filtro que gera a textura sozinho, sem depender do desenho), e a vaga aparecia como
-       um retângulo cinza. Com a opacidade zero nada é pintado, e as camadas continuam com tamanho: o
-       forno assa a ficha escondida (ver ui/forno.ts), e precisa medir o desenho que passa da beirada. */
-    :host([data-veu]) .corpo > app-paper-art {
+    /* Com o véu, e enquanto o papel se revela, o papel não é pintado. Só esconder não basta: o Chrome
+       pinta mesmo assim o relevo do papel amassado (um filtro que gera a textura sozinho, sem depender do
+       desenho), e a vaga aparecia como um retângulo cinza. Recortadas a nada, as camadas não pintam nada
+       e continuam com tamanho: o forno assa a ficha assim (ver ui/forno.ts) e mede o desenho que passa
+       da beirada. (A opacidade no app-paper-art não serve: ele é display: contents.) */
+    :host([data-veu]) ::ng-deep .camada,
+    :host([data-veu]) ::ng-deep .sombra-assada,
+    :host([data-revelando]) ::ng-deep .camada,
+    :host([data-revelando]) ::ng-deep .sombra-assada {
+      clip-path: inset(50%);
+    }
+    /* Revelando (ver revelar, em ui/paper-layer.ts): o conteúdo já está na ficha, sobre a cor lisa da
+       cartolina, sem filtro nenhum; o papel, assado escondido, entra por cima num fade. A cor fica logo
+       acima da base do papel (z -1, a última na ordem) e abaixo do texto. Sem o mouse por esse instante:
+       a ficha levantada teria outra sombra, e o forno assa a parada. */
+    .corpo::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      border-radius: inherit;
+      background: var(--stock);
       opacity: 0;
+      pointer-events: none;
+      transition: opacity 320ms ease-out;
+    }
+    :host([data-revelando]) .corpo::after {
+      opacity: 1;
+      transition: none;
+    }
+    :host([data-revelando]) {
+      pointer-events: none;
+    }
+    :host(.recortada[data-revelando]:not([data-lendo-sombra])) {
+      filter: none;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .corpo::after {
+        transition: none;
+      }
     }
     :host([data-veu]) {
       box-shadow: none;

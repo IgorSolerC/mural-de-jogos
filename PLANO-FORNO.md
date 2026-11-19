@@ -236,6 +236,16 @@ troca à vista (nada a piscar) e nenhum Chrome paga o desenho vivo na rolagem.
 - **E3: a esteira**: o limite de 5 / 1, `WallCardPool` montando só com vaga na esteira, a ordem, o forno
   sem esperar a rolagem para as fichas com véu, em passos curtos. Medir as tarefas longas (LoAF) abrindo e
   rolando, no Chrome do dono e num limpo.
+- **E3 (feita, BUILD 975)**: a esteira (5 / 1), o ajudante (Web Worker: a página não lê pixels; ler
+  esperava a GPU, 50–350 ms), a fibra reduzida ao tamanho em que aparece (decodificar caía de 65–110 ms
+  para 27–44), o passo urgente logo depois do quadro (montar → aparecer de 2,3 s para 1,2 s). Assar 2+
+  juntas dobrava os quadros longos sem encurtar a espera: uma por vez.
+- **A revelação (feita depois da E3, pedido do dono: "fica um bom tempo vazio")**: a ficha entra já com
+  o conteúdo sobre a cor lisa da cartolina (`data-revelando`), sem filtro; o papel assado se revela por
+  cima num fade. Montar → conteúdo à vista: ~50 ms. O retângulo cinza era o relevo amassado pintando com
+  o véu: a opacidade no app-paper-art não fazia nada (ele é display: contents); as camadas escondidas
+  agora são recortadas a nada (clip-path), o que mantém o tamanho que o forno mede. Armadilha: crase num
+  comentário do CSS do componente fecha a string de estilos; `:host(:is(a, b))` quebra as regras seguintes.
 - **E4: os outros murais**: Kanban (ui/near-screen.ts), Pra depois e Wishlist (as capas com drop-shadow).
   Medir cada um do mesmo jeito.
 - **E5: a abertura**: as tarefas de 0,6–1,3 s dos primeiros segundos (montar o mural, os dados).
