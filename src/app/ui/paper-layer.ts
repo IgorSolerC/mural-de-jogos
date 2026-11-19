@@ -1097,11 +1097,16 @@ const REVELA = 320;
  * O filtro da ficha parada (a sombra das recortadas). A que está se revelando fica sem ele (a sombra
  * entra assada, no fade): ele é lido como vai ficar.
  */
-function filtroParado(card: HTMLElement): string {
+export function filtroParado(card: HTMLElement): string {
   if (!card.hasAttribute(REVELANDO)) return getComputedStyle(card).filter;
-  card.setAttribute(LENDO_SOMBRA, '');
-  const filtro = getComputedStyle(card).filter;
-  card.removeAttribute(LENDO_SOMBRA);
+  // sem a transição do filtro (a da ficha que levanta): com ela, o que se lia era o começo da animação,
+  // uma sombra de força zero, e o forno assava uma sombra vazia
+  let filtro = '';
+  semTransicao(card, () => {
+    card.setAttribute(LENDO_SOMBRA, '');
+    filtro = getComputedStyle(card).filter;
+    card.removeAttribute(LENDO_SOMBRA);
+  });
   return filtro;
 }
 

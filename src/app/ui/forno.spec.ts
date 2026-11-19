@@ -2,7 +2,7 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { paperVars } from '../core/paper-art';
 import { CamadaInfo, agrupar, alcanceDaSombra, assar, chaveDe, marcarUrls, materializar, embutirUrls, filaDoForno, fornoCache, fornoEpoca, fornoErro, pegarSombra, grupos, pegar, receita, resetForno, soltar } from './forno';
-import { ASLEEP, PaperArtLayer, PaperDefs, REVELANDO, SOMBRA_ASSADA } from './paper-layer';
+import { ASLEEP, PaperArtLayer, PaperDefs, REVELANDO, SOMBRA_ASSADA, filtroParado } from './paper-layer';
 import { Pin } from './pin';
 import { FORNO_DB, guardarNoForno, lerDoForno } from '../core/forno-store';
 import { deleteDatabase } from '../core/erase-save';
@@ -490,6 +490,10 @@ describe('o forno nas fichas do mural', () => {
       }
     });
     mo.observe(document.body, { attributes: true, subtree: true, attributeFilter: ['data-veu', REVELANDO], attributeOldValue: true });
+    // como no review-card.ts: revelando, a ficha fica sem o filtro, e o filtro tem transição (a ficha que levanta)
+    const css = document.createElement('style');
+    css.textContent = `app-review-card.recortada[${REVELANDO}]:not([data-lendo-sombra]) { filter: none !important; } app-review-card.recortada { transition: filter 300ms linear !important; }`;
+    document.head.append(css);
     const a = await montar({ recortada: true });
     expect(await until(() => !a.card.hasAttribute('data-veu') && !a.card.hasAttribute(REVELANDO))).withContext('revelou').toBeTrue();
     mo.disconnect();
@@ -499,7 +503,14 @@ describe('o forno nas fichas do mural', () => {
     // e o papel apareceu assado, com a sombra
     expect(aoRevelar).withContext('ao revelar: assada e com a sombra').toEqual([true]);
     expect(desenhos()).withContext('desenhou').toBeGreaterThan(0);
-    expect(a.card.querySelector('.sombra-assada')).not.toBeNull();
+    // e a sombra tem sombra (lida sem a transição do filtro: com ela, saía uma sombra de força zero)
+    const sombra = a.card.querySelector<HTMLElement>('.sombra-assada')!;
+    const url = /url\("([^"]+)"\)/.exec(sombra.style.background)![1];
+    const px = await pixels(await (await fetch(url)).blob());
+    let maior = 0;
+    for (let y = 0; y < px.h; y += 2) for (let x = 0; x < px.w; x += 2) maior = Math.max(maior, px.at(x, y)[3]);
+    expect(maior).withContext('o alfa mais forte da sombra').toBeGreaterThan(60);
+    css.remove();
     a.done();
   }, 40000);
 
@@ -615,6 +626,27 @@ describe('o forno nas fichas do mural', () => {
     expect((assadas()[0] as HTMLElement).style.getPropertyValue('--assada')).not.toBe(antes);
     done();
   }, 30000);
+
+  it('a sombra que a ficha revelando vai ter é lida inteira, e não o começo da transição do filtro', () => {
+    const css = document.createElement('style');
+    css.textContent = `.leitura-sombra { filter: drop-shadow(0 8px 10px rgb(0 0 0 / 0.5)); transition: filter 300ms linear; } .leitura-sombra[${REVELANDO}]:not([data-lendo-sombra]) { filter: none; }`;
+    document.head.append(css);
+    const card = document.createElement('div');
+    card.className = 'leitura-sombra';
+    document.body.append(card);
+    card.setAttribute(REVELANDO, '');
+    // revelando há um tempo: o filtro já é none
+    card.style.transition = 'none';
+    void getComputedStyle(card).filter;
+    card.style.transition = '';
+    void getComputedStyle(card).filter;
+    expect(filtroParado(card)).toBe('drop-shadow(rgba(0, 0, 0, 0.5) 0px 8px 10px)');
+    // e a ficha continua sem o filtro, sem transição nenhuma começada
+    expect(getComputedStyle(card).filter).toBe('none');
+    expect(card.getAnimations().length).toBe(0);
+    card.remove();
+    css.remove();
+  });
 
   it('a ficha que sai da página no meio da revelação não fica (nem volta) na fila do forno', async () => {
     await deleteDatabase(FORNO_DB);
