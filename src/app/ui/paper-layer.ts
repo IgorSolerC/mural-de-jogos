@@ -21,7 +21,8 @@ import { dropMask, holdMask, maskClass } from './mask-rules';
 import { isVeiled, reveal, veil } from './veil';
 import { reducedMotion } from '../core/motion';
 import { IdleDeadlineLike, whenIdle } from '../core/idle';
-import { Assada, Fornada, Grupo, desenfornar, enfornar, fornoEpoca, grupos, pegar, pegarSombra, receita, retomar, soltar, trocarIds } from './forno';
+import { Assada, FORNO_VERSAO, Fornada, Grupo, assinaturaDaPagina, desenfornar, enfornar, fornoEpoca, fornoLigado, grupos, pegar, pegarGuardada, pegarSombra, receita, resumoDe, retomar, soltar, trocarIds } from './forno';
+import { guardarAtalho, lerAtalho } from '../core/forno-store';
 
 let uids = 0;
 
@@ -661,7 +662,8 @@ export class PaperArtLayer {
 
   /** Pede ao forno que asse esta ficha (só as do mural: a prévia do editor muda a cada clique). */
   querAssar(): void {
-    if (this.veils) enfornar(this.fornada);
+    // (a que entrou assada pelo atalho não tem o que fazer no forno)
+    if (this.veils && !this.assadas.length) enfornar(this.fornada);
   }
 
   /** As camadas voltam a ser desenhadas ao vivo, e as imagens são devolvidas ao forno. */
@@ -686,6 +688,8 @@ export class PaperArtLayer {
     const now = this.readSize();
     if (!now || now.W !== s.W || now.H !== s.H) return;
     const vez = ++this.fornadas;
+    // a chave barata, lida antes de qualquer imagem entrar (a sombra assada tira o filtro da ficha)
+    const atalho = this.chaveBarata(s, devicePixelRatio);
     const camadas = Array.from(this.host.children).filter(
       (el): el is HTMLElement => el instanceof HTMLElement && el.classList.contains('camada') && !el.hasAttribute('data-fantasma'),
     );
@@ -715,8 +719,9 @@ export class PaperArtLayer {
         const r = await receita(grupo, s.W, s.H);
         if (vez !== this.fornadas) return larga();
         prontas.push({ grupo, assada: await pegar(r, escala, grupo.fundida) });
-        // mudou enquanto assava (o tamanho, o papel, a ficha saiu da página): a imagem já não vale
-        if (vez !== this.fornadas || !card.isConnected) return larga();
+        // mudou enquanto assava (o tamanho, o papel, a ficha saiu da página), ou entrou pelo atalho: a
+        // imagem já não vale, ou já não faz falta
+        if (vez !== this.fornadas || !card.isConnected || this.assadas.length) return larga();
       }
     } catch (err) {
       larga();
@@ -724,10 +729,79 @@ export class PaperArtLayer {
     }
     this.aplicar(prontas, s, escala);
     await this.assarSombra(escala, vez);
+    // da próxima vez (outra visita, a ficha montada de novo), ela entra já assada (ver porAtalho)
+    if (vez === this.fornadas && this.assadas.length) {
+      const chave = await atalho;
+      if (chave)
+        void guardarAtalho({
+          atalho: chave,
+          grupos: this.assadas.map(({ assada }) => ({ chave: assada.chave, inset: assada.inset, fundida: assada.fundida })),
+          sombra: this.sombra ? { chave: this.sombra.assada.chave, inset: this.sombra.assada.inset } : null,
+        });
+    }
+  }
+
+  /**
+   * A chave barata desta ficha: o desenho que ela já calculou (sem o número dela na página), o que pinta
+   * o papel por fora, a sombra, o tamanho, a densidade e o que a página dá ao papel. Não lê as camadas
+   * nem monta a receita: dá para procurar com a ficha ainda escondida, antes de ela aparecer.
+   */
+  private async chaveBarata(s: Size, escala: number): Promise<string | null> {
+    const card = this.card;
+    if (!card) return null;
+    const desenho = JSON.stringify([this.art(), this.decorDrawing(), !!this.lapisHtml(), this.mask(), this.burnMask(), this.outer(), this.glitter(), this.dark(), this.plain()]).split(this.uid).join('§');
+    const componente = Array.from(this.host.attributes).find((a) => a.name.startsWith('_nghost'))?.name ?? '';
+    const sombra = card.classList.contains('recortada') ? getComputedStyle(card).filter : '';
+    return resumoDe(`${FORNO_VERSAO}|${escala}|${s.W}x${s.H}|${this.look()}|${sombra}|${componente}|${assinaturaDaPagina()}|${desenho}`);
+  }
+
+  /**
+   * A ficha que já foi assada noutra visita entra assada: pelo atalho guardado, as imagens vêm do
+   * aparelho sem desenhar nada, antes de a ficha aparecer (a fila do papel espera um instante por
+   * isto). Sem atalho, ou faltando uma imagem, nada muda: a ficha entra viva e o forno assa depois.
+   */
+  async porAtalho(): Promise<void> {
+    const s = this.size();
+    const card = this.card;
+    if (!this.veils || !s || !card || this.assadas.length || !fornoLigado()) return;
+    const escala = devicePixelRatio;
+    const chave = await this.chaveBarata(s, escala);
+    const a = chave ? await lerAtalho(chave) : null;
+    if (!a || this.assadas.length) return;
+    const camadas = Array.from(this.host.children).filter(
+      (el): el is HTMLElement => el instanceof HTMLElement && el.classList.contains('camada') && !el.hasAttribute('data-fantasma'),
+    );
+    const todos = grupos(camadas);
+    if (todos.length !== a.grupos.length) return;
+    const prontas: { grupo: Grupo; assada: Assada }[] = [];
+    const larga = (extra?: Assada | null) => {
+      for (const p of prontas) soltar(p.assada);
+      if (extra) soltar(extra);
+    };
+    for (let i = 0; i < todos.length; i++) {
+      const g = a.grupos[i];
+      const x = await pegarGuardada(g.chave, g.inset, g.fundida);
+      if (!x) return larga();
+      prontas.push({ grupo: todos[i], assada: x });
+    }
+    const sombra = a.sombra ? await pegarGuardada(a.sombra.chave, a.sombra.inset, false) : null;
+    // (o componente pode ter rodado de novo no meio, sem mudar nada: vale se o desenho continua o mesmo)
+    const agora = this.size();
+    const mesma = !!agora && agora.W === s.W && agora.H === s.H && (await this.chaveBarata(agora, escala)) === chave;
+    if ((a.sombra && !sombra) || !mesma || this.assadas.length || !card.isConnected) return larga(sombra);
+    this.aplicar(prontas, s, escala);
+    if (sombra) {
+      this.lembrada!.sombra = sombra;
+      await this.assarSombra(escala, this.fornadas);
+      // (a sombra posta pegou a dela; esta é a do atalho)
+      soltar(sombra);
+    }
   }
 
   /** Põe as imagens nas camadas: a líder mostra a do grupo, as outras saem de cena. */
   private aplicar(prontas: { grupo: Grupo; assada: Assada }[], s: Size, escala: number): void {
+    // assada (pelo forno ou pelo atalho): nada mais a fazer na fila dele
+    desenfornar(this.fornada);
     this.lembrada = { W: s.W, H: s.H, escala, assadas: prontas.map((p) => p.assada), sombra: this.lembrada?.sombra ?? null };
     for (const { grupo, assada } of prontas) {
       const [lider, ...juntas] = grupo.camadas;
@@ -909,6 +983,9 @@ export class PaperArtLayer {
     };
   }
 }
+
+/** O máximo que a ficha escondida espera o atalho do forno antes de aparecer viva. */
+const ESPERA_DO_ATALHO = 300;
 
 /** Na ficha com a sombra assada por baixo (ver PaperArtLayer.assarSombra). */
 export const SOMBRA_ASSADA = 'data-sombra-assada';
@@ -1229,9 +1306,15 @@ function step(far: boolean, budget: number, maxCostly: number): { urgent: boolea
   for (const write of writes) write();
   for (const job of done) {
     waiting.delete(job.layer);
-    reveal(job.card, job.onScreen);
-    // desenhada e à vista: a vez do forno, com o navegador à toa
-    job.layer.querAssar();
+    const mostrar = () => {
+      reveal(job.card, job.onScreen);
+      // desenhada e à vista: a vez do forno, com o navegador à toa
+      job.layer.querAssar();
+    };
+    // a ficha escondida que já foi assada noutra visita entra assada: espera o atalho um instante
+    if (job.layer.veils && isVeiled(job.card)) {
+      Promise.race([job.layer.porAtalho().catch(() => undefined), new Promise((r) => setTimeout(r, ESPERA_DO_ATALHO))]).then(mostrar);
+    } else mostrar();
   }
   const rest = list.filter((job) => waiting.has(job.layer));
   return { urgent: rest.some((job) => job.urgent), far: rest.some((job) => !job.urgent) };

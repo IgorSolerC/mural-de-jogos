@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-19-forno-guardado',
+    id: '2026-11-19-forno-atalho',
     version: '1.50.2',
     kind: 'ajustes',
     date: '2026-11-19',
@@ -36,6 +36,7 @@ export const NEWS: NewsEntry[] = [
       'O papel das cartolinas do mural (a textura, a estampa, o rabisco, o estrago, as manchas e as decorações) e a sombra das recortadas são desenhados uma vez e guardados como imagem, iguais aos de sempre: rolar o mural ficou mais leve, e o computador não trabalha mais com o mural parado. Com o mouse em cima, a ficha levanta com a sombra de sempre.',
       'Enquanto o mural rola, os brilhos das notas altas param onde estão, e voltam a piscar quando a rolagem para.',
       'As cartolinas e as sombras já desenhadas ficam guardadas neste aparelho: abrir o mural de novo não as desenha outra vez (e elas saem junto quando você sai da conta).',
+      'Voltando ao mural, as cartolinas que já foram desenhadas entram direto como imagem, sem passar pelo desenho de novo: a rolagem da volta engasga bem menos.',
     ],
   },
   {

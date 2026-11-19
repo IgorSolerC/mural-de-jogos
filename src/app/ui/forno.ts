@@ -550,6 +550,35 @@ export function retomar(a: Assada): Assada | null {
   return a;
 }
 
+/**
+ * A imagem de uma chave já conhecida (de um atalho), do cache desta aba ou do aparelho, sem desenhar
+ * nada: null se ela não está em nenhum dos dois (aí a ficha assa pelo caminho de sempre).
+ */
+export async function pegarGuardada(chave: string, inset: string, fundida: boolean): Promise<Assada | null> {
+  const e = cache.get(chave);
+  if (e) {
+    if (!e.url) return null;
+    e.usos++;
+    e.usada = performance.now();
+    return { url: e.url, inset, fundida, chave };
+  }
+  const blob = await lerDoForno(chave);
+  if (!blob) return null;
+  const ja = cache.get(chave);
+  if (ja?.url) {
+    ja.usos++;
+    return { url: ja.url, inset, fundida, chave };
+  }
+  const url = URL.createObjectURL(blob);
+  cache.set(chave, { pronta: Promise.resolve({ url, bytes: blob.size }), url, bytes: blob.size, usos: 1, usada: performance.now() });
+  return { url, inset, fundida, chave };
+}
+
+/** O resumo de um texto (SHA-1), para as chaves. */
+export function resumoDe(texto: string): Promise<string> {
+  return resumo(texto);
+}
+
 /** A ficha largou a imagem: fica no cache, até o teto das que ninguém usa. */
 export function soltar(a: Assada): void {
   const e = cache.get(a.chave);

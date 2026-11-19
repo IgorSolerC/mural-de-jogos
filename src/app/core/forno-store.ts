@@ -7,6 +7,9 @@ import { storageFrozen } from './storage';
  */
 export const FORNO_DB = 'meu-mural:forno';
 const STORE = 'imagens';
+/** Os atalhos: da chave barata de uma ficha (o desenho dela, o tamanho, a densidade) para as imagens dela. */
+const ATALHOS = 'atalhos';
+const TABELAS = [STORE, ATALHOS];
 
 /** O tamanho guardado, no máximo: passando, saem as usadas há mais tempo. */
 export const FORNO_TETO_BYTES = 80 * 1024 * 1024;
@@ -24,7 +27,7 @@ interface Guardada {
 let banco: Promise<IDBDatabase> | undefined;
 
 function abrir(): Promise<IDBDatabase> {
-  if (!banco) banco = abrirNaVersao(1);
+  if (!banco) banco = abrirNaVersao(undefined);
   return banco;
 }
 
@@ -32,16 +35,19 @@ function abrir(): Promise<IDBDatabase> {
  * Abre o banco. Um banco com o nome certo e sem a tabela (criado vazio por outra coisa, ou que perdeu a
  * tabela) é aberto de novo na versão seguinte, que cria a tabela: senão o forno nunca guardaria nada.
  */
-function abrirNaVersao(versao: number): Promise<IDBDatabase> {
+function abrirNaVersao(versao: number | undefined): Promise<IDBDatabase> {
   return new Promise<IDBDatabase>((resolve, reject) => {
     if (typeof indexedDB === 'undefined') return reject(new Error('sem IndexedDB'));
-    const req = indexedDB.open(FORNO_DB, versao);
+    // sem versão: abre a que estiver lá (ou cria a 1); faltando uma tabela, a seguinte cria
+    const req = versao === undefined ? indexedDB.open(FORNO_DB) : indexedDB.open(FORNO_DB, versao);
     req.onupgradeneeded = () => {
-      if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE, { keyPath: 'chave' }).createIndex('usada', 'usada');
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: 'chave' }).createIndex('usada', 'usada');
+      if (!db.objectStoreNames.contains(ATALHOS)) db.createObjectStore(ATALHOS, { keyPath: 'atalho' });
     };
     req.onsuccess = () => {
       const db = req.result;
-      if (!db.objectStoreNames.contains(STORE)) {
+      if (TABELAS.some((t) => !db.objectStoreNames.contains(t))) {
         const proxima = db.version + 1;
         db.close();
         abrirNaVersao(proxima).then(resolve, reject);
@@ -116,6 +122,33 @@ export async function guardarNoForno(chave: string, blob: Blob, teto = FORNO_TET
     });
   } catch {
     /* sem banco ou sem espaço: a imagem fica só na memória desta aba */
+  }
+}
+
+/** As imagens de uma ficha, guardadas pela chave barata dela (ver PaperArtLayer.porAtalho). */
+export interface AtalhoGuardado {
+  atalho: string;
+  /** Os grupos de camadas, na ordem: a chave, onde a imagem fica e se a mistura foi junto. */
+  grupos: { chave: string; inset: string; fundida: boolean }[];
+  sombra: { chave: string; inset: string } | null;
+}
+
+export async function lerAtalho(atalho: string): Promise<AtalhoGuardado | null> {
+  try {
+    const db = await abrir();
+    return ((await pedido(db.transaction(ATALHOS).objectStore(ATALHOS).get(atalho))) as AtalhoGuardado | undefined) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function guardarAtalho(a: AtalhoGuardado): Promise<void> {
+  if (storageFrozen()) return;
+  try {
+    const db = await abrir();
+    await pedido(db.transaction(ATALHOS, 'readwrite').objectStore(ATALHOS).put(a));
+  } catch {
+    /* sem banco: a ficha assa de novo na próxima visita */
   }
 }
 

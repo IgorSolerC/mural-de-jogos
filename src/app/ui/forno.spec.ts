@@ -346,7 +346,9 @@ describe('o forno nas fichas do mural', () => {
 
   it('a mesma ficha montada outra vez dá a mesma receita (e acha a imagem guardada na visita de antes)', async () => {
     const receitas = async (m: Awaited<ReturnType<typeof montar>>) => {
-      // assada, ela volta a ser viva para a receita ler as camadas
+      // assada, ela volta a ser viva para a receita ler as camadas (e sai da fila, para o forno não a
+      // assar de novo enquanto a receita espera a página quieta)
+      resetForno();
       (m.fixture.componentInstance as PaperArtLayer).desassar();
       const camadas = Array.from(m.card.querySelectorAll<HTMLElement>('.camada')).filter((el) => !el.hasAttribute('data-fantasma'));
       return Promise.all(grupos(camadas).map((g) => receita(g, 300, 200).then((r) => r.svg)));
@@ -415,6 +417,32 @@ describe('o forno nas fichas do mural', () => {
     expect(fornoCache().imagens).toBe(imagens);
     done();
   }, 30000);
+
+  it('a ficha já assada noutra visita entra assada: no instante em que aparece, já com as imagens, sem desenhar nada (o atalho)', async () => {
+    const a = await montar({ recortada: true });
+    expect(a.ok).toBeTrue();
+    expect(await until(() => a.card.hasAttribute(SOMBRA_ASSADA))).toBeTrue();
+    // (o atalho é guardado logo depois da sombra)
+    await until(() => false, 300);
+    a.done();
+    // outra visita: a memória da aba vazia, só o que ficou no aparelho
+    resetForno();
+    const desenhos = spyOn(HTMLCanvasElement.prototype, 'toBlob').and.callThrough();
+    const aoAparecer: boolean[] = [];
+    const mo = new MutationObserver((ms) => {
+      for (const m of ms) {
+        const el = m.target as HTMLElement;
+        if (m.attributeName === 'data-veu' && !el.hasAttribute('data-veu')) aoAparecer.push(!!el.querySelector('.camada.assada') && el.hasAttribute(SOMBRA_ASSADA));
+      }
+    });
+    mo.observe(document.body, { attributes: true, subtree: true, attributeFilter: ['data-veu'] });
+    const b = await montar({ recortada: true });
+    mo.disconnect();
+    expect(b.ok).toBeTrue();
+    expect(aoAparecer).withContext('assada e com a sombra no instante em que aparece').toEqual([true]);
+    expect(desenhos).not.toHaveBeenCalled();
+    b.done();
+  }, 40000);
 
   it('a ficha recortada ganha a sombra assada por baixo de tudo; a que volta a ser viva volta ao filtro', async () => {
     const { card, ok, fixture, done } = await montar({ recortada: true });
