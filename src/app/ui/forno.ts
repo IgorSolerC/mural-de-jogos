@@ -395,9 +395,14 @@ async function resumo(texto: string): Promise<string> {
  */
 export async function pegar(r: Receita, escala: number, fundida: boolean): Promise<Assada> {
   const chave = `${escala}|${await resumo(r.svg)}`;
+  return pegarPela(chave, () => assar(r, escala), `${r.topo}px ${r.W - r.esquerda - r.largura}px ${r.H - r.topo - r.altura}px ${r.esquerda}px`, fundida);
+}
+
+/** A imagem da chave, do cache ou desenhada agora por `desenhar`. */
+async function pegarPela(chave: string, desenhar: () => Promise<Blob>, inset: string, fundida: boolean): Promise<Assada> {
   let e = cache.get(chave);
   if (!e) {
-    const pronta = assar(r, escala).then((blob) => ({ url: URL.createObjectURL(blob), bytes: blob.size }));
+    const pronta = desenhar().then((blob) => ({ url: URL.createObjectURL(blob), bytes: blob.size }));
     const nova: Entrada = { pronta, url: null, bytes: 0, usos: 0, usada: performance.now() };
     pronta.then(
       (v) => {
@@ -413,7 +418,7 @@ export async function pegar(r: Receita, escala: number, fundida: boolean): Promi
   e.usada = performance.now();
   try {
     const { url } = await e.pronta;
-    return { url, inset: `${r.topo}px ${r.W - r.esquerda - r.largura}px ${r.H - r.topo - r.altura}px ${r.esquerda}px`, fundida, chave };
+    return { url, inset, fundida, chave };
   } catch (err) {
     e.usos--;
     throw err;
@@ -461,6 +466,184 @@ export function fornoCache(): { imagens: number; emUso: number; bytes: number } 
   return { imagens: l.length, emUso: l.filter((e) => e.usos).length, bytes: l.reduce((s, e) => s + e.bytes, 0) };
 }
 
+// ===================== A sombra das recortadas =====================
+
+/**
+ * Uma cópia de uma peça da ficha (a tachinha, a orelha da categoria), com o estilo calculado de cada
+ * elemento dela no lugar das regras: só a forma importa (a silhueta da sombra), então as imagens de
+ * fora (a capa) viram caixas.
+ */
+async function copiaComEstilo(el: Element): Promise<Element> {
+  const copia = el.cloneNode(true) as Element;
+  const vivos = [el, ...Array.from(el.querySelectorAll('*'))];
+  const copias = [copia, ...Array.from(copia.querySelectorAll('*'))];
+  for (let i = 0; i < vivos.length; i++) {
+    const cs = getComputedStyle(vivos[i]);
+    let style = '';
+    for (let k = 0; k < cs.length; k++) {
+      const p = cs[k];
+      if (p.startsWith('--') || p === 'transition' || p.startsWith('transition-') || p.startsWith('animation')) continue;
+      style += `${p}:${cs.getPropertyValue(p)};`;
+    }
+    const c = copias[i];
+    c.setAttribute('style', await embutirUrls(style));
+    if (c instanceof HTMLImageElement) {
+      c.removeAttribute('src');
+      c.removeAttribute('srcset');
+      c.style.background = '#000';
+    }
+  }
+  return copia;
+}
+
+/** A extensão de uma lista de drop-shadow (o quanto a sombra passa da silhueta), em px. */
+export function alcanceDaSombra(filtro: string): number {
+  let total = 0;
+  for (const m of filtro.matchAll(/drop-shadow\(([^()]*(?:\([^()]*\)[^()]*)*)\)/g)) {
+    const nums = [...m[1].replace(/rgba?\([^)]*\)|#[\da-f]+/gi, '').matchAll(/(-?[\d.]+)px/g)].map((x) => Math.abs(Number(x[1])));
+    const [x = 0, y = 0, blur = 0] = nums;
+    // o borrão gaussiano some a uns 3 desvios (o desvio é metade do borrão): as sombras se somam
+    total += Math.max(x, y) + blur * 1.5 + 2;
+  }
+  return Math.ceil(total);
+}
+
+/** As medidas do filtro, multiplicadas pela densidade (o filtro do canvas é em pixels dele). */
+function filtroNaEscala(filtro: string, escala: number): string {
+  return filtro.replace(/(-?[\d.]+)px/g, (_, n: string) => `${Number(n) * escala}px`);
+}
+
+/** O que a sombra assada precisa da ficha. */
+export interface PedidoDeSombra {
+  /** As imagens assadas do papel, no lugar delas (o inset de cada uma, como em `Assada`). */
+  readonly imagens: readonly Assada[];
+  /** As peças que passam da beirada, vivas na ficha (a tachinha, a orelha). */
+  readonly pecas: readonly Element[];
+  /** O filtro da ficha parada (a lista de drop-shadow). */
+  readonly filtro: string;
+  readonly W: number;
+  readonly H: number;
+}
+
+/** Carrega uma imagem e espera ela poder ser desenhada. */
+async function imagem(url: string): Promise<HTMLImageElement> {
+  const img = new Image();
+  img.src = url;
+  await img.decode();
+  return img;
+}
+
+/**
+ * Assa a sombra de uma ficha recortada: a silhueta (o papel assado e as peças que passam da beirada)
+ * passa pelo mesmo filtro da ficha num canvas, e da imagem pronta sai a silhueta, ficando só a sombra
+ * que ia por baixo dela. Posta por baixo da ficha sem o filtro, a ficha fica como antes.
+ *
+ * A conta: com o filtro, o canvas tem a silhueta preta P (alfa a) por cima da sombra S, R = P + (1 − a)·S
+ * (com as cores multiplicadas pelo alfa). P é preta, então S = R / (1 − a) onde a < 1; onde a silhueta
+ * cobre tudo, a sombra não aparece.
+ */
+export async function receitaDaSombra(p: PedidoDeSombra, escala: number): Promise<{ desenhar: () => Promise<Blob>; chave: string; inset: string }> {
+  // a caixa: o papel (com o que passa da beirada) e as peças, mais o alcance da sombra
+  let l = 0,
+    t = 0,
+    r = p.W,
+    b = p.H;
+  const caixa = (inset: string) => {
+    const [it, ir, ib, il] = inset.split(' ').map((v) => Number.parseFloat(v));
+    l = Math.min(l, il);
+    t = Math.min(t, it);
+    r = Math.max(r, p.W - ir);
+    b = Math.max(b, p.H - ib);
+  };
+  for (const a of p.imagens) caixa(a.inset);
+  const posicoes = p.pecas.map((el) => {
+    const h = el as HTMLElement;
+    const x = h.offsetLeft,
+      y = h.offsetTop,
+      w = h.offsetWidth,
+      hh = h.offsetHeight;
+    l = Math.min(l, x);
+    t = Math.min(t, y);
+    r = Math.max(r, x + w);
+    b = Math.max(b, y + hh);
+    return { x, y, w, h: hh };
+  });
+  const alcance = alcanceDaSombra(p.filtro);
+  l = Math.floor(l - alcance);
+  t = Math.floor(t - alcance);
+  r = Math.ceil(r + alcance);
+  b = Math.ceil(b + alcance);
+  const largura = r - l,
+    altura = b - t;
+  // as peças: copiadas com o estilo calculado, no lugar delas (o mesmo bloco de posição da ficha)
+  let pecasSvg = '';
+  if (p.pecas.length) {
+    const ser = new XMLSerializer();
+    const copias = await Promise.all(p.pecas.map(copiaComEstilo));
+    const raiz = `<div xmlns="http://www.w3.org/1999/xhtml" style="position:relative;width:${largura}px;height:${altura}px;margin:0;padding:0"><div style="position:absolute;left:${-l}px;top:${-t}px;width:${p.W}px;height:${p.H}px">${copias.map((c) => ser.serializeToString(c)).join('')}</div></div>`;
+    pecasSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${largura}" height="${altura}" viewBox="0 0 ${largura} ${altura}"><foreignObject x="0" y="0" width="${largura}" height="${altura}">${raiz}</foreignObject></svg>`;
+  }
+  const chave = `sombra|${escala}|${p.filtro}|${l},${t},${largura},${altura}|${p.imagens.map((a) => `${a.chave}@${a.inset}`).join(';')}|${await resumo(pecasSvg)}|${JSON.stringify(posicoes)}`;
+  const desenhar = async (): Promise<Blob> => {
+    const cw = Math.max(1, Math.round(largura * escala)),
+      ch = Math.max(1, Math.round(altura * escala));
+    const sil = document.createElement('canvas');
+    sil.width = cw;
+    sil.height = ch;
+    const sx = sil.getContext('2d', { willReadFrequently: true })!;
+    sx.scale(escala, escala);
+    for (const a of p.imagens) {
+      const [it, ir, ib, il] = a.inset.split(' ').map((v) => Number.parseFloat(v));
+      sx.drawImage(await imagem(a.url), il - l, it - t, p.W - il - ir, p.H - it - ib);
+    }
+    if (pecasSvg) sx.drawImage(await imagem(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(pecasSvg)}`), 0, 0, largura, altura);
+    // a silhueta em preto, com o alfa de cada pixel
+    sx.setTransform(1, 0, 0, 1, 0, 0);
+    sx.globalCompositeOperation = 'source-in';
+    sx.fillStyle = '#000';
+    sx.fillRect(0, 0, cw, ch);
+    const com = document.createElement('canvas');
+    com.width = cw;
+    com.height = ch;
+    const cx = com.getContext('2d', { willReadFrequently: true })!;
+    cx.filter = filtroNaEscala(p.filtro, escala);
+    cx.drawImage(sil, 0, 0);
+    const silD = sx.getImageData(0, 0, cw, ch).data;
+    const img = cx.getImageData(0, 0, cw, ch);
+    const d = img.data;
+    for (let k = 0; k < d.length; k += 4) {
+      const a = silD[k + 3] / 255;
+      const ra = d[k + 3] / 255;
+      if (a >= 0.998) {
+        d[k + 3] = 0;
+        continue;
+      }
+      const sa = Math.max(0, (ra - a) / (1 - a));
+      if (sa <= 0) {
+        d[k + 3] = 0;
+        continue;
+      }
+      // as cores de R vêm sem o alfa multiplicado: R·Ra = S·Sa·(1 − a), então S = R·Ra / (Sa·(1 − a))
+      const f = ra / (sa * (1 - a));
+      d[k] = Math.min(255, Math.round(d[k] * f));
+      d[k + 1] = Math.min(255, Math.round(d[k + 1] * f));
+      d[k + 2] = Math.min(255, Math.round(d[k + 2] * f));
+      d[k + 3] = Math.round(sa * 255);
+    }
+    cx.putImageData(img, 0, 0);
+    const blob = await new Promise<Blob | null>((res) => com.toBlob(res, 'image/png'));
+    if (!blob) throw new Error('forno: a sombra não deu imagem');
+    return blob;
+  };
+  return { desenhar, chave, inset: `${t}px ${p.W - r}px ${p.H - b}px ${l}px` };
+}
+
+/** A sombra assada, do cache ou desenhada agora (segura como `pegar`). */
+export async function pegarSombra(p: PedidoDeSombra, escala: number): Promise<Assada> {
+  const rec = await receitaDaSombra(p, escala);
+  return pegarPela(rec.chave, rec.desenhar, rec.inset, false);
+}
+
 // ===================== A época: o que muda o papel por fora =====================
 
 /**
@@ -482,7 +665,7 @@ export function desligarForno(): void {
 /** As variáveis que os desenhos usam no próprio SVG (a letra dos rabiscos com texto), fora das regras. */
 const VARIAVEIS_DOS_DESENHOS = ['--f-label', '--f-hand'];
 
-let doPapel: { folhas: number; variaveis: string[]; classes: Set<string> } | null = null;
+let doPapel: { folhas: number; pino: string; variaveis: string[]; classes: Set<string> } | null = null;
 
 /**
  * O que, na página, chega ao papel: as variáveis que as regras do papel usam (a fibra, a textura
@@ -491,14 +674,21 @@ let doPapel: { folhas: number; variaveis: string[]; classes: Set<string> } | nul
  */
 function lidoPeloPapel(): { variaveis: string[]; classes: Set<string> } {
   const folhas = document.styleSheets.length;
-  if (doPapel?.folhas === folhas) return doPapel;
+  const pino = document.querySelector('app-pin');
+  const atributoDoPino = pino ? atributoNg(pino, '_nghost') : '';
+  if (doPapel?.folhas === folhas && doPapel.pino === atributoDoPino) return doPapel;
+  // as peças da silhueta da sombra: a tachinha (a foto dela chega com `body.has-pins`, num
+  // :host-context, que no CSS compilado só tem o atributo do componente) e a orelha
+  const daSilhueta = (sel: string) => /app-pin|\.pin(?![\w-])|\.aba-cat(?![\w-])/.test(sel) || (!!atributoDoPino && sel.includes(atributoDoPino));
   const variaveis = new Set(VARIAVEIS_DOS_DESENHOS);
   const classes = new Set<string>();
   const andar = (lista: CSSRuleList) => {
     for (const r of Array.from(lista)) {
       if (r instanceof CSSStyleRule) {
         const sel = r.selectorText;
-        if (!/app-paper-art|\.papel\b|\.cartolina\b|\.camada\b/.test(sel)) continue;
+        // (a sombra das recortadas também: a opção "Sem sombra na cartolina" é uma classe da página)
+        // (a classe inteira: `.papel-folha` do editor ou `.camada-nome` do ateliê não são o papel da ficha)
+        if (!/app-paper-art|\.(?:papel|cartolina|camada|recortada)(?![\w-])/.test(sel) && !daSilhueta(sel)) continue;
         for (const m of r.cssText.matchAll(/var\((--[\w-]+)/g)) variaveis.add(m[1]);
         for (const m of sel.matchAll(/\.([\w-]+)/g)) classes.add(m[1]);
       } else if ('cssRules' in r && !(r instanceof CSSFontFaceRule)) andar((r as CSSGroupingRule).cssRules);
@@ -511,7 +701,7 @@ function lidoPeloPapel(): { variaveis: string[]; classes: Set<string> } {
       /* folha de outro endereço */
     }
   }
-  doPapel = { folhas, variaveis: [...variaveis].sort(), classes };
+  doPapel = { folhas, pino: atributoDoPino, variaveis: [...variaveis].sort(), classes };
   return doPapel;
 }
 
@@ -531,10 +721,19 @@ function vigiar(): void {
   // A página muda de classe e de estilo o tempo todo (o arrasto, a bandeja da seleção, a parede, o
   // teclado do celular): só o que chega ao papel faz as fichas assarem de novo.
   let antes = assinaturaDaPagina();
+  let lidas = lidoPeloPapel();
   let marcada = false;
   const conferir = () => {
     marcada = false;
     const agora = assinaturaDaPagina();
+    // chegou uma folha de estilo (uma tela carregada depois): a lista do que o papel lê mudou, e a
+    // assinatura recomeça daqui, em vez de o mural inteiro assar de novo a cada tela nova
+    const regras = lidoPeloPapel();
+    if (regras !== lidas) {
+      lidas = regras;
+      antes = agora;
+      return;
+    }
     if (agora === antes) return;
     antes = agora;
     mudou();
@@ -547,6 +746,15 @@ function vigiar(): void {
     });
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style'] });
     if (document.body) mo.observe(document.body, { attributes: true, attributeFilter: ['class', 'style'] });
+    // uma folha de estilo nova (o componente que aparece pela primeira vez): a referência é refeita na
+    // hora, antes de qualquer classe mudar, e uma classe que chegue logo depois ainda conta
+    const folhas = new MutationObserver(() => {
+      const regras = lidoPeloPapel();
+      if (regras === lidas) return;
+      lidas = regras;
+      antes = assinaturaDaPagina();
+    });
+    folhas.observe(document.head, { childList: true });
   }
   const densidade = () => {
     if (typeof matchMedia !== 'function') return;
@@ -581,6 +789,11 @@ let ultimoErro: unknown = null;
 /** As vezes que cada ficha falhou no forno (ela fica viva entre uma e outra). */
 const tentativas = new WeakMap<Fornada, number>();
 const TENTATIVAS = 3;
+/** Sem nenhuma pronta, a fila olha de novo depois disto. */
+const DE_NOVO_SEM_PRONTA = 2000;
+/** Quantas voltas a fila dá sem nenhuma pronta antes de esperar alguém chamar (um minuto). */
+const VOLTAS_VAZIAS = 30;
+let voltasVazias = 0;
 const DE_NOVO = 10_000;
 /** A última falha do forno (a ficha que falhou fica viva): para os testes e para quem depura. */
 export function fornoErro(): unknown {
@@ -592,6 +805,7 @@ const DEPOIS_DA_ROLAGEM = 400;
 export function enfornar(f: Fornada): void {
   if (!fornoLigado()) return;
   vigiar();
+  voltasVazias = 0;
   fila.add(f);
   agendar();
 }
@@ -625,7 +839,13 @@ async function rodar(prazo: IdleDeadlineLike): Promise<void> {
       melhor = f;
     }
   }
-  if (!melhor) return;
+  if (!melhor) {
+    // as que esperam algo passar (o mouse em cima, o papel velho sumindo) são olhadas de novo daqui a
+    // pouco, por um tempo; depois a fila espera a próxima ficha chegar (ou a mesma, de novo)
+    if (++voltasVazias <= VOLTAS_VAZIAS) setTimeout(agendar, DE_NOVO_SEM_PRONTA);
+    return;
+  }
+  voltasVazias = 0;
   fila.delete(melhor);
   trabalhando = true;
   try {
@@ -658,6 +878,7 @@ export function resetForno(): void {
   desligado = false;
   rolouEm = -Infinity;
   ultimoErro = null;
+  voltasVazias = 0;
   for (const e of cache.values()) if (e.url) URL.revokeObjectURL(e.url);
   cache.clear();
 }

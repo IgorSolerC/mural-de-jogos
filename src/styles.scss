@@ -1927,6 +1927,12 @@ img.revelada {
 .fichas-paradas .brilho {
   animation: none;
 }
+/* Rolando o mural ([data-quieta], ver pages/wall-cards.ts), os brilhos param onde estão e voltam a
+   piscar quando a rolagem para: piscando, eles faziam o navegador recalcular a ficha a cada quadro da
+   rolagem (PLANO-FORNO.md, rodada 2). */
+[data-quieta] .brilho {
+  animation-play-state: paused;
+}
 
 /* ===== O card do texto (ver core/callouts.ts): o papel e a tinta de cada jeito, no [data-jeito] da
    leitura, do Visual, do menu do card e do PDF (ui/_formatado.scss desenha o resto) ===== */

@@ -1,8 +1,9 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { paperVars } from '../core/paper-art';
-import { CamadaInfo, agrupar, assar, embutirUrls, filaDoForno, fornoCache, fornoEpoca, fornoErro, grupos, pegar, receita, resetForno, soltar } from './forno';
-import { PaperArtLayer, PaperDefs, sleepPaper } from './paper-layer';
+import { CamadaInfo, agrupar, alcanceDaSombra, assar, embutirUrls, filaDoForno, fornoCache, fornoEpoca, fornoErro, pegarSombra, grupos, pegar, receita, resetForno, soltar } from './forno';
+import { ASLEEP, PaperArtLayer, PaperDefs, SOMBRA_ASSADA } from './paper-layer';
+import { Pin } from './pin';
 
 const info = (z: number, mistura = 'normal', opacidade = 1, viva = false): CamadaInfo => ({ z, mistura, opacidade, viva });
 
@@ -147,12 +148,62 @@ describe('o forno: assar', () => {
   });
 });
 
+describe('o forno: a sombra', () => {
+  afterEach(() => resetForno());
+
+  it('o alcance de uma lista de drop-shadow soma o deslocamento e o borrão de cada uma', () => {
+    expect(alcanceDaSombra('drop-shadow(rgba(0, 0, 0, 0.35) 0px 1px 1px) drop-shadow(rgba(0, 0, 0, 0.5) 0px 8px 10px)')).toBe(Math.ceil(1 + 1.5 + 2 + 8 + 15 + 2));
+    expect(alcanceDaSombra('none')).toBe(0);
+  });
+
+  it('a silhueta por cima da sombra assada dá o mesmo que o filtro (a sombra fica só onde a silhueta não cobre)', async () => {
+    // a silhueta: um quadrado de 40 px, opaco, numa "ficha" de 100×80
+    const cv = document.createElement('canvas');
+    cv.width = 100;
+    cv.height = 80;
+    const c = cv.getContext('2d')!;
+    c.fillStyle = '#c33';
+    c.fillRect(30, 20, 40, 40);
+    const url = URL.createObjectURL(await new Promise<Blob>((r) => cv.toBlob((b) => r(b!), 'image/png')));
+    const filtro = 'drop-shadow(rgba(0, 0, 0, 0.5) 0px 8px 10px)';
+    const s = await pegarSombra({ imagens: [{ url, inset: '0px 0px 0px 0px', fundida: true, chave: 'x' }], pecas: [], filtro, W: 100, H: 80 }, 1);
+    const [it, , , il] = s.inset.split(' ').map((v) => Number.parseFloat(v));
+    const img = new Image();
+    img.src = s.url;
+    await img.decode();
+    const tela = () => {
+      const t = document.createElement('canvas');
+      t.width = img.width;
+      t.height = img.height;
+      return t.getContext('2d', { willReadFrequently: true })!;
+    };
+    // o que a ficha vai mostrar: a sombra assada e, por cima, a silhueta sem filtro
+    const ax = tela();
+    ax.drawImage(img, 0, 0);
+    ax.drawImage(cv, -il, -it);
+    // o que o filtro desenhava
+    const bx = tela();
+    bx.filter = filtro;
+    bx.drawImage(cv, -il, -it);
+    const da = ax.getImageData(0, 0, img.width, img.height).data;
+    const db = bx.getImageData(0, 0, img.width, img.height).data;
+    let max = 0;
+    for (let k = 0; k < da.length; k++) max = Math.max(max, Math.abs(da[k] - db[k]));
+    expect(max).withContext('diferença máxima, de 255').toBeLessThanOrEqual(3);
+    // e embaixo do quadrado não há sombra nenhuma na imagem (a ficha cobre)
+    const sx = tela();
+    sx.drawImage(img, 0, 0);
+    expect(sx.getImageData(50 - il, 40 - it, 1, 1).data[3]).toBe(0);
+    URL.revokeObjectURL(url);
+  });
+});
+
 describe('o forno nas fichas do mural', () => {
   beforeEach(() => TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] }));
   afterEach(() => resetForno());
 
   /** Um papel numa "ficha do mural" (o forno só assa as do mural, não a prévia do editor). */
-  async function montar() {
+  async function montar(opcoes: { recortada?: boolean; textos?: (card: HTMLElement) => void } = {}) {
     const defs = TestBed.createComponent(PaperDefs);
     defs.detectChanges();
     document.body.append(defs.nativeElement);
@@ -166,7 +217,13 @@ describe('o forno nas fichas do mural', () => {
     card.setAttribute('data-cor', 'amarelo');
     card.style.cssText = 'position:relative;display:block;width:300px;height:200px;--stock:#f3d36b';
     for (const [k, v] of Object.entries(paperVars(undefined, undefined, undefined, null, false, 'forno1'))) if (v) card.style.setProperty(k, v);
+    if (opcoes.recortada) {
+      // a ficha recortada e a sombra dela (a de review-card.ts, posta aqui à mão)
+      card.classList.add('recortada');
+      card.style.filter = 'drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 8px 10px rgb(0 0 0 / 0.5))';
+    }
     card.appendChild(fixture.nativeElement);
+    opcoes.textos?.(card);
     // no alto da página, à vista (a fila do papel desenha primeiro as da tela)
     document.body.prepend(card);
     fixture.detectChanges();
@@ -236,19 +293,34 @@ describe('o forno nas fichas do mural', () => {
     document.documentElement.classList.add('lapis-liso');
     await quadro();
     expect(fornoEpoca()).withContext('o lápis liso muda o desenho').toBeGreaterThan(antes);
+    // a tachinha que aparece pela primeira vez (a folha dela chega) e, logo depois, a foto das
+    // tachinhas: a silhueta da sombra muda
+    const pino = TestBed.createComponent(Pin);
+    pino.detectChanges();
+    // (o TestBed monta a tachinha num div: na ficha ela é um <app-pin>, com o atributo do componente)
+    const tag = document.createElement('app-pin');
+    for (const a of Array.from((pino.nativeElement as HTMLElement).attributes)) if (a.name.startsWith('_nghost')) tag.setAttribute(a.name, '');
+    document.body.append(tag);
+    await quadro();
+    const comPino = fornoEpoca();
+    document.body.classList.add('has-pins');
+    await quadro();
+    expect(fornoEpoca()).withContext('a foto das tachinhas muda a silhueta da sombra').toBeGreaterThan(comPino);
+    document.body.classList.remove('has-pins');
+    tag.remove();
+    pino.destroy();
     document.documentElement.classList.remove('parede-arrastando', 'lapis-liso');
     document.body.classList.remove('has-tray');
     document.documentElement.style.removeProperty('--vv-h');
     done();
   }, 30000);
 
-  it('a ficha que dorme e acorda pega a mesma imagem de volta, sem assar outra', async () => {
+  it('a ficha que larga as imagens e volta sem nada mudar pega as mesmas, sem assar outra', async () => {
     const { fixture, ok, assadas, done } = await montar();
     expect(ok).toBeTrue();
     const url = (assadas()[0] as HTMLElement).style.getPropertyValue('--assada');
     const imagens = fornoCache().imagens;
-    const card = assadas()[0].closest('app-review-card')!;
-    sleepPaper(card);
+    (fixture.componentInstance as PaperArtLayer).desassar();
     expect(assadas().length).toBe(0);
     (fixture.componentInstance as PaperArtLayer).querAssar();
     expect(await until(() => assadas().length > 0)).toBeTrue();
@@ -257,14 +329,80 @@ describe('o forno nas fichas do mural', () => {
     done();
   }, 30000);
 
-  it('a ficha que vai dormir longe da tela devolve as imagens ao forno', async () => {
+  it('a ficha recortada ganha a sombra assada por baixo de tudo; a que volta a ser viva volta ao filtro', async () => {
+    const { card, ok, fixture, done } = await montar({ recortada: true });
+    expect(ok).toBeTrue();
+    expect(await until(() => card.hasAttribute(SOMBRA_ASSADA))).withContext(`sombra (${String(fornoErro())})`).toBeTrue();
+    const sombra = card.querySelector<HTMLElement>('.sombra-assada')!;
+    expect(sombra.style.background).toContain('blob:');
+    expect(getComputedStyle(sombra).zIndex).toBe('-10');
+    // a sombra passa da ficha (o alcance do filtro), para todos os lados
+    expect(sombra.getBoundingClientRect().height).toBeGreaterThan(card.getBoundingClientRect().height + 20);
+    fixture.componentRef.setInput('look', 'verde');
+    fixture.detectChanges();
+    expect(card.hasAttribute(SOMBRA_ASSADA)).toBeFalse();
+    expect(card.querySelector('.sombra-assada')).toBeNull();
+    done();
+  }, 30000);
+
+  it('a ficha sem sombra (a inteira, ou com "Sem sombra na cartolina") não ganha a imagem da sombra', async () => {
+    const { card, ok, done } = await montar();
+    expect(ok).toBeTrue();
+    await new Promise((r) => setTimeout(r, 300));
+    expect(card.hasAttribute(SOMBRA_ASSADA)).toBeFalse();
+    done();
+  }, 30000);
+
+  it('o recorte do texto só vai no texto que o rasgo alcança (longe dele, a máscara não mudaria nada)', async () => {
+    const masked = (n: Element) => [...n.classList].some((c) => c.startsWith('mascara-'));
+    let grande!: HTMLElement;
+    const { card, fixture, ok, done } = await montar({
+      textos: (c) => {
+        grande = document.createElement('p');
+        grande.setAttribute('data-queima', '');
+        grande.style.cssText = 'position:absolute;left:0;top:0;width:300px;height:200px;margin:0';
+        c.append(grande);
+      },
+    });
+    expect(ok).toBeTrue();
+    expect(await until(() => masked(grande))).withContext('o texto que cobre a ficha inteira leva o recorte').toBeTrue();
+    // um lugar longe de todos os pedaços do rasgo
+    const caixas = (fixture.componentInstance as unknown as { caixasDoRasgo(): DOMRect[] }).caixasDoRasgo();
+    expect(caixas.length).toBeGreaterThan(0);
+    let livre: [number, number] | null = null;
+    for (let y = 14; y <= 200 - 14 - 10 && !livre; y += 2)
+      for (let x = 14; x <= 300 - 14 - 30 && !livre; x += 2)
+        if (caixas.every((k) => k.x > x + 30 + 12 || k.x + k.width < x - 12 || k.y > y + 10 + 12 || k.y + k.height < y - 12)) livre = [x, y];
+    expect(livre).withContext('um lugar livre na ficha de teste').not.toBeNull();
+    const pequeno = document.createElement('span');
+    pequeno.setAttribute('data-queima', '');
+    pequeno.style.cssText = `position:absolute;left:${livre![0]}px;top:${livre![1]}px;width:30px;height:10px`;
+    card.append(pequeno);
+    fixture.componentRef.setInput('content', { mudou: 1 });
+    fixture.detectChanges();
+    await until(() => false, 600);
+    expect(masked(pequeno)).withContext('o texto longe do rasgo fica sem a máscara').toBeFalse();
+    expect(masked(grande)).toBeTrue();
+    done();
+  }, 30000);
+
+  it('a ficha que dorme longe da tela continua assada (acordando no meio da rolagem, não volta ao desenho vivo)', async () => {
     const { card, ok, assadas, done } = await montar();
     expect(ok).toBeTrue();
-    expect(fornoCache().emUso).toBeGreaterThan(0);
-    sleepPaper(card);
-    expect(assadas().length).toBe(0);
-    expect(fornoCache().emUso).toBe(0);
+    const antes = assadas().length;
+    card.setAttribute(ASLEEP, '');
+    await until(() => false, 300);
+    card.removeAttribute(ASLEEP);
+    expect(assadas().length).toBe(antes);
     done();
+  }, 30000);
+
+  it('a ficha que sai da página devolve as imagens ao forno', async () => {
+    const { ok, done } = await montar();
+    expect(ok).toBeTrue();
+    expect(fornoCache().emUso).toBeGreaterThan(0);
+    done();
+    expect(fornoCache().emUso).toBe(0);
   }, 30000);
 
   it('a ficha mudou de tamanho: volta viva no tamanho novo, e assa de novo', async () => {

@@ -21,7 +21,7 @@ import { dropMask, holdMask, maskClass } from './mask-rules';
 import { isVeiled, reveal, veil } from './veil';
 import { reducedMotion } from '../core/motion';
 import { IdleDeadlineLike, whenIdle } from '../core/idle';
-import { Assada, Fornada, Grupo, desenfornar, enfornar, fornoEpoca, grupos, pegar, receita, retomar, soltar } from './forno';
+import { Assada, Fornada, Grupo, desenfornar, enfornar, fornoEpoca, grupos, pegar, pegarSombra, receita, retomar, soltar } from './forno';
 
 let uids = 0;
 
@@ -630,7 +630,9 @@ export class PaperArtLayer {
    * As imagens da última fornada, no tamanho e na densidade em que foram assadas: a ficha que dormiu
    * e acordou pega de volta do cache do forno, sem refazer a receita. Some quando o papel muda.
    */
-  private lembrada: { W: number; H: number; escala: number; assadas: Assada[] } | null = null;
+  private lembrada: { W: number; H: number; escala: number; assadas: Assada[]; sombra: Assada | null } | null = null;
+  /** A sombra assada em uso (só nas recortadas): a imagem por baixo da ficha. */
+  private sombra: { el: HTMLElement; assada: Assada } | null = null;
 
   /** O papel desta ficha no forno: assa quando a ficha está quieta na página. */
   private readonly fornada: Fornada = {
@@ -645,7 +647,9 @@ export class PaperArtLayer {
         !card.hasAttribute(ASLEEP) &&
         !isVeiled(card) &&
         !this.ghosts.some((g) => g.isConnected) &&
-        !waiting.has(this)
+        !waiting.has(this) &&
+        // levantada pelo mouse, a sombra da ficha é outra: espera ela assentar
+        !card.matches(':hover, :active')
       );
     },
     distancia: () => {
@@ -671,6 +675,7 @@ export class PaperArtLayer {
       soltar(assada);
     }
     this.assadas = [];
+    this.tirarSombra();
   }
 
   private async assar(): Promise<void> {
@@ -698,7 +703,10 @@ export class PaperArtLayer {
         if (!de) break;
         prontas.push({ grupo: todos[i], assada: de });
       }
-      if (prontas.length === todos.length) return this.aplicar(prontas, s, escala);
+      if (prontas.length === todos.length) {
+        this.aplicar(prontas, s, escala);
+        return this.assarSombra(escala, vez);
+      }
       larga();
       prontas.length = 0;
     }
@@ -715,11 +723,12 @@ export class PaperArtLayer {
       throw err;
     }
     this.aplicar(prontas, s, escala);
+    await this.assarSombra(escala, vez);
   }
 
   /** Põe as imagens nas camadas: a líder mostra a do grupo, as outras saem de cena. */
   private aplicar(prontas: { grupo: Grupo; assada: Assada }[], s: Size, escala: number): void {
-    this.lembrada = { W: s.W, H: s.H, escala, assadas: prontas.map((p) => p.assada) };
+    this.lembrada = { W: s.W, H: s.H, escala, assadas: prontas.map((p) => p.assada), sombra: this.lembrada?.sombra ?? null };
     for (const { grupo, assada } of prontas) {
       const [lider, ...juntas] = grupo.camadas;
       lider.style.setProperty('--assada', `url("${assada.url}")`);
@@ -729,6 +738,49 @@ export class PaperArtLayer {
       for (const el of juntas) el.classList.add('assada-junto');
       this.assadas.push({ lider, juntas, assada });
     }
+  }
+
+  /**
+   * A sombra da ficha recortada, assada a partir do papel assado e das peças que passam da beirada (a
+   * tachinha, a orelha): fica por baixo de tudo, e a ficha parada perde o filtro (ver review-card.ts,
+   * `[data-sombra-assada]`). Levantada pelo mouse ou pelo foco, a ficha volta ao filtro de sempre.
+   */
+  private async assarSombra(escala: number, vez: number): Promise<void> {
+    const card = this.card;
+    const s = this.size();
+    if (!card || !s || vez !== this.fornadas || !card.classList.contains('recortada')) return;
+    const filtro = getComputedStyle(card).filter;
+    if (!filtro || filtro === 'none') return;
+    const imagens = this.assadas.map((a) => a.assada);
+    const pecas = Array.from(card.querySelectorAll(':scope > .corpo > app-pin, :scope > .corpo > .aba-cat'));
+    const l = this.lembrada;
+    let assada: Assada | null = l?.sombra ? retomar(l.sombra) : null;
+    if (!assada) assada = await pegarSombra({ imagens, pecas, filtro, W: s.W, H: s.H }, escala);
+    if (vez !== this.fornadas || !card.isConnected || card.matches(':hover, :active')) {
+      soltar(assada);
+      return;
+    }
+    if (l) l.sombra = assada;
+    const el = document.createElement('div');
+    el.className = 'sombra-assada';
+    el.setAttribute('aria-hidden', 'true');
+    el.style.cssText = `position:absolute;inset:${assada.inset};z-index:-10;pointer-events:none;background:url("${assada.url}") 0 0 / 100% 100% no-repeat`;
+    semTransicao(card, () => {
+      this.host.prepend(el);
+      card.setAttribute(SOMBRA_ASSADA, '');
+    });
+    this.sombra = { el, assada };
+  }
+
+  /** A ficha volta à sombra viva (o filtro), na mesma hora, sem as duas sombras juntas. */
+  private tirarSombra(): void {
+    const sombra = this.sombra;
+    if (!sombra) return;
+    this.sombra = null;
+    const card = this.card;
+    if (card) semTransicao(card, () => card.removeAttribute(SOMBRA_ASSADA));
+    sombra.el.remove();
+    soltar(sombra.assada);
   }
 
   /** As cópias do desenho anterior que ainda estão sumindo (ver ghost). */
@@ -762,6 +814,16 @@ export class PaperArtLayer {
   }
 
   private burnt = new Set<HTMLElement>();
+
+  private rasgosMedidos: { art: Art; caixas: DOMRect[] } | null = null;
+
+  /** As caixas dos pedaços que o recorte tira (o rasgo, o furo, a faixa em que a cor soltou), em px da ficha. */
+  private caixasDoRasgo(): DOMRect[] {
+    const art = this.art();
+    if (!art) return [];
+    if (this.rasgosMedidos?.art !== art) this.rasgosMedidos = { art, caixas: [...art.cut, ...art.core].map(medirTraco) };
+    return this.rasgosMedidos.caixas;
+  }
 
   /**
    * O que está escrito queima junto com o papel: cada texto recebe o mesmo recorte, deslocado para
@@ -805,6 +867,27 @@ export class PaperArtLayer {
       }
       at.set(el, [x, y]);
     }
+    // Só leva o recorte o texto que ele alcança: com folga, longe do rasgo e dentro da ficha (o recorte
+    // também apara o que passa da beirada), a máscara é branca em cima dele inteiro e não muda nenhum
+    // pixel, mas cada texto mascarado custava ao navegador refazer as camadas da página a cada quadro.
+    if (s && next.size) {
+      const rasgos = this.caixasDoRasgo();
+      for (const el of next) {
+        const [x, y] = at.get(el)!;
+        const w = Math.max(el.offsetWidth, el.scrollWidth),
+          h = Math.max(el.offsetHeight, el.scrollHeight);
+        const l = x - FOLGA_DO_RASGO,
+          t = y - FOLGA_DO_RASGO,
+          r = x + w + FOLGA_DO_RASGO,
+          b = y + h + FOLGA_DO_RASGO;
+        const dentro = l >= 0 && t >= 0 && r <= s.W && b <= s.H;
+        const longe = rasgos.every((c) => c.x > r || c.x + c.width < l || c.y > b || c.y + c.height < t);
+        if (dentro && longe) {
+          next.delete(el);
+          at.delete(el);
+        }
+      }
+    }
     const prev = this.burnt;
     this.burnt = next;
     const cls = mask ? maskClass(mask) : '';
@@ -825,6 +908,48 @@ export class PaperArtLayer {
       }
     };
   }
+}
+
+/** Na ficha com a sombra assada por baixo (ver PaperArtLayer.assarSombra). */
+export const SOMBRA_ASSADA = 'data-sombra-assada';
+
+/**
+ * Troca a sombra viva pela assada (ou o contrário) sem a transição do filtro da ficha: com ela, o
+ * filtro sumia (ou voltava) devagar e as duas sombras ficavam juntas um instante.
+ */
+function semTransicao(card: HTMLElement, mudar: () => void): void {
+  const antes = card.style.getPropertyValue('transition'),
+    peso = card.style.getPropertyPriority('transition');
+  card.style.setProperty('transition', 'none', 'important');
+  mudar();
+  // o estilo novo é calculado aqui, ainda sem transição; devolver a de antes não começa nenhuma
+  void getComputedStyle(card).filter;
+  if (antes) card.style.setProperty('transition', antes, peso);
+  else card.style.removeProperty('transition');
+}
+
+/**
+ * A folga em volta do texto para ele ficar sem o recorte: o desenho da letra que passa da caixa (o
+ * itálico, a sombra) e o serrilhado da beirada do rasgo.
+ */
+const FOLGA_DO_RASGO = 12;
+
+let regua: SVGPathElement | null = null;
+
+/** A caixa de um traço de SVG (um pedaço do recorte), medida num SVG escondido. */
+function medirTraco(d: string): DOMRect {
+  if (!regua || !regua.isConnected) {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.style.cssText = 'position:absolute;left:0;top:0;width:0;height:0;overflow:hidden;visibility:hidden;pointer-events:none';
+    regua = document.createElementNS(ns, 'path');
+    svg.append(regua);
+    document.body.append(svg);
+  }
+  regua.setAttribute('d', d);
+  const b = regua.getBBox();
+  return new DOMRect(b.x, b.y, b.width, b.height);
 }
 
 /** Os adesivos colados por cima do que está escrito: não queimam com o texto. Os widgets do texto também são adesivos. */
@@ -951,14 +1076,6 @@ export function wakePaper(card: Element): boolean {
   waiting.add(layer);
   kick();
   return true;
-}
-
-/**
- * A ficha foi dormir longe da tela (ver pages/wall-cards.ts): devolve as imagens do forno, que ficam
- * no cache dele um tempo (voltando, ela pega de novo sem assar).
- */
-export function sleepPaper(card: Element): void {
-  layers.get(card)?.desassar();
 }
 
 /** A ficha dorme longe da tela: sem conteúdo calculado nem pintado (ver `data-dorme` em review-card.ts). */

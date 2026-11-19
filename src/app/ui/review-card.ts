@@ -613,6 +613,28 @@ export const CARD_STYLES = `
     :host(.recortada:has(:focus-visible)) {
       --sombra-papel: var(--sombra-papel-alta);
     }
+    /* A sombra assada (ver ui/forno.ts): parada, a ficha recortada mostra a imagem da sombra por baixo
+       e fica sem o filtro, que a GPU refazia a cada quadro. Levantada pelo mouse, pelo foco ou pelo
+       toque, volta ao filtro de sempre (a sombra mais alta, com os botões que aparecem) e a imagem some
+       junto, no mesmo tempo. Rolando ([data-quieta]), o mouse em cima não levanta: fica a imagem. */
+    /* (no mesmo formato das regras de cima: um :host com :not(:has()) dentro fazia o compilador de
+       estilos do Angular rodar sem fim na build de produção) */
+    :host(.recortada[data-sombra-assada]) {
+      filter: none;
+    }
+    :host(.recortada[data-sombra-assada]:hover:not([data-quieta])),
+    :host(.recortada[data-sombra-assada]:has(:focus-visible)),
+    :host(.recortada[data-sombra-assada]:active) {
+      filter: var(--sombra-papel);
+    }
+    :host ::ng-deep .sombra-assada {
+      transition: opacity var(--t-ui) var(--ease-ui);
+    }
+    :host(:hover:not([data-quieta])) ::ng-deep .sombra-assada,
+    :host(:has(:focus-visible)) ::ng-deep .sombra-assada,
+    :host(:active) ::ng-deep .sombra-assada {
+      opacity: 0;
+    }
 
     /* Empurrãozinho: a ficha gira em volta da tachinha e desgruda da parede. Pelo teclado também, com
        o foco que aparece (:focus-visible), e não com qualquer foco: o clique deixa o foco na ficha (e a
@@ -1905,8 +1927,14 @@ export class ReviewCard {
   /** Cartolina escura: tinta, lápis e estampa claros. */
   protected readonly dark = computed(() => isDarkStock(this.pin().stock));
   protected readonly paperVars = computed(() => paperVars(this.review().paper, this.review().pattern, lookOf(this.review()), this.review().patternSeed, this.dark(), this.review().id));
-  /** O que pinta o papel por fora das camadas dele (a cor e as variáveis do papel): a chave do forno (ver ui/forno.ts). */
-  protected readonly paperLook = computed(() => `${this.pin().stock}|${JSON.stringify(this.paperVars())}`);
+  /**
+   * O que pinta o papel por fora das camadas dele (a cor e as variáveis do papel) e o que entra na
+   * silhueta da sombra (onde a tachinha fica, a orelha e a cor dela): a chave do forno (ver ui/forno.ts).
+   */
+  protected readonly paperLook = computed(
+    () =>
+      `${this.pin().stock}|${JSON.stringify(this.paperVars())}|${this.pinX()}|${this.pin().pinColor}|${this.noteLabels().ear?.label ?? ''}|${this.catColor() ?? ''}|${this.compact()}|${this.overview()}`,
+  );
   protected readonly cut = computed(() => cutsPaper(this.review().damage) || !!this.review().stains?.some((m) => cutsPaper(m.stain)) || !!this.review().decors?.some((m) => decorCuts(m.decor)));
   /** "Nome do jogo", "Nome da série". */
   protected readonly emptyName = computed(() =>

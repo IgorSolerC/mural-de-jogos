@@ -128,6 +128,28 @@ Junto, duas coisas que as medidas da rodada 1 apontaram (sem mudar o que se vê)
   faz com as fichas, `data-quieta`): rolando, eles recalculam estilo a cada quadro. Medido: 34/78 →
   27/61 ms. É a única coisa que muda à vista (por um instante), e fica para o dono aprovar.
 
+**Feita (19/nov, BUILD 968).** A sombra das recortadas sai da silhueta (o papel assado, a tachinha e a
+orelha copiadas com o estilo calculado) passada pelo mesmo filtro num canvas; da imagem pronta sai a
+silhueta (R = P + (1 − a)·S, com P preta). Parada, a ficha mostra a imagem e fica sem o filtro; levantada
+pelo mouse, pelo foco ou pelo toque, volta ao filtro de sempre (com os botões que aparecem) e a imagem
+some no mesmo tempo. O texto só leva o recorte onde o rasgo alcança; os brilhos param com `[data-quieta]`.
+A ficha que dorme continua assada (soltar as imagens fazia a ficha acordar viva no meio da rolagem, com
+milhares de traços entrando na página). Medido com as 76 fichas do dono, build de produção:
+
+| | roda (mediana / pior 1%) | GPU rolando | GPU parado (5 s) |
+|---|---|---|---|
+| antes do forno | 42 / 114 ms | 25 s | 7,7 s |
+| rodada 2 | **32 / 70 ms** | 13 s | **2,7 s** |
+
+As fotos, vivas e assadas, ficam iguais a olho nu (a diferença que o script acha a mais é a capa: com o
+filtro vivo, o Chrome desenha a ficha numa superfície à parte e reamostra a capa inclinada). O que ainda
+pesa na rolagem é o Layerize de quem dorme e acorda (rodada 4). A Wishlist (o drop-shadow das capas)
+fica para quando der para medir com os desejos do dono: sem nada animado dentro, aquele filtro é
+rasterizado uma vez só.
+
+Armadilha: `:host(.x:not(:hover, :has(:focus-visible), :active))` faz o `ng build` de produção rodar
+sem fim; as regras usam o formato das que já existiam.
+
 ### Rodada 3: o forno guardado
 
 As imagens assadas guardadas no IndexedDB (`meu-mural:forno`), pela chave, com teto de tamanho (as mais

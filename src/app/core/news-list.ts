@@ -27,13 +27,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-19-forno-das-cartolinas',
+    id: '2026-11-19-sombra-assada',
     version: '1.50.2',
     kind: 'ajustes',
     date: '2026-11-19',
-    title: 'As cartolinas do mural guardadas como imagem',
+    title: 'O mural mais leve: as cartolinas e as sombras guardadas como imagem',
     melhorias: [
-      'O papel das cartolinas do mural (a textura, a estampa, o rabisco, o estrago, as manchas e as decorações) é desenhado uma vez e guardado como imagem, igual à de sempre: o navegador não refaz esses desenhos e recortes a cada vez que a ficha muda ou a página rola.',
+      'O papel das cartolinas do mural (a textura, a estampa, o rabisco, o estrago, as manchas e as decorações) e a sombra das recortadas são desenhados uma vez e guardados como imagem, iguais aos de sempre: rolar o mural ficou mais leve, e o computador não trabalha mais com o mural parado. Com o mouse em cima, a ficha levanta com a sombra de sempre.',
+      'Enquanto o mural rola, os brilhos das notas altas param onde estão, e voltam a piscar quando a rolagem para.',
     ],
   },
   {
