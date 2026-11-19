@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-19-forno-atalho',
+    id: '2026-11-19-forno-tela-rapida',
     version: '1.50.2',
     kind: 'ajustes',
     date: '2026-11-19',
@@ -37,6 +37,7 @@ export const NEWS: NewsEntry[] = [
       'Enquanto o mural rola, os brilhos das notas altas param onde estão, e voltam a piscar quando a rolagem para.',
       'As cartolinas e as sombras já desenhadas ficam guardadas neste aparelho: abrir o mural de novo não as desenha outra vez (e elas saem junto quando você sai da conta).',
       'Voltando ao mural, as cartolinas que já foram desenhadas entram direto como imagem, sem passar pelo desenho de novo: a rolagem da volta engasga bem menos.',
+      'Nas telas rápidas (120 Hz ou mais), as cartolinas nunca chegavam a virar imagem e as de mais adiante não eram preparadas antes de a rolagem chegar: o mural continuava pesado. Agora isso acontece em qualquer tela.',
     ],
   },
   {

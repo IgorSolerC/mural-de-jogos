@@ -6,6 +6,8 @@
  * computador bom e faltava num fraco, que travava a cada leva.
  */
 
+import type { IdleDeadlineLike } from '../core/idle';
+
 /** Um quadro a 60 Hz: o ponto de partida, até a tela mostrar o ritmo dela. */
 const SIXTY = 1000 / 60;
 /** A média pesa os quadros recentes: reage rápido a uma travada e volta em poucos quadros bons. */
@@ -82,6 +84,52 @@ export function perFrame(max: number): number {
   return slow() || frame < 12 ? 1 : max;
 }
 
+/**
+ * O navegador à toa deu folga para `ms` de trabalho (ou o prazo venceu). Pede no máximo metade do quadro
+ * da tela: numa tela de 120 Hz o quadro inteiro tem 8,3 ms, e com qualquer coisa animando (os brilhos das
+ * notas altas) a folga entre um quadro e outro fica em 1 a 7 ms. Pedir 8 ms ali era esperar para sempre:
+ * o forno nunca assava e as fichas de mais adiante nunca eram preparadas.
+ */
+export function idleFits(deadline: IdleDeadlineLike, ms: number): boolean {
+  watchScreen();
+  return !!deadline.didTimeout || deadline.timeRemaining() >= Math.min(ms, frame / 2);
+}
+
+/** Quantos quadros seguidos olhar para saber o ritmo da tela. */
+const SCREEN_FRAMES = 12;
+let watching = false;
+let watched = false;
+let listening = false;
+
+/**
+ * Mede o quadro da tela sozinho, uma dúzia de quadros seguidos: quem trabalha só conta os quadros em que
+ * trabalhou, e um mural pequeno (todas as fichas desenhadas num quadro ou dois) nunca mostrava o ritmo de
+ * uma tela rápida. De novo quando a janela muda de tamanho (pode ter ido para outra tela) ou volta a aparecer.
+ */
+function watchScreen(): void {
+  if (watched || watching || typeof requestAnimationFrame !== 'function') return;
+  watching = true;
+  if (!listening && typeof addEventListener === 'function') {
+    listening = true;
+    const again = () => (watched = false);
+    addEventListener('resize', again, { passive: true });
+    addEventListener('visibilitychange', again);
+  }
+  let prev = 0;
+  let n = 0;
+  const look = (t: number) => {
+    const gap = prev ? t - prev : 0;
+    prev = t;
+    if (gap > 3 && gap < frame) frame = Math.max(4, gap);
+    if (++n < SCREEN_FRAMES) requestAnimationFrame(look);
+    else {
+      watching = false;
+      watched = true;
+    }
+  };
+  requestAnimationFrame(look);
+}
+
 /** Avisa quanto do quadro `now` foi gasto (quem trabalhar depois, no mesmo quadro, leva menos). */
 export function spend(now: number, ms: number): void {
   if (now !== spentAt) {
@@ -99,4 +147,5 @@ export function resetPace(): void {
   forcedSlow = false;
   spentAt = 0;
   spent = 0;
+  watched = false;
 }

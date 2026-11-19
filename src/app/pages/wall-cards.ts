@@ -20,7 +20,7 @@ import { Settings } from '../core/settings';
 import { pinningFor } from '../core/wall-physics';
 import { onWallSettle } from '../core/wall-settle';
 import { HeightMemo } from '../ui/height-memo';
-import { budget, perFrame, rest, setForcedSlow, slow, spend, struggling, tick } from '../ui/pace';
+import { budget, idleFits, perFrame, rest, setForcedSlow, slow, spend, struggling, tick } from '../ui/pace';
 import { ASLEEP, wakePaper } from '../ui/paper-layer';
 import { DateFrom, ReviewCard } from '../ui/review-card';
 import { isVeiled, veil } from '../ui/veil';
@@ -522,7 +522,7 @@ export class WallCardPool implements OnDestroy {
    */
   private prepareAhead(deadline: IdleDeadlineLike): void {
     if (this.due.size || this.rushing || this.napped || typeof innerHeight !== 'number') return;
-    if (deadline.timeRemaining() < 8 && !deadline.didTimeout) {
+    if (!idleFits(deadline, 8)) {
       this.aheadSoon();
       return;
     }

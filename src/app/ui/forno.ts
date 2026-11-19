@@ -1,6 +1,7 @@
 import { signal } from '@angular/core';
 import { IdleDeadlineLike, whenIdle } from '../core/idle';
 import { apagarDoForno, guardarNoForno, lerDoForno } from '../core/forno-store';
+import { idleFits } from './pace';
 
 /**
  * O forno (PLANO-FORNO.md): as camadas do papel de uma ficha (a fibra, a textura, a estampa, o rabisco,
@@ -973,7 +974,7 @@ async function rodar(prazo: IdleDeadlineLike): Promise<void> {
   if (!fila.size || trabalhando) return;
   const desde = performance.now() - rolouEm;
   // rolando, ou o navegador sem folga: depois (com o prazo vencido, vai assim mesmo, uma ficha)
-  if (desde < DEPOIS_DA_ROLAGEM || (!prazo.didTimeout && prazo.timeRemaining() < 8)) {
+  if (desde < DEPOIS_DA_ROLAGEM || !idleFits(prazo, 8)) {
     setTimeout(agendar, desde < DEPOIS_DA_ROLAGEM ? DEPOIS_DA_ROLAGEM - desde : 50);
     return;
   }

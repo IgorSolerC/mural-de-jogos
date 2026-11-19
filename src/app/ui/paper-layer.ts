@@ -16,7 +16,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Damage, DecorMark, Paper, Scribble, StainMark, isAgedPaper } from '../core/paper';
 import { DecorArt, decorArt } from '../core/decor-art';
 import { PaperArt as Art, cutMask, paperArt } from '../core/paper-art';
-import { budget, perFrame, rest, spend, struggling, tick } from './pace';
+import { budget, idleFits, perFrame, rest, spend, struggling, tick } from './pace';
 import { dropMask, holdMask, maskClass } from './mask-rules';
 import { isVeiled, reveal, veil } from './veil';
 import { reducedMotion } from '../core/motion';
@@ -1215,11 +1215,11 @@ function onIdle(deadline: IdleDeadlineLike): void {
   }
   // o prazo venceu sem o navegador ficar à toa: uma ficha só, para não pesar no quadro
   const late = !!deadline.didTimeout;
-  if (!late && deadline.timeRemaining() < 6) {
+  if (!late && !idleFits(deadline, 6)) {
     idleSoon();
     return;
   }
-  const left = late ? step(true, 6, 1) : step(true, deadline.timeRemaining() - 3, perFrame(MAX_COSTLY_IDLE));
+  const left = late ? step(true, 6, 1) : step(true, Math.max(1, deadline.timeRemaining() - 3), perFrame(MAX_COSTLY_IDLE));
   if (left.urgent) kick();
   else if (left.far) idleSoon();
 }

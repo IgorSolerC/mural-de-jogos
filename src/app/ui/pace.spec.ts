@@ -1,4 +1,4 @@
-import { budget, perFrame, resetPace, rest, setForcedSlow, slow, spend, struggling, tick } from './pace';
+import { budget, idleFits, perFrame, resetPace, rest, setForcedSlow, slow, spend, struggling, tick } from './pace';
 
 /** O fôlego do aparelho: quanto trabalho de montar e desenhar fichas cabe num quadro. */
 describe('o ritmo dos quadros (pace)', () => {
@@ -43,6 +43,22 @@ describe('o ritmo dos quadros (pace)', () => {
     expect(slow()).toBeFalse();
     expect(perFrame(3)).toBe(1);
     expect(budget(0.5)).toBeCloseTo(4.2, 0);
+  });
+
+  it('a folga do navegador à toa: a 60 Hz a pedida; numa tela rápida, metade do quadro dela (senão nunca vem)', () => {
+    const folga = (ms: number, didTimeout = false) => ({ timeRemaining: () => ms, didTimeout });
+    // 60 Hz: 8 ms pedidos são 8 ms
+    expect(idleFits(folga(7), 8)).toBeFalse();
+    expect(idleFits(folga(9), 8)).toBeTrue();
+    // 120 Hz: o quadro tem 8,3 ms e, com algo animando, a folga fica em 1 a 7 ms
+    frames(8.33, 20);
+    expect(idleFits(folga(5), 8)).toBeTrue();
+    expect(idleFits(folga(2), 8)).toBeFalse();
+    // 240 Hz: ~2 ms bastam
+    frames(4.17, 20, 5000);
+    expect(idleFits(folga(2.2), 8)).toBeTrue();
+    // o prazo vencido vale sempre
+    expect(idleFits(folga(0, true), 8)).toBeTrue();
   });
 
   it('a pausa entre duas levas de trabalho não conta como quadro lento', () => {

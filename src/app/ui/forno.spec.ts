@@ -6,6 +6,7 @@ import { ASLEEP, PaperArtLayer, PaperDefs, SOMBRA_ASSADA } from './paper-layer';
 import { Pin } from './pin';
 import { FORNO_DB, guardarNoForno, lerDoForno } from '../core/forno-store';
 import { deleteDatabase } from '../core/erase-save';
+import { resetPace, tick } from './pace';
 
 const info = (z: number, mistura = 'normal', opacidade = 1, viva = false): CamadaInfo => ({ z, mistura, opacidade, viva });
 
@@ -320,6 +321,26 @@ describe('o forno nas fichas do mural', () => {
     for (const svg of Array.from(lider.querySelectorAll('svg'))) expect(getComputedStyle(svg).display).toBe('none');
     expect(filaDoForno()).toBe(0);
     done();
+  }, 30000);
+
+  it('numa tela de 120 Hz, com algo animando (a folga do navegador à toa fica em 1 a 7 ms), a ficha assa do mesmo jeito', async () => {
+    // a tela rápida: os quadros de trabalho a cada 8,3 ms
+    for (let i = 0, t = 1000; i < 20; i++, t += 8.33) tick(t);
+    // sem nada guardado de outro teste (a ficha entraria pelo atalho, sem passar pela fila)
+    await deleteDatabase(FORNO_DB);
+    const original = window.requestIdleCallback;
+    const ric = original.bind(window);
+    // o navegador à toa nunca dá mais que 5 ms (a 120 Hz o quadro inteiro tem 8,3)
+    window.requestIdleCallback = ((cb: IdleRequestCallback) =>
+      ric((d) => cb({ didTimeout: false, timeRemaining: () => Math.min(5, d.timeRemaining()) }))) as typeof window.requestIdleCallback;
+    try {
+      const { ok, done } = await montar();
+      expect(ok).withContext(`assou (${String(fornoErro())})`).toBeTrue();
+      done();
+    } finally {
+      window.requestIdleCallback = original;
+      resetPace();
+    }
   }, 30000);
 
   it('o papel mudou (a cor, ou a outra pessoa da anotação compartilhada): a imagem sai antes de o molde mostrar o novo', async () => {
