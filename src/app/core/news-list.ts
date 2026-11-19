@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-19-forno-com-veu',
+    id: '2026-11-19-forno-esteira',
     version: '1.50.2',
     kind: 'ajustes',
     date: '2026-11-19',
@@ -40,6 +40,7 @@ export const NEWS: NewsEntry[] = [
       'Nas telas rápidas (120 Hz ou mais), as cartolinas nunca chegavam a virar imagem e as de mais adiante não eram preparadas antes de a rolagem chegar: o mural continuava pesado. Agora isso acontece em qualquer tela.',
       'As cartolinas não piscam mais: na troca do desenho pela imagem, o enfeite, o canto rasgado e a textura sumiam por um instante, e as capas ficavam pretas por um instante quando uma ficha voltava a aparecer na rolagem.',
       'Cada cartolina agora só aparece já pronta como imagem, com a sombra: enquanto ela é preparada, fica a vaga tracejada no lugar dela, e o computador nunca precisa desenhar o papel ao vivo na tela.',
+      'As cartolinas ficam prontas bem mais rápido e sem travar a rolagem: são preparadas até cinco por vez (uma por vez com "Menos fichas prontas", nos Ajustes), e a parte pesada do preparo saiu da página.',
     ],
   },
   {

@@ -1,6 +1,8 @@
 import { signal } from '@angular/core';
 import { IdleDeadlineLike, whenIdle } from '../core/idle';
 import { apagarDoForno, guardarNoForno, lerDoForno } from '../core/forno-store';
+import { desmisturar } from './forno-pixels';
+import type { PedidoAoAjudante, RespostaDoAjudante } from './forno.worker';
 import { idleFits } from './pace';
 
 /**
@@ -211,15 +213,46 @@ const VARIAVEIS_DOS_ARQUIVOS = '--forno-arquivos:0;';
  * O SVG pronto para desenhar: cada arquivo marcado entra uma vez, numa variável no começo do documento
  * (`--forno-a0`, ...), e cada marca vira a variável (o mesmo arquivo em várias camadas não se repete).
  */
-export async function materializar(svg: string): Promise<string> {
+export async function materializar(svg: string, escala = 1): Promise<string> {
   const enderecos = [...new Set([...svg.matchAll(MARCA_RE)].map((m) => m[1]))];
   if (!enderecos.length) return svg.replace(VARIAVEIS_DOS_ARQUIVOS, '');
-  const dados = await Promise.all(enderecos.map((u) => embutir(decodeURI(u))));
+  const dados = await Promise.all(enderecos.map((u) => texturaNaEscala(decodeURI(u), escala)));
   const indice = new Map(enderecos.map((u, i) => [u, i]));
   // (vão dentro do atributo style da raiz, entre aspas duplas: escapadas como no XML)
   const xml = (v: string) => v.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
   const variaveis = dados.map((d, i) => `--forno-a${i}:url(${xml(`"${d}"`)});`).join('');
   return svg.replace(MARCA_RE, (_, u: string) => `var(--forno-a${indice.get(u)})`).replace(VARIAVEIS_DOS_ARQUIVOS, variaveis);
+}
+
+/** As fibras da cartolina (a de sempre, a de realce e a das escuras): todas aparecem em `--grao-tam`. */
+const FIBRA_RE = /\/textures\/cartolina-fibra[\w-]*\.png$/;
+const reduzidas = new Map<string, Promise<string>>();
+
+/**
+ * O arquivo embutido, e as fibras da cartolina já no tamanho em que aparecem. A fibra tem 1024 px e
+ * aparece com 420 (`--grao-tam`): dentro do SVG o Chrome decodificava o milhão de pixels dela de novo a
+ * cada camada assada, na linha da página (de 65 a 110 ms por camada). Reduzida pelo ajudante uma vez
+ * por sessão, no tamanho da tela (420 px a 1x, 840 a 2x), a decodificação cai à metade, e o desenho fica
+ * o mesmo (medido: 0,02 em 255 de diferença média, na reamostragem). Sem o ajudante, vai a original.
+ */
+function texturaNaEscala(url: string, escala: number): Promise<string> {
+  const lado = ladoDaFibra(url, escala);
+  const ajudante = lado ? oAjudante() : null;
+  if (!lado || !ajudante) return embutir(url);
+  const chave = `${url}|${lado}`;
+  let p = reduzidas.get(chave);
+  if (!p) {
+    p = pedirTexto(ajudante, { tipo: 'reduzir', url, lado }).catch(() => embutir(url));
+    reduzidas.set(chave, p);
+  }
+  return p;
+}
+
+/** O lado, em px da tela, em que a fibra aparece (null: não é fibra, ou a página não diz o tamanho). */
+function ladoDaFibra(url: string, escala: number): number | null {
+  if (typeof document === 'undefined' || !FIBRA_RE.test(new URL(url, document.baseURI).pathname)) return null;
+  const tam = Number.parseFloat(getComputedStyle(document.body).getPropertyValue('--grao-tam'));
+  return tam > 0 ? Math.round(tam * escala) : null;
 }
 
 /** Troca os `url(...)` que apontam para arquivos pelo arquivo embutido. */
@@ -428,7 +461,7 @@ export async function assar(r: Receita, escala: number): Promise<Blob> {
   await calma();
   const img = new Image();
   img.decoding = 'sync';
-  img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(await materializar(r.svg))}`;
+  img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(await materializar(r.svg, escala))}`;
   await img.decode();
   await calma();
   const cv = document.createElement('canvas');
@@ -438,9 +471,78 @@ export async function assar(r: Receita, escala: number): Promise<Blob> {
   if (!ctx) throw new Error('forno: sem canvas');
   ctx.drawImage(img, 0, 0, cv.width, cv.height);
   // num navegador que suja o canvas com o <foreignObject> (o Safari), isto falha: o forno desliga
+  const ajudante = oAjudante();
+  if (ajudante) return pedir(ajudante, { tipo: 'png', imagem: await createImageBitmap(cv) });
   const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, 'image/png'));
   if (!blob) throw new Error('forno: o canvas não deu imagem');
   return blob;
+}
+
+// ===================== O ajudante =====================
+
+/** O ajudante do forno (ui/forno.worker.ts): null onde não há como (navegador antigo) ou se ele caiu. */
+let ajudante: Worker | null | undefined;
+let pedidosFeitos = 0;
+const pedidos = new Map<number, { ok: (r: Blob | string) => void; falhou: (e: Error) => void }>();
+
+/**
+ * O ajudante, criado na primeira vez. Ler os pixels de um canvas espera a GPU terminar tudo o que está
+ * na fila dela; na página, essa espera parava a rolagem (ver ui/forno.worker.ts). A página só desenha e
+ * tira um retrato (`createImageBitmap`, que não espera), e o ajudante lê e faz o PNG.
+ */
+function oAjudante(): Worker | null {
+  if (ajudante !== undefined) return ajudante;
+  ajudante = null;
+  if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined' || typeof createImageBitmap === 'undefined') return null;
+  try {
+    const w = new Worker(new URL('./forno.worker', import.meta.url), { type: 'module' });
+    w.onmessage = ({ data }: MessageEvent<RespostaDoAjudante>) => {
+      const p = pedidos.get(data.id);
+      if (!p) return;
+      pedidos.delete(data.id);
+      if ('blob' in data) p.ok(data.blob);
+      else if ('texto' in data) p.ok(data.texto);
+      else p.falhou(new Error(data.erro));
+    };
+    // caiu (o arquivo não veio, sem memória): os pedidos falham e o forno segue sem ele, como antes
+    w.onerror = () => {
+      ajudante = null;
+      w.terminate();
+      for (const p of pedidos.values()) p.falhou(new Error('forno: o ajudante caiu'));
+      pedidos.clear();
+    };
+    ajudante = w;
+  } catch {
+    ajudante = null;
+  }
+  return ajudante;
+}
+
+type SemId<T> = T extends unknown ? Omit<T, 'id'> : never;
+type PedidoDeImagem = SemId<Extract<PedidoAoAjudante, { imagem: ImageBitmap }>>;
+
+/** Pede um PNG ao ajudante (a imagem vai transferida). */
+function pedir(w: Worker, pedido: PedidoDeImagem): Promise<Blob> {
+  return enviar(w, pedido, [pedido.imagem]).then((r) => {
+    if (!(r instanceof Blob)) throw new Error('forno: o ajudante não deu imagem');
+    return r;
+  });
+}
+
+/** Pede um texto (a textura reduzida, ver `texturaNaEscala`). */
+function pedirTexto(w: Worker, pedido: SemId<Extract<PedidoAoAjudante, { tipo: 'reduzir' }>>): Promise<string> {
+  return enviar(w, pedido, []).then((r) => {
+    if (typeof r !== 'string') throw new Error('forno: o ajudante não deu a textura');
+    return r;
+  });
+}
+
+function enviar(w: Worker, pedido: SemId<PedidoAoAjudante>, transferir: Transferable[]): Promise<Blob | string> {
+  const id = ++pedidosFeitos;
+  return new Promise<Blob | string>((ok, falhou) => {
+    pedidos.set(id, { ok, falhou });
+    w.postMessage({ ...pedido, id } as PedidoAoAjudante, transferir);
+  });
 }
 
 // ===================== O cache =====================
@@ -785,6 +887,9 @@ export async function receitaDaSombra(p: PedidoDeSombra, escala: number): Promis
     sx.globalCompositeOperation = 'source-in';
     sx.fillStyle = '#000';
     sx.fillRect(0, 0, cw, ch);
+    // o filtro, a leitura dos pixels e o PNG, longe da página
+    const ajudante = oAjudante();
+    if (ajudante) return pedir(ajudante, { tipo: 'sombra', imagem: await createImageBitmap(sil), filtro: filtroNaEscala(p.filtro, escala) });
     const com = document.createElement('canvas');
     com.width = cw;
     com.height = ch;
@@ -793,28 +898,8 @@ export async function receitaDaSombra(p: PedidoDeSombra, escala: number): Promis
     cx.filter = filtroNaEscala(p.filtro, escala);
     cx.drawImage(sil, 0, 0);
     await calma();
-    const silD = sx.getImageData(0, 0, cw, ch).data;
     const img = cx.getImageData(0, 0, cw, ch);
-    const d = img.data;
-    for (let k = 0; k < d.length; k += 4) {
-      const a = silD[k + 3] / 255;
-      const ra = d[k + 3] / 255;
-      if (a >= 0.998) {
-        d[k + 3] = 0;
-        continue;
-      }
-      const sa = Math.max(0, (ra - a) / (1 - a));
-      if (sa <= 0) {
-        d[k + 3] = 0;
-        continue;
-      }
-      // as cores de R vêm sem o alfa multiplicado: R·Ra = S·Sa·(1 − a), então S = R·Ra / (Sa·(1 − a))
-      const f = ra / (sa * (1 - a));
-      d[k] = Math.min(255, Math.round(d[k] * f));
-      d[k + 1] = Math.min(255, Math.round(d[k + 1] * f));
-      d[k + 2] = Math.min(255, Math.round(d[k + 2] * f));
-      d[k + 3] = Math.round(sa * 255);
-    }
+    desmisturar(sx.getImageData(0, 0, cw, ch).data, img.data);
     cx.putImageData(img, 0, 0);
     const blob = await new Promise<Blob | null>((res) => com.toBlob(res, 'image/png'));
     if (!blob) throw new Error('forno: a sombra não deu imagem');
@@ -978,18 +1063,44 @@ export interface Fornada {
 
 const fila = new Set<Fornada>();
 let marcado = false;
-let trabalhando = false;
+/**
+ * Quantas fichas são assadas ao mesmo tempo: uma. Medido rolando o mural do dono: com duas ou mais, os
+ * quadros acima de 50 ms dobravam (14 → 27 a 32) e a ficha não aparecia antes (1,2 a 1,3 s em todos):
+ * quem limita é a GPU, que desenha o papel de cada uma. As outras fichas da esteira (ui/pace.ts,
+ * `esteira`) esperam aqui já montadas e desenhadas.
+ */
+const ASSANDO_JUNTAS = 1;
+/** Quantas fichas estão sendo assadas agora. */
+let assando = 0;
+/** Delas, quantas são escondidas que a pessoa espera (ver `Fornada.urgente` e `calma`). */
+let assandoComPressa = 0;
 let rolouEm = -Infinity;
-/** O forno está assando uma ficha escondida que a pessoa espera (ver `Fornada.urgente` e `calma`). */
-let pressa = false;
+
 let ultimoErro: unknown = null;
 /** As vezes que cada ficha falhou no forno (ela fica viva entre uma e outra). */
 const tentativas = new WeakMap<Fornada, number>();
 const TENTATIVAS = 3;
 /** Sem nenhuma pronta, a fila olha de novo depois disto. */
 const DE_NOVO_SEM_PRONTA = 2000;
-/** O máximo que um passo da ficha escondida espera o navegador ficar à toa (ver `calma`). */
-const ESPERA_URGENTE = 100;
+/** Com a aba escondida (sem quadros), o máximo que um passo espera o próximo quadro. */
+const SEM_QUADRO = 100;
+
+/**
+ * Logo depois do próximo quadro desenhado: o momento mais longe do quadro seguinte, para um passo
+ * pesado não atrasar a tela (o padrão para trabalho picado). A rolagem anda em outra linha do Chrome.
+ */
+function depoisDoQuadro(): Promise<void> {
+  return new Promise<void>((r) => {
+    let feito = false;
+    const vai = () => {
+      if (feito) return;
+      feito = true;
+      r();
+    };
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => setTimeout(vai, 0));
+    setTimeout(vai, SEM_QUADRO);
+  });
+}
 /** Quantas voltas a fila dá sem nenhuma pronta antes de esperar alguém chamar (um minuto). */
 const VOLTAS_VAZIAS = 30;
 let voltasVazias = 0;
@@ -1014,22 +1125,34 @@ export function desenfornar(f: Fornada): void {
 }
 
 function agendar(): void {
-  if (marcado || trabalhando || !fila.size) return;
-  marcado = true;
-  // a ficha escondida que a pessoa espera não espera o navegador ficar à toa por muito tempo
+  if (assando >= ASSANDO_JUNTAS || !fila.size) return;
+  // a ficha escondida que a pessoa espera começa logo depois do próximo quadro, sem esperar o navegador
+  // ficar à toa (rolando, ele quase nunca fica), mesmo com a fila já marcada para quando ele ficar
   const urgente = [...fila].some((f) => f.urgente?.());
-  whenIdle(rodar, urgente ? ESPERA_URGENTE : 3000, { after: urgente ? 16 : 120, deadline: { timeRemaining: () => 10 } });
+  if (urgente ? marcadoComPressa : marcado) return;
+  marcado = true;
+  if (urgente) {
+    marcadoComPressa = true;
+    void depoisDoQuadro().then(() => rodar(VENCIDO));
+  } else whenIdle(rodar, 3000, { after: 120, deadline: { timeRemaining: () => 10 } });
 }
+
+/** A fila já marcada para logo depois do próximo quadro (ver `agendar`). */
+let marcadoComPressa = false;
+
+/** O prazo de quem não espera o navegador ficar à toa (a ficha escondida que a pessoa espera). */
+const VENCIDO: IdleDeadlineLike = { timeRemaining: () => 0, didTimeout: true };
 
 async function rodar(prazo: IdleDeadlineLike): Promise<void> {
   marcado = false;
-  if (!fila.size || trabalhando) return;
+  if (prazo === VENCIDO) marcadoComPressa = false;
+  if (!fila.size || assando >= ASSANDO_JUNTAS) return;
   const desde = performance.now() - rolouEm;
   const urgentes = [...fila].filter((f) => f.urgente?.() && f.pronta());
   // rolando, ou o navegador sem folga: depois (com o prazo vencido, vai assim mesmo, uma ficha). A ficha
   // escondida que a pessoa espera não espera a rolagem parar: cada passo dela cede a vez (ver `calma`)
-  if ((!urgentes.length && desde < DEPOIS_DA_ROLAGEM) || !idleFits(prazo, 8)) {
-    setTimeout(agendar, !urgentes.length && desde < DEPOIS_DA_ROLAGEM ? DEPOIS_DA_ROLAGEM - desde : urgentes.length ? 16 : 50);
+  if (!urgentes.length && (desde < DEPOIS_DA_ROLAGEM || !idleFits(prazo, 8))) {
+    setTimeout(agendar, desde < DEPOIS_DA_ROLAGEM ? DEPOIS_DA_ROLAGEM - desde : 50);
     return;
   }
   let melhor: Fornada | null = null;
@@ -1050,8 +1173,14 @@ async function rodar(prazo: IdleDeadlineLike): Promise<void> {
   }
   voltasVazias = 0;
   fila.delete(melhor);
-  trabalhando = true;
-  pressa = !!melhor.urgente?.();
+  void assarUma(melhor);
+}
+
+/** Assa uma ficha da fila (ver `rodar`). */
+async function assarUma(melhor: Fornada): Promise<void> {
+  const comPressa = !!melhor.urgente?.();
+  assando++;
+  if (comPressa) assandoComPressa++;
   try {
     await melhor.assar();
   } catch (err) {
@@ -1073,8 +1202,8 @@ async function rodar(prazo: IdleDeadlineLike): Promise<void> {
       if (n <= TENTATIVAS) setTimeout(() => enfornar(f), DE_NOVO * n);
     }
   } finally {
-    trabalhando = false;
-    pressa = false;
+    assando--;
+    if (comPressa) assandoComPressa--;
   }
   agendar();
 }
@@ -1083,10 +1212,11 @@ async function rodar(prazo: IdleDeadlineLike): Promise<void> {
 export function resetForno(): void {
   fila.clear();
   marcado = false;
-  trabalhando = false;
+  marcadoComPressa = false;
+  assando = 0;
+  assandoComPressa = 0;
   desligado = false;
   rolouEm = -Infinity;
-  pressa = false;
   ultimoErro = null;
   voltasVazias = 0;
   for (const e of cache.values()) fecha(e);
@@ -1100,10 +1230,10 @@ export function resetForno(): void {
  * forno volta aqui, e quem voltou a rolar não espera ele acabar a ficha.
  */
 export async function calma(): Promise<void> {
-  // a ficha escondida que a pessoa espera: só cede a vez ao navegador (um quadro, no máximo um instante),
-  // sem esperar a rolagem parar
-  if (pressa) {
-    await new Promise<void>((r) => whenIdle(() => r(), ESPERA_URGENTE, { after: 16, deadline: { timeRemaining: () => 10 } }));
+  // a ficha escondida que a pessoa espera: só cede a vez à tela (um passo por quadro, logo depois dele),
+  // sem esperar a rolagem parar nem o navegador ficar à toa
+  if (assandoComPressa) {
+    await depoisDoQuadro();
     return;
   }
   for (;;) {

@@ -1035,6 +1035,15 @@ function decodificadas(card: HTMLElement): Promise<unknown> {
   return Promise.all(imgs.map((img) => img.decode().catch(() => undefined)));
 }
 
+/** Quem quer saber quando uma ficha com véu aparece (a esteira do mural monta a próxima, ver wall-cards.ts). */
+const aoAparecer = new Set<() => void>();
+
+/** Avisa quando uma ficha com véu aparece. Devolve como parar de avisar. */
+export function onPaperShown(cb: () => void): () => void {
+  aoAparecer.add(cb);
+  return () => aoAparecer.delete(cb);
+}
+
 /**
  * O máximo que a ficha escondida espera ficar assada. Assar uma ficha leva bem menos; isto é só para
  * ela nunca ficar escondida se algo prender o forno (ela aparece viva, e ele a assa depois).
@@ -1373,6 +1382,7 @@ function step(far: boolean, budget: number, maxCostly: number): { urgent: boolea
       Promise.race([pronta, new Promise((r) => setTimeout(r, ESPERA_MAXIMA))]).then(() => {
         // (redesenhada no meio: quem a mostra é a vez nova; fora da página, nada a mostrar)
         if (job.layer.vezDoVeu === vez && job.card.isConnected) mostrar();
+        for (const cb of aoAparecer) cb();
       });
     } else mostrar();
   }

@@ -60,6 +60,18 @@ export function slow(): boolean {
   return forcedSlow || average > frame * SLOW;
 }
 
+/** Quantas fichas a esteira prepara ao mesmo tempo, normalmente (ver `esteira`). */
+const ESTEIRA = 5;
+
+/**
+ * Quantas fichas ficam na esteira ao mesmo tempo: montada, com o papel desenhado e assada, ainda com o
+ * véu (a vaga no lugar). A próxima só é montada quando uma delas aparece. Cinco; uma com "Menos fichas
+ * prontas" (Ajustes) ou com os quadros mal saindo, para não pesar num aparelho velho.
+ */
+export function esteira(): number {
+  return forcedSlow || struggling() ? 1 : ESTEIRA;
+}
+
 /** Os quadros mal estão saindo: além de uma por vez, um quadro de folga entre uma e outra. */
 export function struggling(): boolean {
   return average > frame * STRUGGLING;

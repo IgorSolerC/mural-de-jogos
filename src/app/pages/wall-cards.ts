@@ -20,8 +20,8 @@ import { Settings } from '../core/settings';
 import { pinningFor } from '../core/wall-physics';
 import { onWallSettle } from '../core/wall-settle';
 import { HeightMemo } from '../ui/height-memo';
-import { budget, idleFits, perFrame, rest, setForcedSlow, slow, spend, struggling, tick } from '../ui/pace';
-import { ASLEEP, wakePaper } from '../ui/paper-layer';
+import { budget, esteira, idleFits, perFrame, rest, setForcedSlow, slow, spend, struggling, tick } from '../ui/pace';
+import { ASLEEP, onPaperShown, wakePaper } from '../ui/paper-layer';
 import { DateFrom, ReviewCard } from '../ui/review-card';
 import { isVeiled, veil } from '../ui/veil';
 import { cancelIdle, IdleDeadlineLike, whenIdle } from '../core/idle';
@@ -229,6 +229,11 @@ export class WallCardPool implements OnDestroy {
   private settleQueued = false;
   private measureFrame = 0;
   private readonly unsettle = onWallSettle({ settle: () => this.settle(), nap: () => this.nap() });
+  /** Uma ficha da esteira apareceu: tem vaga para a próxima (ver `room`). */
+  private readonly offShown = onPaperShown(() => {
+    if (this.due.size) this.pumpSoon();
+    else this.aheadSoon();
+  });
   /** A rolagem está rápida demais para ler (ver `WALL_TUNING.rushScreens`): as fichas esperam ela acalmar. */
   private rushing = false;
   private scrolledAt = 0;
@@ -339,6 +344,7 @@ export class WallCardPool implements OnDestroy {
     cancelAnimationFrame(this.stillFrame);
     if (this.idle !== undefined) cancelIdle(this.idle);
     this.unsettle();
+    this.offShown();
     if (typeof removeEventListener === 'function') {
       removeEventListener('scroll', this.onScroll);
       document.removeEventListener('close', this.onDialogClose, true);
@@ -376,9 +382,11 @@ export class WallCardPool implements OnDestroy {
       if (r.bottom > 0 && r.top < vh && r.right > 0 && r.left < vw && (r.width > 0 || r.height > 0)) now.push(slot);
     }
     const limit = slow() ? WALL_TUNING.settleBudget / 2 : WALL_TUNING.settleBudget;
+    // (as da tela entram pela esteira também: no máximo as vagas dela agora, e as outras logo depois)
+    const room = this.room();
     let done = 0;
     for (const slot of now) {
-      if (done && performance.now() - t0 > limit) {
+      if (done >= room || (done && performance.now() - t0 > limit)) {
         // (está na tela: perto, mesmo que o observador ainda não tenha dito)
         slot.near = true;
         this.due.add(slot);
@@ -521,7 +529,8 @@ export class WallCardPool implements OnDestroy {
    * navegador sem mais nada para fazer, e nunca além do limite de fichas montadas.
    */
   private prepareAhead(deadline: IdleDeadlineLike): void {
-    if (this.due.size || this.rushing || this.napped || typeof innerHeight !== 'number') return;
+    // (as de mais adiante só com a esteira vazia: as de perto da tela vêm antes)
+    if (this.due.size || this.rushing || this.napped || typeof innerHeight !== 'number' || this.preparing() > 0) return;
     if (!idleFits(deadline, 8)) {
       this.aheadSoon();
       return;
@@ -611,7 +620,13 @@ export class WallCardPool implements OnDestroy {
       .sort((a, b) => a.dist - b.dist);
     const limit = budget(WALL_TUNING.spawnShare, now);
     let done = 0;
-    const most = perFrame(4);
+    const room = this.room();
+    // a esteira cheia: a próxima entra quando uma das que estão nela aparecer (ver `offShown`)
+    if (room <= 0 && order.length) {
+      rest();
+      return;
+    }
+    const most = Math.min(perFrame(4), room);
     for (const { slot } of order) {
       if (done && (done >= most || performance.now() - t0 > limit)) break;
       this.due.delete(slot);
@@ -633,6 +648,21 @@ export class WallCardPool implements OnDestroy {
       this.later = undefined;
       this.pumpSoon();
     }, 34);
+  }
+
+  /**
+   * As fichas na esteira: montadas, acordadas e ainda com o véu (o papel sendo desenhado e assado). A que
+   * está numa seção escondida (sem tamanho, a fila do papel nem a desenha) não conta: prenderia a esteira.
+   */
+  private preparing(): number {
+    let n = 0;
+    for (const s of this.slots.values()) if (s.ref && !s.asleep && isVeiled(s.el) && s.box.isConnected && s.box.offsetParent !== null) n++;
+    return n;
+  }
+
+  /** Quantas fichas cabem na esteira agora (ver `esteira` em ui/pace.ts). */
+  private room(): number {
+    return esteira() - this.preparing();
   }
 
   /** A vaga vira ficha; a dorminhoca acorda. */

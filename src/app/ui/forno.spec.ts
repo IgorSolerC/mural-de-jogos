@@ -264,6 +264,13 @@ describe('o forno: a sombra', () => {
   });
 });
 
+/** Conta os desenhos do forno: o retrato que vai ao ajudante (ui/forno.worker.ts) ou, sem ele, o PNG na página. */
+function espiarDesenhos(): () => number {
+  const retratos = spyOn(window, 'createImageBitmap').and.callThrough();
+  const pngs = spyOn(HTMLCanvasElement.prototype, 'toBlob').and.callThrough();
+  return () => retratos.calls.count() + pngs.calls.count();
+}
+
 describe('o forno nas fichas do mural', () => {
   beforeEach(() => TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] }));
   afterEach(() => resetForno());
@@ -455,10 +462,22 @@ describe('o forno nas fichas do mural', () => {
     done();
   }, 30000);
 
+  it('o PNG e a sombra são feitos pelo ajudante: a página não lê pixel nenhum (ler espera a GPU, e a rolagem parava)', async () => {
+    await deleteDatabase(FORNO_DB);
+    resetForno();
+    const pngs = spyOn(HTMLCanvasElement.prototype, 'toBlob').and.callThrough();
+    const leituras = spyOn(CanvasRenderingContext2D.prototype, 'getImageData').and.callThrough();
+    const a = await montar({ recortada: true });
+    expect(await until(() => a.card.hasAttribute(SOMBRA_ASSADA))).withContext(`sombra (${String(fornoErro())})`).toBeTrue();
+    expect(pngs).not.toHaveBeenCalled();
+    expect(leituras).not.toHaveBeenCalled();
+    a.done();
+  }, 40000);
+
   it('a ficha nova é assada escondida e aparece já assada e com a sombra: nunca há papel vivo à vista', async () => {
     await deleteDatabase(FORNO_DB);
     resetForno();
-    const desenhos = spyOn(HTMLCanvasElement.prototype, 'toBlob').and.callThrough();
+    const desenhos = espiarDesenhos();
     const aoAparecer: boolean[] = [];
     const mo = new MutationObserver((ms) => {
       for (const m of ms) {
@@ -473,7 +492,7 @@ describe('o forno nas fichas do mural', () => {
     expect(a.ok).withContext(`assou (${String(fornoErro())})`).toBeTrue();
     expect(aoAparecer).withContext('assada e com a sombra no instante em que aparece').toEqual([true]);
     // assada mesmo (desenhada agora), e não pelo atalho
-    expect(desenhos).toHaveBeenCalled();
+    expect(desenhos()).withContext('desenhou').toBeGreaterThan(0);
     // a sombra da tachinha e das peças sai com elas visíveis, mesmo assada com o véu
     expect(a.card.querySelector('.sombra-assada')).not.toBeNull();
     a.done();
@@ -488,7 +507,7 @@ describe('o forno nas fichas do mural', () => {
     a.done();
     // outra visita: a memória da aba vazia, só o que ficou no aparelho
     resetForno();
-    const desenhos = spyOn(HTMLCanvasElement.prototype, 'toBlob').and.callThrough();
+    const desenhos = espiarDesenhos();
     const aoAparecer: boolean[] = [];
     const mo = new MutationObserver((ms) => {
       for (const m of ms) {
@@ -501,7 +520,7 @@ describe('o forno nas fichas do mural', () => {
     mo.disconnect();
     expect(b.ok).toBeTrue();
     expect(aoAparecer).withContext('assada e com a sombra no instante em que aparece').toEqual([true]);
-    expect(desenhos).not.toHaveBeenCalled();
+    expect(desenhos()).withContext('desenhou').toBe(0);
     b.done();
   }, 40000);
 

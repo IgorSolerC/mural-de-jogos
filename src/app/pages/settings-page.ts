@@ -160,7 +160,7 @@ export class SettingsPage {
       id: 'poucas',
       key: 'fewCards',
       title: 'Menos fichas prontas',
-      desc: 'Menos fichas ficam montadas em volta da tela, e entram uma de cada vez. Numa rolagem rápida, aparecem mais vagas tracejadas antes de as fichas entrarem; o aparelho trabalha bem menos.',
+      desc: 'Menos fichas ficam montadas em volta da tela, e são preparadas uma de cada vez (sem isto, até cinco ao mesmo tempo). Numa rolagem rápida, aparecem mais vagas tracejadas antes de as fichas entrarem; o aparelho trabalha bem menos.',
     },
   ];
   /** As etiquetas no papelão, cada uma presa num ângulo (a aberta fica reta). */
