@@ -5,6 +5,8 @@ import { Cloud } from '../core/cloud-config';
 import { LocalData } from '../core/local-data';
 import { Review, sanitizeReview } from '../core/review';
 import { WallCardPool, WallCardProps, copyKey, forgetHeights, keptTilt } from './wall-cards';
+import { resetPace, setForcedSlow } from '../ui/pace';
+import { REVELANDO } from '../ui/paper-layer';
 
 describe('a inclinação na colagem das fichas inteiras', () => {
   it('a ficha curta fica torta como sempre; a muito comprida, reta', () => {
@@ -149,6 +151,37 @@ describe('as fichas do mural, só as de perto montadas (WallCardPool)', () => {
     expect(parseFloat(last.style.height)).toBeGreaterThan(100);
     expect(last.childElementCount).toBe(0);
     expect(boxes[39].hasAttribute('data-viva')).toBeFalse();
+  });
+
+  it('a esteira segura só as fichas com o véu: a que já mostra o conteúdo e espera o forno não segura a próxima; uma por vez, segura', () => {
+    // uma parede alta na tela: muitas fichas à vista de uma vez
+    sheet.textContent += ' .parede-teste .lugar{width:120px} .parede-teste{width:1200px}';
+    pool.place(host, notes(60), PROPS);
+    pool.settle();
+    const veladas = () => host.querySelectorAll('app-review-card[data-veu]');
+    // abrir o mural: as da tela entram pela esteira, cinco por vez
+    expect(veladas().length).withContext('com o véu').toBe(5);
+    const antes = pool.counts.live;
+    // o papel delas foi desenhado: mostram o conteúdo e esperam o forno
+    const revelar = () => {
+      for (const c of Array.from(veladas()) as HTMLElement[]) {
+        c.removeAttribute('data-veu');
+        c.setAttribute(REVELANDO, '');
+      }
+    };
+    revelar();
+    pool.settle();
+    expect(pool.counts.live).withContext('as próximas entram sem esperar o forno').toBe(antes + 5);
+    // uma por vez ("Menos fichas prontas"): a que espera o forno segura a próxima
+    setForcedSlow(true);
+    try {
+      revelar();
+      const agora = pool.counts.live;
+      pool.settle();
+      expect(pool.counts.live).withContext('uma por vez: nada entra até ela se revelar').toBe(agora);
+    } finally {
+      resetPace();
+    }
   });
 
   it('a ficha que acabou de ser pregada é montada na hora, mesmo longe da tela', () => {

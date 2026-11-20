@@ -163,6 +163,12 @@ export async function apagarDoForno(chave: string): Promise<void> {
   }
 }
 
+/** Para os testes: quantos atalhos o banco guarda. */
+export async function atalhosGuardados(): Promise<number> {
+  const db = await abrir();
+  return (await pedido(db.transaction(ATALHOS).objectStore(ATALHOS).count())) as number;
+}
+
 /** Para os testes: quantas imagens e quantos bytes o banco guarda. */
 export async function fornoGuardado(): Promise<{ imagens: number; bytes: number }> {
   const db = await abrir();

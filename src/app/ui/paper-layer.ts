@@ -21,7 +21,7 @@ import { dropMask, holdMask, maskClass } from './mask-rules';
 import { isVeiled, reveal, veil } from './veil';
 import { reducedMotion } from '../core/motion';
 import { IdleDeadlineLike, whenIdle } from '../core/idle';
-import { Assada, FORNO_VERSAO, Fornada, Grupo, assinaturaDaPagina, desenfornar, enfornar, fornoEpoca, fornoLigado, grupos, pegar, pegarGuardada, pegarSombra, receita, resumoDe, retomar, soltar, trocarIds } from './forno';
+import { Assada, FORNO_VERSAO, Fornada, Grupo, assinaturaDaPagina, calma, desenfornar, enfornar, fornoEpoca, fornoLigado, grupos, pegar, pegarGuardada, pegarSombra, receita, resumoDe, retomar, soltar, trocarIds } from './forno';
 import { guardarAtalho, lerAtalho } from '../core/forno-store';
 
 let uids = 0;
@@ -155,7 +155,8 @@ export class PaperDefs {}
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { 'aria-hidden': 'true' },
   template: `
-    @if (art()?.core?.length) {
+    <!-- o desenho só entra na página na vez dele (ver desenhar): até lá, só a cor lisa da ficha -->
+    @if (desenhada() && art()?.core?.length) {
       <!-- o miolo da cartolina: aparece onde a cor soltou no rasgo; só o recorte do papel o corta -->
       <div class="miolo camada" [class]="outerCls()"></div>
     }
@@ -164,7 +165,7 @@ export class PaperDefs {}
       <!-- acende com o mouse: fica viva, fora do forno -->
       <div class="faisca camada" data-forno-viva [class]="maskCls()"></div>
     }
-    @if (art(); as a) {
+    @if (desenhada() ? art() : null; as a) {
       @if (a.fundo) {
         <div class="camada fundo" [class]="maskCls()" [class.sem-lapis]="!!lapisHtml()" [innerHTML]="html().fundo"></div>
       }
@@ -189,7 +190,7 @@ export class PaperDefs {}
         <div class="camada topo" [class]="maskCls()" [innerHTML]="html().topo"></div>
       }
     }
-    @if (decorHtml(); as d) {
+    @if (desenhada() ? decorHtml() : null; as d) {
       @if (d.under) {
         <!-- o que foi jogado na ficha (a purpurina, o confete): por cima do texto, por baixo da foto e da nota -->
         <div class="camada enfeite por-baixo" [innerHTML]="d.under"></div>
@@ -383,6 +384,13 @@ export class PaperArtLayer {
    * O desenho continua com a ficha longe da tela: voltar a ela não desenha de novo.
    */
   private readonly size = signal<Size | null>(null);
+  /**
+   * O desenho do papel está na página. A ficha do mural só o põe na vez dela no forno (ver `desenhar`):
+   * montar o SVG do papel (milhares de nós a calcular e medir) era o que pesava na rolagem, e a ficha
+   * entra antes, com o conteúdo sobre a cor lisa. As outras (a prévia do editor, a miniatura) desenham
+   * logo.
+   */
+  protected readonly desenhada = signal(false);
   /** O papel marcado pelo tempo, que tem desenho; os outros são só textura. */
   private readonly aged = computed(() => (isAgedPaper(this.paper()) ? this.paper() : undefined));
   /** Tem algo desenhado no papel (rabisco, papel marcado, estrago, mancha, decoração): mudar de tamanho custa. */
@@ -547,6 +555,7 @@ export class PaperArtLayer {
       if (!card) return;
       this.card = card;
       this.veils = card.matches('app-review-card') && !card.closest('app-review-editor');
+      if (!this.veils) this.desenhada.set(true);
       // a ficha acabou de entrar na página: só aparece com o papel pronto. Ainda antes da pintura,
       // então ela nunca aparece lisa para ganhar o papel um instante depois.
       if (this.veils) veil(card);
@@ -595,7 +604,8 @@ export class PaperArtLayer {
   /** Desenhar neste tamanho dá trabalho: o papel tem desenho e o tamanho mudou. */
   costly(at: Size): boolean {
     const s = this.size();
-    return this.waking || (this.needsArt() && (!s || s.W !== at.W || s.H !== at.H));
+    // (o papel ainda não desenhado não custa nada: só o tamanho muda, e o desenho entra na vez do forno)
+    return this.waking || (this.desenhada() && this.needsArt() && (!s || s.W !== at.W || s.H !== at.H));
   }
 
   /**
@@ -637,6 +647,9 @@ export class PaperArtLayer {
   private lembrada: { W: number; H: number; escala: number; assadas: Assada[]; sombra: Assada | null } | null = null;
   /** A sombra assada em uso (só nas recortadas): a imagem por baixo da ficha. */
   private sombra: { el: HTMLElement; assada: Assada } | null = null;
+  /** A última distância medida da ficha à tela, e quando (ver `fornada.distancia`). */
+  private medida = 0;
+  private medidaEm = -Infinity;
 
   /** O papel desta ficha no forno: assa quando a ficha está quieta na página. */
   private readonly fornada: Fornada = {
@@ -655,12 +668,19 @@ export class PaperArtLayer {
         !card.matches(':hover, :active')
       );
     },
+    // (a fila pergunta várias vezes na mesma volta: a medida vale por um instante, sem ler o layout de novo)
     distancia: () => {
-      const r = this.card!.getBoundingClientRect();
-      return r.bottom < 0 ? -r.bottom : r.top > innerHeight ? r.top - innerHeight : 0;
+      const agora = performance.now();
+      if (agora - this.medidaEm > MEDIDA_VALE) {
+        const r = this.card!.getBoundingClientRect();
+        this.medida = r.bottom < 0 ? -r.bottom : r.top > innerHeight ? r.top - innerHeight : 0;
+        this.medidaEm = agora;
+      }
+      return this.medida;
     },
     assar: () => this.assar(),
-    urgente: () => !!this.aoAssar && !!this.card && this.card.hasAttribute(REVELANDO),
+    // (só a que está na tela: a que já passou, ou ainda não chegou, espera a rolagem acalmar)
+    urgente: () => !!this.aoAssar && !!this.card && this.card.hasAttribute(REVELANDO) && this.fornada.distancia() === 0,
     desistiu: () => this.avisarAssada(),
   };
 
@@ -689,6 +709,8 @@ export class PaperArtLayer {
 
   /** Conta as vezes em que a fila esperou esta ficha aparecer (só a última vale, ver a fila). */
   vezDoVeu = 0;
+  /** Conta as vezes em que a ficha começou a se revelar (só a última vale, ver `revelar`). */
+  private revelacoes = 0;
   /** Quem espera a ficha escondida ficar assada para tirar o véu (ver `aparecerAssada`). */
   private aoAssar: (() => void) | null = null;
 
@@ -715,7 +737,22 @@ export class PaperArtLayer {
     aviso?.();
   }
 
+  /** Põe o desenho do papel na página, já (ver `desenhada`). */
+  private desenhar(): void {
+    if (this.desenhada() || this.destruida) return;
+    this.desenhada.set(true);
+    this.cdr.detectChanges();
+  }
+
   private async assar(): Promise<void> {
+    if (!this.desenhada()) {
+      // a vez desta ficha: o desenho entra na página com a rolagem calma (ou logo depois de um quadro,
+      // se ela está à vista), e o navegador o calcula num quadro dele antes de o forno ler as camadas
+      await calma();
+      if (this.destruida || !this.card?.isConnected || this.assadas.length) return;
+      this.desenhar();
+      await calma();
+    }
     await this.assarAgora();
     if (this.assadas.length) {
       this.avisarAssada();
@@ -736,11 +773,23 @@ export class PaperArtLayer {
   async revelar(): Promise<void> {
     const card = this.card;
     if (!card) return;
+    const minha = ++this.revelacoes;
     if (!this.assadas.length) {
       card.setAttribute(REVELANDO, '');
-      await Promise.race([this.aparecerAssada(), new Promise((r) => setTimeout(r, ESPERA_MAXIMA))]);
+      const assada = this.aparecerAssada().then(() => true);
+      // Se o forno demorar, a que está à vista ganha o papel vivo; a que está longe da tela (ou dormindo)
+      // continua esperando, sem custar nada (o papel nem está desenhado): todas de uma vez, com o forno
+      // atrasado, desenhariam o papel vivo juntas.
+      for (;;) {
+        const veio = await Promise.race([assada, new Promise<boolean>((r) => setTimeout(() => r(false), ESPERA_MAXIMA))]);
+        if (veio || this.destruida || this.card !== card || !card.isConnected || !card.hasAttribute(REVELANDO)) break;
+        if (!card.hasAttribute(ASLEEP) && this.fornada.distancia() === 0) break;
+      }
     }
-    if (this.card !== card || !card.hasAttribute(REVELANDO)) return;
+    // (acordou ou foi redesenhada no meio: quem a revela é a vez nova, que continua esperando o forno)
+    if (minha !== this.revelacoes || this.destruida || this.card !== card || !card.hasAttribute(REVELANDO)) return;
+    // não assou (sem forno, ou ele desistiu, ou demorou com ela à vista): o papel entra vivo
+    if (!this.assadas.length) this.desenhar();
     card.removeAttribute(REVELANDO);
     if (!reducedMotion() && card.isConnected) {
       const vem = Array.from(this.host.children).filter(
@@ -839,7 +888,9 @@ export class PaperArtLayer {
     const escala = devicePixelRatio;
     const chave = await this.chaveBarata(s, escala);
     const a = chave ? await lerAtalho(chave) : null;
-    if (!a || this.assadas.length) return;
+    if (!a || this.assadas.length || this.destruida) return;
+    // (as imagens guardadas vão nas camadas do desenho, que sai de cena embaixo delas)
+    this.desenhar();
     const camadas = Array.from(this.host.children).filter(
       (el): el is HTMLElement => el instanceof HTMLElement && el.classList.contains('camada') && !el.hasAttribute('data-fantasma'),
     );
@@ -1079,10 +1130,14 @@ export function onPaperShown(cb: () => void): () => void {
 const ESPERA_DO_ATALHO = 300;
 
 /**
- * O máximo que a ficha escondida espera ficar assada. Assar uma ficha leva bem menos; isto é só para
- * ela nunca ficar escondida se algo prender o forno (ela aparece viva, e ele a assa depois).
+ * O máximo que a ficha se revelando, à vista, espera o papel assado. Assar uma ficha leva bem menos; isto
+ * é só para ela nunca ficar sem o papel se algo prender o forno (o papel aparece vivo, e ele o assa
+ * depois). A que está longe da tela espera sem prazo (ver `revelar`).
  */
 const ESPERA_MAXIMA = 5000;
+
+/** Por quanto tempo a distância da ficha à tela (ver `Fornada.distancia`) vale sem medir de novo, em ms. */
+const MEDIDA_VALE = 50;
 
 /** Na ficha com a sombra assada por baixo (ver PaperArtLayer.assarSombra). */
 export const SOMBRA_ASSADA = 'data-sombra-assada';
@@ -1442,8 +1497,13 @@ function step(far: boolean, budget: number, maxCostly: number): { urgent: boolea
         // (redesenhada no meio: quem a mostra é a vez nova; fora da página, nada a mostrar)
         if (job.layer.vezDoVeu !== vez || !job.card.isConnected) return;
         reveal(job.card, job.onScreen);
-        await job.layer.revelar();
+        const revelada = job.layer.revelar();
+        // o conteúdo apareceu (a esteira solta a próxima), e de novo quando o papel se revelar, se ele
+        // ainda não veio (a esteira de uma por vez espera até aqui)
+        const esperando = job.card.hasAttribute(REVELANDO);
         for (const cb of aoAparecer) cb();
+        await revelada;
+        if (esperando) for (const cb of aoAparecer) cb();
       });
     } else mostrar();
   }

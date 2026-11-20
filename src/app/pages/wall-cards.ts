@@ -651,13 +651,20 @@ export class WallCardPool implements OnDestroy {
   }
 
   /**
-   * As fichas na esteira: montadas e acordadas, com o véu ou com o papel ainda se revelando (sendo
-   * desenhado e assado). A que está numa seção escondida (sem tamanho, a fila do papel nem a desenha) não
-   * conta: prenderia a esteira.
+   * As fichas na esteira: montadas e acordadas, ainda com o véu (o papel sendo desenhado). A que já
+   * mostra o conteúdo e espera o forno (revelando) não segura a próxima: rolando rápido, as fichas que
+   * chegam entram com o conteúdo, e o forno assa uma por vez atrás, a mais perto da tela primeiro (pedido
+   * do dono: com a esteira esperando cada uma assar, quem rolava rápido via só vagas). Com uma por vez
+   * ("Menos fichas prontas", ou o aparelho sem fôlego), segura até ela se revelar. A que está numa seção
+   * escondida (sem tamanho, a fila do papel nem a desenha) não conta: prenderia a esteira.
    */
   private preparing(): number {
+    const estrito = esteira() === 1;
     let n = 0;
-    for (const s of this.slots.values()) if (s.ref && !s.asleep && preparando(s.el) && s.box.isConnected && s.box.offsetParent !== null) n++;
+    for (const s of this.slots.values()) {
+      if (!s.ref || s.asleep || !(isVeiled(s.el) || (estrito && s.el.hasAttribute(REVELANDO)))) continue;
+      if (s.box.isConnected && s.box.offsetParent !== null) n++;
+    }
     return n;
   }
 
@@ -856,8 +863,9 @@ export class WallCardPool implements OnDestroy {
         this.despawn(slot);
         continue;
       }
-      // (a que ainda espera o papel, montada de antemão, dorme depois de desenhada: acordar não desenha nada)
-      if (now - slot.farSince < WALL_TUNING.sleepAfter || busy(slot.el) || preparando(slot.el)) {
+      // (a que ainda espera o papel, montada de antemão, dorme depois de desenhada: acordar não desenha nada;
+      // a que se revela longe da tela dorme como as outras, e o forno a assa quando ela acordar)
+      if (now - slot.farSince < WALL_TUNING.sleepAfter || busy(slot.el) || isVeiled(slot.el)) {
         pending = true;
         continue;
       }
@@ -952,11 +960,6 @@ function heightOf(el: HTMLElement): number {
 }
 
 /** A ficha não pode dormir agora: tem o foco, está deslizando ou sumindo, caindo na parede ou levando o carimbo. */
-/** Com o véu, ou com o papel ainda se revelando (ver `revelar` em ui/paper-layer.ts). */
-function preparando(el: HTMLElement): boolean {
-  return isVeiled(el) || el.hasAttribute(REVELANDO);
-}
-
 function busy(el: HTMLElement): boolean {
   return el.matches(':focus-within, .is-landing, .carimbando') || (typeof el.getAnimations === 'function' && el.getAnimations().length > 0);
 }

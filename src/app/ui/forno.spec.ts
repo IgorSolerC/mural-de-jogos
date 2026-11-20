@@ -1,10 +1,10 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { paperVars } from '../core/paper-art';
-import { CamadaInfo, agrupar, alcanceDaSombra, assar, chaveDe, marcarUrls, materializar, embutirUrls, filaDoForno, fornoCache, fornoEpoca, fornoErro, pegarSombra, grupos, pegar, receita, resetForno, soltar } from './forno';
+import { CamadaInfo, agrupar, alcanceDaSombra, assar, chaveDe, desligarForno, marcarUrls, materializar, embutirUrls, filaDoForno, fornoCache, fornoEpoca, fornoErro, pegarSombra, grupos, pegar, receita, resetForno, soltar } from './forno';
 import { ASLEEP, PaperArtLayer, PaperDefs, REVELANDO, SOMBRA_ASSADA, filtroParado } from './paper-layer';
 import { Pin } from './pin';
-import { FORNO_DB, guardarNoForno, lerDoForno } from '../core/forno-store';
+import { FORNO_DB, atalhosGuardados, fornoGuardado, guardarNoForno, lerDoForno } from '../core/forno-store';
 import { deleteDatabase } from '../core/erase-save';
 import { resetPace, tick } from './pace';
 
@@ -480,8 +480,8 @@ describe('o forno nas fichas do mural', () => {
     const desenhos = espiarDesenhos();
     const aoEntrar: string[] = [];
     const aoRevelar: boolean[] = [];
-    const escondido = (el: HTMLElement) =>
-      Array.from(el.querySelectorAll<HTMLElement>('app-paper-art > .camada')).every((c) => getComputedStyle(c).clipPath === 'inset(50%)');
+    // (o papel nem está desenhado: entra na vez dela no forno, recortado a nada pelo review-card.ts)
+    const escondido = (el: HTMLElement) => !el.querySelector('.camada.fundo');
     const mo = new MutationObserver((ms) => {
       for (const m of ms) {
         const el = m.target as HTMLElement;
@@ -515,11 +515,22 @@ describe('o forno nas fichas do mural', () => {
   }, 40000);
 
   it('a ficha já assada noutra visita entra assada: no instante em que aparece, já com as imagens, sem desenhar nada (o atalho)', async () => {
+    await deleteDatabase(FORNO_DB);
     const a = await montar({ recortada: true });
     expect(a.ok).toBeTrue();
     expect(await until(() => a.card.hasAttribute(SOMBRA_ASSADA))).toBeTrue();
-    // (o atalho é guardado logo depois da sombra)
-    await until(() => false, 300);
+    // o atalho é guardado logo depois da sombra, e as imagens antes dele: espera o banco ter os dois (com
+    // a máquina ocupada, gravar passava dos 300 ms que o teste esperava, e a outra visita assava de novo)
+    const t0 = performance.now();
+    let imagens = -1;
+    for (;;) {
+      const agora = (await fornoGuardado()).imagens;
+      if ((await atalhosGuardados()) > 0 && agora === imagens) break;
+      imagens = agora;
+      if (performance.now() - t0 > 20000) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    expect(await atalhosGuardados()).withContext('o atalho guardado').toBe(1);
     a.done();
     // outra visita: a memória da aba vazia, só o que ficou no aparelho
     resetForno();
@@ -668,6 +679,89 @@ describe('o forno nas fichas do mural', () => {
     await until(() => false, 1500);
     expect(filaDoForno()).toBe(0);
   }, 30000);
+
+  /** Uma ficha do mural sem esperar o forno (ver `montar`), com o papel de rabisco e rasgo. */
+  function montarSo(id: string) {
+    const fixture = TestBed.createComponent(PaperArtLayer);
+    fixture.componentRef.setInput('id', id);
+    fixture.componentRef.setInput('scribble', 'novelo');
+    fixture.componentRef.setInput('damage', 'rasgado');
+    const card = document.createElement('app-review-card');
+    card.className = 'cartolina';
+    card.style.cssText = 'position:relative;display:block;width:300px;height:200px;--stock:#f3d36b';
+    card.appendChild(fixture.nativeElement);
+    document.body.prepend(card);
+    fixture.detectChanges();
+    return {
+      fixture,
+      card,
+      desenho: () => card.querySelector('.camada.fundo'),
+      done: () => {
+        fixture.destroy();
+        card.remove();
+      },
+    };
+  }
+
+  it('a ficha nova entra sem o desenho do papel na página: ele só entra na vez dela no forno, e já sai assado', async () => {
+    await deleteDatabase(FORNO_DB);
+    resetForno();
+    // (o forno só pega fichas com a página quieta: ninguém o chama antes da hora)
+    const aoEntrar: boolean[] = [];
+    const aoRevelar: boolean[] = [];
+    const mo = new MutationObserver((ms) => {
+      for (const m of ms) {
+        const el = m.target as HTMLElement;
+        if (m.attributeName === 'data-veu' && !el.hasAttribute('data-veu')) aoEntrar.push(!!el.querySelector('.camada.fundo'));
+        if (m.attributeName === REVELANDO && !el.hasAttribute(REVELANDO)) aoRevelar.push(!!el.querySelector('.camada.assada'));
+      }
+    });
+    mo.observe(document.body, { attributes: true, subtree: true, attributeFilter: ['data-veu', REVELANDO] });
+    const a = montarSo('forno4');
+    expect(await until(() => !a.card.hasAttribute('data-veu'))).withContext('entrou').toBeTrue();
+    // entrou com o conteúdo, sem o desenho do papel (nem escondido): nada a calcular nem a medir
+    expect(aoEntrar).withContext('o desenho ao entrar').toEqual([false]);
+    expect(a.card.hasAttribute(REVELANDO)).withContext('revelando').toBeTrue();
+    expect(await until(() => !a.card.hasAttribute(REVELANDO))).withContext('revelou').toBeTrue();
+    mo.disconnect();
+    // a vez dela chegou: o desenho entrou, o forno o assou, e o papel se revelou já assado
+    expect(a.desenho()).withContext('o desenho na página').not.toBeNull();
+    expect(aoRevelar).withContext(`ao revelar, assada (${String(fornoErro())})`).toEqual([true]);
+    a.done();
+  }, 40000);
+
+  it('sem o forno (o Safari), a ficha que se revela ganha o papel vivo', async () => {
+    await deleteDatabase(FORNO_DB);
+    resetForno();
+    desligarForno();
+    const a = montarSo('forno5');
+    expect(await until(() => !a.card.hasAttribute('data-veu') && !a.card.hasAttribute(REVELANDO))).withContext('revelou').toBeTrue();
+    expect(a.desenho()).withContext('o desenho vivo').not.toBeNull();
+    expect(a.card.querySelector('.camada.assada')).toBeNull();
+    a.done();
+  }, 30000);
+
+  it('a ficha que acorda (ou é redesenhada) no meio da revelação continua esperando o forno, em vez de ganhar o papel vivo', async () => {
+    await deleteDatabase(FORNO_DB);
+    resetForno();
+    const aoRevelar: boolean[] = [];
+    const mo = new MutationObserver((ms) => {
+      for (const m of ms) {
+        const el = m.target as HTMLElement;
+        if (m.attributeName === REVELANDO && !el.hasAttribute(REVELANDO)) aoRevelar.push(!!el.querySelector('.camada.assada'));
+      }
+    });
+    mo.observe(document.body, { attributes: true, subtree: true, attributeFilter: [REVELANDO] });
+    const a = montarSo('forno6');
+    expect(await until(() => a.card.hasAttribute(REVELANDO))).withContext('revelando').toBeTrue();
+    // a vez nova (a fila do papel, quando ela acorda) começa a revelação de novo, com a primeira ainda esperando
+    expect(a.card.querySelector('.camada.assada')).withContext('ainda não assada').toBeNull();
+    void a.fixture.componentInstance.revelar();
+    expect(await until(() => !a.card.hasAttribute(REVELANDO))).withContext('revelou').toBeTrue();
+    mo.disconnect();
+    expect(aoRevelar).withContext(`revelou uma vez, já assada (${String(fornoErro())})`).toEqual([true]);
+    a.done();
+  }, 40000);
 
   it('a prévia do editor não vai ao forno (o papel muda a cada clique)', async () => {
     const fixture = TestBed.createComponent(PaperArtLayer);

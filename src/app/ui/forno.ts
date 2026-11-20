@@ -1082,6 +1082,9 @@ const tentativas = new WeakMap<Fornada, number>();
 const TENTATIVAS = 3;
 /** Sem nenhuma pronta, a fila olha de novo depois disto. */
 const DE_NOVO_SEM_PRONTA = 2000;
+/** Rolando, a fila olha de novo depois disto (se alguma entrou na tela, ver `Fornada.urgente`). */
+const OLHAR_DE_NOVO = 150;
+
 /** Com a aba escondida (sem quadros), o máximo que um passo espera o próximo quadro. */
 const SEM_QUADRO = 100;
 
@@ -1152,7 +1155,8 @@ async function rodar(prazo: IdleDeadlineLike): Promise<void> {
   // rolando, ou o navegador sem folga: depois (com o prazo vencido, vai assim mesmo, uma ficha). A ficha
   // escondida que a pessoa espera não espera a rolagem parar: cada passo dela cede a vez (ver `calma`)
   if (!urgentes.length && (desde < DEPOIS_DA_ROLAGEM || !idleFits(prazo, 8))) {
-    setTimeout(agendar, desde < DEPOIS_DA_ROLAGEM ? DEPOIS_DA_ROLAGEM - desde : 50);
+    // (de pouco em pouco: a que entrar na tela nesse meio tempo fica urgente e não espera a rolagem)
+    setTimeout(agendar, desde < DEPOIS_DA_ROLAGEM ? Math.min(DEPOIS_DA_ROLAGEM - desde, OLHAR_DE_NOVO) : 50);
     return;
   }
   let melhor: Fornada | null = null;
