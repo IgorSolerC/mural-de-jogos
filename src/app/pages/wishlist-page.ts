@@ -59,7 +59,7 @@ import { FOLDER_MARK, NoteSelection, copyMarkedItem, insideWords } from '../ui/n
 import { SelectionTray, TrayAction } from '../ui/selection-tray';
 import { foldersRemovalAsk, joinMarked, markedTops, marksLabel, moveMarked, movedText } from '../core/folder-marks';
 import { notesAsText } from '../core/note-copy';
-import { Confirm } from '../ui/confirm';
+import { Choice, Confirm } from '../ui/confirm';
 
 /** O que mora na Wishlist, no singular e no plural (as contas dos marcados). */
 const WISH_WORDS = ['recorte', 'recortes'] as const;
@@ -1603,7 +1603,7 @@ export class WishlistPage {
     const tops = this.markedTop();
     const nf = tops.folders.length;
     const all = this.selection.copied().items.map((w) => w.id);
-    let choice: 'confirm' | 'secondary' | null = 'confirm';
+    let choice: Choice = 'confirm';
     if (nf) choice = await this.confirm.choose(foldersRemovalAsk(nf, all.length - tops.items.length, tops.items.length, WISH_WORDS, [], true));
     if (!choice) return;
     this.transitions.run(() => {

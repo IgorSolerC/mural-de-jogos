@@ -8,7 +8,8 @@ import { CalendarStore } from '../core/calendar-store';
 import { Desk } from '../core/desk';
 import { Review, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
-import { Choice, Confirm } from '../ui/confirm';
+import { Choice, ChoiceOptions, Confirm } from '../ui/confirm';
+import { Toasts } from '../ui/toast';
 import { CalendarPage } from './calendar-page';
 import { GoogleAgenda } from '../core/google-agenda-sync';
 import { closeDialog, nextClose } from '../testing/dialog-close.spec';
@@ -37,6 +38,8 @@ describe('página do Calendário', () => {
   let router: Router;
   let desk: Desk;
   let answer: Choice;
+  /** As perguntas de escolha feitas, na ordem. */
+  let asked: ChoiceOptions[];
 
   async function go(url: string): Promise<void> {
     await router.navigateByUrl(url);
@@ -57,11 +60,12 @@ describe('página do Calendário', () => {
   beforeEach(async () => {
     localStorage.clear();
     answer = null;
+    asked = [];
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
         provideRouter([{ path: 'utilidades/calendario', component: CalendarPage }]),
-        { provide: Confirm, useValue: { ask: async () => true, choose: async () => answer } },
+        { provide: Confirm, useValue: { ask: async () => true, choose: async (o: ChoiceOptions) => (asked.push(o), answer) } },
       ],
     });
     TestBed.inject(ReviewStore).reviews.set([
@@ -557,6 +561,47 @@ describe('página do Calendário', () => {
       expect(calendar.get('rbolo0001')).toBeUndefined();
       expect(calendar.state().removed['rbolo0001']).toBeDefined();
     });
+
+    it('apagar daqui em diante: os dias de antes continuam, com o Desfazer; na primeira vez, a pergunta não oferece', async () => {
+      const shown = spyOn(TestBed.inject(Toasts), 'show').and.callThrough();
+      calendar.skipDay('rremedio1', '2026-10-05');
+      const before = calendar.get('rremedio1')!;
+      const remedio = () => $$('.editar').find((b) => text(b.closest('.lembrete')).includes('Tomar o remédio'))!;
+      await go('/utilidades/calendario?vista=dia&dia=2026-10-20');
+      answer = 'third';
+      remedio().click();
+      await settle();
+      const closed = nextClose(sheet()!);
+      sheet()!.querySelector<HTMLButtonElement>('.perigo')!.click();
+      await closed;
+      await settle();
+      const last = () => asked[asked.length - 1];
+      expect(last().third).toBe('Daqui em diante');
+      expect(last().text).toBe('“Tomar o remédio” se repete (todo dia). Apagar só o de 20 de outubro, dele em diante (os de antes continuam), ou todos?');
+      const r = calendar.get('rremedio1')!;
+      expect(r.until).toBe('2026-10-19');
+      expect(r.skip).toEqual(['2026-10-05']);
+      expect($$('.lembrete-nome').map(text)).not.toContain('Tomar o remédio');
+      await go('/utilidades/calendario?vista=dia&dia=2026-10-19');
+      expect($$('.lembrete-nome').map(text)).toContain('Tomar o remédio');
+      // o Desfazer traz a repetição inteira de volta
+      const [msg, action] = shown.calls.mostRecent().args as unknown as [string, { run: () => void }];
+      expect(msg).toBe('“Tomar o remédio” saiu de 20 de outubro em diante');
+      action.run();
+      expect(calendar.get('rremedio1')!.until).toBeUndefined();
+      expect(calendar.get('rremedio1')!.skip).toEqual(before.skip);
+
+      // no primeiro dia da série, "daqui em diante" é apagar todos: a pergunta fica com as duas respostas
+      await go('/utilidades/calendario?vista=dia&dia=2026-10-01');
+      answer = null;
+      remedio().click();
+      await settle();
+      sheet()!.querySelector<HTMLButtonElement>('.perigo')!.click();
+      await settle();
+      expect(last().third).toBeUndefined();
+      expect(last().text).toBe('“Tomar o remédio” se repete (todo dia). Apagar só o de 1 de outubro, ou todos?');
+      expect(calendar.get('rremedio1')!.until).toBeUndefined();
+    });
   });
   describe('revisão', () => {
     function type(input: HTMLInputElement, value: string): void {
@@ -614,6 +659,57 @@ describe('página do Calendário', () => {
       expect(r.google?.etag).toBe('v2');
       expect(r.google?.at).not.toBe(r.at);
     });
+
+    it('apagar pela folha aberta antes de um dia tirado em outro lugar: o Desfazer não traz o dia de volta, e o já apagado não volta', async () => {
+      const shown = spyOn(TestBed.inject(Toasts), 'show').and.callThrough();
+      await go('/utilidades/calendario?vista=dia&dia=2026-10-20');
+      $$('.editar')[0].click();
+      await settle();
+      expect(sheet()!.querySelector<HTMLInputElement>('.nome input')!.value).toBe('Tomar o remédio');
+      // com a folha aberta: outro aparelho tira o dia 10
+      calendar.skipDay('rremedio1', '2026-10-10');
+      await settle();
+      answer = 'third';
+      const closed = nextClose(sheet()!);
+      sheet()!.querySelector<HTMLButtonElement>('.perigo')!.click();
+      await closed;
+      await settle();
+      expect(calendar.get('rremedio1')!.until).toBe('2026-10-19');
+      expect(calendar.get('rremedio1')!.skip).toEqual(['2026-10-10']);
+      (shown.calls.mostRecent().args[1] as unknown as { run: () => void }).run();
+      expect(calendar.get('rremedio1')!.until).toBeUndefined();
+      expect(calendar.get('rremedio1')!.skip).toEqual(['2026-10-10']);
+
+      // apagado em outro aparelho com a folha aberta: apagar aqui não faz nada (nem um Desfazer que o traria de volta)
+      await settle();
+      $$('.editar').find((b) => text(b.closest('.lembrete')).includes('Tomar o remédio'))!.click();
+      await settle();
+      expect(sheet()!.querySelector<HTMLInputElement>('.nome input')!.value).toBe('Tomar o remédio');
+      calendar.remove('rremedio1');
+      await settle();
+      const calls = shown.calls.count();
+      sheet()!.querySelector<HTMLButtonElement>('.perigo')!.click();
+      await settle();
+      expect(shown.calls.allArgs().slice(calls).map((a) => a[0])).toEqual([]);
+      expect(calendar.get('rremedio1')).toBeUndefined();
+    });
+
+    it('salvar a folha aberta antes de um "daqui em diante" feito em outro lugar não traz os dias de volta', async () => {
+      await go('/utilidades/calendario?vista=dia&dia=2026-10-20');
+      $$('.editar')[0].click();
+      await settle();
+      const s = sheet()!;
+      expect(s.querySelector<HTMLInputElement>('.nome input')!.value).toBe('Tomar o remédio');
+      // com a folha aberta: outro aparelho corta a repetição no dia 25
+      calendar.stopBefore('rremedio1', '2026-10-25');
+      await settle();
+      type(s.querySelector<HTMLInputElement>('.nome input')!, 'Tomar o remédio da pressão');
+      s.querySelector<HTMLButtonElement>('.btn-ink')!.click();
+      await settle();
+      const r = calendar.get('rremedio1')!;
+      expect(r.title).toBe('Tomar o remédio da pressão');
+      expect(r.until).toBe('2026-10-24');
+    });
   });
 
   describe('menu do botão direito', () => {
@@ -654,6 +750,17 @@ describe('página do Calendário', () => {
       option('Apagar o lembrete').click();
       for (let i = 0; i < 10 && !calendar.get('rremedio1')!.skip.length; i++) await settle();
       expect(calendar.get('rremedio1')!.skip).toEqual(['2026-10-20']);
+    });
+
+    it('apagar pelo menu também oferece daqui em diante, na mesma pergunta', async () => {
+      await go('/utilidades/calendario?vista=dia&dia=2026-10-20');
+      answer = 'third';
+      await rightClick($('.lembrete[data-lembrete="rremedio1"] .lembrete-nome')!);
+      option('Apagar o lembrete').click();
+      for (let i = 0; i < 10 && !calendar.get('rremedio1')!.until; i++) await settle();
+      expect(asked[asked.length - 1].third).toBe('Daqui em diante');
+      expect(calendar.get('rremedio1')!.until).toBe('2026-10-19');
+      expect(calendar.get('rremedio1')!.skip).toEqual([]);
     });
 
     it('um dia do mês: abrir o dia e marcar um lembrete nele; a tirinha de um lembrete, o menu dele', async () => {

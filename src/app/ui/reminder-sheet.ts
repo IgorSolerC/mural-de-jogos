@@ -17,11 +17,13 @@ import {
   dayAndMonth,
   isDay,
   isLastOfMonth,
+  keepOuterEnd,
   longDay,
   nextOccurrence,
   nthLabel,
   nthOf,
   rangeLabel,
+  repeatKey,
   repeatSentence,
   repeatShort,
   sanitizeReminder,
@@ -61,11 +63,6 @@ const REPEAT_OPTIONS: readonly (Repeat | 'nunca')[] = ['nunca', ...REPEATS];
 
 /** O horário que o lembrete ganha ao sair do "dia todo". */
 const FIRST_TIME = '09:00';
-
-/** O que decide os dias de um lembrete que acaba depois de N vezes (o último dia sai daqui). */
-function ruleKey(r: Reminder): string {
-  return JSON.stringify([r.date, r.repeat, r.every, r.days, r.nth, r.strict, r.weekStart, r.count]);
-}
 
 /** Como a repetição acaba: nunca, num dia, ou depois de N vezes. */
 type EndMode = 'nunca' | 'dia' | 'vezes';
@@ -550,7 +547,7 @@ export class ReminderSheet {
     if (r.count) {
       // a conta do último dia só quando a regra (ou o número de vezes) mudou: não a cada letra do nome
       const prev = this.draft();
-      const last = prev.count && prev.until && ruleKey(prev) === ruleKey(r) ? prev.until : countEnd(r, r.count);
+      const last = prev.count && prev.until && prev.count === r.count && repeatKey(prev) === repeatKey(r) ? prev.until : countEnd(r, r.count);
       if (last) r.until = last;
       else drop('count', 'until');
     }
@@ -704,7 +701,9 @@ export class ReminderSheet {
     const now = this.isNew() ? undefined : this.calendar.get(d.id);
     const skip = now ? now.skip : d.skip;
     const google = now ? now.google : d.google;
-    const { google: _, ...rest } = d;
+    // e o fim da repetição mudado fora ("Daqui em diante"), se a folha não mexeu na repetição
+    const opened = this.reminder();
+    const { google: _, ...rest } = now && opened ? keepOuterEnd(d, opened, now) : d;
     // os dias tirados só valem num lembrete que se repete; o fim, quando vem depois do começo
     const base = { ...rest, title, skip: d.repeat ? skip : [], ...(google ? { google } : {}) };
     const clean = sanitizeReminder(base) ?? base;

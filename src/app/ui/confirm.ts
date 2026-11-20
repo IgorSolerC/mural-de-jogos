@@ -45,14 +45,20 @@ export interface CheckedAnswer {
 export interface ChoiceOptions extends ConfirmOptions {
   /** A outra resposta possível, ao lado da principal (`choose` devolve 'secondary'). */
   secondary: string;
+  /**
+   * Uma terceira (`choose` devolve 'third'), no mesmo papel da outra: as duas numa linha só delas, em cima do
+   * Cancelar e da principal.
+   */
+  third?: string;
 }
 
-/** O que a pessoa respondeu: a principal, a outra, ou nada (Cancelar, Esc, clique fora). */
-export type Choice = 'confirm' | 'secondary' | null;
+/** O que a pessoa respondeu: a principal, a outra, a terceira, ou nada (Cancelar, Esc, clique fora). */
+export type Choice = 'confirm' | 'secondary' | 'third' | null;
 
 interface Question extends Required<ConfirmOptions> {
   id: number;
   secondary: string | null;
+  third: string | null;
   check: string | null;
   resolve: (choice: Choice) => void;
 }
@@ -83,6 +89,7 @@ export class Confirm {
         icon: ICON.apagar,
         ...options,
         secondary: null,
+        third: null,
         check: null,
         tone: options.tone ?? 'perigo',
         id: ++this.seq,
@@ -101,6 +108,7 @@ export class Confirm {
         icon: null,
         ...options,
         secondary: null,
+        third: null,
         tone: options.tone ?? 'perigo',
         id: ++this.seq,
         resolve: (choice) => resolve({ ok: choice === 'confirm', checked: this.checked() }),
@@ -108,11 +116,11 @@ export class Confirm {
     );
   }
 
-  /** Uma escolha entre duas respostas, sem nada de perigoso: Cancelar, Esc e o clique fora devolvem null. */
+  /** Uma escolha entre duas (ou três) respostas, sem nada de perigoso: Cancelar, Esc e o clique fora devolvem null. */
   choose(options: ChoiceOptions): Promise<Choice> {
     this.current()?.resolve(null);
     return new Promise((resolve) =>
-      this.open({ title: 'O que fazer?', cancel: 'Agora não', icon: null, ...options, check: null, tone: options.tone ?? 'neutro', id: ++this.seq, resolve }),
+      this.open({ title: 'O que fazer?', cancel: 'Agora não', icon: null, ...options, third: options.third ?? null, check: null, tone: options.tone ?? 'neutro', id: ++this.seq, resolve }),
     );
   }
 
@@ -157,8 +165,15 @@ export class Confirm {
           </div>
           <footer class="foot">
             <div class="actions">
+              @if (q.third) {
+                <!-- três respostas: as duas outras numa linha em cima, e o Cancelar ao lado da principal, como sempre -->
+                <div class="outras">
+                  <button type="button" class="btn-quiet outra" (click)="confirm.answer('secondary')">{{ q.secondary }}</button>
+                  <button type="button" class="btn-quiet outra" (click)="confirm.answer('third')">{{ q.third }}</button>
+                </div>
+              }
               <button type="button" class="btn-quiet" data-cancelar (click)="confirm.answer(false)">{{ q.cancel }}</button>
-              @if (q.secondary) {
+              @if (q.secondary && !q.third) {
                 <button type="button" class="btn-quiet outra" (click)="confirm.answer('secondary')">{{ q.secondary }}</button>
               }
               <button type="button" class="btn-ink" [class.danger]="q.tone === 'perigo'" (click)="confirm.answer(true)">

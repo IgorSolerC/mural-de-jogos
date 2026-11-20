@@ -1,4 +1,4 @@
-import { Reminder, occursOn, repeatSentence, repeatShort, sanitizeReminder } from './calendar';
+import { Reminder, occursOn, repeatSentence, repeatShort, sanitizeReminder, stopBefore } from './calendar';
 import { GEvent, eventIdFor, fromEvent, instanceIdFor, parseRecurrence, reminderIdFor, ruleOf, toEvent } from './google-agenda';
 
 const T = '2026-10-10T10:00:00.000Z';
@@ -129,6 +129,10 @@ describe('Google Agenda: a repetição que vem do Google', () => {
     }
     expect(ruleOf(reminder({ repeat: 'mes', nth: 3 }))).toBe('FREQ=MONTHLY;BYDAY=3TU');
     expect(ruleOf(reminder({ repeat: 'dia', count: 5, until: '2026-10-24' }))).toBe('FREQ=DAILY;COUNT=5');
+    // apagado daqui em diante: o "depois de N vezes" vai como o último dia (UNTIL), sem o COUNT
+    const cut = stopBefore(sanitizeReminder(reminder({ repeat: 'dia', count: 5 }))!, '2026-10-22', '2026-10-21T00:00:00.000Z')!;
+    expect(ruleOf(cut)).toBe('FREQ=DAILY;UNTIL=20261021');
+    expect(parseRecurrence([`RRULE:${ruleOf(cut)}`], cut.date)!.until).toBe('2026-10-21');
   });
 
   it('a marcação vai sem avisos; o lembrete volta aos avisos da agenda só se o Google estava calado', () => {

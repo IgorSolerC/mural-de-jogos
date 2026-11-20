@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Reminder, addDays, dayAndMonth, occurrenceStart, rangeLabel, repeatShort, spanOf } from '../core/calendar';
+import { Reminder, addDays, dayAndMonth, occurrenceStart, occursBefore, rangeLabel, repeatShort, spanOf } from '../core/calendar';
 import { CalendarStore } from '../core/calendar-store';
 import { cardsIn, removeColumn } from '../core/kanban';
 import { KanbanStore } from '../core/kanban-store';
@@ -139,28 +139,44 @@ export class RemoveAsking {
 
   /**
    * Apaga o lembrete, com o Desfazer. O que se repete pergunta se é só a vez que passa por `day` (tirada
-   * da repetição) ou todas.
+   * da repetição), dela em diante (as de antes continuam; na primeira vez, não pergunta: seria o mesmo que
+   * todas) ou todas. Pergunta e apaga pelo lembrete de agora, não pelo `seen` (o da folha é o de quando ela
+   * abriu: um dia tirado ou um corte em outro lugar, com ela aberta, não volta no Desfazer).
    */
-  async reminder(r: Reminder, day: string, before?: () => void): Promise<boolean> {
+  async reminder(seen: Reminder, day: string, before?: () => void): Promise<boolean> {
+    const r = this.calendar.get(seen.id);
+    if (!r) return false;
     const name = `“${r.title}”`;
     // a vez aberta: num de vários dias, a que passa pelo dia de onde se pediu
     const at = occurrenceStart(r, day);
     if (r.repeat && at) {
       const many = spanOf(r) > 1;
       const which = many ? `a de ${rangeLabel(at, addDays(at, spanOf(r) - 1))}` : `o de ${dayAndMonth(at)}`;
+      const forward = occursBefore(r, at) ? `, ${many ? 'dela' : 'dele'} em diante (${many ? 'as' : 'os'} de antes continuam)` : '';
       const choice = await this.confirm.choose({
         title: 'Apagar o lembrete?',
-        text: `${name} se repete (${repeatShort(r)}). Apagar só ${which}, ou ${many ? 'todas' : 'todos'}?`,
+        text: `${name} se repete (${repeatShort(r)}). Apagar só ${which}${forward}, ou ${many ? 'todas' : 'todos'}?`,
         confirm: many ? 'Apagar todas' : 'Apagar todos',
         secondary: many ? 'Só esta vez' : 'Só neste dia',
+        ...(forward ? { third: 'Daqui em diante' } : {}),
       });
       if (!choice) return false;
+      // (o de agora: pode ter mudado, ou saído, com a pergunta aberta)
+      const now = this.calendar.get(r.id);
+      if (!now) return false;
+      // (sem vez nenhuma antes, agora, daqui em diante é apagar todos: logo abaixo)
+      if (choice === 'third' && occursBefore(now, at)) {
+        before?.();
+        this.calendar.stopBefore(r.id, at);
+        this.toasts.show(`${name} saiu de ${dayAndMonth(at)} em diante`, { label: 'Desfazer', run: () => this.calendar.restore(now) });
+        return true;
+      }
       if (choice === 'secondary') {
         before?.();
         this.calendar.skipDay(r.id, at);
         this.toasts.show(many ? `${name} saiu de ${rangeLabel(at, addDays(at, spanOf(r) - 1))}` : `${name} saiu de ${dayAndMonth(at)}`, {
           label: 'Desfazer',
-          run: () => this.calendar.restore(r),
+          run: () => this.calendar.restore(now),
         });
         return true;
       }
@@ -168,9 +184,11 @@ export class RemoveAsking {
       const sure = await this.confirm.ask({ title: 'Apagar o lembrete?', text: `${name} sai do calendário. As anotações anexadas continuam no mural.`, confirm: 'Apagar' });
       if (!sure) return false;
     }
+    const gone = this.calendar.get(r.id);
+    if (!gone) return false;
     before?.();
     this.calendar.remove(r.id);
-    this.toasts.show(`${name} saiu do calendário`, { label: 'Desfazer', run: () => this.calendar.restore(r) });
+    this.toasts.show(`${name} saiu do calendário`, { label: 'Desfazer', run: () => this.calendar.restore(gone) });
     return true;
   }
 

@@ -8,11 +8,13 @@ import {
   drawColor,
   isDay,
   isPast,
+  keepOuterEnd,
   mergeCalendar,
   monthGrid,
   nearDayLabel,
   nextOccurrence,
   occurrenceStart,
+  occursBefore,
   occursOn,
   rangeLabel,
   remindersOfNote,
@@ -24,6 +26,7 @@ import {
   segmentOn,
   skipDay,
   spanLabel,
+  stopBefore,
   timeLabel,
   timeOn,
   weekDays,
@@ -198,6 +201,70 @@ describe('Calendário: quando o lembrete aparece', () => {
     expect(repeatShort({ repeat: 'semana', date: '2026-10-22' })).toBe('toda quinta');
     expect(repeatShort({ repeat: 'mes', date: '2026-10-05' })).toBe('todo dia 5');
     expect(repeatShort({ date: '2026-10-05' })).toBe('');
+  });
+});
+
+describe('Calendário: apagar daqui em diante', () => {
+  const AT = '2026-11-20T12:00:00.000Z';
+
+  it('a repetição acaba no dia antes; os de antes continuam, com os dias tirados', () => {
+    const r = reminder({ repeat: 'semana', skip: ['2026-10-25', '2026-11-15'] });
+    const cut = stopBefore(r, '2026-11-08', AT)!;
+    expect(cut.until).toBe('2026-11-07');
+    expect(cut.at).toBe(AT);
+    expect(cut.skip).toEqual(['2026-10-25', '2026-11-15']);
+    expect(['2026-10-18', '2026-10-25', '2026-11-01', '2026-11-08', '2026-11-15', '2026-11-22'].map((d) => occursOn(cut, d))).toEqual([true, false, true, false, false, false]);
+    expect(nextOccurrence(cut, '2026-11-02')).toBeNull();
+    // o guardado e a junção leem o mesmo fim
+    expect(sanitizeReminder(cut)!.until).toBe('2026-11-07');
+    const here: CalendarState = { reminders: [r], removed: {} };
+    const there: CalendarState = { reminders: [cut], removed: {} };
+    expect(mergeCalendar(here, there).reminders[0].until).toBe('2026-11-07');
+    expect(mergeCalendar(there, here)).toEqual(mergeCalendar(here, there));
+  });
+
+  it('na primeira vez (ou com todas as de antes tiradas) é o mesmo que apagar todas', () => {
+    const r = reminder({ repeat: 'dia' });
+    expect(occursBefore(r, '2026-10-18')).toBeFalse();
+    expect(stopBefore(r, '2026-10-18', AT)).toBeNull();
+    expect(occursBefore(r, '2026-10-19')).toBeTrue();
+    const tirados = reminder({ repeat: 'dia', skip: ['2026-10-18', '2026-10-19'] });
+    expect(occursBefore(tirados, '2026-10-20')).toBeFalse();
+    expect(stopBefore(tirados, '2026-10-20', AT)).toBeNull();
+    // o que não se repete não tem "daqui em diante"
+    expect(occursBefore(reminder(), '2026-10-25')).toBeFalse();
+  });
+
+  it('o "depois de N vezes" vira o fim num dia; um fim que vinha antes fica', () => {
+    const vezes = sanitizeReminder(reminder({ repeat: 'dia', count: 10 }))!;
+    expect(vezes.until).toBe('2026-10-27');
+    const cut = stopBefore(vezes, '2026-10-22', AT)!;
+    expect('count' in cut).toBeFalse();
+    expect(cut.until).toBe('2026-10-21');
+    expect(sanitizeReminder(cut)!.until).toBe('2026-10-21');
+    expect(stopBefore(reminder({ repeat: 'dia', until: '2026-10-20' }), '2026-11-01', AT)!.until).toBe('2026-10-20');
+  });
+
+  it('vários dias: a vez que começa no dia sai, a de antes fica inteira', () => {
+    const r = reminder({ repeat: 'semana', end: '2026-10-20' });
+    const cut = stopBefore(r, '2026-10-25', AT)!;
+    expect(['2026-10-18', '2026-10-20', '2026-10-25', '2026-10-27'].map((d) => coversDay(cut, d))).toEqual([true, true, false, false]);
+  });
+
+  it('a folha aberta antes do corte em outro lugar não traz a repetição de volta (se não mexeu nela)', () => {
+    const opened = reminder({ repeat: 'semana' });
+    const now = { ...opened, until: '2026-11-07', at: AT };
+    const titulo = { ...opened, title: 'Outro nome' };
+    expect(keepOuterEnd(titulo, opened, now).until).toBe('2026-11-07');
+    expect(keepOuterEnd(titulo, opened, now).title).toBe('Outro nome');
+    // mexeu na repetição: vale a da folha
+    const ate = { ...opened, until: '2026-12-31' };
+    expect(keepOuterEnd(ate, opened, now).until).toBe('2026-12-31');
+    // a de agora começa em outro dia, ou mudou a repetição junto com o fim: vale a da folha inteira
+    expect(keepOuterEnd(titulo, opened, { ...now, date: '2026-10-19' })).toBe(titulo);
+    expect(keepOuterEnd(titulo, opened, { ...now, every: 2 })).toBe(titulo);
+    // o fim não mudou fora: nada muda
+    expect(keepOuterEnd(titulo, opened, { ...opened, title: 'X', at: AT })).toBe(titulo);
   });
 });
 

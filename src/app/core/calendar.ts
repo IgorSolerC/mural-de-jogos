@@ -625,6 +625,42 @@ export function skipDay(r: Reminder, day: string, at: string): Reminder {
   return { ...r, skip: marks([...r.skip, day]), at };
 }
 
+/** O lembrete que se repete tem alguma vez antes do dia (a vez tirada não conta)? */
+export function occursBefore(r: Reminder, day: string): boolean {
+  const first = r.repeat ? nextOccurrence(r, r.date) : null;
+  return first !== null && first < day;
+}
+
+/**
+ * "Daqui em diante", num lembrete que se repete: a repetição acaba no dia antes de `day` (a vez que começa
+ * nele e as de depois saem); as de antes continuam como estavam, com os dias tirados. O "depois de N vezes"
+ * vira o fim num dia, e um fim que já vinha antes fica. Sem vez nenhuma antes, null: é apagar todas.
+ */
+export function stopBefore(r: Reminder, day: string, at: string): Reminder | null {
+  if (!occursBefore(r, day)) return null;
+  const { count: _, ...rest } = r;
+  const cut = addDays(day, -1);
+  return { ...rest, until: r.until && r.until < cut ? r.until : cut, at };
+}
+
+/** Os dias em que a repetição cai, sem o fim (`until`, `count`) e sem os dias tirados: o começo e como se repete. */
+export function repeatKey(r: Reminder): string {
+  return JSON.stringify([r.date, r.repeat, r.every, r.days, r.nth, r.strict, r.weekStart]);
+}
+
+/**
+ * O fim da repetição que mudou fora de uma folha aberta (um "Daqui em diante" em outro aparelho, a API)
+ * continua no Salvar dela, se só o fim mudou lá e a folha não mexeu na repetição: `draft` com o fim de `now`
+ * (o guardado agora); `opened` é o lembrete de quando a folha abriu.
+ */
+export function keepOuterEnd(draft: Reminder, opened: Reminder, now: Reminder): Reminder {
+  const outer = now.until !== opened.until || now.count !== opened.count;
+  const untouched = repeatKey(draft) === repeatKey(opened) && draft.until === opened.until && draft.count === opened.count;
+  if (!outer || !untouched || repeatKey(now) !== repeatKey(opened)) return draft;
+  const { until: _, count: __, ...rest } = draft;
+  return { ...rest, ...(now.until ? { until: now.until } : {}), ...(now.count ? { count: now.count } : {}) };
+}
+
 /** A cor do lembrete novo: sorteada entre as cartolinas (sem o branco), nunca a do último criado. */
 export function drawColor(list: readonly Reminder[], random = Math.random): LightStock {
   const last = list.reduce<Reminder | null>((a, r) => (!a || r.createdAt > a.createdAt ? r : a), null);

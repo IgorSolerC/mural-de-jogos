@@ -46,4 +46,30 @@ describe('a pergunta antes de apagar', () => {
     el.querySelector<HTMLButtonElement>('.btn-ink')!.click();
     expect(await answer).toEqual({ ok: true, checked: true });
   });
+
+  it('a escolha com três respostas: a outra e a terceira numa linha em cima, no mesmo papel', async () => {
+    TestBed.configureTestingModule({ imports: [ConfirmDialog], providers: [provideZonelessChangeDetection()] });
+    const fixture = TestBed.createComponent(ConfirmDialog);
+    document.body.appendChild(fixture.nativeElement);
+    const confirm = TestBed.inject(Confirm);
+    const el = fixture.nativeElement as HTMLElement;
+    const names = () => [...el.querySelectorAll('.actions button')].map((b) => b.textContent!.trim());
+    // sem a terceira, a escolha de sempre (e as perguntas de apagar nunca a têm)
+    void confirm.choose({ text: 'Qual?', confirm: 'Todos', secondary: 'Só este' });
+    await fixture.whenStable();
+    expect(names()).toEqual(['Agora não', 'Só este', 'Todos']);
+    void confirm.ask({ text: 'Apagar?', confirm: 'Apagar' });
+    await fixture.whenStable();
+    expect(names()).toEqual(['Cancelar', 'Apagar']);
+    const answer = confirm.choose({ text: 'Qual?', confirm: 'Apagar todos', secondary: 'Só neste dia', third: 'Daqui em diante' });
+    await fixture.whenStable();
+    // as duas outras numa linha em cima (na ordem, do menor ao maior), o Cancelar ao lado da principal
+    expect(names()).toEqual(['Só neste dia', 'Daqui em diante', 'Agora não', 'Apagar todos']);
+    expect([...el.querySelectorAll('.outras button')].map((b) => b.textContent!.trim())).toEqual(['Só neste dia', 'Daqui em diante']);
+    const third = el.querySelectorAll<HTMLButtonElement>('.actions button')[1];
+    expect(third.className).toBe(el.querySelectorAll<HTMLButtonElement>('.actions button')[0].className);
+    expect(document.activeElement?.hasAttribute('data-cancelar')).toBeTrue();
+    third.click();
+    expect(await answer).toBe('third');
+  });
 });

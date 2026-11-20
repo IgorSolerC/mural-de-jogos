@@ -34,6 +34,15 @@ dialog.confirma {
   flex-wrap: wrap;
 }
 
+/* três respostas: as duas outras numa linha só delas, em cima do Cancelar e da principal */
+.outras {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-basis: 100%;
+}
+
 /* "Nunca mais me perguntar isso": a caixinha desenhada a caneta das tarefas, e a frase a lápis ao
    lado; marcada, o tique vermelho por cima. O rótulo inteiro pega o toque. */
 .nunca {

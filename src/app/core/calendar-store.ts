@@ -1,5 +1,5 @@
 import { DestroyRef, Injectable, computed, effect, inject, signal } from '@angular/core';
-import { CalendarState, GoogleLink, Reminder, drawColor, mergeCalendar, remindersOn, sanitizeCalendar, skipDay } from './calendar';
+import { CalendarState, GoogleLink, Reminder, drawColor, mergeCalendar, remindersOn, sanitizeCalendar, skipDay, stopBefore } from './calendar';
 import { stampAfter, todayISO } from './dates';
 
 /** A hora do aparelho, 'HH:MM'. */
@@ -183,6 +183,18 @@ export class CalendarStore {
   /** "Apagar só neste dia", num lembrete que se repete. */
   skipDay(id: string, day: string): void {
     this.change(id, (r, at) => skipDay(r, day, at));
+  }
+
+  /**
+   * "Daqui em diante", num lembrete que se repete: a vez que começa no dia e as de depois saem, as de antes
+   * continuam. Sem vez nenhuma antes, ele sai inteiro (como o apagar todos).
+   */
+  stopBefore(id: string, day: string): void {
+    const r = this.get(id);
+    if (!r) return;
+    const cut = stopBefore(r, day, stampAfter(r.at));
+    if (cut) this.change(id, () => cut);
+    else this.remove(id);
   }
 
   /** Tira uma anotação do lembrete (a anotação continua no mural). */

@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import type { AgendaDoMesV1, LembreteV1 } from '../../../contrato/api-v1/calendario';
 import { ApiMirror } from './api-mirror';
 import { agendaMonths, agendaV1, calendarMirror, lembreteV1 } from './api-mirror-calendar';
-import { CalendarState, Reminder, sanitizeReminder } from './calendar';
+import { CalendarState, Reminder, sanitizeReminder, stopBefore } from './calendar';
 import { CalendarStore } from './calendar-store';
 import { CloudAccount } from './cloud-account';
 import { todayISO } from './dates';
@@ -86,6 +86,14 @@ describe('o espelho da API: a agenda do mês', () => {
       lembrete: 'lb-dentista', titulo: 'Dentista', dia: '2026-10-22', fim: null, hora: '14:30', hora_fim: '15:30', cor: 'azul', icone: 'remedio', silencioso: false, repete: false, notas: ['r-ficha'],
     });
     expect(out.vezes[0]!.repete).toBeTrue();
+  });
+
+  it('a série apagada daqui em diante: o fim no ate (e nas palavras), e a agenda só com os dias de antes', () => {
+    const cut = stopBefore(ACADEMIA, '2026-10-21', '2026-10-20T10:00:00.000Z')!;
+    expect(lembreteV1(cut).repete).toEqual(jasmine.objectContaining({ ate: '2026-10-20', vezes: null }));
+    expect(lembreteV1(cut).em_palavras).toContain('até 20 de outubro');
+    expect(agendaV1([cut], '2026-10').vezes.map((v) => v.dia)).toEqual(['2026-10-05', '2026-10-07', '2026-10-14', '2026-10-19']);
+    expect(agendaV1([cut], '2026-11').vezes).toEqual([]);
   });
 
   it('a vez de vários dias que passa de um mês para o outro aparece nos dois, uma vez em cada', () => {
