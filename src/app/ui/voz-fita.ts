@@ -38,7 +38,7 @@ const HINT_MS = 8000;
  * ("3 / 24"), a velocidade e parar. A frase lida ganha o marca-texto (`::highlight(voz)`) e a folha rola
  * até ela; tocar numa frase lê dali. Com a fita à mostra, o teclado também a toca (PLANO-VOZ-ESTUDO.md): ← e
  * → a frase anterior e a próxima, Espaço pausa e continua, ↑ e ↓ a velocidade. E o modo estudo (a etiqueta do
- * rabisco): lendo, o que a voz lê vira rabisco, e tocar numa palavra a revela; de novo, a esconde (ui/voz-estudo.ts).
+ * rabisco): lendo, o que a voz lê vira rabisco, e tocar numa palavra revela a frase dela; de novo, a esconde (ui/voz-estudo.ts).
  *
  * Quem usa dá o que se lê (`roots`: o nome e o texto desenhado) e a folha que rola (`scroller`), e chama
  * `choose` no botão de ouvir: o menu das três línguas abre sempre (a pessoa escolhe toda vez). Só lê: nada
@@ -62,7 +62,7 @@ const HINT_MS = 8000;
             @if (h === 'teclas') {
               <kbd>←</kbd><kbd>→</kbd> frases <span class="ponto">·</span> <kbd>Espaço</kbd> pausa <span class="ponto">·</span> <kbd>↑</kbd><kbd>↓</kbd> velocidade
             } @else {
-              Toque numa palavra para vê-la, e de novo para escondê-la.
+              Toque numa frase para vê-la, e de novo para escondê-la.
             }
           </p>
         }
@@ -92,7 +92,7 @@ const HINT_MS = 8000;
           <span class="contagem" aria-hidden="true">{{ shownAt() }}<small> / {{ voz.total() }}</small></span>
           <button #velocidade type="button" class="velocidade tocavel" aria-haspopup="menu" [attr.aria-label]="'Velocidade ' + rateLabel() + '. Trocar'" title="Velocidade (↑ ↓)" aria-keyshortcuts="ArrowUp ArrowDown" (click)="chooseRate($event, velocidade)">{{ rateLabel() }}</button>
           @if (canStudy) {
-            <button type="button" class="estudo tocavel" [class.ligado]="voz.study()" [attr.aria-pressed]="voz.study()" aria-label="Modo estudo: o texto vira rabisco na tela" [title]="voz.study() ? 'Modo estudo: toque numa palavra para vê-la, e de novo para escondê-la. Tocar aqui mostra o texto' : 'Modo estudo: o texto vira rabisco, e tocar numa palavra a revela'" (click)="toggleStudy()">
+            <button type="button" class="estudo tocavel" [class.ligado]="voz.study()" [attr.aria-pressed]="voz.study()" aria-label="Modo estudo: o texto vira rabisco na tela" [title]="voz.study() ? 'Modo estudo: toque numa frase para vê-la, e de novo para escondê-la. Tocar aqui mostra o texto' : 'Modo estudo: o texto vira rabisco, e tocar numa frase a revela'" (click)="toggleStudy()">
               <lucide-icon [img]="StudyIcon" [size]="20" aria-hidden="true" />
             </button>
           }
@@ -414,7 +414,7 @@ export class VozFita {
     this.voz.setStudy(on);
     if (on && !this.voz.hintSeen('estudo')) this.showHint('estudo');
     else if (!on && this.hint() === 'estudo') this.hint.set(null);
-    this.say(on ? 'Modo estudo: o texto virou rabisco. Toque numa palavra para vê-la, e de novo para escondê-la.' : 'O texto está à mostra de novo.');
+    this.say(on ? 'Modo estudo: o texto virou rabisco. Toque numa frase para vê-la, e de novo para escondê-la.' : 'O texto está à mostra de novo.');
   }
 
   private press(key: 'prev' | 'next'): void {

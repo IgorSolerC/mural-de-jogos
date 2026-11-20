@@ -1,7 +1,7 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { RichText } from './rich-text';
-import { Sentence, findAgain, maxSpeech, rangesOf, rangesOfChars, sentenceAt, sentencesOf } from './voz-frases';
+import { Sentence, StudySentence, findAgain, maxSpeech, rangesOf, rangesOfChars, sentenceAt, sentencesOf, wordsBySentence } from './voz-frases';
 
 const PT = { lang: 'pt-BR', max: maxSpeech('pt-BR') };
 const JA = { lang: 'ja-JP', max: maxSpeech('ja-JP') };
@@ -216,5 +216,26 @@ describe('as frases para ler em voz alta', () => {
     const [s] = sentencesOf([host], PT);
     host.querySelector('.linha')!.textContent = 'outra';
     expect(rangesOf(s)).toEqual([]);
+  });
+
+  /** As palavras de cada frase, como texto. */
+  const words = (list: StudySentence[]) => list.map((s) => s.words.map((pieces) => rangesOf({ pieces }).map((r) => r.toString()).join('')));
+
+  it('o modo estudo: as palavras juntas pela frase; o ponto, a linha, a célula e a linha do código acabam a frase', async () => {
+    host = html('<div class="linha">私のケーキです。あなたは？</div><div class="linha">Cadê o <b>ca</b>fé? Aqui, olha</div><div class="linha">sem ponto</div>');
+    expect(words(wordsBySentence([host], 'ja-JP'))).toEqual([['私', 'の', 'ケーキ', 'です'], ['あなた', 'は'], ['Cadê', 'o', 'café'], ['Aqui', 'olha'], ['sem', 'ponto']]);
+    host.remove();
+    const el = await rich(['| Bom dia | おはよう |', '| --- | --- |', '| a | b |', '', '```', 'A: こんにちは', 'B: はい', '```'].join('\n'));
+    expect(words(wordsBySentence([el], 'ja-JP'))).toEqual([['Bom', 'dia'], ['おはよう'], ['a'], ['b'], ['A', 'こんにちは'], ['B', 'はい']]);
+  });
+
+  it('o modo estudo: a frase longa não se parte pelo tamanho da fala (a velocidade não muda o que se revela)', () => {
+    const long = Array.from({ length: 40 }, (_, i) => `palavra${i}`).join(' ') + '.';
+    host = html(`<div class="linha">${long}</div>`);
+    expect(sentencesOf([host], { lang: 'pt-BR', max: maxSpeech('pt-BR', 0.25) }).length).toBeGreaterThan(1);
+    const list = wordsBySentence([host], 'pt-BR');
+    expect(list.length).toBe(1);
+    expect(list[0].words.length).toBe(40);
+    expect(list[0].text).toBe(long);
   });
 });

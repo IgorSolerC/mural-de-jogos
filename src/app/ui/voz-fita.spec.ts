@@ -392,7 +392,7 @@ describe('Ouvir a nota na ficha aberta', () => {
   const hiddenWords = () => [...((CSS.highlights.get('voz-estudo') as Highlight | undefined) ?? [])].map((r) => (r as Range).toString());
   const scribbles = (where: string) => [...el.querySelectorAll<HTMLElement>(`${where} .voz-rabiscos > span`)];
 
-  it('o modo estudo: o nome e o texto lidos viram rabisco, só a pontuação à mostra; tocar numa palavra a revela e de novo a esconde, sem mudar a frase lida', async () => {
+  it('o modo estudo: o nome e o texto lidos viram rabisco, só a pontuação à mostra; tocar numa palavra revela a frase dela e de novo a esconde, sem mudar a frase lida', async () => {
     fixture.componentInstance.open(note('n-1', 'の (De / Posse)', NO));
     await settle();
     await listen('ja');
@@ -409,19 +409,22 @@ describe('Ouvir a nota na ficha aberta', () => {
     expect(scribbles('.text').length).toBeGreaterThan(10);
     expect(JSON.parse(localStorage.getItem(VOZ_KEY)!).estudo).toBeTrue();
     fake.begin();
-    // 私 (a quinta palavra lida): revelada, e a leitura continua no nome, onde estava
-    const watashi = scribbles('.text').find((b) => b.dataset['p'] === '4')!;
+    // 私 (a terceira frase lida: o nome, USOS, 私のケーキです): revelada inteira, e a leitura continua no nome, onde estava
+    const watashi = scribbles('.text').find((b) => b.dataset['p'] === '2')!;
     const shape = q('.text')!.getBoundingClientRect().toJSON();
     watashi.click();
     await settle();
     expect(hiddenWords()).not.toContain('私');
-    expect(hiddenWords()).toContain('ケーキ');
+    expect(hiddenWords()).not.toContain('ケーキ');
+    expect(hiddenWords()).toContain('É');
+    expect(hiddenWords()).toContain('コーヒー');
     expect(texts()[0]).toBe('の (De / Posse)');
     expect(q('.text')!.getBoundingClientRect().toJSON()).withContext('o texto não se mexe').toEqual(shape);
     // tocar de novo esconde outra vez, no mesmo lugar
-    scribbles('.text').find((b) => b.dataset['p'] === '4')!.click();
+    scribbles('.text').find((b) => b.dataset['p'] === '2')!.click();
     await settle();
     expect(hiddenWords()).toContain('私');
+    expect(hiddenWords()).toContain('ケーキ');
     expect(q('.text')!.getBoundingClientRect().toJSON()).toEqual(shape);
     // tocar entre as palavras também não muda a frase (no modo estudo, o toque é para revelar)
     await wait(420);
@@ -440,7 +443,7 @@ describe('Ouvir a nota na ficha aberta', () => {
     expect(q('.fita .dica')?.textContent?.replace(/\s+/g, '') ?? null).toBe(fine ? '←→frases·Espaçopausa·↑↓velocidade' : null);
     q<HTMLButtonElement>('.fita .estudo')!.click();
     await settle();
-    expect(q('.fita .dica')!.textContent!.trim()).toBe('Toque numa palavra para vê-la, e de novo para escondê-la.');
+    expect(q('.fita .dica')!.textContent!.trim()).toBe('Toque numa frase para vê-la, e de novo para escondê-la.');
     q<HTMLButtonElement>('.fita .estudo')!.click();
     await settle();
     expect(q('.fita .dica')).toBeNull();

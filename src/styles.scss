@@ -407,7 +407,7 @@ body {
   -webkit-mask-position: 0 54%;
   mask-position: 0 54%;
 }
-/* o mouse em cima: a palavra inteira (todos os pedaços dela) no laranja da voz, cheia */
+/* o mouse em cima: a frase inteira (todas as palavras dela, o que o toque abre) no laranja da voz, cheia */
 .voz-rabiscos > .mao > i {
   background-color: rgb(214 98 36);
   opacity: 1;
@@ -415,7 +415,7 @@ body {
 .voz-rabiscos > .aberta > i {
   opacity: 0;
 }
-/* a revelada com o mouse em cima: um tracejado laranja embaixo dela diz que tocar a esconde de novo (no pé da
+/* a frase revelada com o mouse em cima: um tracejado laranja embaixo de cada palavra diz que tocar a esconde de novo (no pé da
    linha, abaixo do fio laranja da frase lida, que fica 3px sob a letra) */
 .voz-rabiscos > .aberta.mao > i {
   inset: auto var(--pad-r, 0px) -1px var(--pad-l, 0px);

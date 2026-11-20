@@ -50,7 +50,7 @@ const SKIP = `${HIDDEN}, button, input, svg, app-note-widget, details:not([open]
 /** Onde uma frase acaba à força: cada linha da folha, cada célula e cada linha de código são um pedaço só. */
 const BLOCK = '.linha, th, td, pre, h1, h2, h3, h4, h5, h6, p, li';
 /** Sem letra nem número, não há o que falar ("---", "…", "→"). */
-const SPEAKS = /[\p{L}\p{N}]/u;
+export const SPEAKS = /[\p{L}\p{N}]/u;
 /** Onde partir uma frase longa, de preferência: depois de uma vírgula, ponto e vírgula, dois pontos ou a vírgula japonesa. */
 const SOFT_STOP = /[,;:、，；：]\s*/gu;
 
@@ -134,26 +134,38 @@ function cutAt(text: string, max: number, word: Intl.Segmenter): number {
   return whole(text, at >= max / 3 ? at : max);
 }
 
-/** As frases de um trecho do pedaço ([from, to), sem quebra de linha dentro), cada uma com no máximo `max` letras. */
-function pushSentences(out: Sentence[], flow: Flow, from: number, to: number, max: number, cut: Cutters): void {
-  const text = flow.text.slice(from, to);
-  for (const seg of cut.sentence.segment(text)) {
-    let a = seg.index;
-    const b = seg.index + seg.segment.length;
-    while (a < b) {
-      // sem os espaços das pontas (o marca-texto pega só as letras)
-      while (a < b && /\s/u.test(text[a])) a++;
-      let e = b;
-      while (e > a && /\s/u.test(text[e - 1])) e--;
-      if (a >= e) break;
-      const end = e - a > max ? a + cutAt(text.slice(a, e), max, cut.word) : e;
-      // o espaço depois da vírgula onde partiu fica para a próxima, fora do marca-texto
-      let last = end;
-      while (last > a && /\s/u.test(text[last - 1])) last--;
-      const said = text.slice(a, last).replace(/\s+/gu, ' ');
-      if (SPEAKS.test(said)) out.push({ text: said, pieces: piecesOf(flow, from + a, from + last) });
-      a = end;
+/**
+ * As frases de verdade do pedaço, sem o corte por tamanho: [from, to) no texto dele, sem os espaços das pontas
+ * (o marca-texto pega só as letras). A quebra de linha (dentro do bloco de código) acaba a frase. A voz
+ * (`sentencesOf`) e o modo estudo (`wordsBySentence`) partem por aqui: a frase acaba no mesmo lugar nos dois.
+ */
+function* sentenceSpans(flow: Flow, sentence: Intl.Segmenter): Generator<[number, number]> {
+  let start = 0;
+  for (const line of flow.text.split('\n')) {
+    for (const seg of sentence.segment(line)) {
+      let a = start + seg.index;
+      let b = a + seg.segment.length;
+      while (a < b && /\s/u.test(flow.text[a])) a++;
+      while (b > a && /\s/u.test(flow.text[b - 1])) b--;
+      if (a < b) yield [a, b];
     }
+    start += line.length + 1;
+  }
+}
+
+/** As falas de uma frase do pedaço ([a, e), sem espaços nas pontas), cada uma com no máximo `max` letras. */
+function pushSentences(out: Sentence[], flow: Flow, a: number, e: number, max: number, word: Intl.Segmenter): void {
+  const text = flow.text;
+  while (a < e) {
+    while (a < e && /\s/u.test(text[a])) a++;
+    if (a >= e) break;
+    const end = e - a > max ? a + cutAt(text.slice(a, e), max, word) : e;
+    // o espaço depois da vírgula onde partiu fica para a próxima, fora do marca-texto
+    let last = end;
+    while (last > a && /\s/u.test(text[last - 1])) last--;
+    const said = text.slice(a, last).replace(/\s+/gu, ' ');
+    if (SPEAKS.test(said)) out.push({ text: said, pieces: piecesOf(flow, a, last) });
+    a = end;
   }
 }
 
@@ -168,32 +180,42 @@ export function sentencesOf(roots: readonly Element[], opts: SentenceOptions): S
     word: new Intl.Segmenter(opts.lang, { granularity: 'word' }),
   };
   for (const flow of flowsOf(roots)) {
-    // a quebra de linha (dentro do bloco de código) acaba a frase
-    let start = 0;
-    for (const m of flow.text.matchAll(/\n/gu)) {
-      pushSentences(out, flow, start, m.index!, opts.max, cut);
-      start = m.index! + 1;
-    }
-    pushSentences(out, flow, start, flow.text.length, opts.max, cut);
+    for (const [a, e] of sentenceSpans(flow, cut.sentence)) pushSentences(out, flow, a, e, opts.max, cut.word);
   }
   return out;
 }
 
 /**
- * As palavras à mostra, na ordem da tela, cada uma com os pedaços dos nós de texto de onde veio (a palavra
- * com um pedaço em negrito tem dois): o modo estudo da voz as cobre de rabisco (ui/voz-estudo.ts). Só o que
- * tem letra ou número (kana e kanji são letras); a pontuação, os espaços, os símbolos e os emojis ficam de
- * fora. O japonês, sem espaços, se parte em palavras pelo dicionário do navegador (私|の|ケーキ|です).
+ * As palavras à mostra, na ordem da tela, juntas pela frase de que fazem parte, cada uma com os pedaços dos
+ * nós de texto de onde veio (a palavra com um pedaço em negrito tem dois): o modo estudo da voz cobre cada
+ * palavra de rabisco e revela uma frase por toque (ui/voz-estudo.ts). Só o que tem letra ou número (kana e
+ * kanji são letras); a pontuação, os espaços, os símbolos e os emojis ficam de fora. O japonês, sem espaços,
+ * se parte em palavras pelo dicionário do navegador (私|の|ケーキ|です).
+ *
+ * A frase acaba onde a da voz acaba (o ponto, a linha, a célula, a quebra de linha do código), mas sem o
+ * corte por tamanho da fala (`maxSpeech`), que muda com a velocidade: a frase revelada é sempre a mesma.
  */
-export function wordsOf(roots: readonly Element[], lang: string): Piece[][] {
-  const out: Piece[][] = [];
+export function wordsBySentence(roots: readonly Element[], lang: string): StudySentence[] {
+  const out: StudySentence[] = [];
+  const sentence = new Intl.Segmenter(lang, { granularity: 'sentence' });
   const word = new Intl.Segmenter(lang, { granularity: 'word' });
   for (const flow of flowsOf(roots)) {
-    for (const s of word.segment(flow.text)) {
-      if (SPEAKS.test(s.segment)) out.push(piecesOf(flow, s.index, s.index + s.segment.length));
+    for (const [a, e] of sentenceSpans(flow, sentence)) {
+      const text = flow.text.slice(a, e);
+      const words: Piece[][] = [];
+      for (const w of word.segment(text)) {
+        if (SPEAKS.test(w.segment)) words.push(piecesOf(flow, a + w.index, a + w.index + w.segment.length));
+      }
+      if (words.length) out.push({ text, words });
     }
   }
   return out;
+}
+
+/** Uma frase do modo estudo: o texto dela inteiro (com a pontuação) e as palavras, cada uma com os seus pedaços. */
+export interface StudySentence {
+  text: string;
+  words: Piece[][];
 }
 
 /** Os trechos da frase (ou da palavra) na tela, para o marca-texto. O nó que saiu da folha fica de fora. */

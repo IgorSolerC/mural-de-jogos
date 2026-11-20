@@ -1,5 +1,5 @@
 import { LACO } from './rabisco';
-import { Piece, rangesOf, wordsOf } from './voz-frases';
+import { Piece, SPEAKS, rangesOf, wordsBySentence } from './voz-frases';
 
 /** O nome do realce que deixa as letras escondidas transparentes (styles.scss). */
 export const STUDY_HIGHLIGHT = 'voz-estudo';
@@ -17,29 +17,34 @@ interface Look {
 /**
  * O modo estudo da voz (PLANO-VOZ-ESTUDO.md): o que a voz lê vira rabisco, cada palavra (letra, kana, kanji,
  * número) um laço cursivo do tamanho dela, como o texto das descrições secretas (ui/rabisco.ts); a pontuação,
- * os espaços e os símbolos ficam. Tocar numa palavra a revela; tocar de novo a esconde.
+ * os espaços e os símbolos ficam. Tocar numa palavra revela a frase inteira dela; tocar de novo a esconde.
  *
  * O HTML que o Angular desenha não é tocado: as letras ficam onde estão, transparentes por um realce
  * (`::highlight(voz-estudo)`, acima do marca-texto da voz), e os rabiscos vão numa camada por cima, um por
- * pedaço de linha de cada palavra (`Range.getClientRects`). Por isso nada se mexe ao revelar: só o realce e o
- * rabisco daquela palavra saem (o alvo do toque fica, para esconder de novo). A camada se redesenha quando a folha muda de largura, a fonte chega, um bloco
+ * pedaço de linha de cada palavra (`Range.getClientRects`). Por isso nada se mexe ao revelar: só o realce e os
+ * rabiscos daquela frase saem (o alvo do toque fica, para esconder de novo). A camada se redesenha quando a folha muda de largura, a fonte chega, um bloco
  * rola de lado ou o texto muda (`refresh`, chamado por quem observa o texto).
  */
 export class VozEstudo {
   private roots: HTMLElement[] = [];
   private lang = 'pt-BR';
-  private words: Piece[][] = [];
-  private ranges: Range[][] = [];
+  /** As frases, na ordem da tela. */
+  private phrases: Phrase[] = [];
+  /** Os rabiscos de cada frase (o mouse acende todos, o toque abre todos). */
   private boxes: HTMLElement[][] = [];
-  /** As palavras reveladas, pelo nó e pela letra onde começam (a mesma palavra desenhada de novo continua revelada). */
-  private revealed = new WeakMap<Text, Set<number>>();
+  /**
+   * As frases reveladas, pelo nó onde começam e pela chave delas (o texto, e quantas iguais vêm antes no nó):
+   * a mesma frase desenhada de novo continua revelada, mesmo que o texto antes dela no mesmo nó mude; a
+   * frase que muda volta a se esconder.
+   */
+  private revealed = new WeakMap<Text, Set<string>>();
   private readonly layers = new Map<HTMLElement, HTMLElement>();
   private hovered = -1;
   /** O realce desta camada (o nome é um só na página: outra fita que para não apaga o desta). */
   private highlight: Highlight | null = null;
   /** O tamanho de cada raiz no último desenho ("largura×altura"). */
   private readonly drawnAt = new Map<HTMLElement, string>();
-  /** Onde o mouse está (para a palavra debaixo dele continuar acesa depois de os rabiscos se redesenharem). */
+  /** Onde o mouse está (para a frase debaixo dele continuar acesa depois de os rabiscos se redesenharem). */
   private pointer: { x: number; y: number } | null = null;
   private frame = 0;
   /** O próximo quadro parte as palavras de novo (o texto mudou), e não só as mede. */
@@ -82,7 +87,7 @@ export class VozEstudo {
       const click = (e: MouseEvent) => {
         const i = indexOf(e.target);
         if (i < 0) return;
-        // no modo estudo, tocar numa palavra é revelar ou esconder: não abre o link, o card ou a frase que está embaixo
+        // no modo estudo, tocar numa palavra é revelar ou esconder a frase dela: não abre o link, o card ou a frase lida que está embaixo
         e.preventDefault();
         e.stopPropagation();
         this.toggle(i);
@@ -136,8 +141,7 @@ export class VozEstudo {
     this.layers.clear();
     this.drawnAt.clear();
     this.roots = [];
-    this.words = [];
-    this.ranges = [];
+    this.phrases = [];
     this.boxes = [];
     this.hovered = -1;
     this.pointer = null;
@@ -146,7 +150,7 @@ export class VozEstudo {
     this.highlight = null;
   }
 
-  /** Já ligado nestas raízes? (A mesma folha: as palavras reveladas continuam.) */
+  /** Já ligado nestas raízes? (A mesma folha: as frases reveladas continuam.) */
   has(roots: readonly HTMLElement[]): boolean {
     return roots.length === this.roots.length && roots.every((r, i) => r === this.roots[i]);
   }
@@ -169,8 +173,20 @@ export class VozEstudo {
     if (!this.on) return;
     this.lang = lang;
     this.again = false;
-    this.words = wordsOf(this.roots, lang);
-    this.ranges = this.words.map((pieces) => rangesOf({ pieces }));
+    // a chave: o texto da frase e quantas iguais vieram antes no mesmo nó ("Sim. Não. Sim.": cada "Sim" a sua)
+    const seen = new Map<Text, Map<string, number>>();
+    this.phrases = wordsBySentence(this.roots, lang).map(({ text, words }) => {
+      const node = words[0][0].node;
+      let counts = seen.get(node);
+      if (!counts) seen.set(node, (counts = new Map()));
+      const n = counts.get(text) ?? 0;
+      counts.set(text, n + 1);
+      return {
+        start: node,
+        key: `${n}:${text}`,
+        words: words.map((pieces, w) => ({ ranges: rangesOf({ pieces }), glue: w + 1 < words.length && joined(pieces, words[w + 1]) })),
+      };
+    });
     this.draw();
   }
 
@@ -184,12 +200,13 @@ export class VozEstudo {
     });
   }
 
-  private isRevealed(pieces: readonly Piece[]): boolean {
-    const first = pieces[0];
-    return !!first && !!this.revealed.get(first.node)?.has(first.from);
+  /** A frase está revelada? (Pelo nó onde começa e pela chave dela.) */
+  private isRevealed(i: number): boolean {
+    const phrase = this.phrases[i];
+    return !!phrase && !!this.revealed.get(phrase.start)?.has(phrase.key);
   }
 
-  /** O realce que esconde as letras e um rabisco por pedaço de linha de cada palavra ainda escondida. */
+  /** O realce que esconde as letras e um rabisco por pedaço de linha de cada palavra das frases ainda escondidas. */
   private draw(): void {
     const hidden: Range[] = [];
     const looks = new Map<Element, Look>();
@@ -201,37 +218,44 @@ export class VozEstudo {
       origins.set(root, { x: box.left + root.clientLeft, y: box.top + root.clientTop });
       this.drawnAt.set(root, sizeOf(root));
     }
-    this.boxes = this.words.map(() => []);
+    this.boxes = this.phrases.map(() => []);
     this.hovered = -1;
     // primeiro mede tudo, depois desenha: pôr um rabisco na página no meio das medidas faria o navegador
     // refazer a página inteira a cada palavra
     const marks: Mark[] = [];
-    this.words.forEach((pieces, i) => {
+    let count = 0;
+    this.phrases.forEach(({ words }, i) => {
       // a revelada também ganha o alvo do toque (sem o desenho), para esconder de novo
-      const open = this.isRevealed(pieces);
-      for (const range of this.ranges[i]) {
-        const parent = range.startContainer.parentElement;
-        const root = parent && this.roots.find((r) => r.contains(parent));
-        const layer = root && this.layers.get(root);
-        if (!parent || !root || !layer) continue;
-        if (!open) hidden.push(range);
-        const look = lookOf(parent, root, looks);
-        const origin = origins.get(root)!;
-        for (const rect of range.getClientRects()) {
-          const r = clipped(rect, parent, root, clips);
-          if (!r) continue;
-          // o alvo do toque cresce para os lados até MIN_TAP; o desenho (o filho) fica do tamanho da palavra
-          const pad = Math.max(0, (MIN_TAP - r.width) / 2);
-          marks.push({ i, open, layer, x: r.left - origin.x, y: r.top - origin.y, w: r.width, h: r.height, left: pad, right: pad, look });
+      const open = this.isRevealed(i);
+      for (const { ranges, glue } of words) {
+        // uma palavra um pouco mais alta que a outra, como no app-rabisco (a mão que rabisca depressa)
+        const tall = count++ % 3 === 1;
+        // os pedaços da mesma palavra (o negrito no meio, a quebra de linha) colam um no outro; o último, na palavra seguinte se ela for colada
+        const first = marks.length;
+        for (const range of ranges) {
+          const parent = range.startContainer.parentElement;
+          const root = parent && this.roots.find((r) => r.contains(parent));
+          const layer = root && this.layers.get(root);
+          if (!parent || !root || !layer) continue;
+          if (!open) hidden.push(range);
+          const look = lookOf(parent, root, looks);
+          const origin = origins.get(root)!;
+          for (const rect of range.getClientRects()) {
+            const r = clipped(rect, parent, root, clips);
+            if (!r) continue;
+            // o alvo do toque cresce para os lados até MIN_TAP; o desenho (o filho) fica do tamanho da palavra
+            const pad = Math.max(0, (MIN_TAP - r.width) / 2);
+            marks.push({ i, glue: true, tall, open, layer, x: r.left - origin.x, y: r.top - origin.y, w: r.width, h: r.height, left: pad, right: pad, look });
+          }
         }
+        if (marks.length > first) marks[marks.length - 1].glue = glue;
       }
     });
     trimPads(marks);
-    for (const { i, open, layer, x, y, w, h, left, right, look } of marks) {
+    for (const { i, tall, open, layer, x, y, w, h, left, right, look } of marks) {
       const box = layer.ownerDocument.createElement('span');
       box.dataset['p'] = String(i);
-      // uma palavra um pouco mais alta que a outra, como no app-rabisco (a mão que rabisca depressa)
-      if (i % 3 === 1) box.classList.add('alto');
+      if (tall) box.classList.add('alto');
       if (open) box.classList.add('aberta');
       box.style.cssText = `left:${x - left}px;top:${y}px;width:${w + left + right}px;height:${h}px;--pad-l:${left}px;--pad-r:${right}px;color:${look.color};font-size:${look.size}`;
       // o desenho num filho: a máscara do rabisco também recorta onde o toque pega, e o alvo é maior que ele
@@ -244,11 +268,11 @@ export class VozEstudo {
     hl.priority = 2;
     CSS.highlights.set(STUDY_HIGHLIGHT, hl);
     this.highlight = hl;
-    // o mouse parado em cima de uma palavra: ela continua acesa nos rabiscos novos
+    // o mouse parado em cima de uma palavra: a frase dela continua acesa nos rabiscos novos
     if (this.pointer) this.hover(indexOf(this.roots[0].ownerDocument.elementFromPoint(this.pointer.x, this.pointer.y)));
   }
 
-  /** O mouse em cima de uma palavra: todos os pedaços dela acendem, e a mãozinha diz que dá para tocar. */
+  /** O mouse em cima de uma palavra: a frase dela inteira acende (o que o toque vai abrir), e a mãozinha diz que dá para tocar. */
   private hover(i: number): void {
     if (i === this.hovered) return;
     for (const box of this.boxes[this.hovered] ?? []) box.classList.remove('mao');
@@ -257,20 +281,20 @@ export class VozEstudo {
   }
 
   /**
-   * Revela a palavra escondida, ou esconde de novo a revelada: o realce sai ou volta, e o rabisco some ou volta
-   * (num instante, pelo CSS). O alvo do toque fica no lugar. Nada muda de tamanho.
+   * Revela a frase escondida (a de número `i`), ou esconde de novo a revelada: o realce de todas as palavras
+   * dela sai ou volta, e os rabiscos somem ou voltam (num instante, pelo CSS). Os alvos do toque ficam no
+   * lugar. Nada muda de tamanho.
    */
   toggle(i: number): void {
-    const pieces = this.words[i];
-    if (!pieces?.length) return;
-    const first = pieces[0];
-    let set = this.revealed.get(first.node);
-    if (!set) this.revealed.set(first.node, (set = new Set()));
-    const open = !set.has(first.from);
-    if (open) set.add(first.from);
-    else set.delete(first.from);
+    const phrase = this.phrases[i];
+    if (!phrase) return;
+    let set = this.revealed.get(phrase.start);
+    if (!set) this.revealed.set(phrase.start, (set = new Set()));
+    const open = !set.has(phrase.key);
+    if (open) set.add(phrase.key);
+    else set.delete(phrase.key);
     const hl = CSS.highlights.get(STUDY_HIGHLIGHT);
-    for (const range of this.ranges[i]) {
+    for (const range of phrase.words.flatMap((w) => w.ranges)) {
       if (open) hl?.delete(range);
       else hl?.add(range);
     }
@@ -284,10 +308,28 @@ function sizeOf(el: HTMLElement): string {
   return `${el.clientWidth}x${el.clientHeight}`;
 }
 
+/** Uma frase do modo estudo: o que a guarda como revelada e as palavras dela na tela. */
+interface Phrase {
+  /** O nó de texto onde ela começa. */
+  start: Text;
+  /** O texto dela e quantas iguais vêm antes no mesmo nó ("0:Sim.", "1:Sim."). */
+  key: string;
+  /** Cada palavra: os trechos na tela e se ela cola na seguinte (entre as duas, só espaço e pontuação à mostra). */
+  words: { ranges: Range[]; glue: boolean }[];
+}
+
 /** Um pedaço de linha de uma palavra a rabiscar: o lugar na camada, a folga do toque de cada lado e a tinta. */
 interface Mark {
+  /** A frase. */
   i: number;
-  /** A palavra revelada: o alvo fica, sem o desenho. */
+  /**
+   * Colado no pedaço seguinte da frase: o outro pedaço da mesma palavra, ou a palavra seguinte, quando entre
+   * as duas só há espaço e pontuação à mostra.
+   */
+  glue: boolean;
+  /** O laço um pouco mais alto (uma palavra em três). */
+  tall: boolean;
+  /** A frase revelada: o alvo fica, sem o desenho. */
   open: boolean;
   layer: HTMLElement;
   x: number;
@@ -300,32 +342,88 @@ interface Mark {
 }
 
 /**
- * A folga do toque de duas palavras curtas vizinhas ("e o") não passa do meio do vão entre elas: tocar perto de
- * uma nunca revela a outra.
+ * O alvo do toque de dois pedaços vizinhos na linha. Colados (da mesma palavra, ou de duas palavras da mesma
+ * frase com o espaço ou a vírgula entre elas), os dois vão até o meio do vão: a frase é um alvo seguido, sem
+ * buraco entre as palavras; um vão largo (o texto justificado) não vira alvo. Fora isso (outra frase, ou o
+ * spoiler fechado, o botão ou a imagem no meio), a folga das curtas ("Sim. E você?") não passa do meio do vão:
+ * tocar perto de uma nunca revela a outra, e o que está no meio continua pegando o toque.
  */
 function trimPads(marks: Mark[]): void {
-  const lines = new Map<HTMLElement, Map<number, Mark[]>>();
-  for (const m of marks) {
-    let byY = lines.get(m.layer);
-    if (!byY) lines.set(m.layer, (byY = new Map()));
-    const y = Math.round(m.y);
-    let line = byY.get(y);
-    if (!line) byY.set(y, (line = []));
-    line.push(m);
-  }
-  for (const line of [...lines.values()].flatMap((byY) => [...byY.values()])) {
+  for (const line of linesOf(marks)) {
     line.sort((a, b) => a.x - b.x);
     for (let k = 1; k < line.length; k++) {
       const a = line[k - 1];
       const b = line[k];
-      const half = Math.max(0, (b.x - (a.x + a.w)) / 2);
-      a.right = Math.min(a.right, half);
-      b.left = Math.min(b.left, half);
+      const gap = b.x - (a.x + a.w);
+      const half = Math.max(0, gap / 2);
+      const glued = a.i === b.i && a.glue && gap <= 1.5 * Math.max(a.h, b.h);
+      a.right = glued ? half : Math.min(a.right, half);
+      b.left = glued ? half : Math.min(b.left, half);
     }
   }
 }
 
-/** O número da palavra do rabisco tocado (-1 fora de um). */
+/**
+ * Os pedaços em cada linha de cada camada. A mesma linha é a dos pedaços que se cobrem na altura (pelo menos
+ * metade do mais baixo), e não a do mesmo topo: o código no meio da frase, o emoji de outra fonte e o expoente
+ * começam um pouco acima ou abaixo das letras em volta.
+ */
+function linesOf(marks: readonly Mark[]): Mark[][] {
+  const byLayer = new Map<HTMLElement, Mark[]>();
+  for (const m of marks) {
+    let list = byLayer.get(m.layer);
+    if (!list) byLayer.set(m.layer, (list = []));
+    list.push(m);
+  }
+  const lines: Mark[][] = [];
+  for (const list of byLayer.values()) {
+    list.sort((a, b) => a.y - b.y);
+    let bottom = -Infinity;
+    let low = Infinity;
+    for (const m of list) {
+      // (em ordem de topo: o que cobre a linha é o que vai do topo dele até o pé dela)
+      if (Math.min(bottom, m.y + m.h) - m.y < Math.min(low, m.h) / 2) {
+        lines.push([]);
+        bottom = -Infinity;
+        low = Infinity;
+      }
+      lines[lines.length - 1].push(m);
+      bottom = Math.max(bottom, m.y + m.h);
+      low = Math.min(low, m.h);
+    }
+  }
+  return lines;
+}
+
+/** O que fica no meio da frase sem ser texto, e pega o toque sozinho (o spoiler fechado é `inert`). */
+const OBJECTS = 'img, picture, svg, video, audio, canvas, iframe, input, button, app-note-widget, [inert]';
+
+/**
+ * As duas palavras estão coladas: entre o fim de uma e o começo da outra só há espaço, pontuação ou símbolo,
+ * à mostra? Não, com o que a voz pula no meio (o spoiler fechado, o que só o leitor de tela ouve, o botão,
+ * a imagem): esse continua pegando o próprio toque.
+ */
+function joined(a: readonly Piece[], b: readonly Piece[]): boolean {
+  const end = a[a.length - 1];
+  const start = b[0];
+  if (!end || !start) return false;
+  // no mesmo nó de texto, entre as duas palavras só há o que não é palavra
+  if (end.node === start.node) return true;
+  if (!end.node.isConnected || !start.node.isConnected) return false;
+  // o que está entre os dois nós, na ordem do documento (o resto dos dois nós só tem o que não é palavra)
+  const doc = end.node.ownerDocument;
+  const range = doc.createRange();
+  range.setStart(end.node, 0);
+  range.setEnd(start.node, 0);
+  const walk = doc.createTreeWalker(range.commonAncestorContainer, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+  walk.currentNode = end.node;
+  for (let n = walk.nextNode(); n && n !== start.node; n = walk.nextNode()) {
+    if (n instanceof Element ? n.matches(OBJECTS) : SPEAKS.test((n as Text).data)) return false;
+  }
+  return true;
+}
+
+/** O número da frase do rabisco tocado (-1 fora de um). */
 function indexOf(target: EventTarget | null): number {
   const box = target instanceof HTMLElement && target.tagName === 'I' ? target.parentElement : target;
   const p = box instanceof HTMLElement ? box.dataset['p'] : undefined;

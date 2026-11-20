@@ -78,11 +78,10 @@ describe('o modo estudo da voz: o texto em rabisco', () => {
     expect(hidden()).not.toContain('o');
   });
 
-  it('a palavra que quebra a linha ganha um rabisco por pedaço; tocar em qualquer um revela a palavra inteira', () => {
+  it('a palavra que quebra a linha ganha um rabisco por pedaço; tocar em qualquer um revela a frase inteira', () => {
     mount('<p style="width: 300px">私のケーキです</p>');
     study.start([host], 'ja-JP');
-    const pieces = boxes().filter((b) => b.dataset['p'] === '2');
-    expect(pieces.length).withContext('ケーキ é uma palavra só').toBe(1);
+    expect(boxes().length).withContext('私|の|ケーキ|です: ケーキ é uma palavra só, um rabisco').toBe(4);
     study.stop();
     host.remove();
     const long = mount('<p style="width: 50px; word-break: break-all">Paralelepípedo</p>');
@@ -93,44 +92,58 @@ describe('o modo estudo da voz: o texto em rabisco', () => {
     expect(hidden()).toEqual([]);
   });
 
-  it('revelar não mexe em nada: o texto fica do mesmo tamanho, no mesmo lugar, e só aquela palavra aparece', async () => {
-    mount('<p>Uma frase curta, e outra mais longa que quebra a linha no meio do caminho.</p>');
+  it('tocar numa palavra revela a frase inteira dela, e só ela (o 。 e a linha acabam a frase)', () => {
+    mount('<p>私のケーキです。あなたは？</p><p>Cadê o café</p><p>Aqui</p>');
+    study.start([host], 'ja-JP');
+    expect(boxes().map((b) => b.dataset['p'])).toEqual(['0', '0', '0', '0', '1', '1', '2', '2', '2', '3']);
+    boxes()[1].click();
+    expect(hidden()).toEqual(['あなた', 'は', 'Cadê', 'o', 'café', 'Aqui']);
+    expect(boxes().filter((b) => b.classList.contains('aberta')).length).toBe(4);
+    boxes()[7].click();
+    expect(hidden()).toEqual(['あなた', 'は', 'Aqui']);
+  });
+
+  it('revelar não mexe em nada: o texto fica do mesmo tamanho, no mesmo lugar, e só aquela frase aparece', async () => {
+    mount('<p>Uma frase curta. E outra mais longa que quebra a linha no meio do caminho.</p>');
     study.start([host], 'pt-BR');
     const before = host.querySelector('p')!.getBoundingClientRect();
     const shape = boxes().map((b) => b.getBoundingClientRect().toJSON());
-    const frase = boxes().find((b) => b.dataset['p'] === '1')!;
-    frase.click();
+    boxes()[1].click();
+    expect(hidden()).not.toContain('Uma');
     expect(hidden()).not.toContain('frase');
-    expect(hidden()).toContain('Uma');
+    expect(hidden()).not.toContain('curta');
+    expect(hidden()).toContain('outra');
     expect(host.querySelector('p')!.getBoundingClientRect().toJSON()).toEqual(before.toJSON());
-    // os outros rabiscos ficam onde estavam
-    boxes()
-      .filter((b) => b.dataset['p'] !== '1')
-      .forEach((b) => expect(shape).toContain(b.getBoundingClientRect().toJSON()));
+    // os rabiscos ficam onde estavam
+    boxes().forEach((b) => expect(shape).toContain(b.getBoundingClientRect().toJSON()));
     await new Promise((res) => setTimeout(res, 220));
-    const open = boxes().filter((b) => b.dataset['p'] === '1');
-    expect(open.length).withContext('o alvo do toque fica, para esconder de novo').toBe(1);
-    expect(open[0].classList).toContain('aberta');
-    expect(getComputedStyle(open[0].firstElementChild!).opacity).withContext('o rabisco sumiu').toBe('0');
+    const open = boxes().filter((b) => b.dataset['p'] === '0');
+    expect(open.length).withContext('os alvos do toque ficam, para esconder de novo').toBe(3);
+    for (const box of open) {
+      expect(box.classList).toContain('aberta');
+      expect(getComputedStyle(box.firstElementChild!).opacity).withContext('o rabisco sumiu').toBe('0');
+    }
+    expect(boxes().filter((b) => b.dataset['p'] === '1').some((b) => b.classList.contains('aberta'))).toBeFalse();
   });
 
   it('tocar de novo na revelada a esconde outra vez, no mesmo lugar; e assim fica depois de redesenhar', () => {
-    mount('<p>Uma frase curta.</p>');
+    mount('<p>Uma frase. Outra curta.</p>');
     study.start([host], 'pt-BR');
-    const frase = () => boxes().find((b) => b.dataset['p'] === '1')!;
+    const frase = () => boxes()[1];
     const shape = host.querySelector('p')!.getBoundingClientRect().toJSON();
     frase().click();
-    expect(hidden()).toEqual(['Uma', 'curta']);
+    expect(hidden()).toEqual(['Outra', 'curta']);
     frase().click();
-    expect(hidden()).toEqual(['Uma', 'curta', 'frase']);
+    expect(hidden()).toEqual(['Outra', 'curta', 'Uma', 'frase']);
     expect(frase().classList).not.toContain('aberta');
     expect(host.querySelector('p')!.getBoundingClientRect().toJSON()).toEqual(shape);
     study.refresh();
-    expect(hidden()).toEqual(['Uma', 'frase', 'curta']);
+    expect(hidden()).toEqual(['Uma', 'frase', 'Outra', 'curta']);
     frase().click();
     study.refresh();
-    expect(hidden()).toEqual(['Uma', 'curta']);
-    expect(frase().classList).withContext('a revelada, redesenhada, continua um alvo').toContain('aberta');
+    expect(hidden()).toEqual(['Outra', 'curta']);
+    expect(boxes()[0].classList).withContext('a revelada, redesenhada, continua um alvo').toContain('aberta');
+    expect(frase().classList).toContain('aberta');
   });
 
   it('no modo estudo, o clique na palavra só revela ou esconde: não chega ao link nem ao card que está embaixo', () => {
@@ -141,21 +154,100 @@ describe('o modo estudo da voz: o texto em rabisco', () => {
     boxes()[0].click();
     expect(clicked).toBe(0);
     expect(host.querySelector('details')!.open).toBeFalse();
-    expect(hidden()).toEqual(['do', 'card']);
+    expect(hidden()).toEqual([]);
     boxes()[0].click();
     expect(clicked).withContext('a revelada também não abre o link').toBe(0);
     expect(host.querySelector('details')!.open).toBeFalse();
-    expect(hidden()).toEqual(['do', 'card', 'Título']);
+    expect(hidden()).toEqual(['Título', 'do', 'card']);
   });
 
-  it('duas palavras curtas vizinhas ("e o"): o alvo de cada uma para no meio do vão, sem pegar a outra', () => {
-    mount('<p>pão e o vinho</p>');
+  it('as palavras da mesma frase: o vão entre elas (o espaço, a vírgula) também pega o toque', () => {
+    mount('<p>pão, e o vinho</p>');
     study.start([host], 'pt-BR');
-    const [e, o] = ['1', '2'].map((p) => boxes().find((b) => b.dataset['p'] === p)!.getBoundingClientRect());
-    expect(e.right).toBeLessThanOrEqual(o.left + 0.5);
-    const between = (e.right + o.left) / 2;
-    expect(indexAt(between - 1, e.top + e.height / 2)).toBe('1');
-    expect(indexAt(between + 1, o.top + o.height / 2)).toBe('2');
+    const rects = boxes().map((b) => b.getBoundingClientRect());
+    for (let k = 1; k < rects.length; k++) expect(Math.abs(rects[k].left - rects[k - 1].right)).withContext('entre ' + (k - 1) + ' e ' + k).toBeLessThan(0.6);
+    const [pao, e] = rects;
+    expect(indexAt((pao.right + e.left) / 2, pao.top + pao.height / 2)).toBe('0');
+    expect(boxes()[0].style.getPropertyValue('--pad-r')).withContext('o desenho continua do tamanho da palavra').not.toBe('0px');
+  });
+
+  it('o vão seguido passa pelo negrito e pelo código no meio da frase (que começa um pouco acima ou abaixo)', () => {
+    mount('<p>Use <b>o</b> <code style="font: 15px monospace; padding: 3px 4px">npm</code> agora</p>');
+    study.start([host], 'pt-BR');
+    const rects = boxes().map((b) => b.getBoundingClientRect());
+    expect(rects.length).toBe(4);
+    for (let k = 1; k < rects.length; k++) expect(Math.abs(rects[k].left - rects[k - 1].right)).withContext('entre ' + (k - 1) + ' e ' + k).toBeLessThan(0.6);
+  });
+
+  it('o spoiler fechado no meio da frase continua pegando o próprio toque (o alvo da frase não passa por cima dele)', () => {
+    mount('<p>Antes <span class="spoiler-texto" inert style="display: inline-block; width: 80px">segredo</span> depois</p>');
+    study.start([host], 'pt-BR');
+    expect(hidden()).toEqual(['Antes', 'depois']);
+    const spoiler = host.querySelector('.spoiler-texto')!.getBoundingClientRect();
+    const [antes, depois] = boxes().map((b) => b.getBoundingClientRect());
+    expect(antes.right).toBeLessThanOrEqual(spoiler.left + 0.5);
+    expect(depois.left).toBeGreaterThanOrEqual(spoiler.right - 0.5);
+  });
+
+  it('a frase revelada continua revelada quando o texto antes dela, no mesmo nó, muda; a que muda volta a se esconder', () => {
+    mount('<p>Um. Dois três.</p>');
+    study.start([host], 'pt-BR');
+    boxes()[1].click();
+    expect(hidden()).toEqual(['Um']);
+    const text = host.querySelector('p')!.firstChild as Text;
+    text.data = 'Um, ok. Dois três.';
+    study.refresh();
+    expect(hidden()).toEqual(['Um', 'ok']);
+    text.data = 'Um, ok. Dois quatro.';
+    study.refresh();
+    expect(hidden()).toEqual(['Um', 'ok', 'Dois', 'quatro']);
+  });
+
+  it('frases iguais no mesmo nó ("Sim. Não. Sim."): cada uma se revela sozinha; e a pontuação que muda também esconde de novo', () => {
+    mount('<p>Sim. Não. Sim.</p>');
+    study.start([host], 'pt-BR');
+    boxes()[0].click();
+    expect(hidden()).toEqual(['Não', 'Sim']);
+    boxes()[2].click();
+    expect(hidden()).toEqual(['Não']);
+    boxes()[2].click();
+    study.refresh();
+    expect(hidden()).withContext('redesenhada, só a primeira continua revelada').toEqual(['Não', 'Sim']);
+    expect(boxes().map((b) => b.classList.contains('aberta'))).toEqual([true, false, false]);
+    const text = host.querySelector('p')!.firstChild as Text;
+    text.data = 'Sim. Não!';
+    boxes()[1].click();
+    study.refresh();
+    expect(hidden()).withContext('"Não." virou "Não!": escondida de novo').toEqual(['Não']);
+  });
+
+  it('o expoente no meio da frase é da mesma linha; o vão largo (o texto justificado) não vira alvo', () => {
+    mount('<p>Vale 10<sup>2</sup>. Depois</p><p style="word-spacing: 80px">Um dois</p>');
+    study.start([host], 'pt-BR');
+    const sup = host.querySelector('sup')!.getBoundingClientRect();
+    expect(boxes().length).withContext('Vale, 10 e o 2 (a mesma palavra), Depois, Um, dois').toBe(6);
+    const [dez, dois2, depois] = boxes().slice(1, 4).map((b) => b.getBoundingClientRect());
+    expect(Math.abs(dois2.left - dez.right)).withContext('o 10 e o 2 em cima, a mesma palavra na mesma linha: colados').toBeLessThan(0.6);
+    expect(depois.left).withContext('a folga do expoente não passa por cima de "Depois", de outra frase').toBeGreaterThanOrEqual(sup.right - 0.5);
+    const [um, dois] = boxes().slice(-2).map((b) => b.getBoundingClientRect());
+    expect(dois.left - um.right).toBeGreaterThan(40);
+  });
+
+  it('duas palavras curtas vizinhas de frases diferentes ("Oi. E"): o alvo de cada uma para no meio do vão, sem pegar a outra', () => {
+    mount('<p>Oi. E o vinho?</p>');
+    study.start([host], 'pt-BR');
+    const [oi, e] = boxes().map((b) => b.getBoundingClientRect());
+    expect(oi.right).toBeLessThanOrEqual(e.left + 0.5);
+    const text = host.querySelector('p')!.firstChild!;
+    const range = document.createRange();
+    range.setStart(text, 4);
+    range.setEnd(text, 5);
+    const e0 = range.getBoundingClientRect();
+    expect(e.left).withContext('o alvo do "E" cresce para a esquerda, mas só até o meio do vão').toBeLessThan(e0.left - 0.5);
+    const oiText = boxes()[0].firstElementChild!.getBoundingClientRect();
+    expect(e.left).toBeGreaterThanOrEqual((oiText.right + e0.left) / 2 - 0.5);
+    expect(indexAt(oi.right - 1, oi.top + oi.height / 2)).toBe('0');
+    expect(indexAt(e.left + 1, e.top + e.height / 2)).toBe('1');
   });
 
   it('outra camada que para (a outra anotação aberta ao lado fechou) não apaga o realce desta', () => {
@@ -166,30 +258,34 @@ describe('o modo estudo da voz: o texto em rabisco', () => {
     expect(hidden()).toEqual(['Um', 'dois']);
   });
 
-  it('o mouse em cima acende a palavra inteira', () => {
-    mount('<p style="width: 50px; word-break: break-all">Paralelepípedo e mais</p>');
+  it('o mouse em cima de uma palavra acende a frase inteira (o que o toque vai abrir), e só ela', () => {
+    mount('<p style="width: 50px; word-break: break-all">Paralelepípedo e mais. Outra.</p>');
     study.start([host], 'pt-BR');
     const first = boxes().filter((b) => b.dataset['p'] === '0');
-    first[0].dispatchEvent(new PointerEvent('pointerover', { bubbles: true }));
+    expect(first.length).toBeGreaterThan(3);
+    first[first.length - 1].dispatchEvent(new PointerEvent('pointerover', { bubbles: true }));
     expect(first.every((b) => b.classList.contains('mao'))).toBeTrue();
     expect(boxes().filter((b) => b.dataset['p'] !== '0').some((b) => b.classList.contains('mao'))).toBeFalse();
+    // passar de uma palavra para a outra da mesma frase não apaga
+    first[first.length - 1].dispatchEvent(new PointerEvent('pointerout', { bubbles: true, relatedTarget: first[0] }));
+    expect(first.every((b) => b.classList.contains('mao'))).toBeTrue();
     first[0].dispatchEvent(new PointerEvent('pointerout', { bubbles: true, relatedTarget: host }));
     expect(first.some((b) => b.classList.contains('mao'))).toBeFalse();
   });
 
-  it('o mouse parado em cima continua acendendo a palavra depois de os rabiscos se redesenharem', () => {
-    mount('<p>Uma frase curta.</p>');
+  it('o mouse parado em cima continua acendendo a frase depois de os rabiscos se redesenharem', () => {
+    mount('<p>Uma. Frase curta.</p>');
     study.start([host], 'pt-BR');
     const box = boxes()[1].getBoundingClientRect();
     boxes()[1].dispatchEvent(new PointerEvent('pointerover', { bubbles: true, pointerType: 'mouse', clientX: box.left + box.width / 2, clientY: box.top + box.height / 2 }));
     study.refresh();
-    expect(boxes().filter((b) => b.classList.contains('mao')).map((b) => b.dataset['p'])).toEqual(['1']);
+    expect(boxes().filter((b) => b.classList.contains('mao')).map((b) => b.dataset['p'])).toEqual(['1', '1']);
   });
 
   it('a letra que sai do transparente devagar (o spoiler revelado): o rabisco pega a cor de chegada, nunca a transparente', async () => {
     mount('<p>Antes <span class="sp" style="color: transparent; transition: color 60ms linear">segredo</span>.</p>');
     study.start([host], 'pt-BR');
-    const sp = () => boxes().find((b) => b.dataset['p'] === '1')!;
+    const sp = () => boxes()[1];
     expect(sp().style.color).withContext('transparente: a tinta de fora').toBe('rgb(29, 35, 64)');
     host.querySelector<HTMLElement>('.sp')!.style.color = 'rgb(200, 0, 0)';
     study.refresh();
@@ -217,13 +313,13 @@ describe('o modo estudo da voz: o texto em rabisco', () => {
     expect(boxes()[0].style.color).toBe('rgb(0, 0, 0)');
   });
 
-  it('o texto que muda (refresh): as palavras novas escondidas, a revelada continua revelada', () => {
+  it('o texto que muda (refresh): a frase nova escondida, a revelada continua revelada', () => {
     mount('<p>Um dois.</p>');
     study.start([host], 'pt-BR');
     boxes()[0].click();
     host.querySelector('p')!.append(' Três.');
     study.refresh();
-    expect(hidden()).toEqual(['dois', 'Três']);
+    expect(hidden()).toEqual(['Três']);
   });
 
   it('a folha que muda de largura leva os rabiscos junto', async () => {
