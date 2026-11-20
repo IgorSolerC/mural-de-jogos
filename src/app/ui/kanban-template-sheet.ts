@@ -10,6 +10,7 @@ import { BackdropClose } from './backdrop-close';
 import { CardKit } from './card-kit';
 import { KanbanReviewCard } from './kanban-note';
 import { Toasts } from './toast';
+import { SaveKey } from './save-key';
 
 /**
  * Montar o card padrão de uma coluna do Kanban (a folha "Card padrão", aberta dos ajustes da coluna):
@@ -19,7 +20,7 @@ import { Toasts } from './toast';
  */
 @Component({
   selector: 'app-kanban-template-sheet',
-  imports: [BackdropClose, CardKit, KanbanReviewCard, IconModule],
+  imports: [SaveKey, BackdropClose, CardKit, KanbanReviewCard, IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet modelo" aria-labelledby="kt-titulo" (close)="closed.emit()" (backdropClose)="close()">
@@ -70,7 +71,7 @@ import { Toasts } from './toast';
             <p class="pe-dica">Cada anotação ganha o próprio traço: o mesmo rabisco ou mancha cai num lugar diferente em cada uma.</p>
             <div class="actions">
               <button type="button" class="papel" (click)="close()">Cancelar</button>
-              <button type="button" class="btn-ink" (click)="save()">Usar este card</button>
+              <button type="button" class="btn-ink" appSaveKey (click)="save()">Usar este card</button>
             </div>
           </footer>
         </div>

@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { SAVE_KEY } from './save-key';
 
 type GuideItem = { what: string; mark?: string; keys?: string; note?: string; notes?: boolean };
 
@@ -96,6 +97,7 @@ export const GUIDE_VISUAL: readonly { title: string; items: readonly GuideItem[]
       { what: 'Marcar a tarefa', keys: 'Ctrl+Alt+Enter', note: 'Ou um toque na caixinha. A feita risca a descrição junto.' },
       { what: 'Recuar', keys: 'Tab', note: 'Shift+Tab volta. Num item, ele muda de nível com a descrição junto; o Backspace no começo dele tira o marcador. No bloco de código, o Tab põe dois espaços.' },
       { what: 'Desfazer e refazer', keys: 'Ctrl+Z, Ctrl+Y' },
+      { what: 'Salvar', keys: SAVE_KEY, note: 'Na folha com o botão de salvar (o Salvar, o Pregar, o Pronto), o mesmo que tocar nele.' },
       { what: 'Esta ajuda', keys: 'Ctrl+/' },
     ],
   },

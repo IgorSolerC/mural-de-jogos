@@ -402,7 +402,7 @@
       <div class="fim">
         <button type="button" class="btn-quiet" (click)="leave()">Cancelar</button>
         <!-- sem nada mexido, o botão diz isso, quieto, em vez de um botão de tinta apagado -->
-        <button type="button" [class.btn-ink]="touched() > 0" [class.btn-quiet]="!touched()" class="aplicar" data-acao="aplicar" [disabled]="!touched()" (click)="applyNow()">
+        <button type="button" [class.btn-ink]="touched() > 0" [class.btn-quiet]="!touched()" class="aplicar" data-acao="aplicar" appSaveKey [disabled]="!touched()" (click)="applyNow()">
           {{ touched() ? applyLabel() : 'Nada mudou ainda' }}
         </button>
       </div>

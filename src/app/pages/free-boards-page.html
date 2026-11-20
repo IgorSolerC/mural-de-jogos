@@ -43,7 +43,7 @@
         }
         <div class="novo-botoes">
           <button type="button" class="btn-quiet" (click)="creating.set(false)">Cancelar</button>
-          <button type="submit" class="btn-ink" [disabled]="!newName().trim()">Criar o quadro</button>
+          <button type="submit" class="btn-ink" appSaveKey [disabled]="!newName().trim()">Criar o quadro</button>
         </div>
       </form>
     } @else {
@@ -64,7 +64,7 @@
           </label>
           <div class="novo-botoes">
             <button type="button" class="btn-quiet" (click)="finishRename(false)">Cancelar</button>
-            <button type="submit" class="btn-ink" [disabled]="!renameText().trim()">Salvar</button>
+            <button type="submit" class="btn-ink" appSaveKey [disabled]="!renameText().trim()">Salvar</button>
           </div>
         </form>
       } @else {

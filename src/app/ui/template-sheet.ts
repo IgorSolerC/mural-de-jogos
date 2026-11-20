@@ -6,6 +6,7 @@ import { Settings } from '../core/settings';
 import { nameKey } from '../core/text';
 import { BackdropClose } from './backdrop-close';
 import { RichText } from './rich-text';
+import { SaveKey } from './save-key';
 
 const COUNT = new Intl.NumberFormat('pt-BR');
 
@@ -19,7 +20,7 @@ const COUNT = new Intl.NumberFormat('pt-BR');
  */
 @Component({
   selector: 'app-template-sheet',
-  imports: [BackdropClose, IconModule, RichText],
+  imports: [SaveKey, BackdropClose, IconModule, RichText],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet folha-modelo" aria-labelledby="modelo-titulo" aria-describedby="modelo-sub" (close)="closed.emit()" (cancel)="onCancel($event)" (backdropClose)="closeIfUntouched()">
@@ -103,7 +104,7 @@ const COUNT = new Intl.NumberFormat('pt-BR');
           <p class="falta" [class.agora]="(tried() && !!problem()) || leaving()" role="status">{{ leaving() ? 'Ainda não guardado: Esc de novo fecha sem guardar' : tried() ? problemText() : '' }}</p>
           <div class="actions">
             <button type="button" class="btn-quiet" (click)="close()">Cancelar</button>
-            <button type="button" class="btn-ink" (click)="save()">Guardar template</button>
+            <button type="button" class="btn-ink" appSaveKey (click)="save()">Guardar template</button>
           </div>
         </footer>
       </div>

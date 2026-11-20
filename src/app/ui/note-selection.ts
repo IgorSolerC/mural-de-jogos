@@ -4,11 +4,12 @@ import { notesAsText } from '../core/note-copy';
 import { Review } from '../core/review';
 import { MENU_CLASS, MenuItem } from './context-menu';
 import { ICON } from './icons';
+import { modKey } from './key-label';
 import { Toasts } from './toast';
 
 const MARKED = 'data-marcada';
 /** O atalho de copiar, como está escrito no teclado de quem usa. */
-export const COPY_KEY = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘C' : 'Ctrl+C';
+export const COPY_KEY = modKey('C');
 
 /** A chave de uma pasta marcada na lista das marcas (nenhum id de ficha começa assim). */
 export const FOLDER_MARK = 'pasta:';

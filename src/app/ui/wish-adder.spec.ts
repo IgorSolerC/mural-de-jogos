@@ -12,6 +12,7 @@ import { WishAdder } from './wish-adder';
 import { WishFolders } from '../core/wish-folders';
 import { comMarkdown } from '../testing/writing-mode.spec';
 import { Confirm } from './confirm';
+import { pressSave } from '../testing/save-key.spec';
 
 /** O "Editar recorte" (PLANO-WISHLIST.md, rodada 4): a folha do "Pôr na wishlist" aberta com um desejo. */
 
@@ -126,6 +127,19 @@ describe('a folha do desejo: editar sem resenhar', () => {
     expect(w.note).toBe('Indicação do Rafa');
     expect(w.relevance).toBe('later');
     expect(w.tags).toEqual(['curto', 'presente']);
+  });
+
+  it('o Ctrl+S com o cursor na descrição salva como o Salvar (o Pôr na lista também), e a dica diz o atalho', async () => {
+    adder().edit(store.getWish('w1')!);
+    await settle();
+    await write('Ver o trailer');
+    noteField()!.focus();
+    expect(pressSave(noteField()!).defaultPrevented).toBeTrue();
+    await settle();
+    expect(store.getWish('w1')!.note).toBe('Ver o trailer');
+    expect(dialog().open).toBeFalse();
+    const save = host.querySelector<HTMLButtonElement>('footer button[type="submit"]')!;
+    expect(save.getAttribute('aria-keyshortcuts')).toBe('Control+S Meta+S');
   });
 
   it('Salvar muda numa gravação só, mantém o id e a data de entrada, e o Desfazer volta como estava', async () => {

@@ -13,6 +13,7 @@ import { Toasts } from '../ui/toast';
 import { CalendarPage } from './calendar-page';
 import { GoogleAgenda } from '../core/google-agenda-sync';
 import { closeDialog, nextClose } from '../testing/dialog-close.spec';
+import { pressSave } from '../testing/save-key.spec';
 
 /** A página do Calendário: as três vistas, andar pelos períodos, a folha do lembrete e as anotações anexadas. */
 
@@ -184,6 +185,21 @@ describe('página do Calendário', () => {
       expect(bolo.getAttribute('aria-label')).toBe('Fazer bolo de aniversário, às 15h, 2 anotações anexadas. Editar');
       // o remédio de hoje já passou: riscado
       expect(dias[0].querySelector('.tira.passou .tira-nome')?.textContent).toContain('Tomar o remédio');
+    });
+
+    it('o Ctrl+S no nome do lembrete salva, como o Salvar lembrete', async () => {
+      await go('/utilidades/calendario?vista=semana');
+      $$('.dia-col')[2].querySelectorAll<HTMLElement>('.tira')[1].click();
+      await settle();
+      const nome = sheet()!.querySelector<HTMLInputElement>('.nome input')!;
+      nome.focus();
+      nome.value = 'Fazer bolo de cenoura';
+      nome.dispatchEvent(new Event('input'));
+      await settle();
+      expect(pressSave(nome).defaultPrevented).toBeTrue();
+      await settle();
+      expect(calendar.reminders().find((r) => r.id === 'rbolo0001')!.title).toBe('Fazer bolo de cenoura');
+      expect(sheet()?.open).toBeFalsy();
     });
 
     it('tocar numa tira abre a folha do lembrete; o + de um dia abre um lembrete novo naquele dia', async () => {

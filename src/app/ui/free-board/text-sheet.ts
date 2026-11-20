@@ -7,6 +7,8 @@ import { CALLOUT_ICON } from '../callout-looks';
 import { HeightVar } from '../height-var';
 import { IconModule } from '../icons';
 import { RichEditor } from '../rich-editor';
+import { modKey } from '../key-label';
+import { SAVE_KEY, SaveKey } from '../save-key';
 
 let uid = 0;
 /** O título é uma linha só, de até 200 letras. */
@@ -24,7 +26,7 @@ const TITLE_MAX = 200;
  */
 @Component({
   selector: 'app-free-board-text-sheet',
-  imports: [HeightVar, IconModule, RichEditor],
+  imports: [SaveKey, HeightVar, IconModule, RichEditor],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './text-sheet.scss',
   host: {
@@ -55,7 +57,7 @@ const TITLE_MAX = 200;
         (input)="setTitle($any($event.target))"
         (keydown.enter)="titleEnter($event)"
       ></textarea>
-      <button type="button" class="btn-ink pronto" title="Guardar no card (Ctrl+Enter ou Esc também guardam)" aria-keyshortcuts="Control+Enter Escape" (click)="done.emit()">Pronto</button>
+      <button type="button" class="btn-ink pronto" [title]="'Guardar no card (' + saveKey + ', ' + enterKey + ' ou Esc também guardam)'" aria-keyshortcuts="Control+Enter Escape" appSaveKey (click)="done.emit()">Pronto</button>
     </header>
     <div class="conteudo" appHeightVar="--conteudo-h">
       <app-rich-editor
@@ -75,6 +77,8 @@ const TITLE_MAX = 200;
   `,
 })
 export class FreeBoardTextSheet {
+  protected readonly saveKey = SAVE_KEY;
+  protected readonly enterKey = modKey('Enter');
   /** A peça (trocar de peça começa de novo). */
   readonly id = input.required<string>();
   /** O texto do card quando a folha abriu (o guardado; lido uma vez por peça). */

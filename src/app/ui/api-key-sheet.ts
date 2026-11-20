@@ -8,6 +8,7 @@ import { Busy } from './busy';
 import { Confirm } from './confirm';
 import { ICON, IconModule } from './icons';
 import { Pin } from './pin';
+import { SaveKey } from './save-key';
 
 /** Quanto tempo o "Copiado" fica no botão. */
 const COPIED_MS = 2200;
@@ -20,7 +21,7 @@ const COPIED_MS = 2200;
  */
 @Component({
   selector: 'app-api-key-sheet',
-  imports: [ApiKeyChoices, BackdropClose, Busy, IconModule, Pin],
+  imports: [SaveKey, ApiKeyChoices, BackdropClose, Busy, IconModule, Pin],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog
@@ -107,7 +108,7 @@ const COPIED_MS = 2200;
           <footer class="foot">
             <div class="actions">
               <button type="button" class="btn-quiet" (click)="requestClose()">Cancelar</button>
-              <button type="submit" form="chave-form" class="btn-ink" [disabled]="busy()" [appBusy]="busy()">
+              <button type="submit" form="chave-form" class="btn-ink" appSaveKey [disabled]="busy()" [appBusy]="busy()">
                 {{ busy() ? (editing() ? 'Salvando…' : 'Criando…') : editing() ? 'Salvar' : 'Criar a chave' }}
               </button>
             </div>

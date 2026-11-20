@@ -124,6 +124,7 @@ import { Toasts } from './toast';
 import { KanbanActions } from '../core/kanban-actions';
 import { KanbanDeps } from '../core/kanban-deps';
 import { Importance, KanbanBoard, cleanStatus, setImportance, setStatus } from '../core/kanban';
+import { SaveKey } from './save-key';
 
 /** A prévia mostra a ficha inteira (lembrado neste aparelho). */
 const WHOLE_KEY = 'meu-mural:editor:ficha-inteira';
@@ -174,6 +175,7 @@ const MIN_YEAR = 1971;
 @Component({
   selector: 'app-review-editor',
   imports: [
+    SaveKey,
     BackdropClose,
     FlashcardPreview,
     FlashcardTab,

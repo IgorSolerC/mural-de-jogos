@@ -31,6 +31,8 @@ import { FreeBoardTools, RulerAsk } from './tool-ruler';
 import { drawFar, farDensity } from './far-layer';
 import { FreeBoardPiece, PieceMeasured, cardNeed } from './free-board-piece';
 import { FreeBoardTextSheet } from './text-sheet';
+import { modKey } from '../key-label';
+import { SAVE_KEY } from '../save-key';
 import { PieceMeasure, fitMeasured, sameMeasure } from './edit-ops';
 import { NEAR_PX, Scene, SceneFrame, needsRecount } from './scene';
 import { FreeBoardThumbs } from './thumbs';
@@ -353,7 +355,7 @@ export class FreeBoardView implements RigHost {
     ['Setas', 'Andar a seleção um furo (Shift: 1 px)'],
     ['Alt arrastando', 'Sem encaixar nos furos'],
     ['Duplo clique', 'Escrever, renomear, editar; no fundo, um texto'],
-    ['Pronto, Ctrl+Enter, Esc ou clicar no quadro', 'Guardar o texto do card'],
+    [`Pronto, ${SAVE_KEY}, ${modKey('Enter')}, Esc ou clicar no quadro`, 'Guardar o texto do card'],
     ['Enter ou clicar fora', 'Guardar o título da moldura ou o rótulo da seta (Esc desiste)'],
     ['+ − 0 1', 'Zoom, Ver tudo, 100%'],
     ['Esc', 'Tirar a seleção; sem nada, sair do editar'],

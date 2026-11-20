@@ -1052,7 +1052,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
     }
 
     <!-- A mesma folha na tela inteira: o mesmo texto, para ler e escrever os longos sem rolar num cantinho -->
-    <dialog #grande class="tela-cheia" [attr.aria-labelledby]="areaId + '-titulo'" (close)="onClosed()">
+    <dialog #grande class="tela-cheia" data-salva-a-de-baixo [attr.aria-labelledby]="areaId + '-titulo'" (close)="onClosed()">
       <div class="folha">
         <h2 class="titulo" [id]="areaId + '-titulo'">{{ label() }}</h2>
         @if (big()) {

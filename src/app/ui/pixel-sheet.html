@@ -157,7 +157,7 @@
       }
       <div class="actions">
         <button type="button" class="btn-quiet cancelar" (click)="requestClose()">Cancelar</button>
-        <button type="submit" class="btn-ink">
+        <button type="submit" class="btn-ink" appSaveKey>
           <lucide-icon [img]="SaveIcon" [size]="19" aria-hidden="true" />
           {{ editing() ? 'Salvar' : 'Guardar na galeria' }}
         </button>

@@ -34,6 +34,7 @@ import { SpendingStore } from '../core/spending-store';
 import { RemoveAsking } from './remove-asking';
 import { SpendingPeoplePicker } from './spending-people-picker';
 import { Toasts } from './toast';
+import { SaveKey } from './save-key';
 
 /** O jeito do lançamento: uma vez só, parcelado ou todo mês. */
 type Kind = 'uma' | 'parcelado' | 'fixo';
@@ -74,7 +75,7 @@ export function seedEntry(q: Quick): Entry {
  */
 @Component({
   selector: 'app-spending-editor',
-  imports: [IconModule, SpendingPeoplePicker],
+  imports: [SaveKey, IconModule, SpendingPeoplePicker],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @let d = draft();
@@ -251,7 +252,7 @@ export function seedEntry(q: Quick): Entry {
           </button>
         }
         <button type="button" class="cancelar" (click)="done.emit()">{{ isNew() ? 'Limpar' : 'Cancelar' }}</button>
-        <button type="submit" class="salvar">
+        <button type="submit" class="salvar" appSaveKey>
           {{ isNew() ? 'Lançar' : 'Salvar' }}
           @if (isNew()) {
             <kbd aria-hidden="true">↵</kbd>

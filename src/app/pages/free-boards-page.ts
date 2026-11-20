@@ -36,6 +36,7 @@ import { ICON, IconModule } from '../ui/icons';
 import { RemoveAsking } from '../ui/remove-asking';
 import { StudyGroupTabs, StudyTab } from '../ui/study-group-tabs';
 import { Toasts } from '../ui/toast';
+import { SaveKey } from '../ui/save-key';
 
 /** Um grupo das anotações como aba do Quadro livre, com os quadros dele. */
 interface BoardGroup {
@@ -55,7 +56,7 @@ interface BoardGroup {
  */
 @Component({
   selector: 'app-free-boards-page',
-  imports: [BoardShare, CardPicker, ContextMenu, FreeBoardCard, FreeBoardTop, WidgetSheet, FreeBoardView, IconModule, StudyGroupTabs],
+  imports: [SaveKey, BoardShare, CardPicker, ContextMenu, FreeBoardCard, FreeBoardTop, WidgetSheet, FreeBoardView, IconModule, StudyGroupTabs],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './free-boards-page.html',
   styleUrl: './free-boards-page.scss',

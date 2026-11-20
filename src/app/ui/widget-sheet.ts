@@ -30,6 +30,7 @@ import { ImageProblem, imageFileOf, localImageId, localImageUrl, sizeLabel } fro
 import { ImageStore, StoredImage } from '../core/image-store';
 import { ImageSync, shortReason } from '../core/image-sync';
 import { CloudAccount } from '../core/cloud-account';
+import { SaveKey } from './save-key';
 
 
 /** O que a folha devolve ao editor: o widget pronto para virar a linha do texto. */
@@ -59,7 +60,7 @@ interface FieldRow {
  */
 @Component({
   selector: 'app-widget-sheet',
-  imports: [BackdropClose, CardPicker, CoverSleeve, IconModule, NgTemplateOutlet, NoteWidget, Pin, PixelField, PixelLookArt, PixelPicker, RichText, TableGrid, TableLookArt],
+  imports: [SaveKey, BackdropClose, CardPicker, CoverSleeve, IconModule, NgTemplateOutlet, NoteWidget, Pin, PixelField, PixelLookArt, PixelPicker, RichText, TableGrid, TableLookArt],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './widget-sheet.html',
   styleUrl: './widget-sheet.scss',

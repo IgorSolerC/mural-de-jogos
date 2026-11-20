@@ -22,6 +22,7 @@ import { TagPicker } from './tag-picker';
 import { Toasts } from './toast';
 import { PixelTagColors } from './pixel-tag-colors';
 import { WishTags } from './wish-tags';
+import { SaveKey } from './save-key';
 
 /** As etiquetas da ficha da obra. */
 export type PixelProp = 'jeito' | 'tags' | 'pasta';
@@ -43,7 +44,7 @@ export interface PixelSheetHooks {
  */
 @Component({
   selector: 'app-pixel-sheet',
-  imports: [BackdropClose, FolderPicker, IconModule, PixelArt, PixelField, PixelPieceCard, RichEditor, TagPicker, WishTags],
+  imports: [SaveKey, BackdropClose, FolderPicker, IconModule, PixelArt, PixelField, PixelPieceCard, RichEditor, TagPicker, WishTags],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './pixel-sheet.html',
   // o leiaute da folha da Wishlist, o mesmo arquivo (não uma cópia), e o que muda nesta por cima

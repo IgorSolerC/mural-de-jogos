@@ -26,6 +26,7 @@ import { IMPORTANCE_LEVEL, IMPORTANCE_STEPS } from './kanban-icons';
 import { NoteTag } from './note-tag';
 import { Pin } from './pin';
 import { TagPicker } from './tag-picker';
+import { SaveKey } from './save-key';
 
 /** As importâncias, da mais baixa à mais alta (como na folha do quadro, ui/kanban-props.ts). */
 const SCALE: readonly Importance[] = [...IMPORTANCES].reverse();
@@ -60,7 +61,7 @@ let uid = 0;
  */
 @Component({
   selector: 'app-bulk-edit-sheet',
-  imports: [BackdropClose, CategoryLabel, FolderPicker, GroupPicker, IconModule, NoteTag, Pin, TagPicker],
+  imports: [SaveKey, BackdropClose, CategoryLabel, FolderPicker, GroupPicker, IconModule, NoteTag, Pin, TagPicker],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './bulk-edit-sheet.html',
   styleUrls: ['./organize-sheet.scss', './bulk-edit-sheet.scss'],

@@ -218,7 +218,8 @@
         } @else {
           <button type="button" class="btn-quiet cancelar" (click)="requestClose()">Cancelar</button>
         }
-        <button type="submit" class="btn-ink">
+        <!-- o "Ver na fila" (ou na lista) só leva ao que já está lá: não é um salvar, e o Ctrl+S não o toca -->
+        <button type="submit" class="btn-ink" [appSaveKey]="mode() === 'draft' ? !dup() : !!editing() || !dup()">
           <lucide-icon [img]="mode() === 'draft' ? NoteIcon : editing() ? SaveIcon : CutIcon" [size]="19" aria-hidden="true" />
           @if (mode() === 'draft') {
             {{ dup() ? 'Ver na fila' : 'Guardar na fila' }}

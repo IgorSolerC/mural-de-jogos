@@ -553,7 +553,7 @@
           }
           <!-- pregar publica; o outro caminho (sem o Feed, ou com ele) fica na setinha, do outro lado do picote -->
           <span class="pregar" [class.dividido]="feedMenu()">
-            <button type="submit" class="btn-ink">
+            <button type="submit" class="btn-ink" appSaveKey>
               <lucide-icon [img]="PinIcon" [size]="20" aria-hidden="true" />
               {{ editing() ? 'Salvar alterações' : isPrivate() ? 'Pregar só pra mim' : 'Pregar no mural' }}
             </button>

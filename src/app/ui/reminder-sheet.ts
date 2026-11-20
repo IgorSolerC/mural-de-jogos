@@ -45,6 +45,7 @@ import { CardPicker } from './card-picker';
 import { Pin } from './pin';
 import { RemoveAsking } from './remove-asking';
 import { Toasts } from './toast';
+import { SaveKey } from './save-key';
 
 const STOCK_LABEL: Record<LightStock, string> = {
   vermelho: 'Vermelho',
@@ -77,7 +78,7 @@ type EndMode = 'nunca' | 'dia' | 'vezes';
  */
 @Component({
   selector: 'app-reminder-sheet',
-  imports: [BackdropClose, CardPicker, IconChart, IconModule, Pin],
+  imports: [SaveKey, BackdropClose, CardPicker, IconChart, IconModule, Pin],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet lembrete" aria-labelledby="lb-titulo" (close)="closed.emit()" (backdropClose)="close()">
@@ -359,7 +360,7 @@ type EndMode = 'nunca' | 'dia' | 'vezes';
           }
           <div class="actions">
             <button type="button" class="btn-quiet" (click)="close()">Cancelar</button>
-            <button type="submit" form="lb-form" class="btn-ink">Salvar lembrete</button>
+            <button type="submit" form="lb-form" class="btn-ink" appSaveKey>Salvar lembrete</button>
           </div>
         </footer>
       </div>
