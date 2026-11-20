@@ -6,6 +6,7 @@ import { fsrsConfig, frontTitle, inGroup, intervalLabel } from '../core/study';
 import { DRILL_LABEL, DrillPlan, DrillState, drillAnswer, drillLeft, drillNext, drillReturn, startDrill } from '../core/study-drill';
 import { QueueItem, StudyScope, countTotal, dayQueue, nextUp } from '../core/study-queue';
 import { StudyStore } from '../core/study-store';
+import { Voz } from '../core/voz';
 import { ICON, IconModule } from './icons';
 import { pinningFor } from '../core/wall-physics';
 import { StudyCard } from './study-card';
@@ -33,7 +34,8 @@ interface Answered {
  * A sessão de estudo (PLANO-ESTUDOS.md, 6.7): a mesa de tela cheia, a carta no meio. "Mostrar a resposta"
  * (Espaço ou Enter) vira a carta; atrás, a anotação inteira. Errei (1) ou Acertei (2, ou Espaço) e a
  * próxima vem; embaixo de cada botão, quando a carta voltaria. Desfazer (Z, Ctrl+Z) volta a anterior,
- * quantas vezes for preciso. Cada resposta fica guardada na hora: parar no meio não perde nada.
+ * quantas vezes for preciso. Cada resposta fica guardada na hora: parar no meio não perde nada. No baralho
+ * com voz (`Deck.voice`), virar lê o título em voz alta (core/voz.ts); a próxima carta cala o que sobrou.
  *
  * A fila não fica guardada: a próxima é pedida depois de cada resposta (core/study-queue.ts, `nextUp`);
  * a carta respondida sai sozinha, e a que errou volta em 1 ou 10 minutos.
@@ -79,6 +81,8 @@ export class StudySession {
 
   private readonly study = inject(StudyStore);
   private readonly store = inject(ReviewStore);
+  /** A voz que lê o título da carta ao virar, no baralho que tem uma (`Deck.voice`). */
+  private readonly voz = inject(Voz);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly back = viewChild(StudyCardBack);
 
@@ -218,6 +222,7 @@ export class StudySession {
     inject(DestroyRef).onDestroy(() => {
       clearInterval(timer);
       clearTimeout(this.leavingTimer);
+      this.voz.hushTitle();
     });
   }
 
@@ -228,6 +233,8 @@ export class StudySession {
 
   /** A próxima carta, ou o fim. */
   private advance(): void {
+    // o título da carta que saiu não segue falando por cima da próxima
+    this.voz.hushTitle();
     const drill = this.tally();
     if (drill) {
       const cards = this.study.cardOf();
@@ -258,6 +265,9 @@ export class StudySession {
     this.revealed.set(true);
     this.swappedAt = performance.now();
     this.spoken.set('Resposta');
+    // o baralho com voz lê o título em voz alta, aqui, no toque ou na tecla que virou
+    const c = this.card();
+    if (c) this.voz.sayTitle(c.title, c.deck?.voice, c.noteId);
     // depois de virar, o foco vai para o Acertei (o Espaço também acerta)
     setTimeout(() => this.dialog().nativeElement.querySelector<HTMLElement>('.acertei')?.focus());
   }
@@ -301,6 +311,7 @@ export class StudySession {
     if (showing) this.holdBack(showing.noteId);
     last.undo();
     this.answered.set(list.slice(0, -1));
+    this.voz.hushTitle();
     this.current.set(last.item);
     this.revealed.set(false);
     this.swappedAt = performance.now();

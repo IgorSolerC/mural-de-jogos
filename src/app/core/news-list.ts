@@ -27,13 +27,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-20-api-notas-do-grupo',
+    id: '2026-11-20-voz-dos-flashcards',
     version: '1.50.3',
     kind: 'ajustes',
     date: '2026-11-20',
-    title: 'A rolagem do mural sem vagas vazias e o modo estudo por frase',
+    title: 'A rolagem do mural sem vagas vazias, a voz dos flashcards e o modo estudo por frase',
     melhorias: [
       'Rolando rápido pelo mural, a parede não fica mais com vagas vazias esperando as cartolinas: elas entram na hora com a capa, o título e o texto, e o papel de cada uma só é desenhado quando chega a vez dela de virar imagem, uma por vez, a mais perto da tela primeiro. A rolagem também engasga menos.',
+      'Nos ajustes de um baralho dos Flashcards, "Ler o título ao virar" (Sem voz, Português, Inglês ou Japonês): o flashcard que vira para o verso, estudando, treinando ou na parede, tem o título lido em voz alta, na voz de ouvir a nota. Quem visita um baralho público também ouve.',
       'No modo estudo de ouvir a nota, tocar no rabisco revela a frase inteira, e não só uma palavra; com o mouse em cima, a frase toda acende antes do toque, e tocar de novo a esconde.',
     ],
     correcoes: [

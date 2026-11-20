@@ -397,6 +397,37 @@ describe('os Estudos (core/study.ts)', () => {
       expect(keepRicher(back, chosen).decks[0].look).toBeUndefined();
     });
 
+    it('a voz que lê o título ao virar: sem escolha, nenhuma; as três línguas ficam guardadas e vão à nuvem; o resto, não', () => {
+      let st = sample();
+      expect('voice' in st.decks[0]).toBeFalse();
+      st = updateDeck(st, 'dkanji', { voice: 'ja' }, at(5));
+      expect(st.decks[0].voice).toBe('ja');
+      expect(sanitizeStudy(JSON.parse(JSON.stringify(studyToSync(st)))).decks[0].voice).toBe('ja');
+      // mudar outra coisa do baralho não tira a voz
+      st = updateDeck(st, 'dkanji', { name: 'Kanji' }, at(6));
+      expect(st.decks[0].voice).toBe('ja');
+      st = updateDeck(st, 'dkanji', { voice: undefined }, at(7));
+      expect('voice' in st.decks[0]).toBeFalse();
+      const raw = JSON.parse(JSON.stringify(studyToSync(sample())));
+      raw.decks[0].voice = 'pt-BR';
+      raw.decks[1].voice = 'en';
+      const back = sanitizeStudy(raw);
+      expect('voice' in back.decks[0]).toBeFalse();
+      expect(back.decks[1].voice).toBe('en');
+    });
+
+    it('a voz na junção: a mais nova vence, e o baralho de um site mais velho (sem o campo, na mesma hora) não a apaga', () => {
+      const base = sample();
+      const chosen = updateDeck(base, 'dkanji', { voice: 'ja' }, at(5));
+      const old = { ...chosen, decks: chosen.decks.map(({ voice: _, ...d }) => d) };
+      expect(mergeStudy(chosen, old).decks[0].voice).toBe('ja');
+      expect(mergeStudy(old, chosen).decks[0].voice).toBe('ja');
+      expect(keepRicher(old, chosen).decks[0].voice).toBe('ja');
+      const later = updateDeck(base, 'dkanji', { voice: 'en' }, at(8));
+      expect(mergeStudy(chosen, later).decks.find((d) => d.id === 'dkanji')!.voice).toBe('en');
+      expect(mergeStudy(later, chosen).decks.find((d) => d.id === 'dkanji')!.voice).toBe('en');
+    });
+
     it('a escolha mais nova vence na junção de dois aparelhos', () => {
       const base = sample();
       const here = updateDeck(base, 'dkanji', { look: 'polaroid' }, at(5));

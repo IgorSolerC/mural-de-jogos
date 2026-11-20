@@ -6,7 +6,7 @@ import { CloudAccount } from '../core/cloud-account';
 import { LocalData } from '../core/local-data';
 import { Review, sanitizeReview } from '../core/review';
 import { SHARED_AUTO } from '../core/shared-store';
-import { SPEECH, UTTERANCE, VOZ_KEY } from '../core/voz';
+import { SPEECH, UTTERANCE, VOZ_KEY, Voz } from '../core/voz';
 import { FakeSpeech, GOOGLE_JA, GOOGLE_PT, fakeUtterance } from '../testing/fala-falsa';
 import { ReviewReader } from './review-reader';
 import { VOICE_HIGHLIGHT } from './voz-fita';
@@ -178,6 +178,19 @@ describe('Ouvir a nota na ficha aberta', () => {
     q<HTMLButtonElement>('.fita .tecla-tocar')!.click();
     await settle();
     expect(texts()[0]).toBe('私のケーキです。');
+  });
+
+  it('o título de um flashcard que toma a voz (core/voz.ts, sayTitle) leva o marca-texto da nota junto', async () => {
+    fixture.componentInstance.open(note('n-1', 'の (De / Posse)', NO));
+    await settle();
+    await listen('ja');
+    fake.begin();
+    await settle();
+    expect(CSS.highlights.get(VOICE_HIGHLIGHT)).toBeDefined();
+    TestBed.inject(Voz).sayTitle('日', 'ja', 'nsol');
+    await settle();
+    expect(CSS.highlights.get(VOICE_HIGHLIGHT)).toBeUndefined();
+    expect(q('.fita')).toBeNull();
   });
 
   it('a velocidade: as seis à vista num menu, a de agora com o tique', async () => {

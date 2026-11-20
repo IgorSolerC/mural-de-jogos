@@ -85,7 +85,7 @@ describe('Copiar baralho (core/study-copy.ts)', () => {
     let store: ReviewStore;
     let copier: DeckCopy;
     let adopt: (id: string) => Promise<{ id: string } | null>;
-    const deck: Deck = { id: 'dkanji', name: 'Kanji N5', icon: 'livro', color: 'vermelho', newPerDay: 5, look: 'ingresso', group: 'Japonês', order: 0, at: T, public: true };
+    const deck: Deck = { id: 'dkanji', name: 'Kanji N5', icon: 'livro', color: 'vermelho', newPerDay: 5, look: 'ingresso', voice: 'ja', group: 'Japonês', order: 0, at: T, public: true };
     const card = (note: string, title: string, image?: string): StudyCard => ({
       note,
       decks: ['dkanji'],
@@ -119,7 +119,7 @@ describe('Copiar baralho (core/study-copy.ts)', () => {
       expect(out.cards).toBe(2);
       expect(out.lostImages).toBe(0);
       const mine = study.deck(out.id)!;
-      expect([mine.name, mine.group, mine.color, mine.icon, mine.look]).toEqual(['Meu Kanji', 'Idiomas', 'vermelho', 'livro', 'ingresso']);
+      expect([mine.name, mine.group, mine.color, mine.icon, mine.look, mine.voice]).toEqual(['Meu Kanji', 'Idiomas', 'vermelho', 'livro', 'ingresso', 'ja']);
       // o seu nasce privado
       expect(mine.public).toBeUndefined();
       const cards = study.cards().filter((c) => c.decks.includes(out.id));

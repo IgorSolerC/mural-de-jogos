@@ -1,6 +1,7 @@
 import { Injectable, InjectionToken, computed, inject, signal } from '@angular/core';
 import { readJson, writeJson } from './storage';
 import { soundVolume } from './volume';
+import { VOICE_LANGS, VOICE_LANG_ORDER, VoiceLang, VoiceLangInfo } from './voz-langs';
 
 /**
  * Ouvir a nota em voz alta (PLANO-VOZ.md): a voz do próprio navegador (a Web Speech API), de graça e sem
@@ -13,28 +14,12 @@ import { soundVolume } from './volume';
  * Android não volta). Só uma leitura por vez no site inteiro (o serviço é um só).
  *
  * A velocidade e a voz escolhida em cada língua ficam neste aparelho (`VOZ_KEY`, apagada na limpeza do
- * logout pelo prefixo); a língua, não: a pessoa escolhe toda vez. O volume é o do site (core/volume.ts).
+ * logout pelo prefixo); a língua, não: a pessoa escolhe toda vez (só a do baralho dos Flashcards, que lê o
+ * título ao virar, fica guardada no baralho). O volume é o do site (core/volume.ts).
  */
 
-export type VoiceLang = 'pt' | 'en' | 'ja';
-
-export interface VoiceLangInfo {
-  /** A língua para a voz (BCP 47): onde a frase acaba e a voz de reserva dependem dela. */
-  tag: string;
-  /** O nome no menu. */
-  name: string;
-  /** A voz que o dono escolheu num teste no Chrome (17/nov/2026): a primeira, quando existe. */
-  preferred: string;
-}
-
-export const VOICE_LANGS: Readonly<Record<VoiceLang, VoiceLangInfo>> = {
-  pt: { tag: 'pt-BR', name: 'Português', preferred: 'Google português do Brasil' },
-  en: { tag: 'en-GB', name: 'Inglês', preferred: 'Google UK English Male' },
-  ja: { tag: 'ja-JP', name: 'Japonês', preferred: 'Google 日本語' },
-};
-
-/** As línguas na ordem do menu. */
-export const VOICE_LANG_ORDER: readonly VoiceLang[] = ['pt', 'en', 'ja'];
+export { VOICE_LANGS, VOICE_LANG_ORDER } from './voz-langs';
+export type { VoiceLang, VoiceLangInfo } from './voz-langs';
 
 /** As velocidades à escolha (1 é a da voz). Abaixo de 0,75×, as falas ficam mais curtas (ui/voz-frases.ts, `maxSpeech`). */
 export const VOICE_RATES: readonly number[] = [0.25, 0.5, 0.75, 1, 1.25, 1.5];
@@ -77,6 +62,9 @@ const KEEP_ALIVE_MS = 10_000;
 function needsKeepAlive(v: SpeechSynthesisVoice | null): boolean {
   return !!v && !v.localService && /^Google/.test(v.name) && !(typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent));
 }
+
+/** Quem lê o título de um flashcard que virou (`sayTitle`): um só para a parede, a carta maximizada, a sessão e a amostra. */
+const TITLE = { titulo: true } as const;
 
 /** A voz do navegador (o `speechSynthesis`); null onde não há (o Edge do Android devolve lista vazia). */
 export const SPEECH = new InjectionToken<SpeechSynthesis | null>('SPEECH', {
@@ -169,6 +157,8 @@ export class Voz {
   });
   /** O modo estudo, neste aparelho: lendo, o texto vira rabisco (ui/voz-estudo.ts). */
   readonly study = computed(() => this.stored().estudo === true);
+  /** A voz de agora é a do título de um flashcard (`sayTitle`), e não a de uma fita que lê a nota. */
+  readonly saysTitle = computed(() => this.owner() === TITLE);
   /** A voz da leitura de agora. */
   readonly voice = computed(() => {
     const lang = this.lang();
@@ -188,6 +178,8 @@ export class Voz {
   /** A nota mudou durante a frase de agora: ao fim dela, a leitura segue daqui, nas frases novas. */
   private pendingFrom: number | null = null;
   private keepAlive: ReturnType<typeof setInterval> | null = null;
+  /** De que carta é o título sendo lido (`sayTitle`). */
+  private titleKey: string | null = null;
 
   constructor() {
     const synth = this.synth;
@@ -225,6 +217,28 @@ export class Voz {
     this.total.set(texts.length);
     this.lang.set(lang);
     this.play(from);
+  }
+
+  /**
+   * Lê o título de um flashcard que virou (o baralho com voz: `Deck.voice`, em core/study.ts), no lugar da leitura
+   * de agora, na voz e na velocidade deste aparelho; sem língua ou sem título, só cala o título que estava sendo
+   * lido. Chamada no toque que virou a carta (o iPhone só fala começando num toque). `key` diz de que carta é (a
+   * anotação): a parede e a carta maximizada mostram a mesma, e virar de volta em qualquer uma cala.
+   */
+  sayTitle(title: string, lang: VoiceLang | null | undefined, key: string): void {
+    const text = title.trim();
+    // sem voz nessa língua, a do navegador leria o japonês com a voz do português: melhor calar
+    if (!lang || !text || !this.voicesOf(lang).length) {
+      this.hushTitle();
+      return;
+    }
+    this.start([text], lang, 0, TITLE);
+    this.titleKey = key;
+  }
+
+  /** Cala o título de flashcard que está sendo lido (com `key`, só se é o daquela carta); a leitura de uma nota continua. */
+  hushTitle(key?: string): void {
+    if (this.owner() === TITLE && (key === undefined || key === this.titleKey)) this.stop();
   }
 
   /** Pausa ou continua (do fim, começa de novo). */
@@ -334,6 +348,7 @@ export class Voz {
   /** Acaba a leitura: cala e esquece tudo (a ficha fechou, outra abriu, a vista mudou). */
   stop(): void {
     this.silence();
+    this.titleKey = null;
     this.texts = [];
     this.owner.set(null);
     this.lang.set(null);
@@ -399,6 +414,8 @@ export class Voz {
       u.onerror = (e) => {
         // a fila cancelada (pausar, voltar, trocar a voz) avisa "interrupted" ou "canceled": não é erro
         if (gen !== this.gen || e.error === 'interrupted' || e.error === 'canceled') return;
+        // o título de um flashcard não tem fita para dizer o que deu errado: só cala
+        if (this.owner() === TITLE) return this.stop();
         this.silence();
         this.playing.set(false);
         this.failure.set(failureOf(e.error));
@@ -419,6 +436,11 @@ export class Voz {
 
   /** Acabou: nenhuma frase fica marcada, e tocar de novo começa do começo. */
   private finish(): void {
+    // o título de um flashcard dito até o fim solta a voz (as setas da leitura e o marca-texto voltam a ser de quem lê)
+    if (this.owner() === TITLE) {
+      this.stop();
+      return;
+    }
     this.silence();
     this.playing.set(false);
     this.ended.set(true);

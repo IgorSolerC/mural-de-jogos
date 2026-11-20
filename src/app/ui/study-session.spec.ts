@@ -7,6 +7,8 @@ import { StudyStore } from '../core/study-store';
 import { DrillPlan, drillPool } from '../core/study-drill';
 import { BOUNCE_MS, DRILL_UNDO_MAX, StudySession, TURN_MS } from './study-session';
 import { GROW_MAX } from './grow-to-fit';
+import { SPEECH, UTTERANCE, Voz } from '../core/voz';
+import { FakeSpeech, GOOGLE_JA, GOOGLE_PT, fakeUtterance } from '../testing/fala-falsa';
 
 /** A sessão de estudo (PLANO-ESTUDOS.md, 6.7): a carta, virar, Errei e Acertei, as teclas, o Desfazer e o fim. */
 
@@ -659,5 +661,86 @@ describe('a sessão de estudo (ui/study-session.ts)', () => {
         expect($('.verso-texto')!.style.getPropertyValue('zoom')).toBe('');
       });
     });
+  });
+});
+
+/** O baralho com voz (`Deck.voice`): virar lê o título em voz alta, na voz de ouvir a nota (core/voz.ts). */
+describe('a voz do baralho na sessão de estudo', () => {
+  let fixture: ComponentFixture<Host>;
+  let study: StudyStore;
+  let fake: FakeSpeech;
+  let kanji: string;
+
+  async function settle(): Promise<void> {
+    for (let i = 0; i < 4; i++) {
+      await new Promise((r) => setTimeout(r, 0));
+      fixture.detectChanges();
+      await fixture.whenStable();
+    }
+  }
+  const dialog = () => document.querySelector<HTMLDialogElement>('dialog.sessao');
+  const key = (k: string) => dialog()!.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true }));
+  const said = () => fake.spoken.map((u) => u.text);
+
+  beforeEach(async () => {
+    localStorage.clear();
+    fake = new FakeSpeech();
+    fake.list = [GOOGLE_JA, GOOGLE_PT];
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), { provide: SPEECH, useValue: fake }, { provide: UTTERANCE, useValue: fakeUtterance }] });
+    TestBed.inject(ReviewStore).reviews.set([note('nsol', 'Sol (日)'), note('nlua', 'Lua (月)')]);
+    study = TestBed.inject(StudyStore);
+    kanji = study.addDeck('Kanjis', 'amarelo', null, undefined, 'Estudos');
+    study.updateDeck(kanji, { voice: 'ja' });
+    study.addCard('nsol', [kanji], { title: '日' });
+    study.addCard('nlua', [kanji], { title: '月' });
+    fixture = TestBed.createComponent(Host);
+    fixture.componentInstance.deck.set(kanji);
+    document.body.appendChild(fixture.nativeElement);
+    await settle();
+  });
+
+  afterEach(() => {
+    dialog()?.close();
+    fixture.nativeElement.remove();
+    localStorage.clear();
+  });
+
+  it('a frente fica em silêncio; virar lê o título na língua do baralho', async () => {
+    expect(said()).toEqual([]);
+    key(' ');
+    await settle();
+    expect(said()).toEqual(['日']);
+    expect(fake.spoken[0].voice).toBe(GOOGLE_JA);
+    expect(TestBed.inject(Voz).playing()).toBeTrue();
+  });
+
+  it('responder cala o título que sobrou; a próxima só fala quando vira', async () => {
+    key(' ');
+    await settle();
+    key('2');
+    await settle();
+    expect(TestBed.inject(Voz).playing()).toBeFalse();
+    expect(said()).toEqual(['日']);
+    key(' ');
+    await settle();
+    expect(said()).toEqual(['日', '月']);
+  });
+
+  it('o toque no "Mostrar a resposta" também lê; fechar a mesa cala', async () => {
+    const button = dialog()!.querySelector<HTMLButtonElement>('.mostrar')!;
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 0 }));
+    await settle();
+    expect(said()).toEqual(['日']);
+    fixture.componentInstance.open.set(false);
+    await settle();
+    expect(TestBed.inject(Voz).playing()).toBeFalse();
+  });
+
+  it('o baralho sem voz fica em silêncio ao virar', async () => {
+    study.updateDeck(kanji, { voice: undefined });
+    await settle();
+    key(' ');
+    await settle();
+    expect(said()).toEqual([]);
   });
 });

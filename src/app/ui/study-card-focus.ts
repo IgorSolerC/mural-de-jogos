@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { reducedMotion } from '../core/motion';
 import { Deck, frontTitle } from '../core/study';
 import { STUDY_SOURCE } from '../core/study-source';
+import { Voz } from '../core/voz';
 import { pinningFor } from '../core/wall-physics';
 import { ICON, IconModule } from './icons';
 import { StudyCard } from './study-card';
@@ -11,7 +12,8 @@ import { StudyCardBack } from './study-card-back';
  * A carta maximizada: o botão preto de maximizar da parede do baralho abre a carta em foco e grande, a mesma
  * mesa da sessão de estudo (a mesma folha de estilos, a mesma carta, o mesmo verso), só para ver, nos seus
  * Flashcards e nos de quem se visita. Tocar na
- * carta vira, o "Virar a carta" e o Espaço também; sem Errei nem Acertei, e nada aqui conta como estudo.
+ * carta vira, o "Virar a carta" e o Espaço também (no baralho com voz, o título é lido ao virar); sem Errei nem
+ * Acertei, e nada aqui conta como estudo.
  */
 @Component({
   selector: 'app-study-card-focus',
@@ -73,6 +75,9 @@ export class StudyCardFocus {
   /** As suas cartas, ou as de quem se visita (core/study-source.ts). */
   private readonly source = inject(STUDY_SOURCE);
   private readonly dialog = viewChild<ElementRef<HTMLDialogElement>>('dialog');
+  private readonly voz = inject(Voz);
+  /** Esta folha leu o título em voz alta (ao fechar, cala o que ela começou). */
+  private spoke = false;
 
   /** O lado mudado aqui, enquanto a folha está aberta (null: o que a parede mostrava). */
   private readonly side = signal<boolean | null>(null);
@@ -103,6 +108,8 @@ export class StudyCardFocus {
     effect(() => {
       if (!this.card()) this.close();
     });
+    // só o título que esta folha começou (o da parede, que abriu já virada, continua)
+    inject(DestroyRef).onDestroy(() => this.spoke && this.voz.hushTitle(this.note()));
   }
 
   close(): void {
@@ -120,6 +127,11 @@ export class StudyCardFocus {
     if (!next && document.activeElement?.closest('.verso')) this.foot()?.focus();
     this.side.set(next);
     this.spoken.set(`${next ? 'Verso' : 'Frente'} de ${this.card()?.title ?? 'flashcard'}`);
+    // o baralho com voz lê o título ao virar para o verso; de volta à frente, cala
+    if (next) {
+      this.voz.sayTitle(this.card()?.title ?? '', this.deck().voice, this.note());
+      this.spoke = true;
+    } else this.voz.hushTitle(this.note());
   }
 
   /**

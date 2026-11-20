@@ -231,8 +231,10 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  *     site antigo enviaria o mural sem ela, e as obras sumiriam da nuvem.
  * 59: as camadas das obras da galeria (`pixelArts[].layers`, PLANO-CAMADAS.md): um site da 58 limparia cada obra
  *     sem elas e mandaria de volta só o desenho achatado.
+ * 60: a voz que lê o título dos flashcards de um baralho ao virar (`estudos.decks[].voice`). Um site da 59
+ *     limparia o baralho sem ela, e o baralho voltaria a ficar sem voz em todo aparelho.
  */
-export const SYNC_SCHEMA = 59;
+export const SYNC_SCHEMA = 60;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };

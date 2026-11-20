@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { IconChart } from './icon-chart';
 import { ICON, ICON_CHOICE, IconModule } from './icons';
 import { IconChoice } from '../core/icon-choices';
@@ -6,6 +6,7 @@ import { LIGHT_STOCKS, LightStock } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { CARD_LOOKS, CARD_LOOK_LABEL, CardLook, DECK_NAME_MAX, cardFace, deckLook, frontTitle } from '../core/study';
 import { StudyStore } from '../core/study-store';
+import { VOICE_LANGS, VOICE_LANG_ORDER, VoiceLang, Voz } from '../core/voz';
 import { pinningFor } from '../core/wall-physics';
 import { BackdropClose } from './backdrop-close';
 import { Choice, Confirm } from './confirm';
@@ -31,7 +32,7 @@ const STOCK_LABEL: Record<LightStock, string> = {
 /**
  * Os ajustes de um baralho dos Estudos (o lápis da pasta, e o "+ Novo baralho"): o nome, o ícone e a cor
  * (a da orelha da aba e do elástico da pilha), o estilo das cartas (cada opção é a primeira carta do baralho
- * naquele desenho, em miniatura), o lugar na fileira e apagar o baralho; a cartela
+ * naquele desenho, em miniatura), a voz que lê o título ao virar, o lugar na fileira e apagar o baralho; a cartela
  * dos ícones, com mais de cem, fica por último, para não empurrar o resto. A mesma
  * ficha da coluna do Kanban (ui/kanban-column-sheet.ts), com o mesmo desenho; vale na hora.
  */
@@ -112,6 +113,18 @@ const STOCK_LABEL: Record<LightStock, string> = {
                   }
                 }
               </div>
+            </section>
+
+            <!-- a voz: o título lido em voz alta quando o flashcard vira (a voz de ouvir a nota, core/voz.ts), com as
+                 etiquetas do Quem vê; escolher uma língua diz o título da primeira carta, para ouvir na hora -->
+            <section class="grupo" aria-labelledby="ba-voz-t">
+              <h3 class="grupo-titulo" id="ba-voz-t">Ler o título ao virar</h3>
+              <div class="quem-opts" role="radiogroup" aria-labelledby="ba-voz-t" aria-describedby="ba-voz-dica">
+                @for (v of voiceOptions; track v.lang) {
+                  <button type="button" role="radio" class="quem-tag" [attr.aria-checked]="(d.deck.voice ?? null) === v.lang" (click)="setVoice(v.lang)">{{ v.label }}</button>
+                }
+              </div>
+              <p class="quem-dica" id="ba-voz-dica">{{ voiceHint() }}</p>
             </section>
 
             <section class="grupo" aria-labelledby="ba-lugar-t">
@@ -272,6 +285,11 @@ export class StudyDeckSheet {
   protected readonly nameMax = DECK_NAME_MAX;
   protected readonly looks = CARD_LOOKS;
   protected readonly lookLabel = CARD_LOOK_LABEL;
+  /** A voz ao virar: nenhuma, ou uma das línguas de ouvir a nota. */
+  protected readonly voiceOptions: readonly { lang: VoiceLang | null; label: string }[] = [
+    { lang: null, label: 'Sem voz' },
+    ...VOICE_LANG_ORDER.map((lang) => ({ lang, label: VOICE_LANGS[lang].name })),
+  ];
 
   private readonly study = inject(StudyStore);
   private readonly store = inject(ReviewStore);
@@ -279,6 +297,7 @@ export class StudyDeckSheet {
   private readonly toasts = inject(Toasts);
   private readonly removal = inject(RemoveAsking);
   private readonly account = inject(CloudAccount);
+  private readonly voz = inject(Voz);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly nome = viewChild<ElementRef<HTMLInputElement>>('nome');
 
@@ -314,6 +333,17 @@ export class StudyDeckSheet {
     return this.account.signedIn() ? who : `${who} Para alguém ver, entre na sua conta.`;
   });
 
+  /** O que a voz escolhida quer dizer: quando o título é lido, e em que voz. */
+  protected readonly voiceHint = computed(() => {
+    const d = this.data();
+    const lang = d?.deck.voice;
+    if (!lang) return 'Ao virar, o flashcard fica em silêncio.';
+    const name = VOICE_LANGS[lang].name.toLowerCase();
+    const said = `Ao virar, o título é lido em voz alta em ${name}`;
+    if (!this.voz.voicesOf(lang).length) return `${said} nos aparelhos com voz em ${name}: este navegador não tem.`;
+    return `${said}, na voz e na velocidade de ouvir a nota neste aparelho.${d?.deck.public ? ' Quem visita também ouve.' : ''}`;
+  });
+
   /** A carta das miniaturas: a primeira do baralho, como ela é; sem nenhuma, o nome do baralho. */
   protected readonly sample = computed(() => {
     const d = this.data();
@@ -334,6 +364,8 @@ export class StudyDeckSheet {
   });
 
   constructor() {
+    // a amostra da voz não segue falando depois de a folha fechar
+    inject(DestroyRef).onDestroy(() => this.voz.hushTitle(this.sampleKey()));
     afterNextRender(() => {
       const el = this.dialog().nativeElement;
       el.showModal();
@@ -362,6 +394,19 @@ export class StudyDeckSheet {
   /** A Clássica é o padrão: escolhida, o baralho fica sem o campo. */
   protected setLook(look: CardLook): void {
     this.study.updateDeck(this.deckId(), { look: look === 'classica' ? undefined : look });
+  }
+
+  /** De que é a amostra da voz (o título da primeira carta, que pode nem ser carta: o nome do baralho). */
+  private sampleKey(): string {
+    return `baralho:${this.deckId()}`;
+  }
+
+  /** A voz ao virar (sem voz é o padrão: o baralho fica sem o campo). Escolher uma língua diz o título da primeira carta nela. */
+  protected setVoice(lang: VoiceLang | null): void {
+    // a mesma de novo só diz a amostra outra vez (o baralho não muda, e a hora dele não sobe à toa)
+    if ((this.data()?.deck.voice ?? null) !== lang) this.study.updateDeck(this.deckId(), { voice: lang ?? undefined });
+    // sem voz, cala qualquer título que estava sendo lido (a parede de trás pode estar lendo um deste baralho)
+    this.voz.sayTitle(this.sample()?.title ?? '', lang, this.sampleKey());
   }
 
   protected rename(name: string): void {

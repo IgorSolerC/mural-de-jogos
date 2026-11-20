@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterRenderEffect, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
 import { reducedMotion } from '../core/motion';
 import { Review, Stock } from '../core/review';
 import { NoteSelection } from './note-selection';
@@ -9,6 +9,7 @@ import { StudyCardFocus } from './study-card-focus';
 import { ContextMenu, ContextMenuTrigger, MENU_CLASS, MenuBy, MenuItem, MenuSections } from './context-menu';
 import { ICON, IconModule } from './icons';
 import { NearPool, NearScreen } from './near-screen';
+import { Voz } from '../core/voz';
 
 /** Uma carta como a parede mostra: a frente, a cartolina da anotação e o que se diz dela. */
 export interface WallCard {
@@ -40,7 +41,8 @@ const NO_CARDS: ReadonlySet<string> = new Set();
  * peças do dono", no CLAUDE.md): as cartas deitadas, a frente à mostra; tocar vira ali mesmo (das grandes, várias;
  * das pequenas, uma de cada vez, crescendo por cima das vizinhas); a etiqueta de tinta do hover maximiza, abre a
  * anotação e, só no seu baralho (`editable`), edita; o botão direito abre o mesmo menu, com o que só o dono faz
- * (`ownerMenu`) depois. Nada aqui conta como estudo, e nada se guarda.
+ * (`ownerMenu`) depois. No baralho com voz (`Deck.voice`), a carta que vira lê o título em voz alta. Nada aqui
+ * conta como estudo, e nada se guarda.
  *
  * O verso e a maximizada leem a carta pela fonte dos Flashcards (core/study-source.ts): a sua, ou a da visita.
  */
@@ -82,6 +84,10 @@ export class StudyCardWall {
   protected readonly calm = reducedMotion();
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+  /** A voz que lê o título da carta que vira, no baralho que tem uma. */
+  private readonly voz = inject(Voz);
+  /** A carta cujo título a parede leu por último: só ele a parede cala ao trocar de baralho, de tamanho ou ao sair. */
+  private lastTitle: string | null = null;
 
   /** As cartas marcadas (a página do dono mostra a tira e a folha de editar). */
   readonly selection = new NoteSelection({
@@ -139,12 +145,17 @@ export class StudyCardWall {
         this.flipped.set(NO_CARDS);
         this.turnedOnce.set(NO_CARDS);
         this.focused.set(null);
+        this.hushOwn();
       });
     });
+    inject(DestroyRef).onDestroy(() => this.hushOwn());
     // outro tamanho: as cartas voltam para a frente (a pequena virada é só uma)
     effect(() => {
       this.small();
-      untracked(() => this.flipped.set(NO_CARDS));
+      untracked(() => {
+        this.flipped.set(NO_CARDS);
+        this.hushOwn();
+      });
     });
     // o botão direito, o dedo segurado ou Shift+F10 numa carta abre o menu dela
     new ContextMenuTrigger({
@@ -177,6 +188,10 @@ export class StudyCardWall {
     });
     if (back && !this.turnedOnce().has(note)) this.turnedOnce.update((set) => new Set(set).add(note));
     this.say(back ? 'Verso' : 'Frente', note);
+    if (back) {
+      this.voz.sayTitle(this.cards().find((c) => c.note === note)?.title ?? '', this.deck().voice, note);
+      this.lastTitle = note;
+    } else this.voz.hushTitle(note);
   }
 
   /** O Esc com o foco na carta virada: ela volta para a frente, e o de fora não mexe em mais nenhuma. */
@@ -222,6 +237,13 @@ export class StudyCardWall {
       return next;
     });
     this.say('Frente', note);
+    this.voz.hushTitle(note);
+  }
+
+  /** Cala o título que a parede leu por último, se ainda é ele que fala (o da sessão ou da amostra continua). */
+  private hushOwn(): void {
+    if (this.lastTitle !== null) this.voz.hushTitle(this.lastTitle);
+    this.lastTitle = null;
   }
 
   private say(side: 'Frente' | 'Verso', note: string): void {

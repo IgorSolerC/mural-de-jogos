@@ -50,13 +50,15 @@ export function publicStudy(view: StudyState, shown: (note: string) => boolean, 
     });
   }
   return {
-    // do baralho, só o que desenha: as novas por dia, o "no mural" e a hora ficam com o dono
+    // do baralho, só o que desenha (e a voz): as novas por dia, o "no mural" e a hora ficam com o dono
     decks: decks.map((d) => ({
       id: d.id,
       name: d.name,
       icon: d.icon,
       color: d.color,
       ...(d.look ? { look: d.look } : {}),
+      // a voz que lê o título ao virar: quem visita ouve como o dono
+      ...(d.voice ? { voice: d.voice } : {}),
       group: d.group,
       order: d.order,
       at: '1970-01-01T00:00:00.000Z',

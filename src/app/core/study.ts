@@ -8,6 +8,7 @@ import { categoryKey, hash64 } from './kanban';
 import { cleanCategory } from './note-labels';
 import { LIGHT_STOCKS, LightStock, newId } from './review';
 import { cleanLabel, plural } from './text';
+import { VOICE_LANG_ORDER, VoiceLang } from './voz-langs';
 
 /**
  * Os Estudos das anotações (PLANO-ESTUDOS.md): flashcards como os do Anki, feitos das anotações que já
@@ -106,6 +107,11 @@ export interface Deck {
    * carta é a anotação, e a privada fica só com o dono. Sem o campo: privado, o padrão.
    */
   public?: true;
+  /**
+   * A língua em que o título do flashcard é lido em voz alta quando ele vira (a voz das anotações, core/voz.ts,
+   * na voz e na velocidade escolhidas em cada aparelho). Sem o campo: sem voz, o padrão.
+   */
+  voice?: VoiceLang;
   /**
    * O grupo do baralho, escrito como nas anotações (comparado pela chave, `lookKey`). Só as cartas de
    * anotações deste grupo valem nele. Sem o campo: o baralho de antes dos grupos, ainda por converter
@@ -278,6 +284,7 @@ export function sanitizeDeck(raw: unknown): Deck | null {
     ...(r['wall'] === true ? { wall: true as const } : {}),
     ...(isCardLook(r['look']) && r['look'] !== DEFAULT_CARD_LOOK ? { look: r['look'] as Exclude<CardLook, 'classica'> } : {}),
     ...(r['public'] === true ? { public: true as const } : {}),
+    ...(VOICE_LANG_ORDER.includes(r['voice'] as VoiceLang) ? { voice: r['voice'] as VoiceLang } : {}),
     ...(group ? { group } : {}),
     order: int(r['order'], 0, MAX_DECKS * 10, 0),
     at: r['at'],

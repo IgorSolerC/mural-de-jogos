@@ -206,6 +206,73 @@ describe('a voz que lê a nota', () => {
     });
   });
 
+  describe('o título do flashcard que virou (sayTitle)', () => {
+    it('diz o título inteiro de uma vez, na voz da língua; virar de volta a mesma carta cala, outra não', () => {
+      voz.sayTitle('  日本  ', 'ja', 'nsol');
+      expect(fake.spoken.map((u) => u.text)).toEqual(['日本']);
+      expect(fake.spoken[0].voice).toBe(GOOGLE_JA);
+      expect(voz.playing()).toBeTrue();
+      voz.hushTitle('nlua');
+      expect(voz.playing()).toBeTrue();
+      voz.hushTitle('nsol');
+      expect(voz.playing()).toBeFalse();
+      expect(voz.owner()).toBeNull();
+    });
+
+    it('dito até o fim, solta a voz (as setas e o marca-texto voltam a ser de quem lê uma nota)', () => {
+      voz.sayTitle('月', 'ja', 'nlua');
+      expect(voz.owner()).not.toBeNull();
+      fake.begin();
+      fake.end();
+      expect(voz.playing()).toBeFalse();
+      expect(voz.owner()).toBeNull();
+    });
+
+    it('a voz que falha só cala, sem aviso (não há fita para mostrar)', () => {
+      voz.sayTitle('月', 'ja', 'nlua');
+      fake.queue[0].onerror?.({ error: 'network' } as SpeechSynthesisErrorEvent);
+      expect(voz.owner()).toBeNull();
+      expect(voz.failure()).toBeNull();
+    });
+
+    it('sem língua ou sem título, cala o título de antes; a leitura de uma nota nunca é calada por hushTitle', () => {
+      voz.sayTitle('日', 'ja', 'nsol');
+      voz.sayTitle('月', undefined, 'nlua');
+      expect(voz.playing()).toBeFalse();
+      expect(fake.spoken.length).toBe(1);
+      const reader = {};
+      voz.start(['Primeira.'], 'pt', 0, reader);
+      voz.hushTitle();
+      voz.sayTitle('   ', 'ja', 'nsol');
+      expect(voz.owner()).toBe(reader);
+      expect(voz.playing()).toBeTrue();
+    });
+
+    it('sem voz na língua do baralho, cala: a do navegador leria o japonês com a voz do português', () => {
+      fake.list = [GOOGLE_PT, MARIA];
+      voz = make();
+      voz.sayTitle('日', 'ja', 'nsol');
+      expect(fake.spoken.length).toBe(0);
+      voz.sayTitle('Sol', 'pt', 'nsol');
+      expect(fake.spoken.map((u) => u.text)).toEqual(['Sol']);
+    });
+
+    it('o título não é uma fita: saysTitle diz quem fala (as setas da leitura continuam dela)', () => {
+      voz.sayTitle('日', 'ja', 'nsol');
+      expect(voz.saysTitle()).toBeTrue();
+      voz.start(['Primeira.'], 'pt', 0, {});
+      expect(voz.saysTitle()).toBeFalse();
+    });
+
+    it('sem nenhuma voz no navegador, não toma a voz', () => {
+      fake.list = [];
+      voz = make();
+      voz.sayTitle('日', 'ja', 'nsol');
+      expect(fake.spoken.length).toBe(0);
+      expect(voz.owner()).toBeNull();
+    });
+  });
+
   describe('o aparelho', () => {
     it('a preferência estragada vale como nada guardado (e não vira lixo ao gravar)', () => {
       localStorage.setItem(VOZ_KEY, '"x"');

@@ -7,6 +7,8 @@ import { Review, sanitizeReview } from '../core/review';
 import { visitStudyPath } from '../core/areas';
 import { studyGroupId } from '../core/study';
 import { expectEtiquetaPadrao } from '../testing/etiqueta-acoes.spec';
+import { SPEECH, UTTERANCE, Voz } from '../core/voz';
+import { FakeSpeech, GOOGLE_JA, fakeUtterance } from '../testing/fala-falsa';
 import { setEverythingNear } from './near-screen';
 import { VisitStudy } from './visit-study';
 
@@ -208,6 +210,58 @@ describe('Os Estudos de quem se visita (VisitStudy)', () => {
       await settle(fixture);
       expect(dialog.querySelector('.giro')!.classList).toContain('virada');
       expect(text(dialog.querySelector('.verso app-rich-text'))).toContain('Nichi.');
+    });
+
+    it('o baralho com voz lê o título ao virar também para quem visita; virar de volta cala', async () => {
+      const fake = new FakeSpeech();
+      fake.list = [GOOGLE_JA];
+      TestBed.overrideProvider(SPEECH, { useValue: fake });
+      TestBed.overrideProvider(UTTERANCE, { useValue: fakeUtterance });
+      const c = withText();
+      const voiced: Colleague = { ...c, estudos: { ...c.estudos!, decks: c.estudos!.decks.map((d) => (d.id === 'dkanji' ? { ...d, voice: 'ja' as const } : d)) } };
+      const { fixture, el } = await render(voiced, studyGroupId('Japonês'), 'dkanji');
+      const li = el.querySelector<HTMLElement>('.carta-li[data-carta="nsol1"]')!;
+      li.querySelector<HTMLButtonElement>('.carta-btn')!.click();
+      await settle(fixture);
+      expect(fake.spoken.map((u) => [u.text, u.voice?.name])).toEqual([['日', GOOGLE_JA.name]]);
+      expect(TestBed.inject(Voz).playing()).toBeTrue();
+      li.querySelector<HTMLElement>('.verso-titulo')!.click();
+      await settle(fixture);
+      expect(TestBed.inject(Voz).playing()).toBeFalse();
+      expect(fake.spoken.length).toBe(1);
+      // virada na parede e maximizada: a mesma carta, e virar de volta na maximizada cala o que a parede começou
+      li.querySelector<HTMLButtonElement>('.carta-btn')!.click();
+      await settle(fixture);
+      expect(TestBed.inject(Voz).playing()).toBeTrue();
+      li.querySelector<HTMLButtonElement>('.acao-maximizar')!.click();
+      for (let n = 0; n < 60 && !focusDialog()?.open; n++) await settle(fixture);
+      expect(fake.spoken.length).toBe(2);
+      focusDialog()!.querySelector<HTMLElement>('.mostrar')!.click();
+      await settle(fixture);
+      expect(TestBed.inject(Voz).playing()).toBeFalse();
+      // fechar a maximizada que não leu nada não cala o título que a parede começou
+      focusDialog()!.close();
+      await settle(fixture);
+      li.querySelector<HTMLButtonElement>('.carta-btn')!.click();
+      await settle(fixture);
+      li.querySelector<HTMLButtonElement>('.carta-btn')!.click();
+      await settle(fixture);
+      expect(TestBed.inject(Voz).playing()).toBeTrue();
+      li.querySelector<HTMLButtonElement>('.acao-maximizar')!.click();
+      for (let n = 0; n < 60 && !focusDialog()?.open; n++) await settle(fixture);
+      focusDialog()!.close();
+      await settle(fixture);
+      expect(TestBed.inject(Voz).playing()).toBeTrue();
+      // e de novo na maximizada: para o verso, lê
+      li.querySelector<HTMLButtonElement>('.acao-maximizar')!.click();
+      for (let n = 0; n < 60 && !focusDialog()?.open; n++) await settle(fixture);
+      // ela abre já virada: volta à frente e vira de novo
+      focusDialog()!.querySelector<HTMLElement>('.mostrar')!.click();
+      await settle(fixture);
+      // e de novo para o verso, na maximizada: lê
+      focusDialog()!.querySelector<HTMLElement>('.mostrar')!.click();
+      await settle(fixture);
+      expect(fake.spoken.map((u) => u.text)).toEqual(['日', '日', '日', '日']);
     });
 
     it('o botão direito abre o mesmo menu do flashcard, sem o que é do dono', async () => {

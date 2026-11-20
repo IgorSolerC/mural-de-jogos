@@ -65,6 +65,15 @@ describe('os baralhos públicos (core/public-study.ts)', () => {
     ]);
   });
 
+  it('a voz do baralho vai no público, e quem visita ouve na mesma língua', () => {
+    const st = updateDeck(sample(), 'dkanji', { voice: 'ja' }, at(6));
+    const decks = publicStudy(st, all, false)!['decks'] as Record<string, unknown>[];
+    expect(decks[0]['voice']).toBe('ja');
+    expect(readPublicStudy(JSON.parse(JSON.stringify(publicStudy(st, all, false))))!.decks[0].voice).toBe('ja');
+    // sem voz, o campo nem vai
+    expect('voice' in (publicStudy(sample(), all, false)!['decks'] as Record<string, unknown>[])[0]).toBeFalse();
+  });
+
   it('a leitura joga fora o que não serve: baralho sem grupo, carta de baralho que não veio, lixo', () => {
     expect(readPublicStudy(null)).toBeNull();
     expect(readPublicStudy([])).toBeNull();

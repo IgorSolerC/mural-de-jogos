@@ -458,9 +458,10 @@ export class VozFita {
     this.hint.set(null);
     this.pressed.set(null);
     this.said.set('');
-    // o marca-texto é um só na página: o de outra fita que lê agora fica
+    // o marca-texto é um só na página: o de outra fita que lê agora fica (o título de um flashcard, que tomou a
+    // voz, não pinta nada: o marca-texto desta sai)
     const other = untracked(this.voz.owner);
-    if (typeof CSS !== 'undefined' && 'highlights' in CSS && (other === null || other === this)) {
+    if (typeof CSS !== 'undefined' && 'highlights' in CSS && !(other instanceof VozFita && other !== this)) {
       CSS.highlights.delete(VOICE_HIGHLIGHT);
       CSS.highlights.delete(VOICE_WORD_HIGHLIGHT);
     }

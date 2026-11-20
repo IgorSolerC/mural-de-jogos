@@ -1709,7 +1709,7 @@ export class ReviewReader {
   protected onKey(e: KeyboardEvent): void {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
     // com a fita da voz à mostra (nesta ficha ou na do lado), as setas andam as frases dela (ui/voz-fita.ts)
-    if (this.voz.owner() !== null) return;
+    if (this.voz.owner() !== null && !this.voz.saysTitle()) return;
     // as teclas de dentro da segunda anotação são dela (ela as ouve no diálogo dela)
     if (!this.aoLado() && (e.target as HTMLElement | null)?.closest?.('dialog.ao-lado')) return;
     // só na leitura de sempre, onde a tira das vezes mostra qual é a de agora

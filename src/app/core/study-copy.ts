@@ -144,7 +144,7 @@ export class DeckCopy {
     const deckName = freeDeckName(name.trim() || req.deck.name, group, this.study.decks());
     const deckId = this.study.addDeck(deckName, req.deck.color, req.deck.icon, undefined, group);
     if (!deckId) throw new DeckCopyProblem(copyLimit(MAX_DECKS, 0, 0)!);
-    if (req.deck.look) this.study.updateDeck(deckId, { look: req.deck.look });
+    if (req.deck.look || req.deck.voice) this.study.updateDeck(deckId, { look: req.deck.look, voice: req.deck.voice });
     const made: string[] = [];
     for (const c of cards) {
       const note = copiedNote(byId.get(c.note)!, newId(), group, now, images);
