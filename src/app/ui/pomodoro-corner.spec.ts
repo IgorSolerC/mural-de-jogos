@@ -3,6 +3,9 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { POMODORO_KEY } from '../core/pomodoro';
 import { PomodoroStore } from '../core/pomodoro-store';
+import { TRACKS_KEY } from '../core/pomodoro-tracks';
+import { PomodoroTracks } from '../core/pomodoro-tracks-store';
+import { EmbedBridge } from './embed-bridge';
 import { expectEtiquetaPadrao } from '../testing/etiqueta-acoes.spec';
 import { PomodoroCorner } from './pomodoro-corner';
 import { Toasts } from './toast';
@@ -10,9 +13,13 @@ import { Toasts } from './toast';
 describe('o relógio do canto do Pomodoro', () => {
   beforeEach(() => {
     localStorage.removeItem(POMODORO_KEY);
+    localStorage.removeItem(TRACKS_KEY);
     TestBed.configureTestingModule({ imports: [PomodoroCorner], providers: [provideZonelessChangeDetection(), provideRouter([])] });
   });
-  afterEach(() => localStorage.removeItem(POMODORO_KEY));
+  afterEach(() => {
+    localStorage.removeItem(POMODORO_KEY);
+    localStorage.removeItem(TRACKS_KEY);
+  });
 
   async function open(skin: 'tomate' | 'neon' = 'tomate') {
     const store = TestBed.inject(PomodoroStore);
@@ -53,6 +60,50 @@ describe('o relógio do canto do Pomodoro', () => {
     expect(store.on()).toBeTrue();
     expect(store.save().startedAt).toBe(startedAt);
     expect(store.save().rest).toBe(15);
+  });
+
+  it('a aba do som grava a música sorteada de cada estudo, e a que não toca dá lugar a outra marcada', async () => {
+    spyOn(EmbedBridge.prototype, 'loaded');
+    spyOn(EmbedBridge.prototype, 'send');
+    // sem a trava entre as abas, esta aba é a do som (a trava pode estar com outro teste ainda)
+    spyOnProperty(navigator, 'locks', 'get').and.returnValue(undefined as unknown as LockManager);
+    localStorage.setItem(
+      TRACKS_KEY,
+      JSON.stringify({ v: 1, tracks: [{ id: 'a1', url: 'https://exemplo.com/a.mp3' }, { id: 'b2', url: 'https://exemplo.com/b.mp3' }, { id: 'c3', url: 'https://exemplo.com/c.mp3', on: false }], turn: null }),
+    );
+    const store = TestBed.inject(PomodoroStore);
+    const tracks = TestBed.inject(PomodoroTracks);
+    store.setMusic(true);
+    store.start();
+    const f = TestBed.createComponent(PomodoroCorner);
+    await f.whenStable();
+    await new Promise((r) => setTimeout(r, 50));
+    await f.whenStable();
+    const first = tracks.save().turn!;
+    expect(first.session).toBe(store.save().session);
+    expect(['a1', 'b2']).toContain(first.id);
+    expect((f.nativeElement as HTMLElement).querySelector('audio')!.getAttribute('src')).toBe(`https://exemplo.com/${first.id[0]}.mp3`);
+    // a próxima volta ao estudo sorteia a outra marcada (sem repetir)
+    store.skip();
+    store.skip();
+    await f.whenStable();
+    expect(tracks.save().turn).toEqual({ id: first.id === 'a1' ? 'b2' : 'a1', session: store.save().session });
+    // a que não tocou dá lugar à outra marcada, e o recado diz
+    const show = spyOn(TestBed.inject(Toasts), 'show');
+    const now = tracks.save().turn!.id;
+    (f.nativeElement as HTMLElement).querySelector('audio')!.dispatchEvent(new Event('error'));
+    await f.whenStable();
+    expect(tracks.save().turn!.id).toBe(now === 'a1' ? 'b2' : 'a1');
+    expect(show.calls.mostRecent().args[0]).toContain('não tocou: tocando');
+    // a do estudo sai da lista no meio dele: a que entra no lugar fica gravada (marcar outra não a troca)
+    const playing = tracks.save().turn!.id;
+    tracks.remove(playing);
+    await f.whenStable();
+    const instead = tracks.save().turn!;
+    expect(instead.session).toBe(store.save().session);
+    tracks.setOn('c3', true);
+    await f.whenStable();
+    expect(tracks.save().turn).toEqual(instead);
   });
 
   it('pausa, continua e pula a fase', async () => {

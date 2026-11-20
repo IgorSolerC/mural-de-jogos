@@ -17,6 +17,7 @@ import { SETTINGS_KEY } from './settings';
 import { STUDY_SIZE_KEY } from './study';
 import { COLLEAGUES_DB, ColleagueStore } from './colleague-store';
 import { POMODORO_KEY, POMODORO_DEFAULT, start } from './pomodoro';
+import { TRACKS_KEY } from './pomodoro-tracks';
 import { VOZ_KEY } from './voz';
 
 function databases(): Promise<string[]> {
@@ -288,6 +289,16 @@ describe('limpar o navegador (sair da conta)', () => {
     localStorage.setItem(RESET_KEY, JSON.stringify({ keep: [], motivo: 'saiu' }));
     expect(await resetOnBoot()).toBeTrue();
     expect(localStorage.getItem(POMODORO_KEY)).toBeNull();
+  });
+
+  it('as músicas salvas do Pomodoro (os links, os nomes e a da vez) saem junto', async () => {
+    signedInBrowser();
+    writeJson(TRACKS_KEY, { v: 1, tracks: [{ id: 'm1', url: 'https://exemplo.com/foco.mp3', name: 'Foco', title: '', on: true }], turn: { id: 'm1', session: 2 } });
+    expect(localStorage.getItem(TRACKS_KEY)).toContain('foco.mp3');
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.setItem(RESET_KEY, JSON.stringify({ keep: [], motivo: 'saiu' }));
+    expect(await resetOnBoot()).toBeTrue();
+    expect(localStorage.getItem(TRACKS_KEY)).toBeNull();
   });
 
   it('a velocidade, as vozes e o modo estudo de ouvir a nota (PLANO-VOZ.md, PLANO-VOZ-ESTUDO.md) saem junto', async () => {

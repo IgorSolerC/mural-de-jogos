@@ -873,3 +873,49 @@
     color: var(--ink);
   }
 }
+
+/* O botão redondo só com o desenho, numa linha de índice: o olho, o lápis e a lixeira das configurações do
+   mural (ui/mural-config.scss) e das músicas do Pomodoro. O apagar acende em vermelho com `$apagar`. */
+@mixin olho {
+  flex: none;
+  align-self: center;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.07);
+    color: var(--ink);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: -3px;
+  }
+
+  @media (pointer: coarse) {
+    width: 44px;
+    height: 44px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+@mixin olho-apagar {
+  &:hover {
+    color: var(--red-deep);
+    background: #fbe9e6;
+  }
+}

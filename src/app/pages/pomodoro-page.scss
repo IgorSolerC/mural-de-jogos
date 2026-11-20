@@ -189,42 +189,6 @@
   @include kit.botao-papel;
 }
 
-/* o link da música: o campo de papel do site */
-.link {
-  display: grid;
-  gap: 6px;
-  margin-top: 4px;
-
-  input {
-    @include kit.campo;
-
-    &.erro {
-      @include kit.campo-erro;
-    }
-  }
-}
-
-.link-rotulo {
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.82rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-}
-
-.link-dica {
-  margin: 8px 0 6px;
-  font-family: var(--f-hand);
-  font-size: 1.02rem;
-  line-height: 1.3;
-  color: var(--caneta-azul);
-
-  &.erro {
-    color: var(--error-ink, #6b0000);
-  }
-}
-
 /* ===== A parede de relógios ===== */
 .loja {
   margin-top: 64px;

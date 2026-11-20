@@ -35,7 +35,13 @@ export class PomodoroStore {
 
   constructor() {
     window.addEventListener('storage', (e) => {
-      if (e.key === POMODORO_KEY || e.key === null) this.state.set(readPomodoro(readJson(POMODORO_KEY)));
+      if (e.key !== POMODORO_KEY && e.key !== null) return;
+      const raw = readJson<{ session?: unknown }>(POMODORO_KEY);
+      const next = readPomodoro(raw);
+      // um site mais velho, aberto em outra aba, não conhece a rodada: a que esta aba sabe fica (senão a música do
+      // estudo seria sorteada de novo no meio dele, e a conta recomeçaria do zero)
+      const keep = !!raw && typeof raw === 'object' && raw.session === undefined;
+      this.state.set(keep ? { ...next, session: Math.max(next.session, this.state().session) } : next);
     });
   }
 
@@ -100,10 +106,5 @@ export class PomodoroStore {
 
   setMusic(music: boolean): void {
     if (music !== this.state().music) this.write({ ...this.state(), music });
-  }
-
-  setMusicUrl(url: string): void {
-    const musicUrl = url.trim().slice(0, 2000);
-    if (musicUrl !== this.state().musicUrl) this.write({ ...this.state(), musicUrl });
   }
 }

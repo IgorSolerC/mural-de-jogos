@@ -27,17 +27,19 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-20-ctrl-s',
+    id: '2026-11-20-pomodoro-musicas',
     version: '1.50.3',
     kind: 'ajustes',
     date: '2026-11-20',
-    title: 'A rolagem do mural sem vagas vazias, a voz dos flashcards e o modo estudo por frase',
+    title: 'A rolagem do mural sem vagas vazias, a voz dos flashcards, o modo estudo por frase e as músicas do Pomodoro',
     melhorias: [
       'Rolando rápido pelo mural, a parede não fica mais com vagas vazias esperando as cartolinas: elas entram na hora com a capa, o título e o texto, e o papel de cada uma só é desenhado quando chega a vez dela de virar imagem, uma por vez, a mais perto da tela primeiro. A rolagem também engasga menos.',
       'Nos ajustes de um baralho dos Flashcards, "Ler o título ao virar" (Sem voz, Português, Inglês ou Japonês): o flashcard que vira para o verso, estudando, treinando ou na parede, tem o título lido em voz alta, na voz de ouvir a nota. Quem visita um baralho público também ouve.',
       'No modo estudo de ouvir a nota, tocar no rabisco revela a frase inteira, e não só uma palavra; com o mouse em cima, a frase toda acende antes do toque, e tocar de novo a esconde.',
       'Apagar um lembrete que se repete pergunta também "Daqui em diante": a repetição para no dia escolhido, e os dias de antes continuam no Calendário.',
       'O Ctrl+S (⌘S no Mac) faz o mesmo que o botão de salvar, também com o cursor no texto: no editor das anotações e das resenhas, na Wishlist e no Pra depois, nos lembretes, nos Gastos, nas pixel arts, nos templates, no widget que você está mudando, no Editar várias, no card padrão do Kanban, nas chaves da API e no Quadro livre.',
+      'O Pomodoro guarda várias músicas: cada link fica com o título do vídeo ou da playlist (o lápis renomeia), cada estudo sorteia uma das marcadas sem repetir a de antes, e o ▶ toca a escolhida na hora.',
+      'O Pomodoro toca playlists do YouTube inteiras, um vídeo depois do outro, e continua do vídeo em que parou quando ela toca de novo.',
     ],
     correcoes: [
       'Nas anotações dos grupos compartilhados em que você é dono ou gestor (também as que outras pessoas escreveram), o que uma AI muda pela API já volta com a nota mudada, e não com a de antes (ela achava que nada tinha mudado).',

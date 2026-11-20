@@ -13,7 +13,7 @@ const ORIGIN: Record<EmbedKind, string> = {
 };
 
 /** O que se pede ao player. O volume vai de 0 a 1; em 0, ele fica calado. */
-export type EmbedCommand = { do: 'play' } | { do: 'pause' } | { do: 'seek'; t: number } | { do: 'volume'; v: number };
+export type EmbedCommand = { do: 'play' } | { do: 'pause' } | { do: 'seek'; t: number } | { do: 'volume'; v: number } | { do: 'at'; i: number };
 
 /**
  * O que o player conta. `playing` vem só quando o tempo anda de verdade (o "play" do Vimeo chega
@@ -25,6 +25,10 @@ export interface EmbedReport {
   time?: number;
   duration?: number;
   error?: true;
+  /** Numa playlist do YouTube: o vídeo que toca (o id e a posição) e quantos ela tem. */
+  video?: string;
+  index?: number;
+  count?: number;
 }
 
 let uid = 0;
@@ -84,12 +88,14 @@ export class EmbedBridge {
       if (c.do === 'play') call('playVideo');
       else if (c.do === 'pause') call('pauseVideo');
       else if (c.do === 'seek') call('seekTo', [c.t, true]);
+      else if (c.do === 'at') call('playVideoAt', [c.i]);
       else if (c.v <= 0) call('mute');
       else {
         call('unMute');
         call('setVolume', [Math.round(c.v * 100)]);
       }
     } else {
+      if (c.do === 'at') return;
       if (c.do === 'seek') this.post({ method: 'setCurrentTime', value: c.t });
       else if (c.do === 'volume') {
         this.post({ method: 'setMuted', value: c.v <= 0 });
@@ -136,13 +142,16 @@ export class EmbedBridge {
     const r: EmbedReport = {};
     if (typeof info.duration === 'number' && info.duration > 0) r.duration = info.duration;
     if (typeof info.currentTime === 'number') r.time = info.currentTime;
+    if (typeof info.videoData?.video_id === 'string' && info.videoData.video_id) r.video = info.videoData.video_id;
+    if (typeof info.playlistIndex === 'number' && info.playlistIndex >= 0) r.index = info.playlistIndex;
+    if (Array.isArray(info.playlist) && info.playlist.length) r.count = info.playlist.length;
     // 1 tocando, 3 carregando, 2 parado, 0 acabou (−1 e 5: ainda não começou)
     const st = info.playerState;
     if (st === 1) r.state = 'playing';
     else if (st === 3) r.state = 'waiting';
     else if (st === 2) r.state = 'paused';
     else if (st === 0) r.state = 'ended';
-    if (r.duration !== undefined || r.time !== undefined || r.state) this.report(r);
+    if (r.duration !== undefined || r.time !== undefined || r.state || r.video !== undefined || r.index !== undefined) this.report(r);
   }
 
   private fromVimeo(d: VimeoMessage): void {
@@ -201,6 +210,9 @@ interface YoutubeInfo {
   currentTime?: number;
   duration?: number;
   playerState?: number;
+  playlist?: unknown;
+  playlistIndex?: number;
+  videoData?: { video_id?: unknown };
 }
 interface YoutubeMessage {
   event?: string;

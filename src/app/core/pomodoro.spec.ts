@@ -37,8 +37,8 @@ describe('Pomodoro: as regras', () => {
   });
 
   it('guarda o que é válido', () => {
-    const r = readPomodoro({ study: 50, rest: 10, skin: 'neon', corner: 'se', music: false, musicUrl: ' https://x.com/a.mp3 ', on: true, phase: 'pausa', startedAt: T0, pausedAt: T0 + MIN, day: '2026-11-08', done: 3 });
-    expect(r).toEqual({ v: 1, study: 50, rest: 10, skin: 'neon', corner: 'se', music: false, musicUrl: 'https://x.com/a.mp3', on: true, phase: 'pausa', startedAt: T0, pausedAt: T0 + MIN, day: '2026-11-08', done: 3 });
+    const r = readPomodoro({ study: 50, rest: 10, skin: 'neon', corner: 'se', music: false, musicUrl: ' https://x.com/a.mp3 ', on: true, session: 7, phase: 'pausa', startedAt: T0, pausedAt: T0 + MIN, day: '2026-11-08', done: 3 });
+    expect(r).toEqual({ v: 1, study: 50, rest: 10, skin: 'neon', corner: 'se', music: false, musicUrl: 'https://x.com/a.mp3', on: true, session: 7, phase: 'pausa', startedAt: T0, pausedAt: T0 + MIN, day: '2026-11-08', done: 3 });
   });
 
   it('os tempos vão de 5 a 120, de 5 em 5', () => {
@@ -120,6 +120,29 @@ describe('Pomodoro: as regras', () => {
     const p = skip(pause(start(POMODORO_DEFAULT, T0), T0 + MIN), T0 + 2 * MIN);
     expect(p.pausedAt).toBe(T0 + 2 * MIN);
     expect(remainingMs(p, T0 + 9 * MIN)).toBe(5 * MIN);
+  });
+
+  it('cada estudo que começa é uma rodada nova (a música de cada uma é sorteada uma vez)', () => {
+    const s = start(POMODORO_DEFAULT, T0);
+    expect(s.session).toBe(1);
+    // a pausa é da mesma rodada; a volta ao estudo, a próxima (em todas as abas, igual)
+    const p = advance(s, T0 + 25 * MIN);
+    expect(p.session).toBe(1);
+    expect(advance(p, T0 + 30 * MIN).session).toBe(2);
+    // pular para a pausa não muda; pular de volta ao estudo, sim
+    expect(skip(s, T0 + MIN).session).toBe(1);
+    expect(skip(skip(s, T0 + MIN), T0 + 2 * MIN).session).toBe(2);
+    // pausar e continuar, mudar o tempo, desligar: a mesma rodada
+    expect(resume(pause(s, T0 + MIN), T0 + 2 * MIN).session).toBe(1);
+    expect(setMinutes(s, 'estudo', 50, T0 + MIN).session).toBe(1);
+    expect(stop(s).session).toBe(1);
+    // ligar de novo é outra
+    expect(start(stop(s), T0 + 60 * MIN).session).toBe(2);
+    // fechado por muito tempo: o estudo em que para é uma rodada nova
+    expect(advance(s, T0 + 3 * 60 * MIN).session).toBe(2);
+    // o guardado estranho começa do zero
+    expect(readPomodoro({ ...s, session: -3 }).session).toBe(0);
+    expect(readPomodoro({ ...s, session: 1.5 }).session).toBe(0);
   });
 
   it('mudar o tempo no meio guarda o que já passou', () => {

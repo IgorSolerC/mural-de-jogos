@@ -1,0 +1,226 @@
+@use 'paper-kit' as kit;
+@use 'indice';
+
+/* As músicas do Pomodoro (ui/pomodoro-tracks.ts), na folha de súmula da página: uma linha de índice por
+   música, como as tags das configurações do mural, e o campo de pôr outra embaixo. */
+
+/* ===== As músicas: uma linha de índice por música, como as tags das configurações do mural ===== */
+:host {
+  display: block;
+  padding-bottom: 14px;
+  border-bottom: 1.5px dashed rgb(21 21 21 / 0.2);
+}
+
+.musicas-rotulo {
+  margin: 2px 0 0;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.faixas {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1.5px solid rgb(21 21 21 / 0.2);
+}
+
+.faixa {
+  display: flex;
+  align-items: center;
+  gap: 6px 10px;
+  min-height: 58px;
+  padding: 8px 0;
+  border-bottom: 1.5px dashed rgb(21 21 21 / 0.2);
+
+  &.vazia {
+    font-family: var(--f-hand);
+    font-size: 1.05rem;
+    color: var(--ink-2);
+  }
+}
+
+/* a caixinha do sorteio: a mesma das escolhas de várias do índice (ui/_indice.scss) */
+.faixa-marca {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-left: -10px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.07);
+  }
+
+  &:focus-visible {
+    outline: 2.5px solid var(--ink);
+    outline-offset: -2px;
+  }
+
+  .caixa {
+    @include indice.caixa;
+  }
+
+  &[aria-checked='true'] .caixa {
+    @include indice.caixa-marcada;
+  }
+
+  @media (pointer: coarse) {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+/* fora do sorteio: o nome fica a lápis, mas a linha continua ali para voltar */
+.faixa.fora .faixa-nome {
+  color: var(--ink-2);
+}
+
+.faixa-texto {
+  flex: 1;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* o nome inteiro em até duas linhas (os títulos do YouTube são longos, e no celular uma só cortava cedo) */
+.faixa-nome {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  font-family: var(--f-ui);
+  font-weight: 700;
+  font-size: 1rem;
+  line-height: 1.3;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.faixa-de {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 10px;
+  font-size: 0.86rem;
+  line-height: 1.35;
+  color: var(--ink-2);
+}
+
+/* a da vez: escrita à caneta azul, ao lado de onde ela vem */
+.faixa-vez {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--f-hand);
+  font-size: 1.02rem;
+  line-height: 1;
+  color: var(--caneta-azul);
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+/* a da vez ganha o traço de marca-texto embaixo do nome, como a seção aberta do índice */
+.da-vez .faixa-nome {
+  text-decoration: underline rgb(255 218 66 / 0.6);
+  text-decoration-thickness: 0.42em;
+  text-decoration-skip-ink: none;
+  text-underline-offset: -0.22em;
+}
+
+.faixa-acoes {
+  flex: none;
+  display: flex;
+  gap: 2px;
+  margin-right: -6px;
+}
+
+.olho {
+  @include kit.olho;
+}
+
+.apagar {
+  @include kit.olho-apagar;
+}
+
+/* renomeando: o campo no lugar do nome, e os dois botões ao lado */
+.faixa-renomear {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  min-width: 0;
+}
+
+/* o link da música: o campo de papel do site, com o botão de pôr ao lado */
+.por {
+  display: grid;
+  gap: 6px;
+  margin-top: 18px;
+
+  input.erro {
+    @include kit.campo-erro;
+  }
+}
+
+/* o campo de papel: o do link e o do nome (este na letra de marcador, como os nomes das configurações) */
+.por input,
+.faixa-renomear input {
+  flex: 1 1 220px;
+  @include kit.campo;
+}
+
+.faixa-renomear input {
+  min-height: 44px;
+  font-family: var(--f-marker);
+  font-size: 1.05rem;
+}
+
+.por-linha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+
+.por-botao {
+  flex: none;
+}
+
+.link-rotulo {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.link-dica {
+  margin: 8px 0 0;
+  font-family: var(--f-hand);
+  font-size: 1.02rem;
+  line-height: 1.3;
+  color: var(--caneta-azul);
+
+  &.erro {
+    color: var(--error-ink, #6b0000);
+  }
+}
+
+.botao-papel {
+  @include kit.botao-papel;
+}

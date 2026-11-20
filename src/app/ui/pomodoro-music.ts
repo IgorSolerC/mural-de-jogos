@@ -1,8 +1,9 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, input, output, untracked, viewChild } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { DEFAULT_MUSIC } from '../core/pomodoro';
+import { MusicSource, TrackPlace, isPlaylist, musicOf } from '../core/pomodoro-tracks';
+import { PomodoroTracks } from '../core/pomodoro-tracks-store';
 import { soundVolume } from '../core/volume';
-import { AudioSource, httpsUrl, parseAudio } from '../core/widgets';
 import { EmbedBridge, EmbedReport } from './embed-bridge';
 
 /** Quanto tempo a música leva para sumir na pausa e voltar no estudo. */
@@ -10,17 +11,36 @@ const FADE_MS = 1500;
 const FADE_STEP_MS = 100;
 /** Pediu para tocar e o tempo não andou nisso: o navegador segurou o som (falta um clique na página). */
 const BLOCKED_MS = 3500;
+/** De quanto em quanto tempo, tocando, a música guarda onde está (e sempre na troca de vídeo, ao parar e ao fechar a aba). */
+const PLACE_EVERY_MS = 60_000;
+/** Quantos vídeos seguidos de uma playlist podem não tocar antes de ela contar como fora do ar. */
+const MAX_SKIPS = 5;
 
 /** O link que toca: o da pessoa, se o site souber tocar, senão a música padrão. */
-export function musicSource(url: string): AudioSource {
-  return parseAudio(url) ?? (parseAudio(DEFAULT_MUSIC) as AudioSource);
+export function musicSource(url: string): MusicSource {
+  return musicOf(url) ?? (musicOf(DEFAULT_MUSIC) as MusicSource);
 }
 
-/** A lista do YouTube que o link traz (a rádio da música padrão), para o player continuar nela. */
-export function youtubeList(url: string): string | null {
-  const href = (parseAudio(url) ? httpsUrl(url) : null) ?? DEFAULT_MUSIC;
-  const list = new URL(href).searchParams.get('list');
-  return list && /^[\w-]{2,64}$/.test(list) ? list : null;
+/**
+ * O endereço do player do YouTube. Com uma lista, o player segue nela, um vídeo depois do outro, como um áudio só:
+ * a playlist de verdade volta ao primeiro vídeo quando acaba (`loop=1`), e a rádio de um vídeo (`RD…`) não acaba.
+ * Sem lista, o vídeo repete. Com `place`, começa de onde parou: o vídeo da playlist e o segundo.
+ */
+export function youtubeEmbed(s: Extract<MusicSource, { kind: 'youtube' }>, place: TrackPlace | null, origin: string): string {
+  const video = (s.list && place?.video) || s.id;
+  const at = place ? Math.floor(place.t) : s.start;
+  const p = new URLSearchParams({ enablejsapi: '1', autoplay: '0', controls: '0', disablekb: '1', playsinline: '1', rel: '0' });
+  if (s.list) {
+    p.set('list', s.list);
+    if (place?.video) p.set('index', String(place.index));
+    if (isPlaylist(s)) p.set('loop', '1');
+  } else if (s.id) {
+    p.set('loop', '1');
+    p.set('playlist', s.id);
+  }
+  p.set('origin', origin);
+  if (at > 0) p.set('start', String(at));
+  return `https://www.youtube-nocookie.com/embed/${video ?? 'videoseries'}?${p.toString()}`;
 }
 
 /**
@@ -28,6 +48,10 @@ export function youtubeList(url: string): string | null {
  * para um arquivo ou o player do YouTube/Vimeo num iframe, pela mesma conversa do widget Áudio
  * (ui/embed-bridge.ts). `playing` diz se é para tocar agora: na pausa a música some em 1,5 s e para; na volta,
  * continua de onde parou e sobe em 1,5 s. O volume é o do site (core/volume.ts).
+ *
+ * Uma playlist do YouTube toca inteira, um vídeo depois do outro, e volta ao começo no fim. Onde a música está
+ * (o vídeo da playlist e o segundo) fica guardado na música da lista (`trackId`, core/pomodoro-tracks-store.ts),
+ * para ela continuar dali quando tocar de novo, também depois de recarregar.
  *
  * Mora dentro do relógio do canto, que não sai da tela enquanto o Pomodoro está ligado: trocar de página não
  * corta a música.
@@ -39,9 +63,12 @@ export function youtubeList(url: string): string | null {
   template: `
     @if (source(); as s) {
       @if (s.kind === 'file') {
-        <audio #sound class="motor" [src]="s.url" loop preload="auto" (loadeddata)="fileReady()" (playing)="onReport({ state: 'playing' })" (error)="onReport({ error: true })"></audio>
+        <audio #sound class="motor" [src]="s.url" loop preload="auto" (loadeddata)="fileReady()" (playing)="onReport({ state: 'playing' })" (timeupdate)="fileTime()" (error)="onReport({ error: true })"></audio>
       } @else {
-        <iframe #frame class="motor" [src]="embed()" title="" tabindex="-1" allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin" (load)="bridge?.loaded()"></iframe>
+        <!-- um iframe novo para cada link: trocar o endereço do mesmo iframe deixava o player novo sem conversa -->
+        @for (e of [embed()]; track e) {
+          <iframe #frame class="motor" [src]="e" title="" tabindex="-1" allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin" (load)="bridge?.loaded()"></iframe>
+        }
       }
     }
   `,
@@ -62,6 +89,8 @@ export function youtubeList(url: string): string | null {
 })
 export class PomodoroMusic {
   readonly url = input('');
+  /** A música da lista que toca (null: a rádio de sempre, fora da lista): guarda onde ela parou. */
+  readonly trackId = input<string | null>(null);
   /** Tocar agora (estudo andando); senão, some e para. */
   readonly playing = input(false);
   /** O navegador segurou o som: falta um clique na página. */
@@ -70,6 +99,7 @@ export class PomodoroMusic {
   readonly failed = output<void>();
 
   private readonly sanitizer = inject(DomSanitizer);
+  private readonly tracks = inject(PomodoroTracks);
   private readonly frame = viewChild<ElementRef<HTMLIFrameElement>>('frame');
   private readonly sound = viewChild<ElementRef<HTMLAudioElement>>('sound');
 
@@ -79,15 +109,10 @@ export class PomodoroMusic {
   protected readonly embed = computed<SafeResourceUrl | null>(() => {
     const s = this.source();
     if (s.kind === 'file') return null;
-    let url: string;
-    if (s.kind === 'youtube') {
-      const list = youtubeList(this.url());
-      // com lista (a rádio da música padrão), o player segue nela; sem, o vídeo repete
-      const loop = list ? `&list=${encodeURIComponent(list)}` : `&loop=1&playlist=${s.id}`;
-      url = `https://www.youtube-nocookie.com/embed/${s.id}?enablejsapi=1&autoplay=0&controls=0&disablekb=1&playsinline=1&rel=0${loop}&origin=${encodeURIComponent(location.origin)}${s.start ? `&start=${s.start}` : ''}`;
-    } else {
-      url = `https://player.vimeo.com/video/${s.id}?autoplay=0&loop=1&dnt=1&controls=0&playsinline=1${s.hash ? `&h=${s.hash}` : ''}`;
-    }
+    const url =
+      s.kind === 'youtube'
+        ? youtubeEmbed(s, untracked(() => this.placeOf(this.trackId())), location.origin)
+        : `https://player.vimeo.com/video/${s.id}?autoplay=0&loop=1&dnt=1&controls=0&playsinline=1${s.hash ? `&h=${s.hash}` : ''}`;
     return this.sanitizer.bypassSecurityTrustResourceUrl(url);
   });
 
@@ -98,16 +123,51 @@ export class PomodoroMusic {
   /** Já tocou de verdade desde o último pedido. */
   private heard = false;
   private wantPlay = false;
+  /** Onde a música está agora, de que música da lista, e quando foi guardado por último. */
+  private here: TrackPlace = { video: null, index: 0, t: 0 };
+  private hereOf: string | null = null;
+  private toldAt = 0;
+  /** Andou desde o último aviso. */
+  private dirty = false;
+  /** Quantos vídeos a playlist tem (0: ainda não disse). */
+  private count = 0;
+  /** Vídeos da playlist seguidos que não tocaram (o fora do ar, o que não deixa tocar fora do YouTube). */
+  private skipped = 0;
+  /** O vídeo da playlist que se tentou por último, pulando os que não tocam (-1: nenhum). */
+  private tryAt = -1;
+  /** Pulou para outro vídeo e o player ficou calado (nem tocou, nem errou de novo): a playlist não toca. */
+  private skipTimer = 0;
 
   constructor() {
-    // um player novo para cada link (o de antes some com o iframe)
+    // trocou a música da lista com o mesmo link (o Desfazer de tirar a que tocava): guarda na de antes onde
+    // parou, e o mesmo player segue, agora por esta
+    effect(() => {
+      const id = this.trackId();
+      untracked(() => {
+        this.tell();
+        this.hereOf = id;
+      });
+    });
+
+    // um player novo para cada link (o de antes some com o iframe, e guarda onde parou)
     effect(() => {
       const s = this.source();
       untracked(() => {
+        this.tell();
+        const id = this.trackId();
+        this.hereOf = id;
         this.bridge?.destroy();
         this.bridge = s.kind === 'file' ? null : new EmbedBridge(s.kind, () => this.frame()?.nativeElement, (r) => this.onReport(r));
         this.level = 0;
         this.heard = false;
+        const p = this.placeOf(id);
+        this.here = { video: p?.video ?? null, index: p?.index ?? 0, t: p?.t ?? 0 };
+        this.toldAt = Date.now();
+        this.dirty = false;
+        this.count = 0;
+        this.skipped = 0;
+        this.tryAt = -1;
+        clearTimeout(this.skipTimer);
         if (this.wantPlay) queueMicrotask(() => this.play());
       });
     });
@@ -118,9 +178,18 @@ export class PomodoroMusic {
       untracked(() => this.steer(want, v));
     });
 
+    // a aba que fecha (ou some) guarda onde a música estava
+    const hide = () => this.tell();
+    window.addEventListener('pagehide', hide);
+    document.addEventListener('visibilitychange', hide);
+
     inject(DestroyRef).onDestroy(() => {
+      window.removeEventListener('pagehide', hide);
+      document.removeEventListener('visibilitychange', hide);
+      this.tell();
       clearInterval(this.fader);
       clearTimeout(this.waitTimer);
+      clearTimeout(this.skipTimer);
       this.bridge?.destroy();
       this.sound()?.nativeElement.pause();
     });
@@ -132,12 +201,20 @@ export class PomodoroMusic {
   }
 
   /**
-   * O arquivo carregou: se era para estar tocando e o pedido chegou antes de o `<audio>` existir (o primeiro,
-   * ou o de um link trocado), toca agora.
+   * O arquivo carregou: volta para onde parou (uma vez só) e, se era para estar tocando e o pedido chegou antes de
+   * o `<audio>` existir (o primeiro, ou o de um link trocado), toca agora.
    */
   protected fileReady(): void {
     const audio = this.sound()?.nativeElement;
-    if (audio && this.wantPlay && audio.paused) this.play();
+    if (!audio) return;
+    if (this.here.t > 0 && audio.currentTime < 1 && (!audio.duration || this.here.t < audio.duration - 1)) audio.currentTime = this.here.t;
+    if (this.wantPlay && audio.paused) this.play();
+  }
+
+  /** O tempo do arquivo andou. */
+  protected fileTime(): void {
+    const audio = this.sound()?.nativeElement;
+    if (audio && !audio.paused) this.track({ time: audio.currentTime });
   }
 
   private steer(want: boolean, volume: number): void {
@@ -145,7 +222,11 @@ export class PomodoroMusic {
     this.wantPlay = want;
     if (want && !was) this.play();
     else if (want) this.fadeTo(volume);
-    else if (was) this.fadeTo(0, () => this.send({ do: 'pause' }));
+    else if (was)
+      this.fadeTo(0, () => {
+        this.send({ do: 'pause' });
+        this.tell();
+      });
   }
 
   private play(): void {
@@ -159,13 +240,48 @@ export class PomodoroMusic {
     }, BLOCKED_MS);
   }
 
-  private send(c: { do: 'play' } | { do: 'pause' } | { do: 'volume'; v: number } | { do: 'seek'; t: number }): void {
+  private placeOf(id: string | null): TrackPlace | null {
+    return id ? (this.tracks.tracks().find((t) => t.id === id)?.place ?? null) : null;
+  }
+
+  /** Guarda onde a música está, se andou desde a última vez. */
+  private tell(): void {
+    this.toldAt = Date.now();
+    if (!this.dirty) return;
+    this.dirty = false;
+    if (this.hereOf) this.tracks.setPlace(this.hereOf, { ...this.here });
+  }
+
+  /** O que o player conta de onde está: o vídeo da playlist (a troca guarda na hora) e o segundo (de minuto em minuto). */
+  private track(r: EmbedReport): void {
+    const s = this.source();
+    if (s.kind === 'vimeo') return;
+    const list = s.kind === 'youtube' && !!s.list;
+    // só tocando: o que o player conta ao abrir (antes do play) não apaga onde ela tinha parado
+    const changed = list && this.heard && r.video !== undefined && r.video !== this.here.video;
+    if (changed) {
+      this.here = { video: r.video!, index: r.index ?? this.here.index, t: 0 };
+      this.dirty = true;
+    } else if (list && this.heard && r.index !== undefined && r.index !== this.here.index) {
+      this.here = { ...this.here, index: r.index };
+      this.dirty = true;
+    }
+    // o segundo só conta tocando (o eco do começo, antes do play, não apaga onde parou)
+    if (r.time !== undefined && r.time > 0 && this.heard && Math.abs(r.time - this.here.t) >= 1) {
+      this.here = { ...this.here, t: r.time };
+      this.dirty = true;
+    }
+    if (r.count !== undefined) this.count = r.count;
+    if (changed || Date.now() - this.toldAt >= PLACE_EVERY_MS) this.tell();
+  }
+
+  private send(c: { do: 'play' } | { do: 'pause' } | { do: 'volume'; v: number } | { do: 'seek'; t: number } | { do: 'at'; i: number }): void {
     const audio = this.sound()?.nativeElement;
     if (audio) {
       if (c.do === 'play') audio.play().catch(() => this.wantPlay && this.blocked.emit(true));
       else if (c.do === 'pause') audio.pause();
       else if (c.do === 'volume') audio.volume = Math.min(1, Math.max(0, c.v));
-      else audio.currentTime = c.t;
+      else if (c.do === 'seek') audio.currentTime = c.t;
       return;
     }
     this.bridge?.send(c);
@@ -197,6 +313,17 @@ export class PomodoroMusic {
 
   protected onReport(r: EmbedReport): void {
     if (r.error) {
+      // um vídeo da playlist que não toca não derruba a playlist: pula para o próximo (e desiste depois de vários)
+      clearTimeout(this.skipTimer);
+      if (isPlaylist(this.source()) && this.skipped < MAX_SKIPS) {
+        this.skipped++;
+        // o seguinte ao último tentado (o índice que o player conta anda sozinho e pularia vídeos)
+        const next = (this.tryAt >= 0 ? this.tryAt : this.here.index) + 1;
+        this.tryAt = this.count ? next % this.count : next;
+        this.send({ do: 'at', i: this.tryAt });
+        this.skipTimer = window.setTimeout(() => this.failed.emit(), BLOCKED_MS * 2);
+        return;
+      }
       this.failed.emit();
       return;
     }
@@ -206,14 +333,24 @@ export class PomodoroMusic {
     }
     if (r.state === 'playing') {
       this.heard = true;
+      this.skipped = 0;
+      this.tryAt = -1;
+      clearTimeout(this.skipTimer);
       this.blocked.emit(false);
       // tocou com a fase já na pausa (o player demorou): para de novo
       if (!this.wantPlay) this.send({ do: 'pause' });
     }
-    // sem lista e sem o loop do player (Vimeo antigo): volta ao começo
+    this.track(r);
     if (r.state === 'ended' && this.wantPlay) {
-      this.send({ do: 'seek', t: 0 });
-      this.send({ do: 'play' });
+      // a playlist acabou (no último vídeo) e o loop do player não voltou: volta ao primeiro; entre um vídeo e
+      // outro, o player segue sozinho, e a rádio (RD…) também. O resto volta ao começo (Vimeo antigo)
+      const s = this.source();
+      if (isPlaylist(s)) {
+        if (this.count && this.here.index >= this.count - 1) this.send({ do: 'at', i: 0 });
+      } else if (!(s.kind === 'youtube' && s.list)) {
+        this.send({ do: 'seek', t: 0 });
+        this.send({ do: 'play' });
+      }
     }
   }
 }

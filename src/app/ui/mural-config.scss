@@ -333,36 +333,12 @@ fieldset.linha {
 
 /* o olho: esconde a categoria no "Mais". Fechado, fica em tinta cheia (é o que ela tem de diferente) */
 .olho {
-  flex: none;
-  align-self: center;
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
   margin-right: -6px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: none;
-  color: var(--ink-2);
-  cursor: pointer;
-  transition:
-    background-color var(--t-ui) var(--ease-ui),
-    color var(--t-ui) var(--ease-ui);
-
-  &:hover {
-    background: rgb(21 21 21 / 0.07);
-    color: var(--ink);
-  }
+  @include kit.olho;
 
   &[aria-pressed='true'] {
     color: var(--ink);
     background: rgb(255 218 66 / 0.6);
-  }
-
-  &:focus-visible {
-    outline: 3px solid var(--ink);
-    outline-offset: -3px;
   }
 }
 
@@ -684,9 +660,8 @@ fieldset.linha {
   }
 }
 
-.apagar-tag:hover {
-  color: var(--red-deep);
-  background: #fbe9e6;
+.apagar-tag {
+  @include kit.olho-apagar;
 }
 
 /* renomeando: o campo no lugar da etiqueta, e os dois botões ao lado */

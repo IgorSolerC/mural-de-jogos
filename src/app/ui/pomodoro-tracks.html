@@ -1,0 +1,80 @@
+<h3 class="musicas-rotulo" id="pomodoro-musicas">Suas músicas</h3>
+<ul class="faixas" aria-labelledby="pomodoro-musicas">
+  @for (t of tracks.tracks(); track t.id) {
+    @let vez = t.id === turnTrack()?.id;
+    <li class="faixa" [class.da-vez]="vez" [class.fora]="!t.on" [class.renomeando]="renaming() === t.id" [attr.data-faixa]="t.id">
+      @if (renaming() === t.id) {
+        <form class="faixa-renomear" (submit)="rename($event, t.id, nome.value)">
+          <input #nome type="text" autocomplete="off" spellcheck="false" [attr.aria-label]="'Novo nome de ' + name(t)" [attr.data-faixa-campo]="t.id" [maxLength]="nameMax" [value]="renameStart" [placeholder]="t.title || 'O nome da música'" (keydown.escape)="$event.preventDefault(); stopRename(t.id)" />
+          <button type="submit" class="botao-papel">
+            <lucide-icon [img]="ICON.pronto" [size]="17" aria-hidden="true" />
+            Renomear
+          </button>
+          <button type="button" class="botao-papel quieto" (click)="stopRename(t.id)">Cancelar</button>
+        </form>
+      } @else {
+        <button type="button" class="faixa-marca" role="checkbox" [attr.aria-checked]="t.on" [attr.aria-label]="'No sorteio: ' + name(t)" [title]="t.on ? 'No sorteio (tocar para tirar)' : 'Fora do sorteio (tocar para pôr)'" (click)="toggleOn(t.id, !t.on)">
+          <span class="caixa" aria-hidden="true">
+            @if (t.on) {
+              <lucide-icon [img]="ICON.pronto" [size]="14" />
+            }
+          </span>
+        </button>
+        <span class="faixa-texto">
+          <span class="faixa-nome">{{ name(t) }}</span>
+          <span class="faixa-de">
+            {{ origin(t) }}
+            @if (vez) {
+              <span class="faixa-vez"><lucide-icon [img]="ICON.musica" [size]="14" aria-hidden="true" />{{ playingNow() ? 'tocando agora' : inStudy() ? 'a deste estudo' : 'a do próximo estudo' }}</span>
+            }
+          </span>
+        </span>
+        <span class="faixa-acoes">
+          @if (!vez) {
+            <button type="button" class="olho" [attr.aria-label]="(inStudy() ? 'Tocar agora: ' : 'Tocar no próximo estudo: ') + name(t)" [title]="inStudy() ? 'Tocar agora' : 'Tocar no próximo estudo'" (click)="choose(t.id)">
+              <lucide-icon [img]="ICON.estudar" [size]="18" aria-hidden="true" />
+            </button>
+          }
+          <button type="button" class="olho" [attr.data-faixa-lapis]="t.id" [attr.aria-label]="'Renomear ' + name(t)" title="Renomear" (click)="startRename(t.id)">
+            <lucide-icon [img]="ICON.editar" [size]="18" aria-hidden="true" />
+          </button>
+          <button type="button" class="olho apagar" [attr.aria-label]="'Tirar da lista: ' + name(t)" title="Tirar da lista" (click)="remove(t.id)">
+            <lucide-icon [img]="ICON.apagar" [size]="18" aria-hidden="true" />
+          </button>
+        </span>
+      }
+    </li>
+  } @empty {
+    <li class="faixa vazia">Nenhuma salva: toca a rádio lofi de sempre.</li>
+  }
+</ul>
+
+<form class="por" (submit)="addTrack($event)">
+  <label class="link-rotulo" for="pomodoro-link">Pôr uma música</label>
+  <span class="por-linha">
+      <input
+        id="pomodoro-link"
+        type="url"
+        inputmode="url"
+        autocomplete="off"
+        spellcheck="false"
+        placeholder="Vídeo ou playlist do YouTube, ou um MP3"
+        [class.erro]="!!addError()"
+        [attr.aria-invalid]="!!addError()"
+        aria-describedby="pomodoro-link-dica"
+        [value]="draft()"
+        (input)="typeDraft($any($event.target).value)"
+      />
+      <button type="submit" class="botao-papel por-botao">
+        <lucide-icon [img]="ICON.adicionar" [size]="18" aria-hidden="true" />
+        Pôr na lista
+      </button>
+  </span>
+</form>
+<p class="link-dica" id="pomodoro-link-dica" [class.erro]="!!addError()" aria-live="polite">
+  @if (addError(); as e) {
+    {{ e }}
+  } @else {
+    {{ musicHint() }}
+  }
+</p>

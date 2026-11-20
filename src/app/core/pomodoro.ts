@@ -60,9 +60,14 @@ export interface PomodoroSave {
   corner: PomodoroCorner;
   /** Tocar música no estudo. */
   music: boolean;
-  /** O link da música ('' é a padrão). */
+  /**
+   * O link da música única de antes da lista (BUILD 983 e antes). Só é lido, para virar o primeiro item da
+   * lista (core/pomodoro-tracks.ts), e fica guardado como estava, para um site mais velho ainda tocá-lo.
+   */
   musicUrl: string;
   on: boolean;
+  /** A rodada de estudo: soma 1 a cada estudo que começa (a música de cada uma é sorteada uma vez). */
+  session: number;
   phase: PomodoroPhase;
   /** Quando a fase começou (ms), descontadas as pausas. */
   startedAt: number;
@@ -83,6 +88,7 @@ export const POMODORO_DEFAULT: PomodoroSave = {
   music: true,
   musicUrl: '',
   on: false,
+  session: 0,
   phase: 'estudo',
   startedAt: 0,
   pausedAt: null,
@@ -115,6 +121,7 @@ export function readPomodoro(raw: unknown): PomodoroSave {
     music: typeof r.music === 'boolean' ? r.music : d.music,
     musicUrl: typeof r.musicUrl === 'string' ? r.musicUrl.trim().slice(0, 2000) : '',
     on,
+    session: typeof r.session === 'number' && Number.isInteger(r.session) && r.session > 0 ? r.session : 0,
     phase: r.phase === 'pausa' ? 'pausa' : 'estudo',
     startedAt: on ? (r.startedAt as number) : 0,
     pausedAt: on && isTime(r.pausedAt) ? r.pausedAt : null,
@@ -159,7 +166,7 @@ function countDone(s: PomodoroSave, at: number): Pick<PomodoroSave, 'day' | 'don
 
 /** Liga: começa um estudo agora. */
 export function start(s: PomodoroSave, now: number): PomodoroSave {
-  return { ...s, on: true, phase: 'estudo', startedAt: now, pausedAt: null };
+  return { ...s, on: true, session: nextSession(s), phase: 'estudo', startedAt: now, pausedAt: null };
 }
 
 /** Desliga: o turno some, os ajustes e os tomatinhos ficam. */
@@ -178,10 +185,16 @@ export function resume(s: PomodoroSave, now: number): PomodoroSave {
 
 const other = (p: PomodoroPhase): PomodoroPhase => (p === 'estudo' ? 'pausa' : 'estudo');
 
+/** A rodada do próximo estudo (o contador dá a volta bem antes de perder a conta). */
+export function nextSession(s: PomodoroSave): number {
+  return s.session >= 1e9 ? 1 : s.session + 1;
+}
+
 /** Pula a fase: a próxima começa agora (pular o estudo não conta tomatinho). Pausado, continua pausado. */
 export function skip(s: PomodoroSave, now: number): PomodoroSave {
   if (!s.on) return s;
-  return { ...s, phase: other(s.phase), startedAt: now, pausedAt: s.pausedAt === null ? null : now };
+  const phase = other(s.phase);
+  return { ...s, phase, session: phase === 'estudo' ? nextSession(s) : s.session, startedAt: now, pausedAt: s.pausedAt === null ? null : now };
 }
 
 /**
@@ -195,10 +208,11 @@ export function advance(s: PomodoroSave, now: number): PomodoroSave {
   const end = phaseEnd(s);
   if (now < end) return s;
   const counted = s.phase === 'estudo' ? countDone(s, end) : {};
-  const next: PomodoroSave = { ...s, ...counted, phase: other(s.phase), startedAt: end };
+  const phase = other(s.phase);
+  const next: PomodoroSave = { ...s, ...counted, phase, session: phase === 'estudo' ? nextSession(s) : s.session, startedAt: end };
   if (now < phaseEnd(next)) return next;
   // ficou fechado: a pausa que viria também passou (ou o estudo seguinte); para no começo de um estudo
-  return { ...next, phase: 'estudo', startedAt: now, pausedAt: now };
+  return { ...next, phase: 'estudo', session: next.phase === 'estudo' ? next.session : nextSession(next), startedAt: now, pausedAt: now };
 }
 
 /**

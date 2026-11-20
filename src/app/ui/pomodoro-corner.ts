@@ -1,12 +1,14 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, linkedSignal, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map } from 'rxjs';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { Clock } from '../core/clock';
 import { POMODORO_PATH, pathOf } from '../core/areas';
 import { chime, wakeChime } from '../core/chime';
-import { PomodoroCorner as Corner, phaseMs, remainingMs, spokenTime } from '../core/pomodoro';
+import { DEFAULT_MUSIC, PomodoroCorner as Corner, phaseMs, remainingMs, spokenTime } from '../core/pomodoro';
 import { PomodoroStore } from '../core/pomodoro-store';
+import { PomodoroTracks } from '../core/pomodoro-tracks-store';
+import { PomodoroTrack, trackName } from '../core/pomodoro-tracks';
 import { ICON, IconModule } from './icons';
 import { PomodoroDial } from './pomodoro-dial';
 import { PomodoroMusic } from './pomodoro-music';
@@ -74,12 +76,13 @@ const DRAG_PX = 6;
     </div>
 
     @if (owner() && s.music) {
-      <app-pomodoro-music #music [url]="s.musicUrl" [playing]="musicPlaying()" (blocked)="onBlocked($event)" (failed)="onFailed()" />
+      <app-pomodoro-music #music [url]="musicUrl()" [trackId]="musicTrack()?.id ?? null" [playing]="musicPlaying()" (blocked)="onBlocked($event)" (failed)="onFailed()" />
     }
   `,
 })
 export class PomodoroCorner {
   protected readonly store = inject(PomodoroStore);
+  protected readonly tracks = inject(PomodoroTracks);
   private readonly clock = inject(Clock);
   private readonly toasts = inject(Toasts);
   private readonly router = inject(Router);
@@ -113,6 +116,19 @@ export class PomodoroCorner {
     const s = this.store.save();
     return s.on && s.music && s.phase === 'estudo' && s.pausedAt === null;
   });
+
+  /**
+   * A música que toca: a do estudo de agora (sorteada entre as marcadas, ou escolhida à mão); sem nenhuma marcada,
+   * a rádio de sempre. Na pausa fica a do estudo que acabou (o player calado não é trocado à toa): a do próximo
+   * entra quando ele começa.
+   */
+  protected readonly musicTrack = linkedSignal<{ estudo: boolean; t: PomodoroTrack | null }, PomodoroTrack | null>({
+    source: () => ({ estudo: this.store.save().phase === 'estudo', t: this.tracks.current() }),
+    computation: (src, prev) => (src.estudo || !prev ? src.t : (this.tracks.tracks().find((t) => t.id === prev.value?.id) ?? prev.value)),
+  });
+  protected readonly musicUrl = computed(() => this.musicTrack()?.url ?? DEFAULT_MUSIC);
+  /** As músicas que não tocaram nesta aba (a que entra no lugar de uma que não tocou não é uma delas). */
+  private readonly broken = new Set<string>();
 
   /** No toque (sem mouse), o primeiro toque no relógio mostra os botões; o segundo abre a página. */
   protected readonly opened = signal(false);
@@ -160,6 +176,21 @@ export class PomodoroCorner {
     // o navegador só deixa tocar som depois de um clique na página (a recarregada no meio do estudo)
     const wake = () => wakeChime();
     document.addEventListener('pointerdown', wake, { once: true, capture: true });
+
+    // o estudo começou, na aba do som: a música dele fica gravada (desmarcar no meio não troca o que toca)
+    // (e de novo se ela sair da lista no meio dele: a que entra no lugar fica gravada também). Cada estudo novo
+    // dá outra chance às que não tocaram nesta aba
+    let settled = -1;
+    effect(() => {
+      const s = this.store.save();
+      this.tracks.save();
+      if (!this.owner() || !s.on || !s.music || s.phase !== 'estudo') return;
+      untracked(() => {
+        if (s.session !== settled) this.broken.clear();
+        settled = s.session;
+        this.tracks.settle(s.session);
+      });
+    });
 
     this.takeSoundLock();
     destroy.onDestroy(() => {
@@ -233,8 +264,15 @@ export class PomodoroCorner {
 
   /** O X: desliga o Pomodoro (o relógio sai junto); o Desfazer volta como estava. */
   protected remove(): void {
+    const turn = this.tracks.save().turn;
     const before = this.store.stop();
-    this.toasts.show('Pomodoro desligado.', { label: 'Desfazer', run: () => this.store.restore(before) });
+    this.toasts.show('Pomodoro desligado.', {
+      label: 'Desfazer',
+      run: () => {
+        this.store.restore(before);
+        this.tracks.restoreTurn(turn);
+      },
+    });
   }
 
   protected retryMusic(): void {
@@ -253,7 +291,19 @@ export class PomodoroCorner {
   private readonly retryOnClick = () => setTimeout(() => this.music()?.retry());
 
   protected onFailed(): void {
-    this.toasts.show('A música do Pomodoro não tocou. Confira o link na página do Pomodoro.', { label: 'Abrir', run: () => void this.router.navigateByUrl(this.path) });
+    const t = this.musicTrack();
+    const what = t ? `"${trackName(t)}" não tocou` : 'A música do Pomodoro não tocou';
+    // outra marcada que ainda não falhou entra no lugar, neste estudo
+    if (t) {
+      this.broken.add(t.id);
+      const other = this.tracks.tracks().find((x) => x.on && !this.broken.has(x.id));
+      if (other && this.store.save().phase === 'estudo') {
+        this.tracks.choose(other.id);
+        this.toasts.show(`${what}: tocando "${trackName(other)}". Confira o link na página do Pomodoro.`, { label: 'Abrir', run: () => void this.router.navigateByUrl(this.path) });
+        return;
+      }
+    }
+    this.toasts.show(`${what}. Confira o link na página do Pomodoro.`, { label: 'Abrir', run: () => void this.router.navigateByUrl(this.path) });
   }
 
   // ===== arrastar para outro canto =====

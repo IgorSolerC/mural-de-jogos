@@ -84,30 +84,7 @@
     </div>
 
     @if (s().music) {
-      <label class="link" for="pomodoro-link">
-        <span class="link-rotulo">Link do YouTube ou de um MP3</span>
-        <input
-          id="pomodoro-link"
-          type="url"
-          inputmode="url"
-          autocomplete="off"
-          spellcheck="false"
-          placeholder="Sem link: a rádio lofi de sempre"
-          [class.erro]="urlError()"
-          [attr.aria-invalid]="urlError()"
-          aria-describedby="pomodoro-link-dica"
-          [value]="draftUrl() ?? s().musicUrl"
-          (input)="typeUrl($any($event.target).value)"
-          (change)="commitUrl($any($event.target).value)"
-        />
-      </label>
-      <p class="link-dica" id="pomodoro-link-dica" [class.erro]="urlError()" aria-live="polite">
-        @if (urlError()) {
-          Esse link não é de um som que dê para tocar aqui: use um vídeo do YouTube ou um arquivo de áudio (.mp3, .ogg, .wav…). Enquanto isso, toca a de sempre.
-        } @else {
-          {{ musicHint() }}
-        }
-      </p>
+      <app-pomodoro-tracks />
     }
 
     <div class="linha">

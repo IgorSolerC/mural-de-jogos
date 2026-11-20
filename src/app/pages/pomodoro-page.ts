@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { Clock } from '../core/clock';
 import { chime, wakeChime } from '../core/chime';
 import {
@@ -14,10 +14,11 @@ import {
   remainingMs,
 } from '../core/pomodoro';
 import { PomodoroStore } from '../core/pomodoro-store';
-import { parseAudio } from '../core/widgets';
+import { PomodoroTracks } from '../core/pomodoro-tracks-store';
 import { ICON, IconModule } from '../ui/icons';
 import { MinutesRuler } from '../ui/minutes-ruler';
 import { PomodoroDial } from '../ui/pomodoro-dial';
+import { PomodoroTrackList } from '../ui/pomodoro-tracks';
 import { Toasts } from '../ui/toast';
 
 /** O tempo das skins da cartela com o Pomodoro desligado: um que mostra os quatro algarismos diferentes. */
@@ -40,13 +41,14 @@ function hourOf(ms: number): string {
  */
 @Component({
   selector: 'app-pomodoro-page',
-  imports: [IconModule, MinutesRuler, PomodoroDial],
+  imports: [IconModule, MinutesRuler, PomodoroDial, PomodoroTrackList],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './pomodoro-page.html',
   styleUrl: './pomodoro-page.scss',
 })
 export class PomodoroPage {
   protected readonly store = inject(PomodoroStore);
+  private readonly tracks = inject(PomodoroTracks);
   private readonly clock = inject(Clock);
   private readonly toasts = inject(Toasts);
 
@@ -87,23 +89,6 @@ export class PomodoroPage {
     return s.phase === 'estudo' ? `${left} de estudo. A pausa começa às ${at}.` : `${left} de pausa. O estudo volta às ${at}.`;
   });
 
-  /** O link da música digitado e ainda não aceito (o que o site não sabe tocar). */
-  protected readonly draftUrl = signal<string | null>(null);
-  /** Ainda no campo, com o link pela metade: o erro espera a pessoa sair dele. */
-  private readonly typing = signal(false);
-  protected readonly urlError = computed(() => {
-    const d = this.draftUrl();
-    return !this.typing() && d !== null && d.trim() !== '' && !parseAudio(d);
-  });
-  protected readonly musicHint = computed(() => {
-    const url = this.s().musicUrl;
-    const src = url ? parseAudio(url) : null;
-    if (!src) return 'Sem link, toca a rádio lofi de sempre, do YouTube.';
-    if (src.kind === 'youtube') return 'Toca o vídeo do link (e a lista dele, se tiver).';
-    if (src.kind === 'vimeo') return 'Toca o vídeo do Vimeo do link, em volta.';
-    return 'Toca o arquivo do link, em volta.';
-  });
-
   protected startFocus(): void {
     wakeChime();
     this.store.start();
@@ -120,8 +105,15 @@ export class PomodoroPage {
   }
 
   protected turnOff(): void {
+    const turn = this.tracks.save().turn;
     const before = this.store.stop();
-    this.toasts.show('Pomodoro desligado.', { label: 'Desfazer', run: () => this.store.restore(before) });
+    this.toasts.show('Pomodoro desligado.', {
+      label: 'Desfazer',
+      run: () => {
+        this.store.restore(before);
+        this.tracks.restoreTurn(turn);
+      },
+    });
   }
 
   protected setMinutes(which: PomodoroPhase, minutes: number): void {
@@ -146,30 +138,6 @@ export class PomodoroPage {
 
   protected toggleMusic(): void {
     this.store.setMusic(!this.s().music);
-  }
-
-  /** Digitando: o link que o site sabe tocar (ou o campo vazio) já vale; o erro só aparece ao sair do campo. */
-  protected typeUrl(value: string): void {
-    const v = value.trim();
-    if (!v || parseAudio(v)) {
-      this.draftUrl.set(null);
-      this.store.setMusicUrl(v);
-      return;
-    }
-    this.draftUrl.set(value);
-    this.typing.set(true);
-  }
-
-  /** O link sai do campo: vale se o site souber tocar (vazio é a música padrão). */
-  protected commitUrl(value: string): void {
-    this.typing.set(false);
-    const v = value.trim();
-    if (v && !parseAudio(v)) {
-      this.draftUrl.set(v);
-      return;
-    }
-    this.draftUrl.set(null);
-    this.store.setMusicUrl(v);
   }
 
   /** O sininho de amostra, para ouvir antes (e acordar o som da página). */
