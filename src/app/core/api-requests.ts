@@ -292,7 +292,10 @@ export function applyNoteRequest(
     const stamped = sanitizeReview({ ...next, updatedAt: now }, BUILD) ?? { ...next, updatedAt: now };
     store.update(stamped, before);
     const after = store.get(before.id) ?? stamped;
-    return { estado: 'aplicado' as const, resultado: { nota: ctx.v1(after), ...(aviso ? { aviso } : {}) }, antes, carimbo: after.updatedAt, desde: before.updatedAt };
+    // (numa de grupo compartilhado, o que é só de cada um, como fixar, não muda a versão: sem carimbo, que
+    // apontaria a versão para ela mesma e faria o pedido seguinte da rodada parecer um conflito)
+    const stamp = after.updatedAt === before.updatedAt ? {} : { carimbo: after.updatedAt, desde: before.updatedAt };
+    return { estado: 'aplicado' as const, resultado: { nota: ctx.v1(after), ...(aviso ? { aviso } : {}) }, antes, ...stamp };
   };
   /** Nada a mudar (já finalizada, já fixada): aplicado, sem carimbo nem antes. */
   const same = () => ({ estado: 'aplicado' as const, resultado: { nota: ctx.v1(before) }, antes: null });

@@ -32,6 +32,9 @@ import { parseGroup } from './shared-groups';
 import { StudyStore } from './study-store';
 import { KanbanDeps } from './kanban-deps';
 import { GroupFolders } from './group-folders';
+import { ApiReach } from './api-reach';
+import { applyNoteRequest } from './api-requests';
+import type { NotaV1 } from '../../../contrato/api-v1/notas';
 
 /**
  * As anotações compartilhadas de ponta a ponta, com pessoas diferentes (cada uma com o seu aparelho) e
@@ -377,6 +380,7 @@ interface Person {
   toasts: Toasts;
   settings: Settings;
   bulk(): NoteBulk;
+  reach: ApiReach;
   data: MemoryData;
   edit(id: string, change: Partial<Review>): void;
   text(id: string): string | undefined;
@@ -433,6 +437,7 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
         KanbanDeps,
         SharedGroupsStore,
         GroupFolders,
+        ApiReach,
         ProfileStore,
         Mural,
         WallView,
@@ -467,6 +472,7 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
       toasts: injector.get(Toasts),
       settings: injector.get(Settings),
       bulk: () => injector.get(NoteBulk),
+      reach: injector.get(ApiReach),
       data,
       edit: (id, change) => {
         later();
@@ -856,6 +862,130 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
       expect(copies(bia, 'fica no grupo')).toEqual([]);
       expect(copies(ana, 'fica no grupo')).toEqual(['nota-b']);
       expect(cloud.notes.size).toBe(1);
+    });
+    describe('a API das AIs nas anotações do grupo (todas as que a dona ou a gestora editam no site)', () => {
+      /** Um pedido das Anotações aplicado no aparelho de `p`, com o alcance dele (como `ApiRequests.applyOpen`). */
+      const api = (p: Person, op: string, alvo: string, dados: unknown, stamps: Map<string, string | null> = new Map()) => {
+        const out = applyNoteRequest(p.store, { op, alvo, dados }, {
+          now: new Date().toISOString(),
+          today: '2026-10-16',
+          stamps,
+          v1: (r) => ({ id: r.id, titulo: r.game.name, texto: r.text, versao: r.updatedAt }) as unknown as NotaV1,
+          hidden: p.reach.hidden(),
+          closes: (g) => p.reach.closes(g),
+        });
+        if (out.carimbo) stamps.set(`${alvo}@${out.carimbo}`, out.desde ?? null);
+        return out as typeof out & { resultado: { nota?: { texto: string; versao: string }; erro?: string } };
+      };
+
+      it('a dona alcança as que a editora escreveu no grupo dela (também a privada), e o pedido muda para todos, devolvendo a nota já mudada', async () => {
+        cloud.group('gJapones0001', 'ana', { bia: 'editor' });
+        const ana = person('ana');
+        const bia = person('bia');
+        await rounds([[ana, 'ana'], [bia, 'bia']], 1);
+        bia.store.add(note('nota-b', 'da Bia', { category: 'Japones', ...now() }));
+        bia.store.add(note('nota-p', 'privada da Bia', { category: 'Japones', private: true, ...now() }));
+        TestBed.tick();
+        await rounds([[bia, 'bia'], [ana, 'ana']]);
+        expect([...ana.reach.managed()].sort()).toEqual(['nota-b', 'nota-p']);
+        later();
+        const out = api(ana, 'nota.acrescentar', 'nota-b', { texto: 'da Ana' });
+        expect(out.estado).toBe('aplicado');
+        // o resultado é a nota de agora (antes, a de antes do pedido: a AI achava que nada tinha mudado)
+        expect(out.resultado.nota!.texto).toBe('da Bia\nda Ana');
+        expect(out.carimbo).toBe(ana.store.get('nota-b')!.updatedAt);
+        expect(out.carimbo).not.toBe(out.desde!);
+        later();
+        expect(api(ana, 'nota.acrescentar', 'nota-p', { texto: 'vista pela Ana' }).estado).toBe('aplicado');
+        TestBed.tick();
+        await rounds([[ana, 'ana'], [bia, 'bia']]);
+        expect(bia.text('nota-b')).toBe('da Bia\nda Ana');
+        expect(bia.text('nota-p')).toBe('privada da Bia\nvista pela Ana');
+        expect(cloud.notes.size).toBe(2);
+        expect(copies(ana, 'da Bia\nda Ana')).toEqual(['nota-b']);
+        expect(copies(bia, 'da Bia\nda Ana')).toEqual(['nota-b']);
+      });
+
+      it('a gestora alcança as que a dona e a editora escreveram (também a privada); dois pedidos seguidos na mesma rodada ficam os dois, sem conflito', async () => {
+        cloud.group('gEstudos0001', 'cris', { ana: 'gestor', bia: 'editor' });
+        const ana = person('ana');
+        const bia = person('bia');
+        const cris = person('cris');
+        await rounds([[ana, 'ana'], [bia, 'bia'], [cris, 'cris']], 1);
+        cris.store.add(note('nota-c', 'da Cris', { category: 'Estudos', private: true, ...now() }));
+        bia.store.add(note('nota-b', 'da Bia', { category: 'Estudos', ...now() }));
+        TestBed.tick();
+        await rounds([[cris, 'cris'], [bia, 'bia'], [ana, 'ana']]);
+        expect([...ana.reach.managed()].sort()).toEqual(['nota-b', 'nota-c']);
+        expect(ana.reach.closes('Estudos')).toBeFalse();
+        const leu = ana.store.get('nota-c')!.updatedAt;
+        const stamps = new Map<string, string | null>();
+        later();
+        expect(api(ana, 'nota.acrescentar', 'nota-c', { texto: '- [ ] revisar' }, stamps).estado).toBe('aplicado');
+        later();
+        // o segundo parte do primeiro (a mesma rodada, antes de a nuvem responder), e a versão que a AI leu ainda vale
+        const out = api(ana, 'nota.editar', 'nota-c', { versao: leu, titulo: 'Revisão' }, stamps);
+        expect(out.estado).toBe('aplicado');
+        expect(out.resultado.nota!.texto).toBe('da Cris\n- [ ] revisar');
+        TestBed.tick();
+        await rounds([[ana, 'ana'], [cris, 'cris'], [bia, 'bia']]);
+        expect(cris.text('nota-c')).toBe('da Cris\n- [ ] revisar');
+        expect(cris.store.get('nota-c')!.game.name).toBe('Revisão');
+        expect(cris.store.get('nota-c')!.private).toBeTrue();
+        later();
+        expect(api(ana, 'nota.acrescentar', 'nota-b', { texto: 'da gestora' }).estado).toBe('aplicado');
+        TestBed.tick();
+        await rounds([[ana, 'ana'], [bia, 'bia']]);
+        expect(bia.text('nota-b')).toBe('da Bia\nda gestora');
+      });
+
+      it('fixar a do grupo é só da dona (a versão não muda, sem carimbo): o editar seguinte da rodada, com a versão lida, não vira conflito', async () => {
+        cloud.group('gJapones0001', 'ana', { bia: 'editor' });
+        const ana = person('ana');
+        const bia = person('bia');
+        await rounds([[ana, 'ana'], [bia, 'bia']], 1);
+        bia.store.add(note('nota-b', 'da Bia', { category: 'Japones', ...now() }));
+        TestBed.tick();
+        await rounds([[bia, 'bia'], [ana, 'ana']]);
+        const leu = ana.store.get('nota-b')!.updatedAt;
+        const stamps = new Map<string, string | null>();
+        later();
+        expect(api(ana, 'nota.acrescentar', 'nota-b', { texto: 'um' }, stamps).estado).toBe('aplicado');
+        later();
+        const pin = api(ana, 'nota.fixar', 'nota-b', {}, stamps);
+        expect(pin.estado).toBe('aplicado');
+        expect(ana.store.get('nota-b')!.noteRank).toBe('fixada');
+        expect(pin.carimbo).toBeUndefined();
+        later();
+        expect(api(ana, 'nota.editar', 'nota-b', { versao: leu, titulo: 'Fixada' }, stamps).estado).toBe('aplicado');
+        TestBed.tick();
+        await rounds([[ana, 'ana'], [bia, 'bia']]);
+        expect(bia.store.get('nota-b')!.game.name).toBe('Fixada');
+        expect(bia.text('nota-b')).toBe('da Bia\num');
+        expect(bia.store.get('nota-b')!.noteRank).toBeUndefined();
+      });
+
+      it('a editora não alcança as do grupo, nem as que ela mesma escreveu: o grupo fica fechado para a chave dela', async () => {
+        cloud.group('gJapones0001', 'ana', { bia: 'editor', cris: 'leitor' });
+        const ana = person('ana');
+        const bia = person('bia');
+        const cris = person('cris');
+        await rounds([[ana, 'ana'], [bia, 'bia'], [cris, 'cris']], 1);
+        ana.store.add(note('nota-a', 'da Ana', { category: 'Japones', ...now() }));
+        bia.store.add(note('nota-b', 'da Bia', { category: 'Japones', ...now() }));
+        TestBed.tick();
+        await rounds([[ana, 'ana'], [bia, 'bia'], [cris, 'cris']]);
+        for (const p of [bia, cris]) {
+          expect(p.reach.managed().size).toBe(0);
+          expect(p.reach.closes('Japones')).toBeTrue();
+          expect(api(p, 'nota.acrescentar', 'nota-a', { texto: 'não' }).estado).toBe('falhou');
+          expect(api(p, 'nota.acrescentar', 'nota-b', { texto: 'não' }).estado).toBe('falhou');
+        }
+        TestBed.tick();
+        await rounds([[bia, 'bia'], [ana, 'ana']]);
+        expect(ana.text('nota-a')).toBe('da Ana');
+        expect(ana.text('nota-b')).toBe('da Bia');
+      });
     });
   });
 

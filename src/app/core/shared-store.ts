@@ -267,20 +267,7 @@ export class SharedStore implements SharedSink {
       untracked(() => this.loadFor(id));
     });
     // o mural mostra o que está aqui (a de grupo, no grupo compartilhado dela)
-    effect(() => {
-      const list = [...this.entries().values()];
-      const names = this.groupNames();
-      const me = this.meCode();
-      untracked(() =>
-        this.store.setShared(
-          list.map((e) => this.shown(e, names)),
-          // de outra pessoa: a de outro dono que você não escreveu. A que você pôs num grupo compartilhado de
-          // outra pessoa passa a ser do dono do grupo, mas é a mesma anotação daqui: ela entra no lugar da daqui.
-          // Contá-la como de outra pessoa dava um id novo à daqui, que subia de novo para o grupo, sem fim.
-          new Set(list.filter((e) => e.papel !== 'dono' && !(me && e.criadoPor?.codigo === me)).map((e) => e.id)),
-        ),
-      );
-    });
+    effect(() => this.publish());
     // outra aba mexeu: acompanha
     this.data.onExternalChange((key, before) => {
       if (key === SHARED_KEY) this.fromOtherTab(before);
@@ -305,6 +292,32 @@ export class SharedStore implements SharedSink {
         window.removeEventListener('online', onOnline);
       });
     }
+  }
+
+  /** Põe no mural (`ReviewStore.setShared`) as compartilhadas como estão agora (o efeito do construtor, e `settle`). */
+  private publish(): void {
+    const list = [...this.entries().values()];
+    const names = this.groupNames();
+    const me = this.meCode();
+    untracked(() =>
+      this.store.setShared(
+        list.map((e) => this.shown(e, names)),
+        // de outra pessoa: a de outro dono que você não escreveu. A que você pôs num grupo compartilhado de
+        // outra pessoa passa a ser do dono do grupo, mas é a mesma anotação daqui: ela entra no lugar da daqui.
+        // Contá-la como de outra pessoa dava um id novo à daqui, que subia de novo para o grupo, sem fim.
+        new Set(list.filter((e) => e.papel !== 'dono' && !(me && e.criadoPor?.codigo === me)).map((e) => e.id)),
+      ),
+    );
+  }
+
+  /**
+   * O mural já com o que mudou aqui, sem esperar o efeito (o `ReviewStore` chama logo depois de `save`): quem salva
+   * e lê de volta na mesma hora vê a anotação de agora. Com nada novo, não muda nada.
+   */
+  settle(): void {
+    // (a conta acabou de mudar e as dela ainda não foram lidas: quem põe é o efeito, depois de `loadFor`)
+    if (untracked(() => this.accountId()) !== this.loadedFor) return;
+    untracked(() => this.publish());
   }
 
   // ——— o que o mural e as telas perguntam ———

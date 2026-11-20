@@ -36,7 +36,7 @@ As pastas organizam cada grupo por dentro, e uma pasta pode ter outras dentro. N
 
 Uma nota nova nasce privada. Um grupo que não existe é recusado (422 `grupo-novo`, com os grupos que existem), a não ser com `criar_grupo: true`.
 
-**Grupos compartilhados.** Um grupo pode ser dividido com outras pessoas. A API vê e mexe nas notas de um grupo compartilhado só quando a pessoa é **dona ou gestora** dele: aí elas aparecem como as outras (em `ver_contexto`, nas listas, no Kanban e nos Estudos), e o que você muda vale para todos do grupo. Os grupos em que ela só edita ou lê não aparecem, e um pedido que põe uma nota num deles falha. A nota de um grupo compartilhado não se apaga pela API (a pessoa apaga no Murall). As notas compartilhadas soltas (uma nota dividida sozinha, fora de um grupo) também não aparecem.
+**Grupos compartilhados.** Um grupo pode ser dividido com outras pessoas. A API vê e mexe nas notas de um grupo compartilhado só quando a pessoa é **dona ou gestora** dele: aí todas elas aparecem como as outras (em `ver_contexto`, nas listas, no Kanban e nos Estudos), também as que outras pessoas escreveram e as privadas do grupo (que todos que estão nele veem no Murall), e o que você muda vale para todos do grupo. Os grupos em que ela só edita ou lê não aparecem, e um pedido que põe uma nota num deles falha. A nota de um grupo compartilhado não se apaga pela API (a pessoa apaga no Murall). As notas compartilhadas soltas (uma nota dividida sozinha, fora de um grupo) também não aparecem.
 
 ## O Kanban
 

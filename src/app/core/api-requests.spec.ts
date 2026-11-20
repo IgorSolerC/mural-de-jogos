@@ -23,6 +23,7 @@ import { CloudAccount, CloudError } from './cloud-account';
 import { LocalData } from './local-data';
 import { Review, sanitizeReview } from './review';
 import { ReviewStore } from './review-store';
+import { ApiReach } from './api-reach';
 import { SpendingStore } from './spending-store';
 import { boardIdFor } from './kanban';
 import { KanbanStore } from './kanban-store';
@@ -290,6 +291,7 @@ describe('os pedidos da API: o serviço (ApiRequests)', () => {
     open = [];
     const account = {
       account: () => ({ id: conta, codigo: 'G11T-G00D', nome: 'Igor', api: true }),
+      signedIn: () => true,
       request: async (path: string, init: { method?: string; body?: any } = {}) => {
         calls.push({ path, method: init.method ?? 'GET', body: init.body });
         if (path === '/v1/eu/pedidos') return { itens: structuredClone(open) };
@@ -315,6 +317,34 @@ describe('os pedidos da API: o serviço (ApiRequests)', () => {
   afterEach(() => localStorage.clear());
 
   const heads = (pendentes: number, aprovar = 0) => new Headers({ 'Mural-Pedidos': String(pendentes), 'Mural-Pedidos-Aprovar': String(aprovar) });
+
+  it('na anotação de um grupo em que a conta é dona ou gestora, cada pedido devolve a nota já mudada, e o seguinte parte dela', async () => {
+    const { s, store } = setup();
+    // como o SharedStore: a anotação salva só chega à lista quando ele a põe (o efeito, ou `settle`)
+    let waiting: Review | null = null;
+    let settled = 0;
+    store.attachShared({
+      save: (r) => (waiting = r),
+      owned: () => new Set(),
+      settle: () => {
+        settled++;
+        if (waiting) store.setShared([waiting]);
+        waiting = null;
+      },
+    });
+    store.setShared([note('g0001', 'ください', { category: 'Japonês', text: 'Por favor' })]);
+    TestBed.inject(ApiReach).attach({ managed: () => new Set(['g0001']), closed: () => new Set() });
+    open = [req('pd_a', 'nota.acrescentar', 'g0001', { texto: 'Um' }), req('pd_b', 'nota.acrescentar', 'g0001', { texto: 'Dois' })];
+    s.noteHeads(heads(2));
+    expect(await s.applyOpen('aparelho1')).toBeTrue();
+    expect(store.get('g0001')!.text).toBe('Por favor\nUm\nDois');
+    const itens = JSON.parse(TestBed.inject(LocalData).getItem(APPLIED_KEY)!).itens as { resultado: { nota: NotaV1 }; carimbo: string }[];
+    expect(itens.map((i) => i.resultado.nota.texto)).toEqual(['Por favor\nUm', 'Por favor\nUm\nDois']);
+    // o carimbo é a versão que o pedido deixou (antes, a de antes dele)
+    expect(itens[0]!.carimbo).toBe(itens[0]!.resultado.nota.versao);
+    // um por pedido, na hora de salvar (o resultado já é a nota mudada)
+    expect(settled).toBe(2);
+  });
 
   it('sem o cabeçalho dizer que há pedidos, nem pergunta à nuvem', async () => {
     const { s } = setup();

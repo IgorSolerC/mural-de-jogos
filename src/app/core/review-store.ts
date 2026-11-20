@@ -96,6 +96,8 @@ export interface SharedSink {
   save(review: Review, from?: Review): void;
   /** As que são do próprio dono (vão no arquivo de backup dele). */
   owned(): ReadonlySet<string>;
+  /** Põe na lista, na hora, o que `save` mudou (ver `ReviewStore.settleShared`); sem ele, entra pelo efeito do serviço. */
+  settle?(): void;
 }
 
 /**
@@ -382,6 +384,7 @@ export class ReviewStore {
   update(review: Review, from?: Review): OriginalSwap | null {
     if (this.sharedIds().has(review.id)) {
       this.sharedSink?.save(review, from);
+      this.settleShared();
       return null;
     }
     const before = this.get(review.id);
@@ -417,10 +420,15 @@ export class ReviewStore {
     if (!changed.length) return;
     const shared = this.sharedIds();
     const own = new Map<string, Review>();
+    let anyShared = false;
     for (const r of changed) {
-      if (shared.has(r.id)) this.sharedSink?.save(r, this.get(r.id));
-      else if (this.get(r.id)) own.set(r.id, r);
+      if (shared.has(r.id)) {
+        this.sharedSink?.save(r, this.get(r.id));
+        anyShared = true;
+      } else if (this.get(r.id)) own.set(r.id, r);
     }
+    // (as compartilhadas entram na lista de uma vez, no fim)
+    if (anyShared) this.settleShared();
     if (own.size) this.reviews.update((list) => list.map((r) => own.get(r.id) ?? r));
   }
 
@@ -822,6 +830,20 @@ export class ReviewStore {
     if (newWishes.length || changedWishes || keptWishes.length !== this.wishes().length) this.wishes.set([...newWishes, ...keptWishes]);
     this.deleted.set(mergeDeleted(ours, theirs));
     return { added, updated, skipped, drafts: newDrafts.length, wishes: newWishes.length, removed, ...(common ? { kept: lost.length } : {}) };
+  }
+
+  /**
+   * A compartilhada salva (`update`, `replaceMany`) entra na lista na hora, como as daqui, sem esperar o efeito do
+   * serviço delas: quem salva e lê de volta vê a de agora (o pedido da API das AIs devolve a nota já mudada, e o
+   * seguinte da mesma rodada parte dela; o cartão que finaliza a nota no Kanban; o Desfazer).
+   */
+  private settleShared(): void {
+    try {
+      this.sharedSink?.settle?.();
+    } catch (e) {
+      // (nunca derruba quem pediu: o pedido aplicado tem de ser guardado, senão entraria de novo; o efeito põe depois)
+      console.warn('As compartilhadas não entraram na lista agora:', e);
+    }
   }
 
   /** Quem cuida das compartilhadas (core/shared-store.ts) se apresenta. */
