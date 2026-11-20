@@ -938,7 +938,8 @@ export class ReviewReader {
     const decks = card ? cardDecks(card, this.study.decks()) : [];
     if (!card || !decks.length) return null;
     const level = levelOf(card.srs);
-    const when = card.srs.state === 'nova' ? 'ainda não estudado' : `revisão ${whenLabel(card.srs, this.study.now())}`;
+    // (a parada num baralho pausado: a volta de quando ele for retomado)
+    const when = card.srs.state === 'nova' ? 'ainda não estudado' : `revisão ${whenLabel(this.study.shown(card).srs, this.study.now())}`;
     return {
       deckId: decks[0].id,
       deck: decks[0].name,

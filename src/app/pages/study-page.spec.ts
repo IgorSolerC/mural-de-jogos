@@ -1308,7 +1308,7 @@ describe('página dos Estudos', () => {
       confirm.choose = async (o) => ((asked = o.text), 'confirm');
       const dialog = await openSheet(kanji);
       expect(tag(dialog, 'Privado').getAttribute('aria-checked')).toBe('true');
-      expect(text(dialog.querySelector('.quem-dica'))).toBe('Só você vê este baralho.');
+      expect(text(dialog.querySelector('#ba-quem-dica'))).toBe('Só você vê este baralho.');
       tag(dialog, 'Público').click();
       await settle();
       expect(asked).toBe('Gostaria de tornar públicos todos os flashcards deste baralho? 33% dos flashcards dele são públicos atualmente.');
@@ -1316,7 +1316,7 @@ describe('página dos Estudos', () => {
       expect(store.get('nlua')!.private).toBeUndefined();
       expect(store.get('nlua')!.quiet).toBeTrue();
       expect(tag(dialog, 'Público').getAttribute('aria-checked')).toBe('true');
-      expect(text(dialog.querySelector('.quem-dica'))).toContain('vê o baralho e os 3 flashcards');
+      expect(text(dialog.querySelector('#ba-quem-dica'))).toContain('vê o baralho e os 3 flashcards');
       // a pilha e a pasta dizem que é público
       dialog.close();
       await settle();
@@ -1337,7 +1337,7 @@ describe('página dos Estudos', () => {
       await settle();
       expect(study.deck(kanji)!.public).toBeTrue();
       expect(store.get('nlua')!.private).toBeTrue();
-      expect(text(dialog.querySelector('.quem-dica'))).toContain('Quem visita vê 1 dos 3 flashcards.');
+      expect(text(dialog.querySelector('#ba-quem-dica'))).toContain('Quem visita vê 1 dos 3 flashcards.');
       dialog.close();
       await settle();
       // sem marca na tela (pedido do dono): só o leitor de tela ouve

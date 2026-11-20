@@ -233,8 +233,10 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  *     sem elas e mandaria de volta só o desenho achatado.
  * 60: a voz que lê o título dos flashcards de um baralho ao virar (`estudos.decks[].voice`). Um site da 59
  *     limparia o baralho sem ela, e o baralho voltaria a ficar sem voz em todo aparelho.
+ * 61: o baralho pausado (`estudos.decks[].paused`, desde quando). Um site da 60 limparia o baralho sem a pausa, e ele
+ *     voltaria a chamar para estudar em todo aparelho, com as cartas acumulando como atrasadas.
  */
-export const SYNC_SCHEMA = 60;
+export const SYNC_SCHEMA = 61;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };

@@ -26,7 +26,7 @@ export interface StudyPile {
  * Os baralhos de um grupo como pilhas de cartas presas com um elástico na cor de cada um, o nome numa tira de papel
  * embaixo: uma peça só para os seus Flashcards e para os de quem você visita (a regra "Visita: as mesmas peças do
  * dono", no CLAUDE.md). Nos seus, o papelzinho preso no elástico diz os montes de hoje (ou "em dia") e a tira diz se
- * o baralho é público. Cada pilha é o link do baralho e leva `data-baralho` (o menu do botão direito da página).
+ * o baralho é público; o pausado, no papelzinho, diz "pausado". Cada pilha é o link do baralho e leva `data-baralho` (o menu do botão direito da página).
  */
 @Component({
   selector: 'app-study-piles',
@@ -46,6 +46,8 @@ export class StudyPiles {
 
   /** O baralho público: as pessoas do "Público" do editor da anotação. */
   protected readonly PublicIcon = ICON.pessoas;
+  /** O baralho pausado, no papelzinho (só nos seus: a pausa é do dono). */
+  protected readonly PauseIcon = ICON.pausa;
 
   protected countLabel(n: number): string {
     return n === 1 ? '1 flashcard' : `${n} flashcards`;
@@ -53,7 +55,7 @@ export class StudyPiles {
 
   /** O que o leitor de tela diz da pilha: o nome, quantas cartas e, nos seus, se é público e quantas para hoje. */
   protected say(p: StudyPile): string {
-    return p.deck.name + ', ' + this.countLabel(p.cards) + (this.publicMark() && p.deck.public ? ', público' : '') + (p.counts && p.today ? ', ' + p.today + ' para hoje' : '');
+    return p.deck.name + ', ' + this.countLabel(p.cards) + (this.publicMark() && p.deck.public ? ', público' : '') + (p.counts && p.deck.paused ? ', pausado' : p.counts && p.today ? ', ' + p.today + ' para hoje' : '');
   }
 
   /** Quantas camadas a pilha desenha embaixo da de cima: mais cartas, mais grossa (até três). */

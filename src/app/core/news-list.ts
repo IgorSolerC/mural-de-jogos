@@ -27,11 +27,11 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-20-pomodoro-musicas',
+    id: '2026-11-20-pausar-baralho',
     version: '1.50.3',
     kind: 'ajustes',
     date: '2026-11-20',
-    title: 'A rolagem do mural sem vagas vazias, a voz dos flashcards, o modo estudo por frase e as músicas do Pomodoro',
+    title: 'A rolagem do mural sem vagas vazias, a voz e a pausa dos flashcards, o modo estudo por frase e as músicas do Pomodoro',
     melhorias: [
       'Rolando rápido pelo mural, a parede não fica mais com vagas vazias esperando as cartolinas: elas entram na hora com a capa, o título e o texto, e o papel de cada uma só é desenhado quando chega a vez dela de virar imagem, uma por vez, a mais perto da tela primeiro. A rolagem também engasga menos.',
       'Nos ajustes de um baralho dos Flashcards, "Ler o título ao virar" (Sem voz, Português, Inglês ou Japonês): o flashcard que vira para o verso, estudando, treinando ou na parede, tem o título lido em voz alta, na voz de ouvir a nota. Quem visita um baralho público também ouve.',
@@ -40,6 +40,8 @@ export const NEWS: NewsEntry[] = [
       'O Ctrl+S (⌘S no Mac) faz o mesmo que o botão de salvar, também com o cursor no texto: no editor das anotações e das resenhas, na Wishlist e no Pra depois, nos lembretes, nos Gastos, nas pixel arts, nos templates, no widget que você está mudando, no Editar várias, no card padrão do Kanban, nas chaves da API e no Quadro livre.',
       'O Pomodoro guarda várias músicas: cada link fica com o título do vídeo ou da playlist (o lápis renomeia), cada estudo sorteia uma das marcadas sem repetir a de antes, e o ▶ toca a escolhida na hora.',
       'O Pomodoro toca playlists do YouTube inteiras, um vídeo depois do outro, e continua do vídeo em que parou quando ela toca de novo.',
+      'Um baralho dos Flashcards pode ficar Pausado (nos ajustes dele, ou no botão direito): nada dele entra nos montes de hoje até você retomar, e ao retomar cada flashcard volta a faltar o tempo que faltava quando você pausou.',
+      'Nos ajustes de um baralho, "Recomeçar o progresso" deixa todos os flashcards dele novos de novo, com a pergunta antes e o Desfazer.',
     ],
     correcoes: [
       'Nas anotações dos grupos compartilhados em que você é dono ou gestor (também as que outras pessoas escreveram), o que uma AI muda pela API já volta com a nota mudada, e não com a de antes (ela achava que nada tinha mudado).',

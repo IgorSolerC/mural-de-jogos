@@ -19,24 +19,30 @@ import {
   deckShare,
   decksInGroup,
   emptyStudy,
+  frozenSince,
   groupKey,
+  hasProgress,
   keepRicher,
   liveStudy,
   mergeStudy,
   moveDeck,
   moveGroup,
+  pauseDeck,
   removeCard,
   removeDeck,
   resetCard,
   sameView,
   restoreCard,
+  resetDeck,
   restoreDeck,
+  resumeDeck,
   sanitizeStudy,
   studyGroupId,
   setCardWall,
   setConfig,
   setDecks,
   studyOnWall,
+  thawSrs,
   updateDeck,
   updateFront,
 } from './study';
@@ -197,8 +203,31 @@ export class StudyStore {
 
   private set(next: StudyState): void {
     if (next === this.state()) return;
-    this.state.set(next);
+    this.state.set(this.thawLeaving(this.state(), next));
     this.changedAt.set(Date.now());
+  }
+
+  /**
+   * A carta que estava parada (só em baralhos pausados) e deixa de estar por uma mudança daqui (entrou num baralho em
+   * estudo, o pausado saiu dela) anda o tempo em que ficou parada, como no retomar: senão voltaria atrasada a pausa
+   * inteira. A que a própria mudança já andou (o `resumeDeck`, uma resposta) fica como veio.
+   */
+  private thawLeaving(prev: StudyState, next: StudyState): StudyState {
+    if (!prev.decks.some((d) => d.paused)) return next;
+    const before = new Map(liveStudy(prev, this.groupOf).cards.map((c) => [c.note, c]));
+    const after = new Map(liveStudy(next, this.groupOf).cards.map((c) => [c.note, c]));
+    const now = new Date();
+    let changed = false;
+    const cards = next.cards.map((c) => {
+      const was = before.get(c.note);
+      const since = was ? frozenSince(was, prev.decks) : null;
+      if (!since || was!.srs !== c.srs || frozenSince(after.get(c.note) ?? c, next.decks)) return c;
+      const srs = thawSrs(c.srs, since, now);
+      if (srs === c.srs) return c;
+      changed = true;
+      return { ...c, srs };
+    });
+    return changed ? { ...next, cards } : next;
   }
 
   deck(id: string): Deck | undefined {
@@ -235,9 +264,22 @@ export class StudyStore {
    * pedido de um dia de estudo que já passou não mexe nos números de hoje.
    */
   answerAt(note: string, ok: boolean, when: Date, deck?: string): void {
-    const st = this.state();
+    const st = this.thawed(note, when);
     const next = answer(st, note, ok, when, deck, this.stamp());
     this.set(st.today && next.today && next.today.day < st.today.day ? { ...next, today: st.today } : next);
+  }
+
+  /**
+   * Os Estudos com a carta `note` andada o tempo em que ela ficou parada até `when`, se ela está só em baralhos
+   * pausados (uma resposta vinda da API): o FSRS conta o intervalo como se a pausa não tivesse existido, e o retomar
+   * depois não a anda de novo (ela foi respondida depois da pausa).
+   */
+  private thawed(note: string, when: Date): StudyState {
+    const st = this.state();
+    const card = this.cardOf().get(note);
+    const since = card ? frozenSince(card, st.decks) : null;
+    if (!since) return st;
+    return { ...st, cards: st.cards.map((c) => (c.note === note ? { ...c, srs: thawSrs(c.srs, since, when) } : c)) };
   }
 
   /** Desconta uma resposta do dia (o Desfazer de um pedido): a nova do baralho `deck`, ou a revisão. */
@@ -254,6 +296,17 @@ export class StudyStore {
     this.set(updateDeck(this.state(), id, patch, this.stamp()));
   }
 
+  /** Pausa o baralho: nada dele chama para estudar até ele ser retomado (ver `pauseDeck`). */
+  pauseDeck(id: string): void {
+    this.set(pauseDeck(this.state(), id, this.stamp()));
+  }
+
+  /** Retoma o baralho pausado: as cartas dele voltam como estavam, com as datas andando o tempo da pausa (ver `resumeDeck`). */
+  resumeDeck(id: string): void {
+    const at = this.stamp();
+    this.set(resumeDeck(this.state(), this.view(), id, new Date(at), at));
+  }
+
   moveDeck(id: string, to: number): void {
     this.set(moveDeck(this.state(), id, to, this.stamp()));
   }
@@ -265,6 +318,15 @@ export class StudyStore {
     this.set(out.state);
     const { deck, cards } = out;
     return () => this.set(restoreDeck(this.state(), deck, cards, this.stamp()));
+  }
+
+  /**
+   * A carta como as telas mostram (`card`, da vista): a parada num baralho pausado, com a volta de quando ele for
+   * retomado agora (`thawSrs`): a que faltavam 3 dias continua faltando 3 dias, a pausa inteira.
+   */
+  shown(card: StudyCard, now = this.now()): StudyCard {
+    const since = frozenSince(card, this.decks());
+    return since ? { ...card, srs: thawSrs(card.srs, since, now) } : card;
   }
 
   /** O grupo `from` foi renomeado para `to`, juntado a ele ou apagado (null), nas configurações do mural. */
@@ -401,6 +463,44 @@ export class StudyStore {
   }
 
   /**
+   * Recomeça o progresso de todas as cartas do baralho (ver `resetDeck`); devolve quantas recomeçaram e o Desfazer (o
+   * progresso de cada uma volta como estava, sem mexer no resto da carta; false quando não dá mais: o baralho foi
+   * pausado ou retomado depois), ou null sem nada a recomeçar.
+   */
+  resetDeck(id: string): { count: number; undo: () => boolean } | null {
+    const out = resetDeck(this.state(), this.view(), id, this.live, this.stamp());
+    if (!out.before.length) return null;
+    this.set(out.state);
+    const before = new Map(out.before.map((c) => [c.note, c]));
+    const pauseAt = this.deck(id)?.pauseAt;
+    return {
+      count: before.size,
+      // só as que continuam recomeçadas (a respondida de novo fica com a resposta nova), e não depois de pausar ou
+      // retomar o baralho: o progresso de antes não andou o tempo da pausa
+      undo: () => {
+        if (this.deck(id)?.pauseAt !== pauseAt) return false;
+        const at = this.stamp();
+        const now = this.state();
+        const back = (c: StudyCard) => before.has(c.note) && !hasProgress(c);
+        this.set({ ...now, cards: now.cards.map((c) => (back(c) ? { ...c, srs: before.get(c.note)!.srs, stats: before.get(c.note)!.stats, at } : c)) });
+        return true;
+      },
+    };
+  }
+
+  /** Quantas cartas do baralho têm progresso para recomeçar, e quantas delas também estão em outro baralho. */
+  progressIn(id: string): { count: number; shared: number } {
+    let count = 0;
+    let shared = 0;
+    for (const c of this.cards()) {
+      if (!c.decks.includes(id) || !this.live(c.note) || !hasProgress(c)) continue;
+      count++;
+      if (c.decks.length > 1) shared++;
+    }
+    return { count, shared };
+  }
+
+  /**
    * A resposta da sessão (Errei ou Acertei), no baralho `deck` que trouxe a carta. Devolve o Desfazer da
    * sessão: a carta e o dia voltam como estavam antes dela (ou null, se a carta não existia).
    */
@@ -409,7 +509,8 @@ export class StudyStore {
     const before = st.cards.find((c) => c.note === note);
     if (!before) return null;
     const today = st.today;
-    this.set(answer(st, note, ok, new Date(this.stamp()), deck));
+    const when = new Date(this.stamp());
+    this.set(answer(this.thawed(note, when), note, ok, when, deck));
     return () => {
       const now = this.state();
       const at = this.stamp();

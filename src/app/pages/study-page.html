@@ -83,7 +83,22 @@
         </div>
       }
       <div class="hoje" aria-live="polite">
-        @if (lineTotal()) {
+        @if (deck()?.paused) {
+          <!-- o baralho pausado (a escolha do dono, nos Ajustes do baralho): no lugar do "para hoje", desde quando, e o
+               Retomar no lugar do Estudar; o Treinar continua (não conta no progresso) -->
+          <h2 class="hoje-n pausado-n">
+            <lucide-icon [img]="PauseIcon" [size]="20" aria-hidden="true" />
+            Pausado
+          </h2>
+          <p class="em-dia">Desde {{ pausedSince() }}. Nada dele entra nos montes de hoje até você retomar.</p>
+          <div class="hoje-botoes">
+            <button type="button" class="tinta retomar" (click)="resumeHere(deck()!.id)">
+              <lucide-icon [img]="PlayIcon" [size]="18" aria-hidden="true" />
+              Retomar
+            </button>
+            <ng-container *ngTemplateOutlet="treinar" />
+          </div>
+        } @else if (lineTotal()) {
           <h2 class="hoje-n">{{ lineTotal() }} para hoje</h2>
           <ul class="montes" aria-label="Para hoje">
             <!-- num baralho, com a tela apertada, só o selo e o número, como o papelzinho das pilhas: o nome fica
@@ -113,6 +128,7 @@
             @if (next(); as n) {
               A próxima revisão é {{ n.when }} ({{ countLabel(n.n) }}).
             }
+            {{ pausedHere() }}
           </p>
           <!-- em dia, o estudo de verdade espera o dia dele (adiantar atrapalharia o FSRS): o que sobra é treinar -->
           <div class="hoje-botoes">

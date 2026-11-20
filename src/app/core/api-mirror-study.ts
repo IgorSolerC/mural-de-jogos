@@ -105,6 +105,7 @@ export function baralhoV1(deck: Deck, st: StudyState, live: (note: string) => bo
     novas_por_dia: deck.newPerDay,
     no_mural: !!deck.wall,
     estilo: deckLook(deck),
+    pausado: deck.paused ?? null,
     posicao: st.decks.indexOf(deck),
     cartas,
     por_nivel,

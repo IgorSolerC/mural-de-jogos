@@ -18,7 +18,10 @@
             <span class="elastico"></span>
             @if (d.counts; as n) {
               <span class="papelzinho">
-                @if (d.today) {
+                @if (d.deck.paused) {
+                  <!-- pausado pelo dono: nada dele para hoje até ele retomar -->
+                  <span class="pz pausado-pz"><lucide-icon [img]="PauseIcon" [size]="11" aria-hidden="true" />pausado</span>
+                } @else if (d.today) {
                   <span class="pz" data-monte="novas"><span class="selo"></span>{{ n.novas }}</span>
                   <span class="pz" data-monte="aprender"><span class="selo"></span>{{ n.aprender }}</span>
                   <span class="pz" data-monte="revisar"><span class="selo"></span>{{ n.revisar }}</span>

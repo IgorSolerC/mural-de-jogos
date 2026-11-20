@@ -4,7 +4,7 @@ import { ReviewStore } from '../core/review-store';
 import { daysBetween, review, studyDay } from '../core/fsrs';
 import { fsrsConfig, frontTitle, inGroup, intervalLabel } from '../core/study';
 import { DRILL_LABEL, DrillPlan, DrillState, drillAnswer, drillLeft, drillNext, drillReturn, startDrill } from '../core/study-drill';
-import { QueueItem, StudyScope, countTotal, dayQueue, nextUp } from '../core/study-queue';
+import { QueueItem, StudyScope, countTotal, dayQueue, nextReview, nextUp } from '../core/study-queue';
 import { StudyStore } from '../core/study-store';
 import { Voz } from '../core/voz';
 import { ICON, IconModule } from './icons';
@@ -414,24 +414,10 @@ export class StudySession {
   /** O próximo dia com revisão (no baralho, ou em todos) e quantas cartas vencem nele. */
   private nextDay(): { when: string; n: number } | null {
     const now = this.study.now();
-    const today = studyDay(now);
-    const scope = this.scope();
-    const ids = scope === undefined ? null : typeof scope === 'string' ? [scope] : scope;
-    let day: string | null = null;
-    let n = 0;
-    for (const c of this.study.cards()) {
-      if (c.srs.state !== 'revisao' || !this.study.live(c.note)) continue;
-      if (ids ? !c.decks.some((d) => ids.includes(d)) : !c.decks.length) continue;
-      const due = studyDay(new Date(c.srs.due));
-      if (due <= today) continue;
-      if (!day || due < day) {
-        day = due;
-        n = 1;
-      } else if (due === day) n++;
-    }
-    if (!day) return null;
-    const gap = daysBetween(today, day);
-    return { when: gap === 1 ? 'Amanhã' : `Em ${gap} dias`, n };
+    const next = nextReview(this.study.view(), now, this.scope(), this.study.live);
+    if (!next) return null;
+    const gap = daysBetween(studyDay(now), next.day);
+    return { when: gap === 1 ? 'Amanhã' : `Em ${gap} dias`, n: next.n };
   }
 
   /** Quando a carta em aprendizado volta, dito como gente ("daqui a 25 min"). */

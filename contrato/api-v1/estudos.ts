@@ -128,6 +128,11 @@ export interface BaralhoV1 {
   /** As cartas do baralho aparecem também no mural (a carta pode dizer outra coisa). */
   no_mural: boolean;
   estilo: EstiloV1;
+  /**
+   * Desde quando o baralho está pausado no Murall (ISO), ou null em estudo. Pausado, nada dele entra nas filas
+   * (`estudar_agora`, o hoje de `ver_estudos`) até a pessoa retomar no app. O site de antes da pausa não manda: vale null.
+   */
+  pausado?: string | null;
   /** O lugar na fileira das abas (0 é a primeira). */
   posicao: number;
   /** Quantas cartas (de anotações que existem). */

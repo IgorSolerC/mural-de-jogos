@@ -1,5 +1,6 @@
 import { publicStudy, publicStudyGroups, readPublicStudy, readVisitStudy } from './public-study';
-import { StudyState, addCard, addDeck, answer, emptyStudy, liveStudy, updateDeck } from './study';
+import { Srs, dayStart, studyDay } from './fsrs';
+import { StudyState, addCard, addDeck, answer, emptyStudy, liveStudy, pauseDeck, thawSrs, updateDeck } from './study';
 
 const T0 = '2026-11-05T15:00:00.000Z';
 const at = (min: number) => new Date(Date.parse(T0) + min * 60_000).toISOString();
@@ -34,6 +35,20 @@ describe('os baralhos públicos (core/public-study.ts)', () => {
     expect(cards.map((c) => [c['note'], c['decks']])).toEqual([['nn01', ['dkanji']]]);
     expect((cards[0]['stats'] as { seen: number }).seen).toBe(1);
     expect(out['progress']).toBeUndefined();
+  });
+
+  it('o baralho pausado: a pausa não vai, e a carta parada vai com a volta de quando o dono retomar (como ele vê), contada pelo dia', () => {
+    const st = pauseDeck(pauseDeck(sample(), 'dkanji', at(10)), 'dverbo', at(10));
+    const later = new Date(Date.parse(T0) + 20 * 86_400_000);
+    const out = publicStudy(st, all, false, later)!;
+    const decks = out['decks'] as Record<string, unknown>[];
+    expect(decks.some((d) => 'paused' in d || 'pauseAt' in d)).toBeFalse();
+    const card = (out['cards'] as { note: string; srs: Srs }[]).find((c) => c.note === 'nn01')!;
+    const mine = st.cards.find((c) => c.note === 'nn01')!;
+    expect(card.srs).toEqual(thawSrs(mine.srs, at(10), dayStart(studyDay(later))));
+    expect(card.srs.due).not.toBe(mine.srs.due);
+    // no mesmo dia de estudo, o mesmo público
+    expect(publicStudy(st, all, false, new Date(later.getTime() + 60_000))).toEqual(out);
   });
 
   it('com o progresso escondido, as cartas vão sem ele, e quem lê sabe', () => {

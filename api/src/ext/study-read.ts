@@ -299,7 +299,7 @@ export async function studyContext(deps: Deps, me: KeyCaller) {
   return {
     config: ctx.config,
     cartas: only ? only.size : ctx.cartas,
-    baralhos: decks.map((b) => ({ id: b.id, nome: b.nome, grupo: b.grupo ?? null, cor: b.cor, novas_por_dia: b.novas_por_dia, no_mural: b.no_mural, estilo: b.estilo, cartas: b.cartas })),
+    baralhos: decks.map((b) => ({ id: b.id, nome: b.nome, grupo: b.grupo ?? null, cor: b.cor, novas_por_dia: b.novas_por_dia, no_mural: b.no_mural, estilo: b.estilo, pausado: b.pausado ?? null, cartas: b.cartas })),
   };
 }
 
@@ -438,6 +438,10 @@ export function studyReadRoutes(app: Hono, deps: Deps): void {
       deck = { id: found.id, nome: found.nome, grupo: found.grupo ?? null };
       if (!found.filas.length && found.pedidos?.some((p) => p.op === 'baralho.criar')) {
         return c.json({ dia, baralho: deck, contagem: { novas: 0, aprender: 0, revisar: 0 }, cartas: [], mais_tarde: [], restam: 0, aviso: 'O baralho ainda vai ser criado: as cartas dele entram na fila quando o Murall aplicar os pedidos.', espelho });
+      }
+      // o baralho pausado no app: nada dele entra na fila (a do espelho já vem sem ele), e o aviso diz por quê
+      if (found.pausado) {
+        return c.json({ dia, baralho: deck, contagem: { novas: 0, aprender: 0, revisar: 0 }, cartas: [], mais_tarde: [], restam: 0, aviso: 'O baralho está pausado no Murall: nada dele entra na fila até a pessoa retomar no app (os flashcards voltam como estavam).', espelho });
       }
       filas = found.filas;
     } else {

@@ -14,10 +14,10 @@ import { Desk } from '../core/desk';
 import { daysBetween, studyDay } from '../core/fsrs';
 import { LIGHT_STOCKS, LightStock } from '../core/review';
 import { ReviewStore } from '../core/review-store';
-import { CardFace, CardSize, DECK_NAME_MAX, Deck, LEVEL_LABEL, Level, STUDY_SIZE_KEY, StudyCard as Card, cardFace, frontTitle, groupKey, inGroup, levelOf, studyGroupId, studyGroupWords, whenLabel } from '../core/study';
+import { CardFace, CardSize, DECK_NAME_MAX, Deck, LEVEL_LABEL, Level, STUDY_SIZE_KEY, StudyCard as Card, cardFace, frontTitle, groupKey, inGroup, levelOf, pausedSinceLabel, studyGroupId, studyGroupWords, whenLabel } from '../core/study';
 import { readText, writeText } from '../core/storage';
 import { DRILL_KINDS, DRILL_LABEL, DrillKind, DrillPlan, drillCounts as countDrills, drillPool } from '../core/study-drill';
-import { QueueCounts, StudyScope, allCounts, countTotal, dayQueue, scopeCards } from '../core/study-queue';
+import { QueueCounts, StudyScope, allCounts, countTotal, dayQueue, nextReview, scopeCards } from '../core/study-queue';
 import { StudyStore } from '../core/study-store';
 import { PublicDeckNudge } from '../ui/public-deck-nudge';
 import { nameCollator } from '../core/text';
@@ -158,6 +158,7 @@ export class StudyPage {
   protected readonly AddIcon = ICON.adicionar;
   protected readonly EditIcon = ICON.editar;
   protected readonly PlayIcon = ICON.estudar;
+  protected readonly PauseIcon = ICON.pausa;
   protected readonly TrainIcon = ICON.alvo;
   protected readonly GearIcon = ICON.configurar;
   /** A anotação (a lupa se confundia com a busca, que é logo embaixo). */
@@ -400,24 +401,11 @@ export class StudyPage {
 
   /** Sem nada para hoje: quando é a próxima revisão (no baralho, no grupo ou em todos) e quantas cartas vencem nela. */
   protected readonly next = computed(() => {
-    const scope = this.scope();
-    const ids = scope === undefined ? null : typeof scope === 'string' ? [scope] : scope;
-    const today = studyDay(this.now());
-    let day: string | null = null;
-    let n = 0;
-    for (const c of this.study.cards()) {
-      if (c.srs.state !== 'revisao' || !this.study.live(c.note)) continue;
-      if (ids ? !c.decks.some((d) => ids.includes(d)) : !c.decks.length) continue;
-      const due = studyDay(new Date(c.srs.due));
-      if (due <= today) continue;
-      if (!day || due < day) {
-        day = due;
-        n = 1;
-      } else if (due === day) n++;
-    }
-    if (!day) return null;
-    const gap = daysBetween(today, day);
-    return { when: gap === 1 ? 'amanhã' : `em ${gap} dias`, n };
+    // (como a fila: a carta que só está em baralhos pausados não chama)
+    const next = nextReview(this.study.view(), this.now(), this.scope(), this.study.live);
+    if (!next) return null;
+    const gap = daysBetween(studyDay(this.now()), next.day);
+    return { when: gap === 1 ? 'amanhã' : `em ${gap} dias`, n: next.n };
   });
 
   /** As cartas do baralho aberto, como a parede mostra (filtradas e na ordem escolhida). */
@@ -442,6 +430,49 @@ export class StudyPage {
     }
     return out.sort(this.comparer());
   });
+
+  /**
+   * No grupo e em Tudo, em dia: os baralhos pausados ali, que não chamam para estudar ("Kanji está pausado."), para o
+   * "Tudo em dia" não parecer que não sobrou nada. Num baralho aberto, nada (o pausado tem o topo dele).
+   */
+  protected readonly pausedHere = computed(() => {
+    if (this.deck()) return '';
+    const decks = this.group() ? this.group()!.decks.map((v) => v.deck) : this.study.decks();
+    const paused = decks.filter((d) => d.paused);
+    if (!paused.length) return '';
+    return paused.length === 1 ? `${paused[0].name} está pausado.` : `${paused.length} baralhos estão pausados.`;
+  });
+
+  /** Desde quando o baralho aberto está pausado ("20 de novembro"), ou ''. */
+  protected readonly pausedSince = computed(() => {
+    const paused = this.deck()?.paused;
+    return paused ? pausedSinceLabel(paused, this.now()) : '';
+  });
+
+  /** Retoma o baralho pausado: as cartas voltam como estavam (ver `resumeDeck`), e o aviso diz isso. */
+  protected resume(id: string): void {
+    const d = this.study.deck(id);
+    if (!d?.paused) return;
+    this.study.resumeDeck(id);
+    this.toasts.show(`${d.name} voltou: cada flashcard volta a faltar o tempo que faltava quando você pausou`);
+  }
+
+  /**
+   * O Retomar do topo: o botão sai com o pausado, e o foco vai para o que fica no lugar dele (o Estudar, o Treinar ou o
+   * lápis do baralho), e não para o começo da página.
+   */
+  protected resumeHere(id: string): void {
+    this.resume(id);
+    this.focusTabAfter('.hoje .estudar', '.hoje app-tab-more.treinar button', '.ajustes-baralho');
+  }
+
+  /** Pausa o baralho, com o aviso do que muda. */
+  protected pause(id: string): void {
+    const d = this.study.deck(id);
+    if (!d || d.paused) return;
+    this.study.pauseDeck(id);
+    this.toasts.show(`${d.name} ficou pausado: nada dele entra nos montes de hoje até você retomar`);
+  }
 
   /** Quantas cartas o baralho aberto tem, sem filtro (para saber se está vazio ou se o filtro esconde). */
   protected readonly deckSize = computed(() => {
@@ -510,7 +541,9 @@ export class StudyPage {
     });
   }
 
-  private view(c: Card, deck: string, noteTitle: string, stock: CardView['stock'], now: Date): CardView {
+  private view(card: Card, deck: string, noteTitle: string, stock: CardView['stock'], now: Date): CardView {
+    // a carta parada num baralho pausado mostra a volta de quando ele for retomado (ver `StudyStore.shown`)
+    const c = this.study.shown(card, now);
     const level = levelOf(c.srs);
     const meta = level === 'desconhecida' ? LEVEL_LABEL[level] : `${LEVEL_LABEL[level]} · ${whenLabel(c.srs, now)}`;
     const title = frontTitle(c, noteTitle);
@@ -674,7 +707,7 @@ export class StudyPage {
     this.menu()?.show({ key, x, y, by, back: back ?? null });
   }
 
-  /** Depois de a fileira das abas mudar: o foco no primeiro que existir (a aba de volta, ou o "Mais"). */
+  /** Depois de a fileira das abas (ou o topo) mudar: o foco no primeiro que existir (a aba de volta, ou o "Mais"). */
   private focusTabAfter(...selectors: string[]): void {
     afterNextRender(() => selectors.map((s) => this.host.querySelector<HTMLElement>(s)).find((el) => !!el)?.focus(), { injector: this.injector });
   }
@@ -732,7 +765,12 @@ export class StudyPage {
     }
     work.push({ id: 'novo', label: 'Novo flashcard', icon: ICON.adicionar, dialog: true, run: () => this.newCard(id) });
     work.push({ id: 'trazer', label: 'Trazer anotações', icon: ICON.anotacoes, dialog: true, hint: 'Anotações do grupo, para virar flashcards deste baralho', run: () => this.bringInto(d) });
-    const adjust: MenuItem[] = [{ id: 'ajustes', label: 'Ajustes do baralho', icon: ICON.editar, dialog: true, hint: 'O nome, o desenho, a cor, quem vê e a posição', run: () => this.sheet.set({ id, fresh: false }) }];
+    const adjust: MenuItem[] = [
+      { id: 'ajustes', label: 'Ajustes do baralho', icon: ICON.editar, dialog: true, hint: 'O nome, o desenho, a cor, quem vê e a posição', run: () => this.sheet.set({ id, fresh: false }) },
+      d.paused
+        ? { id: 'retomar', label: 'Retomar o baralho', icon: ICON.estudar, hint: 'Os flashcards voltam como estavam quando você pausou', run: () => this.resume(id) }
+        : { id: 'pausar', label: 'Pausar o baralho', icon: ICON.pausa, hint: 'Nada dele entra nos montes de hoje até você retomar', run: () => this.pause(id) },
+    ];
     const end: MenuItem[] = [{ id: 'apagar', label: 'Apagar o baralho', icon: ICON.apagar, danger: true, dialog: true, run: () => void this.removeDeck(id) }];
     return [open, work, adjust, end];
   }

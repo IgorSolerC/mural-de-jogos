@@ -264,8 +264,12 @@ export function undoStudy(study: StudyStore, t: { op: string; alvo: string; ante
       return;
     case 'baralho.editar':
     case 'baralho.apagar': {
-      const deck = sanitizeDeck(a.baralho);
-      if (!deck) return;
+      const before = sanitizeDeck(a.baralho);
+      if (!before) return;
+      // a pausa não é do pedido: desfazer uma edição não pausa nem retoma o baralho (as cartas não andariam o tempo dela)
+      const { paused: _, pauseAt: __, ...rest } = before;
+      const now = study.deck(before.id);
+      const deck: Deck = t.op === 'baralho.editar' && now ? { ...rest, ...(now.paused ? { paused: now.paused } : {}), ...(now.pauseAt ? { pauseAt: now.pauseAt } : {}) } : before;
       const cards = (a.cartas ?? []).map((c) => sanitizeCard(c)).filter((c): c is StudyCard => !!c);
       study.restoreDeck(deck, cards);
       if (typeof a.posicao === 'number' && study.decks().findIndex((d) => d.id === deck.id) !== a.posicao) study.moveDeck(deck.id, a.posicao);

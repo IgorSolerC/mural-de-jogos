@@ -1,5 +1,6 @@
 import { Review, isNote, sanitizeReview } from './review';
-import { Deck, StudyCard, StudyState, sanitizeCard, sanitizeDeck } from './study';
+import { Srs, dayStart, studyDay } from './fsrs';
+import { Deck, StudyCard, StudyState, frozenSince, sanitizeCard, sanitizeDeck, thawSrs } from './study';
 
 /**
  * Os baralhos públicos (PLANO-BARALHOS-PUBLICOS.md): o que vai no mural público, em `estudos`, e o que quem
@@ -29,9 +30,11 @@ const MAX_PUBLIC_CARDS = 5000;
 /**
  * Os Estudos como vão no público, ou null sem nenhum baralho público. `view` são os Estudos como valem agora
  * (`StudyStore.view`: a carta que dorme num baralho de outro grupo tem `decks` vazio e não entra); `shown`
- * diz se a anotação está à mostra para quem visita.
+ * diz se a anotação está à mostra para quem visita. A pausa é do dono e não vai; a carta parada num baralho pausado vai
+ * com a volta de quando ele for retomado (`thawSrs`, como o dono vê), contada pelo dia de estudo de `now` (só muda uma
+ * vez por dia, para o público não mudar a cada envio).
  */
-export function publicStudy(view: StudyState, shown: (note: string) => boolean, hideProgress: boolean): Record<string, unknown> | null {
+export function publicStudy(view: StudyState, shown: (note: string) => boolean, hideProgress: boolean, now = new Date()): Record<string, unknown> | null {
   const decks = view.decks.filter((d) => d.public && d.group);
   if (!decks.length) return null;
   const ids = new Set(decks.map((d) => d.id));
@@ -43,7 +46,7 @@ export function publicStudy(view: StudyState, shown: (note: string) => boolean, 
       note: c.note,
       decks: in_,
       front: c.front,
-      ...(hideProgress ? {} : { srs: c.srs, stats: c.stats }),
+      ...(hideProgress ? {} : { srs: thawedForVisit(c, view, now), stats: c.stats }),
       added: c.added,
       // a hora da carta conta só para o dono; aqui, a de entrada (não diz quando a pessoa estudou)
       at: c.added,
@@ -66,6 +69,12 @@ export function publicStudy(view: StudyState, shown: (note: string) => boolean, 
     cards,
     ...(hideProgress ? { progress: false } : {}),
   };
+}
+
+/** O progresso como o dono vê: a carta parada num baralho pausado, com a volta de quando ele for retomado no dia de `now`. */
+function thawedForVisit(c: StudyCard, view: StudyState, now: Date): Srs {
+  const since = frozenSince(c, view.decks);
+  return since ? thawSrs(c.srs, since, dayStart(studyDay(now))) : c.srs;
 }
 
 /** Os grupos dos baralhos públicos (para o ícone e a cor da orelha deles irem no público). */

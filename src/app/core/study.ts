@@ -1,7 +1,7 @@
 import { canonicalJson } from './canonical-json';
 import { lookKey } from './category-looks';
-import { MONTHS_SHORT } from './dates';
-import { DEFAULT_FSRS, FsrsConfig, Srs, SrsState, daysBetween, freshSrs, review, studyDay } from './fsrs';
+import { MONTHS_LONG, MONTHS_SHORT } from './dates';
+import { DEFAULT_FSRS, FsrsConfig, Srs, SrsState, addStudyDays, dayStart, daysBetween, freshSrs, review, studyDay } from './fsrs';
 import { IconChoice, isIconChoice } from './icon-choices';
 import { localImageId } from './images';
 import { categoryKey, hash64 } from './kanban';
@@ -113,6 +113,18 @@ export interface Deck {
    */
   voice?: VoiceLang;
   /**
+   * Desde quando o baralho está pausado (ISO), a escolha do dono nos Ajustes do baralho: nada dele entra nos montes
+   * de hoje, nas contas do "para hoje" nem nas filas da API, e ao retomar cada carta volta a faltar o mesmo tempo que
+   * faltava (`resumeDeck`). Sem o campo: em estudo, o padrão. É do dono: não vai no público nem na cópia.
+   */
+  paused?: string;
+  /**
+   * A hora da última escolha entre pausar e retomar. Na junção de dois aparelhos, a pausa segue a escolha mais nova, à
+   * parte do resto do baralho: um nome mudado num aparelho que ainda não sabia da volta não pausa o baralho de novo
+   * (e as cartas não andam duas vezes), nem o que nunca soube da pausa a desfaz sem as cartas andarem.
+   */
+  pauseAt?: string;
+  /**
    * O grupo do baralho, escrito como nas anotações (comparado pela chave, `lookKey`). Só as cartas de
    * anotações deste grupo valem nele. Sem o campo: o baralho de antes dos grupos, ainda por converter
    * (`convertGroups`), em que nenhuma carta vale.
@@ -127,7 +139,7 @@ export interface Deck {
  * O que muda num baralho pela folha e pela API. O grupo fica de fora: o grupo de verdade é o das
  * anotações, e o baralho só muda de grupo com o grupo (renomeado ou juntado, `moveGroup`).
  */
-export type DeckPatch = Omit<Deck, 'id' | 'at' | 'order' | 'group'>;
+export type DeckPatch = Omit<Deck, 'id' | 'at' | 'order' | 'group' | 'paused' | 'pauseAt'>;
 
 export interface CardFront {
   /** Sem título próprio, a frente usa o nome da anotação (D8). */
@@ -285,6 +297,8 @@ export function sanitizeDeck(raw: unknown): Deck | null {
     ...(isCardLook(r['look']) && r['look'] !== DEFAULT_CARD_LOOK ? { look: r['look'] as Exclude<CardLook, 'classica'> } : {}),
     ...(r['public'] === true ? { public: true as const } : {}),
     ...(VOICE_LANG_ORDER.includes(r['voice'] as VoiceLang) ? { voice: r['voice'] as VoiceLang } : {}),
+    ...(isStamp(r['paused']) ? { paused: iso(r['paused']) } : {}),
+    ...(isStamp(r['pauseAt']) ? { pauseAt: iso(r['pauseAt']) } : {}),
     ...(group ? { group } : {}),
     order: int(r['order'], 0, MAX_DECKS * 10, 0),
     at: r['at'],
@@ -437,16 +451,59 @@ export function mergeStudy(here: StudyState, there: StudyState): StudyState {
   const removed: Record<string, string> = { ...here.removed };
   for (const [k, at] of Object.entries(there.removed)) if (!removed[k] || at > removed[k]) removed[k] = at;
   const decks = new Map<string, Deck>();
-  for (const d of [...here.decks, ...there.decks]) decks.set(d.id, newer(decks.get(d.id), d));
+  // a pausa de cada baralho, da escolha mais nova entre pausar e retomar (ver `Deck.pauseAt`)
+  const pauses = new Map<string, Deck>();
+  for (const d of [...here.decks, ...there.decks]) {
+    decks.set(d.id, newer(decks.get(d.id), d));
+    const p = pauses.get(d.id);
+    if (!p || (d.pauseAt ?? '') > (p.pauseAt ?? '')) pauses.set(d.id, d);
+  }
   const cards = new Map<string, StudyCard>();
   for (const c of [...here.cards, ...there.cards]) cards.set(c.note, newer(cards.get(c.note), c));
+  // a carta mudada depois num aparelho que ainda não sabia da volta do baralho: o progresso fica o andado no retomar
+  for (const [mine, other] of [
+    [here, there],
+    [there, here],
+  ] as const) {
+    const stale = staleResumes(mine, pauses);
+    if (!stale.size) continue;
+    const theirs = new Map(other.cards.map((c) => [c.note, c]));
+    for (const c of mine.cards) {
+      const o = theirs.get(c.note);
+      if (cards.get(c.note) !== c || !o || o.srs === c.srs || !c.srs.last) continue;
+      const hit = c.decks.map((id) => stale.get(id)).find((s) => !!s && c.srs.last! < s.since && o.at >= s.resumed);
+      if (hit) cards.set(c.note, { ...c, srs: o.srs });
+    }
+  }
   return {
-    decks: [...decks.values()].filter((d) => !buried(removed, deckKey(d.id), d.at)).sort(byOrder),
+    decks: [...decks.values()]
+      .filter((d) => !buried(removed, deckKey(d.id), d.at))
+      .map((d) => withPause(d, pauses.get(d.id)!))
+      .sort(byOrder),
     cards: [...cards.values()].filter((c) => !buried(removed, cardKey(c.note), c.at)).sort(byAdded),
     removed,
     today: mergeDay(here.today, there.today),
     config: newer(here.config, there.config),
   };
+}
+
+/**
+ * Os baralhos que estavam pausados num lado (`side`) e foram retomados no outro depois (a escolha mais nova, em
+ * `pauses`): desde quando estavam pausados aqui e quando voltaram lá.
+ */
+function staleResumes(side: StudyState, pauses: ReadonlyMap<string, Deck>): Map<string, { since: string; resumed: string }> {
+  const out = new Map<string, { since: string; resumed: string }>();
+  for (const d of side.decks) {
+    const p = pauses.get(d.id);
+    if (d.paused && p && !p.paused && p.pauseAt && p.pauseAt > (d.pauseAt ?? '')) out.set(d.id, { since: d.paused, resumed: p.pauseAt });
+  }
+  return out;
+}
+
+/** O baralho com a pausa de `p`, se a escolha de lá é mais nova (pelo saneamento, para ter a forma do guardado). */
+function withPause(d: Deck, p: Deck): Deck {
+  if ((p.pauseAt ?? '') <= (d.pauseAt ?? '')) return d;
+  return sanitizeDeck({ ...d, paused: p.paused, pauseAt: p.pauseAt }) ?? d;
 }
 
 function mergeDay(a: StudyDay | null, b: StudyDay | null): StudyDay | null {
@@ -615,9 +672,9 @@ export function updateDeck(st: StudyState, id: string, patch: Partial<DeckPatch>
     ...st,
     decks: st.decks.map((d) => {
       if (d.id !== id) return d;
-      // o "no mural também" desligado (wall: undefined) volta ao padrão, que não é guardado; o grupo não
-      // muda por aqui, nem vindo num pedido
-      return sanitizeDeck({ ...d, ...patch, group: d.group, at }) ?? d;
+      // o "no mural também" desligado (wall: undefined) volta ao padrão, que não é guardado; o grupo e a pausa
+      // não mudam por aqui, nem vindo num pedido (a pausa tem os dela: `pauseDeck` e `resumeDeck`)
+      return sanitizeDeck({ ...d, ...patch, group: d.group, paused: d.paused, pauseAt: d.pauseAt, at }) ?? d;
     }),
   };
 }
@@ -630,6 +687,90 @@ export function moveDeck(st: StudyState, id: string, to: number, at: string): St
   const [deck] = list.splice(from, 1);
   list.splice(Math.max(0, Math.min(to, list.length)), 0, deck);
   return { ...st, decks: list.map((d, i) => (d.order === i ? d : { ...d, order: i, at })) };
+}
+
+// ——— a pausa ———
+
+/**
+ * Desde quando a carta está parada: com todos os baralhos dela (os que valem agora, da vista) pausados, desde a pausa
+ * mais recente deles (antes dela, algum baralho ainda a trazia). null: algum baralho dela está em estudo, ou ela não
+ * está em nenhum.
+ */
+export function frozenSince(card: Pick<StudyCard, 'decks'>, decks: readonly Deck[]): string | null {
+  const mine = cardDecks(card, decks);
+  if (!mine.length || mine.some((d) => !d.paused)) return null;
+  return mine.reduce((m, d) => (d.paused! > m ? d.paused! : m), mine[0].paused!);
+}
+
+/** A mesma hora do relógio, `n` dias depois no calendário daqui. */
+function laterDays(stamp: string, n: number): string {
+  const d = new Date(stamp);
+  d.setDate(d.getDate() + n);
+  return d.toISOString();
+}
+
+/**
+ * O progresso parado desde `since`, como fica se voltar a andar em `now`: a volta e a última resposta andam o tempo
+ * parado, e a carta que faltavam 3 dias para revisar continua faltando 3 dias (o FSRS também conta o mesmo intervalo
+ * desde a última resposta). A carta em revisão anda em dias de estudo (ela vence no começo do dia dela); a dos passos
+ * de 1 e 10 minutos, pelo relógio. A nunca respondida não tem data a andar. A respondida durante a pausa (por um
+ * pedido da API) ficou parada desde a resposta, e anda só desde ela.
+ */
+export function thawSrs(srs: Srs, since: string, now: Date): Srs {
+  if (srs.state === 'nova' || !srs.last) return srs;
+  const from = new Date(srs.last > since ? srs.last : since);
+  if (srs.state === 'revisao') {
+    const days = daysBetween(studyDay(from), studyDay(now));
+    if (days <= 0) return srs;
+    return { ...srs, due: dayStart(addStudyDays(studyDay(new Date(srs.due)), days)).toISOString(), last: laterDays(srs.last, days) };
+  }
+  const ms = now.getTime() - from.getTime();
+  if (ms <= 0) return srs;
+  const later = (stamp: string) => new Date(Date.parse(stamp) + ms).toISOString();
+  return { ...srs, due: later(srs.due), last: later(srs.last) };
+}
+
+/** Desde quando, dito como gente: "hoje", "ontem", "20 de novembro" (e o ano, se não é o de agora). Em dias de estudo. */
+export function pausedSinceLabel(paused: string, now: Date): string {
+  const from = new Date(paused);
+  const days = daysBetween(studyDay(from), studyDay(now));
+  if (days <= 0) return 'hoje';
+  if (days === 1) return 'ontem';
+  const day = new Date(dayStart(studyDay(from)).getTime());
+  const year = day.getFullYear() === now.getFullYear() ? '' : ` de ${day.getFullYear()}`;
+  return `${day.getDate()} de ${MONTHS_LONG[day.getMonth()]}${year}`;
+}
+
+/** Pausa o baralho (o já pausado fica como está, com a hora da pausa de antes). */
+export function pauseDeck(st: StudyState, id: string, at: string): StudyState {
+  if (!st.decks.some((d) => d.id === id && !d.paused)) return st;
+  return { ...st, decks: st.decks.map((d) => (d.id === id ? { ...d, paused: at, pauseAt: at, at } : d)) };
+}
+
+/**
+ * Retoma o baralho em `now`: as cartas dele que estavam paradas (`frozenSince`, pelos baralhos que valem na vista
+ * `view`) andam o tempo em que ficaram paradas (`thawSrs`), e voltam exatamente como estavam. A carta que também está
+ * num baralho em estudo não parou e não anda; a que continua noutro baralho pausado volta a andar agora, por este.
+ */
+export function resumeDeck(st: StudyState, view: StudyState, id: string, now: Date, at: string): StudyState {
+  const deck = st.decks.find((d) => d.id === id);
+  if (!deck?.paused) return st;
+  const thawed = new Map<string, Srs>();
+  for (const c of view.cards) {
+    if (!c.decks.includes(id)) continue;
+    const since = frozenSince(c, st.decks);
+    const srs = since ? thawSrs(c.srs, since, now) : c.srs;
+    if (srs !== c.srs) thawed.set(c.note, srs);
+  }
+  const { paused: _, ...going } = deck;
+  return {
+    ...st,
+    decks: st.decks.map((d) => (d.id === id ? { ...going, pauseAt: at, at } : d)),
+    cards: st.cards.map((c) => {
+      const srs = thawed.get(c.note);
+      return srs ? { ...c, srs, at } : c;
+    }),
+  };
 }
 
 /**
@@ -852,6 +993,25 @@ export function restoreCard(st: StudyState, card: StudyCard, at: string): StudyS
 /** Recomeçar o progresso: a carta volta a Desconhecida, sem respostas. */
 export function resetCard(st: StudyState, note: string, at: string): StudyState {
   return patchCard(st, note, (c) => ({ ...c, srs: freshSrs(at), stats: { seen: 0, right: 0, wrong: 0, marks: '' }, at }));
+}
+
+/** A carta tem progresso a recomeçar: já foi respondida (ou não é mais nova). */
+export function hasProgress(card: Pick<StudyCard, 'srs' | 'stats'>): boolean {
+  return card.srs.state !== 'nova' || card.stats.seen > 0;
+}
+
+/**
+ * Recomeçar o progresso de todas as cartas do baralho (as da vista `view`, das anotações que existem, `live`): cada uma
+ * volta a Desconhecida, sem respostas, e entra de novo como nova, pelas novas por dia. A que já era nova fica como
+ * está. A de vários baralhos tem um progresso só, e recomeça em todos. Devolve as cartas como estavam, para o Desfazer.
+ */
+export function resetDeck(st: StudyState, view: StudyState, id: string, live: (note: string) => boolean, at: string): { state: StudyState; before: StudyCard[] } {
+  const notes = new Set(view.cards.filter((c) => c.decks.includes(id) && live(c.note) && hasProgress(c)).map((c) => c.note));
+  if (!notes.size) return { state: st, before: [] };
+  const before = st.cards.filter((c) => notes.has(c.note));
+  let next = st;
+  for (const note of notes) next = resetCard(next, note, at);
+  return { state: next, before };
 }
 
 /** O dia de hoje, recomeçado quando o dia de estudo virou. */

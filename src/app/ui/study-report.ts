@@ -152,9 +152,11 @@ export class StudyReport {
   private readonly study = inject(StudyStore);
 
   protected readonly data = computed(() => {
-    const card = this.study.cardOf().get(this.note());
-    if (!card) return null;
     const now = this.study.now();
+    const live = this.study.cardOf().get(this.note());
+    if (!live) return null;
+    // a parada num baralho pausado: a volta de quando ele for retomado
+    const card = this.study.shown(live, now);
     const level = levelOf(card.srs);
     const due = new Date(card.srs.due);
     const studied = card.srs.state !== 'nova';

@@ -47,20 +47,22 @@ const EMPTY: QueueCounts = { novas: 0, aprender: 0, revisar: 0 };
  */
 export type StudyScope = string | readonly string[] | undefined;
 
-/** Os baralhos do escopo, na ordem das abas. */
-function scopeDecks(st: StudyState, scope: StudyScope): Deck[] {
-  if (scope === undefined) return st.decks;
-  const ids = typeof scope === 'string' ? [scope] : scope;
-  return st.decks.filter((d) => ids.includes(d.id));
+/**
+ * Os baralhos do escopo, na ordem das abas. O pausado só entra com `paused` (o treino, que não guarda nada): o
+ * baralho pausado não chama ninguém para estudar, e as filas, os montes e os números de hoje não o veem.
+ */
+function scopeDecks(st: StudyState, scope: StudyScope, paused = false): Deck[] {
+  const ids = scope === undefined ? null : typeof scope === 'string' ? [scope] : scope;
+  return st.decks.filter((d) => (!ids || ids.includes(d.id)) && (paused || !d.paused));
 }
 
 /**
  * As cartas do escopo, cada uma uma vez só, com o baralho que a traz: o primeiro dela (na ordem das abas)
  * entre os estudados. `live` diz se a anotação da carta existe. A fila do dia e o treino
- * (core/study-drill.ts) partem daqui.
+ * (core/study-drill.ts) partem daqui: o treino com os baralhos pausados (`paused`, o padrão), a fila sem eles.
  */
-export function scopeCards(st: StudyState, scope: StudyScope, live: (note: string) => boolean = () => true): { card: StudyCard; deck: Deck }[] {
-  const decks = scopeDecks(st, scope);
+export function scopeCards(st: StudyState, scope: StudyScope, live: (note: string) => boolean = () => true, paused = true): { card: StudyCard; deck: Deck }[] {
+  const decks = scopeDecks(st, scope, paused);
   if (!decks.length) return [];
   const order = new Map(decks.map((d, i) => [d.id, i]));
   const out: { card: StudyCard; deck: Deck }[] = [];
@@ -86,7 +88,7 @@ export function dayQueue(st: StudyState, now: Date, scope?: StudyScope, live: (n
   const learning: (QueueItem & { due: number })[] = [];
   const reviews: (QueueItem & { due: string })[] = [];
   const fresh: StudyCard[] = [];
-  for (const { card: c, deck } of scopeCards(st, scope, live)) {
+  for (const { card: c, deck } of scopeCards(st, scope, live, false)) {
     const { state, due } = c.srs;
     if (state === 'aprendendo' || state === 'reaprendendo') {
       const t = Date.parse(due);
@@ -171,6 +173,27 @@ export function nextUp(st: StudyState, now: Date, scope?: StudyScope, live?: (no
 export function allCounts(st: StudyState, now: Date, live?: (note: string) => boolean): { total: QueueCounts; byDeck: Map<string, QueueCounts> } {
   const byDeck = new Map(st.decks.map((d) => [d.id, dayQueue(st, now, d.id, live).counts]));
   return { total: dayQueue(st, now, undefined, live).counts, byDeck };
+}
+
+/**
+ * Em dia: o próximo dia de estudo com revisão no escopo e quantas cartas vencem nele (null: nenhuma). Como a fila,
+ * só nos baralhos em estudo: a carta que só está em baralhos pausados não chama ninguém.
+ */
+export function nextReview(st: StudyState, now: Date, scope?: StudyScope, live: (note: string) => boolean = () => true): { day: string; n: number } | null {
+  const ids = new Set(scopeDecks(st, scope).map((d) => d.id));
+  const today = studyDay(now);
+  let day: string | null = null;
+  let n = 0;
+  for (const c of st.cards) {
+    if (c.srs.state !== 'revisao' || !live(c.note) || !c.decks.some((d) => ids.has(d))) continue;
+    const due = studyDay(new Date(c.srs.due));
+    if (due <= today) continue;
+    if (!day || due < day) {
+      day = due;
+      n = 1;
+    } else if (due === day) n++;
+  }
+  return day ? { day, n } : null;
 }
 
 /** Quantas cartas para hoje, somando os três montes. */

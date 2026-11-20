@@ -48,6 +48,20 @@ describe('os pedidos dos Estudos aplicados pelo site (core/api-requests-study.ts
     expect(study.deck('dgrego')).toBeUndefined();
   });
 
+  it('desfazer uma edição feita antes da pausa não retoma o baralho (nem pausa o retomado)', () => {
+    const a = study.addDeck('Kanji', 'amarelo');
+    const edit = run('baralho.editar', a, { nome: 'Kanji N5' });
+    study.pauseDeck(a);
+    const since = study.deck(a)!.paused;
+    undoStudy(study, { op: 'baralho.editar', alvo: a, antes: edit.antes });
+    expect(study.deck(a)).toEqual(jasmine.objectContaining({ name: 'Kanji', paused: since }));
+    const again = run('baralho.editar', a, { nome: 'Kanji N4' });
+    study.resumeDeck(a);
+    undoStudy(study, { op: 'baralho.editar', alvo: a, antes: again.antes });
+    expect(study.deck(a)!.name).toBe('Kanji');
+    expect(study.deck(a)!.paused).toBeUndefined();
+  });
+
   it('mudar e apagar o baralho; o Desfazer devolve o nome, o lugar e as cartas que saíram junto', () => {
     const a = study.addDeck('Kanji', 'amarelo');
     const b = study.addDeck('Grego', 'azul');

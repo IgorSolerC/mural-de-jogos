@@ -4,7 +4,7 @@ import { ICON, ICON_CHOICE, IconModule } from './icons';
 import { IconChoice } from '../core/icon-choices';
 import { LIGHT_STOCKS, LightStock } from '../core/review';
 import { ReviewStore } from '../core/review-store';
-import { CARD_LOOKS, CARD_LOOK_LABEL, CardLook, DECK_NAME_MAX, cardFace, deckLook, frontTitle } from '../core/study';
+import { CARD_LOOKS, CARD_LOOK_LABEL, CardLook, DECK_NAME_MAX, cardFace, deckLook, frontTitle, pausedSinceLabel } from '../core/study';
 import { StudyStore } from '../core/study-store';
 import { VOICE_LANGS, VOICE_LANG_ORDER, VoiceLang, Voz } from '../core/voz';
 import { pinningFor } from '../core/wall-physics';
@@ -31,7 +31,7 @@ const STOCK_LABEL: Record<LightStock, string> = {
 
 /**
  * Os ajustes de um baralho dos Estudos (o lápis da pasta, e o "+ Novo baralho"): o nome, o ícone e a cor
- * (a da orelha da aba e do elástico da pilha), o estilo das cartas (cada opção é a primeira carta do baralho
+ * (a da orelha da aba e do elástico da pilha), estudar ou pausar, o estilo das cartas (cada opção é a primeira carta do baralho
  * naquele desenho, em miniatura), a voz que lê o título ao virar, o lugar na fileira e apagar o baralho; a cartela
  * dos ícones, com mais de cem, fica por último, para não empurrar o resto. A mesma
  * ficha da coluna do Kanban (ui/kanban-column-sheet.ts), com o mesmo desenho; vale na hora.
@@ -67,6 +67,31 @@ const STOCK_LABEL: Record<LightStock, string> = {
                 <span class="sr-only">Nome do baralho</span>
                 <input #nome type="text" autocomplete="off" [maxLength]="nameMax" [value]="d.deck.name" (change)="rename($any($event.target).value)" (keydown.enter)="$any($event.target).blur()" />
               </label>
+            </section>
+
+            <!-- estudar ou pausar (uma viagem, um mês sem estudar): as etiquetas do Quem vê; pausado, nada dele chama
+                 para estudar, e ao retomar as cartas voltam como estavam (core/study.ts, resumeDeck) -->
+            <section class="grupo" aria-labelledby="ba-estudo-t">
+              <h3 class="grupo-titulo" id="ba-estudo-t">Estudo</h3>
+              <div class="quem-opts" role="radiogroup" aria-labelledby="ba-estudo-t" aria-describedby="ba-estudo-dica">
+                <button type="button" role="radio" class="quem-tag" [attr.aria-checked]="!d.deck.paused" (click)="setPaused(false)">
+                  <lucide-icon [img]="StudyIcon" [size]="16" aria-hidden="true" />
+                  Em estudo
+                </button>
+                <button type="button" role="radio" class="quem-tag" [attr.aria-checked]="!!d.deck.paused" (click)="setPaused(true)">
+                  <lucide-icon [img]="PauseIcon" [size]="16" aria-hidden="true" />
+                  Pausado
+                </button>
+              </div>
+              <p class="quem-dica" id="ba-estudo-dica">{{ studyHint() }}</p>
+              <!-- recomeçar do zero (anos sem usar o baralho): todos voltam a Desconhecidos, com a pergunta e o Desfazer -->
+              <button type="button" class="papel recomecar-baralho" [disabled]="!progress().count || asking()" [attr.aria-describedby]="progress().count ? null : 'ba-recomecar-dica'" (click)="restart()">
+                <lucide-icon [img]="RestartIcon" [size]="16" aria-hidden="true" />
+                Recomeçar o progresso
+              </button>
+              @if (!progress().count) {
+                <p class="quem-dica" id="ba-recomecar-dica">Nenhum flashcard dele foi estudado ainda: não há progresso a recomeçar.</p>
+              }
             </section>
 
             <!-- quem vê: as duas etiquetas do Público e do Privado do editor da anotação; o baralho público mostra
@@ -210,6 +235,12 @@ const STOCK_LABEL: Record<LightStock, string> = {
     .quem-tag:disabled {
       cursor: progress;
     }
+    /* o Recomeçar do baralho: o botão de papel do tamanho dele, como o Recomeçar de um flashcard na aba Flashcard */
+    .recomecar-baralho {
+      justify-self: start;
+      align-self: flex-start;
+      margin-top: 14px;
+    }
     .quem-dica {
       margin: 12px 0 0;
       max-width: 52ch;
@@ -279,6 +310,9 @@ export class StudyDeckSheet {
   protected readonly TrashIcon = ICON.apagar;
   protected readonly PublicIcon = ICON.pessoas;
   protected readonly PrivateIcon = ICON.privada;
+  protected readonly StudyIcon = ICON.estudar;
+  protected readonly PauseIcon = ICON.pausa;
+  protected readonly RestartIcon = ICON.recomecar;
   protected readonly iconOf = ICON_CHOICE;
   protected readonly stocks = LIGHT_STOCKS;
   protected readonly stockLabel = STOCK_LABEL;
@@ -333,6 +367,16 @@ export class StudyDeckSheet {
     return this.account.signedIn() ? who : `${who} Para alguém ver, entre na sua conta.`;
   });
 
+  /** O que o Estudo quer dizer agora: em estudo, o que a pausa faria; pausado, desde quando e o que o retomar faz. */
+  protected readonly studyHint = computed(() => {
+    const paused = this.data()?.deck.paused;
+    if (!paused) return 'Os flashcards dele entram nos montes de hoje. Pausado, nada dele chama para estudar.';
+    return `Pausado desde ${pausedSinceLabel(paused, this.study.now())}: nada dele entra nos montes de hoje. Ao retomar, cada flashcard volta a faltar o tempo que faltava.`;
+  });
+
+  /** Quantos flashcards do baralho têm progresso a recomeçar (e quantos deles também estão noutro baralho). */
+  protected readonly progress = computed(() => this.study.progressIn(this.deckId()));
+
   /** O que a voz escolhida quer dizer: quando o título é lido, e em que voz. */
   protected readonly voiceHint = computed(() => {
     const d = this.data();
@@ -359,7 +403,7 @@ export class StudyDeckSheet {
       subtitle: card.front.subtitle,
       image: card.front.image,
       stock: pinningFor(note.id, note.stock).stock,
-      face: cardFace(card, this.study.now(), 1),
+      face: cardFace(this.study.shown(card), this.study.now(), 1),
     };
   });
 
@@ -407,6 +451,49 @@ export class StudyDeckSheet {
     if ((this.data()?.deck.voice ?? null) !== lang) this.study.updateDeck(this.deckId(), { voice: lang ?? undefined });
     // sem voz, cala qualquer título que estava sendo lido (a parede de trás pode estar lendo um deste baralho)
     this.voz.sayTitle(this.sample()?.title ?? '', lang, this.sampleKey());
+  }
+
+  /** Pausar ou retomar o baralho (vale na hora, como o resto da folha; o texto embaixo diz o que mudou). */
+  protected setPaused(on: boolean): void {
+    const d = this.data();
+    if (!d || !!d.deck.paused === on) return;
+    if (on) this.study.pauseDeck(d.deck.id);
+    else this.study.resumeDeck(d.deck.id);
+  }
+
+  /**
+   * "Recomeçar o progresso": todos os flashcards do baralho voltam a Desconhecidos, sem respostas (pergunta antes, na
+   * ficha de sempre; vale na hora, com o Desfazer no aviso, como o Recomeçar de um flashcard na aba Flashcard).
+   */
+  protected async restart(): Promise<void> {
+    const d = this.data();
+    const { count, shared } = this.progress();
+    if (!d || !count || this.asking()) return;
+    const them = count === 1 ? 'O flashcard estudado dele volta' : `Os ${count} flashcards estudados dele voltam`;
+    const also = !shared ? '' : shared === count ? (count === 1 ? ' Ele também está em outro baralho, e recomeça lá também.' : ' Eles também estão em outros baralhos, e recomeçam lá também.') : ` ${shared} deles também ${shared === 1 ? 'está' : 'estão'} em outro baralho, e recomeça${shared === 1 ? '' : 'm'} lá também.`;
+    // o ritmo das novas do baralho (com 0 por dia, elas esperam: sem número)
+    const pace = d.deck.newPerDay ? `, ${d.deck.newPerDay} por dia` : '';
+    this.asking.set(true);
+    let yes: boolean;
+    try {
+      yes = await this.confirm.ask({
+        title: `Recomeçar o progresso de ${d.deck.name}?`,
+        text: `${them} a ser Desconhecido${count === 1 ? '' : 's'}: as respostas saem, e ${count === 1 ? 'ele entra' : 'eles entram'} de novo como novo${count === 1 ? '' : 's'}${pace}.${also}`,
+        confirm: 'Recomeçar',
+        cancel: 'Deixar',
+        icon: ICON.recomecar,
+      });
+    } finally {
+      this.asking.set(false);
+    }
+    if (!yes) return;
+    const out = this.study.resetDeck(d.deck.id);
+    if (out) this.toasts.show(`O progresso de ${d.deck.name} recomeçou: ${out.count === 1 ? '1 flashcard voltou' : `${out.count} flashcards voltaram`} a ser novo${out.count === 1 ? '' : 's'}`, {
+        label: 'Desfazer',
+        run: () => {
+          if (!out.undo()) this.toasts.show(`Não deu para desfazer: ${d.deck.name} foi pausado ou retomado depois de recomeçar.`);
+        },
+      });
   }
 
   protected rename(name: string): void {

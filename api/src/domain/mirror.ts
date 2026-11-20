@@ -785,6 +785,8 @@ function checkBaralho(b: Record<string, unknown>): BaralhoV1 {
     (b['novas_por_dia'] as number) <= NOVAS_POR_DIA_MAX &&
     typeof b['no_mural'] === 'boolean' &&
     (ESTILOS as readonly unknown[]).includes(b['estilo']) &&
+    // pausado (o site de antes da pausa não manda: vale null)
+    (b['pausado'] === undefined || b['pausado'] === null || isIso(b['pausado'])) &&
     isCount(b['posicao']) &&
     isCount(b['cartas']) &&
     !!nivel &&
@@ -803,6 +805,7 @@ function checkBaralho(b: Record<string, unknown>): BaralhoV1 {
     novas_por_dia: v.novas_por_dia,
     no_mural: v.no_mural,
     estilo: v.estilo,
+    pausado: v.pausado ?? null,
     posicao: v.posicao,
     cartas: v.cartas,
     por_nivel: { desconhecida: v.por_nivel.desconhecida, nova: v.por_nivel.nova, aprendendo: v.por_nivel.aprendendo, dominada: v.por_nivel.dominada },

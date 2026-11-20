@@ -106,7 +106,7 @@ describe('menu do botão direito nos Estudos', () => {
     expect(e.defaultPrevented).toBeTrue();
     expect(isOpen()).toBeTrue();
     expect(panel().querySelector('.legenda')!.textContent).toContain('Kanjis');
-    expect(labels()).toEqual(['Abrir', 'Abrir em outra aba', 'Estudar', 'Treinar', 'Novo flashcard', 'Trazer anotações', 'Ajustes do baralho', 'Apagar o baralho']);
+    expect(labels()).toEqual(['Abrir', 'Abrir em outra aba', 'Estudar', 'Treinar', 'Novo flashcard', 'Trazer anotações', 'Ajustes do baralho', 'Pausar o baralho', 'Apagar o baralho']);
     expect(option('Apagar o baralho').classList).toContain('perigo');
     option('Abrir').click();
     await settle();
@@ -122,6 +122,23 @@ describe('menu do botão direito nos Estudos', () => {
     await settle();
     expect(router.url).toBe(studyPath(GROUP, kanji));
     expect(host.querySelector('app-tab-more.treinar [popover]')!.matches(':popover-open')).toBeTrue();
+  });
+
+  it('Pausar o baralho pelo menu: ele sai dos montes de hoje, e o menu dele passa a ter o Retomar (sem o Estudar)', async () => {
+    await go(studyPath(GROUP));
+    const toasts = TestBed.inject(Toasts);
+    const shown = spyOn(toasts, 'show').and.callThrough();
+    await rightClick($(`.pilha[data-baralho="${kanji}"]`)!);
+    option('Pausar o baralho').click();
+    await settle();
+    expect(study.deck(kanji)!.paused).toBeDefined();
+    expect(shown.calls.mostRecent().args[0]).toBe('Kanjis ficou pausado: nada dele entra nos montes de hoje até você retomar');
+    await rightClick($(`.pilha[data-baralho="${kanji}"]`)!);
+    expect(labels()).not.toContain('Estudar');
+    expect(labels()).toContain('Retomar o baralho');
+    option('Retomar o baralho').click();
+    await settle();
+    expect(study.deck(kanji)!.paused).toBeUndefined();
   });
 
   it('os ajustes abrem a folha do baralho; abrir numa aba nova usa o endereço do link', async () => {

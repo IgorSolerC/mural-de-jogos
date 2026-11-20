@@ -270,6 +270,28 @@ export function estudosSuite(label: string, getDb: () => Db) {
       expect((await t.body(missing)).mensagem).toContain('Japonês (Estudos), Kanji (Estudos), Direito Civil (Trabalho)');
     });
 
+    it('o baralho pausado no app: ver_estudos diz desde quando, e estudar_agora nele traz o aviso, sem cartas', async () => {
+      const t = await setup();
+      const { me, secret, rev } = await t.ready();
+      const since = '2026-10-01T12:00:00.000Z';
+      // o site manda o baralho pausado já sem nada na fila (a do app não o vê)
+      const paused = { ...BARALHOS[1]!, pausado: since };
+      expect((await t.mirror(me.token, { rev, poe: [t.row('baralho', 'd-kanji', paused)] })).status).toBe(200);
+      expect((await t.mirror(me.token, { rev, poe: [t.row('baralho', 'd-kanji', { ...paused, pausado: 'ontem' })] })).status).toBe(400);
+      const got = await t.body(t.ext(secret, '/ext/v1/estudos'));
+      expect(got.baralhos.map((b: { nome: string; pausado: string | null }) => [b.nome, b.pausado])).toEqual([
+        ['Japonês', null],
+        ['Kanji', since],
+        ['Direito Civil', null],
+      ]);
+      const ctx = await t.body(t.ext(secret, '/ext/v1/contexto'));
+      expect(ctx.estudos.baralhos[1].pausado).toBe(since);
+      const now = await t.body(t.ext(secret, '/ext/v1/estudos/hoje?baralho=Kanji'));
+      expect(now.cartas).toEqual([]);
+      expect(now.contagem).toEqual({ novas: 0, aprender: 0, revisar: 0 });
+      expect(now.aviso).toContain('pausado');
+    });
+
     it('o grupo: os baralhos dele, o Estudar o grupo e as cartas dele; o grupo sem baralho é 404', async () => {
       const t = await setup();
       const { secret } = await t.ready(['estudos:ler']);

@@ -241,8 +241,21 @@
   gap: 6px 10px;
 }
 
-/* o Estudar: o traço de marca-texto sempre à mostra, como o Este mês dos Gastos (o que mais se aperta aqui) */
-.pasta .estudar::before {
+/* o baralho pausado: o "Pausado" a pincel no lugar do "para hoje", com o sinal da pausa na frente */
+.pausado-n {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  lucide-icon {
+    flex: none;
+  }
+}
+
+/* o Estudar (e o Retomar, no lugar dele no baralho pausado): o traço de marca-texto sempre à mostra, como o Este
+   mês dos Gastos (o que mais se aperta aqui) */
+.pasta .estudar::before,
+.pasta .retomar::before {
   opacity: 1;
   scale: 1 1;
 }
