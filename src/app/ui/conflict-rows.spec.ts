@@ -145,6 +145,20 @@ describe('conflict-rows: as diferenças da folha do conflito', () => {
     expect(rows[1].b).toEqual({ kind: 'text', text: 'Solta no grupo “Casa”' });
   });
 
+  it('a mini-pasta dos templates: o nome da pasta e a pasta de cada template, em palavras', () => {
+    const pasta = { id: 'preuniao1', group: 'templates:as-mini-pastas-dos-templates', name: 'Reuniões', parent: null };
+    const t = { id: 'pauta1', title: 'Pauta', text: '## Pauta' };
+    const a = { ...NOTES_CONFIG_DEFAULT, folders: [pasta], templates: [{ ...t, folder: 'preuniao1' }] };
+    const b = { ...NOTES_CONFIG_DEFAULT, folders: [{ ...pasta, name: 'Encontros' }], templates: [t] };
+    const rows = blockRows('muralAnotacoes', a, b, NAMES);
+    expect(rows.map((r) => r.label)).toEqual(['Nome da pasta do grupo “Templates”', 'Pasta do template “Pauta”']);
+    expect(rows[1].a).toEqual(jasmine.objectContaining({ text: 'Reuniões' }));
+    expect(rows[1].b).toEqual({ kind: 'empty', text: 'Fora das pastas' });
+    // a pasta desfeita de um lado: o template está solto nos dois, e não há o que escolher
+    const gone = { ...a, folders: [{ ...pasta, gone: '2026-11-20T10:00:00.000Z' }] };
+    expect(blockRows('muralAnotacoes', gone, { ...b, folders: [{ ...pasta, gone: '2026-11-20T10:00:00.000Z' }] }, NAMES)).toEqual([]);
+  });
+
   it('o ícone e a cor dos grupos e das tags: a chave da tag vira o nome dela e o do grupo', () => {
     const rows = blockRows('categorias', { casa: { icon: 'casa', color: 'verde' }, '##casa#mercado': { color: 'azul' } }, { casa: { icon: 'carrinho', color: 'rosa' } }, NAMES);
     expect(rows.map((r) => r.label)).toEqual(['Cor da tag “mercado” no grupo “Casa”', 'Desenho e cor do grupo “Casa”']);

@@ -6,22 +6,31 @@
   display: contents;
 }
 
-/* A folha do template: a ficha de fichário dos diálogos, com a faixa amarela e o carimbo no nome. Reta:
-   é de escrever. O texto e o "Como fica" lado a lado no largo, um embaixo do outro no estreito. */
+/* A folha do template: a ficha de fichário dos diálogos, com a faixa amarela e o carimbo no nome. Reta: é de
+   escrever. Larga e alta, como uma página: o nome e a pasta em cima, e o texto no editor das anotações, que
+   enche o resto e cresce com o texto (quem rola é a folha). */
 dialog.folha-modelo {
   width: 100%;
-  max-width: min(880px, calc(100vw - 24px));
-  container: mfolha / inline-size;
+  max-width: min(980px, calc(100vw - 24px));
+  height: min(880px, calc(100dvh - 24px));
+}
+
+.ficha {
+  height: 100%;
 }
 
 .titulos {
   @include sheet.titulos;
 }
 
-.head h2 {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.head {
+  margin-bottom: 0;
+
+  h2 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
 }
 
 /* o carimbo, um pouco torto, como quem acabou de bater */
@@ -35,9 +44,13 @@ dialog.folha-modelo {
   @include sheet.sub;
 }
 
-.body {
-  gap: 18px;
-  padding-top: 14px;
+/* ===== O nome e a pasta, lado a lado (um embaixo do outro no estreito) ===== */
+.campos {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+  align-items: start;
+  gap: 10px 18px;
+  padding: 16px 24px 4px;
 }
 
 .titulo-campo {
@@ -65,7 +78,7 @@ dialog.folha-modelo {
 }
 
 .parte-nome {
-  max-width: 30rem;
+  min-width: 0;
 }
 
 .dica {
@@ -73,91 +86,95 @@ dialog.folha-modelo {
   font-size: 0.86rem;
   line-height: 1.4;
   color: var(--ink-2);
-
-  code {
-    padding: 0 4px;
-    border-radius: 2px;
-    background: rgb(21 21 21 / 0.07);
-    font-family: var(--f-mono);
-    font-weight: 700;
-    font-size: 0.88em;
-    color: var(--ink);
-    white-space: nowrap;
-  }
 }
 
-.conta {
-  display: block;
-  margin-top: 2px;
-  font-family: var(--f-label);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  font-variant-numeric: tabular-nums;
-
-  &.passou {
-    color: var(--error-ink);
-  }
-}
-
-.partes {
-  display: grid;
-  gap: 18px;
-}
-
-@container mfolha (min-width: 720px) {
-  .partes {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: start;
-  }
-}
-
-.parte {
-  display: grid;
+.parte-pasta {
   min-width: 0;
 }
 
-/* o texto: a folha pautada do editor, no Markdown (as marcas à vista) */
-textarea {
-  @include kit.folha-pautada;
+/* a pasta: o botão de papel com o desenho e o nome; fora das pastas, o recorte tracejado (ainda sem pasta) */
+.pasta-botao {
+  @include kit.botao-papel;
+  justify-content: flex-start;
+  max-width: min(18rem, 100%);
+  min-height: 46px;
+  padding: 8px 12px 7px;
+  text-align: left;
 
-  &.erro {
-    box-shadow: var(--campo-sombra-erro);
+  &.solta {
+    background: transparent;
+    box-shadow: none;
+    outline: 1.5px dashed rgb(21 21 21 / 0.42);
+    outline-offset: -1.5px;
+    color: rgb(21 21 21 / 0.8);
+  }
+
+  /* aberta: a tinta da etiqueta aberta do editor (a fileira de ui/_props-editor.scss), também com a mão em cima */
+  &[aria-expanded='true'],
+  &[aria-expanded='true']:hover:not(:disabled) {
+    background: var(--ink);
+    color: var(--hi);
+    outline-color: transparent;
+    rotate: -1deg;
+    translate: 0 -1px;
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.35),
+      0 5px 10px -4px rgb(0 0 0 / 0.4);
+
+    &::after {
+      content: none;
+    }
+  }
+
+  lucide-icon {
+    display: inline-flex;
+    flex: none;
   }
 }
 
-/* como fica: a folha do Visual sem a pauta (a letra da folha, o texto vestido como na anotação), com um
-   fio tracejado em volta: é de ver, não de escrever */
-.previa {
-  min-height: calc(1.75rem * 9 + 8px);
-  max-height: 26rem;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 4px 12px 10px;
+.pasta-valor {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* a escolha da pasta aberta: na largura da folha, embaixo do nome e da pasta, num papel de campo */
+.pasta-parte {
+  grid-column: 1 / -1;
+  padding: 12px 14px 10px;
   border-radius: 2px;
   background: var(--campo-papel);
   outline: 1.5px dashed rgb(21 21 21 / 0.22);
   outline-offset: -1.5px;
-  color: var(--ink);
-  font-family: var(--f-hand);
-  font-size: 1.14rem;
-  line-height: 1.75rem;
-  overflow-wrap: anywhere;
-  scrollbar-color: rgb(21 21 21 / 0.35) transparent;
+}
 
-  &:focus-visible {
-    outline: 3px solid var(--ink);
-    outline-offset: 2px;
+/* ===== O texto: o editor das anotações, que enche a folha e cresce com o texto ===== */
+.conteudo {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  /* sem respiro em cima: o alto da folha e a régua presos contam a partir do padding de quem rola (o respiro é a
+     margem do editor, de onde o alto prende), como na folha do texto do Quadro livre */
+  padding: 0 24px 18px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: rgb(21 21 21 / 0.35) transparent;
+}
+
+app-rich-editor {
+  flex: 1 0 auto;
+  margin-top: 14px;
+
+  /* faltou o texto: o fio da folha em erro */
+  &.erro {
+    border-radius: 2px;
+    box-shadow: 0 0 0 2px var(--error-ink);
   }
 }
 
-.previa-vazia {
-  margin: 0;
-  font-family: var(--f-hand);
-  font-size: 1.02rem;
-  color: var(--ink-2);
-}
-
-/* o que falta, ao lado dos botões (no estreito, um bilhete em cima do pé) */
+/* ===== O pé: o que falta, ao lado dos botões (no estreito, um bilhete em cima do pé) ===== */
 .foot {
   position: relative;
 }
@@ -182,10 +199,18 @@ textarea {
   color: var(--red-deep);
 }
 
-@container mfolha (max-width: 560px) {
-  textarea,
-  .previa {
-    min-height: calc(1.75rem * 6 + 8px);
+@media (max-width: 620px) {
+  .campos {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 12px 16px 2px;
+  }
+
+  .pasta-botao {
+    max-width: 100%;
+  }
+
+  .conteudo {
+    padding: 0 16px 14px;
   }
 
   .apagar-txt {

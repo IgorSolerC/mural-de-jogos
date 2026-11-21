@@ -235,8 +235,10 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  *     limparia o baralho sem ela, e o baralho voltaria a ficar sem voz em todo aparelho.
  * 61: o baralho pausado (`estudos.decks[].paused`, desde quando). Um site da 60 limparia o baralho sem a pausa, e ele
  *     voltaria a chamar para estudar em todo aparelho, com as cartas acumulando como atrasadas.
+ * 62: as mini-pastas dos templates do texto (`muralAnotacoes.dados.templates[].folder`, com as pastas no grupo
+ *     `templates:as-mini-pastas-dos-templates` de `folders`). Um site da 61 limparia cada template sem a pasta, e todos voltariam soltos.
  */
-export const SYNC_SCHEMA = 61;
+export const SYNC_SCHEMA = 62;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };

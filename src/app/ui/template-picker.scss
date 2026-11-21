@@ -1,0 +1,572 @@
+@use 'paper-kit' as kit;
+@use 'indice';
+@use 'a11y';
+
+/* O seletor dos templates (ui/template-picker.ts): a folha do "Escolher a nota" (profile-picker.scss dá o papel,
+   o tamanho, a faixa e a busca), mais larga, com a estante dos templates à esquerda e o escolhido inteiro à
+   direita, cada lado com a sua rolagem. */
+
+dialog.escolher.modelos {
+  max-width: min(1040px, calc(100vw - 24px));
+  height: min(800px, calc(100dvh - 24px));
+}
+
+.ficha {
+  display: flex;
+  flex-direction: column;
+}
+
+.head h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  &:focus {
+    outline: none;
+  }
+}
+
+/* o carimbo, um pouco torto, como quem acabou de bater (o da folha do template) */
+.carimbo {
+  display: inline-flex;
+  flex: none;
+  rotate: -8deg;
+}
+
+/* ===== A busca e o "Nova pasta" / "Novo template", fixos em cima (a fileira do Escolher a nota) ===== */
+.ferramentas {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 24px 14px;
+  border-bottom: 2px dashed rgb(21 21 21 / 0.22);
+}
+
+/* os botões de papel (o Copiar e o Editar da prévia também) */
+.papel {
+  @include kit.botao-papel;
+  flex: none;
+  min-height: 44px;
+  padding: 7px 12px 6px;
+  font-size: 0.88rem;
+  white-space: nowrap;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+/* ===== A estante e a prévia ===== */
+.corpo {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  flex: 1 1 auto;
+  min-height: 0;
+
+  &.vazio {
+    grid-template-columns: minmax(0, 1fr);
+
+    .estante {
+      border-right: 0;
+    }
+  }
+}
+
+.estante {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px 12px 22px 16px;
+  border-right: 2px dashed rgb(21 21 21 / 0.22);
+  scrollbar-width: thin;
+  scrollbar-color: rgb(21 21 21 / 0.35) transparent;
+}
+
+/* uma mini-pasta: a cabeça (a seta, a pasta de manilha, o nome e quantos) e, aberta, os templates dela dentro
+   da pasta, num papel manilha claro */
+.pasta {
+  border-radius: 5px;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  & + & {
+    margin-top: 3px;
+  }
+
+  &.aberta {
+    padding-bottom: 6px;
+    background-color: color-mix(in srgb, var(--manilha) 70%, transparent);
+    background-image: var(--paper-grain);
+    background-blend-mode: multiply;
+    box-shadow:
+      0 1px 1px rgb(0 0 0 / 0.12),
+      0 3px 6px -4px rgb(0 0 0 / 0.3);
+  }
+}
+
+.cabeca {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px;
+
+  /* escrevendo o nome: a seta, a pasta e o campo, na mesma linha */
+  &:has(.nome-campo) {
+    grid-template-columns: 15px 19px minmax(0, 1fr);
+    gap: 8px;
+    padding: 4px 8px;
+  }
+}
+
+.abre {
+  display: grid;
+  grid-template-columns: 15px 19px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 40px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.96rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.07);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: -1px;
+  }
+}
+
+.seta {
+  display: inline-flex;
+  color: var(--ink-2);
+}
+
+/* a pasta desenhada a tinta, cheia de manilha (a cor das pastas do mural) */
+lucide-icon.pasta-ico {
+  display: inline-flex;
+
+  ::ng-deep svg {
+    fill: #dcc27c;
+  }
+}
+
+.pasta-nome {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.n {
+  @include indice.n;
+  font-size: 0.86rem;
+}
+
+/* o "…" da pasta: só o desenho, a 60% até a mão chegar */
+.mais {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: rgb(21 21 21 / 0.6);
+  cursor: pointer;
+  transition:
+    color var(--t-ui) var(--ease-ui),
+    background-color var(--t-ui) var(--ease-ui);
+
+  &:hover,
+  &[aria-expanded='true'] {
+    background: rgb(21 21 21 / 0.08);
+    color: var(--ink);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: -1px;
+    color: var(--ink);
+  }
+
+  lucide-icon {
+    display: inline-flex;
+  }
+
+  @media (pointer: coarse) {
+    width: 44px;
+    height: 44px;
+    color: var(--ink);
+  }
+}
+
+.nome-campo {
+  @include kit.campo;
+  min-width: 0;
+  min-height: 34px;
+  padding: 4px 8px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.96rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.modelos-lista {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  .pasta & {
+    padding: 0 6px 0 31px;
+  }
+}
+
+/* um template: o nome à mão e o começo do texto embaixo; o escolhido ganha o traço de marca-texto no nome */
+.modelo {
+  display: grid;
+  gap: 1px;
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 5px 8px 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.07);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: -1px;
+  }
+
+  &.on {
+    background: rgb(21 21 21 / 0.08);
+  }
+}
+
+.modelo-nome {
+  position: relative;
+  isolation: isolate;
+  justify-self: start;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0 4px;
+  margin: 0 -4px;
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1.08rem;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  @include indice.marca-texto;
+
+  .on > & {
+    &::before {
+      opacity: 1;
+      scale: 1 1;
+    }
+  }
+}
+
+.modelo-previa {
+  overflow: hidden;
+  font-size: 0.82rem;
+  line-height: 1.3;
+  color: var(--ink-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.soltos {
+  margin-top: 6px;
+}
+
+.soltos-titulo {
+  margin: 12px 0 4px 8px;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.vazia {
+  padding: 4px 8px 8px;
+  font-family: var(--f-hand);
+  font-size: 1rem;
+  line-height: 1.35;
+  color: var(--ink-2);
+
+  .nada-link {
+    margin-left: 0;
+  }
+}
+
+.nada {
+  max-width: 34rem;
+  margin: 0;
+  padding: 18px 8px;
+  font-family: var(--f-hand);
+  font-size: 1.1rem;
+  line-height: 1.4;
+  color: var(--ink-2);
+
+  p {
+    margin: 0 0 8px;
+  }
+}
+
+.nada-link:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* ===== A prévia: o template inteiro, como entra na anotação ===== */
+.previa-lado {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 14px 24px 18px;
+}
+
+.previa-topo {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+/* a volta para a estante: só no celular, onde a prévia toma a folha */
+.volta {
+  display: none;
+  justify-self: start;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 10px 0 4px;
+  margin-left: -4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.9rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.07);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: -1px;
+  }
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+.previa-nome {
+  margin: 0;
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1.5rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.previa-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.previa-botoes {
+  display: flex;
+  gap: 8px;
+}
+
+/* a pasta do escolhido: impressa, com o valor sublinhado a pontinhos (como o Ordenar do Escolher a nota), o
+   select nativo por cima */
+.escolha {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 40px;
+  padding: 0 26px 0 8px;
+  margin-left: -8px;
+  border-radius: 2px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--ink);
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.07);
+  }
+
+  &:has(select:focus-visible) {
+    outline: 3px solid var(--ink);
+    outline-offset: 1px;
+  }
+
+  > lucide-icon {
+    display: inline-flex;
+  }
+
+  select {
+    @include kit.select-por-cima;
+  }
+}
+
+.escolha-pre {
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.escolha-val {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-decoration: underline dotted 2px rgb(21 21 21 / 0.45);
+  text-underline-offset: 4px;
+}
+
+lucide-icon.escolha-chev {
+  position: absolute;
+  right: 6px;
+  top: calc(50% - 7.5px);
+}
+
+/* a folha: o papel do campo, sem a pauta, com o fio tracejado em volta (é de ler, não de escrever), da
+   altura que sobra; o template comprido rola aqui dentro */
+.folha-previa {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px 16px 14px;
+  border-radius: 2px;
+  background: var(--campo-papel);
+  outline: 1.5px dashed rgb(21 21 21 / 0.22);
+  outline-offset: -1.5px;
+  color: var(--ink);
+  font-family: var(--f-hand);
+  font-size: 1.14rem;
+  line-height: 1.75rem;
+  overflow-wrap: anywhere;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(21 21 21 / 0.35) transparent;
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+}
+
+.previa-nada {
+  margin: auto;
+  max-width: 22rem;
+  font-family: var(--f-hand);
+  font-size: 1.1rem;
+  text-align: center;
+  color: var(--ink-2);
+}
+
+/* ===== O pé ===== */
+.foot .conta {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+.guardar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+/* ===== No celular: a estante toma a folha, e o template tocado toma o lugar dela ===== */
+@media (max-width: 720px) {
+  .ferramentas {
+    padding: 12px 16px;
+  }
+
+  .papel-nome {
+    @include a11y.escondido;
+  }
+
+  .papel:has(.papel-nome) {
+    width: 44px;
+    padding: 0;
+  }
+
+  .corpo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .estante {
+    padding: 10px 10px 18px;
+    border-right: 0;
+  }
+
+  .corpo.detalhe .estante,
+  .corpo:not(.detalhe) .previa-lado {
+    display: none;
+  }
+
+  .previa-lado {
+    padding: 8px 16px 14px;
+  }
+
+  .volta {
+    display: inline-flex;
+  }
+
+  .foot .conta {
+    display: none;
+  }
+}

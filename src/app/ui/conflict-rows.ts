@@ -4,12 +4,12 @@ import { canonicalJson } from '../core/canonical-json';
 import { CATEGORY_COLORS, CategoryLook, CategoryLooks, categoryColorHex, lookKey, tagColorHex } from '../core/category-looks';
 import { CODE_THEME_NAMES, CodeTheme } from '../core/code-langs';
 import { LOOK_KEYS } from '../core/ficha-merge';
-import { NoteFolder } from '../core/folders';
+import { FolderTree, NoteFolder, folderTree } from '../core/folders';
 import { IMPORTANCE_LABEL, KanbanBoard, KanbanCard, KanbanColumn } from '../core/kanban';
 import { sortSentence } from '../core/kanban-sort';
 import { KINDS, Kind, profileOf } from '../core/kinds';
 import { AutoTab, CategoryPrefs, NotesConfig } from '../core/mural-config';
-import { NoteTemplate } from '../core/note-templates';
+import { NoteTemplate, TEMPLATE_FOLDER_GROUP } from '../core/note-templates';
 import { PAGE_BACKGROUNDS, PROFILE_FRAMES, PROFILE_MATERIALS, Profile, ProfileBackground, ProfileSection, SECTION_DENSITIES, WALLS_LOOKS } from '../core/profile';
 import { DIFFICULTY_LABEL, Review, SCORE_LABEL, STOCK_LABEL, Stock, VERDICT_LABEL, formatScore, isNote } from '../core/review';
 import { BlockKind } from '../core/sync-base';
@@ -343,6 +343,8 @@ export function parseTagKey(key: string): { tag: string; group: string | null } 
 
 function groupName(key: string, names: RowNames): string {
   if (key === '') return 'Sem grupo';
+  // as mini-pastas dos templates do texto moram na mesma lista, num grupo só delas
+  if (key === TEMPLATE_FOLDER_GROUP) return 'Templates';
   return names.group(key) ?? key;
 }
 
@@ -476,7 +478,7 @@ function configRows(a: NotesConfig, b: NotesConfig, names: RowNames): ConflictRo
   }
 
   out.push(...folderRows(a.folders ?? [], b.folders ?? [], names));
-  out.push(...templateRows(a.templates ?? [], b.templates ?? []));
+  out.push(...templateRows(a.templates ?? [], b.templates ?? [], folderTree(a.folders ?? []), folderTree(b.folders ?? [])));
   return out;
 }
 
@@ -520,8 +522,10 @@ function folderRows(fa: readonly NoteFolder[], fb: readonly NoteFolder[], names:
   return out;
 }
 
-function templateRows(ta: readonly NoteTemplate[], tb: readonly NoteTemplate[]): ConflictRow[] {
+function templateRows(ta: readonly NoteTemplate[], tb: readonly NoteTemplate[], treeA: FolderTree, treeB: FolderTree): ConflictRow[] {
   const out: ConflictRow[] = [];
+  // a pasta de verdade de cada lado, pelas pastas dele (a desfeita é "fora das pastas", como o seletor mostra)
+  const folderOf = (t: NoteTemplate, tree: FolderTree) => tree.path(tree.resolve(t.folder, TEMPLATE_FOLDER_GROUP))[0] ?? null;
   const byA = new Map(ta.map((t) => [t.id, t]));
   const byB = new Map(tb.map((t) => [t.id, t]));
   for (const id of [...new Set([...byA.keys(), ...byB.keys()])]) {
@@ -536,6 +540,12 @@ function templateRows(ta: readonly NoteTemplate[], tb: readonly NoteTemplate[]):
     }
     if (x.title !== y.title) out.push({ id: `template:${id}:nome`, label: 'Nome do template', icon: ICON.templates, a: text(x.title, true), b: text(y.title, true) });
     if (x.text !== y.text) out.push({ id: `template:${id}:texto`, label: `Texto do template ${quoted(y.title)}`, icon: ICON.templates, a: { kind: 'rich', text: x.text }, b: { kind: 'rich', text: y.text } });
+    const fx = folderOf(x, treeA);
+    const fy = folderOf(y, treeB);
+    if (fx?.id !== fy?.id) {
+      const c = (f: NoteFolder | null): Cell => (f ? { kind: 'icon', icon: ICON.pastaDeNotas, text: f.name } : empty('Fora das pastas'));
+      out.push({ id: `template:${id}:pasta`, label: `Pasta do template ${quoted(y.title)}`, icon: ICON.guardarNaPasta, a: c(fx), b: c(fy) });
+    }
   }
   return out;
 }

@@ -320,9 +320,12 @@ describe('limpar o navegador (sair da conta)', () => {
     expect(localStorage.getItem(SETTINGS_KEY)).toBeNull();
   });
 
-  it('os templates do texto (nas configurações do mural de anotações) saem junto', async () => {
+  it('os templates do texto e as mini-pastas deles (nas configurações do mural de anotações) saem junto', async () => {
     signedInBrowser();
-    writeJson(SETTINGS_KEY, { notesConfig: { templates: [{ id: 'reuniao', title: 'Reunião', text: '## Pauta\n- [ ] ' }] }, notesConfigAt: '2026-10-31T12:00:00.000Z' });
+    writeJson(SETTINGS_KEY, {
+      notesConfig: { folders: [{ id: 'preuniao1', group: 'templates:as-mini-pastas-dos-templates', name: 'Reuniões', parent: null }], templates: [{ id: 'reuniao', title: 'Reunião', text: '## Pauta\n- [ ] ', folder: 'preuniao1' }] },
+      notesConfigAt: '2026-10-31T12:00:00.000Z',
+    });
     localStorage.removeItem(SESSION_KEY);
     localStorage.setItem(RESET_KEY, JSON.stringify({ keep: [], motivo: 'saiu' }));
     expect(await resetOnBoot()).toBeTrue();

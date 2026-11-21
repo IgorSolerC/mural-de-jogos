@@ -1,20 +1,32 @@
+import { PASTA_ID_RE } from '../../../contrato/api-v1/notas';
 import { cleanLabel, nameCollator, nameKey } from './text';
 
 /**
- * Os templates do texto (o menu "Templates" da régua, ver ui/text-templates.ts): um trecho que a pessoa
+ * Os templates do texto (o botão "Templates" da régua, ver ui/template-picker.ts): um trecho que a pessoa
  * escreve sempre, guardado com um nome, para pôr no cursor ou copiar. O texto é o markdown de sempre
  * (as marcas, as listas, os widgets), o mesmo que a anotação guarda.
  *
  * Moram nas configurações do mural de anotações (`NotesConfig.templates`, ver mural-config.ts), que vão
- * para os outros aparelhos pelo mural privado. Não importa nada além de text.ts: mural-config.ts é lido
- * pelos ajustes, e um import a mais aqui pode fechar um ciclo.
+ * para os outros aparelhos pelo mural privado. Não importa nada além de text.ts e da regra do id de pasta do
+ * contrato da API (que não importa nada do site): mural-config.ts é lido pelos ajustes, e um import a mais
+ * aqui pode fechar um ciclo.
+ *
+ * As mini-pastas dos templates são pastas como as das anotações, na mesma lista das configurações
+ * (`NotesConfig.folders`), no grupo `TEMPLATE_FOLDER_GROUP`, como as da galeria de pixel arts: o template
+ * guarda só o id da pasta (`folder`), e a regra da leitura é a delas (a pasta desfeita vira lápide, e o
+ * template fica solto sem ser regravado). Quem lê e mexe nelas é o `TemplateFolders` (core/template-folders.ts).
  */
 export interface NoteTemplate {
   id: string;
   /** O nome que aparece no menu. */
   title: string;
   text: string;
+  /** A mini-pasta (o id, em `NotesConfig.folders`, grupo `TEMPLATE_FOLDER_GROUP`); sem o campo, solto. */
+  folder?: string;
 }
+
+/** O grupo das mini-pastas dos templates em `NotesConfig.folders` (nenhum grupo de anotações tem ":" na chave). */
+export const TEMPLATE_FOLDER_GROUP = 'templates:as-mini-pastas-dos-templates';
 
 /** Templates demais viram lixo guardado (e o menu deixa de ser um menu): no máximo estes. */
 export const MAX_TEMPLATES = 50;
@@ -31,11 +43,11 @@ export function sanitizeTemplates(raw: unknown): NoteTemplate[] {
   for (const v of raw) {
     if (out.length >= MAX_TEMPLATES) break;
     if (!v || typeof v !== 'object') continue;
-    const { id, title, text } = v as Record<string, unknown>;
+    const { id, title, text, folder } = v as Record<string, unknown>;
     if (typeof id !== 'string' || !ID.test(id) || out.some((t) => t.id === id)) continue;
     const name = typeof title === 'string' ? cleanTitle(title) : '';
     const body = typeof text === 'string' ? text.replace(/\r\n?/g, '\n').slice(0, MAX_TEMPLATE_TEXT) : '';
-    if (name && body.trim()) out.push({ id, title: name, text: body });
+    if (name && body.trim()) out.push({ id, title: name, text: body, ...(typeof folder === 'string' && PASTA_ID_RE.test(folder) ? { folder } : {}) });
   }
   return out;
 }
@@ -59,6 +71,19 @@ export function titleTaken(list: readonly NoteTemplate[], title: string, id: str
 /** A lista com o template posto: no lugar do de mesmo id, ou no fim. */
 export function withTemplate(list: readonly NoteTemplate[], t: NoteTemplate): NoteTemplate[] {
   return list.some((x) => x.id === t.id) ? list.map((x) => (x.id === t.id ? t : x)) : [...list, t];
+}
+
+/** O template apagado de volta (o Desfazer): com um número no nome se outro pegou o nome dele no meio, para os dois se distinguirem. */
+export function withRestoredTemplate(list: readonly NoteTemplate[], t: NoteTemplate): NoteTemplate[] {
+  let title = t.title;
+  for (let n = 2; titleTaken(list, title, t.id); n++) title = cleanTitle(`${t.title.slice(0, MAX_TEMPLATE_TITLE - String(n).length - 3)} (${n})`);
+  return withTemplate(list, { ...t, title });
+}
+
+/** O template na mini-pasta `folder` (null: solto, sem o campo). */
+export function withTemplateFolder(t: NoteTemplate, folder: string | null): NoteTemplate {
+  const { folder: _was, ...rest } = t;
+  return folder ? { ...rest, folder } : rest;
 }
 
 /** Um id novo para um template (as letras e números que o `sanitizeTemplates` aceita). */

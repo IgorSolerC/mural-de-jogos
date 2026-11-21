@@ -93,7 +93,7 @@ interface Row {
       }
     </div>
     @if (!tree().kids(group(), null).length && !searching()) {
-      <p class="dica">{{ groupName() }} ainda não tem pastas. Escreva um nome para criar.</p>
+      <p class="dica">{{ emptyHint() ?? groupName() + ' ainda não tem pastas. Escreva um nome para criar.' }}</p>
     } @else if (searching() && !rows().length && !fresh()) {
       <p class="dica">Nenhuma pasta com esse nome.</p>
     }
@@ -121,6 +121,10 @@ export class FolderPicker {
   readonly label = input('Pasta da anotação');
   /** Criar a pasta escrita, dentro de `parent` (quem usa cria e escolhe). */
   readonly create = output<{ parent: string | null; name: string }>();
+  /** Um nível só (as mini-pastas dos templates): a pasta nova nasce sempre na raiz, nunca dentro da escolhida. */
+  readonly flat = input(false);
+  /** O que diz a escolha sem pasta nenhuma (sem ele: "Estudos ainda não tem pastas…"). */
+  readonly emptyHint = input<string | null>(null);
 
   protected readonly max = LABEL_MAX;
   protected readonly SearchIcon = ICON.buscar;
@@ -177,13 +181,13 @@ export class FolderPicker {
   protected readonly fresh = computed(() => {
     const name = cleanFolderName(this.query());
     if (!name) return null;
-    const parent = this.value();
+    const parent = this.flat() ? null : this.value();
     const twin = this.tree()
       .kids(this.group(), parent)
       .some((f) => fold(f.name) === fold(name));
     return twin ? null : name;
   });
-  protected readonly freshWhere = computed(() => (this.value() ? (this.tree().live(this.value())?.name ?? this.groupName()) : this.groupName()));
+  protected readonly freshWhere = computed(() => (this.value() && !this.flat() ? (this.tree().live(this.value())?.name ?? this.groupName()) : this.groupName()));
 
   /** Enter: a primeira que bate com a busca, ou a pasta nova. */
   protected enter(): void {
@@ -199,7 +203,7 @@ export class FolderPicker {
   }
 
   protected make(name: string): void {
-    this.create.emit({ parent: this.value(), name });
+    this.create.emit({ parent: this.flat() ? null : this.value(), name });
     this.query.set('');
   }
 

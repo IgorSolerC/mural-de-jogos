@@ -968,7 +968,7 @@ export class SettingsPage {
 
   /**
    * Em quais fichas cada imagem aparece (pelo texto, como capa das fichas, dos recortes e do Pra depois, e na frente
-   * das cartas dos Estudos, e as referências das pixel arts da galeria): o título de cada uma.
+   * das cartas dos Estudos, as referências das pixel arts da galeria e os templates do texto): o título de cada uma.
    */
   private readonly imageUse = computed(() => {
     const out = new Map<string, string[]>();
@@ -985,6 +985,8 @@ export class SettingsPage {
       out.set(id, [...(out.get(id) ?? []), `Frente do flashcard: ${c.front.title || name}`]);
     }
     for (const p of this.pixelGallery.pieces()) for (const src of refSources(p.layers)) add(localImageId(src), `Referência da pixel art ${pieceTitle(p)}`);
+    // os templates do texto também levam imagens (a folha deles é o editor das anotações)
+    for (const t of this.settings.notesConfig().templates) for (const id of localImageIds(t.text)) add(id, `Template ${t.title}`);
     return out;
   });
 

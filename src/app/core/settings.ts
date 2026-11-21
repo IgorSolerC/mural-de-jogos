@@ -3,7 +3,7 @@ import { fold } from './review';
 import { MAX_PINNED_TAGS, sanitizeTags } from './note-labels';
 import { CategoryColorId, CategoryLook, CategoryLooks, lookKey, sanitizeCategoryLooks, tagColorOf, tagLookKey } from './category-looks';
 import { CategoryPrefs, NotesConfig, sanitizeNotesConfig, withPrefs, withSavedSubjects, withTagHidden, wishTagKey } from './mural-config';
-import { NoteTemplate, withTemplate } from './note-templates';
+import { NoteTemplate, withRestoredTemplate, withTemplate } from './note-templates';
 import { onOtherTab, writeJson } from './storage';
 import { fromOtherTab } from './tab-join';
 
@@ -406,6 +406,11 @@ export class Settings {
   /** Guarda um template do texto (novo, ou no lugar do de mesmo id). */
   saveTemplate(t: NoteTemplate): void {
     this.setNotesConfig({ templates: withTemplate(this.notesConfig().templates, t) });
+  }
+
+  /** O template apagado de volta (o Desfazer), com um número no nome se outro pegou o nome dele no meio. */
+  restoreTemplate(t: NoteTemplate): void {
+    this.setNotesConfig({ templates: withRestoredTemplate(this.notesConfig().templates, t) });
   }
 
   /** Tira um template do texto. */

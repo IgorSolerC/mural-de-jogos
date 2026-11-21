@@ -100,9 +100,9 @@ export class NoteFolders {
    * quem não é o dono, as do grupo não ficam nas configurações. O resto vai para as configurações, como sempre.
    */
   private save(folders: readonly NoteFolder[]): void {
-    // os desejos da Wishlist (grupo desejos:<mural>) e as obras da galeria de pixel arts também apontam para pastas
-    // daqui: a lápide fica enquanto alguém aponta
-    const pruned = prunedFolders(folders, [...this.store.notes(), ...this.store.wishes(), ...this.gallery.pieces()], Date.now());
+    // os desejos da Wishlist (grupo desejos:<mural>), as obras da galeria de pixel arts e os templates do texto
+    // também apontam para pastas daqui: a lápide fica enquanto alguém aponta
+    const pruned = prunedFolders(folders, [...this.store.notes(), ...this.store.wishes(), ...this.gallery.pieces(), ...this.settings.notesConfig().templates], Date.now());
     const shared = this.groups.groups();
     if (!shared.size) {
       this.settings.setNotesConfig({ folders: pruned });

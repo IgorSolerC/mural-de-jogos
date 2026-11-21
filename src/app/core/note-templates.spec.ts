@@ -1,5 +1,5 @@
 import { sanitizeNotesConfig } from './mural-config';
-import { MAX_TEMPLATES, MAX_TEMPLATE_TEXT, MAX_TEMPLATE_TITLE, cleanTitle, newTemplateId, sanitizeTemplates, sortedTemplates, suggestedTitle, titleTaken, withTemplate } from './note-templates';
+import { TEMPLATE_FOLDER_GROUP, withTemplateFolder, MAX_TEMPLATES, MAX_TEMPLATE_TEXT, MAX_TEMPLATE_TITLE, cleanTitle, newTemplateId, sanitizeTemplates, sortedTemplates, suggestedTitle, titleTaken, withTemplate } from './note-templates';
 
 describe('os templates do texto', () => {
   it('guardados: só os que têm id, nome e texto, sem repetir o id, com o texto e o nome nos limites', () => {
@@ -18,6 +18,23 @@ describe('os templates do texto', () => {
     expect(list[1].title.length).toBe(MAX_TEMPLATE_TITLE);
     expect(list[1].text.length).toBe(MAX_TEMPLATE_TEXT);
     expect(sanitizeTemplates('nada')).toEqual([]);
+  });
+
+  it('a mini-pasta: só um id de pasta que a regra das pastas aceita; sem ela, o template fica solto (sem o campo)', () => {
+    const list = sanitizeTemplates([
+      { id: 'a1', title: 'Pauta', text: 'x', folder: 'preuniao1' },
+      { id: 'b2', title: 'Diário', text: 'x', folder: 'nada disso' },
+      { id: 'c3', title: 'Lista', text: 'x', folder: 42 },
+    ]);
+    expect(list).toEqual([
+      { id: 'a1', title: 'Pauta', text: 'x', folder: 'preuniao1' },
+      { id: 'b2', title: 'Diário', text: 'x' },
+      { id: 'c3', title: 'Lista', text: 'x' },
+    ]);
+    expect(withTemplateFolder(list[0], null)).toEqual({ id: 'a1', title: 'Pauta', text: 'x' });
+    expect(withTemplateFolder(list[1], 'pcasa0001')).toEqual({ id: 'b2', title: 'Diário', text: 'x', folder: 'pcasa0001' });
+    // o grupo das mini-pastas é a própria chave (a das pastas guardadas)
+    expect(sanitizeNotesConfig({ folders: [{ id: 'preuniao1', group: TEMPLATE_FOLDER_GROUP, name: 'Reuniões', parent: null }] }).folders[0].group).toBe(TEMPLATE_FOLDER_GROUP);
   });
 
   it('no máximo MAX_TEMPLATES', () => {

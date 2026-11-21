@@ -73,6 +73,14 @@ describe('Ajustes (SettingsPage)', () => {
     expect(el.querySelector('h2')?.textContent).toContain('Conta');
   });
 
+  it('as imagens dos templates do texto contam como em uso (o nome do template)', async () => {
+    const { fixture } = await open('imagens');
+    const id = 'A'.repeat(22);
+    TestBed.inject(Settings).setNotesConfig({ templates: [{ id: 'pauta1', title: 'Pauta', text: '## Pauta\n![](murall://imagem/' + id + ')' }] });
+    const use = (fixture.componentInstance as unknown as { imageUse: () => Map<string, string[]> }).imageUse();
+    expect(use.get(id)).toEqual(['Template Pauta']);
+  });
+
   it('o endereço antigo (aba=perfil) abre a Conta; aba=backup abre o Backup', async () => {
     expect(opened((await open('perfil')).el)).toBe('aba-conta');
     TestBed.resetTestingModule();

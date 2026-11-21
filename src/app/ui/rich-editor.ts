@@ -29,16 +29,15 @@ import { ESTADO_VAZIO } from './visual-editor/visual-api';
 import type { AcaoCartao, AcaoCodigo, AcaoTabela, AcaoVisual, EstadoCartao, EstadoCodigo, EstadoTabela, EstadoVisual, ImagemVisual, MarcaVisual, PedidoLink, VisualApi } from './visual-editor/visual-api';
 import { caretBox, caretSpot, scrollerOf } from './caret-follow';
 import { TableLooks } from './table-looks';
-import { TemplateAsk, TextTemplates } from './text-templates';
-import { TemplateSheet } from './template-sheet';
+import { TemplatePicker } from './template-picker';
 import { CodeLangsMenu } from './code-langs-menu';
 import { withCodeLang, withCodeTheme } from '../core/code-langs';
-import { NoteTemplate, titleTaken } from '../core/note-templates';
+import { NoteTemplate } from '../core/note-templates';
 import { TIPO_MURALL, copiarMarkdown, cortarPorLinhas, markdownColado } from '../core/transferencia';
 
 type ListKind = 'ul' | 'ol' | 'check';
-/** Os menus da régua: "Formatar", "Inserir", "Templates" (e os do Visual: "Tabela" e a grade do tamanho). */
-type MenuName = 'formatar' | 'inserir' | 'tabela' | 'tamanho' | 'modelos' | 'card' | 'codigo';
+/** Os menus da régua: "Formatar", "Inserir" (e os do Visual: "Tabela" e a grade do tamanho). */
+type MenuName = 'formatar' | 'inserir' | 'tabela' | 'tamanho' | 'card' | 'codigo';
 /** O que a régua (e os menus) fazem no texto. */
 type Action = 'bold' | 'italic' | 'strike' | 'mark' | 'spoiler' | 'subtle' | 'code' | ListKind | 'inside' | 'url' | 'note' | 'reminder' | 'rule' | 'card' | 'codeBlock';
 /**
@@ -66,7 +65,7 @@ export const DOCK_MEDIA = '(pointer: coarse) and (max-width: 767px), (pointer: c
  *   cada um) e o parágrafo (os estilos e as listas);
  * - "Inserir": link para um endereço, link para outra anotação, divisória e os widgets (a tabela é um deles);
  * - "Templates" (com `templates`, no editor da ficha): os textos que a pessoa escreve sempre, guardados
- *   com um nome, para pôr no cursor ou copiar (ui/text-templates.ts e ui/template-sheet.ts);
+ *   com um nome e em mini-pastas, para pôr no cursor ou copiar, no seletor deles (ui/template-picker.ts);
  * - os botões de toda hora (desfazer e refazer, negrito, itálico, riscado, marca-texto, as listas, o
  *   link). Sem lugar, os que também estão nos menus saem primeiro, e no fim os que sobram rolam de
  *   lado; nada some, tudo continua no "Formatar" e no "Inserir".
@@ -111,7 +110,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
 
 @Component({
   selector: 'app-rich-editor',
-  imports: [FitTools, IconModule, NgTemplateOutlet, RichText, WidgetSheet, MarkupGuide, VisualEditor, TableLooks, TextTemplates, TemplateSheet, CodeLangsMenu],
+  imports: [FitTools, IconModule, NgTemplateOutlet, RichText, WidgetSheet, MarkupGuide, VisualEditor, TableLooks, TemplatePicker, CodeLangsMenu],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // presa, a régua sai da folha para a tela: a folha deixa de ser a medida dela (ver "presa")
   host: { '[class.presa]': 'docked() !== null', '[class.encher]': 'fill()', '[class.cresce]': 'grows()', '[class.no-alto]': 'stuck()' },
@@ -339,37 +338,24 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
               </div>
             }
           </span>
-          <!-- os templates: os textos que a pessoa escreve sempre, para pôr no cursor ou copiar (o menu
-               mora em ui/text-templates.ts; a folha de criar e mexer, em ui/template-sheet.ts) -->
+          <!-- os templates: os textos que a pessoa escreve sempre, para pôr no cursor ou copiar (o seletor
+               mora em ui/template-picker.ts, num pedaço à parte; a folha de criar e mexer, em ui/template-sheet.ts) -->
           @if (templates()) {
-            <span class="menu-ancora" (focusout)="onMenuFocusOut($event)">
+            <span class="menu-ancora">
               <button
                 type="button"
                 class="menu-botao"
                 data-menu="modelos"
-                aria-haspopup="menu"
-                [attr.aria-expanded]="isOpen('modelos', big)"
-                [attr.aria-controls]="isOpen('modelos', big) ? areaId + '-modelos' : null"
+                aria-haspopup="dialog"
+                [attr.aria-expanded]="templatesOpen() && templatesFrom()?.big === big"
                 aria-label="Templates"
                 title="Templates: textos prontos para pôr no cursor ou copiar"
                 (pointerdown)="$event.preventDefault()"
-                (click)="toggleMenu('modelos', big, $event, area)"
-                (keydown.arrowdown)="$event.preventDefault(); openMenu('modelos', big, true)"
+                (click)="openTemplates(big, $event)"
               >
                 <lucide-icon [img]="TemplatesIcon" [size]="18" aria-hidden="true" />
                 <lucide-icon class="seta" [img]="ChevronIcon" [size]="13" aria-hidden="true" />
               </button>
-              @if (isOpen('modelos', big)) {
-                <app-text-templates
-                  class="menu modelos"
-                  [id]="areaId + '-modelos'"
-                  [selection]="templateSelection()"
-                  (put)="putTemplate(area, big, $event)"
-                  (copy)="copyTemplate(area, big, $event)"
-                  (edit)="askTemplate(big, $event)"
-                  (leave)="onTemplatesLeave($event, big)"
-                />
-              }
             </span>
           }
           <!-- o menu "Tabela" do Visual, enquanto o cursor está numa tabela (como no Docs): as fileiras e as
@@ -1044,10 +1030,10 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
       }
     }
 
-    <!-- a folha do template: vem num pedaço à parte, quando um template é criado ou mexido -->
-    @if (templateAsk(); as t) {
+    <!-- o seletor dos templates: vem num pedaço à parte, quando o botão "Templates" é tocado -->
+    @if (templatesFrom(); as from) {
       @defer (on immediate) {
-        <app-template-sheet [template]="t.template" [startText]="t.text" (saved)="onTemplateSaved($event)" (removed)="onTemplateRemoved($event)" (closed)="onTemplateClosed()" />
+        <app-template-picker [open]="templatesOpen()" (openChange)="onTemplatesOpen($event)" [selection]="templateSelection()" (picked)="putTemplate(from.big, $event)" (copied)="copyTemplate(from.big, $event)" />
       }
     }
 
@@ -1985,12 +1971,6 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
       align-content: start;
       min-width: 0;
     }
-    /* os templates: largos o bastante para o nome e o começo do texto (no estreito, da largura da régua) */
-    @container folha (min-width: 600px) {
-      .menu.modelos {
-        width: 23rem;
-      }
-    }
     /* numa coluna só (estreita, ou presa em cima do teclado), as partes uma embaixo da outra */
     .menu-coluna + .menu-coluna {
       margin-top: 4px;
@@ -2917,12 +2897,17 @@ export class RichEditor {
   protected readonly TableIcon = ICON.tabela;
   protected readonly TemplatesIcon = ICON.templates;
 
-  // ===== Os templates (o menu "Templates", ver ui/text-templates.ts) =====
+  // ===== Os templates (o seletor, ver ui/template-picker.ts) =====
 
-  /** O trecho selecionado quando o menu abriu ("Guardar o trecho selecionado"). */
+  /** O trecho selecionado quando o seletor abriu ("Guardar o trecho selecionado"). */
   protected readonly templateSelection = signal('');
-  /** A folha do template aberta (ver ui/template-sheet.ts): o que ela mostra, e de qual folha veio. */
-  protected readonly templateAsk = signal<(TemplateAsk & { big: boolean }) | null>(null);
+  /** De qual folha o seletor foi aberto (a pequena ou a da tela cheia); fica depois de fechar, para não recarregar. */
+  protected readonly templatesFrom = signal<{ big: boolean; byKey: boolean } | null>(null);
+  protected readonly templatesOpen = signal(false);
+  /** Onde estava o cursor do Markdown quando o seletor abriu, e o texto de então (mudou no meio: vale o cursor de agora). */
+  private templateRange: { at: [number, number]; text: string } | null = null;
+  /** O seletor fechou porque um template foi posto ou copiado (o foco vai para o texto). */
+  private templateUsed = false;
 
   /** O texto selecionado na folha (no Visual, o pedaço do texto guardado entre as pontas da seleção). */
   private selectedText(big: boolean): string {
@@ -2937,28 +2922,56 @@ export class RichEditor {
     else this.areaOf(big)?.focus();
   }
 
-  /** Pôr o template no cursor: como se fosse colado (no lugar da seleção, com o limite, o Ctrl+Z desfaz). */
-  protected putTemplate(area: HTMLTextAreaElement, big: boolean, t: NoteTemplate): void {
+  /** O botão "Templates": o seletor, com o trecho selecionado agora. */
+  protected openTemplates(big: boolean, e: MouseEvent): void {
     this.menu.set(null);
+    this.closePanels();
+    this.templateSelection.set(this.selectedText(big));
+    // o cursor do Markdown, para o template entrar nele (a folha por cima tira o foco do texto)
+    const area = this.visual() ? null : this.areaOf(big);
+    this.templateRange = area ? { at: [area.selectionStart, area.selectionEnd], text: area.value } : null;
+    this.templateUsed = false;
+    // aberto pelo teclado (Enter, espaço), fechar sem escolher devolve o foco ao botão, como os menus da régua
+    this.templatesFrom.set({ big, byKey: e.detail === 0 });
+    this.templatesOpen.set(true);
+  }
+
+  /** O seletor fechou (sem escolher, ou depois de pôr ou copiar): o foco volta para o texto, onde estava. */
+  protected onTemplatesOpen(open: boolean): void {
+    this.templatesOpen.set(open);
+    const from = this.templatesFrom();
+    if (open || !from) return;
+    if (from.byKey && !this.templateUsed) {
+      const buttons = this.host.nativeElement.querySelectorAll<HTMLElement>('.menu-botao[data-menu="modelos"]');
+      // a régua da folha grande (no diálogo) é a segunda
+      setTimeout(() => buttons[from.big ? buttons.length - 1 : 0]?.focus());
+    } else setTimeout(() => this.focusSheet(from.big));
+  }
+
+  /** Pôr o template no cursor: como se fosse colado (no lugar da seleção, com o limite, o Ctrl+Z desfaz). */
+  protected putTemplate(big: boolean, t: NoteTemplate): void {
+    this.templateUsed = true;
     if (this.visual()) {
       const api = this.visualOf(big);
       // a folha do Visual ainda chegando (o primeiro toque, num aparelho lento): avisa, em vez de nada
       if (!api) return this.toasts.show('A folha ainda está abrindo: tente de novo num instante');
       return api.poeMarkdown(t.text);
     }
+    const area = this.areaOf(big);
+    if (!area) return;
     area.focus();
+    const range = this.templateRange;
+    if (range && range.text === area.value) area.setSelectionRange(...range.at);
     this.pasteMarkdown(area, t.text);
     this.track(area);
   }
 
   /**
    * Copiar o template: o texto limpo para fora (o WhatsApp, o e-mail) e, junto, o markdown, que uma nota do
-   * Murall lê ao colar (volta com tudo). O menu fecha e o foco volta ao texto.
+   * Murall lê ao colar (volta com tudo).
    */
-  protected async copyTemplate(area: HTMLTextAreaElement, big: boolean, t: NoteTemplate): Promise<void> {
-    this.menu.set(null);
-    if (this.visual()) this.visualOf(big)?.focus();
-    else area.focus();
+  protected async copyTemplate(big: boolean, t: NoteTemplate): Promise<void> {
+    this.templateUsed = true;
     try {
       await copiarMarkdown(t.text, copyText(t.text, this.copyContexts.now()));
       this.toasts.show(`“${t.title}” copiado: é só colar`);
@@ -2967,41 +2980,12 @@ export class RichEditor {
     }
   }
 
-  protected askTemplate(big: boolean, ask: TemplateAsk): void {
-    this.menu.set(null);
-    this.templateAsk.set({ ...ask, big });
-  }
-
-  /** Esc no menu: volta para o botão (aberto pelo teclado) ou para o texto; Tab segue adiante. */
+  /** Esc num menu de foco próprio (o "Código"): volta para o botão (aberto pelo teclado) ou para o texto; Tab segue adiante. */
   protected onTemplatesLeave(how: 'escape' | 'tab', big: boolean): void {
     if (how === 'tab') return this.menu.set(null);
     if (this.menuByKeyboard) return this.backToMenuButton();
     this.menu.set(null);
     this.focusSheet(big);
-  }
-
-  protected onTemplateSaved(t: NoteTemplate): void {
-    this.toasts.show(`Template “${t.title}” guardado`);
-  }
-
-  protected onTemplateRemoved(t: NoteTemplate): void {
-    this.toasts.show(`Template “${t.title}” apagado`, {
-      label: 'Desfazer',
-      run: () => {
-        // outro com o mesmo nome entrou enquanto isso: o de volta ganha um número, para os dois se distinguirem
-        const list = this.settings.notesConfig().templates;
-        let title = t.title;
-        for (let n = 2; titleTaken(list, title, t.id); n++) title = `${t.title} (${n})`;
-        this.settings.saveTemplate({ ...t, title });
-      },
-    });
-  }
-
-  /** A folha fechou: o foco volta para o texto, onde estava. */
-  protected onTemplateClosed(): void {
-    const ask = this.templateAsk();
-    this.templateAsk.set(null);
-    if (ask) setTimeout(() => this.focusSheet(ask.big));
   }
 
   // ===== O menu "Tabela" do Visual =====
@@ -3179,7 +3163,6 @@ export class RichEditor {
   protected openMenu(name: MenuName, big: boolean, first: boolean): void {
     this.menuByKeyboard = first;
     this.closePanels();
-    if (name === 'modelos') this.templateSelection.set(this.selectedText(big));
     this.menu.set({ name, big });
     setTimeout(() => {
       const menu = this.host.nativeElement.querySelector<HTMLElement>('.menu');
