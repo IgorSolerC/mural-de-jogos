@@ -133,6 +133,23 @@ export function gruposSuite(label: string, getDb: () => Db) {
       expect(d[0]).toMatchObject({ papel: 'leitor', dono: { nome: 'Ana' } });
     });
 
+    it('os Flashcards do grupo: o editor cria, muda e apaga baralhos; quem vê um baralho, só o dono e os gestores (PLANO-FLASHCARDS-GRUPO.md, D3)', async () => {
+      const t = await setup();
+      await t.shareGroup();
+      const deck = (extra: Record<string, unknown> = {}) => ({ id: 'dKana0001', name: 'Kana', icon: null, color: 'amarelo', newPerDay: 5, order: 0, at: '2026-11-21T10:00:00.000Z', ...extra });
+      const study = (...decks: Record<string, unknown>[]) => doc({ estudos: { decks, cards: [], removed: {} } });
+      expect((await t.putGroup(t.cris.token, { base: 1, dados: study(deck()) })).status).toBe(200);
+      // o editor não torna público o baralho que existe, nem cria um já público
+      expect((await t.putGroup(t.cris.token, { base: 2, dados: study(deck({ public: true })) })).body.erro).toBe('so-gestor');
+      expect((await t.putGroup(t.cris.token, { base: 2, dados: study(deck(), deck({ id: 'dKanji001', name: 'Kanji', public: true })) })).body.erro).toBe('so-gestor');
+      // a gestora torna público
+      expect((await t.putGroup(t.bia.token, { base: 2, dados: study(deck({ public: true })) })).status).toBe(200);
+      // o editor muda o nome sem mexer em quem vê, e apaga o baralho público
+      expect((await t.putGroup(t.cris.token, { base: 3, dados: study(deck({ public: true, name: 'Hiragana' })) })).status).toBe(200);
+      expect((await t.putGroup(t.cris.token, { base: 4, dados: study(deck({ name: 'Hiragana' })) })).body.erro).toBe('so-gestor');
+      expect((await t.putGroup(t.cris.token, { base: 4, dados: study() })).status).toBe(200);
+    });
+
     it('o documento: o editor mexe no Kanban; o nome, a cor e o público, só o dono e os gestores; o leitor nada', async () => {
       const t = await setup();
       await t.shareGroup();

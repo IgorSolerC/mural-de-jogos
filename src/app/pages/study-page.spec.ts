@@ -1168,7 +1168,7 @@ describe('página dos Estudos', () => {
     it('em dia, o "Estudar adiantado" saiu: no lugar dele, só o Treinar', async () => {
       const kanji = study.addDeck('Kanjis', 'amarelo');
       study.addCard('nsol', [kanji]);
-      study.state.update((st) => ({
+      study.saved.update((st) => ({
         ...st,
         cards: st.cards.map((c) => ({ ...c, srs: { state: 'revisao' as const, step: 0, s: 5, d: 5, due: dayStart(addStudyDays(studyDay(new Date()), 1)).toISOString(), last: T0, reps: 3 } })),
       }));

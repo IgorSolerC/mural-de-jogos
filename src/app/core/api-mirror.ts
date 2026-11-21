@@ -361,8 +361,11 @@ export class ApiMirror {
     const m = this.studyMemo;
     if (m && m.state === state && m.notes === all && m.hidden === hidden && m.day === day) return m.items;
     const notes = new Map(all.filter((n) => !hidden.has(n.id)).map((n) => [n.id, n]));
+    // (os baralhos de um grupo compartilhado em que a conta só edita ou lê não vão, como o Kanban dele: core/api-reach.ts)
+    const decks = state.decks.filter((d) => !this.reach.closes(d.group));
+    const open = decks.length === state.decks.length ? state : { ...state, decks };
     const items: MirrorItem[] = [];
-    for (const i of studyMirror(state, notes, now)) items.push({ ...i, hash: await hashOf(i.dados) });
+    for (const i of studyMirror(open, notes, now)) items.push({ ...i, hash: await hashOf(i.dados) });
     this.studyMemo = { state, notes: all, hidden, day, items };
     return items;
   }

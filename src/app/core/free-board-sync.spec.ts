@@ -89,8 +89,11 @@ describe('Quadro livre: a nuvem no site', () => {
   let store: FreeBoardStore;
   let sync: FreeBoardSync;
   const signedIn = signal(true);
+  /** O nome de cada grupo compartilhado aqui (id → nome). */
+  const names = signal<ReadonlyMap<string, string>>(new Map());
 
   beforeEach(async () => {
+    names.set(new Map());
     await deleteDatabase(BOARDS_DB);
     localStorage.removeItem(BOARDS_VERSION_KEY);
     cloud = new FakeCloud();
@@ -101,7 +104,7 @@ describe('Quadro livre: a nuvem no site', () => {
         // os grupos compartilhados: o Trabalho é (PLANO-COMPARTILHAR.md, rodada 6)
         {
           provide: SharedGroupsStore,
-          useValue: { byName: () => new Map(), synced: () => true, ofCategory: (c: string) => (c === 'Trabalho' ? { id: 'gTrabalho001', papel: 'dono' } : undefined) },
+          useValue: { byName: () => new Map(), names, synced: () => true, ofCategory: (c: string) => (c === 'Trabalho' ? { id: 'gTrabalho001', papel: 'dono' } : undefined) },
         },
       ],
     });
@@ -148,6 +151,26 @@ describe('Quadro livre: a nuvem no site', () => {
     await sync.flush();
     expect(store.get(remote.id)).toBeNull();
     expect(cloud.calls.filter((c) => c.startsWith('PUT'))).toEqual([]);
+  });
+
+  it('o quadro de outra pessoa aparece no grupo compartilhado dele com o nome daqui ("Trabalho · Ana"), e editar não muda o grupo dela (PLANO-FLASHCARDS-GRUPO.md, D8)', async () => {
+    // você tem um grupo seu "Trabalho": o da Ana, aqui, é "Trabalho · Ana"
+    names.set(new Map([['gTrabalho002', 'Trabalho · Ana']]));
+    await store.create('Meu', 'Trabalho');
+    const remote = sanitizeFreeBoard({ v: 1, id: 'deoutrapessoa02qqqqqqq', nome: 'Da Ana', grupo: 'Trabalho', em: '2026-11-09T00:00:00.000Z', n: [text('a')], e: [] })!;
+    cloud.boards.set(remote.id, { rev: 2, data: JSON.stringify(remote), imagens: [] });
+    cloud.theirs.set(remote.id, { papel: 'editor', dono: { codigo: 'AAAA-1111', nome: 'Ana' }, grupo: 'gTrabalho002' });
+    cloud.versao = 3;
+    sync.noteVersion('3');
+    await sync.flush();
+    TestBed.tick();
+    expect(store.inGroup('Trabalho · Ana').map((b) => b.nome)).toEqual(['Da Ana']);
+    expect(store.inGroup('Trabalho').map((b) => b.nome)).toEqual(['Meu']);
+    // a editora mexe no quadro como a lista o mostra: o guardado (e o que sobe) continua no grupo da Ana
+    const shown = store.boards().find((b) => b.id === remote.id)!;
+    await store.save({ ...shown, n: [text('a'), text('b')] }, shown);
+    expect(store.get(remote.id)!.grupo).toBe('Trabalho');
+    expect(store.boards().find((b) => b.id === remote.id)!.grupo).toBe('Trabalho · Ana');
   });
 
   it('o quadro novo sobe sozinho, com as imagens dele, e vira a base (nada mais por mandar)', async () => {

@@ -2,6 +2,8 @@ import { DestroyRef, Injectable, computed, effect, inject, signal, untracked } f
 import { IconChoice } from './icon-choices';
 import { LightStock, audienceFields } from './review';
 import { ReviewStore } from './review-store';
+import { GroupStudies } from './group-studies';
+import { GroupStudy, knownDecks, overlayStudy, samePart, studyPart } from './shared-study';
 import { onOtherTab, writeJson } from './storage';
 import { fromOtherTab } from './tab-join';
 import {
@@ -74,13 +76,28 @@ function read(): StudyState {
  *
  * Cada mudança devolve o que precisa para o Desfazer (o estado de antes, ou o que saiu), como os quadros
  * do Kanban.
+ *
+ * Num grupo compartilhado (PLANO-FLASHCARDS-GRUPO.md), os baralhos e as cartas são do grupo: moram no documento dele
+ * (`SharedGroupsStore.studies`, pela ponte core/group-studies.ts), os mesmos para todos. `saved` é o guardado aqui (o progresso, a pausa, as novas por
+ * dia, e uma cópia do resto); `state` é ele com o documento de cada grupo por cima (`overlayStudy`). Toda mudança
+ * passa por `set`: vai inteira para o guardado e, no que é de um grupo em que você escreve, para o documento dele.
  */
 @Injectable({ providedIn: 'root' })
 export class StudyStore {
   private readonly store = inject(ReviewStore);
+  private readonly groups = inject(GroupStudies);
 
-  /** O guardado, com os baralhos de cada carta como estão (inclusive os de outro grupo). */
-  readonly state = signal<StudyState>(read());
+  /** O guardado neste aparelho (o que vai para a nuvem, no mural privado): o progresso e uma cópia do resto. */
+  readonly saved = signal<StudyState>(read());
+  /** Os grupos compartilhados com os Flashcards deles (só os que já guardam a parte no documento contam por cima). */
+  private readonly shared = computed(() => this.groups.studies());
+  /** Já há anotações lidas (sem ler a lista inteira a cada letra escrita numa anotação). */
+  private readonly hasNotes = computed(() => this.store.notes().length > 0);
+  /**
+   * Os Estudos como valem aqui: o guardado, com os baralhos e as cartas de cada grupo compartilhado vindos do
+   * documento dele (ver `overlayStudy`), com os baralhos de cada carta como estão (inclusive os de outro grupo).
+   */
+  readonly state = computed<StudyState>(() => overlayStudy(this.saved(), this.shared()));
   /** As anotações que existem (a carta de uma apagada não aparece nem entra na fila). */
   private readonly notesById = computed(() => new Map(this.store.notes().map((n) => [n.id, n])));
   /** O grupo da anotação (o seu, nas compartilhadas); `undefined`: ela não existe. */
@@ -153,7 +170,18 @@ export class StudyStore {
   private lastAt = 0;
 
   constructor() {
-    effect(() => writeJson(STUDY_KEY, this.state()));
+    effect(() => writeJson(STUDY_KEY, this.saved()));
+    // os baralhos seus de um grupo compartilhado que ainda não estão no documento dele vão para ele (D4): o de antes
+    // desta build, o feito num aparelho que ainda não sabia do grupo. Só com as anotações lidas e os grupos conferidos:
+    // antes disso, o nome que o grupo tem aqui pode ainda não ser o certo ("Trabalho" no lugar de "Trabalho · Ana")
+    effect(() => {
+      const st = this.state();
+      const groups = this.shared();
+      if (!this.groups.synced() || !this.hasNotes()) return;
+      untracked(() => this.toGroups(st, groups));
+    });
+    // o grupo que sai deste aparelho: o dono fica com os baralhos como estavam no grupo; quem não é o dono, sem eles
+    this.groups.beforeLeave((id, keep) => this.leaveGroup(id, keep));
     // outra aba mexeu: esta acompanha, sem gravar o de antes por cima
     inject(DestroyRef).onDestroy(onOtherTab(STUDY_KEY, (before) => this.fromOtherTab(before)));
     // os baralhos de antes dos grupos, assim que existem (ao abrir, da nuvem, de outra aba), e de novo
@@ -172,8 +200,8 @@ export class StudyStore {
    */
   private fromOtherTab(before: string | null = null): void {
     // com mudança daqui ainda por gravar, as duas se juntam (ver core/tab-join.ts)
-    const next = keepRicher(fromOtherTab(STUDY_KEY, before, this.state(), read, sanitizeStudy), this.state());
-    if (JSON.stringify(next) !== JSON.stringify(this.state())) this.state.set(next);
+    const next = keepRicher(fromOtherTab(STUDY_KEY, before, this.saved(), read, sanitizeStudy), this.saved());
+    if (JSON.stringify(next) !== JSON.stringify(this.saved())) this.saved.set(next);
   }
 
   /**
@@ -203,7 +231,47 @@ export class StudyStore {
 
   private set(next: StudyState): void {
     if (next === this.state()) return;
-    this.state.set(this.thawLeaving(this.state(), next));
+    const thawed = this.thawLeaving(this.state(), next);
+    this.toGroups(thawed, this.shared());
+    this.saved.set(thawed);
+    this.changedAt.set(Date.now());
+  }
+
+  /**
+   * O que é dos grupos compartilhados em que você escreve, nos Estudos `st`, vai para o documento de cada um (só o
+   * que mudou: a resposta, a pausa e as novas por dia ficam aqui). No grupo em que você só lê, nada sobe, e a vista
+   * continua com o do documento.
+   */
+  private toGroups(st: StudyState, groups: readonly GroupStudy[]): void {
+    if (!groups.some((g) => g.write)) return;
+    const known = groups.map((g) => knownDecks(g));
+    let at: string | null = null;
+    groups.forEach((g, i) => {
+      if (!g.write) return;
+      const others = new Set(known.filter((_, j) => j !== i).flatMap((k) => [...k]));
+      at ??= this.stamp();
+      const part = studyPart(st, g, others, at);
+      if (!samePart(g.part, part)) this.groups.update(g.id, part);
+    });
+  }
+
+  /**
+   * O grupo compartilhado `id` sai deste aparelho (ver `GroupStudies.beforeLeave`). O dono (`keep`) fica com os
+   * baralhos e as cartas como estavam no grupo, e o progresso dele (o guardado passa a ser a vista de agora); quem não
+   * é o dono perde as anotações do grupo, e os baralhos dele saem dos Estudos (D6).
+   */
+  private leaveGroup(id: string, keep: boolean): void {
+    const g = this.shared().find((x) => x.id === id);
+    if (!g?.part) return;
+    if (keep) {
+      this.saved.set(this.state());
+    } else {
+      const at = this.stamp();
+      let st = this.saved();
+      for (const d of g.part.decks) st = removeDeck(st, d.id, at).state;
+      if (st === this.saved()) return;
+      this.saved.set(st);
+    }
     this.changedAt.set(Date.now());
   }
 
@@ -524,7 +592,7 @@ export class StudyStore {
 
   /** Os Estudos de outro aparelho, juntos com os daqui (ver `mergeStudy`). */
   merge(remote: StudyState): void {
-    const next = mergeStudy(this.state(), remote);
-    if (JSON.stringify(next) !== JSON.stringify(this.state())) this.state.set(next);
+    const next = mergeStudy(this.saved(), remote);
+    if (JSON.stringify(next) !== JSON.stringify(this.saved())) this.saved.set(next);
   }
 }

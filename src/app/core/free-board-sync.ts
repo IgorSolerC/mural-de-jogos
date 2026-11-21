@@ -91,6 +91,17 @@ export class FreeBoardSync {
       if (document.visibilityState === 'hidden') void this.flush(true);
     };
     if (typeof document !== 'undefined') document.addEventListener('visibilitychange', hide);
+    // o quadro de outra pessoa aparece no grupo compartilhado dele, com o nome que o grupo tem aqui (PLANO-FLASHCARDS-GRUPO.md, D8)
+    effect(() => {
+      const shared = this.shared();
+      const names = this.groups.names();
+      const places = new Map<string, string>();
+      for (const [id, info] of shared) {
+        const name = info.grupo ? names.get(info.grupo) : undefined;
+        if (name) places.set(id, name);
+      }
+      untracked(() => this.store.setPlaces(places));
+    });
     // um grupo virou compartilhado (ou deixou de ser): os quadros seus dele sobem de novo, com o grupo
     effect(() => {
       this.groups.byName();

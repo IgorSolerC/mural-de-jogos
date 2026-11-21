@@ -239,8 +239,10 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  *     `templates:as-mini-pastas-dos-templates` de `folders`). Um site da 61 limparia cada template sem a pasta, e todos voltariam soltos.
  * 63: o grupo criado à mão, sem anotação (`muralAnotacoes.dados.categories[chave].name`, PLANO-NOVO-GRUPO.md). Um site da
  *     62 limparia o nome das configurações, e o grupo vazio sumiria em todo aparelho.
+ * 64: os baralhos e as cartas de um grupo compartilhado moram no documento do grupo (PLANO-FLASHCARDS-GRUPO.md), e os
+ *     Estudos guardados levam só uma cópia deles. Um site da 63 mudaria só a cópia, e a mudança não chegaria ao grupo.
  */
-export const SYNC_SCHEMA = 63;
+export const SYNC_SCHEMA = 64;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };
@@ -884,7 +886,7 @@ export class CloudSync {
       this.kanban.state();
       this.calendar.state();
       this.spending.state();
-      this.study.state();
+      this.study.saved();
       this.pixel.state();
       this.shared.places();
       this.profiles.changedAt();
@@ -1264,8 +1266,8 @@ export class CloudSync {
       this.localSpending() !== null ||
       this.localCalendar() !== null ||
       this.localPixel() !== null ||
-      this.study.state().cards.length > 0 ||
-      this.study.state().decks.length > 0 ||
+      this.study.saved().cards.length > 0 ||
+      this.study.saved().decks.length > 0 ||
       this.kanban.state().boards.some((b) => b.cards.length > 0) ||
       BLOCK_KINDS.some((kind) => this.blockAt(kind) !== null) ||
       this.images.count() > 0 ||
@@ -1289,7 +1291,7 @@ export class CloudSync {
     const extra = doc.drafts.length + doc.wishes.length;
     const spent = this.spending.state().entries.length;
     const reminders = this.calendar.state().reminders.length;
-    const cards = this.study.state().cards.length;
+    const cards = this.study.saved().cards.length;
     const arts = this.pixel.count();
     const kept = this.store.versions().length;
     const parts = [
@@ -1685,7 +1687,7 @@ export class CloudSync {
 
   /** Os Estudos deste aparelho para a nuvem, ou null sem nada mexido. */
   private localStudy(): StudyState | null {
-    return studyToSync(this.study.state());
+    return studyToSync(this.study.saved());
   }
 
   /** A galeria de pixel arts deste aparelho para a nuvem, ou null sem nenhuma obra nem apagada. */

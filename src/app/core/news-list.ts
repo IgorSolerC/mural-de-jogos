@@ -27,11 +27,11 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-21-novo-grupo',
+    id: '2026-11-21-flashcards-do-grupo',
     version: '1.50.4',
     kind: 'ajustes',
     date: '2026-11-21',
-    title: 'Os templates do texto em pastas e num seletor grande, e os comentários que se editam',
+    title: 'Os Flashcards dos grupos compartilhados, os templates do texto em pastas e os comentários que se editam',
     melhorias: [
       'O botão Templates da régua abre uma folha grande: as pastas em acordeão à esquerda, com a busca no nome e no texto, e o template escolhido inteiro à direita, do jeito que entra na anotação, com Pôr no texto, Copiar e Editar.',
       'Os templates ganharam mini-pastas: a Nova pasta do seletor, a Pasta de cada template (na prévia ou na folha dele) e, no "…" da pasta, Renomear e Desfazer a pasta, com o Desfazer; os que você já tinha ficam fora das pastas, e as pastas vão para os seus outros aparelhos.',
@@ -39,6 +39,10 @@ export const NEWS: NewsEntry[] = [
       'Os seus comentários nas anotações e nas resenhas se editam: o lápis ao lado do Apagar (ou Editar o comentário, no botão direito) leva o texto ao campo, e Salvar troca no lugar, com as reações e as respostas; todo mundo vê "editado" ao lado da hora.',
       'O botão direito no nada (Nova anotação aqui, Nova pasta aqui) vale em todo lugar abaixo da busca das anotações, da Wishlist e das Pixel arts: os vãos entre as fichas, as margens, o fim da página e o cartaz da pasta vazia; no Tudo das anotações, ele oferece a Nova anotação.',
       'O "Mais" das abas do mural de anotações, do Kanban, dos Flashcards e do Quadro livre tem o "Novo grupo": você dá o nome ali mesmo, e o grupo nasce vazio, com a cor dele, já aberto, sem precisar de uma anotação; ele fica até você apagá-lo nas configurações do mural.',
+      'Os Flashcards de um grupo compartilhado são de todos que estão nele, como o mural e o Kanban: os baralhos e os flashcards são os mesmos para todo mundo, e mudar um muda para todos; o progresso, a pausa e as novas por dia continuam de cada um. Os baralhos que você já tinha num grupo seu compartilhado vão para o grupo sozinhos.',
+    ],
+    correcoes: [
+      'O quadro livre de outra pessoa num grupo compartilhado aparece no grupo dela ("Trabalho · Ana"), e não mais num grupo seu de mesmo nome.',
     ],
   },
   {

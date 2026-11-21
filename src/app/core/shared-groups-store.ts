@@ -17,6 +17,8 @@ import { GroupDocFolder, NoteFolder, docFolders, mergeFolders, toDocFolders } fr
 import { Settings } from './settings';
 import { GroupFolders } from './group-folders';
 import { ApiReach } from './api-reach';
+import { GroupStudy, StudyPart, mergeStudyParts, readStudyPart, studyPartDoc } from './shared-study';
+import { GroupStudies } from './group-studies';
 
 const RANK: Record<SharedRole, number> = { leitor: 1, editor: 2, gestor: 3, dono: 4 };
 /** O papel mais aberto dos dois (o da anotação e o do grupo dela). */
@@ -160,6 +162,40 @@ export class SharedGroupsStore {
   });
   /** O grupo compartilhado de cada quadro (pelo id do quadro aqui): também o dos que ainda não têm quadro. */
   readonly boardGroups = computed(() => new Map([...this.names()].map(([id, name]) => [boardIdFor(name), id])));
+  /** A parte dos Estudos já lida de cada documento (o mesmo `estudos` não é lido de novo a cada mexida no Kanban). */
+  private readonly studyRead = new WeakMap<object, { name: string; part: StudyPart | null }>();
+  /**
+   * Os Flashcards de cada grupo compartilhado (PLANO-FLASHCARDS-GRUPO.md): os baralhos e as cartas do documento
+   * dele, com o nome que o grupo tem aqui e o que quem está aqui pode fazer neles (o `StudyStore` os põe por cima
+   * dos guardados). Não muda quando só o Kanban, as pastas ou as pessoas do grupo mudam.
+   */
+  readonly studies = computed<GroupStudy[]>(
+    () => {
+      const out: GroupStudy[] = [];
+      for (const [id, name] of this.names()) {
+        const g = this.entries().get(id);
+        if (!g) continue;
+        const raw = g.dados['estudos'];
+        let part: StudyPart | null = null;
+        if (raw && typeof raw === 'object') {
+          const memo = this.studyRead.get(raw);
+          if (memo && memo.name === name) part = memo.part;
+          else {
+            part = readStudyPart(raw, name);
+            this.studyRead.set(raw, { name, part });
+          }
+        }
+        out.push({ id, name, part, write: canWrite(g.papel), manage: canManage(g.papel) });
+      }
+      return out;
+    },
+    {
+      equal: (a, b) =>
+        a.length === b.length && a.every((x, i) => x.id === b[i].id && x.name === b[i].name && x.part === b[i].part && x.write === b[i].write && x.manage === b[i].manage),
+    },
+  );
+  /** Os Flashcards dos grupos, sem os Estudos dependerem deste serviço (core/group-studies.ts). */
+  private readonly groupStudies = inject(GroupStudies);
   /**
    * As pastas dos grupos compartilhados (PLANO-CONSERTO-GRUPOS.md, rodada 2), do documento de cada um, na chave do
    * nome que o grupo tem aqui: as mesmas para todos que estão nele. Só dos grupos cujo documento já tem pastas (o
@@ -218,6 +254,8 @@ export class SharedGroupsStore {
     inject(GroupFolders).attach({ folders: () => this.folders(), groups: () => this.folderGroups(), update: (id, list) => this.updateFolders(id, list) });
     // as anotações dos grupos em que a conta é dono ou gestor, para a API das AIs
     inject(ApiReach).attach({ managed: () => this.apiManaged(), closed: () => this.apiClosed() });
+    // os Flashcards de cada grupo, para os Estudos (PLANO-FLASHCARDS-GRUPO.md)
+    this.groupStudies.attach({ studies: () => this.studies(), synced: () => this.synced(), update: (id, part) => this.updateStudy(id, part) });
     effect(() => {
       const id = this.accountId();
       untracked(() => this.loadFor(id));
@@ -356,6 +394,21 @@ export class SharedGroupsStore {
     this.schedulePush();
     return true;
   }
+
+  /**
+   * Muda os Flashcards de um grupo compartilhado (quem escreve no grupo), como o quadro do Kanban: vale aqui na hora
+   * e sobe logo depois (outra pessoa gravou antes: as duas se juntam, baralho a baralho e carta a carta). Devolve
+   * false para quem só lê (nada muda).
+   */
+  updateStudy(groupId: string, part: StudyPart): boolean {
+    const g = this.entries().get(groupId);
+    if (!g || !canWrite(g.papel)) return false;
+    if (!this.bases.has(groupId)) this.bases.set(groupId, g.dados);
+    this.put({ ...g, dados: { ...g.dados, estudos: studyPartDoc(part) } });
+    this.schedulePush();
+    return true;
+  }
+
 
   /**
    * Muda as pastas de um grupo compartilhado (quem escreve no grupo): `folders` são as dele, na chave do nome que
@@ -617,7 +670,7 @@ export class SharedGroupsStore {
       if (err.status === 409) {
         const theirs = parseGroup((err.body as { grupo?: unknown } | null)?.grupo);
         if (!theirs) return true;
-        this.put({ ...theirs, dados: this.joined(this.bases.get(id) ?? theirs.dados, theirs.dados, this.entries().get(id)?.dados ?? sent) });
+        this.put({ ...theirs, dados: this.joined(this.bases.get(id) ?? theirs.dados, theirs.dados, this.entries().get(id)?.dados ?? sent, canManage(theirs.papel)) });
         this.bases.set(id, theirs.dados);
         return false;
       }
@@ -641,7 +694,7 @@ export class SharedGroupsStore {
    * As duas versões do documento juntas, a partir de `o`: o quadro do Kanban cartão a cartão (`mergeBoards`,
    * a mesma junção de dois aparelhos), o resto o mudado por último (só o dono e os gestores mudam o nome).
    */
-  private joined(o: SharedGroup['dados'], theirs: SharedGroup['dados'], mine: SharedGroup['dados']): SharedGroup['dados'] {
+  private joined(o: SharedGroup['dados'], theirs: SharedGroup['dados'], mine: SharedGroup['dados'], manage = true): SharedGroup['dados'] {
     const board = (d: SharedGroup['dados']) => (d['kanban'] ? sanitizeBoard({ ...(d['kanban'] as Record<string, unknown>), category: d.nome }) : null);
     const [bo, bt, bm] = [board(o), board(theirs), board(mine)];
     const kanban = bt && bm ? mergeBoards(bo ?? bt, bt, bm) : (bm ?? bt);
@@ -650,7 +703,17 @@ export class SharedGroupsStore {
     const [po, pt, pm] = [list(o), list(theirs), list(mine)];
     // (conferida de novo: duas pessoas movendo uma pasta para dentro da outra ao mesmo tempo não deixam um ciclo)
     const pastas = pt || pm ? toDocFolders(docFolders(mergeFolders(po ?? [], pt ?? [], pm ?? []), ''), '') : null;
-    return { ...theirs, ...(mine.nome !== o.nome ? { nome: mine.nome } : {}), ...(kanban ? { kanban } : {}), ...(pastas ? { pastas } : {}) };
+    // os Flashcards, baralho a baralho e carta a carta (PLANO-FLASHCARDS-GRUPO.md)
+    const [st, sm] = [readStudyPart(theirs['estudos'], ''), readStudyPart(mine['estudos'], '')];
+    // (quem não gere o grupo não muda quem vê um baralho: vale o de lá, D3, que a nuvem também confere)
+    const estudos = st && sm ? studyPartDoc(mergeStudyParts(st, sm, !manage)) : sm ? studyPartDoc(sm) : null;
+    return {
+      ...theirs,
+      ...(mine.nome !== o.nome ? { nome: mine.nome } : {}),
+      ...(kanban ? { kanban } : {}),
+      ...(pastas ? { pastas } : {}),
+      ...(estudos ? { estudos } : {}),
+    };
   }
 
   private async pull(): Promise<void> {
@@ -758,7 +821,7 @@ export class SharedGroupsStore {
     // com mexida daqui esperando para subir: ela continua por cima do que chegou (junta na subida)
     const here = this.entries().get(parsed.id);
     const base = this.bases.get(parsed.id);
-    const g = here && base && here.rev !== parsed.rev ? { ...parsed, dados: this.joined(base, parsed.dados, here.dados) } : here && base ? { ...parsed, dados: here.dados } : parsed;
+    const g = here && base && here.rev !== parsed.rev ? { ...parsed, dados: this.joined(base, parsed.dados, here.dados, canManage(parsed.papel)) } : here && base ? { ...parsed, dados: here.dados } : parsed;
     if (here && base && here.rev !== parsed.rev) this.bases.set(parsed.id, parsed.dados);
     this.put(g);
     return g;
@@ -801,7 +864,10 @@ export class SharedGroupsStore {
   }
 
   private drop(id: string): void {
-    if (!this.entries().has(id)) return;
+    const g = this.entries().get(id);
+    if (!g) return;
+    // (você saiu, foi tirado, o dono parou de compartilhar: os Estudos guardam o que era do grupo, ou o tiram, com ele ainda aqui)
+    this.groupStudies.leave(id, g.papel === 'dono');
     const next = new Map(this.entries());
     next.delete(id);
     this.entries.set(next);

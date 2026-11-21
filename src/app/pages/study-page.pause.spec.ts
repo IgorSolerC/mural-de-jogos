@@ -45,7 +45,7 @@ describe('o baralho pausado na página dos Flashcards', () => {
   /** A pausa de `days` dias atrás, com a carta do sol em revisão para 3 dias depois dela (respondida 5 dias antes). */
   function pausedAgo(days: number): void {
     const since = new Date(Date.now() - days * DAY);
-    study.state.update((st) => ({
+    study.saved.update((st) => ({
       ...st,
       decks: st.decks.map((d) => (d.id === kanji ? { ...d, paused: since.toISOString(), at: since.toISOString() } : d)),
       cards: st.cards.map((c) =>

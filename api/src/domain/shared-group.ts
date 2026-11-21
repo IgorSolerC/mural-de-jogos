@@ -79,6 +79,31 @@ export function groupStructureOf(stored: string): string {
   return stable({ nome: r['nome'] ?? null, aparencia: r['aparencia'] ?? null });
 }
 
+/**
+ * Os baralhos dos Flashcards do grupo (`estudos.decks`, PLANO-FLASHCARDS-GRUPO.md) cujo "quem vê" mudou entre o
+ * guardado e o novo: o que ficou público ou deixou de ser, e o novo que já nasce público. Só o dono e os gestores
+ * mudam isso (como o público do grupo); o editor cria, muda e apaga os baralhos, sem mexer em quem vê.
+ */
+export function deckAudienceChanged(stored: string, next: string): boolean {
+  const publicOf = (text: string): Map<string, boolean> => {
+    const out = new Map<string, boolean>();
+    try {
+      const decks = (JSON.parse(text) as { estudos?: { decks?: unknown } } | null)?.estudos?.decks;
+      if (!Array.isArray(decks)) return out;
+      for (const d of decks) {
+        const r = d as Record<string, unknown> | null;
+        if (r && typeof r['id'] === 'string') out.set(r['id'], r['public'] === true);
+      }
+    } catch {
+      /* sem baralhos */
+    }
+    return out;
+  };
+  const before = publicOf(stored);
+  for (const [id, on] of publicOf(next)) if (on !== (before.get(id) ?? false)) return true;
+  return false;
+}
+
 /** O JSON com as chaves em ordem (a mesma coisa dá sempre o mesmo texto). */
 function stable(v: unknown): string {
   if (Array.isArray(v)) return `[${v.map(stable).join(',')}]`;

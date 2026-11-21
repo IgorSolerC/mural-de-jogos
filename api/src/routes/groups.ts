@@ -9,6 +9,7 @@ import {
   MAX_GROUP_BODY_CHARS,
   MAX_GROUP_MEMBERS,
   asRole,
+  deckAudienceChanged,
   groupData,
   groupId,
   groupNameOf,
@@ -274,6 +275,9 @@ export function groupRoutes(app: Hono, deps: Deps): void {
     // o editor mexe no Kanban, nas pastas e nas tags; o nome, a aparência e o público, só o dono e os gestores
     if (!canManage(access) && (groupStructureOf(dados) !== groupStructureOf(g.dados) || publico !== g.publico)) {
       throw new HttpError(403, 'so-gestor', 'Só o dono e os gestores mudam o nome, a cor e quem vê este grupo.');
+    }
+    if (!canManage(access) && deckAudienceChanged(g.dados, dados)) {
+      throw new HttpError(403, 'so-gestor', 'Só o dono e os gestores mudam quem vê um baralho deste grupo.');
     }
     const now = deps.now();
     if (g.atualizado_por === s.userId && now.getTime() - Date.parse(g.atualizado_em) < MIN_GROUP_EDIT_MS) {

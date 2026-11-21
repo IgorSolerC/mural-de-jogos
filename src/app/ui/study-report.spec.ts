@@ -32,7 +32,7 @@ describe('o boletim da carta (ui/study-report.ts)', () => {
   /** A carta em revisão, vencendo daqui a `days` dias de estudo (negativo: vencida). */
   async function dueIn(days: number): Promise<Date> {
     const due = dayStart(addStudyDays(studyDay(new Date()), days));
-    study.state.update((st) => ({
+    study.saved.update((st) => ({
       ...st,
       cards: st.cards.map((c) => ({ ...c, srs: { state: 'revisao' as const, step: 0, s: 30, d: 5, due: due.toISOString(), last: T0, reps: 4 }, stats: { seen: 4, right: 3, wrong: 1, marks: '1011' } })),
     }));

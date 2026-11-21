@@ -97,7 +97,7 @@ describe('editar as marcadas (core/note-bulk.ts)', () => {
       const T = '2026-11-09T10:00:00.000Z';
       const srs = { state: 'nova', step: 0, s: 0, d: 0, due: T, last: null, reps: 0 } as const;
       const card = (note: string, deck: string, wall?: boolean) => ({ note, decks: [deck], front: {}, ...(wall === undefined ? {} : { wall }), srs, stats: { seen: 0, right: 0, wrong: 0, marks: '' }, added: T, at: T });
-      study.state.set({
+      study.saved.set({
         ...study.state(),
         decks: [
           { id: 'dsolo00001', name: 'Só', icon: null, color: 'laranja', newPerDay: 5, order: 0, group: 'Estudos', at: T },

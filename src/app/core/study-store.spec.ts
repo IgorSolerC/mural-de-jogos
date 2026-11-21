@@ -88,7 +88,7 @@ describe('os Estudos guardados (core/study-store.ts)', () => {
     const since = new Date(Date.now() - 10 * DAY);
     // respondida 13 dias atrás com volta em 3 dias (3 dias antes da pausa), e pausada há 10
     const srs = { state: 'revisao' as const, step: 0, s: 3, d: 5, due: new Date(since.getTime() + 3 * DAY).toISOString(), last: new Date(since.getTime() - 3 * DAY).toISOString(), reps: 3 };
-    study.state.update((st) => ({ ...st, cards: st.cards.map((c) => ({ ...c, srs })), decks: st.decks.map((d) => ({ ...d, paused: since.toISOString(), pauseAt: since.toISOString() })) }));
+    study.saved.update((st) => ({ ...st, cards: st.cards.map((c) => ({ ...c, srs })), decks: st.decks.map((d) => ({ ...d, paused: since.toISOString(), pauseAt: since.toISOString() })) }));
     const shown = study.shown(study.cardOf().get('nsol')!);
     expect(Date.parse(shown.srs.last!)).toBeGreaterThan(Date.parse(srs.last));
     const when = new Date();
@@ -131,7 +131,7 @@ describe('os Estudos guardados (core/study-store.ts)', () => {
     const DAY = 86_400_000;
     const since = new Date(Date.now() - 20 * DAY);
     const srs = { state: 'revisao' as const, step: 0, s: 6, d: 5, due: new Date(since.getTime() + 3 * DAY).toISOString(), last: new Date(since.getTime() - 3 * DAY).toISOString(), reps: 3 };
-    study.state.update((st) => ({
+    study.saved.update((st) => ({
       ...st,
       cards: st.cards.map((c) => ({ ...c, srs })),
       decks: st.decks.map((d) => (d.id === kanji ? { ...d, paused: since.toISOString(), pauseAt: since.toISOString() } : d)),
@@ -149,7 +149,7 @@ describe('os Estudos guardados (core/study-store.ts)', () => {
     const velho = study.addDeck('Antigo', 'azul', null, undefined, 'Trabalho');
     study.addCard('nsol', [kanji, verbos]);
     // a carta dorme num baralho do grupo de antes
-    study.state.update((st) => ({ ...st, cards: st.cards.map((c) => (c.note === 'nsol' ? { ...c, decks: [...c.decks, velho] } : c)) }));
+    study.saved.update((st) => ({ ...st, cards: st.cards.map((c) => (c.note === 'nsol' ? { ...c, decks: [...c.decks, velho] } : c)) }));
     study.leaveDeck('nsol', kanji);
     expect(study.state().cards.find((c) => c.note === 'nsol')!.decks).toEqual([verbos, velho]);
     study.leaveDeck('nsol', verbos);

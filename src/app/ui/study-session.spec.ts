@@ -134,7 +134,7 @@ describe('a sessão de estudo (ui/study-session.ts)', () => {
     // as duas formadas de uma vez: Acertei, e de novo depois do passo
     for (let i = 0; i < 6 && !dialog()!.querySelector('.fim'); i++) {
       // o passo de 10 minutos: o relógio da carta anda para agora
-      study.state.update((s) => ({ ...s, cards: s.cards.map((c) => (c.srs.state === 'aprendendo' ? { ...c, srs: { ...c.srs, due: new Date(Date.now() - 1000).toISOString() } } : c)) }));
+      study.saved.update((s) => ({ ...s, cards: s.cards.map((c) => (c.srs.state === 'aprendendo' ? { ...c, srs: { ...c.srs, due: new Date(Date.now() - 1000).toISOString() } } : c)) }));
       key(' ');
       await settle();
       key('2');
@@ -157,7 +157,7 @@ describe('a sessão de estudo (ui/study-session.ts)', () => {
     study.addCard('ncomer', [verbos], { title: '食べる' });
     await settle();
     for (let i = 0; i < 6 && !dialog()!.querySelector('.fim'); i++) {
-      study.state.update((s) => ({ ...s, cards: s.cards.map((c) => (c.srs.state === 'aprendendo' ? { ...c, srs: { ...c.srs, due: new Date(Date.now() - 1000).toISOString() } } : c)) }));
+      study.saved.update((s) => ({ ...s, cards: s.cards.map((c) => (c.srs.state === 'aprendendo' ? { ...c, srs: { ...c.srs, due: new Date(Date.now() - 1000).toISOString() } } : c)) }));
       key(' ');
       await settle();
       key('2');

@@ -140,6 +140,11 @@ export class FreeBoardStore {
    * o devolvido. Passou do tamanho que cabe no aparelho: não guarda e avisa.
    */
   save(board: FreeBoard, from?: FreeBoard | null): Promise<FreeBoard> {
+    // o quadro de outra pessoa que veio da lista (no grupo com o nome daqui, ver `places`) volta com o grupo dela
+    const place = this.places.get(board.id);
+    const raw = place ? this.records.get(board.id)?.quadro?.grupo : undefined;
+    if (raw && board.grupo === place) board = { ...board, grupo: raw };
+    if (raw && from && from.grupo === place) from = { ...from, grupo: raw };
     const clean = sanitizeFreeBoard(board);
     if (!clean) return Promise.reject(new FreeBoardProblem('Este quadro não pode ser guardado (falta o nome ou o grupo).'));
     if (!boardFits(clean)) return Promise.reject(new FreeBoardProblem('Este quadro ficou grande demais. Tire algumas peças.'));
@@ -427,8 +432,26 @@ export class FreeBoardStore {
   }
 
   private publish(): void {
-    this.boards.set(sortBoards([...this.records.values()].flatMap((r) => (r.quadro ? [r.quadro] : []))));
+    const shown = (b: FreeBoard) => {
+      const place = this.places.get(b.id);
+      return place && place !== b.grupo ? { ...b, grupo: place } : b;
+    };
+    this.boards.set(sortBoards([...this.records.values()].flatMap((r) => (r.quadro ? [shown(r.quadro)] : []))));
     this.version.update((v) => v + 1);
+  }
+
+  /**
+   * O grupo em que cada quadro de outra pessoa aparece aqui (PLANO-FLASHCARDS-GRUPO.md, D8): o do grupo compartilhado
+   * dele, com o nome que o grupo tem no seu mural ("Trabalho · Ana"), e não o nome que a dona deu, que num grupo seu de
+   * mesmo nome o poria no lugar errado. Só o que aparece muda: o guardado continua com o da dona (ver `save`).
+   */
+  private places: ReadonlyMap<string, string> = new Map();
+
+  /** O lugar dos quadros de outras pessoas (o `FreeBoardSync` dá, pelos grupos compartilhados). */
+  setPlaces(places: ReadonlyMap<string, string>): void {
+    if (places.size === this.places.size && [...places].every(([id, g]) => this.places.get(id) === g)) return;
+    this.places = places;
+    this.publish();
   }
 
   private open(): Promise<IDBDatabase> {
