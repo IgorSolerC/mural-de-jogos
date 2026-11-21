@@ -573,6 +573,20 @@ export function notasSuite(label: string, getDb: () => Db) {
         expect((await res(json('PUT', `/v1/comentarios/${id}/reacao`, { reacao: 'fogo' }, bia.token))).status).toBe(201);
       });
 
+      it('quem está nela edita o próprio comentário sem seguir a dona; o dos outros, ninguém (nem a dona); quem sai, não edita mais', async () => {
+        const { comment, thread, res, json, drop, ana, bia, cris } = await talking();
+        const fromBia = (await comment(bia.token, 'Eu levo o café.')).body.comentario.id;
+        const edit = (token: string, texto: string) => res(json('PATCH', `/v1/comentarios/${fromBia}`, { texto }, token));
+        expect((await edit(bia.token, 'Eu levo o café e o pão.')).status).toBe(200);
+        for (const who of [ana, bia, cris]) {
+          const [k] = (await thread(who.token)).body.comentarios;
+          expect([k.texto, typeof k.editado], who.nome).toEqual(['Eu levo o café e o pão.', 'string']);
+        }
+        for (const who of [ana, cris]) expect((await edit(who.token, 'Outro')).body.erro, who.nome).toBe('comentario-de-outro');
+        await drop(bia.token, 'nota-1', 'eu');
+        expect((await edit(bia.token, 'Saí')).status).not.toBe(200);
+      });
+
       it('o aviso chega a todos que estão nela, menos a quem escreveu; quem sai deixa de ver', async () => {
         const { comment, notices, drop, ana, bia, cris } = await talking();
         await comment(ana.token, 'Lembrete: comprar café.');

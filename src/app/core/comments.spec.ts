@@ -53,6 +53,12 @@ describe('comentários', () => {
       });
     });
 
+    it('o editado leva a hora da última troca; a que não é uma data fica de fora', () => {
+      expect(parseComment(raw(1, 'Bia', 'oi', { editado: '2026-10-12T13:00:00.000Z' }))?.editado).toBe('2026-10-12T13:00:00.000Z');
+      for (const bad of ['ontem', 7, null, true]) expect(parseComment(raw(1, 'Bia', 'oi', { editado: bad }))).withContext(String(bad)).toEqual(parseComment(raw(1, 'Bia', 'oi')));
+      expect('editado' in parseComment(raw(1, 'Bia', 'oi'))!).toBeFalse();
+    });
+
     it('a foto que não serve vira a inicial; o comentário sem a forma certa fica de fora', () => {
       expect(parseComment(raw(1, 'Bia', 'oi', { autor: { codigo: 'BBBB-2222', nome: 'Bia', foto: { emoji: 'ab', cor: 'rosa' } } }))?.autor.foto).toBeNull();
       expect(parseComment(raw(1, 'Bia', 'oi', { autor: { codigo: 'BBBB-2222', nome: 'Bia', foto: { emoji: '🐙', cor: 'furta-cor' } } }))?.autor.foto).toBeNull();
@@ -280,6 +286,11 @@ describe('comentários', () => {
                 if (fail) throw fail;
                 const answer = (() => {
                   if (method === 'POST') return { comentario: raw(9, 'Eu', String((init.body as { texto: string }).texto).trim()) };
+                  // editar: a nuvem devolve o comentário com o texto limpo, a marca de editado e as reações de lá
+                  if (method === 'PATCH') {
+                    const n = Number(path.slice(-12));
+                    return { comentario: raw(n, 'Eu', String((init.body as { texto: string }).texto).trim(), { editado: '2026-10-12T13:00:00.000Z', reacoes: [] }) };
+                  }
                   if (path === '/v1/eu') return method === 'GET' ? { comentarios: 'seguidos' } : init.body;
                   if (path === `/v1/murais/${ANA}/comentarios`) return { contagem: { 'r-hades': 2, 'r-celeste': 7 }, fechadas: ['r-portal'], quem: 'seguidores', pode: true };
                   if (path === `/v1/murais/${ME.codigo}/comentarios`) return { contagem: { 'r-minha': 3 }, fechadas: shut ? ['r-minha'] : [], quem: 'seguidores', pode: true };
@@ -444,6 +455,38 @@ describe('comentários', () => {
       await s.post(HADES, 'Né?', id(1));
       expect(calls.at(-1)!.body).toEqual({ texto: 'Né?', titulo: 'Hades', mural: 'jogos', respostaA: id(1) });
       expect(s.countOf(ANA, 'r-hades')).toBe(3);
+    });
+
+    it('editar: o texto novo entra quando a nuvem confirma, com a marca de editado; as reações e a resposta ficam', async () => {
+      const s = make();
+      thread = [raw(1, 'Bia', 'Que final!'), raw(2, 'Eu', 'Concrdo.', { respostaA: id(1), reacoes: [{ codigo: 'BBBB-1111', nome: 'Bia', reacao: 'amei', em: at }] })];
+      await s.loadThread(HADES);
+      const done = s.update(HADES, id(2), ' Concordo. ');
+      // até a nuvem confirmar, nada muda
+      expect(s.thread(ANA, 'r-hades')!.comentarios[1].texto).toBe('Concrdo.');
+      const made = await done;
+      expect(calls.at(-1)).toEqual({ path: `/v1/comentarios/${id(2)}`, method: 'PATCH', body: { texto: ' Concordo. ' } });
+      expect(made.editado).toBe('2026-10-12T13:00:00.000Z');
+      const k = s.thread(ANA, 'r-hades')!.comentarios[1];
+      expect([k.texto, k.editado, k.replyTo, k.reacoes.length]).toEqual(['Concordo.', '2026-10-12T13:00:00.000Z', id(1), 1]);
+      expect(s.countOf(ANA, 'r-hades')).toBe(2);
+    });
+
+    it('a nuvem recusou a edição: o erro sobe, a conversa fica, e (o comentário saiu, a regra mudou) é buscada de novo', async () => {
+      const s = make();
+      await s.loadThread(HADES);
+      const gets = () => calls.filter((c) => c.method === 'GET' && c.path.endsWith('/r-hades')).length;
+      fail = new CloudError('Você editou muitos comentários hoje. Tente de novo amanhã.', 'editar-devagar', 429);
+      await expectAsync(s.update(HADES, id(1), 'Outro')).toBeRejectedWith(fail);
+      await flush();
+      expect([s.thread(ANA, 'r-hades')!.comentarios[0].texto, gets()]).toEqual(['Que final!', 1]);
+      fail = new CloudError('Esse comentário não existe mais.', 'comentario-nao-encontrado', 404);
+      await expectAsync(s.update(HADES, id(1), 'Outro')).toBeRejectedWith(fail);
+      fail = null;
+      await flush();
+      await flush();
+      expect(gets()).toBe(2);
+      expect(s.thread(ANA, 'r-hades')!.comentarios[0].texto).toBe('Que final!');
     });
 
     it('apagar um comentário com respostas deixa o lugar dele, e a conta desce', async () => {

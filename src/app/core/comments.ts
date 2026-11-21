@@ -23,6 +23,9 @@ import { plural } from './text';
  * (`commentTree`). Um comentário apagado que tinha respostas fica no lugar dele (`gone`), sem texto nem
  * autor, até a última resposta sair.
  *
+ * Editar: quem escreveu troca o texto do próprio comentário (`update`), enquanto ainda pode comentar ali; a
+ * conversa diz que ele foi editado (`editado`, quando), para todos.
+ *
  * Comentários fechados: o dono fecha os de uma ficha (Configurações, no Mais da leitura). Fechada,
  * ninguém escreve, responde nem reage, nem o dono; os de antes ficam guardados e só o dono os vê.
  */
@@ -48,6 +51,8 @@ export interface Comment {
   autor: CommentAuthor;
   texto: string;
   em: string;
+  /** Quando quem escreveu trocou o texto pela última vez (sem: nunca editado). */
+  editado?: string;
   reacoes: Reaction[];
   /** O comentário a que este responde (da mesma ficha). */
   replyTo?: string;
@@ -174,7 +179,8 @@ export function parseComment(raw: unknown): Comment | null {
   if (k?.['apagado'] === true) return id && em ? { id, autor: NOBODY, texto: '', em, reacoes: [], gone: true, ...replyTo } : null;
   const autor = author(k?.['autor']);
   const texto = typeof k?.['texto'] === 'string' ? k['texto'].slice(0, COMMENT_MAX) : '';
-  return id && autor && texto.trim() && em ? { id, autor, texto, em, reacoes: reactions(k?.['reacoes']), ...replyTo } : null;
+  const editado = typeof k?.['editado'] === 'string' && Number.isFinite(Date.parse(k['editado'])) ? { editado: k['editado'] } : {};
+  return id && autor && texto.trim() && em ? { id, autor, texto, em, ...editado, reacoes: reactions(k?.['reacoes']), ...replyTo } : null;
 }
 
 /** Os comentários de uma ficha, como vieram da nuvem: só o que tem a forma certa passa, cada um uma vez. */
@@ -505,6 +511,31 @@ export class Comments {
       const made = parseComment(res?.comentario);
       if (!made) throw new CloudError('A nuvem respondeu de um jeito estranho. Confira se o comentário entrou.', 'resposta-estranha', 0);
       this.changeThread(key, (t) => ({ ...t, comentarios: [...t.comentarios.filter((k) => k.id !== made.id), made] }));
+      return made;
+    });
+  }
+
+  /**
+   * Troca o texto do seu comentário. Como no `post`, só muda na conversa quando a nuvem confirma (o texto volta
+   * limpo de lá, com a marca de editado; as reações e a resposta ficam como estão aqui); se ela recusar, o erro
+   * sobe com a mensagem pronta, e quem chamou mantém o que foi escrito. Recusado porque o comentário saiu ou
+   * a regra mudou (fechados, deixou de seguir), a conversa é buscada de novo.
+   */
+  update(target: Pick<CommentTarget, 'code' | 'ref'>, id: string, text: string): Promise<Comment> {
+    const key = keyOf(target.code, target.ref);
+    return this.edit(target, async () => {
+      let res: { comentario?: unknown } | null;
+      try {
+        res = await this.account.request<{ comentario?: unknown }>(`/v1/comentarios/${id}`, { method: 'PATCH', body: { texto: text } });
+      } catch (err) {
+        // (busca de novo quando esta mudança terminar: ver `edit`)
+        if (err instanceof CloudError && (err.status === 403 || err.status === 404)) this.dropped.add(key);
+        throw err;
+      }
+      const made = parseComment(res?.comentario);
+      if (!made || made.id !== id) throw new CloudError('A nuvem respondeu de um jeito estranho. Confira se o comentário mudou.', 'resposta-estranha', 0);
+      const edited = made.editado ? { editado: made.editado } : {};
+      this.changeThread(key, (t) => ({ ...t, comentarios: t.comentarios.map((k) => (k.id === id && !k.gone ? { ...k, texto: made.texto, ...edited } : k)) }));
       return made;
     });
   }

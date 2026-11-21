@@ -27,15 +27,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-21-templates-pastas',
+    id: '2026-11-21-editar-comentarios',
     version: '1.50.4',
     kind: 'ajustes',
     date: '2026-11-21',
-    title: 'Os templates do texto em pastas, num seletor grande e escritos no editor das anotações',
+    title: 'Os templates do texto em pastas e num seletor grande, e os comentários que se editam',
     melhorias: [
       'O botão Templates da régua abre uma folha grande: as pastas em acordeão à esquerda, com a busca no nome e no texto, e o template escolhido inteiro à direita, do jeito que entra na anotação, com Pôr no texto, Copiar e Editar.',
       'Os templates ganharam mini-pastas: a Nova pasta do seletor, a Pasta de cada template (na prévia ou na folha dele) e, no "…" da pasta, Renomear e Desfazer a pasta, com o Desfazer; os que você já tinha ficam fora das pastas, e as pastas vão para os seus outros aparelhos.',
       'Escrever um template é como escrever uma anotação: a folha dele tem o editor das anotações, no Visual ou no Markdown, com a régua, os widgets e a tela cheia.',
+      'Os seus comentários nas anotações e nas resenhas se editam: o lápis ao lado do Apagar (ou Editar o comentário, no botão direito) leva o texto ao campo, e Salvar troca no lugar, com as reações e as respostas; todo mundo vê "editado" ao lado da hora.',
     ],
   },
   {

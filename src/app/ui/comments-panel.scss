@@ -459,8 +459,10 @@
   translate: 0 1px;
 }
 
-/* apagar: em tinta fraca; a tinta vermelha só chega com o mouse ou o foco no próprio botão */
-.apagar {
+/* apagar e editar (o lápis, no seu): em tinta fraca; a tinta vermelha do apagar, e a preta do lápis, só chegam com
+   o mouse ou o foco no próprio botão */
+.apagar,
+.lapis {
   display: grid;
   place-items: center;
   width: 36px;
@@ -484,6 +486,14 @@
   &:focus-visible {
     outline: 3px solid var(--ink);
     outline-offset: -2px;
+  }
+}
+
+.lapis {
+  &:hover,
+  &:focus-visible {
+    background: rgb(21 21 21 / 0.08);
+    color: var(--ink);
   }
 }
 

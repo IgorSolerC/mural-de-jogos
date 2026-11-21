@@ -44,7 +44,7 @@
     [class.resposta]="depth > 0"
     [class.apagado]="k.gone"
     [class.meu]="mine"
-    [class.respondendo]="replyTo()?.id === k.id"
+    [class.respondendo]="replyTo()?.id === k.id || editing()?.id === k.id"
     [attr.data-comentario]="k.id"
   >
     <div class="fala">
@@ -75,6 +75,10 @@
                 <button type="button" class="nome nome-link" [attr.aria-label]="'Ver o perfil de ' + k.autor.nome" (click)="leave.emit(['/perfil', k.autor.codigo])">{{ k.autor.nome }}</button>
               }
               <time class="quando" [attr.datetime]="k.em">{{ when(k.em) }}</time>
+              @if (k.editado) {
+                <!-- quem escreveu trocou o texto depois: diz, sem dizer o de antes; a hora da troca fica na dica -->
+                <span class="quando editado" [title]="'Editado ' + when(k.editado)">editado<span class="sr-only"> {{ when(k.editado) }}</span></span>
+              }
             </p>
             <!-- o que dá para fazer com o comentário, na ponta da linha do nome e em tinta fraca:
                  só escurece quando o mouse (ou o foco) chega nele -->
@@ -82,6 +86,11 @@
               <div class="fazer">
                 @if (canReact()) {
                   <app-reaction-picker [quiet]="true" [current]="mineOn(k)" (picked)="react(k, $event)" />
+                }
+                @if (canEdit(k)) {
+                  <button type="button" class="lapis" aria-label="Editar o seu comentário" title="Editar" (click)="edit(k)">
+                    <lucide-icon [img]="EditIcon" [size]="16" aria-hidden="true" />
+                  </button>
                 }
                 @if (canErase(k)) {
                   <button type="button" class="apagar" [attr.aria-label]="mine ? 'Apagar o seu comentário' : 'Apagar o comentário de ' + k.autor.nome" title="Apagar" (click)="erase(n)">
@@ -184,7 +193,7 @@
   </li>
 </ng-template>
 
-<!-- o botão direito (o dedo segurado, Shift+F10) numa fala: responder, reagir, copiar, o perfil, as respostas, apagar -->
+<!-- o botão direito (o dedo segurado, Shift+F10) numa fala: responder, reagir, editar, copiar, o perfil, as respostas, apagar -->
 <app-context-menu #menu [caption]="menuCaption()" [sections]="menuSections()" (closed)="menuOn.set(null)" />
 
 <!-- o pé: escrever, ou o que falta para poder -->
@@ -215,7 +224,16 @@
     }
     @default {
       @if (writing()) {
-        @if (replyTo(); as r) {
+        @if (editing(); as e) {
+          <!-- editando o seu: qual (o nome leva até ele), e o X que desiste (o comentário fica como estava) -->
+          <p class="respondendo-a">
+            <lucide-icon [img]="EditIcon" [size]="15" aria-hidden="true" />
+            <span class="respondendo-texto">Editando <button type="button" class="respondendo-nome" aria-label="Ver o comentário que você está editando" (click)="show(e.id)">o seu comentário</button></span>
+            <button type="button" class="respondendo-tirar" aria-label="Desistir da edição: o comentário fica como estava" title="Desistir da edição" [disabled]="saving()" (click)="unedit()">
+              <lucide-icon [img]="CloseIcon" [size]="15" aria-hidden="true" />
+            </button>
+          </p>
+        } @else if (replyTo(); as r) {
           <!-- respondendo: a quem, e o X que volta a comentar na ficha (o texto fica) -->
           <p class="respondendo-a">
             <lucide-icon [img]="ReplyIcon" [size]="15" aria-hidden="true" />
@@ -230,18 +248,25 @@
           [max]="max"
           [onCard]="false"
           [copyTheirImages]="false"
-          [label]="replyTo() ? 'Sua resposta a ' + replyTo()!.nome : 'Seu comentário'"
-          [placeholder]="replyTo() ? 'Responda a ' + replyTo()!.nome + '…' : 'Escreva um comentário…'"
+          [label]="editing() ? 'O seu comentário, editando' : replyTo() ? 'Sua resposta a ' + replyTo()!.nome : 'Seu comentário'"
+          [placeholder]="editing() ? 'Escreva o comentário…' : replyTo() ? 'Responda a ' + replyTo()!.nome + '…' : 'Escreva um comentário…'"
         />
         <div class="acoes">
           <button type="button" class="acao-caneta" (click)="fold()">Fechar</button>
-          <button type="button" class="tinta" [disabled]="!sendable()" [appBusy]="busy()" [title]="(replyTo() ? 'Responder' : 'Comentar') + ' (Ctrl+Enter)'" (click)="send()">
-            {{ busy() ? 'Enviando…' : replyTo() ? 'Responder' : 'Comentar' }}
-          </button>
+          @if (editing()) {
+            <!-- editar é salvar: vale também o Ctrl+S, como nas outras folhas de edição -->
+            <button type="button" class="tinta" appSaveKey [disabled]="!sendable()" [appBusy]="busy()" [title]="'Salvar (Ctrl+Enter ou ' + saveKey + ')'" (click)="send()">
+              {{ busy() ? 'Salvando…' : 'Salvar' }}
+            </button>
+          } @else {
+            <button type="button" class="tinta" [disabled]="!sendable()" [appBusy]="busy()" [title]="(replyTo() ? 'Responder' : 'Comentar') + ' (Ctrl+Enter)'" (click)="send()">
+              {{ busy() ? 'Enviando…' : replyTo() ? 'Responder' : 'Comentar' }}
+            </button>
+          }
         </div>
       } @else {
         <!-- fechado, o campo é uma linha de papel: a régua só aparece quando a pessoa vai escrever -->
-        <button type="button" class="abrir" (click)="write()">{{ text().trim() ? 'Continuar o comentário…' : 'Escreva um comentário…' }}</button>
+        <button type="button" class="abrir" (click)="write()">{{ editing() ? 'Continuar a edição…' : text().trim() ? 'Continuar o comentário…' : 'Escreva um comentário…' }}</button>
       }
     }
   }

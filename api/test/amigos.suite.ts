@@ -6,7 +6,7 @@ import { googleVerifier } from '../src/domain/google';
 import { cleanup } from '../src/domain/cleanup';
 import { FEED_DAYS, FEED_LIMIT, MAX_FOLLOWING, MAX_FOLLOWS_PER_DAY, UNDO_MS } from '../src/routes/follow';
 import { MAX_REACTIONS_PER_DAY } from '../src/routes/reactions';
-import { MAX_COMMENTS_LISTED, MAX_COMMENTS_PER_DAY } from '../src/routes/comments';
+import { MAX_COMMENTS_LISTED, MAX_COMMENTS_PER_DAY, MAX_EDITS_PER_DAY } from '../src/routes/comments';
 import { Config, Db, Deps, SqlValue } from '../src/ports';
 import { BASE_ENV, NOW, TABLES, gunzip, gzip, jsonCaller, eraseNow } from './harness';
 
@@ -976,6 +976,7 @@ export function amigosSuite(label: string, getDb: () => Db) {
         const erase = (token: string | undefined, id: string) => read(t.json('DELETE', `/v1/comentarios/${id}`, undefined, token));
         const react = (token: string | undefined, id: string, reacao: unknown) => read(t.json('PUT', `/v1/comentarios/${id}/reacao`, { reacao }, token));
         const unreact = (token: string | undefined, id: string) => read(t.json('DELETE', `/v1/comentarios/${id}/reacao`, undefined, token));
+        const edit = (token: string | undefined, id: string, texto: unknown) => read(t.json('PATCH', `/v1/comentarios/${id}`, { texto }, token));
         const accept = (token: string, comentarios: unknown) => read(t.json('PATCH', '/v1/eu', { comentarios }, token));
         const notices = async (token: string) => (await t.feed(token)).body.itens.filter((i: any) => i.tipo === 'comentou');
         const answers = async (token: string) => (await t.feed(token)).body.itens.filter((i: any) => i.tipo === 'respondeu');
@@ -995,7 +996,7 @@ export function amigosSuite(label: string, getDb: () => Db) {
             t.db.first = first;
           }
         };
-        return { ...t, ana, bia, caio, comment, reply, thread, counts, erase, react, unreact, accept, notices, answers, together };
+        return { ...t, ana, bia, caio, comment, reply, thread, counts, erase, react, unreact, edit, accept, notices, answers, together };
       }
 
       it('quem segue a dona comenta; todo mundo vê, do mais antigo para o mais novo, com o nome e a foto', async () => {
@@ -1265,6 +1266,98 @@ export function amigosSuite(label: string, getDb: () => Db) {
         // a dona apaga a do lado: não sobra nada
         await erase(ana.token, side);
         expect((await thread(ana.codigo, 'r-hades')).body.comentarios).toEqual([]);
+      });
+
+      it('quem escreveu edita o comentário: o texto novo fica no lugar, com a marca de editado, as reações e a resposta', async () => {
+        const { comment, reply, thread, react, edit, notices, answers, advance, db, ana, bia, caio } = await commenting();
+        const root = (await comment(bia.token, ana.codigo, 'r-hades', 'Que fnal!')).body.comentario.id;
+        const r1 = (await reply(caio.token, ana.codigo, 'r-hades', root, 'Concordo.')).body.comentario.id;
+        await react(caio.token, root, 'fogo');
+        const before = [await notices(ana.token), await answers(bia.token)];
+        expect((await thread(ana.codigo, 'r-hades')).body.comentarios[0].editado).toBeUndefined();
+
+        advance(60_000);
+        const later = new Date(NOW.getTime() + 60_000).toISOString();
+        const res = await edit(bia.token, root, '  Que **final**!  \r\n');
+        expect(res.status).toBe(200);
+        expect(res.body.comentario).toMatchObject({ id: root, texto: '  Que **final**!', editado: later, autor: { nome: 'Bia' } });
+        expect(res.body.comentario.reacoes).toEqual([expect.objectContaining({ codigo: caio.codigo, reacao: 'fogo' })]);
+        const list = (await thread(ana.codigo, 'r-hades')).body.comentarios;
+        expect(list.map((k: any) => [k.id, k.texto, k.editado ?? null])).toEqual([
+          [root, '  Que **final**!', later],
+          [r1, 'Concordo.', null],
+        ]);
+        expect(list[0].em).not.toBe(later);
+        expect(list[0].reacoes).toHaveLength(1);
+        // a resposta também se edita, e continua respondendo a quem respondia
+        expect((await edit(caio.token, r1, 'Concordo muito.')).body.comentario).toMatchObject({ respostaA: root, editado: later });
+        // ninguém recebe aviso por uma edição
+        expect([await notices(ana.token), await answers(bia.token)]).toEqual(before);
+        // o mesmo texto de novo não muda nada: nem a marca, nem o freio
+        advance(60_000);
+        const same = await edit(bia.token, root, '  Que **final**!');
+        expect([same.status, same.body.comentario.editado]).toEqual([200, later]);
+        expect((await db.first<{ n: number }>("SELECT COUNT(*) AS n FROM freios WHERE usuario_id = ? AND acao = 'editar-comentario'", [bia.id]))?.n).toBe(1);
+      });
+
+      it('editar: só quem escreveu (nem a dona da ficha), com texto e no tamanho; o apagado e o que saiu não se editam', async () => {
+        const { comment, reply, thread, edit, erase, json, ana, bia, caio } = await commenting();
+        const id = (await comment(bia.token, ana.codigo, 'r-hades', 'Que final!')).body.comentario.id;
+        expect((await edit(undefined, id, 'Outro')).status).toBe(401);
+        for (const token of [ana.token, caio.token]) {
+          const res = await edit(token, id, 'Outro');
+          expect([res.status, res.body.erro]).toEqual([403, 'comentario-de-outro']);
+        }
+        for (const empty of ['', '   \n\n ', 7, null]) {
+          const res = await edit(bia.token, id, empty);
+          expect([res.status, res.body.erro], JSON.stringify(empty)).toEqual([400, 'comentario-vazio']);
+        }
+        const big = await edit(bia.token, id, 'x'.repeat(501));
+        expect([big.status, big.body.erro]).toEqual([400, 'comentario-grande']);
+        expect((await edit(bia.token, id, 'x'.repeat(500))).status).toBe(200);
+        // apagado com resposta: fica o lugar dele, sem texto, e ele não volta a ter um
+        await reply(caio.token, ana.codigo, 'r-hades', id, 'Hum.');
+        await erase(bia.token, id);
+        const gone = await edit(bia.token, id, 'Voltei');
+        expect([gone.status, gone.body.erro]).toEqual([404, 'comentario-nao-encontrado']);
+        expect((await thread(ana.codigo, 'r-hades')).body.comentarios[0]).toMatchObject({ apagado: true, texto: '' });
+        expect((await edit(bia.token, '00000000-0000-4000-8000-000000000000', 'Oi')).status).toBe(404);
+        expect((await json('PATCH', '/v1/comentarios/nao-e-um-id', { texto: 'Oi' }, bia.token)).status).toBe(404);
+      });
+
+      it('editar segue a regra de comentar: com os comentários fechados, sem seguir a dona ou na ficha que virou privada, não', async () => {
+        const { comment, edit, json, unfollow, push, ana, bia } = await commenting();
+        const id = (await comment(bia.token, ana.codigo, 'r-hades', 'Que final!')).body.comentario.id;
+        await json('PUT', '/v1/eu/fichas/r-hades/comentarios', { fechados: true }, ana.token);
+        expect((await edit(bia.token, id, 'Outro')).body.erro).toBe('comentarios-fechados');
+        await json('PUT', '/v1/eu/fichas/r-hades/comentarios', { fechados: false }, ana.token);
+        expect((await edit(bia.token, id, 'Outro')).status).toBe(200);
+        // a dona tirou a ficha do mural público
+        const rev = (await push(ana.token, 0, { fichas: JSON.stringify(['r-celeste']) })).body.rev as number;
+        expect((await edit(bia.token, id, 'De novo')).body.erro).toBe('ficha-nao-encontrada');
+        await push(ana.token, rev, { fichas: JSON.stringify(['r-hades']) });
+        await unfollow(bia.token, ana.codigo);
+        const res = await edit(bia.token, id, 'De novo');
+        expect([res.status, res.body.erro]).toEqual([403, 'comentar-sem-seguir']);
+      });
+
+      it(`no máximo ${MAX_EDITS_PER_DAY} edições por dia (429 editar-devagar), também com pedidos ao mesmo tempo`, async () => {
+        const { db, comment, edit, thread, together, ana, bia } = await commenting();
+        const id = (await comment(bia.token, ana.codigo, 'r-hades', 'Que final!')).body.comentario.id;
+        await db.batch(
+          Array.from({ length: MAX_EDITS_PER_DAY - 1 }, () => ({
+            sql: "INSERT INTO freios (usuario_id, acao, criado_em) VALUES (?, 'editar-comentario', ?)",
+            params: [bia.id, NOW.toISOString()],
+          })),
+        );
+        const all = await together(() => Promise.all(Array.from({ length: 4 }, (_, i) => edit(bia.token, id, `Junto ${i}.`))));
+        expect(all.map((r) => r.status).sort()).toEqual([200, 429, 429, 429]);
+        for (const r of all.filter((r) => r.status === 429)) expect(r.body.erro).toBe('editar-devagar');
+        const won = all.find((r) => r.status === 200)!.body.comentario.texto;
+        expect((await thread(ana.codigo, 'r-hades')).body.comentarios[0].texto).toBe(won);
+        expect((await edit(bia.token, id, 'Mais um.')).body.erro).toBe('editar-devagar');
+        // comentar continua (o freio é outro)
+        expect((await comment(bia.token, ana.codigo, 'r-hades', 'Novo.')).status).toBe(201);
       });
 
       it('apaga quem escreveu ou a dona da ficha; o aviso sai com o último comentário da pessoa ali', async () => {

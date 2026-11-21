@@ -16,6 +16,7 @@ import { Confirm } from './confirm';
 import { ReactionPicker } from './reactions';
 import { RichEditor } from './rich-editor';
 import { RichText } from './rich-text';
+import { SAVE_KEY, SaveKey } from './save-key';
 import { copyText } from '../core/rich-text';
 import { Toasts } from './toast';
 
@@ -33,13 +34,25 @@ import { Toasts } from './toast';
  * marcada. As respostas descem da foto de quem foi respondido por um fio fino, recuadas, com a foto
  * menor; tocar no fio recolhe a conversa dali para baixo ("Ver 3 respostas" abre de novo). Depois de
  * `MAX_INDENT` funduras a folha não recua mais: a resposta diz a quem responde, como no Twitter.
+ *
+ * Editar, como no WhatsApp: o lápis (ou "Editar o comentário" no botão direito) no seu comentário leva o texto dele
+ * para o campo do pé, que diz "Editando o seu comentário" (com o X que desiste) e salva no lugar de comentar; a fala
+ * fica marcada enquanto isso. O rascunho do comentário novo fica guardado e volta quando a edição acaba. Depois de
+ * editado, o comentário diz "editado" ao lado da hora, para todos.
  */
 /** Quantas vezes as respostas recuam na folha; mais fundo, ficam rentes e dizem a quem respondem. */
 const MAX_INDENT = 4;
 
+/** O texto como a nuvem guarda (as quebras iguais, sem espaço no fim das linhas nem linhas em branco nas pontas). */
+const asStored = (text: string): string =>
+  text
+    .replace(/\r\n?/g, '\n')
+    .replace(/[ \t]+$/gm, '')
+    .replace(/^\n+|\n+$/g, '');
+
 @Component({
   selector: 'app-comments-panel',
-  imports: [Busy, ContextMenu, IconModule, NgTemplateOutlet, ReactionPicker, RichEditor, RichText],
+  imports: [Busy, ContextMenu, IconModule, NgTemplateOutlet, ReactionPicker, RichEditor, RichText, SaveKey],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './comments-panel.html',
   styleUrl: './comments-panel.scss',
@@ -73,6 +86,8 @@ export class CommentsPanel {
   protected readonly ReplyIcon = ICON.responder;
   protected readonly MoreIcon = ICON.dentro;
   protected readonly CloseIcon = ICON.fechar;
+  protected readonly saveKey = SAVE_KEY;
+  protected readonly EditIcon = ICON.editar;
   protected readonly maxIndent = MAX_INDENT;
   protected readonly when = commentWhen;
 
@@ -86,10 +101,19 @@ export class CommentsPanel {
   protected readonly canReact = computed(() => !!this.thread()?.pode);
   /** A fala que o campo do pé está respondendo (null: comenta na ficha). */
   protected readonly replyTo = signal<{ id: string; nome: string } | null>(null);
+  /**
+   * O seu comentário que o campo do pé está editando, com o texto de antes e a resposta que o campo escrevia
+   * quando a edição começou (volta com o rascunho quando ela acaba). null: escreve um novo.
+   */
+  protected readonly editing = signal<{ id: string; before: string; reply: { id: string; nome: string } | null } | null>(null);
   /** As falas com as respostas recolhidas. */
   protected readonly collapsed = signal<ReadonlySet<string>>(new Set());
   protected readonly spoken = computed(() => spokenComments(this.count()));
 
+  /**
+   * A edição indo para a nuvem: desistir (o X, Responder) ou citar não a desfaria lá, então espera ela responder.
+   */
+  protected readonly saving = computed(() => this.busy() && !!this.editing());
   /** O comentário em andamento (guardado por ficha no serviço, enquanto o site está aberto). */
   protected readonly text = signal('');
   /** O campo aberto, com a régua; fechado, é uma linha só. */
@@ -100,7 +124,12 @@ export class CommentsPanel {
   /** O comentário cujas reações estão abertas (quem reagiu com o quê). */
   protected readonly whoOpen = signal<string | null>(null);
 
-  protected readonly sendable = computed(() => !!this.text().trim() && this.text().length <= COMMENT_MAX && !this.busy());
+  protected readonly sendable = computed(() => {
+    const text = this.text();
+    // editando: só quando mudou alguma coisa (o mesmo texto não tem o que salvar)
+    const e = this.editing();
+    return !!text.trim() && text.length <= COMMENT_MAX && !this.busy() && (!e || asStored(text) !== asStored(e.before));
+  });
   /** Por que não dá para comentar aqui (null: dá, ou ainda não se sabe). */
   protected readonly door = computed<'fechados' | 'conta' | 'seguir' | 'seguidos' | null>(() => {
     const t = this.thread();
@@ -153,6 +182,7 @@ export class CommentsPanel {
       talk.push({ id: 'responder', label: 'Responder', icon: ICON.responder, run: () => this.answer(k) });
       talk.push({ id: 'reagir', label: this.mineOn(k) ? 'Trocar a reação' : 'Reagir', icon: ICON.reagir, run: () => this.openPicker(k.id) });
     }
+    if (this.canEdit(k)) talk.push({ id: 'editar', label: 'Editar o comentário', icon: ICON.editar, run: () => this.edit(k) });
     const copy: MenuItem[] = [{ id: 'copiar', label: 'Copiar o texto', icon: ICON.copiar, hint: 'Sem as marcas', run: () => void this.copy(k) }];
     const keep: MenuItem[] = [
       { id: 'perfil', label: mine ? 'Ver o seu perfil' : `Ver o perfil de ${k.autor.nome}`, icon: ICON.pessoa, run: () => this.leave.emit(['/perfil', k.autor.codigo]) },
@@ -202,6 +232,7 @@ export class CommentsPanel {
         this.error.set(null);
         this.whoOpen.set(null);
         this.replyTo.set(null);
+        this.editing.set(null);
         this.collapsed.set(new Set());
         void this.comments.loadThread(t).then(() => {
           // aberta por um aviso de resposta: a conversa vai até ela, marcada; senão, o fim da conversa
@@ -211,10 +242,23 @@ export class CommentsPanel {
         });
       });
     });
-    // o rascunho acompanha o que é escrito
+    // o rascunho acompanha o que é escrito (a edição de um comentário não é rascunho: o de antes fica guardado)
     effect(() => {
       const text = this.text();
-      untracked(() => this.comments.setDraft(this.target(), text));
+      if (!this.editing()) untracked(() => this.comments.setDraft(this.target(), text));
+    });
+    // o campo some (fecharam os comentários, a pessoa saiu da conta) ou o comentário saiu da conversa: a edição acaba
+    effect(() => {
+      const e = this.editing();
+      const k = e ? this.nodes().get(e.id)?.k : undefined;
+      // (fora da conversa que veio só porque ela veio cortada, nos mais novos, ele continua lá)
+      const t = this.thread();
+      const left = k ? !!k.gone : !!t && !t.maisAntigos;
+      if (!e || (!this.door() && !left)) return;
+      untracked(() => {
+        this.stopEditing();
+        if (!this.door()) this.toasts.show('O comentário que você editava saiu da conversa.');
+      });
     });
     // "Citar" na ficha: a citação entra no fim do rascunho, e o campo abre para escrever embaixo dela
     effect(() => {
@@ -229,16 +273,18 @@ export class CommentsPanel {
     setTimeout(() => this.editor()?.focus());
   }
 
-  /** Fecha o campo (o que foi escrito fica guardado para a próxima vez; a resposta deixa de ser). */
+  /** Fecha o campo (o que foi escrito fica guardado para a próxima vez; a resposta deixa de ser, e a edição fica). */
   protected fold(): void {
     this.writing.set(false);
     this.error.set(null);
-    this.replyTo.set(null);
+    // editando, a edição fica para o "Continuar a edição…", como o rascunho
+    if (!this.editing()) this.replyTo.set(null);
   }
 
   /** "Responder" numa fala: o campo do pé abre respondendo a ela. */
   protected answer(k: Comment): void {
-    if (k.gone || !this.canReact()) return;
+    if (k.gone || !this.canReact() || this.saving()) return;
+    if (this.editing()) this.stopEditing();
     this.replyTo.set({ id: k.id, nome: k.autor.codigo === this.me() ? 'você mesmo' : k.autor.nome });
     this.error.set(null);
     this.write();
@@ -247,6 +293,43 @@ export class CommentsPanel {
   /** O X do "Respondendo a…": o texto fica, e volta a ser um comentário na ficha. */
   protected unanswer(): void {
     this.replyTo.set(null);
+    setTimeout(() => this.editor()?.focus());
+  }
+
+  /** Quem edita: só quem escreveu, enquanto pode comentar ali (como responder e reagir). */
+  protected canEdit(k: Comment): boolean {
+    return !k.gone && this.canReact() && !!this.me() && k.autor.codigo === this.me();
+  }
+
+  /** O lápis (ou "Editar o comentário"): o texto do comentário vai para o campo do pé, que passa a salvar nele. */
+  protected edit(k: Comment): void {
+    // (com um comentário indo para a nuvem, o campo é dele até ela responder)
+    if (!this.canEdit(k) || this.busy()) return;
+    // o mesmo de novo: o que já foi mudado fica, e o foco volta ao campo
+    if (this.editing()?.id !== k.id) {
+      this.error.set(null);
+      // (trocando de um comentário para outro, a resposta guardada é a de antes da primeira edição)
+      this.editing.set({ id: k.id, before: k.texto, reply: this.editing()?.reply ?? this.replyTo() });
+      this.replyTo.set(null);
+      this.text.set(k.texto);
+    }
+    this.writing.set(true);
+    // o cursor vai para o fim do texto, como quem continua escrevendo
+    setTimeout(() => this.editor()?.focusEnd());
+  }
+
+  /** A edição acaba (salva, ou o X): o campo volta ao rascunho do comentário novo, como estava. */
+  private stopEditing(): void {
+    this.replyTo.set(this.editing()?.reply ?? null);
+    this.editing.set(null);
+    this.error.set(null);
+    this.text.set(this.comments.draftOf(this.target()));
+  }
+
+  /** O X do "Editando…": desiste da edição (o comentário fica como estava) e o foco volta ao campo. */
+  protected unedit(): void {
+    if (this.saving()) return;
+    this.stopEditing();
     setTimeout(() => this.editor()?.focus());
   }
 
@@ -290,7 +373,7 @@ export class CommentsPanel {
   }
 
   private cite(selection: string): void {
-    if (this.door()) return;
+    if (this.door() || this.saving()) return;
     const next = withQuote(this.text(), selection);
     if (next === null) {
       this.toasts.show('A citação não cabe: o comentário já está no limite.');
@@ -298,16 +381,13 @@ export class CommentsPanel {
     }
     this.text.set(next);
     this.writing.set(true);
-    // o cursor vai para o fim, embaixo da citação
-    setTimeout(() => {
-      this.editor()?.focus();
-      const area = document.activeElement;
-      if (area instanceof HTMLTextAreaElement) area.setSelectionRange(area.value.length, area.value.length);
-    });
+    // o cursor vai para o fim, embaixo da citação (editando o seu, ela entra no que está sendo editado)
+    setTimeout(() => this.editor()?.focusEnd());
   }
 
   protected async send(): Promise<void> {
     if (!this.sendable()) return;
+    if (this.editing()) return this.save();
     this.busy.set(true);
     this.error.set(null);
     const target = this.target();
@@ -333,6 +413,31 @@ export class CommentsPanel {
       else this.toasts.show(message);
       // a regra pode ter mudado com a folha aberta (deixou de seguir, a pessoa trocou a escolha)
       if (err instanceof CloudError && err.status === 403) void this.comments.loadThread(target, true);
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  /** Salva a edição: o texto novo no lugar do de antes, e o campo volta a ser o do comentário novo, fechado. */
+  private async save(): Promise<void> {
+    const e = this.editing();
+    if (!e) return;
+    this.busy.set(true);
+    this.error.set(null);
+    const target = this.target();
+    const key = this.key();
+    try {
+      await this.comments.update(target, e.id, this.text());
+      // a folha passou para outra ficha (ou a edição acabou) enquanto ia: nada mais a fazer aqui
+      if (this.key() !== key || this.editing()?.id !== e.id) return;
+      this.stopEditing();
+      // volta ao que estava sendo escrito antes da edição (o rascunho, a resposta); sem nada, o campo fecha
+      if (!this.text().trim() && !this.replyTo()) this.writing.set(false);
+      this.show(e.id);
+    } catch (err) {
+      const message = err instanceof CloudError ? err.message : 'Não deu para salvar agora. Tente de novo.';
+      if (this.key() === key && this.editing()?.id === e.id) this.error.set(message);
+      else this.toasts.show(message);
     } finally {
       this.busy.set(false);
     }
@@ -416,6 +521,9 @@ export class CommentsPanel {
     });
     if (!ok) return;
     if (this.replyTo()?.id === k.id) this.replyTo.set(null);
+    const e = this.editing();
+    if (e?.reply?.id === k.id) this.editing.set({ ...e, reply: null });
+    if (e?.id === k.id) this.stopEditing();
     // a fala sai (ou vira "Comentário apagado"): o foco vai para a vizinha, ou para o campo do pé
     const ids = [...this.host.querySelectorAll<HTMLElement>('[data-comentario]')].map((li) => li.dataset['comentario']!);
     focusAfterRemoval(this.host, ids, k.id, (c) => `[data-comentario="${CSS.escape(c)}"] > .fala .nome`, '.escrever .abrir, #comentarios-titulo');

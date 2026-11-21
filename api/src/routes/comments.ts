@@ -38,6 +38,10 @@ import { MAX_REACTIONS_PER_DAY } from './reactions';
  * Apagar um comentário com respostas deixa ele no lugar, sem texto nem autor (`apagado`), para a
  * conversa continuar fazendo sentido; ele sai de vez quando a última resposta dele sai.
  *
+ * Editar: quem escreveu troca o texto do próprio comentário (`PATCH /v1/comentarios/:id`), com as mesmas regras
+ * de comentar ali (quem pode comentar, a ficha à mostra e com os comentários abertos); o dono da ficha não edita o
+ * dos outros (só apaga). A conversa passa a dizer quando foi a última troca (`editado`), e ninguém recebe aviso.
+ *
  * Comentários fechados: o dono fecha os comentários de uma ficha (`PUT /v1/eu/fichas/:ref/comentarios`,
  * tabela `comentarios_fechados`). Fechada, ninguém comenta, responde nem reage aos comentários dela, nem
  * o dono nem quem está na anotação compartilhada; os que já estavam ficam guardados, mas só o dono os vê
@@ -49,6 +53,8 @@ import { MAX_REACTIONS_PER_DAY } from './reactions';
 export const MAX_COMMENTS_PER_DAY = 100;
 /** Quantos comentários uma ficha devolve, os mais novos. */
 export const MAX_COMMENTS_LISTED = 200;
+/** Quantas vezes uma conta edita comentários em 24 horas (ver `domain/brake.ts`). */
+export const MAX_EDITS_PER_DAY = 200;
 /** Quantas fichas uma conta deixa com os comentários fechados (o mural inteiro de alguém cabe com folga). */
 export const MAX_CLOSED = 10_000;
 /** Quantas fichas com comentários a contagem do mural devolve, e quantas reações uma ficha devolve. */
@@ -68,6 +74,8 @@ interface CommentRow {
   criado_em: string;
   resposta_a: string | null;
   apagado: number;
+  /** Quando foi editado pela última vez (null: nunca). */
+  editado_em: string | null;
   codigo: string;
   nome: string;
   foto: string | null;
@@ -87,7 +95,8 @@ function commentOut(r: CommentRow, reactions: ReactionOut[]) {
   // o apagado que ficou por causa das respostas: só o lugar dele na conversa
   if (r.apagado) return { id: r.id, apagado: true, autor: null, texto: '', em: r.criado_em, reacoes: [], ...reply };
   const foto = photoOut(r.foto);
-  return { id: r.id, autor: { codigo: formatCode(r.codigo), nome: r.nome, ...(foto ? { foto } : {}) }, texto: r.texto, em: r.criado_em, reacoes: reactions, ...reply };
+  const edited = r.editado_em ? { editado: r.editado_em } : {};
+  return { id: r.id, autor: { codigo: formatCode(r.codigo), nome: r.nome, ...(foto ? { foto } : {}) }, texto: r.texto, em: r.criado_em, ...edited, reacoes: reactions, ...reply };
 }
 
 export function commentRoutes(app: Hono, deps: Deps): void {
@@ -264,7 +273,7 @@ export function commentRoutes(app: Hono, deps: Deps): void {
     const shut = await closed(who.id, ref);
     if (shut && me !== who.id) return c.json({ comentarios: [], maisAntigos: false, quem: fromOf(who), pode: false, fechados: true });
     const rows = await deps.db.all<CommentRow>(
-      'SELECT k.id, k.texto, k.criado_em, k.resposta_a, k.apagado, u.codigo, u.nome, u.foto FROM comentarios k JOIN usuarios u ON u.id = k.autor_id ' +
+      'SELECT k.id, k.texto, k.criado_em, k.resposta_a, k.apagado, k.editado_em, u.codigo, u.nome, u.foto FROM comentarios k JOIN usuarios u ON u.id = k.autor_id ' +
         'WHERE k.dono_id = ? AND k.ref = ? ORDER BY k.criado_em DESC, k.rowid DESC LIMIT ?',
       [who.id, ref, MAX_COMMENTS_LISTED + 1],
     );
@@ -383,7 +392,7 @@ export function commentRoutes(app: Hono, deps: Deps): void {
       }
       throw new HttpError(404, 'comentario-nao-encontrado', 'O comentário que você ia responder não existe mais.');
     }
-    return c.json({ comentario: commentOut({ id, texto: text, criado_em: at, resposta_a: parent?.id ?? null, apagado: 0, ...author }, []) }, 201);
+    return c.json({ comentario: commentOut({ id, texto: text, criado_em: at, resposta_a: parent?.id ?? null, apagado: 0, editado_em: null, ...author }, []) }, 201);
   });
 
   /**
@@ -404,7 +413,7 @@ export function commentRoutes(app: Hono, deps: Deps): void {
       deps,
       [
         { sql: 'DELETE FROM comentario_reacoes WHERE comentario_id = ?', params: [k.id] },
-        { sql: "UPDATE comentarios SET apagado = 1, texto = '' WHERE id = ? AND EXISTS (SELECT 1 FROM comentarios WHERE resposta_a = ?)", params: [k.id, k.id] },
+        { sql: "UPDATE comentarios SET apagado = 1, texto = '', editado_em = NULL WHERE id = ? AND EXISTS (SELECT 1 FROM comentarios WHERE resposta_a = ?)", params: [k.id, k.id] },
         { sql: 'DELETE FROM comentarios WHERE id = ? AND apagado = 0', params: [k.id] },
         // os avisos só saem com o último comentário (ou a última resposta) da pessoa ali
         ...(await noticesGone(k)),
@@ -421,6 +430,73 @@ export function commentRoutes(app: Hono, deps: Deps): void {
       up = p.resposta_a;
     }
     return c.json(keep ? { ok: true, apagado: true } : { ok: true });
+  });
+
+  /** Um comentário como a conversa o mostra (com o autor e as reações), ou null se saiu (ou ficou como apagado). */
+  async function shownComment(id: string) {
+    const row = await deps.db.first<CommentRow>(
+      'SELECT k.id, k.texto, k.criado_em, k.resposta_a, k.apagado, k.editado_em, u.codigo, u.nome, u.foto FROM comentarios k JOIN usuarios u ON u.id = k.autor_id WHERE k.id = ?',
+      [id],
+    );
+    if (!row || row.apagado) return null;
+    const reactions = await deps.db.all<ReactionOut>(
+      'SELECT r.reacao, r.criado_em AS em, u.codigo, u.nome FROM comentario_reacoes r JOIN usuarios u ON u.id = r.autor_id WHERE r.comentario_id = ? ORDER BY r.criado_em DESC LIMIT ?',
+      [id, MAX_REACTIONS_LISTED],
+    );
+    return commentOut(
+      row,
+      reactions.map((r) => ({ codigo: formatCode(r.codigo), nome: r.nome, reacao: r.reacao, em: r.em })),
+    );
+  }
+
+  /**
+   * Editar um comentário: só quem escreveu, e só enquanto ainda pode comentar ali (como responder e reagir). O
+   * texto é limpo como no comentar; o mesmo de antes não muda nada (nem a marca de editado). Devolve o comentário
+   * como a conversa o mostra, com `editado`. Ninguém recebe aviso.
+   */
+  app.patch('/v1/comentarios/:id', async (c) => {
+    const s = await session(c);
+    const k = await comment(c);
+    if (k.autor_id !== s.userId) throw new HttpError(403, 'comentario-de-outro', 'Só quem escreveu edita um comentário.');
+    const body = await readJson(c);
+    const text = cleanComment(body['texto']);
+    if (!text) throw new HttpError(400, 'comentario-vazio', 'O comentário não pode ficar vazio. Para tirar, apague.');
+    if (text.length > COMMENT_MAX) throw new HttpError(400, 'comentario-grande', `O comentário passa de ${COMMENT_MAX} caracteres.`);
+    if ((await closed(k.dono_id, k.ref)) && (await visible(k.dono, k.ref, s.userId))) throw closedRefusal();
+    if (!(await allowed(k.dono, s.userId, k.ref))) throw refusal(k.dono);
+    if (!(await visible(k.dono, k.ref, s.userId))) throw hiddenCard();
+    const gone = () => new HttpError(404, 'comentario-nao-encontrado', 'Esse comentário não existe mais.');
+    const current = await shownComment(k.id);
+    if (!current) throw gone();
+    if (current.texto === text) return c.json({ comentario: current });
+    const now = deps.now();
+    const at = now.toISOString();
+    const slow = () => new HttpError(429, 'editar-devagar', 'Você editou muitos comentários hoje. Tente de novo amanhã.');
+    if ((await usedToday(deps, s.userId, 'editar-comentario', now)) >= MAX_EDITS_PER_DAY) throw slow();
+    const room = brakeRoom(s.userId, 'editar-comentario', now, MAX_EDITS_PER_DAY);
+    // só com vaga no freio e a ficha aberta, conferidos no banco, no mesmo lote: dois pedidos ao mesmo tempo não
+    // passam juntos do limite, e o comentário que saiu (ou virou apagado) enquanto isso não volta a ter texto
+    const results = await write(
+      deps,
+      [
+        {
+          sql: `UPDATE comentarios SET texto = ?, editado_em = ? WHERE id = ? AND autor_id = ? AND apagado = 0 AND ${room.sql} AND ${openSql}`,
+          params: [text, at, k.id, s.userId, ...room.params, k.dono_id, k.ref],
+        },
+        {
+          sql: `INSERT INTO freios (usuario_id, acao, criado_em) SELECT ?, 'editar-comentario', ? WHERE ${room.sql} AND EXISTS (SELECT 1 FROM comentarios WHERE id = ? AND editado_em = ? AND apagado = 0)`,
+          params: [s.userId, at, ...room.params, k.id, at],
+        },
+      ],
+      4,
+    );
+    if (!results[0]?.changes) {
+      if (await closed(k.dono_id, k.ref)) throw closedRefusal();
+      if (await deps.db.first('SELECT 1 AS x FROM comentarios WHERE id = ? AND apagado = 0', [k.id])) throw slow();
+      throw gone();
+    }
+    // o que acabou de ser gravado (ler de novo daria 404 se o dono o apagasse logo depois, com a edição já feita)
+    return c.json({ comentario: { ...current, texto: text, editado: at } });
   });
 
   /** Reagir (ou trocar a reação) a um comentário. */

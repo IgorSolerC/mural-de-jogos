@@ -76,6 +76,16 @@ class FakeComments {
     this.removedFrom.push(t.ref);
     return true;
   };
+  /** As edições pedidas: [o comentário, o texto novo]. */
+  readonly updated: [string, string][] = [];
+  update = async (_: unknown, comment: string, text: string) => {
+    if (this.hold) await this.hold;
+    if (this.refuse) throw this.refuse;
+    this.updated.push([comment, text]);
+    const editado = new Date().toISOString();
+    this.threads.update((t) => (t ? { ...t, comentarios: t.comentarios.map((k) => (k.id === comment ? { ...k, texto: text.trim(), editado } : k)) } : t));
+    return this.threads()!.comentarios.find((k) => k.id === comment)!;
+  };
   post = async (_: unknown, text: string, replyTo?: string) => {
     if (this.hold) await this.hold;
     if (this.refuse) throw this.refuse;
@@ -459,6 +469,223 @@ describe('A folha de comentários (CommentsPanel)', () => {
     expect(el.querySelector('.recado')?.textContent).toContain('só os comentários mais novos');
   });
 
+  describe('editar', () => {
+    const typeIn = (fixture: ComponentFixture<unknown>, el: HTMLElement, value: string) => {
+      const area = el.querySelector<HTMLTextAreaElement>('textarea')!;
+      area.value = value;
+      area.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+    };
+    const pencil = (el: HTMLElement, n: number) => el.querySelector<HTMLButtonElement>(`[data-comentario="${id(n)}"] > .fala .lapis`);
+
+    it('o lápis só no seu: leva o texto ao campo, que salva no lugar dele, e o comentário passa a dizer "editado"', async () => {
+      const { fixture, el } = await open();
+      expect(pencil(el, 1)).toBeNull();
+      const mine = pencil(el, 2)!;
+      expect([mine.getAttribute('aria-label'), mine.title]).toEqual(['Editar o seu comentário', 'Editar']);
+      expect(el.querySelector('.editado')).toBeNull();
+      mine.click();
+      await settle(fixture);
+      expect(el.querySelector('.respondendo-a')?.textContent?.replace(/\s+/g, ' ').trim()).toBe('Editando o seu comentário');
+      // a fala editada fica marcada, como a respondida
+      expect(el.querySelector(`[data-comentario="${id(2)}"]`)!.classList).toContain('respondendo');
+      const area = el.querySelector<HTMLTextAreaElement>('textarea')!;
+      expect(area.value).toBe('> Valeu cada hora.\nTambém achei.');
+      expect(document.activeElement).toBe(area);
+      const save = el.querySelector<HTMLButtonElement>('.acoes .tinta')!;
+      expect(save.textContent?.trim()).toBe('Salvar');
+      // sem mudar nada, não há o que salvar
+      expect(save.disabled).toBeTrue();
+      typeIn(fixture, el, '> Valeu cada hora.\nTambém achei, e chorei.');
+      expect(save.disabled).toBeFalse();
+      save.click();
+      await settle(fixture);
+      expect(fake.updated).toEqual([[id(2), '> Valeu cada hora.\nTambém achei, e chorei.']]);
+      expect(fake.posted).toEqual([]);
+      // o campo volta a ser o do comentário novo, fechado, e a fala diz que foi editada
+      expect(el.querySelector('textarea')).toBeNull();
+      expect(el.querySelector('.respondendo-a')).toBeNull();
+      expect(el.querySelector('.respondendo')).toBeNull();
+      expect(el.querySelector('.abrir')?.textContent?.trim()).toBe('Escreva um comentário…');
+      expect(texts(el)[1]).toContain('Também achei, e chorei.');
+      const mark = el.querySelector(`[data-comentario="${id(2)}"] .editado`)!;
+      // à vista, só "editado"; a hora na dica e, para o leitor de tela, no texto
+      expect(mark.firstChild!.textContent).toBe('editado');
+      expect(mark.querySelector('.sr-only')!.textContent).toMatch(/^ hoje às \d\d:\d\d$/);
+      expect(mark.getAttribute('title')).toMatch(/^Editado hoje às \d\d:\d\d$/);
+    });
+
+    it('o rascunho do comentário novo fica guardado durante a edição; o X desiste e ele volta', async () => {
+      const { fixture, el } = await open();
+      el.querySelector<HTMLButtonElement>('.abrir')!.click();
+      await settle(fixture);
+      typeIn(fixture, el, 'Meu rascunho');
+      pencil(el, 2)!.click();
+      await settle(fixture);
+      typeIn(fixture, el, 'Mudei tudo');
+      expect(fake.draftOf()).toBe('Meu rascunho');
+      el.querySelector<HTMLButtonElement>('.respondendo-tirar')!.click();
+      await settle(fixture);
+      expect(el.querySelector('.respondendo-a')).toBeNull();
+      expect(el.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('Meu rascunho');
+      expect(el.querySelector('.acoes .tinta')!.textContent?.trim()).toBe('Comentar');
+      expect(fake.updated).toEqual([]);
+      expect(texts(el)[1]).toMatch(/Também achei\.$/);
+      // Fechar guarda a edição, como o rascunho: o campo reabre nela
+      pencil(el, 2)!.click();
+      await settle(fixture);
+      typeIn(fixture, el, 'Mudei de novo');
+      el.querySelector<HTMLButtonElement>('.acoes .acao-caneta')!.click();
+      fixture.detectChanges();
+      expect(el.querySelector('.abrir')?.textContent?.trim()).toBe('Continuar a edição…');
+      el.querySelector<HTMLButtonElement>('.abrir')!.click();
+      await settle(fixture);
+      expect(el.querySelector('.respondendo-a')?.textContent).toContain('Editando');
+      expect(el.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('Mudei de novo');
+      expect(fake.draftOf()).toBe('Meu rascunho');
+    });
+
+    it('Ctrl+Enter salva a edição; Responder no meio dela volta ao rascunho, respondendo', async () => {
+      const { fixture, el } = await open();
+      pencil(el, 2)!.click();
+      await settle(fixture);
+      typeIn(fixture, el, 'Editado pelo teclado');
+      el.querySelector('textarea')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true }));
+      await settle(fixture);
+      expect(fake.updated).toEqual([[id(2), 'Editado pelo teclado']]);
+      pencil(el, 2)!.click();
+      await settle(fixture);
+      el.querySelector<HTMLButtonElement>(`[data-comentario="${id(1)}"] .responder`)!.click();
+      await settle(fixture);
+      expect(el.querySelector('.respondendo-a')?.textContent).toContain('Respondendo a Bia');
+      expect(el.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('');
+    });
+
+    it('com a edição indo para a nuvem, desistir espera; com um comentário novo indo, o lápis espera', async () => {
+      const { fixture, el } = await open();
+      let release!: () => void;
+      fake.hold = new Promise((res) => (release = res));
+      pencil(el, 2)!.click();
+      await settle(fixture);
+      typeIn(fixture, el, 'Outro texto');
+      el.querySelector<HTMLButtonElement>('.acoes .tinta')!.click();
+      await settle(fixture);
+      expect(el.querySelector<HTMLButtonElement>('.respondendo-tirar')!.disabled).toBeTrue();
+      el.querySelector<HTMLButtonElement>(`[data-comentario="${id(1)}"] .responder`)!.click();
+      await settle(fixture);
+      expect(el.querySelector('.respondendo-a')?.textContent).toContain('Editando');
+      release();
+      await settle(fixture);
+      expect(fake.updated).toEqual([[id(2), 'Outro texto']]);
+      expect(el.querySelector('.respondendo-a')).toBeNull();
+
+      // um comentário novo indo: o lápis não toma o campo dele
+      fake.hold = new Promise((res) => (release = res));
+      el.querySelector<HTMLButtonElement>('.abrir')!.click();
+      await settle(fixture);
+      typeIn(fixture, el, 'Novo');
+      el.querySelector<HTMLButtonElement>('.acoes .tinta')!.click();
+      await settle(fixture);
+      pencil(el, 2)!.click();
+      await settle(fixture);
+      expect(el.querySelector('.respondendo-a')).toBeNull();
+      release();
+      await settle(fixture);
+      expect(fake.posted).toEqual(['Novo']);
+      expect(fake.draftOf()).toBe('');
+    });
+
+    it('editar no meio de uma resposta: depois de salvar, o campo volta à resposta, com o texto e a quem', async () => {
+      const { fixture, el } = await open();
+      el.querySelector<HTMLButtonElement>(`[data-comentario="${id(1)}"] .responder`)!.click();
+      await settle(fixture);
+      typeIn(fixture, el, 'Concordo!');
+      pencil(el, 2)!.click();
+      await settle(fixture);
+      expect(el.querySelector('.respondendo-a')?.textContent).toContain('Editando');
+      typeIn(fixture, el, 'Outro texto');
+      el.querySelector<HTMLButtonElement>('.acoes .tinta')!.click();
+      await settle(fixture);
+      expect(el.querySelector('.respondendo-a')?.textContent).toContain('Respondendo a Bia');
+      expect(el.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('Concordo!');
+      el.querySelector<HTMLButtonElement>('.acoes .tinta')!.click();
+      await settle(fixture);
+      expect(fake.replies).toEqual([id(1)]);
+    });
+
+    it('Salvar só acende com o que a nuvem guardaria diferente; a dica diz os dois atalhos', async () => {
+      const { fixture, el } = await open({ ...THREAD, comentarios: [THREAD.comentarios[0], comment(2, ME, 'Eu', 'item')] });
+      pencil(el, 2)!.click();
+      await settle(fixture);
+      const save = el.querySelector<HTMLButtonElement>('.acoes .tinta')!;
+      expect(save.title).toMatch(/^Salvar \(Ctrl\+Enter ou (Ctrl\+S|⌘S)\)$/);
+      typeIn(fixture, el, 'item   \n\n');
+      expect(save.disabled).toBeTrue();
+      // o recuo no começo muda o texto (vira código ou lista): salva
+      typeIn(fixture, el, '    item');
+      expect(save.disabled).toBeFalse();
+    });
+
+    it('a conversa veio cortada (só as mais novas) sem o comentário editado: a edição continua', async () => {
+      const { fixture, el } = await open({ ...THREAD, maisAntigos: true });
+      pencil(el, 2)!.click();
+      await settle(fixture);
+      fake.threads.update((t) => ({ ...t!, comentarios: t!.comentarios.filter((k) => k.id !== id(2)) }));
+      await settle(fixture);
+      expect(el.querySelector('.respondendo-a')?.textContent).toContain('Editando');
+      expect(toasts).toEqual([]);
+    });
+
+    it('a nuvem recusou: o erro aparece embaixo do campo e o texto editado continua lá', async () => {
+      const { fixture, el } = await open();
+      pencil(el, 2)!.click();
+      await settle(fixture);
+      typeIn(fixture, el, 'Outro texto');
+      fake.refuse = new CloudError('Você editou muitos comentários hoje. Tente de novo amanhã.', 'editar-devagar', 429);
+      el.querySelector<HTMLButtonElement>('.acoes .tinta')!.click();
+      await settle(fixture);
+      expect(el.querySelector('[role="alert"]')?.textContent?.trim()).toBe('Você editou muitos comentários hoje. Tente de novo amanhã.');
+      expect(el.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('Outro texto');
+      expect(el.querySelector('.respondendo-a')?.textContent).toContain('Editando');
+    });
+
+    it('o comentário saiu da conversa (apagado pelo dono, em outro aparelho) durante a edição: ela acaba e avisa', async () => {
+      const { fixture, el } = await open();
+      el.querySelector<HTMLButtonElement>('.abrir')!.click();
+      await settle(fixture);
+      typeIn(fixture, el, 'Meu rascunho');
+      pencil(el, 2)!.click();
+      await settle(fixture);
+      fake.threads.update((t) => ({ ...t!, comentarios: t!.comentarios.filter((k) => k.id !== id(2)) }));
+      await settle(fixture);
+      expect(el.querySelector('.respondendo-a')).toBeNull();
+      expect(el.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('Meu rascunho');
+      expect(toasts).toEqual(['O comentário que você editava saiu da conversa.']);
+    });
+
+    it('não edita o de outra pessoa (nem na sua ficha), nem com os comentários fechados ou sem poder comentar', async () => {
+      const { fixture, el, host } = await open();
+      host.own.set(true);
+      fixture.detectChanges();
+      expect(el.querySelectorAll('.lapis').length).toBe(1);
+      TestBed.resetTestingModule();
+      for (const thread of [{ ...THREAD, pode: false, fechados: true }, { ...THREAD, pode: false }]) {
+        const other = await open(thread);
+        expect(other.el.querySelector('.lapis')).toBeNull();
+        TestBed.resetTestingModule();
+      }
+    });
+
+    it('o editado de antes (que veio da nuvem) diz "editado" para todos, com a hora na dica', async () => {
+      const editado = new Date(Date.now() - 3 * 86_400_000).toISOString();
+      const { el } = await open({ ...THREAD, comentarios: [comment(1, 'BBBB-2222', 'Bia', 'Que final!', { editado }), THREAD.comentarios[1]] });
+      const marks = el.querySelectorAll('.editado');
+      expect(marks.length).toBe(1);
+      expect(marks[0].closest('[data-comentario]')!.getAttribute('data-comentario')).toBe(id(1));
+      expect(marks[0].getAttribute('title')).not.toContain('às');
+    });
+  });
+
   describe('respostas', () => {
     /** Bia comenta; Caio responde a ela; Bia responde ao Caio; Dan comenta solto. */
     const TREE: Thread = {
@@ -653,6 +880,19 @@ describe('A folha de comentários (CommentsPanel)', () => {
         const other = await openIn({ ...TREE, pode: false });
         await rightClick(other.fixture, text(other.el, 4));
         expect(labels(other.el)).toEqual(['Copiar o texto', 'Ver o perfil de Dan']);
+      });
+
+      it('no seu comentário, Editar o comentário leva o texto dele ao campo', async () => {
+        const { fixture, el } = await openIn({ ...TREE, comentarios: [...TREE.comentarios.slice(0, 3), comment(4, ME, 'Eu', 'O meu.')] });
+        await rightClick(fixture, text(el, 4));
+        expect(labels(el)).toEqual(['Responder', 'Reagir', 'Editar o comentário', 'Copiar o texto', 'Ver o seu perfil', 'Apagar o comentário']);
+        option(el, 'Editar o comentário').click();
+        await settle(fixture);
+        expect(el.querySelector('.respondendo-a')?.textContent).toContain('Editando o seu comentário');
+        expect(el.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('O meu.');
+        // na fala de outra pessoa, não
+        await rightClick(fixture, text(el, 1));
+        expect(labels(el)).not.toContain('Editar o comentário');
       });
 
       it('o apagado fica com o menu do navegador', async () => {

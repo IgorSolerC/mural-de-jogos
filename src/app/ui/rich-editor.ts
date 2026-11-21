@@ -4158,6 +4158,18 @@ export class RichEditor {
     else this.visualPending = { big: false, sel: [this.value().length, this.value().length], focus: true };
   }
 
+  /** A folha pequena recebe o foco com o cursor no fim do texto (quem continua escrevendo: editar um comentário, citar). */
+  focusEnd(): void {
+    if (!this.visual()) {
+      const area = this.areaOf(false);
+      area?.focus();
+      area?.setSelectionRange(area.value.length, area.value.length);
+      return;
+    }
+    const end = this.value().length;
+    this.visualAt(false, [end, end]);
+  }
+
   /** O editor abre outra ficha: a aba volta a ser a dos Ajustes, e o resto, ao começo. */
   reset(): void {
     // o desfazer do Visual era da ficha de antes (as duas folhas, a grande também, que a pequena receberia)
