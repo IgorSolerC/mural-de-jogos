@@ -435,6 +435,55 @@ export interface ContextMenuTriggerConfig {
   open: (key: string, box: HTMLElement, x: number, y: number, by: MenuBy) => void;
   /** O menu já está aberto para isto (o contextmenu que vem atrás da tecla de menu não reabre). */
   isOpenFor: (key: string) => boolean;
+  /**
+   * O nada da página: o id do campo de busca dela. Com o botão direito (ou o dedo segurado) em qualquer lugar
+   * abaixo dele que não é de outra peça, abre o menu do vão, o que `keyOf` diz para a própria página (`host`):
+   * os vãos entre as coisas, as margens em volta da página, o fim dela embaixo da última e a parede do site
+   * atrás. Fica de fora o que tem menu próprio (os `targets`, o `ignore`), os campos, os links, as folhas e os
+   * menus abertos, e o que não é da página (o topo, a barra, as folhas por cima). Pelo teclado não: ele abre o
+   * menu do que tem o foco.
+   */
+  blank?: string;
+}
+
+/**
+ * O que nunca é o nada, mesmo na página: os campos, os links, os botões, as folhas e os menus (cada um com o seu), e
+ * a folha dos filtros, que as paredes abrem embaixo da busca (o que flutua, como a tira das marcadas: ver `floats`).
+ */
+const NOT_BLANK = [
+  'input, textarea, select, label, [contenteditable]:not([contenteditable="false"]), a[href], button, summary, [role="button"]',
+  `dialog, [role="dialog"], [popover], .${MENU_CLASS}, app-filter-card, app-filter-sheet`,
+].join(', ');
+/** A parede escolhida no perfil, atrás do site inteiro (ver app.html): o nada embaixo de uma página curta. */
+const BACKDROP = 'app-page-wall';
+
+/**
+ * O ponto está em cima do texto selecionado (o botão direito nele é para copiar): o texto debaixo dele, e não as
+ * caixas inteiras que a seleção pega (de uma ficha à outra, ela pega a parede com os vãos).
+ */
+function onSelection(sel: Selection, x: number, y: number): boolean {
+  const node = document.caretPositionFromPoint?.(x, y)?.offsetNode ?? document.caretRangeFromPoint?.(x, y)?.startContainer ?? null;
+  if (!node || node.nodeType !== Node.TEXT_NODE) return false;
+  // o pedaço do texto debaixo do ponto que está selecionado (a seleção pode pegar só parte dele)
+  for (let i = 0; i < sel.rangeCount; i++) {
+    const range = sel.getRangeAt(i);
+    if (!range.intersectsNode(node)) continue;
+    const part = document.createRange();
+    part.selectNodeContents(node);
+    if (range.startContainer === node) part.setStart(node, range.startOffset);
+    if (range.endContainer === node) part.setEnd(node, range.endOffset);
+    if (Array.from(part.getClientRects()).some((r) => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom)) return true;
+  }
+  return false;
+}
+
+/** O que flutua por cima da página (preso na tela ou ao rolar: um bilhete, uma tira), entre `t` e `host`. */
+function floats(t: Element, host: Element): boolean {
+  for (let e: Element | null = t; e && e !== host && host.contains(e); e = e.parentElement) {
+    const at = getComputedStyle(e).position;
+    if (at === 'fixed' || at === 'sticky') return true;
+  }
+  return false;
 }
 
 /**
@@ -451,6 +500,11 @@ export class ContextMenuTrigger {
   private swallowUntil = 0;
   /** O último aperto na página foi de dedo (e o clique dele ainda não veio). */
   private touching = false;
+  /**
+   * A tecla de menu foi o último gesto (até o próximo aperto do mouse ou do dedo): o contextmenu dela, que chega na
+   * hora ou quando a tecla sobe, não é do nada (ver `blank`).
+   */
+  private keyed = false;
   /** Enquanto o dedo segura: andou (é rolar), subiu ou a página rolou, o relógio para. */
   private readonly move = (e: PointerEvent) => this.onMove(e);
   private readonly stop = () => this.stopHold();
@@ -466,24 +520,73 @@ export class ContextMenuTrigger {
     host.addEventListener('keydown', key);
     host.addEventListener('pointerdown', down);
     host.addEventListener('click', click, true);
+    // o nada também fica fora da página (as margens de quem a contém, a parede do site atrás): o documento escuta o
+    // que passa por lá; a tecla de menu, em qualquer lugar, avisa que o contextmenu que vem é do teclado, até o
+    // próximo aperto
+    const around = (e: Event) => e.target instanceof Element && !host.contains(e.target) && (e.target.contains(host) || !!e.target.closest(BACKDROP));
+    const blankMenu = (e: MouseEvent) => around(e) && this.onMenu(e);
+    const blankDown = (e: PointerEvent) => around(e) && this.onDown(e);
+    const blankClick = (e: MouseEvent) => around(e) && this.onClick(e);
+    const keyed = (e: KeyboardEvent) => {
+      if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) this.keyed = true;
+    };
+    const pressed = () => (this.keyed = false);
+    if (cfg.blank) {
+      document.addEventListener('contextmenu', blankMenu);
+      document.addEventListener('pointerdown', blankDown);
+      document.addEventListener('click', blankClick, true);
+      document.addEventListener('keydown', keyed, true);
+      document.addEventListener('pointerdown', pressed, true);
+    }
     inject(DestroyRef).onDestroy(() => {
       this.stopHold();
       host.removeEventListener('contextmenu', menu);
       host.removeEventListener('keydown', key);
       host.removeEventListener('pointerdown', down);
       host.removeEventListener('click', click, true);
+      document.removeEventListener('contextmenu', blankMenu);
+      document.removeEventListener('pointerdown', blankDown);
+      document.removeEventListener('click', blankClick, true);
+      document.removeEventListener('keydown', keyed, true);
+      document.removeEventListener('pointerdown', pressed, true);
     });
   }
 
-  /** A caixa debaixo do alvo, com o que ela é, se o menu vale ali. */
-  private boxAt(target: EventTarget | null): { box: HTMLElement; key: string } | null {
+  /**
+   * A caixa debaixo do alvo, com o que ela é, se o menu vale ali. Com o ponto (o mouse, o dedo), fora de toda
+   * caixa pode ser o nada (ver `blank`): a caixa é a própria página.
+   */
+  private boxAt(target: EventTarget | null, at?: { x: number; y: number }): { box: HTMLElement; key: string } | null {
     if (this.cfg.on && !this.cfg.on()) return null;
     const t = target instanceof Element ? target : null;
     if (!t || (this.cfg.ignore && t.closest(this.cfg.ignore))) return null;
     const box = t.closest<HTMLElement>(this.cfg.targets);
-    if (!box || !this.cfg.host.contains(box)) return null;
-    const key = this.cfg.keyOf(box);
-    return key ? { box, key } : null;
+    if (box && this.cfg.host.contains(box)) {
+      const key = this.cfg.keyOf(box);
+      return key ? { box, key } : null;
+    }
+    return at ? this.blankAt(t, at.y) : null;
+  }
+
+  /** O nada no ponto (ver `blank`): na página, ou em volta e atrás dela, abaixo do campo de busca. */
+  private blankAt(t: Element, y: number): { box: HTMLElement; key: string } | null {
+    const host = this.cfg.host;
+    const search = this.cfg.blank ? document.getElementById(this.cfg.blank) : null;
+    if (!search || this.keyed || t.closest(NOT_BLANK)) return null;
+    // da página: dentro dela, ou o que está em volta dela (quem a contém) e atrás (a parede do site)
+    if (!host.contains(t) && !t.contains(host) && !t.closest(BACKDROP)) return null;
+    // abaixo da barra da busca inteira (com os filtros ligados embaixo dela), que é dela: a barra é a peça que
+    // leva a busca, ao lado da página (a barra do mural) ou dentro dela (a pasta das ferramentas da Wishlist)
+    let bar: Element = search;
+    while (bar.parentElement && bar.parentElement !== host && !bar.parentElement.contains(host)) bar = bar.parentElement;
+    if (bar.contains(t) || y < bar.getBoundingClientRect().bottom || floats(t, host)) return null;
+    const key = this.cfg.keyOf(host);
+    return key ? { box: host, key } : null;
+  }
+
+  /** O menu abre no nada (a caixa é a página inteira: ver `blank`). */
+  private isBlank(box: HTMLElement): boolean {
+    return box === this.cfg.host;
   }
 
   /** Um link de dentro da caixa (não a própria caixa, quando ela é o link) fica com o do navegador. */
@@ -503,23 +606,26 @@ export class ContextMenuTrigger {
   }
 
   private open(box: HTMLElement, key: string, x: number, y: number, by: MenuBy): void {
-    // o toque longo pode ter começado a selecionar o texto
+    // o toque longo pode ter começado a selecionar o texto (no nada, só a palavra debaixo do dedo: o trecho
+    // escolhido antes, numa ficha, fica)
     const sel = getSelection();
-    if (sel && !sel.isCollapsed && box.contains(sel.anchorNode)) sel.removeAllRanges();
+    if (sel && !sel.isCollapsed && (this.isBlank(box) ? onSelection(sel, x, y) : box.contains(sel.anchorNode))) sel.removeAllRanges();
     this.cfg.open(key, box, x, y, by);
   }
 
   private onMenu(e: MouseEvent): void {
     // outro menu da página já atendeu (a anotação dentro da coluna do Kanban)
     if (e.defaultPrevented) return;
-    const hit = this.boxAt(e.target);
+    const hit = this.boxAt(e.target, e.clientX || e.clientY ? { x: e.clientX, y: e.clientY } : undefined);
     if (!hit) return;
     const t = e.target as Element;
     // um link de dentro e um trecho selecionado ficam com o menu do navegador (segurando o dedo, a palavra
-    // que o próprio toque longo selecionou não conta: o menu abre e tira a seleção)
+    // que o próprio toque longo selecionou não conta: o menu abre e tira a seleção); no nada, só o clique em
+    // cima do trecho
     const sel = getSelection();
     const held = this.touching && this.holds(hit.box);
-    if (this.innerLink(t, hit.box) || (!held && sel && !sel.isCollapsed && hit.box.contains(sel.anchorNode))) return;
+    const onSel = !!sel && !sel.isCollapsed && (this.isBlank(hit.box) ? onSelection(sel, e.clientX, e.clientY) : hit.box.contains(sel.anchorNode));
+    if (this.innerLink(t, hit.box) || (!held && onSel)) return;
     e.preventDefault();
     // aberto pelo teclado agora mesmo (o navegador ainda manda o contextmenu da tecla), ou pelo dedo
     if (this.cfg.isOpenFor(hit.key)) return;
@@ -555,7 +661,7 @@ export class ContextMenuTrigger {
     this.swallowUntil = 0;
     this.touching = e.pointerType === 'touch';
     if (!this.touching || !this.cfg.hold || !e.isPrimary) return;
-    const hit = this.boxAt(e.target);
+    const hit = this.boxAt(e.target, { x: e.clientX, y: e.clientY });
     const t = e.target as Element;
     if (!hit || !this.holds(hit.box) || this.innerLink(t, hit.box) || t.closest('input, textarea, select')) return;
     this.hold = { box: hit.box, key: hit.key, x: e.clientX, y: e.clientY, pointer: e.pointerId, timer: setTimeout(() => this.fireHold(), HOLD_MS) };

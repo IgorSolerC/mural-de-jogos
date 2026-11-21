@@ -160,6 +160,24 @@ describe('as pastas na Wishlist', () => {
     expect(folders.of(store.getWish('w2')!)).toBe(coop);
   });
 
+  it('o nada vai até o fim da página, abaixo da busca; a pasta da busca fica com o do navegador', async () => {
+    await mount();
+    const ctx = (target: Element, x: number, y: number) => {
+      const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: x, clientY: y });
+      target.dispatchEvent(e);
+      return e.defaultPrevented;
+    };
+    const bar = host.querySelector<HTMLElement>('.pasta.solta')!;
+    const b = bar.getBoundingClientRect();
+    expect(ctx(bar, b.left + 4, b.bottom - 2)).toBeFalse();
+    // embaixo da última, no corpo da página (fora da parede)
+    const h = host.getBoundingClientRect();
+    expect(ctx(document.body, h.left + 4, h.bottom + 4)).toBeTrue();
+    await settle();
+    expect(labels()).toEqual(['Adicionar um jogo aqui', 'Nova pasta aqui']);
+    panel().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  });
+
   it('o menu da pasta: Nova pasta dentro já com o nome para escrever, e Desfazer a pasta sobe o que tinha', async () => {
     await mount();
     await rightClick(() => host.querySelector(`app-folder-card[data-pasta="${coop}"]`)!);

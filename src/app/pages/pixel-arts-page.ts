@@ -502,11 +502,13 @@ export class PixelArtsPage {
         this.menu().show({ key, x, y, by, back: active instanceof HTMLElement && box.contains(active) ? active : box.querySelector<HTMLElement>('.hit') });
       },
     });
-    // o botão direito numa pasta da parede, ou no vão (a fileira das pastas e a parede das obras)
+    // o botão direito numa pasta da parede, ou no nada: tudo abaixo da busca que não tem menu próprio (os vãos da
+    // parede, as margens, o fim da página, o cartaz de vazio)
     const folderTrigger = new ContextMenuTrigger({
       host,
-      targets: 'app-folder-card[data-pasta], .pastas, .mostra, .grade',
+      targets: 'app-folder-card[data-pasta]',
       ignore: 'app-pixel-piece, app-pixel-tile, input',
+      blank: 'busca-pixel',
       keyOf: (box) => (box.matches('app-folder-card') ? `pasta:${box.dataset['pasta']}` : 'vao'),
       hold: (box) => !box.matches('app-folder-card') || !this.dragOn(),
       isOpenFor: (key) => !!this.folderMenuRef()?.isOpenFor(key),

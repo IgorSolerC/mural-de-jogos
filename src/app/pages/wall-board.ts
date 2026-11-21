@@ -449,15 +449,23 @@ export class WallBoard {
     ];
   }
 
-  /** O menu do vão da parede (numa aba de grupo): escrever ou criar uma pasta ali. */
+  /** O menu do nada (ver o folderTrigger): escrever ou criar uma pasta ali. */
   private gapSections(): MenuSections {
     const open = this.view.openFolder();
+    // a pasta mora num grupo: no Tudo, só a anotação, e sem o "aqui" (ela nasce no grupo de sempre, não na seção
+    // do clique)
+    if (this.view.folderGroup() === null) return [[{ id: 'nova-nota', label: 'Nova anotação', icon: ICON.adicionar, dialog: true, run: () => this.create.emit() }]];
     return [
       [
         { id: 'nova-nota', label: 'Nova anotação aqui', icon: ICON.adicionar, dialog: true, run: () => this.create.emit() },
         { id: 'nova-pasta', label: 'Nova pasta aqui', icon: ICON.novaPasta, run: () => this.newFolder(open) },
       ],
     ];
+  }
+
+  /** O nome no alto do menu do nada: a pasta aberta ou o grupo; no Tudo, o mural. */
+  private gapCaption(): string {
+    return this.view.folderGroup() !== null ? this.name(this.view.openFolder()) : 'Anotações';
   }
 
   /**
@@ -774,17 +782,18 @@ export class WallBoard {
         this.sectionMenuRef()?.show({ key, x, y, back, by });
       },
     });
-    // o botão direito numa pasta da parede ou no vão dela (no seu Murall, numa aba de grupo): o vão é o das
-    // fichas e o da fileira das pastas, em cima delas
+    // o botão direito numa pasta da parede ou no nada (no seu Murall de anotações): o nada é tudo abaixo da
+    // busca que não tem menu próprio, os vãos da parede, as margens, o fim da página e os cartazes de vazio
     this.folderTrigger = new ContextMenuTrigger({
       host: this.el,
-      targets: 'app-folder-card[data-pasta], .pastas, .wall',
-      // (a cabeça e a pilha de uma seção não são vão da parede: têm o menu delas)
+      targets: 'app-folder-card[data-pasta]',
+      // (a cabeça e a pilha de uma seção não são o nada: têm o menu delas)
       ignore: `${WALL_NOTES}, app-section-head, .guardadas, input`,
-      keyOf: (box) => {
-        if (box.matches('app-folder-card')) return `pasta:${box.dataset['pasta']}`;
-        return this.view.folderGroup() !== null ? 'vao' : null;
-      },
+      // (a busca da barra do mural: ui/wall-toolbar.html)
+      blank: 'busca-mural',
+      // (o nada: numa aba de grupo e no Tudo; nas abas que o mural gera, como Fixadas, e nas que juntam grupos, a
+      // anotação nova não nasceria nelas, e fica o menu do navegador)
+      keyOf: (box) => (box.matches('app-folder-card') ? `pasta:${box.dataset['pasta']}` : this.view.folderGroup() !== null || this.view.activeTab() === ALL_TAB ? 'vao' : null),
       on: () => !!this.folderActions() && this.owner() === null && this.notes(),
       hold: (box) => !box.matches('app-folder-card') || !this.dragOn(),
       isOpenFor: (key) => !!this.folderMenuRef()?.isOpenFor(key),
@@ -792,7 +801,7 @@ export class WallBoard {
         const f = key.startsWith('pasta:') ? this.view.folders().live(key.slice(6)) : undefined;
         if (key !== 'vao' && !f) return;
         this.folderMenu.set(
-          f ? { caption: `Pasta ${f.name}`, sections: this.folderSections(f) } : { caption: this.name(this.view.openFolder()), sections: this.gapSections() },
+          f ? { caption: `Pasta ${f.name}`, sections: this.folderSections(f) } : { caption: this.gapCaption(), sections: this.gapSections() },
         );
         this.folderMenuRef()?.show({ key, x, y, back: box.matches('app-folder-card') ? box.querySelector<HTMLElement>('button') : null, by });
       },

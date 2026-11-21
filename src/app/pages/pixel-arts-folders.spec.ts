@@ -45,8 +45,11 @@ describe('as pastas da galeria de pixel arts', () => {
   async function rightClick(target: () => Element): Promise<void> {
     for (let i = 0; i < 6; i++) {
       const el = target();
-      el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 2, pointerType: 'mouse', clientX: 30, clientY: 30 }));
-      el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 30, clientY: 30 }));
+      // (no ponto do próprio alvo: o nada só vale abaixo da busca)
+      const r = el.getBoundingClientRect();
+      const at = { clientX: r.left + 4, clientY: r.top + 4 };
+      el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 2, pointerType: 'mouse', ...at }));
+      el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, ...at }));
       await settle();
       if (panel()) return;
     }

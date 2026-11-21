@@ -42,8 +42,11 @@ describe('a galeria de pixel arts', () => {
   /** O botão direito; tenta de novo até o menu abrir (no máximo seis vezes: na suíte inteira a parede às vezes ainda assenta), como nas pastas da Wishlist. */
   async function rightClick(el: Element): Promise<void> {
     for (let i = 0; i < 6; i++) {
-      el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 2, pointerType: 'mouse', clientX: 30, clientY: 30 }));
-      el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 30, clientY: 30 }));
+      // (no ponto do próprio alvo: o nada só vale abaixo da busca)
+      const r = el.getBoundingClientRect();
+      const at = { clientX: r.left + 4, clientY: r.top + 4 };
+      el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 2, pointerType: 'mouse', ...at }));
+      el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, ...at }));
       await settle();
       if (panel()) return;
     }
@@ -270,6 +273,24 @@ describe('a galeria de pixel arts', () => {
     option('Copiar como widget').click();
     await settle();
     expect(written).toEqual(['{{pixel: 2x2 | 12/21 | ponto-cruz | Espada}}']);
+  });
+
+  it('o nada vai até o fim da página, abaixo da busca; a pasta da busca fica com o do navegador', async () => {
+    await mount();
+    const ctx = (target: Element, x: number, y: number) => {
+      const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: x, clientY: y });
+      target.dispatchEvent(e);
+      return e.defaultPrevented;
+    };
+    const bar = host.querySelector<HTMLElement>('.pasta.solta')!;
+    const b = bar.getBoundingClientRect();
+    expect(ctx(bar, b.left + 4, b.bottom - 2)).toBeFalse();
+    // embaixo da última, no corpo da página (fora da parede)
+    const h = host.getBoundingClientRect();
+    expect(ctx(document.body, h.left + 4, h.bottom + 4)).toBeTrue();
+    await settle();
+    expect(labels()).toEqual(['Nova pixel art aqui', 'Nova pasta aqui']);
+    panel().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   });
 
   it('o botão direito no vão da parede: uma obra nova', async () => {

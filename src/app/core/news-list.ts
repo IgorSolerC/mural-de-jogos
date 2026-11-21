@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-21-editar-comentarios',
+    id: '2026-11-21-botao-direito-no-nada',
     version: '1.50.4',
     kind: 'ajustes',
     date: '2026-11-21',
@@ -37,6 +37,7 @@ export const NEWS: NewsEntry[] = [
       'Os templates ganharam mini-pastas: a Nova pasta do seletor, a Pasta de cada template (na prévia ou na folha dele) e, no "…" da pasta, Renomear e Desfazer a pasta, com o Desfazer; os que você já tinha ficam fora das pastas, e as pastas vão para os seus outros aparelhos.',
       'Escrever um template é como escrever uma anotação: a folha dele tem o editor das anotações, no Visual ou no Markdown, com a régua, os widgets e a tela cheia.',
       'Os seus comentários nas anotações e nas resenhas se editam: o lápis ao lado do Apagar (ou Editar o comentário, no botão direito) leva o texto ao campo, e Salvar troca no lugar, com as reações e as respostas; todo mundo vê "editado" ao lado da hora.',
+      'O botão direito no nada (Nova anotação aqui, Nova pasta aqui) vale em todo lugar abaixo da busca das anotações, da Wishlist e das Pixel arts: os vãos entre as fichas, as margens, o fim da página e o cartaz da pasta vazia; no Tudo das anotações, ele oferece a Nova anotação.',
     ],
   },
   {
