@@ -41,26 +41,16 @@ import { fold } from '../core/review';
     </div>
   `,
   styles: `
+    @use 'felt';
+
     :host {
       display: grid;
       gap: 8px;
       width: min(316px, calc(100vw - 40px));
     }
     .busca {
+      @include felt.campo;
       width: 100%;
-      height: 38px;
-      padding: 0 12px;
-      border: 0;
-      border-radius: 19px;
-      background: #fffdf7;
-      color: #151515;
-      font-family: var(--f-hand);
-      font-size: 1.02rem;
-      box-shadow: inset 0 0 0 1.5px rgb(21 21 21 / 0.35);
-      outline: none;
-    }
-    .busca:focus {
-      box-shadow: inset 0 0 0 2.5px #151515;
     }
     .gavetas {
       display: flex;

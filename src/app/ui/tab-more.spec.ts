@@ -96,7 +96,9 @@ describe('o Mais das abas (TabMore)', () => {
     await open();
     expect(panel().matches(':popover-open')).toBeTrue();
     expect(trigger().getAttribute('aria-expanded')).toBe('true');
-    expect(panel().getAttribute('role')).toBe('listbox');
+    // a lista de escolha mora dentro do remendo (que também pode ter a linha de criar)
+    expect(panel().querySelector('.lista')!.getAttribute('role')).toBe('listbox');
+    expect(panel().querySelector('.novo')).toBeNull();
     const said = (o: HTMLElement) => `${o.querySelector('.nome, .nome-lapis')!.textContent!.trim()} ${o.querySelector('.n')!.textContent!.trim()}`;
     expect(options().map(said)).toEqual(['Japonês 5', 'Pessoal 2', 'Sem grupo 1', 'Tudo 8', 'Fixadas 2']);
     const seam = panel().querySelector('.costura')!;
@@ -202,5 +204,190 @@ describe('o Mais das abas (TabMore)', () => {
     await open();
     expect(panel().querySelector('.costura')!.classList).toContain('so');
     expect(options().length).toBe(2);
+  });
+});
+
+@Component({
+  imports: [TabMore],
+  template: `
+    <app-tab-more class="aba mais" [groups]="groups()" [active]="'c:estudos'" create="Novo grupo" [taken]="taken" (chosen)="picked.push($event)" (created)="made.push($event)">
+      <span class="nome">Mais</span>
+    </app-tab-more>
+  `,
+})
+class CreateHost {
+  readonly groups = signal<TabMoreItem[]>([{ key: 'c:japones', label: 'Japonês', n: 5, look: {} }]);
+  readonly taken = (name: string) => (name.toLowerCase() === 'trabalho' ? 'Trabalho' : null);
+  readonly picked: string[] = [];
+  readonly made: string[] = [];
+}
+
+/** O "Novo grupo" no fim do "Mais" (PLANO-NOVO-GRUPO.md, D5): a linha a lápis que vira o campo do nome. */
+describe('o Novo grupo do Mais (TabMore.create)', () => {
+  let fixture: ComponentFixture<CreateHost>;
+  let el: HTMLElement;
+
+  beforeEach(async () => {
+    TestBed.configureTestingModule({ imports: [CreateHost], providers: [provideZonelessChangeDetection()] });
+    fixture = TestBed.createComponent(CreateHost);
+    document.body.appendChild(fixture.nativeElement);
+    el = fixture.nativeElement;
+    await fixture.whenStable();
+  });
+
+  afterEach(() => {
+    fixture.destroy();
+    el.remove();
+  });
+
+  const trigger = () => el.querySelector<HTMLButtonElement>('.gatilho')!;
+  const panel = () => el.querySelector<HTMLElement>('.cardapio')!;
+  const row = () => el.querySelector<HTMLButtonElement>('.novo .criar');
+  const field = () => el.querySelector<HTMLInputElement>('.novo input');
+  const ok = () => el.querySelector<HTMLButtonElement>('.novo .ok')!;
+  const key = (k: string, target: Element = document.activeElement!, shiftKey = false) =>
+    target.dispatchEvent(new KeyboardEvent('keydown', { key: k, shiftKey, bubbles: true, cancelable: true }));
+  const frame = () => new Promise((r) => requestAnimationFrame(() => r(null)));
+  async function settle(): Promise<void> {
+    for (let i = 0; i < 3; i++) {
+      await fixture.whenStable();
+      await frame();
+    }
+  }
+  async function open(): Promise<void> {
+    trigger().click();
+    await settle();
+  }
+  const type = async (text: string) => {
+    field()!.value = text;
+    field()!.dispatchEvent(new Event('input', { bubbles: true }));
+    await settle();
+  };
+
+  it('a linha fica no fim, depois do risco, fora da lista de escolha; as setas chegam nela', async () => {
+    await open();
+    expect(row()!.textContent!.trim()).toBe('Novo grupo');
+    expect(row()!.closest('[role=listbox]')).toBeNull();
+    expect(panel().querySelector('.novo')!.classList.contains('so')).toBeFalse();
+    key('ArrowDown');
+    expect(document.activeElement).toBe(row());
+    // a letra pula para um grupo (a linha não entra: "n" de Novo não acha nada)
+    key('n');
+    expect(document.activeElement).toBe(row());
+    key('j');
+    expect(document.activeElement).toBe(el.querySelector('[data-k="c:japones"]'));
+    key('End');
+    expect(document.activeElement).toBe(row());
+  });
+
+  it('sem nenhuma aba sobrando, o remendo abre só com a linha, sem o risco, e o foco nela', async () => {
+    fixture.componentInstance.groups.set([]);
+    await settle();
+    await open();
+    expect(panel().matches(':popover-open')).toBeTrue();
+    expect(panel().querySelector('[role=listbox]')).toBeNull();
+    expect(panel().querySelector('.novo')!.classList.contains('so')).toBeTrue();
+    expect(document.activeElement).toBe(row());
+  });
+
+  it('tocada, vira o campo do nome com o foco; as letras e as setas são do campo; Enter cria e o remendo fecha', async () => {
+    await open();
+    row()!.click();
+    await settle();
+    expect(document.activeElement).toBe(field());
+    expect(ok().disabled).toBeTrue();
+    key('j', field()!);
+    key('ArrowUp', field()!);
+    expect(document.activeElement).toBe(field());
+    await type('  #Viagens  ');
+    expect(ok().disabled).toBeFalse();
+    expect(ok().getAttribute('aria-label')).toBe('Criar o grupo');
+    field()!.form!.requestSubmit();
+    await settle();
+    expect(fixture.componentInstance.made).toEqual(['Viagens']);
+    expect(panel().matches(':popover-open')).toBeFalse();
+    expect(document.activeElement).toBe(trigger());
+    // aberto de novo, é a linha outra vez
+    await open();
+    expect(row()).not.toBeNull();
+    expect(field()).toBeNull();
+  });
+
+  it('o nome de um grupo que já existe avisa, e o tique diz que abre ele', async () => {
+    await open();
+    row()!.click();
+    await settle();
+    await type('trabalho');
+    expect(el.querySelector('.ja')!.textContent!.trim()).toBe('Já existe o grupo Trabalho: o Enter abre ele.');
+    expect(field()!.getAttribute('aria-describedby')).toBe(el.querySelector('.ja')!.id);
+    expect(ok().getAttribute('aria-label')).toBe('Abrir Trabalho');
+    ok().click();
+    await settle();
+    expect(fixture.componentInstance.made).toEqual(['Trabalho']);
+  });
+
+  it('o Esc desiste do nome e volta para a linha, com o remendo aberto; outro Esc fecha', async () => {
+    await open();
+    row()!.click();
+    await settle();
+    await type('Viagens');
+    key('Escape', field()!);
+    await settle();
+    expect(panel().matches(':popover-open')).toBeTrue();
+    expect(field()).toBeNull();
+    expect(document.activeElement).toBe(row());
+    key('Escape');
+    await settle();
+    expect(panel().matches(':popover-open')).toBeFalse();
+    expect(fixture.componentInstance.made).toEqual([]);
+  });
+
+  it('o Tab vai do campo ao tique (e o Shift+Tab volta); o Tab que sai do tique fecha', async () => {
+    await open();
+    row()!.click();
+    await settle();
+    // o Tab do campo e o Shift+Tab do tique ficam com o navegador (não são cancelados)
+    expect(key('Tab', field()!)).toBeTrue();
+    expect(key('Tab', ok(), true)).toBeTrue();
+    expect(key('Tab', ok())).toBeFalse();
+    await settle();
+    expect(panel().matches(':popover-open')).toBeFalse();
+  });
+
+  it('sem nome escrito, o Enter não cria nada', async () => {
+    await open();
+    row()!.click();
+    await settle();
+    await type('   ');
+    field()!.form!.requestSubmit();
+    await settle();
+    expect(fixture.componentInstance.made).toEqual([]);
+    expect(panel().matches(':popover-open')).toBeTrue();
+  });
+});
+
+describe('o Mais guarda as letras para ele', () => {
+  it('uma letra que não acha nenhum nome não chega aos atalhos do site (o N de Nova anotação)', async () => {
+    TestBed.configureTestingModule({ imports: [CreateHost], providers: [provideZonelessChangeDetection()] });
+    const fixture = TestBed.createComponent(CreateHost);
+    document.body.appendChild(fixture.nativeElement);
+    await fixture.whenStable();
+    const seen: string[] = [];
+    const listen = (e: KeyboardEvent) => seen.push(e.key);
+    document.addEventListener('keydown', listen);
+    try {
+      fixture.nativeElement.querySelector('.gatilho').click();
+      for (let i = 0; i < 5; i++) {
+        await fixture.whenStable();
+        await new Promise((r) => requestAnimationFrame(() => r(null)));
+      }
+      document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'n', bubbles: true, cancelable: true }));
+      document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+      expect(seen).toEqual(['ArrowDown']);
+    } finally {
+      document.removeEventListener('keydown', listen);
+      fixture.destroy();
+      fixture.nativeElement.remove();
+    }
   });
 });

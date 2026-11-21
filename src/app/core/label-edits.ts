@@ -2,10 +2,10 @@ import { SharedGroupsStore } from './shared-groups-store';
 import { Injectable, inject } from '@angular/core';
 import { NoteFolders } from './note-folders';
 import { siblingNamed } from './folders';
-import { CategoryLook, CategoryLooks, lookKey, tagKeyPrefix, tagLookKey } from './category-looks';
+import { CategoryLook, CategoryLooks, lookKey, randomCategoryColor, tagKeyPrefix, tagLookKey } from './category-looks';
 import { KanbanStore } from './kanban-store';
-import { NotesConfig, savedSubjects, withSavedSubjects } from './mural-config';
-import { MAX_PINNED_TAGS, cleanCategory, cleanSubject, cleanTag, sanitizeTags } from './note-labels';
+import { MAX_CONFIG_CATEGORIES, NotesConfig, prefsOf, savedSubjects, withSavedSubjects } from './mural-config';
+import { MAX_PINNED_TAGS, cleanCategory, cleanNewCategory, cleanSubject, cleanTag, sanitizeTags } from './note-labels';
 import type { Review } from './review';
 import { ReviewStore } from './review-store';
 import { Settings } from './settings';
@@ -246,7 +246,36 @@ export class LabelEdits {
   existingCategory(name: string, except: string): string | null {
     const key = lookKey(name);
     if (key === lookKey(except)) return null;
-    return this.store.notes().find((r) => !!r.category && lookKey(r.category) === key)?.category ?? null;
+    // o das anotações, e o criado à mão sem nenhuma (PLANO-NOVO-GRUPO.md)
+    return this.store.notes().find((r) => !!r.category && lookKey(r.category) === key)?.category ?? this.settings.madeGroups().find((g) => g.key === key)?.label ?? null;
+  }
+
+  /**
+   * O grupo que já atende pelo nome (o nome dele): das anotações, criado à mão ou um compartilhado; null, nenhum. É o
+   * que o "Novo grupo" do "Mais" avisa antes de criar (o `taken` de ui/tab-more.ts).
+   */
+  readonly groupNamed = (name: string): string | null => this.existingCategory(name, '') ?? (this.groups.ofCategory(name) ? cleanCategory(name) : null);
+
+  /**
+   * Cria o grupo sem nenhuma anotação (o "Novo grupo" do "Mais" das abas, PLANO-NOVO-GRUPO.md): guardado nas
+   * configurações do mural até ser apagado, com uma cor sorteada, como todo grupo novo. O nome que já é de um grupo
+   * (das anotações, criado à mão, ou um compartilhado) não cria nada: devolve esse grupo. O que só existe por um
+   * baralho ou um quadro livre passa a ser criado, com a grafia dele. Vazio, ou sem lugar nas configurações: null.
+   */
+  createCategory(name: string): { label: string; created: boolean } | null {
+    const typed = cleanNewCategory(name);
+    if (!typed) return null;
+    const there = this.groupNamed(typed);
+    if (there) return { label: there, created: false };
+    const key = lookKey(typed);
+    const clean = this.study.decks().find((d) => !!d.group && lookKey(d.group) === key)?.group ?? this.freeBoards.boards().find((b) => lookKey(b.grupo) === key)?.grupo ?? typed;
+    // (as configurações guardam até MAX_CONFIG_CATEGORIES grupos: além disso, o criado sumiria na próxima leitura)
+    const cfg = this.settings.notesConfig();
+    if (!cfg.categories[key] && Object.keys(cfg.categories).length >= MAX_CONFIG_CATEGORIES) return null;
+    this.settings.setCategoryPrefs(clean, { name: clean });
+    const look = this.settings.categoryLook(clean);
+    if (!look.color) this.settings.setCategoryLook(clean, { ...look, color: randomCategoryColor() });
+    return { label: clean, created: true };
   }
 
   /** O nome de outra tag da mesma categoria que já atende por `name`, para juntar. */
@@ -267,6 +296,8 @@ export class LabelEdits {
     const shared = this.groups.ofCategory(category);
     if (shared && (to === null || !this.groups.rename(shared.id, to))) return { changed: 0 };
     const toKey = to === null ? null : lookKey(to);
+    // o grupo criado à mão continua criado com o nome novo (também juntado num outro, que fica criado)
+    const made = !!prefsOf(this.settings.notesConfig(), category).name;
     const result = this.save(notesWithCategory(this.store.notes(), from, to, new Date().toISOString()));
     if (toKey !== from) {
       // apagada, as anotações dela ficam sem categoria, e as tags levam a cor para lá
@@ -276,6 +307,7 @@ export class LabelEdits {
       this.folders.moveGroup(from, toKey);
       this.kanban.moveCategory(from, toKey);
     }
+    if (to !== null && (made || prefsOf(this.settings.notesConfig(), to).name)) this.settings.setCategoryPrefs(to, { name: to });
     // os baralhos do grupo vão com ele (também quando só muda a escrita: a caixa, um acento); apagado, saem
     this.study.moveGroup(category, to);
     // os quadros livres do grupo também (apagado, saem com ele: PLANO-QUADRO-LIVRE.md, decisão D12)

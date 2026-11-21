@@ -1012,7 +1012,11 @@ export interface BoardCategory {
  * menos (no empate, de A a Z), como as abas do mural; com a ordem montada à mão (`order`, as chaves),
  * nela, e as novas no fim. As anotações sem categoria não têm quadro.
  */
-export function boardCategories(notes: readonly Pick<BoardNote, 'category'>[], order: readonly string[] | null = null): BoardCategory[] {
+export function boardCategories(
+  notes: readonly Pick<BoardNote, 'category'>[],
+  order: readonly string[] | null = null,
+  made: readonly { key: string; label: string }[] = [],
+): BoardCategory[] {
   const buckets = new Map<string, { n: number; spellings: Map<string, number> }>();
   for (const r of notes) {
     const label = r.category?.trim();
@@ -1029,6 +1033,8 @@ export function boardCategories(notes: readonly Pick<BoardNote, 'category'>[], o
     label: [...b.spellings.entries()].reduce((best, e) => (e[1] > best[1] ? e : best))[0],
     notes: b.n,
   }));
+  // os criados à mão sem anotação (ver `madeGroups`): o quadro deles, vazio
+  for (const g of made) if (!buckets.has(g.key)) out.push({ key: g.key, label: g.label, notes: 0 });
   out.sort((a, b) => b.notes - a.notes || nameCollator.compare(a.label, b.label));
   if (order) {
     const at = new Map(order.map((k, i) => [k, i]));

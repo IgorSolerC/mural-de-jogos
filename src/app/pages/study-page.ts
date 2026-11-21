@@ -14,6 +14,7 @@ import { Desk } from '../core/desk';
 import { daysBetween, studyDay } from '../core/fsrs';
 import { LIGHT_STOCKS, LightStock } from '../core/review';
 import { ReviewStore } from '../core/review-store';
+import { LabelEdits } from '../core/label-edits';
 import { CardFace, CardSize, DECK_NAME_MAX, Deck, LEVEL_LABEL, Level, STUDY_SIZE_KEY, StudyCard as Card, cardFace, frontTitle, groupKey, inGroup, levelOf, pausedSinceLabel, studyGroupId, studyGroupWords, whenLabel } from '../core/study';
 import { readText, writeText } from '../core/storage';
 import { DRILL_KINDS, DRILL_LABEL, DrillKind, DrillPlan, drillCounts as countDrills, drillPool } from '../core/study-drill';
@@ -386,6 +387,15 @@ export class StudyPage {
   /** Abre o grupo escolhido no "Mais". */
   protected openGroup(id: string): void {
     if (id && id !== this.group()?.id) void this.router.navigateByUrl(studyPath(id));
+  }
+
+  private readonly edits = inject(LabelEdits);
+  /** O grupo que já atende pelo nome escrito no "Novo grupo" do "Mais". */
+  protected readonly groupNamed = this.edits.groupNamed;
+  /** O "Novo grupo" do "Mais" (PLANO-NOVO-GRUPO.md): o grupo nasce (ou o de mesmo nome é achado), e abre. */
+  protected createGroup(name: string): void {
+    const r = this.edits.createCategory(name);
+    if (r) this.openGroup(studyGroupId(r.label));
   }
 
   /** O endereço de um baralho, no grupo dele. */

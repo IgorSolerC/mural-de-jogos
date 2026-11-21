@@ -88,6 +88,11 @@ export interface CategoryPrefs {
    * só com algum, na ordem de `WALL_SHOWS`.
    */
   shows?: WallShow[];
+  /**
+   * O grupo criado à mão (o "Novo grupo" do "Mais" das abas), com o nome como foi escrito: ele existe mesmo sem
+   * nenhuma anotação, até ser apagado (PLANO-NOVO-GRUPO.md, D1 e D2). Renomeado, o nome vai junto.
+   */
+  name?: string;
 }
 
 export interface NotesConfig {
@@ -172,7 +177,7 @@ export const MAX_CONFIG_CATEGORIES = 200;
 function sanitizePrefs(raw: unknown): CategoryPrefs {
   const out: CategoryPrefs = {};
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
-  const { audience, askTag, hidden, kanbanOnly, view, sort, shows } = raw as Record<string, unknown>;
+  const { audience, askTag, hidden, kanbanOnly, view, sort, shows, name } = raw as Record<string, unknown>;
   if (AUDIENCES.includes(audience as Audience)) out.audience = audience as Audience;
   const shown = noteDensity(view);
   if (GROUP_VIEWS.includes(shown as GroupView)) out.view = shown as GroupView;
@@ -182,11 +187,14 @@ function sanitizePrefs(raw: unknown): CategoryPrefs {
   if (kanbanOnly === false) out.kanbanOnly = false;
   const on = Array.isArray(shows) ? WALL_SHOWS.filter((k) => shows.includes(k)) : [];
   if (on.length) out.shows = on;
+  // (o tamanho do nome de um grupo, `LABEL_MAX` em core/note-labels.ts)
+  const made = typeof name === 'string' ? cleanLabel(name, 32) : '';
+  if (made) out.name = made;
   return out;
 }
 
 const isEmpty = (p: CategoryPrefs) =>
-  p.audience === undefined && p.askTag === undefined && !p.hidden && p.kanbanOnly === undefined && p.view === undefined && p.sort === undefined && !p.shows?.length;
+  p.audience === undefined && p.askTag === undefined && !p.hidden && p.kanbanOnly === undefined && p.view === undefined && p.sort === undefined && !p.shows?.length && !p.name;
 
 /** O que veio guardado (ou da nuvem): só valores conhecidos, sem as categorias vazias. */
 export function sanitizeNotesConfig(raw: unknown): NotesConfig {
@@ -207,6 +215,8 @@ export function sanitizeNotesConfig(raw: unknown): NotesConfig {
       if (n >= MAX_CONFIG_CATEGORIES) break;
       const key = lookKey(k).slice(0, 64);
       const prefs = sanitizePrefs(v);
+      // o nome do grupo criado é o desse grupo (outro nome levaria a aba para outra chave)
+      if (prefs.name && lookKey(prefs.name) !== key) delete prefs.name;
       if (!key || isEmpty(prefs)) continue;
       categories[key] = prefs;
       n++;
@@ -422,4 +432,18 @@ export function hiddenKeys(cfg: NotesConfig): ReadonlySet<string> {
  */
 export function kanbanOnly(cfg: NotesConfig, category: string | null | undefined): boolean {
   return prefsOf(cfg, category).kanbanOnly !== false;
+}
+
+/** Um grupo criado à mão (ver `CategoryPrefs.name`): a chave e o nome. */
+export interface MadeGroup {
+  key: string;
+  label: string;
+}
+
+/**
+ * Os grupos criados à mão, que existem mesmo sem anotação (PLANO-NOVO-GRUPO.md, D1), na ordem em que estão
+ * guardados. Quem lista os grupos junta estes aos das anotações (a grafia das anotações vence).
+ */
+export function madeGroups(cfg: NotesConfig): MadeGroup[] {
+  return Object.entries(cfg.categories).flatMap(([key, p]) => (p.name ? [{ key, label: p.name }] : []));
 }

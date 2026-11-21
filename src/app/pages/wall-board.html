@@ -13,6 +13,21 @@
       </div>
     }
   </section>
+} @else if (!hasFolders() && !view.pool().length && !view.hiddenBoard() && !view.hiddenDone() && view.activeTab().startsWith('c:')) {
+  <!-- o grupo não tem nada ainda (o criado no "Novo grupo" do "Mais"): o cartaz da pasta vazia -->
+  <section class="no-results cartolina pasta-vazia" aria-live="polite">
+    <app-pin class="pin" color="#f4f4f0" />
+    <h2>{{ view.activeTabLabel() }} está vazio</h2>
+    <p>{{ owner() === null ? 'Nenhuma anotação neste grupo ainda. A nova que você escrever aqui já nasce nele.' : 'Nenhuma anotação neste grupo.' }}</p>
+    @if (owner() === null) {
+      <div class="acoes-vazio">
+        <button type="button" class="btn-ink" (click)="create.emit()">
+          <lucide-icon [img]="PlusIcon" [size]="20" aria-hidden="true" />
+          Nova anotação
+        </button>
+      </div>
+    }
+  </section>
 } @else if (!hasFolders() && !view.pool().length && view.hiddenBoard() && !view.hiddenDone()) {
   <!-- todas as anotações da aba estão só no Kanban (ou nos Estudos): o mural não está vazio, elas moram lá -->
   <section class="no-results cartolina" aria-live="polite">

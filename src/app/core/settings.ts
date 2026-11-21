@@ -2,7 +2,7 @@ import { DestroyRef, Injectable, computed, effect, inject, signal } from '@angul
 import { fold } from './review';
 import { MAX_PINNED_TAGS, sanitizeTags } from './note-labels';
 import { CategoryColorId, CategoryLook, CategoryLooks, lookKey, sanitizeCategoryLooks, tagColorOf, tagLookKey } from './category-looks';
-import { CategoryPrefs, NotesConfig, sanitizeNotesConfig, withPrefs, withSavedSubjects, withTagHidden, wishTagKey } from './mural-config';
+import { CategoryPrefs, MadeGroup, NotesConfig, madeGroups, sanitizeNotesConfig, withPrefs, withSavedSubjects, withTagHidden, wishTagKey } from './mural-config';
 import { NoteTemplate, withRestoredTemplate, withTemplate } from './note-templates';
 import { onOtherTab, writeJson } from './storage';
 import { fromOtherTab } from './tab-join';
@@ -255,6 +255,13 @@ export class Settings {
   readonly notesConfig = signal<NotesConfig>(this.stored.notesConfig);
   /** Ver `Stored.notesConfigAt`. */
   readonly notesConfigAt = signal(this.stored.notesConfigAt);
+  /**
+   * Os grupos criados à mão (o "Novo grupo" do "Mais"), que existem mesmo sem anotação: todo lugar que lista os
+   * grupos do seu mural junta estes aos das anotações (PLANO-NOVO-GRUPO.md, D3).
+   */
+  readonly madeGroups = computed<readonly MadeGroup[]>(() => madeGroups(this.notesConfig()), {
+    equal: (a, b) => a.length === b.length && a.every((g, i) => g.key === b[i].key && g.label === b[i].label),
+  });
   /** Ver `Stored.escrita`. */
   readonly writingMode = signal<WritingMode>(this.stored.escrita);
   /** As tags com o filtro padrão Excluído (as chaves de `tagLookKey(tag, categoria)`), ver core/tag-filter.ts. */

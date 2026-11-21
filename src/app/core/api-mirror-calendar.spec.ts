@@ -144,7 +144,7 @@ describe('o espelho da API: o serviço manda o Calendário', () => {
         { provide: CloudAccount, useValue: account },
         { provide: ReviewStore, useValue: { notes: signal([]), sharedIds: signal<ReadonlySet<string>>(new Set()) } },
         { provide: KanbanStore, useValue: { boardOnly: signal(new Set()), cardOf: () => null, isOnWall: () => false, categories: signal([]), boardFor: () => null, groupKanbanOnly: () => false } },
-        { provide: Settings, useValue: { notesConfig: signal({ subjects: {} }), pinnedTags: signal([]) } },
+        { provide: Settings, useValue: { notesConfig: signal({ subjects: {} }), pinnedTags: signal([]), madeGroups: signal([]) } },
         { provide: SpendingStore, useValue: { state: signal(EMPTY_SPENDING) } },
         { provide: CalendarStore, useValue: { state: calendar } },
       ],

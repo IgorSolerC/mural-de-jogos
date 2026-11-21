@@ -27,6 +27,11 @@ export interface TabFitOptions {
    * na ordem em que saem); a aberta fica sempre. Sem a opção, todas ficam.
    */
   droppable?: () => readonly string[];
+  /**
+   * O "Mais" fica em pé mesmo sem nenhuma aba sobrando (o "Novo grupo" mora nele, PLANO-NOVO-GRUPO.md, D6): a régua
+   * guarda o lugar dele sempre.
+   */
+  alwaysMore?: () => boolean;
 }
 
 /** Quais abas ficam em pé: as dos grupos, as que foram para o "Mais", e as da frente que também foram. */
@@ -63,6 +68,7 @@ export class TabFit {
       const room = this.room();
       const measured = !!room && !!w.size;
       const active = o.active();
+      const always = !!o.alwaysMore?.();
       const split = (lead: readonly string[]) => {
         if (!tabs.length) return { shown: [], more: [] };
         // cada aba da frente tira o lugar de um grupo (fica sempre pelo menos um)
@@ -73,7 +79,7 @@ export class TabFit {
               let used = -GAP;
               for (const k of lead) used += GAP + (w.get(k) ?? 0);
               for (const x of shown) used += GAP + (w.get(x.key) ?? 0);
-              if (more) used += GAP + (w.get('mais') ?? 0);
+              if (more || always) used += GAP + (w.get('mais') ?? 0);
               return used <= room;
             };
         return splitTabs(tabs, active, fits, o.ordered(), o.hidden(), slots);
@@ -83,7 +89,7 @@ export class TabFit {
         if (!measured) return true;
         let used = -GAP;
         for (const k of lead) used += GAP + (w.get(k) ?? 0);
-        if (more) used += GAP + (w.get('mais') ?? 0);
+        if (more || always) used += GAP + (w.get('mais') ?? 0);
         return used <= room && (!tabs.length || shown.length > 0);
       };
       let lead = o.lead();

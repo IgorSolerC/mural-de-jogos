@@ -22,6 +22,7 @@ import { labelKey, nameCollator } from './text';
  *   Para o "Mais" vão as últimas da ordem, não as menores.
  * - Com "Esconder os grupos vazios" (o padrão), o grupo sem nenhuma anotação à mostra vai para o
  *   "Mais", menos o aberto (ver `tabsToMore`).
+ * - O grupo criado à mão (o "Novo grupo" do "Mais", ver `madeGroups`) tem a sua aba mesmo sem anotação.
  */
 
 /** A aba "Tudo": o mural inteiro. */
@@ -65,13 +66,15 @@ export function noteTabKey(r: Pick<Review, 'category'>): string {
 
 /**
  * As abas do mural. `shown`: a anotação está à mostra (as finalizadas escondidas não contam no
- * número). `noneLabel`: o nome da aba de quem não tem categoria ("Sem artista", nas músicas).
+ * número). `noneLabel`: o nome da aba de quem não tem categoria ("Sem artista", nas músicas). `made`: os
+ * grupos criados à mão (os nomes), com a aba mesmo sem nenhuma anotação.
  */
 export function noteTabsOf(
   notes: readonly Review[],
   shown: (r: Review) => boolean = () => true,
   noneLabel = 'Sem grupo',
   order: readonly string[] | null = null,
+  made: readonly string[] = [],
 ): NoteTabs {
   const buckets = new Map<string, { total: number; n: number; spellings: Map<string, number> }>();
   let all = 0;
@@ -85,6 +88,11 @@ export function noteTabsOf(
       all++;
     }
     if (r.category) b.spellings.set(r.category, (b.spellings.get(r.category) ?? 0) + 1);
+  }
+  // o criado à mão sem anotação: a aba com o nome dele, vazia (com anotação, vale a grafia delas)
+  for (const label of made) {
+    const key = noteTabKey({ category: label });
+    if (key !== NO_CATEGORY_TAB && !buckets.has(key)) buckets.set(key, { total: 0, n: 0, spellings: new Map([[label, 0]]) });
   }
   if (buckets.size < 2) return { tabs: [], all };
   const tabs: NoteTab[] = [];

@@ -273,6 +273,11 @@ export abstract class WallState {
    */
   readonly categoryOrder: Signal<readonly string[] | null> = signal(null);
   /**
+   * Os nomes dos grupos criados à mão (o "Novo grupo" do "Mais"), com a aba mesmo sem anotação. Só no seu
+   * mural: na visita, o grupo vazio não tem nada à mostra (PLANO-NOVO-GRUPO.md, D4).
+   */
+  readonly madeGroups: Signal<readonly string[]> = signal([]);
+  /**
    * As abas das categorias escondidas ("c:" e a chave), que ficam sempre no "Mais" (ver
    * core/mural-config.ts). Só no seu mural: quem visita vê todas as abas em pé, como sempre.
    */
@@ -485,7 +490,7 @@ export abstract class WallState {
     if (isNotes(kind)) {
       // cada aba conta o que mostraria ao abrir (o padrão dela), e a escolhida, com o Filtrar de agora. A
       // escolhida, e não `activeTab`, que depende destas abas
-      const tabs = noteTabsOf(this.wall(), (r) => this.shows(r, this.togglesOf(noteTabKey(r))), undefined, this.categoryOrder());
+      const tabs = noteTabsOf(this.wall(), (r) => this.shows(r, this.togglesOf(noteTabKey(r))), undefined, this.categoryOrder(), this.madeGroups());
       return { ...tabs, all: this.wall().filter((r) => this.shows(r, this.togglesOf(ALL_TAB))).length };
     }
     return isMusic(kind) ? noteTabsOf(this.wall(), undefined, 'Sem artista') : null;
@@ -1201,6 +1206,7 @@ export class WallView extends WallState {
   readonly categoryLooks = this.settings.categoryLooks.asReadonly();
   readonly folders = inject(NoteFolders).tree;
   override readonly categoryOrder = computed(() => activeOrder(this.settings.notesConfig()));
+  override readonly madeGroups = computed<readonly string[]>(() => this.settings.madeGroups().map((g) => g.label));
   override readonly hiddenTabs = computed<ReadonlySet<string>>(() => new Set([...hiddenKeys(this.settings.notesConfig())].map((k) => `c:${k}`)));
   override readonly showAllTab = computed(() => !this.notes() || this.settings.notesConfig().showAll);
   override readonly hideEmpty = computed(() => this.settings.notesConfig().hideEmpty);

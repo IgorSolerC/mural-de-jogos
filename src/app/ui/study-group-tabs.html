@@ -26,10 +26,20 @@
         </a>
       </li>
     }
-    @if (moreItems().length) {
+    @if (moreItems().length || create()) {
       <li>
-        <!-- o "Mais": a lista de feltro, a mesma das abas do mural e do Kanban (ui/tab-more.ts) -->
-        <app-tab-more class="aba aba-mais" [class.on]="!!moreOn()" [groups]="moreItems()" [active]="open()?.id ?? ''" label="Mais grupos" (chosen)="choose($event)">
+        <!-- o "Mais": a lista de feltro, a mesma das abas do mural e do Kanban (ui/tab-more.ts); no seu, com o "Novo grupo" -->
+        <app-tab-more
+          class="aba aba-mais"
+          [class.on]="!!moreOn()"
+          [groups]="moreItems()"
+          [active]="open()?.id ?? ''"
+          label="Mais grupos"
+          [create]="create()"
+          [taken]="taken()"
+          (chosen)="choose($event)"
+          (created)="created.emit($event)"
+        >
           @if (moreOn(); as m) {
             <app-cat-label class="rotulo-cat" [label]="m.label" [look]="m.look" [iconSize]="15" />
             @if (m.today) {

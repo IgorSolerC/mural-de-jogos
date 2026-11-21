@@ -1,3 +1,4 @@
+import { LabelEdits } from '../core/label-edits';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { NoteFolders } from '../core/note-folders';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -418,6 +419,19 @@ describe('as configurações do mural (a folha)', () => {
       expect(el.querySelector('.aviso')!.textContent).toContain('Viagens! virou Férias em 3 anotações.');
       // o painel continua aberto, já com o nome novo
       expect(el.querySelector<HTMLInputElement>('.cat.aberta .nome input')!.value).toBe('Férias');
+    });
+
+    it('o grupo criado no "Novo grupo", sem anotação: está na lista, e renomear diz só o nome (PLANO-NOVO-GRUPO.md)', async () => {
+      TestBed.inject(LabelEdits).createCategory('Mudança');
+      await go('categorias');
+      const row = await openCat('Mudança');
+      expect(row.querySelector('.cat-n')!.textContent).toContain('Nenhuma anotação ainda');
+      expect(row.querySelector('.nome-dica')!.textContent).toContain('Muda o nome do grupo.');
+      row.querySelector<HTMLInputElement>('.nome input')!.value = 'Casa nova';
+      submit(row.querySelector<HTMLFormElement>('form.nome')!);
+      await settle();
+      expect(el.querySelector('.aviso')!.textContent!.trim()).toBe('Mudança virou Casa nova.');
+      expect(settings.madeGroups()).toEqual([{ key: 'casa nova', label: 'Casa nova' }]);
     });
 
     it('o nome novo vem sem o "#" da frente (a chave da cor das tags começa com "#")', async () => {

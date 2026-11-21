@@ -152,7 +152,7 @@ describe('os Gastos no espelho da API: o serviço (ApiMirror)', () => {
         { provide: CloudAccount, useValue: account },
         { provide: ReviewStore, useValue: { notes: signal([]), sharedIds: signal(new Set()) } },
         { provide: KanbanStore, useValue: { boardOnly: signal(new Set()), cardOf: () => null, isOnWall: () => false } },
-        { provide: Settings, useValue: { notesConfig: signal({ subjects: {} }), pinnedTags: signal([]) } },
+        { provide: Settings, useValue: { notesConfig: signal({ subjects: {} }), pinnedTags: signal([]), madeGroups: signal([]) } },
         { provide: SpendingStore, useValue: { state: spending } },
       ],
     });

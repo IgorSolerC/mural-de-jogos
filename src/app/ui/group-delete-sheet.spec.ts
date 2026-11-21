@@ -9,6 +9,7 @@ import { ReviewStore } from '../core/review-store';
 import { SharedGroup } from '../core/shared-groups';
 import { SharedGroupsStore } from '../core/shared-groups-store';
 import { StudyStore } from '../core/study-store';
+import { Settings } from '../core/settings';
 import { GroupDeleteSheet } from './group-delete-sheet';
 
 let seq = 0;
@@ -71,6 +72,23 @@ describe('a folha de apagar o grupo (ui/group-delete-sheet.ts)', () => {
     await open('Trabalho', ['Trabalho', 'Estudos']);
     expect(el.querySelector('dialog')!.open).toBeTrue();
     expect(document.activeElement).toBe(el.querySelector('input[value="soltar"]'));
+  });
+
+  it('o grupo vazio (o criado no "Novo grupo" do "Mais"): sem destino a escolher, só apagar o nome (PLANO-NOVO-GRUPO.md)', async () => {
+    const edits = TestBed.inject(LabelEdits);
+    edits.createCategory('Viagens');
+    await open('Viagens', ['Trabalho', 'Estudos', 'Viagens']);
+    expect(el.querySelector('.destinos')).toBeNull();
+    expect(el.querySelector('.sub')!.textContent!.trim()).toBe('Nenhuma anotação ainda');
+    expect(lines()).toEqual(['O grupo está vazio: só o nome, o ícone, a cor e os padrões vão embora.']);
+    const button = el.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+    expect(button.textContent!.trim()).toBe('Apagar o grupo');
+    expect(button.classList.contains('danger')).toBeFalse();
+    // o foco nunca no botão de apagar
+    expect(document.activeElement).not.toBe(button);
+    button.click();
+    for (let i = 0; i < 10 && TestBed.inject(Settings).madeGroups().length; i++) await settle();
+    expect(TestBed.inject(Settings).madeGroups()).toEqual([]);
   });
 
   it('o botão só é vermelho, com a lixeira, quando algo não volta', async () => {

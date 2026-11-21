@@ -332,6 +332,15 @@ describe('limpar o navegador (sair da conta)', () => {
     expect(localStorage.getItem(SETTINGS_KEY)).toBeNull();
   });
 
+  it('o grupo criado à mão, sem anotação (nas configurações do mural de anotações), sai junto', async () => {
+    signedInBrowser();
+    writeJson(SETTINGS_KEY, { notesConfig: { categories: { viagens: { name: 'Viagens' } } }, notesConfigAt: '2026-11-21T12:00:00.000Z' });
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.setItem(RESET_KEY, JSON.stringify({ keep: [], motivo: 'saiu' }));
+    expect(await resetOnBoot()).toBeTrue();
+    expect(localStorage.getItem(SETTINGS_KEY)).toBeNull();
+  });
+
   it('o correio de Amigos guardado (os avisos, as resenhas e quem a conta segue) sai junto', async () => {
     signedInBrowser();
     writeJson(FEED_CACHE_KEY, { conta: 'conta-ela', itens: [], vistasEm: null, agora: null, pessoas: { seguindo: [], seguidores: [] } });

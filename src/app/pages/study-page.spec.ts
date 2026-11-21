@@ -7,6 +7,7 @@ import { ReviewStore } from '../core/review-store';
 import { Toasts } from '../ui/toast';
 import { addStudyDays, dayStart, studyDay } from '../core/fsrs';
 import { studyPath } from '../core/areas';
+import { Settings } from '../core/settings';
 import { STUDY_SIZE_KEY, studyGroupId } from '../core/study';
 import { StudyStore } from '../core/study-store';
 import { WallView } from '../core/wall-view';
@@ -14,6 +15,7 @@ import { expectEtiquetaPadrao } from '../testing/etiqueta-acoes.spec';
 import { Confirm } from '../ui/confirm';
 import { setEverythingNear } from '../ui/near-screen';
 import { StudyPage } from './study-page';
+import { newGroupIn } from '../testing/new-group';
 
 /** A página dos Estudos: a primeira vez, as abas, as pilhas de Tudo, a parede do baralho e a folha. */
 
@@ -133,6 +135,16 @@ describe('página dos Estudos', () => {
     expect(router.url).toBe(studyPath(studyGroupId('Trabalho'), made.id));
   });
 
+  it('o "Novo grupo" do "Mais" cria o grupo sem anotação e abre ele, com o primeiro baralho a montar (PLANO-NOVO-GRUPO.md)', async () => {
+    seed();
+    await go('/anotacoes/estudos');
+    await newGroupIn($('.abas:not(.medida) app-tab-more')!, 'Viagens', settle);
+    for (let i = 0; i < 5 && !router.url.endsWith(studyGroupId('Viagens')); i++) await settle();
+    expect(router.url).toBe(`/anotacoes/estudos/${studyGroupId('Viagens')}`);
+    expect($('.aba.on')?.textContent).toContain('Viagens');
+    expect(TestBed.inject(Settings).madeGroups().map((g) => g.label)).toEqual(['Viagens']);
+  });
+
   it('as abas: Tudo e os grupos das anotações (com quantas para hoje); o grupo mostra só os baralhos dele', async () => {
     TestBed.inject(ReviewStore).reviews.update((list) => [...list, { ...note('ntcp', 'TCP'), category: 'Computação' }]);
     const { kanji } = seed();
@@ -140,7 +152,8 @@ describe('página dos Estudos', () => {
     study.addCard('ntcp', [redes]);
     await go('/anotacoes/estudos');
     // o Tudo sem número (a pasta logo embaixo diz quantas para hoje)
-    expect($$('.abas:not(.medida) .aba').map(text)).toEqual(['Tudo', 'Estudos, 4 para hoje', 'Computação, 1 para hoje']);
+    // (e o "Mais", sempre, com o "Novo grupo")
+    expect($$('.abas:not(.medida) .aba').map(text)).toEqual(['Tudo', 'Estudos, 4 para hoje', 'Computação, 1 para hoje', 'MaisNovo grupo']);
     expect($('.aba.on')?.textContent).toContain('Tudo');
     // Tudo: uma seção por grupo, com a cabeça de giz do mural (ui/section-head.ts): o nome leva ao grupo, o número são
     // os baralhos e o detalhe diz isso e os flashcards; não fecha

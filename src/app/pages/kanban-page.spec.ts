@@ -21,6 +21,7 @@ import { KanbanProps } from '../ui/kanban-props';
 import { NEAR_TUNING, setEverythingNear } from '../ui/near-screen';
 import { Toasts } from '../ui/toast';
 import { KanbanPage } from './kanban-page';
+import { newGroupIn } from '../testing/new-group';
 
 /** A página do Kanban: um quadro por categoria, as colunas com as anotações, mover pelo teclado, o filtro das tags e as folhas. */
 
@@ -60,6 +61,7 @@ function board(): KanbanBoard {
 }
 
 const state = (...boards: KanbanBoard[]) => ({ boards, removed: {}, legacy: [] });
+
 
 describe('página do Kanban', () => {
   let host: HTMLElement;
@@ -201,10 +203,10 @@ describe('página do Kanban', () => {
       more()!.querySelector<HTMLButtonElement>('.gatilho')!.click();
       await settle();
       expect([...more()!.querySelectorAll('[role=option]')].map((o) => o.getAttribute('aria-label'))).toEqual(['Estudos, 0 anotações']);
-      // aberto pelo endereço (ou pelo "Mais"), o vazio fica em pé, e o "Mais" some
+      // aberto pelo endereço (ou pelo "Mais"), o vazio fica em pé, e o "Mais" fica só com o "Novo grupo"
       await go(`/anotacoes/kanban/${EST}`);
       expect(links()).toEqual(['Trabalho', 'Estudos']);
-      expect(more()).toBeNull();
+      expect(more()!.querySelectorAll('[role=option]').length).toBe(0);
       // saindo dele, volta para o "Mais"
       await go(TRAB_URL);
       expect(links()).toEqual(['Trabalho']);
@@ -212,7 +214,22 @@ describe('página do Kanban', () => {
       TestBed.inject(Settings).setNotesConfig({ hideEmpty: false });
       await settle();
       expect(links()).toEqual(['Trabalho', 'Estudos']);
-      expect(more()).toBeNull();
+      expect(more()!.querySelectorAll('[role=option]').length).toBe(0);
+    });
+
+    it('o "Novo grupo" do "Mais" cria o grupo sem anotação e abre o quadro dele, vazio (PLANO-NOVO-GRUPO.md)', async () => {
+      kanban.state.set(state(board()));
+      await go(TRAB_URL);
+      await newGroupIn(more()!, 'Viagens', settle);
+      for (let i = 0; i < 5 && !router.url.includes(boardIdFor('viagens')); i++) await settle();
+      expect(router.url).toBe(`/anotacoes/kanban/${boardIdFor('viagens')}`);
+      expect(links()).toEqual(['Trabalho', 'Viagens']);
+      expect(TestBed.inject(Settings).madeGroups()).toEqual([{ key: 'viagens', label: 'Viagens' }]);
+      // o de mesmo nome que já existe só abre
+      await newGroupIn(more()!, 'trabalho', settle);
+      for (let i = 0; i < 5 && router.url !== TRAB_URL; i++) await settle();
+      expect(router.url).toBe(TRAB_URL);
+      expect(TestBed.inject(Settings).madeGroups().length).toBe(1);
     });
 
     it('o olho vem antes: o grupo escondido à mão fica no "Mais" mesmo com cartões', async () => {

@@ -2,7 +2,7 @@
 <h1 class="sr-only">Quadro livre{{ group() ? ": " + group()!.label : "" }}</h1>
 
 <!-- as abas: Tudo e os grupos das anotações, as mesmas dos Flashcards (ui/study-group-tabs.ts), com quantos quadros -->
-<app-study-group-tabs label="Grupos do Quadro livre" [tabs]="tabs()" [active]="group()?.id ?? null" [path]="groupPath" [ordered]="tabsOrdered()" [hidden]="tabsHidden()" (chosen)="openGroup($event)" />
+<app-study-group-tabs label="Grupos do Quadro livre" [tabs]="tabs()" [active]="group()?.id ?? null" [path]="groupPath" [ordered]="tabsOrdered()" [hidden]="tabsHidden()" create="Novo grupo" [taken]="groupNamed" (chosen)="openGroup($event)" (created)="createGroup($event)" />
 
 <div class="pasta">
   <div class="pasta-linha">

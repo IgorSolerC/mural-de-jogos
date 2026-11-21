@@ -237,8 +237,10 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  *     voltaria a chamar para estudar em todo aparelho, com as cartas acumulando como atrasadas.
  * 62: as mini-pastas dos templates do texto (`muralAnotacoes.dados.templates[].folder`, com as pastas no grupo
  *     `templates:as-mini-pastas-dos-templates` de `folders`). Um site da 61 limparia cada template sem a pasta, e todos voltariam soltos.
+ * 63: o grupo criado à mão, sem anotação (`muralAnotacoes.dados.categories[chave].name`, PLANO-NOVO-GRUPO.md). Um site da
+ *     62 limparia o nome das configurações, e o grupo vazio sumiria em todo aparelho.
  */
-export const SYNC_SCHEMA = 62;
+export const SYNC_SCHEMA = 63;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };

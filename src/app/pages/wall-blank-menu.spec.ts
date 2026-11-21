@@ -11,6 +11,7 @@ import { Settings } from '../core/settings';
 import { ViewTransitions } from '../core/view-transitions';
 import { ALL_TAB, PINNED_TAB } from '../core/note-tabs';
 import { WallView } from '../core/wall-view';
+import { LabelEdits } from '../core/label-edits';
 import { HOLD_MS } from '../ui/context-menu';
 import { WallToolbar } from '../ui/wall-toolbar';
 import { WallAccess, WallBoard } from './wall-board';
@@ -249,6 +250,21 @@ describe('o botão direito no nada do mural de anotações', () => {
     expect(await rightClick(empty, at.x, at.y)).toBeTrue();
     expect(items()).toEqual(['Nova anotação aqui', 'Nova pasta aqui']);
     expect(caption()).toBe('Ações de Vazia');
+  });
+
+  it('o grupo criado no "Novo grupo", ainda sem nada: o cartaz de vazio (não o "Tudo finalizado"), e o nada cria nele', async () => {
+    await mount();
+    TestBed.inject(LabelEdits).createCategory('Viagens');
+    TestBed.inject(WallView).setNoteTab('c:viagens');
+    await settle();
+    const empty = el.querySelector<HTMLElement>('.pasta-vazia')!;
+    expect(empty.querySelector('h2')!.textContent!.trim()).toBe('Viagens está vazio');
+    expect(el.querySelector('.tudo-feito')).toBeNull();
+    empty.querySelector<HTMLButtonElement>('button')!.click();
+    expect(host.created).toBe(1);
+    const at = middle(empty);
+    expect(await rightClick(empty, at.x, at.y)).toBeTrue();
+    expect(caption()).toBe('Ações de Viagens');
   });
 
   it('sem as mudanças de pasta (a visita), o nada fica com o do navegador', async () => {

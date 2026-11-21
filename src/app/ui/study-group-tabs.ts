@@ -57,6 +57,15 @@ export class StudyGroupTabs {
   readonly hidden = input<ReadonlySet<string>>(NO_TABS);
   /** Um grupo escolhido no "Mais": o id dele. */
   readonly chosen = output<string>();
+  /**
+   * A linha "Novo grupo" no fim do "Mais", que fica então sempre em pé (PLANO-NOVO-GRUPO.md); null: sem ela (a visita).
+   * A peça só diz o nome escrito (`created`): quem cria é a página do dono.
+   */
+  readonly create = input<string | null>(null);
+  /** O grupo que já atende pelo nome escrito na linha de criar (ver `TabMore.taken`). */
+  readonly taken = input<(name: string) => string | null>(() => null);
+  /** O nome escrito no "Novo grupo". */
+  readonly created = output<string>();
 
   protected readonly AllIcon = ICON.camadas;
   protected readonly ChevronIcon = ICON.abrir;
@@ -80,6 +89,7 @@ export class StudyGroupTabs {
     ordered: () => this.ordered(),
     hidden: () => this.hidden(),
     lead: () => [ALL_TAB],
+    alwaysMore: () => !!this.create(),
   });
   protected readonly shown = computed(() => {
     const keys = new Set(this.fit.layout().shown.map((t) => t.key));

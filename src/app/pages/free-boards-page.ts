@@ -23,6 +23,7 @@ import { KanbanStore } from '../core/kanban-store';
 import { NO_TABS, NoteTab, sameTabs, tabKeyOf, tabsToMore } from '../core/note-tabs';
 import { Settings } from '../core/settings';
 import { groupKey, studyGroupId } from '../core/study';
+import { LabelEdits } from '../core/label-edits';
 import { WallView } from '../core/wall-view';
 import { CardPicker } from '../ui/card-picker';
 import { ContextMenu, ContextMenuTrigger, MenuBy, MenuItem, MenuSections } from '../ui/context-menu';
@@ -420,6 +421,15 @@ export class FreeBoardsPage {
 
   protected openGroup(id: string): void {
     if (id && id !== this.group()?.id) void this.router.navigateByUrl(freeBoardPath(id));
+  }
+
+  private readonly edits = inject(LabelEdits);
+  /** O grupo que já atende pelo nome escrito no "Novo grupo" do "Mais". */
+  protected readonly groupNamed = this.edits.groupNamed;
+  /** O "Novo grupo" do "Mais" (PLANO-NOVO-GRUPO.md): o grupo nasce (ou o de mesmo nome é achado), e abre. */
+  protected createGroup(name: string): void {
+    const r = this.edits.createCategory(name);
+    if (r) this.openGroup(studyGroupId(r.label));
   }
 
   // ===== criar =====

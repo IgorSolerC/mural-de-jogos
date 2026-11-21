@@ -14,6 +14,7 @@ import { KanbanActions } from '../core/kanban-actions';
 import { KanbanDresser } from '../core/kanban-dresser';
 import { sortCards, sortComparator, sortSentence, sortShort, tieRange } from '../core/kanban-sort';
 import { KanbanStore } from '../core/kanban-store';
+import { LabelEdits } from '../core/label-edits';
 import { NOTES } from '../core/kinds';
 import { Review, fold } from '../core/review';
 import { ProfileStore } from '../core/profile-store';
@@ -250,6 +251,8 @@ export class KanbanPage {
     ordered: () => !!this.wallView.categoryOrder(),
     hidden: () => tabsToMore(this.wallView.hiddenTabs(), this.emptyBoards(), tabKeyOf(this.category()?.key ?? '')),
     lead: () => [],
+    // o "Novo grupo" mora no "Mais": ele fica sempre (PLANO-NOVO-GRUPO.md, D6)
+    alwaysMore: () => true,
   });
   /** As abas em pé. */
   protected readonly shownTabs = computed(() => {
@@ -272,6 +275,15 @@ export class KanbanPage {
   /** Abre o quadro escolhido no "Mais". */
   protected openBoard(id: string): void {
     if (id && id !== this.board()?.id) void this.router.navigate([kanbanPath(id)]);
+  }
+
+  private readonly edits = inject(LabelEdits);
+  /** O grupo que já atende pelo nome escrito no "Novo grupo" do "Mais". */
+  protected readonly groupNamed = this.edits.groupNamed;
+  /** O "Novo grupo" do "Mais": o grupo nasce (ou o de mesmo nome é achado), e o quadro dele abre, vazio. */
+  protected createGroup(name: string): void {
+    const r = this.edits.createCategory(name);
+    if (r) this.openBoard(this.kanban.boardFor(r.label).id);
   }
 
   protected readonly query = signal('');

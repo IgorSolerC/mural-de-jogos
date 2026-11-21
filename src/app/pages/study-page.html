@@ -3,7 +3,7 @@
 
 <!-- as abas: Tudo e os grupos das anotações, as mesmas de quem visita o seu mural (ui/study-group-tabs.ts), com
      quantas para hoje; os escondidos (e os que não cabem) no "Mais" -->
-<app-study-group-tabs [tabs]="tabs()" [active]="group()?.id ?? null" [path]="studyPath" [ordered]="tabsOrdered()" [hidden]="tabsHidden()" (chosen)="openGroup($event)" />
+<app-study-group-tabs [tabs]="tabs()" [active]="group()?.id ?? null" [path]="studyPath" [ordered]="tabsOrdered()" [hidden]="tabsHidden()" create="Novo grupo" [taken]="groupNamed" (chosen)="openGroup($event)" (created)="createGroup($event)" />
 
 <!-- a cartolina do primeiro baralho: de um grupo (o nome só), ou de todos (o nome e o grupo) -->
 <ng-template #primeiro let-g>

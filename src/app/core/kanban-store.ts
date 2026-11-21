@@ -84,8 +84,11 @@ export class KanbanStore {
   readonly openBoard = signal<string | null>(null);
   /** O quadro de cada categoria em que ninguém mexeu, pelo id (para `update` achar a categoria). */
   private readonly fresh = new Map<string, KanbanBoard>();
-  /** As categorias das anotações, cada uma com o seu quadro, na ordem das abas do mural. */
-  readonly categories = computed(() => boardCategories(this.store.notes(), activeOrder(this.settings.notesConfig())));
+  /**
+   * As categorias das anotações, cada uma com o seu quadro, na ordem das abas do mural; também as criadas à mão
+   * sem anotação (o "Novo grupo" do "Mais"), com o quadro vazio. Daqui leem os Flashcards e o Quadro livre.
+   */
+  readonly categories = computed(() => boardCategories(this.store.notes(), activeOrder(this.settings.notesConfig()), this.settings.madeGroups()));
 
   /** As anotações pelo id (para ver quais do quadro ainda são da categoria dele). */
   readonly notesById = computed(() => new Map(this.store.notes().map((r) => [r.id, r])));

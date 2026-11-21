@@ -197,7 +197,7 @@
                         <span class="orelha" [class.orelha-cor]="!!colorOf(c)" [style.--cat-cor]="colorOf(c)"><app-cat-label [label]="c.label" [look]="lookOf(c)" [iconSize]="14" /></span>
                         <span class="cat-textos">
                           <span class="cat-n">
-                            {{ c.n }} {{ c.n === 1 ? 'anotação' : 'anotações' }}
+                            {{ c.n ? c.n + (c.n === 1 ? ' anotação' : ' anotações') : 'Nenhuma anotação ainda' }}
                             @if (escondida) {
                               <span class="no-mais">· escondida no Mais</span>
                             }
@@ -240,7 +240,7 @@
                               Renomear
                             </button>
                           </div>
-                          <p class="nome-dica" [id]="'config-nome-dica-' + i">Muda {{ c.n === 1 ? 'na anotação' : 'em todas as ' + c.n + ' anotações' }}. Com o nome de outro grupo, os dois viram um só.</p>
+                          <p class="nome-dica" [id]="'config-nome-dica-' + i">Muda {{ !c.n ? 'o nome do grupo' : c.n === 1 ? 'na anotação' : 'em todas as ' + c.n + ' anotações' }}. Com o nome de outro grupo, os dois viram um só.</p>
                         </form>
 
                         <app-category-style class="sub-bloco" [id]="'config-estilo-' + i" [category]="c.label" [bare]="true" />

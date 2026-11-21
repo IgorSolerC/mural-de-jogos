@@ -2,7 +2,8 @@ import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRend
 import { ICON, IconModule } from './icons';
 import { WallMotion } from '../core/wall-motion';
 import { WallState } from '../core/wall-view';
-import { ALL_TAB, NO_CATEGORY_TAB, NoteTab, PINNED_TAB, SHARED_TAB } from '../core/note-tabs';
+import { ALL_TAB, NO_CATEGORY_TAB, NoteTab, PINNED_TAB, SHARED_TAB, noteTabKey } from '../core/note-tabs';
+import { LabelEdits } from '../core/label-edits';
 import { AutoTab } from '../core/mural-config';
 import { CategoryLook, bandColor, categoryColorHex, lookKey } from '../core/category-looks';
 import { CategoryLabel } from './category-label';
@@ -84,7 +85,7 @@ function autoOf(key: string): AutoTab {
             <span class="n">{{ x.n }}</span>
           </button>
         }
-        @if (moreGroups().length || moreAutos().length) {
+        @if (moreGroups().length || moreAutos().length || canCreate()) {
           <app-tab-more
             class="aba mais"
             [class.on]="moreOn()"
@@ -93,7 +94,10 @@ function autoOf(key: string): AutoTab {
             [active]="active()"
             [label]="music() ? 'Mais artistas' : 'Mais abas'"
             [groupsLabel]="music() ? 'Artistas' : 'Grupos'"
+            [create]="canCreate() ? 'Novo grupo' : null"
+            [taken]="groupNamed"
             (chosen)="choose($event)"
+            (created)="createGroup($event)"
           >
             <span class="nome">{{ moreOn() ? activeLabel() ?? 'Tudo' : 'Mais' }}</span>
             @if (moreOn()) {
@@ -249,6 +253,8 @@ export class NoteTabsBar {
     lead: () => [...(this.allShown() ? ['tudo'] : []), ...this.special().map((x) => x.key)],
     // sem lugar, as especiais vão para o "Mais": primeiro as Compartilhadas, depois as Fixadas
     droppable: () => this.special().map((x) => x.key).reverse(),
+    // no seu mural de anotações, o "Novo grupo" mora no "Mais": ele fica sempre (PLANO-NOVO-GRUPO.md, D6)
+    alwaysMore: () => this.canCreate(),
   });
   protected readonly layout = this.fit.layout;
 
@@ -308,6 +314,19 @@ export class NoteTabsBar {
   protected choose(key: string): void {
     if (key === this.active()) return;
     this.motion.run(() => this.view.setNoteTab(key));
+  }
+
+  // ===== o "Novo grupo" do "Mais" (PLANO-NOVO-GRUPO.md) =====
+
+  private readonly edits = inject(LabelEdits);
+  /** Só no seu mural de anotações (os artistas das músicas não são grupos, e a visita não cria). */
+  protected readonly canCreate = computed(() => !this.music() && this.view.owner() === null);
+  /** O grupo que já atende pelo nome escrito. */
+  protected readonly groupNamed = this.edits.groupNamed;
+  /** O grupo nasce (ou o de mesmo nome é achado), e a aba dele abre. */
+  protected createGroup(name: string): void {
+    const r = this.edits.createCategory(name);
+    if (r) this.choose(noteTabKey({ category: r.label }));
   }
 
   // ===== o menu do botão direito numa aba de grupo (e numa linha do "Mais") =====

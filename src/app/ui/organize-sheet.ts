@@ -99,7 +99,7 @@ export class OrganizeSheet {
 
   /** As anotações do mesmo lugar desta (o mural, o Kanban ou os dois): as sugestões vêm só delas. */
   private readonly samePlace = computed(() => this.kanban.notesAt(this.kanban.placeOf(this.noteId())));
-  protected readonly groupLib = computed(() => categoryLibrary(this.store.notes()));
+  protected readonly groupLib = computed(() => categoryLibrary(this.store.notes(), this.settings.madeGroups()));
   protected readonly tagLib = computed(() => tagLibrary(this.samePlace(), this.settings.pinnedTags(), this.note()?.category ?? null));
   protected readonly folders = inject(NoteFolders);
   /** A pasta da anotação (o id; null: solta na raiz do grupo), o grupo dela e quantas anotações cada pasta tem. */

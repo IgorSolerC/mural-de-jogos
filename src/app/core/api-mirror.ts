@@ -1,3 +1,4 @@
+import type { MadeGroup } from './mural-config';
 import { QUADRO_TEXTO_MAX, type QuadroLivreV1 } from '../../../contrato/api-v1/quadros-livres';
 import { FreeBoard, pieceCount, shownEdges } from './free-board';
 import { FreeBoardStore } from './free-board-store';
@@ -134,10 +135,10 @@ function pastasDoGrupo(tree: FolderTree, group: string, notes: readonly Review[]
 }
 
 /**
- * O vocabulário das Anotações: os grupos (na ordem das abas, com as pastas de cada um), as tags de cada
- * grupo e as fixas. É o que a AI usa em vez de inventar nomes.
+ * O vocabulário das Anotações: os grupos (na ordem das abas, com as pastas de cada um; também os criados à mão
+ * sem nota, `made`), as tags de cada grupo e as fixas. É o que a AI usa em vez de inventar nomes.
  */
-export function contextoV1(notes: readonly Review[], tree: FolderTree, pinned: readonly string[]): ContextoNotasV1 {
+export function contextoV1(notes: readonly Review[], tree: FolderTree, pinned: readonly string[], made: readonly MadeGroup[] = []): ContextoNotasV1 {
   const byGroup = new Map<string, Review[]>();
   for (const n of notes) {
     const g = n.category?.trim();
@@ -145,7 +146,7 @@ export function contextoV1(notes: readonly Review[], tree: FolderTree, pinned: r
     const k = lookKey(g);
     byGroup.set(k, [...(byGroup.get(k) ?? []), n]);
   }
-  const grupos: GrupoV1[] = boardCategories(notes).map((c) => {
+  const grupos: GrupoV1[] = boardCategories(notes, null, made).map((c) => {
     const mine = byGroup.get(lookKey(c.label)) ?? [];
     const pastas = pastasDoGrupo(tree, lookKey(c.label), mine);
     // os assuntos de antes: os nomes das pastas de cima
@@ -395,7 +396,7 @@ export class ApiMirror {
       const dados = notaParaOEspelho(this.notaOf(n, boardOnly), storedFolderOf(tree, n));
       out.push({ tipo: 'nota', id: n.id, hash: await hashOf(dados), dados });
     }
-    const ctx = contextoV1(notes, tree, this.settings.pinnedTags());
+    const ctx = contextoV1(notes, tree, this.settings.pinnedTags(), this.settings.madeGroups());
     out.push({ tipo: 'contexto', id: CONTEXTO_NOTAS, hash: await hashOf(ctx), dados: ctx });
     out.push(...(await this.boardItems()));
     return out;

@@ -896,7 +896,7 @@ export class ReviewEditor {
   /** O ícone e a cor das suas categorias, na orelha da prévia. */
   protected readonly categoryLooks = this.settings.categoryLooks;
   /** A cartela de categorias: a pronta e as escritas nas outras anotações. */
-  protected readonly categoryLib = computed(() => categoryLibrary(this.store.notes()));
+  protected readonly categoryLib = computed(() => categoryLibrary(this.store.notes(), this.settings.madeGroups()));
   /**
    * Toda categoria nova (nenhuma anotação nela ainda) ganha uma das cores, sorteada, assim que é
    * escolhida: a prévia e o "Ícone e cor" já mostram a cor, e dá para trocar ou tirar ali. Uma vez só

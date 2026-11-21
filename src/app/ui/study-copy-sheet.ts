@@ -4,6 +4,7 @@ import { studyPath } from '../core/areas';
 import { KanbanStore } from '../core/kanban-store';
 import { categoryBonus, categoryLibrary } from '../core/note-labels';
 import { Stock, fold } from '../core/review';
+import { Settings } from '../core/settings';
 import { ReviewStore } from '../core/review-store';
 import { DECK_NAME_MAX, groupKey, studyGroupId } from '../core/study';
 import { DeckCopy, DeckCopyProblem, DeckCopyRequest, DeckCopyResult } from '../core/study-copy';
@@ -157,6 +158,7 @@ export class StudyCopySheet {
   private readonly study = inject(StudyStore);
   private readonly kanban = inject(KanbanStore);
   private readonly store = inject(ReviewStore);
+  private readonly settings = inject(Settings);
   private readonly router = inject(Router);
   private readonly toasts = inject(Toasts);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
@@ -180,7 +182,7 @@ export class StudyCopySheet {
 
   /** As orelhas: as do editor da anotação (a cartela e os grupos das anotações) e as dos seus baralhos. */
   protected readonly library = computed(() => {
-    const lib = categoryLibrary(this.store.notes());
+    const lib = categoryLibrary(this.store.notes(), this.settings.madeGroups());
     const known = new Set(lib.map((b) => fold(b.label)));
     for (const d of this.study.decks()) {
       if (d.group && !known.has(fold(d.group))) {

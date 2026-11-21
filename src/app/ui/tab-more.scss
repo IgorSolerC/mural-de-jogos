@@ -83,6 +83,13 @@
   }
 }
 
+/* a lista de escolha (as levas), no mesmo passo do remendo */
+.lista {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+}
+
 /* as duas levas: os grupos e, depois da costura, as abas geradas */
 .leva {
   display: grid;
@@ -191,15 +198,137 @@
   }
 }
 
+/* ===== O grupo novo: depois de um risco de costura, a linha a lápis que vira o campo do nome ===== */
+.novo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1.5px dashed felt.$linha;
+
+  /* sozinha no remendo (nenhuma aba sobrando): sem o risco */
+  &.so {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
+}
+
+/* o "+" na cor da linha da costura: não é o desenho de um grupo */
+.mais-ico {
+  flex: none;
+  display: inline-flex;
+  color: rgb(122 74 38 / 0.95);
+}
+
+/* a linha: o "Sem grupo" a lápis, com o "+"; com o mouse, o nome e o "+" ganham a tinta */
+.criar {
+  .nome-lapis,
+  .mais-ico {
+    transition: color var(--t-ui) var(--ease-ui);
+  }
+  .nome-lapis {
+    color: rgb(21 21 21 / 0.78);
+  }
+
+  &:hover {
+    .nome-lapis,
+    .mais-ico {
+      color: #151515;
+    }
+  }
+}
+
+/* o campo do nome: a tira de papel da busca dos emojis, com o tique de criar na ponta */
+.campo-novo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 2px 2px 2px 4px;
+}
+
+.nome-novo {
+  @include felt.campo;
+  /* (sem largura própria: o campo toma o lugar da linha, e o remendo não alarga) */
+  flex: 1;
+  width: 0;
+  min-width: 0;
+  font-size: 1.05rem;
+
+  &::placeholder {
+    color: rgb(21 21 21 / 0.55);
+  }
+}
+
+/* o tique: o botão de tinta redondo, apagado enquanto não há nome */
+.ok {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #151515;
+  color: #f8f0dc;
+  cursor: pointer;
+  transition:
+    scale var(--t-ui) var(--ease-ui),
+    background-color var(--t-ui) var(--ease-ui);
+
+  &:hover:not(:disabled) {
+    scale: 1.06;
+  }
+
+  &:focus-visible {
+    outline: 2.5px solid #151515;
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    background: rgb(21 21 21 / 0.28);
+    cursor: default;
+  }
+}
+
+/* o nome que já é de um grupo: impresso miúdo, na cor da linha, embaixo do campo */
+.ja {
+  margin: 0 10px;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.8rem;
+  line-height: 1.3;
+  color: rgb(122 74 38);
+
+  &:not(:empty) {
+    margin-block: 6px 2px;
+  }
+}
+
 @media (pointer: coarse) {
   .opcao {
     min-height: 44px;
+  }
+  .nome-novo,
+  .ok {
+    height: 44px;
+  }
+  .ok {
+    width: 44px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .cardapio:popover-open {
     animation: none;
+  }
+  .criar .nome-lapis,
+  .criar .mais-ico,
+  .ok {
+    transition: none;
   }
 }
 

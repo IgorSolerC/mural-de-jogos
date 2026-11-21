@@ -308,6 +308,9 @@ export class MuralConfig {
   /** As categorias das anotações: pela quantidade, ou na ordem montada (as novas no fim). */
   protected readonly categories = computed<CategoryRow[]>(() => {
     const rows = tally(this.store.notes().flatMap((r) => (r.category ? [r.category] : [])));
+    // os criados à mão sem anotação (o "Novo grupo" do "Mais"), com 0, no fim
+    const had = new Set(rows.map((r) => r.key));
+    for (const g of this.settings.madeGroups()) if (!had.has(g.key)) rows.push({ key: g.key, label: g.label, n: 0 });
     if (!this.manual()) return rows;
     const byKey = new Map(rows.map((r) => [r.key, r]));
     return arrangedKeys(this.config().order, rows.map((r) => r.key)).map((k) => byKey.get(k)!);
@@ -502,9 +505,9 @@ export class MuralConfig {
 
   // ===== renomear e apagar =====
 
-  /** "em 3 anotações". */
+  /** " em 3 anotações." (o grupo vazio, criado no "Novo grupo" do "Mais", só "."). */
   private told(r: LabelEditResult): string {
-    return `em ${plural(r.changed, 'anotação', 'anotações')}.`;
+    return r.changed ? ` em ${plural(r.changed, 'anotação', 'anotações')}.` : '.';
   }
 
   private uses(n: number): string {
@@ -535,7 +538,7 @@ export class MuralConfig {
     }
     const r = this.edits.renameCategory(row.label, other ?? name);
     this.open.set(lookKey(other ?? name));
-    this.notice.set(other ? `${row.label} entrou em ${other} ${this.told(r)}` : `${row.label} virou ${name} ${this.told(r)}`);
+    this.notice.set(other ? `${row.label} entrou em ${other}${this.told(r)}` : `${row.label} virou ${name}${this.told(r)}`);
   }
 
   /** O grupo que a folha de apagar está perguntando (PLANO-APAGAR-GRUPO.md). */
@@ -610,7 +613,7 @@ export class MuralConfig {
     }
     const r = this.edits.renameTag(row.label, group.category, other ?? name);
     this.stopTagRename(`${group.key}|${lookKey(other ?? name)}`);
-    this.notice.set(`${this.where(group)}${row.label} ${other ? `entrou em ${other}` : `virou ${name}`} ${this.told(r)}`);
+    this.notice.set(`${this.where(group)}${row.label} ${other ? `entrou em ${other}` : `virou ${name}`}${this.told(r)}`);
   }
 
   protected async deleteTag(group: TagGroup, row: CategoryRow): Promise<void> {
@@ -623,7 +626,7 @@ export class MuralConfig {
     if (!sure) return;
     this.renamingTag.set(null);
     const r = this.edits.renameTag(row.label, group.category, null);
-    this.notice.set(`${this.where(group)}${row.label} foi apagada ${this.told(r)}`);
+    this.notice.set(`${this.where(group)}${row.label} foi apagada${this.told(r)}`);
   }
 
   // ===== pastas (PLANO-PASTAS.md, 4.9) =====

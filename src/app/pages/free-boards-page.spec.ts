@@ -15,6 +15,7 @@ import { Desk } from '../core/desk';
 import { FreeBoardNoteAsk } from '../core/free-board-note-ask';
 import { sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
+import { newGroupIn } from '../testing/new-group';
 
 @Component({ selector: 'app-raiz', imports: [RouterOutlet], template: '<router-outlet />' })
 class Raiz {}
@@ -147,6 +148,14 @@ describe('a página do Quadro livre', () => {
     await go(freeBoardPath(studyGroupId('Estudos')));
     expect($$('app-free-board-card').map((c) => text(c.querySelector('.nome')))).toEqual(['Verbos']);
     expect(text($('.vaga'))).toBe('Novo quadro em Estudos');
+  });
+
+  it('o "Novo grupo" do "Mais" cria o grupo sem anotação e abre ele, com o Novo quadro nele (PLANO-NOVO-GRUPO.md)', async () => {
+    await go(freeBoardPath());
+    await newGroupIn($('.abas-grupos .abas:not(.medida) app-tab-more')!, 'Viagens', settle);
+    for (let i = 0; i < 5 && !router.url.endsWith(studyGroupId('Viagens')); i++) await settle();
+    expect(router.url).toBe(freeBoardPath(studyGroupId('Viagens')));
+    expect(text($('.vaga'))).toBe('Novo quadro em Viagens');
   });
 
   it('Novo quadro: a folha pede o nome e o quadro abre já criado, no grupo aberto', async () => {

@@ -76,37 +76,38 @@
           </a>
         </li>
       }
-      @if (moreTabs().length) {
-        <li>
-          <!-- o "Mais": a lista de feltro, a mesma das abas do mural (ui/tab-more.ts) -->
-          <app-tab-more
-            class="aba aba-mais"
-            [class.on]="!!moreOn()"
-            [groups]="moreItems()"
-            [active]="b.id"
-            label="Mais quadros"
-            (chosen)="openBoard($event)"
-          >
-            @if (moreOn(); as m) {
-              <app-cat-label
-                class="rotulo-cat"
-                [label]="m.label"
-                [look]="m.look"
-                [iconSize]="15"
-              />
-              <span class="aba-n">{{ m.n }}</span>
-            } @else {
-              <span class="mais-nome">Mais</span>
-            }
-            <lucide-icon
-              class="chev"
-              [img]="ChevronIcon"
-              [size]="15"
-              aria-hidden="true"
+      <li>
+        <!-- o "Mais": a lista de feltro, a mesma das abas do mural (ui/tab-more.ts), sempre com o "Novo grupo" -->
+        <app-tab-more
+          class="aba aba-mais"
+          [class.on]="!!moreOn()"
+          [groups]="moreItems()"
+          [active]="b.id"
+          label="Mais quadros"
+          create="Novo grupo"
+          [taken]="groupNamed"
+          (chosen)="openBoard($event)"
+          (created)="createGroup($event)"
+        >
+          @if (moreOn(); as m) {
+            <app-cat-label
+              class="rotulo-cat"
+              [label]="m.label"
+              [look]="m.look"
+              [iconSize]="15"
             />
-          </app-tab-more>
-        </li>
-      }
+            <span class="aba-n">{{ m.n }}</span>
+          } @else {
+            <span class="mais-nome">Mais</span>
+          }
+          <lucide-icon
+            class="chev"
+            [img]="ChevronIcon"
+            [size]="15"
+            aria-hidden="true"
+          />
+        </app-tab-more>
+      </li>
     </ul>
     <!-- a régua de medir: todas as abas, escondidas, para saber quantas cabem em pé (ui/tab-fit.ts) -->
     <div class="abas medida" aria-hidden="true">

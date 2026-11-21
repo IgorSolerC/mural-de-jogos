@@ -75,18 +75,21 @@ function contentsWords(notes: number, folders: number): { words: string; many: b
             </p>
           }
 
-          <fieldset class="grupo destinos" [disabled]="busy()">
-            <legend class="grupo-titulo">Para onde vai o que está nele</legend>
-            <div class="segmentos">
-              @for (o of kinds; track o.kind) {
-                <label class="segmento" [class.perigo]="o.kind === 'apagar'">
-                  <input type="radio" name="ag-destino" [value]="o.kind" [checked]="kind() === o.kind" (change)="kind.set(o.kind)" />
-                  <span class="seg-nome">{{ o.label }}</span>
-                  <span class="seg-sub">{{ o.sub }}</span>
-                </label>
-              }
-            </div>
-          </fieldset>
+          <!-- o grupo vazio (o criado no "Novo grupo" do "Mais", sem nada ainda) não tem para onde levar nada -->
+          @if (!empty()) {
+            <fieldset class="grupo destinos" [disabled]="busy()">
+              <legend class="grupo-titulo">Para onde vai o que está nele</legend>
+              <div class="segmentos">
+                @for (o of kinds; track o.kind) {
+                  <label class="segmento" [class.perigo]="o.kind === 'apagar'">
+                    <input type="radio" name="ag-destino" [value]="o.kind" [checked]="kind() === o.kind" (change)="kind.set(o.kind)" />
+                    <span class="seg-nome">{{ o.label }}</span>
+                    <span class="seg-sub">{{ o.sub }}</span>
+                  </label>
+                }
+              </div>
+            </fieldset>
+          }
 
           <section class="grupo" aria-labelledby="ag-acontece">
             <h3 class="grupo-titulo" id="ag-acontece">O que acontece</h3>
@@ -108,7 +111,7 @@ function contentsWords(notes: number, folders: number): { words: string; many: b
                   <app-group-picker [required]="true" [canCreate]="false" groupLabel="Grupo para onde vai tudo" [category]="target()" (categoryChange)="target.set($event)" [categories]="targets()" />
                 </fieldset>
               } @else {
-                <p class="vazio">Não há outro grupo em que você escreva para onde levar. Escolha deixar sem grupo, ou crie o grupo numa anotação antes.</p>
+                <p class="vazio">Não há outro grupo em que você escreva para onde levar. Escolha deixar sem grupo, ou crie o grupo antes, no “Novo grupo” do “Mais” das abas.</p>
               }
             </section>
             @if (target(); as to) {
@@ -141,7 +144,7 @@ function contentsWords(notes: number, folders: number): { words: string; many: b
           <div class="actions">
             <!-- vermelho, com a lixeira, só quando algo não volta; os outros dois destinos não perdem nada -->
             <button type="submit" class="btn-ink" [class.danger]="kind() === 'apagar'" [disabled]="!ready()" [appBusy]="busy()">
-              <lucide-icon [img]="kind() === 'apagar' ? DeleteIcon : kind() === 'levar' ? GoIcon : FolderIcon" [size]="18" aria-hidden="true" />
+              <lucide-icon [img]="kind() === 'apagar' || empty() ? DeleteIcon : kind() === 'levar' ? GoIcon : FolderIcon" [size]="18" aria-hidden="true" />
               {{ busy() ? 'Apagando…' : confirmLabel() }}
             </button>
           </div>
@@ -289,6 +292,8 @@ export class GroupDeleteSheet {
   });
   private readonly boards = computed(() => this.freeBoards.goingWithGroup(this.name()).map((b) => b.nome));
   private readonly kanbanCards = computed(() => this.kanban.get(boardIdFor(this.name()))?.cards.length ?? 0);
+  /** Nada nele (o grupo criado à mão, ainda sem nada): apagar só tira o nome, sem perguntar para onde vai. */
+  protected readonly empty = computed(() => !this.notes().length && !this.folderCount() && !this.decks().length && !this.boards().length && !this.kanbanCards());
 
   /** O grupo compartilhado (você é o dono: quem não é nem chega aqui) e quem deixa de ver. */
   protected readonly sharedWith = computed(() => {
@@ -313,6 +318,7 @@ export class GroupDeleteSheet {
 
   /** "12 anotações · 3 pastas · 2 baralhos": o que está nele, na linha de baixo do título. */
   protected readonly summary = computed(() => {
+    if (this.empty()) return 'Nenhuma anotação ainda';
     const parts = [plural(this.notes().length, 'anotação', 'anotações')];
     if (this.folderCount()) parts.push(plural(this.folderCount(), 'pasta', 'pastas'));
     if (this.decks().length) parts.push(plural(this.decks().length, 'baralho', 'baralhos'));
@@ -333,6 +339,7 @@ export class GroupDeleteSheet {
 
   /** O que acontece com o destino escolhido, com os números de verdade. `strong`: o que não volta. */
   protected readonly lines = computed<{ text: string; strong?: boolean }[]>(() => {
+    if (this.empty()) return [{ text: 'O grupo está vazio: só o nome, o ícone, a cor e os padrões vão embora.' }];
     const kind = this.kind();
     const n = this.notes().length;
     const { words, many } = contentsWords(n, this.folderCount());
@@ -387,6 +394,7 @@ export class GroupDeleteSheet {
 
   /** O botão vermelho diz o destino. */
   protected readonly confirmLabel = computed(() => {
+    if (this.empty()) return 'Apagar o grupo';
     const kind = this.kind();
     if (kind === 'soltar') return 'Apagar e deixar sem grupo';
     if (kind === 'levar') return this.target() ? `Apagar e levar para ${this.target()}` : 'Apagar e levar';

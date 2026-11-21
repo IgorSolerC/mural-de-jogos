@@ -79,6 +79,9 @@ Sim se a mudança cria **pelo menos uma destas**, que não existia em lugar nenh
   algo que não guardava: a imagem colada do aparelho, no widget de imagem que já mostrava a de um link.
 - Editar o que já dava para apagar e escrever de novo é melhoria (M4), mesmo quando a nuvem passa a
   guardar a marca de editado: editar um comentário (21/nov/2026) é outro caminho para trocar o que ele diz.
+- Criar por um caminho novo o que antes só nascia junto com outra coisa é melhoria (M4), mesmo quando ele
+  passa a poder existir sozinho: o "Novo grupo" do "Mais" das abas (21/nov/2026) cria o grupo que antes
+  nascia com a primeira anotação, e o grupo agora existe vazio.
 - Um link para outro tipo de coisa do site, depois dos links entre anotações, é melhoria (M2): o link
   para um lembrete do Calendário (1.36.2) é mais um link do texto, e a anotação já se ligava aos
   lembretes pelo próprio Calendário.

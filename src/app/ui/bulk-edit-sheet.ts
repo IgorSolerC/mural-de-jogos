@@ -202,7 +202,7 @@ export class BulkEditSheet {
     return g ? this.settings.categoryLook(g) : {};
   });
   protected readonly groupColor = computed(() => categoryColorHex(this.groupLook().color));
-  protected readonly categoryLib = computed(() => categoryLibrary(this.store.notes()));
+  protected readonly categoryLib = computed(() => categoryLibrary(this.store.notes(), this.settings.madeGroups()));
 
   /** Onde estão: com pastas marcadas, as marcadas de cima (as pastas e as soltas), que são o que a Pasta leva. */
   protected readonly folderNow = computed(() => {

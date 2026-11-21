@@ -222,7 +222,7 @@ describe('o espelho da API: o serviço (ApiMirror)', () => {
         { provide: CloudAccount, useValue: account },
         { provide: ReviewStore, useValue: { notes, sharedIds: shared } },
         { provide: KanbanStore, useValue: { boardOnly: signal(new Set()), cardOf: () => null, isOnWall: () => false } },
-        { provide: Settings, useValue: { notesConfig: signal({ subjects: {} }), pinnedTags: signal([]) } },
+        { provide: Settings, useValue: { notesConfig: signal({ subjects: {} }), pinnedTags: signal([]), madeGroups: signal([]) } },
         { provide: SpendingStore, useValue: { state: signal(EMPTY_SPENDING) } },
         { provide: FreeBoardStore, useValue: { ready: Promise.resolve(), boards, version: computed(() => boards().length) } },
       ],

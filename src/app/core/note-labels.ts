@@ -180,13 +180,15 @@ export function tagLibrary(notes: readonly Review[], pinned: readonly string[], 
   return [...fixed, ...rest];
 }
 
-/** As categorias à mão no editor: a cartela pronta e, depois, as usadas nas anotações (de A a Z). */
-export function categoryLibrary(notes: readonly Review[]): Bonus[] {
+/**
+ * As categorias à mão no editor: a cartela pronta e, depois, as usadas nas anotações e as criadas à mão sem
+ * nenhuma (`made`, o "Novo grupo" do "Mais"), de A a Z.
+ */
+export function categoryLibrary(notes: readonly Review[], made: readonly { label: string }[] = []): Bonus[] {
   const presets = DEFAULT_CATEGORIES.map((id) => categoryPresets().find((b) => b.id === id)!);
   const known = new Set(presets.map((b) => fold(b.label)));
   const custom = new Map<string, string>();
-  for (const n of notes) {
-    const c = categoryOf(n);
+  for (const c of [...notes.map(categoryOf), ...made.map((g) => g.label)]) {
     if (c && !known.has(fold(c)) && !custom.has(fold(c))) custom.set(fold(c), c);
   }
   return [...presets, ...[...custom.values()].sort((a, b) => a.localeCompare(b, 'pt-BR')).map(categoryBonus)];

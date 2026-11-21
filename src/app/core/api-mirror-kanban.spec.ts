@@ -178,7 +178,7 @@ describe('o espelho da API: o serviço manda os quadros', () => {
             groupKanbanOnly: () => false,
           },
         },
-        { provide: Settings, useValue: { notesConfig: signal({ subjects: {} }), pinnedTags: signal([]) } },
+        { provide: Settings, useValue: { notesConfig: signal({ subjects: {} }), pinnedTags: signal([]), madeGroups: signal([]) } },
         { provide: SpendingStore, useValue: { state: signal(EMPTY_SPENDING) } },
       ],
     });

@@ -385,6 +385,8 @@ const PREFS: readonly { key: keyof CategoryPrefs; label: string; icon: LucideIco
   { key: 'askTag', label: 'Avisar quando faltar a tag', icon: ICON.etiqueta, cell: (p) => (p.askTag === undefined ? empty('Como o mural') : sw(p.askTag, 'Avisa', 'Não avisa')) },
   { key: 'hidden', label: 'Aba escondida no “Mais”', icon: ICON.esconder, cell: (p) => sw(!!p.hidden, 'Escondida no “Mais”', 'Em pé com os outros grupos') },
   { key: 'kanbanOnly', label: 'Anotações do quadro', icon: ICON.colunas, cell: (p) => sw(p.kanbanOnly !== false, 'Só no Kanban', 'No Kanban e no mural') },
+  // o grupo criado à mão (o "Novo grupo" do "Mais"): fica mesmo sem anotação
+  { key: 'name', label: 'Grupo criado à mão', icon: ICON.adicionar, cell: (p) => sw(!!p.name, `${p.name}: fica mesmo sem anotação`, 'Só com anotações') },
   {
     key: 'view',
     label: 'Abre como',
