@@ -10,6 +10,11 @@
   <section class="primeiro" aria-labelledby="primeiro-titulo">
     <div class="primeiro-ficha cartolina" data-cor="verde" style="--stock: var(--stock-verde)">
       <app-pin class="pin" />
+      @if (g && study.readOnlyGroup(g.label)) {
+        <!-- o grupo compartilhado em que você só lê: os baralhos são de quem edita (PLANO-FLASHCARDS-GRUPO.md, D3) -->
+        <h2 id="primeiro-titulo">{{ g.label }} ainda não tem baralho</h2>
+        <p>Você só lê este grupo. Quando alguém que edita montar um baralho nele, ele aparece aqui para você estudar, com o seu progresso.</p>
+      } @else {
       <h2 id="primeiro-titulo">{{ g ? "Monte o primeiro baralho de " + g.label : "Monte o seu primeiro baralho" }}</h2>
       @if (g) {
         <p>
@@ -44,6 +49,7 @@
         }
         <button type="submit" class="btn-ink" [disabled]="!firstName().trim()">Criar o baralho</button>
       </form>
+      }
     </div>
     <ol class="vagas" aria-hidden="true">
       <li class="vaga"></li>
@@ -138,6 +144,7 @@
       </div>
       <div class="pasta-controles">
         @if (deck(); as d) {
+          @if (!deckReadOnly()) {
           <div class="pasta-grupo poe-cartas" role="group" aria-label="Flashcards">
             <button type="button" class="tinta" (click)="newCard(d.id)">
               <lucide-icon [img]="AddIcon" [size]="18" aria-hidden="true" />
@@ -148,7 +155,8 @@
               Trazer anotações
             </button>
           </div>
-        } @else if (group()?.decks?.length) {
+          }
+        } @else if (group()?.decks?.length && !groupReadOnly()) {
           <div class="pasta-grupo">
             <button type="button" class="tinta novo-baralho" aria-haspopup="dialog" (click)="newDeck()">
               <lucide-icon [img]="AddIcon" [size]="18" aria-hidden="true" />
@@ -244,7 +252,7 @@
     } @else {
       <!-- a parede das cartas, a mesma de quem visita o seu mural (ui/study-card-wall.ts): tocar vira a carta ali
            mesmo; a etiqueta de tinta maximiza, lê a anotação e edita -->
-      <app-study-card-wall [deck]="d" [cards]="cards()" [small]="cardSize() === 'pequenas'" [editable]="true" [marks]="ownNotes()" [ownerMenu]="ownerCardMenu" (read)="open($event)" (edit)="edit($event)" />
+      <app-study-card-wall [deck]="d" [cards]="cards()" [small]="cardSize() === 'pequenas'" [editable]="!deckReadOnly()" [marks]="ownNotes()" [ownerMenu]="ownerCardMenu" (read)="open($event)" (edit)="edit($event)" />
     }
   } @else if (group(); as g) {
     @if (!g.decks.length) {

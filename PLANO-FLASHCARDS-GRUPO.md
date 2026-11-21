@@ -63,5 +63,5 @@ No fim: /code-review high, Novidades, BUILD, build de produção, fotos 2x.
 ## Andamento
 
 - [x] Parte 1 — Os dados (BUILD 990): `core/shared-study.ts`, a ponte `core/group-studies.ts` (o `StudyStore` não depende do `SharedGroupsStore`, como as pastas em `GroupFolders`), `saved`/`state` no `StudyStore`, a junção no documento do grupo, sair e parar de compartilhar, o espelho da API e a nuvem conferindo quem vê os baralhos
-- [ ] Parte 2 — A tela
+- [x] Parte 2 — A tela (BUILD 991): `StudyStore.readOnlyGroup`, `readOnlyDeck`, `audienceLocked` e `sharedOf`; quem só lê fica sem Novo baralho, Novo flashcard, Trazer anotações, editar e tirar flashcards, a cartolina de criar e, na folha do baralho, sem o que não é dele (fica o Estudo); quem edita sem gerir vê o Quem vê travado, com o motivo; a folha diz de quem é o baralho; a aba Flashcard do editor diz o que o flashcard é; a peça Quem vê do grupo conta os Flashcards no que vai junto
 - [x] Parte 3 — Os quadros livres pelo grupo (BUILD 990, junto da parte 1): `FreeBoardStore.setPlaces`, o lugar que aparece; o guardado continua com o grupo da dona

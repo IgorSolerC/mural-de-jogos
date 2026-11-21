@@ -302,6 +302,39 @@ export class StudyStore {
     return this.decks().find((d) => d.id === id);
   }
 
+  /**
+   * O grupo compartilhado do baralho (PLANO-FLASHCARDS-GRUPO.md): o que tem o baralho no documento, ou, para o que
+   * ainda não foi para ele, o de mesmo nome. undefined: o baralho é só seu.
+   */
+  sharedOf(id: string): GroupStudy | undefined {
+    const groups = this.shared();
+    if (!groups.length) return undefined;
+    const inDoc = groups.find((g) => knownDecks(g).has(id));
+    if (inDoc) return inDoc;
+    const key = groupKey(this.deck(id)?.group);
+    return key ? groups.find((g) => groupKey(g.name) === key) : undefined;
+  }
+
+  /** O grupo é compartilhado e você só lê nele: nada de baralho novo nem flashcard novo nele (D3). */
+  readOnlyGroup(group: string | null | undefined): boolean {
+    const key = groupKey(group);
+    return !!key && this.shared().some((g) => !g.write && groupKey(g.name) === key);
+  }
+
+  /**
+   * O baralho é de um grupo em que você só lê: só o que é seu muda (a pausa, o recomeçar, as novas por dia). O que você
+   * já tinha no grupo antes de ele ser compartilhado, e que nunca foi para o documento, continua seu (D4).
+   */
+  readOnlyDeck(id: string): boolean {
+    return this.shared().some((g) => !g.write && knownDecks(g).has(id));
+  }
+
+  /** Quem vê o baralho só muda com quem gere o grupo dele (D3): o Editor vê, mas não muda. */
+  audienceLocked(id: string): boolean {
+    const g = this.sharedOf(id);
+    return !!g && !g.manage;
+  }
+
   /** Os baralhos do grupo do endereço (o id de `studyGroupId`), na ordem das abas. */
   decksOfGroup(groupId: string): Deck[] {
     return this.decks().filter((d) => !!d.group && studyGroupId(d.group) === groupId);

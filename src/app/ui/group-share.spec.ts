@@ -131,7 +131,7 @@ describe('compartilhar um grupo: a parte da engrenagem e a etiqueta da pasta', (
     setup(undefined);
     const { f, el } = await render();
     expect(el.querySelector('[data-resumo]')?.textContent?.trim()).toBe('Só você vê.');
-    expect(el.textContent).toContain('O mural do grupo (3 anotações), o Kanban e os quadros livres dele.');
+    expect(el.textContent).toContain('O mural do grupo (3 anotações), o Kanban, os Flashcards e os quadros livres dele.');
     expect(el.querySelector('.pe')).toBeNull();
     await typeCode(f, 'bbbb2222');
     expect(asked[0]!.text).toBe('Há 2 anotações privadas neste grupo. BBBB-2222 vai poder vê-las, como as outras do grupo.');

@@ -54,6 +54,10 @@ const STOCK_LABEL: Record<LightStock, string> = {
                 {{ d.deck.name }}
               </h2>
               <p class="sub">Baralho {{ d.index + 1 }} de {{ d.total }} · {{ d.count === 1 ? '1 flashcard' : d.count + ' flashcards' }}@if (d.deck.group) { · do grupo {{ d.deck.group }}}</p>
+              @if (groupNote(); as note) {
+                <!-- o baralho de um grupo compartilhado é de todos que estão nele (PLANO-FLASHCARDS-GRUPO.md, D2) -->
+                <p class="grupo-dica">{{ note }}</p>
+              }
             </div>
             <button type="button" class="icon-btn fecha" aria-label="Fechar" (click)="close()">
               <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
@@ -61,6 +65,7 @@ const STOCK_LABEL: Record<LightStock, string> = {
           </header>
 
           <div class="body">
+            @if (!reads()) {
             <section class="grupo" aria-labelledby="ba-nome-t">
               <h3 class="grupo-titulo" id="ba-nome-t">Nome</h3>
               <label class="campo">
@@ -68,6 +73,7 @@ const STOCK_LABEL: Record<LightStock, string> = {
                 <input #nome type="text" autocomplete="off" [maxLength]="nameMax" [value]="d.deck.name" (change)="rename($any($event.target).value)" (keydown.enter)="$any($event.target).blur()" />
               </label>
             </section>
+            }
 
             <!-- estudar ou pausar (uma viagem, um mês sem estudar): as etiquetas do Quem vê; pausado, nada dele chama
                  para estudar, e ao retomar as cartas voltam como estavam (core/study.ts, resumeDeck) -->
@@ -96,19 +102,20 @@ const STOCK_LABEL: Record<LightStock, string> = {
 
             <!-- quem vê: as duas etiquetas do Público e do Privado do editor da anotação; o baralho público mostra
                  a quem visita o seu mural as cartas de anotações públicas (PLANO-BARALHOS-PUBLICOS.md) -->
+            @if (!reads()) {
             <section class="grupo" aria-labelledby="ba-quem-t">
               <h3 class="grupo-titulo" id="ba-quem-t">Quem vê</h3>
               <div class="quem-opts" role="radiogroup" aria-labelledby="ba-quem-t" aria-describedby="ba-quem-dica">
-                <button type="button" role="radio" class="quem-tag" [attr.aria-checked]="!!d.deck.public" [disabled]="asking()" (click)="setPublic(true)">
+                <button type="button" role="radio" class="quem-tag" [attr.aria-checked]="!!d.deck.public" [disabled]="asking() || locked()" (click)="setPublic(true)">
                   <lucide-icon [img]="PublicIcon" [size]="16" aria-hidden="true" />
                   Público
                 </button>
-                <button type="button" role="radio" class="quem-tag" [attr.aria-checked]="!d.deck.public" [disabled]="asking()" (click)="setPublic(false)">
+                <button type="button" role="radio" class="quem-tag" [attr.aria-checked]="!d.deck.public" [disabled]="asking() || locked()" (click)="setPublic(false)">
                   <lucide-icon [img]="PrivateIcon" [size]="16" aria-hidden="true" />
                   Privado
                 </button>
               </div>
-              <p class="quem-dica" id="ba-quem-dica">{{ shareHint() }}</p>
+              <p class="quem-dica" id="ba-quem-dica">{{ shareHint() }}@if (locked()) { Só o dono e os gestores do grupo mudam quem vê.}</p>
             </section>
 
             <section class="grupo" aria-labelledby="ba-cor-t">
@@ -169,14 +176,17 @@ const STOCK_LABEL: Record<LightStock, string> = {
               <h3 class="grupo-titulo" id="ba-icone-t">Ícone</h3>
               <app-icon-chart [value]="d.deck.icon" none="Sem ícone" [heading]="'Ícone do baralho ' + d.deck.name" [hint]="d.deck.icon ? 'Antes do nome do baralho, na fileira.' : 'O baralho aparece só com o nome.'" (pick)="set({ icon: $event })" />
             </section>
+            }
 
           </div>
 
           <footer class="foot">
+            @if (!reads()) {
             <button type="button" class="papel perigo" (click)="remove()">
               <lucide-icon [img]="TrashIcon" [size]="16" aria-hidden="true" />
               Apagar o baralho
             </button>
+            }
             <div class="actions">
               <button type="button" class="btn-ink" (click)="close()">Pronto</button>
             </div>
@@ -243,6 +253,15 @@ const STOCK_LABEL: Record<LightStock, string> = {
     }
     .quem-dica {
       margin: 12px 0 0;
+      max-width: 52ch;
+      font-size: 0.92rem;
+      line-height: 1.45;
+      color: var(--ink-2);
+    }
+
+    /* de quem é o baralho de um grupo compartilhado: a frase embaixo do subtítulo, na mesma tinta das dicas */
+    .grupo-dica {
+      margin: 6px 0 0;
       max-width: 52ch;
       font-size: 0.92rem;
       line-height: 1.45;
@@ -346,6 +365,20 @@ export class StudyDeckSheet {
 
   protected readonly current = computed(() => deckLook(this.data()?.deck));
 
+  /** O grupo compartilhado do baralho (PLANO-FLASHCARDS-GRUPO.md), ou undefined: o baralho é só seu. */
+  private readonly sharedGroup = computed(() => (this.data() ? this.study.sharedOf(this.deckId()) : undefined));
+  /** O baralho é de um grupo em que você só lê: a folha fica só com o seu estudo dele (D3). */
+  protected readonly reads = computed(() => !!this.data() && this.study.readOnlyDeck(this.deckId()));
+  /** Quem vê o baralho é do dono e dos gestores do grupo: o Editor vê a escolha, sem mudar (D3). */
+  protected readonly locked = computed(() => !!this.data() && this.study.audienceLocked(this.deckId()));
+  /** De quem é o baralho de um grupo compartilhado, e o que é só seu nele. */
+  protected readonly groupNote = computed(() => {
+    const g = this.sharedGroup();
+    if (!g) return null;
+    if (this.reads()) return `É de todos que estão em ${g.name}. Você só lê este grupo: aqui, só o seu estudo dele, a pausa e o progresso, que são só seus.`;
+    return `É de todos que estão em ${g.name}: o que você muda aqui muda para todos. A pausa e o progresso são só seus.`;
+  });
+
   /** A pergunta do "Tornar todas públicas" está aberta: as etiquetas esperam. */
   protected readonly asking = signal(false);
 
@@ -353,7 +386,8 @@ export class StudyDeckSheet {
   protected readonly shareHint = computed(() => {
     const d = this.data();
     if (!d) return '';
-    if (!d.deck.public) return 'Só você vê este baralho.';
+    const g = this.sharedGroup();
+    if (!d.deck.public) return g ? `Só quem está em ${g.name} vê este baralho.` : 'Só você vê este baralho.';
     const s = this.study.share(d.deck.id);
     const cards = (n: number) => (n === 1 ? '1 flashcard' : `${n} flashcards`);
     const who =

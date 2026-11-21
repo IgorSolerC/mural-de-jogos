@@ -21,7 +21,7 @@ import { ICON, IconModule } from './icons';
 /**
  * Compartilhar um grupo (PLANO-COMPARTILHAR.md, 4.2): a parte Compartilhar da engrenagem monta isto para o
  * grupo aberto. A peça Quem vê (a frase, chamar alguém, quem está) com o que é só do grupo: o que vai junto
- * (o mural do grupo, o Kanban e os quadros livres), as anotações indo para a nuvem, e o pé (parar de
+ * (o mural do grupo, o Kanban, os Flashcards e os quadros livres), as anotações indo para a nuvem, e o pé (parar de
  * compartilhar, para o dono; sair, para os outros), cada um com o aviso do plano (4.4.3, 4.4.6, 4.4.7).
  */
 @Component({
@@ -158,7 +158,7 @@ export class GroupShare {
     // as do mural de quem olha (as do grupo e as que ainda vão para ele): a conta da nuvem só muda com a versão do grupo
     const n = this.notes().length;
     const notes = n === 0 ? 'ainda sem anotações' : n === 1 ? 'uma anotação' : `${n} anotações`;
-    return `O mural do grupo (${notes}), o Kanban e os quadros livres dele. Fixar, a vista e a ordem continuam de cada um.`;
+    return `O mural do grupo (${notes}), o Kanban, os Flashcards e os quadros livres dele. Fixar, a vista, a ordem e o progresso dos flashcards continuam de cada um.`;
   });
 
   protected readonly target: AccessTarget = {
@@ -186,7 +186,7 @@ export class GroupShare {
     emptyHint: computed(() =>
       this.group()
         ? null
-        : 'Por enquanto, só você. Quem você chamar vê o grupo no próprio mural, com as anotações, o Kanban e os quadros livres, e recebe um aviso em Amigos.',
+        : 'Por enquanto, só você. Quem você chamar vê o grupo no próprio mural, com as anotações, o Kanban, os Flashcards e os quadros livres, e recebe um aviso em Amigos.',
     ),
     beforeAdd: async (nome: string) => {
       // a primeira pessoa num grupo com privadas: elas passam a ser vistas (resposta P1 do dono)

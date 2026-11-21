@@ -138,6 +138,18 @@ export class FlashcardTab {
   private readonly wallChoice = signal<boolean | null>(null);
   /** Faltou o baralho ao salvar. */
   protected readonly missingDeck = signal(false);
+  /**
+   * A anotação é de um grupo compartilhado em que você só lê (PLANO-FLASHCARDS-GRUPO.md, D3): o flashcard dela é do
+   * grupo, e só quem edita o grupo o faz, muda a frente ou os baralhos. Aqui, o que ele é e o seu progresso.
+   */
+  protected readonly groupLocked = computed(() => this.study.readOnlyGroup(this.group()));
+  /** O que o flashcard é, para quem só lê o grupo dele. */
+  protected readonly lockedText = computed(() => {
+    const names = (this.card()?.decks ?? []).map((id) => this.study.deck(id)?.name).filter((n): n is string => !!n);
+    const list = names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`;
+    const where = list ? `, em ${list}` : '';
+    return `Este flashcard é do grupo ${this.group() ?? ''}${where}. Você só lê este grupo: quem edita muda a frente e os baralhos. O progresso é só seu.`;
+  });
   /** Onde se escolhe o grupo. */
   protected readonly groupPlace = computed(() => (this.readOnly() ? 'em Grupo e tags, na leitura da anotação' : 'na aba Anotação'));
   /** O que dizer quando falta: sem grupo, não há baralho para escolher. */
@@ -405,6 +417,11 @@ export class FlashcardTab {
   apply(id: string): { decks: string[]; group: string } | null {
     const card = this.study.cardOf().get(id);
     this.decksBefore = card?.decks ?? [];
+    // (no grupo em que você só lê, nada daqui muda o flashcard: ele é do grupo)
+    if (this.groupLocked()) {
+      this.study.pending.set(null);
+      return null;
+    }
     if (!this.on()) {
       const undo = card ? this.study.removeCard(id) : null;
       if (undo) this.toasts.show(`“${this.noteTitle().trim()}” saiu dos Flashcards`, { label: 'Desfazer', run: undo });

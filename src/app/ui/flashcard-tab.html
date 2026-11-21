@@ -1,7 +1,11 @@
 @if (!on()) {
   <!-- ainda não é flashcard: o estado e uma ação só. O que ela faz está à vista no palco, a frente e o verso -->
   <div class="vazia">
-    @if (hasGroup()) {
+    @if (groupLocked()) {
+      <!-- o grupo compartilhado em que você só lê: os flashcards dele são de quem edita (PLANO-FLASHCARDS-GRUPO.md, D3) -->
+      <p class="estado">Esta anotação ainda não é um flashcard.</p>
+      <p class="estado sem-grupo">Você só lê {{ group() }}: os flashcards dele são feitos por quem edita o grupo.</p>
+    } @else if (hasGroup()) {
       <p class="estado">Esta anotação ainda não é um flashcard.</p>
       <button type="button" class="btn-ink virar" (click)="start()">
         <lucide-icon [img]="CardIcon" [size]="18" aria-hidden="true" />
@@ -17,6 +21,10 @@
   </div>
 } @else {
   <div class="fc">
+    @if (groupLocked()) {
+      <!-- o flashcard de um grupo em que você só lê: o que ele é, e o seu progresso (D3) -->
+      <p class="bloco grupo-so-le">{{ lockedText() }}</p>
+    } @else {
     <!-- o baralho vem primeiro: é o único que falta decidir para o flashcard existir -->
     <section class="bloco" [class.errada]="missingDeck()" aria-labelledby="fc-baralho-nome">
       <h3 class="nome" id="fc-baralho-nome">
@@ -108,6 +116,7 @@
         <span class="bolinha"></span>
       </button>
     </div>
+    }
 
     @if (studied()) {
       <details #progresso class="bloco progresso" [open]="progressOpen()" (toggle)="progressOpen.set($any($event.target).open)">
@@ -126,11 +135,13 @@
       </details>
     }
 
+    @if (!groupLocked()) {
     <div class="pe">
       <button type="button" class="papel perigo" (click)="stop()">
         <lucide-icon [img]="TrashIcon" [size]="15" aria-hidden="true" />
         Deixar de ser flashcard de estudos
       </button>
     </div>
+    }
   </div>
 }

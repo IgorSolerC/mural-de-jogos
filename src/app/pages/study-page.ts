@@ -219,6 +219,16 @@ export class StudyPage {
   protected readonly sortLabel = computed(() => SORTS.find((s) => s.id === this.sort())!.label);
   /** A folha do baralho aberta (`fresh`: acabou de nascer, o nome vem selecionado). */
   protected readonly sheet = signal<{ id: string; fresh: boolean } | null>(null);
+  /**
+   * O baralho aberto é de um grupo compartilhado em que você só lê (PLANO-FLASHCARDS-GRUPO.md, D3): você estuda e
+   * pausa, e nada de flashcard novo, trazer anotações, editar ou tirar flashcards.
+   */
+  protected readonly deckReadOnly = computed(() => {
+    const d = this.deck();
+    return !!d && this.study.readOnlyDeck(d.id);
+  });
+  /** O grupo aberto é compartilhado e você só lê nele: sem Novo baralho. */
+  protected readonly groupReadOnly = computed(() => this.study.readOnlyGroup(this.group()?.label));
   /** A sessão de estudo aberta: de um baralho, de um grupo (o nome), ou de todos (os dois null); com `drill`, o treino. */
   protected readonly session = signal<{ deck: string | null; group?: string | null; drill?: DrillPlan } | null>(null);
   /** O "Escolher quais" do Treinar aberto. */
@@ -372,7 +382,12 @@ export class StudyPage {
    * O Novo baralho de Tudo: os grupos, na ordem das abas, só com o desenho e o nome. Todos, até os sem
    * baralho e os escondidos: é neles que o botão mais faz falta (a chave é o nome, que o newDeck recebe).
    */
-  protected readonly newDeckItems = computed<TabMoreItem[]>(() => this.groups().map((g) => ({ key: g.label, label: g.label, n: 0, look: g.look, say: '', quiet: true })));
+  protected readonly newDeckItems = computed<TabMoreItem[]>(() =>
+    // (o grupo compartilhado em que você só lê fica de fora: os baralhos dele são de quem edita, D3)
+    this.groups()
+      .filter((g) => !this.study.readOnlyGroup(g.label))
+      .map((g) => ({ key: g.label, label: g.label, n: 0, look: g.look, say: '', quiet: true })),
+  );
   /** Os grupos com baralho, para as seções de Tudo. */
   protected readonly filled = computed(() => this.groups().filter((g) => g.decks.length));
   /** O grupo do primeiro baralho de todos: o escolhido, ou o de sempre. */
@@ -679,7 +694,7 @@ export class StudyPage {
    * folha pelo pedido da navegação; se for a mesma página, abre aqui.
    */
   protected newDeck(group = this.group()?.label): void {
-    if (!group?.trim()) return;
+    if (!group?.trim() || this.study.readOnlyGroup(group)) return;
     const names = new Set(this.study.decks().map((d) => d.name));
     let n = this.study.decks().length + 1;
     while (names.has(`Baralho ${n}`)) n++;
@@ -693,7 +708,7 @@ export class StudyPage {
   /** A cartolina do primeiro baralho (de um grupo, ou de todos, com o grupo escolhido): o baralho com o nome escrito. */
   protected createFirst(group: string): void {
     const name = this.firstName().trim();
-    if (!name || !group.trim()) return;
+    if (!name || !group.trim() || this.study.readOnlyGroup(group)) return;
     const id = this.study.addDeck(name, this.freeColor(), null, undefined, group);
     if (!id) return;
     this.firstName.set('');
@@ -736,7 +751,9 @@ export class StudyPage {
     if (g.decks.length && DRILL_KINDS.some((k) => drills[k] > 0)) {
       lead.push({ id: 'treinar', label: 'Treinar', icon: ICON.alvo, hint: 'Passar os flashcards de novo, sem contar no progresso', run: () => this.trainGroup(g.id) });
     }
-    lead.push({ id: 'novo-baralho', label: 'Novo baralho', icon: ICON.adicionar, dialog: true, hint: `Um baralho já em ${g.label}`, run: () => this.newDeck(g.label) });
+    if (!this.study.readOnlyGroup(g.label)) {
+      lead.push({ id: 'novo-baralho', label: 'Novo baralho', icon: ICON.adicionar, dialog: true, hint: `Um baralho já em ${g.label}`, run: () => this.newDeck(g.label) });
+    }
     return this.groupMenu.sections({
       label: g.label,
       here: 'flashcards',
@@ -773,14 +790,26 @@ export class StudyPage {
     if (DRILL_KINDS.some((k) => drills[k] > 0)) {
       work.push({ id: 'treinar', label: 'Treinar', icon: ICON.alvo, hint: 'Passar os flashcards de novo, sem contar no progresso', run: () => this.trainIn(d) });
     }
-    work.push({ id: 'novo', label: 'Novo flashcard', icon: ICON.adicionar, dialog: true, run: () => this.newCard(id) });
-    work.push({ id: 'trazer', label: 'Trazer anotações', icon: ICON.anotacoes, dialog: true, hint: 'Anotações do grupo, para virar flashcards deste baralho', run: () => this.bringInto(d) });
+    // (no baralho de um grupo em que você só lê, os flashcards são de quem edita: você estuda, pausa e ajusta o seu)
+    const reads = this.study.readOnlyDeck(id);
+    if (!reads) {
+      work.push({ id: 'novo', label: 'Novo flashcard', icon: ICON.adicionar, dialog: true, run: () => this.newCard(id) });
+      work.push({ id: 'trazer', label: 'Trazer anotações', icon: ICON.anotacoes, dialog: true, hint: 'Anotações do grupo, para virar flashcards deste baralho', run: () => this.bringInto(d) });
+    }
     const adjust: MenuItem[] = [
-      { id: 'ajustes', label: 'Ajustes do baralho', icon: ICON.editar, dialog: true, hint: 'O nome, o desenho, a cor, quem vê e a posição', run: () => this.sheet.set({ id, fresh: false }) },
+      {
+        id: 'ajustes',
+        label: 'Ajustes do baralho',
+        icon: ICON.editar,
+        dialog: true,
+        hint: reads ? 'O seu estudo dele: pausar e recomeçar o progresso' : 'O nome, o desenho, a cor, quem vê e a posição',
+        run: () => this.sheet.set({ id, fresh: false }),
+      },
       d.paused
         ? { id: 'retomar', label: 'Retomar o baralho', icon: ICON.estudar, hint: 'Os flashcards voltam como estavam quando você pausou', run: () => this.resume(id) }
         : { id: 'pausar', label: 'Pausar o baralho', icon: ICON.pausa, hint: 'Nada dele entra nos montes de hoje até você retomar', run: () => this.pause(id) },
     ];
+    if (reads) return [open, work, adjust];
     const end: MenuItem[] = [{ id: 'apagar', label: 'Apagar o baralho', icon: ICON.apagar, danger: true, dialog: true, run: () => void this.removeDeck(id) }];
     return [open, work, adjust, end];
   }
@@ -824,6 +853,11 @@ export class StudyPage {
     const d = this.deck();
     const c = this.cards().find((x) => x.note === note);
     if (!d || !c) return [];
+    // o flashcard de um grupo em que você só lê: o seu progresso, e só
+    if (this.study.readOnlyDeck(d.id)) {
+      if (!this.study.cardOf().get(note)?.stats.seen) return [];
+      return [[{ id: 'progresso', label: 'Ver o progresso', icon: ICON.desempenho, dialog: true, hint: 'Quantas vezes foi visto, os acertos e a chance de lembrar agora', run: () => this.desk.editReview(note, 'flashcard', 'progresso') }]];
+    }
     const edit: MenuItem[] = [{ id: 'editar', label: 'Editar o flashcard', icon: ICON.ajustar, dialog: true, hint: 'A frente, os baralhos e o mural, na aba Flashcard', run: () => this.edit(note) }];
     if (this.study.cardOf().get(note)?.stats.seen) {
       edit.push({ id: 'progresso', label: 'Ver o progresso', icon: ICON.desempenho, dialog: true, hint: 'Quantas vezes foi visto, os acertos e a chance de lembrar agora', run: () => this.desk.editReview(note, 'flashcard', 'progresso') });

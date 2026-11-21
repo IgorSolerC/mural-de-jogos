@@ -254,3 +254,12 @@
   font-size: 1.02rem;
   line-height: 1.35;
 }
+
+/* o flashcard de um grupo em que você só lê: o que ele é, a lápis, como a carta que dorme */
+.grupo-so-le {
+  margin: 0;
+  max-width: 52ch;
+  font-family: var(--f-hand);
+  font-size: 1.02rem;
+  line-height: 1.35;
+}
