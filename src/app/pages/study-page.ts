@@ -225,8 +225,15 @@ export class StudyPage {
    */
   protected readonly deckReadOnly = computed(() => {
     const d = this.deck();
-    return !!d && this.study.readOnlyDeck(d.id);
+    return !!d && this.readsDeck(d);
   });
+  /**
+   * Os flashcards do baralho não mudam por aqui: ele é do grupo em que você só lê, ou é um baralho seu de antes num
+   * grupo assim (a aba Flashcard do editor não faz flashcards num grupo só de ler, então Novo flashcard não faria nada).
+   */
+  private readsDeck(d: Deck): boolean {
+    return this.study.readOnlyDeck(d.id) || this.study.readOnlyGroup(d.group);
+  }
   /** O grupo aberto é compartilhado e você só lê nele: sem Novo baralho. */
   protected readonly groupReadOnly = computed(() => this.study.readOnlyGroup(this.group()?.label));
   /** A sessão de estudo aberta: de um baralho, de um grupo (o nome), ou de todos (os dois null); com `drill`, o treino. */
@@ -791,7 +798,7 @@ export class StudyPage {
       work.push({ id: 'treinar', label: 'Treinar', icon: ICON.alvo, hint: 'Passar os flashcards de novo, sem contar no progresso', run: () => this.trainIn(d) });
     }
     // (no baralho de um grupo em que você só lê, os flashcards são de quem edita: você estuda, pausa e ajusta o seu)
-    const reads = this.study.readOnlyDeck(id);
+    const reads = this.readsDeck(d);
     if (!reads) {
       work.push({ id: 'novo', label: 'Novo flashcard', icon: ICON.adicionar, dialog: true, run: () => this.newCard(id) });
       work.push({ id: 'trazer', label: 'Trazer anotações', icon: ICON.anotacoes, dialog: true, hint: 'Anotações do grupo, para virar flashcards deste baralho', run: () => this.bringInto(d) });
@@ -854,7 +861,7 @@ export class StudyPage {
     const c = this.cards().find((x) => x.note === note);
     if (!d || !c) return [];
     // o flashcard de um grupo em que você só lê: o seu progresso, e só
-    if (this.study.readOnlyDeck(d.id)) {
+    if (this.readsDeck(d)) {
       if (!this.study.cardOf().get(note)?.stats.seen) return [];
       return [[{ id: 'progresso', label: 'Ver o progresso', icon: ICON.desempenho, dialog: true, hint: 'Quantas vezes foi visto, os acertos e a chance de lembrar agora', run: () => this.desk.editReview(note, 'flashcard', 'progresso') }]];
     }

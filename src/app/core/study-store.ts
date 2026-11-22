@@ -3,7 +3,7 @@ import { IconChoice } from './icon-choices';
 import { LightStock, audienceFields } from './review';
 import { ReviewStore } from './review-store';
 import { GroupStudies } from './group-studies';
-import { GroupStudy, knownDecks, overlayStudy, samePart, studyPart } from './shared-study';
+import { GroupStudy, knownDecks, overlayStudy, personalCopy, samePart, sameDecks, studyPart } from './shared-study';
 import { onOtherTab, writeJson } from './storage';
 import { fromOtherTab } from './tab-join';
 import {
@@ -24,6 +24,7 @@ import {
   frozenSince,
   groupKey,
   hasProgress,
+  inGroup,
   keepRicher,
   liveStudy,
   mergeStudy,
@@ -97,7 +98,16 @@ export class StudyStore {
    * Os Estudos como valem aqui: o guardado, com os baralhos e as cartas de cada grupo compartilhado vindos do
    * documento dele (ver `overlayStudy`), com os baralhos de cada carta como estão (inclusive os de outro grupo).
    */
-  readonly state = computed<StudyState>(() => overlayStudy(this.saved(), this.shared()));
+  readonly state = computed<StudyState>(() => {
+    const st = overlayStudy(this.saved(), this.shared());
+    // os baralhos iguais aos de antes ficam os mesmos (a resposta muda só as cartas): sem isso, a vista, as filas e
+    // as contas se refariam a cada resposta num grupo compartilhado
+    const before = this.lastDecks;
+    if (st.decks !== before && sameDecks(st.decks, before)) return { ...st, decks: before };
+    this.lastDecks = st.decks;
+    return st;
+  });
+  private lastDecks: Deck[] = [];
   /** As anotações que existem (a carta de uma apagada não aparece nem entra na fila). */
   private readonly notesById = computed(() => new Map(this.store.notes().map((n) => [n.id, n])));
   /** O grupo da anotação (o seu, nas compartilhadas); `undefined`: ela não existe. */
@@ -232,8 +242,10 @@ export class StudyStore {
   private set(next: StudyState): void {
     if (next === this.state()) return;
     const thawed = this.thawLeaving(this.state(), next);
-    this.toGroups(thawed, this.shared());
-    this.saved.set(thawed);
+    // (o baralho novo de um grupo só vai para ele com o nome do grupo aqui já certo, como no efeito de levar)
+    this.toGroups(thawed, this.shared(), this.groups.synced() && this.hasNotes());
+    // (os flashcards do grupo nunca estudados aqui não ficam no guardado: a vista os traz do documento)
+    this.saved.set(personalCopy(thawed, this.shared()));
     this.changedAt.set(Date.now());
   }
 
@@ -242,7 +254,7 @@ export class StudyStore {
    * que mudou: a resposta, a pausa e as novas por dia ficam aqui). No grupo em que você só lê, nada sobe, e a vista
    * continua com o do documento.
    */
-  private toGroups(st: StudyState, groups: readonly GroupStudy[]): void {
+  private toGroups(st: StudyState, groups: readonly GroupStudy[], seed = true): void {
     if (!groups.some((g) => g.write)) return;
     const known = groups.map((g) => knownDecks(g));
     let at: string | null = null;
@@ -250,7 +262,7 @@ export class StudyStore {
       if (!g.write) return;
       const others = new Set(known.filter((_, j) => j !== i).flatMap((k) => [...k]));
       at ??= this.stamp();
-      const part = studyPart(st, g, others, at);
+      const part = studyPart(st, g, others, at, seed);
       if (!samePart(g.part, part)) this.groups.update(g.id, part);
     });
   }
@@ -268,7 +280,9 @@ export class StudyStore {
     } else {
       const at = this.stamp();
       let st = this.saved();
-      for (const d of g.part.decks) st = removeDeck(st, d.id, at).state;
+      // os do documento e os seus de antes no grupo (que só você via): as anotações deles saíram junto
+      const leaving = st.decks.filter((d) => knownDecks(g).has(d.id) || inGroup(d, g.name));
+      for (const d of leaving) st = removeDeck(st, d.id, at).state;
       if (st === this.saved()) return;
       this.saved.set(st);
     }

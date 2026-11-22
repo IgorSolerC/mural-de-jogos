@@ -90,6 +90,17 @@ describe('os Flashcards de um grupo compartilhado na tela', () => {
     expect(buttons()).not.toContain('Novo baralho');
   });
 
+  it('quem só lê, no baralho seu de antes no grupo: também sem Novo flashcard (a aba Flashcard não faria nada)', async () => {
+    setup(groupWith({ write: false, manage: false }));
+    const study = TestBed.inject(StudyStore);
+    const id = study.addDeck('Revisão', 'azul', null, undefined, 'Trabalho');
+    await router.navigateByUrl(studyPath(GROUP, id));
+    await settle();
+    expect(text($('h1'))).toContain('Revisão');
+    expect(buttons()).not.toContain('Novo flashcard');
+    expect(buttons()).not.toContain('Trazer anotações');
+  });
+
   it('quem só lê, num grupo sem baralho: o que falta, sem a cartolina de criar', async () => {
     setup(groupWith({ write: false, manage: false }, false));
     await router.navigateByUrl(studyPath(GROUP));

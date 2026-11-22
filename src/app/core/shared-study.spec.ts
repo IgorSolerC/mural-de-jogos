@@ -6,7 +6,7 @@ import { Review, sanitizeReview } from './review';
 import { ReviewStore } from './review-store';
 import { GROUPS_AUTO, SharedGroupsStore } from './shared-groups-store';
 import { SharedStore } from './shared-store';
-import { GroupStudy, StudyPart, mergeStudyParts, overlayStudy, readStudyPart, samePart, studyPart, studyPartDoc } from './shared-study';
+import { CARD_TOMBSTONE_MS, GroupStudy, StudyPart, mergeStudyParts, overlayStudy, personalCopy, readStudyPart, samePart, studyPart, studyPartDoc } from './shared-study';
 import { StudyState, addCard, addDeck, answer, emptyStudy, pauseDeck, sanitizeStudy } from './study';
 import { StudyStore } from './study-store';
 
@@ -137,6 +137,32 @@ describe('Flashcards do grupo: o documento e a vista (core/shared-study.ts)', ()
     expect(mergeStudyParts(theirs, mine).decks[0].public).toBeUndefined();
   });
 
+  it('o guardado não leva a cópia dos flashcards do grupo nunca estudados (o teto de flashcards é dos seus)', () => {
+    const { st } = withDeck();
+    const doc = studyPart(addCard(st, 'n-dois001', ['dKana0001'], {}, T0), groupOf(null), new Set(), T0);
+    const view = overlayStudy(answer(st, 'n-um0001', true, new Date(T1)), [groupOf(doc)]);
+    const kept = personalCopy(view, [groupOf(doc)]);
+    expect(kept.cards.map((c) => c.note)).toEqual(['n-um0001']);
+    // e a vista com o guardado enxuto é a mesma
+    expect(overlayStudy(kept, [groupOf(doc)]).cards.map((c) => c.note).sort()).toEqual(['n-dois001', 'n-um0001']);
+  });
+
+  it('o apagado de flashcard velho sai do documento; o de baralho fica', () => {
+    const { st, deck } = withDeck();
+    const doc = studyPart(st, groupOf(null), new Set(), T0);
+    const old = new Date(Date.parse(T0) - CARD_TOMBSTONE_MS - 1000).toISOString();
+    const withOld: StudyPart = { ...doc, removed: { 'card:n-velha001': old, [`deck:dVelho001`]: old } };
+    const out = studyPart(overlayStudy(st, [groupOf(withOld)]), groupOf(withOld), new Set(), T0);
+    expect(out.removed['card:n-velha001']).toBeUndefined();
+    expect(out.removed['deck:dVelho001']).toBe(old);
+    expect(out.decks.map((d) => d.id)).toEqual([deck]);
+  });
+
+  it('sem `seed`, só o que o documento já tem sobe: o baralho novo espera', () => {
+    const { st } = withDeck();
+    expect(studyPart(st, groupOf(null), new Set(), T0, false).decks).toEqual([]);
+  });
+
   it('o baralho que a pessoa já tinha no grupo continua dela enquanto não vai para o documento (o do Leitor)', () => {
     const { st } = withDeck();
     const view = overlayStudy(st, [groupOf({ decks: [], cards: [], removed: {} }, { write: false, manage: false })]);
@@ -164,6 +190,7 @@ const note = (id: string, extra: Record<string, unknown> = {}): Review =>
 
 describe('Flashcards do grupo: o serviço (StudyStore com o SharedGroupsStore)', () => {
   /** A nuvem de mentira de um grupo só ("Trabalho"): a vez de gravar (`rev`) e o 409 com o de agora. */
+  let tooBig = false;
   let server: { rev: number; dados: Record<string, unknown>; papel: string; here: boolean };
   let puts: number;
 
@@ -213,6 +240,7 @@ describe('Flashcards do grupo: o serviço (StudyStore com o SharedGroupsStore)',
               if (path.startsWith('/v1/eu/grupos/detalhes')) return { grupos: [detail()] };
               if (init?.method === 'PUT') {
                 puts++;
+                if (tooBig) throw new CloudError('O grupo ficou grande demais.', 'grupo-grande-demais', 413);
                 if (init.body!.base !== server.rev) throw new CloudError('Outra pessoa gravou antes.', 'conflito', 409, { grupo: detail() });
                 server = { ...server, rev: server.rev + 1, dados: init.body!.dados! };
                 return { grupo: detail() };
@@ -236,10 +264,29 @@ describe('Flashcards do grupo: o serviço (StudyStore com o SharedGroupsStore)',
     return { nome: 'Trabalho', estudos: studyPartDoc(studyPart(st, groupOf(null), new Set(), T0)) };
   };
 
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    tooBig = false;
+  });
   afterEach(() => {
     TestBed.resetTestingModule();
     localStorage.clear();
+  });
+
+  it('o documento grande demais para a nuvem (413): a mexida espera aqui, e o grupo diz por quê até uma gravação dar certo', async () => {
+    const { groups, study } = setup('editor', anasDoc());
+    await groups.sync();
+    TestBed.tick();
+    tooBig = true;
+    study.updateDeck('dKana0001', { name: 'Hiragana' });
+    TestBed.tick();
+    await groups.pushAll();
+    expect(groups.tooBig().has('gTrabalho001')).toBeTrue();
+    expect(study.deck('dKana0001')!.name).toBe('Hiragana');
+    tooBig = false;
+    await groups.pushAll();
+    expect(groups.tooBig().size).toBe(0);
+    expect(docPart()!.decks[0].name).toBe('Hiragana');
   });
 
   it('o dono leva para o grupo os baralhos dele que estavam ali (o de antes desta build), com as cartas e sem o progresso', async () => {
@@ -348,6 +395,18 @@ describe('Flashcards do grupo: o serviço (StudyStore com o SharedGroupsStore)',
     expect(study.saved().decks.map((d) => d.name)).toEqual(['Hiragana']);
     expect(study.decks().map((d) => d.name)).toEqual(['Hiragana']);
     expect(study.cardOf().get('n-um0001')!.stats.right).toBe(1);
+  });
+
+  it('quem só lê e sai do grupo: o baralho seu de antes nele sai também', async () => {
+    const own = addDeck(emptyStudy(), 'Revisão', 'azul', T0, null, 'dRevisao01', 'Trabalho');
+    localStorage.setItem('meu-mural:estudos:v1', JSON.stringify(own.state));
+    const { groups, study } = setup('leitor', anasDoc());
+    await groups.sync();
+    TestBed.tick();
+    expect(study.decks().map((d) => d.name).sort()).toEqual(['Kana', 'Revisão']);
+    await groups.leave('gTrabalho001');
+    TestBed.tick();
+    expect(study.decks()).toEqual([]);
   });
 
   it('sair do grupo: os baralhos dele saem dos seus Estudos', async () => {

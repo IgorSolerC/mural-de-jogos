@@ -152,7 +152,13 @@ export class GroupShare {
   /** O erro de levar as anotações para este grupo. */
   protected readonly adoptError = computed(() => {
     const e = this.groups.error();
-    return e && e.grupo === this.group()?.id ? e.mensagem : null;
+    if (e && e.grupo === this.group()?.id) return e.mensagem;
+    // o documento do grupo passou do tamanho que a nuvem guarda (PLANO-FLASHCARDS-GRUPO.md): o que mudou ficou só aqui
+    const g = this.group();
+    if (g && this.groups.tooBig().has(g.id)) {
+      return 'O grupo ficou grande demais para a nuvem: as últimas mudanças no Kanban, nas pastas e nos Flashcards dele ficaram só neste aparelho. Tire cartões do Kanban ou flashcards que não usa mais.';
+    }
+    return null;
   });
   protected readonly together = computed(() => {
     // as do mural de quem olha (as do grupo e as que ainda vão para ele): a conta da nuvem só muda com a versão do grupo

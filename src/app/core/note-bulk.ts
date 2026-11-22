@@ -542,7 +542,8 @@ export class NoteBulk {
     const was: { note: string; wall: boolean | undefined }[] = [];
     for (const id of ids) {
       const c = cards.get(id);
-      if (!c) continue;
+      // (o flashcard de um grupo compartilhado em que você só lê é do grupo: não muda por aqui, PLANO-FLASHCARDS-GRUPO.md D3)
+      if (!c || c.decks.some((d) => this.study.readOnlyDeck(d))) continue;
       const byDecks = studyOnWall({ decks: c.decks }, decks);
       if ((c.wall ?? byDecks ?? true) === wall) continue;
       was.push({ note: id, wall: c.wall });

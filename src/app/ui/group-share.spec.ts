@@ -81,6 +81,7 @@ describe('compartilhar um grupo: a parte da engrenagem e a etiqueta da pasta', (
             ofCategory: (c: string | null) => (c === 'Trabalho' ? current() : undefined),
             moving: signal(null),
             error: signal(null),
+            tooBig: signal(new Set()),
             share: async (name: string, people: { codigo: string; papel: string }[]) => void calls.push(`share:${name}:${people[0]!.codigo}:${people[0]!.papel}`),
             setRole: async (id: string, codigo: string, papel: string) => void calls.push(`papel:${id}:${codigo}:${papel}`),
             removeMember: async (id: string, codigo: string) => void calls.push(`tirar:${id}:${codigo}`),

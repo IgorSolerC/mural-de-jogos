@@ -170,14 +170,21 @@ export class FreeBoardsPage {
   // ===== o menu =====
   private readonly menu = viewChild<ContextMenu>('menu');
   protected readonly menuOn = signal<{ id: string; move: boolean } | null>(null);
+  /**
+   * O quadro do menu como a lista o mostra: o de outra pessoa, no grupo compartilhado dele com o nome daqui
+   * (FreeBoardStore.setPlaces), e não no grupo de mesmo nome que é seu.
+   */
+  private listed(id: string): FreeBoard | null {
+    return this.store.boards().find((x) => x.id === id) ?? null;
+  }
   protected readonly menuCaption = computed(() => {
     const on = this.menuOn();
-    const b = on ? this.store.get(on.id) : null;
+    const b = on ? this.listed(on.id) : null;
     return b ? (on!.move ? `Mover ${b.nome} para` : b.nome) : '';
   });
   protected readonly menuSections = computed<MenuSections>(() => {
     const on = this.menuOn();
-    const b = on ? this.store.get(on.id) : null;
+    const b = on ? this.listed(on.id) : null;
     if (!b) return [];
     if (on!.move) {
       return [

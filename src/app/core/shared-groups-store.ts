@@ -248,6 +248,11 @@ export class SharedGroupsStore {
   );
   /** O último erro de levar uma anotação para um grupo (a peça dele mostra; some no próximo que dá certo). */
   readonly error = signal<{ grupo: string; mensagem: string } | null>(null);
+  /**
+   * Os grupos cujo documento passou do tamanho que a nuvem guarda (413): a mexida espera aqui, e a peça Quem vê do grupo
+   * diz por quê (sai quando uma gravação do grupo dá certo).
+   */
+  readonly tooBig = signal<ReadonlySet<string>>(new Set());
 
   constructor() {
     // as pastas dos grupos para a árvore das pastas (NoteFolders), sem ela depender deste serviço
@@ -653,6 +658,7 @@ export class SharedGroupsStore {
     try {
       const res = await this.account.request<{ grupo: unknown }>(`/v1/grupos/${encodeURIComponent(id)}`, { method: 'PUT', body: { base: g.rev, dados: sent } });
       const saved = parseGroup(res?.grupo);
+      if (this.tooBig().has(id)) this.tooBig.set(new Set([...this.tooBig()].filter((x) => x !== id)));
       const now = this.entries().get(id);
       if (!saved || !now) return true;
       // o que mudou aqui enquanto subia continua esperando, partindo do que subiu
@@ -686,6 +692,8 @@ export class SharedGroupsStore {
         this.schedule(0);
         return true;
       }
+      // o documento passou do tamanho que a nuvem guarda: a mexida espera aqui, e a peça Quem vê do grupo diz por quê
+      if (err.status === 413) this.tooBig.set(new Set([...this.tooBig(), id]));
       return true; // sem rede, 429: a próxima conferida sobe
     }
   }

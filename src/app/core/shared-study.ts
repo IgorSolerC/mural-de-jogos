@@ -1,6 +1,6 @@
 import { canonicalJson } from './canonical-json';
 import { freshSrs } from './fsrs';
-import { Deck, StudyCard, StudyState, emptyStudy, inGroup, mergeStudy, sanitizeStudy } from './study';
+import { Deck, StudyCard, StudyState, emptyStudy, hasProgress, inGroup, mergeStudy, sanitizeStudy } from './study';
 
 /**
  * Os Flashcards de um grupo compartilhado (PLANO-FLASHCARDS-GRUPO.md): os baralhos e as cartas do grupo moram no
@@ -34,6 +34,14 @@ export interface GroupStudy {
   /** Quem está aqui gere o grupo (Gestor, dono): só ele muda quem vê um baralho (D3). */
   manage: boolean;
 }
+
+/**
+ * Quanto tempo o apagado de um flashcard fica no documento do grupo (90 dias): ele só serve para a junção de duas
+ * versões do documento não trazer o flashcard de volta, e o documento inteiro vai em cada gravação (com o teto da
+ * nuvem, `MAX_GROUP_CHARS`). O apagado de um baralho fica para sempre: é ele que impede a cópia guardada de alguém
+ * de levar o baralho apagado de volta ao grupo (são poucos).
+ */
+export const CARD_TOMBSTONE_MS = 90 * 86_400_000;
 
 const deckKey = (id: string) => `deck:${id}`;
 const cardKey = (note: string) => `card:${note}`;
@@ -166,7 +174,7 @@ export function overlayStudy(saved: StudyState, groups: readonly GroupStudy[]): 
  *
  * O que não mudou fica como estava, com a hora de antes: a hora que anda sozinha (uma resposta, a pausa) não sobe.
  */
-export function studyPart(st: StudyState, g: GroupStudy, others: ReadonlySet<string>, at: string): StudyPart {
+export function studyPart(st: StudyState, g: GroupStudy, others: ReadonlySet<string>, at: string, seed = true): StudyPart {
   const cur = g.part ?? { decks: [], cards: [], removed: {} };
   const curDecks = new Map(cur.decks.map((d) => [d.id, d]));
   const curCards = new Map(cur.cards.map((c) => [c.note, c]));
@@ -180,7 +188,8 @@ export function studyPart(st: StudyState, g: GroupStudy, others: ReadonlySet<str
   const live = new Set<string>();
   for (const d of st.decks) {
     const was = curDecks.get(d.id);
-    if (!was && (others.has(d.id) || !inGroup(d, g.name) || buried(deckKey(d.id), d.at))) continue;
+    // (`seed` false: só o que o documento já tem; o baralho novo do grupo espera o nome do grupo aqui estar certo)
+    if (!was && (!seed || others.has(d.id) || !inGroup(d, g.name) || buried(deckKey(d.id), d.at))) continue;
     const pub = g.manage ? d.public : was?.public;
     const next = { ...bareDeck(d), newPerDay: was ? was.newPerDay : d.newPerDay, ...(pub ? { public: true as const } : {}) } as Deck;
     if (!pub) delete next.public;
@@ -225,7 +234,24 @@ export function studyPart(st: StudyState, g: GroupStudy, others: ReadonlySet<str
     if (!ds.length) bury(cardKey(c.note), at);
     else cards.push(ds.length === c.decks.length ? c : { ...c, decks: ds, at });
   }
+  // o apagado de flashcard velho sai (ver CARD_TOMBSTONE_MS)
+  const old = Date.parse(at) - CARD_TOMBSTONE_MS;
+  for (const [k, when] of Object.entries(removed)) if (k.startsWith('card:') && Date.parse(when) < old) delete removed[k];
   return { decks: decks.sort(byOrder), cards: cards.sort(byAdded), removed };
+}
+
+/**
+ * Os Estudos como ficam guardados aqui (D5): sem a cópia dos flashcards do documento de um grupo que você nunca
+ * estudou e que não estão em baralho seu (a vista os traz do documento, novos). Assim os do grupo não ocupam o lugar
+ * dos seus no teto de flashcards guardados (`MAX_CARDS`). O que tem progresso fica: é ele que é seu.
+ */
+export function personalCopy(st: StudyState, groups: readonly GroupStudy[]): StudyState {
+  const parts = groups.filter((g) => !!g.part);
+  if (!parts.length) return st;
+  const docNotes = new Set(parts.flatMap((g) => g.part!.cards.map((c) => c.note)));
+  const known = new Set(parts.flatMap((g) => [...knownDecks(g)]));
+  const cards = st.cards.filter((c) => !(docNotes.has(c.note) && !hasProgress(c) && c.decks.every((d) => known.has(d))));
+  return cards.length === st.cards.length ? st : { ...st, cards };
 }
 
 /**
@@ -253,4 +279,9 @@ export function knownDecks(g: GroupStudy): Set<string> {
   for (const d of g.part.decks) out.add(d.id);
   for (const k of Object.keys(g.part.removed)) if (k.startsWith('deck:')) out.add(k.slice(5));
   return out;
+}
+
+/** As duas listas têm os mesmos baralhos, iguais campo a campo (para a vista guardar a mesma lista). */
+export function sameDecks(a: readonly Deck[], b: readonly Deck[]): boolean {
+  return a.length === b.length && a.every((d, i) => d === b[i] || canonicalJson(d) === canonicalJson(b[i]));
 }
