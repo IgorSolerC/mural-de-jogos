@@ -184,18 +184,23 @@ export class ExtrasPage {
     const nome = MONTHS_LONG[Number(month.slice(5, 7)) - 1];
     if (!rows.length) return { canhoto: null, estado: `nada anotado em ${nome}` };
     const { balance } = totals(rows, entries);
-    const word = balance < 0 ? 'faltam' : 'sobra';
+    // a palavra sai do valor já arredondado: alguns centavos para menos não viram "faltam R$ 0"
+    const word = Math.round(balance / 100) < 0 ? 'faltam' : 'sobra';
     const amount = brlShort(Math.abs(balance));
     return { canhoto: { month: MONTHS_SHORT[Number(month.slice(5, 7)) - 1], word, amount }, estado: `${word} ${amount} em ${nome}` };
   });
 
-  /** No celular a prateleira se divide em tábuas de até três (ui/shelf.ts). */
+  /**
+   * A prateleira se divide em tábuas de até três (ui/shelf.ts) no celular e, numa tela média, quando tem cinco ou seis
+   * coisas (com o cofre ou a prancheta): numa tábua só, elas se encostariam.
+   */
   private readonly narrow = mediaSignal('(max-width: 720px)');
+  private readonly medium = mediaSignal('(max-width: 1000px)');
 
   /** O que vai na prateleira, na ordem, já nas tábuas. */
   protected readonly tabuas = computed(() => {
     const coisas = ['calendario', 'gastos', ...(this.vault() ? ['cofre'] : []), 'pomodoro', 'pixel-arts', ...(this.admin() ? ['uso-das-apis'] : [])];
-    return shelfRows(coisas, this.narrow());
+    return shelfRows(coisas, this.narrow() || (this.medium() && coisas.length >= 5) ? 3 : Infinity);
   });
 
   private readonly jogos = computed<Linha[]>(() => {

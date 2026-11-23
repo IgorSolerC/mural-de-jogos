@@ -89,7 +89,7 @@ import { PixelThumb } from './pixel-thumb';
       place-self: center;
       color: rgb(225 236 250 / 0.78);
       font-family: var(--f-hand);
-      font-size: 1rem;
+      font-size: calc(1rem * var(--letra, 1));
       line-height: 1.15;
       text-align: center;
     }
@@ -210,7 +210,8 @@ const weekdayFmt = new Intl.DateTimeFormat('pt-BR', { weekday: 'long' });
     .semana {
       color: #5b3c9e;
       font-family: var(--f-hand);
-      font-size: 0.95rem;
+      font-size: calc(0.95rem * min(var(--letra, 1), 1.1));
+      white-space: nowrap;
     }
     /* quantos lembretes hoje: um adesivo redondo na ponta da folha */
     .adesivo {
@@ -319,16 +320,17 @@ export class DeskCalendar {
     /* o canhoto do mês, saindo de dentro do livro, atrás da capa */
     .canhoto {
       position: absolute;
-      top: -46px;
+      /* o que aparece acima do livro cresce com as letras (no celular, --letra) */
+      top: calc(-46px * var(--letra, 1));
       right: 4px;
       z-index: -1;
       display: block;
-      width: 62px;
+      width: calc(62px * var(--letra, 1));
       padding: 4px 5px 34px;
       background: #fffdf6;
       color: #163f2b;
       font-family: var(--f-hand);
-      font-size: 0.72rem;
+      font-size: calc(0.72rem * var(--letra, 1));
       line-height: 1.05;
       rotate: 7deg;
       box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
@@ -337,7 +339,7 @@ export class DeskCalendar {
       display: block;
       font-family: var(--f-label);
       font-weight: 800;
-      font-size: 0.6rem;
+      font-size: calc(0.6rem * var(--letra, 1));
       letter-spacing: 0.14em;
       text-transform: uppercase;
     }

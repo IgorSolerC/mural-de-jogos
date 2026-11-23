@@ -124,20 +124,25 @@
   .coisa-folhinha app-desk-calendar,
   .coisa-livro app-cash-book,
   .coisa-cofre app-steel-safe,
-  .coisa-arte app-crt-monitor {
+  .coisa-arte app-crt-monitor,
+  .prancheta {
     transition: none;
   }
 }
 
 /* No celular a prateleira se divide em tábuas de até três (a página decide quantas), e cada coisa encolhe inteira
    (o desenho em escala, a fita não): assim os letreiros chegam logo. */
-@media (max-width: 720px) {
-  app-shelf + app-shelf {
-    margin-top: 72px;
-  }
+/* duas tábuas (no celular, ou numa tela média com cinco ou seis coisas): o vão deixa os suportes de cima livres */
+app-shelf + app-shelf {
+  margin-top: 72px;
+}
 
+@media (max-width: 720px) {
+  /* o desenho encolhe; as letras dentro dele (o saldo do canhoto, o dia da semana) crescem na mesma conta, e
+     continuam do tamanho de ler (ui/shelf-pieces.ts, --letra) */
   .em-pe {
     zoom: 0.62;
+    --letra: 1.55;
   }
 
   .dymo-fita {

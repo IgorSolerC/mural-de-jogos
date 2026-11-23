@@ -35,11 +35,11 @@ export class Shelf {
 }
 
 /**
- * As coisas em tábuas: no computador, todas numa só; no celular, em tábuas de até três, as tábuas o mais iguais
- * possível (quatro coisas são duas de duas, não três e uma).
+ * As coisas em tábuas de até `per` (sem `per`, todas numa só), as tábuas o mais iguais possível: quatro coisas em
+ * tábuas de três são duas de duas, não três e uma.
  */
-export function shelfRows<T>(items: readonly T[], narrow: boolean, per = 3): T[][] {
-  if (!narrow || items.length <= per) return items.length ? [[...items]] : [];
+export function shelfRows<T>(items: readonly T[], per = Infinity): T[][] {
+  if (items.length <= per) return items.length ? [[...items]] : [];
   const rows = Math.ceil(items.length / per);
   const size = Math.ceil(items.length / rows);
   const out: T[][] = [];

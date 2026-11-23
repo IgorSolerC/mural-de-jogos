@@ -298,6 +298,22 @@ describe('a página de Extras', () => {
     expect(folhinha().querySelector('.adesivo')?.textContent?.trim()).toBe('2');
   });
 
+  it('numa tela média, cinco ou seis coisas vão para tábuas de três; quatro ficam numa tábua só', async () => {
+    // a janela tem 800px: o celular (720px) não vale, a tela média (1000px) vale
+    spyOn(window, 'matchMedia').and.callFake(
+      (q: string) => ({ matches: q === '(max-width: 1000px)', addEventListener: () => {}, removeEventListener: () => {} }) as unknown as MediaQueryList,
+    );
+    const t = await open({ account: { codigo: 'G11T-G00D', nome: 'Igor' } });
+    const tabuas = () => [...t.host.querySelectorAll('app-shelf')].map((s) => s.querySelectorAll('a.coisa').length);
+    expect(tabuas()).toEqual([4]);
+    t.account.set({ codigo: 'G11T-G00D', nome: 'Igor', cofre: true });
+    await t.fixture.whenStable();
+    expect(tabuas()).toEqual([3, 2]);
+    t.account.set({ codigo: 'G11T-G00D', nome: 'Igor', cofre: true, admin: true });
+    await t.fixture.whenStable();
+    expect(tabuas()).toEqual([3, 3]);
+  });
+
   it('o livro-caixa tira do mês de hoje o canhoto com o saldo; sem lançamento, sem canhoto', async () => {
     const t = await open({ signedIn: false });
     const mes = MONTHS_LONG[Number(todayISO().slice(5, 7)) - 1];

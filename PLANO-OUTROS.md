@@ -64,3 +64,21 @@ O dono escolheu a **V1**: uma tábua comprida com tudo. E pediu:
    dado só para os dois sites, por isso o cofre entra junto); a barra dessas páginas e a do cofre com a volta no lugar
    das abas; o bilhete "Outros".
 4. **Fechamento**: a crítica do Impeccable, DESIGN.md e PRODUCT.md, o `/code-review high` e os consertos.
+
+---
+
+## 4. Como ficou
+
+- **Features 1 a 3** no ar em f966ff8d (BUILD 1002), 9773bded (1003) e 295453b7 (1004), cada uma com o `/code-review mid`
+  antes da seguinte (a da 1 achou a arte do monitor sem altura; as da 2 e da 3, nada).
+- **Crítica do Impeccable** (dois avaliadores isolados, 29/40; o detector limpo, só cores e medidas de ilustração):
+  - entraram: tábuas de três também até 1000px quando há cinco ou seis coisas (elas se encostavam a 800px); os textos
+    das peças crescem no celular (`--letra`, o canhoto tinha 7px); "não dependem do mural" no lugar de "servem para
+    qualquer mural"; a prancheta parada com movimento reduzido;
+  - ficaram para o dono: o botão do topo em `/extras` cria uma resenha; "Outros" também é uma categoria dos Gastos; o
+    Pomodoro desligado parece ligado (já era assim).
+- **`/code-review high`**: o vão entre as tábuas só valia no celular, o canhoto dizia "faltam R$ 0" com centavos, e
+  faltava o teste da tela média. Os três consertados (BUILD 1005).
+- **O cofre** precisa ser publicado de novo ("Publicar o cofre"): o topo dele mudou e o `cofre-hashes.json` foi
+  regenerado.
+

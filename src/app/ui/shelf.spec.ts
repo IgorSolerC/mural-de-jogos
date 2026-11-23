@@ -3,21 +3,21 @@ import { TestBed } from '@angular/core/testing';
 import { Shelf, shelfRows } from './shelf';
 
 describe('a prateleira de Outros', () => {
-  it('no computador, tudo numa tábua só', () => {
-    expect(shelfRows(['a', 'b', 'c', 'd', 'e', 'f'], false)).toEqual([['a', 'b', 'c', 'd', 'e', 'f']]);
+  it('sem limite, tudo numa tábua só', () => {
+    expect(shelfRows(['a', 'b', 'c', 'd', 'e', 'f'])).toEqual([['a', 'b', 'c', 'd', 'e', 'f']]);
   });
 
-  it('no celular, tábuas de até três, o mais iguais possível', () => {
-    expect(shelfRows(['a', 'b'], true)).toEqual([['a', 'b']]);
-    expect(shelfRows(['a', 'b', 'c'], true)).toEqual([['a', 'b', 'c']]);
-    expect(shelfRows(['a', 'b', 'c', 'd'], true)).toEqual([['a', 'b'], ['c', 'd']]);
-    expect(shelfRows(['a', 'b', 'c', 'd', 'e'], true)).toEqual([['a', 'b', 'c'], ['d', 'e']]);
-    expect(shelfRows(['a', 'b', 'c', 'd', 'e', 'f'], true)).toEqual([['a', 'b', 'c'], ['d', 'e', 'f']]);
+  it('em tábuas de até três, o mais iguais possível', () => {
+    expect(shelfRows(['a', 'b'], 3)).toEqual([['a', 'b']]);
+    expect(shelfRows(['a', 'b', 'c'], 3)).toEqual([['a', 'b', 'c']]);
+    expect(shelfRows(['a', 'b', 'c', 'd'], 3)).toEqual([['a', 'b'], ['c', 'd']]);
+    expect(shelfRows(['a', 'b', 'c', 'd', 'e'], 3)).toEqual([['a', 'b', 'c'], ['d', 'e']]);
+    expect(shelfRows(['a', 'b', 'c', 'd', 'e', 'f'], 3)).toEqual([['a', 'b', 'c'], ['d', 'e', 'f']]);
   });
 
   it('sem nada, nenhuma tábua', () => {
-    expect(shelfRows([], false)).toEqual([]);
-    expect(shelfRows([], true)).toEqual([]);
+    expect(shelfRows([])).toEqual([]);
+    expect(shelfRows([], 3)).toEqual([]);
   });
 
   @Component({
