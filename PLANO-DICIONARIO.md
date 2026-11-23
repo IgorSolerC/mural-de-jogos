@@ -82,24 +82,51 @@ linhas do silabário (あ行, か行…), Classe e Tema pelo nome, Uso pelo rót
 - **Nada encontrado**: o cartão das Anotações ("Nada com “xyz”"), com Limpar a busca e os filtros.
 - **Desempenho**: 933 verbetes cabem na página; cada seção usa `content-visibility: auto` com altura estimada.
 
-## 4. Depois de publicar a primeira parte: as funções criativas, uma por vez
+## 4. Pedidos de 23/nov (depois de publicada a parte 1), na frente das outras
+
+O dono pediu, nesta ordem de prioridade, antes da lousa:
+
+1. **As palavras já aprendidas no dicionário.** As 92 palavras das anotações dele (14 a 23/nov) entram no CSV no
+   mesmo padrão das outras, conferidas em fontes: o JLPT das listas de estudo, como no resto do CSV, conferido no Jisho (que segue as listas
+   do Tanos; onde a marca dele não é a do nível de estudo, como 〜さん N1 e おはよう N2, vale a das listas: N5; 何人 não
+   tem marca e fica N5, como 一人 e 二人; バー fica N1, a marca do Jisho), o rank pela mesma lista
+   da internet de Leeds (espelho `hingston/japanese`, 44.998 palavras, conferido: 829 das posições do CSV batem
+   exatamente), a classe, o tema, a escrita e o registro no mesmo vocabulário do CSV. Uma coluna nova,
+   `aprendida`, diz o dia (AAAA-MM-DD) em que a palavra foi aprendida. As que já estavam no CSV (好き, どう, 分かる,
+   うん, ううん, まで, いい) só ganham o dia. Homógrafas de sentido diferente viram verbetes próprios (と "e/com" ao
+   lado de と de citação; の de posse; から "a partir de"; 十 じゅう). "Nomes no geral" não é palavra: fica de fora.
+2. **Marcar como aprendida e favoritar.** No verbete (e na Tabela), dois selos: **aprendida**, um carimbo verde
+   com o kanji **覚** (oboeru, "aprender, guardar na memória"); **favorita**, uma estrela amarela com **好** (suki,
+   "gostar", o 好 de お好み e 好きな, o do favorito). Filtros novos na folha:
+   "Aprendidas" (Aprendidas / Para aprender) e "Favoritas". As marcas são do dono: guardadas neste navegador
+   (`meu-mural:dicionario:v1`, pelos ajudantes de storage.ts, saem na limpeza do logout) e, com conta, no mural
+   privado da nuvem (`dicionario`, juntadas palavra a palavra, vale a mudança mais nova; SYNC_SCHEMA sobe). Não há
+   nada compartilhado: são marcas de uma pessoa, como a galeria de pixel arts. A coluna `aprendida` do CSV é o
+   padrão; a marca do dono vale por cima.
+3. **Na seleção de texto da leitura**, ao lado do Citar e do Nova nota: quando o trecho selecionado (japonês ou
+   português) é uma palavra do dicionário, aparecem **"No dicionário"**, que abre uma folhinha com o resumo do
+   verbete (a palavra grande, a leitura, o sentido, o JLPT, o uso, a classe, a composição, as notas, os selos e o
+   link para o verbete no Dicionário), e **"Aprendida"**, que marca na hora (com Desfazer). O dicionário só é
+   carregado quando alguém seleciona algo (import sob demanda).
+
+## 5. Depois: as funções criativas, uma por vez
 
 Cada uma com `/code-review mid` antes da seguinte, commit e push.
 
 1. **A lousa (zoom da palavra).** Tocar no verbete abre a palavra maximizada numa folha de papel de arroz:
    cada caractere enorme num quadrado de caligrafia (o 田字格, a cruz vermelha tracejada dos cadernos japoneses),
-   numa **fonte de pincel** (Yuji Syuku, OFL, só as fatias usadas), com a ordem dos traços animada a partir do
-   **KanjiVG** (CC BY-SA 3.0, com crédito na página): os traços aparecem um a um, numerados, com tocar/pausar,
-   traço anterior/seguinte e velocidade; e **Treinar**: o caractere desbotado embaixo, você traça por cima com o
-   dedo ou o mouse, Limpar e mostrar o modelo de novo. Funciona para kanji e kana.
+   numa **fonte de pincel** (Yuji Syuku, OFL, só as fatias usadas; aprovada pelo dono), com a ordem dos traços
+   animada a partir do **KanjiVG** (CC BY-SA 3.0, com crédito na página; aprovado; `scripts/kanjivg-tracos.py`
+   gera `core/dictionary/strokes.ts`): os traços aparecem um a um, numerados, com tocar/pausar, traço
+   anterior/seguinte e velocidade; a tabela de passos (筆順) ao lado; e **Treinar**: o caractere desbotado embaixo,
+   você traça por cima com o dedo ou o mouse, com o próximo traço como guia.
 2. **Ouvir a palavra** (a voz japonesa do navegador, a mesma escolha de voz de "Ouvir a nota").
-3. **O índice de dedo** (os entalhes あかさたなはまやらわ na borda da página, como num dicionário de papel): com a
-   ordem Leitura, pula para a linha do silabário.
-4. **Os kanji da palavra**: em cada kanji, as outras palavras do dicionário que o usam (来る → 来年, 来週…), e a
-   composição com links para as palavras que existem aqui.
-5. **Sortear uma palavra** (a próxima do que está filtrado, para estudar ao acaso).
+3. **O índice de dedo** (os entalhes あかさたなはまやらわ na borda da página): com a ordem Leitura, pula para a
+   linha do silabário.
+4. **Os kanji da palavra**: em cada kanji, as outras palavras do dicionário que o usam, e a composição com links.
+5. **Sortear uma palavra** do que está filtrado.
 
-## 5. Testes
+## 6. Testes
 
 - `core/dictionary/dictionary.spec.ts`: leitura do CSV (aspas, vírgulas, campos vazios), busca (acento, romaji →
   kana, katakana = hiragana, relevância), filtros (dentro OU, entre E, contagens, registro múltiplo), ordens e seções.

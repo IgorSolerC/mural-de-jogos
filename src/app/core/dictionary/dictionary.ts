@@ -39,6 +39,8 @@ export interface Word {
   rank: number | null;
   composition: string;
   notes: string;
+  /** O dia (AAAA-MM-DD) em que o dono aprendeu a palavra, pelo CSV; `null` para as que ainda não aprendeu. */
+  learnedOn: string | null;
 }
 
 /** O CSV lido em linhas e campos (aspas com vírgula dentro, aspas dobradas, quebra de linha dentro das aspas). */
@@ -78,6 +80,14 @@ const num = (s: string, fallback: number) => {
   return s.trim() && Number.isFinite(n) ? n : fallback;
 };
 
+/** Um dia que existe (AAAA-MM-DD), ou null: 2026-11-31 não passa. */
+function dayOf(s: string): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (!m) return null;
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  return d.getUTCMonth() === +m[2] - 1 && d.getUTCDate() === +m[3] ? s : null;
+}
+
 /** As palavras do CSV, pelos nomes das colunas (a ordem delas no arquivo pode mudar). */
 export function readWords(csv: string): Word[] {
   const [head, ...rows] = parseCsv(csv);
@@ -110,6 +120,7 @@ export function readWords(csv: string): Word[] {
         rank: rank ? num(rank, 0) || null : null,
         composition: get(r, 'composicao'),
         notes: get(r, 'notas'),
+        learnedOn: dayOf(get(r, 'aprendida')),
       } satisfies Word;
     })
     .filter((w) => w.text || w.reading);

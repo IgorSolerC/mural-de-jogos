@@ -27,6 +27,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-23-dicionario-aprendidas',
+    version: '1.51.1',
+    kind: 'ajustes',
+    date: '2026-11-23',
+    title: 'As palavras que você já aprendeu no Dicionário Japonês',
+    melhorias: [
+      'O Dicionário Japonês ganhou as 90 palavras que você aprendeu de 14 a 23 de novembro (です, か, 私, 食べる, os números, as partículas, os contadores…), no mesmo padrão das outras, e cada palavra aprendida guarda o dia em que você a aprendeu.',
+    ],
+  },
+  {
     id: '2026-11-23-dicionario-japones',
     version: '1.51.0',
     kind: 'funcionalidade',

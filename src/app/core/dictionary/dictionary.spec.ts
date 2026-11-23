@@ -37,11 +37,41 @@ describe('Dicionário Japonês: o núcleo', () => {
     expect(words[3].registers).toEqual(['neutro', 'TV']);
   });
 
-  it('lê a lista inteira do dono: 933 palavras, todas com id único', () => {
+  it('lê o dia em que a palavra foi aprendida pela coluna, e só um dia que existe', () => {
+    const csv = (dia: string) => `id,japones,leitura,portugues,aprendida
+JP1,犬,いぬ,cachorro,${dia}
+`;
+    expect(readWords(csv('2026-11-14'))[0].learnedOn).toBe('2026-11-14');
+    expect(readWords(csv(''))[0].learnedOn).toBeNull();
+    expect(readWords(csv('2026-11-31'))[0].learnedOn).toBeNull();
+    expect(readWords(csv('ontem'))[0].learnedOn).toBeNull();
+    // sem a coluna (o CSV de antes), ninguém está aprendido
+    expect(words.every((w) => w.learnedOn === null)).toBeTrue();
+  });
+
+  it('lê a lista inteira do dono: 1023 palavras, todas com id único', () => {
     const all = dictionaryWords().words;
-    expect(all.length).toBe(933);
-    expect(new Set(all.map((w) => w.id)).size).toBe(933);
+    expect(all.length).toBe(1023);
+    expect(new Set(all.map((w) => w.id)).size).toBe(1023);
     expect(all.every((w) => w.text && w.reading && w.meaning)).toBeTrue();
+  });
+
+  it('as palavras que o dono já aprendeu (14 a 23/nov) vêm com o dia, e as homógrafas são verbetes próprios', () => {
+    const all = dictionaryWords().words;
+    const learned = all.filter((w) => w.learnedOn);
+    expect(learned.length).toBe(98);
+    const on = (text: string, meaning: string) => all.find((w) => w.text === text && w.meaning.startsWith(meaning))!;
+    expect(on('です', 'é').learnedOn).toBe('2026-11-14');
+    expect(on('好き', 'gostar').learnedOn).toBe('2026-11-23');
+    expect(on('〜様', 'educado').learnedOn).toBe('2026-11-19');
+    // と "e/com" é outra palavra que o と de citação, que continua por aprender
+    expect(on('と', 'e / com').learnedOn).toBe('2026-11-14');
+    expect(on('と', 'que').learnedOn).toBeNull();
+    // o rank vem da lista da internet: 二 não pega o da partícula に
+    expect(on('二', '2').rank).toBe(166);
+    expect(on('〜時', 'horas').notes).toContain('よじ');
+    // as prioridades seguem uma por uma, sem buraco nem repetição
+    expect(all.map((w) => w.order)).toEqual(all.map((_, i) => i + 1));
   });
 
   it('acha pelo português sem acento, pelo romaji, pelo kana e pelo kanji', () => {
