@@ -516,11 +516,15 @@ export function linkAt(line: string, at: number): LinkAt | null {
   return null;
 }
 
-/** "Título|texto" → o título da anotação e o que aparece (sem "|", os dois são o título). */
+/**
+ * "Título|texto" → o título da anotação e o que aparece (sem "|", os dois são o título). Numa célula de tabela a
+ * barra vem escapada ("Título\|texto", senão ela dividiria a célula): a barra de trás é da escrita, não do título
+ * (um título nunca tem "|").
+ */
 export function splitLink(inner: string): { title: string; label: string } {
   const bar = inner.indexOf('|');
   if (bar === -1) return { title: inner.trim(), label: inner.trim() };
-  const title = inner.slice(0, bar).trim();
+  const title = inner.slice(0, inner[bar - 1] === '\\' ? bar - 1 : bar).trim();
   const label = inner.slice(bar + 1).trim();
   return { title, label: label || title };
 }

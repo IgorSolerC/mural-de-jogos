@@ -27,13 +27,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-23-nova-nota-do-trecho',
+    id: '2026-11-23-link-na-tabela',
     version: '1.50.5',
     kind: 'ajustes',
     date: '2026-11-23',
     title: 'Uma anotação nova a partir de um trecho, sem sair da leitura',
     melhorias: [
       'Selecionando um trecho de uma anotação sua, na leitura ou na tela cheia, aparece o "Nova nota" ao lado do "Citar": uma folhinha cria a anotação com o trecho de título, o texto, a Pasta e as Tags, e o trecho vira um link para ela, sem sair de onde você lia. Se já existe uma anotação com esse título, dá para só ligar o trecho a ela.',
+    ],
+    correcoes: [
+      'O link com outro texto dentro de uma célula de tabela ("[[Título|texto]]") abre a anotação certa, e renomear a anotação não desmancha mais a tabela.',
     ],
   },
   {

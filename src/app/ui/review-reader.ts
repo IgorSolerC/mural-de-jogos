@@ -51,7 +51,7 @@ import { ReactionBubble, ReactionPicker } from './reactions';
 import { ReactionTarget, Reactions } from '../core/reactions';
 import { checkCount, plainText, tickTask } from '../core/rich-text';
 import { SpoilerShield } from '../core/spoiler-shield';
-import { NoteLinks, TextSpot, linkSpot, notesOf, placesOf, resolveNote, spotLink, spotTitle } from '../core/note-links';
+import { NoteLinks, TextSpot, linkSpot, notesOf, placesOf, resolveNote, spotTitle, tableRowLine } from '../core/note-links';
 import { ReminderLinks } from '../core/reminder-links';
 import { KanbanDeps } from '../core/kanban-deps';
 import { KanbanStore } from '../core/kanban-store';
@@ -1521,20 +1521,39 @@ export class ReviewReader {
 
   /**
    * Onde o trecho selecionado está escrito, se ele pode virar título e link (PLANO-NOTA-DE-REFERENCIA.md, D2): numa
-   * linha só do texto (o título de um card também: ele desenha links), fora de link, código, widget e tabela, e escrito
-   * igual no texto (a mesma vez dele na linha). Senão, null.
+   * linha só do texto (o título de um card e a célula de uma tabela também: eles desenham links), fora de link, código
+   * e widget, e escrito no texto (a mesma vez dele na linha; o "→" lido pode estar escrito "->"). Senão, null.
    */
   private spotOf(range: Range): TextSpot | null {
+    const r = this.review();
+    if (!r) return null;
     const el = (n: Node) => (n instanceof Element ? n : n.parentElement);
-    const lineEl = el(range.startContainer)?.closest<HTMLElement>('[data-l]');
-    if (!lineEl || !lineEl.matches('.linha') || el(range.endContainer)?.closest('[data-l]') !== lineEl) return null;
-    // dentro de um link, de um código, de um widget, de uma tabela, do corpo de uma tarefa: não é texto comum da linha.
-    // O spoiler revelado vale (o link fica dentro dele); o coberto não: não dá para ver o que se selecionou
-    const inside = el(range.commonAncestorContainer)?.closest('.elo, a, code, pre, .spoiler:not(.revelado), .widget, app-note-widget, .tabela-peca, .corpo');
+    const start = el(range.startContainer);
+    const end = el(range.endContainer);
+    // numa célula de tabela, a linha é a fileira dela (a tabela inteira leva o `data-l` da primeira linha); o trecho
+    // fica numa célula só
+    const cell = start?.closest('td, th');
+    let lineEl: HTMLElement | null;
+    let line: number | null;
+    if (cell) {
+      const table = cell.closest<HTMLElement>('.tabela-peca[data-l]');
+      const tr = cell.closest('tr');
+      if (!table || !tr?.parentElement || end?.closest('td, th') !== cell) return null;
+      const row = tr.closest('thead') ? 0 : [...tr.parentElement.children].indexOf(tr) + 1;
+      lineEl = tr as HTMLElement;
+      line = tableRowLine(r.text, Number(table.dataset['l']), row);
+    } else {
+      lineEl = start?.closest<HTMLElement>('[data-l]') ?? null;
+      if (!lineEl || !lineEl.matches('.linha') || end?.closest('[data-l]') !== lineEl) return null;
+      line = Number(lineEl.dataset['l']);
+    }
+    // dentro de um link, de um código, de um widget, do corpo de uma tarefa: não é texto comum da linha. O spoiler
+    // revelado vale (o link fica dentro dele); o coberto não: não dá para ver o que se selecionou
+    const inside = el(range.commonAncestorContainer)?.closest('.elo, a, code, pre, .spoiler:not(.revelado), .widget, app-note-widget, .corpo');
     if (inside && lineEl.contains(inside)) return null;
     const raw = range.toString();
     const text = raw.trim();
-    if (!text || text.includes('\n') || !spotTitle(text)) return null;
+    if (!text || !spotTitle(text)) return null;
     // a linha como se lê (sem o corpo da tarefa, que são outras linhas) e onde o trecho começa nela
     const all = document.createRange();
     all.selectNodeContents(lineEl);
@@ -1546,11 +1565,9 @@ export class ReviewReader {
     const at = before.toString().length + (raw.length - raw.trimStart().length);
     const places = placesOf(all.toString(), text);
     const nth = places.indexOf(at);
-    const line = Number(lineEl.dataset['l']);
-    const r = this.review();
-    if (nth === -1 || !Number.isInteger(line) || !r) return null;
+    if (nth === -1 || line === null || !Number.isInteger(line)) return null;
     const spot: TextSpot = { line, text, nth, count: places.length };
-    return linkSpot(r.text, r.text, spot, spotLink(text, text)) === null ? null : spot;
+    return linkSpot(r.text, r.text, spot, text) === null ? null : spot;
   }
 
   /** Os remendos desenhados: se passaram da beirada da ficha (a letra é outra), voltam para dentro dela. */
@@ -1583,7 +1600,7 @@ export class ReviewReader {
     const shown = this.review();
     const r = shown && (this.store.get(shown.id) ?? shown);
     if (!ask || !r || r.id !== ask.from.id || this.owner() !== null || !this.writable()) return;
-    const text = linkSpot(ask.shown, r.text, ask.spot, spotLink(e.title, ask.spot.text));
+    const text = linkSpot(ask.shown, r.text, ask.spot, e.title);
     if (text === null) {
       if (r !== shown) this.review.set(r);
       this.said.set(e.created ? `Anotação “${e.title}” criada. O trecho mudou no texto e ficou sem o link.` : 'O trecho mudou no texto: não deu para ligar.');

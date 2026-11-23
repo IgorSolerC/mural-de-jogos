@@ -1,6 +1,6 @@
 import { Review, sanitizeReview } from './review';
-import { TextSpot, linkKey, linkSpot, linkTitleOf, linkedAudience, linkedNote, linkedOnCheckedTask, linkableTitle, linksIn, relinkAfterRename, renameLinks, resolveNote, spotLink, spotTitle } from './note-links';
-import { hasFormatting, parseInline, plainText, toggleCheck } from './rich-text';
+import { TextSpot, linkKey, linkSpot, linkTitleOf, linkedAudience, linkedNote, linkedOnCheckedTask, linkableTitle, linksIn, relinkAfterRename, renameLinks, resolveNote, spotLink, spotTitle, tableRowLine } from './note-links';
+import { hasFormatting, parseInline, parseRich, plainText, splitLink, toggleCheck } from './rich-text';
 
 /** Os links entre anotações: "[[Título]]" no texto abre a anotação com esse título. */
 
@@ -218,58 +218,113 @@ describe('a nota nova a partir de um trecho (PLANO-NOTA-DE-REFERENCIA.md)', () =
 
   it('vira link no lugar selecionado, numa lista, num negrito e dentro de um card', () => {
     const text = 'Viagem\n- fui a Paris em maio\n**Paris é linda**\n> [!nota] Dica\n> veja Paris de noite';
-    expect(linkSpot(text, text, spot(1, 'Paris'), '[[Paris]]')).toBe('Viagem\n- fui a [[Paris]] em maio\n**Paris é linda**\n> [!nota] Dica\n> veja Paris de noite');
-    expect(linkSpot(text, text, spot(2, 'Paris'), '[[Paris]]')).toContain('**[[Paris]] é linda**');
-    expect(linkSpot(text, text, spot(4, 'Paris'), '[[Cidade|Paris]]')).toContain('> veja [[Cidade|Paris]] de noite');
+    expect(linkSpot(text, text, spot(1, 'Paris'), 'Paris')).toBe('Viagem\n- fui a [[Paris]] em maio\n**Paris é linda**\n> [!nota] Dica\n> veja Paris de noite');
+    expect(linkSpot(text, text, spot(2, 'Paris'), 'Paris')).toContain('**[[Paris]] é linda**');
+    expect(linkSpot(text, text, spot(4, 'Paris'), 'Cidade')).toContain('> veja [[Cidade|Paris]] de noite');
   });
 
   it('no título de um card (o que abre e fecha também), com o sutil e o japonês', () => {
     const text = '> [!vazio|cartolina]- ((山田さん)): ケンくんはベッドにいますか？\n> \n> ### ***Romaji***';
-    expect(linkSpot(text, text, spot(0, 'くんはベ'), '[[くんはベ]]')).toBe('> [!vazio|cartolina]- ((山田さん)): ケン[[くんはベ]]ッドにいますか？\n> \n> ### ***Romaji***');
+    expect(linkSpot(text, text, spot(0, 'くんはベ'), 'くんはベ')).toBe('> [!vazio|cartolina]- ((山田さん)): ケン[[くんはベ]]ッドにいますか？\n> \n> ### ***Romaji***');
     // dentro do sutil também (a marca continua)
-    expect(linkSpot(text, text, spot(0, '山田'), '[[山田]]')).toContain('(([[山田]]さん))');
+    expect(linkSpot(text, text, spot(0, '山田'), '山田')).toContain('(([[山田]]さん))');
   });
 
   it('dentro de um spoiler em itálico, num card: o link fica dentro dele', () => {
     const text = '> [!vazio|verde]- Romaji\n> *||Yuki-chan, ashita wa yasumi desu||*';
-    expect(linkSpot(text, text, spot(1, 'ita wa ya'), '[[ita wa ya]]')).toBe('> [!vazio|verde]- Romaji\n> *||Yuki-chan, ash[[ita wa ya]]sumi desu||*');
+    expect(linkSpot(text, text, spot(1, 'ita wa ya'), 'ita wa ya')).toBe('> [!vazio|verde]- Romaji\n> *||Yuki-chan, ash[[ita wa ya]]sumi desu||*');
   });
 
   it('com o trecho repetido na linha, vale a vez selecionada', () => {
     const text = 'Paris, Paris e Paris';
-    expect(linkSpot(text, text, spot(0, 'Paris', 1, 3), '[[Paris]]')).toBe('Paris, [[Paris]] e Paris');
-    expect(linkSpot(text, text, spot(0, 'Paris', 2, 3), '[[Paris]]')).toBe('Paris, Paris e [[Paris]]');
+    expect(linkSpot(text, text, spot(0, 'Paris', 1, 3), 'Paris')).toBe('Paris, [[Paris]] e Paris');
+    expect(linkSpot(text, text, spot(0, 'Paris', 2, 3), 'Paris')).toBe('Paris, Paris e [[Paris]]');
   });
 
   it('a linha desenhada mostra outra conta: vale a única vez em que é texto comum; na dúvida, nada', () => {
     // o link que já existe mostra "Paris" também, mas não vira outro link
     const one = 'Paris e [[Paris]]';
-    expect(linkSpot(one, one, spot(0, 'Paris', 0, 2), '[[Paris]]')).toBe('[[Paris]] e [[Paris]]');
-    expect(linkSpot(one, one, spot(0, 'Paris', 0, 3), '[[Paris]]')).toBe('[[Paris]] e [[Paris]]');
+    expect(linkSpot(one, one, spot(0, 'Paris', 0, 2), 'Paris')).toBe('[[Paris]] e [[Paris]]');
+    expect(linkSpot(one, one, spot(0, 'Paris', 0, 3), 'Paris')).toBe('[[Paris]] e [[Paris]]');
     const two = 'Paris, Paris e `Paris`';
-    expect(linkSpot(two, two, spot(0, 'Paris', 0, 2), '[[Paris]]')).toBeNull();
+    expect(linkSpot(two, two, spot(0, 'Paris', 0, 2), 'Paris')).toBeNull();
   });
 
   it('não vira link o que não é texto comum: código, escapado, dentro de outro link, de um endereço, de um bloco de código', () => {
     const cases = ['use `Paris` aqui', 'veja \\Paris', '[[Paris de noite]]', 'https://paris.fr/Paris', '[site](https://x.com/Paris)'];
-    for (const t of cases) expect(linkSpot(t, t, spot(0, 'Paris'), '[[Paris]]')).withContext(t).toBeNull();
+    for (const t of cases) expect(linkSpot(t, t, spot(0, 'Paris'), 'Paris')).withContext(t).toBeNull();
     const fenced = '```\nParis\n```';
-    expect(linkSpot(fenced, fenced, spot(1, 'Paris'), '[[Paris]]')).toBeNull();
+    expect(linkSpot(fenced, fenced, spot(1, 'Paris'), 'Paris')).toBeNull();
   });
 
   it('acha a linha na versão de agora pelo que ela diz (a nuvem trouxe outra com a folha aberta)', () => {
     const shown = 'um\nfui a Paris\ntrês';
     const now = 'zero\num\nfui a Paris\ntrês';
-    expect(linkSpot(shown, now, spot(1, 'Paris'), '[[Paris]]')).toBe('zero\num\nfui a [[Paris]]\ntrês');
+    expect(linkSpot(shown, now, spot(1, 'Paris'), 'Paris')).toBe('zero\num\nfui a [[Paris]]\ntrês');
     // a linha mudou (ou sumiu): nada
-    expect(linkSpot(shown, 'um\nfui a Roma\ntrês', spot(1, 'Paris'), '[[Paris]]')).toBeNull();
+    expect(linkSpot(shown, 'um\nfui a Roma\ntrês', spot(1, 'Paris'), 'Paris')).toBeNull();
     // duas linhas iguais: a mesma da vez
     const twice = 'Paris\nx\nParis';
-    expect(linkSpot(twice, 'novo\n' + twice, spot(2, 'Paris'), '[[Paris]]')).toBe('novo\nParis\nx\n[[Paris]]');
+    expect(linkSpot(twice, 'novo\n' + twice, spot(2, 'Paris'), 'Paris')).toBe('novo\nParis\nx\n[[Paris]]');
   });
 
   it('o trecho que não cabe num título não vira nada', () => {
     const text = 'a [b] c';
-    expect(linkSpot(text, text, spot(0, 'a [b]'), '[[a [b]]]')).toBeNull();
+    expect(linkSpot(text, text, spot(0, 'a [b]'), 'a [b]')).toBeNull();
+  });
+
+  it('o símbolo que se lê ("→") e o sinal que está escrito ("->"): o link leva o símbolo, e o que se lê não muda', () => {
+    const text = 'Rota: Paris -> Lyon, depois Lyon → Nice';
+    expect(linkSpot(text, text, spot(0, 'Paris → Lyon'), 'Paris → Lyon')).toBe('Rota: [[Paris → Lyon]], depois Lyon → Nice');
+    // escrito com o símbolo mesmo, também
+    expect(linkSpot(text, text, spot(0, 'Lyon → Nice'), 'Trecho final')).toBe('Rota: Paris -> Lyon, depois [[Trecho final|Lyon → Nice]]');
+    // as duas vezes de "→" na linha contam na ordem
+    const both = 'a -> b e a → b';
+    expect(linkSpot(both, both, spot(0, 'a → b', 1, 2), 'a → b')).toBe('a -> b e [[a → b]]');
+    expect(linkSpot(both, both, spot(0, 'a → b', 0, 2), 'a → b')).toBe('[[a → b]] e a → b');
+  });
+
+  it('o trecho com espaços repetidos: o link lê igual, e o título é o de um espaço só', () => {
+    expect(spotTitle('São  Paulo')).toBeTrue();
+    const text = 'Voo para São  Paulo amanhã';
+    expect(linkSpot(text, text, spot(0, 'São  Paulo'), 'São Paulo')).toBe('Voo para [[São  Paulo]] amanhã');
+    expect(linkSpot(text, text, spot(0, 'São  Paulo'), 'SP')).toBe('Voo para [[SP|São  Paulo]] amanhã');
+  });
+
+  it('na célula de uma tabela: a fileira certa, e o link com outro título leva a barra escapada (não divide a célula)', () => {
+    const text = 'Planos\n\n| Cidade | Quando |\n| --- | --- |\n| Paris | maio |\n| Lyon | junho |';
+    expect(tableRowLine(text, 2, 0)).toBe(2);
+    expect(tableRowLine(text, 2, 1)).toBe(4);
+    expect(tableRowLine(text, 2, 2)).toBe(5);
+    expect(tableRowLine(text, 2, 3)).toBeNull();
+    expect(tableRowLine(text, 0, 1)).toBeNull();
+    expect(linkSpot(text, text, spot(5, 'Lyon'), 'Lyon')).toContain('| [[Lyon]] | junho |');
+    const aliased = linkSpot(text, text, spot(4, 'maio'), 'Maio de 2026')!;
+    expect(aliased).toContain('| Paris | [[Maio de 2026\\|maio]] |');
+    // a tabela continua com duas colunas, e o link abre a anotação certa
+    expect(linksIn(aliased)).toEqual(['Maio de 2026']);
+    const table = parseRich(aliased).find((b) => b.kind === 'table') as { rows: { text: string; ref?: string }[][][] };
+    expect(table.rows[0].length).toBe(2);
+    expect(table.rows[0][1][0]).toEqual(jasmine.objectContaining({ text: 'maio', link: true, ref: 'Maio de 2026' }));
+  });
+
+  it('a tabela com a marca do jeito em cima ({tabela: ...}) e a de dentro de um card', () => {
+    const marked = '{tabela: caneta}\n| a | b |\n| --- | --- |\n| x | y |';
+    expect(tableRowLine(marked, 0, 1)).toBe(3);
+    const card = '> [!nota] Dados\n> | a | b |\n> | --- | --- |\n> | x | y |';
+    expect(tableRowLine(card, 1, 1)).toBe(3);
+    expect(linkSpot(card, card, spot(3, 'y'), 'Ypsilon')).toBe('> [!nota] Dados\n> | a | b |\n> | --- | --- |\n> | x | [[Ypsilon\\|y]] |');
+  });
+});
+
+describe('o link com a barra escapada da célula de tabela', () => {
+  it('o título não leva a barra de trás', () => {
+    expect(splitLink('Maio de 2026\\|maio')).toEqual({ title: 'Maio de 2026', label: 'maio' });
+    expect(linksIn('| [[Torre\\|Paris]] | x |\n| --- | --- |')).toEqual(['Torre']);
+  });
+
+  it('renomear a anotação mantém a barra escapada na tabela, e escapa a do link simples que ganha texto', () => {
+    const text = '| a | b |\n| --- | --- |\n| [[Torre\\|Paris]] | [[Torre]] |\nfora: [[Torre]]';
+    expect(renameLinks(text, 'Torre', 'Torre Eiffel')).toBe('| a | b |\n| --- | --- |\n| [[Torre Eiffel\\|Paris]] | [[Torre Eiffel\\|Torre]] |\nfora: [[Torre Eiffel|Torre]]');
   });
 });

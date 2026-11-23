@@ -239,6 +239,65 @@ describe('A nota nova a partir de um trecho (ReviewReader)', () => {
     expect(store.get('nconversa2')!.text).toBe(card.replace('ashita wa yasumi', 'ash[[ita wa ya]]sumi'));
   });
 
+  it('na célula de uma tabela: a fileira certa, e o link com outro título não divide a célula', async () => {
+    const table = 'Planos\n\n| Cidade | Quando |\n| --- | --- |\n| Paris | maio |\n| Lyon | junho |';
+    await openNote(note('ntabela01', 'Viagem', table));
+    await select('junho');
+    q<HTMLButtonElement>('.remendos .anotar')!.click();
+    await settle();
+    const title = q<HTMLInputElement>('#nota-rapida-nome')!;
+    title.value = 'Junho de 2026';
+    title.dispatchEvent(new Event('input'));
+    await settle();
+    button('Criar e ligar')!.click();
+    await settle();
+    expect(store.get('ntabela01')!.text).toBe(table.replace('| Lyon | junho |', '| Lyon | [[Junho de 2026\\|junho]] |'));
+    // a tabela continua com as duas colunas, e o link aparece na célula
+    expect(el.querySelectorAll('[data-citavel] tbody tr:last-child td').length).toBe(2);
+    expect(q('[data-citavel] tbody tr:last-child td .elo')!.textContent).toContain('junho');
+  });
+
+  it('no cabeçalho da tabela também; um trecho que passa de uma célula para outra, não', async () => {
+    const table = '| Cidade | Quando |\n| --- | --- |\n| Paris | maio |';
+    await openNote(note('ntabela02', 'Viagem', table));
+    await select('Cidade');
+    expect(q('.remendos .anotar')).not.toBeNull();
+    const cells = el.querySelectorAll('[data-citavel] tbody td');
+    const range = document.createRange();
+    range.setStart(cells[0].firstChild!.firstChild ?? cells[0].firstChild!, 0);
+    range.setEnd(cells[1], cells[1].childNodes.length);
+    getSelection()!.removeAllRanges();
+    getSelection()!.addRange(range);
+    document.dispatchEvent(new Event('selectionchange'));
+    await wait(260);
+    await settle();
+    expect(q('.remendos .anotar')).toBeNull();
+  });
+
+  it('o trecho com "→" escrito "->": o link leva o símbolo, e o que se lê não muda', async () => {
+    const text = 'Rota: Paris -> Lyon de trem';
+    await openNote(note('nrota0001', 'Rota', text));
+    await select('Paris → Lyon');
+    q<HTMLButtonElement>('.remendos .anotar')!.click();
+    await settle();
+    button('Criar e ligar')!.click();
+    await settle();
+    expect(store.get('nrota0001')!.text).toBe('Rota: [[Paris → Lyon]] de trem');
+    expect(store.notes().some((n) => n.game.name === 'Paris → Lyon')).toBeTrue();
+  });
+
+  it('o trecho com dois espaços seguidos: a anotação ganha o título de um espaço só', async () => {
+    const text = 'Voo para São  Paulo amanhã';
+    await openNote(note('nvoo00001', 'Voo', text));
+    await select('São  Paulo');
+    q<HTMLButtonElement>('.remendos .anotar')!.click();
+    await settle();
+    button('Criar e ligar')!.click();
+    await settle();
+    expect(store.get('nvoo00001')!.text).toBe('Voo para [[São  Paulo]] amanhã');
+    expect(store.notes().some((n) => n.game.name === 'São Paulo')).toBeTrue();
+  });
+
   it('dentro de um link ou de um código, o trecho não oferece a nota nova', async () => {
     await openNote(note('nroteiro1', 'Viagem', TEXT));
     await select('Roma');

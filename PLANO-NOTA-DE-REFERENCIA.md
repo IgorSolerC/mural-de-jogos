@@ -27,8 +27,9 @@ folhinha pede só o que importa (o texto no editor visual, as Tags e a Pasta). O
   spoilers), para quem só lê, nem para o Leitor de uma compartilhada. O "Citar" continua como era (só na leitura de
   sempre).
 - **D2. Que trecho vale:** um trecho de uma linha só do texto, que a leitura mostra como texto comum: fora de link,
-  código, widget, tabela e spoiler ainda coberto; o título de um card e o spoiler revelado valem (os dois desenham
-  links). De 1 a 200 letras (o título de uma anotação), sem colchetes nem "|"
+  código, widget e spoiler ainda coberto; o título de um card, o spoiler revelado e a célula de uma tabela valem (os
+  três desenham links; na célula, o link com outro título leva a barra escapada, "[[Título\|trecho]]"). O "→" que se
+  lê pode estar escrito "->" (o link leva o símbolo), e os espaços repetidos viram um no título. De 1 a 200 letras (o título de uma anotação), sem colchetes nem "|"
   (não caberia num link). E ele precisa estar escrito igual no texto (um trecho que pega o meio de um negrito, por
   exemplo, não está). Sem isso, o remendo não aparece; o "Citar", sim. Com o trecho repetido na linha, vale o que
   foi selecionado (a mesma ordem na linha desenhada e na escrita; na dúvida, não aparece).

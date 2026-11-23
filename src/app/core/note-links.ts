@@ -1,6 +1,7 @@
 import { Audience, Review, Stock, audienceFields, isNote, sanitizeReview } from './review';
 import { BUILD } from './build';
-import { LINK, lineKind, linesOf, noteLinksOf, parseInline, proseLines, replaceNoteLinks, splitLink, tasksOf } from './rich-text';
+import { LINK, SYMBOLS, lineKind, linesOf, noteLinksOf, parseInline, proseLines, replaceNoteLinks, splitLink, tasksOf } from './rich-text';
+import { continuesTable, startsTable } from './tables';
 import { nameKey } from './text';
 import { retitleCardLine } from './widgets';
 import type { ReminderLinkInfo } from './reminder-links';
@@ -66,25 +67,30 @@ export function resolveNote(notes: readonly Review[], title: string): Review | n
 export function renameLinks(text: string, from: string, to: string): string {
   const key = linkKey(from);
   const same = (title: string) => linkKey(title) === key;
+  // a linha de uma tabela: a barra do link vai escapada, senão dividiria a célula
+  let cell = false;
   const rename = (inner: string, all: string) => {
     const bar = inner.indexOf('|');
-    const title = bar === -1 ? inner : inner.slice(0, bar);
+    const title = splitLink(inner).title;
     if (!same(title)) return all;
     // o que a leitura mostrava (o título, sem texto depois da barra), como estava escrito
     const shown = splitLink(inner).label;
     // o que se lê já é o título novo (o desfazer de uma troca, "[[Paris, França|Paris]]" voltando a Paris): o
     // link simples, que lê igual e abre a mesma anotação
     if (linkKey(shown) === linkKey(to) && linkableTitle(shown)) return `[[${shown}]]`;
-    return bar === -1 || !inner.slice(bar + 1).trim() ? `[[${to.trim()}|${shown}]]` : `[[${to.trim()}${inner.slice(bar)}]]`;
+    const sep = cell ? '\\|' : '|';
+    return bar === -1 || !inner.slice(bar + 1).trim() ? `[[${to.trim()}${sep}${shown}]]` : `[[${to.trim()}${sep}${inner.slice(bar + 1)}]]`;
   };
   // só os links que a leitura mostra (ver `linksIn`): o código e os escapados ficam como estão; a linha
   // de dentro de um card vem sem o "> " da frente, que fica
   const prose = new Map(proseLines(text).map((l) => [l.at, l.line]));
+  const rows = tableRows(text);
   const lines = linesOf(text);
   const out = lines
     .map((line, i) => {
       const read = prose.get(i);
       if (read === undefined) return line;
+      cell = rows.has(i);
       const card = retitleCardLine(read, same, to);
       return card !== null && line.endsWith(read) ? line.slice(0, line.length - read.length) + card : replaceNoteLinks(line, rename);
     })
@@ -248,17 +254,22 @@ export interface TextSpot {
   count: number;
 }
 
-/** O trecho pode virar título e link: sem colchetes nem "|", e do tamanho de um título. */
+/**
+ * O trecho pode virar título e link: numa linha só, sem espaço nas pontas, sem colchetes nem "|", e com o título que
+ * ele vira (os espaços repetidos viram um) do tamanho de um título.
+ */
 export function spotTitle(text: string): boolean {
-  return text.length <= SPOT_MAX && linkTitleOf(text) === text;
+  const title = linkTitleOf(text);
+  return !!title && title.length <= SPOT_MAX && text === text.trim() && !/[\r\n]/.test(text);
 }
 
 /**
- * O link que o trecho `piece` vira, para a anotação `title`: "[[trecho]]" quando o título é o trecho (sem diferença
- * de maiúsculas e acentos, ele abre a mesma); com outro título, "[[Título|trecho]]", e o que se lê não muda.
+ * O link que o trecho `piece` (como se lê) vira, para a anotação `title`: "[[trecho]]" quando o título é o trecho
+ * (sem diferença de maiúsculas, acentos e espaços repetidos, ele abre a mesma); com outro título, "[[Título|trecho]]",
+ * e o que se lê não muda. Numa célula de tabela (`cell`), a barra vai escapada ("[[Título\|trecho]]").
  */
-export function spotLink(title: string, piece: string): string {
-  return linkKey(title) === linkKey(piece) ? `[[${piece}]]` : `[[${title.trim()}|${piece}]]`;
+export function spotLink(title: string, piece: string, cell = false): string {
+  return linkKey(title) === linkKey(piece) ? `[[${piece}]]` : `[[${title.trim()}${cell ? '\\|' : '|'}${piece}]]`;
 }
 
 /** Onde `piece` começa em `line`, da esquerda para a direita, sem uma vez pegar o pedaço da outra (a leitura conta igual). */
@@ -268,13 +279,60 @@ export function placesOf(line: string, piece: string): number[] {
   return out;
 }
 
+/** Cada símbolo e o sinal que o escreve ("→" é o "->"): o trecho lido com "→" está escrito com "->". */
+const SIGN_OF: ReadonlyMap<string, string> = new Map(Object.entries(SYMBOLS).map(([sign, symbol]) => [symbol, sign]));
+
 /**
- * A linha com o trecho em `at` trocado pelo `link`, se ali ele é texto comum: o link novo é lido como link
- * exatamente ali (fora de código, de um escapado, de outro link) e o resto da linha se lê como antes (fora de um
- * endereço, de um widget). Senão, null.
+ * Onde o trecho, como se lê, está escrito na linha: do jeito que se lê, e com cada símbolo escrito pelo sinal dele
+ * ("A → B" está escrito "A -> B"), da esquerda para a direita, sem uma vez pegar o pedaço da outra.
  */
-function linkedLine(line: string, at: number, piece: string, link: string): string | null {
-  const next = line.slice(0, at) + link + line.slice(at + piece.length);
+function writtenPlaces(line: string, piece: string): { at: number; length: number }[] {
+  const signed = [...piece].map((c) => SIGN_OF.get(c) ?? c).join('');
+  const found = [piece, ...(signed === piece ? [] : [signed])].flatMap((form) => placesOf(line, form).map((at) => ({ at, length: form.length })));
+  found.sort((a, b) => a.at - b.at);
+  const out: { at: number; length: number }[] = [];
+  for (const f of found) if (!out.length || f.at >= out[out.length - 1].at + out[out.length - 1].length) out.push(f);
+  return out;
+}
+
+/** As linhas do texto que são de uma tabela (o cabeçalho, a de traços e as fileiras), as de dentro de um card também. */
+function tableRows(text: string): Set<number> {
+  const prose = proseLines(text);
+  const read = prose.map((p) => p.line);
+  const out = new Set<number>();
+  for (let i = 0; i < read.length; i++) {
+    // (as linhas lidas têm de ser vizinhas no texto: a de fora de um bloco de código não emenda com a de dentro)
+    if (!startsTable(read, i) || prose[i + 1].at !== prose[i].at + 1) continue;
+    out.add(prose[i].at).add(prose[i + 1].at);
+    let j = i + 2;
+    for (; j < read.length && continuesTable(read[j]) && prose[j].at === prose[j - 1].at + 1; j++) out.add(prose[j].at);
+    i = j - 1;
+  }
+  return out;
+}
+
+/**
+ * A linha do texto da fileira `row` da tabela que a leitura desenha a partir da linha `at` (a do `data-l` dela, que
+ * pode ser a marca do jeito, "{tabela: ...}", logo em cima): 0 é o cabeçalho, 1 a primeira fileira embaixo da linha
+ * de traços. null se ali não há tabela.
+ */
+export function tableRowLine(text: string, at: number, row: number): number | null {
+  const rows = tableRows(text);
+  const head = rows.has(at) ? at : rows.has(at + 1) ? at + 1 : null;
+  if (head === null || row < 0) return null;
+  const line = row === 0 ? head : head + row + 1;
+  // as fileiras seguidas da mesma tabela
+  for (let i = head; i <= line; i++) if (!rows.has(i)) return null;
+  return line;
+}
+
+/**
+ * A linha com o que está escrito em `at` (`length` letras) trocado pelo `link`, se ali é texto comum: o link novo é
+ * lido como link exatamente ali (fora de código, de um escapado, de outro link) e a linha inteira se lê como antes
+ * (fora de um endereço, de um widget). Senão, null.
+ */
+function linkedLine(line: string, at: number, length: number, link: string): string | null {
+  const next = line.slice(0, at) + link + line.slice(at + length);
   if (!noteLinksOf(next).some((l) => l.at === at && l.length === link.length)) return null;
   // o link se lê como o trecho (o texto depois da barra): a linha inteira se lê igual, letra a letra, com as mesmas
   // marcas (o trecho no meio de um endereço solto deixaria de ser endereço)
@@ -296,18 +354,20 @@ function readOf(line: string): string[] {
  * trecho o mesmo número de vezes; senão, a única em que ele é texto comum. Na dúvida, null.
  */
 function spotIn(line: string, spot: TextSpot, link: string): string | null {
-  const places = placesOf(line, spot.text);
-  if (places.length === spot.count && places[spot.nth] !== undefined) return linkedLine(line, places[spot.nth], spot.text, link);
-  const ok = places.map((at) => linkedLine(line, at, spot.text, link)).filter((l): l is string => l !== null);
+  const places = writtenPlaces(line, spot.text);
+  const chosen = places.length === spot.count ? places[spot.nth] : undefined;
+  if (chosen) return linkedLine(line, chosen.at, chosen.length, link);
+  const ok = places.map((p) => linkedLine(line, p.at, p.length, link)).filter((l): l is string => l !== null);
   return ok.length === 1 ? ok[0] : null;
 }
 
 /**
- * O texto `now` com o trecho `spot` (selecionado na leitura do texto `shown`) virado em `link`, ou null se não der.
- * A linha é achada em `now` pelo que ela diz (a nuvem pode ter trazido outra versão com a folha aberta): a mesma
- * linha, ou a k-ésima igual a ela. Só as linhas que a leitura lê como texto (fora dos blocos de código).
+ * O texto `now` com o trecho `spot` (selecionado na leitura do texto `shown`) virado no link para a anotação `title`
+ * (ver `spotLink`), ou null se não der. A linha é achada em `now` pelo que ela diz (a nuvem pode ter trazido outra
+ * versão com a folha aberta): a mesma linha, ou a k-ésima igual a ela. Só as linhas que a leitura lê como texto
+ * (fora dos blocos de código).
  */
-export function linkSpot(shown: string, now: string, spot: TextSpot, link: string): string | null {
+export function linkSpot(shown: string, now: string, spot: TextSpot, title: string): string | null {
   if (!spotTitle(spot.text) || spot.nth < 0 || spot.nth >= spot.count) return null;
   const from = linesOf(shown);
   const want = from[spot.line];
@@ -319,7 +379,7 @@ export function linkSpot(shown: string, now: string, spot: TextSpot, link: strin
     at = to.map((l, i) => (l === want ? i : -1)).filter((i) => i !== -1)[nth] ?? null;
   }
   if (at === null || !proseLines(now).some((p) => p.at === at)) return null;
-  const line = spotIn(to[at], spot, link);
+  const line = spotIn(to[at], spot, spotLink(title, spot.text, tableRows(now).has(at)));
   if (line === null) return null;
   to[at] = line;
   return to.join('\n');
