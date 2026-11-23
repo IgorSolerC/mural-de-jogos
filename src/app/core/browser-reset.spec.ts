@@ -60,11 +60,19 @@ describe('limpar o navegador (sair da conta)', () => {
     // a galeria de pixel arts (PLANO-PIXEL-ARTS.md): as obras e a vista dela
     localStorage.setItem('meu-mural:pixel-arts:v1', '{"pieces":[],"removed":{}}');
     localStorage.setItem('meu-mural:pixel-arts:vista:v1', '{"vista":"grade"}');
+    // as marcas do Dicionário Japonês (PLANO-DICIONARIO.md, 4.2): aprendidas e favoritas
+    localStorage.setItem('meu-mural:dicionario:v1', '{"marks":[{"id":"JP0242","learned":true,"at":"2026-11-23T10:00:00.000Z"}]}');
     localStorage.setItem('mural-de-jogos:resenhas:v1', '[]');
     localStorage.setItem('mural-de-jogos:config:v1', '{}');
     localStorage.setItem('meu-mural:volume', '0.5');
     localStorage.setItem('outro-site:coisa', 'fica');
   }
+
+  it('as marcas do Dicionário Japonês saem na limpeza', async () => {
+    signedInBrowser();
+    await wipeBrowser();
+    expect(localStorage.getItem('meu-mural:dicionario:v1')).toBeNull();
+  });
 
   it('o último Quadros-Versao conferido (a nuvem do Quadro livre) sai na limpeza', async () => {
     signedInBrowser();

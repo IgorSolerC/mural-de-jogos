@@ -27,6 +27,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-23-dicionario-marcas',
+    version: '1.52.0',
+    kind: 'funcionalidade',
+    date: '2026-11-23',
+    title: 'Aprendidas e favoritas no Dicionário Japonês',
+    items: [
+      'Cada palavra do Dicionário Japonês tem dois selos: o carimbo verde 覚 marca como aprendida (com o dia) e a estrela amarela 好 marca como favorita, com Desfazer. A folha de filtros ganhou Aprendidas (ou as que faltam aprender) e Favoritas, e a pasta tem o atalho Favoritas. As marcas vão para os seus outros aparelhos com a conta.',
+    ],
+  },
+  {
     id: '2026-11-23-dicionario-aprendidas',
     version: '1.51.1',
     kind: 'ajustes',

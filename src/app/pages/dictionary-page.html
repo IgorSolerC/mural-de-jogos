@@ -27,6 +27,14 @@
         </button>
       </div>
 
+      <div class="pasta-grupo">
+        <!-- o atalho das favoritas: o mesmo filtro da folha, a um toque -->
+        <button type="button" class="tinta" [attr.aria-pressed]="favoritesOnly()" (click)="toggleFavorites()" title="Ver só as palavras marcadas com a estrela">
+          <lucide-icon [img]="StarIcon" [size]="18" aria-hidden="true" />
+          <span>Favoritas</span>
+        </button>
+      </div>
+
       <div class="pasta-grupo" role="group" aria-label="Ordenar">
         <label class="tinta campo">
           <span class="campo-pre">Ordenar</span>
@@ -128,6 +136,9 @@
         @for (w of shown(); track w.id) {
           <tr>
             <td class="c-n num">{{ w.order }}</td>
+            <td class="c-marcas">
+              <app-word-seals [small]="true" [word]="w.text" [learned]="learned(w)" [favorite]="favorite(w)" [learnedSaid]="learnedSaid(w)" (learnedChange)="setLearned(w, $event)" (favoriteChange)="setFavorite(w, $event)" />
+            </td>
             <th scope="row" class="c-palavra">
               <span class="t-palavra" lang="ja">{{ w.text }}</span>
               @if (w.text !== w.reading) {
@@ -173,6 +184,14 @@
                 </span>
                 <span class="romaji">{{ w.romaji }}</span>
                 <span class="marcas">
+                  <app-word-seals
+                    [word]="w.text"
+                    [learned]="learned(w)"
+                    [favorite]="favorite(w)"
+                    [learnedSaid]="learnedSaid(w)"
+                    (learnedChange)="setLearned(w, $event)"
+                    (favoriteChange)="setFavorite(w, $event)"
+                  />
                   <span class="selo-jlpt" [class.sem-nivel]="w.jlpt === '-'" [title]="'JLPT: ' + label('jlpt', w.jlpt)">
                     <span class="sr-only">JLPT </span>{{ w.jlpt === '-' ? '–' : w.jlpt }}
                   </span>
@@ -200,6 +219,9 @@
               <p class="numeros">
                 <span>nº {{ w.order }}</span>
                 <span>importância {{ w.importance }}</span>
+                @if (learnedSaid(w); as quando) {
+                  <span class="quando">aprendida {{ quando }}</span>
+                }
                 <span>{{ rankSaid(w) }}</span>
               </p>
             </li>

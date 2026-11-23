@@ -224,11 +224,13 @@ export function matchScore(k: WordKeys, query: string): number {
 
 /* ===================== Os filtros ===================== */
 
-export type FacetKey = 'jlpt' | 'use' | 'importance' | 'wordClass' | 'theme' | 'script' | 'register' | 'verbGroup';
+export type FacetKey = 'learned' | 'favorite' | 'jlpt' | 'use' | 'importance' | 'wordClass' | 'theme' | 'script' | 'register' | 'verbGroup';
 export type DictFilter = Partial<Record<FacetKey, string[]>>;
 
 /** A ordem das linhas na folha dos filtros, e como cada uma aparece. */
 export const FACETS: readonly { key: FacetKey; title: string; desc: string; param: string }[] = [
+  { key: 'learned', title: 'Aprendidas', desc: 'As que você já aprendeu, ou as que faltam.', param: 'aprendida' },
+  { key: 'favorite', title: 'Favoritas', desc: 'Só as que você marcou com a estrela.', param: 'favorita' },
   { key: 'jlpt', title: 'JLPT', desc: 'O nível da prova de proficiência: N5 é o começo.', param: 'jlpt' },
   { key: 'use', title: 'Uso', desc: 'Quanto a palavra aparece no japonês de verdade.', param: 'uso' },
   { key: 'importance', title: 'Importância', desc: 'Quanto vale aprender agora: 10 primeiro.', param: 'imp' },
@@ -239,9 +241,25 @@ export const FACETS: readonly { key: FacetKey; title: string; desc: string; para
   { key: 'verbGroup', title: 'Grupo do verbo', desc: 'Define como o verbo conjuga.', param: 'verbo' },
 ];
 
+/** As marcas do dono (aprendida, favorita), como os filtros as perguntam (ver core/dictionary/marks-store.ts). */
+export interface MarkLookup {
+  learned(w: Word): boolean;
+  favorite(id: string): boolean;
+}
+
+/** Sem marcas: aprendida é o que o CSV diz, e nenhuma favorita. */
+export const CSV_MARKS: MarkLookup = { learned: (w) => !!w.learnedOn, favorite: () => false };
+
+/** Os valores fixos das linhas das marcas: elas aparecem mesmo sem nenhuma palavra marcada ainda. */
+const MARK_VALUES: Partial<Record<FacetKey, string[]>> = { learned: ['sim', 'nao'], favorite: ['sim'] };
+
 /** Os valores de uma palavra numa linha dos filtros (o registro pode ter vários). */
-export function facetValues(w: Word, key: FacetKey): string[] {
+export function facetValues(w: Word, key: FacetKey, marks: MarkLookup = CSV_MARKS): string[] {
   switch (key) {
+    case 'learned':
+      return [marks.learned(w) ? 'sim' : 'nao'];
+    case 'favorite':
+      return marks.favorite(w.id) ? ['sim'] : [];
     case 'jlpt':
       return [w.jlpt];
     case 'use':
@@ -267,6 +285,8 @@ const GROUP_ORDER = ['godan', 'ichidan', 'irregular'];
 
 /** Como cada valor aparece nos recortes e nos adesivos. */
 export function facetLabel(key: FacetKey, value: string): string {
+  if (key === 'learned') return value === 'sim' ? 'Aprendidas' : 'Para aprender';
+  if (key === 'favorite') return 'Favoritas';
   if (key === 'jlpt') return value === '-' ? 'Sem nível' : value;
   if (key === 'script') return ({ kanji: 'Kanji', 'kanji+kana': 'Kanji + kana', ambos: 'Kanji ou kana', kana: 'Kana', katakana: 'Katakana' } as Record<string, string>)[value] ?? value;
   if (key === 'verbGroup') return ({ godan: 'Godan (grupo 1)', ichidan: 'Ichidan (grupo 2)', irregular: 'Irregular' } as Record<string, string>)[value] ?? value;
@@ -320,12 +340,12 @@ export function toggleFacet(f: DictFilter, key: FacetKey, value: string): DictFi
 }
 
 /** A palavra passa nos filtros: dentro de uma linha, qualquer um dos escolhidos; entre as linhas, todas. */
-export function passes(w: Word, f: DictFilter, except?: FacetKey): boolean {
+export function passes(w: Word, f: DictFilter, except?: FacetKey, marks: MarkLookup = CSV_MARKS): boolean {
   for (const facet of FACETS) {
     if (facet.key === except) continue;
     const chosen = f[facet.key];
     if (!chosen?.length) continue;
-    const mine = facetValues(w, facet.key);
+    const mine = facetValues(w, facet.key, marks);
     if (!chosen.some((v) => mine.includes(v))) return false;
   }
   return true;
@@ -336,11 +356,11 @@ export function passes(w: Word, f: DictFilter, except?: FacetKey): boolean {
  * palavras mostraria junto com a busca e as outras linhas. O Grupo do verbo só aparece quando há verbo à vista ou
  * um grupo escolhido.
  */
-export function facetGroups(all: readonly Word[], found: readonly Word[], f: DictFilter): FacetGroup<FacetKey>[] {
+export function facetGroups(all: readonly Word[], found: readonly Word[], f: DictFilter, marks: MarkLookup = CSV_MARKS): FacetGroup<FacetKey>[] {
   return FACETS.map((facet) => {
     const counts = new Map<string, number>();
-    for (const w of found) if (passes(w, f, facet.key)) for (const v of facetValues(w, facet.key)) counts.set(v, (counts.get(v) ?? 0) + 1);
-    const values = orderValues(facet.key, [...new Set(all.flatMap((w) => facetValues(w, facet.key)))], all);
+    for (const w of found) if (passes(w, f, facet.key, marks)) for (const v of facetValues(w, facet.key, marks)) counts.set(v, (counts.get(v) ?? 0) + 1);
+    const values = MARK_VALUES[facet.key] ?? orderValues(facet.key, [...new Set(all.flatMap((w) => facetValues(w, facet.key)))], all);
     const chosen = f[facet.key] ?? [];
     return {
       key: facet.key,
@@ -354,7 +374,7 @@ export function facetGroups(all: readonly Word[], found: readonly Word[], f: Dic
 /** Os filtros ligados, como adesivos com X embaixo da pasta, na ordem das linhas. */
 export function facetChips(f: DictFilter, all: readonly Word[]): { key: FacetKey; value: string; label: string }[] {
   return FACETS.flatMap((facet) =>
-    orderValues(facet.key, [...(f[facet.key] ?? [])], all).map((value) => ({ key: facet.key, value, label: chipLabel(facet.key, value) })),
+    (MARK_VALUES[facet.key]?.filter((v) => f[facet.key]?.includes(v)) ?? orderValues(facet.key, [...(f[facet.key] ?? [])], all)).map((value) => ({ key: facet.key, value, label: chipLabel(facet.key, value) })),
   );
 }
 

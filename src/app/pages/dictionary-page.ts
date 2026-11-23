@@ -3,7 +3,9 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { map } from 'rxjs';
 import {
+  CSV_MARKS,
   DictFilter,
+  MarkLookup,
   DictState,
   FacetKey,
   SORTS,
@@ -23,17 +25,21 @@ import {
   stateFromParams,
   toggleFacet,
 } from '../core/dictionary/dictionary';
+import { MONTHS_SHORT } from '../core/dates';
 import { hasKanji } from '../core/dictionary/kana';
+import { DictionaryMarks } from '../core/dictionary/marks-store';
 import { dictionaryWords } from '../core/dictionary/words';
 import { plural } from '../core/text';
 import { FacetFilters } from '../ui/facet-filters';
 import { FilterChip, FilterTags } from '../ui/filter-sheet';
 import { ICON, IconModule } from '../ui/icons';
-import { loadKleeOne } from '../ui/klee-one';
+import { loadKleeOne } from '../ui/font-sheet';
 import { Pin } from '../ui/pin';
 import { SearchHighlight } from '../ui/search-highlight';
 import { SearchStrip } from '../ui/search-strip';
 import { SectionHead } from '../ui/section-head';
+import { Toasts } from '../ui/toast';
+import { WordSeals } from '../ui/word-seals';
 
 type View = DictState['view'];
 
@@ -48,6 +54,7 @@ interface Column {
 
 const COLUMNS: readonly Column[] = [
   { id: 'n', label: 'Nº', sort: 'priority', num: true },
+  { id: 'marcas', label: 'Marcas' },
   { id: 'palavra', label: 'Japonês', sort: 'reading' },
   { id: 'romaji', label: 'Romaji' },
   { id: 'sentido', label: 'Português', sort: 'meaning' },
@@ -71,7 +78,7 @@ const COLUMNS: readonly Column[] = [
  */
 @Component({
   selector: 'app-dictionary-page',
-  imports: [FacetFilters, FilterTags, IconModule, Pin, SearchHighlight, SearchStrip, SectionHead],
+  imports: [FacetFilters, FilterTags, IconModule, Pin, SearchHighlight, SearchStrip, SectionHead, WordSeals],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './dictionary-page.html',
   styleUrl: './dictionary-page.scss',
@@ -79,6 +86,9 @@ const COLUMNS: readonly Column[] = [
 export class DictionaryPage {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly marks = inject(DictionaryMarks);
+  private readonly toasts = inject(Toasts);
+  protected readonly StarIcon = ICON.estrela;
 
   protected readonly FilterIcon = ICON.filtrar;
   protected readonly ChevronIcon = ICON.abrir;
@@ -122,6 +132,13 @@ export class DictionaryPage {
     });
   }
 
+  /** As marcas do dono, como os filtros as perguntam (o CSV por baixo, a marca por cima). */
+  private readonly lookup = computed<MarkLookup>(() => {
+    const byId = this.marks.byId();
+    if (!byId.size) return CSV_MARKS;
+    return { learned: (w) => byId.get(w.id)?.learned ?? !!w.learnedOn, favorite: (id) => !!byId.get(id)?.favorite };
+  });
+
   /** O que a busca achou, com quanto cada palavra combina (todas, sem busca). */
   private readonly found = computed(() => {
     const q = this.query();
@@ -138,8 +155,9 @@ export class DictionaryPage {
   protected readonly shown = computed(() => {
     const { filter, dir } = this.state();
     const { words, scores } = this.found();
+    const marks = this.lookup();
     return sortWords(
-      words.filter((w) => passes(w, filter)),
+      words.filter((w) => passes(w, filter, undefined, marks)),
       this.sort(),
       dir,
       (w) => scores.get(w.id) ?? 0,
@@ -152,7 +170,9 @@ export class DictionaryPage {
   /** Há busca ou filtro: a linha "Mostrando N de 933" e o Limpar. */
   protected readonly narrowing = computed(() => this.searching() || this.filtered());
 
-  protected readonly groups = computed(() => facetGroups(this.all, this.found().words, this.state().filter));
+  protected readonly groups = computed(() => facetGroups(this.all, this.found().words, this.state().filter, this.lookup()));
+  /** O atalho das favoritas, na pasta: liga e desliga o filtro Favoritas. */
+  protected readonly favoritesOnly = computed(() => !!this.state().filter.favorite?.length);
   protected readonly chips = computed<FilterChip[]>(() => facetChips(this.state().filter, this.all));
   protected readonly filterN = computed(() => filterCount(this.state().filter));
 
@@ -212,6 +232,34 @@ export class DictionaryPage {
 
   protected toggle(key: FacetKey, value: string): void {
     this.go({ filter: toggleFacet(this.state().filter, key, value) });
+  }
+
+  protected toggleFavorites(): void {
+    this.go({ filter: { ...this.state().filter, favorite: this.favoritesOnly() ? [] : ['sim'] } });
+  }
+
+  /* ===== As marcas (o selo de aprendida e a estrela) ===== */
+
+  protected learned(w: Word): boolean {
+    return this.lookup().learned(w);
+  }
+  protected favorite(w: Word): boolean {
+    return this.lookup().favorite(w.id);
+  }
+  /** "em 14 de nov", o dia em que a palavra foi aprendida (vazio quando não se sabe). */
+  protected learnedSaid(w: Word): string {
+    const day = this.marks.learnedDay(w);
+    return day ? `em ${Number(day.slice(8, 10))} de ${MONTHS_SHORT[Number(day.slice(5, 7)) - 1]}` : '';
+  }
+
+  protected setLearned(w: Word, on: boolean): void {
+    const undo = this.marks.setLearned(w, on);
+    this.toasts.show(on ? `“${w.text}” marcada como aprendida` : `“${w.text}” voltou para as que faltam aprender`, { label: 'Desfazer', run: undo });
+  }
+
+  protected setFavorite(w: Word, on: boolean): void {
+    const undo = this.marks.setFavorite(w.id, on);
+    this.toasts.show(on ? `“${w.text}” está nas favoritas` : `“${w.text}” saiu das favoritas`, { label: 'Desfazer', run: undo });
   }
 
   protected removeChip(c: FilterChip): void {

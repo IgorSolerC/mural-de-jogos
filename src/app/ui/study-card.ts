@@ -7,7 +7,7 @@ import { CardFace, CardLook, LEVEL_LABEL, deckLook, isPhraseTitle } from '../cor
 import { FitTitle } from './fit-title';
 import { ICON_CHOICE, IconModule } from './icons';
 import { IconChoice } from '../core/icon-choices';
-import { loadKleeOne } from './klee-one';
+import { loadKleeOne } from './font-sheet';
 
 /** O teto da letra do título em fração da altura da área: o que sobra do desenho, quase inteiro. */
 const TITLE_MAX_DEFAULT = 0.92;

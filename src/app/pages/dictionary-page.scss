@@ -230,6 +230,10 @@ app-facet-filters.cartela {
     content: '·';
     margin: 0 7px;
   }
+  /* o dia em que foi aprendida, no verde do carimbo */
+  .quando {
+    color: #1f7a45;
+  }
 }
 
 /* ===== A Tabela: o livro-razão com todas as colunas ===== */
@@ -354,6 +358,9 @@ thead .num {
 }
 .c-notas {
   min-width: 18rem;
+}
+.c-marcas {
+  padding-block: 6px;
 }
 .c-romaji,
 .c-jlpt,

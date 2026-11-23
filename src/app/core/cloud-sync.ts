@@ -23,6 +23,8 @@ import { SpendingState, sanitizeSpending, spendingToSync } from './spending';
 import { SpendingStore } from './spending-store';
 import { PixelGalleryState, pixelGalleryToSync, sanitizePixelGallery } from './pixel-gallery';
 import { PixelGallery } from './pixel-gallery-store';
+import { DictMarksState, dictMarksToSync, markSays, sanitizeDictMarks } from './dictionary/marks';
+import { DictionaryMarks } from './dictionary/marks-store';
 import { StudyState, sanitizeStudy, studyToSync } from './study';
 import { StudyStore } from './study-store';
 import { publicStudy, publicStudyGroups } from './public-study';
@@ -241,8 +243,10 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  *     62 limparia o nome das configurações, e o grupo vazio sumiria em todo aparelho.
  * 64: os baralhos e as cartas de um grupo compartilhado moram no documento do grupo (PLANO-FLASHCARDS-GRUPO.md), e os
  *     Estudos guardados levam só uma cópia deles. Um site da 63 mudaria só a cópia, e a mudança não chegaria ao grupo.
+ * 65: as marcas do Dicionário Japonês (`dicionario`, aprendida e favorita, só no mural privado, juntadas palavra a
+ *     palavra; PLANO-DICIONARIO.md, 4.2). Um site da 64 enviaria o mural sem elas, e as marcas sumiriam da nuvem.
  */
-export const SYNC_SCHEMA = 64;
+export const SYNC_SCHEMA = 65;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };
@@ -396,6 +400,21 @@ export function pixelGalleryOf(data: Record<string, unknown>): PixelGalleryState
   return read;
 }
 const remoteGalleries = new WeakMap<object, PixelGalleryState>();
+
+/**
+ * As marcas do Dicionário Japonês (ver core/dictionary/marks.ts). Só no mural privado da nuvem, juntadas palavra a
+ * palavra: vale a mudada por último (`mergeDictMarks`).
+ */
+export function dictMarksOf(data: Record<string, unknown>): DictMarksState | null {
+  const raw = data['dicionario'];
+  return raw && typeof raw === 'object' ? sanitizeDictMarks(raw) : null;
+}
+
+/** As marcas como entram na impressão: null sem nenhuma (como `dictMarksToSync`). */
+export function dictMarksPrintOf(data: Record<string, unknown>): DictMarksState | null {
+  const m = dictMarksOf(data);
+  return m && dictMarksToSync(m);
+}
 
 /** A galeria como entra na impressão: null sem nada (como `pixelGalleryToSync`). */
 export function pixelPrintOf(data: Record<string, unknown>): PixelGalleryState | null {
@@ -664,6 +683,7 @@ export async function fingerprint(
   spending: SpendingState | null = null,
   study: StudyState | null = null,
   pixel: PixelGalleryState | null = null,
+  dictionary: DictMarksState | null = null,
 ): Promise<string> {
   const notes = Array.isArray(doc.notas) ? (doc.notas as { id: string }[]) : [];
   const music = Array.isArray(doc.musicas) ? doc.musicas : [];
@@ -703,6 +723,8 @@ export async function fingerprint(
     ...(study ? { estudos: study } : {}),
     // só com a galeria de pixel arts: o mural de antes dela continua com a mesma impressão
     ...(pixel ? { pixelArts: pixel } : {}),
+    // só com marcas no Dicionário Japonês: o mural de antes delas continua com a mesma impressão
+    ...(dictionary ? { dicionario: dictionary } : {}),
   });
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
@@ -778,6 +800,7 @@ export class CloudSync {
   private readonly calendar = inject(CalendarStore);
   private readonly spending = inject(SpendingStore);
   private readonly pixel = inject(PixelGallery);
+  private readonly dictionary = inject(DictionaryMarks);
   private readonly study = inject(StudyStore);
   private readonly reset = inject(BrowserReset);
   private readonly images = inject(ImageStore);
@@ -888,6 +911,7 @@ export class CloudSync {
       this.spending.state();
       this.study.saved();
       this.pixel.state();
+      this.dictionary.state();
       this.shared.places();
       this.profiles.changedAt();
       this.conflicts.list();
@@ -1080,7 +1104,7 @@ export class CloudSync {
         this.integrate(state.conta, remote, this.knownFor(state));
         // o público da nuvem agora é o que veio com este mural (de outro aparelho, talvez com outra regra)
         state = { ...state, rev: remote.rev, publicas: publicPrintOf(remote.data) };
-        const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban(), this.conflicts.toSync(), this.localPlaces(), this.localCalendar(), this.localSpending(), this.localStudy(), this.localPixel());
+        const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban(), this.conflicts.toSync(), this.localPlaces(), this.localCalendar(), this.localSpending(), this.localStudy(), this.localPixel(), this.localDictionary());
         if (here === (await this.remotePrint(remote.data))) state = { ...state, impressao: here };
         this.writeState(state);
       } else if (remote.kind === 'none' && state.rev !== 0) {
@@ -1103,14 +1127,15 @@ export class CloudSync {
       const gastos = this.localSpending();
       const estudos = this.localStudy();
       const pixel = this.localPixel();
-      const here = await fingerprint(doc, keys, tags, looks, profile, config, kanban, conflitos, places, calendario, gastos, estudos, pixel);
+      const dicionario = this.localDictionary();
+      const here = await fingerprint(doc, keys, tags, looks, profile, config, kanban, conflitos, places, calendario, gastos, estudos, pixel, dicionario);
       const publicas = await this.publicPrint();
       if (here === state.impressao && publicas === (state.publicas ?? '')) break;
       if (attempt >= 3) throw new CloudError('Outros aparelhos estão gravando ao mesmo tempo. Tento de novo daqui a pouco.', 'conflito', 409);
       try {
         const boards = this.kanban.state().boards;
         const blocks = this.blocksNow();
-        const rev = await this.push(doc, state.rev, keys, tags, looks, profile, config, kanban, conflitos, places, calendario, gastos, estudos, pixel, here + publicas, publicas);
+        const rev = await this.push(doc, state.rev, keys, tags, looks, profile, config, kanban, conflitos, places, calendario, gastos, estudos, pixel, dicionario, here + publicas, publicas);
         state = { ...state, rev, impressao: here, publicas };
         this.writeState(state);
         this.writeBase(state.conta, versionsOf(doc));
@@ -1212,7 +1237,7 @@ export class CloudSync {
     if (remote.kind === 'doc') {
       this.integrate(accountId, remote, mergeFichas ? known : null);
       // o daqui ficou igual ao da nuvem (baixou, ou juntou dois iguais): não há o que enviar de volta
-      const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban(), this.conflicts.toSync(), this.localPlaces(), this.localCalendar(), this.localSpending(), this.localStudy(), this.localPixel());
+      const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban(), this.conflicts.toSync(), this.localPlaces(), this.localCalendar(), this.localSpending(), this.localStudy(), this.localPixel(), this.localDictionary());
       if (here === (await this.remotePrint(remote.data))) base.impressao = here;
       base.publicas = publicPrintOf(remote.data);
     }
@@ -1266,6 +1291,7 @@ export class CloudSync {
       this.localSpending() !== null ||
       this.localCalendar() !== null ||
       this.localPixel() !== null ||
+      this.dictionary.count() > 0 ||
       this.study.saved().cards.length > 0 ||
       this.study.saved().decks.length > 0 ||
       this.kanban.state().boards.some((b) => b.cards.length > 0) ||
@@ -1293,6 +1319,7 @@ export class CloudSync {
     const reminders = this.calendar.state().reminders.length;
     const cards = this.study.saved().cards.length;
     const arts = this.pixel.count();
+    const marked = this.dictionary.count();
     const kept = this.store.versions().length;
     const parts = [
       ...(n ? [plural(n, 'resenha', 'resenhas')] : []),
@@ -1302,6 +1329,7 @@ export class CloudSync {
       ...(reminders ? [plural(reminders, 'lembrete', 'lembretes')] : []),
       ...(cards ? [plural(cards, 'flashcard', 'flashcards')] : []),
       ...(arts ? [plural(arts, 'pixel art', 'pixel arts')] : []),
+      ...(marked ? [plural(marked, 'palavra marcada no dicionário', 'palavras marcadas no dicionário')] : []),
       ...(kept ? [plural(kept, 'versão guardada', 'versões guardadas')] : []),
     ];
     if (!parts.length) return 'ajustes e um perfil mudados aqui';
@@ -1322,6 +1350,7 @@ export class CloudSync {
     return (
       (spent !== null && spendingToSync(spent) !== null) ||
       (pixel?.pieces.length ?? 0) > 0 ||
+      (dictMarksOf(data)?.marks.some(markSays) ?? false) ||
       (reminders !== null && calendarToSync(reminders) !== null) ||
       (study?.cards.length ?? 0) > 0 ||
       (study?.decks.length ?? 0) > 0 ||
@@ -1426,6 +1455,10 @@ export class CloudSync {
     // a galeria de pixel arts: cada obra vem de onde mudou por último
     const pixel = pixelGalleryOf(remote.data);
     if (pixel) this.apply(() => this.pixel.merge(pixel));
+
+    // as marcas do Dicionário Japonês: cada palavra vem de onde mudou por último
+    const dicionario = dictMarksOf(remote.data);
+    if (dicionario) this.apply(() => this.dictionary.merge(dicionario));
 
     // o lugar das compartilhadas no mural (fixada no topo): o mudado por último, em qualquer aparelho
     const places = placesOf(remote.data);
@@ -1695,6 +1728,11 @@ export class CloudSync {
     return pixelGalleryToSync(this.pixel.state());
   }
 
+  /** As marcas do Dicionário Japonês deste aparelho para a nuvem, ou null sem nenhuma. */
+  private localDictionary(): DictMarksState | null {
+    return dictMarksToSync(this.dictionary.state());
+  }
+
   /** O perfil deste aparelho para a nuvem, ou null se nunca mudou aqui. */
   private localProfile(): SyncedProfile | null {
     const em = this.profiles.changedAt();
@@ -1717,7 +1755,7 @@ export class CloudSync {
 
   /** A impressão do mural que veio da nuvem, com tudo o que vai junto dele. */
   private remotePrint(data: Record<string, unknown>): Promise<string> {
-    return fingerprint(data as unknown as BackupPayload, keysOf(data), pinnedTagsOf(data), categoryLooksOf(data), profileOf(data), notesConfigOf(data), kanbanPrintOf(data), conflictsPrintOf(data), placesOf(data), calendarPrintOf(data), spendingPrintOf(data), studyPrintOf(data), pixelPrintOf(data));
+    return fingerprint(data as unknown as BackupPayload, keysOf(data), pinnedTagsOf(data), categoryLooksOf(data), profileOf(data), notesConfigOf(data), kanbanPrintOf(data), conflictsPrintOf(data), placesOf(data), calendarPrintOf(data), spendingPrintOf(data), studyPrintOf(data), pixelPrintOf(data), dictMarksPrintOf(data));
   }
 
   private apply(fn: () => void): void {
@@ -1776,6 +1814,7 @@ export class CloudSync {
     gastos: SpendingState | null,
     estudos: StudyState | null,
     pixel: PixelGalleryState | null,
+    dicionario: DictMarksState | null,
     print: string,
     publicas: string,
   ): Promise<number> {
@@ -1794,7 +1833,7 @@ export class CloudSync {
     }
     const name = this.account.account()?.nome ?? '';
     // as chaves só no privado: o público e o arquivo de backup nunca levam
-    const privateText = JSON.stringify({ ...doc, ...(keys ? { chaves: keys } : {}), ...(tags ? { tagsFixas: tags } : {}), ...(looks ? { categorias: looks } : {}), ...(profile ? { perfil: profile } : {}), ...(config ? { muralAnotacoes: config } : {}), ...(kanban ? { kanban } : {}), ...(conflitos ? { conflitos } : {}), ...(places ? { lugares: places } : {}), ...(calendario ? { calendario } : {}), ...(gastos ? { gastos } : {}), ...(estudos ? { estudos } : {}), ...(pixel ? { pixelArts: pixel } : {}), sync: { schema: SYNC_SCHEMA, aparelho: this.device, publico: publicas } });
+    const privateText = JSON.stringify({ ...doc, ...(keys ? { chaves: keys } : {}), ...(tags ? { tagsFixas: tags } : {}), ...(looks ? { categorias: looks } : {}), ...(profile ? { perfil: profile } : {}), ...(config ? { muralAnotacoes: config } : {}), ...(kanban ? { kanban } : {}), ...(conflitos ? { conflitos } : {}), ...(places ? { lugares: places } : {}), ...(calendario ? { calendario } : {}), ...(gastos ? { gastos } : {}), ...(estudos ? { estudos } : {}), ...(pixel ? { pixelArts: pixel } : {}), ...(dicionario ? { dicionario } : {}), sync: { schema: SYNC_SCHEMA, aparelho: this.device, publico: publicas } });
     const privado = await gzip(privateText);
     if (privado.size > MAX_GZ_BYTES) {
       throw new CloudError('O mural ficou grande demais para a nuvem (passa de 1,8 MB compactado). Ele continua salvo aqui.', 'mural-grande-demais', 413);
@@ -2079,7 +2118,7 @@ export class CloudSync {
     const id = this.account.account()?.id;
     if (!state || state.conta !== id) return !this.localHasContent();
     return (
-      (await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban(), this.conflicts.toSync(), this.localPlaces(), this.localCalendar(), this.localSpending(), this.localStudy(), this.localPixel())) === state.impressao
+      (await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban(), this.conflicts.toSync(), this.localPlaces(), this.localCalendar(), this.localSpending(), this.localStudy(), this.localPixel(), this.localDictionary())) === state.impressao
     );
   }
 }

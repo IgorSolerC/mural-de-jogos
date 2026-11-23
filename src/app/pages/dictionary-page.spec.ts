@@ -2,6 +2,7 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
+import { DICT_MARKS_KEY } from '../core/dictionary/marks-store';
 import { DictionaryPage } from './dictionary-page';
 
 /** O Dicionário Japonês (PLANO-DICIONARIO.md): a busca, os filtros, a ordem e a vista, todos no endereço. */
@@ -68,7 +69,7 @@ describe('o Dicionário Japonês', () => {
     button('Filtrar').click();
     await settle();
     const sheet = host.querySelector('app-facet-filters')!;
-    expect([...sheet.querySelectorAll('.linha-titulo')].map((t) => t.textContent!.trim())).toEqual(['JLPT', 'Uso', 'Importância', 'Classe', 'Tema', 'Escrita', 'Registro', 'Grupo do verbo']);
+    expect([...sheet.querySelectorAll('.linha-titulo')].map((t) => t.textContent!.trim())).toEqual(['Aprendidas', 'Favoritas', 'JLPT', 'Uso', 'Importância', 'Classe', 'Tema', 'Escrita', 'Registro', 'Grupo do verbo']);
     const verbo = [...sheet.querySelectorAll<HTMLElement>('.recorte')].find((r) => r.querySelector('.recorte-nome')!.textContent!.trim() === 'Verbo')!;
     verbo.querySelector('input')!.click();
     await settle();
@@ -79,6 +80,31 @@ describe('o Dicionário Japonês', () => {
     button('Tirar o filtro Verbo').click();
     await settle();
     expect(query()['classe']).toBeUndefined();
+  });
+
+  it('marca como aprendida e como favorita pelos selos, com Desfazer, e filtra por elas', async () => {
+    localStorage.removeItem(DICT_MARKS_KEY);
+    await open('/extras/dicionario?q=kuru');
+    const kuru = host.querySelector('.verbete')!;
+    const seal = (cls: string) => kuru.querySelector<HTMLButtonElement>(`app-word-seals .${cls}`)!;
+    expect(seal('aprendida').getAttribute('aria-pressed')).toBe('false');
+    seal('aprendida').click();
+    seal('favorita').click();
+    await settle();
+    expect(seal('aprendida').getAttribute('aria-pressed')).toBe('true');
+    expect(seal('favorita').getAttribute('aria-pressed')).toBe('true');
+    expect(kuru.querySelector('.quando')!.textContent).toContain('aprendida em');
+
+    // o atalho Favoritas da pasta é o filtro da folha
+    button('Favoritas').click();
+    await settle();
+    expect(query()['favorita']).toBe('sim');
+    expect(words()).toEqual(['来る']);
+    // as que o CSV já dá como aprendidas contam sem marca nenhuma
+    await harness.navigateByUrl('/extras/dicionario?aprendida=sim', DictionaryPage);
+    await settle();
+    expect(words().length).toBe(99);
+    localStorage.removeItem(DICT_MARKS_KEY);
   });
 
   it('ordena pela leitura em linhas do silabário, e a seta inverte', async () => {
@@ -96,7 +122,7 @@ describe('o Dicionário Japonês', () => {
     expect(host.querySelector('.verbete')).toBeNull();
     expect(host.querySelectorAll('tbody tr').length).toBe(1023);
     expect([...host.querySelectorAll('thead th')].map((t) => t.textContent!.trim())).toEqual([
-      'Nº', 'Japonês', 'Romaji', 'Português', 'JLPT', 'Uso', 'Imp.', 'Classe', 'Tema', 'Escrita', 'Registro', 'Internet', 'Composição', 'Notas',
+      'Nº', 'Marcas', 'Japonês', 'Romaji', 'Português', 'JLPT', 'Uso', 'Imp.', 'Classe', 'Tema', 'Escrita', 'Registro', 'Internet', 'Composição', 'Notas',
     ]);
     const imp = [...host.querySelectorAll<HTMLButtonElement>('thead .cabeca')].find((b) => b.textContent!.trim() === 'Imp.')!;
     imp.click();

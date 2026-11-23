@@ -1,4 +1,4 @@
-import { DEFAULT_STATE, DictState, effectiveSort, facetChips, facetGroups, keysOf, matchScore, paramsOf, parseCsv, passes, readWords, sectionsOf, sortWords, stateFromParams, toggleFacet } from './dictionary';
+import { DEFAULT_STATE, DictState, MarkLookup, effectiveSort, facetChips, facetGroups, keysOf, matchScore, paramsOf, parseCsv, passes, readWords, sectionsOf, sortWords, stateFromParams, toggleFacet } from './dictionary';
 import { foldJa, kanaRow, looseRomaji, romajiToKana } from './kana';
 import { dictionaryWords } from './words';
 
@@ -136,6 +136,22 @@ JP1,犬,いぬ,cachorro,${dia}
     const nouns = words.filter((w) => w.wordClass === 'substantivo');
     expect(facetGroups(words, nouns, {}).some((g) => g.key === 'verbGroup')).toBeFalse();
     expect(facetGroups(words, words, {}).find((g) => g.key === 'verbGroup')!.options.map((o) => o.value)).toEqual(['ichidan', 'irregular']);
+  });
+
+  it('filtra pelas marcas do dono: aprendidas, para aprender e favoritas', () => {
+    const marks: MarkLookup = { learned: (w) => w.id === 'JP0242', favorite: (id) => id === 'JP0300' };
+    const show = (f: Parameters<typeof passes>[1]) => words.filter((w) => passes(w, f, undefined, marks)).map((w) => w.text);
+    expect(show({ learned: ['sim'] })).toEqual(['来る']);
+    expect(show({ learned: ['nao'] }).length).toBe(5);
+    expect(show({ favorite: ['sim'] })).toEqual(['食べる']);
+    const groups = facetGroups(words, words, {}, marks);
+    expect(groups.slice(0, 2).map((g) => [g.title, g.options.map((o) => `${o.label} ${o.n}`)])).toEqual([
+      ['Aprendidas', ['Aprendidas 1', 'Para aprender 5']],
+      ['Favoritas', ['Favoritas 1']],
+    ]);
+    // sem nenhuma favorita, a linha continua lá (com zero)
+    expect(facetGroups(words, words, {}).find((g) => g.key === 'favorite')!.options.map((o) => o.n)).toEqual([0]);
+    expect(facetChips({ favorite: ['sim'], learned: ['nao'] }, words).map((c) => c.label)).toEqual(['Para aprender', 'Favoritas']);
   });
 
   it('ordena e divide em seções, e a seta inverte as duas coisas', () => {

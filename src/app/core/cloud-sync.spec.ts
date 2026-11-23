@@ -15,6 +15,7 @@ import { KanbanStore } from './kanban-store';
 import { CalendarStore } from './calendar-store';
 import { SpendingStore } from './spending-store';
 import { PixelGallery } from './pixel-gallery-store';
+import { DictionaryMarks } from './dictionary/marks-store';
 import { StudyStore } from './study-store';
 import { placeCard, resetBoard } from './kanban';
 import { defaultProfile } from './profile';
@@ -203,6 +204,7 @@ interface Device {
   spending: SpendingStore;
   study: StudyStore;
   pixel: PixelGallery;
+  dictionary: DictionaryMarks;
   sync: CloudSync;
   conflicts: SyncConflicts;
   kv: ReturnType<typeof memoryKv>;
@@ -285,6 +287,7 @@ describe('sincronização com a nuvem', () => {
         SpendingStore,
         StudyStore,
         PixelGallery,
+        DictionaryMarks,
         CloudAccount,
         CloudSync,
         // as imagens sobem com a conta deste aparelho (a da raiz é outra)
@@ -312,6 +315,7 @@ describe('sincronização com a nuvem', () => {
       spending: injector.get(SpendingStore),
       study: injector.get(StudyStore),
       pixel: injector.get(PixelGallery),
+      dictionary: injector.get(DictionaryMarks),
       sync: injector.get(CloudSync),
       conflicts: injector.get(SyncConflicts),
       kv,
@@ -630,6 +634,47 @@ describe('sincronização com a nuvem', () => {
       a.calendar.save({ ...a.calendar.blank('2027-08-23'), title: 'Algo' });
       await a.sync.syncNow();
       expect(((await cloud.read()) as unknown as Record<string, unknown>)['pixelArts']).toBeUndefined();
+    });
+  });
+
+  describe('as marcas do Dicionário Japonês', () => {
+    const kuru = { id: 'JP0242', learnedOn: null };
+    const desu = { id: 'JP0934', learnedOn: '2026-11-14' };
+
+    it('vão só no mural privado, palavra a palavra, e a mudada por último vale nos dois aparelhos', async () => {
+      const a = device();
+      a.dictionary.setLearned(kuru, true);
+      a.dictionary.setFavorite(desu.id, true);
+      await a.sync.syncNow();
+      const priv = (await cloud.read()) as unknown as { dicionario?: { marks: { id: string }[] } };
+      expect(priv.dicionario!.marks.map((m) => m.id)).toEqual(['JP0242', 'JP0934']);
+      // o público e o mural dos outros nunca levam
+      expect((await cloud.readPublic())['dicionario']).toBeUndefined();
+
+      localStorage.removeItem('meu-mural:dicionario:v1');
+      const b = device();
+      expect(b.dictionary.count()).toBe(0);
+      await b.sync.syncNow();
+      expect(b.dictionary.learned(kuru)).toBeTrue();
+      expect(b.dictionary.favorite(desu.id)).toBeTrue();
+
+      // cada um mexe numa palavra: os dois ficam com as duas mudanças
+      await new Promise((r) => setTimeout(r, 5));
+      b.dictionary.setLearned(desu, false);
+      a.dictionary.setFavorite(kuru.id, true);
+      await settle(a, b);
+      for (const d of [a, b]) {
+        expect(d.dictionary.learned(desu)).toBeFalse();
+        expect(d.dictionary.favorite(kuru.id)).toBeTrue();
+        expect(d.dictionary.favorite(desu.id)).toBeTrue();
+      }
+    });
+
+    it('sem nenhuma marca, o mural privado não ganha a chave', async () => {
+      const a = device();
+      a.calendar.save({ ...a.calendar.blank('2027-08-23'), title: 'Algo' });
+      await a.sync.syncNow();
+      expect(((await cloud.read()) as unknown as Record<string, unknown>)['dicionario']).toBeUndefined();
     });
   });
 
@@ -1889,6 +1934,6 @@ describe('versão do formato (SYNC_SCHEMA)', () => {
     const source = [sanitizeReview, sanitizeNote, sanitizeDraft, sanitizeWish].map((f) => f.toString().replace(/\s+/g, '')).join('|');
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
     const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 64, hex: '7f2a06a0b04439093edd3c333637dfdab920648555a8e4cd2c5702b02ac68445' });
+    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 65, hex: '7f2a06a0b04439093edd3c333637dfdab920648555a8e4cd2c5702b02ac68445' });
   });
 });
