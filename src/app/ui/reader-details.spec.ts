@@ -45,7 +45,7 @@ describe('Os Detalhes da anotação (ReaderDetails)', () => {
     };
     const full: ReaderDetailsData = {
       group: { label: 'Viagens', look: {}, color: '#2d8bd6' },
-      folder: { id: 'pfranca001', label: 'Viagens › 2027 › França', parts: ['Viagens', '2027', 'França'] },
+      folder: { id: 'pfranca001', label: 'Viagens › 2027 › França', parts: ['Viagens', '2027', 'França'], opens: true },
       date: { tape: '21 NOV 2026', long: '21 de novembro de 2026', pinned: true, notes: [] },
       who: {
         icon: ICON.pessoas,

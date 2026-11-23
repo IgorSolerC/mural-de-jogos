@@ -10,14 +10,26 @@
     <div class="linha" data-k="pasta">
       <dt><lucide-icon [img]="I.pasta" [size]="15" aria-hidden="true" />Pasta</dt>
       <dd>
+        <!-- a pasta abre a parede nela; na ficha aberta pelo link não há parede para onde ir -->
+        @if (f.opens) {
         <button type="button" class="elo caminho" [title]="'Abrir a pasta no mural'" [attr.aria-label]="'Abrir a pasta ' + f.label + ' no mural'" (click)="folderOpened.emit(f.id)">
+            @for (part of f.parts; track $index; let first = $first) {
+              @if (!first) {
+                <lucide-icon class="seta-caminho" [img]="I.seta" [size]="13" aria-hidden="true" />
+              }
+              <span class="parte">{{ part }}</span>
+            }
+          </button>
+        } @else {
+          <span class="caminho">
           @for (part of f.parts; track $index; let first = $first) {
             @if (!first) {
               <lucide-icon class="seta-caminho" [img]="I.seta" [size]="13" aria-hidden="true" />
             }
             <span class="parte">{{ part }}</span>
           }
-        </button>
+          </span>
+        }
       </dd>
     </div>
   }

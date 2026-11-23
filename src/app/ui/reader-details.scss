@@ -136,6 +136,11 @@ dd {
   }
 }
 
+/* na ficha aberta pelo link, a pasta só diz onde ela está: sem o pontilhado de quem se toca */
+span.caminho .parte {
+  text-decoration: none;
+}
+
 .seta-caminho {
   display: inline-flex;
   margin: 0 2px;

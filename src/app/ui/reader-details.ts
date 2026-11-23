@@ -25,7 +25,7 @@ export interface DetailsPerson {
 export interface ReaderDetailsData {
   group: { label: string; look: CategoryLook; color: string | null } | null;
   /** A pasta: o id e o caminho, da de cima para a dela. */
-  folder: { id: string; label: string; parts: readonly string[] } | null;
+  folder: { id: string; label: string; parts: readonly string[]; opens: boolean } | null;
   /** A data na fita (null: sem data), a frase inteira e o que vem embaixo (fixada, finalizada). */
   date: { tape: string | null; long: string; pinned: boolean; notes: readonly string[] };
   /** Quem vê: a frase e o desenho (a sua), ou as pessoas da compartilhada. */

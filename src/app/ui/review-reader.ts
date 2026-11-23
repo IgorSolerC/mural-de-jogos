@@ -1407,7 +1407,7 @@ export class ReviewReader {
     const s = this.studyCard();
     return {
       group: this.groupEar(),
-      folder: folder ? { id: folder.id, label: folder.label, parts: folder.parts } : null,
+      folder: folder ? { id: folder.id, label: folder.label, parts: folder.parts, opens: !this.solta() } : null,
       date: { tape: tapeDate(r.completedAt), long: r.completedAt === null ? this.noDay : this.date(), pinned: r.noteRank === 'fixada', notes },
       who: this.who(),
       tasks: this.tasks(),
