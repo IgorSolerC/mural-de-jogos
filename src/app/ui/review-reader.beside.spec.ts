@@ -157,7 +157,7 @@ describe('Duas anotações lado a lado (ReviewReader, PLANO-DUAS-NOTAS.md)', () 
     expect(nameOf(outer())).toBe('Receita de pão');
     expect(document.activeElement?.id).toBe('leitura-titulo');
     // e o "+" volta, para abrir outra
-    expect(outer().querySelector(':scope > .par .orelha.abrir-ao-lado')).not.toBeNull();
+    expect(outer().querySelector(':scope > .par .etq-trilho[data-trilho="ao-lado"]')).not.toBeNull();
     expect(outer().querySelector(':scope > .par .faixa-nome .fecha')!.getAttribute('aria-label')).toBe('Fechar');
   });
 
@@ -315,7 +315,7 @@ describe('Duas anotações lado a lado (ReviewReader, PLANO-DUAS-NOTAS.md)', () 
   });
 
   // ===== o "+" e o seletor (feature 2) =====
-  const ear = () => outer().querySelector<HTMLButtonElement>(':scope > .par .orelha.abrir-ao-lado');
+  const ear = () => outer().querySelector<HTMLButtonElement>(':scope > .par .etq-trilho[data-trilho="ao-lado"]');
   const fits = (yes: boolean) => spyOn(reader as unknown as { fitsBeside(): boolean }, 'fitsBeside').and.returnValue(yes);
 
   async function pickFromEar(name: string): Promise<void> {
@@ -335,14 +335,15 @@ describe('Duas anotações lado a lado (ReviewReader, PLANO-DUAS-NOTAS.md)', () 
     expect(ear()).not.toBeNull();
     expect(ear()!.getAttribute('aria-label')).toBe('Abrir outra anotação ao lado');
     expect(ear()!.getAttribute('aria-haspopup')).toBe('dialog');
-    expect(ear()!.classList).toContain('cartolina');
+    // uma etiqueta do trilho (PLANO-LEITURA-UNIFICADA.md, D5)
+    expect(ear()!.closest('.trilho')).not.toBeNull();
     await click('.faixa-nome .ler-tela-cheia');
     expect(ear()).toBeNull();
     await click('.faixa-nome .ler-tela-cheia');
     reader.openBeside(store.get('nota-b')!);
     await settle();
     expect(ear()).toBeNull();
-    expect(beside()!.querySelector('.orelha.abrir-ao-lado')).toBeNull();
+    expect(beside()!.querySelector('.etq-trilho[data-trilho="ao-lado"]')).toBeNull();
   });
 
   it('a resenha não tem o "+" (ela tem o Lado a lado dela)', async () => {

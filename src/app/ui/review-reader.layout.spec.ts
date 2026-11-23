@@ -99,6 +99,14 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
   }
   const words = (node: Element | null) => node?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
 
+  /** Abre os Detalhes pelo trilho (PLANO-LEITURA-UNIFICADA.md), se ainda não estão abertos. */
+  async function openDetails(): Promise<void> {
+    if (!q('app-reader-details')) q<HTMLButtonElement>('.etq-trilho[data-trilho="detalhes"]')!.click();
+    await settle();
+  }
+  /** Uma linha dos Detalhes, pelo dado ("grupo", "data", "kanban"…), ou null. */
+  const det = (k: string) => q(`app-reader-details [data-k="${k}"]`);
+
   /** Abre o "Mais" do pé (se ainda não está aberto) e devolve os caminhos do bilhete, na ordem. */
   async function openMore(): Promise<HTMLButtonElement[]> {
     if (!q('app-more-menu .bilhete')) q<HTMLButtonElement>('app-more-menu .mais')!.click();
@@ -147,18 +155,23 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     expect(q('.meta .quem-ve')?.getAttribute('title')).toBe('Publicada: quem abre o seu mural vê');
   });
 
-  it('a anotação privada leva o cadeado; a publicada, o olho; e a sem aviso, o sino cortado', async () => {
+  it('quem vê a anotação está nos Detalhes: a privada, só você; a publicada, qualquer pessoa; a sem aviso, sem ir para o Feed', async () => {
     fixture.componentInstance.open(note('n-mercado', 'Mercado', { private: true }));
     await settle();
-    expect(q('.quem-ve')?.getAttribute('title')).toBe('Privada: só você vê');
+    // na folha, nada da linha da data de antes (PLANO-LEITURA-UNIFICADA.md, D7)
+    expect(q('.body .meta')).toBeNull();
+    await openDetails();
+    expect(words(det('quem'))).toBe('Quem vêSó você');
 
     fixture.componentInstance.open(note('n-mercado-2', 'Mercado'));
     await settle();
-    expect(q('.quem-ve')?.getAttribute('title')).toBe('Publicada: quem abre o seu mural vê');
+    await openDetails();
+    expect(words(det('quem'))).toBe('Quem vêQualquer pessoa vê no seu mural');
 
     fixture.componentInstance.open(note('n-mercado-3', 'Mercado', { quiet: true }));
     await settle();
-    expect(q('.quem-ve')?.getAttribute('title')).toContain('não foi para o Feed');
+    await openDetails();
+    expect(words(det('quem'))).toContain('sem ir para o Feed');
   });
 
   it('a ficha de outra pessoa não diz quem vê (só o dono sabe)', async () => {
@@ -247,8 +260,11 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     items[0].click();
     await settle();
     expect(store.get('n-mercado')?.noteRank).toBe('fixada');
-    // a linha da data diz o lugar dela no mural, e o bilhete oferece desafixar
-    expect(words(q('.meta'))).toContain('Fixada');
+    // os Detalhes dizem o lugar dela no mural, e o bilhete oferece desafixar
+    await openDetails();
+    expect(words(det('data'))).toContain('fixada no topo');
+    q<HTMLButtonElement>('.etq-trilho[data-trilho="detalhes"]')!.click();
+    await settle();
     expect((await openMore())[0].textContent?.trim()).toBe('Desafixar');
   });
 
@@ -264,17 +280,20 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     expect(el.querySelector('.text')?.textContent).toContain('Leite');
   });
 
-  it('a conta das tarefas fica na linha da data, como na ficha do mural', async () => {
+  it('a conta das tarefas fica nos Detalhes, com um gomo por tarefa', async () => {
     fixture.componentInstance.open(note('n-mercado', 'Mercado'));
     await settle();
-    expect(words(q('.meta .tarefas-conta'))).toContain('1/2 tarefas feitas');
+    await openDetails();
+    expect(words(det('tarefas'))).toBe('Tarefas1 de 2 feitas');
+    expect(qa('app-reader-details .gomos i').map((i) => i.classList.contains('acesa'))).toEqual([true, false]);
   });
 
   it('a finalizada leva o carimbo na faixa, ao lado do nome', async () => {
     fixture.componentInstance.open(note('n-mercado', 'Mercado', { doneAt: '2026-01-02T10:00:00.000Z' }));
     await settle();
     expect(q('header.head.feita .carimbo app-done-stamp')).not.toBeNull();
-    expect(q('.top.com-carimbo')).not.toBeNull();
+    await openDetails();
+    expect(words(det('data'))).toContain('finalizada em 2 de janeiro de 2026');
   });
 
   it('o "Mais" anda pelas setas e o Esc fecha só o bilhete, com o foco de volta no botão', async () => {
@@ -348,27 +367,36 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     expect(q('.voltar-elo')).toBeNull();
   });
 
-  it('o grupo é a orelha de cima da ficha (como no mural), e não se repete junto das tags', async () => {
+  it('o grupo e as tags estão nos Detalhes (sem a orelha de cima), cada tag com o quadradinho da cor dela', async () => {
     fixture.componentInstance.open(note('n-mercado', 'Mercado', { category: 'Casa', tags: ['Feira'] }));
     await settle();
-    expect(words(q('.par > .orelha-grupo'))).toBe('Grupo: Casa');
-    expect(qa('.categorias li').map(words)).toEqual(['Feira']);
-    expect(q('.par')!.classList.contains('com-grupo')).toBeTrue();
+    expect(q('.orelha-grupo')).toBeNull();
+    await openDetails();
+    expect(words(det('grupo'))).toBe('GrupoCasa');
+    expect(words(det('tags'))).toBe('TagsTags: FeiraFeira');
+    expect(q('app-reader-details app-wish-tags')!.classList).toContain('tom-papel');
 
-    // sem grupo, sem orelha
+    // sem grupo, sem a linha
     fixture.componentInstance.open(note('n-mercado-2', 'Mercado'));
     await settle();
-    expect(q('.orelha-grupo')).toBeNull();
+    await openDetails();
+    expect(det('grupo')).toBeNull();
+    expect(det('tags')).toBeNull();
   });
 
-  it('o assunto da anotação (a pasta) abre a linha da data (o grupo continua na orelha)', async () => {
+  it('a pasta da anotação está nos Detalhes, e tocar nela abre a parede nela', async () => {
     TestBed.inject(Settings).setNotesConfig({ folders: [{ id: 'phistoria01', group: 'estudos', name: 'História', parent: null }] });
     fixture.componentInstance.open(note('n-revol', 'Revolução Francesa', { category: 'Estudos', folder: 'phistoria01' }));
     await settle();
-    expect(words(q('.meta .assunto'))).toBe('Pasta: História');
+    await openDetails();
+    expect(words(det('pasta'))).toBe('PastaHistória');
+    const go = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    det('pasta')!.querySelector<HTMLButtonElement>('.elo')!.click();
+    expect(go).toHaveBeenCalled();
     fixture.componentInstance.open(note('n-revol-2', 'Era Vargas', { category: 'Estudos' }));
     await settle();
-    expect(q('.meta .assunto')).toBeNull();
+    await openDetails();
+    expect(det('pasta')).toBeNull();
   });
 
   it('a anotação no quadro do Kanban diz a coluna, a importância e o status; tocar na coluna abre o quadro', async () => {
@@ -383,14 +411,18 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     }));
     fixture.componentInstance.open(store.get('n-mercado')!);
     await settle();
-    const line = q('.lugares .no-quadro')!;
-    expect(words(line)).toContain('Fazendo');
-    expect(words(line.querySelector('.etq.imp'))).toBe('Importância: Importante');
-    expect(words(line.querySelector('.etq.status'))).toBe('Observação: Com o Caio');
+    await openDetails();
+    const line = det('kanban')!;
+    expect(words(line.querySelector('.coluna'))).toBe('Coluna: Fazendo');
+    expect(words(line.querySelector('.prioridade'))).toBe('Importância: Importante');
+    // a seta de prioridade: importante são duas setinhas para cima
+    expect(line.querySelectorAll('.prioridade .seta path').length).toBe(2);
+    expect(line.querySelector('.prioridade .seta')!.classList).not.toContain('desce');
+    expect(words(line)).toContain('Observação: “Com o Caio”');
 
     const router = TestBed.inject(Router);
     const go = spyOn(router, 'navigate').and.resolveTo(true);
-    line.querySelector<HTMLButtonElement>('.parte-de')!.click();
+    line.querySelector<HTMLButtonElement>('.coluna')!.click();
     expect(go).toHaveBeenCalledWith(['/anotacoes/kanban', id]);
   });
 
@@ -404,9 +436,10 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     study.addCard(r.id, [kanji, extra], { title: '日' });
     fixture.componentInstance.open(r);
     await settle();
-    expect(qa('.nos-estudos').map(words)).toEqual(['Nos Flashcards: Kanjise mais 1Nível: Desconhecidoainda não estudado']);
+    await openDetails();
+    expect(words(det('flashcards'))).toBe('FlashcardsKanjise mais 1Nível: Desconhecidoainda não estudado');
     const go = spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
-    q<HTMLButtonElement>('.nos-estudos .parte-de')!.click();
+    det('flashcards')!.querySelector<HTMLButtonElement>('.elo')!.click();
     expect(go).toHaveBeenCalledWith(`/anotacoes/estudos/${studyGroupId('Estudos')}/${kanji}`);
   });
 
@@ -424,13 +457,14 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     });
     fixture.componentInstance.open(note('n-mercado', 'Mercado'));
     await settle();
-    expect(qa('.na-agenda').map(words)).toEqual(['No Calendário: Amanhã, 8h30Feirae mais 1']);
-    q<HTMLButtonElement>('.mais-lembretes')!.click();
+    await openDetails();
+    expect(words(det('agenda'))).toBe('AgendaAmanhã, 8h30 Feira · e mais 1');
+    det('agenda')!.querySelector<HTMLButtonElement>('.mais')!.click();
     await settle();
-    expect(qa('.na-agenda .lembrete').map(words)).toEqual(['Feira', 'Mercado grande']);
+    expect(qa('app-reader-details .lembrete .miudo').map(words)).toEqual(['Feira', 'Mercado grande']);
 
     const go = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
-    q<HTMLButtonElement>('.na-agenda .parte-de')!.click();
+    det('agenda')!.querySelector<HTMLButtonElement>('.lembrete .elo')!.click();
     expect(go).toHaveBeenCalledWith(['/utilidades/calendario'], { queryParams: { vista: 'dia', dia: '2026-10-20' } });
   });
 

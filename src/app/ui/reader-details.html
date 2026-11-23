@@ -1,0 +1,159 @@
+@let d = data();
+<dl class="detalhes">
+  @if (d.group; as g) {
+    <div class="linha" data-k="grupo">
+      <dt><lucide-icon [img]="I.grupo" [size]="15" aria-hidden="true" />Grupo</dt>
+      <dd><app-cat-label class="grupo" [label]="g.label" [look]="g.look" [tint]="!!g.color" [iconSize]="16" [style.--cat-cor]="g.color" /></dd>
+    </div>
+  }
+  @if (d.folder; as f) {
+    <div class="linha" data-k="pasta">
+      <dt><lucide-icon [img]="I.pasta" [size]="15" aria-hidden="true" />Pasta</dt>
+      <dd><button type="button" class="elo" [title]="'Abrir a pasta no mural'" (click)="folderOpened.emit(f.id)">{{ f.label }}</button></dd>
+    </div>
+  }
+  <div class="linha" data-k="data">
+    <dt><lucide-icon [img]="I.data" [size]="15" aria-hidden="true" />Data</dt>
+    <dd>
+      <span class="fileira">
+        @if (d.date.tape; as tape) {
+          <span class="fita" [title]="d.date.long"><span aria-hidden="true">{{ tape }}</span><span class="sr-only">{{ d.date.long }}</span></span>
+        } @else {
+          <span class="valor">{{ d.date.long }}</span>
+        }
+      </span>
+      @for (n of d.date.notes; track n) {
+        <span class="miudo">{{ n }}</span>
+      }
+    </dd>
+  </div>
+  @if (d.who; as w) {
+    <div class="linha" data-k="quem">
+      <dt><lucide-icon [img]="I.quem" [size]="15" aria-hidden="true" />Quem vê</dt>
+      <dd>
+        @if (w.people.length) {
+          <span class="rostos" aria-hidden="true">
+            @for (p of w.people; track p.code) {
+              <span class="rosto" [attr.data-cor]="stockOf(p)" [style.--stock]="'var(--stock-' + stockOf(p) + ')'" [title]="p.name">
+                @if (p.face; as f) {
+                  {{ f.emoji }}
+                } @else {
+                  <span class="inicial">{{ initialOf(p) }}</span>
+                }
+              </span>
+            }
+          </span>
+        }
+        <span class="fileira">
+          @if (!w.people.length) {
+            <lucide-icon class="desenho" [img]="w.icon" [size]="15" aria-hidden="true" />
+          }
+          @if (w.opens) {
+            <button type="button" class="elo valor" aria-haspopup="dialog" (click)="peopleOpened.emit()">{{ w.line }}</button>
+          } @else {
+            <span class="valor">{{ w.line }}</span>
+          }
+        </span>
+        @if (w.sub) {
+          <span class="miudo">{{ w.sub }}</span>
+        }
+      </dd>
+    </div>
+  }
+  @if (d.tasks; as t) {
+    <div class="linha" data-k="tarefas">
+      <dt><lucide-icon [img]="I.tarefas" [size]="15" aria-hidden="true" />Tarefas</dt>
+      <dd>
+        <span class="fileira">
+          @if (segments(); as segs) {
+            <span class="gomos" aria-hidden="true">
+              @for (s of segs; track $index) {
+                <i [class.acesa]="s"></i>
+              }
+            </span>
+          } @else {
+            <span class="barra" aria-hidden="true"><i [style.width.%]="(t.done / t.total) * 100"></i></span>
+          }
+          <span class="miudo" [class.todas]="t.done === t.total">{{ t.done }} de {{ t.total }} {{ t.total === 1 ? 'feita' : 'feitas' }}</span>
+        </span>
+      </dd>
+    </div>
+  }
+  @if (d.tags.length) {
+    <div class="linha" data-k="tags">
+      <dt><lucide-icon [img]="I.tags" [size]="15" aria-hidden="true" />Tags</dt>
+      <dd><app-wish-tags [tags]="tagLabels()" kind="anotacoes" [colors]="tagColors()" [paper]="true" /></dd>
+    </div>
+  }
+  <!-- onde mais a anotação está: o quadro, o baralho e os lembretes (só na sua) -->
+  @if (d.board; as b) {
+    <div class="linha lugar" data-k="kanban">
+      <dt><lucide-icon [img]="I.kanban" [size]="15" aria-hidden="true" />Kanban</dt>
+      <dd>
+        <span class="fileira">
+          <button type="button" class="elo coluna" [attr.data-cor]="b.color" [title]="'Abrir o quadro no Kanban'" (click)="boardOpened.emit(b.id)">
+            <span class="sr-only">Coluna: </span>{{ b.column }}
+          </button>
+          @if (b.importance && arrow(); as a) {
+            <span class="prioridade" [attr.data-imp]="b.importance">
+              <svg class="seta" [class.desce]="!a.up" viewBox="0 0 12 16" width="12" height="16" aria-hidden="true">
+                @for (c of a.chevrons; track c) {
+                  <path [attr.d]="'M2 ' + (7 + c * 4) + ' L6 ' + (3 + c * 4) + ' L10 ' + (7 + c * 4)" />
+                }
+              </svg>
+              <span class="sr-only">Importância: </span>{{ importanceLabel[b.importance] }}
+            </span>
+          }
+          @if (b.deps) {
+            <ng-content select="[detalhes-deps]" />
+          }
+        </span>
+        @if (b.status) {
+          <span class="miudo"><span class="sr-only">Observação: </span>“{{ b.status }}”</span>
+        }
+      </dd>
+    </div>
+  }
+  @if (d.study; as s) {
+    <div class="linha lugar" data-k="flashcards">
+      <dt><lucide-icon [img]="I.flash" [size]="15" aria-hidden="true" />Flashcards</dt>
+      <dd>
+        <span class="fileira">
+          <span class="com-desenho" [attr.data-cor]="s.color">
+            <lucide-icon [img]="s.icon" [size]="15" aria-hidden="true" />
+            <button type="button" class="elo" [title]="'Abrir o baralho nos Flashcards'" (click)="deckOpened.emit(s.deckId)">{{ s.deck }}</button>
+          </span>
+          @if (s.more) {
+            <span class="miudo">e mais {{ s.more }}</span>
+          }
+        </span>
+        <span class="fileira miudo">
+          <span class="nivel" [attr.data-nivel]="s.level"><span class="sr-only">Nível: </span>{{ s.levelLabel }}</span>
+          <span>{{ s.when }}</span>
+        </span>
+      </dd>
+    </div>
+  }
+  @if (d.reminders.length) {
+    <div class="linha lugar" data-k="agenda">
+      <dt><lucide-icon [img]="I.agenda" [size]="15" aria-hidden="true" />Agenda</dt>
+      <dd>
+        @for (x of d.reminders; track x.id; let last = $last) {
+          <span class="lembrete" [class.passou]="x.past">
+            <span class="com-desenho" [attr.data-cor]="x.color">
+              <lucide-icon [img]="x.icon" [size]="15" aria-hidden="true" />
+              <button type="button" class="elo" [title]="'Abrir o dia no Calendário'" (click)="dayOpened.emit(x.day)">{{ x.when }}</button>
+            </span>
+            <span class="miudo">
+              {{ x.title }}
+              @if (last && d.moreReminders; as more) {
+                ·
+                <button type="button" class="mais" [attr.aria-label]="'Mostrar mais ' + (more === 1 ? '1 lembrete' : more + ' lembretes')" (click)="moreReminders.emit()">e mais {{ more }}</button>
+              }
+            </span>
+          </span>
+        }
+      </dd>
+    </div>
+  }
+</dl>

@@ -1,6 +1,7 @@
 @use 'sheet';
 @use 'felt';
 @use 'kanban-kit' as kk;
+@use 'etiqueta-acoes' as et;
 
 :host {
   display: contents;
@@ -465,179 +466,6 @@ app-judge-label {
   margin-top: 12px;
 }
 
-.top.nota.sem-capa {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 14px;
-
-  .words {
-    flex: 0 1 auto;
-    padding-top: 0;
-  }
-
-  .judgement {
-    margin-top: 0;
-  }
-}
-
-/* ===== Onde mais a anotação está =====
-   Embaixo da linha da data, uma linha para cada lugar: a coluna do quadro do Kanban (o desenho dela na
-   cor dela, o nome que abre o quadro) com as mesmas etiquetas da ficha no quadro (importância, status,
-   o selo das dependências), e cada lembrete do Calendário em que ela foi presa (o dia, que abre o
-   Calendário, e o nome dele à mão). O que já passou fica ralo e riscado, como no Calendário. */
-.lugares {
-  grid-area: lugares;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 22px;
-  margin-top: 14px;
-}
-
-/* com todos os lembretes à mostra, um lugar por linha */
-.lugares.todos {
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-.top.nota.sem-capa .lugares {
-  flex-basis: 100%;
-  order: 3;
-  margin-top: 0;
-}
-
-
-.lugar {
-  @include kk.coluna-cores;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 8px;
-  min-height: 26px;
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.92rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  font-variant-numeric: tabular-nums;
-}
-
-.lugar-icone {
-  display: inline-flex;
-  color: var(--col-cor);
-}
-
-.lembrete {
-  font-family: var(--f-hand);
-  font-weight: 400;
-  font-size: 1.08rem;
-  letter-spacing: 0;
-  text-transform: none;
-  overflow-wrap: anywhere;
-}
-
-/* "e mais 2" baralhos: escrito à mão, como o "e mais" dos lembretes */
-.mais-baralhos {
-  font-family: var(--f-hand);
-  font-weight: 400;
-  font-size: 1.02rem;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--ink-2);
-}
-
-/* o nível da carta, no selo das observações, com a tinta do nível (as dos montes dos Estudos) */
-.nos-estudos .etq.status {
-  &[data-nivel='nova'] {
-    --imp: #1f4fc4;
-  }
-
-  &[data-nivel='aprendendo'] {
-    --imp: #b24a06;
-  }
-
-  &[data-nivel='dominada'] {
-    --imp: #0d6b3c;
-  }
-}
-
-.na-agenda.passou {
-  opacity: 0.62;
-
-  .lembrete {
-    text-decoration: line-through 1.5px;
-  }
-}
-
-/* "e mais 2": quantos lembretes mais, escrito à mão como o nome do lembrete, sublinhado a lápis */
-.mais-lembretes {
-  margin-left: -2px;
-  padding: 2px 2px;
-  border: 0;
-  background: none;
-  color: var(--ink-2);
-  font-family: var(--f-hand);
-  font-weight: 400;
-  font-size: 1.02rem;
-  letter-spacing: 0;
-  text-transform: none;
-  text-decoration: underline dotted 1.5px;
-  text-underline-offset: 4px;
-  cursor: pointer;
-  transition: color var(--t-ui) var(--ease-ui);
-
-  &:hover {
-    color: var(--ink);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--ink);
-    outline-offset: 2px;
-    border-radius: 2px;
-  }
-}
-
-.etq.imp {
-  @include kk.importancia;
-  rotate: -2deg;
-}
-
-/* o status: a etiqueta da importância na tinta preta do selo, com as palavras da pessoa */
-.etq.status {
-  @include kk.importancia;
-  --imp: #151515;
-  display: inline-block;
-  max-width: 240px;
-  line-height: 15px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  rotate: 1deg;
-}
-
-.etq .escala {
-  @include kk.escala;
-}
-
-/* as tarefas, na linha da data: verdes quando todas estão feitas, como na ficha do mural */
-.tarefas-conta {
-  white-space: nowrap;
-}
-
-.tarefas-conta.todas {
-  color: #1f7a45;
-}
-
-.categorias {
-  display: flex;
-  flex-wrap: wrap;
-  align-content: flex-start;
-  gap: 7px 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
 .reagir-linha {
   display: flex;
   flex-wrap: wrap;
@@ -759,10 +587,6 @@ app-judge-label {
     margin-top: 20px;
   }
 
-  .judgement.categorias {
-    gap: 7px 6px;
-  }
-
   .top.nota .judgement {
     margin-top: 10px;
   }
@@ -830,156 +654,153 @@ app-judge-label {
   min-width: 0;
 }
 
-/* "Comentar" (ou "3 comentários"), ao lado do reagir */
-.comentar {
-  font-size: 0.98rem;
+/* ===== O trilho (PLANO-LEITURA-UNIFICADA.md, D5) =====
+   As etiquetas de tinta que abrem a folha ao lado: Detalhes, Comentários e Ao lado. Moram no pé da ficha; no computador
+   saem pela beirada direita, de pé, uma embaixo da outra, cada uma com o desenho e o nome (a fileira e a etiqueta são as
+   das ações dos cards: separadas, crescem e ganham cor com a mão em cima). A da folha aberta fica acesa, na cartolina
+   da ficha (a mesma da faixa da folha). No celular e com duas anotações, deitam no pé, só com os desenhos. */
+.trilho {
+  @include et.grupo;
+  order: -1;
 }
 
-/* ===== As orelhas da ficha =====
-   A do grupo da anotação sai pela beirada de cima, como na ficha do mural; a dos comentários, pela
-   beirada da direita (só onde há margem para ela; no celular, dá lugar ao "Comentar"). O pé das duas
-   fica atrás da ficha. */
-.orelhas {
-  position: absolute;
-  top: 92px;
-  left: calc(100% - 3px);
-  z-index: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.foot .mais-menu {
+  order: -2;
 }
 
-/* A orelha do grupo: a orelha de divisória da ficha do mural, igual (o papel manilha, ou o claro com a
-   borda da cor do grupo por dentro, o desenho e o nome a pincel), à esquerda da tachinha. Não é botão:
-   diz de que grupo a anotação é. A ficha desce um tanto para ela caber. */
-.orelha-grupo {
-  position: absolute;
-  top: -29px;
-  left: 14px;
-  z-index: 0;
-  display: inline-flex;
-  align-items: center;
-  max-width: calc(50% - 40px);
-  height: 44px;
-  padding: 5px 11px 12px 9px;
-  border-radius: 8px 8px 0 0;
-  background-color: var(--manilha);
-  background-image: var(--paper-grain);
-  background-blend-mode: multiply;
-  color: #151515;
-  box-shadow:
-    0 -1px 0 rgb(255 255 255 / 0.35) inset,
-    0 2px 6px rgb(0 0 0 / 0.45);
-
-  app-cat-label {
-    font-family: var(--f-marker);
-    font-size: 0.94rem;
-    line-height: 1.2;
-  }
-}
-
-.orelha-grupo.orelha-cor {
-  top: -32px;
-  height: 47px;
-  padding: 9px 13px 19px 11px;
-  background-color: var(--papel-orelha);
-}
-
-.par.com-grupo {
-  margin-top: 28px;
-  max-height: calc(100dvh - 52px);
-}
-
-.par.com-grupo > .ficha {
-  max-height: calc(100dvh - 52px);
-}
-
-/* A orelha dos comentários: um marcador de fichário na cartolina da ficha. É o puxador da folha. */
-.orelha {
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
+.etq-trilho {
+  @include et.botao;
+  @include et.mostra;
   width: 44px;
-  padding: 14px 0 14px 3px;
-  border: 0;
-  border-radius: 0 9px 9px 0;
-  color: var(--ink);
-  box-shadow:
-    0 1px 2px rgb(0 0 0 / 0.35),
-    0 8px 14px -6px rgb(0 0 0 / 0.5);
-  cursor: pointer;
-  transition: translate var(--t-ui) var(--ease-ui);
+  height: 40px;
 
   lucide-icon {
     display: inline-flex;
   }
 
-  &:hover {
-    translate: 3px 0;
+  &[data-trilho='detalhes'] {
+    @include et.cor-na-mao(var(--etiqueta-amarelo));
   }
 
-  &:focus-visible {
-    outline: 3px solid var(--hi);
-    outline-offset: 2px;
+  &[data-trilho='comentarios'] {
+    @include et.cor-na-mao(var(--etiqueta-azul));
+  }
+
+  &[data-trilho='ao-lado'] {
+    @include et.cor-na-mao(var(--etiqueta-lilas));
+  }
+
+  /* acesa: a folha dela está aberta */
+  &[aria-pressed='true'] {
+    background: var(--stock);
+    color: var(--ink);
   }
 }
 
-/* o nome de pé, a pincel, lido de cima para baixo */
-.orelha-txt {
-  writing-mode: vertical-rl;
-  font-family: var(--f-marker);
-  font-size: 1.02rem;
-  line-height: 1;
-  letter-spacing: 0.02em;
+.ficha:is([data-cor$='-escuro'], [data-cor='preto']) .etq-trilho[aria-pressed='true'] {
+  color: var(--ink-claro-solido);
 }
 
-/* quantos são: o disco de tinta com o número amarelo, como o das fichas marcadas */
-.orelha-n {
+@media (hover: none) {
+  .etq-trilho {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+/* o nome: só no trilho de pé (deitado, fica para o leitor de tela, no aria-label) */
+.etq-nome {
+  display: none;
+}
+
+/* quantos comentários: o disco amarelo no ombro da etiqueta (na acesa, o de tinta) */
+.etq-n {
+  position: absolute;
+  top: -7px;
+  right: -6px;
   display: grid;
   place-items: center;
-  min-width: 24px;
-  height: 24px;
-  padding: 0 5px;
-  border-radius: 12px;
-  background: #151515;
-  color: var(--hi);
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--hi);
+  color: #151515;
   font-family: var(--f-label);
   font-weight: 800;
-  font-size: 0.86rem;
+  font-size: 0.72rem;
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
-@media (min-width: 900px) {
-  .orelha {
-    display: flex;
-  }
+.etq-trilho[aria-pressed='true'] .etq-n {
+  background: #151515;
+  color: var(--hi);
 }
 
-/* O "+" (PLANO-DUAS-NOTAS.md): o mesmo marcador, abaixo do de Comentários, só onde cabem duas anotações lado a
-   lado (a medida de BESIDE_MEDIA, em review-reader.ts, e da folha de comentários ao lado). */
-.orelha.abrir-ao-lado {
+/* "Ao lado" só onde cabem duas (BESIDE_MEDIA, em review-reader.ts) */
+.etq-trilho[data-trilho='ao-lado'] {
   display: none;
 }
 
 @media (min-width: 1180px) {
-  .orelha.abrir-ao-lado {
-    display: flex;
+  .etq-trilho[data-trilho='ao-lado'] {
+    display: inline-flex;
   }
 
-  /* os marcadores saem da beirada da ficha, nunca do pé: a ficha curta fica alta o bastante para eles (o do "+"
-     sozinho, ou os dois empilhados), como uma ficha de fichário com as abas dela */
-  .par:has(> .orelhas > .abrir-ao-lado) > article {
-    min-height: min(300px, calc(100dvh - 52px));
+  /* com a folha ao lado, o trilho vai para a beirada dela (a largura dela é a --lado-w) e a leitura cede o lugar dele */
+  .par {
+    --lado-w: clamp(360px, 31vw, 430px);
   }
 
-  .par:has(> .orelhas > .orelha + .abrir-ao-lado) > article {
-    /* (numa janela baixa, nunca mais alta que ela: o pé da ficha continua à vista) */
-    min-height: min(500px, calc(100dvh - 52px));
+  .reader.com-lado:not(.dupla, .ao-lado) .trilho {
+    left: calc(100% + var(--lado-w) + 12px);
+  }
+
+  dialog.reader.com-lado:not(.dupla, .ao-lado) {
+    max-width: min(1190px, calc(100vw - 236px));
   }
 }
 
+@media (min-width: 900px) {
+  /* a leitura cede ao trilho o lugar dele na beirada direita */
+  dialog.reader:not(.dupla, .ao-lado, .com-lado, .tela-cheia) {
+    max-width: min(760px, calc(100vw - 220px));
+  }
+
+  /* de pé, fora da ficha, na beirada direita (a ficha é o lugar dele: o pé não tem posição) */
+  .reader:not(.dupla, .ao-lado) .trilho {
+    position: absolute;
+    top: 74px;
+    left: calc(100% + 12px);
+    z-index: 0;
+    flex-direction: column;
+    gap: 9px;
+  }
+
+  .reader:not(.dupla, .ao-lado) .etq-trilho {
+    flex-direction: column;
+    gap: 5px;
+    width: 86px;
+    height: auto;
+    padding: 10px 4px 8px;
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.76rem;
+    line-height: 1;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .reader:not(.dupla, .ao-lado) .etq-nome {
+    display: block;
+  }
+
+  /* a ficha curta fica alta o bastante para o trilho não passar do pé dela */
+  .reader:not(.dupla, .ao-lado) .par > article:has(.trilho) {
+    min-height: min(340px, calc(100dvh - 24px));
+  }
+}
 
 /* A folha de comentários: outra ficha de fichário, com a mesma faixa de cartolina e a tachinha dela.
    Em tela estreita, cobre a ficha (a volta fica escrita na faixa); em tela larga, fica ao lado. */
@@ -999,6 +820,30 @@ app-judge-label {
 .volta-ficha {
   min-height: 40px;
   color: var(--ink);
+}
+
+/* o título da folha ao lado (os Detalhes), na faixa, a pincel como o nome da ficha */
+.lado-titulo {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  align-self: center;
+  font-family: var(--f-titulo-leitura);
+  font-weight: var(--w-titulo-leitura);
+  font-size: calc(1.36rem * var(--titulo-escala, 1));
+  line-height: 1.1;
+}
+
+.ficha:is([data-cor$='-escuro'], [data-cor='preto']) .lado-titulo {
+  color: var(--ink-claro-solido);
+}
+
+/* o corpo dos Detalhes: rola sozinho, a faixa fica */
+.lado-corpo {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 22px 22px;
 }
 
 .fecha-lado {
@@ -1029,7 +874,7 @@ app-judge-label {
     inset: auto;
     z-index: 0;
     flex: none;
-    width: clamp(360px, 31vw, 430px);
+    width: var(--lado-w);
     animation: puxa-folha 320ms var(--ease-physical);
   }
 
@@ -1077,9 +922,8 @@ app-judge-label {
 
 /* ===== Duas anotações lado a lado (PLANO-DUAS-NOTAS.md) =====
    A segunda é a mesma leitura, num <dialog> aberto sem ser modal dentro deste: as duas fichas inteiras, cada
-   uma com a tachinha, a faixa, a orelha do grupo e o pé, 28px uma da outra, dividindo a largura por igual
-   (nunca mais largas que a leitura sozinha). As duas descem o lugar da orelha do grupo, tenham ou não, para as
-   faixas ficarem na mesma altura. As orelhas da direita saem: o lugar delas é o da outra ficha. */
+   uma com a tachinha, a faixa e o pé, 28px uma da outra, dividindo a largura por igual (nunca mais largas que a
+   leitura sozinha). O trilho de cada uma deita no pé dela: a beirada da direita é o lugar da outra ficha. */
 dialog.reader.dupla {
   max-width: min(1548px, calc(100vw - 112px));
 }
@@ -1092,12 +936,6 @@ dialog.reader.dupla[open] {
 .dupla .par {
   flex: 1 1 0;
   min-width: 0;
-  margin-top: 28px;
-  max-height: calc(100dvh - 52px);
-}
-
-.dupla .par > .ficha {
-  max-height: calc(100dvh - 52px);
 }
 
 /* a primeira fica por cima: a segunda chega puxada de trás dela, como a folha de comentários */
@@ -1105,9 +943,6 @@ dialog.reader.dupla[open] {
   z-index: 1;
 }
 
-.dupla .orelhas {
-  display: none;
-}
 
 /* o vão entre as duas é da segunda (o toque nele não fecha a leitura, como o toque no escuro em volta) */
 dialog.reader.ao-lado {
@@ -1218,10 +1053,6 @@ dialog.reader.ao-lado {
   .anotar {
     animation: none;
   }
-
-  .orelha {
-    transition: none;
-  }
 }
 
 /* ===== Pelo link (ver pages/ficha-page.ts) =====
@@ -1249,10 +1080,6 @@ dialog.reader.solta[open] > .par {
   max-height: calc(100dvh - 72px - var(--remendo, 0px));
 }
 
-.solta .par.com-grupo,
-.solta .par.com-grupo > .ficha {
-  max-height: calc(100dvh - 100px - var(--remendo, 0px));
-}
 
 .assinatura {
   display: flex;

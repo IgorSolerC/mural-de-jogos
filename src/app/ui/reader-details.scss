@@ -1,0 +1,322 @@
+@use 'dymo';
+@use 'kanban-kit' as kk;
+
+/* Os Detalhes da anotação (PLANO-LEITURA-UNIFICADA.md, D7): uma linha por dado, o desenho cinza e o nome miúdo à
+   esquerda, o valor em letra de texto à direita, o secundário menor e cinza embaixo. */
+:host {
+  display: block;
+}
+
+.detalhes {
+  margin: 0;
+}
+
+.linha {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  column-gap: 14px;
+  padding: 10px 0;
+  border-top: 1px dashed rgb(21 21 21 / 0.16);
+}
+
+.linha:first-child {
+  border-top: 0;
+}
+
+/* onde mais a anotação está (o quadro, o baralho, os lembretes): um fio mais forte separa da anotação em si */
+.linha:not(.lugar) + .lugar {
+  margin-top: 6px;
+  border-top: 1.5px dashed rgb(21 21 21 / 0.28);
+}
+
+dt {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 1.5rem;
+  color: var(--ink-2);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.78rem;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+
+  lucide-icon {
+    display: inline-flex;
+    flex: none;
+  }
+}
+
+dd {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+  margin: 0;
+  font-family: var(--f-ui);
+  font-size: 1rem;
+  line-height: 1.5rem;
+  overflow-wrap: anywhere;
+}
+
+.fileira {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  min-height: 1.5rem;
+}
+
+.valor {
+  font-weight: 500;
+}
+
+.miudo {
+  color: var(--ink-2);
+  font-size: 0.88rem;
+  line-height: 1.3rem;
+}
+
+.desenho {
+  display: inline-flex;
+  color: var(--ink-2);
+}
+
+/* o que se toca: o pontilhado embaixo e o marca-texto da leitura com a mão em cima */
+.elo,
+.mais {
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: underline 1px dotted rgb(21 21 21 / 0.45);
+  text-underline-offset: 4px;
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(255 218 66 / 0.5);
+    text-decoration-style: solid;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* o dedo: a área de toque passa da letra */
+  @media (pointer: coarse) {
+    &::after {
+      content: '';
+      position: absolute;
+      inset: -10px -4px;
+    }
+  }
+}
+
+.mais {
+  color: var(--ink-2);
+}
+
+/* o grupo: o desenho dele na cor dele, sem orelha */
+.grupo {
+  font-weight: 600;
+}
+
+/* a data na fita de rotular */
+.fita {
+  @include dymo.fita;
+  min-height: 24px;
+  padding: 5px 9px 4px;
+  font-size: 0.78rem;
+}
+
+/* as pessoas: o emoji de cada uma na cartolina dela, em bolinhas que se encostam */
+.rostos {
+  display: inline-flex;
+  flex-wrap: wrap;
+  padding-left: 6px;
+}
+
+.rosto {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-left: -6px;
+  border-radius: 50%;
+  background: var(--stock);
+  box-shadow: 0 0 0 2px var(--paper);
+  font-size: 0.92rem;
+  line-height: 1;
+}
+
+.inicial {
+  font-family: var(--f-marker);
+  font-size: 0.86rem;
+  translate: 0 1px;
+}
+
+.rosto:is([data-cor$='-escuro'], [data-cor='preto']) .inicial {
+  color: var(--ink-claro-solido);
+}
+
+/* as tarefas: os gomos verdes (a barra, com mais de dez) */
+.gomos,
+.barra {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1.5px rgb(31 122 69 / 0.45);
+}
+
+.gomos i {
+  width: 9px;
+  height: 9px;
+  border-radius: 1px;
+}
+
+.gomos i.acesa,
+.barra i {
+  background: #1f7a45;
+}
+
+.barra {
+  width: 96px;
+
+  i {
+    display: block;
+    height: 9px;
+    border-radius: 1px;
+  }
+}
+
+.todas {
+  color: #1f7a45;
+}
+
+/* o Kanban: o quadradinho na cor da coluna (a legenda das tags), a seta da importância e a observação */
+.coluna {
+  @include kk.coluna-cores;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.86rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+
+  &::before {
+    content: '';
+    flex: none;
+    width: 9px;
+    height: 9px;
+    border-radius: 1px;
+    background: var(--col-cor);
+  }
+}
+
+.prioridade {
+  @include kk.importancia-cores;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--imp);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.seta {
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.seta.desce {
+  rotate: 180deg;
+}
+
+/* o baralho e o lembrete: o desenho deles na cor deles */
+.com-desenho {
+  @include kk.coluna-cores;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 500;
+
+  lucide-icon {
+    display: inline-flex;
+    flex: none;
+    color: var(--col-cor);
+  }
+}
+
+.nivel {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--nivel, var(--ink-2));
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+
+  &::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  &[data-nivel='nova'] {
+    --nivel: #1f4fc4;
+  }
+
+  &[data-nivel='aprendendo'] {
+    --nivel: #b24a06;
+  }
+
+  &[data-nivel='dominada'] {
+    --nivel: #0d6b3c;
+  }
+}
+
+.lembrete {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.lembrete + .lembrete {
+  margin-top: 8px;
+}
+
+.lembrete.passou {
+  opacity: 0.62;
+
+  .miudo {
+    text-decoration: line-through 1.5px;
+  }
+}
+
+@media (max-width: 600px) {
+  .linha {
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+}

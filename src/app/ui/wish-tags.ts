@@ -13,6 +13,7 @@ import type { PIXEL_TAG_SPACE } from '../core/pixel-gallery';
 @Component({
   selector: 'app-wish-tags',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '[class.tom-papel]': 'paper()' },
   template: `
     <span class="sr-only">Tags: {{ tags().join(', ') }}</span>
     @for (t of items(); track t.label) {
@@ -61,6 +62,25 @@ import type { PIXEL_TAG_SPACE } from '../core/pixel-gallery';
       background: none;
       box-shadow: inset 0 0 0 1.25px currentColor;
     }
+    /* no papel (os Detalhes da leitura, PLANO-LEITURA-UNIFICADA.md, D7): a tinta preta, o quadradinho sem contorno
+       e, sem cor, cinza bem claro (pedido do dono) */
+    :host(.tom-papel) {
+      gap: 4px 12px;
+      color: var(--ink);
+    }
+    :host(.tom-papel) .tag {
+      gap: 6px;
+      font-size: 0.8rem;
+      line-height: 1.5rem;
+    }
+    :host(.tom-papel) .tag::before {
+      width: 8px;
+      height: 8px;
+      box-shadow: none;
+    }
+    :host(.tom-papel) .sem-cor::before {
+      background: #d6d0c4;
+    }
   `,
 })
 export class WishTags {
@@ -69,6 +89,8 @@ export class WishTags {
   readonly kind = input.required<Kind | typeof PIXEL_TAG_SPACE>();
   /** As cores de outro lugar (a folha do recorte, com as sorteadas que só vão para as configurações ao salvar). */
   readonly colors = input<{ hex(tag: string): string | null } | null>(null);
+  /** No papel, e não na parede: a tinta preta e o quadradinho sem cor cinza claro. */
+  readonly paper = input(false);
 
   private readonly settings = inject(Settings);
   protected readonly items = computed(() => {

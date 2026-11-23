@@ -55,21 +55,17 @@ import { NoteLinks, TextSpot, linkSpot, notesOf, placesOf, resolveNote, spotTitl
 import { ReminderLinks } from '../core/reminder-links';
 import { KanbanDeps } from '../core/kanban-deps';
 import { KanbanStore } from '../core/kanban-store';
-import { IMPORTANCE_LABEL } from '../core/kanban';
 import { CalendarStore } from '../core/calendar-store';
 import { nearDayLabel, remindersOfNote, timeLabel } from '../core/calendar';
 import { KanbanDepsBadge } from './kanban-deps';
-import { IMPORTANCE_LEVEL } from './kanban-icons';
 import { NoteDone } from '../core/note-done';
 import { NotePin } from '../core/note-pin';
 import { napWall } from '../core/wall-settle';
 import { WallState, WallView } from '../core/wall-view';
 import { DoneStamp } from './done-stamp';
-import { NoteTag } from './note-tag';
-import { CategoryLabel } from './category-label';
 import { categoryColorHex, tagColorHex } from '../core/category-looks';
 import { CloudAccount } from '../core/cloud-account';
-import { CommentTarget, Comments, QuoteRequest, spokenComments } from '../core/comments';
+import { CommentTarget, Comments, QuoteRequest } from '../core/comments';
 // só usada dentro do @defer do molde, e num import só dela: assim a folha (com o editor) chega num pedaço à parte
 import { CommentsPanel } from './comments-panel';
 // as folhas das anotações compartilhadas, também em pedaços à parte (cada uma num import só dela)
@@ -91,7 +87,8 @@ import { FichaLinks } from '../core/ficha-link';
 import { OrganizeSheet } from './organize-sheet';
 import { SharedStore } from '../core/shared-store';
 import { SyncConflicts } from '../core/sync-conflicts';
-import { accessSummary } from '../core/access';
+import { accessSummary, namesOf } from '../core/access';
+import { DetailsPerson, ReaderDetails, ReaderDetailsData, tapeDate } from './reader-details';
 import { SharedGroupsStore } from '../core/shared-groups-store';
 import { canManage, canWrite, removalOf } from '../core/shared-notes';
 
@@ -178,17 +175,19 @@ interface AlonePlea {
   place: ReadingPlace | null;
   comments: boolean;
   quote: string | null;
+  /** Pediu os Detalhes (a folha ao lado precisa do lado direito). */
+  details?: boolean;
 }
 
 @Component({
   selector: 'app-review-reader',
-  imports: [BackdropClose, CardConfig, CardPicker, QuickNoteSheet, CategoryLabel, CommentsPanel, ConflictSheet, LinkSheet, ShareSheet, OrganizeSheet, IconModule, KanbanDepsBadge, MoreMenu, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, NoteTag, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, ReviewCard, Skulls, StatusLabel, VozFita],
+  imports: [BackdropClose, CardConfig, CardPicker, QuickNoteSheet, CommentsPanel, ReaderDetails, ConflictSheet, LinkSheet, ShareSheet, OrganizeSheet, IconModule, KanbanDepsBadge, MoreMenu, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, ReviewCard, Skulls, StatusLabel, VozFita],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog
       #dialog
       class="sheet reader"
-      [class.com-lado]="commentsOpen()"
+      [class.com-lado]="sideOpen()"
       [class.solta]="!!solta()"
       [class.tela-cheia]="vista() === 'tela-cheia'"
       [class.so-a-cartolina]="vista() === 'cartolina'"
@@ -203,7 +202,7 @@ interface AlonePlea {
       @if (review(); as r) {
         <!-- a ficha e, puxada de baixo dela pela orelha, a folha de comentários (só a cartolina: a dupla
              fica guardada, escondida, com o lugar onde se lia) -->
-        <div class="par" [class.com-grupo]="!!groupEar() && lendo()">
+        <div class="par">
         <article class="ficha cartolina" [style.--stock]="'var(--stock-' + pin().stock + ')'" [attr.data-cor]="pin().stock">
           <app-pin class="pin" [color]="pin().pinColor" />
           <!-- a faixa da cartolina é a orelha da ficha de fichário: o nome vai escrito nela, a pincel, e
@@ -292,7 +291,9 @@ interface AlonePlea {
             <!-- A ficha vista de perto. A análise: a foto colada e, ao lado, a data, a etiqueta do julgamento
                  e os bônus, em equilíbrio com a foto. A anotação: uma linha só (a data, o grupo e as tags),
                  e o texto logo embaixo, que é o que importa -->
-            <div class="top" [class.nota]="note()" [class.sem-capa]="note() && !r.game.coverUrl" [class.com-carimbo]="note() && !!r.doneAt">
+            <!-- a anotação: só a capa, se tiver (a data, o grupo, as tags e os lugares estão nos Detalhes, PLANO-LEITURA-UNIFICADA.md) -->
+            @if (!note() || r.game.coverUrl) {
+            <div class="top" [class.nota]="note()" [class.com-carimbo]="note() && !!r.doneAt">
               @if (!note() || r.game.coverUrl) {
               <div class="cover" [class.disco]="music()">
                 @if (music()) {
@@ -311,6 +312,7 @@ interface AlonePlea {
               </div>
               }
 
+              @if (!note()) {
               <div class="words">
                 @if (music()) {
                   <!-- o que é e de quem: "Álbum de Radiohead"; a música solta diz de qual álbum saiu -->
@@ -330,30 +332,13 @@ interface AlonePlea {
                   @if (audience(); as a) {
                     <span class="quem-ve" [title]="a.title"><lucide-icon class="quem-ve-icone" [img]="a.icon" [size]="15" aria-hidden="true" /><span class="sr-only">{{ a.title }}. </span></span>
                   }
-                  <!-- a pasta da anotação, o caminho inteiro (o grupo é a orelha da ficha), primeiro: tocar abre a
-                       parede nela (PLANO-PASTAS.md, 4.9) -->
-                  @if (note() && folderPath(); as p) {
-                    <button type="button" class="assunto" [title]="'Abrir a pasta ' + p.name + ' no mural'" (click)="openFolder(p.id)">
-                      <lucide-icon class="quem-ve-icone" [img]="SubjectIcon" [size]="15" aria-hidden="true" /><span class="sr-only">Pasta: </span>{{ p.label }}
-                    </button><span aria-hidden="true"> · </span>
-                  }
-                  <!-- o lugar da anotação no mural vem antes da data, com ou sem data -->
-                  @if (note() && r.noteRank === 'fixada') {
-                    Fixada<span aria-hidden="true"> · </span>
-                  }
                   @if (r.completedAt === null) {
                     {{ noDay }}
-                  } @else if (note()) {
-                    {{ date() }}
                   } @else {
                     {{ dayLabel(r.kind, r.status) }} {{ date() }}
                   }
                   @if (!masked() && hours(); as h) {
                     <span aria-hidden="true"> · </span>{{ h }}
-                  }
-                  <!-- as tarefas: quantas já foram feitas, como na ficha do mural -->
-                  @if (tasks(); as t) {
-                    <span class="tarefas-conta" [class.todas]="t.done === t.total"><span aria-hidden="true"> · </span><lucide-icon class="quem-ve-icone" [img]="TasksIcon" [size]="15" aria-hidden="true" />{{ t.done }}/{{ t.total }}<span class="sr-only"> tarefas feitas</span></span>
                   }
                   @if (sharedHere(); as s) {
                     <!-- compartilhada: com quem (ou de quem) e o seu papel; o nome abre a folha das pessoas -->
@@ -364,74 +349,11 @@ interface AlonePlea {
                     </span>
                   }
                 </p>
-                @if (r.game.year && !note()) {
+                @if (r.game.year) {
                   <p class="meta year">{{ profile().released }} {{ r.game.year }}</p>
                 }
               </div>
 
-              @if (note()) {
-                <!-- as tags da anotação, no lugar da nota (o grupo é a orelha da ficha) -->
-                @if (r.tags?.length) {
-                  <ul class="judgement categorias" aria-label="Tags">
-                    @for (t of r.tags ?? []; track t; let i = $index) {
-                      <li><app-note-tag [label]="t" [index]="i + 1" [color]="tagColor(t)" /></li>
-                    }
-                  </ul>
-                }
-                <!-- onde mais ela está: o lugar no quadro do Kanban, a carta dos Estudos e os dias do Calendário em que foi presa -->
-                @if (board() || studyCard() || reminders().length) {
-                  <div class="lugares" [class.todos]="allRemindersShown()">
-                    @if (board(); as b) {
-                      <div class="lugar no-quadro" [attr.data-cor]="b.color">
-                        <span class="sr-only">No Kanban: </span>
-                        <lucide-icon class="lugar-icone" [img]="b.icon" [size]="16" aria-hidden="true" />
-                        <button type="button" class="parte-de" [title]="'Abrir o quadro de ' + r.category + ' no Kanban'" (click)="openBoard(b.id)">{{ b.column }}</button>
-                        @if (b.importance; as imp) {
-                          <span class="etq imp" [attr.data-imp]="imp">
-                            <span class="escala" aria-hidden="true">
-                              @for (n of steps; track n) {
-                                <i [class.acesa]="n <= importanceLevel[imp]"></i>
-                              }
-                            </span>
-                            <span class="sr-only">Importância: </span>{{ importanceLabel[imp] }}
-                          </span>
-                        }
-                        @if (b.status; as st) {
-                          <span class="etq status" [title]="st"><span class="sr-only">Observação: </span>{{ st }}</span>
-                        }
-                        @if (b.deps; as deps) {
-                          <app-kanban-deps class="dependencias" [noteId]="r.id" [owner]="r.game.name" [deps]="deps" (opened)="openDep($event)" (edit)="editBoard.emit(r.id)" />
-                        }
-                      </div>
-                    }
-                    @if (studyCard(); as s) {
-                      <div class="lugar nos-estudos" [attr.data-cor]="s.color">
-                        <span class="sr-only">Nos Flashcards: </span>
-                        <lucide-icon class="lugar-icone" [img]="s.icon" [size]="16" aria-hidden="true" />
-                        <button type="button" class="parte-de" [title]="'Abrir o baralho ' + s.deck + ' nos Flashcards'" (click)="openDeck(s.deckId)">{{ s.deck }}</button>
-                        @if (s.more) {
-                          <span class="mais-baralhos">e mais {{ s.more }}</span>
-                        }
-                        <span class="etq status" [attr.data-nivel]="s.level"><span class="sr-only">Nível: </span>{{ s.levelLabel }}</span>
-                        <span class="lembrete">{{ s.when }}</span>
-                      </div>
-                    }
-                    @for (x of reminders(); track x.id; let last = $last) {
-                      <div class="lugar na-agenda" [class.passou]="x.past" [attr.data-cor]="x.color">
-                        <span class="sr-only">No Calendário: </span>
-                        <lucide-icon class="lugar-icone" [img]="x.icon ? choiceIcon[x.icon] : CalendarIcon" [size]="16" aria-hidden="true" />
-                        <button type="button" class="parte-de" [title]="'Abrir ' + x.when + ' no Calendário'" (click)="openDay(x.day)">{{ x.when }}</button>
-                        <span class="lembrete">{{ x.title }}</span>
-                        <!-- os outros lembretes ficam atrás de um "e mais 2", escrito à mão depois do nome, para a
-                             linha não empurrar o texto -->
-                        @if (last && moreReminders(); as more) {
-                          <button type="button" class="mais-lembretes" [attr.aria-label]="'Mostrar mais ' + (more === 1 ? '1 lembrete' : more + ' lembretes')" (click)="allRemindersShown.set(true)">e mais {{ more }}</button>
-                        }
-                      </div>
-                    }
-                  </div>
-                }
-              } @else {
               <div class="judgement">
                 <app-judge-label [value]="r.scores.final" [verdict]="r.verdict" size="big" [masked]="masked()" />
                 @if (profile().difficulty && !masked()) {
@@ -464,6 +386,7 @@ interface AlonePlea {
               }
               }
             </div>
+            }
 
             @if (!note()) {
               <app-boletim [review]="r" size="big" [masked]="masked()" />
@@ -485,16 +408,10 @@ interface AlonePlea {
 
             <!-- as reações: o balão com quem reagiu e, na ficha de quem você segue, o reagir; e a porta dos comentários -->
             @if (lendo() && reactTarget(); as t) {
-              @if (reactions.canReact(t.code) || reactions.of(t.code, t.ref).length || commentButton()) {
+              @if (reactions.canReact(t.code) || reactions.of(t.code, t.ref).length) {
                 <div class="reagir-linha">
                   @if (reactions.canReact(t.code)) {
                     <app-reaction-picker [target]="t" />
-                  }
-                  @if (commentButton()) {
-                    <button type="button" class="acao-caneta comentar" [attr.aria-expanded]="commentsOpen()" [attr.aria-controls]="'leitura-comentarios' + sufixo()" (click)="toggleComments()">
-                      <lucide-icon [img]="CommentIcon" [size]="17" aria-hidden="true" />
-                      {{ commentCount() ? commentsLabel() : 'Comentar' }}
-                    </button>
                   }
                   <app-reaction-bubble [target]="t" />
                 </div>
@@ -506,6 +423,30 @@ interface AlonePlea {
 
           @if (lendo()) {
           <footer class="foot">
+            <!-- o trilho (PLANO-LEITURA-UNIFICADA.md, D5): as etiquetas de tinta que abrem a folha ao lado. Mora no pé: no
+                 computador sai pela beirada direita da ficha; no celular (e com duas anotações) fica deitado nele -->
+            @if (rail().length) {
+              <nav class="trilho" [attr.aria-label]="note() ? 'Mais da anotação' : 'Mais da ficha'">
+                @for (x of rail(); track x.id) {
+                  <button
+                    type="button"
+                    class="etq-trilho"
+                    [attr.data-trilho]="x.id"
+                    [attr.aria-pressed]="x.id === 'ao-lado' ? null : sideShown() === x.id"
+                    [attr.aria-haspopup]="x.id === 'ao-lado' ? 'dialog' : null"
+                    [attr.aria-controls]="x.id === 'ao-lado' ? null : 'leitura-' + x.id + sufixo()"
+                    [attr.aria-label]="x.label"
+                    (click)="railPicked(x.id)"
+                  >
+                    <lucide-icon [img]="x.icon" [size]="18" aria-hidden="true" />
+                    <span class="etq-nome" aria-hidden="true">{{ x.name }}</span>
+                    @if (x.count; as n) {
+                      <span class="etq-n" aria-hidden="true">{{ n }}</span>
+                    }
+                  </button>
+                }
+              </nav>
+            }
             @if (owner(); as ownerName) {
               @let name = r.sharedBy?.nome ?? ownerName;
               @if (name === 'Você') {
@@ -548,57 +489,38 @@ interface AlonePlea {
           }
         </article>
 
-        <!-- o grupo da anotação: a mesma orelha de divisória da ficha no mural, saindo pela beirada de
-             cima, atrás da faixa -->
-        @if (lendo() && groupEar(); as g) {
-          <span class="orelha-grupo" [class.orelha-cor]="!!g.color" [style.--cat-cor]="g.color">
-            <span class="sr-only">Grupo: </span>
-            <app-cat-label [label]="g.label" [look]="g.look" [iconSize]="13" />
-          </span>
-        }
-
-        <!-- a orelha que puxa a folha de comentários, na beirada da direita -->
-        <div class="orelhas">
-          @if (lendo() && commentable() && commentTarget()) {
-            <!-- a orelha: um marcador na cor da cartolina, para fora da ficha, que puxa a folha de comentários -->
-            <button
-              type="button"
-              class="orelha cartolina"
-              [attr.data-cor]="pin().stock"
-              [style]="headPaper()"
-              [style.--stock]="'var(--stock-' + pin().stock + ')'"
-              [attr.aria-expanded]="commentsOpen()"
-              [attr.aria-controls]="'leitura-comentarios' + sufixo()"
-              [attr.aria-label]="commentCount() ? 'Comentários: ' + commentCount() : 'Comentários'"
-              (click)="toggleComments()"
+        <!-- a folha ao lado (PLANO-LEITURA-UNIFICADA.md, D6): os Detalhes da anotação, do trilho -->
+        @if (lendo() && detailsOpen() && details(); as dt) {
+          <aside [id]="'leitura-detalhes' + sufixo()" class="ficha cartolina lado detalhes-lado" tabindex="-1" [style.--stock]="'var(--stock-' + pin().stock + ')'" [attr.data-cor]="pin().stock" [attr.aria-labelledby]="'detalhes-titulo' + sufixo()">
+            <app-pin class="pin" [color]="pin().pinColor" />
+            <header class="head" [style]="headPaper()">
+              <button type="button" class="btn-quiet volta-ficha" (click)="toggleDetails(false)">
+                <lucide-icon [img]="BackIcon" [size]="18" aria-hidden="true" />
+                Voltar para a ficha
+              </button>
+              <h3 class="lado-titulo" [id]="'detalhes-titulo' + sufixo()">Detalhes</h3>
+              <button type="button" class="icon-btn fecha-lado" (click)="toggleDetails(false)" aria-label="Fechar os detalhes">
+                <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
+              </button>
+            </header>
+            <app-reader-details
+              class="lado-corpo"
+              [data]="dt"
+              (folderOpened)="openFolder($event)"
+              (peopleOpened)="openShare()"
+              (boardOpened)="openBoard($event)"
+              (deckOpened)="openDeck($event)"
+              (dayOpened)="openDay($event)"
+              (moreReminders)="allRemindersShown.set(true)"
             >
-              <lucide-icon [img]="CommentIcon" [size]="20" aria-hidden="true" />
-              <span class="orelha-txt" aria-hidden="true">Comentários</span>
-              @if (commentCount(); as n) {
-                <span class="orelha-n" aria-hidden="true">{{ n }}</span>
+              @if (board(); as b) {
+                @if (b.deps; as deps) {
+                  <app-kanban-deps detalhes-deps class="dependencias" [noteId]="r.id" [owner]="r.game.name" [deps]="deps" (opened)="openDep($event)" (edit)="editBoard.emit(r.id)" />
+                }
               }
-            </button>
-          }
-          <!-- o "+": outra anotação, aberta ao lado desta (PLANO-DUAS-NOTAS.md). O mesmo marcador, abaixo do de
-               Comentários (ou no lugar dele); só onde cabem as duas -->
-          @if (canBeside()) {
-            <button
-              type="button"
-              class="orelha cartolina abrir-ao-lado"
-              [attr.data-cor]="pin().stock"
-              [style]="headPaper()"
-              [style.--stock]="'var(--stock-' + pin().stock + ')'"
-              aria-haspopup="dialog"
-              aria-label="Abrir outra anotação ao lado"
-              title="Abrir outra anotação ao lado"
-              (click)="pickBeside.set(true)"
-            >
-              <lucide-icon [img]="AddIcon" [size]="20" aria-hidden="true" />
-              <span class="orelha-txt" aria-hidden="true">Abrir ao lado</span>
-            </button>
-          }
-        </div>
-
+            </app-reader-details>
+          </aside>
+        }
         @if (lendo() && commentable()) {
           @if (commentTarget(); as ct) {
             @if (commentsOpen()) {
@@ -935,11 +857,6 @@ export class ReviewReader {
   protected readonly CalendarIcon = ICON.calendario;
   /** O desenho de cada escolha da cartela (o ícone do lembrete, no lugar do calendário). */
   protected readonly choiceIcon = ICON_CHOICE;
-  protected readonly TasksIcon = ICON.tarefas;
-  protected readonly SubjectIcon = ICON.pastaDeNotas;
-  protected readonly importanceLabel = IMPORTANCE_LABEL;
-  protected readonly importanceLevel = IMPORTANCE_LEVEL;
-  protected readonly steps = [1, 2, 3, 4, 5];
   /** As tarefas do texto da anotação: quantas já foram feitas (como na linha da data da ficha do mural). */
   protected readonly tasks = computed(() => {
     const r = this.review();
@@ -1353,7 +1270,6 @@ export class ReviewReader {
     const t = this.commentTarget();
     return t ? this.comments.countOf(t.code, t.ref) : 0;
   });
-  protected readonly commentsLabel = computed(() => spokenComments(this.commentCount()));
   /** A folha de comentários à mostra; trocar de ficha (as vezes da obra, um link) fecha. */
   protected readonly commentsOpen = linkedSignal({ source: this.reviewId, computation: () => false });
   /**
@@ -1372,11 +1288,6 @@ export class ReviewReader {
     const t = this.commentTarget();
     return !!t && this.comments.closedOf(t.code, t.ref);
   });
-  /**
-   * O "Comentar" embaixo do texto: na anotação de que você é dono, só a orelha (o botão poluía a
-   * leitura). Na compartilhada por outra pessoa e nas resenhas, os dois.
-   */
-  protected readonly commentButton = computed(() => this.commentable() && !(this.note() && this.owner() === null && (this.sharedEntry()?.papel ?? 'dono') === 'dono'));
   /** Quem escreveu a ficha, para a folha dizer quem precisa ser seguido. */
   protected readonly commentOwner = computed(() => this.owner() ?? this.account.account()?.nome ?? 'Você');
   /** A ficha em segredo: a pessoa aceitou ver os comentários mesmo assim (só nesta ficha). */
@@ -1414,8 +1325,114 @@ export class ReviewReader {
     this.watchShared(null);
   });
 
-  /** Quem abriu a folha de comentários (a orelha ou o "Comentar"): é para onde o foco volta ao fechar. */
+  /** Quem abriu a folha de comentários (a etiqueta do trilho): é para onde o foco volta ao fechar. */
   private commentsOpener: HTMLElement | null = null;
+
+  // ===== O trilho e os Detalhes (PLANO-LEITURA-UNIFICADA.md, D5–D7) =====
+  /** A folha dos Detalhes à mostra; trocar de ficha fecha, como a dos comentários. */
+  protected readonly detailsOpen = linkedSignal({ source: this.reviewId, computation: () => false });
+  /** Alguma folha ao lado está aberta (os Detalhes ou os comentários). */
+  protected readonly sideOpen = computed(() => this.commentsOpen() || this.detailsOpen());
+  /** Qual: a etiqueta do trilho dela fica acesa. */
+  protected readonly sideShown = computed<'detalhes' | 'comentarios' | null>(() => (this.detailsOpen() ? 'detalhes' : this.commentsOpen() ? 'comentarios' : null));
+  protected readonly InfoIcon = ICON.informacao;
+  /**
+   * As etiquetas do trilho: Detalhes (só nas anotações), Comentários (com quantos, quando há porta para eles) e Ao lado
+   * (o "+" de antes: só onde cabem duas, o CSS esconde abaixo de 1180px).
+   */
+  protected readonly rail = computed(() => {
+    const out: { id: 'detalhes' | 'comentarios' | 'ao-lado'; label: string; name: string; icon: LucideIconData; count: number }[] = [];
+    if (this.note()) out.push({ id: 'detalhes', label: 'Detalhes da anotação', name: 'Detalhes', icon: this.InfoIcon, count: 0 });
+    if (this.commentable() && this.commentTarget()) {
+      const n = this.commentCount();
+      out.push({ id: 'comentarios', label: n ? `Comentários: ${n}` : 'Comentários', name: 'Comentários', icon: this.CommentIcon, count: n });
+    }
+    if (this.canBeside()) out.push({ id: 'ao-lado', label: 'Abrir outra anotação ao lado', name: 'Ao lado', icon: this.AddIcon, count: 0 });
+    return out;
+  });
+
+  protected railPicked(id: 'detalhes' | 'comentarios' | 'ao-lado'): void {
+    if (id === 'detalhes') this.toggleDetails();
+    else if (id === 'comentarios') this.toggleComments();
+    else this.pickBeside.set(true);
+  }
+
+  /** Abre ou fecha a folha dos Detalhes (fecha a dos comentários): o foco vai para ela e, fechando, volta à etiqueta. */
+  protected toggleDetails(open = !this.detailsOpen()): void {
+    // a folha precisa do lado direito: a segunda fica sozinha com ela, como com os comentários
+    if (open && this.aoLado()) {
+      const r = this.review();
+      if (!r) return;
+      this.fita()?.stop();
+      this.alone.emit({ review: r, trail: this.trail(), view: 'leitura', place: this.readingPlace(), comments: false, quote: null, details: true });
+      return;
+    }
+    if (open) {
+      this.segunda.set(null);
+      this.commentsOpen.set(false);
+      this.quote.set(null);
+    }
+    this.detailsOpen.set(open);
+    this.picked.set(null);
+    const dialog = this.dialog().nativeElement;
+    setTimeout(() => {
+      if (open) return dialog.querySelector<HTMLElement>(`#leitura-detalhes${this.sufixo()}`)?.focus({ preventScroll: true });
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && active.isConnected && dialog.contains(active) && !active.closest('.detalhes-lado')) return;
+      dialog.querySelector<HTMLElement>('.etq-trilho[data-trilho="detalhes"]')?.focus({ preventScroll: true });
+    });
+  }
+
+  /**
+   * Quem vê, nos Detalhes: a sua anotação diz se é só sua ou pública; a compartilhada, as pessoas (com a foto delas) e
+   * a frase de quem vê e quem edita. A de outra pessoa (a visita, o link) não diz: é a que ela publicou.
+   */
+  private readonly who = computed<ReaderDetailsData['who']>(() => {
+    const r = this.review();
+    if (!r || this.owner() !== null) return null;
+    const e = this.sharedEntry();
+    if (!e) {
+      if (isPrivate(r)) return { icon: this.PrivateIcon, line: 'Só você', people: [], sub: null, opens: false };
+      return { icon: r.quiet ? this.QuietIcon : this.PublicIcon, line: 'Qualquer pessoa vê no seu mural', people: [], sub: r.quiet ? 'sem ir para o Feed' : null, opens: false };
+    }
+    const me = this.account.account()?.codigo ?? null;
+    const state = this.sharedGroups.accessOf(e, me);
+    const seen = new Set<string>();
+    const all = [...(e.papel !== 'dono' ? [{ codigo: e.dono.codigo, nome: e.dono.nome }] : []), ...state.members];
+    // a foto do perfil de cada uma (o emoji na cartolina) vem com a anotação; quem entrou pelo grupo e não está nela, a inicial
+    const faces = new Map([e.dono, ...e.membros].flatMap((x) => (x.foto ? [[x.codigo, x.foto] as const] : [])));
+    const people: DetailsPerson[] = [];
+    for (const m of all) {
+      if (m.codigo === me || seen.has(m.codigo)) continue;
+      seen.add(m.codigo);
+      people.push({ code: m.codigo, name: m.nome, face: faces.get(m.codigo) ?? null });
+    }
+    const summary = accessSummary(state);
+    return { icon: this.SharedIcon, line: namesOf(people.map((x) => x.name)) || summary.short, people, sub: summary.line, opens: true };
+  });
+  /** O que os Detalhes mostram (só nas anotações). */
+  protected readonly details = computed<ReaderDetailsData | null>(() => {
+    const r = this.review();
+    if (!r || !this.note()) return null;
+    const folder = this.folderPath();
+    const notes: string[] = [];
+    if (r.noteRank === 'fixada') notes.push('fixada no topo');
+    if (r.doneAt) notes.push(`finalizada em ${formatReviewDateLong(r.doneAt.slice(0, 10))}`);
+    const b = this.board();
+    const s = this.studyCard();
+    return {
+      group: this.groupEar(),
+      folder: folder ? { id: folder.id, label: folder.label } : null,
+      date: { tape: tapeDate(r.completedAt), long: r.completedAt === null ? this.noDay : this.date(), notes },
+      who: this.who(),
+      tasks: this.tasks(),
+      tags: (r.tags ?? []).map((t) => ({ label: t, color: this.tagColor(t) })),
+      board: b ? { id: b.id, column: b.column, color: b.color, importance: b.importance ?? null, status: b.status, deps: !!b.deps } : null,
+      study: s ? { deckId: s.deckId, deck: s.deck, more: s.more, icon: s.icon, color: s.color, level: s.level, levelLabel: s.levelLabel, when: s.when } : null,
+      reminders: this.reminders().map((x) => ({ id: x.id, day: x.day, when: x.when, title: x.title, past: x.past, icon: x.icon ? this.choiceIcon[x.icon] : this.CalendarIcon, color: x.color ?? null })),
+      moreReminders: this.moreReminders(),
+    };
+  });
 
   /**
    * Abre ou fecha a folha de comentários. O foco vai para a folha ao abrir e, ao fechar, volta para
@@ -1424,20 +1441,23 @@ export class ReviewReader {
   protected toggleComments(open = !this.commentsOpen()): void {
     // a folha de comentários precisa do lado direito: a anotação fica sozinha com ela (PLANO-DUAS-NOTAS.md, D5)
     if (open && this.aoLado()) return this.askAlone('leitura', true);
-    if (open) this.segunda.set(null);
+    if (open) {
+      this.segunda.set(null);
+      this.detailsOpen.set(false);
+    }
     const dialog = this.dialog().nativeElement;
     const active = document.activeElement instanceof HTMLElement && dialog.contains(document.activeElement) ? document.activeElement : null;
-    if (open) this.commentsOpener = active?.matches('.orelha, .comentar') ? active : null;
+    if (open) this.commentsOpener = active?.matches('.etq-trilho') ? active : null;
     this.commentsOpen.set(open);
     this.picked.set(null);
     if (!open) this.quote.set(null);
     setTimeout(() => {
       if (open) return dialog.querySelector<HTMLElement>(`#leitura-comentarios${this.sufixo()}`)?.focus({ preventScroll: true });
-      // fechou pela própria porta (a orelha, o "Comentar"): o foco já está nela, e fica
+      // fechou pela própria porta (a etiqueta do trilho): o foco já está nela, e fica
       if (active?.isConnected && !active.closest(`#leitura-comentarios${this.sufixo()}`)) return;
       // o foco estava dentro da folha, que sumiu: volta para quem abriu; sem saber quem foi (a ficha
-      // já abriu com os comentários), para a porta que está à vista (a orelha some nas telas estreitas)
-      const doors = [...dialog.querySelectorAll<HTMLElement>('.orelha, .comentar')];
+      // já abriu com os comentários), para a etiqueta dos comentários
+      const doors = [...dialog.querySelectorAll<HTMLElement>('.etq-trilho[data-trilho="comentarios"]')];
       const opener = this.commentsOpener?.isConnected ? this.commentsOpener : null;
       (opener ?? doors.find((d) => d.offsetParent !== null) ?? doors[0])?.focus({ preventScroll: true });
     });
@@ -1448,7 +1468,7 @@ export class ReviewReader {
    * nome escrito nela): a emenda das duas fica sem degrau.
    */
   private readonly bandSync = effect((onCleanup) => {
-    if (!this.commentsOpen()) return;
+    if (!this.sideOpen()) return;
     const dialog = this.dialog().nativeElement;
     const measure = () => {
       const head = dialog.querySelector<HTMLElement>('.par > article > .head');
@@ -1918,6 +1938,7 @@ export class ReviewReader {
     // a folha de comentários e o "Citar" são da leitura de sempre
     if (next !== 'leitura') {
       this.commentsOpen.set(false);
+      this.detailsOpen.set(false);
       this.picked.set(null);
       this.quote.set(null);
     }
@@ -2127,8 +2148,9 @@ export class ReviewReader {
   openBeside(review: Review): void {
     const a = this.review();
     if (this.aoLado() || !a || review.id === a.id || this.vista() !== 'leitura' || this.solta()) return;
-    // a folha de comentários e o "Citar" são da anotação sozinha
+    // a folha ao lado e o "Citar" são da anotação sozinha
     this.commentsOpen.set(false);
+    this.detailsOpen.set(false);
     this.picked.set(null);
     this.quote.set(null);
     const owner = this.owner();
@@ -2178,18 +2200,19 @@ export class ReviewReader {
     }
     // (os sinais ligados à anotação são lidos antes, para a troca dela não os desligar de novo)
     this.commentsOpen();
+    this.detailsOpen();
     this.quote();
     afterNextRender(
       () => {
         this.restorePlace(p.place);
-        if (!p.comments) this.dialog().nativeElement.querySelector<HTMLElement>('#leitura-titulo')?.focus({ preventScroll: true });
+        if (!p.comments && !p.details) this.dialog().nativeElement.querySelector<HTMLElement>('#leitura-titulo')?.focus({ preventScroll: true });
       },
       { injector: this.injector },
     );
     if (p.comments) {
       this.toggleComments(true);
       if (p.quote) this.quote.set({ text: p.quote, n: ++this.quoteCount });
-    }
+    } else if (p.details) this.toggleDetails(true);
   }
 
   /** A tela estreitou para não caberem duas: a segunda fecha (PLANO-DUAS-NOTAS.md, D6). */

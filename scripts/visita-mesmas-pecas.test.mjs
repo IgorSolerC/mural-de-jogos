@@ -86,6 +86,12 @@ const PECAS = [
     o: 'o "Escolher a nota", com a busca e os filtros (na leitura, o "+" que abre outra anotação ao lado: PLANO-DUAS-NOTAS.md)',
   },
   {
+    peca: 'src/app/ui/reader-details.html',
+    usa: 'app-reader-details',
+    marcas: [/<dl class="detalhes">/],
+    o: 'os Detalhes da anotação aberta, na folha ao lado da leitura (PLANO-LEITURA-UNIFICADA.md)',
+  },
+  {
     peca: 'src/app/ui/voz-fita.ts',
     usa: 'app-voz-fita',
     marcas: [/class="fita" role="group" aria-label="Ouvir a nota"/],
@@ -101,7 +107,8 @@ const VISITA = [
   { molde: 'src/app/ui/visit-kanban.ts', pecas: ['app-study-group-tabs', 'app-kanban-column-head', 'app-kanban-note'] },
   // a ficha aberta (a mesma do dono, na visita) traz a fita da voz
   // e o "+" que abre outra anotação ao lado, com o seletor de sempre (as anotações que a pessoa publicou)
-  { molde: 'src/app/ui/review-reader.ts', pecas: ['app-voz-fita', 'app-card-picker', 'app-review-reader'] },
+  // e os Detalhes da anotação, na folha ao lado (PLANO-LEITURA-UNIFICADA.md)
+  { molde: 'src/app/ui/review-reader.ts', pecas: ['app-voz-fita', 'app-card-picker', 'app-review-reader', 'app-reader-details'] },
 ];
 
 /** As peças que a visita monta e que só leem: nada delas pode importar o que escreve. */
@@ -129,6 +136,7 @@ const SO_LEEM = [
   'src/app/core/visit-groups.ts',
   'src/app/ui/section-head.ts',
   'src/app/ui/voz-fita.ts',
+  'src/app/ui/reader-details.ts',
   'src/app/ui/voz-frases.ts',
   'src/app/ui/voz-estudo.ts',
   'src/app/core/voz.ts',

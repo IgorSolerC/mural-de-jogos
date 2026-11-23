@@ -156,16 +156,15 @@ describe('A leitura e os comentários (ReviewReader)', () => {
   it('na ficha de outra pessoa, com a conta aberta: a orelha e o "Comentar"; a folha abre ao lado e fecha', async () => {
     fixture.componentInstance.open(review('r-hades', 'Hades'), 'Ana', [], false, ANA);
     await settle();
-    expect(q('.orelha')?.getAttribute('aria-label')).toBe('Comentários');
-    expect(q('.comentar')?.textContent?.trim()).toBe('Comentar');
+    expect(q('.etq-trilho[data-trilho="comentarios"]')?.getAttribute('aria-label')).toBe('Comentários');
     expect(side()).toBeNull();
     expect(dialog().classList.contains('com-lado')).toBeFalse();
 
-    q<HTMLButtonElement>('.comentar')!.click();
+    q<HTMLButtonElement>('.etq-trilho[data-trilho="comentarios"]')!.click();
     await settle();
     expect(side()).not.toBeNull();
     expect(dialog().classList.contains('com-lado')).toBeTrue();
-    expect(q('.orelha')!.getAttribute('aria-expanded')).toBe('true');
+    expect(q('.etq-trilho[data-trilho="comentarios"]')!.getAttribute('aria-pressed')).toBe('true');
     // a folha em si: o título, a conversa (vazia) e o campo de uma linha
     expect(q('app-comments-panel h2')?.textContent).toContain('Comentários');
     expect(q('app-comments-panel .vazio')?.textContent?.trim()).toContain('Ninguém comentou ainda.');
@@ -174,9 +173,9 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     q<HTMLButtonElement>('.fecha-lado')!.click();
     await settle();
     expect(side()).toBeNull();
-    expect(q('.orelha')!.getAttribute('aria-expanded')).toBe('false');
+    expect(q('.etq-trilho[data-trilho="comentarios"]')!.getAttribute('aria-pressed')).toBe('false');
     // a orelha abre de novo
-    q<HTMLButtonElement>('.orelha')!.click();
+    q<HTMLButtonElement>('.etq-trilho[data-trilho="comentarios"]')!.click();
     await settle();
     expect(side()).not.toBeNull();
   });
@@ -186,7 +185,7 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     const long = () => review('r-longa', 'Hades', { text: Array.from({ length: 60 }, (_, i) => `Linha ${i + 1} de uma resenha comprida.`).join('\n') });
     const body = () => q('.par > article .body')!;
 
-    async function openSheetAtTop(door: '.orelha' | '.comentar'): Promise<void> {
+    async function openSheetAtTop(door: string): Promise<void> {
       fixture.componentInstance.open(long(), 'Ana', [], false, ANA);
       await settle();
       expect(body().scrollHeight).toBeGreaterThan(body().clientHeight + 200);
@@ -197,20 +196,20 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     }
 
     it('pela orelha (o bug: a ficha descia até o fim)', async () => {
-      await openSheetAtTop('.orelha');
-      q<HTMLButtonElement>('.orelha')!.click();
+      await openSheetAtTop('.etq-trilho[data-trilho="comentarios"]');
+      q<HTMLButtonElement>('.etq-trilho[data-trilho="comentarios"]')!.click();
       await settle();
       expect(side()).toBeNull();
       expect(body().scrollTop).toBe(0);
     });
 
     it('pelo X da folha, e pelo "Voltar para a ficha"', async () => {
-      await openSheetAtTop('.orelha');
+      await openSheetAtTop('.etq-trilho[data-trilho="comentarios"]');
       q<HTMLButtonElement>('.fecha-lado')!.click();
       await settle();
       expect(body().scrollTop).toBe(0);
 
-      q<HTMLButtonElement>('.orelha')!.click();
+      q<HTMLButtonElement>('.etq-trilho[data-trilho="comentarios"]')!.click();
       await settle();
       body().scrollTop = 120;
       q<HTMLButtonElement>('.volta-ficha')!.click();
@@ -220,11 +219,11 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     });
 
     it('o foco volta para quem abriu a folha, sem rolar; quem fechou pela própria porta fica com ele', async () => {
-      // abriu pelo "Comentar" (com a ficha rolada até ele) e fechou pelo X: o foco volta para o "Comentar"
+      // abriu pela etiqueta do trilho (com a ficha rolada) e fechou pelo X: o foco volta para a etiqueta
       fixture.componentInstance.open(long(), 'Ana', [], false, ANA);
       await settle();
-      const comentar = q<HTMLButtonElement>('.comentar')!;
-      comentar.scrollIntoView({ block: 'center' });
+      const comentar = q<HTMLButtonElement>('.etq-trilho[data-trilho="comentarios"]')!;
+      body().scrollTop = 200;
       const at = body().scrollTop;
       comentar.focus();
       comentar.click();
@@ -251,16 +250,15 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     counts[ANA] = { 'r-hades': 3 };
     fixture.componentInstance.open(review('r-hades', 'Hades'), 'Ana', [], false, ANA);
     await settle();
-    expect(q('.orelha-n')?.textContent).toBe('3');
-    expect(q('.orelha')!.getAttribute('aria-label')).toBe('Comentários: 3');
-    expect(q('.comentar')?.textContent?.trim()).toBe('3 comentários');
+    expect(q('.etq-trilho[data-trilho="comentarios"] .etq-n')?.textContent).toBe('3');
+    expect(q('.etq-trilho[data-trilho="comentarios"]')!.getAttribute('aria-label')).toBe('Comentários: 3');
   });
 
   it('sem conta: a porta só existe se há o que ler', async () => {
     signedIn.set(false);
     fixture.componentInstance.open(review('r-hades', 'Hades'), 'Ana', [], false, ANA);
     await settle();
-    expect(q('.orelha')).toBeNull();
+    expect(q('.etq-trilho[data-trilho="comentarios"]')).toBeNull();
     expect(q('.comentar')).toBeNull();
     await closeReader();
 
@@ -268,7 +266,7 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     await TestBed.inject(Comments).loadCounts(ANA, true);
     fixture.componentInstance.open(review('r-celeste', 'Celeste'), 'Ana', [], false, ANA);
     await settle();
-    expect(q('.orelha-n')?.textContent).toBe('1');
+    expect(q('.etq-trilho[data-trilho="comentarios"] .etq-n')?.textContent).toBe('1');
   });
 
   it('na sua ficha: a porta para comentar, mesmo sem comentários; com eles, a contagem; na privada também, dizendo que só você vê', async () => {
@@ -279,9 +277,8 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     const reader = fixture.componentInstance;
     reader.open(review('r-quieta', 'Celeste'));
     await settle();
-    expect(q('.orelha')?.getAttribute('aria-label')).toBe('Comentários');
-    expect(q('.comentar')?.textContent?.trim()).toBe('Comentar');
-    q<HTMLButtonElement>('.comentar')!.click();
+    expect(q('.etq-trilho[data-trilho="comentarios"]')?.getAttribute('aria-label')).toBe('Comentários');
+    q<HTMLButtonElement>('.etq-trilho[data-trilho="comentarios"]')!.click();
     await settle();
     expect(side()).not.toBeNull();
     // o dono escreve o primeiro: o campo está lá, e a folha ensina a citar
@@ -291,13 +288,12 @@ describe('A leitura e os comentários (ReviewReader)', () => {
 
     reader.open(review('r-comentada', 'Hades'));
     await settle();
-    expect(q('.orelha-n')?.textContent).toBe('2');
-    expect(q('.comentar')?.textContent?.trim()).toBe('2 comentários');
+    expect(q('.etq-trilho[data-trilho="comentarios"] .etq-n')?.textContent).toBe('2');
     await closeReader();
 
     reader.open(review('r-comentada', 'Hades'));
     await settle();
-    q<HTMLButtonElement>('.comentar')!.click();
+    q<HTMLButtonElement>('.etq-trilho[data-trilho="comentarios"]')!.click();
     await settle();
     // a ficha à mostra não tem recado de quem vê
     expect(q('app-comments-panel .recado')).toBeNull();
@@ -305,9 +301,8 @@ describe('A leitura e os comentários (ReviewReader)', () => {
 
     reader.open(review('r-privada', 'Segredo', { private: true }));
     await settle();
-    expect(q('.orelha-n')?.textContent).toBe('4');
-    expect(q('.comentar')?.textContent?.trim()).toBe('4 comentários');
-    q<HTMLButtonElement>('.comentar')!.click();
+    expect(q('.etq-trilho[data-trilho="comentarios"] .etq-n')?.textContent).toBe('4');
+    q<HTMLButtonElement>('.etq-trilho[data-trilho="comentarios"]')!.click();
     await settle();
     expect(q('app-comments-panel .recado')?.textContent?.trim()).toBe('Ficha privada: só você vê os comentários.');
     expect(q('app-comments-panel .abrir')).not.toBeNull();
@@ -320,16 +315,16 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     const reader = fixture.componentInstance;
     reader.open(review('nota-quieta', 'Lista do mercado', { kind: 'anotacoes' }));
     await settle();
-    expect(q('.orelha')?.getAttribute('aria-label')).toBe('Comentários');
+    expect(q('.etq-trilho[data-trilho="comentarios"]')?.getAttribute('aria-label')).toBe('Comentários');
     expect(q('.comentar')).toBeNull();
     expect(q('.reagir-linha')).toBeNull();
     await closeReader();
 
     reader.open(review('nota-2', 'Ideias', { kind: 'anotacoes' }));
     await settle();
-    expect(q('.orelha-n')?.textContent).toBe('2');
+    expect(q('.etq-trilho[data-trilho="comentarios"] .etq-n')?.textContent).toBe('2');
     expect(q('.comentar')).toBeNull();
-    q<HTMLButtonElement>('.orelha')!.click();
+    q<HTMLButtonElement>('.etq-trilho[data-trilho="comentarios"]')!.click();
     await settle();
     expect(side()).not.toBeNull();
   });
@@ -388,10 +383,75 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     TestBed.inject(SharedStore).entries.set(new Map([['nota-1', shared]]));
     fixture.componentInstance.open(note);
     await settle();
-    expect(q('.orelha-n')?.textContent).toBe('2');
-    q<HTMLButtonElement>('.comentar')!.click();
+    expect(q('.etq-trilho[data-trilho="comentarios"] .etq-n')?.textContent).toBe('2');
+    q<HTMLButtonElement>('.etq-trilho[data-trilho="comentarios"]')!.click();
     await settle();
     expect(q('app-comments-panel .recado')?.textContent?.trim()).toBe('Anotação privada: só quem está nela vê os comentários.');
+  });
+
+  it('o trilho: Detalhes e Comentários dividem a folha ao lado; na compartilhada, quem vê são as pessoas, com a foto de cada uma (PLANO-LEITURA-UNIFICADA.md)', async () => {
+    const note = review('nota-1', 'Lista do mercado', { kind: 'anotacoes', private: true, category: 'Compartilhadas' });
+    const shared = TestBed.inject(SharedStore);
+    shared.entries.set(
+      new Map([
+        [
+          'nota-1',
+          {
+            id: 'nota-1',
+            dono: { codigo: ANA, nome: 'Ana', foto: null },
+            papel: 'editor',
+            membros: [
+              { codigo: ME.codigo, nome: ME.nome, foto: { emoji: '🐢', cor: 'verde' }, papel: 'editor', desde: '' },
+              { codigo: 'BIA1-0001', nome: 'Bia', foto: { emoji: '🦊', cor: 'rosa' }, papel: 'leitor', desde: '' },
+            ],
+            rev: 1,
+            versao: 1,
+            base: note,
+            local: null,
+            outra: null,
+            resolver: false,
+            conflito: null,
+            atualizadoEm: note.updatedAt,
+            atualizadoPor: null,
+            pessoal: { category: 'Compartilhadas', org: true },
+            grupo: null,
+            criadoPor: null,
+            view: note,
+          } satisfies SharedEntry,
+        ],
+      ]),
+    );
+    const store = TestBed.inject(ReviewStore);
+    store.add(note);
+    fixture.componentInstance.open(store.get('nota-1')!);
+    await settle();
+    const door = (id: string) => q<HTMLButtonElement>(`.etq-trilho[data-trilho="${id}"]`)!;
+    // a anotação tem as três portas, na ordem (o "Ao lado" só aparece onde cabem duas, pelo CSS)
+    expect([...el.querySelectorAll<HTMLElement>('.trilho .etq-trilho')].map((b) => b.dataset['trilho'])).toEqual(['detalhes', 'comentarios', 'ao-lado']);
+    expect(door('detalhes').getAttribute('aria-pressed')).toBe('false');
+
+    door('detalhes').click();
+    await settle();
+    expect(q('#leitura-detalhes')).not.toBeNull();
+    expect(q('dialog')!.classList).toContain('com-lado');
+    expect(door('detalhes').getAttribute('aria-pressed')).toBe('true');
+    // você não aparece entre as pessoas; quem tem foto, o emoji; quem não tem (a Ana), a inicial
+    expect([...el.querySelectorAll<HTMLElement>('app-reader-details .rosto')].map((r) => r.textContent?.trim())).toEqual(['A', '🦊']);
+    expect(q('app-reader-details [data-k="quem"] .elo')?.textContent?.trim()).toBe('Ana e Bia');
+
+    // os comentários tomam o lugar dos Detalhes, e a etiqueta acesa troca
+    door('comentarios').click();
+    await settle();
+    expect(q('#leitura-detalhes')).toBeNull();
+    expect(side()).not.toBeNull();
+    expect(door('comentarios').getAttribute('aria-pressed')).toBe('true');
+    expect(door('detalhes').getAttribute('aria-pressed')).toBe('false');
+
+    // a mesma etiqueta tocada de novo fecha a folha
+    door('comentarios').click();
+    await settle();
+    expect(side()).toBeNull();
+    expect(q('dialog')!.classList).not.toContain('com-lado');
   });
 
   it('quem só lê a compartilhada muda o grupo, o assunto e as tags pelo "Mais" (só no mural dela); quem escreve, não precisa', async () => {
@@ -449,12 +509,16 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     // nada vai para a nuvem da anotação (a leitora nem escreve nela)
     expect(shared.get('nota-1')!.local).toBeNull();
     expect(TestBed.inject(Settings).categoryLook('Casa').color).toBeDefined();
-    // a orelha muda no "close" da folha, que chega numa tarefa depois do Pronto
+    // o grupo dos Detalhes muda no "close" da folha, que chega numa tarefa depois do Pronto
     const shut = nextClose(sheet);
     sheet.querySelector<HTMLButtonElement>('.foot .btn-ink')!.click();
     await shut;
     await settle();
-    expect(q('.orelha-grupo')?.textContent).toContain('Casa');
+    q<HTMLButtonElement>('.etq-trilho[data-trilho="detalhes"]')!.click();
+    await settle();
+    expect(q('app-reader-details [data-k="grupo"]')?.textContent).toContain('Casa');
+    q<HTMLButtonElement>('.etq-trilho[data-trilho="detalhes"]')!.click();
+    await settle();
     // quem escreve tem o Editar: o "Mais" não traz a folha
     await closeReader();
     shared.entries.set(new Map([['nota-1', entry('editor')]]));
@@ -533,7 +597,7 @@ describe('A leitura e os comentários (ReviewReader)', () => {
   it('uma ficha sem código (um backup aberto em Comparar) não tem comentários', async () => {
     fixture.componentInstance.open(review('r-hades', 'Hades'), 'Ana');
     await settle();
-    expect(q('.orelha')).toBeNull();
+    expect(q('.etq-trilho[data-trilho="comentarios"]')).toBeNull();
     expect(q('.comentar')).toBeNull();
   });
 
@@ -598,7 +662,7 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     fixture.componentInstance.open(review('r-hades', 'Hades'), 'Ana', [], true, ANA);
     await settle();
     expect(q('[data-citavel]')).toBeNull();
-    q<HTMLButtonElement>('.orelha')!.click();
+    q<HTMLButtonElement>('.etq-trilho[data-trilho="comentarios"]')!.click();
     await settle();
     expect(q('.guarda')?.textContent).toContain('Os comentários podem contar');
     expect(q('app-comments-panel')).toBeNull();
@@ -788,7 +852,7 @@ describe('A leitura e os comentários (ReviewReader)', () => {
       expect(q('.foot')?.textContent?.trim()).toBe('Resenha de Ana');
       expect(q('.dono-link')).toBeNull();
       expect(q('.reagir-linha')).toBeNull();
-      expect(q('.orelha')).toBeNull();
+      expect(q('.etq-trilho[data-trilho="comentarios"]')).toBeNull();
       expect(q('.assinatura')?.textContent).toContain('Murall');
       const esc = new Event('cancel', { cancelable: true });
       dialog().dispatchEvent(esc);
@@ -901,7 +965,7 @@ describe('A leitura e os comentários (ReviewReader)', () => {
       counts[ANA] = { 'r-hades': 3 };
       fixture.componentInstance.openLoose(review('r-hades', 'Hades'), 'Ana', [], ANA, true);
       await settle();
-      expect(q('.orelha')?.getAttribute('aria-label')).toBe('Comentários: 3');
+      expect(q('.etq-trilho[data-trilho="comentarios"]')?.getAttribute('aria-label')).toBe('Comentários: 3');
       expect(q('.dono-link')?.textContent).toBe('Ana');
       expect(q('.faixa-nome .minimizar')?.getAttribute('aria-label')).toBe('Minimizar: ver como fica no mural');
       // abrir outra ficha do jeito de sempre volta a ter o fechar
@@ -951,8 +1015,8 @@ describe('A leitura e os comentários (ReviewReader)', () => {
       // a dona ainda abre a folha (para ler e apagar os de antes), mas ninguém escreve
       sheet()!.querySelector<HTMLButtonElement>('.fecha')!.click();
       await settle();
-      expect(q('.orelha')).not.toBeNull();
-      q<HTMLButtonElement>('.orelha')!.click();
+      expect(q('.etq-trilho[data-trilho="comentarios"]')).not.toBeNull();
+      q<HTMLButtonElement>('.etq-trilho[data-trilho="comentarios"]')!.click();
       await settle();
       expect(q('app-comments-panel .porta')?.textContent).toContain('Você fechou os comentários');
       expect(q('app-comments-panel .abrir')).toBeNull();
@@ -964,7 +1028,7 @@ describe('A leitura e os comentários (ReviewReader)', () => {
       await TestBed.inject(Comments).loadCounts(ME.codigo, true);
       fixture.componentInstance.open(review('r-hades', 'Hades'));
       await settle();
-      expect(q('.orelha')).toBeNull();
+      expect(q('.etq-trilho[data-trilho="comentarios"]')).toBeNull();
       expect(q('.comentar')).toBeNull();
     });
 
@@ -972,21 +1036,21 @@ describe('A leitura e os comentários (ReviewReader)', () => {
       closed[ANA] = ['r-hades'];
       fixture.componentInstance.open(review('r-hades', 'Hades'), 'Ana', [], false, ANA);
       await settle();
-      expect(q('.orelha')).toBeNull();
+      expect(q('.etq-trilho[data-trilho="comentarios"]')).toBeNull();
       expect(q('.comentar')).toBeNull();
       expect(q('app-more-menu')).toBeNull();
       // a outra ficha dela continua com a porta
       await closeReader();
       fixture.componentInstance.open(review('r-celeste', 'Celeste'), 'Ana', [], false, ANA);
       await settle();
-      expect(q('.orelha')).not.toBeNull();
+      expect(q('.etq-trilho[data-trilho="comentarios"]')).not.toBeNull();
     });
 
     it('aberta pelo link, com conta, e com os comentários fechados: só a ficha', async () => {
       closed[ANA] = ['r-hades'];
       fixture.componentInstance.openLoose(review('r-hades', 'Hades'), 'Ana', [], ANA, true);
       await settle();
-      expect(q('.orelha')).toBeNull();
+      expect(q('.etq-trilho[data-trilho="comentarios"]')).toBeNull();
       expect(q('.comentar')).toBeNull();
     });
 

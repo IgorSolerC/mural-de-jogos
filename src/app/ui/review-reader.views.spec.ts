@@ -118,9 +118,9 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
   it('a tela cheia deixa só a faixa (o nome e os botões) e o texto; o mesmo botão volta à leitura', async () => {
     fixture.componentInstance.open(note('n-1', 'Mercado', { category: 'Casa', tags: ['Feira'], doneAt: '2026-01-02T00:00:00.000Z' }));
     await settle();
-    expect(q('.top')).not.toBeNull();
     expect(q('.foot')).not.toBeNull();
-    expect(q('.orelha-grupo')).not.toBeNull();
+    expect(q('.foot')).not.toBeNull();
+    expect(q('.trilho')).not.toBeNull();
     expect(q('.carimbo')).not.toBeNull();
     const leitura = { font: parseFloat(getComputedStyle(q('.text')!).fontSize), line: parseFloat(getComputedStyle(q('.text')!).lineHeight) };
     band('.ler-tela-cheia').focus();
@@ -128,7 +128,7 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
     await settle();
     expect(dialog().classList.contains('tela-cheia')).toBeTrue();
     expect(dialog().open).toBeTrue();
-    for (const gone of ['.top', '.foot', '.orelha-grupo', '.carimbo', '.reagir-linha', '.orelhas .orelha', 'app-more-menu']) {
+    for (const gone of ['.foot', '.trilho', '.carimbo', '.reagir-linha', 'app-more-menu']) {
       expect(q(gone)).withContext(gone).toBeNull();
     }
     expect(q('#leitura-titulo')?.textContent).toBe('Mercado');
@@ -160,7 +160,7 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
     band('.ler-tela-cheia').click();
     await settle();
     expect(dialog().classList.contains('tela-cheia')).toBeFalse();
-    expect(q('.top')).not.toBeNull();
+    expect(q('.foot')).not.toBeNull();
     expect(q('.foot')).not.toBeNull();
     expect(band('.ler-tela-cheia').getAttribute('aria-label')).toBe('Ler em tela cheia');
   });
@@ -378,7 +378,7 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
     fixture.componentInstance.open(note('n-2', 'Feira'));
     await settle();
     expect(dialog().classList.contains('tela-cheia')).toBeFalse();
-    expect(q('.top')).not.toBeNull();
+    expect(q('.foot')).not.toBeNull();
     // abrir outra ficha por cima da cartolina também volta à leitura
     band('.ver-cartolina').click();
     await settle();
