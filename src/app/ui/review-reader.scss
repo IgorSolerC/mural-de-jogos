@@ -875,6 +875,12 @@ app-judge-label {
     visibility: visible;
   }
 
+  /* lado a lado, nada de altura mínima: a altura é a da maior das duas (os 600px de cima são do celular, em que a
+     folha cobre a ficha) — sem isso, a anotação curta e os Detalhes esticavam juntos até 600px */
+  .com-lado .par {
+    min-height: 0;
+  }
+
   .lado {
     position: relative;
     inset: auto;
