@@ -223,6 +223,18 @@ describe('a nota nova a partir de um trecho (PLANO-NOTA-DE-REFERENCIA.md)', () =
     expect(linkSpot(text, text, spot(4, 'Paris'), '[[Cidade|Paris]]')).toContain('> veja [[Cidade|Paris]] de noite');
   });
 
+  it('no título de um card (o que abre e fecha também), com o sutil e o japonês', () => {
+    const text = '> [!vazio|cartolina]- ((山田さん)): ケンくんはベッドにいますか？\n> \n> ### ***Romaji***';
+    expect(linkSpot(text, text, spot(0, 'くんはベ'), '[[くんはベ]]')).toBe('> [!vazio|cartolina]- ((山田さん)): ケン[[くんはベ]]ッドにいますか？\n> \n> ### ***Romaji***');
+    // dentro do sutil também (a marca continua)
+    expect(linkSpot(text, text, spot(0, '山田'), '[[山田]]')).toContain('(([[山田]]さん))');
+  });
+
+  it('dentro de um spoiler em itálico, num card: o link fica dentro dele', () => {
+    const text = '> [!vazio|verde]- Romaji\n> *||Yuki-chan, ashita wa yasumi desu||*';
+    expect(linkSpot(text, text, spot(1, 'ita wa ya'), '[[ita wa ya]]')).toBe('> [!vazio|verde]- Romaji\n> *||Yuki-chan, ash[[ita wa ya]]sumi desu||*');
+  });
+
   it('com o trecho repetido na linha, vale a vez selecionada', () => {
     const text = 'Paris, Paris e Paris';
     expect(linkSpot(text, text, spot(0, 'Paris', 1, 3), '[[Paris]]')).toBe('Paris, [[Paris]] e Paris');

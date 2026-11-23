@@ -1521,15 +1521,16 @@ export class ReviewReader {
 
   /**
    * Onde o trecho selecionado está escrito, se ele pode virar título e link (PLANO-NOTA-DE-REFERENCIA.md, D2): numa
-   * linha só do texto, fora de link, código, widget, tabela e do topo de um card, e escrito igual no texto (a mesma vez
-   * dele na linha). Senão, null.
+   * linha só do texto (o título de um card também: ele desenha links), fora de link, código, widget e tabela, e escrito
+   * igual no texto (a mesma vez dele na linha). Senão, null.
    */
   private spotOf(range: Range): TextSpot | null {
     const el = (n: Node) => (n instanceof Element ? n : n.parentElement);
     const lineEl = el(range.startContainer)?.closest<HTMLElement>('[data-l]');
-    if (!lineEl || !lineEl.matches('.linha:not(.cartao-topo)') || el(range.endContainer)?.closest('[data-l]') !== lineEl) return null;
-    // dentro de um link, de um código, de um widget, de uma tabela, do corpo de uma tarefa: não é texto comum da linha
-    const inside = el(range.commonAncestorContainer)?.closest('.elo, a, code, pre, .spoiler, .widget, app-note-widget, .tabela-peca, .corpo');
+    if (!lineEl || !lineEl.matches('.linha') || el(range.endContainer)?.closest('[data-l]') !== lineEl) return null;
+    // dentro de um link, de um código, de um widget, de uma tabela, do corpo de uma tarefa: não é texto comum da linha.
+    // O spoiler revelado vale (o link fica dentro dele); o coberto não: não dá para ver o que se selecionou
+    const inside = el(range.commonAncestorContainer)?.closest('.elo, a, code, pre, .spoiler:not(.revelado), .widget, app-note-widget, .tabela-peca, .corpo');
     if (inside && lineEl.contains(inside)) return null;
     const raw = range.toString();
     const text = raw.trim();

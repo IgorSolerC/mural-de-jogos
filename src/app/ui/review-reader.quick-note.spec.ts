@@ -210,6 +210,35 @@ describe('A nota nova a partir de um trecho (ReviewReader)', () => {
     expect(store.notes().length).toBe(1);
   });
 
+  it('no título de um card que abre e fecha, o trecho também vira nota (as conversas de japonês)', async () => {
+    const card = '> [!vazio|cartolina]- ((山田さん)): ケンくんはベッドにいますか？\n> \n> ### ***Romaji***\n> *||Ken-kun wa beddo ni imasu ka?||*';
+    await openNote(note('nconversa1', 'Conversa 20', card, { category: 'JAPONES' }));
+    await select('くんはベ');
+    q<HTMLButtonElement>('.remendos .anotar')!.click();
+    await settle();
+    expect(q<HTMLInputElement>('#nota-rapida-nome')!.value).toBe('くんはベ');
+    button('Criar e ligar')!.click();
+    await settle();
+    expect(store.get('nconversa1')!.text).toBe(card.replace('ケンくんはベッド', 'ケン[[くんはベ]]ッド'));
+    expect(store.notes().find((n) => n.game.name === 'くんはベ')!.category).toBe('JAPONES');
+  });
+
+  it('no spoiler revelado, o trecho vira nota; no coberto, não', async () => {
+    const card = '> [!vazio|verde] Romaji\n> *||Yuki-chan, ashita wa yasumi desu||*';
+    await openNote(note('nconversa2', 'Conversa 21', card));
+    await select('ita wa ya');
+    expect(q('.remendos .anotar')).toBeNull();
+    q<HTMLElement>('[data-citavel] .spoiler')!.click();
+    await settle();
+    expect(q('[data-citavel] .spoiler.revelado')).not.toBeNull();
+    await select('ita wa ya');
+    q<HTMLButtonElement>('.remendos .anotar')!.click();
+    await settle();
+    button('Criar e ligar')!.click();
+    await settle();
+    expect(store.get('nconversa2')!.text).toBe(card.replace('ashita wa yasumi', 'ash[[ita wa ya]]sumi'));
+  });
+
   it('dentro de um link ou de um código, o trecho não oferece a nota nova', async () => {
     await openNote(note('nroteiro1', 'Viagem', TEXT));
     await select('Roma');
