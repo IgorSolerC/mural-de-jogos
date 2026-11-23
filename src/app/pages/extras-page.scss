@@ -2,8 +2,8 @@
 @use '../ui/letreiro';
 
 /* Extras (PLANO-EXTRAS.md, PLANO-OUTROS.md). Em cima, a prateleira de madeira presa na parede (ui/shelf.ts) com o
-   tomate do Pomodoro, o monitor das Pixel arts e a prancheta do Uso das APIs. Embaixo, o seletor de mural e os dois
-   letreiros de feltro. */
+   Calendário, os Gastos, o Cofre, o tomate do Pomodoro, o monitor das Pixel arts e a prancheta do Uso das APIs.
+   Embaixo, o seletor de mural e os dois letreiros de feltro. */
 
 :host {
   display: block;
@@ -105,19 +105,25 @@
   }
 }
 
-/* ---------- o monitor das Pixel arts ---------- */
+/* ---------- a folhinha, o livro-caixa, o cofre e o monitor (ui/shelf-pieces.ts): sobem um pouco ao passar ---------- */
 
+.coisa-folhinha app-desk-calendar,
+.coisa-livro app-cash-book,
+.coisa-cofre app-steel-safe,
 .coisa-arte app-crt-monitor {
   transition: translate var(--t-physical) var(--ease-physical);
 }
 
-.coisa-arte:hover app-crt-monitor {
+.coisa:hover :is(app-desk-calendar, app-cash-book, app-steel-safe, app-crt-monitor) {
   translate: 0 -6px;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .coisa-tomate .tomate,
   .coisa-tomate .sombra-chao,
+  .coisa-folhinha app-desk-calendar,
+  .coisa-livro app-cash-book,
+  .coisa-cofre app-steel-safe,
   .coisa-arte app-crt-monitor {
     transition: none;
   }

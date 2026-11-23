@@ -14,6 +14,27 @@
     <app-shelf>
       @for (coisa of fila; track coisa) {
         @switch (coisa) {
+          @case ('calendario') {
+            @let c = calendario();
+            <a class="coisa coisa-folhinha" [routerLink]="calendarPath" [attr.aria-label]="'Calendário: ' + c.estado">
+              <span class="em-pe" aria-hidden="true"><app-desk-calendar [day]="c.dia" [count]="c.lembretes" /></span>
+              <span class="dymo-fita" aria-hidden="true">Calendário</span>
+            </a>
+          }
+          @case ('gastos') {
+            @let l = livro();
+            <a class="coisa coisa-livro" [routerLink]="spendingPath" [attr.aria-label]="'Gastos: ' + l.estado">
+              <span class="em-pe" aria-hidden="true"><app-cash-book [stub]="l.canhoto" /></span>
+              <span class="dymo-fita" aria-hidden="true">Gastos</span>
+            </a>
+          }
+          @case ('cofre') {
+            <!-- o cofre é outra origem: link comum, na mesma aba, sem levar o endereço daqui -->
+            <a class="coisa coisa-cofre" [href]="vaultUrl" rel="noreferrer" aria-label="Cofre de senhas">
+              <span class="em-pe" aria-hidden="true"><app-steel-safe /></span>
+              <span class="dymo-fita" aria-hidden="true">Cofre</span>
+            </a>
+          }
           @case ('pomodoro') {
             @let p = pomo();
             <a class="coisa coisa-tomate" [routerLink]="pomodoroPath" [attr.aria-label]="'Pomodoro: ' + p.estado">

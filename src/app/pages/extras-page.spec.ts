@@ -4,11 +4,13 @@ import { provideRouter } from '@angular/router';
 import { CloudAccount, CloudAccountInfo } from '../core/cloud-account';
 import { Colleague, ColleagueStore } from '../core/colleague-store';
 import { Cloud } from '../core/cloud-config';
-import { todayISO } from '../core/dates';
+import { CalendarStore } from '../core/calendar-store';
+import { MONTHS_LONG, todayISO } from '../core/dates';
 import { PixelGallery } from '../core/pixel-gallery-store';
 import { PomodoroStore } from '../core/pomodoro-store';
 import { Review } from '../core/review';
 import { ReviewStore } from '../core/review-store';
+import { SpendingStore } from '../core/spending-store';
 import { ExtrasPage } from './extras-page';
 
 /** Extras repensado (PLANO-EXTRAS.md): a prateleira "Sempre à mão", o seletor de mural e os dois letreiros. */
@@ -263,6 +265,52 @@ describe('a página de Extras', () => {
   it('as fitas da prateleira dizem só o nome', async () => {
     const t = await open({ account: { codigo: 'G11T-G00D', nome: 'Igor', admin: true } });
     const fitas = [...t.host.querySelectorAll('app-shelf .dymo-fita')].map((f) => f.textContent?.trim());
-    expect(fitas).toEqual(['Pomodoro', 'Pixel arts', 'Uso das APIs']);
+    expect(fitas).toEqual(['Calendário', 'Gastos', 'Pomodoro', 'Pixel arts', 'Uso das APIs']);
+  });
+
+  it('o Calendário e os Gastos ficam na prateleira, levando às páginas deles; o Cofre, só para quem pode usá-lo', async () => {
+    const t = await open({ account: { codigo: 'G11T-G00D', nome: 'Igor' } });
+    expect(t.linha('/utilidades/calendario')?.closest('app-shelf')).not.toBeNull();
+    expect(t.linha('/utilidades/gastos')?.closest('app-shelf')).not.toBeNull();
+    const cofre = () => t.host.querySelector<HTMLAnchorElement>('a.coisa-cofre');
+    expect(cofre()).toBeNull();
+    t.account.set({ codigo: 'G11T-G00D', nome: 'Igor', cofre: true });
+    await t.fixture.whenStable();
+    // um link comum para a origem do cofre, na mesma aba, sem levar o endereço daqui
+    expect(cofre()!.getAttribute('href')).toBe('https://cofre.murall.igorsc.com.br/');
+    expect(cofre()!.getAttribute('rel')).toBe('noreferrer');
+    expect(cofre()!.hasAttribute('target')).toBe(false);
+    expect(cofre()!.getAttribute('aria-label')).toBe('Cofre de senhas');
+    expect([...t.host.querySelectorAll('app-shelf .dymo-fita')].map((f) => f.textContent?.trim())).toEqual(['Calendário', 'Gastos', 'Cofre', 'Pomodoro', 'Pixel arts']);
+  });
+
+  it('a folhinha mostra o dia de hoje e, com lembretes, o adesivo com quantos', async () => {
+    const t = await open({ signedIn: false });
+    const calendar = TestBed.inject(CalendarStore);
+    const folhinha = () => t.linha('/utilidades/calendario')!.querySelector('app-desk-calendar')!;
+    expect(t.label('/utilidades/calendario')).toBe('Calendário: nenhum lembrete hoje');
+    expect(folhinha().querySelector('.dia')?.textContent?.trim()).toBe(String(Number(calendar.today().slice(8, 10))));
+    expect(folhinha().querySelector('.adesivo')).toBeNull();
+    calendar.save({ ...calendar.blank(calendar.today()), title: 'Dentista' });
+    calendar.save({ ...calendar.blank(calendar.today()), title: 'Academia' });
+    await t.fixture.whenStable();
+    expect(t.label('/utilidades/calendario')).toBe('Calendário: 2 lembretes hoje');
+    expect(folhinha().querySelector('.adesivo')?.textContent?.trim()).toBe('2');
+  });
+
+  it('o livro-caixa tira do mês de hoje o canhoto com o saldo; sem lançamento, sem canhoto', async () => {
+    const t = await open({ signedIn: false });
+    const mes = MONTHS_LONG[Number(todayISO().slice(5, 7)) - 1];
+    const livro = () => t.linha('/utilidades/gastos')!.querySelector('app-cash-book')!;
+    expect(t.label('/utilidades/gastos')).toBe(`Gastos: nada anotado em ${mes}`);
+    expect(livro().querySelector('.canhoto')).toBeNull();
+    const gastos = TestBed.inject(SpendingStore);
+    gastos.save({ ...gastos.blank(), title: 'Ifood', amount: 4490 });
+    await t.fixture.whenStable();
+    // "R$" e o valor não se separam (o espaço entre eles não quebra)
+    expect(t.label('/utilidades/gastos')).toBe(`Gastos: faltam R$ 45 em ${mes}`);
+    const canhoto = livro().querySelector('.canhoto')!;
+    expect(canhoto.querySelector('b')?.textContent).toBe(mes.slice(0, 3));
+    expect(canhoto.textContent).toBe(`${mes.slice(0, 3)}faltamR$ 45`);
   });
 });

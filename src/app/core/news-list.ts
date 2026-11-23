@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-23-prateleira-funda',
+    id: '2026-11-23-utilidades-na-prateleira',
     version: '1.50.5',
     kind: 'ajustes',
     date: '2026-11-23',
@@ -37,6 +37,7 @@ export const NEWS: NewsEntry[] = [
       'A anotação aberta ficou mais limpa: a data, o grupo, a pasta, quem vê, as tarefas, as tags e onde mais ela está (o Kanban, os Flashcards e a Agenda) saíram do alto do texto e foram para os Detalhes, numa folha ao lado, com o desenho e a cor de cada coisa e a foto de quem está nas compartilhadas. Os Detalhes, os Comentários e o "Ao lado" viraram etiquetas na beirada da folha (no celular, no pé), no lugar das orelhas.',
       'Selecionando um trecho de uma anotação sua, na leitura, aparece o "Nova nota" ao lado do "Citar": uma folhinha cria a anotação com o trecho de título, o texto, a Pasta e as Tags, e o trecho vira um link para ela, sem sair de onde você lia. Se já existe uma anotação com esse título, dá para só ligar o trecho a ela.',
       'A prateleira dos Extras ganhou profundidade: a tábua com o tampo visto de cima e só a parte dos suportes que aparece, as fitas só com o nome, o mesmo espaço entre as coisas e as Pixel arts num monitor antigo, com a obra mais nova na tela.',
+      'O Calendário, os Gastos e o Cofre também estão na prateleira dos Extras: a folhinha com o dia de hoje e quantos lembretes ele tem, o livro-caixa com o saldo do mês num canhoto e, para quem usa o cofre, o cofre de aço.',
     ],
     correcoes: [
       'O link com outro texto dentro de uma célula de tabela ("[[Título|texto]]") abre a anotação certa, e renomear a anotação não desmancha mais a tabela.',
