@@ -1,6 +1,6 @@
-import { Audience, Review, audienceFields, isNote, sanitizeReview } from './review';
+import { Audience, Review, Stock, audienceFields, isNote, sanitizeReview } from './review';
 import { BUILD } from './build';
-import { LINK, lineKind, linesOf, noteLinksOf, proseLines, replaceNoteLinks, splitLink, tasksOf } from './rich-text';
+import { LINK, lineKind, linesOf, noteLinksOf, parseInline, proseLines, replaceNoteLinks, splitLink, tasksOf } from './rich-text';
 import { nameKey } from './text';
 import { retitleCardLine } from './widgets';
 import type { ReminderLinkInfo } from './reminder-links';
@@ -151,12 +151,22 @@ export function linkedAudience(from: Pick<LinkedNoteFrom, 'audience' | 'shared'>
 }
 
 /**
+ * O que a folha da nota nova (ui/quick-note-sheet.ts) já põe na anotação criada por um link: o texto, as tags e a
+ * cartolina sorteada quando a folha abriu (a folha é pintada nela).
+ */
+export interface LinkedNoteExtra {
+  text?: string;
+  tags?: readonly string[];
+  stock?: Stock;
+}
+
+/**
  * A anotação nova que um link para um título que não existe cria na hora (sem abrir o editor): só o
  * título, vazia, no grupo e no assunto de onde o link saiu, como o mural manda (ver `linkedAudience`).
  * O resto (a cartolina sorteada, a pauta) é o de toda anotação nova: o `ReviewStore.add` e a leitura
  * (`sanitizeReview`) completam. null se o título não cabe num link (ver `linkableTitle`).
  */
-export function linkedNote(title: string, from: LinkedNoteFrom, id: string, now: string, today: string): Review | null {
+export function linkedNote(title: string, from: LinkedNoteFrom, id: string, now: string, today: string, extra: LinkedNoteExtra = {}): Review | null {
   const name = linkTitleOf(title);
   if (!name) return null;
   const category = from.category?.trim();
@@ -166,10 +176,12 @@ export function linkedNote(title: string, from: LinkedNoteFrom, id: string, now:
       id,
       kind: 'anotacoes',
       game: { name, coverUrl: null, source: 'manual' },
-      text: '',
+      text: extra.text ?? '',
       completedAt: today,
       ...(category ? { category } : {}),
       ...(folder ? { folder } : {}),
+      ...(extra.tags?.length ? { tags: [...extra.tags] } : {}),
+      ...(extra.stock ? { stock: extra.stock } : {}),
       ...audienceFields(linkedAudience(from), null, now),
       createdAt: now,
       updatedAt: now,
@@ -217,4 +229,98 @@ export interface NoteLinks {
   reminder?(id: string): ReminderLinkInfo | null;
   /** Abre o Calendário no dia do lembrete, com ele em destaque. Sem ele, o link não abre nada. */
   openReminder?(id: string): void;
+}
+
+// ===== A nota nova a partir de um trecho da leitura (PLANO-NOTA-DE-REFERENCIA.md) =====
+
+/** O trecho mais comprido que vira título: o mesmo do campo de título do editor. */
+export const SPOT_MAX = 200;
+
+/**
+ * Um trecho selecionado na leitura: a linha do texto de onde ele saiu (a de `data-l`), o trecho como se lê, e qual
+ * das vezes dele naquela linha foi a selecionada (`nth`, contando da esquerda) entre as `count` que a linha desenhada
+ * mostra.
+ */
+export interface TextSpot {
+  line: number;
+  text: string;
+  nth: number;
+  count: number;
+}
+
+/** O trecho pode virar título e link: sem colchetes nem "|", e do tamanho de um título. */
+export function spotTitle(text: string): boolean {
+  return text.length <= SPOT_MAX && linkTitleOf(text) === text;
+}
+
+/**
+ * O link que o trecho `piece` vira, para a anotação `title`: "[[trecho]]" quando o título é o trecho (sem diferença
+ * de maiúsculas e acentos, ele abre a mesma); com outro título, "[[Título|trecho]]", e o que se lê não muda.
+ */
+export function spotLink(title: string, piece: string): string {
+  return linkKey(title) === linkKey(piece) ? `[[${piece}]]` : `[[${title.trim()}|${piece}]]`;
+}
+
+/** Onde `piece` começa em `line`, da esquerda para a direita, sem uma vez pegar o pedaço da outra (a leitura conta igual). */
+export function placesOf(line: string, piece: string): number[] {
+  const out: number[] = [];
+  for (let at = line.indexOf(piece); at !== -1; at = line.indexOf(piece, at + piece.length)) out.push(at);
+  return out;
+}
+
+/**
+ * A linha com o trecho em `at` trocado pelo `link`, se ali ele é texto comum: o link novo é lido como link
+ * exatamente ali (fora de código, de um escapado, de outro link) e o resto da linha se lê como antes (fora de um
+ * endereço, de um widget). Senão, null.
+ */
+function linkedLine(line: string, at: number, piece: string, link: string): string | null {
+  const next = line.slice(0, at) + link + line.slice(at + piece.length);
+  if (!noteLinksOf(next).some((l) => l.at === at && l.length === link.length)) return null;
+  // o link se lê como o trecho (o texto depois da barra): a linha inteira se lê igual, letra a letra, com as mesmas
+  // marcas (o trecho no meio de um endereço solto deixaria de ser endereço)
+  const read = readOf(line);
+  const after = readOf(next);
+  return read.length === after.length && read.every((c, i) => c === after[i]) ? next : null;
+}
+
+/** Cada letra da linha como a leitura a mostra, com as marcas dela (menos a de link de anotação). */
+function readOf(line: string): string[] {
+  return parseInline(line).flatMap((s) => {
+    const marks = [s.bold, s.italic, s.strike, s.mark, s.spoiler, s.subtle, s.code, s.href ?? ''].join(',');
+    return [...s.text].map((c) => `${c}\u0000${marks}`);
+  });
+}
+
+/**
+ * A vez do trecho que a pessoa selecionou, na linha escrita: a mesma da linha desenhada quando as duas mostram o
+ * trecho o mesmo número de vezes; senão, a única em que ele é texto comum. Na dúvida, null.
+ */
+function spotIn(line: string, spot: TextSpot, link: string): string | null {
+  const places = placesOf(line, spot.text);
+  if (places.length === spot.count && places[spot.nth] !== undefined) return linkedLine(line, places[spot.nth], spot.text, link);
+  const ok = places.map((at) => linkedLine(line, at, spot.text, link)).filter((l): l is string => l !== null);
+  return ok.length === 1 ? ok[0] : null;
+}
+
+/**
+ * O texto `now` com o trecho `spot` (selecionado na leitura do texto `shown`) virado em `link`, ou null se não der.
+ * A linha é achada em `now` pelo que ela diz (a nuvem pode ter trazido outra versão com a folha aberta): a mesma
+ * linha, ou a k-ésima igual a ela. Só as linhas que a leitura lê como texto (fora dos blocos de código).
+ */
+export function linkSpot(shown: string, now: string, spot: TextSpot, link: string): string | null {
+  if (!spotTitle(spot.text) || spot.nth < 0 || spot.nth >= spot.count) return null;
+  const from = linesOf(shown);
+  const want = from[spot.line];
+  if (want === undefined) return null;
+  const to = linesOf(now);
+  let at: number | null = to[spot.line] === want ? spot.line : null;
+  if (at === null) {
+    const nth = from.slice(0, spot.line).filter((l) => l === want).length;
+    at = to.map((l, i) => (l === want ? i : -1)).filter((i) => i !== -1)[nth] ?? null;
+  }
+  if (at === null || !proseLines(now).some((p) => p.at === at)) return null;
+  const line = spotIn(to[at], spot, link);
+  if (line === null) return null;
+  to[at] = line;
+  return to.join('\n');
 }

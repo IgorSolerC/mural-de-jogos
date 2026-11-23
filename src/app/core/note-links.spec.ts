@@ -1,5 +1,5 @@
 import { Review, sanitizeReview } from './review';
-import { linkKey, linkTitleOf, linkedAudience, linkedNote, linkedOnCheckedTask, linkableTitle, linksIn, relinkAfterRename, renameLinks, resolveNote } from './note-links';
+import { TextSpot, linkKey, linkSpot, linkTitleOf, linkedAudience, linkedNote, linkedOnCheckedTask, linkableTitle, linksIn, relinkAfterRename, renameLinks, resolveNote, spotLink, spotTitle } from './note-links';
 import { hasFormatting, parseInline, plainText, toggleCheck } from './rich-text';
 
 /** Os links entre anotações: "[[Título]]" no texto abre a anotação com esse título. */
@@ -187,5 +187,77 @@ describe('a anotação criada por um link (linkedNote)', () => {
 
   it('o título que não cabe num link (vazio, com colchete ou "|") não vira anotação', () => {
     for (const t of ['', '   ', 'Compras [casa]', 'a|b']) expect(linkedNote(t, { audience: 'privada' }, 'nova-anotacao', now, '2026-11-01')).withContext(t).toBeNull();
+  });
+});
+
+describe('a nota nova a partir de um trecho (PLANO-NOTA-DE-REFERENCIA.md)', () => {
+  const spot = (line: number, text: string, nth = 0, count = 1): TextSpot => ({ line, text, nth, count });
+
+  it('a anotação da folha já nasce com o texto, as tags e a cartolina sorteada', () => {
+    const n = linkedNote('Paris', { category: 'Viagens', audience: 'privada' }, 'nova-anotacao', '2026-11-23T10:00:00.000Z', '2026-11-23', {
+      text: 'A capital.',
+      tags: ['França'],
+      stock: 'verde',
+    })!;
+    expect(n.text).toBe('A capital.');
+    expect(n.tags).toEqual(['França']);
+    expect(n.stock).toBe('verde');
+  });
+
+  it('o link: o trecho, ou o título com o trecho depois da barra (o que se lê não muda)', () => {
+    expect(spotLink('Paris', 'Paris')).toBe('[[Paris]]');
+    expect(spotLink('paris', 'Paris')).toBe('[[Paris]]');
+    expect(spotLink('A capital da França ', 'Paris')).toBe('[[A capital da França|Paris]]');
+  });
+
+  it('o trecho vira título só sem colchetes nem "|", e até 200 letras', () => {
+    expect(spotTitle('Paris')).toBeTrue();
+    for (const t of ['', 'a [b]', 'a|b', 'x'.repeat(201), ' Paris']) expect(spotTitle(t)).withContext(t).toBeFalse();
+    expect(spotTitle('x'.repeat(200))).toBeTrue();
+  });
+
+  it('vira link no lugar selecionado, numa lista, num negrito e dentro de um card', () => {
+    const text = 'Viagem\n- fui a Paris em maio\n**Paris é linda**\n> [!nota] Dica\n> veja Paris de noite';
+    expect(linkSpot(text, text, spot(1, 'Paris'), '[[Paris]]')).toBe('Viagem\n- fui a [[Paris]] em maio\n**Paris é linda**\n> [!nota] Dica\n> veja Paris de noite');
+    expect(linkSpot(text, text, spot(2, 'Paris'), '[[Paris]]')).toContain('**[[Paris]] é linda**');
+    expect(linkSpot(text, text, spot(4, 'Paris'), '[[Cidade|Paris]]')).toContain('> veja [[Cidade|Paris]] de noite');
+  });
+
+  it('com o trecho repetido na linha, vale a vez selecionada', () => {
+    const text = 'Paris, Paris e Paris';
+    expect(linkSpot(text, text, spot(0, 'Paris', 1, 3), '[[Paris]]')).toBe('Paris, [[Paris]] e Paris');
+    expect(linkSpot(text, text, spot(0, 'Paris', 2, 3), '[[Paris]]')).toBe('Paris, Paris e [[Paris]]');
+  });
+
+  it('a linha desenhada mostra outra conta: vale a única vez em que é texto comum; na dúvida, nada', () => {
+    // o link que já existe mostra "Paris" também, mas não vira outro link
+    const one = 'Paris e [[Paris]]';
+    expect(linkSpot(one, one, spot(0, 'Paris', 0, 2), '[[Paris]]')).toBe('[[Paris]] e [[Paris]]');
+    expect(linkSpot(one, one, spot(0, 'Paris', 0, 3), '[[Paris]]')).toBe('[[Paris]] e [[Paris]]');
+    const two = 'Paris, Paris e `Paris`';
+    expect(linkSpot(two, two, spot(0, 'Paris', 0, 2), '[[Paris]]')).toBeNull();
+  });
+
+  it('não vira link o que não é texto comum: código, escapado, dentro de outro link, de um endereço, de um bloco de código', () => {
+    const cases = ['use `Paris` aqui', 'veja \\Paris', '[[Paris de noite]]', 'https://paris.fr/Paris', '[site](https://x.com/Paris)'];
+    for (const t of cases) expect(linkSpot(t, t, spot(0, 'Paris'), '[[Paris]]')).withContext(t).toBeNull();
+    const fenced = '```\nParis\n```';
+    expect(linkSpot(fenced, fenced, spot(1, 'Paris'), '[[Paris]]')).toBeNull();
+  });
+
+  it('acha a linha na versão de agora pelo que ela diz (a nuvem trouxe outra com a folha aberta)', () => {
+    const shown = 'um\nfui a Paris\ntrês';
+    const now = 'zero\num\nfui a Paris\ntrês';
+    expect(linkSpot(shown, now, spot(1, 'Paris'), '[[Paris]]')).toBe('zero\num\nfui a [[Paris]]\ntrês');
+    // a linha mudou (ou sumiu): nada
+    expect(linkSpot(shown, 'um\nfui a Roma\ntrês', spot(1, 'Paris'), '[[Paris]]')).toBeNull();
+    // duas linhas iguais: a mesma da vez
+    const twice = 'Paris\nx\nParis';
+    expect(linkSpot(twice, 'novo\n' + twice, spot(2, 'Paris'), '[[Paris]]')).toBe('novo\nParis\nx\n[[Paris]]');
+  });
+
+  it('o trecho que não cabe num título não vira nada', () => {
+    const text = 'a [b] c';
+    expect(linkSpot(text, text, spot(0, 'a [b]'), '[[a [b]]]')).toBeNull();
   });
 });

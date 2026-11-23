@@ -1156,11 +1156,19 @@ dialog.reader.ao-lado {
   }
 }
 
-/* "Citar": um remendo de feltro que brota no fim do trecho selecionado */
-.citar {
-  @include felt.remendo(-4px);
+/* Os remendos do trecho selecionado: "Citar" e "Nova nota", cada um o seu remendo de feltro, com um vão entre eles,
+   brotando juntos no fim do trecho */
+.remendos {
   position: absolute;
   z-index: 8;
+  display: flex;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.citar,
+.anotar {
+  @include felt.remendo(-4px);
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -1189,7 +1197,8 @@ dialog.reader.ao-lado {
 }
 
 @media (pointer: coarse) {
-  .citar {
+  .citar,
+  .anotar {
     height: 44px;
     border-radius: 22px;
   }
@@ -1205,7 +1214,8 @@ dialog.reader.ao-lado {
 
 @media (prefers-reduced-motion: reduce) {
   .lado,
-  .citar {
+  .citar,
+  .anotar {
     animation: none;
   }
 

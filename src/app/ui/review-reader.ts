@@ -51,7 +51,7 @@ import { ReactionBubble, ReactionPicker } from './reactions';
 import { ReactionTarget, Reactions } from '../core/reactions';
 import { checkCount, plainText, tickTask } from '../core/rich-text';
 import { SpoilerShield } from '../core/spoiler-shield';
-import { NoteLinks, notesOf, resolveNote } from '../core/note-links';
+import { NoteLinks, TextSpot, linkSpot, notesOf, placesOf, resolveNote, spotLink, spotTitle } from '../core/note-links';
 import { ReminderLinks } from '../core/reminder-links';
 import { KanbanDeps } from '../core/kanban-deps';
 import { KanbanStore } from '../core/kanban-store';
@@ -76,6 +76,9 @@ import { CommentsPanel } from './comments-panel';
 import { ShareSheet } from './share-sheet';
 // o "Escolher a nota" do "+" (abrir outra ao lado), num pedaço à parte, só quando abre
 import { CardPicker } from './card-picker';
+// a folhinha da nota nova a partir de um trecho (PLANO-NOTA-DE-REFERENCIA.md), num pedaço à parte, só quando abre
+import { QuickNoteSheet } from './quick-note-sheet';
+import type { QuickNoteLinked } from './quick-note-sheet';
 import { ConflictSheet } from './conflict-sheet';
 import { LinkSheet } from './link-sheet';
 import { CardConfig } from './card-config';
@@ -147,6 +150,23 @@ interface ReadingPlace {
   scrollTop: number;
 }
 
+/** O trecho selecionado e os remendos dele (ver `picked`). */
+interface PickedPiece {
+  text: string;
+  left: number;
+  top: number;
+  quote: boolean;
+  spot: TextSpot | null;
+}
+
+/** A folhinha da nota nova pedida: onde o trecho está, o texto em que ele foi achado e a anotação de onde saiu. */
+interface QuickNoteAsk {
+  spot: TextSpot;
+  shown: string;
+  from: Review;
+  shared: boolean;
+}
+
 /**
  * A segunda anotação pediu a leitura inteira (a tela cheia, só a cartolina, os comentários): ela, o caminho dos
  * links por onde chegou, o jeito pedido, o trecho onde se lia e, abrindo os comentários, o que mandou citar.
@@ -162,7 +182,7 @@ interface AlonePlea {
 
 @Component({
   selector: 'app-review-reader',
-  imports: [BackdropClose, CardConfig, CardPicker, CategoryLabel, CommentsPanel, ConflictSheet, LinkSheet, ShareSheet, OrganizeSheet, IconModule, KanbanDepsBadge, MoreMenu, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, NoteTag, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, ReviewCard, Skulls, StatusLabel, VozFita],
+  imports: [BackdropClose, CardConfig, CardPicker, QuickNoteSheet, CategoryLabel, CommentsPanel, ConflictSheet, LinkSheet, ShareSheet, OrganizeSheet, IconModule, KanbanDepsBadge, MoreMenu, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, NoteTag, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, ReviewCard, Skulls, StatusLabel, VozFita],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog
@@ -456,7 +476,7 @@ interface AlonePlea {
               } @else {
                 <!-- com a formatação do editor; as tarefas se marcam aqui mesmo, na sua ficha. As feitas viram
                      uma conta, como no mural, e tocar nela mostra a sequência -->
-                <div #textoFicha class="text" data-citavel><app-rich-text [text]="r.text" [fold]="true" [foldKey]="r.id" [checkable]="owner() === null && writable()" [links]="noteLinks()" (toggled)="toggleTask($event)" /></div>
+                <div #textoFicha class="text" data-citavel><app-rich-text [text]="r.text" [fold]="true" [foldKey]="r.id" [checkable]="owner() === null && writable()" [links]="noteLinks()" [anchors]="true" (toggled)="toggleTask($event)" /></div>
               }
             } @else if (!note()) {
               <!-- a anotação pode ser só o título: sem aviso de texto em branco -->
@@ -616,14 +636,35 @@ interface AlonePlea {
           }
         }
 
-        <!-- selecionou um trecho do texto: o remendo "Citar" aparece no fim da seleção -->
-        @if (lendo() && picked(); as p) {
-          <button type="button" class="citar" [style.left.px]="p.left" [style.top.px]="p.top" (pointerdown)="$event.preventDefault()" (click)="quoteSelection()">
-            <lucide-icon [img]="QuoteIcon" [size]="17" aria-hidden="true" />
-            Citar
-          </button>
+        <!-- selecionou um trecho do texto: os remendos aparecem no fim da seleção, cada um o seu. O "Citar" (só na
+             leitura de sempre) leva o trecho aos comentários; o "Nova nota" (na leitura e na tela cheia, na anotação em
+             que você escreve) cria uma anotação sobre ele, e o trecho vira link para ela (PLANO-NOTA-DE-REFERENCIA.md) -->
+        @if (vista() !== 'cartolina' && picked(); as p) {
+          <div class="remendos" [style.left.px]="p.left" [style.top.px]="p.top">
+            @if (p.quote) {
+              <button type="button" class="citar" (pointerdown)="$event.preventDefault()" (click)="quoteSelection()">
+                <lucide-icon [img]="QuoteIcon" [size]="17" aria-hidden="true" />
+                Citar
+              </button>
+            }
+            @if (p.spot) {
+              <button type="button" class="anotar" (pointerdown)="$event.preventDefault()" (click)="referSelection()" title="Criar uma anotação sobre o trecho, que vira um link para ela">
+                <lucide-icon [img]="NewNoteIcon" [size]="17" aria-hidden="true" />
+                Nova nota
+              </button>
+            }
+          </div>
         }
         </div>
+
+        <!-- a folhinha da nota nova (o trecho é o título), num pedaço à parte, só quando abre -->
+        @if (quickNote(); as qn) {
+          @defer (on immediate) {
+            <app-quick-note-sheet [piece]="qn.spot.text" [from]="qn.from" [shared]="qn.shared" (linked)="linkPiece($event)" (closed)="quickNoteClosed()" />
+          }
+        }
+        <!-- o que a nota nova fez, para o leitor de tela (os olhos veem o link aparecer no texto) -->
+        <p class="sr-only" role="status">{{ said() }}</p>
 
         <!-- a segunda anotação, lado a lado (PLANO-DUAS-NOTAS.md): a mesma leitura, no modo ao lado, dentro
              desta. O que ela faz que é da página (o editor, apagar) passa por aqui; o que pede a leitura
@@ -1343,10 +1384,25 @@ export class ReviewReader {
   /** O trecho que a pessoa mandou citar, para a folha pôr no comentário. */
   protected readonly quote = linkedSignal<string | undefined, QuoteRequest | null>({ source: this.reviewId, computation: () => null });
   private quoteCount = 0;
-  /** O trecho selecionado no texto da ficha e onde fica o remendo "Citar" (em px, dentro da dupla). */
-  protected readonly picked = signal<{ text: string; left: number; top: number } | null>(null);
+  /**
+   * O trecho selecionado no texto da ficha e onde ficam os remendos (em px, dentro da dupla): o "Citar" (`quote`) e o
+   * "Nova nota" (`spot`, onde o trecho está escrito), cada um só quando vale.
+   */
+  protected readonly picked = signal<PickedPiece | null>(null);
   /** Dá para citar: há porta para os comentários, você tem conta e o texto não está em segredo. */
   private readonly canQuote = computed(() => this.lendo() && this.commentable() && !this.commentsClosed() && !!this.comments.myCode() && !this.masked());
+  /**
+   * Dá para criar uma nota a partir do trecho (PLANO-NOTA-DE-REFERENCIA.md, D1): na leitura e na tela cheia de uma
+   * anotação do seu mural em que você escreve, fora do link solto e com o texto à mostra.
+   */
+  private readonly canRefer = computed(
+    () => (this.lendo() || this.vista() === 'tela-cheia') && this.note() && this.owner() === null && !this.solta() && this.writable() && !this.masked(),
+  );
+  protected readonly NewNoteIcon = ICON.novaNota;
+  /** A folhinha da nota nova aberta: o trecho, o texto de onde ele saiu e a anotação (trocar de ficha fecha). */
+  protected readonly quickNote = linkedSignal<string | undefined, QuickNoteAsk | null>({ source: this.reviewId, computation: () => null });
+  /** O que a nota nova fez, dito ao leitor de tela. */
+  protected readonly said = signal('');
   private selectionTimer: ReturnType<typeof setTimeout> | undefined;
   /** A seleção de texto da página, ouvida só com a leitura aberta (ver `open`). */
   private readonly onSelectionChange = () => this.watchSelection();
@@ -1415,12 +1471,16 @@ export class ReviewReader {
   protected watchSelection(): void {
     if (!this.review()) return;
     clearTimeout(this.selectionTimer);
-    this.selectionTimer = setTimeout(() => this.picked.set(this.readSelection()), 180);
+    this.selectionTimer = setTimeout(() => {
+      this.picked.set(this.readSelection());
+      if (this.picked()) afterNextRender(() => this.fitPatches(), { injector: this.injector });
+    }, 180);
   }
 
-  /** O trecho selecionado dentro do texto da ficha (e só dele), com o lugar do remendo logo abaixo do fim. */
-  private readSelection(rescrolled = false): { text: string; left: number; top: number } | null {
-    if (!this.canQuote()) return null;
+  /** O trecho selecionado dentro do texto da ficha (e só dele), com o lugar dos remendos logo abaixo do fim. */
+  private readSelection(rescrolled = false): PickedPiece | null {
+    const quote = this.canQuote();
+    if (!quote && !this.canRefer()) return null;
     const sel = document.getSelection();
     if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
     const range = sel.getRangeAt(0);
@@ -1449,10 +1509,95 @@ export class ReviewReader {
       }
       top = last.top - height;
     }
+    const spot = this.canRefer() ? this.spotOf(range) : null;
+    if (!quote && !spot) return null;
     const box = pair.getBoundingClientRect();
     const article = zone.closest('.ficha')?.getBoundingClientRect() ?? box;
-    const left = Math.min(Math.max(last.right - box.left - 44, 8), article.right - box.left - 104);
-    return { text, left, top: top - box.top };
+    // a largura dos remendos à mostra (medida de novo depois de desenhar, ver `fitPatches`)
+    const width = (quote ? 104 : 0) + (spot ? 136 : 0) + (quote && spot ? 8 : 0);
+    const left = Math.max(Math.min(last.right - box.left - 44, article.right - box.left - width), 8);
+    return { text, left, top: top - box.top, quote, spot };
+  }
+
+  /**
+   * Onde o trecho selecionado está escrito, se ele pode virar título e link (PLANO-NOTA-DE-REFERENCIA.md, D2): numa
+   * linha só do texto, fora de link, código, widget, tabela e do topo de um card, e escrito igual no texto (a mesma vez
+   * dele na linha). Senão, null.
+   */
+  private spotOf(range: Range): TextSpot | null {
+    const el = (n: Node) => (n instanceof Element ? n : n.parentElement);
+    const lineEl = el(range.startContainer)?.closest<HTMLElement>('[data-l]');
+    if (!lineEl || !lineEl.matches('.linha:not(.cartao-topo)') || el(range.endContainer)?.closest('[data-l]') !== lineEl) return null;
+    // dentro de um link, de um código, de um widget, de uma tabela, do corpo de uma tarefa: não é texto comum da linha
+    const inside = el(range.commonAncestorContainer)?.closest('.elo, a, code, pre, .spoiler, .widget, app-note-widget, .tabela-peca, .corpo');
+    if (inside && lineEl.contains(inside)) return null;
+    const raw = range.toString();
+    const text = raw.trim();
+    if (!text || text.includes('\n') || !spotTitle(text)) return null;
+    // a linha como se lê (sem o corpo da tarefa, que são outras linhas) e onde o trecho começa nela
+    const all = document.createRange();
+    all.selectNodeContents(lineEl);
+    const body = lineEl.querySelector(':scope > .corpo');
+    if (body) all.setEndBefore(body);
+    const before = document.createRange();
+    before.setStart(all.startContainer, all.startOffset);
+    before.setEnd(range.startContainer, range.startOffset);
+    const at = before.toString().length + (raw.length - raw.trimStart().length);
+    const places = placesOf(all.toString(), text);
+    const nth = places.indexOf(at);
+    const line = Number(lineEl.dataset['l']);
+    const r = this.review();
+    if (nth === -1 || !Number.isInteger(line) || !r) return null;
+    const spot: TextSpot = { line, text, nth, count: places.length };
+    return linkSpot(r.text, r.text, spot, spotLink(text, text)) === null ? null : spot;
+  }
+
+  /** Os remendos desenhados: se passaram da beirada da ficha (a letra é outra), voltam para dentro dela. */
+  private fitPatches(): void {
+    const dialog = this.dialog().nativeElement;
+    const patches = dialog.querySelector<HTMLElement>('.par > .remendos');
+    const article = dialog.querySelector('.par > .ficha');
+    if (!patches || !article) return;
+    const over = patches.getBoundingClientRect().right - article.getBoundingClientRect().right;
+    if (over > 0) patches.style.left = `${Math.max(patches.offsetLeft - over, 8)}px`;
+  }
+
+  /** "Nova nota": a folhinha abre com o trecho como título; o link só entra quando ela cria (ou liga). */
+  protected referSelection(): void {
+    const p = this.picked();
+    const r = this.review();
+    if (!p?.spot || !r || !this.canRefer()) return;
+    this.picked.set(null);
+    document.getSelection()?.removeAllRanges();
+    this.said.set('');
+    this.quickNote.set({ spot: p.spot, shown: r.text, from: r, shared: !!this.sharedEntry() });
+  }
+
+  /**
+   * A folhinha criou a anotação (ou escolheu uma que já existia): o trecho vira o link para ela, na versão de agora da
+   * anotação aberta (a nuvem pode ter trazido outra com a folha aberta), sem sair do lugar onde se lia.
+   */
+  protected linkPiece(e: QuickNoteLinked): void {
+    const ask = this.quickNote();
+    const shown = this.review();
+    const r = shown && (this.store.get(shown.id) ?? shown);
+    if (!ask || !r || r.id !== ask.from.id || this.owner() !== null || !this.writable()) return;
+    const text = linkSpot(ask.shown, r.text, ask.spot, spotLink(e.title, ask.spot.text));
+    if (text === null) {
+      if (r !== shown) this.review.set(r);
+      this.said.set(e.created ? `Anotação “${e.title}” criada. O trecho mudou no texto e ficou sem o link.` : 'O trecho mudou no texto: não deu para ligar.');
+      return;
+    }
+    const next: Review = { ...r, text, updatedAt: new Date().toISOString() };
+    this.store.update(next);
+    this.review.set(next);
+    this.said.set(e.created ? `Anotação “${e.title}” criada e ligada ao trecho.` : `Trecho ligado a “${e.title}”.`);
+  }
+
+  /** A folhinha fechou (criando ou não): o foco volta para o nome da ficha, sem rolar o texto de onde se lia. */
+  protected quickNoteClosed(): void {
+    this.quickNote.set(null);
+    afterNextRender(() => this.dialog().nativeElement.querySelector<HTMLElement>(`#leitura-titulo${this.sufixo()}`)?.focus({ preventScroll: true }), { injector: this.injector });
   }
 
   /** "Citar": o trecho vai para a folha de comentários, que abre se estava fechada. */
@@ -1494,6 +1639,8 @@ export class ReviewReader {
     document.removeEventListener('selectionchange', this.onSelectionChange);
     clearTimeout(this.selectionTimer);
     this.picked.set(null);
+    this.quickNote.set(null);
+    this.said.set('');
     this.review.set(null);
     this.watchShared(null);
   }
@@ -1713,6 +1860,8 @@ export class ReviewReader {
     if (this.voz.owner() !== null && !this.voz.saysTitle()) return;
     // as teclas de dentro da segunda anotação são dela (ela as ouve no diálogo dela)
     if (!this.aoLado() && (e.target as HTMLElement | null)?.closest?.('dialog.ao-lado')) return;
+    // as da folhinha da nota nova (o texto dela, no Visual) são dela
+    if ((e.target as HTMLElement | null)?.closest?.('app-quick-note-sheet')) return;
     // só na leitura de sempre, onde a tira das vezes mostra qual é a de agora
     if (!this.lendo()) return;
     if ((e.target as HTMLElement | null)?.closest('input, textarea, select')) return;
@@ -1746,6 +1895,8 @@ export class ReviewReader {
     // e a primeira, mudando de jeito, fecha a segunda
     this.segunda.set(null);
     if (now !== 'cartolina') this.place = given !== undefined ? given : this.readingPlace();
+    // os remendos do trecho ficariam no lugar de antes (o texto quebra em outras linhas)
+    this.picked.set(null);
     // a folha de comentários e o "Citar" são da leitura de sempre
     if (next !== 'leitura') {
       this.commentsOpen.set(false);

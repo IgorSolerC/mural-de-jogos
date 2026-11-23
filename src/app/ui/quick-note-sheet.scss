@@ -1,0 +1,136 @@
+@use 'sheet';
+@use 'paper-kit' as kit;
+@use 'props-editor' as props;
+
+:host {
+  display: contents;
+}
+
+/* A folhinha da nota nova (PLANO-NOTA-DE-REFERENCIA.md): a ficha de fichário dos diálogos, na cartolina que a
+   anotação vai ter, do tamanho de uma ficha (a largura de sempre das folhas): o título, as etiquetas Pasta e Tags
+   (as do editor) e o texto. Reta: é de escrever. */
+dialog.folha-nota {
+  width: 100%;
+}
+
+.titulos {
+  @include sheet.titulos;
+}
+
+.head {
+  margin-bottom: 0;
+
+  h2 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+}
+
+/* o desenho da nota nova, um pouco torto, como o carimbo do template */
+.carimbo {
+  display: inline-flex;
+  flex: none;
+  rotate: -8deg;
+}
+
+.sub {
+  @include sheet.sub;
+}
+
+.body {
+  gap: 14px;
+  padding-top: 16px;
+}
+
+.campos {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.titulo-campo {
+  display: block;
+  margin: 0;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.84rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.campo {
+  @include kit.campo;
+  cursor: text;
+
+  &.erro {
+    @include kit.campo-erro;
+  }
+}
+
+/* o título que já é de outra anotação: a frase e o caminho de só ligar o trecho a ela */
+.gemea {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 10px;
+  margin: 2px 2px 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+.so-ligar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ===== As etiquetas Pasta e Tags: as do editor (ui/_props-editor.scss) ===== */
+@include props.fileira;
+
+.props-area {
+  margin-top: 8px;
+}
+
+/* ===== O texto: o editor das anotações, com o teto de sempre (a folha rola o resto) ===== */
+app-rich-editor {
+  display: block;
+
+  /* passou do tamanho: o fio da folha em erro */
+  &.erro {
+    border-radius: 2px;
+    box-shadow: 0 0 0 2px var(--error-ink);
+  }
+}
+
+/* ===== O pé: o que falta, ao lado dos botões (no estreito, um bilhete em cima do pé) ===== */
+.foot {
+  position: relative;
+}
+
+.falta {
+  flex: 1 1 auto;
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.92rem;
+  text-align: right;
+  color: var(--error-ink);
+
+  &:empty {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .falta.agora {
+    position: absolute;
+    inset: auto 16px calc(100% + 6px);
+    padding: 6px 10px;
+    border-radius: 2px;
+    background: var(--papel-ficha);
+    box-shadow: var(--papel-solto-sombra);
+    text-align: left;
+  }
+}
