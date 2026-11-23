@@ -9,7 +9,16 @@
   @if (d.folder; as f) {
     <div class="linha" data-k="pasta">
       <dt><lucide-icon [img]="I.pasta" [size]="15" aria-hidden="true" />Pasta</dt>
-      <dd><button type="button" class="elo" [title]="'Abrir a pasta no mural'" (click)="folderOpened.emit(f.id)">{{ f.label }}</button></dd>
+      <dd>
+        <button type="button" class="elo caminho" [title]="'Abrir a pasta no mural'" [attr.aria-label]="'Abrir a pasta ' + f.label + ' no mural'" (click)="folderOpened.emit(f.id)">
+          @for (part of f.parts; track $index; let first = $first) {
+            @if (!first) {
+              <lucide-icon class="seta-caminho" [img]="I.seta" [size]="13" aria-hidden="true" />
+            }
+            <span class="parte">{{ part }}</span>
+          }
+        </button>
+      </dd>
     </div>
   }
   <div class="linha" data-k="data">
@@ -21,6 +30,9 @@
         } @else {
           <span class="valor">{{ d.date.long }}</span>
         }
+        @if (d.date.pinned) {
+          <span class="miudo fixada"><lucide-icon [img]="I.fixada" [size]="13" aria-hidden="true" />fixada no topo</span>
+        }
       </span>
       @for (n of d.date.notes; track n) {
         <span class="miudo">{{ n }}</span>
@@ -31,6 +43,7 @@
     <div class="linha" data-k="quem">
       <dt><lucide-icon [img]="I.quem" [size]="15" aria-hidden="true" />Quem vê</dt>
       <dd>
+        <span class="fileira">
         @if (w.people.length) {
           <span class="rostos" aria-hidden="true">
             @for (p of w.people; track p.code) {
@@ -44,7 +57,6 @@
             }
           </span>
         }
-        <span class="fileira">
           @if (!w.people.length) {
             <lucide-icon class="desenho" [img]="w.icon" [size]="15" aria-hidden="true" />
           }

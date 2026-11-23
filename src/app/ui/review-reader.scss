@@ -763,11 +763,6 @@ app-judge-label {
 }
 
 @media (min-width: 900px) {
-  /* a leitura cede ao trilho o lugar dele na beirada direita */
-  dialog.reader:not(.dupla, .ao-lado, .com-lado, .tela-cheia) {
-    max-width: min(760px, calc(100vw - 220px));
-  }
-
   /* de pé, fora da ficha, na beirada direita (a ficha é o lugar dele: o pé não tem posição) */
   .reader:not(.dupla, .ao-lado) .trilho {
     position: absolute;
@@ -1323,11 +1318,12 @@ dialog.reader.solta[open] > .par {
   }
 }
 
-/* ===== Tela cheia: só o nome e o texto, para ver o máximo de uma vez =====
-   A folha é a coluna do texto com 1cm de papel de cada lado: a tela inteira menos 24px de cada lado,
-   até o teto da coluna, e só da altura do texto, até a tela (no celular, a largura toda, presa no
-   alto). A faixa fica com o nome e os botões. O nome começa onde o texto começa, como numa página. */
-dialog.reader.tela-cheia {
+/* ===== A leitura: a medida da tela cheia de antes (PLANO-LEITURA-UNIFICADA.md, D1) =====
+   Uma vista só: a folha é a coluna do texto com 1cm de papel de cada lado (a tela menos 24px de cada lado,
+   até o teto da coluna; de 900px, menos o lugar do trilho na beirada direita), só da altura do texto, até a
+   tela (no celular, a largura toda, presa no alto). A faixa fina fica com o nome e os botões, e o nome
+   começa onde o texto começa, como numa página. */
+dialog.reader.lendo {
   /* o teto da coluna do texto. Esta vista é para ver o máximo de uma vez, e o dono pediu a linha
      comprida de propósito: passa do teto de 75 caracteres de um texto corrido, e a pauta leva o olho de
      volta. Crescem com ela o que enche a coluna (código, tabela larga, card, Nota inteira) e, até o
@@ -1341,24 +1337,91 @@ dialog.reader.tela-cheia {
   max-height: none;
 }
 
-.tela-cheia .par,
-.tela-cheia .par > .ficha {
+/* de 900px, o trilho sai pela beirada direita: a folha deixa o lugar dele (98px) dos dois lados, para ficar no meio */
+@media (min-width: 900px) {
+  dialog.reader.lendo {
+    width: min(calc(100vw - 2 * 122px), calc(var(--medida) + 2 * var(--margem)));
+  }
+}
+
+/* com a folha ao lado (os Detalhes, os comentários), a leitura ganha a largura dela */
+@media (min-width: 1180px) {
+  dialog.reader.lendo.com-lado:not(.dupla) {
+    width: min(calc(100vw - 2 * 122px), calc(var(--medida) + 2 * var(--margem) + var(--lado-w)));
+  }
+
+  /* duas anotações dividem a largura (cada trilho deita no pé da sua) */
+  dialog.reader.lendo.dupla {
+    width: min(calc(100vw - 112px), 1548px);
+  }
+}
+
+/* a segunda anotação é do tamanho que a dupla dá a ela */
+dialog.reader.lendo.ao-lado {
+  width: auto;
+}
+
+.lendo .par,
+.lendo .par > .ficha {
   max-height: calc(100dvh - 48px);
 }
 
-.tela-cheia .par > .ficha {
-  animation: vista-entra 260ms var(--ease-physical);
+/* pelo link, a folha deixa embaixo o lugar da assinatura e do "Baixar em PDF" (ver .solta, mais acima) */
+.solta.lendo .par,
+.solta.lendo .par > .ficha {
+  max-height: calc(100dvh - 72px - var(--remendo, 0px));
+}
+
+/* o carimbo da finalizada, menor na faixa fina, na emenda dela com a folha */
+.lendo .carimbo {
+  bottom: -26px;
+
+  app-done-stamp {
+    --tam: 76px;
+  }
+}
+
+.lendo .faixa-nome.feita .title {
+  padding-right: 76px;
+}
+
+/* ===== O pé fino (D4) =====
+   A mesma fileira (o Mais e o trilho à esquerda; Finalizar e Editar à direita), da altura de um botão
+   pequeno: 34px, e 44px de alvo no dedo. */
+.lendo .foot {
+  padding: 5px calc(var(--margem) - 12px) 6px;
+  gap: 6px 8px;
+  border-top-width: 1.5px;
+}
+
+.lendo .foot .btn-quiet {
+  min-height: 34px;
+  padding: 4px 10px;
+  font-size: 0.86rem;
+}
+
+.lendo .foot .btn-ink {
+  min-height: 34px;
+  padding: 5px 14px 4px;
+  gap: 6px;
+  font-size: 1rem;
+}
+
+@media (pointer: coarse) {
+  .lendo .foot :is(.btn-quiet, .btn-ink) {
+    min-height: 44px;
+  }
 }
 
 /* sem a vaga fixa da barra de rolagem: ela só aparece no texto comprido, na beirada da direita, e o
    curto fica com 1cm exato dos dois lados */
-.tela-cheia .body {
+.lendo .body {
   padding: 28px var(--margem) 36px;
 }
 
 /* a coluna larga, e a letra um pouco maior que a da leitura, com a pauta na mesma proporção e a letra sentada
    1px mais para baixo (no celular, a da leitura: ver abaixo) */
-.tela-cheia .text {
+.lendo .text {
   --line: 1.95rem;
   --texto-desce: 6px;
   width: 100%;
@@ -1368,55 +1431,55 @@ dialog.reader.tela-cheia {
 
 /* a faixa fina: só o nome e os botões, sem o alto que a tachinha pede na ficha aberta. Os botões continuam
    de 44px; as margens negativas é que não os deixam esticar a faixa */
-.tela-cheia .par > article > .faixa-nome {
+.lendo .par > article > .faixa-nome {
   padding-top: 7px;
   padding-bottom: 7px;
 }
 
-.tela-cheia .faixa-nome .icon-btn {
+.lendo .faixa-nome .icon-btn {
   margin-block: -6px;
 }
 
 /* o nome de uma linha no meio da faixa; o que quebra em várias a estica, e os botões ficam no alto */
-.tela-cheia .faixa-nome .title {
+.lendo .faixa-nome .title {
   align-self: center;
 }
 
 /* o nome começa onde começa a letra do texto (a margem, mais a folga de 8px da pauta); com a seta de
    volta dos links na frente, ela fica na margem, rente à beirada, e o nome perto da letra do texto */
-.tela-cheia .par > article > .faixa-nome {
+.lendo .par > article > .faixa-nome {
   padding-left: calc(var(--margem) + 8px);
 }
 
-.tela-cheia .par > article > .faixa-nome.com-volta {
+.lendo .par > article > .faixa-nome.com-volta {
   padding-left: max(4px, calc(var(--margem) - 40px));
 }
 
-.tela-cheia .faixa-nome .title {
+.lendo .faixa-nome .title {
   font-size: calc(1.56rem * var(--titulo-escala, 1));
 }
 
-.tela-cheia .faixa-nome .title.longo {
+.lendo .faixa-nome .title.longo {
   font-size: calc(1.32rem * var(--titulo-escala, 1));
 }
 
 @media (max-width: 600px) {
   /* no celular, a folha é a largura da tela, presa no alto: desce só até onde vai o texto (o
      comprido, até o pé da tela) */
-  dialog.reader.tela-cheia {
+  dialog.reader.lendo {
     width: 100vw;
     max-width: 100vw;
     margin: 0;
   }
 
-  .tela-cheia .par,
-  .tela-cheia .par > .ficha {
+  .lendo .par,
+  .lendo .par > .ficha {
     max-height: 100dvh;
   }
 
   /* presa no alto, reta em cima; o pé é a beirada do papel, com a sombra forte o bastante para ler no
      véu sobre a parede escura (sem ela, a folha curta parecia cortada) */
-  .tela-cheia .par > .ficha {
+  .lendo .par > .ficha {
     border-radius: 0 0 6px 6px;
     box-shadow:
       0 2px 2px rgb(0 0 0 / 0.35),
@@ -1424,34 +1487,34 @@ dialog.reader.tela-cheia {
   }
 
   /* a tachinha furaria a beirada da tela */
-  .tela-cheia .pin {
+  .lendo .pin {
     display: none;
   }
 
-  .tela-cheia .par > article > .faixa-nome {
+  .lendo .par > article > .faixa-nome {
     padding: calc(7px + env(safe-area-inset-top)) 8px 7px 24px;
   }
 
   /* a tela estreita não ganha coluna larga: a letra fica a da leitura */
-  .tela-cheia .text {
+  .lendo .text {
     --line: 1.66rem;
     --texto-desce: 5px;
     font-size: calc(1.06rem * var(--e-texto, 1));
   }
 
-  .tela-cheia .par > article > .faixa-nome.com-volta {
+  .lendo .par > article > .faixa-nome.com-volta {
     padding-left: 6px;
   }
 
-  .tela-cheia .faixa-nome .title {
+  .lendo .faixa-nome .title {
     font-size: calc(1.4rem * var(--titulo-escala, 1));
   }
 
-  .tela-cheia .faixa-nome .title.longo {
+  .lendo .faixa-nome .title.longo {
     font-size: calc(1.2rem * var(--titulo-escala, 1));
   }
 
-  .tela-cheia .body {
+  .lendo .body {
     padding: 24px 16px calc(28px + env(safe-area-inset-bottom));
   }
 
@@ -1555,7 +1618,7 @@ dialog.reader.so-a-cartolina {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tela-cheia .par > .ficha,
+  .lendo .par > .ficha,
   .em-pe {
     animation: none;
   }

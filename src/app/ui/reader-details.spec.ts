@@ -34,7 +34,7 @@ describe('Os Detalhes da anotação (ReaderDetails)', () => {
     const empty: ReaderDetailsData = {
       group: null,
       folder: null,
-      date: { tape: null, long: 'Sem data', notes: [] },
+      date: { tape: null, long: 'Sem data', pinned: false, notes: [] },
       who: null,
       tasks: null,
       tags: [],
@@ -45,8 +45,8 @@ describe('Os Detalhes da anotação (ReaderDetails)', () => {
     };
     const full: ReaderDetailsData = {
       group: { label: 'Viagens', look: {}, color: '#2d8bd6' },
-      folder: { id: 'pfranca001', label: 'Viagens › 2027 › França' },
-      date: { tape: '21 NOV 2026', long: '21 de novembro de 2026', notes: ['fixada no topo'] },
+      folder: { id: 'pfranca001', label: 'Viagens › 2027 › França', parts: ['Viagens', '2027', 'França'] },
+      date: { tape: '21 NOV 2026', long: '21 de novembro de 2026', pinned: true, notes: [] },
       who: {
         icon: ICON.pessoas,
         line: 'Bia, Cris e Davi',
@@ -54,7 +54,7 @@ describe('Os Detalhes da anotação (ReaderDetails)', () => {
           { code: 'BIA1-0001', name: 'Bia', face: { emoji: '🦊', cor: 'rosa' } },
           { code: 'CRIS-0002', name: 'Cris', face: null },
         ],
-        sub: 'Você, Bia e Cris veem. Todos editam. Ninguém mais vê.',
+        sub: 'privada · você é gestor',
         opens: true,
       },
       tasks: { done: 1, total: 3 },
@@ -94,8 +94,15 @@ describe('Os Detalhes da anotação (ReaderDetails)', () => {
       const group = el.querySelector<HTMLElement>('[data-k="grupo"] app-cat-label')!;
       expect(group.classList).toContain('tingido');
       expect(group.style.getPropertyValue('--cat-cor')).toBe('#2d8bd6');
-      // a data na fita, com a frase inteira para o leitor de tela
+      // a data na fita, com a frase inteira para o leitor de tela, e "fixada no topo" ao lado, com a tachinha
       expect(el.querySelector('.fita .sr-only')?.textContent).toBe('21 de novembro de 2026');
+      expect(el.querySelector('.fita')!.nextElementSibling?.textContent?.trim()).toBe('fixada no topo');
+      expect(el.querySelector('.fixada lucide-icon')).not.toBeNull();
+      // a pasta: as partes do caminho, com a setinha entre elas
+      expect([...el.querySelectorAll('.caminho .parte')].map((x) => x.textContent)).toEqual(['Viagens', '2027', 'França']);
+      expect(el.querySelectorAll('.caminho lucide-icon.seta-caminho').length).toBe(2);
+      // as pessoas e os nomes na mesma fileira
+      expect(el.querySelector('[data-k="quem"] .fileira .rostos + .elo')).not.toBeNull();
       // as pessoas: o emoji na cartolina de quem tem foto; quem não tem, a inicial
       const faces = [...el.querySelectorAll<HTMLElement>('.rosto')];
       expect(faces.map((f) => f.textContent?.trim())).toEqual(['🦊', 'C']);
@@ -106,7 +113,6 @@ describe('Os Detalhes da anotação (ReaderDetails)', () => {
       // baixíssimo: duas setinhas para baixo
       expect(el.querySelectorAll('.prioridade .seta path').length).toBe(2);
       expect(el.querySelector('.prioridade .seta')!.classList).toContain('desce');
-      expect(el.querySelector('.linha:not(.lugar) + .lugar')?.getAttribute('data-k')).toBe('kanban');
     });
 
     it('os toques voltam para a leitura: a pasta, as pessoas, o quadro, o baralho, o dia e o "e mais"', () => {

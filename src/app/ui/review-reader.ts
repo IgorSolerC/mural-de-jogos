@@ -106,11 +106,11 @@ const LINES = ':is(.linha, pre, .widget, .tabela-peca)';
 export const BESIDE_MEDIA = '(min-width: 1180px)';
 
 /**
- * Como a ficha aberta se mostra: a leitura de sempre; a tela cheia, só com o nome e o texto, para ler
- * uma anotação comprida; ou só a cartolina, a ficha como fica pregada no mural, grande, para ver o
+ * Como a ficha aberta se mostra: a leitura (com a medida da tela cheia de antes:
+ * a faixa fina e a coluna larga, PLANO-LEITURA-UNIFICADA.md); ou só a cartolina, a ficha como fica pregada no mural, grande, para ver o
  * papel dela. Cada ficha abre na leitura (nada fica guardado).
  */
-export type ReaderView = 'leitura' | 'tela-cheia' | 'cartolina';
+export type ReaderView = 'leitura' | 'cartolina';
 
 /** Só a cartolina: até quanto a ficha do mural cresce, e o menos que ela encolhe para caber inteira. */
 export const CARD_ZOOM_MAX = 1.8;
@@ -165,7 +165,7 @@ interface QuickNoteAsk {
 }
 
 /**
- * A segunda anotação pediu a leitura inteira (a tela cheia, só a cartolina, os comentários): ela, o caminho dos
+ * A segunda anotação pediu a leitura inteira (só a cartolina, os Detalhes, os comentários): ela, o caminho dos
  * links por onde chegou, o jeito pedido, o trecho onde se lia e, abrindo os comentários, o que mandou citar.
  */
 interface AlonePlea {
@@ -189,7 +189,7 @@ interface AlonePlea {
       class="sheet reader"
       [class.com-lado]="sideOpen()"
       [class.solta]="!!solta()"
-      [class.tela-cheia]="vista() === 'tela-cheia'"
+      [class.lendo]="lendo()"
       [class.so-a-cartolina]="vista() === 'cartolina'"
       [class.dupla]="!!segunda()"
       [class.ao-lado]="aoLado()"
@@ -219,10 +219,9 @@ interface AlonePlea {
             @if (note() && r.doneAt && lendo()) {
               <span class="carimbo"><app-done-stamp size="big" [at]="r.doneAt" [hit]="stampedNow()" /></span>
             }
-            <!-- os jeitos de ver a ficha, pequenos, antes do X: só a cartolina (como fica no mural) e a
-                 tela cheia (só o nome e o texto, para ler). Na tela cheia, o segundo volta à leitura. A
+            <!-- o jeito de ver a ficha, pequeno, antes do X: só a cartolina (como fica no mural). A
                  ficha aberta pelo link é a página inteira: não há para onde fechar, então não tem o X, e
-                 o primeiro é o minimizar dela (a página mostra a ficha pregada no mural de quem
+                 o botão é o minimizar dela (a página mostra a ficha pregada no mural de quem
                  escreveu), no mesmo lugar e do mesmo jeito que o "só a cartolina" -->
             <!-- ouvir a nota em voz alta (PLANO-VOZ.md): o menu das três línguas abre sempre; a fita vai ao pé
                  da folha. Sem texto, ou com o texto escondido, ou num navegador sem voz, não aparece -->
@@ -241,14 +240,6 @@ interface AlonePlea {
                   <lucide-icon [img]="MinimizeIcon" [size]="16" aria-hidden="true" />
                 </button>
               }
-              <!-- um botão só, que troca de nome: o foco fica nele ao entrar e ao sair da tela cheia. Sem
-                   texto, não tem o que ler: a tela cheia seria só o nome -->
-              @let cheia = vista() === 'tela-cheia';
-              @if (r.text.trim()) {
-              <button type="button" class="icon-btn vista-btn ler-tela-cheia" (click)="setView(cheia ? 'leitura' : 'tela-cheia')" [attr.aria-label]="cheia ? 'Voltar à leitura' : 'Ler em tela cheia'" [title]="cheia ? 'Voltar à leitura' : 'Ler em tela cheia'">
-                <lucide-icon [img]="cheia ? LeaveFullIcon : FullIcon" [size]="16" aria-hidden="true" />
-              </button>
-              }
             </div>
             @if (!solta()) {
               <!-- com duas abertas, o X diz o que faz: o da primeira fecha as duas; o da segunda, só ela (pedido do
@@ -261,8 +252,8 @@ interface AlonePlea {
           </header>
 
           <div #corpo class="body" appLuz (scroll)="watchSelection()">
-            <!-- na tela cheia, a folha é só o texto: o resto (o aviso, as vezes, a data, as notas, as
-                 reações e o pé) fica na leitura de sempre -->
+            <!-- na leitura, o aviso, as vezes, a resenha (a capa, as notas) e o texto; os dados da anotação ficam nos
+                 Detalhes (PLANO-LEITURA-UNIFICADA.md) -->
             @if (lendo()) {
             <!-- duas versões brigando (de duas pessoas numa compartilhada, ou de dois aparelhos seus): escolher uma -->
             @if (conflictHere()) {
@@ -559,7 +550,7 @@ interface AlonePlea {
         }
 
         <!-- selecionou um trecho do texto: os remendos aparecem no fim da seleção, cada um o seu. O "Citar" (só na
-             leitura de sempre) leva o trecho aos comentários; o "Nova nota" (na leitura e na tela cheia, na anotação em
+             leitura de sempre) leva o trecho aos comentários; o "Nova nota" (na anotação em
              que você escreve) cria uma anotação sobre ele, e o trecho vira link para ela (PLANO-NOTA-DE-REFERENCIA.md) -->
         @if (vista() !== 'cartolina' && picked(); as p) {
           <div class="remendos" [style.left.px]="p.left" [style.top.px]="p.top">
@@ -590,7 +581,7 @@ interface AlonePlea {
 
         <!-- a segunda anotação, lado a lado (PLANO-DUAS-NOTAS.md): a mesma leitura, no modo ao lado, dentro
              desta. O que ela faz que é da página (o editor, apagar) passa por aqui; o que pede a leitura
-             inteira (a tela cheia, só a cartolina, os comentários) a deixa sozinha, no lugar desta -->
+             inteira (só a cartolina, os Detalhes, os comentários) a deixa sozinha, no lugar desta -->
         @if (segunda()) {
           <app-review-reader
             #ladoB
@@ -617,11 +608,6 @@ interface AlonePlea {
                 <button type="button" class="giz-btn ver-cartolina" (click)="setView('leitura')" aria-label="Voltar à leitura" title="Voltar à leitura">
                   <lucide-icon [img]="ReadIcon" [size]="20" aria-hidden="true" />
                 </button>
-                @if (r.text.trim()) {
-                  <button type="button" class="giz-btn ler-tela-cheia" (click)="setView('tela-cheia')" aria-label="Ler em tela cheia" title="Ler em tela cheia">
-                    <lucide-icon [img]="FullIcon" [size]="20" aria-hidden="true" />
-                  </button>
-                }
                 <button type="button" class="giz-btn fecha" (click)="close()" aria-label="Fechar" title="Fechar">
                   <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
                 </button>
@@ -796,9 +782,8 @@ export class ReviewReader {
   protected readonly PdfIcon = ICON.pdf;
   protected readonly ConfigIcon = ICON.configurar;
   protected readonly MinimizeIcon = ICON.diminuir;
-  /** Voltar à leitura, da cartolina: a folha escrita (os cantos ficam só para a tela cheia). */
+  /** Voltar à leitura, da cartolina: a folha escrita (os cantos eram da tela cheia, que virou a leitura). */
   protected readonly ReadIcon = ICON.documento;
-  protected readonly FullIcon = ICON.telaCheia;
   protected readonly ListenIcon = ICON.fones;
   protected readonly voz = inject(Voz);
   protected readonly fita = viewChild<VozFita>('vozFita');
@@ -808,7 +793,6 @@ export class ReviewReader {
   private readonly bodyRef = viewChild<ElementRef<HTMLElement>>('corpo');
   /** O que a voz lê: o nome da ficha e o texto desenhado (ver ui/voz-fita.ts). */
   protected readonly voiceRoots = computed(() => [this.nameEl()?.nativeElement, this.textEl()?.nativeElement]);
-  protected readonly LeaveFullIcon = ICON.sairDaTelaCheia;
   private readonly fichaLinks = inject(FichaLinks);
   private readonly store = inject(ReviewStore);
 
@@ -1189,7 +1173,7 @@ export class ReviewReader {
     const tree = this.folderTree();
     const path = tree.path(tree.of(r));
     const last = path.at(-1);
-    return last ? { id: last.id, name: last.name, label: pathLabel(path) } : null;
+    return last ? { id: last.id, name: last.name, label: pathLabel(path), parts: path.map((f) => f.name) } : null;
   });
 
   /** Tocou no caminho: a leitura fecha e a parede abre naquela pasta (no seu mural, ou no de quem você visita). */
@@ -1303,11 +1287,11 @@ export class ReviewReader {
   /** Dá para citar: há porta para os comentários, você tem conta e o texto não está em segredo. */
   private readonly canQuote = computed(() => this.lendo() && this.commentable() && !this.commentsClosed() && !!this.comments.myCode() && !this.masked());
   /**
-   * Dá para criar uma nota a partir do trecho (PLANO-NOTA-DE-REFERENCIA.md, D1): na leitura e na tela cheia de uma
+   * Dá para criar uma nota a partir do trecho (PLANO-NOTA-DE-REFERENCIA.md, D1): na leitura de uma
    * anotação do seu mural em que você escreve, fora do link solto e com o texto à mostra.
    */
   private readonly canRefer = computed(
-    () => (this.lendo() || this.vista() === 'tela-cheia') && this.note() && this.owner() === null && !this.solta() && this.writable() && !this.masked(),
+    () => this.lendo() && this.note() && this.owner() === null && !this.solta() && this.writable() && !this.masked(),
   );
   protected readonly NewNoteIcon = ICON.novaNota;
   /** A folhinha da nota nova aberta: o trecho, o texto de onde ele saiu e a anotação (trocar de ficha fecha). */
@@ -1408,7 +1392,9 @@ export class ReviewReader {
       people.push({ code: m.codigo, name: m.nome, face: faces.get(m.codigo) ?? null });
     }
     const summary = accessSummary(state);
-    return { icon: this.SharedIcon, line: namesOf(people.map((x) => x.name)) || summary.short, people, sub: summary.line, opens: true };
+    // embaixo, curto: se é privada ou pública, e o seu papel nela (a frase inteira fica na folha das pessoas)
+    const sub = `${state.public ? 'pública' : 'privada'} · você é ${e.papel}`;
+    return { icon: this.SharedIcon, line: namesOf(people.map((x) => x.name)) || summary.short, people, sub, opens: true };
   });
   /** O que os Detalhes mostram (só nas anotações). */
   protected readonly details = computed<ReaderDetailsData | null>(() => {
@@ -1416,14 +1402,13 @@ export class ReviewReader {
     if (!r || !this.note()) return null;
     const folder = this.folderPath();
     const notes: string[] = [];
-    if (r.noteRank === 'fixada') notes.push('fixada no topo');
     if (r.doneAt) notes.push(`finalizada em ${formatReviewDateLong(r.doneAt.slice(0, 10))}`);
     const b = this.board();
     const s = this.studyCard();
     return {
       group: this.groupEar(),
-      folder: folder ? { id: folder.id, label: folder.label } : null,
-      date: { tape: tapeDate(r.completedAt), long: r.completedAt === null ? this.noDay : this.date(), notes },
+      folder: folder ? { id: folder.id, label: folder.label, parts: folder.parts } : null,
+      date: { tape: tapeDate(r.completedAt), long: r.completedAt === null ? this.noDay : this.date(), pinned: r.noteRank === 'fixada', notes },
       who: this.who(),
       tasks: this.tasks(),
       tags: (r.tags ?? []).map((t) => ({ label: t, color: this.tagColor(t) })),
@@ -1908,7 +1893,7 @@ export class ReviewReader {
     this.go(e.key === 'ArrowLeft' ? -1 : 1);
   }
 
-  // ===== Os jeitos de ver: a leitura, a tela cheia e só a cartolina =====
+  // ===== Os jeitos de ver: a leitura e só a cartolina =====
   /** O jeito de agora (ver ReaderView). Abrir outra ficha (ou a mesma de novo) volta à leitura. */
   protected readonly vista = signal<ReaderView>('leitura');
   /** A leitura de sempre, com tudo: a data, as notas, as reações, os comentários e o pé. */
@@ -1921,7 +1906,7 @@ export class ReviewReader {
   private place: ReadingPlace | null = null;
 
   /**
-   * Troca o jeito de ver. Entre a leitura e a tela cheia, o trecho que estava no alto da folha
+   * Troca o jeito de ver. Da leitura para a cartolina e de volta, o trecho que estava no alto da folha
    * continua no alto (a folha muda de largura e o texto quebra em outras linhas); a cartolina guarda o
    * lugar e o devolve na volta. O foco fica no botão que foi tocado ou no que faz o caminho de volta.
    */
@@ -1950,15 +1935,7 @@ export class ReviewReader {
         if (next === 'cartolina') this.fitCardNow();
         else this.restorePlace(place);
         // o foco: na cartolina, o "Voltar à leitura"; dela de volta, o botão que leva a ela de novo
-        // (ou o da tela cheia, se foi ele); o botão da tela cheia é o mesmo e já está com o foco
-        const target =
-          next === 'cartolina'
-            ? '.na-parede .ver-cartolina'
-            : now === 'cartolina'
-              ? next === 'tela-cheia'
-                ? '.faixa-nome .ler-tela-cheia'
-                : '.faixa-nome .ver-cartolina'
-              : null;
+        const target = next === 'cartolina' ? '.na-parede .ver-cartolina' : now === 'cartolina' ? '.faixa-nome .ver-cartolina' : null;
         if (target) dialog.querySelector<HTMLElement>(target)?.focus({ preventScroll: true });
       },
       { injector: this.injector },
@@ -1971,7 +1948,7 @@ export class ReviewReader {
     return body && body.clientHeight > 0 ? body : null;
   }
 
-  /** A escala da folha na tela (a entrada da tela cheia cresce de 0,97): as medidas voltam ao layout. */
+  /** A escala da folha na tela (uma entrada que cresce de 0,97): as medidas voltam ao layout. */
   private sheetScale(body: HTMLElement): number {
     return body.getBoundingClientRect().height / body.offsetHeight || 1;
   }
@@ -2194,8 +2171,6 @@ export class ReviewReader {
     this.picked.set(null);
     if (p.view !== 'leitura') {
       this.setView(p.view, p.place);
-      // o botão tocado era da segunda: o foco vai para o mesmo, nesta (a cartolina já cuida do dela)
-      if (p.view === 'tela-cheia') afterNextRender(() => this.dialog().nativeElement.querySelector<HTMLElement>('.faixa-nome .ler-tela-cheia')?.focus({ preventScroll: true }), { injector: this.injector });
       return;
     }
     // (os sinais ligados à anotação são lidos antes, para a troca dela não os desligar de novo)
@@ -2258,7 +2233,7 @@ export class ReviewReader {
   protected onCancel(e: Event): void {
     if (!this.solta()) return;
     e.preventDefault();
-    // a que não fecha: o Esc sai da tela cheia, de volta à leitura
+    // a que não fecha: o Esc sai de só a cartolina, de volta à leitura
     this.setView('leitura');
   }
 

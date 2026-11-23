@@ -139,7 +139,7 @@ describe('Duas anotações lado a lado (ReviewReader, PLANO-DUAS-NOTAS.md)', () 
     reader.openBeside(store.get('nota-a')!);
     await settle();
     expect(beside()).toBeNull();
-    await click('.faixa-nome .ler-tela-cheia');
+    await click('.faixa-nome .ver-cartolina');
     reader.openBeside(store.get('nota-b')!);
     await settle();
     expect(beside()).toBeNull();
@@ -238,26 +238,27 @@ describe('Duas anotações lado a lado (ReviewReader, PLANO-DUAS-NOTAS.md)', () 
     expect(asked).toEqual(['nota-b']);
   });
 
-  it('a tela cheia na segunda: ela fica sozinha, em tela cheia, no mesmo trecho, com o foco no botão', async () => {
+  it('os Detalhes na segunda: ela fica sozinha, com os Detalhes abertos, no mesmo trecho (PLANO-LEITURA-UNIFICADA.md, D6)', async () => {
     await both();
     const bodyB = beside()!.querySelector<HTMLElement>('.par > article > .body')!;
     bodyB.scrollTop = 600;
     const top = bodyB.getBoundingClientRect().top;
     const atTop = [...bodyB.querySelectorAll<HTMLElement>('.text .linha')].find((x) => x.textContent?.trim() && x.getBoundingClientRect().bottom > top + 1)!.textContent;
-    await click('.faixa-nome .ler-tela-cheia', beside()!);
+    await click('.etq-trilho[data-trilho="detalhes"]', beside()!);
     await wait(50);
+    fixture.detectChanges();
+    await settle();
     expect(beside()).toBeNull();
-    expect(outer().classList).toContain('tela-cheia');
     expect(outer().classList).not.toContain('dupla');
     expect(nameOf(outer())).toBe('Cronograma');
+    expect(outer().querySelector('#leitura-detalhes')).not.toBeNull();
     const body = outer().querySelector<HTMLElement>('.par > article > .body')!;
-    // a mesma linha no alto da folha (na outra largura e escala, a conta das linhas inteiras pode cair uma acima)
+    // a mesma linha no alto da folha (na outra largura, a conta das linhas inteiras pode cair uma acima)
     const t = body.getBoundingClientRect().top;
     const same = [...body.querySelectorAll<HTMLElement>('.text .linha')].find((x) => x.textContent === atTop)!;
     const line = same.getBoundingClientRect().height || 30;
     expect(body.scrollTop).toBeGreaterThan(0);
     expect(Math.abs(same.getBoundingClientRect().top - t)).toBeLessThan(2.5 * line);
-    expect(document.activeElement?.classList).toContain('ler-tela-cheia');
   });
 
   it('só a cartolina na segunda: ela fica sozinha, na cartolina', async () => {
@@ -268,7 +269,7 @@ describe('Duas anotações lado a lado (ReviewReader, PLANO-DUAS-NOTAS.md)', () 
     expect(outer().querySelector('.cartolina-grande app-review-card')?.textContent).toContain('Cronograma');
   });
 
-  it('a primeira mudando de jeito (cartolina, tela cheia) fecha a segunda', async () => {
+  it('a primeira mudando de jeito (a cartolina) ou abrindo os Detalhes fecha a segunda', async () => {
     await both();
     await click(':scope > .par .faixa-nome .ver-cartolina', outer());
     expect(beside()).toBeNull();
@@ -277,9 +278,9 @@ describe('Duas anotações lado a lado (ReviewReader, PLANO-DUAS-NOTAS.md)', () 
     await click('.na-parede .ver-cartolina');
     reader.openBeside(store.get('nota-b')!);
     await settle();
-    await click(':scope > .par .faixa-nome .ler-tela-cheia', outer());
+    await click(':scope > .par .etq-trilho[data-trilho="detalhes"]', outer());
     expect(beside()).toBeNull();
-    expect(outer().classList).toContain('tela-cheia');
+    expect(outer().querySelector('#leitura-detalhes')).not.toBeNull();
   });
 
   it('finalizar a segunda fecha só ela: a primeira fica, com o foco no nome', async () => {
@@ -337,9 +338,9 @@ describe('Duas anotações lado a lado (ReviewReader, PLANO-DUAS-NOTAS.md)', () 
     expect(ear()!.getAttribute('aria-haspopup')).toBe('dialog');
     // uma etiqueta do trilho (PLANO-LEITURA-UNIFICADA.md, D5)
     expect(ear()!.closest('.trilho')).not.toBeNull();
-    await click('.faixa-nome .ler-tela-cheia');
+    await click('.faixa-nome .ver-cartolina');
     expect(ear()).toBeNull();
-    await click('.faixa-nome .ler-tela-cheia');
+    await click('.na-parede .ver-cartolina');
     reader.openBeside(store.get('nota-b')!);
     await settle();
     expect(ear()).toBeNull();

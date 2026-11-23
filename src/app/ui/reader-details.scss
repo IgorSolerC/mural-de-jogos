@@ -23,12 +23,6 @@
   border-top: 0;
 }
 
-/* onde mais a anotação está (o quadro, o baralho, os lembretes): um fio mais forte separa da anotação em si */
-.linha:not(.lugar) + .lugar {
-  margin-top: 6px;
-  border-top: 1.5px dashed rgb(21 21 21 / 0.28);
-}
-
 dt {
   display: flex;
   align-items: center;
@@ -122,6 +116,41 @@ dd {
 
 .mais {
   color: var(--ink-2);
+}
+
+/* a pasta: o caminho, uma setinha entre as partes, cada uma sublinhada */
+.caminho {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  font-weight: 500;
+  text-decoration: none;
+
+  .parte {
+    text-decoration: underline 1px dotted rgb(21 21 21 / 0.45);
+    text-underline-offset: 4px;
+  }
+
+  &:hover .parte {
+    text-decoration-style: solid;
+  }
+}
+
+.seta-caminho {
+  display: inline-flex;
+  margin: 0 2px;
+  color: var(--ink-2);
+}
+
+/* fixada no topo: ao lado da fita, com a tachinha */
+.fixada {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  lucide-icon {
+    display: inline-flex;
+  }
 }
 
 /* o grupo: o desenho dele na cor dele, sem orelha */

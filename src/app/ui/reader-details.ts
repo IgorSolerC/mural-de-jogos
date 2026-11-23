@@ -24,9 +24,10 @@ export interface DetailsPerson {
  */
 export interface ReaderDetailsData {
   group: { label: string; look: CategoryLook; color: string | null } | null;
-  folder: { id: string; label: string } | null;
+  /** A pasta: o id e o caminho, da de cima para a dela. */
+  folder: { id: string; label: string; parts: readonly string[] } | null;
   /** A data na fita (null: sem data), a frase inteira e o que vem embaixo (fixada, finalizada). */
-  date: { tape: string | null; long: string; notes: readonly string[] };
+  date: { tape: string | null; long: string; pinned: boolean; notes: readonly string[] };
   /** Quem vê: a frase e o desenho (a sua), ou as pessoas da compartilhada. */
   who: { icon: LucideIconData; line: string; people: readonly DetailsPerson[]; sub: string | null; opens: boolean } | null;
   tasks: { done: number; total: number } | null;
@@ -85,16 +86,17 @@ export class ReaderDetails {
   readonly moreReminders = output<void>();
 
   protected readonly I = {
-    grupo: ICON.pasta,
-    pasta: ICON.pastaDeNotas,
-    data: ICON.historico,
+    grupo: ICON.camadas,
+    pasta: ICON.pasta,
+    data: ICON.dataDaNota,
     quem: ICON.pessoas,
     tarefas: ICON.tarefas,
     tags: ICON.etiqueta,
     kanban: ICON.colunas,
-    flash: ICON.camadas,
+    flash: ICON.livros,
     agenda: ICON.calendario,
     fixada: ICON.fixar,
+    seta: ICON.proximo,
   };
   protected readonly importanceLabel = IMPORTANCE_LABEL;
   /** As cores das tags para a legenda (a leitura já sabe a de cada uma). */

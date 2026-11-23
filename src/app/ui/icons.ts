@@ -34,6 +34,7 @@ import {
   BrickWall,
   Briefcase,
   Bug,
+  Calendar,
   CalendarDays,
   CalendarPlus,
   CalendarRange,
@@ -517,6 +518,8 @@ export const ICON = {
 
   // ===== Datas e tempo =====
   calendario: CalendarDays,
+  /** A data de uma anotação, nos Detalhes da leitura (o dia em que ela é; o calendário de dias é o do Calendário). */
+  dataDaNota: Calendar,
   periodo: CalendarRange,
   novoNoCalendario: CalendarPlus,
   irParaData: CalendarSearch,

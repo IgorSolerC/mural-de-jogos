@@ -113,7 +113,7 @@ describe('Ouvir a nota na ficha aberta', () => {
     fixture.componentInstance.open(note('n-1', 'の (De / Posse)', NO));
     await settle();
     const labels = [...el.querySelectorAll<HTMLElement>('.faixa-nome button')].map((b) => b.getAttribute('aria-label'));
-    expect(labels).toEqual(['Ouvir a nota', 'Ver só a cartolina', 'Ler em tela cheia', 'Fechar']);
+    expect(labels).toEqual(['Ouvir a nota', 'Ver só a cartolina', 'Fechar']);
     expect(q('.faixa-nome .ouvir')!.getAttribute('aria-haspopup')).toBe('menu');
     fake.setVoices([]);
     await settle();
@@ -568,7 +568,7 @@ describe('Ouvir a nota na ficha aberta', () => {
     await settle();
     expect(fake.queue).toEqual([]);
 
-    q<HTMLButtonElement>('.ler-tela-cheia')?.click();
+    q<HTMLButtonElement>('.na-parede .ver-cartolina')?.click();
     await settle();
     await listen('pt');
     r.close();
@@ -596,16 +596,6 @@ describe('Ouvir a nota na ficha aberta', () => {
     fake.begin();
     await settle();
     expect(body.scrollTop).toBe(0);
-  });
-
-  it('a tela cheia continua lendo, com a fita ao pé', async () => {
-    fixture.componentInstance.open(note('n-1', 'の (De / Posse)', NO));
-    await settle();
-    await listen('ja');
-    q<HTMLButtonElement>('.faixa-nome .ler-tela-cheia')!.click();
-    await settle();
-    expect(q('dialog.reader.tela-cheia .body > app-voz-fita .fita')).not.toBeNull();
-    expect(texts().length).toBe(6);
   });
 
   it('a nota que muda no meio (outra pessoa escreveu): as frases se refazem e a leitura segue', async () => {

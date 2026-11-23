@@ -477,8 +477,8 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     const pad = getComputedStyle(body);
     // a largura de layout (a ficha aberta pode estar inclinada ou chegando, o que muda o retângulo na tela)
     const folha = body.clientWidth - parseFloat(pad.paddingLeft) - parseFloat(pad.paddingRight);
-    // a pauta enche a largura que a folha dá (era 68ch, e sobrava um vão de ~150px à direita)
-    expect(getComputedStyle(text).maxWidth).toBe('none');
+    // a pauta enche a largura que a folha dá (era 68ch, e sobrava um vão de ~150px à direita); a folha tem a medida
+    // da coluna (PLANO-LEITURA-UNIFICADA.md), então o teto dela nunca deixa vão
     expect(text.offsetWidth).toBeCloseTo(folha, 0);
     // e a linha comprida quebra perto da beirada, não antes: a letra mais à direita fica no último décimo
     const linha = qa('.text .linha.paragrafo').find((e) => words(e).startsWith('Vamos'))!;
@@ -489,7 +489,7 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     expect((caixa.right - maisLonge) / caixa.width).toBeLessThan(0.1);
   });
 
-  it('a pauta da leitura é mais clara que a do editor, o texto comum desce 5px na linha (o título não) e a caixinha da tarefa sobe 3px', async () => {
+  it('a pauta da leitura é mais clara que a do editor, o texto comum desce 6px na linha (o título não) e a caixinha da tarefa sobe 3px', async () => {
     fixture.componentInstance.open(note('n-mercado', 'Mercado', { text: 'Pão\n# Feira\n- Leite\n  Corpo do item\n  ## No corpo\n  - Neto\n---\n- [ ] Lavar o carro' }));
     await settle();
     const box = q('.text[data-citavel]')!;
@@ -514,8 +514,8 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     box.style.setProperty('--texto-desce', '0px');
     const still = tops();
     box.style.removeProperty('--texto-desce');
-    // o texto comum desce 5px; o título não; e dentro do item o corpo desce só uma vez
-    expect(shown.map((t, i) => Math.round(t - still[i]))).toEqual([5, 0, 5, 5, 0, 5]);
+    // o texto comum desce 6px (a letra maior da tela cheia de antes); o título não; e dentro do item o corpo desce só uma vez
+    expect(shown.map((t, i) => Math.round(t - still[i]))).toEqual([6, 0, 6, 6, 0, 6]);
 
     // a caixinha da tarefa: desce com o texto, e sobe 3px para ficar no meio das letras
     const caixa = () => q('.tarefas input, .tarefas .caixa')!.getBoundingClientRect().top;

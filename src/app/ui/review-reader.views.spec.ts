@@ -102,49 +102,29 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
   }
   const band = (selector: string) => q<HTMLButtonElement>(`.faixa-nome ${selector}`)!;
 
-  it('os dois botões ficam na faixa, antes do X, na ordem: só a cartolina, tela cheia, fechar', async () => {
+  it('na faixa, antes do X, só o "Ver só a cartolina": a leitura já é a tela cheia (PLANO-LEITURA-UNIFICADA.md, D1)', async () => {
     fixture.componentInstance.open(note('n-1', 'Mercado'));
     await settle();
     const buttons = qa('.faixa-nome button');
-    expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['Ver só a cartolina', 'Ler em tela cheia', 'Fechar']);
+    expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['Ver só a cartolina', 'Fechar']);
     expect(band('.ver-cartolina').title).toBe('Ver só a cartolina');
-    expect(band('.ler-tela-cheia').title).toBe('Ler em tela cheia');
-    // menores que o X: só mudam o jeito de ver
+    expect(q('.ler-tela-cheia')).toBeNull();
+    // menor que o X: só muda o jeito de ver
     expect(band('.ver-cartolina').querySelector('svg')!.getAttribute('width')).toBe('16');
     expect(band('.fecha').querySelector('svg')!.getAttribute('width')).toBe('22');
     expect(q('.faixa-nome .vistas')?.getAttribute('role')).toBe('group');
   });
 
-  it('a tela cheia deixa só a faixa (o nome e os botões) e o texto; o mesmo botão volta à leitura', async () => {
+  it('a leitura tem a faixa fina, a letra e a pauta da tela cheia de antes, e o pé fino com o trilho', async () => {
     fixture.componentInstance.open(note('n-1', 'Mercado', { category: 'Casa', tags: ['Feira'], doneAt: '2026-01-02T00:00:00.000Z' }));
     await settle();
-    expect(q('.foot')).not.toBeNull();
+    expect(dialog().classList.contains('lendo')).toBeTrue();
     expect(q('.foot')).not.toBeNull();
     expect(q('.trilho')).not.toBeNull();
-    expect(q('.carimbo')).not.toBeNull();
-    const leitura = { font: parseFloat(getComputedStyle(q('.text')!).fontSize), line: parseFloat(getComputedStyle(q('.text')!).lineHeight) };
-    band('.ler-tela-cheia').focus();
-    band('.ler-tela-cheia').click();
-    await settle();
-    expect(dialog().classList.contains('tela-cheia')).toBeTrue();
-    expect(dialog().open).toBeTrue();
-    for (const gone of ['.foot', '.trilho', '.carimbo', '.reagir-linha', 'app-more-menu']) {
-      expect(q(gone)).withContext(gone).toBeNull();
-    }
-    expect(q('#leitura-titulo')?.textContent).toBe('Mercado');
-    expect(q('.body .text app-rich-text')).not.toBeNull();
-    expect(q('.par')?.classList.contains('com-grupo')).toBeFalse();
-    expect(q('.faixa-nome')?.classList.contains('feita')).toBeFalse();
-    // o botão é o mesmo, com outro nome (e o foco fica nele)
-    expect(band('.ler-tela-cheia').getAttribute('aria-label')).toBe('Voltar à leitura');
-    expect(document.activeElement).toBe(band('.ler-tela-cheia'));
-    expect(band('.ver-cartolina').getAttribute('aria-label')).toBe('Ver só a cartolina');
-    // a letra e a pauta um pouco maiores que as da leitura, na mesma proporção
-    // (a letra da anotação é 6% menor: a escala do papel "texto da anotação", --e-texto-nota em styles.scss)
+    expect(q('.carimbo app-done-stamp')).not.toBeNull();
+    // a letra da anotação é 6% menor: a escala do papel "texto da anotação", --e-texto-nota em styles.scss
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
     const nota = 0.94;
-    expect(leitura.font).toBeCloseTo(1.12 * rem * nota, 1);
-    expect(leitura.line).toBeCloseTo(1.76 * rem, 1);
     expect(innerWidth).toBeGreaterThan(600);
     expect(parseFloat(getComputedStyle(q('.text')!).fontSize)).toBeCloseTo(1.24 * rem * nota, 1);
     expect(parseFloat(getComputedStyle(q('.text')!).lineHeight)).toBeCloseTo(1.95 * rem, 1);
@@ -157,44 +137,43 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
       expect(r.top).toBeGreaterThanOrEqual(faixa.top);
       expect(r.bottom).toBeLessThanOrEqual(faixa.bottom);
     }
-    band('.ler-tela-cheia').click();
-    await settle();
-    expect(dialog().classList.contains('tela-cheia')).toBeFalse();
-    expect(q('.foot')).not.toBeNull();
-    expect(q('.foot')).not.toBeNull();
-    expect(band('.ler-tela-cheia').getAttribute('aria-label')).toBe('Ler em tela cheia');
+    // o pé fino: os botões de 34px (no mouse), o Editar na tinta de sempre
+    expect(q('.foot .btn-ink')!.getBoundingClientRect().height).toBeCloseTo(34, 0);
+    // (abaixo de 900px o trilho deita no pé, com as etiquetas de 40px)
+    expect(q('.foot')!.getBoundingClientRect().height).toBeLessThanOrEqual(innerWidth >= 900 ? 48 : 56);
   });
 
-  it('na tela cheia, a folha é a coluna do texto com 1cm de papel de cada lado, e só da altura dele', async () => {
+  it('a folha é a coluna do texto com 1cm de papel de cada lado (deixando o lugar do trilho), e só da altura dele', async () => {
     const cm = 96 / 2.54;
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
     const wide = document.head.appendChild(document.createElement('style'));
     try {
       fixture.componentInstance.open(note('n-1', 'Mercado'));
       await settle();
-      band('.ler-tela-cheia').click();
-      await settle();
       // o celular (até 600px) é a página inteira; aqui, a janela do teste é o computador
       expect(innerWidth).toBeGreaterThan(600);
       const sheet = () => q('.par > .ficha')!.getBoundingClientRect();
       const text = () => q('.body .text')!.getBoundingClientRect();
-      // a pauta a 1cm das duas beiradas, e a folha nunca mais larga que a coluna mais as margens
+      // a pauta a 1cm das duas beiradas
       expect(text().left - sheet().left).toBeCloseTo(cm, 0);
       expect(sheet().right - text().right).toBeCloseTo(cm, 0);
-      // a folha enche a tela (menos 24px de cada lado) até o teto da coluna mais as margens, na tela
-      // pequena ou na grande: a coluna antiga, de 38rem, era fina demais; a de 62rem, longa demais (a folha
-      // de agora tem 85% da largura daquela)
-      expect(dialog().getBoundingClientRect().width).toBeCloseTo(Math.min(innerWidth - 48, 52 * rem + 2 * cm), 0);
+      // a folha enche a tela até o teto da coluna mais as margens; de 900px, menos o lugar do trilho dos dois lados
+      const room = innerWidth >= 900 ? innerWidth - 244 : innerWidth - 48;
+      expect(dialog().getBoundingClientRect().width).toBeCloseTo(Math.min(room, 52 * rem + 2 * cm), 0);
+      // o trilho cabe na tela, de pé na beirada direita
+      if (innerWidth >= 900) expect(q('.trilho')!.getBoundingClientRect().right).toBeLessThanOrEqual(innerWidth);
       // o nome começa onde começa a letra (a margem e a folga de 8px da pauta)
       expect(parseFloat(getComputedStyle(q('.faixa-nome')!).paddingLeft)).toBeCloseTo(cm + 8, 0);
-      // a nota curta: a folha tem a altura do texto, longe da tela inteira
+      // a nota curta: a folha tem a altura do texto (e do pé), longe da tela inteira
       const faixa = q('.faixa-nome')!.getBoundingClientRect().height;
-      expect(sheet().height).toBeCloseTo(faixa + 28 + text().height + 36, 0);
-      expect(sheet().height).toBeLessThan(innerHeight - 48 - 40);
+      const pe = q('.foot')!.getBoundingClientRect().height;
+      // (de 900px, a folha curta fica alta o bastante para o trilho de pé)
+      const natural = faixa + 28 + text().height + 36 + pe;
+      expect(sheet().height).toBeCloseTo(innerWidth >= 900 ? Math.max(natural, Math.min(340, innerHeight - 24)) : natural, 0);
       expect(q('.body')!.scrollHeight).toBeLessThanOrEqual(q('.body')!.clientHeight);
 
       // numa tela larga, a folha não cresce além da coluna: as margens continuam de 1cm
-      wide.textContent = 'dialog.reader.tela-cheia { --medida: 20rem !important; }';
+      wide.textContent = 'dialog.reader.lendo { --medida: 20rem !important; }';
       await settle();
       expect(text().left - sheet().left).toBeCloseTo(cm, 0);
       expect(sheet().right - text().right).toBeCloseTo(cm, 0);
@@ -204,10 +183,8 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
     }
   });
 
-  it('na tela cheia, com a seta de volta de um link, a seta fica na margem e o nome perto da letra do texto', async () => {
+  it('com a seta de volta de um link, a seta fica na margem e o nome perto da letra do texto', async () => {
     fixture.componentInstance.open(note('n-mercado', 'Mercado'), null, [], false, null, note('n-tudo', 'Lista de tudo'));
-    await settle();
-    band('.ler-tela-cheia').click();
     await settle();
     const sheet = q('.par > .ficha')!.getBoundingClientRect();
     const arrow = q('.faixa-nome .voltar-elo')!.getBoundingClientRect();
@@ -218,75 +195,23 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
     expect(Math.abs(title.left - letter)).toBeLessThanOrEqual(8);
   });
 
-  it('na tela cheia, o texto comprido vai até a tela (menos 24px em cima e embaixo) e rola por dentro', async () => {
+  it('o texto comprido vai até a tela (menos 24px em cima e embaixo) e rola por dentro', async () => {
     fixture.componentInstance.open(note('n-longa', 'Diário', { text: LONG }));
-    await settle();
-    band('.ler-tela-cheia').click();
     await settle();
     const sheet = q('.par > .ficha')!.getBoundingClientRect();
     expect(sheet.height).toBeCloseTo(innerHeight - 48, 0);
     expect(q('.body')!.scrollHeight).toBeGreaterThan(q('.body')!.clientHeight);
   });
 
-  it('na tela cheia, a análise também fica só com o texto (sem o boletim nem a etiqueta)', async () => {
+  it('a análise fica na folha larga com tudo o que ela é: a capa, a nota, o boletim e o texto', async () => {
     fixture.componentInstance.open(review('r-hades', 'Hades'));
     await settle();
+    expect(dialog().classList.contains('lendo')).toBeTrue();
     expect(q('app-boletim')).not.toBeNull();
-    band('.ler-tela-cheia').click();
-    await settle();
-    expect(q('app-boletim')).toBeNull();
-    expect(q('app-judge-label')).toBeNull();
+    expect(q('app-judge-label')).not.toBeNull();
     expect(q('.body .text')?.textContent).toContain('Valeu cada hora');
-  });
-
-  it('o trecho que estava no alto da folha continua no alto ao entrar e ao sair da tela cheia', async () => {
-    fixture.componentInstance.open(note('n-longa', 'Diário', { text: LONG }));
-    await settle();
-    const body = () => q('.par > article > .body')!;
-    const lines = () => qa('.text .linha');
-    // rola até o parágrafo 21 ficar no alto da folha (as linhas em branco também são linhas)
-    const target = lines().find((l) => l.textContent?.startsWith('Parágrafo 21.'))!;
-    body().scrollTop += target.getBoundingClientRect().top - body().getBoundingClientRect().top;
-    await settle();
-    const topLine = () => {
-      const top = body().getBoundingClientRect().top;
-      return lines().find((l) => l.getBoundingClientRect().bottom > top + 1);
-    };
-    expect(topLine()?.textContent).toContain('Parágrafo 21.');
-    band('.ler-tela-cheia').click();
-    await settle();
-    expect(topLine()?.textContent).toContain('Parágrafo 21.');
-    band('.ler-tela-cheia').click();
-    await settle();
-    expect(topLine()?.textContent).toContain('Parágrafo 21.');
-  });
-
-  it('ao entrar e ao sair da tela cheia no meio de um parágrafo, a primeira linha à vista não fica cortada', async () => {
-    const paragraph = 'Um parágrafo bem comprido, escrito para quebrar em muitas linhas em qualquer largura da folha. '.repeat(30);
-    fixture.componentInstance.open(note('n-para', 'Diário', { text: `${paragraph}\n${paragraph}\n${paragraph}` }));
-    await settle();
-    const body = () => q('.par > article > .body')!;
-    const block = () => qa('.text .linha')[1];
-    const cut = () => {
-      const line = parseFloat(getComputedStyle(block()).lineHeight);
-      const into = (body().getBoundingClientRect().top - block().getBoundingClientRect().top) / line;
-      expect(into).toBeGreaterThan(0);
-      return Math.abs(into - Math.round(into)) * line;
-    };
-    // a um terço do segundo parágrafo, com a linha do alto pela metade
-    const line = parseFloat(getComputedStyle(block()).lineHeight);
-    body().scrollTop += block().getBoundingClientRect().top - body().getBoundingClientRect().top + 5.5 * line;
-    await settle();
-    band('.ler-tela-cheia').click();
-    await settle();
-    await wait(320);
-    expect(cut()).toBeLessThanOrEqual(1);
-    body().scrollTop += 0.5 * line;
-    await settle();
-    band('.ler-tela-cheia').click();
-    await settle();
-    await wait(60);
-    expect(cut()).toBeLessThanOrEqual(1);
+    // a resenha não tem Detalhes (PLANO-LEITURA-UNIFICADA.md, D8)
+    expect(q('.etq-trilho[data-trilho="detalhes"]')).toBeNull();
   });
 
   it('só a cartolina: a ficha do mural no meio da tela, com os mesmos botões; tocar nela volta à leitura', async () => {
@@ -306,7 +231,7 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
     // fora das transições do mural (a ficha de verdade continua lá com o nome dela)
     expect(card.style.viewTransitionName || '').toBe('');
     const buttons = qa('.na-parede .vistas-giz button');
-    expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['Voltar à leitura', 'Ler em tela cheia', 'Fechar']);
+    expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['Voltar à leitura', 'Fechar']);
     expect(document.activeElement).toBe(buttons[0]);
     // tocar na ficha volta à leitura, com o foco no botão que a mostra de novo
     card.querySelector<HTMLButtonElement>('.hit')!.click();
@@ -317,15 +242,9 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
     expect(document.activeElement).toBe(band('.ver-cartolina'));
   });
 
-  it('da cartolina, a tela cheia e o fechar; e o toque no escuro em volta fecha', async () => {
+  it('da cartolina, o voltar e o fechar; e o toque no escuro em volta fecha', async () => {
     fixture.componentInstance.open(note('n-1', 'Mercado'));
     await settle();
-    band('.ver-cartolina').click();
-    await settle();
-    q<HTMLButtonElement>('.na-parede .ler-tela-cheia')!.click();
-    await settle();
-    expect(dialog().classList.contains('tela-cheia')).toBeTrue();
-    expect(document.activeElement).toBe(band('.ler-tela-cheia'));
     band('.ver-cartolina').click();
     await settle();
     q<HTMLButtonElement>('.na-parede .fecha')!.click();
@@ -362,10 +281,8 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
     expect(box.width).toBeLessThanOrEqual(document.documentElement.clientWidth);
   });
 
-  it('cada ficha abre na leitura de sempre, e o Esc fecha de qualquer jeito', async () => {
+  it('cada ficha abre na leitura, e o Esc fecha', async () => {
     fixture.componentInstance.open(note('n-1', 'Mercado'));
-    await settle();
-    band('.ler-tela-cheia').click();
     await settle();
     const esc = new Event('cancel', { cancelable: true });
     dialog().dispatchEvent(esc);
@@ -377,7 +294,7 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
     await settle();
     fixture.componentInstance.open(note('n-2', 'Feira'));
     await settle();
-    expect(dialog().classList.contains('tela-cheia')).toBeFalse();
+    expect(dialog().classList.contains('lendo')).toBeTrue();
     expect(q('.foot')).not.toBeNull();
     // abrir outra ficha por cima da cartolina também volta à leitura
     band('.ver-cartolina').click();
@@ -388,14 +305,12 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
     expect(q('.na-parede')).toBeNull();
   });
 
-  it('sem texto, não há tela cheia (seria só o nome); e as setas só viram as vezes na leitura de sempre', async () => {
+  it('sem texto, a cartolina tem o voltar e o fechar; e as setas só viram as vezes na leitura', async () => {
     fixture.componentInstance.open(note('n-1', 'Só o título', { text: '' }));
     await settle();
-    expect(q('.faixa-nome .ler-tela-cheia')).toBeNull();
     expect(q('.faixa-nome .ver-cartolina')).not.toBeNull();
     band('.ver-cartolina').click();
     await settle();
-    expect(q('.na-parede .ler-tela-cheia')).toBeNull();
     expect(qa('.na-parede .vistas-giz button').map((b) => b.getAttribute('aria-label'))).toEqual(['Voltar à leitura', 'Fechar']);
     fixture.componentInstance.close();
     await settle();
@@ -417,21 +332,17 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
     expect(q('.vez-nome')?.textContent).toBe('Rejogada');
   });
 
-  it('pelo link, o minimizar no lugar do "só a cartolina" (a página mostra a ficha no mural); o Esc sai da tela cheia e não fecha', async () => {
+  it('pelo link, o minimizar no lugar do "só a cartolina" (a página mostra a ficha no mural); o Esc não fecha', async () => {
     fixture.componentInstance.openLoose(review('r-hades', 'Hades'), 'Ana', [], 'ANA', false);
     await settle();
     expect(q('.faixa-nome .ver-cartolina')).toBeNull();
-    expect(qa('.faixa-nome button').map((b) => b.getAttribute('aria-label'))).toEqual(['Minimizar: ver como fica no mural', 'Ler em tela cheia']);
-    band('.ler-tela-cheia').click();
-    await settle();
-    expect(dialog().classList.contains('tela-cheia')).toBeTrue();
-    expect(q('.assinatura')).toBeNull();
+    expect(qa('.faixa-nome button').map((b) => b.getAttribute('aria-label'))).toEqual(['Minimizar: ver como fica no mural']);
+    expect(q('.assinatura')).not.toBeNull();
     const esc = new Event('cancel', { cancelable: true });
     dialog().dispatchEvent(esc);
     await settle();
     expect(esc.defaultPrevented).toBeTrue();
     expect(dialog().open).toBeTrue();
-    expect(dialog().classList.contains('tela-cheia')).toBeFalse();
     expect(q('.assinatura')).not.toBeNull();
   });
   /**
@@ -455,7 +366,7 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
     return { line, off };
   }
 
-  it('na tela cheia, nada tira o texto da pauta: o código, o sutil e as marcas na linha, o bloco de código e a tabela', async () => {
+  it('na leitura, nada tira o texto da pauta: o código, o sutil e as marcas na linha, o bloco de código e a tabela', async () => {
     const F = '```';
     const text = [
       '# Apple',
@@ -483,11 +394,7 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
     try {
       fixture.componentInstance.open(note('n-pauta', 'Publicar versão', { text }));
       await settle();
-      for (const view of ['leitura', 'tela cheia']) {
-        if (view === 'tela cheia') {
-          band('.ler-tela-cheia').click();
-          await settle();
-        }
+      for (const view of ['leitura']) {
         await wait(50);
         const { off } = ruling();
         expect(off.length).toBeGreaterThan(10);

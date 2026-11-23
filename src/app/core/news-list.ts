@@ -27,14 +27,15 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-23-detalhes-da-anotacao',
+    id: '2026-11-23-leitura-unica',
     version: '1.50.5',
     kind: 'ajustes',
     date: '2026-11-23',
-    title: 'Uma anotação nova a partir de um trecho, e os detalhes da anotação numa folha ao lado',
+    title: 'A leitura numa vista só, os detalhes numa folha ao lado e uma anotação nova a partir de um trecho',
     melhorias: [
+      'A leitura e a tela cheia viraram uma vista só: a ficha aberta já tem a faixa fina, a coluna larga e a letra da tela cheia, o botão de tela cheia saiu e o pé (Mais, Finalizar, Editar) ficou fino.',
       'A anotação aberta ficou mais limpa: a data, o grupo, a pasta, quem vê, as tarefas, as tags e onde mais ela está (o Kanban, os Flashcards e a Agenda) saíram do alto do texto e foram para os Detalhes, numa folha ao lado, com o desenho e a cor de cada coisa e a foto de quem está nas compartilhadas. Os Detalhes, os Comentários e o "Ao lado" viraram etiquetas na beirada da folha (no celular, no pé), no lugar das orelhas.',
-      'Selecionando um trecho de uma anotação sua, na leitura ou na tela cheia, aparece o "Nova nota" ao lado do "Citar": uma folhinha cria a anotação com o trecho de título, o texto, a Pasta e as Tags, e o trecho vira um link para ela, sem sair de onde você lia. Se já existe uma anotação com esse título, dá para só ligar o trecho a ela.',
+      'Selecionando um trecho de uma anotação sua, na leitura, aparece o "Nova nota" ao lado do "Citar": uma folhinha cria a anotação com o trecho de título, o texto, a Pasta e as Tags, e o trecho vira um link para ela, sem sair de onde você lia. Se já existe uma anotação com esse título, dá para só ligar o trecho a ela.',
     ],
     correcoes: [
       'O link com outro texto dentro de uma célula de tabela ("[[Título|texto]]") abre a anotação certa, e renomear a anotação não desmancha mais a tabela.',

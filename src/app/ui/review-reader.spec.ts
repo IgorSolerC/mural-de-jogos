@@ -876,24 +876,18 @@ describe('A leitura e os comentários (ReviewReader)', () => {
       expect(q('#leitura-titulo')).toBeNull();
     });
 
-    it('aberta pelo link, os botões da faixa são os do mural sem o X: o minimizar e a tela cheia, pequenos, no mesmo grupo', async () => {
+    it('aberta pelo link, o botão da faixa é o do mural sem o X: o minimizar, pequeno, no grupo dos jeitos de ver', async () => {
       fixture.componentInstance.openLoose(review('r-hades', 'Hades'), 'Ana', [], ANA, false);
       await settle();
       const buttons = [...el.querySelectorAll<HTMLButtonElement>('.faixa-nome button')];
-      expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['Minimizar: ver como fica no mural', 'Ler em tela cheia']);
-      // os dois do mesmo jeito que o "só a cartolina" e a tela cheia do mural: no grupo, com o desenho de 16px
+      expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['Minimizar: ver como fica no mural']);
+      // do mesmo jeito que o "só a cartolina" do mural: no grupo, com o desenho de 16px
       for (const b of buttons) {
         expect(b.parentElement?.classList.contains('vistas')).toBeTrue();
         expect(b.classList.contains('vista-btn')).toBeTrue();
         expect(b.querySelector('svg')!.getAttribute('width')).toBe('16');
       }
       expect(q('.faixa-nome .fecha')).toBeNull();
-      // a beirada do último fica onde a do X ficaria no mural
-      expect(getComputedStyle(buttons[1]).marginRight).toBe('-4px');
-      // na tela cheia, o minimizar continua lá
-      buttons[1].click();
-      await settle();
-      expect(q('.faixa-nome .minimizar')).not.toBeNull();
     });
 
     it('aberta pelo link: o "Baixar em PDF" já nasce no canto da página, não em cima da ficha que ainda entra', async () => {
@@ -933,13 +927,6 @@ describe('A leitura e os comentários (ReviewReader)', () => {
       expect(document.querySelector('.pdf-sheet')).toBeNull();
       await settle();
       expect(pdf!.getAttribute('aria-busy')).toBe('false');
-      // na tela cheia (só para ler) o remendo sai, e volta com a leitura
-      q<HTMLButtonElement>('.ler-tela-cheia')!.click();
-      await settle();
-      expect(q('.baixar-pdf')).toBeNull();
-      q<HTMLButtonElement>('.ler-tela-cheia')!.click();
-      await settle();
-      expect(q('.baixar-pdf')).not.toBeNull();
       // a leitura de sempre não tem o remendo (o PDF está no Mais)
       await closeReader();
       fixture.componentInstance.open(review('r-hades', 'Hades'));

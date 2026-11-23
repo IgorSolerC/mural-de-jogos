@@ -321,15 +321,6 @@ describe('A nota nova a partir de um trecho (ReviewReader)', () => {
     expect(q('.remendos .anotar')).toBeNull();
   });
 
-  it('na tela cheia, o "Nova nota" aparece sozinho (o "Citar" é da leitura de sempre)', async () => {
-    await openNote(note('nroteiro1', 'Viagem', TEXT));
-    q<HTMLButtonElement>('.faixa-nome .ler-tela-cheia')!.click();
-    await settle();
-    await select('maio');
-    expect(q('.remendos .anotar')).not.toBeNull();
-    expect(q('.remendos .citar')).toBeNull();
-  });
-
   it('na anotação de outra pessoa (a visita), nada de nota nova', async () => {
     const n = note('nroteiro1', 'Viagem', TEXT);
     fixture.componentInstance.open(n, 'Ana', [n]);
