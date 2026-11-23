@@ -758,11 +758,6 @@ app-judge-label {
     left: calc(100% + var(--lado-w) + 12px);
   }
 
-  /* cada uma com a altura dela: a anotação curta não vira um papel em branco da altura dos Detalhes */
-  .com-lado .par {
-    align-items: flex-start;
-  }
-
   /* abrir a folha ao lado alarga a leitura: ela anda, em vez de pular */
   dialog.reader.lendo:not(.dupla, .ao-lado) {
     transition: width 320ms var(--ease-physical);
