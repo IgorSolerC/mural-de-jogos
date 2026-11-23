@@ -270,8 +270,8 @@ describe('a página de Extras', () => {
 
   it('o Calendário e os Gastos ficam na prateleira, levando às páginas deles; o Cofre, só para quem pode usá-lo', async () => {
     const t = await open({ account: { codigo: 'G11T-G00D', nome: 'Igor' } });
-    expect(t.linha('/utilidades/calendario')?.closest('app-shelf')).not.toBeNull();
-    expect(t.linha('/utilidades/gastos')?.closest('app-shelf')).not.toBeNull();
+    expect(t.linha('/extras/calendario')?.closest('app-shelf')).not.toBeNull();
+    expect(t.linha('/extras/gastos')?.closest('app-shelf')).not.toBeNull();
     const cofre = () => t.host.querySelector<HTMLAnchorElement>('a.coisa-cofre');
     expect(cofre()).toBeNull();
     t.account.set({ codigo: 'G11T-G00D', nome: 'Igor', cofre: true });
@@ -287,28 +287,28 @@ describe('a página de Extras', () => {
   it('a folhinha mostra o dia de hoje e, com lembretes, o adesivo com quantos', async () => {
     const t = await open({ signedIn: false });
     const calendar = TestBed.inject(CalendarStore);
-    const folhinha = () => t.linha('/utilidades/calendario')!.querySelector('app-desk-calendar')!;
-    expect(t.label('/utilidades/calendario')).toBe('Calendário: nenhum lembrete hoje');
+    const folhinha = () => t.linha('/extras/calendario')!.querySelector('app-desk-calendar')!;
+    expect(t.label('/extras/calendario')).toBe('Calendário: nenhum lembrete hoje');
     expect(folhinha().querySelector('.dia')?.textContent?.trim()).toBe(String(Number(calendar.today().slice(8, 10))));
     expect(folhinha().querySelector('.adesivo')).toBeNull();
     calendar.save({ ...calendar.blank(calendar.today()), title: 'Dentista' });
     calendar.save({ ...calendar.blank(calendar.today()), title: 'Academia' });
     await t.fixture.whenStable();
-    expect(t.label('/utilidades/calendario')).toBe('Calendário: 2 lembretes hoje');
+    expect(t.label('/extras/calendario')).toBe('Calendário: 2 lembretes hoje');
     expect(folhinha().querySelector('.adesivo')?.textContent?.trim()).toBe('2');
   });
 
   it('o livro-caixa tira do mês de hoje o canhoto com o saldo; sem lançamento, sem canhoto', async () => {
     const t = await open({ signedIn: false });
     const mes = MONTHS_LONG[Number(todayISO().slice(5, 7)) - 1];
-    const livro = () => t.linha('/utilidades/gastos')!.querySelector('app-cash-book')!;
-    expect(t.label('/utilidades/gastos')).toBe(`Gastos: nada anotado em ${mes}`);
+    const livro = () => t.linha('/extras/gastos')!.querySelector('app-cash-book')!;
+    expect(t.label('/extras/gastos')).toBe(`Gastos: nada anotado em ${mes}`);
     expect(livro().querySelector('.canhoto')).toBeNull();
     const gastos = TestBed.inject(SpendingStore);
     gastos.save({ ...gastos.blank(), title: 'Ifood', amount: 4490 });
     await t.fixture.whenStable();
     // "R$" e o valor não se separam (o espaço entre eles não quebra)
-    expect(t.label('/utilidades/gastos')).toBe(`Gastos: faltam R$ 45 em ${mes}`);
+    expect(t.label('/extras/gastos')).toBe(`Gastos: faltam R$ 45 em ${mes}`);
     const canhoto = livro().querySelector('.canhoto')!;
     expect(canhoto.querySelector('b')?.textContent).toBe(mes.slice(0, 3));
     expect(canhoto.textContent).toBe(`${mes.slice(0, 3)}faltamR$ 45`);

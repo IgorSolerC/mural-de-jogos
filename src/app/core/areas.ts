@@ -2,15 +2,15 @@ import { inject } from '@angular/core';
 import { ActivatedRouteSnapshot, CanActivateFn, RedirectFunction, Router, RouterStateSnapshot } from '@angular/router';
 import { Kind, NOTES, SCORED_KINDS, isNotes } from './kinds';
 import { Mural } from './mural';
-import { COFRE_URL, SECOES_DAS_ANOTACOES, SECOES_DAS_UTILIDADES } from '../../../shared/topo-do-murall';
+import { COFRE_URL, SECOES_DAS_ANOTACOES } from '../../../shared/topo-do-murall';
 
 /**
- * As quatro partes do site, as etiquetas do varal: as Anotações, as Análises (os murais de resenhas,
- * com o Pra depois e a Wishlist de cada um), as Utilidades (os Gastos, o Calendário e o cofre de senhas)
- * e os Extras.
+ * As três partes do site, as etiquetas do varal: as Anotações, as Análises (os murais de resenhas, com o Pra
+ * depois e a Wishlist de cada um) e Outros, que no código continua `extras` (PLANO-OUTROS.md): o Calendário, os
+ * Gastos, o cofre de senhas, o Pomodoro, as Pixel arts, os jogos e os números.
  * O resto (Perfil, Amigos, Ajustes, Novidades) é da pessoa e não mora em parte nenhuma.
  */
-export type Area = 'anotacoes' | 'analises' | 'utilidades' | 'extras';
+export type Area = 'anotacoes' | 'analises' | 'extras';
 
 /**
  * Uma seção de uma parte: uma aba do índice embaixo do topo. `slug` é o pedaço do caminho depois da
@@ -38,15 +38,8 @@ export const REVIEW_SECTIONS: readonly AreaSection[] = [
  */
 export const NOTE_SECTIONS: readonly AreaSection[] = SECOES_DAS_ANOTACOES.map((s) => ({ slug: s.slug, label: s.label }));
 
-/**
- * As seções das Utilidades que moram aqui: os Gastos (`/utilidades/gastos`) e o Calendário
- * (`/utilidades/calendario`). O cofre vem depois delas,
- * na barra (ver `VAULT_URL`). A lista mora em `shared/topo-do-murall.ts`, a mesma do topo do cofre.
- */
-export const UTILITY_SECTIONS: readonly AreaSection[] = SECOES_DAS_UTILIDADES.map((s) => ({ slug: s.slug, label: s.label }));
-
-/** Os Gastos, a primeira das Utilidades (e onde `/utilidades` abre). */
-export const SPENDING_PATH = '/utilidades/gastos';
+/** Os Gastos, em Outros desde 23/nov/2026 (antes nas Utilidades, `/utilidades/gastos`). */
+export const SPENDING_PATH = '/extras/gastos';
 
 /** O mural de outra pessoa (pages/colleague-wall-page): fora das partes, com o cabeçalho e a parede dela. */
 export const VISIT_PATH = '/comparar/mural';
@@ -61,7 +54,7 @@ export function isVisitPath(path: string): boolean {
 export const AUTHORIZE_PATH = '/autorizar';
 
 /**
- * O cofre de senhas (PLANO-COFRE.md, 8.6): uma origem só dele. A aba "Cofre" das Utilidades é só um link
+ * O cofre de senhas (PLANO-COFRE.md, 8.6): uma origem só dele. O cofre de aço da prateleira de Outros é só um link
  * para lá, na mesma aba do navegador, e só aparece para quem pode usar o cofre.
  */
 export const VAULT_URL = COFRE_URL;
@@ -106,17 +99,22 @@ export function visitBoardPath(group?: string | null, board?: string | null): st
 }
 
 /**
- * O Calendário, nas Utilidades desde 02/nov/2026 (`/anotacoes/calendario`, o endereço de antes,
- * redireciona para cá com a query: o dia e o lembrete dos links continuam abrindo).
+ * O Calendário, em Outros desde 23/nov/2026. Morou nas Anotações (`/anotacoes/calendario`) e depois nas Utilidades
+ * (`/utilidades/calendario`): os dois endereços de antes levam para cá com a query, e o dia e o lembrete dos links
+ * continuam abrindo.
  */
-export const CALENDAR_PATH = '/utilidades/calendario';
+export const CALENDAR_PATH = '/extras/calendario';
 
 /**
- * O endereço do Calendário quando ele morava nas Anotações leva ao novo, com a mesma query: o
- * `redirectTo` com o caminho escrito jogava a query fora (o dia e o lembrete dos links).
+ * Um endereço de antes leva ao novo com a mesma query e o mesmo fragmento: o `redirectTo` com o caminho escrito
+ * jogava a query fora (o dia e o lembrete dos links, o mês dos Gastos).
  */
-export const toCalendar: RedirectFunction = ({ queryParams, fragment }) =>
-  inject(Router).createUrlTree([CALENDAR_PATH], { queryParams, fragment: fragment ?? undefined });
+export function movedTo(path: string): RedirectFunction {
+  return ({ queryParams, fragment }) => inject(Router).createUrlTree([path], { queryParams, fragment: fragment ?? undefined });
+}
+
+/** O Calendário de antes (nas Anotações, nas Utilidades) leva ao de agora. */
+export const toCalendar: RedirectFunction = movedTo(CALENDAR_PATH);
 
 /** O caminho de um mural de resenhas, ou de uma seção dele: `/analises/jogos/pra-depois`. */
 export function reviewPath(kind: Kind, section = ''): string {
@@ -133,7 +131,7 @@ export function pathOf(url: string): string {
   return url.split(/[?#]/)[0];
 }
 
-/** As páginas de Extras: o Ranking e o Comparar já eram abas e moram lá dentro. */
+/** As páginas de Outros (`/extras`): o Ranking e o Comparar já eram abas e moram lá dentro. */
 const EXTRAS = ['/extras', '/ranking', '/comparar'];
 
 /** O Uso das APIs (só a conta de admin): mora em Extras, mas não depende de mural nenhum. */
@@ -146,12 +144,12 @@ export const POMODORO_PATH = '/extras/pomodoro';
 export const PIXEL_ARTS_PATH = '/extras/pixel-arts';
 
 /**
- * As páginas de Extras que não dependem de mural nenhum (o Uso das APIs, o Pomodoro e as Pixel arts): sem o
- * seletor de murais na barra e sem o mural no título da aba.
+ * As páginas de Outros que não dependem de mural nenhum (o Uso das APIs, o Pomodoro, as Pixel arts, os Gastos e o
+ * Calendário): sem o seletor de murais na barra e sem o mural no título da aba.
  */
 export function muralFree(path: string): boolean {
   const p = pathOf(path);
-  return p === API_USAGE_PATH || p === POMODORO_PATH || p === PIXEL_ARTS_PATH;
+  return p === API_USAGE_PATH || p === POMODORO_PATH || p === PIXEL_ARTS_PATH || p === SPENDING_PATH || p === CALENDAR_PATH;
 }
 
 /** Em que parte do site fica o caminho (nenhuma, no Perfil, em Amigos, nos Ajustes e nas Novidades). */
@@ -159,7 +157,6 @@ export function areaOf(path: string): Area | null {
   const p = pathOf(path);
   if (p === '/anotacoes' || p.startsWith('/anotacoes/')) return 'anotacoes';
   if (p === '/analises' || p.startsWith('/analises/')) return 'analises';
-  if (p === '/utilidades' || p.startsWith('/utilidades/')) return 'utilidades';
   if (EXTRAS.some((x) => p === x || p.startsWith(x + '/'))) return 'extras';
   return null;
 }

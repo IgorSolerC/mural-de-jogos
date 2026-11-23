@@ -571,8 +571,8 @@ export class CalendarLogo {
 export class StudyLogo {}
 
 /**
- * O logo de Extras: um tíquete de fliperama, vermelho, com os entalhes nas laterais, o fio impresso
- * em volta e o canhoto do outro lado do picote ("Vale 1 rodada"). A sombra fica no host e o recorte
+ * O logo de Outros (a parte que no código é `extras`): um tíquete vermelho, com os entalhes nas laterais, o fio
+ * impresso em volta e o canhoto do outro lado do picote ("De tudo um pouco"). A sombra fica no host e o recorte
  * no bilhete, dentro dele: a máscara apagaria a sombra.
  */
 @Component({
@@ -580,8 +580,8 @@ export class StudyLogo {}
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <span class="bilhete" aria-hidden="true">
-      <span class="nome">Extras</span>
-      <span class="canhoto"><span>Vale</span><span>1 rodada</span></span>
+      <span class="nome">Outros</span>
+      <span class="canhoto"><span>De tudo</span><span>um pouco</span></span>
     </span>
   `,
   styles: `

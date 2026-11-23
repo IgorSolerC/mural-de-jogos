@@ -835,7 +835,7 @@ export class SettingsPage {
   protected async erase(): Promise<void> {
     const sure = await this.confirm.ask({
       text:
-        'Tudo o que o mural guarda neste navegador vai embora: resenhas, pra depois, wishlist, colegas e Extras.' +
+        'Tudo o que o mural guarda neste navegador vai embora: resenhas, pra depois, wishlist, colegas e os jogos de Outros.' +
         (this.overdue() ? ' Você não tem um backup recente.' : '') +
         ' Não dá para desfazer.',
       confirm: 'Apagar o save',
@@ -885,7 +885,7 @@ export class SettingsPage {
         fold(owner) !== fold(me) &&
         !(await this.confirm.ask({
           title: `Esse backup é de ${owner}`,
-          text: `As fichas de ${owner} vão ${replace ? 'ficar no lugar das suas' : 'se misturar com as suas'}. Para ver o mural sem misturar, abra o arquivo em Extras › Comparar.`,
+          text: `As fichas de ${owner} vão ${replace ? 'ficar no lugar das suas' : 'se misturar com as suas'}. Para ver o mural sem misturar, abra o arquivo em Outros › Comparar.`,
           confirm: replace ? 'Substituir mesmo assim' : 'Juntar mesmo assim',
           icon: null,
         }))

@@ -138,7 +138,7 @@ describe('o índice embaixo do topo', () => {
     expect(TestBed.inject(Mural).kind()).toBe('series');
   });
 
-  it('no Uso das APIs, que não depende de mural: sem o seletor, com a volta para Extras e o logo', async () => {
+  it('no Uso das APIs, que não depende de mural: sem o seletor, com a volta para Outros e o logo', async () => {
     await go('/extras/uso-das-apis');
     expect(picker()).toBeNull();
     expect(host.classList).not.toContain('vazio');
@@ -146,7 +146,7 @@ describe('o índice embaixo do topo', () => {
     expect(host.querySelector('app-extras-logo')).not.toBeNull();
   });
 
-  it('no Pomodoro, que também não depende de mural: sem o seletor, com a volta para Extras e o logo', async () => {
+  it('no Pomodoro, que também não depende de mural: sem o seletor, com a volta para Outros e o logo', async () => {
     await go('/extras/pomodoro');
     expect(picker()).toBeNull();
     expect(host.classList).not.toContain('vazio');
@@ -154,11 +154,13 @@ describe('o índice embaixo do topo', () => {
     expect(host.querySelector('app-extras-logo')).not.toBeNull();
   });
 
-  it('nos Extras, o mural (sem o de anotações) e a volta para Extras; no mural de um colega, nada', async () => {
+  it('em Outros, o mural (sem o de anotações) e a volta para Outros; no mural de um colega, nada', async () => {
     // na própria página de Extras o seletor fica dentro dela (PLANO-EXTRAS.md): a barra traz só o logo
     await go('/extras');
     expect(picker()).toBeNull();
-    expect(host.querySelector('app-extras-logo')).not.toBeNull();
+    // o bilhete da parte diz o nome dela: Outros, de tudo um pouco
+    expect(host.querySelector('app-extras-logo .nome')?.textContent?.trim()).toBe('Outros');
+    expect([...host.querySelectorAll('app-extras-logo .canhoto span')].map((x) => x.textContent?.trim())).toEqual(['De tudo', 'um pouco']);
     expect(host.querySelector('.volta')).toBeNull();
     // o que é Extras é escrito na própria página, não na barra
     expect(host.querySelector('.nota')).toBeNull();
@@ -193,31 +195,23 @@ describe('o índice embaixo do topo', () => {
     expect(tabs()[3].getAttribute('href')).toBe('/anotacoes/quadro-livre');
   });
 
-  it('as Utilidades: os Gastos, o Calendário e, só para quem pode usar o cofre, a aba Cofre, um link comum para a origem dele', async () => {
+  it('os Gastos e o Calendário moram em Outros: sem abas nem seletor, com a volta para Outros e o logo de cada um', async () => {
     const conta = TestBed.inject(CloudAccount).account;
-    conta.set({ codigo: 'G11T-G00D', nome: 'Igor' });
-    await go('/utilidades/gastos');
-    // sem o cofre: Gastos e Calendário, com o logo dos Gastos
-    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Gastos', 'Calendário']);
-    expect(tabs()[0].classList).toContain('on');
-    expect(tabs()[1].getAttribute('href')).toBe('/utilidades/calendario');
-    expect(fixture.nativeElement.querySelector('app-spending-logo')).not.toBeNull();
-    // o Calendário mora aqui: aceso, com o logo dele
-    await go('/utilidades/calendario?vista=semana');
-    expect(tabs()[1].classList).toContain('on');
-    expect(tabs()[0].classList).not.toContain('on');
-    expect(fixture.nativeElement.querySelector('app-calendar-logo')).not.toBeNull();
-    await go('/utilidades/gastos');
+    // nem quem usa o cofre ganha uma aba: o cofre está na prateleira de Outros
     conta.set({ codigo: 'G11T-G00D', nome: 'Igor', cofre: true });
-    await fixture.whenStable();
-    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Gastos', 'Calendário', 'Cofre']);
-    expect(tabs()[0].classList).toContain('on');
-    const cofre = tabs()[2];
-    expect(cofre.getAttribute('aria-label')).toBe('Cofre de senhas');
-    expect(cofre.getAttribute('href')).toBe('https://cofre.murall.igorsc.com.br/');
-    expect(cofre.getAttribute('rel')).toBe('noreferrer');
-    expect(cofre.hasAttribute('target')).toBe(false);
-    expect(cofre.classList).not.toContain('on');
+    for (const [url, logo] of [
+      ['/extras/gastos', 'app-spending-logo'],
+      ['/extras/calendario?vista=semana', 'app-calendar-logo'],
+    ]) {
+      await go(url);
+      expect(tabs()).withContext(url).toEqual([]);
+      expect(host.querySelector('app-kind-switcher')).withContext(url).toBeNull();
+      const volta = host.querySelector('.volta')!;
+      expect(volta.getAttribute('href')).withContext(url).toBe('/extras');
+      expect(volta.textContent!.trim()).withContext(url).toBe('Outros');
+      expect(host.querySelector(logo)).withContext(url).not.toBeNull();
+      expect(host.querySelector('a[href^="https://cofre"]')).withContext(url).toBeNull();
+    }
     // o cofre e o Calendário saíram das Anotações
     await go('/anotacoes');
     expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Mural', 'Kanban', 'Flashcards', 'Quadro livre']);
@@ -225,7 +219,7 @@ describe('o índice embaixo do topo', () => {
 
   it('nos Gastos, quantos lançamentos o mês aberto tem', async () => {
     const gastos = TestBed.inject(SpendingStore);
-    await go('/utilidades/gastos');
+    await go('/extras/gastos');
     expect(summary()).toBeNull();
     gastos.save({ ...gastos.blank(), title: 'Ifood', amount: 4490 });
     await fixture.whenStable();
@@ -256,7 +250,7 @@ describe('o índice embaixo do topo', () => {
 
   it('no Calendário, quantos lembretes hoje tem', async () => {
     const calendar = TestBed.inject(CalendarStore);
-    await go('/utilidades/calendario');
+    await go('/extras/calendario');
     expect(summary()).toBeNull();
     calendar.save({ ...calendar.blank(calendar.today()), title: 'Dentista' });
     calendar.save({ ...calendar.blank('2020-01-01'), title: 'Remédio', repeat: 'dia' });
@@ -292,7 +286,7 @@ describe('o índice embaixo do topo', () => {
       ['/anotacoes', 'app-notes-logo'],
       ['/anotacoes/kanban/qualquer', 'app-kanban-logo'],
       ['/anotacoes/estudos', 'app-study-logo'],
-      ['/utilidades/calendario', 'app-calendar-logo'],
+      ['/extras/calendario', 'app-calendar-logo'],
       ['/extras', 'app-extras-logo'],
       ['/extras/estatisticas', 'app-extras-logo'],
     ];
@@ -314,7 +308,7 @@ describe('o índice embaixo do topo', () => {
     expect(host.querySelector('app-reviews-logo .canhoto')?.textContent?.trim()).toBe('de livros');
     const calendar = TestBed.inject(CalendarStore);
     calendar.today.set('2026-03-07');
-    await go('/utilidades/calendario');
+    await go('/extras/calendario');
     expect(host.querySelector('app-calendar-logo .data')?.textContent?.trim()).toBe('07 mar 2026');
     calendar.today.set('2026-10-20');
     await fixture.whenStable();
@@ -349,7 +343,7 @@ describe('o índice embaixo do topo', () => {
 
     // o mural de nome mais comprido (Músicas) e a seção mais comprida aberta; nas Anotações, as quatro
     // seções (com a do cofre) e a contagem do Calendário e a do Kanban (a mais comprida, com três dígitos)
-    for (const url of ['/analises/musicas/pra-depois', '/analises/jogos/wishlist', '/extras', '/extras/mata-mata', '/utilidades/calendario', '/anotacoes/kanban']) {
+    for (const url of ['/analises/musicas/pra-depois', '/analises/jogos/wishlist', '/extras', '/extras/mata-mata', '/extras/calendario', '/anotacoes/kanban']) {
       it(url, async () => {
         fill(135, 1);
         if (url.startsWith('/anotacoes')) {
@@ -414,8 +408,9 @@ describe('o índice embaixo do topo', () => {
       const areas: Record<string, string[]> = {
         analises: ['/analises/musicas', '/analises/musicas/lado-a-lado', '/analises/musicas/pra-depois', '/analises/musicas/wishlist'],
         anotacoes: ['/anotacoes', '/anotacoes/kanban', '/anotacoes/estudos'],
-        utilidades: ['/utilidades/gastos', '/utilidades/calendario'],
         extras: ['/extras', '/extras/estatisticas', '/ranking'],
+        // as de Outros sem mural: a volta no lugar do seletor
+        semMural: ['/extras/gastos', '/extras/calendario', '/extras/pomodoro'],
       };
       const steps = WIDTHS.filter((_, i) => i % 4 === 0);
       const heights = new Map<string, number[]>();

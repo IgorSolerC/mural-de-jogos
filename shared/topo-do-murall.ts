@@ -15,9 +15,6 @@ export const MURALL_URL = 'https://murall.igorsc.com.br';
 /** O endereço do cofre de senhas, uma origem só dele. */
 export const COFRE_URL = 'https://cofre.murall.igorsc.com.br/';
 
-/** O nome da aba do cofre, depois das seções das Utilidades. */
-export const COFRE_ROTULO = 'Cofre';
-
 /** O endereço completo de uma página do Murall, para quem está fora dele (o cofre). */
 export function enderecoNoMurall(caminho: string): string {
   return `${MURALL_URL}/#${caminho}`;
@@ -25,17 +22,23 @@ export function enderecoNoMurall(caminho: string): string {
 
 /** Uma etiqueta do varal: uma parte do site. */
 export interface ParteDoSite {
-  readonly area: 'anotacoes' | 'analises' | 'utilidades' | 'extras';
+  readonly area: 'anotacoes' | 'analises' | 'extras';
   readonly label: string;
 }
 
-/** As quatro partes do site, na ordem do varal. */
+/**
+ * As três partes do site, na ordem do varal. A terceira se chama Outros (PLANO-OUTROS.md): o Calendário, os Gastos,
+ * o Cofre, o Pomodoro, as Pixel arts, os jogos e os números, que antes se dividiam entre as Utilidades e os Extras.
+ * No código e nos endereços ela continua `extras` (`/extras/...`), para nenhum link guardado quebrar.
+ */
 export const PARTES_DO_SITE: readonly ParteDoSite[] = [
   { area: 'anotacoes', label: 'Anotações' },
   { area: 'analises', label: 'Análises' },
-  { area: 'utilidades', label: 'Utilidades' },
-  { area: 'extras', label: 'Extras' },
+  { area: 'extras', label: 'Outros' },
 ];
+
+/** A parte de Outros, a do cofre: a volta da barra dele e das páginas de dentro dela. */
+export const PARTE_OUTROS: ParteDoSite = PARTES_DO_SITE.find((p) => p.area === 'extras')!;
 
 /** Cada etiqueta pende de um jeito no barbante, sempre o mesmo (o prendedor é o eixo). */
 export const INCLINACOES = [-2.2, 1.6, -1.2, 2];
@@ -46,7 +49,7 @@ export interface SecaoDasAnotacoes {
   readonly label: string;
 }
 
-/** Mural, Kanban, Estudos e o Quadro livre, nesta ordem (o Calendário mudou para as Utilidades). */
+/** Mural, Kanban, Estudos e o Quadro livre, nesta ordem (o Calendário mudou para Outros). */
 export const SECOES_DAS_ANOTACOES: readonly SecaoDasAnotacoes[] = [
   { slug: '', label: 'Mural' },
   { slug: 'kanban', label: 'Kanban' },
@@ -54,20 +57,16 @@ export const SECOES_DAS_ANOTACOES: readonly SecaoDasAnotacoes[] = [
   { slug: 'quadro-livre', label: 'Quadro livre' },
 ];
 
-/**
- * As seções das Utilidades que moram no Murall (`/utilidades/<slug>`); o Cofre vem depois delas, um
- * link para a origem dele.
- */
-export const SECOES_DAS_UTILIDADES: readonly SecaoDasAnotacoes[] = [
-  { slug: 'gastos', label: 'Gastos' },
-  { slug: 'calendario', label: 'Calendário' },
-];
-
 /** Um desenho de traço (o formato dos ícones Lucide): a lista de elementos do SVG, 24×24. */
 export type Desenho = readonly (readonly [string, Readonly<Record<string, string>>])[];
 
 /** Os desenhos dos bottons, copiados dos ícones Lucide (os mesmos do acervo do Murall). */
 export const DESENHOS = {
+  /** A volta para Outros, na barra do cofre (a mesma seta da barra do Murall). Lucide ArrowLeft. */
+  voltar: [
+    ['path', { d: 'm12 19-7-7 7-7' }],
+    ['path', { d: 'M19 12H5' }],
+  ],
   /** O Perfil sem a foto (no cofre, que não tem a conta do Murall): uma pessoa. Lucide UserRound. */
   pessoa: [
     ['circle', { cx: '12', cy: '8', r: '5' }],

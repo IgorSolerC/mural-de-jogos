@@ -2,19 +2,22 @@ import { Component, provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { routes } from '../app.routes';
-import { CALENDAR_PATH, NOTE_SECTIONS, REVIEW_SECTIONS, UTILITY_SECTIONS, areaOf, listOf, muralFree, reviewPath, reviewPlace, sectionOf, wallPath } from './areas';
+import { CALENDAR_PATH, NOTE_SECTIONS, REVIEW_SECTIONS, SPENDING_PATH, areaOf, listOf, muralFree, reviewPath, reviewPlace, sectionOf, wallPath } from './areas';
 import { Mural } from './mural';
 
 @Component({ template: '' })
 class Blank {}
 
-describe('as quatro partes do site', () => {
+describe('as três partes do site', () => {
   it('cada caminho mora numa parte (ou em nenhuma)', () => {
     expect(areaOf('/anotacoes')).toBe('anotacoes');
     expect(areaOf('/analises/livros/pra-depois?x=1')).toBe('analises');
     expect(areaOf('/analises')).toBe('analises');
-    for (const p of ['/utilidades', '/utilidades/gastos?mes=2026-09', '/utilidades/calendario?vista=dia']) expect(areaOf(p)).withContext(p).toBe('utilidades');
-    for (const p of ['/extras', '/extras/muraldle', '/ranking', '/comparar', '/comparar/mural']) expect(areaOf(p)).withContext(p).toBe('extras');
+    // Outros (no código, `extras`): os jogos, os números, o Calendário e os Gastos
+    for (const p of ['/extras', '/extras/muraldle', '/ranking', '/comparar', '/comparar/mural', '/extras/gastos?mes=2026-09', '/extras/calendario?vista=dia'])
+      expect(areaOf(p)).withContext(p).toBe('extras');
+    // as Utilidades não existem mais: os endereços de antes só redirecionam
+    expect(areaOf('/utilidades/gastos')).toBeNull();
     for (const p of ['/', '/perfil', '/perfil/ABC123', '/amigos', '/ajustes', '/novidades', '/analisesx', '/utilidadesx']) expect(areaOf(p)).withContext(p).toBeNull();
   });
 
@@ -74,6 +77,19 @@ describe('as quatro partes do site', () => {
       expect(mural.kind()).toBe('livros');
     });
 
+    it('os Gastos também moram em Outros: o endereço de antes leva para lá com o mês, e /utilidades abre Outros', async () => {
+      expect(SPENDING_PATH).toBe('/extras/gastos');
+      expect(muralFree(SPENDING_PATH)).toBe(true);
+      await router.navigateByUrl('/utilidades/gastos?mes=2026-09');
+      expect(router.url).toBe('/extras/gastos?mes=2026-09');
+      await router.navigateByUrl('/utilidades');
+      expect(router.url).toBe('/extras');
+      // entrar nos Gastos não troca o mural aberto
+      mural.kind.set('anotacoes');
+      await router.navigateByUrl(SPENDING_PATH);
+      expect(mural.kind()).toBe('anotacoes');
+    });
+
     it('um mural que não existe (ou o de anotações) nas Análises vai para o último de resenhas, na mesma seção', async () => {
       await router.navigateByUrl('/analises/filmes');
       await router.navigateByUrl('/analises/anotacoes/pra-depois');
@@ -114,14 +130,16 @@ describe('as quatro partes do site', () => {
       expect(router.url).toBe('/analises/animes/lado-a-lado');
     });
 
-    it('o Calendário mora nas Utilidades, e o endereço de antes leva para lá com o dia e o lembrete', async () => {
-      expect(CALENDAR_PATH).toBe('/utilidades/calendario');
-      expect(sectionOf(CALENDAR_PATH, UTILITY_SECTIONS)?.label).toBe('Calendário');
+    it('o Calendário mora em Outros, e os dois endereços de antes levam para lá com o dia e o lembrete', async () => {
+      expect(CALENDAR_PATH).toBe('/extras/calendario');
+      expect(muralFree(CALENDAR_PATH)).toBe(true);
       expect(NOTE_SECTIONS.map((s) => s.label)).toEqual(['Mural', 'Kanban', 'Flashcards', 'Quadro livre']);
-      await router.navigateByUrl('/anotacoes/calendario?vista=dia&dia=2026-11-02&lembrete=rk2x9abc');
-      expect(router.url).toBe('/utilidades/calendario?vista=dia&dia=2026-11-02&lembrete=rk2x9abc');
-      await router.navigateByUrl('/anotacoes/calendario');
-      expect(router.url).toBe('/utilidades/calendario');
+      for (const antes of ['/anotacoes/calendario', '/utilidades/calendario']) {
+        await router.navigateByUrl(antes + '?vista=dia&dia=2026-11-02&lembrete=rk2x9abc');
+        expect(router.url).withContext(antes).toBe('/extras/calendario?vista=dia&dia=2026-11-02&lembrete=rk2x9abc');
+        await router.navigateByUrl(antes);
+        expect(router.url).withContext(antes).toBe('/extras/calendario');
+      }
       // entrar no Calendário não troca o mural aberto (como nos Gastos)
       mural.kind.set('livros');
       await router.navigateByUrl(CALENDAR_PATH);

@@ -63,14 +63,15 @@ describe('o topo do site', () => {
       await fixture.whenStable();
     };
 
-    it('o cartaz é só "Murall", sem trocar de mural, e o varal tem as quatro partes', async () => {
+    it('o cartaz é só "Murall", sem trocar de mural, e o varal tem as três partes', async () => {
       await at('/perfil');
       const el = fixture.nativeElement as HTMLElement;
       expect(el.querySelector('.logo')?.textContent?.trim()).toBe('MurALL');
       expect(el.querySelector('app-kind-switcher')).toBeNull();
-      expect(tags().map((t) => t.textContent?.trim())).toEqual(['Anotações', 'Análises', 'Utilidades', 'Extras']);
-      // as Análises abrem direto no último mural de resenhas, e as Utilidades nos Gastos
-      expect(tags().map((t) => t.getAttribute('href'))).toEqual(['/anotacoes', '/analises/jogos', '/utilidades/gastos', '/extras']);
+      // as Utilidades e os Extras viraram uma parte só, Outros (PLANO-OUTROS.md)
+      expect(tags().map((t) => t.textContent?.trim())).toEqual(['Anotações', 'Análises', 'Outros']);
+      // as Análises abrem direto no último mural de resenhas
+      expect(tags().map((t) => t.getAttribute('href'))).toEqual(['/anotacoes', '/analises/jogos', '/extras']);
       expect(tags().some((t) => t.classList.contains('on'))).withContext('no Perfil nenhuma parte acende').toBeFalse();
     });
 
@@ -94,9 +95,9 @@ describe('o topo do site', () => {
         '/analises/livros': 'Análises',
         '/analises/livros/pra-depois': 'Análises',
         '/analises/livros/lado-a-lado': 'Análises',
-        '/extras/muraldle': 'Extras',
-        '/ranking': 'Extras',
-        '/comparar/mural': 'Extras',
+        '/extras/muraldle': 'Outros',
+        '/ranking': 'Outros',
+        '/comparar/mural': 'Outros',
       };
       for (const [url, label] of Object.entries(lit)) {
         await at(url);
@@ -123,7 +124,9 @@ describe('o topo do site', () => {
     it('no Calendário, o botão marca um lembrete (e não abre o editor)', async () => {
       const calendar = TestBed.inject(CalendarStore);
       const newReview = spyOn(TestBed.inject(Desk), 'newReview');
-      await at('/utilidades/calendario?vista=semana');
+      await at('/extras/calendario?vista=semana');
+      // o Calendário mora em Outros: a etiqueta acesa é a dela
+      expect(tags().filter((t) => t.classList.contains('on')).map((t) => t.textContent?.trim())).toEqual(['Outros']);
       const btn = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.adicionar button')!;
       expect(btn.getAttribute('aria-label')).toBe('Novo lembrete');
       expect(btn.textContent!.replace(/\s+/g, ' ').trim()).toBe('Novo lembrete');

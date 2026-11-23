@@ -3,7 +3,7 @@ import { STOCKS, Stock } from './review';
 import { cleanLabel, fold } from './text';
 
 /**
- * Os Gastos (`/utilidades/gastos`): o dinheiro do mês. Cada lançamento é uma saída ou uma entrada de
+ * Os Gastos (`/extras/gastos`): o dinheiro do mês. Cada lançamento é uma saída ou uma entrada de
  * dinheiro, com um nome, o valor, uma categoria e, nas saídas, como foi pago (à vista, Pix ou
  * parcelado) e se precisava (luxo, conforto ou indispensável).
  *

@@ -1,6 +1,6 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { BOTTONS, PARTES_DO_SITE, SECOES_DAS_UTILIDADES } from '../../../../../shared/topo-do-murall';
+import { BOTTONS, PARTES_DO_SITE } from '../../../../../shared/topo-do-murall';
 import { Topo } from './topo';
 
 describe('o topo do cofre', () => {
@@ -16,16 +16,11 @@ describe('o topo do cofre', () => {
   const textos = (el: HTMLElement, seletor: string) => [...el.querySelectorAll<HTMLElement>(seletor)].map((a) => a.textContent!.trim());
   const enderecos = (el: HTMLElement, seletor: string) => [...el.querySelectorAll<HTMLAnchorElement>(seletor)].map((a) => a.getAttribute('href'));
 
-  it('o varal: as partes do site, da mesma lista do topo do Murall, com as Utilidades marcadas', async () => {
+  it('o varal: as partes do site, da mesma lista do topo do Murall, com Outros marcado (o cofre mora lá)', async () => {
     const el = await montar();
     expect(textos(el, '.etiqueta')).toEqual(PARTES_DO_SITE.map((p) => p.label));
-    expect(enderecos(el, '.etiqueta')).toEqual([
-      'https://murall.igorsc.com.br/#/anotacoes',
-      'https://murall.igorsc.com.br/#/analises',
-      'https://murall.igorsc.com.br/#/utilidades',
-      'https://murall.igorsc.com.br/#/extras',
-    ]);
-    expect(textos(el, '.etiqueta.on')).toEqual(['Utilidades']);
+    expect(enderecos(el, '.etiqueta')).toEqual(['https://murall.igorsc.com.br/#/anotacoes', 'https://murall.igorsc.com.br/#/analises', 'https://murall.igorsc.com.br/#/extras']);
+    expect(textos(el, '.etiqueta.on')).toEqual(['Outros']);
   });
 
   it('os bottons: Perfil com uma pessoa no lugar da foto, Amigos sem número, Ajustes', async () => {
@@ -40,11 +35,12 @@ describe('o topo do cofre', () => {
     expect(el.querySelector('.adicionar')).toBeNull();
   });
 
-  it('a fileira das seções, da mesma lista da barra do Murall, com o Cofre marcado no fim, e o logo do Cofre', async () => {
+  it('embaixo do topo, sem abas: a volta para Outros (como nas páginas de dentro dela no Murall) e o logo do Cofre', async () => {
     const el = await montar();
-    expect(textos(el, '.secao')).toEqual([...SECOES_DAS_UTILIDADES.map((s) => s.label), 'Cofre']);
-    expect(enderecos(el, '.secao')).toEqual(['https://murall.igorsc.com.br/#/utilidades/gastos', 'https://murall.igorsc.com.br/#/utilidades/calendario', 'https://cofre.murall.igorsc.com.br/']);
-    expect(textos(el, '[aria-current="page"]')).toEqual(['Cofre']);
+    expect(textos(el, '.secao')).toEqual(['Outros']);
+    expect(enderecos(el, '.secao.volta')).toEqual(['https://murall.igorsc.com.br/#/extras']);
+    expect(el.querySelectorAll('.volta svg.seta path').length).toBe(2);
+    expect(el.querySelector('[aria-current="page"]')).toBeNull();
     expect(el.querySelector('.logo-cofre')!.textContent!.trim()).toBe('Cofre');
   });
 
@@ -54,8 +50,8 @@ describe('o topo do cofre', () => {
     expect(cartaz.getAttribute('href')).toBe('https://murall.igorsc.com.br/');
     expect(cartaz.getAttribute('aria-label')).toBe('Murall');
     const fora = [...el.querySelectorAll<HTMLAnchorElement>('a')].filter((a) => !a.classList.contains('on') || a.classList.contains('etiqueta'));
-    // o cartaz, as 4 partes, os 3 bottons e as seções das Utilidades no Murall (Gastos e Calendário)
-    expect(fora.length).toBe(1 + 4 + 3 + 2);
+    // o cartaz, as 3 partes, os 3 bottons e a volta para Outros
+    expect(fora.length).toBe(1 + 3 + 3 + 1);
     expect(fora.every((a) => a.getAttribute('rel') === 'noreferrer' && !a.hasAttribute('target'))).toBe(true);
   });
 });

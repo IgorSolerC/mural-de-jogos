@@ -65,7 +65,7 @@ describe('página do Calendário', () => {
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
-        provideRouter([{ path: 'utilidades/calendario', component: CalendarPage }]),
+        provideRouter([{ path: 'extras/calendario', component: CalendarPage }]),
         { provide: Confirm, useValue: { ask: async () => true, choose: async (o: ChoiceOptions) => (asked.push(o), answer) } },
       ],
     });
@@ -100,7 +100,7 @@ describe('página do Calendário', () => {
 
   describe('o mês', () => {
     it('abre na folha do mês de hoje, com hoje circulado, os domingos em vermelho e o nome de cada lembrete no dia', async () => {
-      await go('/utilidades/calendario');
+      await go('/extras/calendario');
       expect(text($('.periodo'))).toBe('Outubro de 2026');
       expect($$('.divisoria')[0].getAttribute('aria-pressed')).toBe('true');
       expect(cell(HOJE).getAttribute('aria-current')).toBe('date');
@@ -126,10 +126,10 @@ describe('página do Calendário', () => {
         ...s,
         reminders: [...s.reminders, ...['a', 'b', 'c'].map((x) => reminder(`rmais000${x}`, `Mais ${x}`, '2026-10-20'))],
       }));
-      await go('/utilidades/calendario');
+      await go('/extras/calendario');
       expect([...cell('2026-10-20').querySelectorAll('.tirinha')].map(text)).toEqual(['Mais a', 'Mais b', 'Mais c']);
       expect(text(cell('2026-10-20').querySelector('.mais-linha'))).toBe('+2 mais');
-      await go('/utilidades/calendario?vista=dia&dia=2026-10-20');
+      await go('/extras/calendario?vista=dia&dia=2026-10-20');
       const mini = $('app-calendar-month.mini [data-dia="2026-10-20"]')!;
       expect(mini.querySelectorAll('.ponto').length).toBe(2);
       expect(text(mini.querySelector('.mais'))).toBe('+3');
@@ -137,7 +137,7 @@ describe('página do Calendário', () => {
     });
 
     it('as setas andam de mês, o Hoje volta, e tocar num dia abre o dia', async () => {
-      await go('/utilidades/calendario');
+      await go('/extras/calendario');
       $<HTMLButtonElement>('[aria-label="Próximo mês"]')!.click();
       await settle();
       expect(text($('.periodo'))).toBe('Novembro de 2026');
@@ -147,12 +147,12 @@ describe('página do Calendário', () => {
       expect(text($('.periodo'))).toBe('Outubro de 2026');
       cell('2026-10-20').click();
       await settle();
-      expect(router.url).toBe('/utilidades/calendario?vista=dia&dia=2026-10-20');
+      expect(router.url).toBe('/extras/calendario?vista=dia&dia=2026-10-20');
       expect(text($('.periodo'))).toBe('Terça-feira, 20 de outubro de 2026');
     });
 
     it('no teclado, as setas andam pelos dias da folha e passam para o mês do lado', async () => {
-      await go('/utilidades/calendario?vista=mes&dia=2026-10-31');
+      await go('/extras/calendario?vista=mes&dia=2026-10-31');
       cell('2026-10-31').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
       await settle();
       expect(router.url).toContain('dia=2026-11-01');
@@ -163,14 +163,14 @@ describe('página do Calendário', () => {
 
     it('sem nenhum lembrete, a folha diz por onde começar', async () => {
       calendar.state.set({ reminders: [], removed: {} });
-      await go('/utilidades/calendario');
+      await go('/extras/calendario');
       expect(text($('.dica'))).toContain('Toque num dia');
     });
   });
 
   describe('a semana', () => {
     it('mostra os sete dias, de domingo a sábado, cada lembrete numa tira com o horário, a repetição e o clipe', async () => {
-      await go('/utilidades/calendario?vista=semana&dia=2026-10-21');
+      await go('/extras/calendario?vista=semana&dia=2026-10-21');
       expect(text($('.periodo'))).toBe('18 a 24 de outubro de 2026');
       const dias = $$('.dia-col');
       expect(dias.length).toBe(7);
@@ -188,7 +188,7 @@ describe('página do Calendário', () => {
     });
 
     it('o Ctrl+S no nome do lembrete salva, como o Salvar lembrete', async () => {
-      await go('/utilidades/calendario?vista=semana');
+      await go('/extras/calendario?vista=semana');
       $$('.dia-col')[2].querySelectorAll<HTMLElement>('.tira')[1].click();
       await settle();
       const nome = sheet()!.querySelector<HTMLInputElement>('.nome input')!;
@@ -203,7 +203,7 @@ describe('página do Calendário', () => {
     });
 
     it('tocar numa tira abre a folha do lembrete; o + de um dia abre um lembrete novo naquele dia', async () => {
-      await go('/utilidades/calendario?vista=semana');
+      await go('/extras/calendario?vista=semana');
       $$('.dia-col')[2].querySelectorAll<HTMLElement>('.tira')[1].click();
       await settle();
       expect(sheet()?.open).toBeTrue();
@@ -221,7 +221,7 @@ describe('página do Calendário', () => {
   describe('o dia', () => {
     it('mostra cada lembrete inteiro, o dia todo primeiro, e as anotações anexadas como fichas que abrem', async () => {
       const read = spyOn(desk, 'openReview');
-      await go('/utilidades/calendario?vista=dia&dia=2026-10-20');
+      await go('/extras/calendario?vista=dia&dia=2026-10-20');
       expect(text($('.dia-semana'))).toContain('Terça-feira');
       expect($$('.lembrete-nome').map(text)).toEqual(['Tomar o remédio', 'Fazer bolo de aniversário']);
       const bolo = $$('.entrada')[1];
@@ -244,12 +244,12 @@ describe('página do Calendário', () => {
       expect($$('.lembrete-nome').map(text)).toEqual(['Tomar o remédio']);
       expect(text($('.dia-semana'))).toContain('Quarta-feira');
       // um dia sem nada
-      await go('/utilidades/calendario?vista=dia&dia=2026-09-01');
+      await go('/extras/calendario?vista=dia&dia=2026-09-01');
       expect(text($('.vazio'))).toContain('Nada marcado');
     });
 
     it('o que já passou sai riscado sozinho, sem quadradinho para marcar; marcado para trás, já nasce riscado', async () => {
-      await go(`/utilidades/calendario?vista=dia&dia=${HOJE}`);
+      await go(`/extras/calendario?vista=dia&dia=${HOJE}`);
       expect(host.querySelector('.check, [role="checkbox"]')).toBeNull();
       const [bruna, remedio] = $$('.lembrete');
       expect(bruna.classList).not.toContain('passou');
@@ -259,39 +259,39 @@ describe('página do Calendário', () => {
       calendar.today.set('2026-10-19');
       calendar.time.set('00:01');
       await settle();
-      await go(`/utilidades/calendario?vista=dia&dia=${HOJE}`);
+      await go(`/extras/calendario?vista=dia&dia=${HOJE}`);
       expect($$('.lembrete').every((l) => l.classList.contains('passou'))).toBeTrue();
       // um lembrete novo num dia que já foi: riscado desde o começo
       calendar.save(reminder('rontem001', 'Consulta', '2026-10-02'));
-      await go('/utilidades/calendario?vista=dia&dia=2026-10-02');
+      await go('/extras/calendario?vista=dia&dia=2026-10-02');
       expect($$('.lembrete.passou').map((l) => text(l.querySelector('.lembrete-nome')))).toContain('Consulta (já passou)');
     });
 
     it('uma anotação apagada some do lembrete sem quebrar nada', async () => {
       TestBed.inject(ReviewStore).reviews.update((list) => list.filter((r) => r.id !== 'nbolo0001'));
-      await go('/utilidades/calendario?vista=dia&dia=2026-10-20');
+      await go('/extras/calendario?vista=dia&dia=2026-10-20');
       expect($$('.anexada').length).toBe(1);
     });
 
     it('aberto por um link de lembrete (?lembrete=ID): ele circulado com a caneta e o foco no Editar dele; outro dia tira o destaque', async () => {
-      await go('/utilidades/calendario?vista=dia&dia=2026-10-20&lembrete=rbolo0001');
+      await go('/extras/calendario?vista=dia&dia=2026-10-20&lembrete=rbolo0001');
       await new Promise((r) => requestAnimationFrame(() => r(null)));
       const spot = $$('.lembrete.destaque');
       expect(spot.length).toBe(1);
       expect(text(spot[0].querySelector('.lembrete-nome'))).toBe('Fazer bolo de aniversário');
       expect(getComputedStyle(spot[0].querySelector('.lembrete-nome')!, '::after').backgroundImage).toContain('svg');
       expect(document.activeElement).toBe(spot[0].querySelector('.editar'));
-      await go('/utilidades/calendario?vista=dia&dia=2026-10-21');
+      await go('/extras/calendario?vista=dia&dia=2026-10-21');
       expect($$('.lembrete.destaque').length).toBe(0);
       // no mês, nada fica circulado (o destaque é do Dia)
-      await go('/utilidades/calendario?vista=mes&dia=2026-10-20&lembrete=rbolo0001');
+      await go('/extras/calendario?vista=mes&dia=2026-10-20&lembrete=rbolo0001');
       expect($$('.lembrete.destaque').length).toBe(0);
     });
   });
 
   describe('o Google Agenda', () => {
     it('o botão só aparece para quem pode ligar, e abre a folha que explica e liga', async () => {
-      await go('/utilidades/calendario');
+      await go('/extras/calendario');
       expect($('.tinta.google')).toBeNull();
       const google = TestBed.inject(GoogleAgenda);
       google.status.set('desligada');
@@ -314,7 +314,7 @@ describe('página do Calendário', () => {
       calendar.save(
         reminder('gconvite0001', 'Reunião', '2026-10-21', { google: { id: 'convite0001', lock: 'convite', link: 'https://www.google.com/calendar/event?eid=abc' } }),
       );
-      await go('/utilidades/calendario?vista=dia&dia=2026-10-21');
+      await go('/extras/calendario?vista=dia&dia=2026-10-21');
       const entry = $$('.entrada').find((e) => text(e.querySelector('.lembrete-nome')) === 'Reunião')!;
       entry.querySelector<HTMLElement>('.editar')!.click();
       await settle();
@@ -334,25 +334,25 @@ describe('página do Calendário', () => {
 
     it('aparece antes do nome no mês, na semana e no dia; sem ícone, só o nome', async () => {
       withIcon();
-      await go('/utilidades/calendario');
+      await go('/extras/calendario');
       const tira = [...cell('2026-10-20').querySelectorAll('.tirinha')].find((t) => t.textContent!.includes('Fazer bolo'))!;
       expect([...cell('2026-10-20').querySelectorAll('lucide-icon.tirinha-icone')].length).toBe(1);
       expect(tira.querySelector('.tirinha-icone svg')).not.toBeNull();
       // o ícone colado ao nome, sem o espaço que separa o horário
       expect(text(tira)).toBe('15hFazer bolo de aniversário');
       expect(cell(HOJE).querySelector('.tirinha-icone')).toBeNull();
-      await go('/utilidades/calendario?vista=semana&dia=2026-10-20');
+      await go('/extras/calendario?vista=semana&dia=2026-10-20');
       const tiras = $$('.tira').filter((t) => t.textContent!.includes('Fazer bolo'));
       expect(tiras[0].querySelector('.tira-nome .nome-icone')).not.toBeNull();
       expect($$('.tira').filter((t) => t.querySelector('.nome-icone')).length).toBe(1);
-      await go('/utilidades/calendario?vista=dia&dia=2026-10-20');
+      await go('/extras/calendario?vista=dia&dia=2026-10-20');
       expect($$('.lembrete-nome').map(text)).toEqual(['Tomar o remédio', 'Fazer bolo de aniversário']);
       expect($$('.lembrete-nome')[1].querySelector('.nome-icone')).not.toBeNull();
       expect($$('.lembrete-nome')[0].querySelector('.nome-icone')).toBeNull();
     });
 
     it('a folha escolhe o ícone na cartela inteira, numa ficha por cima, salva com o lembrete e tira com o Sem ícone', async () => {
-      await go('/utilidades/calendario?vista=dia&dia=2026-10-20');
+      await go('/extras/calendario?vista=dia&dia=2026-10-20');
       $$('.entrada')[1].querySelector<HTMLButtonElement>('.editar')!.click();
       await settle();
       const chart = sheet()!.querySelector('app-icon-chart')!;
@@ -397,7 +397,7 @@ describe('página do Calendário', () => {
 
   describe('a folha do lembrete', () => {
     async function openNew(day = HOJE): Promise<HTMLDialogElement> {
-      await go(`/utilidades/calendario?vista=dia&dia=${day}`);
+      await go(`/extras/calendario?vista=dia&dia=${day}`);
       calendar.ask();
       await settle();
       return sheet()!;
@@ -465,7 +465,7 @@ describe('página do Calendário', () => {
       await settle();
       expect(calendar.reminders().find((r) => r.title === 'Congresso')).toEqual(jasmine.objectContaining({ date: '2026-10-20', end: '2026-10-22' }));
 
-      await go('/utilidades/calendario?vista=semana&dia=2026-10-20');
+      await go('/extras/calendario?vista=semana&dia=2026-10-20');
       const tiras = $$('.tira').filter((t) => t.textContent!.includes('Congresso'));
       expect(tiras.length).toBe(3);
       expect(tiras.map((t) => [t.classList.contains('emenda-antes'), t.classList.contains('emenda-depois')])).toEqual([
@@ -512,7 +512,7 @@ describe('página do Calendário', () => {
       expect(r).toEqual(jasmine.objectContaining({ repeat: 'mes', every: 2, nth: 3, count: 6, until: '2027-08-17', quiet: true }));
 
       // a semana: os dias, e o personalizar já aberto num que repete personalizado
-      await go('/utilidades/calendario?vista=dia&dia=2026-12-15');
+      await go('/extras/calendario?vista=dia&dia=2026-12-15');
       $$('.editar')[0].click();
       await settle();
       const s2 = sheet()!;
@@ -528,7 +528,7 @@ describe('página do Calendário', () => {
     });
 
     it('nada muda no calendário até salvar', async () => {
-      await go('/utilidades/calendario?vista=dia&dia=2026-10-20');
+      await go('/extras/calendario?vista=dia&dia=2026-10-20');
       $$('.editar')[1].click();
       await settle();
       const s = sheet()!;
@@ -557,7 +557,7 @@ describe('página do Calendário', () => {
     });
 
     it('apagar um lembrete que se repete pergunta: só neste dia, ou todos (com Desfazer)', async () => {
-      await go('/utilidades/calendario?vista=dia&dia=2026-10-20');
+      await go('/extras/calendario?vista=dia&dia=2026-10-20');
       answer = 'secondary';
       $$('.editar')[0].click();
       await settle();
@@ -583,7 +583,7 @@ describe('página do Calendário', () => {
       calendar.skipDay('rremedio1', '2026-10-05');
       const before = calendar.get('rremedio1')!;
       const remedio = () => $$('.editar').find((b) => text(b.closest('.lembrete')).includes('Tomar o remédio'))!;
-      await go('/utilidades/calendario?vista=dia&dia=2026-10-20');
+      await go('/extras/calendario?vista=dia&dia=2026-10-20');
       answer = 'third';
       remedio().click();
       await settle();
@@ -598,7 +598,7 @@ describe('página do Calendário', () => {
       expect(r.until).toBe('2026-10-19');
       expect(r.skip).toEqual(['2026-10-05']);
       expect($$('.lembrete-nome').map(text)).not.toContain('Tomar o remédio');
-      await go('/utilidades/calendario?vista=dia&dia=2026-10-19');
+      await go('/extras/calendario?vista=dia&dia=2026-10-19');
       expect($$('.lembrete-nome').map(text)).toContain('Tomar o remédio');
       // o Desfazer traz a repetição inteira de volta
       const [msg, action] = shown.calls.mostRecent().args as unknown as [string, { run: () => void }];
@@ -608,7 +608,7 @@ describe('página do Calendário', () => {
       expect(calendar.get('rremedio1')!.skip).toEqual(before.skip);
 
       // no primeiro dia da série, "daqui em diante" é apagar todos: a pergunta fica com as duas respostas
-      await go('/utilidades/calendario?vista=dia&dia=2026-10-01');
+      await go('/extras/calendario?vista=dia&dia=2026-10-01');
       answer = null;
       remedio().click();
       await settle();
@@ -626,7 +626,7 @@ describe('página do Calendário', () => {
     }
 
     it('Home no domingo escolhido fica nele; a seta do mês depois não puxa o foco para a folha', async () => {
-      await go('/utilidades/calendario');
+      await go('/extras/calendario');
       cell(HOJE).focus();
       cell(HOJE).dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
       await settle();
@@ -640,7 +640,7 @@ describe('página do Calendário', () => {
     });
 
     it('a folha de um lembrete novo não perde o que foi escrito quando os lembretes mudam (a nuvem, o Google, outra aba)', async () => {
-      await go('/utilidades/calendario?vista=dia&dia=2026-10-22');
+      await go('/extras/calendario?vista=dia&dia=2026-10-22');
       calendar.ask();
       await settle();
       const s = sheet()!;
@@ -657,7 +657,7 @@ describe('página do Calendário', () => {
 
     it('salvar a folha não desfaz o dia tirado nem a ligação com o Google que mudaram com ela aberta', async () => {
       calendar.state.update((st) => ({ ...st, reminders: st.reminders.map((r) => (r.id === 'rremedio1' ? { ...r, google: { id: 'evremedio1', etag: 'v1', at: T0 } } : r)) }));
-      await go('/utilidades/calendario?vista=dia&dia=2026-10-20');
+      await go('/extras/calendario?vista=dia&dia=2026-10-20');
       $$('.editar')[0].click();
       await settle();
       const s = sheet()!;
@@ -678,7 +678,7 @@ describe('página do Calendário', () => {
 
     it('apagar pela folha aberta antes de um dia tirado em outro lugar: o Desfazer não traz o dia de volta, e o já apagado não volta', async () => {
       const shown = spyOn(TestBed.inject(Toasts), 'show').and.callThrough();
-      await go('/utilidades/calendario?vista=dia&dia=2026-10-20');
+      await go('/extras/calendario?vista=dia&dia=2026-10-20');
       $$('.editar')[0].click();
       await settle();
       expect(sheet()!.querySelector<HTMLInputElement>('.nome input')!.value).toBe('Tomar o remédio');
@@ -711,7 +711,7 @@ describe('página do Calendário', () => {
     });
 
     it('salvar a folha aberta antes de um "daqui em diante" feito em outro lugar não traz os dias de volta', async () => {
-      await go('/utilidades/calendario?vista=dia&dia=2026-10-20');
+      await go('/extras/calendario?vista=dia&dia=2026-10-20');
       $$('.editar')[0].click();
       await settle();
       const s = sheet()!;
@@ -742,7 +742,7 @@ describe('página do Calendário', () => {
     }
 
     it('a tira de um lembrete na semana: editar, abrir o dia, ler as anotações anexadas e apagar', async () => {
-      await go('/utilidades/calendario?vista=semana&dia=2026-10-21');
+      await go('/extras/calendario?vista=semana&dia=2026-10-21');
       const tira = $('.tira[data-lembrete="rbolo0001"]')!;
       expect((await rightClick(tira)).defaultPrevented).toBeTrue();
       expect(panel().matches(':popover-open')).toBeTrue();
@@ -758,7 +758,7 @@ describe('página do Calendário', () => {
     });
 
     it('apagar pelo menu faz a pergunta da folha: no que se repete, só aquele dia', async () => {
-      await go('/utilidades/calendario?vista=dia&dia=2026-10-20');
+      await go('/extras/calendario?vista=dia&dia=2026-10-20');
       answer = 'secondary';
       await rightClick($('.lembrete[data-lembrete="rremedio1"] .lembrete-nome')!);
       // na página do dia, sem o "Abrir o dia"
@@ -769,7 +769,7 @@ describe('página do Calendário', () => {
     });
 
     it('apagar pelo menu também oferece daqui em diante, na mesma pergunta', async () => {
-      await go('/utilidades/calendario?vista=dia&dia=2026-10-20');
+      await go('/extras/calendario?vista=dia&dia=2026-10-20');
       answer = 'third';
       await rightClick($('.lembrete[data-lembrete="rremedio1"] .lembrete-nome')!);
       option('Apagar o lembrete').click();
@@ -780,7 +780,7 @@ describe('página do Calendário', () => {
     });
 
     it('um dia do mês: abrir o dia e marcar um lembrete nele; a tirinha de um lembrete, o menu dele', async () => {
-      await go('/utilidades/calendario');
+      await go('/extras/calendario');
       await rightClick(cell('2026-10-22'));
       expect(text(panel().querySelector('.legenda'))).toContain('Quinta-feira, 22 de outubro');
       expect(labels()).toEqual(['Abrir o dia', 'Novo lembrete']);
@@ -797,7 +797,7 @@ describe('página do Calendário', () => {
       await rightClick(cell('2026-10-22'));
       option('Abrir o dia').click();
       await settle();
-      expect(router.url).toBe('/utilidades/calendario?vista=dia&dia=2026-10-22');
+      expect(router.url).toBe('/extras/calendario?vista=dia&dia=2026-10-22');
     });
   });
 });

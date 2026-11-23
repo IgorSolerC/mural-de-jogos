@@ -1,16 +1,5 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
-import {
-  BOTTONS,
-  COFRE_ROTULO,
-  COFRE_URL,
-  DESENHOS,
-  type Desenho,
-  INCLINACOES,
-  MURALL_URL,
-  PARTES_DO_SITE,
-  SECOES_DAS_UTILIDADES,
-  enderecoNoMurall,
-} from '../../../../../shared/topo-do-murall';
+import { BOTTONS, DESENHOS, type Desenho, INCLINACOES, MURALL_URL, PARTES_DO_SITE, PARTE_OUTROS, enderecoNoMurall } from '../../../../../shared/topo-do-murall';
 
 /** O desenho de cada botton: o Perfil sem a foto (o cofre não tem a conta do Murall) é uma pessoa. */
 const DESENHO_DO_BOTTON: Record<(typeof BOTTONS)[number]['id'], Desenho> = { perfil: DESENHOS.pessoa, amigos: DESENHOS.amigos, ajustes: DESENHOS.ajustes };
@@ -20,8 +9,9 @@ const TAMANHO = 21;
 const TRACO = (2 * 24) / TAMANHO;
 
 /**
- * O topo do cofre (PLANO-COFRE.md, 17.14): o mesmo do Murall, com as Utilidades marcadas no varal e o Cofre
- * na fileira das seções, depois dos Gastos. Os textos, os links e os desenhos vêm de `shared/topo-do-murall.ts`, e o desenho
+ * O topo do cofre (PLANO-COFRE.md, 17.14; PLANO-OUTROS.md): o mesmo do Murall, com Outros marcado no varal e, embaixo,
+ * a volta para Outros, como nas páginas de dentro dela no Murall. Os textos, os links e os desenhos vêm de
+ * `shared/topo-do-murall.ts`, e o desenho
  * de `shared/topo/_topo-do-murall.scss`, os mesmos do topo do Murall: os dois nunca se desencontram.
  *
  * O que depende da conta do Murall fica de fora, porque o cofre não tem o login dele e não deve ter: a
@@ -47,7 +37,7 @@ const TRACO = (2 * 24) / TAMANHO;
         </p>
       </div>
 
-      <!-- o varal: as partes do site; o cofre mora nas Utilidades -->
+      <!-- o varal: as partes do site; o cofre mora em Outros -->
       <nav class="varal" aria-label="Partes do site">
         <span class="barbante" aria-hidden="true"></span>
         <ul class="etiquetas">
@@ -98,15 +88,29 @@ const TRACO = (2 * 24) / TAMANHO;
       </nav>
     </div>
 
-    <!-- embaixo do topo, como a barra das Utilidades do Murall: as seções e o logo da aberta -->
+    <!-- embaixo do topo, como a barra das páginas de dentro de Outros no Murall: a volta e o logo do Cofre -->
     <div class="indice">
-      <nav class="secoes" aria-label="Seções das utilidades">
-        <ul>
-          @for (s of secoes; track s.label) {
-            <li><a class="secao" [href]="s.href" rel="noreferrer">{{ s.label }}</a></li>
-          }
-          <li><a class="secao on" [href]="cofre" aria-current="page">{{ rotulo }}</a></li>
-        </ul>
+      <nav class="secoes" aria-label="Voltar">
+        <a class="secao volta" [href]="outros.href" rel="noreferrer">
+          <svg
+            class="seta"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            @for (n of voltar; track $index) {
+              <path [attr.d]="n[1]['d']" />
+            }
+          </svg>
+          {{ outros.label }}
+        </a>
       </nav>
       <div class="pagina">
         <!-- o logo do Cofre: a porta de um cofre de aço, com o disco do segredo -->
@@ -121,17 +125,17 @@ const TRACO = (2 * 24) / TAMANHO;
 })
 export class Topo {
   protected readonly murall = MURALL_URL + '/';
-  protected readonly cofre = COFRE_URL;
-  protected readonly rotulo = COFRE_ROTULO;
   protected readonly tamanho = TAMANHO;
   protected readonly traco = TRACO;
   protected readonly partes = PARTES_DO_SITE.map((p, i) => ({
     area: p.area,
     label: p.label,
     href: enderecoNoMurall('/' + p.area),
-    on: p.area === 'utilidades',
+    on: p.area === 'extras',
     tilt: INCLINACOES[i % INCLINACOES.length],
   }));
   protected readonly bottons = BOTTONS.map((b) => ({ ...b, href: enderecoNoMurall(b.caminho), desenho: DESENHO_DO_BOTTON[b.id] }));
-  protected readonly secoes = SECOES_DAS_UTILIDADES.map((s) => ({ label: s.label, href: enderecoNoMurall('/utilidades/' + s.slug) }));
+  /** A volta para Outros, a parte onde o cofre mora, com a seta da barra do Murall. */
+  protected readonly outros = { label: PARTE_OUTROS.label, href: enderecoNoMurall('/' + PARTE_OUTROS.area) };
+  protected readonly voltar = DESENHOS.voltar;
 }

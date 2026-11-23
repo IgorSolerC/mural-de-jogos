@@ -466,7 +466,7 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
 
     const go = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
     det('agenda')!.querySelector<HTMLButtonElement>('.lembrete .elo')!.click();
-    expect(go).toHaveBeenCalledWith(['/utilidades/calendario'], { queryParams: { vista: 'dia', dia: '2026-10-20' } });
+    expect(go).toHaveBeenCalledWith(['/extras/calendario'], { queryParams: { vista: 'dia', dia: '2026-10-20' } });
   });
 
   it('a pauta vai de uma beirada da folha à outra: nenhum vão em branco à direita das linhas', async () => {

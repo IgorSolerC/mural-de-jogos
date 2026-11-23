@@ -3,9 +3,8 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { ICON, IconModule } from './icons';
 import { filter, map } from 'rxjs';
-import { AreaSection, NOTE_SECTIONS, PIXEL_ARTS_PATH, REVIEW_SECTIONS, UTILITY_SECTIONS, VAULT_URL, areaOf, isVisitPath, muralFree, pathOf, reviewPath, reviewPlace, sectionOf } from '../core/areas';
-import { CloudAccount } from '../core/cloud-account';
-import { COFRE_ROTULO } from '../../../shared/topo-do-murall';
+import { AreaSection, CALENDAR_PATH, NOTE_SECTIONS, PIXEL_ARTS_PATH, REVIEW_SECTIONS, SPENDING_PATH, areaOf, isVisitPath, muralFree, pathOf, reviewPath, reviewPlace, sectionOf } from '../core/areas';
+import { PARTE_OUTROS } from '../../../shared/topo-do-murall';
 import { KINDS, Kind, SCORED_KINDS } from '../core/kinds';
 import { Mural } from '../core/mural';
 import { KanbanStore } from '../core/kanban-store';
@@ -25,8 +24,6 @@ interface Tab {
   label: string;
   link: string;
   on: boolean;
-  /** Um endereço fora do Murall (o cofre): link comum, sem o roteador. */
-  external?: boolean;
 }
 
 /** A contagem do lado direito: o número em destaque e o resto, inteiro (tela larga) e curto. */
@@ -48,7 +45,6 @@ interface Summary {
  *
  * - Análises: o mural de resenhas, Mural / Pra depois / Wishlist e a contagem da seção aberta.
  * - Anotações: as seções (Mural, Kanban, Estudos), quando houver mais de uma.
- * - Utilidades: os Gastos, o Calendário e, para quem pode, o Cofre (um link para a origem dele).
  * - Extras: o mural; nas páginas de dentro, a volta para Extras. O mural de um colega tem o próprio
  *   cabeçalho.
  * - Amigos, um mural por vez: só o mural, com o de anotações também (sem logo).
@@ -63,7 +59,7 @@ interface Summary {
       @let ks = picker();
       @let sum = summary();
       @let lg = logo();
-      <div class="indice" [class.sem-mural]="!ks" [class.em-extras]="inExtras()">
+      <div class="indice" [class.sem-mural]="!ks" [class.em-extras]="inExtras()" [class.livre]="noMural()">
         @if (ks) {
           <app-kind-switcher class="mural" [kinds]="ks" />
         } @else if (extrasHome()) {
@@ -75,15 +71,7 @@ interface Summary {
             <ul>
               @for (t of tabs(); track t.label) {
                 <li>
-                  @if (t.external) {
-                    <!-- o cofre é outra origem: link comum, na mesma aba, sem levar o endereço daqui -->
-                    <a class="secao cofre" [href]="t.link" rel="noreferrer" aria-label="Cofre de senhas" title="Cofre de senhas">
-                      <lucide-icon class="cadeado" [img]="LockIcon" [size]="18" aria-hidden="true" />
-                      <span class="nome">{{ t.label }}</span>
-                    </a>
-                  } @else {
-                    <a class="secao" [routerLink]="t.link" [class.on]="t.on" [attr.aria-current]="t.on ? 'page' : null">{{ t.label }}</a>
-                  }
+                  <a class="secao" [routerLink]="t.link" [class.on]="t.on" [attr.aria-current]="t.on ? 'page' : null">{{ t.label }}</a>
                 </li>
               }
             </ul>
@@ -92,7 +80,7 @@ interface Summary {
           <nav class="secoes" aria-label="Voltar">
             <a class="secao volta" routerLink="/extras">
               <lucide-icon [img]="BackIcon" [size]="18" aria-hidden="true" />
-              Extras
+              {{ outros }}
             </a>
           </nav>
         }
@@ -169,7 +157,7 @@ interface Summary {
       align-items: center;
       gap: 10px 14px;
     }
-    /* sem a etiqueta do mural (nas Anotações e nas Utilidades): as seções na primeira linha, na largura
+    /* sem a etiqueta do mural (nas Anotações): as seções na primeira linha, na largura
        toda, e a contagem desce para a ponta da faixa do logo ("135 no quadro" e as seções não cabem lado
        a lado num celular) */
     .indice.sem-mural {
@@ -184,6 +172,13 @@ interface Summary {
       grid-template-areas:
         'mural secoes'
         'pagina pagina';
+    }
+    /* as páginas de Outros sem mural (o Calendário, os Gastos, o Pomodoro…): a volta na primeira linha e, na
+       faixa do logo, a contagem na ponta (os lembretes de hoje, os lançamentos do mês) */
+    .indice.em-extras.livre {
+      grid-template-areas:
+        'secoes secoes'
+        'pagina resumo';
     }
     .mural {
       grid-area: mural;
@@ -402,11 +397,6 @@ interface Summary {
       }
     }
 
-    /* a aba do cofre: o nome, e o cadeado só quando a fileira aperta (o cofre vira só o cadeado e as
-       seções chegam mais perto) */
-    .cofre .cadeado {
-      display: none;
-    }
     /* quatro seções (as Anotações, com o Quadro livre): no celular estreito, as letras se apertam para caber numa fileira */
     @container indice (max-width: 389px) {
       .secoes.quatro .secao {
@@ -422,22 +412,6 @@ interface Summary {
         padding: 0 3px;
         font-size: 0.8rem;
         letter-spacing: 0.02em;
-      }
-    }
-    @container indice (max-width: 341px) {
-      .indice:has(.cofre) .secao {
-        padding: 0 6px;
-        letter-spacing: 0.06em;
-      }
-      .cofre {
-        min-width: 44px;
-        justify-content: center;
-      }
-      .cofre .nome {
-        display: none;
-      }
-      .cofre .cadeado {
-        display: block;
       }
     }
     @container indice (min-width: 860px) {
@@ -489,12 +463,12 @@ export class AreaBar {
   private readonly settings = inject(Settings);
   private readonly kanban = inject(KanbanStore);
   protected readonly calendar = inject(CalendarStore);
-  private readonly cloudAccount = inject(CloudAccount);
   private readonly spending = inject(SpendingStore);
   private readonly study = inject(StudyStore);
 
   protected readonly BackIcon = ICON.voltar;
-  protected readonly LockIcon = ICON.privada;
+  /** O nome da parte na volta das páginas de dentro (o mesmo do varal). */
+  protected readonly outros = PARTE_OUTROS.label;
 
   private readonly path = toSignal(
     this.router.events.pipe(
@@ -512,7 +486,7 @@ export class AreaBar {
   protected readonly extrasHome = computed(() => this.path() === '/extras');
 
   /** As páginas de Extras que não dependem de mural (o Uso das APIs e o Pomodoro): sem o seletor, com a volta. */
-  private readonly noMural = computed(() => muralFree(this.path()));
+  protected readonly noMural = computed(() => muralFree(this.path()));
 
   /** Os murais do seletor, nas páginas que dependem do mural; `null` onde ele não aparece. */
   protected readonly picker = computed<readonly Kind[] | null>(() => {
@@ -527,15 +501,13 @@ export class AreaBar {
   protected readonly tabs = computed<Tab[]>(() => {
     const area = this.area();
     const kind = this.mural.kind();
-    const list: readonly AreaSection[] = area === 'analises' ? REVIEW_SECTIONS : area === 'anotacoes' ? NOTE_SECTIONS : area === 'utilidades' ? UTILITY_SECTIONS : [];
+    const list: readonly AreaSection[] = area === 'analises' ? REVIEW_SECTIONS : area === 'anotacoes' ? NOTE_SECTIONS : [];
     const open = sectionOf(this.path(), list);
     const tabs: Tab[] = list.map((s) => ({
       label: s.label,
       link: area === 'analises' ? reviewPath(kind, s.slug) : `/${area}` + (s.slug ? '/' + s.slug : ''),
       on: s === open,
     }));
-    // o cofre de senhas, depois dos Gastos e do Calendário, só para quem pode usá-lo (o /v1/eu pergunta ao cofre)
-    if (area === 'utilidades' && this.cloudAccount.account()?.cofre) tabs.push({ label: COFRE_ROTULO, link: VAULT_URL, on: false, external: true });
     return tabs.length < 2 ? [] : tabs;
   });
 
@@ -557,12 +529,12 @@ export class AreaBar {
       return n ? { n, long: n === 1 ? 'flashcard para hoje' : 'flashcards para hoje', short: 'hoje' } : null;
     }
     // no Calendário: quantos lembretes hoje tem
-    if (this.area() === 'utilidades' && sectionOf(this.path(), UTILITY_SECTIONS)?.slug === 'calendario') {
+    if (this.path() === CALENDAR_PATH) {
       const n = this.calendar.todayCount();
       return n ? { n, long: n === 1 ? 'lembrete hoje' : 'lembretes hoje', short: 'hoje' } : null;
     }
     // nos Gastos: quanto saiu no mês aberto
-    if (this.area() === 'utilidades' && sectionOf(this.path(), UTILITY_SECTIONS)?.slug === 'gastos') return this.spending.barSummary();
+    if (this.path() === SPENDING_PATH) return this.spending.barSummary();
     const place = reviewPlace(this.path());
     if (!place) return null;
     const p = this.mural.profile();
@@ -594,19 +566,18 @@ export class AreaBar {
       const slug = sectionOf(this.path(), NOTE_SECTIONS)?.slug;
       return slug === 'kanban' ? 'kanban' : slug === 'estudos' ? 'estudos' : 'notas';
     }
-    if (area === 'utilidades') return sectionOf(this.path(), UTILITY_SECTIONS)?.slug === 'calendario' ? 'calendario' : 'gastos';
-    // a galeria de pixel arts tem o nome dela; o resto de Extras, o bilhete
+    // o Calendário, os Gastos e a galeria de pixel arts têm o logo deles; o resto de Outros, o bilhete
+    if (this.path() === CALENDAR_PATH) return 'calendario';
+    if (this.path() === SPENDING_PATH) return 'gastos';
     if (this.path() === PIXEL_ARTS_PATH) return 'pixel-arts';
     return this.inExtras() ? 'extras' : null;
   });
 
   /**
-   * Nas Utilidades a barra aparece mesmo sem o cofre: ela traz o logo e o quanto saiu no mês. No Uso das
-   * APIs e no Pomodoro, sem o seletor de murais, ela ainda traz a volta para Extras.
+   * Nas páginas de Outros que não dependem de mural (o Calendário, os Gastos, o Pomodoro, as Pixel arts, o Uso das
+   * APIs), sem o seletor de murais, ela ainda traz a volta para Outros, o logo e a contagem.
    */
-  protected readonly shown = computed(() => !!this.picker() || this.tabs().length > 0 || this.area() === 'utilidades' || this.noMural() || this.extrasHome());
+  protected readonly shown = computed(() => !!this.picker() || this.tabs().length > 0 || this.noMural() || this.extrasHome());
 
-  protected readonly navLabel = computed(() =>
-    this.area() === 'analises' ? 'Seções das análises' : this.area() === 'utilidades' ? 'Seções das utilidades' : 'Seções das anotações',
-  );
+  protected readonly navLabel = computed(() => (this.area() === 'analises' ? 'Seções das análises' : 'Seções das anotações'));
 }

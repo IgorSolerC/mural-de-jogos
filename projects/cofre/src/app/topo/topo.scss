@@ -57,8 +57,8 @@
   margin-bottom: 22px;
 }
 
-/* ===== Embaixo do topo, como a barra das Anotações do Murall (ui/area-bar.ts): as seções a giz e o logo
-   da aberta. No celular, as seções numa fileira e o logo embaixo; mais largo, tudo numa fileira só ===== */
+/* ===== Embaixo do topo, como a barra das páginas de dentro de Outros no Murall (ui/area-bar.ts): a volta a giz e o
+   logo do Cofre. No celular, a volta numa fileira e o logo embaixo; mais largo, tudo numa fileira só ===== */
 .indice {
   --logo-h: 52px;
   display: grid;
@@ -72,21 +72,13 @@
   display: flex;
   align-items: center;
 }
-.secoes ul {
-  display: flex;
-  gap: 2px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
 .pagina {
   display: flex;
   align-items: center;
   height: var(--logo-h);
 }
 
-/* Cada seção é uma palavra escrita na parede a giz, em caixa alta. A aberta (o Cofre) fica em tinta sobre
-   um traço de marca-texto amarelo; ao passar, o traço começa a aparecer. */
+/* A volta é uma palavra escrita na parede a giz, em caixa alta, como as seções do Murall. */
 .secao {
   position: relative;
   isolation: isolate;
@@ -128,13 +120,20 @@
   outline: 3px solid var(--hi);
   outline-offset: 1px;
 }
-.secao.on {
-  color: var(--ink);
+/* a volta para Outros: sem o marca-texto; a seta recua um pouco ao passar (a mesma da barra do Murall) */
+.volta {
+  gap: 6px;
 }
-.secao.on::after {
-  inset: 9px 0 8px;
-  height: auto;
-  scale: 1 1;
+.volta::after {
+  display: none;
+}
+.seta {
+  flex: none;
+  translate: 0 -1px;
+  transition: translate var(--t-ui) var(--ease-ui);
+}
+.volta:hover .seta {
+  translate: -3px -1px;
 }
 
 /* ===== O logo do Cofre: a porta de um cofre de aço pintada de grafite, com o filete branco, quatro
@@ -211,20 +210,10 @@
   }
 }
 
-/* o celular mais estreito: as quatro palavras numa fileira só */
-@container topo (max-width: 319px) {
-  .secao {
-    padding: 0 5px;
-    letter-spacing: 0.05em;
-  }
-  .secoes ul {
-    gap: 0;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .secao,
-  .secao::after {
+  .secao::after,
+  .seta {
     transition: none;
   }
 }

@@ -26,7 +26,7 @@ import { Pin } from './pin';
 /**
  * O topo do site, igual em todas as páginas, em três grupos que não se misturam:
  * - o cartaz, "Murall", que leva à última parede aberta;
- * - o varal: as partes do site (Anotações, Análises, Utilidades, Extras), etiquetas de kraft presas por
+ * - o varal: as partes do site (Anotações, Análises, Outros), etiquetas de kraft presas por
  *   prendedores num barbante. O mural de resenhas e as seções de cada parte ficam no índice da
  *   própria página (ver ui/area-bar.ts), nunca aqui;
  * - os bottons: o que é seu e vale para todos os murais (Perfil, Amigos, Ajustes), broches redondos;
@@ -78,7 +78,7 @@ export class SiteHeader {
     return PARTES_DO_SITE.map((s, i) => ({
       ...s,
       // as Análises abrem direto no último mural de resenhas (sem passar pelo redirecionamento)
-      path: s.area === 'analises' ? reviewPath(this.mural.reviewKind()) : s.area === 'utilidades' ? SPENDING_PATH : '/' + s.area,
+      path: s.area === 'analises' ? reviewPath(this.mural.reviewKind()) : '/' + s.area,
       on: s.area === open,
       tilt: INCLINACOES[i % INCLINACOES.length],
     }));

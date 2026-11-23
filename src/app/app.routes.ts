@@ -1,6 +1,6 @@
 import { Routes, UrlMatchResult, UrlSegment } from '@angular/router';
 import { onlyAdmin } from './core/admin';
-import { PIXEL_ARTS_PATH, POMODORO_PATH, SPENDING_PATH, enterExtras, enterNotes, enterReviews, toCalendar, toLastWall, toReviews } from './core/areas';
+import { CALENDAR_PATH, PIXEL_ARTS_PATH, POMODORO_PATH, SPENDING_PATH, enterExtras, enterNotes, enterReviews, movedTo, toCalendar, toLastWall, toReviews } from './core/areas';
 
 const wall = () => import('./pages/wall-page').then((m) => m.WallPage);
 const kanban = () => import('./pages/kanban-page').then((m) => m.KanbanPage);
@@ -35,9 +35,9 @@ export function freeBoardMatcher(segments: UrlSegment[]): UrlMatchResult | null 
 }
 
 /**
- * O site em quatro partes (ver core/areas.ts): as Anotações, as Análises, com o mural de resenhas no
- * endereço (`/analises/livros/pra-depois`), as Utilidades e os Extras. O mural aberto sai do endereço; nos Extras,
- * do seletor da própria página. O título de cada página ganha o mural (ver core/title.ts).
+ * O site em três partes (ver core/areas.ts): as Anotações, as Análises, com o mural de resenhas no
+ * endereço (`/analises/livros/pra-depois`), e Outros (`/extras`). O mural aberto sai do endereço; em Outros, do
+ * seletor da própria página. O título de cada página ganha o mural (ver core/title.ts).
  */
 export const routes: Routes = [
   // "Murall": a última parede aberta
@@ -68,10 +68,11 @@ export const routes: Routes = [
       },
     ],
   },
-  // as Utilidades: os Gastos e o Calendário aqui, o cofre de senhas na origem dele (um link na barra)
-  { path: 'utilidades', pathMatch: 'full', redirectTo: SPENDING_PATH },
-  { path: 'utilidades/gastos', title: 'Gastos', loadComponent: () => import('./pages/spending-page').then((m) => m.SpendingPage) },
-  { path: 'utilidades/calendario', title: 'Calendário', loadComponent: calendar },
+  // as Utilidades viraram parte de Outros (PLANO-OUTROS.md): os endereços de antes levam aos novos com a query (o mês,
+  // o dia, o lembrete)
+  { path: 'utilidades', pathMatch: 'full', redirectTo: '/extras' },
+  { path: 'utilidades/gastos', redirectTo: movedTo(SPENDING_PATH) },
+  { path: 'utilidades/calendario', redirectTo: toCalendar },
   // os endereços de antes das três partes
   { path: 'fila', redirectTo: toReviews('pra-depois') },
   { path: 'wishlist', redirectTo: toReviews('wishlist') },
@@ -98,7 +99,7 @@ export const routes: Routes = [
   {
     path: 'extras',
     canActivate: [enterExtras],
-    title: 'Extras',
+    title: 'Outros',
     loadComponent: () => import('./pages/extras-page').then((m) => m.ExtrasPage),
   },
   {
@@ -137,6 +138,9 @@ export const routes: Routes = [
     title: 'Pixel arts',
     loadComponent: () => import('./pages/pixel-arts-page').then((m) => m.PixelArtsPage),
   },
+  // os Gastos e o Calendário (PLANO-OUTROS.md); sem o enterExtras, porque não dependem do mural
+  { path: SPENDING_PATH.slice(1), title: 'Gastos', loadComponent: () => import('./pages/spending-page').then((m) => m.SpendingPage) },
+  { path: CALENDAR_PATH.slice(1), title: 'Calendário', loadComponent: calendar },
   {
     // só a conta de admin; sem o enterExtras, porque a página não depende do mural
     path: 'extras/uso-das-apis',

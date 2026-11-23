@@ -72,7 +72,7 @@ const VIEWS: readonly { span: Span | null; label: string; key: string }[] = [
 ];
 
 /**
- * Os Gastos (`/utilidades/gastos?mes=AAAA-MM`): o dinheiro de um mês, numa mesa.
+ * Os Gastos (`/extras/gastos?mes=AAAA-MM`): o dinheiro de um mês, numa mesa.
  *
  * Embaixo da pasta, a linha de anotar (o gasto escrito como se fala); depois, a fita do mês (uma linha
  * baixa por lançamento, para ver o mês inteiro) e as peças: o saldo (e quanto ainda dá por dia), como
