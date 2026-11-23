@@ -161,7 +161,7 @@ export interface MoreItem {
     }
 
     @media (max-width: 420px) {
-      .mais-txt {
+      :host(:not(.com-nome)) .mais-txt {
         position: absolute;
         width: 1px;
         height: 1px;

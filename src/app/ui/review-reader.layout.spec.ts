@@ -437,7 +437,8 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     fixture.componentInstance.open(r);
     await settle();
     await openDetails();
-    expect(words(det('flashcards'))).toBe('FlashcardsKanjise mais 1Nível: Desconhecidoainda não estudado');
+    // a carta nunca estudada não repete o nível ("Desconhecido"): o "ainda não estudado" já diz
+    expect(words(det('flashcards'))).toBe('FlashcardsKanjise mais 1ainda não estudado');
     const go = spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
     det('flashcards')!.querySelector<HTMLButtonElement>('.elo')!.click();
     expect(go).toHaveBeenCalledWith(`/anotacoes/estudos/${studyGroupId('Estudos')}/${kanji}`);

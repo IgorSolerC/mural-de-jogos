@@ -698,7 +698,8 @@ app-judge-label {
 }
 
 .ficha:is([data-cor$='-escuro'], [data-cor='preto']) .etq-trilho[aria-pressed='true'] {
-  color: var(--ink-claro-solido);
+  background: var(--paper);
+  color: var(--stock);
 }
 
 @media (hover: none) {
@@ -757,6 +758,21 @@ app-judge-label {
     left: calc(100% + var(--lado-w) + 12px);
   }
 
+  /* cada uma com a altura dela: a anotação curta não vira um papel em branco da altura dos Detalhes */
+  .com-lado .par {
+    align-items: flex-start;
+  }
+
+  /* abrir a folha ao lado alarga a leitura: ela anda, em vez de pular */
+  dialog.reader.lendo:not(.dupla, .ao-lado) {
+    transition: width 320ms var(--ease-physical);
+  }
+
+  /* a etiqueta acesa do trilho já fecha a folha: o X dela, ao lado do da ficha, sai (no celular fica o "Voltar") */
+  .reader:not(.dupla, .ao-lado) .lado .fecha-lado {
+    display: none;
+  }
+
   dialog.reader.com-lado:not(.dupla, .ao-lado) {
     max-width: min(1190px, calc(100vw - 236px));
   }
@@ -770,7 +786,7 @@ app-judge-label {
     left: calc(100% + 12px);
     z-index: 0;
     flex-direction: column;
-    gap: 9px;
+    gap: 14px;
   }
 
   .reader:not(.dupla, .ao-lado) .etq-trilho {
@@ -1621,5 +1637,36 @@ dialog.reader.so-a-cartolina {
   .lendo .par > .ficha,
   .em-pe {
     animation: none;
+  }
+}
+
+/* ===== O pé e a faixa no celular (crítica final do PLANO-LEITURA-UNIFICADA.md) ===== */
+@media (max-width: 560px) {
+  /* o Editar fica do tamanho dele, nas anotações e nas resenhas */
+  .lendo .foot .actions .btn-ink {
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 420px) {
+  /* o Mais leva a palavra (com-nome); o Finalizar fica só com o desenho, e o nome para o leitor de tela */
+  .lendo .foot .finalizar .nome-acao {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 600px) {
+  /* o nome comprido não come a tela: até três linhas na faixa (o inteiro fica no título e para o leitor de tela) */
+  .lendo .faixa-nome .title {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
   }
 }

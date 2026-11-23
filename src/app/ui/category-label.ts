@@ -24,7 +24,7 @@ export function categoryIcon(category: string, look: CategoryLook = {}): LucideI
   selector: 'app-cat-label',
   imports: [IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { '[class.tingido]': 'tint()' },
+  host: { '[class.tingido]': 'tint()', '[class.quebra]': 'wrap()' },
   template: `<lucide-icon class="icone" [img]="icon()" [size]="iconSize()" aria-hidden="true" /><span class="nome">{{ label() }}</span>`,
   styles: `
     :host {
@@ -54,6 +54,18 @@ export function categoryIcon(category: string, look: CategoryLook = {}): LucideI
       white-space: nowrap;
       text-overflow: ellipsis;
     }
+    /* quebrando: o nome inteiro, em quantas linhas precisar (os Detalhes da leitura têm lugar para ele) */
+    :host(.quebra) {
+      align-items: flex-start;
+    }
+    :host(.quebra) .icone {
+      margin-top: 0.15em;
+    }
+    :host(.quebra) .nome {
+      overflow: visible;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
   `,
 })
 export class CategoryLabel {
@@ -62,6 +74,8 @@ export class CategoryLabel {
   readonly iconSize = input(13);
   /** O desenho na cor de `--cat-cor` sem estar numa orelha com cor (o menu "Mais"). */
   readonly tint = input(false);
+  /** O nome quebra em linhas em vez de terminar em reticências. */
+  readonly wrap = input(false);
   /** O desenho de quem não é categoria de anotação (o artista, nas músicas): vale no lugar do dela. */
   readonly glyph = input<LucideIconData | null>(null);
 

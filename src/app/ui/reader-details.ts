@@ -33,7 +33,8 @@ export interface ReaderDetailsData {
   tasks: { done: number; total: number } | null;
   tags: readonly { label: string; color: string | null }[];
   board: { id: string; column: string; color: string | null; importance: Importance | null; status: string | null; deps: boolean } | null;
-  study: { deckId: string; deck: string; more: number; icon: LucideIconData; color: string; level: string; levelLabel: string; when: string } | null;
+  /** A carta dos Estudos; `fresh`: nunca estudada (o nível não diz nada além do "ainda não estudado"). */
+  study: { deckId: string; deck: string; more: number; icon: LucideIconData; color: string; level: string; levelLabel: string; when: string; fresh: boolean } | null;
   reminders: readonly { id: string; day: string; when: string; title: string; past: boolean; icon: LucideIconData; color: string | null }[];
   moreReminders: number;
 }

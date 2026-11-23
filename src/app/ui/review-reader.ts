@@ -214,7 +214,7 @@ interface AlonePlea {
                 <lucide-icon [img]="BackIcon" [size]="22" aria-hidden="true" />
               </button>
             }
-            <h2 #nomeFicha [id]="'leitura-titulo' + sufixo()" class="title" [class.longo]="r.game.name.length > 44" tabindex="-1">{{ r.game.name }}</h2>
+            <h2 #nomeFicha [id]="'leitura-titulo' + sufixo()" class="title" [title]="r.game.name" [class.longo]="r.game.name.length > 44" tabindex="-1">{{ r.game.name }}</h2>
             <!-- finalizada: o carimbo redondo batido na emenda da faixa com a folha -->
             @if (note() && r.doneAt && lendo()) {
               <span class="carimbo"><app-done-stamp size="big" [at]="r.doneAt" [hit]="stampedNow()" /></span>
@@ -457,13 +457,13 @@ interface AlonePlea {
             } @else {
             <!-- o que se faz de vez em quando (fixar, compartilhar, escrever outra vez, lado a lado, apagar)
                  fica guardado no bilhete do "Mais"; no pé, só o que se usa toda hora -->
-            <app-more-menu class="mais-menu" [items]="moreItems()" [label]="note() ? 'Mais ações da anotação' : 'Mais ações da ficha'" (picked)="onMore($event)" />
+            <app-more-menu class="mais-menu com-nome" [items]="moreItems()" [label]="note() ? 'Mais ações da anotação' : 'Mais ações da ficha'" (picked)="onMore($event)" />
             <div class="actions">
               <!-- o check da anotação inteira: finaliza (e ela sai do mural com o carimbo) ou abre de novo -->
               @if (note() && writable()) {
                 <button type="button" class="btn-quiet finalizar" [attr.aria-pressed]="!!r.doneAt" (click)="finish()">
                   <lucide-icon [img]="r.doneAt ? ReopenIcon : CheckedIcon" [size]="19" aria-hidden="true" />
-                  {{ r.doneAt ? 'Abrir de novo' : 'Finalizar' }}
+                  <span class="nome-acao">{{ r.doneAt ? 'Abrir de novo' : 'Finalizar' }}</span>
                 </button>
               }
               @if (writable()) {
@@ -891,6 +891,7 @@ export class ReviewReader {
       level,
       levelLabel: LEVEL_LABEL[level],
       when,
+      fresh: card.srs.state === 'nova',
     };
   });
   /** Os lembretes do Calendário com a anotação presa: até dois, os mais perto primeiro, e quantos mais há. */
@@ -1408,12 +1409,12 @@ export class ReviewReader {
     return {
       group: this.groupEar(),
       folder: folder ? { id: folder.id, label: folder.label, parts: folder.parts, opens: !this.solta() } : null,
-      date: { tape: tapeDate(r.completedAt), long: r.completedAt === null ? this.noDay : this.date(), pinned: r.noteRank === 'fixada', notes },
+      date: { tape: tapeDate(r.completedAt), long: r.completedAt === null ? this.noDay : this.date(), pinned: this.owner() === null && r.noteRank === 'fixada', notes },
       who: this.who(),
       tasks: this.tasks(),
       tags: (r.tags ?? []).map((t) => ({ label: t, color: this.tagColor(t) })),
       board: b ? { id: b.id, column: b.column, color: b.color, importance: b.importance ?? null, status: b.status, deps: !!b.deps } : null,
-      study: s ? { deckId: s.deckId, deck: s.deck, more: s.more, icon: s.icon, color: s.color, level: s.level, levelLabel: s.levelLabel, when: s.when } : null,
+      study: s ? { deckId: s.deckId, deck: s.deck, more: s.more, icon: s.icon, color: s.color, level: s.level, levelLabel: s.levelLabel, when: s.when, fresh: s.fresh } : null,
       reminders: this.reminders().map((x) => ({ id: x.id, day: x.day, when: x.when, title: x.title, past: x.past, icon: x.icon ? this.choiceIcon[x.icon] : this.CalendarIcon, color: x.color ?? null })),
       moreReminders: this.moreReminders(),
     };

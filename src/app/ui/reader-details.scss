@@ -75,7 +75,18 @@ dd {
 
 .desenho {
   display: inline-flex;
+  flex: none;
   color: var(--ink-2);
+}
+
+/* o desenho de quem vê nunca fica sozinho numa linha: a frase quebra ao lado dele */
+.fileira:has(> .desenho) {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+
+  .desenho {
+    margin-top: 0.3rem;
+  }
 }
 
 /* o que se toca: o pontilhado embaixo e o marca-texto da leitura com a mão em cima */
@@ -215,6 +226,11 @@ span.caminho .parte {
   width: 9px;
   height: 9px;
   border-radius: 1px;
+}
+
+/* os vazios também têm o desenho do gomo, claro: 1 de 3 se lê como três gomos */
+.gomos i {
+  background: rgb(31 122 69 / 0.16);
 }
 
 .gomos i.acesa,

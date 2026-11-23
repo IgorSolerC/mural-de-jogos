@@ -3,7 +3,7 @@
   @if (d.group; as g) {
     <div class="linha" data-k="grupo">
       <dt><lucide-icon [img]="I.grupo" [size]="15" aria-hidden="true" />Grupo</dt>
-      <dd><app-cat-label class="grupo" [label]="g.label" [look]="g.look" [tint]="!!g.color" [iconSize]="16" [style.--cat-cor]="g.color" /></dd>
+      <dd><app-cat-label class="grupo" [label]="g.label" [look]="g.look" [tint]="!!g.color" [wrap]="true" [iconSize]="16" [style.--cat-cor]="g.color" /></dd>
     </div>
   }
   @if (d.folder; as f) {
@@ -152,7 +152,10 @@
           }
         </span>
         <span class="fileira miudo">
-          <span class="nivel" [attr.data-nivel]="s.level"><span class="sr-only">Nível: </span>{{ s.levelLabel }}</span>
+          <!-- a carta que nunca foi estudada não diz o nível ("Desconhecido"): o "ainda não estudado" já diz -->
+          @if (!s.fresh) {
+            <span class="nivel" [attr.data-nivel]="s.level"><span class="sr-only">Nível: </span>{{ s.levelLabel }}</span>
+          }
           <span>{{ s.when }}</span>
         </span>
       </dd>

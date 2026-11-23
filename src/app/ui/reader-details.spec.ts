@@ -63,7 +63,7 @@ describe('Os Detalhes da anotação (ReaderDetails)', () => {
         { label: 'com a Ana', color: null },
       ],
       board: { id: 'q-viagens', column: 'Fazendo', color: 'laranja', importance: 'baixissimo', status: 'esperando o visto', deps: false },
-      study: { deckId: 'd-frances', deck: 'Francês de viagem', more: 1, icon: ICON.camadas, color: 'vermelho', level: 'aprendendo', levelLabel: 'Aprendendo', when: 'revisão amanhã' },
+      study: { deckId: 'd-frances', deck: 'Francês de viagem', more: 1, icon: ICON.camadas, color: 'vermelho', level: 'aprendendo', levelLabel: 'Aprendendo', when: 'revisão amanhã', fresh: false },
       reminders: [{ id: 'r-trem0001', day: '2026-12-01', when: 'seg., 1 de dez., 9:00', title: 'Trem para Lyon', past: false, icon: ICON.calendario, color: 'verde' }],
       moreReminders: 2,
     };
