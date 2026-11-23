@@ -1,28 +1,31 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { FilterGroup } from '../core/spending-filter';
-import { SpendingFilters } from './spending-filters';
+import { FacetFilters } from './facet-filters';
 
 const groups: FilterGroup[] = [
   {
     key: 'flow',
     title: 'Saiu ou entrou',
+    desc: 'Só o que saiu, só o que entrou, ou os dois.',
     options: [
       { value: 'saida', label: 'Saídas', n: 8, on: true },
       { value: 'entrada', label: 'Entradas', n: 0, on: false },
     ],
   },
-  { key: 'category', title: 'Categoria', options: [{ value: 'comida', label: 'Comida', n: 2, on: false, color: 'laranja' }] },
+  { key: 'category', title: 'Categoria', desc: 'Os envelopes do mês.', options: [{ value: 'comida', label: 'Comida', n: 2, on: false, color: 'laranja' }] },
 ];
 
-describe('Gastos: a folha de filtros', () => {
+describe('A folha de filtros em linhas (Gastos e Dicionário)', () => {
   beforeEach(() => TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] }));
 
   it('uma linha por filtro, com o nome, o que faz e os recortes com quantos mostram', () => {
-    const f = TestBed.createComponent(SpendingFilters);
+    const f = TestBed.createComponent(FacetFilters<FilterGroup['key']>);
     f.componentRef.setInput('groups', groups);
     f.componentRef.setInput('shown', 8);
     f.componentRef.setInput('total', 12);
+    f.componentRef.setInput('units', ['lançamento', 'lançamentos']);
+    f.componentRef.setInput('label', 'Filtros da fita');
     f.componentRef.setInput('active', true);
     f.detectChanges();
     const el: HTMLElement = f.nativeElement;
@@ -37,6 +40,10 @@ describe('Gastos: a folha de filtros', () => {
     ]);
     expect(recortes[2].querySelector('.selo')).not.toBeNull();
     expect(el.querySelector('.conta')!.textContent!.trim()).toBe('Mostrando 8 de 12 lançamentos');
+    expect(el.getAttribute('aria-label')).toBe('Filtros da fita');
+    // cada linha é nomeada pelo título dela, com ids que não se repetem entre folhas
+    const id = linhas[0].getAttribute('aria-labelledby')!;
+    expect(el.querySelector('#' + id)!.textContent!.trim()).toBe('Saiu ou entrou');
 
     const got: unknown[] = [];
     f.componentInstance.toggle.subscribe((t) => got.push(t));

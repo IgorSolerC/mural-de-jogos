@@ -105,16 +105,17 @@
   }
 }
 
-/* ---------- a folhinha, o livro-caixa, o cofre e o monitor (ui/shelf-pieces.ts): sobem um pouco ao passar ---------- */
+/* ---------- a folhinha, o livro-caixa, o cofre, o monitor e o dicionário (ui/shelf-pieces.ts): sobem um pouco ao passar ---------- */
 
 .coisa-folhinha app-desk-calendar,
 .coisa-livro app-cash-book,
 .coisa-cofre app-steel-safe,
-.coisa-arte app-crt-monitor {
+.coisa-arte app-crt-monitor,
+.coisa-dicionario app-japanese-dictionary {
   transition: translate var(--t-physical) var(--ease-physical);
 }
 
-.coisa:hover :is(app-desk-calendar, app-cash-book, app-steel-safe, app-crt-monitor) {
+.coisa:hover :is(app-desk-calendar, app-cash-book, app-steel-safe, app-crt-monitor, app-japanese-dictionary) {
   translate: 0 -6px;
 }
 
@@ -125,6 +126,7 @@
   .coisa-livro app-cash-book,
   .coisa-cofre app-steel-safe,
   .coisa-arte app-crt-monitor,
+  .coisa-dicionario app-japanese-dictionary,
   .prancheta {
     transition: none;
   }

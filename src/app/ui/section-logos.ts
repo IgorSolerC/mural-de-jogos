@@ -808,3 +808,86 @@ const PIXEL_WORDMARK = (() => {
 export class PixelArtsLogo {
   protected readonly mark = PIXEL_WORDMARK;
 }
+
+/**
+ * O logo do Dicionário Japonês (PLANO-DICIONARIO.md): um rótulo de papel de arroz com o carimbo vermelho (o 判子)
+ * de 辞書, "dicionário", escrito de cima para baixo, ao lado de "Dicionário" na didone e de "japonês · 日本語" em
+ * letra de rótulo. A sombra fica no host.
+ */
+@Component({
+  selector: 'app-dictionary-logo',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <span class="rotulo" aria-hidden="true">
+      <span class="hanko">辞書</span>
+      <span class="nomes">
+        <span class="nome">Dicionário</span>
+        <span class="sobre">japonês · <span lang="ja">日本語</span></span>
+      </span>
+    </span>
+  `,
+  styles: `
+    :host {
+      display: inline-flex;
+      rotate: -1.2deg;
+      filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 6px 8px rgb(0 0 0 / 0.4));
+    }
+    .rotulo {
+      display: inline-flex;
+      align-items: center;
+      gap: 11px;
+      box-sizing: border-box;
+      height: 52px;
+      padding: 0 16px 0 7px;
+      border-radius: 2px;
+      /* o papel de arroz: o creme com a fibra comprida */
+      background:
+        repeating-linear-gradient(97deg, rgb(120 100 70 / 0.05) 0 1px, transparent 1px 7px),
+        var(--paper-grain),
+        #f6f0e1;
+      background-blend-mode: multiply;
+      color: var(--ink);
+    }
+    /* o carimbo: o vermelho do selo com a tinta um tico falhada nas bordas, o nome de cima para baixo */
+    .hanko {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 40px;
+      border-radius: 5px;
+      background: #b42a20;
+      box-shadow: inset 0 0 0 2px #b42a20, inset 0 0 0 3px rgb(246 240 225 / 0.85);
+      color: #f6f0e1;
+      font-family: 'Klee One', 'Yu Mincho', 'Hiragino Mincho ProN', serif;
+      font-size: 0.98rem;
+      line-height: 1;
+      writing-mode: vertical-rl;
+      letter-spacing: 0.04em;
+      rotate: -4deg;
+    }
+    .nomes {
+      display: grid;
+      gap: 2px;
+    }
+    .nome {
+      font-family: var(--f-didone);
+      font-size: 1.32rem;
+      line-height: 1;
+      letter-spacing: 0.02em;
+    }
+    .sobre {
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.62rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgb(21 21 21 / 0.72);
+      white-space: nowrap;
+    }
+    .sobre span {
+      font-family: 'Klee One', 'Yu Gothic', sans-serif;
+      letter-spacing: 0.1em;
+    }
+  `,
+})
+export class DictionaryLogo {}

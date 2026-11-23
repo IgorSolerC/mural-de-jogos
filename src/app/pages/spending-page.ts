@@ -49,7 +49,7 @@ import { SpendingPeriodSummary } from '../ui/spending-period-summary';
 import { SpendingTop } from '../ui/spending-top';
 import { SpendingWays, WayPick } from '../ui/spending-ways';
 import { SpendingEnvelopes } from '../ui/spending-envelopes';
-import { SpendingFilters } from '../ui/spending-filters';
+import { FacetFilters } from '../ui/facet-filters';
 import { SpendingHelpSheet } from '../ui/spending-help-sheet';
 import { SpendingMonths } from '../ui/spending-months';
 import { SpendingNeeds } from '../ui/spending-needs';
@@ -108,7 +108,7 @@ const VIEWS: readonly { span: Span | null; label: string; key: string }[] = [
     SpendingPeriodSummary,
     SpendingTop,
     SpendingWays,
-    SpendingFilters,
+    FacetFilters,
     SpendingHelpSheet,
     SpendingMonths,
     SpendingNeeds,

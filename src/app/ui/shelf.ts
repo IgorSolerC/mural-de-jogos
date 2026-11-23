@@ -41,8 +41,14 @@ export class Shelf {
 export function shelfRows<T>(items: readonly T[], per = Infinity): T[][] {
   if (items.length <= per) return items.length ? [[...items]] : [];
   const rows = Math.ceil(items.length / per);
-  const size = Math.ceil(items.length / rows);
+  // as que sobram vão uma para cada tábua de cima: sete de três em três são 3, 2 e 2, nunca 3, 3 e 1
+  const base = Math.floor(items.length / rows);
+  const extra = items.length % rows;
   const out: T[][] = [];
-  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  for (let r = 0, i = 0; r < rows; r++) {
+    const size = base + (r < extra ? 1 : 0);
+    out.push(items.slice(i, i + size));
+    i += size;
+  }
   return out;
 }

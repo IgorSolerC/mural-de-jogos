@@ -1,3 +1,4 @@
+import { FacetGroup, FacetOption } from './facets';
 import { NEEDS, NEED_LABEL, Row, SpendingCategory, SpendingPerson, monthOfDay, peopleOf } from './spending';
 
 /**
@@ -17,21 +18,9 @@ export type SpendingFilter = Partial<Record<FilterKey, string[]>>;
 
 export const NO_FILTER: SpendingFilter = {};
 
-export interface FilterOption {
-  value: string;
-  label: string;
-  /** Quantos lançamentos do mês a opção mostraria (com os outros grupos como estão). */
-  n: number;
-  on: boolean;
-  /** A cartolina da categoria, para o selinho. */
-  color?: string;
-}
-
-export interface FilterGroup {
-  key: FilterKey;
-  title: string;
-  options: FilterOption[];
-}
+/** Uma opção e uma linha da folha dos filtros (ui/facet-filters.ts, a mesma do Dicionário Japonês). */
+export type FilterOption = FacetOption;
+export type FilterGroup = FacetGroup<FilterKey>;
 
 /** O que os filtros precisam além das linhas: os nomes, e quanto já voltou de cada gasto. */
 export interface FilterContext {
@@ -50,6 +39,16 @@ const TITLES: Record<FilterKey, string> = {
   category: 'Categoria',
   person: 'Com quem',
   other: 'Marcas',
+};
+/** O que cada linha faz, embaixo do nome dela (como nas Configurações e nos filtros das Anotações). */
+const DESC: Record<FilterKey, string> = {
+  flow: 'Só o que saiu, só o que entrou, ou os dois.',
+  kind: 'Parcela mostra só as parcelas; Uma vez e Todo mês, o mês sem elas.',
+  pay: 'Como a saída foi paga.',
+  need: 'A resposta de cada gasto.',
+  category: 'Os envelopes do mês.',
+  person: 'Os gastos em que a pessoa estava.',
+  other: 'Os reembolsos e o que é de um dia de outro mês.',
 };
 const ORDER: readonly FilterKey[] = ['flow', 'kind', 'pay', 'need', 'category', 'person', 'other'];
 const FIXED: Record<'flow' | 'kind' | 'pay' | 'need' | 'other', readonly { value: string; label: string }[]> = {
@@ -170,7 +169,7 @@ export function filterGroups(rows: readonly Row[], f: SpendingFilter, ctx: Filte
     const built = options.map((o) => ({ ...o, n: count(o.value), on: on.includes(o.value) }));
     if (key === 'other' && built.every((o) => !o.n && !o.on)) continue;
     if ((key === 'pay' || key === 'need') && !rows.some((r) => r.entry.flow === 'saida') && !on.length) continue;
-    groups.push({ key, title: TITLES[key], options: built });
+    groups.push({ key, title: TITLES[key], desc: DESC[key], options: built });
   }
   return groups;
 }

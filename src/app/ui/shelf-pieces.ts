@@ -432,3 +432,106 @@ export class CashBook {
   `,
 })
 export class SteelSafe {}
+
+/**
+ * O Dicionário Japonês (PLANO-DICIONARIO.md): um dicionário grosso de pé, um tico de lado, de pano azul-marinho com
+ * 辞書 dourado de cima para baixo e "Dicionário" embaixo; na borda das páginas, os entalhes pretos do índice de dedo
+ * (o あかさたな dos dicionários de papel).
+ */
+@Component({
+  selector: 'app-japanese-dictionary',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <span class="capa">
+      <span class="faixa"></span>
+      <span class="gravado"><span class="titulo">辞書</span><span class="nome">Dicionário</span></span>
+    </span>
+    <span class="paginas">
+      @for (n of entalhes; track n) {
+        <i [style.top.%]="n"></i>
+      }
+    </span>
+  `,
+  styles: `
+    :host {
+      position: relative;
+      display: flex;
+      rotate: -1.5deg;
+      filter: drop-shadow(-5px 8px 6px rgb(0 0 0 / 0.4));
+    }
+    .capa {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      width: 84px;
+      height: 134px;
+      border-radius: 3px 2px 2px 3px;
+      background:
+        repeating-linear-gradient(45deg, rgb(255 255 255 / 0.05) 0 1px, transparent 1px 3px),
+        repeating-linear-gradient(-45deg, rgb(0 0 0 / 0.14) 0 1px, transparent 1px 3px),
+        linear-gradient(90deg, rgb(0 0 0 / 0.3), transparent 14%),
+        linear-gradient(180deg, #23345e, #18264a);
+    }
+    /* a faixa vermelha do alto, como nos dicionários de bolso */
+    .faixa {
+      height: 13px;
+      margin-top: 10px;
+      background: linear-gradient(180deg, #c0392b, #9e2a1f);
+      box-shadow: 0 1px 0 rgb(217 178 90 / 0.7), 0 -1px 0 rgb(217 178 90 / 0.7);
+    }
+    .gravado {
+      display: grid;
+      justify-items: center;
+      align-content: center;
+      gap: 6px;
+      flex: 1;
+      margin: 8px 10px 12px;
+      border: 1.5px solid #d9b25a;
+      border-radius: 2px;
+    }
+    .titulo,
+    .nome {
+      background: var(--foil-gold-word);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      line-height: 1;
+    }
+    .titulo {
+      font-family: 'Yu Mincho', 'Hiragino Mincho ProN', 'Noto Serif JP', serif;
+      font-weight: 700;
+      font-size: 1.3rem;
+      writing-mode: vertical-rl;
+      letter-spacing: 0.08em;
+    }
+    .nome {
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.48rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+    /* a borda das páginas, vista de lado: as folhas finas e os entalhes do índice de dedo */
+    .paginas {
+      position: relative;
+      width: 13px;
+      margin: 3px 0 3px -1px;
+      clip-path: polygon(0 0, 100% 5px, 100% calc(100% - 5px), 0 100%);
+      background:
+        repeating-linear-gradient(180deg, rgb(120 100 70 / 0.22) 0 1px, transparent 1px 2px),
+        linear-gradient(90deg, #e9e0c9, #f7f1e1);
+    }
+    .paginas i {
+      position: absolute;
+      right: -4px;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #1d1b19;
+    }
+  `,
+})
+export class JapaneseDictionary {
+  /** Onde ficam os entalhes do índice de dedo (em % da altura). */
+  protected readonly entalhes = [10, 26, 42, 58, 74];
+}

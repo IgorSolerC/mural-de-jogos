@@ -13,6 +13,8 @@ describe('a prateleira de Outros', () => {
     expect(shelfRows(['a', 'b', 'c', 'd'], 3)).toEqual([['a', 'b'], ['c', 'd']]);
     expect(shelfRows(['a', 'b', 'c', 'd', 'e'], 3)).toEqual([['a', 'b', 'c'], ['d', 'e']]);
     expect(shelfRows(['a', 'b', 'c', 'd', 'e', 'f'], 3)).toEqual([['a', 'b', 'c'], ['d', 'e', 'f']]);
+    // sete: as que sobram uma em cada tábua de cima, nunca uma sozinha embaixo
+    expect(shelfRows(['a', 'b', 'c', 'd', 'e', 'f', 'g'], 3)).toEqual([['a', 'b', 'c'], ['d', 'e'], ['f', 'g']]);
   });
 
   it('sem nada, nenhuma tábua', () => {

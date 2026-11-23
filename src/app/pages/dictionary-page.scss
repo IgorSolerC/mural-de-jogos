@@ -1,0 +1,365 @@
+@use '../ui/paper-kit' as kit;
+@use '../ui/sem-resultados' as sem;
+
+/* O Dicionário Japonês (PLANO-DICIONARIO.md): a pasta da Wishlist e das Pixel arts em cima e, embaixo, a página
+   do dicionário (os verbetes em duas colunas, no papel de ficha) ou o livro-razão da Tabela. */
+
+:host {
+  display: block;
+  /* o vermelho do carimbo (o 判子) do JLPT e do 例 das composições: 6:1 no papel */
+  --shu: #b42a20;
+  --dic-letra: 'Klee One', var(--f-carta-palavra);
+}
+
+/* o nome das vistas só quando a barra cabe numa linha com ele (como nas Pixel arts) */
+.vista-txt {
+  display: none;
+}
+@media (min-width: 1240px) {
+  .vista-txt {
+    display: inline;
+  }
+}
+
+.pasta {
+  margin-bottom: 28px;
+}
+app-facet-filters.cartela {
+  margin-top: -14px;
+  margin-bottom: 28px;
+}
+
+@include sem.cartao;
+.acoes-vazio {
+  display: flex;
+  justify-content: center;
+}
+
+/* ===== Os Verbetes: a página do dicionário ===== */
+
+.paginas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 34px;
+}
+
+/* cada seção só é desenhada perto da tela: 933 verbetes não pesam na rolagem */
+.secao {
+  content-visibility: auto;
+  contain-intrinsic-block-size: auto 1400px;
+}
+.secao app-section-head {
+  margin-bottom: 14px;
+}
+
+.folha {
+  @include kit.folha;
+  margin: 0;
+  padding: 10px 30px 12px;
+  list-style: none;
+  /* duas colunas, como num dicionário de papel, com um fio entre elas */
+  columns: 2;
+  column-gap: 56px;
+  column-rule: 1px solid rgb(21 21 21 / 0.14);
+}
+@media (max-width: 900px) {
+  .folha {
+    columns: 1;
+    padding: 6px 18px 8px;
+  }
+}
+
+.verbete {
+  break-inside: avoid;
+  padding: 16px 0 17px;
+  border-bottom: 1px dashed rgb(21 21 21 / 0.2);
+}
+/* o último verbete de cada coluna não precisa do fio: o da folha basta (o pé da folha já fecha) */
+.verbete:last-child {
+  border-bottom: 0;
+}
+
+.cabeca-verbete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+
+.palavra {
+  font-family: var(--dic-letra);
+  font-size: 2rem;
+  line-height: 1.2;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+
+  ruby {
+    ruby-position: over;
+  }
+  rt {
+    font-size: 0.4em;
+    letter-spacing: 0.06em;
+    color: rgb(21 21 21 / 0.7);
+  }
+}
+
+.romaji {
+  font-family: var(--f-label);
+  font-weight: 600;
+  font-size: 1.04rem;
+  letter-spacing: 0.03em;
+  color: rgb(21 21 21 / 0.72);
+}
+
+.marcas {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+  align-self: center;
+}
+
+/* o JLPT é um carimbo vermelho, torto, a tinta um pouco falhada (o grão do papel por baixo) */
+.selo-jlpt {
+  display: inline-grid;
+  place-items: center;
+  min-width: 34px;
+  height: 30px;
+  padding: 0 4px;
+  border: 2px solid var(--shu);
+  border-radius: 5px;
+  color: var(--shu);
+  background: rgb(180 42 32 / 0.06);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.94rem;
+  letter-spacing: 0.02em;
+  rotate: -5deg;
+  mix-blend-mode: multiply;
+  box-sizing: border-box;
+}
+.selo-jlpt.sem-nivel {
+  border-style: dashed;
+  border-color: rgb(21 21 21 / 0.4);
+  color: rgb(21 21 21 / 0.62);
+  background: none;
+}
+
+/* o uso, em cinco tracinhos que sobem: os cheios em tinta */
+.uso {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 16px;
+
+  i {
+    width: 4px;
+    border-radius: 1px;
+    background: rgb(21 21 21 / 0.16);
+  }
+  @for $n from 1 through 5 {
+    i:nth-of-type(#{$n}) {
+      height: #{4 + $n * 2.4}px;
+    }
+  }
+  i.cheio {
+    background: var(--ink);
+  }
+}
+
+.sentido {
+  margin: 4px 0 0;
+  font-family: var(--f-hand);
+  font-size: 1.2rem;
+  line-height: 1.3;
+}
+
+.gramatica {
+  margin: 7px 0 0;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(21 21 21 / 0.66);
+}
+
+/* as palavras formadas: o 例 ("exemplo") num carimbinho vermelho, e o japonês na letra de lápis */
+.exemplos {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin: 9px 0 0;
+  font-family: var(--dic-letra);
+  font-size: 1rem;
+  line-height: 1.45;
+}
+.rei {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 1.45em;
+  height: 1.45em;
+  border-radius: 3px;
+  background: var(--shu);
+  color: var(--paper);
+  font-size: 0.8rem;
+  translate: 0 -1px;
+}
+
+.nota {
+  margin: 7px 0 0;
+  font-family: var(--f-hand);
+  font-size: 1rem;
+  line-height: 1.35;
+  color: rgb(21 21 21 / 0.74);
+}
+
+.numeros {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 9px 0 0;
+  font-family: var(--f-label);
+  font-weight: 600;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  color: rgb(21 21 21 / 0.62);
+  font-variant-numeric: tabular-nums;
+
+  span + span::before {
+    content: '·';
+    margin: 0 7px;
+  }
+}
+
+/* ===== A Tabela: o livro-razão com todas as colunas ===== */
+
+.razao {
+  @include kit.folha;
+  overflow: auto;
+  max-height: calc(100dvh - 150px);
+  overscroll-behavior: contain;
+  scrollbar-color: rgb(21 21 21 / 0.35) transparent;
+
+  &:focus-visible {
+    outline: 3px solid var(--hi);
+    outline-offset: 4px;
+  }
+}
+
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 100%;
+  font-family: var(--f-ui);
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 12px 12px 9px;
+  background-color: var(--papel-ficha);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  border-bottom: 2px solid var(--ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+  white-space: nowrap;
+}
+
+/* a cabeça ordena: o nome é um botão; a escolhida ganha o traço de marca-texto */
+.cabeca {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 3px;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.07);
+  }
+  &.ligada {
+    background: linear-gradient(transparent 52%, var(--hi) 52%, var(--hi) 92%, transparent 92%);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+}
+
+tbody td,
+tbody th {
+  padding: 9px 12px;
+  border-bottom: 1px dashed rgb(21 21 21 / 0.16);
+  vertical-align: top;
+  text-align: left;
+  font-weight: 400;
+}
+tbody tr:hover > * {
+  background-color: rgb(255 218 66 / 0.2);
+}
+
+/* a palavra fica presa à esquerda enquanto a tabela anda para o lado */
+.c-palavra {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 7.5rem;
+  background-color: var(--papel-ficha);
+  box-shadow: 6px 0 8px -8px rgb(0 0 0 / 0.5);
+}
+thead .c-palavra {
+  z-index: 3;
+}
+.t-palavra {
+  display: block;
+  font-family: var(--dic-letra);
+  font-size: 1.3rem;
+  line-height: 1.2;
+}
+.t-leitura {
+  display: block;
+  font-family: var(--dic-letra);
+  font-size: 0.82rem;
+  color: rgb(21 21 21 / 0.7);
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+thead .num {
+  text-align: right;
+}
+.c-sentido {
+  min-width: 13rem;
+}
+.c-composicao {
+  min-width: 12rem;
+  font-family: var(--dic-letra);
+}
+.c-notas {
+  min-width: 18rem;
+}
+.c-romaji,
+.c-jlpt,
+.c-uso,
+.c-classe,
+.c-tema,
+.c-escrita {
+  white-space: nowrap;
+}

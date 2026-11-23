@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { LucideIconData } from 'lucide-angular';
-import { API_USAGE_PATH, CALENDAR_PATH, PIXEL_ARTS_PATH, POMODORO_PATH, SPENDING_PATH, VAULT_URL } from '../core/areas';
+import { API_USAGE_PATH, CALENDAR_PATH, DICTIONARY_PATH, PIXEL_ARTS_PATH, POMODORO_PATH, SPENDING_PATH, VAULT_URL } from '../core/areas';
 import { CalendarStore } from '../core/calendar-store';
 import { Clock } from '../core/clock';
 import { CloudAccount } from '../core/cloud-account';
@@ -29,7 +29,7 @@ import { KindSwitcher } from '../ui/kind-switcher';
 import { PlasticLetters } from '../ui/plastic-letters';
 import { PomodoroDial } from '../ui/pomodoro-dial';
 import { Shelf, shelfRows } from '../ui/shelf';
-import { CashBook, CrtMonitor, DeskCalendar, SteelSafe } from '../ui/shelf-pieces';
+import { CashBook, CrtMonitor, DeskCalendar, JapaneseDictionary, SteelSafe } from '../ui/shelf-pieces';
 
 /** Uma linha do letreiro: o nome em letras de plástico e, embaixo, como está. */
 interface Linha {
@@ -84,13 +84,13 @@ const vezes = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : 
 /**
  * Extras (PLANO-EXTRAS.md, PLANO-OUTROS.md): em cima, a prateleira "Sempre à mão" com o que serve para qualquer mural
  * (a folhinha do Calendário, o livro-caixa dos Gastos, o cofre de aço para quem pode usá-lo, o tomate do Pomodoro, o
- * monitor das Pixel arts e, só para a conta de admin, a prancheta do Uso das APIs); embaixo, o seletor
+ * monitor das Pixel arts, o dicionário de pé do Dicionário Japonês e, só para a conta de admin, a prancheta do Uso das APIs); embaixo, o seletor
  * de mural e os dois letreiros de feltro, Jogar e Números, com o estado de cada um. A página só lê: o que os jogos
  * guardam, o mural aberto, os amigos abertos em Comparar, os lembretes de hoje, o saldo do mês, o Pomodoro e a galeria.
  */
 @Component({
   selector: 'app-extras-page',
-  imports: [CashBook, CrtMonitor, DeskCalendar, IconModule, KindSwitcher, PlasticLetters, PomodoroDial, RouterLink, Shelf, SteelSafe],
+  imports: [CashBook, CrtMonitor, DeskCalendar, IconModule, JapaneseDictionary, KindSwitcher, PlasticLetters, PomodoroDial, RouterLink, Shelf, SteelSafe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './extras-page.html',
   styleUrl: './extras-page.scss',
@@ -117,6 +117,7 @@ export class ExtrasPage {
   protected readonly calendarPath = CALENDAR_PATH;
   protected readonly spendingPath = SPENDING_PATH;
   protected readonly vaultUrl = VAULT_URL;
+  protected readonly dictionaryPath = DICTIONARY_PATH;
   /**
    * Os jogos guardam no navegador, fora dos sinais: a página relê quando outra aba grava (`storage`) e quando a aba
    * volta a aparecer, e aí o dia também é relido (a página aberta de um dia para o outro).
@@ -191,15 +192,15 @@ export class ExtrasPage {
   });
 
   /**
-   * A prateleira se divide em tábuas de até três (ui/shelf.ts) no celular e, numa tela média, quando tem cinco ou seis
-   * coisas (com o cofre ou a prancheta): numa tábua só, elas se encostariam.
+   * A prateleira se divide em tábuas de até três (ui/shelf.ts) no celular e, numa tela média, quando tem cinco coisas
+   * ou mais: numa tábua só, elas se encostariam.
    */
   private readonly narrow = mediaSignal('(max-width: 720px)');
   private readonly medium = mediaSignal('(max-width: 1000px)');
 
   /** O que vai na prateleira, na ordem, já nas tábuas. */
   protected readonly tabuas = computed(() => {
-    const coisas = ['calendario', 'gastos', ...(this.vault() ? ['cofre'] : []), 'pomodoro', 'pixel-arts', ...(this.admin() ? ['uso-das-apis'] : [])];
+    const coisas = ['calendario', 'gastos', ...(this.vault() ? ['cofre'] : []), 'pomodoro', 'pixel-arts', 'dicionario', ...(this.admin() ? ['uso-das-apis'] : [])];
     return shelfRows(coisas, this.narrow() || (this.medium() && coisas.length >= 5) ? 3 : Infinity);
   });
 

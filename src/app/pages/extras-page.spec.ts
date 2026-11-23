@@ -265,13 +265,14 @@ describe('a página de Extras', () => {
   it('as fitas da prateleira dizem só o nome', async () => {
     const t = await open({ account: { codigo: 'G11T-G00D', nome: 'Igor', admin: true } });
     const fitas = [...t.host.querySelectorAll('app-shelf .dymo-fita')].map((f) => f.textContent?.trim());
-    expect(fitas).toEqual(['Calendário', 'Gastos', 'Pomodoro', 'Pixel arts', 'Uso das APIs']);
+    expect(fitas).toEqual(['Calendário', 'Gastos', 'Pomodoro', 'Pixel arts', 'Dicionário', 'Uso das APIs']);
   });
 
   it('o Calendário e os Gastos ficam na prateleira, levando às páginas deles; o Cofre, só para quem pode usá-lo', async () => {
     const t = await open({ account: { codigo: 'G11T-G00D', nome: 'Igor' } });
     expect(t.linha('/extras/calendario')?.closest('app-shelf')).not.toBeNull();
     expect(t.linha('/extras/gastos')?.closest('app-shelf')).not.toBeNull();
+    expect(t.label('/extras/dicionario')).toBe('Dicionário Japonês: para consultar as palavras');
     const cofre = () => t.host.querySelector<HTMLAnchorElement>('a.coisa-cofre');
     expect(cofre()).toBeNull();
     t.account.set({ codigo: 'G11T-G00D', nome: 'Igor', cofre: true });
@@ -281,7 +282,7 @@ describe('a página de Extras', () => {
     expect(cofre()!.getAttribute('rel')).toBe('noreferrer');
     expect(cofre()!.hasAttribute('target')).toBe(false);
     expect(cofre()!.getAttribute('aria-label')).toBe('Cofre de senhas');
-    expect([...t.host.querySelectorAll('app-shelf .dymo-fita')].map((f) => f.textContent?.trim())).toEqual(['Calendário', 'Gastos', 'Cofre', 'Pomodoro', 'Pixel arts']);
+    expect([...t.host.querySelectorAll('app-shelf .dymo-fita')].map((f) => f.textContent?.trim())).toEqual(['Calendário', 'Gastos', 'Cofre', 'Pomodoro', 'Pixel arts', 'Dicionário']);
   });
 
   it('a folhinha mostra o dia de hoje e, com lembretes, o adesivo com quantos', async () => {
@@ -298,20 +299,20 @@ describe('a página de Extras', () => {
     expect(folhinha().querySelector('.adesivo')?.textContent?.trim()).toBe('2');
   });
 
-  it('numa tela média, cinco ou seis coisas vão para tábuas de três; quatro ficam numa tábua só', async () => {
+  it('numa tela média, cinco coisas ou mais vão para tábuas de três, as que sobram uma em cada tábua', async () => {
     // a janela tem 800px: o celular (720px) não vale, a tela média (1000px) vale
     spyOn(window, 'matchMedia').and.callFake(
       (q: string) => ({ matches: q === '(max-width: 1000px)', addEventListener: () => {}, removeEventListener: () => {} }) as unknown as MediaQueryList,
     );
     const t = await open({ account: { codigo: 'G11T-G00D', nome: 'Igor' } });
     const tabuas = () => [...t.host.querySelectorAll('app-shelf')].map((s) => s.querySelectorAll('a.coisa').length);
-    expect(tabuas()).toEqual([4]);
+    expect(tabuas()).toEqual([3, 2]);
     t.account.set({ codigo: 'G11T-G00D', nome: 'Igor', cofre: true });
     await t.fixture.whenStable();
-    expect(tabuas()).toEqual([3, 2]);
+    expect(tabuas()).toEqual([3, 3]);
     t.account.set({ codigo: 'G11T-G00D', nome: 'Igor', cofre: true, admin: true });
     await t.fixture.whenStable();
-    expect(tabuas()).toEqual([3, 3]);
+    expect(tabuas()).toEqual([3, 2, 2]);
   });
 
   it('o livro-caixa tira do mês de hoje o canhoto com o saldo; sem lançamento, sem canhoto', async () => {

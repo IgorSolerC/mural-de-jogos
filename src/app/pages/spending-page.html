@@ -67,9 +67,11 @@
       </div>
     </div>
     @if (filtering() && !blank() && !span()) {
-      <app-spending-filters
+      <app-facet-filters
         id="gastos-filtros"
         class="cartela"
+        label="Filtros da fita"
+        [units]="['lançamento', 'lançamentos']"
         [groups]="filterGroups()"
         [shown]="tapeRows().length"
         [total]="rows().length"

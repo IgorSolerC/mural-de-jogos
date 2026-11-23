@@ -27,6 +27,18 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-23-dicionario-japones',
+    version: '1.51.0',
+    kind: 'funcionalidade',
+    date: '2026-11-23',
+    title: 'Dicionário Japonês',
+    items: [
+      'Em Outros, o Dicionário Japonês: as 933 palavras da sua lista de estudo para consultar, em verbetes de dicionário (a palavra na letra de lápis com a leitura em cima, o romaji, o português, o carimbo do JLPT, o uso, a composição e as notas) ou numa tabela com todas as colunas. A busca acha em português, em romaji (até "sinbun" ou "tokyo"), em kana ou em kanji; a folha de filtros separa por JLPT, uso, importância, classe, tema, escrita, registro e grupo do verbo; e dá para ordenar por prioridade, importância, uso, internet, JLPT, leitura (あいうえお), português, classe ou tema. O endereço guarda tudo, então o link abre do mesmo jeito.',
+    ],
+    notice: 'Novo: o Dicionário Japonês, na prateleira de Outros.',
+    until: '2026-12-07',
+  },
+  {
     id: '2026-11-23-outros',
     version: '1.50.5',
     kind: 'ajustes',

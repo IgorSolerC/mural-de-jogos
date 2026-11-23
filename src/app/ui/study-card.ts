@@ -7,6 +7,7 @@ import { CardFace, CardLook, LEVEL_LABEL, deckLook, isPhraseTitle } from '../cor
 import { FitTitle } from './fit-title';
 import { ICON_CHOICE, IconModule } from './icons';
 import { IconChoice } from '../core/icon-choices';
+import { loadKleeOne } from './klee-one';
 
 /** O teto da letra do título em fração da altura da área: o que sobra do desenho, quase inteiro. */
 const TITLE_MAX_DEFAULT = 0.92;
@@ -18,19 +19,6 @@ const TITLE_MAX_DEFAULT = 0.92;
  * comprido ficam bem abaixo do teto, então continuam com o espaço novo.
  */
 const TITLE_MAX: Partial<Record<CardLook, number>> = { biblioteca: 0.595 };
-
-/**
- * A folha da Klee One (src/klee-one.scss, fora da página): o <link> entra na primeira carta que aparece,
- * e o navegador só baixa as fatias da letra dos caracteres japoneses e chineses que estiverem na tela.
- */
-function loadKleeOne(): void {
-  if (typeof document === 'undefined' || document.getElementById('folha-klee-one')) return;
-  const link = document.createElement('link');
-  link.id = 'folha-klee-one';
-  link.rel = 'stylesheet';
-  link.href = 'klee-one.css';
-  document.head.append(link);
-}
 
 /** O baralho como a carta precisa: o nome, a cor (a argola, a fita), o ícone e o desenho. */
 export interface CardDeck {

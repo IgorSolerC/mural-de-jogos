@@ -1,6 +1,6 @@
 import { Routes, UrlMatchResult, UrlSegment } from '@angular/router';
 import { onlyAdmin } from './core/admin';
-import { CALENDAR_PATH, PIXEL_ARTS_PATH, POMODORO_PATH, SPENDING_PATH, enterExtras, enterNotes, enterReviews, movedTo, toCalendar, toLastWall, toReviews } from './core/areas';
+import { CALENDAR_PATH, DICTIONARY_PATH, PIXEL_ARTS_PATH, POMODORO_PATH, SPENDING_PATH, enterExtras, enterNotes, enterReviews, movedTo, toCalendar, toLastWall, toReviews } from './core/areas';
 
 const wall = () => import('./pages/wall-page').then((m) => m.WallPage);
 const kanban = () => import('./pages/kanban-page').then((m) => m.KanbanPage);
@@ -141,6 +141,8 @@ export const routes: Routes = [
   // os Gastos e o Calendário (PLANO-OUTROS.md); sem o enterExtras, porque não dependem do mural
   { path: SPENDING_PATH.slice(1), title: 'Gastos', loadComponent: () => import('./pages/spending-page').then((m) => m.SpendingPage) },
   { path: CALENDAR_PATH.slice(1), title: 'Calendário', loadComponent: calendar },
+  // o Dicionário Japonês (PLANO-DICIONARIO.md): só de consulta, sem o enterExtras
+  { path: DICTIONARY_PATH.slice(1), title: 'Dicionário Japonês', loadComponent: () => import('./pages/dictionary-page').then((m) => m.DictionaryPage) },
   {
     // só a conta de admin; sem o enterExtras, porque a página não depende do mural
     path: 'extras/uso-das-apis',

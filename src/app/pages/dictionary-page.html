@@ -1,0 +1,211 @@
+<!-- o nome está na barra embaixo do topo (ui/area-bar.ts), com a volta para Outros -->
+<h1 class="sr-only">Dicionário Japonês</h1>
+
+<!-- a pasta, como na Wishlist e nas Pixel arts: a busca, o Filtrar, a ordem e a vista em tinta e, depois do picote,
+     o que a busca e os filtros acharam -->
+<div class="pasta solta">
+  <div class="pasta-linha">
+    <app-search-strip
+      class="pasta-busca"
+      inputId="busca-dicionario"
+      [glued]="true"
+      label="Procurar no dicionário"
+      placeholder="Português, romaji, かな ou 漢字…"
+      [value]="query()"
+      (valueChange)="setQuery($event)"
+    />
+
+    <div class="pasta-controles">
+      <div class="pasta-grupo">
+        <button #filterBtn type="button" class="tinta" [attr.aria-expanded]="filterOpen()" aria-controls="cartela-dicionario" (click)="toggleFilter($event)">
+          <lucide-icon [img]="FilterIcon" [size]="18" aria-hidden="true" />
+          <span>Filtrar</span>
+          @if (filterN()) {
+            <span class="tinta-n" aria-hidden="true">{{ filterN() }}</span>
+            <span class="sr-only">({{ filterN() }} ligados)</span>
+          }
+        </button>
+      </div>
+
+      <div class="pasta-grupo" role="group" aria-label="Ordenar">
+        <label class="tinta campo">
+          <span class="campo-pre">Ordenar</span>
+          <span class="campo-val" aria-hidden="true">{{ sortLabel() }}</span>
+          <lucide-icon class="campo-chev" [img]="ChevronIcon" [size]="15" aria-hidden="true" />
+          <select aria-label="Ordenar por" (change)="setSort($any($event.target).value)">
+            @for (o of sorts(); track o.value) {
+              <option [value]="o.value" [selected]="o.value === sort()">{{ o.label }}</option>
+            }
+          </select>
+        </label>
+        <button type="button" class="tinta so-icone" (click)="flip()" [attr.aria-label]="directionLabel() + '. Inverter ordem'" [title]="directionLabel()">
+          <lucide-icon [img]="state().dir === 'desc' ? DescIcon : AscIcon" [size]="18" aria-hidden="true" />
+        </button>
+      </div>
+
+      <div class="pasta-grupo" role="group" aria-label="Vista">
+        @for (v of views; track v.value) {
+          <button type="button" class="tinta vista" [attr.aria-pressed]="state().view === v.value" [attr.aria-label]="v.label" [title]="v.hint" (click)="setView(v.value)">
+            <lucide-icon [img]="v.icon" [size]="18" aria-hidden="true" />
+            <span class="vista-txt" aria-hidden="true">{{ v.label }}</span>
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+
+  @if (narrowing()) {
+    <!-- depois do picote: os filtros ligados, cada um com o seu X, e quantas a busca e os filtros deixaram -->
+    <div class="pasta-linha pasta-baixo">
+      @if (chips().length) {
+        <div class="pasta-filtros">
+          <app-filter-tags class="atalhos" [tags]="chips()" (remove)="removeChip($event)" />
+        </div>
+      }
+      <div class="pasta-estado">
+        <p class="achados" aria-live="polite">
+          <span>{{ countSaid() }}</span>
+          <button type="button" class="tinta-link" (click)="clearAll()">Limpar</button>
+        </p>
+      </div>
+    </div>
+  }
+</div>
+
+<!-- a folha dos filtros em linhas, presa embaixo da pasta (a mesma dos Gastos) -->
+@if (filterOpen()) {
+  <app-facet-filters
+    id="cartela-dicionario"
+    class="cartela"
+    animate.enter="desce"
+    animate.leave="sobe"
+    label="Filtros do dicionário"
+    [units]="units"
+    [groups]="groups()"
+    [shown]="shown().length"
+    [total]="all.length"
+    [active]="filtered()"
+    [focusFirst]="filterByKeyboard()"
+    (toggle)="toggle($event.key, $event.value)"
+    (clearAll)="clearFilters()"
+    (done)="closeFilter()"
+  />
+}
+
+@if (!shown().length) {
+  <!-- a busca e os filtros não acharam nada: o cartão das Anotações -->
+  <section class="no-results cartolina" aria-live="polite">
+    <app-pin class="pin" color="#f4f4f0" />
+    <h2>{{ noneTitle() }}</h2>
+    <p>{{ noneText() }}</p>
+    <div class="acoes-vazio">
+      <button type="button" class="btn-quiet" (click)="clearAll()">Limpar a busca e os filtros</button>
+    </div>
+  </section>
+} @else if (state().view === 'tabela') {
+  <!-- a Tabela: o livro-razão com todas as colunas; a cabeça ordena -->
+  <div class="razao" tabindex="0" role="region" aria-label="Tabela das palavras" [appRealceBusca]="query()" realceEm="td, tbody th">
+    <table>
+      <thead>
+        <tr>
+          @for (c of columns; track c.id) {
+            <th scope="col" [class]="'c-' + c.id" [class.num]="c.num" [attr.aria-sort]="ariaSort(c)">
+              @if (c.sort) {
+                <button type="button" class="cabeca" [class.ligada]="c.sort === sort()" (click)="sortBy(c)" [title]="c.sort === sort() ? directionLabel() + '. Inverter' : 'Ordenar por ' + c.label">
+                  {{ c.label }}
+                  @if (c.sort === sort()) {
+                    <lucide-icon [img]="state().dir === 'desc' ? DescIcon : AscIcon" [size]="14" aria-hidden="true" />
+                  }
+                </button>
+              } @else {
+                {{ c.label }}
+              }
+            </th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (w of shown(); track w.id) {
+          <tr>
+            <td class="c-n num">{{ w.order }}</td>
+            <th scope="row" class="c-palavra">
+              <span class="t-palavra" lang="ja">{{ w.text }}</span>
+              @if (w.text !== w.reading) {
+                <span class="t-leitura" lang="ja">{{ w.reading }}</span>
+              }
+            </th>
+            <td class="c-romaji">{{ w.romaji }}</td>
+            <td class="c-sentido">{{ w.meaning }}</td>
+            <td class="c-jlpt">{{ label('jlpt', w.jlpt) }}</td>
+            <td class="c-uso">{{ w.use }}</td>
+            <td class="c-imp num">{{ w.importance }}</td>
+            <td class="c-classe">{{ w.wordClass }}{{ w.verbGroup ? ' · ' + w.verbGroup : '' }}</td>
+            <td class="c-tema">{{ w.theme }}</td>
+            <td class="c-escrita">{{ label('script', w.script) }}</td>
+            <td class="c-registro">{{ w.registers.join(', ') }}</td>
+            <td class="c-rank num">{{ w.rank === null ? '–' : w.rank.toLocaleString('pt-BR') }}</td>
+            <td class="c-composicao" lang="ja">{{ w.composition }}</td>
+            <td class="c-notas">{{ w.notes }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+} @else {
+  <!-- os Verbetes: a página do dicionário, em seções da ordem escolhida -->
+  <div class="paginas" [appRealceBusca]="query()" realceEm=".palavra, .romaji, .sentido, .exemplos, .nota">
+    @for (s of sections(); track s.key?.id ?? 'todas'; let i = $index) {
+      <!-- o id pelo lugar da seção: o nome dela pode ter espaço ("Partícula composta") -->
+      <section class="secao" [attr.aria-labelledby]="s.key ? 'dic-secao-' + i : null" [attr.aria-label]="s.key ? null : 'Palavras'">
+        @if (s.key; as k) {
+          <app-section-head [label]="k.label" [count]="s.words.length" [detail]="k.detail ?? ''" [level]="2" [headingId]="'dic-secao-' + i" />
+        }
+        <ol class="folha" role="list">
+          @for (w of s.words; track w.id) {
+            <li class="verbete">
+              <div class="cabeca-verbete">
+                <span class="palavra" lang="ja">
+                  @if (ruby(w)) {
+                    <ruby>{{ w.text }}<rp>(</rp><rt>{{ w.reading }}</rt><rp>)</rp></ruby>
+                  } @else {
+                    {{ w.text }}
+                  }
+                </span>
+                <span class="romaji">{{ w.romaji }}</span>
+                <span class="marcas">
+                  <span class="selo-jlpt" [class.sem-nivel]="w.jlpt === '-'" [title]="'JLPT: ' + label('jlpt', w.jlpt)">
+                    <span class="sr-only">JLPT </span>{{ w.jlpt === '-' ? '–' : w.jlpt }}
+                  </span>
+                  <span class="uso" [title]="'Uso: ' + w.use">
+                    <span class="sr-only">Uso {{ w.use }}</span>
+                    @for (t of ticks; track t) {
+                      <i [class.cheio]="t <= w.frequency" aria-hidden="true"></i>
+                    }
+                  </span>
+                </span>
+              </div>
+              <p class="sentido">{{ w.meaning }}</p>
+              <p class="gramatica">
+                {{ grammar(w) }}
+                @if (registers(w); as r) {
+                  <span class="registro">· {{ r }}</span>
+                }
+              </p>
+              @if (w.composition) {
+                <p class="exemplos"><span class="rei" lang="ja" aria-hidden="true">例</span><span class="sr-only">Exemplos: </span><span lang="ja">{{ w.composition }}</span></p>
+              }
+              @if (w.notes) {
+                <p class="nota">{{ w.notes }}</p>
+              }
+              <p class="numeros">
+                <span>nº {{ w.order }}</span>
+                <span>importância {{ w.importance }}</span>
+                <span>{{ rankSaid(w) }}</span>
+              </p>
+            </li>
+          }
+        </ol>
+      </section>
+    }
+  </div>
+}

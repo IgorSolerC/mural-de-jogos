@@ -3,7 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { ICON, IconModule } from './icons';
 import { filter, map } from 'rxjs';
-import { AreaSection, CALENDAR_PATH, NOTE_SECTIONS, PIXEL_ARTS_PATH, REVIEW_SECTIONS, SPENDING_PATH, areaOf, isVisitPath, muralFree, pathOf, reviewPath, reviewPlace, sectionOf } from '../core/areas';
+import { AreaSection, CALENDAR_PATH, DICTIONARY_PATH, NOTE_SECTIONS, PIXEL_ARTS_PATH, REVIEW_SECTIONS, SPENDING_PATH, areaOf, isVisitPath, muralFree, pathOf, reviewPath, reviewPlace, sectionOf } from '../core/areas';
 import { PARTE_OUTROS } from '../../../shared/topo-do-murall';
 import { KINDS, Kind, SCORED_KINDS } from '../core/kinds';
 import { Mural } from '../core/mural';
@@ -11,13 +11,13 @@ import { KanbanStore } from '../core/kanban-store';
 import { CalendarStore } from '../core/calendar-store';
 import { Settings } from '../core/settings';
 import { KindSwitcher } from './kind-switcher';
-import { CalendarLogo, ExtrasLogo, KanbanLogo, NotesLogo, PixelArtsLogo, QueueLogo, ReviewsLogo, SpendingLogo, StudyLogo, WishlistLogo } from './section-logos';
+import { CalendarLogo, DictionaryLogo, ExtrasLogo, KanbanLogo, NotesLogo, PixelArtsLogo, QueueLogo, ReviewsLogo, SpendingLogo, StudyLogo, WishlistLogo } from './section-logos';
 import { SpendingStore } from '../core/spending-store';
 import { StudyStore } from '../core/study-store';
 import { countTotal, dayQueue } from '../core/study-queue';
 
 /** Qual logo a barra mostra. */
-type SectionLogo = 'analises' | 'fila' | 'wishlist' | 'notas' | 'kanban' | 'estudos' | 'calendario' | 'gastos' | 'extras' | 'pixel-arts';
+type SectionLogo = 'analises' | 'fila' | 'wishlist' | 'notas' | 'kanban' | 'estudos' | 'calendario' | 'gastos' | 'extras' | 'pixel-arts' | 'dicionario';
 
 /** Uma aba do índice, já com o endereço e se é a aberta. */
 interface Tab {
@@ -51,7 +51,7 @@ interface Summary {
  */
 @Component({
   selector: 'app-area-bar',
-  imports: [CalendarLogo, ExtrasLogo, IconModule, KanbanLogo, KindSwitcher, NotesLogo, PixelArtsLogo, QueueLogo, ReviewsLogo, RouterLink, SpendingLogo, StudyLogo, WishlistLogo],
+  imports: [CalendarLogo, DictionaryLogo, ExtrasLogo, IconModule, KanbanLogo, KindSwitcher, NotesLogo, PixelArtsLogo, QueueLogo, ReviewsLogo, RouterLink, SpendingLogo, StudyLogo, WishlistLogo],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class.vazio]': '!shown()' },
   template: `
@@ -118,6 +118,9 @@ interface Summary {
               }
               @case ('pixel-arts') {
                 <app-pixel-arts-logo class="logo" />
+              }
+              @case ('dicionario') {
+                <app-dictionary-logo class="logo" />
               }
             }
           </div>
@@ -566,10 +569,11 @@ export class AreaBar {
       const slug = sectionOf(this.path(), NOTE_SECTIONS)?.slug;
       return slug === 'kanban' ? 'kanban' : slug === 'estudos' ? 'estudos' : 'notas';
     }
-    // o Calendário, os Gastos e a galeria de pixel arts têm o logo deles; o resto de Outros, o bilhete
+    // o Calendário, os Gastos, a galeria de pixel arts e o Dicionário Japonês têm o logo deles; o resto de Outros, o bilhete
     if (this.path() === CALENDAR_PATH) return 'calendario';
     if (this.path() === SPENDING_PATH) return 'gastos';
     if (this.path() === PIXEL_ARTS_PATH) return 'pixel-arts';
+    if (this.path() === DICTIONARY_PATH) return 'dicionario';
     return this.inExtras() ? 'extras' : null;
   });
 

@@ -52,6 +52,12 @@
               <span class="dymo-fita" aria-hidden="true">Pixel arts</span>
             </a>
           }
+          @case ('dicionario') {
+            <a class="coisa coisa-dicionario" [routerLink]="dictionaryPath" aria-label="Dicionário Japonês: para consultar as palavras">
+              <span class="em-pe" aria-hidden="true"><app-japanese-dictionary /></span>
+              <span class="dymo-fita" aria-hidden="true">Dicionário</span>
+            </a>
+          }
           @case ('uso-das-apis') {
             <a class="coisa coisa-prancheta" [routerLink]="apiUsagePath" aria-label="Uso das APIs: só você vê">
               <span class="em-pe">

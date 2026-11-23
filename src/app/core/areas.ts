@@ -143,13 +143,16 @@ export const POMODORO_PATH = '/extras/pomodoro';
 /** A galeria de pixel arts (PLANO-PIXEL-ARTS.md): mora em Extras; as obras são da conta, não de um mural. */
 export const PIXEL_ARTS_PATH = '/extras/pixel-arts';
 
+/** O Dicionário Japonês (PLANO-DICIONARIO.md): só de consulta, não é de mural nenhum. */
+export const DICTIONARY_PATH = '/extras/dicionario';
+
 /**
- * As páginas de Outros que não dependem de mural nenhum (o Uso das APIs, o Pomodoro, as Pixel arts, os Gastos e o
- * Calendário): sem o seletor de murais na barra e sem o mural no título da aba.
+ * As páginas de Outros que não dependem de mural nenhum (o Uso das APIs, o Pomodoro, as Pixel arts, os Gastos, o
+ * Calendário e o Dicionário Japonês): sem o seletor de murais na barra e sem o mural no título da aba.
  */
 export function muralFree(path: string): boolean {
   const p = pathOf(path);
-  return p === API_USAGE_PATH || p === POMODORO_PATH || p === PIXEL_ARTS_PATH || p === SPENDING_PATH || p === CALENDAR_PATH;
+  return p === API_USAGE_PATH || p === POMODORO_PATH || p === PIXEL_ARTS_PATH || p === SPENDING_PATH || p === CALENDAR_PATH || p === DICTIONARY_PATH;
 }
 
 /** Em que parte do site fica o caminho (nenhuma, no Perfil, em Amigos, nos Ajustes e nas Novidades). */
