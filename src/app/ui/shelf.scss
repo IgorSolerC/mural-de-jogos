@@ -1,0 +1,93 @@
+@use 'madeira';
+
+/* A prateleira de Outros (ui/shelf.ts). */
+
+$tampo: 16px;
+$frente: 26px;
+/* quanto a beirada de trás encolhe de cada lado: a profundidade, vista de cima */
+$fundo: 18px;
+
+:host {
+  position: relative;
+  display: block;
+}
+
+/* as coisas de pé: o mesmo vão entre elas e nas pontas; descem 12px sobre o tampo */
+.coisas {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-evenly;
+  margin-bottom: -12px;
+}
+
+.tabua {
+  position: relative;
+  height: $tampo + $frente;
+}
+
+/* o tampo visto de cima: um trapézio, a beirada de trás mais curta e mais escura (mais longe da luz) */
+.tampo {
+  position: absolute;
+  inset: 0 0 auto;
+  height: $tampo;
+  clip-path: polygon(#{$fundo} 0, calc(100% - #{$fundo}) 0, 100% 100%, 0 100%);
+  @include madeira.veios(madeira.$clara);
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgb(60 30 5 / 0.38), rgb(60 30 5 / 0.08) 55%, rgb(255 240 210 / 0.18));
+  }
+}
+
+/* a frente: grossa, com a quina de cima pegando luz e as pontas um pouco mais escuras; as fitas colam nela */
+.frente {
+  position: absolute;
+  inset: $tampo 0 0;
+  border-radius: 0 0 2px 2px;
+  @include madeira.veios(madeira.$media);
+  box-shadow:
+    inset 0 2px 0 rgb(255 232 196 / 0.55),
+    inset 0 -3px 0 rgb(0 0 0 / 0.22),
+    inset 3px 0 0 rgb(0 0 0 / 0.1),
+    inset -3px 0 0 rgb(0 0 0 / 0.1),
+    0 20px 24px -10px rgb(0 0 0 / 0.75);
+}
+
+/* o suporte: a barra na parede e o reforço que sobe para baixo da tábua, do lado de dentro */
+.suporte {
+  position: absolute;
+  top: $tampo + $frente;
+  width: 26px;
+  height: 56px;
+  filter: drop-shadow(1px 3px 3px rgb(0 0 0 / 0.55));
+
+  .barra {
+    fill: #6d6a64;
+  }
+
+  .luz {
+    fill: rgb(255 255 255 / 0.14);
+  }
+
+  .reforco {
+    fill: #4f4c47;
+  }
+
+  circle {
+    fill: #2b2a28;
+  }
+
+  /* o desenho tem o reforço à esquerda: o da esquerda vira para apontar para dentro */
+  &[data-lado='esq'] {
+    left: 7%;
+    scale: -1 1;
+  }
+
+  &[data-lado='dir'] {
+    right: 7%;
+  }
+}

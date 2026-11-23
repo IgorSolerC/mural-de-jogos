@@ -210,7 +210,7 @@ describe('a página de Extras', () => {
     const t = await open({ account: { codigo: 'G11T-G00D', nome: 'Igor', admin: true } });
     const p = t.linha('/extras/uso-das-apis')!;
     expect(p).not.toBeNull();
-    expect(p.closest('.estante')).not.toBeNull();
+    expect(p.closest('app-shelf')).not.toBeNull();
     expect(p.getAttribute('aria-label')).toBe('Uso das APIs: só você vê');
   });
 
@@ -226,7 +226,8 @@ describe('a página de Extras', () => {
     const t = await open({ signedIn: false });
     const tomate = () => t.linha('/extras/pomodoro')!;
     expect(tomate().getAttribute('aria-label')).toBe('Pomodoro: desligado');
-    expect(tomate().querySelector('.dymo-fita')?.textContent?.replace(/\s+/g, ' ').trim()).toBe('Pomodoro · desligado');
+    // a fita diz só o nome; o estado fica no nome do link
+    expect(tomate().querySelector('.dymo-fita')?.textContent?.trim()).toBe('Pomodoro');
     const store = TestBed.inject(PomodoroStore);
     store.start();
     await t.fixture.whenStable();
@@ -237,9 +238,11 @@ describe('a página de Extras', () => {
     expect(tomate().getAttribute('aria-label')).toBe('Pomodoro: desligado');
   });
 
-  it('o cavalete mostra a obra mais nova e conta as obras; sem obra, a tela em branco', async () => {
+  it('o monitor mostra a obra mais nova e o link conta as obras; sem obra, a tela pede a primeira', async () => {
     const t = await open({ signedIn: false });
-    expect(t.host.querySelector('.t-grande.em-branco')).not.toBeNull();
+    const tela = () => t.linha('/extras/pixel-arts')!.querySelector('app-crt-monitor')!;
+    expect(tela().querySelector('app-pixel-thumb')).toBeNull();
+    expect(tela().textContent?.trim()).toBe('desenhe a primeira');
     TestBed.inject(PixelGallery).state.set({
       pieces: [
         { id: 'p1', title: 'Gato', art: ['2x2', '12/21'], createdAt: at, at },
@@ -249,8 +252,17 @@ describe('a página de Extras', () => {
     });
     await t.fixture.whenStable();
     expect(t.label('/extras/pixel-arts')).toBe('Pixel arts: 2 obras');
-    expect(t.host.querySelector('.t-grande.em-branco')).toBeNull();
-    expect(t.host.querySelectorAll('.cavalete app-pixel-thumb').length).toBe(1);
-    expect(t.host.querySelectorAll('.encostadas app-pixel-thumb').length).toBe(1);
+    // uma tela só, com a mais nova (a Espada, 1×1)
+    const thumbs = tela().querySelectorAll('app-pixel-thumb svg');
+    expect(thumbs.length).toBe(1);
+    expect(thumbs[0].getAttribute('viewBox')).toBe('0 0 1 1');
+    // e a arte ocupa a tela (não some com altura zero)
+    expect(thumbs[0].getBoundingClientRect().height).toBeGreaterThan(40);
+  });
+
+  it('as fitas da prateleira dizem só o nome', async () => {
+    const t = await open({ account: { codigo: 'G11T-G00D', nome: 'Igor', admin: true } });
+    const fitas = [...t.host.querySelectorAll('app-shelf .dymo-fita')].map((f) => f.textContent?.trim());
+    expect(fitas).toEqual(['Pomodoro', 'Pixel arts', 'Uso das APIs']);
   });
 });

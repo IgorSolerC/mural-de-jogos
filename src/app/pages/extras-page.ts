@@ -11,6 +11,7 @@ import { DuelPiece, duelPieces, friendsPreview, knockoutPreview, muraldlePreview
 import { RECORDS_KEY, getRecord, recordKey } from '../core/game-records';
 import { SCORED_KINDS } from '../core/kinds';
 import { KNOCKOUT_SAVE_KEY, loadKnockout } from '../core/knockout-save';
+import { mediaSignal } from '../core/media';
 import { Mural } from '../core/mural';
 import { Mark, columnsFor } from '../core/muraldle';
 import { MURALDLE_SAVE_KEY, loadDaily, loadStats } from '../core/muraldle-save';
@@ -22,9 +23,10 @@ import { PomodoroStore } from '../core/pomodoro-store';
 import { originalsOf } from '../core/review';
 import { ICON, IconModule } from '../ui/icons';
 import { KindSwitcher } from '../ui/kind-switcher';
-import { PixelThumb } from '../ui/pixel-thumb';
 import { PlasticLetters } from '../ui/plastic-letters';
 import { PomodoroDial } from '../ui/pomodoro-dial';
+import { Shelf, shelfRows } from '../ui/shelf';
+import { CrtMonitor } from '../ui/shelf-pieces';
 
 /** Uma linha do letreiro: o nome em letras de plástico e, embaixo, como está. */
 interface Linha {
@@ -77,14 +79,14 @@ interface Letreiro {
 const vezes = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
 
 /**
- * Extras (PLANO-EXTRAS.md): em cima, a prateleira "Sempre à mão" com o que serve para qualquer mural (o tomate do
- * Pomodoro, o cavalete das Pixel arts e, só para a conta de admin, a prancheta do Uso das APIs); embaixo, o seletor
+ * Extras (PLANO-EXTRAS.md, PLANO-OUTROS.md): em cima, a prateleira "Sempre à mão" com o que serve para qualquer mural
+ * (o tomate do Pomodoro, o monitor das Pixel arts e, só para a conta de admin, a prancheta do Uso das APIs); embaixo, o seletor
  * de mural e os dois letreiros de feltro, Jogar e Números, com o estado de cada um. A página só lê: o que os jogos
  * guardam, o mural aberto, os amigos abertos em Comparar, o Pomodoro e a galeria.
  */
 @Component({
   selector: 'app-extras-page',
-  imports: [IconModule, KindSwitcher, PixelThumb, PlasticLetters, PomodoroDial, RouterLink],
+  imports: [CrtMonitor, IconModule, KindSwitcher, PlasticLetters, PomodoroDial, RouterLink, Shelf],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './extras-page.html',
   styleUrl: './extras-page.scss',
@@ -146,15 +148,23 @@ export class ExtrasPage {
     };
   });
 
-  /** A obra mais nova no cavalete e as duas de antes encostadas na parede. */
+  /** A obra mais nova, na tela do monitor. */
   protected readonly galeria = computed(() => {
     const pieces = this.gallery.pieces();
-    const recentes = pieces.slice(-3).reverse().map(pixelArtOf);
+    const last = pieces.at(-1);
     return {
-      cavalete: recentes[0] ?? null,
-      encostadas: recentes.slice(1),
+      tela: last ? pixelArtOf(last) : null,
       estado: pieces.length ? vezes(pieces.length, 'obra', 'obras') : 'nenhuma obra ainda',
     };
+  });
+
+  /** No celular a prateleira se divide em tábuas de até três (ui/shelf.ts). */
+  private readonly narrow = mediaSignal('(max-width: 720px)');
+
+  /** O que vai na prateleira, na ordem, já nas tábuas. */
+  protected readonly tabuas = computed(() => {
+    const coisas = ['pomodoro', 'pixel-arts', ...(this.admin() ? ['uso-das-apis'] : [])];
+    return shelfRows(coisas, this.narrow());
   });
 
   private readonly jogos = computed<Linha[]>(() => {

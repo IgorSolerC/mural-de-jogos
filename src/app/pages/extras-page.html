@@ -8,85 +8,46 @@
     <span class="mao-nota">servem para qualquer mural</span>
   </header>
 
-  <div class="estante">
-    <div class="estante-coisas">
-      <div class="coluna">
-        @let p = pomo();
-        <a class="coisa coisa-tomate" [routerLink]="pomodoroPath" [attr.aria-label]="'Pomodoro: ' + p.estado">
-          <span class="em-pe">
-            <span class="sombra-chao" aria-hidden="true"></span>
-            <app-pomodoro-dial class="tomate" skin="tomate" [ms]="p.ms" [total]="p.total" [phase]="p.phase" [paused]="p.paused" [idle]="!p.on" />
-          </span>
-          <span class="dymo-fita" aria-hidden="true"><span class="nome">Pomodoro</span><span class="sep">&nbsp;·&nbsp;</span><span>{{ p.estado }}</span></span>
-        </a>
-
-        @if (admin()) {
-          <a class="coisa coisa-prancheta" [routerLink]="apiUsagePath" aria-label="Uso das APIs: só você vê">
-            <span class="em-pe">
-              <span class="prancheta" aria-hidden="true">
-                <span class="prendedor"></span>
-                <span class="folha">
-                  <i style="--h: 40%"></i><i style="--h: 75%"></i><i style="--h: 55%"></i><i style="--h: 90%"></i><i style="--h: 30%"></i>
+  <!-- uma tábua no computador; no celular, tábuas de até três (ui/shelf.ts). A fita diz só o nome; o estado vai no
+       nome do link -->
+  @for (fila of tabuas(); track $index) {
+    <app-shelf>
+      @for (coisa of fila; track coisa) {
+        @switch (coisa) {
+          @case ('pomodoro') {
+            @let p = pomo();
+            <a class="coisa coisa-tomate" [routerLink]="pomodoroPath" [attr.aria-label]="'Pomodoro: ' + p.estado">
+              <span class="em-pe">
+                <span class="sombra-chao" aria-hidden="true"></span>
+                <app-pomodoro-dial class="tomate" skin="tomate" [ms]="p.ms" [total]="p.total" [phase]="p.phase" [paused]="p.paused" [idle]="!p.on" />
+              </span>
+              <span class="dymo-fita" aria-hidden="true">Pomodoro</span>
+            </a>
+          }
+          @case ('pixel-arts') {
+            @let g = galeria();
+            <a class="coisa coisa-arte" [routerLink]="pixelArtsPath" [attr.aria-label]="'Pixel arts: ' + g.estado">
+              <span class="em-pe" aria-hidden="true"><app-crt-monitor [art]="g.tela" /></span>
+              <span class="dymo-fita" aria-hidden="true">Pixel arts</span>
+            </a>
+          }
+          @case ('uso-das-apis') {
+            <a class="coisa coisa-prancheta" [routerLink]="apiUsagePath" aria-label="Uso das APIs: só você vê">
+              <span class="em-pe">
+                <span class="prancheta" aria-hidden="true">
+                  <span class="prendedor"></span>
+                  <span class="folha">
+                    <i style="--h: 40%"></i><i style="--h: 75%"></i><i style="--h: 55%"></i><i style="--h: 90%"></i><i style="--h: 30%"></i>
+                  </span>
                 </span>
               </span>
-            </span>
-            <span class="dymo-fita" aria-hidden="true"><span class="nome">Uso das APIs</span><span class="sep">&nbsp;·&nbsp;</span><span>só você vê</span></span>
-          </a>
+              <span class="dymo-fita" aria-hidden="true">Uso das APIs</span>
+            </a>
+          }
         }
-      </div>
-
-      <div class="coluna">
-        @let g = galeria();
-        <a class="coisa coisa-arte" [routerLink]="pixelArtsPath" [attr.aria-label]="'Pixel arts: ' + g.estado">
-          <span class="em-pe">
-            <span class="encostadas" aria-hidden="true">
-              @if (g.encostadas[0]; as a) {
-                <span class="tela t-1"><app-pixel-thumb [art]="a" /></span>
-              }
-              @if (g.encostadas[1]; as a) {
-                <span class="tela t-2"><app-pixel-thumb [art]="a" /></span>
-              }
-            </span>
-            <span class="cavalete" aria-hidden="true">
-              <span class="perna p-tras"></span>
-              <span class="perna p-esq"></span>
-              <span class="perna p-dir"></span>
-              <span class="trave"></span>
-              <span class="tela t-grande" [class.em-branco]="!g.cavalete">
-                @if (g.cavalete; as a) {
-                  <app-pixel-thumb [art]="a" />
-                } @else {
-                  <span class="primeira">desenhe a primeira</span>
-                }
-              </span>
-              <span class="aparador"></span>
-            </span>
-            <span class="pote" aria-hidden="true">
-              <span class="lapis l-1"></span>
-              <span class="lapis l-2"></span>
-              <span class="lapis l-3"></span>
-              <span class="lapis l-4"></span>
-              <span class="lata"></span>
-            </span>
-          </span>
-          <span class="dymo-fita" aria-hidden="true"><span class="nome">Pixel arts</span><span class="sep">&nbsp;·&nbsp;</span><span>{{ g.estado }}</span></span>
-        </a>
-      </div>
-    </div>
-
-    <div class="tabua" aria-hidden="true">
-      <span class="tampo"></span>
-      <span class="frente"></span>
-      @for (lado of ['m-1', 'm-2']; track lado) {
-        <svg class="mao-francesa" [attr.data-lado]="lado" viewBox="0 0 40 52">
-          <path d="M3 0 H37 V8 H11 V50 H3 Z" />
-          <path class="reforco" d="M11 8 L33 8 L11 40 Z" />
-          <circle cx="7" cy="20" r="1.8" />
-          <circle cx="7" cy="40" r="1.8" />
-        </svg>
       }
-    </div>
-  </div>
+    </app-shelf>
+  }
 </section>
 
 <!-- ===== O seletor e os dois letreiros: o que depende do mural ===== -->
