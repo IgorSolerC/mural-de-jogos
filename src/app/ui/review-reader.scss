@@ -1003,8 +1003,9 @@ dialog.reader.ao-lado {
   }
 }
 
-/* Os remendos do trecho selecionado: "Citar" e "Nova nota", cada um o seu remendo de feltro, com um vão entre eles,
-   brotando juntos no fim do trecho */
+/* Os remendos do trecho selecionado: "Citar", "Nova nota" e, quando o trecho é uma palavra do Dicionário Japonês,
+   "No dicionário" e "Aprendida"; cada um o seu remendo de feltro, com um vão entre eles, brotando juntos no fim do
+   trecho */
 .remendos {
   position: absolute;
   z-index: 8;
@@ -1014,7 +1015,9 @@ dialog.reader.ao-lado {
 }
 
 .citar,
-.anotar {
+.anotar,
+.consultar,
+.aprender {
   @include felt.remendo(-4px);
   display: inline-flex;
   align-items: center;
@@ -1043,9 +1046,26 @@ dialog.reader.ao-lado {
   }
 }
 
+/* o carimbinho verde do 覚, o mesmo do selo de aprendida do dicionário (ui/word-seals.ts) */
+.mini-selo {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: #1f7a45;
+  color: #f6f0e1;
+  font-family: 'Klee One', 'Yu Mincho', serif;
+  font-size: 0.72rem;
+  line-height: 1;
+  rotate: -6deg;
+}
+
 @media (pointer: coarse) {
   .citar,
-  .anotar {
+  .anotar,
+  .consultar,
+  .aprender {
     height: 44px;
     border-radius: 22px;
   }
@@ -1062,7 +1082,9 @@ dialog.reader.ao-lado {
 @media (prefers-reduced-motion: reduce) {
   .lado,
   .citar,
-  .anotar {
+  .anotar,
+  .consultar,
+  .aprender {
     animation: none;
   }
 }

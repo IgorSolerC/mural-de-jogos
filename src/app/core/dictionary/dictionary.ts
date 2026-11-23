@@ -222,6 +222,22 @@ export function matchScore(k: WordKeys, query: string): number {
   return total;
 }
 
+/**
+ * As palavras que um trecho selecionado É (PLANO-DICIONARIO.md, 4.3): o trecho inteiro igual à palavra escrita, à
+ * leitura (katakana = hiragana), ao romaji ou a um dos sentidos em português ("comer", "café da manhã"). Não acha
+ * pedaço: "comer algo" não é "comer". Na ordem de estudo.
+ */
+export function lookupWords(words: readonly Word[], keys: ReadonlyMap<string, WordKeys>, text: string): Word[] {
+  const t = text.trim();
+  if (!t || t.length > 40) return [];
+  const ja = foldJa(t.replace(/〜/g, ''));
+  const plain = fold(t).replace(/\s+/g, ' ');
+  return words.filter((w) => {
+    const k = keys.get(w.id);
+    return !!k && (k.ja.includes(ja) || k.romaji === plain || k.senses.includes(plain));
+  });
+}
+
 /* ===================== Os filtros ===================== */
 
 export type FacetKey = 'learned' | 'favorite' | 'jlpt' | 'use' | 'importance' | 'wordClass' | 'theme' | 'script' | 'register' | 'verbGroup';
@@ -247,14 +263,14 @@ export interface MarkLookup {
   favorite(id: string): boolean;
 }
 
-/** Sem marcas: aprendida é o que o CSV diz, e nenhuma favorita. */
-export const CSV_MARKS: MarkLookup = { learned: (w) => !!w.learnedOn, favorite: () => false };
+/** Sem marcas: nenhuma aprendida e nenhuma favorita (o CSV só marca para quem estuda por ele, ver core/dictionary/marks.ts). */
+export const NO_MARK_LOOKUP: MarkLookup = { learned: () => false, favorite: () => false };
 
 /** Os valores fixos das linhas das marcas: elas aparecem mesmo sem nenhuma palavra marcada ainda. */
 const MARK_VALUES: Partial<Record<FacetKey, string[]>> = { learned: ['sim', 'nao'], favorite: ['sim'] };
 
 /** Os valores de uma palavra numa linha dos filtros (o registro pode ter vários). */
-export function facetValues(w: Word, key: FacetKey, marks: MarkLookup = CSV_MARKS): string[] {
+export function facetValues(w: Word, key: FacetKey, marks: MarkLookup = NO_MARK_LOOKUP): string[] {
   switch (key) {
     case 'learned':
       return [marks.learned(w) ? 'sim' : 'nao'];
@@ -340,7 +356,7 @@ export function toggleFacet(f: DictFilter, key: FacetKey, value: string): DictFi
 }
 
 /** A palavra passa nos filtros: dentro de uma linha, qualquer um dos escolhidos; entre as linhas, todas. */
-export function passes(w: Word, f: DictFilter, except?: FacetKey, marks: MarkLookup = CSV_MARKS): boolean {
+export function passes(w: Word, f: DictFilter, except?: FacetKey, marks: MarkLookup = NO_MARK_LOOKUP): boolean {
   for (const facet of FACETS) {
     if (facet.key === except) continue;
     const chosen = f[facet.key];
@@ -356,7 +372,7 @@ export function passes(w: Word, f: DictFilter, except?: FacetKey, marks: MarkLoo
  * palavras mostraria junto com a busca e as outras linhas. O Grupo do verbo só aparece quando há verbo à vista ou
  * um grupo escolhido.
  */
-export function facetGroups(all: readonly Word[], found: readonly Word[], f: DictFilter, marks: MarkLookup = CSV_MARKS): FacetGroup<FacetKey>[] {
+export function facetGroups(all: readonly Word[], found: readonly Word[], f: DictFilter, marks: MarkLookup = NO_MARK_LOOKUP): FacetGroup<FacetKey>[] {
   return FACETS.map((facet) => {
     const counts = new Map<string, number>();
     for (const w of found) if (passes(w, f, facet.key, marks)) for (const v of facetValues(w, facet.key, marks)) counts.set(v, (counts.get(v) ?? 0) + 1);

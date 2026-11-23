@@ -1,8 +1,9 @@
 import { DestroyRef, Injectable, computed, effect, inject, signal } from '@angular/core';
+import { CloudAccount } from '../cloud-account';
 import { localDay, stampAfter } from '../dates';
 import { onOtherTab, writeJson } from '../storage';
 import { fromOtherTab } from '../tab-join';
-import { DictMarksState, MarkedWord, NO_MARKS, WordMark, isLearned, learnedDay, markSays, mergeDictMarks, sanitizeDictMarks, withMark } from './marks';
+import { CSV_LEARNERS, DictMarksState, MarkedWord, NO_MARKS, WordMark, csvDay, isLearned, learnedDay, markSays, mergeDictMarks, sanitizeDictMarks, withMark } from './marks';
 
 /** As marcas deste navegador (saem na limpeza do logout pelo prefixo). */
 export const DICT_MARKS_KEY = 'meu-mural:dicionario:v1';
@@ -22,6 +23,9 @@ function read(): DictMarksState {
  */
 @Injectable({ providedIn: 'root' })
 export class DictionaryMarks {
+  private readonly account = inject(CloudAccount);
+  /** A coluna `aprendida` do CSV vale para a conta aberta (só as de `CSV_LEARNERS`; sem conta, não). */
+  readonly csvApplies = computed(() => CSV_LEARNERS.has(this.account.account()?.codigo ?? ''));
   readonly state = signal<DictMarksState>(read());
   /** As marcas pelo id da palavra. */
   readonly byId = computed(() => new Map(this.state().marks.map((m) => [m.id, m])));
@@ -39,11 +43,11 @@ export class DictionaryMarks {
   }
 
   learned(w: MarkedWord): boolean {
-    return isLearned(w, this.get(w.id));
+    return isLearned(w, this.get(w.id), this.csvApplies());
   }
 
   learnedDay(w: MarkedWord): string | null {
-    return learnedDay(w, this.get(w.id));
+    return learnedDay(w, this.get(w.id), this.csvApplies());
   }
 
   favorite(id: string): boolean {
@@ -53,7 +57,7 @@ export class DictionaryMarks {
   /** Marca (ou desmarca) como aprendida e devolve como desfazer: a marca volta como era, se ninguém mexeu nela no meio. */
   setLearned(w: MarkedWord, learned: boolean): () => void {
     // voltar ao que o CSV diz apaga a escolha (e o CSV volta a dar o dia de antes)
-    if (learned === !!w.learnedOn) return this.change(w.id, { learned: undefined, learnedOn: undefined, favorite: this.favorite(w.id) });
+    if (learned === !!csvDay(w, this.csvApplies())) return this.change(w.id, { learned: undefined, learnedOn: undefined, favorite: this.favorite(w.id) });
     return this.change(w.id, { learned, learnedOn: learned ? localDay(new Date()) : undefined, favorite: this.favorite(w.id) });
   }
 

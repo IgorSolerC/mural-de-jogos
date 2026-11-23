@@ -173,58 +173,7 @@
         }
         <ol class="folha" role="list">
           @for (w of s.words; track w.id) {
-            <li class="verbete">
-              <div class="cabeca-verbete">
-                <span class="palavra" lang="ja">
-                  @if (ruby(w)) {
-                    <ruby>{{ w.text }}<rp>(</rp><rt>{{ w.reading }}</rt><rp>)</rp></ruby>
-                  } @else {
-                    {{ w.text }}
-                  }
-                </span>
-                <span class="romaji">{{ w.romaji }}</span>
-                <span class="marcas">
-                  <app-word-seals
-                    [word]="w.text"
-                    [learned]="learned(w)"
-                    [favorite]="favorite(w)"
-                    [learnedSaid]="learnedSaid(w)"
-                    (learnedChange)="setLearned(w, $event)"
-                    (favoriteChange)="setFavorite(w, $event)"
-                  />
-                  <span class="selo-jlpt" [class.sem-nivel]="w.jlpt === '-'" [title]="'JLPT: ' + label('jlpt', w.jlpt)">
-                    <span class="sr-only">JLPT </span>{{ w.jlpt === '-' ? '–' : w.jlpt }}
-                  </span>
-                  <span class="uso" [title]="'Uso: ' + w.use">
-                    <span class="sr-only">Uso {{ w.use }}</span>
-                    @for (t of ticks; track t) {
-                      <i [class.cheio]="t <= w.frequency" aria-hidden="true"></i>
-                    }
-                  </span>
-                </span>
-              </div>
-              <p class="sentido">{{ w.meaning }}</p>
-              <p class="gramatica">
-                {{ grammar(w) }}
-                @if (registers(w); as r) {
-                  <span class="registro">· {{ r }}</span>
-                }
-              </p>
-              @if (w.composition) {
-                <p class="exemplos"><span class="rei" lang="ja" aria-hidden="true">例</span><span class="sr-only">Exemplos: </span><span lang="ja">{{ w.composition }}</span></p>
-              }
-              @if (w.notes) {
-                <p class="nota">{{ w.notes }}</p>
-              }
-              <p class="numeros">
-                <span>nº {{ w.order }}</span>
-                <span>importância {{ w.importance }}</span>
-                @if (learnedSaid(w); as quando) {
-                  <span class="quando">aprendida {{ quando }}</span>
-                }
-                <span>{{ rankSaid(w) }}</span>
-              </p>
-            </li>
+            <li class="verbete" app-word-entry [word]="w"></li>
           }
         </ol>
       </section>

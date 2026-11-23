@@ -74,6 +74,10 @@ import { ShareSheet } from './share-sheet';
 import { CardPicker } from './card-picker';
 // a folhinha da nota nova a partir de um trecho (PLANO-NOTA-DE-REFERENCIA.md), num pedaço à parte, só quando abre
 import { QuickNoteSheet } from './quick-note-sheet';
+import type { Word } from '../core/dictionary/dictionary';
+import { DictionaryMarks } from '../core/dictionary/marks-store';
+import { markLearned } from './word-marking';
+import { WordSheet } from './word-sheet';
 import type { QuickNoteLinked } from './quick-note-sheet';
 import { ConflictSheet } from './conflict-sheet';
 import { LinkSheet } from './link-sheet';
@@ -154,6 +158,8 @@ interface PickedPiece {
   top: number;
   quote: boolean;
   spot: TextSpot | null;
+  /** As palavras do Dicionário Japonês que o trecho é (vazio: não é nenhuma). */
+  words: Word[];
 }
 
 /** A folhinha da nota nova pedida: onde o trecho está, o texto em que ele foi achado e a anotação de onde saiu. */
@@ -181,7 +187,7 @@ interface AlonePlea {
 
 @Component({
   selector: 'app-review-reader',
-  imports: [BackdropClose, CardConfig, CardPicker, QuickNoteSheet, CommentsPanel, ReaderDetails, ConflictSheet, LinkSheet, ShareSheet, OrganizeSheet, IconModule, KanbanDepsBadge, MoreMenu, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, ReviewCard, Skulls, StatusLabel, VozFita],
+  imports: [BackdropClose, CardConfig, CardPicker, QuickNoteSheet, WordSheet, CommentsPanel, ReaderDetails, ConflictSheet, LinkSheet, ShareSheet, OrganizeSheet, IconModule, KanbanDepsBadge, MoreMenu, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, ReviewCard, Skulls, StatusLabel, VozFita],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog
@@ -566,7 +572,26 @@ interface AlonePlea {
                 Nova nota
               </button>
             }
+            <!-- o trecho é uma palavra do Dicionário Japonês: o resumo dela e, se é uma só e falta aprender, marcar -->
+            @if (p.words.length) {
+              <button type="button" class="consultar" (pointerdown)="$event.preventDefault()" (click)="consultSelection()" title="Ver o que o Dicionário Japonês sabe sobre a palavra">
+                <lucide-icon [img]="DictIcon" [size]="17" aria-hidden="true" />
+                No dicionário
+              </button>
+              @if (toLearn(p.words); as w) {
+                <button type="button" class="aprender" (pointerdown)="$event.preventDefault()" (click)="learnSelection(w)" [title]="'Marcar ' + w.text + ' como aprendida'">
+                  <span class="mini-selo" lang="ja" aria-hidden="true">覚</span>
+                  Aprendida
+                </button>
+              }
+            }
           </div>
+        }
+        <!-- a folhinha do verbete do trecho, num pedaço à parte, só quando abre -->
+        @if (wordSheet(); as ws) {
+          @defer (on immediate) {
+            <app-word-sheet [words]="ws.words" [query]="ws.query" (closed)="wordSheet.set(null)" />
+          }
         }
         </div>
 
@@ -1295,6 +1320,14 @@ export class ReviewReader {
     () => this.lendo() && this.note() && this.owner() === null && !this.solta() && this.writable() && !this.masked(),
   );
   protected readonly NewNoteIcon = ICON.novaNota;
+  protected readonly DictIcon = ICON.livros;
+  // ===== O Dicionário Japonês na seleção (PLANO-DICIONARIO.md, 4.3) =====
+  private readonly dictMarks = inject(DictionaryMarks);
+  /** Achar as palavras de um trecho: o dicionário chega sob demanda, na primeira seleção (ver loadDictionary). */
+  private readonly findWords = signal<((text: string) => Word[]) | null>(null);
+  private dictionaryAsked = false;
+  /** A folhinha do verbete aberta: as palavras e o trecho (trocar de ficha fecha). */
+  protected readonly wordSheet = linkedSignal<string | undefined, { words: Word[]; query: string } | null>({ source: this.reviewId, computation: () => null });
   /** A folhinha da nota nova aberta: o trecho, o texto de onde ele saiu e a anotação (trocar de ficha fecha). */
   protected readonly quickNote = linkedSignal<string | undefined, QuickNoteAsk | null>({ source: this.reviewId, computation: () => null });
   /** O que a nota nova fez, dito ao leitor de tela. */
@@ -1486,7 +1519,10 @@ export class ReviewReader {
   /** O trecho selecionado dentro do texto da ficha (e só dele), com o lugar dos remendos logo abaixo do fim. */
   private readSelection(rescrolled = false): PickedPiece | null {
     const quote = this.canQuote();
-    if (!quote && !this.canRefer()) return null;
+    // o dicionário vale em toda leitura com o texto à mostra (marcar como aprendida é do leitor, não da ficha), e só
+    // para um trecho do tamanho de uma palavra: selecionar um parágrafo não baixa o dicionário
+    const dictionary = this.lendo() && !this.masked() && (document.getSelection()?.toString().trim().length ?? 99) <= 40;
+    if (!quote && !this.canRefer() && !dictionary) return null;
     const sel = document.getSelection();
     if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
     const range = sel.getRangeAt(0);
@@ -1516,13 +1552,17 @@ export class ReviewReader {
       top = last.top - height;
     }
     const spot = this.canRefer() ? this.spotOf(range) : null;
-    if (!quote && !spot) return null;
+    const find = this.findWords();
+    if (dictionary && !find) this.loadDictionary();
+    const words = dictionary && find ? find(text) : [];
+    if (!quote && !spot && !words.length) return null;
     const box = pair.getBoundingClientRect();
     const article = zone.closest('.ficha')?.getBoundingClientRect() ?? box;
     // a largura dos remendos à mostra (medida de novo depois de desenhar, ver `fitPatches`)
-    const width = (quote ? 104 : 0) + (spot ? 136 : 0) + (quote && spot ? 8 : 0);
+    const widths = [quote ? 104 : 0, spot ? 136 : 0, words.length ? 170 : 0, this.toLearn(words) ? 140 : 0].filter(Boolean);
+    const width = widths.reduce((a, b) => a + b, 0) + Math.max(widths.length - 1, 0) * 8;
     const left = Math.max(Math.min(last.right - box.left - 44, article.right - box.left - width), 8);
-    return { text, left, top: top - box.top, quote, spot };
+    return { text, left, top: top - box.top, quote, spot, words };
   }
 
   /**
@@ -1584,6 +1624,42 @@ export class ReviewReader {
     if (!patches || !article) return;
     const over = patches.getBoundingClientRect().right - article.getBoundingClientRect().right;
     if (over > 0) patches.style.left = `${Math.max(patches.offsetLeft - over, 8)}px`;
+  }
+
+  /**
+   * O Dicionário Japonês, carregado uma vez (o pedaço com o CSV), na primeira seleção da leitura: quando chega, a
+   * seleção de agora é lida de novo, e o "No dicionário" aparece se o trecho é uma palavra.
+   */
+  private loadDictionary(): void {
+    if (this.dictionaryAsked) return;
+    this.dictionaryAsked = true;
+    import('../core/dictionary/words')
+      .then((m) => {
+        this.findWords.set(m.findWords);
+        this.watchSelection();
+      })
+      .catch(() => (this.dictionaryAsked = false));
+  }
+
+  /** A palavra para o "Aprendida": só quando o trecho é uma palavra só, e ela ainda falta aprender. */
+  protected toLearn(words: readonly Word[]): Word | null {
+    return words.length === 1 && !this.dictMarks.learned(words[0]) ? words[0] : null;
+  }
+
+  /** "No dicionário": a folhinha com o verbete inteiro do trecho. */
+  protected consultSelection(): void {
+    const p = this.picked();
+    if (!p?.words.length) return;
+    this.picked.set(null);
+    document.getSelection()?.removeAllRanges();
+    this.wordSheet.set({ words: p.words, query: p.text });
+  }
+
+  /** "Aprendida": marca na hora, com o Desfazer no bilhete. */
+  protected learnSelection(w: Word): void {
+    markLearned(this.dictMarks, this.toasts, w, true);
+    this.picked.set(null);
+    document.getSelection()?.removeAllRanges();
   }
 
   /** "Nova nota": a folhinha abre com o trecho como título; o link só entra quando ela cria (ou liga). */

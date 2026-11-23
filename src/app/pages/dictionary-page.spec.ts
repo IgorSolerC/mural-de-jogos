@@ -1,4 +1,5 @@
-import { provideZonelessChangeDetection } from '@angular/core';
+import { provideZonelessChangeDetection, signal } from '@angular/core';
+import { CloudAccount } from '../core/cloud-account';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -10,8 +11,11 @@ describe('o Dicionário Japonês', () => {
   let harness: RouterTestingHarness;
   let host: HTMLElement;
 
+  const account = signal<{ codigo: string; nome: string } | null>(null);
   async function open(url: string): Promise<void> {
-    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), provideRouter([{ path: 'extras/dicionario', component: DictionaryPage }])] });
+    TestBed.configureTestingModule({
+      providers: [provideZonelessChangeDetection(), provideRouter([{ path: 'extras/dicionario', component: DictionaryPage }]), { provide: CloudAccount, useValue: { account } }],
+    });
     harness = await RouterTestingHarness.create();
     await harness.navigateByUrl(url, DictionaryPage);
     host = harness.routeNativeElement!;
@@ -100,10 +104,15 @@ describe('o Dicionário Japonês', () => {
     await settle();
     expect(query()['favorita']).toBe('sim');
     expect(words()).toEqual(['来る']);
-    // as que o CSV já dá como aprendidas contam sem marca nenhuma
+    // sem a conta do dono, só a marcada agora está aprendida
     await harness.navigateByUrl('/extras/dicionario?aprendida=sim', DictionaryPage);
     await settle();
+    expect(words()).toEqual(['来る']);
+    // com a conta do dono (ou da namorada), as que o CSV dá como aprendidas contam sem marca nenhuma
+    account.set({ codigo: 'G11T-G00D', nome: 'Igor' });
+    await settle();
     expect(words().length).toBe(99);
+    account.set(null);
     localStorage.removeItem(DICT_MARKS_KEY);
   });
 

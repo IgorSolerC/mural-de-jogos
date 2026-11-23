@@ -1,4 +1,4 @@
-import { DEFAULT_STATE, DictState, MarkLookup, effectiveSort, facetChips, facetGroups, keysOf, matchScore, paramsOf, parseCsv, passes, readWords, sectionsOf, sortWords, stateFromParams, toggleFacet } from './dictionary';
+import { DEFAULT_STATE, DictState, MarkLookup, effectiveSort, lookupWords, facetChips, facetGroups, keysOf, matchScore, paramsOf, parseCsv, passes, readWords, sectionsOf, sortWords, stateFromParams, toggleFacet } from './dictionary';
 import { foldJa, kanaRow, looseRomaji, romajiToKana } from './kana';
 import { dictionaryWords } from './words';
 
@@ -98,6 +98,20 @@ JP1,犬,いぬ,cachorro,${dia}
     // cada pedaço precisa achar alguma coisa
     expect(find('kuru vir')).toEqual(['来る']);
     expect(find('kuru comer')).toEqual([]);
+  });
+
+  it('diz que palavras um trecho selecionado é: inteiro, na escrita, na leitura, no romaji ou num sentido', () => {
+    const is = (t: string) => lookupWords(words, keys, t).map((w) => w.text);
+    expect(is('来る')).toEqual(['来る']);
+    expect(is('くる')).toEqual(['来る']);
+    expect(is(' テレビ ')).toEqual(['テレビ']);
+    expect(is('Televisão')).toEqual(['テレビ']);
+    expect(is('capital')).toEqual(['東京']);
+    expect(is('kuru')).toEqual(['来る']);
+    // pedaço não conta
+    expect(is('来')).toEqual([]);
+    expect(is('vir algo')).toEqual([]);
+    expect(is('')).toEqual([]);
   });
 
   it('acha na composição e nas notas, valendo menos', () => {

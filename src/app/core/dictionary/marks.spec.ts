@@ -1,4 +1,5 @@
-import { provideZonelessChangeDetection } from '@angular/core';
+import { provideZonelessChangeDetection, signal } from '@angular/core';
+import { CloudAccount } from '../cloud-account';
 import { TestBed } from '@angular/core/testing';
 import { DictMarksState, dictMarksToSync, isLearned, learnedDay, mergeDictMarks, sanitizeDictMarks } from './marks';
 import { DICT_MARKS_KEY, DictionaryMarks } from './marks-store';
@@ -34,19 +35,29 @@ describe('Dicionário Japonês: as marcas (aprendida, favorita)', () => {
   it('a marca do dono vale por cima do CSV', () => {
     const csv = { id: 'JP1', learnedOn: '2026-11-14' };
     const nova = { id: 'JP2', learnedOn: null };
-    expect(isLearned(csv, undefined)).toBeTrue();
-    expect(learnedDay(csv, undefined)).toBe('2026-11-14');
-    expect(isLearned(csv, { id: 'JP1', learned: false, at: T1 })).toBeFalse();
-    expect(learnedDay(csv, { id: 'JP1', learned: false, at: T1 })).toBeNull();
-    expect(isLearned(nova, undefined)).toBeFalse();
-    expect(learnedDay(nova, { id: 'JP2', learned: true, learnedOn: '2026-11-23', at: T1 })).toBe('2026-11-23');
+    expect(isLearned(csv, undefined, true)).toBeTrue();
+    expect(learnedDay(csv, undefined, true)).toBe('2026-11-14');
+    expect(isLearned(csv, { id: 'JP1', learned: false, at: T1 }, true)).toBeFalse();
+    expect(learnedDay(csv, { id: 'JP1', learned: false, at: T1 }, true)).toBeNull();
+    expect(isLearned(nova, undefined, true)).toBeFalse();
+    expect(learnedDay(nova, { id: 'JP2', learned: true, learnedOn: '2026-11-23', at: T1 }, true)).toBe('2026-11-23');
+  });
+
+  it('o CSV só marca para quem estuda por ele: para as outras contas, nada começa aprendido', () => {
+    const csv = { id: 'JP1', learnedOn: '2026-11-14' };
+    expect(isLearned(csv, undefined, false)).toBeFalse();
+    expect(learnedDay(csv, undefined, false)).toBeNull();
+    // a marca de quem quer que seja vale do mesmo jeito
+    expect(learnedDay(csv, { id: 'JP1', learned: true, learnedOn: '2026-11-30', at: T1 }, false)).toBe('2026-11-30');
   });
 });
 
 describe('Dicionário Japonês: o guardador das marcas', () => {
+  const account = signal<{ codigo: string; nome: string } | null>(null);
   beforeEach(() => {
     localStorage.removeItem(DICT_MARKS_KEY);
-    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+    account.set({ codigo: 'G11T-G00D', nome: 'Igor' });
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), { provide: CloudAccount, useValue: { account } }] });
   });
   afterEach(() => localStorage.removeItem(DICT_MARKS_KEY));
 
@@ -79,5 +90,20 @@ describe('Dicionário Japonês: o guardador das marcas', () => {
     expect(marks.state().marks.length).toBe(1);
     expect(marks.count()).toBe(0);
     expect(marks.learnedDay(desu)).toBe('2026-11-14');
+  });
+
+  it('outra conta, ou ninguém, não vê as aprendidas do CSV; a namorada do dono vê', () => {
+    const marks = TestBed.inject(DictionaryMarks);
+    const desu = { id: 'JP0934', learnedOn: '2026-11-14' };
+    account.set({ codigo: 'ABCD-EFGH', nome: 'Outra' });
+    expect(marks.learned(desu)).toBeFalse();
+    account.set(null);
+    expect(marks.learned(desu)).toBeFalse();
+    account.set({ codigo: 'TMY1-BJMW', nome: 'Ela' });
+    expect(marks.learned(desu)).toBeTrue();
+    // para quem não estuda pelo CSV, marcar é uma marca de verdade, com o dia de hoje
+    account.set({ codigo: 'ABCD-EFGH', nome: 'Outra' });
+    marks.setLearned(desu, true);
+    expect(marks.get('JP0934')?.learned).toBeTrue();
   });
 });

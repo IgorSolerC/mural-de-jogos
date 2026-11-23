@@ -1,6 +1,7 @@
 /**
  * As marcas do dono no Dicionário Japonês (PLANO-DICIONARIO.md, 4.2): cada palavra aprendida ou não, e favorita ou
- * não. A coluna `aprendida` do CSV é o padrão; a marca do dono vale por cima dela. Guardadas neste navegador e, com
+ * não. A coluna `aprendida` do CSV é o padrão só para as contas que estudam por aquela lista (`CSV_LEARNERS`); para
+ * todo o resto, nenhuma palavra começa aprendida. A marca de cada um vale por cima. Guardadas neste navegador e, com
  * conta, no mural privado da nuvem (`dicionario`), juntadas palavra a palavra: vale a mudada por último. Puro.
  */
 
@@ -81,21 +82,33 @@ export function dictMarksToSync(state: DictMarksState): DictMarksState | null {
   return state.marks.length ? state : null;
 }
 
+/**
+ * As contas (o código do mural) que aprenderam as palavras marcadas no CSV: o dono do site e a namorada, que estudam
+ * juntos (pedido do dono em 23/nov/2026: "Apenas eu e minha namorada sabemos essas palavras"). Para qualquer outra
+ * conta, e para quem não entrou, a coluna `aprendida` não marca nada.
+ */
+export const CSV_LEARNERS: ReadonlySet<string> = new Set(['G11T-G00D', 'TMY1-BJMW']);
+
 /** A palavra como as marcas a veem: o que o CSV diz e a marca do dono por cima. */
 export interface MarkedWord {
   id: string;
   learnedOn: string | null;
 }
 
-/** A palavra está aprendida: pela marca do dono e, sem marca, pelo CSV. */
-export function isLearned(w: MarkedWord, m: WordMark | undefined): boolean {
-  return m?.learned ?? !!w.learnedOn;
+/** O dia do CSV, só para quem estuda por ele (`csv`, ver `CSV_LEARNERS`). */
+export function csvDay(w: MarkedWord, csv: boolean): string | null {
+  return csv ? w.learnedOn : null;
+}
+
+/** A palavra está aprendida: pela marca e, sem marca, pelo CSV (só para quem estuda por ele). */
+export function isLearned(w: MarkedWord, m: WordMark | undefined, csv: boolean): boolean {
+  return m?.learned ?? !!csvDay(w, csv);
 }
 
 /** O dia em que a palavra foi aprendida (o da marca, ou o do CSV); null se não está aprendida ou não se sabe o dia. */
-export function learnedDay(w: MarkedWord, m: WordMark | undefined): string | null {
-  if (!isLearned(w, m)) return null;
-  return m?.learned ? (m.learnedOn ?? null) : w.learnedOn;
+export function learnedDay(w: MarkedWord, m: WordMark | undefined, csv: boolean): string | null {
+  if (!isLearned(w, m, csv)) return null;
+  return m?.learned ? (m.learnedOn ?? null) : csvDay(w, csv);
 }
 
 /** A marca nova de uma palavra, mudando só o que vem em `patch`, mais nova que a de antes. */

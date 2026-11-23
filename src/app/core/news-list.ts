@@ -27,6 +27,20 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-23-dicionario-na-leitura',
+    version: '1.52.1',
+    kind: 'ajustes',
+    date: '2026-11-23',
+    title: 'O Dicionário Japonês na leitura das anotações',
+    melhorias: [
+      'Selecionando uma palavra do Dicionário Japonês numa anotação (em japonês ou em português), aparecem "No dicionário", que abre o verbete inteiro numa folhinha, com o caminho para o dicionário, e "Aprendida", que marca a palavra na hora.',
+      'As notas do Dicionário Japonês ficaram impessoais: só os fatos sobre cada palavra.',
+    ],
+    correcoes: [
+      'As palavras do Dicionário Japonês não aparecem mais como aprendidas para quem não as marcou.',
+    ],
+  },
+  {
     id: '2026-11-23-dicionario-marcas',
     version: '1.52.0',
     kind: 'funcionalidade',
@@ -41,9 +55,9 @@ export const NEWS: NewsEntry[] = [
     version: '1.51.1',
     kind: 'ajustes',
     date: '2026-11-23',
-    title: 'As palavras que você já aprendeu no Dicionário Japonês',
+    title: 'Mais 90 palavras no Dicionário Japonês',
     melhorias: [
-      'O Dicionário Japonês ganhou as 90 palavras que você aprendeu de 14 a 23 de novembro (です, か, 私, 食べる, os números, as partículas, os contadores…), no mesmo padrão das outras, e cada palavra aprendida guarda o dia em que você a aprendeu.',
+      'O Dicionário Japonês ganhou 90 palavras do começo do estudo (です, か, 私, 食べる, os números, as partículas, os contadores…), no mesmo padrão das outras.',
     ],
   },
   {

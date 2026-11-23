@@ -92,7 +92,9 @@ O dono pediu, nesta ordem de prioridade, antes da lousa:
    tem marca e fica N5, como 一人 e 二人; バー fica N1, a marca do Jisho), o rank pela mesma lista
    da internet de Leeds (espelho `hingston/japanese`, 44.998 palavras, conferido: 829 das posições do CSV batem
    exatamente), a classe, o tema, a escrita e o registro no mesmo vocabulário do CSV. Uma coluna nova,
-   `aprendida`, diz o dia (AAAA-MM-DD) em que a palavra foi aprendida. As que já estavam no CSV (好き, どう, 分かる,
+   `aprendida`, diz o dia (AAAA-MM-DD) em que a palavra foi aprendida. **Ela só vale para as contas G11T-G00D (o
+   dono) e TMY1-BJMW (a namorada), que estudam por esta lista** (`CSV_LEARNERS` em core/dictionary/marks.ts; pedido
+   do dono no mesmo dia): para qualquer outra conta, e para quem não entrou, nenhuma palavra começa aprendida. As que já estavam no CSV (好き, どう, 分かる,
    うん, ううん, まで, いい) só ganham o dia. Homógrafas de sentido diferente viram verbetes próprios (と "e/com" ao
    lado de と de citação; の de posse; から "a partir de"; 十 じゅう). "Nomes no geral" não é palavra: fica de fora.
 2. **Marcar como aprendida e favoritar.** No verbete (e na Tabela), dois selos: **aprendida**, um carimbo verde
@@ -102,7 +104,7 @@ O dono pediu, nesta ordem de prioridade, antes da lousa:
    (`meu-mural:dicionario:v1`, pelos ajudantes de storage.ts, saem na limpeza do logout) e, com conta, no mural
    privado da nuvem (`dicionario`, juntadas palavra a palavra, vale a mudança mais nova; SYNC_SCHEMA sobe). Não há
    nada compartilhado: são marcas de uma pessoa, como a galeria de pixel arts. A coluna `aprendida` do CSV é o
-   padrão; a marca do dono vale por cima.
+   padrão só para as duas contas acima; a marca de cada um vale por cima.
 3. **Na seleção de texto da leitura**, ao lado do Citar e do Nova nota: quando o trecho selecionado (japonês ou
    português) é uma palavra do dicionário, aparecem **"No dicionário"**, que abre uma folhinha com o resumo do
    verbete (a palavra grande, a leitura, o sentido, o JLPT, o uso, a classe, a composição, as notas, os selos e o

@@ -3,7 +3,6 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { map } from 'rxjs';
 import {
-  CSV_MARKS,
   DictFilter,
   MarkLookup,
   DictState,
@@ -25,8 +24,7 @@ import {
   stateFromParams,
   toggleFacet,
 } from '../core/dictionary/dictionary';
-import { MONTHS_SHORT } from '../core/dates';
-import { hasKanji } from '../core/dictionary/kana';
+import { isLearned } from '../core/dictionary/marks';
 import { DictionaryMarks } from '../core/dictionary/marks-store';
 import { dictionaryWords } from '../core/dictionary/words';
 import { plural } from '../core/text';
@@ -39,6 +37,8 @@ import { SearchHighlight } from '../ui/search-highlight';
 import { SearchStrip } from '../ui/search-strip';
 import { SectionHead } from '../ui/section-head';
 import { Toasts } from '../ui/toast';
+import { WordEntry, daySaid } from '../ui/word-entry';
+import { markFavorite, markLearned } from '../ui/word-marking';
 import { WordSeals } from '../ui/word-seals';
 
 type View = DictState['view'];
@@ -78,7 +78,7 @@ const COLUMNS: readonly Column[] = [
  */
 @Component({
   selector: 'app-dictionary-page',
-  imports: [FacetFilters, FilterTags, IconModule, Pin, SearchHighlight, SearchStrip, SectionHead, WordSeals],
+  imports: [FacetFilters, FilterTags, IconModule, Pin, SearchHighlight, SearchStrip, SectionHead, WordEntry, WordSeals],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './dictionary-page.html',
   styleUrl: './dictionary-page.scss',
@@ -134,9 +134,10 @@ export class DictionaryPage {
 
   /** As marcas do dono, como os filtros as perguntam (o CSV por baixo, a marca por cima). */
   private readonly lookup = computed<MarkLookup>(() => {
+    // lidos aqui para o filtro refazer as contas quando as marcas ou a conta mudam
     const byId = this.marks.byId();
-    if (!byId.size) return CSV_MARKS;
-    return { learned: (w) => byId.get(w.id)?.learned ?? !!w.learnedOn, favorite: (id) => !!byId.get(id)?.favorite };
+    const csv = this.marks.csvApplies();
+    return { learned: (w) => isLearned(w, byId.get(w.id), csv), favorite: (id) => !!byId.get(id)?.favorite };
   });
 
   /** O que a busca achou, com quanto cada palavra combina (todas, sem busca). */
@@ -248,18 +249,15 @@ export class DictionaryPage {
   }
   /** "em 14 de nov", o dia em que a palavra foi aprendida (vazio quando não se sabe). */
   protected learnedSaid(w: Word): string {
-    const day = this.marks.learnedDay(w);
-    return day ? `em ${Number(day.slice(8, 10))} de ${MONTHS_SHORT[Number(day.slice(5, 7)) - 1]}` : '';
+    return daySaid(this.marks.learnedDay(w));
   }
 
   protected setLearned(w: Word, on: boolean): void {
-    const undo = this.marks.setLearned(w, on);
-    this.toasts.show(on ? `“${w.text}” marcada como aprendida` : `“${w.text}” voltou para as que faltam aprender`, { label: 'Desfazer', run: undo });
+    markLearned(this.marks, this.toasts, w, on);
   }
 
   protected setFavorite(w: Word, on: boolean): void {
-    const undo = this.marks.setFavorite(w.id, on);
-    this.toasts.show(on ? `“${w.text}” está nas favoritas` : `“${w.text}” saiu das favoritas`, { label: 'Desfazer', run: undo });
+    markFavorite(this.marks, this.toasts, w, on);
   }
 
   protected removeChip(c: FilterChip): void {
@@ -288,22 +286,7 @@ export class DictionaryPage {
 
   /* ===== O que o verbete e a Tabela mostram ===== */
 
-  /** A leitura vai em furigana por cima só quando a palavra tem kanji. */
-  protected readonly ruby = (w: Word) => hasKanji(w.text) && w.text !== w.reading;
   protected readonly label = facetLabel;
-  /** A classe, o grupo do verbo, o tema e a escrita, numa linha miúda. */
-  protected grammar(w: Word): string {
-    return [w.wordClass, w.verbGroup && facetLabel('verbGroup', w.verbGroup), w.theme, facetLabel('script', w.script)].filter(Boolean).join(' · ');
-  }
-  /** O registro só quando diz alguma coisa (neutro sozinho é o normal). */
-  protected registers(w: Word): string {
-    return w.registers.length === 1 && w.registers[0] === 'neutro' ? '' : w.registers.join(', ');
-  }
-  protected rankSaid(w: Word): string {
-    return w.rank === null ? 'fora da lista da internet' : `${w.rank.toLocaleString('pt-BR')}ª mais comum na internet`;
-  }
-  protected readonly ticks = [1, 2, 3, 4, 5];
-
   protected ariaSort(col: Column): 'ascending' | 'descending' | null {
     if (!col.sort || col.sort !== this.sort()) return null;
     // a Importância e o Uso começam do maior: o sentido natural deles é o decrescente
