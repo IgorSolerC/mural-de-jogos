@@ -183,17 +183,17 @@ sem seta nenhuma",Do inglês hero.
     expect([...classes].filter((c) => !(c in CLASS_FAMILIES))).toEqual([]);
   });
 
-  it('lê a lista inteira do dono: 1023 palavras, todas com id único', () => {
+  it('lê a lista inteira do dono: 1032 palavras, todas com id único', () => {
     const all = dictionaryWords().words;
-    expect(all.length).toBe(1023);
-    expect(new Set(all.map((w) => w.id)).size).toBe(1023);
+    expect(all.length).toBe(1032);
+    expect(new Set(all.map((w) => w.id)).size).toBe(1032);
     expect(all.every((w) => w.text && w.reading && w.meaning)).toBeTrue();
   });
 
   it('as palavras que o dono já aprendeu (14 a 23/nov) vêm com o dia, e as homógrafas são verbetes próprios', () => {
     const all = dictionaryWords().words;
     const learned = all.filter((w) => w.learnedOn);
-    expect(learned.length).toBe(98);
+    expect(learned.length).toBe(108);
     const on = (text: string, meaning: string) => all.find((w) => w.text === text && w.meaning.startsWith(meaning))!;
     expect(on('です', 'é').learnedOn).toBe('2026-11-14');
     expect(on('好き', 'gostar').learnedOn).toBe('2026-11-23');
@@ -204,6 +204,12 @@ sem seta nenhuma",Do inglês hero.
     // o rank vem da lista da internet: 二 não pega o da partícula に
     expect(on('二', '2').rank).toBe(166);
     expect(on('〜時', 'horas').notes).toContain('四時 (yoji)');
+    // as de 23/nov que faltavam entraram com o dia, e o 〜人 de contar pessoas também ficou aprendido
+    for (const text of ['パスタ', 'ハンバーガー', 'ホットドッグ', 'チーズ', 'アイスクリーム', 'トマト', 'ポテト', 'ワイン', 'そば']) {
+      expect(all.find((w) => w.text === text)?.learnedOn).withContext(text).toBe('2026-11-23');
+    }
+    expect(on('〜人', 'contador de pessoas').learnedOn).toBe('2026-11-23');
+    expect(on('〜人', 'pessoa de').learnedOn).toBeNull();
     // as prioridades seguem uma por uma, sem buraco nem repetição
     expect(all.map((w) => w.order)).toEqual(all.map((_, i) => i + 1));
   });
