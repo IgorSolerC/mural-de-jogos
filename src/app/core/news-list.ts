@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-24-pequenas-padronizacoes',
+    id: '2026-11-24-citar-na-tela-estreita',
     version: '1.53.2',
     kind: 'ajustes',
     date: '2026-11-24',
@@ -36,7 +36,7 @@ export const NEWS: NewsEntry[] = [
       'Todas as 1.032 palavras do Dicionário Japonês seguem o mesmo padrão: os sentidos separados por "/", uma descrição de como e quando a palavra se usa, três frases de exemplo com a palavra marcada e a tradução embaixo, a origem quando ela é certa (do inglês, os kanji, um encurtamento) e as palavras relacionadas. Na Tabela, a coluna Origem.',
       'Nove palavras novas no Dicionário Japonês, de comida e bebida: パスタ, ハンバーガー, ホットドッグ, チーズ, アイスクリーム, トマト, ポテト, ワイン e そば.',
       'Cada verbete do Dicionário Japonês virou um cartão com uma faixa na cor da classe (azul nos substantivos, vinho nos verbos, verde nos adjetivos, lilás nos advérbios, laranja nas expressões), direto na parede, em duas colunas: as frases em caixinhas, a origem no 源 e as palavras relacionadas em cartõezinhos que abrem a lousa. O uso vem escrito, a aprendida é o carimbo 済 (também na Tabela e ao selecionar uma palavra numa anotação) e a favorita, uma fita de marcador de livro que cai ao ser marcada.',
-      'O "Citar" de um trecho selecionado numa anotação aparece só com a folha de comentários aberta: lendo, selecionar o texto (para o dicionário ou para copiar) não mostra mais o remendo.',
+      'O "Citar" de um trecho selecionado numa anotação aparece só com a folha de comentários aberta ao lado: lendo, selecionar o texto (para o dicionário ou para copiar) não mostra mais o remendo. No celular e nas telas estreitas, onde a folha cobre a anotação, ele continua como antes e abre a folha com o trecho.',
       'A etiqueta do modo estudo, na fita de ouvir a nota, virou um olho: aberto com o texto à mostra, fechado com o texto escondido no rabisco.',
       'O sublinhado dos links nas anotações ficou mais grosso e num azul mais escuro, que se vê também nos cards coloridos.',
     ],

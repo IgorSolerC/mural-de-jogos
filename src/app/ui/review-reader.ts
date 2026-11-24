@@ -556,7 +556,7 @@ interface AlonePlea {
         }
 
         <!-- selecionou um trecho do texto: os remendos aparecem no fim da seleção, cada um o seu. O "Citar" (só na
-             leitura de sempre, com a folha de comentários aberta) leva o trecho aos comentários; o "Nova nota" (na anotação em
+             leitura de sempre, com a folha de comentários aberta ao lado; na tela estreita, com ela fechada) leva o trecho aos comentários; o "Nova nota" (na anotação em
              que você escreve) cria uma anotação sobre ele, e o trecho vira link para ela (PLANO-NOTA-DE-REFERENCIA.md) -->
         @if (vista() !== 'cartolina' && picked(); as p) {
           <div class="remendos" [style.left.px]="p.left" [style.top.px]="p.top">
@@ -1311,12 +1311,16 @@ export class ReviewReader {
    */
   protected readonly picked = signal<PickedPiece | null>(null);
   /**
-   * Dá para citar: a folha de comentários está aberta (pedido do dono, 24/nov: fechada, o "Citar" só atrapalhava quem
-   * selecionava para ler ou procurar no dicionário), você tem conta e o texto não está em segredo.
+   * Dá para citar: há porta para os comentários, você tem conta e o texto não está em segredo; e a folha de comentários
+   * está aberta ao lado (pedido do dono, 24/nov: fechada, o "Citar" só atrapalhava quem selecionava para ler ou procurar
+   * no dicionário). Na tela estreita (abaixo de BESIDE_MEDIA), a folha aberta cobre a ficha e não há texto para
+   * selecionar: ali o "Citar" continua com a folha fechada, e tocar nele a abre com o trecho. Lido na hora da seleção
+   * (a largura da tela não é um sinal).
    */
-  private readonly canQuote = computed(
-    () => this.lendo() && this.commentable() && this.sideShown() === 'comentarios' && !this.commentsClosed() && !!this.comments.myCode() && !this.masked(),
-  );
+  private canQuote(): boolean {
+    if (!this.lendo() || !this.commentable() || this.commentsClosed() || !this.comments.myCode() || this.masked()) return false;
+    return this.fitsBeside() ? this.sideShown() === 'comentarios' : !this.sideOpen();
+  }
   /**
    * Dá para criar uma nota a partir do trecho (PLANO-NOTA-DE-REFERENCIA.md, D1): na leitura de uma
    * anotação do seu mural em que você escreve, fora do link solto e com o texto à mostra.
@@ -1705,7 +1709,7 @@ export class ReviewReader {
     afterNextRender(() => this.dialog().nativeElement.querySelector<HTMLElement>(`#leitura-titulo${this.sufixo()}`)?.focus({ preventScroll: true }), { injector: this.injector });
   }
 
-  /** "Citar": o trecho vai para o campo da folha de comentários (aberta: o "Citar" só aparece com ela). */
+  /** "Citar": o trecho vai para o campo da folha de comentários, que abre se estava fechada (na tela estreita). */
   protected quoteSelection(): void {
     const p = this.picked();
     if (!p) return;

@@ -16,7 +16,7 @@ import { Settings } from '../core/settings';
 import { nextClose } from '../testing/dialog-close.spec';
 import { KanbanStore } from '../core/kanban-store';
 import { ICON } from './icons';
-import { ReviewReader } from './review-reader';
+import { BESIDE_MEDIA, ReviewReader } from './review-reader';
 
 /**
  * A leitura da ficha e a porta dos comentários: quando a orelha e o "Comentar" aparecem, a folha que
@@ -614,13 +614,21 @@ describe('A leitura e os comentários (ReviewReader)', () => {
   });
 
   /**
-   * Abre a folha de comentários como na tela larga (1180px ou mais), em que ela fica ao lado da ficha: abaixo disso, a
-   * folha cobre a ficha, e não há texto à vista para selecionar (a janela dos testes é estreita).
+   * A tela larga (1180px ou mais), em que a folha de comentários fica ao lado da ficha. A janela dos testes é estreita:
+   * a medida diz que cabe, e a ficha fica à vista com a folha aberta (abaixo disso, a folha a cobre).
    */
-  const openCommentsBeside = async () => {
+  const wideScreen = () => {
+    const real = window.matchMedia.bind(window);
+    spyOn(window, 'matchMedia').and.callFake((query: string) =>
+      query === BESIDE_MEDIA ? ({ ...real(query), matches: true, media: query, addEventListener: () => {}, removeEventListener: () => {} } as MediaQueryList) : real(query),
+    );
     const wide = document.createElement('style');
     wide.textContent = '.com-lado .par > article { visibility: visible !important; }';
     el.append(wide);
+  };
+
+  /** Abre a folha de comentários (na tela larga, ao lado da ficha). */
+  const openCommentsBeside = async () => {
     q<HTMLButtonElement>('.etq-trilho[data-trilho="comentarios"]')!.click();
     await settle();
     // (a folha leva o foco para ela logo depois de abrir; a pessoa seleciona depois disso)
@@ -645,7 +653,8 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     fixture.detectChanges();
   };
 
-  it('com a folha de comentários fechada, selecionar um trecho não oferece o "Citar"; com ela aberta, oferece', async () => {
+  it('na tela larga, com a folha de comentários fechada, selecionar um trecho não oferece o "Citar"; com ela aberta, oferece', async () => {
+    wideScreen();
     fixture.componentInstance.open(review('r-hades', 'Hades'), 'Ana', [], false, ANA);
     await settle();
     await selectPhrase();
@@ -661,7 +670,8 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     expect(q('.citar')).withContext('selecionou de novo, com a folha fechada').toBeNull();
   });
 
-  it('com a folha de comentários aberta, selecionar um trecho do texto mostra o "Citar"; tocar põe a citação no campo', async () => {
+  it('na tela larga, com a folha de comentários aberta, selecionar um trecho do texto mostra o "Citar"; tocar põe a citação no campo', async () => {
+    wideScreen();
     fixture.componentInstance.open(review('r-hades', 'Hades'), 'Ana', [], false, ANA);
     await settle();
     await openCommentsBeside();
@@ -680,7 +690,24 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     expect(getSelection()!.isCollapsed).toBeTrue();
   });
 
+  it('na tela estreita (a folha cobre a ficha), o "Citar" aparece com a folha fechada; tocar abre a folha com a citação no campo', async () => {
+    fixture.componentInstance.open(review('r-hades', 'Hades'), 'Ana', [], false, ANA);
+    await settle();
+    expect(matchMedia(BESIDE_MEDIA).matches).withContext('a janela dos testes é estreita').toBeFalse();
+    await selectPhrase();
+    const cite = q<HTMLButtonElement>('.citar')!;
+    expect(cite.textContent?.trim()).toBe('Citar');
+    cite.click();
+    await settle();
+    await wait(20);
+    fixture.detectChanges();
+    expect(q('.citar')).toBeNull();
+    expect(side()).not.toBeNull();
+    expect(q<HTMLTextAreaElement>('app-comments-panel textarea')?.value).toBe('> Valeu cada hora\n');
+  });
+
   it('uma seleção fora do texto da ficha (o título) não oferece o "Citar"', async () => {
+    wideScreen();
     fixture.componentInstance.open(review('r-hades', 'Hades'), 'Ana', [], false, ANA);
     await settle();
     await openCommentsBeside();
