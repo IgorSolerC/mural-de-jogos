@@ -63,3 +63,42 @@ export async function pixelCoverPng(art: Art): Promise<{ blob: Blob; width: numb
   }
   return null;
 }
+
+/** Onde o desenho está na capa, em pixels da imagem, e o tamanho dela. */
+export interface ArtBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * A caixa do que não é transparente numa imagem (os pontos do desenho). Null: ela é toda transparente, ou o
+ * desenho já vai de ponta a ponta (não há o que tirar).
+ */
+export function opaqueBox(data: Uint8ClampedArray, width: number, height: number): ArtBox | null {
+  let top = height;
+  let bottom = -1;
+  let left = width;
+  let right = -1;
+  for (let y = 0; y < height; y++) {
+    const row = y * width * 4;
+    for (let x = 0; x < width; x++) {
+      if (data[row + x * 4 + 3] === 0) continue;
+      if (y < top) top = y;
+      bottom = y;
+      if (x < left) left = x;
+      if (x > right) right = x;
+    }
+  }
+  if (bottom < 0) return null;
+  const box = { x: left, y: top, w: right - left + 1, h: bottom - top + 1, width, height };
+  return box.w === width && box.h === height ? null : box;
+}
+
+/** É uma capa de pixel art (o PNG 4:5 de `pixelCoverPng`, inteiro ou pela metade)? */
+export function isPixelCoverSize(width: number, height: number): boolean {
+  return [1, 0.5].some((k) => width === Math.round(COVER_W * k) && height === Math.round(COVER_H * k));
+}

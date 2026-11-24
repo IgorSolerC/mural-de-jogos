@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-24-espaco-no-botao-com-foco',
+    id: '2026-11-24-capas-de-pixel-art-cheias',
     version: '1.53.2',
     kind: 'ajustes',
     date: '2026-11-24',
@@ -39,6 +39,7 @@ export const NEWS: NewsEntry[] = [
       'O "Citar" de um trecho selecionado numa anotação aparece só com a folha de comentários aberta ao lado: lendo, selecionar o texto (para o dicionário ou para copiar) não mostra mais o remendo. No celular e nas telas estreitas, onde a folha cobre a anotação, ele continua como antes e abre a folha com o trecho.',
       'A etiqueta do modo estudo, na fita de ouvir a nota, virou um olho: aberto com o texto à mostra, fechado com o texto escondido no rabisco.',
       'O sublinhado dos links nas anotações ficou mais grosso e num azul mais escuro, que se vê também nos cards coloridos.',
+      'No mural de músicas, as capas não têm mais o aro cinza do disco marcado, e a capa de pixel art enche a capa do álbum, sem a moldura escura em volta e com os pontos nítidos.',
     ],
     correcoes: [
       'No Dicionário Japonês, o índice de dedo mostra o anel do foco ao andar pelo teclado.',

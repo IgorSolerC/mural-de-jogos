@@ -10,6 +10,7 @@ import { Warmable, warmups } from './sound-warmup';
 import { VolumeKnob } from './volume-knob';
 import { ZoomKnob } from './zoom-knob';
 import { pieceLift } from './piece-lift';
+import { PixelCoverFill } from './pixel-cover-fill';
 import { MuralSrc } from './stored-image';
 
 /** Só uma faixa toca por vez: a que começa para a de antes. */
@@ -63,7 +64,7 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
  */
 @Component({
   selector: 'app-audio-track',
-  imports: [IconModule, NgTemplateOutlet, VolumeKnob, ZoomKnob, MuralSrc],
+  imports: [IconModule, NgTemplateOutlet, VolumeKnob, ZoomKnob, MuralSrc, PixelCoverFill],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class.solta]': 'bare()' },
   template: `
@@ -186,7 +187,7 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
               </div>
               <div class="capa" data-colado [class.parda]="!capa">
                 @if (capa) {
-                  <img [class.arte]="capa === art()" [muralSrc]="capa" alt="" referrerpolicy="no-referrer" decoding="async" (error)="coverFailed.set(true)" />
+                  <img [class.arte]="capa === art()" [muralSrc]="capa" [pixelCoverFill]="capa === art() ? capa : null" alt="" referrerpolicy="no-referrer" decoding="async" (error)="coverFailed.set(true)" />
                   @if (a.title || editavel()) {
                     <span class="capa-adesivo">@if (editavel()) {<ng-container *ngTemplateOutlet="campo; context: { $implicit: a.title }" />} @else {{{ a.title }}}</span>
                   }

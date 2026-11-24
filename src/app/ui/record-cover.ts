@@ -3,6 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, input, linkedSignal, sign
 import { PickedGame, initialOf } from '../core/review';
 import { parseAudio } from '../core/widgets';
 import { AudioTrack } from './audio-track';
+import { PixelCoverFill } from './pixel-cover-fill';
 import { MuralSrc } from './stored-image';
 
 /**
@@ -19,7 +20,7 @@ import { MuralSrc } from './stored-image';
  */
 @Component({
   selector: 'app-record-cover',
-  imports: [AudioTrack, NgTemplateOutlet, MuralSrc],
+  imports: [AudioTrack, NgTemplateOutlet, MuralSrc, PixelCoverFill],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class.enfiado]': 'tucked()' },
   template: `
@@ -52,7 +53,7 @@ import { MuralSrc } from './stored-image';
         </div>
         <div class="capa" data-colado [class.parda]="!art()">
           @if (art(); as src) {
-            <img class="arte" [muralSrc]="src" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" (error)="failed.set(src)" />
+            <img class="arte" [muralSrc]="src" [pixelCoverFill]="src" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" (error)="failed.set(src)" />
           } @else {
             <span class="capa-nome">{{ game().name || initial() }}</span>
           }
@@ -70,6 +71,8 @@ import { MuralSrc } from './stored-image';
       /* o lado da capa: o vinil inteiro (a capa e o disco para fora) ocupa a largura da caixa */
       --s: calc(100cqw / 1.72);
       --giro: 0deg;
+      /* sem o aro que o disco marcou na capa (pedido do dono, 24/nov): a arte do álbum aparece inteira, limpa */
+      --capa-aro: none;
     }
 
     @include vinyl.record;

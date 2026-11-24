@@ -1,4 +1,4 @@
-import { COVER_ART_BOX, COVER_H, COVER_W, coverScale, drawPixelCover, gridOf, pixelCoverPng } from './pixel-cover';
+import { COVER_ART_BOX, COVER_H, COVER_W, coverScale, drawPixelCover, gridOf, isPixelCoverSize, opaqueBox, pixelCoverPng } from './pixel-cover';
 import { MAX_BYTES, MAX_SIDE } from './images';
 import { DEFAULT_PALETTE } from './pixel-art';
 
@@ -48,5 +48,22 @@ describe('a pixel art de capa, no papel milimetrado (core/pixel-cover.ts)', () =
       expect(png!.blob.size).toBeLessThanOrEqual(MAX_BYTES);
       expect(Math.max(png!.width, png!.height)).toBeLessThanOrEqual(MAX_SIDE);
     }
+  });
+
+  it('acha a caixa do desenho na capa (o que não é transparente); a imagem cheia ou vazia não tem o que tirar', () => {
+    const canvas = drawPixelCover(art(20, 10, true));
+    const cell = coverScale(20, 10);
+    const box = opaqueBox(canvas.getContext('2d')!.getImageData(0, 0, COVER_W, COVER_H).data, COVER_W, COVER_H)!;
+    expect(box).toEqual({ x: Math.round((COVER_W - 20 * cell) / 2), y: Math.round((COVER_H - 10 * cell) / 2), w: 20 * cell, h: 10 * cell, width: COVER_W, height: COVER_H });
+    const full = new Uint8ClampedArray(4 * 4).fill(255);
+    expect(opaqueBox(full, 2, 2)).toBeNull();
+    expect(opaqueBox(new Uint8ClampedArray(4 * 4), 2, 2)).toBeNull();
+  });
+
+  it('o tamanho de uma capa de pixel art: 720 × 900, ou a metade', () => {
+    expect(isPixelCoverSize(COVER_W, COVER_H)).toBeTrue();
+    expect(isPixelCoverSize(360, 450)).toBeTrue();
+    expect(isPixelCoverSize(600, 600)).toBeFalse();
+    expect(isPixelCoverSize(720, 720)).toBeFalse();
   });
 });
