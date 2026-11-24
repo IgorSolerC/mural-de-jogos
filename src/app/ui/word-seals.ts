@@ -5,7 +5,7 @@ import { ChangeDetectionStrategy, Component, input, output } from '@angular/core
  * (não aparecem só com o mouse): **aprendida**, o carimbo verde com 覚 (oboeru, "aprender, guardar na memória"), e
  * **favorita**, a estrela amarela com 好 (suki, "gostar"). Sem a marca, cada um é só o recorte tracejado com o
  * desenho apagado, pedindo para ser marcado; marcado, o carimbo batido torto e a estrela colada. Só desenho: quem
- * usa guarda a marca (core/dictionary/marks-store.ts). O verbete, a Tabela e a folhinha da seleção usam a mesma peça.
+ * usa guarda a marca (core/dictionary/marks-store.ts). A Tabela usa esta peça; o verbete (ui/word-entry.ts) tem o carimbo 済 e a fita de marcador.
  */
 @Component({
   selector: 'app-word-seals',

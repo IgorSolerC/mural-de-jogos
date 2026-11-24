@@ -1,4 +1,4 @@
-import { DEFAULT_STATE, DictState, MarkLookup, effectiveSort, lookupWords, facetChips, facetGroups, keysOf, matchScore, paramsOf, parseCsv, passes, readWords, sectionsOf, sortWords, spokenOf, stateFromParams, toggleFacet, compositionParts, kanjiIn, wordsWithKanji, exampleParts, examplePlain, readExamples } from './dictionary';
+import { DEFAULT_STATE, DictState, MarkLookup, effectiveSort, lookupWords, facetChips, facetGroups, keysOf, matchScore, paramsOf, parseCsv, passes, readWords, sectionsOf, sortWords, spokenOf, stateFromParams, toggleFacet, compositionParts, relatedWords, classFamily, CLASS_FAMILIES, kanjiIn, wordsWithKanji, exampleParts, examplePlain, readExamples } from './dictionary';
 import { foldJa, kanaRow, looseRomaji, romajiToKana } from './kana';
 import { dictionaryWords } from './words';
 
@@ -146,6 +146,41 @@ sem seta nenhuma",Do inglês hero.
     expect(compositionParts('', byText)).toEqual([]);
     // um kana sozinho não vira link (o と de 猫 と 犬 pode não ser a partícula da lista)
     expect(compositionParts('猫 と 犬', byText).filter((p) => p.word && p.text === 'と')).toEqual([]);
+  });
+
+  it('as palavras ligadas em itens: o japonês, o sentido (com a vírgula de dentro) e a palavra quando está no dicionário', () => {
+    const { words, byText } = dictionaryWords();
+    const find = (text: string) => words.find((w) => w.text === text)!;
+    const paper = relatedWords(find('紙').composition, byText, find('紙').id);
+    expect(paper.map((r) => [r.text, r.gloss])).toEqual([
+      ['手紙', 'tegami, carta'],
+      ['紙コップ', 'copo de papel'],
+    ]);
+    expect(paper[0].word?.text).toBe('手紙');
+    expect(paper[1].word).toBeUndefined();
+    // a própria palavra não vira link para ela mesma, e um kana sozinho não vira link
+    expect(relatedWords('先週 (semana passada)', byText, find('先週').id)[0].word).toBeUndefined();
+    expect(relatedWords('と (e)', byText)[0].word).toBeUndefined();
+    expect(relatedWords('', byText)).toEqual([]);
+    // sem parêntese, o sentido fica vazio
+    expect(relatedWords('先週', byText)).toEqual([{ text: '先週', gloss: '', word: find('先週') }]);
+    // toda composição do dicionário vira itens que remontam o texto (nada se perde no corte)
+    for (const w of words.filter((x) => x.composition)) {
+      const items = relatedWords(w.composition, byText, w.id);
+      expect(items.map((r) => (r.gloss ? `${r.text} (${r.gloss})` : r.text)).join(', ')).withContext(w.text).toBe(w.composition);
+    }
+  });
+
+  it('cada classe tem a sua família de cor, e toda classe do dicionário está no mapa', () => {
+    expect(classFamily('substantivo')).toBe('nome');
+    expect(classFamily('verbo')).toBe('verbo');
+    expect(classFamily('adjetivo-na')).toBe('adjetivo');
+    expect(classFamily('advérbio')).toBe('adverbio');
+    expect(classFamily('expressão')).toBe('expressao');
+    expect(classFamily('partícula')).toBe('gramatica');
+    expect(classFamily('classe que não existe')).toBe('gramatica');
+    const classes = new Set(dictionaryWords().words.map((w) => w.wordClass));
+    expect([...classes].filter((c) => !(c in CLASS_FAMILIES))).toEqual([]);
   });
 
   it('lê a lista inteira do dono: 1023 palavras, todas com id único', () => {

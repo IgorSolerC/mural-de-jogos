@@ -113,7 +113,7 @@ import { WordEntry } from './word-entry';
     }
     .verbetes {
       margin: 0;
-      padding: 0 22px;
+      padding: 16px 22px;
       list-style: none;
       overflow: auto;
       overscroll-behavior: contain;

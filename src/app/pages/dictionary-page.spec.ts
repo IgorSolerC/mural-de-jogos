@@ -91,13 +91,16 @@ describe('o Dicionário Japonês', () => {
     localStorage.removeItem(DICT_MARKS_KEY);
     await open('/extras/dicionario?q=kuru');
     const kuru = host.querySelector('.verbete')!;
-    const seal = (cls: string) => kuru.querySelector<HTMLButtonElement>(`app-word-seals .${cls}`)!;
-    expect(seal('aprendida').getAttribute('aria-pressed')).toBe('false');
-    seal('aprendida').click();
-    seal('favorita').click();
+    // o carimbo 済 é a aprendida, a fita de marcador é a favorita
+    const seal = (cls: string) => kuru.querySelector<HTMLButtonElement>(`.faixa .${cls}`)!;
+    expect(seal('sumi').getAttribute('aria-pressed')).toBe('false');
+    expect(seal('sumi').getAttribute('aria-label')).toBe('Aprendida: 来る');
+    expect(seal('fita').getAttribute('aria-label')).toBe('Favorita: 来る');
+    seal('sumi').click();
+    seal('fita').click();
     await settle();
-    expect(seal('aprendida').getAttribute('aria-pressed')).toBe('true');
-    expect(seal('favorita').getAttribute('aria-pressed')).toBe('true');
+    expect(seal('sumi').getAttribute('aria-pressed')).toBe('true');
+    expect(seal('fita').getAttribute('aria-pressed')).toBe('true');
     expect(kuru.querySelector('.quando')!.textContent).toContain('aprendida em');
 
     // o atalho Favoritas da pasta é o filtro da folha
@@ -117,14 +120,68 @@ describe('o Dicionário Japonês', () => {
     localStorage.removeItem(DICT_MARKS_KEY);
   });
 
-  it('na composição de um verbete, outra palavra do dicionário é link: abre a lousa dela', async () => {
+  it('nas palavras ligadas de um verbete, a que está no dicionário é um cartãozinho que abre a lousa dela', async () => {
     await open('/extras/dicionario?q=taberu');
-    const link = host.querySelector<HTMLButtonElement>('.verbete .relacionadas .elo')!;
-    expect(link.textContent!.trim()).toBe('食べ物');
+    const verbete = host.querySelector('.verbete')!;
+    const cards = [...verbete.querySelectorAll('.cartoezinhos .ligada')];
+    expect(cards.map((c) => c.querySelector('.lig-ja')!.textContent!.trim())).toEqual(['食べます', '食べない', '食べた', '食べ物']);
+    expect(cards.map((c) => c.querySelector('.lig-pt')!.textContent!.trim())).toEqual(['forma educada', 'não comer', 'comeu', 'comida']);
+    // só 食べ物 é outra palavra do dicionário: só ele é botão
+    const link = verbete.querySelector<HTMLButtonElement>('.cartoezinhos button.ligada.abre')!;
+    expect(verbete.querySelectorAll('.cartoezinhos button').length).toBe(1);
+    expect(link.querySelector('.lig-ja')!.textContent!.trim()).toBe('食べ物');
     link.click();
     await settle();
     const id = query()['palavra'];
     expect(dictionaryWords().words.find((w) => w.id === id)?.text).toBe('食べ物');
+  });
+
+  it('o verbete é um cartão na cor da classe, com o uso escrito, o nível, a origem e os números no pé', async () => {
+    localStorage.removeItem(DICT_MARKS_KEY);
+    await open('/extras/dicionario?q=taberu');
+    const eat = host.querySelector<HTMLElement>('.verbete')!;
+    expect(eat.dataset['familia']).toBe('verbo');
+    expect(eat.querySelector('.faixa .uso b')!.textContent!.trim()).toBe('Altíssimo');
+    expect(eat.querySelector('.faixa .nivel')!.textContent!.trim()).toBe('JLPT N5');
+    expect(eat.querySelectorAll('.frases li').length).toBe(3);
+    expect(eat.querySelector('.frases b')!.textContent).toBe('食べます');
+    expect(eat.querySelector('.origem')!.textContent).toContain('Do verbo clássico 食ぶ (tabu).');
+    expect(eat.querySelector('.numeros')!.textContent).toContain('1.591ª mais comum na internet');
+    await harness.navigateByUrl('/extras/dicionario?q=kami', DictionaryPage);
+    await settle();
+    const paper = [...host.querySelectorAll<HTMLElement>('.verbete')].find((v) => v.querySelector('.romaji')!.textContent!.trim() === 'kami')!;
+    expect(paper.dataset['familia']).toBe('nome');
+    // sem origem certa, sem a linha do 源
+    expect(paper.querySelector('.origem')).toBeNull();
+    // a cor da faixa é a da cartolina escura da família
+    expect(getComputedStyle(paper.querySelector('.faixa')!).backgroundColor).toBe('rgb(10, 51, 75)');
+  });
+
+  it('o 済 e a fita só fazem a animação quando são tocados; o que já vem marcado aparece parado', async () => {
+    localStorage.removeItem(DICT_MARKS_KEY);
+    await open('/extras/dicionario?q=kuru');
+    const kuru = () => host.querySelector('.verbete')!;
+    kuru().querySelector<HTMLButtonElement>('.sumi')!.click();
+    await settle();
+    expect(kuru().querySelector('.sumi')!.classList).toContain('agora');
+    kuru().querySelector<HTMLButtonElement>('.fita')!.click();
+    await settle();
+    // o último tocado é o que anima
+    expect(kuru().querySelector('.fita')!.classList).toContain('agora');
+    expect(kuru().querySelector('.sumi')!.classList).not.toContain('agora');
+    // a animação passa: a marca fica, parada
+    await new Promise((r) => setTimeout(r, 1300));
+    await settle();
+    expect(kuru().querySelectorAll('.agora').length).toBe(0);
+    // aberto de novo (outro cartão), já marcado: ligado e parado
+    await harness.navigateByUrl('/extras/dicionario?q=taberu', DictionaryPage);
+    await settle();
+    await harness.navigateByUrl('/extras/dicionario?q=kuru', DictionaryPage);
+    await settle();
+    expect(kuru().querySelector('.fita')!.classList).toContain('ligado');
+    expect(kuru().querySelector('.sumi')!.classList).toContain('ligado');
+    expect(kuru().querySelectorAll('.agora').length).toBe(0);
+    localStorage.removeItem(DICT_MARKS_KEY);
   });
 
   it('tocar na palavra abre a lousa, que mora no endereço; as setas andam pela lista e fechar tira do endereço', async () => {

@@ -14,7 +14,7 @@ import { ICON, IconModule } from './icons';
   selector: 'app-word-voice',
   imports: [IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { '[class.miudo]': 'small()' },
+  host: { '[class.miudo]': 'small()', '[class.escuro]': 'dark()' },
   template: `
     @if (speaks()) {
       <button
@@ -80,6 +80,25 @@ import { ICON, IconModule } from './icons';
       background: #df6a2c;
       box-shadow: 0 0 0 1.5px #f6f0e1;
     }
+    /* na faixa escura do verbete: o creme da tinta clara */
+    :host(.escuro) .ouvir-palavra {
+      background: rgb(243 236 224 / 0.1);
+      color: rgb(243 236 224 / 0.82);
+    }
+    :host(.escuro) .ouvir-palavra:hover {
+      background: rgb(243 236 224 / 0.2);
+      color: #ffd9a8;
+    }
+    :host(.escuro) .ouvir-palavra:focus-visible {
+      outline-color: var(--hi);
+    }
+    :host(.escuro) .ouvir-palavra.ligado {
+      background: #f3ece0;
+      color: #b4541f;
+    }
+    :host(.escuro) .ouvir-palavra.ligado::after {
+      box-shadow: 0 0 0 1.5px #f3ece0;
+    }
     @media (prefers-reduced-motion: reduce) {
       .ouvir-palavra:hover {
         scale: none;
@@ -93,6 +112,8 @@ export class WordVoice {
   readonly word = input.required<Word>();
   /** O tamanho menor, da Tabela. */
   readonly small = input(false);
+  /** Sobre a faixa escura do verbete. */
+  readonly dark = input(false);
 
   protected readonly Icon = ICON.fones;
   private readonly key = computed(() => `dicionario:${this.word().id}`);

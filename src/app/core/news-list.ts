@@ -27,13 +27,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-24-padrao-do-verbete',
+    id: '2026-11-24-verbete-em-cartao',
     version: '1.53.2',
     kind: 'ajustes',
     date: '2026-11-24',
-    title: 'Frases de exemplo e origem em todas as palavras do Dicionário Japonês',
+    title: 'Frases de exemplo e origem em todas as palavras do Dicionário Japonês, e o verbete em cartão',
     melhorias: [
-      'Todas as 1.023 palavras do Dicionário Japonês seguem o mesmo padrão: os sentidos separados por "/", uma descrição de como e quando a palavra se usa, três frases de exemplo com a palavra em vermelho e a tradução embaixo (例), a origem quando ela é certa (源: do inglês, os kanji, um encurtamento) e as palavras relacionadas (関). Na Tabela, a coluna Origem.',
+      'Todas as 1.023 palavras do Dicionário Japonês seguem o mesmo padrão: os sentidos separados por "/", uma descrição de como e quando a palavra se usa, três frases de exemplo com a palavra marcada e a tradução embaixo, a origem quando ela é certa (do inglês, os kanji, um encurtamento) e as palavras relacionadas. Na Tabela, a coluna Origem.',
+      'Cada verbete do Dicionário Japonês virou um cartão com uma faixa na cor da classe (azul nos substantivos, vinho nos verbos, verde nos adjetivos, lilás nos advérbios, laranja nas expressões): as frases em caixinhas, a origem no 源 e as palavras relacionadas em cartõezinhos que abrem a lousa. O uso vem escrito, a aprendida é o carimbo 済 e a favorita, uma fita de marcador de livro que cai ao ser marcada.',
     ],
   },
   {

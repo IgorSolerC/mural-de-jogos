@@ -63,17 +63,16 @@ app-facet-filters.cartela {
 .folha {
   @include kit.folha;
   margin: 0;
-  padding: 10px 30px 12px;
+  padding: 26px 30px 28px;
   list-style: none;
-  /* duas colunas, como num dicionário de papel, com um fio entre elas */
+  /* duas colunas de cartões, como num dicionário de papel (cada verbete é um cartão com a faixa da classe) */
   columns: 2;
-  column-gap: 56px;
-  column-rule: 1px solid rgb(21 21 21 / 0.14);
+  column-gap: 40px;
 }
 @media (max-width: 900px) {
   .folha {
     columns: 1;
-    padding: 6px 18px 8px;
+    padding: 16px 14px 18px;
   }
 }
 

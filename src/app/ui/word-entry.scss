@@ -1,31 +1,68 @@
-/* Um verbete do Dicionário Japonês (ui/word-entry.ts): o mesmo na página do dicionário e na folhinha da seleção. */
+/* Um verbete do Dicionário Japonês (ui/word-entry.ts): o mesmo cartão na página do dicionário e na folhinha da seleção. */
 
 :host {
-  /* o vermelho do carimbo (o 判子) do JLPT, do 例 das frases e do 源 e 関: 6:1 no papel */
-  --shu: #b42a20;
+  /* a família da classe dá dois tons: a faixa (as cartolinas escuras do site) e o da palavra nas frases (6:1 no papel) */
+  --faixa: var(--stock-cinza-escuro);
+  --tom: #6b5440;
+  --creme: #f3ece0;
+  --creme-2: rgb(243 236 224 / 0.72);
   --dic-letra: 'Klee One', var(--f-carta-palavra);
   display: block;
   break-inside: avoid;
-  padding: 16px 0 17px;
-  border-bottom: 1px dashed rgb(21 21 21 / 0.2);
+  margin: 0 0 20px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--campo-papel);
+  box-shadow:
+    0 0 0 1px rgb(21 21 21 / 0.1),
+    0 2px 3px rgb(0 0 0 / 0.14),
+    0 8px 16px -10px rgb(0 0 0 / 0.4);
   color: var(--ink);
 }
-/* o último verbete de cada lista não precisa do fio: o pé da folha já fecha */
 :host(:last-child) {
-  border-bottom: 0;
+  margin-bottom: 0;
+}
+:host([data-familia='nome']) {
+  --faixa: var(--stock-azul-escuro);
+  --tom: var(--caneta-azul);
+}
+:host([data-familia='verbo']) {
+  --faixa: var(--stock-rosa-escuro);
+  --tom: #b42a20;
+}
+:host([data-familia='adjetivo']) {
+  --faixa: var(--stock-verde-escuro);
+  --tom: #1f7a45;
+}
+:host([data-familia='adverbio']) {
+  --faixa: var(--stock-lilas-escuro);
+  --tom: #6b3fa0;
+}
+:host([data-familia='expressao']) {
+  --faixa: var(--stock-laranja-escuro);
+  --tom: #a34e12;
 }
 
-.cabeca-verbete {
+/* ===== A faixa: a cabeça do verbete, no escuro da classe ===== */
+
+.faixa {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 12px;
+  align-items: center;
+  gap: 6px 14px;
+  /* à direita, o lugar da fita */
+  padding: 10px 56px 10px 18px;
+  background-color: var(--faixa);
+  background-image: var(--paper-grain);
+  background-blend-mode: soft-light;
+  color: var(--creme);
 }
 
 .palavra {
   font-family: var(--dic-letra);
-  color: var(--ink);
-  font-size: 2rem;
+  color: var(--creme);
+  font-size: 2.1rem;
   line-height: 1.2;
   overflow-wrap: anywhere;
 
@@ -35,11 +72,11 @@
   rt {
     font-size: 0.4em;
     letter-spacing: 0.06em;
-    color: rgb(21 21 21 / 0.7);
+    color: var(--creme-2);
   }
 }
 
-/* a palavra que abre a lousa: sem cara de botão; sob o mouse, a pincelada vermelha da lousa embaixo dela */
+/* a palavra que abre a lousa: sem cara de botão; sob o mouse, a pincelada amarela embaixo dela */
 .palavra.lousa {
   position: relative;
   padding: 0 2px;
@@ -56,7 +93,7 @@
     bottom: -1px;
     height: 4px;
     border-radius: 50% 40% 55% 45%;
-    background: var(--shu);
+    background: var(--hi);
     opacity: 0;
     scale: 0.4 1;
     transition:
@@ -65,11 +102,11 @@
   }
   &:hover::after,
   &:focus-visible::after {
-    opacity: 0.8;
+    opacity: 0.85;
     scale: 1 1;
   }
   &:focus-visible {
-    outline: 2px solid var(--ink);
+    outline: 2px solid var(--hi);
     outline-offset: 3px;
     border-radius: 3px;
   }
@@ -78,9 +115,9 @@
 .romaji {
   font-family: var(--f-label);
   font-weight: 600;
-  font-size: 1.04rem;
+  font-size: 1rem;
   letter-spacing: 0.03em;
-  color: rgb(21 21 21 / 0.72);
+  color: rgb(243 236 224 / 0.75);
 }
 
 .marcas {
@@ -88,100 +125,346 @@
   align-items: center;
   gap: 12px;
   margin-left: auto;
-  align-self: center;
 }
 
-/* o JLPT é um carimbo vermelho, torto, a tinta um pouco falhada (o grão do papel por baixo) */
-.selo-jlpt {
-  display: inline-grid;
+/* o uso, escrito em duas linhas: a palavra e, embaixo, "uso" miúdo */
+.uso {
+  display: grid;
+  line-height: 1.05;
+  text-align: right;
+
+  b {
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.86rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  i {
+    font-style: normal;
+    font-family: var(--f-label);
+    font-weight: 600;
+    font-size: 0.64rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgb(243 236 224 / 0.6);
+  }
+}
+
+/* o JLPT numa plaquinha creme de canto redondo, com a tinta da faixa */
+.nivel {
+  display: grid;
   place-items: center;
   min-width: 34px;
-  height: 30px;
-  padding: 0 4px;
-  border: 2px solid var(--shu);
-  border-radius: 5px;
-  color: var(--shu);
-  background: rgb(180 42 32 / 0.06);
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 6px;
+  background: var(--creme);
+  color: var(--faixa);
   font-family: var(--f-label);
   font-weight: 800;
-  font-size: 0.94rem;
-  letter-spacing: 0.02em;
-  rotate: -5deg;
-  mix-blend-mode: multiply;
+  font-size: 0.88rem;
+  letter-spacing: 0.03em;
   box-sizing: border-box;
 }
-.selo-jlpt.sem-nivel {
-  border-style: dashed;
-  border-color: rgb(21 21 21 / 0.4);
-  color: rgb(21 21 21 / 0.62);
+.nivel.sem-nivel {
   background: none;
+  border: 1.5px dashed rgb(243 236 224 / 0.5);
+  color: var(--creme-2);
 }
 
-/* o uso, em cinco tracinhos que sobem: os cheios em tinta */
-.uso {
-  display: inline-flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 16px;
+/* aprendida: o carimbo quadrado 済. Sem a marca, o recorte tracejado; marcado, o verde batido torto com o aro claro,
+   e a batida tem o tranco de carimbo (cresce, afunda e assenta) */
+.sumi {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  outline: 1.5px dashed rgb(243 236 224 / 0.4);
+  outline-offset: -1.5px;
+  color: rgb(243 236 224 / 0.62);
+  font-family: 'Klee One', 'Yu Mincho', serif;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    scale var(--t-ui) var(--ease-ui),
+    color var(--t-ui) var(--ease-ui),
+    outline-color var(--t-ui) var(--ease-ui);
 
-  i {
-    width: 4px;
-    border-radius: 1px;
-    background: rgb(21 21 21 / 0.16);
+  &:hover {
+    scale: 1.06;
+    color: #8fe0ad;
+    outline-color: #8fe0ad;
   }
-  @for $n from 1 through 5 {
-    i:nth-of-type(#{$n}) {
-      height: #{4 + $n * 2.4}px;
-    }
+  &:focus-visible {
+    outline: 2px solid var(--hi);
+    outline-offset: 3px;
   }
-  i.cheio {
-    background: var(--ink);
+  &.ligado {
+    outline: 0;
+    background: #2f9a5c;
+    color: #fff;
+    box-shadow:
+      inset 0 0 0 2px #2f9a5c,
+      inset 0 0 0 3.5px rgb(255 255 255 / 0.75),
+      0 1px 2px rgb(0 0 0 / 0.3);
+    rotate: -6deg;
   }
+  &.ligado.agora {
+    animation: carimba 380ms var(--ease-ui);
+  }
+  &.ligado:focus-visible {
+    outline: 2px solid var(--hi);
+    outline-offset: 3px;
+  }
+}
+@keyframes carimba {
+  0% {
+    scale: 1.7;
+    opacity: 0;
+  }
+  55% {
+    scale: 0.9;
+    opacity: 1;
+  }
+  100% {
+    scale: 1;
+  }
+}
+
+/* favorita: a fita de marcador de livro, de cetim. Desligada, um toco apagado dentro da faixa, com a costura
+   tracejada e a estrela vazada; sob o mouse, desce um pouco. Ligada, cai para fora da faixa (a queda passa do ponto e
+   volta), balança de leve, fica amarela com o brilho do cetim e a estrela salta. */
+.fita {
+  position: absolute;
+  top: 0;
+  right: 16px;
+  bottom: 0;
+  z-index: 2;
+  width: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transform-origin: 50% 0;
+  transition: filter 300ms var(--ease-ui);
+
+  .corpo {
+    position: absolute;
+    inset: 0 0 auto;
+    height: calc(100% - 18px);
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 7px), 0 100%);
+    background-color: rgb(243 236 224 / 0.12);
+    transition:
+      height 550ms cubic-bezier(0.34, 1.5, 0.5, 1),
+      background-color 250ms var(--ease-ui);
+  }
+  /* a costura dos dois lados */
+  .corpo::before {
+    content: '';
+    position: absolute;
+    inset: 0 3px;
+    border-inline: 1px dashed rgb(243 236 224 / 0.28);
+  }
+  svg {
+    position: absolute;
+    left: 50%;
+    bottom: 12px;
+    width: 12px;
+    height: 12px;
+    translate: -50% 0;
+    fill: none;
+    stroke: rgb(243 236 224 / 0.6);
+    stroke-width: 2;
+    stroke-linejoin: round;
+    transition:
+      fill 200ms var(--ease-ui),
+      stroke 200ms var(--ease-ui);
+  }
+
+  &:hover .corpo {
+    height: calc(100% - 9px);
+    background-color: rgb(243 236 224 / 0.22);
+  }
+  &:hover svg {
+    stroke: #ffd23f;
+  }
+  &:focus-visible {
+    outline: 2px solid var(--hi);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  &.ligado {
+    filter: drop-shadow(0 3px 2px rgb(0 0 0 / 0.3));
+  }
+  &.ligado.agora {
+    animation: fita-balanca 900ms 50ms;
+  }
+  &.ligado .corpo {
+    height: calc(100% + 26px);
+    background: linear-gradient(90deg, #e4b21b 0, #ffdb52 38%, #fff0a8 47%, #ffd640 56%, #e9b820 100%);
+  }
+  &.ligado:hover .corpo {
+    height: calc(100% + 30px);
+  }
+  &.ligado .corpo::before {
+    border-color: rgb(122 90 0 / 0.32);
+  }
+  &.ligado svg {
+    fill: #7a5a00;
+    stroke: #7a5a00;
+  }
+  &.ligado.agora svg {
+    animation: estrela-salta 500ms 300ms both;
+  }
+}
+/* para os lados, só um fio de balanço: quem mexe é a queda */
+@keyframes fita-balanca {
+  0% {
+    rotate: 0deg;
+  }
+  30% {
+    rotate: 1.2deg;
+  }
+  60% {
+    rotate: -0.6deg;
+  }
+  82% {
+    rotate: 0.25deg;
+  }
+  100% {
+    rotate: 0deg;
+  }
+}
+@keyframes estrela-salta {
+  0% {
+    scale: 0.2;
+    rotate: -60deg;
+  }
+  65% {
+    scale: 1.35;
+    rotate: 8deg;
+  }
+  100% {
+    scale: 1;
+    rotate: 0deg;
+  }
+}
+
+/* ===== O papel ===== */
+
+.miolo {
+  padding: 12px 18px 14px;
 }
 
 .sentido {
-  margin: 4px 0 0;
+  margin: 0;
   font-family: var(--f-hand);
-  font-size: 1.2rem;
-  line-height: 1.3;
+  font-size: 1.3rem;
+  line-height: 1.25;
 }
 
 .gramatica {
-  margin: 7px 0 0;
+  margin: 4px 0 0;
   font-family: var(--f-label);
   font-weight: 800;
-  font-size: 0.76rem;
-  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgb(21 21 21 / 0.66);
+  color: rgb(21 21 21 / 0.62);
 }
 
-/* as frases de exemplo: o 例 ("exemplo") num carimbinho vermelho, ao lado de uma lista que vai descendo. Cada frase
-   a lápis (Klee One), com a palavra do verbete em tinta vermelha; a tradução embaixo, na letra de mão, mais clara. */
-.exemplos {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-  margin: 11px 0 0;
-}
-.rei {
-  flex: none;
-  display: inline-grid;
-  place-items: center;
-  width: 1.45em;
-  height: 1.45em;
-  border-radius: 3px;
-  background: var(--shu);
-  color: var(--paper);
-  font-family: var(--dic-letra);
-  font-size: 0.8rem;
-  /* alinhado com a primeira linha da primeira frase */
-  margin-top: 0.22rem;
-}
+/* as frases: cada uma numa caixinha no tom da classe; o japonês a lápis (Klee One) com a palavra do verbete no tom, e
+   a tradução embaixo, na letra de mão, mais clara */
 .frases {
   display: grid;
-  gap: 7px;
-  min-width: 0;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: grid;
+    padding: 7px 10px;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--tom) 7%, transparent);
+  }
+}
+.frase {
+  font-family: var(--dic-letra);
+  font-size: 1.04rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+
+  b {
+    font-weight: 600;
+    color: var(--tom);
+  }
+}
+.traducao {
+  font-family: var(--f-hand);
+  font-size: 0.94rem;
+  line-height: 1.25;
+  color: rgb(21 21 21 / 0.72);
+}
+
+/* a descrição, com o fio na cor da classe antes dela */
+.nota {
+  margin: 12px 0 0;
+  padding-left: 12px;
+  border-left: 2px solid var(--tom);
+  font-family: var(--f-hand);
+  font-size: 0.98rem;
+  line-height: 1.38;
+  color: rgb(21 21 21 / 0.78);
+}
+
+/* a origem: o 源 numa bolinha no tom, centrada na primeira linha */
+.origem {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 9px;
+  align-items: start;
+  margin: 12px 0 0;
+  font-family: var(--f-hand);
+  font-size: 0.94rem;
+  line-height: 22px;
+  color: rgb(21 21 21 / 0.72);
+}
+.selo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--tom);
+  color: #fbf6ea;
+  font-family: var(--dic-letra);
+  font-size: 13px;
+  line-height: 1;
+}
+
+/* as palavras ligadas: cartõezinhos com a palavra e o sentido; as que estão no dicionário abrem a lousa */
+.rotulo-ligadas {
+  margin: 14px 0 6px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--tom);
+}
+.cartoezinhos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 6px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -190,71 +473,62 @@
     display: grid;
   }
 }
-.frase {
+.ligada {
+  display: grid;
+  align-content: start;
+  gap: 1px;
+  padding: 6px 9px 7px;
+  border: 0;
+  border-top: 2px solid color-mix(in srgb, var(--tom) 55%, transparent);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--tom) 6%, transparent);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+}
+.lig-ja {
   font-family: var(--dic-letra);
   font-size: 1.06rem;
-  line-height: 1.45;
+  line-height: 1.3;
   overflow-wrap: anywhere;
+}
+.lig-pt {
+  font-family: var(--f-hand);
+  font-size: 0.84rem;
+  line-height: 1.15;
+  color: rgb(21 21 21 / 0.68);
+}
+.ligada.abre {
+  cursor: zoom-in;
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    translate var(--t-ui) var(--ease-ui);
 
-  b {
-    font-weight: 600;
-    color: var(--shu);
+  &:hover {
+    background: color-mix(in srgb, var(--tom) 13%, transparent);
+    translate: 0 -1px;
+  }
+  &:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
   }
 }
-.traducao {
-  font-family: var(--f-hand);
-  font-size: 0.98rem;
-  line-height: 1.3;
-  color: rgb(21 21 21 / 0.72);
-}
 
-/* a origem (源) e as relacionadas (関): linhas de apoio, com o carimbo só no contorno, para o 例 mandar */
-.linha {
-  display: flex;
-  gap: 8px;
-  align-items: baseline;
-  margin: 9px 0 0;
-  font-family: var(--dic-letra);
-  font-size: 0.98rem;
-  line-height: 1.45;
-  color: rgb(21 21 21 / 0.86);
-}
-.selo {
-  flex: none;
-  display: inline-grid;
-  place-items: center;
-  width: 1.45em;
-  height: 1.45em;
-  border: 1.5px solid var(--shu);
-  border-radius: 3px;
-  color: var(--shu);
-  font-size: 0.8rem;
-  box-sizing: border-box;
-  translate: 0 -1px;
-}
-
-.nota {
-  margin: 7px 0 0;
-  font-family: var(--f-hand);
-  font-size: 1rem;
-  line-height: 1.35;
-  color: rgb(21 21 21 / 0.74);
-}
-
+/* os números, miúdos e claros: o que menos se lê fica no pé */
 .numeros {
   display: flex;
   flex-wrap: wrap;
-  margin: 9px 0 0;
+  margin: 12px 0 0;
   font-family: var(--f-label);
   font-weight: 600;
-  font-size: 0.8rem;
-  letter-spacing: 0.04em;
-  color: rgb(21 21 21 / 0.62);
+  font-size: 0.74rem;
+  letter-spacing: 0.05em;
+  color: rgb(21 21 21 / 0.56);
   font-variant-numeric: tabular-nums;
 
   span + span::before {
     content: '·';
-    margin: 0 7px;
+    margin: 0 6px;
   }
   /* o dia em que foi aprendida, no verde do carimbo */
   .quando {
@@ -262,25 +536,22 @@
   }
 }
 
-/* na composição, o que é outra palavra do dicionário: o sublinhado pontilhado vermelho, e ela abre na lousa */
-.elo {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-  text-decoration: underline dotted var(--shu) 1.5px;
-  text-underline-offset: 4px;
-  transition: color var(--t-ui) var(--ease-ui);
-
-  &:hover {
-    color: var(--shu);
-    text-decoration-style: solid;
+@media (prefers-reduced-motion: reduce) {
+  .sumi,
+  .fita,
+  .fita .corpo,
+  .fita svg,
+  .ligada.abre {
+    transition: none;
   }
-  &:focus-visible {
-    outline: 2px solid var(--ink);
-    outline-offset: 2px;
-    border-radius: 2px;
+  .sumi.ligado.agora,
+  .fita.ligado.agora,
+  .fita.ligado.agora svg {
+    animation: none;
+  }
+  .sumi:hover,
+  .ligada.abre:hover {
+    scale: none;
+    translate: none;
   }
 }

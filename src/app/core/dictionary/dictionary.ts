@@ -243,6 +243,64 @@ export function compositionParts(text: string, byText: ReadonlyMap<string, Word>
   return out;
 }
 
+/** Uma palavra ligada do verbete: o japonês, o sentido entre parênteses e, quando é outra palavra do dicionário, ela. */
+export interface RelatedWord {
+  text: string;
+  gloss: string;
+  word?: Word;
+}
+
+/**
+ * As palavras ligadas (a coluna `composicao`, `palavra (sentido), palavra (sentido)`) em itens, para os cartõezinhos do
+ * verbete. A vírgula dentro do parêntese (`手紙 (tegami, carta)`) é do sentido. Só vira link o japonês que é, inteiro,
+ * outra palavra do dicionário com kanji ou de dois caracteres ou mais (a mesma regra de `compositionParts`).
+ */
+export function relatedWords(text: string, byText: ReadonlyMap<string, Word>, selfId?: string): RelatedWord[] {
+  return text
+    .split(/,\s*(?![^()]*\))/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => {
+      const m = item.match(/^(.+?)\s*\((.+)\)$/);
+      const jp = (m ? m[1] : item).trim();
+      const found = hasKanji(jp) || [...jp].length > 1 ? byText.get(jp) : undefined;
+      const word = found && found.id !== selfId ? found : undefined;
+      return word ? { text: jp, gloss: m ? m[2].trim() : '', word } : { text: jp, gloss: m ? m[2].trim() : '' };
+    });
+}
+
+/** A família de cor de uma classe: a faixa do verbete e o tom da palavra nas frases. */
+export type ClassFamily = 'nome' | 'verbo' | 'adjetivo' | 'adverbio' | 'gramatica' | 'expressao';
+
+/** Cada classe do CSV e a sua família (o teste barra classe nova sem família). */
+export const CLASS_FAMILIES: Readonly<Record<string, ClassFamily>> = {
+  substantivo: 'nome',
+  pronome: 'nome',
+  número: 'nome',
+  contador: 'nome',
+  demonstrativo: 'nome',
+  interrogativo: 'nome',
+  verbo: 'verbo',
+  auxiliar: 'verbo',
+  cópula: 'verbo',
+  'adjetivo-i': 'adjetivo',
+  'adjetivo-na': 'adjetivo',
+  advérbio: 'adverbio',
+  partícula: 'gramatica',
+  'partícula composta': 'gramatica',
+  conjunção: 'gramatica',
+  sufixo: 'gramatica',
+  prefixo: 'gramatica',
+  'expressão gramatical': 'gramatica',
+  expressão: 'expressao',
+  interjeição: 'expressao',
+};
+
+/** A família da classe; a que o mapa não conhece cai em `gramatica` (a faixa neutra, cinza quente). */
+export function classFamily(wordClass: string): ClassFamily {
+  return CLASS_FAMILIES[wordClass] ?? 'gramatica';
+}
+
 export function keysOf(w: Word): WordKeys {
   const meaning = fold(w.meaning);
   return {
