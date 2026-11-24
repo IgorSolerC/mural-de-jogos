@@ -1,7 +1,7 @@
 /* Um verbete do Dicionário Japonês (ui/word-entry.ts): o mesmo na página do dicionário e na folhinha da seleção. */
 
 :host {
-  /* o vermelho do carimbo (o 判子) do JLPT e do 例 das composições: 6:1 no papel */
+  /* o vermelho do carimbo (o 判子) do JLPT, do 例 das frases e do 源 e 関: 6:1 no papel */
   --shu: #b42a20;
   --dic-letra: 'Klee One', var(--f-carta-palavra);
   display: block;
@@ -156,15 +156,13 @@
   color: rgb(21 21 21 / 0.66);
 }
 
-/* as palavras formadas: o 例 ("exemplo") num carimbinho vermelho, e o japonês na letra de lápis */
+/* as frases de exemplo: o 例 ("exemplo") num carimbinho vermelho, ao lado de uma lista que vai descendo. Cada frase
+   a lápis (Klee One), com a palavra do verbete em tinta vermelha; a tradução embaixo, na letra de mão, mais clara. */
 .exemplos {
   display: flex;
   gap: 8px;
-  align-items: baseline;
-  margin: 9px 0 0;
-  font-family: var(--dic-letra);
-  font-size: 1rem;
-  line-height: 1.45;
+  align-items: flex-start;
+  margin: 11px 0 0;
 }
 .rei {
   flex: none;
@@ -175,7 +173,63 @@
   border-radius: 3px;
   background: var(--shu);
   color: var(--paper);
+  font-family: var(--dic-letra);
   font-size: 0.8rem;
+  /* alinhado com a primeira linha da primeira frase */
+  margin-top: 0.22rem;
+}
+.frases {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: grid;
+  }
+}
+.frase {
+  font-family: var(--dic-letra);
+  font-size: 1.06rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+
+  b {
+    font-weight: 600;
+    color: var(--shu);
+  }
+}
+.traducao {
+  font-family: var(--f-hand);
+  font-size: 0.98rem;
+  line-height: 1.3;
+  color: rgb(21 21 21 / 0.72);
+}
+
+/* a origem (源) e as relacionadas (関): linhas de apoio, com o carimbo só no contorno, para o 例 mandar */
+.linha {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin: 9px 0 0;
+  font-family: var(--dic-letra);
+  font-size: 0.98rem;
+  line-height: 1.45;
+  color: rgb(21 21 21 / 0.86);
+}
+.selo {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 1.45em;
+  height: 1.45em;
+  border: 1.5px solid var(--shu);
+  border-radius: 3px;
+  color: var(--shu);
+  font-size: 0.8rem;
+  box-sizing: border-box;
   translate: 0 -1px;
 }
 

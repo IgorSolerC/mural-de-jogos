@@ -158,8 +158,8 @@
   }
 }
 
-/* a composição, embaixo do sentido: o 例 vermelho e as outras palavras do dicionário em link para a lousa delas */
-/* em bloco, centrado: quebrando a linha, o 例 anda junto com o texto (com flex, ele ficava sozinho na beirada) */
+/* as relacionadas, embaixo do sentido: o 関 vermelho e as outras palavras do dicionário em link para a lousa delas */
+/* em bloco, centrado: quebrando a linha, o 関 anda junto com o texto (com flex, ele ficava sozinho na beirada) */
 .composicao {
   display: block;
   margin: 10px auto 0;
@@ -169,17 +169,19 @@
   line-height: 1.5;
   text-align: center;
 
-  .rei {
+  /* o 関 das relacionadas, só no contorno, como no verbete */
+  .selo {
     display: inline-grid;
     place-items: center;
     width: 1.45em;
     height: 1.45em;
     margin-right: 8px;
+    border: 1.5px solid var(--shu);
     border-radius: 3px;
-    background: var(--shu);
-    color: var(--arroz);
+    color: var(--shu);
     font-size: 0.8rem;
     vertical-align: 0.12em;
+    box-sizing: border-box;
   }
 }
 .elo {

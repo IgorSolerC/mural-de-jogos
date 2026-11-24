@@ -27,6 +27,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-24-padrao-do-verbete',
+    version: '1.53.2',
+    kind: 'ajustes',
+    date: '2026-11-24',
+    title: 'Frases de exemplo e origem em todas as palavras do Dicionário Japonês',
+    melhorias: [
+      'Todas as 1.023 palavras do Dicionário Japonês seguem o mesmo padrão: os sentidos separados por "/", uma descrição de como e quando a palavra se usa, três frases de exemplo com a palavra em vermelho e a tradução embaixo (例), a origem quando ela é certa (源: do inglês, os kanji, um encurtamento) e as palavras relacionadas (関). Na Tabela, a coluna Origem.',
+    ],
+  },
+  {
     id: '2026-11-23-kanji-da-palavra',
     version: '1.53.1',
     kind: 'ajustes',

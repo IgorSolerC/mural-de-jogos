@@ -43,11 +43,11 @@
         <span class="sentido">{{ word().meaning }}</span>
         <app-word-voice [word]="word()" />
       </p>
-      <!-- a composição: o que é outra palavra do dicionário leva à lousa dela -->
+      <!-- as relacionadas (関): o que é outra palavra do dicionário leva à lousa dela -->
       @if (parts().length) {
         <p class="composicao">
-          <span class="rei" lang="ja" aria-hidden="true">例</span><span class="sr-only">Exemplos: </span>
-          <span lang="ja">@for (p of parts(); track $index) {@if (p.word; as pw) {<button type="button" class="elo" [attr.aria-label]="p.text + ': abrir na lousa'" [title]="pw.meaning" (click)="goto.emit(pw)">{{ p.text }}</button>} @else {<ng-container>{{ p.text }}</ng-container>}}</span>
+          <span class="selo" lang="ja" aria-hidden="true">関</span><span class="sr-only">Relacionadas: </span>
+          <span>@for (p of parts(); track $index) {@if (p.word; as pw) {<button type="button" class="elo" lang="ja" [attr.aria-label]="p.text + ': abrir na lousa'" [title]="pw.meaning" (click)="goto.emit(pw)">{{ p.text }}</button>} @else {<ng-container>{{ p.text }}</ng-container>}}</span>
         </p>
       }
       @if (hasReading()) {

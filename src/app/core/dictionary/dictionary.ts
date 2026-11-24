@@ -37,11 +37,48 @@ export interface Word {
   verbGroup: string | null;
   /** A posição na lista de frequência da internet (menor, mais comum); `null` quando não está nela. */
   rank: number | null;
+  /** As palavras relacionadas: `palavra (sentido), palavra (sentido)`. */
   composition: string;
+  /** A descrição: como e quando se usa, em fatos (impessoal). */
   notes: string;
+  /** As frases de exemplo (três, às vezes quatro), com a palavra marcada entre colchetes no japonês. */
+  examples: WordExample[];
+  /** De onde a palavra vem (estrangeirismo, os kanji, encurtamento), ou vazio quando não é certo. */
+  origin: string;
   /** O dia (AAAA-MM-DD) em que o dono aprendeu a palavra, pelo CSV; `null` para as que ainda não aprendeu. */
   learnedOn: string | null;
 }
+
+/** Uma frase de exemplo: o japonês com a palavra entre colchetes (`毎朝パンを[食べます]。`) e a tradução. */
+export interface WordExample {
+  ja: string;
+  pt: string;
+}
+
+/**
+ * As frases da coluna `exemplos`: uma por linha, `japonês → tradução`. Linha sem a seta não é frase (fica de fora).
+ */
+export function readExamples(text: string): WordExample[] {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.split('→'))
+    .filter((p) => p.length === 2 && p[0].trim() && p[1].trim())
+    .map(([ja, pt]) => ({ ja: ja.trim(), pt: pt.trim() }));
+}
+
+/** A frase em pedaços, com a palavra (o que está entre colchetes) marcada; sem colchetes, a frase inteira. */
+export function exampleParts(ja: string): { text: string; mark: boolean }[] {
+  const m = /^(.*?)\[(.+?)\](.*)$/s.exec(ja);
+  if (!m) return [{ text: ja, mark: false }];
+  return [
+    { text: m[1], mark: false },
+    { text: m[2], mark: true },
+    { text: m[3], mark: false },
+  ].filter((p) => p.text);
+}
+
+/** A frase sem as marcas (para ler em voz alta, para o leitor de tela). */
+export const examplePlain = (ja: string) => ja.replace(/[[\]]/g, '');
 
 /** O CSV lido em linhas e campos (aspas com vírgula dentro, aspas dobradas, quebra de linha dentro das aspas). */
 export function parseCsv(text: string): string[][] {
@@ -120,6 +157,8 @@ export function readWords(csv: string): Word[] {
         rank: rank ? num(rank, 0) || null : null,
         composition: get(r, 'composicao'),
         notes: get(r, 'notas'),
+        examples: readExamples(get(r, 'exemplos')),
+        origin: get(r, 'origem'),
         learnedOn: dayOf(get(r, 'aprendida')),
       } satisfies Word;
     })
@@ -260,9 +299,16 @@ function termScore(k: WordKeys, t: Term): number {
   for (const s of k.senses) best = Math.max(best, tier(s, t.plain, [90, 68, 0]));
   // dentro do português, só a partir do começo de uma palavra ("comer" acha "comer algo", não "começo")
   if (!best && t.plain.length >= 2 && new RegExp(`(^|[^a-z0-9])${escapeRe(t.plain)}`).test(k.meaning)) best = 42;
-  // na composição, nas notas, na classe e no tema, só a partir de duas letras (uma letra está em quase tudo)
-  if (!best && (t.ja.length >= 2 || hasKanji(t.ja)) && (k.extra.includes(t.ja) || (t.kana && k.extra.includes(t.kana)))) best = 10;
+  // na composição, nas notas, na classe e no tema, só a partir de duas letras (uma letra está em quase tudo); em
+  // letras latinas, só do começo de uma palavra, como no português: as notas citam o romaji, e "sushi" não pode achar
+  // o 下 pelo "kutsushita" de 靴下
+  if (!best && (t.ja.length >= 2 || hasKanji(t.ja)) && (inExtra(k.extra, t.ja) || (t.kana && k.extra.includes(t.kana)))) best = 10;
   return best;
+}
+
+/** O pedaço está no texto: o japonês em qualquer lugar; o latino, do começo de uma palavra. */
+function inExtra(extra: string, s: string): boolean {
+  return /[^\x00-\x7f]/.test(s) ? extra.includes(s) : new RegExp(`(^|[^a-z0-9])${escapeRe(s)}`).test(extra);
 }
 
 function escapeRe(s: string): string {

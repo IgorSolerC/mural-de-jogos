@@ -119,7 +119,7 @@ describe('o Dicionário Japonês', () => {
 
   it('na composição de um verbete, outra palavra do dicionário é link: abre a lousa dela', async () => {
     await open('/extras/dicionario?q=taberu');
-    const link = host.querySelector<HTMLButtonElement>('.verbete .exemplos .elo')!;
+    const link = host.querySelector<HTMLButtonElement>('.verbete .relacionadas .elo')!;
     expect(link.textContent!.trim()).toBe('食べ物');
     link.click();
     await settle();
@@ -193,7 +193,7 @@ describe('o Dicionário Japonês', () => {
     expect(host.querySelector('.verbete')).toBeNull();
     expect(host.querySelectorAll('tbody tr').length).toBe(1023);
     expect([...host.querySelectorAll('thead th')].map((t) => t.textContent!.trim())).toEqual([
-      'Nº', 'Marcas', 'Japonês', 'Romaji', 'Português', 'JLPT', 'Uso', 'Imp.', 'Classe', 'Tema', 'Escrita', 'Registro', 'Internet', 'Composição', 'Notas',
+      'Nº', 'Marcas', 'Japonês', 'Romaji', 'Português', 'JLPT', 'Uso', 'Imp.', 'Classe', 'Tema', 'Escrita', 'Registro', 'Internet', 'Relacionadas', 'Descrição', 'Origem',
     ]);
     const imp = [...host.querySelectorAll<HTMLButtonElement>('thead .cabeca')].find((b) => b.textContent!.trim() === 'Imp.')!;
     imp.click();

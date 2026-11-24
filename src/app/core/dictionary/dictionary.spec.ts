@@ -1,4 +1,4 @@
-import { DEFAULT_STATE, DictState, MarkLookup, effectiveSort, lookupWords, facetChips, facetGroups, keysOf, matchScore, paramsOf, parseCsv, passes, readWords, sectionsOf, sortWords, spokenOf, stateFromParams, toggleFacet, compositionParts, kanjiIn, wordsWithKanji } from './dictionary';
+import { DEFAULT_STATE, DictState, MarkLookup, effectiveSort, lookupWords, facetChips, facetGroups, keysOf, matchScore, paramsOf, parseCsv, passes, readWords, sectionsOf, sortWords, spokenOf, stateFromParams, toggleFacet, compositionParts, kanjiIn, wordsWithKanji, exampleParts, examplePlain, readExamples } from './dictionary';
 import { foldJa, kanaRow, looseRomaji, romajiToKana } from './kana';
 import { dictionaryWords } from './words';
 
@@ -47,6 +47,63 @@ JP1,犬,いぬ,cachorro,${dia}
     expect(readWords(csv('ontem'))[0].learnedOn).toBeNull();
     // sem a coluna (o CSV de antes), ninguém está aprendido
     expect(words.every((w) => w.learnedOn === null)).toBeTrue();
+  });
+
+  it('lê as frases de exemplo (uma por linha, japonês → tradução) e a origem', () => {
+    const csv = `id,japones,leitura,portugues,exemplos,origem
+JP1,ヒーロー,ヒーロー,herói,"子どものころ、[ヒーロー]になりたかった。 → Quando criança, eu queria ser um herói.
+彼は試合の[ヒーロー]だ。→Ele é o herói da partida.
+
+sem seta nenhuma",Do inglês hero.
+`;
+    const [w] = readWords(csv);
+    expect(w.examples).toEqual([
+      { ja: '子どものころ、[ヒーロー]になりたかった。', pt: 'Quando criança, eu queria ser um herói.' },
+      { ja: '彼は試合の[ヒーロー]だ。', pt: 'Ele é o herói da partida.' },
+    ]);
+    expect(w.origin).toBe('Do inglês hero.');
+    // sem as colunas (o CSV de antes), nada de frases nem origem
+    expect(words.every((x) => x.examples.length === 0 && x.origin === '')).toBeTrue();
+    expect(readExamples('')).toEqual([]);
+  });
+
+  it('nas notas e nas relacionadas, o romaji só acha do começo de uma palavra', () => {
+    const all = dictionaryWords().words;
+    const hits = (q: string) => all.filter((w) => matchScore(keysOf(w), q) > 0).map((w) => w.text);
+    // "kutsushita" (靴下, nas relacionadas de 下 e de 靴) não acha "sushi"
+    expect(hits('sushi')).toEqual(['寿司']);
+    // o japonês nas notas continua achando em qualquer lugar
+    expect(hits('靴下')).toContain('下');
+  });
+
+  it('a frase em pedaços: a palavra entre colchetes vem marcada', () => {
+    expect(exampleParts('毎朝パンを[食べます]。')).toEqual([
+      { text: '毎朝パンを', mark: false },
+      { text: '食べます', mark: true },
+      { text: '。', mark: false },
+    ]);
+    expect(exampleParts('[まじ]でおいしい！')).toEqual([
+      { text: 'まじ', mark: true },
+      { text: 'でおいしい！', mark: false },
+    ]);
+    expect(exampleParts('なにもない。')).toEqual([{ text: 'なにもない。', mark: false }]);
+    expect(examplePlain('私[は]学生です。')).toBe('私は学生です。');
+  });
+
+  it('todas as palavras do dicionário seguem o padrão: sentidos com barra, descrição, três frases marcadas', () => {
+    const bad: string[] = [];
+    for (const w of dictionaryWords().words) {
+      const why = [
+        /;/.test(w.meaning) && 'sentidos com ;',
+        !w.notes && 'sem descrição',
+        /(^|[^\p{L}])você(?![\p{L}])/iu.test(w.notes) && !/você/.test(w.meaning) && 'descrição fala com o leitor',
+        (w.examples.length < 3 || w.examples.length > 4) && `${w.examples.length} frases`,
+        w.examples.some((e) => exampleParts(e.ja).filter((p) => p.mark).length !== 1 || /[[\]]/.test(examplePlain(e.ja))) && 'frase sem a palavra marcada uma vez',
+        w.origin && !w.origin.endsWith('.') && 'origem sem ponto',
+      ].filter(Boolean);
+      if (why.length) bad.push(`${w.id} ${w.text}: ${why.join(', ')}`);
+    }
+    expect(bad).toEqual([]);
   });
 
   it('o que a voz diz: a leitura em kana, sem o 〜, as alternativas com pausa e as partículas como se falam', () => {
@@ -105,13 +162,13 @@ JP1,犬,いぬ,cachorro,${dia}
     const on = (text: string, meaning: string) => all.find((w) => w.text === text && w.meaning.startsWith(meaning))!;
     expect(on('です', 'é').learnedOn).toBe('2026-11-14');
     expect(on('好き', 'gostar').learnedOn).toBe('2026-11-23');
-    expect(on('〜様', 'educado').learnedOn).toBe('2026-11-19');
+    expect(on('〜様', 'sr. / sra.').learnedOn).toBe('2026-11-19');
     // と "e/com" é outra palavra que o と de citação, que continua por aprender
-    expect(on('と', 'e / com').learnedOn).toBe('2026-11-14');
+    expect(on('と', 'e (entre substantivos)').learnedOn).toBe('2026-11-14');
     expect(on('と', 'que').learnedOn).toBeNull();
     // o rank vem da lista da internet: 二 não pega o da partícula に
     expect(on('二', '2').rank).toBe(166);
-    expect(on('〜時', 'horas').notes).toContain('よじ');
+    expect(on('〜時', 'horas').notes).toContain('四時 (yoji)');
     // as prioridades seguem uma por uma, sem buraco nem repetição
     expect(all.map((w) => w.order)).toEqual(all.map((_, i) => i + 1));
   });

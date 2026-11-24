@@ -70,8 +70,9 @@ const COLUMNS: readonly Column[] = [
   { id: 'escrita', label: 'Escrita' },
   { id: 'registro', label: 'Registro' },
   { id: 'rank', label: 'Internet', sort: 'rank', num: true },
-  { id: 'composicao', label: 'Composição' },
-  { id: 'notas', label: 'Notas' },
+  { id: 'composicao', label: 'Relacionadas' },
+  { id: 'notas', label: 'Descrição' },
+  { id: 'origem', label: 'Origem' },
 ];
 
 /**

@@ -135,3 +135,31 @@ Cada uma com `/code-review mid` antes da seguinte, commit e push.
 - `pages/dictionary-page.spec.ts`: a página mostra 933, busca, filtra, ordena, troca a vista, lê e escreve o endereço.
 - `ui/facet-filters` herda os testes da folha dos Gastos.
 - Prateleira, barra (logo e contagem) e rota.
+
+## 7. O padrão do verbete (pedido de 23/nov, à noite)
+
+O dono pediu que toda palavra tenha pelo menos 3 exemplos de uso, a origem (se houver) e os sentidos separados
+por "/", num padrão só de escrita e de disposição, e que as descrições simplistas (como ヒーロー, só "herói")
+melhorem. "Seja cauteloso e tenha certeza de que não está escrevendo nenhuma informação incorreta."
+
+O CSV ganhou duas colunas, `exemplos` e `origem`, e as 1.023 palavras foram reescritas no padrão abaixo, em lotes
+de 40, cada um escrito e depois revisado por outro leitor (conferindo em Jisho e Wiktionary o que não era certo).
+
+- **`portugues`**: os sentidos separados por ` / `, do mais comum ao menos comum; o contexto curto entre parênteses
+  depois do sentido (`meia (hora)`); a fala entre aspas (`"poxa!"`); nada de registro ("gíria") no sentido.
+- **`notas`** (a descrição): toda palavra tem; 1 a 3 frases de fatos, impessoais (sem "você"): quando se usa, a
+  nuance, o registro, o contraste com a palavra parecida, a partícula que pede, a outra escrita.
+- **`exemplos`**: 3 frases curtas e naturais (4 quando um sentido importante ficaria de fora), uma por linha,
+  `japonês → tradução`, com a palavra do verbete entre colchetes uma vez (`毎朝パンを[食べます]。`): o verbo
+  conjugado inteiro, só o pedaço do auxiliar ou do sufixo (`行き[ます]`, `三[回]`). Cada frase mostra um sentido.
+- **`origem`**: só o que é certo, numa frase: `Do inglês hero.`, `Encurtamento de 真面目 (majime, sério).`,
+  `電 (eletricidade) + 車 (carro).`, `練習 (treino) + する (fazer).` Vazia quando não é certa ou não ensina nada
+  (palavra nativa simples, partícula). Nada de etimologia popular.
+- **`composicao`** (as relacionadas): `palavra (sentido), palavra (sentido)`; frases inteiras saíram daqui para os
+  exemplos.
+
+No verbete: a descrição a lápis embaixo da gramática; o carimbo vermelho 例 ao lado das frases (o japonês na Klee
+One, a palavra em tinta vermelha, a tradução embaixo na letra de mão); a origem com o carimbo vazado 源 e as
+relacionadas com o 関 (que era o 例 da composição; na lousa também). A Tabela ganhou a coluna Origem; as frases
+ficam só nos verbetes. O teste "todas as palavras do dicionário seguem o padrão" (dictionary.spec.ts) falha se uma
+palavra entrar sem descrição, sem as três frases marcadas ou com `;` nos sentidos.

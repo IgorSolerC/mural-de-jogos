@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { MONTHS_SHORT } from '../core/dates';
-import { Word, compositionParts, facetLabel } from '../core/dictionary/dictionary';
+import { Word, compositionParts, exampleParts, facetLabel } from '../core/dictionary/dictionary';
 import { hasKanji } from '../core/dictionary/kana';
 import { DictionaryMarks } from '../core/dictionary/marks-store';
 import { dictionaryWords } from '../core/dictionary/words';
@@ -18,7 +18,7 @@ export function daySaid(day: string | null): string {
 /**
  * Um verbete do Dicionário Japonês (PLANO-DICIONARIO.md): a palavra na Klee One com a leitura em furigana quando tem
  * kanji, o romaji, os selos de aprendida e favorita, o carimbo do JLPT e o uso em tracinhos; o português; a linha da
- * gramática; a composição depois do 例; as notas a lápis; e os números. A mesma peça na página do dicionário (um
+ * gramática; a descrição a lápis; as frases de exemplo depois do 例; a origem (源); as relacionadas (関); e os números. A mesma peça na página do dicionário (um
  * item da lista, `li[app-word-entry]`) e na folhinha da seleção da leitura (ui/word-sheet.ts). Os selos marcam pelo
  * guardador das marcas, com o Desfazer no bilhete.
  */
@@ -73,15 +73,35 @@ export function daySaid(day: string | null): string {
         <span class="registro">· {{ r }}</span>
       }
     </p>
-    @if (w.composition) {
-      <p class="exemplos">
-        <span class="rei" lang="ja" aria-hidden="true">例</span><span class="sr-only">Exemplos: </span>
-        <!-- na página, o que é outra palavra do dicionário abre a lousa dela -->
-        <span lang="ja">@for (p of parts(); track $index) {@if (p.word; as pw) {<button type="button" class="elo" [attr.aria-label]="p.text + ': abrir na lousa'" [title]="pw.meaning" (click)="draw.emit(pw)">{{ p.text }}</button>} @else {<ng-container>{{ p.text }}</ng-container>}}</span>
-      </p>
-    }
     @if (w.notes) {
       <p class="nota">{{ w.notes }}</p>
+    }
+    <!-- as frases: o 例 ("exemplo") vermelho, o japonês a lápis com a palavra em tinta vermelha e a tradução embaixo -->
+    @if (w.examples.length) {
+      <div class="exemplos">
+        <span class="rei" lang="ja" aria-hidden="true">例</span>
+        <ol class="frases" aria-label="Exemplos">
+          @for (f of examples(); track $index) {
+            <li>
+              <span class="frase" lang="ja">@for (p of f.parts; track $index) {@if (p.mark) {<b>{{ p.text }}</b>} @else {<ng-container>{{ p.text }}</ng-container>}}</span>
+              <span class="traducao">{{ f.pt }}</span>
+            </li>
+          }
+        </ol>
+      </div>
+    }
+    @if (w.origin) {
+      <p class="linha origem">
+        <span class="selo" lang="ja" aria-hidden="true">源</span><span class="sr-only">Origem: </span>
+        <span>{{ w.origin }}</span>
+      </p>
+    }
+    @if (w.composition) {
+      <p class="linha relacionadas">
+        <span class="selo" lang="ja" aria-hidden="true">関</span><span class="sr-only">Relacionadas: </span>
+        <!-- na página, o que é outra palavra do dicionário abre a lousa dela -->
+        <span>@for (p of parts(); track $index) {@if (p.word; as pw) {<button type="button" class="elo" lang="ja" [attr.aria-label]="p.text + ': abrir na lousa'" [title]="pw.meaning" (click)="draw.emit(pw)">{{ p.text }}</button>} @else {<ng-container>{{ p.text }}</ng-container>}}</span>
+      </p>
     }
     <p class="numeros">
       <span>nº {{ w.order }}</span>
@@ -108,6 +128,8 @@ export class WordEntry {
   protected readonly parts = computed(() =>
     this.drawable() ? compositionParts(this.word().composition, dictionaryWords().byText, this.word().id) : [{ text: this.word().composition }],
   );
+  /** As frases em pedaços, com a palavra marcada. */
+  protected readonly examples = computed(() => this.word().examples.map((e) => ({ parts: exampleParts(e.ja), pt: e.pt })));
   /** A leitura vai em furigana por cima só quando a palavra tem kanji. */
   protected readonly ruby = computed(() => hasKanji(this.word().text) && this.word().text !== this.word().reading);
   protected readonly jlpt = computed(() => facetLabel('jlpt', this.word().jlpt));

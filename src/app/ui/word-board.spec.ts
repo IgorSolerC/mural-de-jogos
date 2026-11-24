@@ -89,7 +89,7 @@ describe('A lousa do Dicionário Japonês', () => {
     q<HTMLButtonElement>('.mesmo-kanji .outra')!.click();
     q<HTMLButtonElement>('.composicao .elo')!.click();
     expect(opened).toEqual(['食べ物', '食べ物']);
-    expect(q('.composicao')!.textContent!.replace(/\s+/g, ' ')).toContain('食べます, 食べない, 食べた, 食べ物 (comida)');
+    expect(q('.composicao')!.textContent!.replace(/\s+/g, ' ')).toContain('食べます (forma educada), 食べない (não comer), 食べた (comeu), 食べ物 (comida)');
     // a ruby: com um kana no quadrado, a lista some
     [...el.querySelectorAll<HTMLButtonElement>('.caractere')][1].click();
     await settle();

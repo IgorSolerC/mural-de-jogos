@@ -155,8 +155,9 @@
             <td class="c-escrita">{{ label('script', w.script) }}</td>
             <td class="c-registro">{{ w.registers.join(', ') }}</td>
             <td class="c-rank num">{{ w.rank === null ? '–' : w.rank.toLocaleString('pt-BR') }}</td>
-            <td class="c-composicao" lang="ja">{{ w.composition }}</td>
+            <td class="c-composicao">{{ w.composition }}</td>
             <td class="c-notas">{{ w.notes }}</td>
+            <td class="c-origem">{{ w.origin }}</td>
           </tr>
         }
       </tbody>
