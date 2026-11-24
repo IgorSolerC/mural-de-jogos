@@ -79,6 +79,11 @@
   color: var(--ink);
   transition: background-color var(--t-ui) var(--ease-ui);
 
+  /* o desenho no centro do círculo: solto, o ícone ganha o alto da linha do texto e sobe uns 3px */
+  > lucide-icon {
+    display: inline-flex;
+  }
+
   /* na tinta da faixa: escurece a cartolina clara e clareia a escura */
   &:hover {
     background: color-mix(in srgb, currentColor 12%, transparent);

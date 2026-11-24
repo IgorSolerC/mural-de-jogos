@@ -156,6 +156,82 @@ describe('o texto formatado na leitura', () => {
     expect(getComputedStyle(fechado.querySelector('summary')!).listStyleType).toBe('none');
   });
 
+  it('selecionar o título do card que fecha não o abre nem fecha (arrastar, toque duplo e triplo); um toque só abre', async () => {
+    const el = await render('> [!dica]- ごはんは何ですか？\n> dentro');
+    const details = el.querySelector<HTMLDetailsElement>('details.cartao')!;
+    const summary = details.querySelector<HTMLElement>('summary')!;
+    const title = summary.querySelector<HTMLElement>('.cartao-titulo')!;
+    const wait = (ms = 0) => new Promise((r) => setTimeout(r, ms));
+    /** O mouse desce e sobe no título, e o navegador conta o toque (`detail`); `pick` é o que fica selecionado depois. */
+    const press = (detail: number, pick?: () => void) => {
+      summary.focus();
+      title.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' }));
+      pick?.();
+      title.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail }));
+    };
+    const selectTitle = () => getSelection()!.selectAllChildren(title);
+    const selectWord = () => {
+      const range = document.createRange();
+      range.setStart(title.firstChild!, 0);
+      range.setEnd(title.firstChild!, 3);
+      getSelection()!.removeAllRanges();
+      getSelection()!.addRange(range);
+    };
+
+    // arrastou por cima do título: a seleção fica, o card não abre, e o foco não fica no título
+    getSelection()!.removeAllRanges();
+    press(1, selectTitle);
+    await wait(400);
+    expect(details.open).withContext('arrastou').toBeFalse();
+    expect(getSelection()!.toString()).toBe('ごはんは何ですか？');
+    expect(document.activeElement).not.toBe(summary);
+
+    // o toque duplo escolhe uma palavra; o triplo, a linha: o card continua fechado
+    getSelection()!.removeAllRanges();
+    press(1);
+    press(2, selectWord);
+    await wait(400);
+    expect(details.open).withContext('toque duplo').toBeFalse();
+    press(3, selectTitle);
+    await wait(400);
+    expect(details.open).withContext('toque triplo').toBeFalse();
+
+    // um toque só (com o título ainda selecionado: ele só desfaz a seleção) abre, depois do instante do segundo toque
+    getSelection()!.removeAllRanges();
+    press(1);
+    expect(details.open).toBeFalse();
+    await wait(400);
+    expect(details.open).withContext('um toque').toBeTrue();
+    selectTitle();
+    press(1);
+    await wait(400);
+    expect(details.open).withContext('tocou no título selecionado').toBeFalse();
+
+    // o duplo com o segundo toque na setinha: o card fica como estava
+    getSelection()!.removeAllRanges();
+    press(1);
+    summary.querySelector('.cartao-seta')!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 2 }));
+    await wait(400);
+    expect(details.open).withContext('duplo com o segundo na setinha').toBeFalse();
+
+    // o teclado abre na hora, mesmo com o título selecionado
+    selectTitle();
+    summary.click();
+    expect(details.open).withContext('Enter no título selecionado').toBeTrue();
+  });
+
+  it('dois cards tocados um logo depois do outro abrem os dois', async () => {
+    const el = await render('> [!dica]- Um\n> dentro\n\n> [!dica]- Dois\n> também');
+    const cards = Array.from(el.querySelectorAll<HTMLDetailsElement>('details.cartao'));
+    for (const d of cards) {
+      const title = d.querySelector<HTMLElement>('.cartao-titulo')!;
+      title.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' }));
+      title.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }));
+    }
+    await new Promise((r) => setTimeout(r, 400));
+    expect(cards.map((d) => d.open)).toEqual([true, true]);
+  });
+
   it('o spoiler é uma tarja: o texto fica de fora do leitor de tela e do Tab até tocar, e o toque não chega à ficha', async () => {
     const el = await render('O fim: ||ele **volta**|| e pronto.');
     const parts = Array.from(el.querySelectorAll<HTMLElement>('.spoiler'));
@@ -545,18 +621,19 @@ describe('o texto formatado na leitura', () => {
       expect(named.getAttribute('title')).toBe('Celeste');
     });
 
-    it('o risco é o sublinhado fino de caneta azul clara, logo abaixo da linha de base, que dá a volta nas pernas da letra', async () => {
+    it('o risco é o sublinhado de caneta azul, que engrossa com a letra, logo abaixo da linha de base, que dá a volta nas pernas da letra', async () => {
       const el = await render('[[comprar um console]] e [[Vender a TV]]', { resolve, open: () => {}, create: () => {} });
       const [ok, broken] = Array.from(el.querySelectorAll<HTMLElement>('.elo'));
       const s = getComputedStyle(ok);
       // o sublinhado da letra (segue a linha de base, e não o pé da caixa da fonte, que fica longe do
-      // japonês), fino, perto da letra, e com vão nas pernas do g, do p e do q
+      // japonês), de 0.1em (nunca menos de 1,75px: o fio de 1,1px sumia nos cards coloridos), perto da letra, e com
+      // vão nas pernas do g, do p e do q
       expect(s.textDecorationLine).toBe('underline');
-      expect(s.textDecorationThickness).toBe('1.1px');
+      expect(parseFloat(s.textDecorationThickness)).toBeCloseTo(Math.max(1.75, parseFloat(s.fontSize) * 0.1), 1);
       expect(parseFloat(s.textUnderlineOffset) / parseFloat(s.fontSize)).toBeCloseTo(0.16, 2);
       expect(s.textDecorationSkipInk).toBe('auto');
-      // a tinta: azul claro (nada do azul-marinho grosso de antes), e o desenho de antes no fundo saiu
-      expect(s.textDecorationColor).toBe('rgba(111, 155, 230, 0.85)');
+      // a tinta: o azul de caneta (mais escuro que o azul claro de antes, que sumia), e o desenho de antes no fundo saiu
+      expect(s.textDecorationColor).toBe('rgba(46, 98, 196, 0.9)');
       expect(s.backgroundImage).not.toContain('svg');
       expect(s.paddingBottom).toBe('0px');
       // o quebrado: o tracejado a lápis, no mesmo lugar

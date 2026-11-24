@@ -520,22 +520,27 @@ $cod-vao: 0.7rem;
   }
 }
 
+// a tinta do risco do link e o marca-texto dele, no papel e nas cartolinas claras (quem põe a folha creme dentro de
+// uma ficha escura volta a eles: ui/linked-card.ts). Desde 24/nov (pedido do dono), o azul de caneta mais escuro e o
+// risco mais grosso: o azul claro fino sumia nos cards coloridos e nas cartolinas claras
+$elo-risco: rgb(46 98 196 / 0.9);
+$elo-marca: rgb(96 150 235 / 0.3);
+
 @mixin elo {
-  /* O link: a letra de sempre, sublinhada com um fio fino de caneta azul clara, para não chamar mais
-     atenção que o texto: azul claro nas cartolinas claras e no papel, azul-céu nas escuras (--elo-risco).
-     Passando por cima, o marca-texto azul, da mesma caneta. A cor segue a cartolina da ficha do mural (ver
-     as variações logo abaixo). */
+  /* O link: a letra de sempre, sublinhada com um risco de caneta azul, que se vê sem chamar mais atenção que o
+     texto: azul nas cartolinas claras e no papel, azul-céu nas escuras (--elo-risco). Passando por cima, o
+     marca-texto azul, da mesma caneta. A cor segue a cartolina da ficha do mural (ver as variações logo abaixo). */
   .elo {
-    --elo-risco: rgb(111 155 230 / 0.85);
-    --elo-marca: rgb(96 150 235 / 0.3);
+    --elo-risco: #{$elo-risco};
+    --elo-marca: #{$elo-marca};
     color: inherit;
     border-radius: 2px;
     /* o risco: o sublinhado da letra, que segue a linha de base (o desenho no pé da caixa da fonte, de
        antes, ficava bem abaixo do japonês, que não tem pernas: a caixa da letra à mão desce muito mais que
-       as letras). O 0.16em a mais (o Chrome conta da posição de sublinhado da fonte) o deixa uns 2,5px abaixo
+       as letras). O risco engrossa com a letra (0.1em, nunca menos que 1,75px). O 0.16em a mais (o Chrome conta da posição de sublinhado da fonte) o deixa uns 2,5px abaixo
        do japonês, mais perto da sua linha que da de baixo; o g, o p e o q furam o risco com um vão em volta
        (skip-ink), sem encostar nele. O marca-texto passado na palavra inteira, de cima a baixo */
-    text-decoration: underline 1.1px var(--elo-risco);
+    text-decoration: underline max(1.75px, 0.1em) var(--elo-risco);
     text-underline-offset: 0.16em;
     text-decoration-skip-ink: auto;
     background: linear-gradient(transparent 4%, var(--elo-fundo, transparent) 4%, var(--elo-fundo, transparent) 96%, transparent 96%) no-repeat;

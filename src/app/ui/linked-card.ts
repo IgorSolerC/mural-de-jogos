@@ -190,6 +190,7 @@ const EAR_GAP = 0.2;
     }
   `,
   styles: `
+    @use 'formatado';
     :host {
       display: flex;
       align-items: flex-start;
@@ -464,8 +465,8 @@ const EAR_GAP = 0.2;
     /* A folha é creme mesmo dentro de uma ficha escura (ou amarela): o texto volta às cores da
        leitura, e não às da ficha de fora (as do texto seguem a ficha em que ele está) */
     :host .inteira .folha ::ng-deep .formatado .elo {
-      --elo-risco: rgb(111 155 230 / 0.85);
-      --elo-marca: rgb(96 150 235 / 0.3);
+      --elo-risco: #{formatado.$elo-risco};
+      --elo-marca: #{formatado.$elo-marca};
     }
     :host .inteira .folha ::ng-deep .formatado .elo.quebrado {
       --elo-risco: rgb(21 21 21 / 0.55);

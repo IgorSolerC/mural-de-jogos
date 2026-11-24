@@ -132,6 +132,10 @@ import { ICON, IconModule } from './icons';
     .clear:hover {
       background: rgb(21 21 21 / 0.1);
     }
+    /* o X no centro do círculo (solto, o ícone ganha o alto da linha do texto e sobe uns 3px) */
+    .clear lucide-icon {
+      display: inline-flex;
+    }
 
     kbd {
       display: grid;

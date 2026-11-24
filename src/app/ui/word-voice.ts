@@ -56,6 +56,10 @@ import { ICON, IconModule } from './icons';
         color var(--t-ui) var(--ease-ui),
         background-color var(--t-ui) var(--ease-ui);
     }
+    /* o desenho no centro do círculo (solto, o ícone ganha o alto da linha do texto e sobe uns 3px) */
+    .ouvir-palavra lucide-icon {
+      display: inline-flex;
+    }
     .ouvir-palavra:hover {
       scale: 1.06;
       color: #b4541f;

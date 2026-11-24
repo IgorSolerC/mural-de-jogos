@@ -8,6 +8,7 @@ import { Review, sanitizeReview } from '../core/review';
 import { SHARED_AUTO } from '../core/shared-store';
 import { SPEECH, UTTERANCE, VOZ_KEY, Voz } from '../core/voz';
 import { FakeSpeech, GOOGLE_JA, GOOGLE_PT, fakeUtterance } from '../testing/fala-falsa';
+import { ICON } from './icons';
 import { ReviewReader } from './review-reader';
 import { VOICE_HIGHLIGHT } from './voz-fita';
 
@@ -410,11 +411,15 @@ describe('Ouvir a nota na ficha aberta', () => {
     await settle();
     await listen('ja');
     const button = q<HTMLButtonElement>('.fita .estudo')!;
+    /** O desenho da etiqueta: o olho aberto (o texto à mostra) ou fechado (escondido no rabisco). */
+    const eye = () => q('.fita .estudo svg path')!.getAttribute('d');
     expect(button.getAttribute('aria-pressed')).toBe('false');
+    expect(eye()).withContext('o olho aberto').toBe(ICON.ver[0][1]['d'] as string);
     expect(hiddenWords()).toEqual([]);
     button.click();
     await settle();
     expect(q('.fita .estudo')!.getAttribute('aria-pressed')).toBe('true');
+    expect(eye()).withContext('o olho fechado').toBe(ICON.esconder[0][1]['d'] as string);
     expect(said()).toContain('o texto virou rabisco');
     expect(hiddenWords().slice(0, 9)).toEqual(['の', 'De', 'Posse', 'USOS', '私', 'の', 'ケーキ', 'です', 'É']);
     expect(hiddenWords().some((w) => /[。？()/]/.test(w))).toBeFalse();

@@ -12,7 +12,8 @@
   margin: 0 0 20px;
   border-radius: 5px;
   overflow: hidden;
-  background: var(--campo-papel);
+  /* o papel fica só no miolo: por baixo da faixa escura, ele vazava claro na curva das quinas de cima (a beirada
+     suavizada da faixa deixava ver o papel) */
   box-shadow:
     0 0 0 1px rgb(21 21 21 / 0.1),
     0 2px 3px rgb(0 0 0 / 0.14),
@@ -362,6 +363,7 @@
 
 .miolo {
   padding: 12px 18px 14px;
+  background: var(--campo-papel);
 }
 
 .sentido {

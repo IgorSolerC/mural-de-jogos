@@ -26,6 +26,9 @@ import { ZoomKnob } from './zoom-knob';
  */
 export const CODE_COPY = new InjectionToken<boolean>('CODE_COPY');
 
+/** Quanto o toque de mouse no título do card que fecha espera pelo segundo toque (o duplo escolhe uma palavra). */
+const FOLD_WAIT = 260;
+
 /**
  * O texto da ficha na leitura, com a formatação do editor (ver core/rich-text.ts): negrito, itálico,
  * listas e checklists. Quem desenha é o Angular, nunca HTML vindo do texto. Sem nenhuma marca, o
@@ -170,7 +173,7 @@ export const CODE_COPY = new InjectionToken<boolean>('CODE_COPY');
                  não tem linha de cima: é só o papel (o que fecha fica com a setinha, para ter onde tocar) -->
             @if (b.fold) {
               <details class="cartao" [attr.data-jeito]="cardPaper(b.type, b.color)" [open]="b.fold === '+'">
-                <summary class="linha cartao-topo tocavel" [attr.data-l]="at(b)" (click)="$event.stopPropagation()">
+                <summary class="linha cartao-topo tocavel" [attr.data-l]="at(b)" (pointerdown)="foldPress($event)" (click)="foldClick($event)">
                   <ng-container *ngTemplateOutlet="cartaoTopo; context: { $implicit: b }" />
                   <span class="cartao-seta" aria-hidden="true"><lucide-icon [img]="ChevronIcon" [size]="16" /></span>
                 </summary>
@@ -973,6 +976,58 @@ export class RichText {
   protected tick(e: Event, it: { line: number; done?: boolean }): void {
     (e.target as HTMLInputElement).checked = !!it.done;
     this.toggled.emit(it.line);
+  }
+
+  /** O que estava selecionado, e com o quê, quando o dedo (ou o mouse) desceu no título do card que fecha. */
+  private foldPressed = { text: '', mouse: false };
+  /** O toque de mouse no título esperando para ver se vem o segundo (o toque duplo escolhe uma palavra), por card. */
+  private readonly foldTimers = new Map<HTMLDetailsElement, ReturnType<typeof setTimeout>>();
+
+  protected foldPress(e: PointerEvent): void {
+    this.foldPressed = { text: document.getSelection()?.toString() ?? '', mouse: e.pointerType === 'mouse' };
+  }
+
+  /**
+   * Tocou no título do card que fecha: abre ou fecha, e só ele age (nada de abrir a ficha). Selecionar o título não
+   * é tocar (pedido do dono, 24/nov): o gesto que deixa uma seleção nova nele (arrastar por cima) deixa o card como
+   * estava, e o foco sai do título para a folha (o teclado abriria o card). No texto do título, o toque do mouse
+   * espera um instante pelo segundo: o toque duplo (e o triplo) escolhe as palavras sem abrir nem fechar o card. A
+   * setinha, o desenho, o teclado e o dedo (que seleciona segurando) abrem na hora.
+   */
+  protected foldClick(e: MouseEvent): void {
+    e.stopPropagation();
+    const summary = e.currentTarget as HTMLElement;
+    const details = summary.parentElement as HTMLDetailsElement;
+    // o segundo toque do duplo, caído fora das palavras (na setinha): desfaz o primeiro, e o card fica como estava
+    if (e.detail > 1 && this.foldTimers.has(details) && !(e.target as Element).closest?.('.cartao-titulo')) {
+      clearTimeout(this.foldTimers.get(details));
+      this.foldTimers.delete(details);
+      e.preventDefault();
+      return;
+    }
+    const sel = document.getSelection();
+    const text = sel && !sel.isCollapsed ? sel.toString() : '';
+    const selecting = e.detail >= 1 && !!text && text !== this.foldPressed.text && summary.contains(sel!.anchorNode) && summary.contains(sel!.focusNode);
+    const onWords = this.foldPressed.mouse && e.detail >= 1 && (e.target as Element).closest?.('.cartao-titulo');
+    if (!selecting && !onWords) return;
+    e.preventDefault();
+    clearTimeout(this.foldTimers.get(details));
+    this.foldTimers.delete(details);
+    if (selecting || e.detail > 1) {
+      if (document.activeElement !== summary) return;
+      const home = details.parentElement?.closest<HTMLElement>('[tabindex], dialog');
+      if (home) home.focus({ preventScroll: true });
+      else summary.blur();
+      return;
+    }
+    this.foldTimers.set(
+      details,
+      setTimeout(() => {
+        this.foldTimers.delete(details);
+        // (o texto desenhado de novo nesse meio tempo trocou o card: o toque não vale para o que saiu)
+        if (details.isConnected) details.open = !details.open;
+      }, FOLD_WAIT),
+    );
   }
 
   /** Tocou na conta das feitas: a sequência dela aparece inteira. Só ela age (nada de abrir a ficha). */

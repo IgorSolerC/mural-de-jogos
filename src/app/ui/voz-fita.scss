@@ -6,6 +6,11 @@
   display: contents;
 }
 
+/* os desenhos no centro dos botões (solto, o ícone ganha o alto da linha do texto e sobe uns 3px) */
+lucide-icon {
+  display: inline-flex;
+}
+
 .fita {
   position: sticky;
   bottom: 10px;
@@ -103,8 +108,8 @@
   /* (↑ ↓ a fazem acender e saltar de leve, pela animação da página: ver flashRate em voz-fita.ts) */
 }
 
-/* o modo estudo: o rabisco do estojo na mesma etiqueta creme da velocidade; ligado, a etiqueta fica laranja
-   (a faixa da etiqueta da língua) e afundada, como a tecla de tocar */
+/* o modo estudo: o olho na mesma etiqueta creme da velocidade (aberto, o texto à mostra); ligado, o olho fecha e a
+   etiqueta fica laranja (a faixa da etiqueta da língua) e afundada, como a tecla de tocar */
 .estudo {
   display: grid;
   place-items: center;

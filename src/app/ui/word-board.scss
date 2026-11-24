@@ -11,6 +11,11 @@
   --lapis: 'Klee One', var(--f-carta-palavra);
 }
 
+/* os desenhos no centro dos botões (solto, o ícone ganha o alto da linha do texto e sobe uns 3px) */
+lucide-icon {
+  display: inline-flex;
+}
+
 .lousa {
   max-width: min(1000px, calc(100vw - 24px));
 }

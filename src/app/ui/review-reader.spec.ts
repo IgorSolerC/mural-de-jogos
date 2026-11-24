@@ -20,8 +20,8 @@ import { ReviewReader } from './review-reader';
 
 /**
  * A leitura da ficha e a porta dos comentários: quando a orelha e o "Comentar" aparecem, a folha que
- * abre ao lado (e fecha), a ficha que já abre nos comentários, o "Citar" de um trecho selecionado e o
- * aviso antes dos comentários de uma ficha em segredo. A nuvem é de mentira; o serviço é o de verdade.
+ * abre ao lado (e fecha), a ficha que já abre nos comentários, o "Citar" de um trecho selecionado (só com a folha
+ * aberta) e o aviso antes dos comentários de uma ficha em segredo. A nuvem é de mentira; o serviço é o de verdade.
  */
 
 class MemoryData {
@@ -613,10 +613,22 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     expect(side()).toBeNull();
   });
 
-  it('selecionar um trecho do texto mostra o "Citar"; tocar abre a folha com a citação no campo', async () => {
-    fixture.componentInstance.open(review('r-hades', 'Hades'), 'Ana', [], false, ANA);
+  /**
+   * Abre a folha de comentários como na tela larga (1180px ou mais), em que ela fica ao lado da ficha: abaixo disso, a
+   * folha cobre a ficha, e não há texto à vista para selecionar (a janela dos testes é estreita).
+   */
+  const openCommentsBeside = async () => {
+    const wide = document.createElement('style');
+    wide.textContent = '.com-lado .par > article { visibility: visible !important; }';
+    el.append(wide);
+    q<HTMLButtonElement>('.etq-trilho[data-trilho="comentarios"]')!.click();
     await settle();
-    expect(q('.citar')).toBeNull();
+    // (a folha leva o foco para ela logo depois de abrir; a pessoa seleciona depois disso)
+    await wait(50);
+  };
+
+  /** Seleciona "Valeu cada hora" no texto da ficha e espera os remendos. */
+  const selectPhrase = async () => {
     const zone = q('[data-citavel]')!;
     zone.scrollIntoView({ block: 'center' });
     const walker = document.createTreeWalker(zone, NodeFilter.SHOW_TEXT);
@@ -631,6 +643,30 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     document.dispatchEvent(new Event('selectionchange'));
     await wait(260);
     fixture.detectChanges();
+  };
+
+  it('com a folha de comentários fechada, selecionar um trecho não oferece o "Citar"; com ela aberta, oferece', async () => {
+    fixture.componentInstance.open(review('r-hades', 'Hades'), 'Ana', [], false, ANA);
+    await settle();
+    await selectPhrase();
+    expect(q('.citar')).withContext('a folha fechada').toBeNull();
+    await openCommentsBeside();
+    await selectPhrase();
+    expect(q('.citar')).withContext('com a folha aberta').not.toBeNull();
+    q<HTMLButtonElement>('.etq-trilho[data-trilho="comentarios"]')!.click();
+    await settle();
+    expect(q('.citar')).withContext('fechou a folha').toBeNull();
+    await wait(50);
+    await selectPhrase();
+    expect(q('.citar')).withContext('selecionou de novo, com a folha fechada').toBeNull();
+  });
+
+  it('com a folha de comentários aberta, selecionar um trecho do texto mostra o "Citar"; tocar põe a citação no campo', async () => {
+    fixture.componentInstance.open(review('r-hades', 'Hades'), 'Ana', [], false, ANA);
+    await settle();
+    await openCommentsBeside();
+    expect(q('.citar')).toBeNull();
+    await selectPhrase();
     const cite = q<HTMLButtonElement>('.citar')!;
     expect(cite.textContent?.trim()).toBe('Citar');
 
@@ -647,6 +683,7 @@ describe('A leitura e os comentários (ReviewReader)', () => {
   it('uma seleção fora do texto da ficha (o título) não oferece o "Citar"', async () => {
     fixture.componentInstance.open(review('r-hades', 'Hades'), 'Ana', [], false, ANA);
     await settle();
+    await openCommentsBeside();
     const range = document.createRange();
     range.selectNodeContents(q('#leitura-titulo')!);
     getSelection()!.removeAllRanges();

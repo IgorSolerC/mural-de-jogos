@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-24-cartoes-na-parede',
+    id: '2026-11-24-pequenas-padronizacoes',
     version: '1.53.2',
     kind: 'ajustes',
     date: '2026-11-24',
@@ -36,9 +36,15 @@ export const NEWS: NewsEntry[] = [
       'Todas as 1.032 palavras do Dicionário Japonês seguem o mesmo padrão: os sentidos separados por "/", uma descrição de como e quando a palavra se usa, três frases de exemplo com a palavra marcada e a tradução embaixo, a origem quando ela é certa (do inglês, os kanji, um encurtamento) e as palavras relacionadas. Na Tabela, a coluna Origem.',
       'Nove palavras novas no Dicionário Japonês, de comida e bebida: パスタ, ハンバーガー, ホットドッグ, チーズ, アイスクリーム, トマト, ポテト, ワイン e そば.',
       'Cada verbete do Dicionário Japonês virou um cartão com uma faixa na cor da classe (azul nos substantivos, vinho nos verbos, verde nos adjetivos, lilás nos advérbios, laranja nas expressões), direto na parede, em duas colunas: as frases em caixinhas, a origem no 源 e as palavras relacionadas em cartõezinhos que abrem a lousa. O uso vem escrito, a aprendida é o carimbo 済 (também na Tabela e ao selecionar uma palavra numa anotação) e a favorita, uma fita de marcador de livro que cai ao ser marcada.',
+      'O "Citar" de um trecho selecionado numa anotação aparece só com a folha de comentários aberta: lendo, selecionar o texto (para o dicionário ou para copiar) não mostra mais o remendo.',
+      'A etiqueta do modo estudo, na fita de ouvir a nota, virou um olho: aberto com o texto à mostra, fechado com o texto escondido no rabisco.',
+      'O sublinhado dos links nas anotações ficou mais grosso e num azul mais escuro, que se vê também nos cards coloridos.',
     ],
     correcoes: [
       'No Dicionário Japonês, o índice de dedo mostra o anel do foco ao andar pelo teclado.',
+      'Os desenhos dos botões redondos ficam no centro: o ouvir do Dicionário Japonês, o tocar da lousa, o X de fechar e os botões da faixa da anotação aberta (e das outras folhas), os da fita de ouvir a nota e o X da busca.',
+      'Selecionar o título de um card que fecha numa anotação (arrastando, com dois ou três toques) não abre nem fecha mais o card.',
+      'As quinas de cima dos cartões do Dicionário Japonês não mostram mais um fio branco na curva.',
       'Na lousa do Dicionário Japonês, o traço que estava no meio ao passar para outra palavra não aparece mais nela, e o caractere tocado enquanto os traços chegam continua escolhido.',
     ],
   },
