@@ -178,8 +178,9 @@ export class Voz {
   /** A nota mudou durante a frase de agora: ao fim dela, a leitura segue daqui, nas frases novas. */
   private pendingFrom: number | null = null;
   private keepAlive: ReturnType<typeof setInterval> | null = null;
-  /** De que carta é o título sendo lido (`sayTitle`). */
-  private titleKey: string | null = null;
+  /** De que carta é o título sendo lido (`sayTitle`), ou de que palavra do Dicionário Japonês. */
+  private readonly sayingKey = signal<string | null>(null);
+  readonly titleKey = this.sayingKey.asReadonly();
 
   constructor() {
     const synth = this.synth;
@@ -223,7 +224,8 @@ export class Voz {
    * Lê o título de um flashcard que virou (o baralho com voz: `Deck.voice`, em core/study.ts), no lugar da leitura
    * de agora, na voz e na velocidade deste aparelho; sem língua ou sem título, só cala o título que estava sendo
    * lido. Chamada no toque que virou a carta (o iPhone só fala começando num toque). `key` diz de que carta é (a
-   * anotação): a parede e a carta maximizada mostram a mesma, e virar de volta em qualquer uma cala.
+   * anotação): a parede e a carta maximizada mostram a mesma, e virar de volta em qualquer uma cala. O Ouvir do
+   * Dicionário Japonês (ui/word-voice.ts) diz a palavra por aqui também, com a chave `dicionario:<id>`.
    */
   sayTitle(title: string, lang: VoiceLang | null | undefined, key: string): void {
     const text = title.trim();
@@ -233,12 +235,17 @@ export class Voz {
       return;
     }
     this.start([text], lang, 0, TITLE);
-    this.titleKey = key;
+    this.sayingKey.set(key);
+  }
+
+  /** O título (ou a palavra) de `key` está sendo dito agora? */
+  saying(key: string): boolean {
+    return this.saysTitle() && this.playing() && this.titleKey() === key;
   }
 
   /** Cala o título de flashcard que está sendo lido (com `key`, só se é o daquela carta); a leitura de uma nota continua. */
   hushTitle(key?: string): void {
-    if (this.owner() === TITLE && (key === undefined || key === this.titleKey)) this.stop();
+    if (this.owner() === TITLE && (key === undefined || key === this.titleKey())) this.stop();
   }
 
   /** Pausa ou continua (do fim, começa de novo). */
@@ -348,7 +355,7 @@ export class Voz {
   /** Acaba a leitura: cala e esquece tudo (a ficha fechou, outra abriu, a vista mudou). */
   stop(): void {
     this.silence();
-    this.titleKey = null;
+    this.sayingKey.set(null);
     this.texts = [];
     this.owner.set(null);
     this.lang.set(null);

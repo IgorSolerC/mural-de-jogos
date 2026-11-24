@@ -5,6 +5,7 @@ import { reducedMotion } from '../core/motion';
 import { BackdropClose } from './backdrop-close';
 import { loadKleeOne, loadYujiSyuku } from './font-sheet';
 import { ICON, IconModule } from './icons';
+import { WordVoice } from './word-voice';
 
 /** Os traços de um caractere (do KanjiVG, no quadro de 109): o `d` de cada um e onde fica o número dele. */
 interface Strokes {
@@ -42,7 +43,7 @@ export function boardChars(text: string): string[] {
  */
 @Component({
   selector: 'app-word-board',
-  imports: [BackdropClose, IconModule],
+  imports: [BackdropClose, IconModule, WordVoice],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '(keydown)': 'key($event)' },
   templateUrl: './word-board.html',

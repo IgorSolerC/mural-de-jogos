@@ -145,7 +145,7 @@
                 <span class="t-leitura" lang="ja">{{ w.reading }}</span>
               }
             </th>
-            <td class="c-romaji">{{ w.romaji }}</td>
+            <td class="c-romaji"><span class="t-romaji">{{ w.romaji }}<app-word-voice [word]="w" [small]="true" /></span></td>
             <td class="c-sentido">{{ w.meaning }}</td>
             <td class="c-jlpt">{{ label('jlpt', w.jlpt) }}</td>
             <td class="c-uso">{{ w.use }}</td>

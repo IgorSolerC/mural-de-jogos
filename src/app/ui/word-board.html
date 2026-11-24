@@ -41,6 +41,7 @@
         }
         <span class="romaji">{{ word().romaji }}</span>
         <span class="sentido">{{ word().meaning }}</span>
+        <app-word-voice [word]="word()" />
       </p>
       @if (hasReading()) {
         <div class="escrita" role="group" aria-label="Desenhar a escrita ou a leitura">

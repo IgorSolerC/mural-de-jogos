@@ -141,6 +141,21 @@ export interface WordKeys {
   extra: string;
 }
 
+/**
+ * O que a voz diz de uma palavra (o Ouvir, PLANO-DICIONARIO.md 5.2): a leitura em kana, que a voz não erra (o kanji
+ * sozinho ela pode ler de outro jeito: 〜中 vira なか); sem o 〜 dos sufixos; as leituras alternativas ("しょ / じょ")
+ * com uma pausa entre elas; e as partículas は e へ como se falam (わ, え).
+ */
+export function spokenOf(w: Word): string {
+  if (w.wordClass === 'partícula' && (w.text === 'は' || w.text === 'へ')) return w.text === 'は' ? 'わ' : 'え';
+  return (w.reading || w.text)
+    .replace(/[〜～]/g, '')
+    .split('/')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .join('、');
+}
+
 export function keysOf(w: Word): WordKeys {
   const meaning = fold(w.meaning);
   return {

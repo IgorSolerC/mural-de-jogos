@@ -7,6 +7,7 @@ import { DictionaryMarks } from '../core/dictionary/marks-store';
 import { Toasts } from './toast';
 import { markFavorite, markLearned } from './word-marking';
 import { WordSeals } from './word-seals';
+import { WordVoice } from './word-voice';
 
 /** "em 14 de nov": o dia, dito curto. */
 export function daySaid(day: string | null): string {
@@ -22,7 +23,7 @@ export function daySaid(day: string | null): string {
  */
 @Component({
   selector: '[app-word-entry]',
-  imports: [NgTemplateOutlet, WordSeals],
+  imports: [NgTemplateOutlet, WordSeals, WordVoice],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @let w = word();
@@ -43,6 +44,7 @@ export function daySaid(day: string | null): string {
         }
       </ng-template>
       <span class="romaji">{{ w.romaji }}</span>
+      <app-word-voice [word]="w" />
       <span class="marcas">
         <app-word-seals
           [word]="w.text"

@@ -216,3 +216,10 @@ thead .num {
 .c-escrita {
   white-space: nowrap;
 }
+
+/* o romaji da Tabela e, ao lado, os fones que dizem a palavra (ui/word-voice.ts) */
+.t-romaji {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}

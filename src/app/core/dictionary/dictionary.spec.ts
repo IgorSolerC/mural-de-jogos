@@ -1,4 +1,4 @@
-import { DEFAULT_STATE, DictState, MarkLookup, effectiveSort, lookupWords, facetChips, facetGroups, keysOf, matchScore, paramsOf, parseCsv, passes, readWords, sectionsOf, sortWords, stateFromParams, toggleFacet } from './dictionary';
+import { DEFAULT_STATE, DictState, MarkLookup, effectiveSort, lookupWords, facetChips, facetGroups, keysOf, matchScore, paramsOf, parseCsv, passes, readWords, sectionsOf, sortWords, spokenOf, stateFromParams, toggleFacet } from './dictionary';
 import { foldJa, kanaRow, looseRomaji, romajiToKana } from './kana';
 import { dictionaryWords } from './words';
 
@@ -47,6 +47,18 @@ JP1,犬,いぬ,cachorro,${dia}
     expect(readWords(csv('ontem'))[0].learnedOn).toBeNull();
     // sem a coluna (o CSV de antes), ninguém está aprendido
     expect(words.every((w) => w.learnedOn === null)).toBeTrue();
+  });
+
+  it('o que a voz diz: a leitura em kana, sem o 〜, as alternativas com pausa e as partículas como se falam', () => {
+    const by = (id: string) => dictionaryWords().words.find((w) => w.id === id)!;
+    const find = (text: string) => dictionaryWords().words.find((w) => w.text === text)!;
+    expect(spokenOf(find('食べる'))).toBe('たべる');
+    expect(spokenOf(by('JP0957'))).toBe('わ');
+    expect(spokenOf(by('JP0001'))).toBe('え');
+    // o 歯 (は) continua は
+    expect(spokenOf(by('JP0706'))).toBe('は');
+    expect(spokenOf(find('〜中'))).toBe('ちゅう、じゅう');
+    expect(spokenOf(find('〜ます'))).toBe('ます');
   });
 
   it('lê a lista inteira do dono: 1023 palavras, todas com id único', () => {

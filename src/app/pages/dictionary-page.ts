@@ -41,6 +41,7 @@ import { WordBoard } from '../ui/word-board';
 import { WordEntry, daySaid } from '../ui/word-entry';
 import { markFavorite, markLearned } from '../ui/word-marking';
 import { WordSeals } from '../ui/word-seals';
+import { WordVoice } from '../ui/word-voice';
 
 type View = DictState['view'];
 
@@ -79,7 +80,7 @@ const COLUMNS: readonly Column[] = [
  */
 @Component({
   selector: 'app-dictionary-page',
-  imports: [FacetFilters, FilterTags, IconModule, Pin, SearchHighlight, SearchStrip, SectionHead, WordBoard, WordEntry, WordSeals],
+  imports: [FacetFilters, FilterTags, IconModule, Pin, SearchHighlight, SearchStrip, SectionHead, WordBoard, WordEntry, WordSeals, WordVoice],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './dictionary-page.html',
   styleUrl: './dictionary-page.scss',
