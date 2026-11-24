@@ -190,6 +190,6 @@
 <!-- a lousa da palavra aberta (num pedaço à parte, com os traços e a letra de pincel só quando abre) -->
 @if (boardWord(); as b) {
   @defer (on immediate) {
-    <app-word-board [word]="b.word" [hasPrev]="b.index > 0" [hasNext]="b.index >= 0 && b.index < shown().length - 1" (step)="stepBoard($event)" (closed)="closeBoard()" />
+    <app-word-board [word]="b.word" [hasPrev]="b.index > 0" [hasNext]="b.index >= 0 && b.index < shown().length - 1" (step)="stepBoard($event)" (goto)="gotoBoard($event)" (closed)="closeBoard()" />
   }
 }

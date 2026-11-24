@@ -27,14 +27,15 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-23-indice-de-dedo',
+    id: '2026-11-23-kanji-da-palavra',
     version: '1.53.1',
     kind: 'ajustes',
     date: '2026-11-23',
-    title: 'Ouvir as palavras do Dicionário Japonês, o índice de dedo e os pontos no treino da lousa',
+    title: 'Ouvir as palavras do Dicionário Japonês, o índice de dedo, os kanji da palavra e os pontos no treino da lousa',
     melhorias: [
       'No Dicionário Japonês, os fones ao lado do romaji dizem a palavra em voz alta, na voz japonesa de ouvir a nota: no verbete, na Tabela, na lousa e no resumo que abre ao selecionar uma palavra numa anotação.',
       'Com a ordem Leitura, o Dicionário Japonês ganha o índice de dedo de um dicionário de papel: os entalhes あかさたなはまやらわ na borda das páginas pulam para a linha do silabário, e o da linha em que você está fica para fora.',
+      'Na lousa do Dicionário Japonês, com um kanji no quadrado, aparecem as outras palavras do dicionário escritas com ele; e, na composição (no verbete e na lousa), o que é outra palavra do dicionário vira link para a lousa dela.',
     ],
     correcoes: ['No Treinar da lousa, traços bem curtos e os pontos (um toque, como no 丶 e no 心) agora contam como traço.'],
   },

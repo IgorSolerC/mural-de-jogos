@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
-import { Word } from '../core/dictionary/dictionary';
+import { Word, compositionParts, wordsWithKanji } from '../core/dictionary/dictionary';
 import { hasKanji } from '../core/dictionary/kana';
+import { dictionaryWords } from '../core/dictionary/words';
 import { reducedMotion } from '../core/motion';
 import { BackdropClose } from './backdrop-close';
 import { loadKleeOne, loadYujiSyuku } from './font-sheet';
@@ -57,6 +58,8 @@ export class WordBoard {
   readonly hasPrev = input(false);
   readonly hasNext = input(false);
   readonly step = output<-1 | 1>();
+  /** Outra palavra (da composição ou das que usam o mesmo kanji): a página abre a lousa dela. */
+  readonly goto = output<Word>();
   readonly closed = output<void>();
 
   protected readonly CloseIcon = ICON.fechar;
@@ -84,6 +87,15 @@ export class WordBoard {
   protected readonly at = signal(0);
   protected readonly char = computed(() => this.chars()[this.at()] ?? '');
   protected readonly data = computed<Strokes | null>(() => this.strokes()?.[this.char()] ?? null);
+  private readonly dict = dictionaryWords();
+  /** O caractere no quadrado, quando é kanji: as outras palavras com ele aparecem ao lado. */
+  protected readonly kanjiNow = computed(() => (hasKanji(this.char()) ? this.char() : null));
+  protected readonly sameKanji = computed(() => {
+    const k = this.kanjiNow();
+    return k ? wordsWithKanji(this.dict.words, k, this.word().id) : [];
+  });
+  /** A composição em pedaços, com as outras palavras do dicionário em link. */
+  protected readonly parts = computed(() => compositionParts(this.word().composition, this.dict.byText, this.word().id));
   /** Os caracteres que têm traços (o ？ não tem). */
   protected readonly drawable = computed(() => this.chars().map((c) => !!this.strokes()?.[c]));
 

@@ -1,9 +1,10 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { MONTHS_SHORT } from '../core/dates';
-import { Word, facetLabel } from '../core/dictionary/dictionary';
+import { Word, compositionParts, facetLabel } from '../core/dictionary/dictionary';
 import { hasKanji } from '../core/dictionary/kana';
 import { DictionaryMarks } from '../core/dictionary/marks-store';
+import { dictionaryWords } from '../core/dictionary/words';
 import { Toasts } from './toast';
 import { markFavorite, markLearned } from './word-marking';
 import { WordSeals } from './word-seals';
@@ -73,7 +74,11 @@ export function daySaid(day: string | null): string {
       }
     </p>
     @if (w.composition) {
-      <p class="exemplos"><span class="rei" lang="ja" aria-hidden="true">例</span><span class="sr-only">Exemplos: </span><span lang="ja">{{ w.composition }}</span></p>
+      <p class="exemplos">
+        <span class="rei" lang="ja" aria-hidden="true">例</span><span class="sr-only">Exemplos: </span>
+        <!-- na página, o que é outra palavra do dicionário abre a lousa dela -->
+        <span lang="ja">@for (p of parts(); track $index) {@if (p.word; as pw) {<button type="button" class="elo" [attr.aria-label]="p.text + ': abrir na lousa'" [title]="pw.meaning" (click)="draw.emit(pw)">{{ p.text }}</button>} @else {<ng-container>{{ p.text }}</ng-container>}}</span>
+      </p>
     }
     @if (w.notes) {
       <p class="nota">{{ w.notes }}</p>
@@ -99,6 +104,10 @@ export class WordEntry {
   readonly draw = output<Word>();
 
   protected readonly ticks = [1, 2, 3, 4, 5];
+  /** A composição em pedaços; os links só na página (na folhinha da seleção não há lousa para abrir). */
+  protected readonly parts = computed(() =>
+    this.drawable() ? compositionParts(this.word().composition, dictionaryWords().byText, this.word().id) : [{ text: this.word().composition }],
+  );
   /** A leitura vai em furigana por cima só quando a palavra tem kanji. */
   protected readonly ruby = computed(() => hasKanji(this.word().text) && this.word().text !== this.word().reading);
   protected readonly jlpt = computed(() => facetLabel('jlpt', this.word().jlpt));

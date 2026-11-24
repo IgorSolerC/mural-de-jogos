@@ -1,4 +1,4 @@
-import { DEFAULT_STATE, DictState, MarkLookup, effectiveSort, lookupWords, facetChips, facetGroups, keysOf, matchScore, paramsOf, parseCsv, passes, readWords, sectionsOf, sortWords, spokenOf, stateFromParams, toggleFacet } from './dictionary';
+import { DEFAULT_STATE, DictState, MarkLookup, effectiveSort, lookupWords, facetChips, facetGroups, keysOf, matchScore, paramsOf, parseCsv, passes, readWords, sectionsOf, sortWords, spokenOf, stateFromParams, toggleFacet, compositionParts, kanjiIn, wordsWithKanji } from './dictionary';
 import { foldJa, kanaRow, looseRomaji, romajiToKana } from './kana';
 import { dictionaryWords } from './words';
 
@@ -59,6 +59,36 @@ JP1,犬,いぬ,cachorro,${dia}
     expect(spokenOf(by('JP0706'))).toBe('は');
     expect(spokenOf(find('〜中'))).toBe('ちゅう、じゅう');
     expect(spokenOf(find('〜ます'))).toBe('ます');
+  });
+
+  it('os kanji da palavra: as outras palavras com cada um, e a composição em links', () => {
+    const { words, byText } = dictionaryWords();
+    const find = (text: string) => words.find((w) => w.text === text)!;
+    expect(kanjiIn('食べ物')).toEqual(['食', '物']);
+    expect(kanjiIn('日曜日')).toEqual(['日', '曜']);
+    expect(kanjiIn('たべる')).toEqual([]);
+    // na ordem de estudo, sem a própria
+    const sen = wordsWithKanji(words, '先', find('先生').id);
+    expect(sen.map((w) => w.text)).not.toContain('先生');
+    expect(sen.map((w) => w.text)).toContain('先週');
+    expect(sen.map((w) => w.order)).toEqual([...sen.map((w) => w.order)].sort((a, b) => a - b));
+    // cada trecho que é uma palavra vira link; o resto fica texto, com a pontuação e o português
+    const parts = compositionParts('先週, 先月, 先生', byText, find('先〜').id);
+    expect(parts.map((p) => [p.text, p.word?.text ?? null])).toEqual([
+      ['先週', '先週'],
+      [', ', null],
+      ['先月', '先月'],
+      [', ', null],
+      ['先生', '先生'],
+    ]);
+    const eat = compositionParts(find('食べる').composition, byText, find('食べる').id);
+    expect(eat.filter((p) => p.word).map((p) => p.text)).toEqual(['食べ物']);
+    expect(eat.map((p) => p.text).join('')).toBe(find('食べる').composition);
+    // a própria palavra não vira link para ela mesma
+    expect(compositionParts('先週', byText, find('先週').id)).toEqual([{ text: '先週' }]);
+    expect(compositionParts('', byText)).toEqual([]);
+    // um kana sozinho não vira link (o と de 猫 と 犬 pode não ser a partícula da lista)
+    expect(compositionParts('猫 と 犬', byText).filter((p) => p.word && p.text === 'と')).toEqual([]);
   });
 
   it('lê a lista inteira do dono: 1023 palavras, todas com id único', () => {

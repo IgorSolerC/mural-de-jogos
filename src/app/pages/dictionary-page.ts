@@ -332,6 +332,11 @@ export class DictionaryPage {
     this.go({ word: w.id }, !this.state().word);
   }
 
+  /** Um link da lousa (a composição, as palavras com o mesmo kanji): uma entrada nova, e o voltar volta à de antes. */
+  protected gotoBoard(w: Word): void {
+    this.go({ word: w.id }, true);
+  }
+
   protected closeBoard(): void {
     if (this.state().word) this.go({ word: null });
   }

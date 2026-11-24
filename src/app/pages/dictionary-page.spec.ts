@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { DICT_MARKS_KEY } from '../core/dictionary/marks-store';
+import { dictionaryWords } from '../core/dictionary/words';
 import { DictionaryPage } from './dictionary-page';
 
 /** O Dicionário Japonês (PLANO-DICIONARIO.md): a busca, os filtros, a ordem e a vista, todos no endereço. */
@@ -114,6 +115,16 @@ describe('o Dicionário Japonês', () => {
     expect(words().length).toBe(99);
     account.set(null);
     localStorage.removeItem(DICT_MARKS_KEY);
+  });
+
+  it('na composição de um verbete, outra palavra do dicionário é link: abre a lousa dela', async () => {
+    await open('/extras/dicionario?q=taberu');
+    const link = host.querySelector<HTMLButtonElement>('.verbete .exemplos .elo')!;
+    expect(link.textContent!.trim()).toBe('食べ物');
+    link.click();
+    await settle();
+    const id = query()['palavra'];
+    expect(dictionaryWords().words.find((w) => w.id === id)?.text).toBe('食べ物');
   });
 
   it('tocar na palavra abre a lousa, que mora no endereço; as setas andam pela lista e fechar tira do endereço', async () => {

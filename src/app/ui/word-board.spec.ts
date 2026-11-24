@@ -79,6 +79,23 @@ describe('A lousa do Dicionário Japonês', () => {
     expect(board.done()).toBe(0);
   });
 
+  it('com um kanji no quadrado, as outras palavras com ele; a composição e elas abrem a lousa delas', async () => {
+    await open('食べる');
+    const opened: string[] = [];
+    fixture.componentInstance.goto.subscribe((w) => opened.push(w.text));
+    expect(q('.mesmo-kanji h3')!.textContent).toContain('食');
+    const others = [...el.querySelectorAll('.mesmo-kanji .outra-palavra')].map((e) => e.textContent!.trim());
+    expect(others).toEqual(['食べ物']);
+    q<HTMLButtonElement>('.mesmo-kanji .outra')!.click();
+    q<HTMLButtonElement>('.composicao .elo')!.click();
+    expect(opened).toEqual(['食べ物', '食べ物']);
+    expect(q('.composicao')!.textContent!.replace(/\s+/g, ' ')).toContain('食べます, 食べない, 食べた, 食べ物 (comida)');
+    // a ruby: com um kana no quadrado, a lista some
+    [...el.querySelectorAll<HTMLButtonElement>('.caractere')][1].click();
+    await settle();
+    expect(q('.mesmo-kanji')).toBeNull();
+  });
+
   it('todo caractere das palavras do dicionário tem os traços do KanjiVG (menos o ？)', () => {
     const chars = new Set(dictionaryWords().words.flatMap((w) => boardChars(w.text + w.reading)));
     const missing = [...chars].filter((c) => !STROKES[c] && c.codePointAt(0)! >= 0x3040);

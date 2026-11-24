@@ -156,6 +156,54 @@ export function spokenOf(w: Word): string {
     .join('、');
 }
 
+/** Os kanji de um texto, cada um uma vez, na ordem em que aparecem. */
+export function kanjiIn(text: string): string[] {
+  return [...new Set([...text].filter((c) => hasKanji(c)))];
+}
+
+/** As outras palavras do dicionário escritas com o kanji, na ordem de estudo (PLANO-DICIONARIO.md, 5.4). */
+export function wordsWithKanji(words: readonly Word[], kanji: string, exceptId?: string): Word[] {
+  return words.filter((w) => w.id !== exceptId && w.text.includes(kanji)).sort((a, b) => a.order - b.order);
+}
+
+/** Cada escrita do dicionário e a palavra dela (das homógrafas, a primeira na ordem de estudo). */
+export function wordsByText(words: readonly Word[]): Map<string, Word> {
+  const out = new Map<string, Word>();
+  for (const w of [...words].sort((a, b) => a.order - b.order)) if (!out.has(w.text)) out.set(w.text, w);
+  return out;
+}
+
+/** Um pedaço da composição: o texto e, quando ele é uma palavra do dicionário, ela (o link). */
+export interface CompositionPart {
+  text: string;
+  word?: Word;
+}
+
+/**
+ * A composição de um verbete em pedaços (PLANO-DICIONARIO.md, 5.4): cada trecho em japonês que é, inteiro, outra
+ * palavra do dicionário vira link para ela ("先週, 先月, 先生"); o resto (a vírgula, o português entre parênteses, a
+ * frase que não é uma palavra só) fica texto.
+ */
+export function compositionParts(text: string, byText: ReadonlyMap<string, Word>, selfId?: string): CompositionPart[] {
+  const out: CompositionPart[] = [];
+  const push = (t: string, word?: Word) => {
+    if (!t) return;
+    const last = out.at(-1);
+    if (!word && last && !last.word) last.text += t;
+    else out.push(word ? { text: t, word } : { text: t });
+  };
+  let at = 0;
+  for (const m of text.matchAll(/[぀-ヿ㐀-鿿豈-﫿々〜～]+/g)) {
+    push(text.slice(at, m.index));
+    // um kana sozinho (と, の) pode ser outra coisa ali: só vira link o trecho com kanji ou de dois caracteres ou mais
+    const word = hasKanji(m[0]) || [...m[0]].length > 1 ? byText.get(m[0]) : undefined;
+    push(m[0], word && word.id !== selfId ? word : undefined);
+    at = m.index! + m[0].length;
+  }
+  push(text.slice(at));
+  return out;
+}
+
 export function keysOf(w: Word): WordKeys {
   const meaning = fold(w.meaning);
   return {

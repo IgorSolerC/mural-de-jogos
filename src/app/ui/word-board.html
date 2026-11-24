@@ -43,6 +43,13 @@
         <span class="sentido">{{ word().meaning }}</span>
         <app-word-voice [word]="word()" />
       </p>
+      <!-- a composição: o que é outra palavra do dicionário leva à lousa dela -->
+      @if (parts().length) {
+        <p class="composicao">
+          <span class="rei" lang="ja" aria-hidden="true">例</span><span class="sr-only">Exemplos: </span>
+          <span lang="ja">@for (p of parts(); track $index) {@if (p.word; as pw) {<button type="button" class="elo" [attr.aria-label]="p.text + ': abrir na lousa'" [title]="pw.meaning" (click)="goto.emit(pw)">{{ p.text }}</button>} @else {<ng-container>{{ p.text }}</ng-container>}}</span>
+        </p>
+      }
       @if (hasReading()) {
         <div class="escrita" role="group" aria-label="Desenhar a escrita ou a leitura">
           <button type="button" [attr.aria-pressed]="script() === 'escrita'" (click)="script.set('escrita')">
@@ -180,34 +187,62 @@
         }
       </div>
 
-      <!-- a tabela de passos (筆順): um quadradinho por traço, o novo em vermelho -->
-      @if (data(); as d) {
-        <section class="passos" aria-labelledby="lousa-passos">
-          <h3 id="lousa-passos">
-            Ordem dos traços <span lang="ja" aria-hidden="true">筆順</span>
-          </h3>
-          <ol class="passos-lista">
-            @for (p of d.s; track $index; let i = $index) {
-              <li>
-                <button type="button" class="passo" [class.aqui]="mode() === 'ordem' && i === shown() - 1" (click)="jump(i)" [attr.aria-label]="'Até o traço ' + (i + 1)">
-                  <svg viewBox="0 0 109 109" aria-hidden="true">
-                    <line class="cruz" x1="54.5" y1="4" x2="54.5" y2="105" />
-                    <line class="cruz" x1="4" y1="54.5" x2="105" y2="54.5" />
-                    @for (q of d.s; track $index; let j = $index) {
-                      @if (j < i) {
-                        <path class="antes" [attr.d]="q" />
-                      } @else if (j === i) {
-                        <path class="novo" [attr.d]="q" />
+      <div class="lado">
+        <!-- a tabela de passos (筆順): um quadradinho por traço, o novo em vermelho -->
+        @if (data(); as d) {
+          <section class="passos" aria-labelledby="lousa-passos">
+            <h3 id="lousa-passos">
+              Ordem dos traços <span lang="ja" aria-hidden="true">筆順</span>
+            </h3>
+            <ol class="passos-lista">
+              @for (p of d.s; track $index; let i = $index) {
+                <li>
+                  <button type="button" class="passo" [class.aqui]="mode() === 'ordem' && i === shown() - 1" (click)="jump(i)" [attr.aria-label]="'Até o traço ' + (i + 1)">
+                    <svg viewBox="0 0 109 109" aria-hidden="true">
+                      <line class="cruz" x1="54.5" y1="4" x2="54.5" y2="105" />
+                      <line class="cruz" x1="4" y1="54.5" x2="105" y2="54.5" />
+                      @for (q of d.s; track $index; let j = $index) {
+                        @if (j < i) {
+                          <path class="antes" [attr.d]="q" />
+                        } @else if (j === i) {
+                          <path class="novo" [attr.d]="q" />
+                        }
                       }
-                    }
-                  </svg>
-                  <span class="passo-n" aria-hidden="true">{{ i + 1 }}</span>
-                </button>
-              </li>
+                    </svg>
+                    <span class="passo-n" aria-hidden="true">{{ i + 1 }}</span>
+                  </button>
+                </li>
+              }
+            </ol>
+          </section>
+        }
+
+        <!-- o kanji no quadrado: as outras palavras do dicionário escritas com ele -->
+        @if (kanjiNow(); as k) {
+          <section class="mesmo-kanji" aria-labelledby="lousa-mesmo-kanji">
+            <h3 id="lousa-mesmo-kanji">
+              Outras palavras com <span lang="ja">{{ k }}</span>
+            </h3>
+            @if (sameKanji().length) {
+              <ul class="mesmo-lista" role="list">
+                @for (o of sameKanji(); track o.id) {
+                  <li>
+                    <button type="button" class="outra" [attr.aria-label]="o.text + ', ' + o.reading + ': ' + o.meaning" (click)="goto.emit(o)">
+                      <span class="outra-palavra" lang="ja">{{ o.text }}</span>
+                      @if (o.reading !== o.text) {
+                        <span class="outra-leitura" lang="ja">{{ o.reading }}</span>
+                      }
+                      <span class="outra-sentido">{{ o.meaning }}</span>
+                    </button>
+                  </li>
+                }
+              </ul>
+            } @else {
+              <p class="nenhuma">Só esta palavra do dicionário usa <span lang="ja">{{ k }}</span>.</p>
             }
-          </ol>
-        </section>
-      }
+          </section>
+        }
+      </div>
     </div>
 
     <footer class="credito">

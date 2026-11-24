@@ -207,3 +207,26 @@
     color: #1f7a45;
   }
 }
+
+/* na composição, o que é outra palavra do dicionário: o sublinhado pontilhado vermelho, e ela abre na lousa */
+.elo {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline dotted var(--shu) 1.5px;
+  text-underline-offset: 4px;
+  transition: color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    color: var(--shu);
+    text-decoration-style: solid;
+  }
+  &:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}

@@ -158,6 +158,52 @@
   }
 }
 
+/* a composição, embaixo do sentido: o 例 vermelho e as outras palavras do dicionário em link para a lousa delas */
+/* em bloco, centrado: quebrando a linha, o 例 anda junto com o texto (com flex, ele ficava sozinho na beirada) */
+.composicao {
+  display: block;
+  margin: 10px auto 0;
+  max-width: 640px;
+  font-family: var(--lapis);
+  font-size: 1.08rem;
+  line-height: 1.5;
+  text-align: center;
+
+  .rei {
+    display: inline-grid;
+    place-items: center;
+    width: 1.45em;
+    height: 1.45em;
+    margin-right: 8px;
+    border-radius: 3px;
+    background: var(--shu);
+    color: var(--arroz);
+    font-size: 0.8rem;
+    vertical-align: 0.12em;
+  }
+}
+.elo {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline dotted var(--shu) 1.5px;
+  text-underline-offset: 4px;
+  transition: color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    color: var(--shu);
+    text-decoration-style: solid;
+  }
+  &:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
 /* os seletores de papel: o recorte tracejado, e o escolhido é o adesivo de tinta (o seletor do editor) */
 %recorte {
   min-height: 36px;
@@ -530,6 +576,96 @@
   font-weight: 800;
   font-size: 0.66rem;
   color: rgb(21 21 21 / 0.62);
+}
+
+/* a coluna do lado: o 筆順 e, embaixo, as outras palavras com o kanji do quadrado */
+.lado {
+  display: grid;
+  gap: 22px;
+  align-content: start;
+}
+
+/* ===== As outras palavras com o mesmo kanji ===== */
+
+.mesmo-kanji h3 {
+  margin: 0 0 8px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.84rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+
+  span {
+    margin-left: 4px;
+    font-family: var(--lapis);
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    color: var(--shu);
+  }
+}
+.mesmo-lista {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* cada uma, uma linha de índice: a palavra a lápis, a leitura miúda em cima do sentido; abre a lousa dela */
+.outra {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 12px;
+  align-items: center;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-bottom: 1px dashed rgb(21 21 21 / 0.16);
+  border-radius: 0;
+  background: none;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(180 42 32 / 0.07);
+  }
+  &:hover .outra-palavra {
+    color: var(--shu);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: -2px;
+  }
+}
+li:last-child .outra {
+  border-bottom: 0;
+}
+.outra-palavra {
+  grid-row: 1 / 3;
+  font-family: var(--lapis);
+  font-size: 1.35rem;
+  line-height: 1.2;
+  transition: color var(--t-ui) var(--ease-ui);
+}
+.outra-leitura {
+  font-family: var(--lapis);
+  font-size: 0.82rem;
+  color: rgb(21 21 21 / 0.66);
+}
+.outra-sentido {
+  grid-column: 2;
+  font-family: var(--f-hand);
+  font-size: 1rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.nenhuma {
+  margin: 0;
+  font-family: var(--f-hand);
+  font-size: 1rem;
+  color: rgb(21 21 21 / 0.7);
 }
 
 .credito {
