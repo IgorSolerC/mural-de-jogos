@@ -7,6 +7,7 @@ import { samplePng } from '../core/images.spec';
 import { COVER_H, COVER_W, coverScale, pixelCoverPng } from '../core/pixel-cover';
 import { PickedGame } from '../core/review';
 import { AudioTrack } from './audio-track';
+import { MEASURE_WAIT_MS } from './pixel-cover-fill';
 import { RecordCover } from './record-cover';
 
 const PREVIEW = 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview1/v4/aa/bb/cc/trecho.plus.aac.p.m4a';
@@ -129,9 +130,8 @@ describe('a capa de vinil das fichas de música', () => {
     beforeEach(() => deleteDatabase(IMAGES_DB));
     afterAll(() => deleteDatabase(IMAGES_DB));
 
-    /** Uma pixel art de 16 × 16 toda pintada, guardada como capa (o PNG 4:5 com o desenho no meio). */
-    async function storedPixelCover(): Promise<string> {
-      const rows = Array.from({ length: 16 }, () => '1'.repeat(16));
+    /** Uma pixel art de 16 × 16 (toda pintada, ou só as linhas dadas), guardada como capa (o PNG 4:5 com o desenho no meio). */
+    async function storedPixelCover(rows = Array.from({ length: 16 }, () => '1'.repeat(16))): Promise<string> {
       const png = (await pixelCoverPng({ w: 16, h: 16, rows, palette: DEFAULT_PALETTE, colors: {} }))!;
       TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
       const stored = await TestBed.inject(ImageStore).addPng(png.blob, png.width, png.height);
@@ -161,6 +161,68 @@ describe('a capa de vinil das fichas de música', () => {
       expect(art.left).toBeCloseTo(capa.left, 0);
       expect(art.top).toBeCloseTo(capa.top, 0);
       expect(getComputedStyle(img).imageRendering).toBe('pixelated');
+    });
+
+    it('o desenho que não é quadrado (o fundo transparente) fica inteiro: o lado maior enche a capa', async () => {
+      // um cogumelo de 10 pontos de largura e 14 de altura, no meio de um desenho de 16 × 16
+      const rows = Array.from({ length: 16 }, (_, y) => Array.from({ length: 16 }, (_, x) => (x >= 3 && x < 13 && y >= 1 && y < 15 ? '1' : '0')).join(''));
+      await show(album({ coverUrl: await storedPixelCover(rows) }));
+      const img = await filled(() => el);
+      const cell = coverScale(16, 16);
+      expect(parseFloat(img.style.height)).toBeCloseTo((COVER_H / (14 * cell)) * 100, 3);
+      const capa = el.querySelector('.capa')!.getBoundingClientRect();
+      const r = img.getBoundingClientRect();
+      const k = r.width / COVER_W;
+      const x0 = (COVER_W - 16 * cell) / 2;
+      const y0 = (COVER_H - 16 * cell) / 2;
+      const art = { left: r.left + (x0 + 3 * cell) * k, right: r.left + (x0 + 13 * cell) * k, top: r.top + (y0 + cell) * k, bottom: r.top + (y0 + 15 * cell) * k };
+      expect(art.top).toBeCloseTo(capa.top, 0);
+      expect(art.bottom).toBeCloseTo(capa.bottom, 0);
+      expect(art.left).toBeGreaterThan(capa.left);
+      expect(art.right).toBeLessThan(capa.right);
+    });
+
+    it('a capa da nuvem (a <img> não deixa ler os pontos) é buscada de novo e enche; enquanto mede, espera escondida', async () => {
+      const cover = await storedPixelCover();
+      // a imagem de outro endereço: o canvas não deixa ler a primeira vez (a da <img>), e a busca devolve o PNG
+      const read = CanvasRenderingContext2D.prototype.getImageData;
+      let tainted = true;
+      spyOn(CanvasRenderingContext2D.prototype, 'getImageData').and.callFake(function (this: CanvasRenderingContext2D, ...a: [number, number, number, number]) {
+        if (tainted) {
+          tainted = false;
+          throw new DOMException('tainted', 'SecurityError');
+        }
+        return read.apply(this, a);
+      });
+      let answer!: (r: Response) => void;
+      const realFetch = window.fetch.bind(window);
+      const fetchSpy = spyOn(window, 'fetch').and.callFake(async (src) => {
+        const blob = await (await realFetch(src)).blob();
+        return new Promise<Response>((res) => (answer = () => res(new Response(blob, { headers: { 'Content-Type': 'image/png' } }))));
+      });
+      await show(album({ coverUrl: cover }));
+      for (let i = 0; i < 100 && !answer; i++) await new Promise((r) => setTimeout(r, 20));
+      expect(fetchSpy).toHaveBeenCalled();
+      await fixture.whenStable();
+      expect(el.querySelector<HTMLImageElement>('.capa img')!.style.opacity).withContext('medindo').toBe('0');
+      answer(new Response());
+      const img = await filled(() => el);
+      expect(img).not.toBeNull();
+      expect(img.style.opacity).toBe('');
+    });
+
+    it('a busca da capa da nuvem que não volta desiste: a capa aparece como veio', async () => {
+      const cover = await storedPixelCover();
+      spyOn(CanvasRenderingContext2D.prototype, 'getImageData').and.throwError(new DOMException('tainted', 'SecurityError'));
+      spyOn(window, 'fetch').and.returnValue(new Promise(() => undefined));
+      await show(album({ coverUrl: cover }));
+      const img = () => el.querySelector<HTMLImageElement>('.capa img')!;
+      for (let i = 0; i < 100 && img().style.opacity !== '0'; i++) await new Promise((r) => setTimeout(r, 20));
+      expect(img().style.opacity).withContext('medindo').toBe('0');
+      await new Promise((r) => setTimeout(r, MEASURE_WAIT_MS + 100));
+      await fixture.whenStable();
+      expect(img().style.opacity).toBe('');
+      expect(img().classList).not.toContain('pixel-cheia');
     });
 
     it('a foto (ou o link) do álbum fica como está, e a imagem guardada que não é pixel art também', async () => {

@@ -2,6 +2,9 @@ import { Directive, computed, input, signal } from '@angular/core';
 import { localImageId } from '../core/images';
 import { ArtBox, isPixelCoverSize, opaqueBox } from '../core/pixel-cover';
 
+/** Quanto a capa da nuvem espera escondida pela medida: passou disso, aparece como veio (ms). */
+export const MEASURE_WAIT_MS = 4000;
+
 /** A caixa do desenho de cada capa guardada já medida, pelo id (a imagem guardada não muda: o id é do conteúdo). */
 const measured = new Map<string, ArtBox | null | Promise<ArtBox | null>>();
 
@@ -62,7 +65,7 @@ export class PixelCoverFill {
     if (got === undefined) {
       got = fromImage(img);
       // a da nuvem (quem visita sem entrar) não deixa ler os pontos pela <img>: busca de novo
-      if (got === undefined) got = fetched(img.currentSrc || img.src);
+      if (got === undefined) got = withDeadline(fetched(img.currentSrc || img.src));
       // (a que não deu para medir fica sem medida até a página recarregar: não busca de novo a cada vez)
       measured.set(id, got);
     }
@@ -76,6 +79,11 @@ export class PixelCoverFill {
       apply(box);
     });
   }
+}
+
+/** A medida que demora demais (a rede parou no meio) desiste: a capa não fica escondida para sempre. */
+function withDeadline(job: Promise<ArtBox | null>): Promise<ArtBox | null> {
+  return Promise.race([job, new Promise<null>((res) => setTimeout(() => res(null), MEASURE_WAIT_MS))]);
 }
 
 /** Os pontos de uma imagem num canvas, ou undefined quando o navegador não deixa lê-los (a de outro endereço). */
