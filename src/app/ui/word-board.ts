@@ -306,9 +306,9 @@ export class WordBoard {
     const pen = this.pen;
     this.pen = null;
     if (!pen) return;
-    const length = pen.slice(1).reduce((n, p, i) => n + Math.hypot(p.x - pen[i].x, p.y - pen[i].y), 0);
-    // um toque sem arrastar não é traço
-    if (length < 3) {
+    // qualquer toque é traço, por menor que seja: os pontos (o 丶, os do 心) são um toque sem arrastar, e um toque
+    // sem querer sai no Desfazer. Só o traço que o navegador interrompeu (pointercancel) não conta.
+    if (e.type === 'pointercancel') {
       this.paint();
       return;
     }

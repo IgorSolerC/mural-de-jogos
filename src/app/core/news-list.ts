@@ -27,14 +27,15 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-23-ouvir-palavra',
+    id: '2026-11-23-pontos-no-treino',
     version: '1.53.1',
     kind: 'ajustes',
     date: '2026-11-23',
-    title: 'Ouvir as palavras do Dicionário Japonês',
+    title: 'Ouvir as palavras do Dicionário Japonês e os pontos no treino da lousa',
     melhorias: [
       'No Dicionário Japonês, os fones ao lado do romaji dizem a palavra em voz alta, na voz japonesa de ouvir a nota: no verbete, na Tabela, na lousa e no resumo que abre ao selecionar uma palavra numa anotação.',
     ],
+    correcoes: ['No Treinar da lousa, traços bem curtos e os pontos (um toque, como no 丶 e no 心) agora contam como traço.'],
   },
   {
     id: '2026-11-23-lousa',

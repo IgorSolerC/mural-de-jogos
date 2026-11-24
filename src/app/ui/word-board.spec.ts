@@ -144,11 +144,21 @@ describe('A lousa do Dicionário Japonês', () => {
     await stroke([25, 28], [80, 25]);
     expect(q('.controles .contador')!.textContent!.trim()).toBe('Traço 2 de 7');
     expect(q('.guia-n')!.textContent!.trim()).toBe('2');
-    // um toque sem arrastar não conta
+    // um toque sem arrastar é um ponto, e um traço bem curto também conta
     canvas.dispatchEvent(new PointerEvent('pointerdown', at(50, 50)));
     canvas.dispatchEvent(new PointerEvent('pointerup', at(50, 50)));
     await settle();
-    expect(q('.controles .contador')!.textContent!.trim()).toBe('Traço 2 de 7');
+    expect(q('.controles .contador')!.textContent!.trim()).toBe('Traço 3 de 7');
+    await stroke([60, 60], [61, 61]);
+    expect(q('.controles .contador')!.textContent!.trim()).toBe('Traço 4 de 7');
+    // o traço que o navegador interrompe não conta
+    canvas.dispatchEvent(new PointerEvent('pointerdown', at(40, 70)));
+    canvas.dispatchEvent(new PointerEvent('pointermove', at(45, 75)));
+    canvas.dispatchEvent(new PointerEvent('pointercancel', at(45, 75)));
+    await settle();
+    expect(q('.controles .contador')!.textContent!.trim()).toBe('Traço 4 de 7');
+    button('Desfazer').click();
+    button('Desfazer').click();
     button('Desfazer').click();
     await settle();
     expect(q('.controles .contador')!.textContent!.trim()).toBe('Traço 1 de 7');
