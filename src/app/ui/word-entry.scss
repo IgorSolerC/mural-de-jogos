@@ -294,9 +294,10 @@
   &:hover svg {
     stroke: #ffd23f;
   }
+  /* o anel por dentro: a fita encosta no alto do cartão, que corta o que passa da borda (overflow) */
   &:focus-visible {
     outline: 2px solid var(--hi);
-    outline-offset: 3px;
+    outline-offset: -2px;
     border-radius: 2px;
   }
 

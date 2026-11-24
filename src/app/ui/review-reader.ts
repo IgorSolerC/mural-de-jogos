@@ -580,7 +580,7 @@ interface AlonePlea {
               </button>
               @if (toLearn(p.words); as w) {
                 <button type="button" class="aprender" (pointerdown)="$event.preventDefault()" (click)="learnSelection(w)" [title]="'Marcar ' + w.text + ' como aprendida'">
-                  <span class="mini-selo" lang="ja" aria-hidden="true">覚</span>
+                  <span class="mini-selo" lang="ja" aria-hidden="true">済</span>
                   Aprendida
                 </button>
               }

@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-24-palavras-novas-dicionario',
+    id: '2026-11-24-cartoes-na-parede',
     version: '1.53.2',
     kind: 'ajustes',
     date: '2026-11-24',
@@ -35,7 +35,11 @@ export const NEWS: NewsEntry[] = [
     melhorias: [
       'Todas as 1.032 palavras do Dicionário Japonês seguem o mesmo padrão: os sentidos separados por "/", uma descrição de como e quando a palavra se usa, três frases de exemplo com a palavra marcada e a tradução embaixo, a origem quando ela é certa (do inglês, os kanji, um encurtamento) e as palavras relacionadas. Na Tabela, a coluna Origem.',
       'Nove palavras novas no Dicionário Japonês, de comida e bebida: パスタ, ハンバーガー, ホットドッグ, チーズ, アイスクリーム, トマト, ポテト, ワイン e そば.',
-      'Cada verbete do Dicionário Japonês virou um cartão com uma faixa na cor da classe (azul nos substantivos, vinho nos verbos, verde nos adjetivos, lilás nos advérbios, laranja nas expressões): as frases em caixinhas, a origem no 源 e as palavras relacionadas em cartõezinhos que abrem a lousa. O uso vem escrito, a aprendida é o carimbo 済 e a favorita, uma fita de marcador de livro que cai ao ser marcada.',
+      'Cada verbete do Dicionário Japonês virou um cartão com uma faixa na cor da classe (azul nos substantivos, vinho nos verbos, verde nos adjetivos, lilás nos advérbios, laranja nas expressões), direto na parede, em duas colunas: as frases em caixinhas, a origem no 源 e as palavras relacionadas em cartõezinhos que abrem a lousa. O uso vem escrito, a aprendida é o carimbo 済 (também na Tabela e ao selecionar uma palavra numa anotação) e a favorita, uma fita de marcador de livro que cai ao ser marcada.',
+    ],
+    correcoes: [
+      'No Dicionário Japonês, o índice de dedo mostra o anel do foco ao andar pelo teclado.',
+      'Na lousa do Dicionário Japonês, o traço que estava no meio ao passar para outra palavra não aparece mais nela, e o caractere tocado enquanto os traços chegam continua escolhido.',
     ],
   },
   {

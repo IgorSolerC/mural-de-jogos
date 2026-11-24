@@ -136,6 +136,30 @@ describe('o Dicionário Japonês', () => {
     expect(dictionaryWords().words.find((w) => w.id === id)?.text).toBe('食べ物');
   });
 
+  it('a busca que acha a palavra pelas ligadas marca o cartãozinho em que achou', async () => {
+    await open('/extras/dicionario?q=これから');
+    // o realce entra um quadro depois das fichas
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const kore = [...host.querySelectorAll<HTMLElement>('.verbete')].find((v) => v.querySelector('.romaji')!.textContent!.trim() === 'kore')!;
+    const card = [...kore.querySelectorAll('.lig-ja')].find((e) => e.textContent!.trim() === 'これから')!;
+    const ranges = [...(CSS.highlights.get('busca') ?? [])] as Range[];
+    expect(ranges.some((r) => card.contains(r.startContainer))).withContext('o これから das ligadas de これ').toBeTrue();
+  });
+
+  it('os cartões ficam direto na parede, sem folha por trás, em duas colunas e cada um logo embaixo do de cima', async () => {
+    await open('/extras/dicionario');
+    const folha = host.querySelector<HTMLElement>('.folha')!;
+    const look = getComputedStyle(folha);
+    expect(look.backgroundImage).toBe('none');
+    expect(look.backgroundColor).toBe('rgba(0, 0, 0, 0)');
+    expect(look.boxShadow).toBe('none');
+    expect(look.columnCount).toBe(innerWidth > 900 ? '2' : '1');
+    // sem buraco: o cartão seguinte começa no vão fixo depois do de cima, por mais alto que o vizinho seja
+    const [a, b] = [...folha.querySelectorAll<HTMLElement>('.verbete')].slice(0, 2).map((c) => c.getBoundingClientRect());
+    expect(b.left).toBe(a.left);
+    expect(Math.round(b.top - a.bottom)).toBe(innerWidth > 900 ? 32 : 20);
+  });
+
   it('o verbete é um cartão na cor da classe, com o uso escrito, o nível, a origem e os números no pé', async () => {
     localStorage.removeItem(DICT_MARKS_KEY);
     await open('/extras/dicionario?q=taberu');

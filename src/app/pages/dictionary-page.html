@@ -166,7 +166,7 @@
 } @else {
   <!-- os Verbetes: a página do dicionário, em seções da ordem escolhida -->
   <div class="livro" [class.com-indice]="thumbRows()">
-    <div class="paginas" [appRealceBusca]="query()" realceEm=".palavra, .romaji, .sentido, .exemplos, .nota">
+    <div class="paginas" [appRealceBusca]="query()" realceEm=".palavra, .romaji, .sentido, .nota, .lig-ja, .lig-pt">
       @for (s of sections(); track s.key?.id ?? 'todas'; let i = $index) {
         <!-- o id pelo lugar da seção: o nome dela pode ter espaço ("Partícula composta") -->
         <section class="secao" [attr.data-secao]="s.key?.id ?? null" [attr.aria-labelledby]="s.key ? 'dic-secao-' + i : null" [attr.aria-label]="s.key ? null : 'Palavras'">

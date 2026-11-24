@@ -79,6 +79,50 @@ describe('A lousa do Dicionário Japonês', () => {
     expect(board.done()).toBe(0);
   });
 
+  it('o traço que estava no meio ao trocar de palavra não passa para a seguinte', async () => {
+    await open('食べる');
+    button('Treinar').click();
+    await settle();
+    const canvas = q<HTMLCanvasElement>('canvas.tela')!;
+    const r = canvas.getBoundingClientRect();
+    const at = (x: number, y: number) => ({ clientX: r.left + (x * r.width) / 109, clientY: r.top + (y * r.height) / 109, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 1, bubbles: true });
+    // o dedo desce e anda; antes de subir, a lousa vai para a palavra seguinte (Shift + →)
+    canvas.dispatchEvent(new PointerEvent('pointerdown', at(20, 20)));
+    canvas.dispatchEvent(new PointerEvent('pointermove', at(40, 40)));
+    fixture.componentRef.setInput('word', word('来る'));
+    await settle();
+    const board = fixture.componentInstance as unknown as { done(): number };
+    q<HTMLCanvasElement>('canvas.tela')!.dispatchEvent(new PointerEvent('pointerup', at(40, 40)));
+    await settle();
+    expect(board.done()).toBe(0);
+    expect(q('.controles .contador')!.textContent!.trim()).toBe('Traço 1 de 7');
+  });
+
+  it('o caractere escolhido enquanto os traços ainda chegam fica escolhido quando eles chegam', async () => {
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+    fixture = TestBed.createComponent(WordBoard);
+    fixture.componentRef.setInput('word', word('食べる'));
+    el = fixture.nativeElement;
+    document.body.appendChild(el);
+    const board = fixture.componentInstance as unknown as { strokes: { set(v: unknown): void }; at(): number };
+    // o pedaço dos traços já está carregado nos testes: espera ele chegar e volta ao "ainda não chegaram"
+    await settle();
+    await new Promise((r) => setTimeout(r, 20));
+    board.strokes.set(null);
+    await settle();
+    [...el.querySelectorAll<HTMLButtonElement>('.caractere')][1].click();
+    await settle();
+    expect(board.at()).toBe(1);
+    board.strokes.set(STROKES);
+    await settle();
+    expect(board.at()).toBe(1);
+    expect(q('.caractere.escolhido')!.textContent!.trim()).toBe('べ');
+    // outra palavra volta ao primeiro caractere
+    fixture.componentRef.setInput('word', word('来る'));
+    await settle();
+    expect(board.at()).toBe(0);
+  });
+
   it('com um kanji no quadrado, as outras palavras com ele; a composição e elas abrem a lousa delas', async () => {
     await open('食べる');
     const opened: string[] = [];

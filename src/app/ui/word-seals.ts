@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, input, output } from '@angular/core
 
 /**
  * Os dois selos de uma palavra do Dicionário Japonês (PLANO-DICIONARIO.md, 4.2), um botão cada, sempre à mostra
- * (não aparecem só com o mouse): **aprendida**, o carimbo verde com 覚 (oboeru, "aprender, guardar na memória"), e
+ * (não aparecem só com o mouse): **aprendida**, o carimbo verde com 済 (sumi, "feito"; o mesmo do verbete), e
  * **favorita**, a estrela amarela com 好 (suki, "gostar"). Sem a marca, cada um é só o recorte tracejado com o
  * desenho apagado, pedindo para ser marcado; marcado, o carimbo batido torto e a estrela colada. Só desenho: quem
  * usa guarda a marca (core/dictionary/marks-store.ts). A Tabela usa esta peça; o verbete (ui/word-entry.ts) tem o carimbo 済 e a fita de marcador.
@@ -21,7 +21,7 @@ import { ChangeDetectionStrategy, Component, input, output } from '@angular/core
       [title]="learned() ? 'Aprendida' + (learnedSaid() ? ' ' + learnedSaid() : '') + '. Tocar desmarca' : 'Marcar como aprendida'"
       (click)="learnedChange.emit(!learned())"
     >
-      <span lang="ja" aria-hidden="true">覚</span>
+      <span lang="ja" aria-hidden="true">済</span>
     </button>
     <button
       type="button"

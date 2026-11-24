@@ -90,8 +90,9 @@ export interface ThumbRow {
       scale: 1.06;
       color: #ffe08a;
     }
+    /* o índice fica na parede escura: o anel do foco é o amarelo, que se vê nela (a tinta preta sumia) */
     .entalhe:focus-visible {
-      outline: 2px solid var(--ink);
+      outline: 2px solid var(--hi);
       outline-offset: 2px;
     }
     /* a linha em que a página está: o entalhe sai mais para fora, com o ouro aceso */

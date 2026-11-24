@@ -60,19 +60,32 @@ app-facet-filters.cartela {
   margin-bottom: 14px;
 }
 
+/* os cartões direto na parede, como as fichas do mural (sem a folha por trás: o cartão já é o papel), em duas
+   colunas como num dicionário de papel: cada cartão logo embaixo do de cima, sem buraco entre eles */
 .folha {
-  @include kit.folha;
   margin: 0;
-  padding: 26px 30px 28px;
+  padding: 0;
   list-style: none;
-  /* duas colunas de cartões, como num dicionário de papel (cada verbete é um cartão com a faixa da classe) */
   columns: 2;
-  column-gap: 40px;
+  column-gap: 32px;
+}
+/* na parede escura, a sombra cheia das fichas (na folhinha da seleção, o cartão fica com a leve, sobre o papel) */
+.verbete {
+  margin: 0 0 32px;
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.35),
+    var(--shadow-card);
+
+  &:last-child {
+    margin-bottom: 0;
+  }
 }
 @media (max-width: 900px) {
   .folha {
     columns: 1;
-    padding: 16px 14px 18px;
+  }
+  .verbete {
+    margin-bottom: 20px;
   }
 }
 

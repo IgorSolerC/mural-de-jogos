@@ -160,10 +160,17 @@ export class WordBoard {
       }
     });
 
-    // outra palavra (as setas), ou a escrita/leitura trocada: volta ao primeiro caractere que tem traços
+    // outra palavra (as setas), ou a escrita/leitura trocada: volta ao primeiro caractere que tem traços. Os traços
+    // que chegam depois (o pedaço ainda baixava) mantêm o caractere já escolhido, se ele tem traços
+    let drawnFor = '';
     effect(() => {
+      const key = `${this.word().id}|${this.script()}`;
       const drawable = this.drawable();
-      untracked(() => this.at.set(Math.max(0, drawable.indexOf(true))));
+      untracked(() => {
+        const keep = key === drawnFor && drawable[this.at()];
+        drawnFor = key;
+        if (!keep) this.at.set(Math.max(0, drawable.indexOf(true)));
+      });
     });
     // outro caractere: recomeça a ordem (tocando sozinho, uma vez, se não pede menos movimento) e limpa o treino
     // (a palavra e a escrita também: a palavra seguinte pode começar pelo mesmo caractere, com os mesmos traços)
@@ -174,6 +181,9 @@ export class WordBoard {
       const mode = this.mode();
       untracked(() => {
         this.stop();
+        // o traço que estava no meio (o dedo ainda no quadrado) não passa para o caractere seguinte
+        this.pen = null;
+        this.penId = null;
         this.drawn.set([]);
         this.shown.set(0);
         if (!d) return;
@@ -194,8 +204,9 @@ export class WordBoard {
     if (el.open) el.close();
   }
 
+  /** Um caractere da palavra no quadrado; com os traços ainda chegando, a escolha fica (o "Molhando o pincel…"). */
   protected choose(i: number): void {
-    if (this.drawable()[i]) this.at.set(i);
+    if (this.strokes() === null || this.drawable()[i]) this.at.set(i);
   }
 
   protected setMode(m: Mode): void {

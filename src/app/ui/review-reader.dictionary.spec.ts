@@ -139,7 +139,7 @@ describe('O Dicionário Japonês na seleção da leitura (ReviewReader)', () => 
     // o dicionário chega sob demanda: a seleção é lida de novo quando ele chega
     for (let i = 0; i < 20 && !q('.remendos .consultar'); i++) await settle();
     expect(q('.remendos .consultar')!.textContent!.trim()).toBe('No dicionário');
-    expect(q('.remendos .aprender')!.textContent!.replace('覚', '').trim()).toBe('Aprendida');
+    expect(q('.remendos .aprender')!.textContent!.replace('済', '').trim()).toBe('Aprendida');
     q<HTMLButtonElement>('.remendos .consultar')!.click();
     await settle();
     const sheet = q<HTMLDialogElement>('app-word-sheet dialog')!;
