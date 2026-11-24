@@ -14,14 +14,16 @@ export const VOICE_WORD_HIGHLIGHT = 'voz-palavra';
 const HANDS_OFF_MS = 4000;
 /** Tocar nisso não é escolher a frase: é o que a coisa faz (o link, a caixinha, o spoiler, o card). */
 const OWN_TAP = 'a, button, input, label, summary, [role="button"], [role="link"], .spoiler:not(.revelado)';
-/** Onde a pessoa digita: as teclas da fita não valem ali (a caixinha da tarefa fica com o Espaço dela). */
+/** Onde a pessoa digita: as teclas da fita não valem ali (as setas andam no texto, o Espaço escreve o espaço). */
 const TYPING = 'input, textarea, select, [contenteditable]:not([contenteditable="false"])';
-/** Os controles do texto de uma nota: com o foco num deles, o Espaço é dele (ver `spaceIsTheirs`). */
-const IN_TEXT = 'a, button, summary, [role="button"], [role="link"], [role="checkbox"], [role="switch"]';
-/** O que o Espaço aperta de fato (um link, não: o Espaço rolaria a página), fora do texto. */
-const PRESSED = 'button, summary, [role="button"], [role="checkbox"], [role="switch"]';
 /** Um menu ou uma lista com o foco: as setas são dele. */
 const OWN_KEYS = '[role="menu"], [role="menubar"], [role="listbox"], [role="tablist"], [role="slider"], .menu-contexto';
+/**
+ * Onde o Espaço não é da fita: onde se escreve (a caixinha da tarefa e os botões, não: o Espaço pausa) e num menu
+ * aberto (o Espaço escolhe o item dele).
+ */
+const SPACE_ELSEWHERE =
+  'input:not([type="checkbox"], [type="radio"], [type="button"], [type="submit"], [type="reset"], [type="image"], [type="color"], [type="file"]), textarea, select, [contenteditable]:not([contenteditable="false"]), [role="menu"], [role="menubar"], [role="listbox"], .menu-contexto';
 /** Os atalhos da fita (PLANO-VOZ-ESTUDO.md): o que cada tecla faz. */
 const KEYS: Readonly<Record<string, 'prev' | 'next' | 'play' | 'faster' | 'slower'>> = {
   ArrowLeft: 'prev',
@@ -165,13 +167,6 @@ export class VozFita {
   protected readonly hint = signal<VoiceHint | null>(null);
   private hintTimer: ReturnType<typeof setTimeout> | null = null;
   private unlistenKeys: (() => void) | null = null;
-  /** O botão de ouvir da faixa que abriu o menu das línguas: como as teclas da fita, é da voz (o Espaço pausa). */
-  private opener: HTMLElement | null = null;
-  /**
-   * Quem está com o foco, e se chegou pelo teclado (o anel à mostra), visto quando o foco chegou: na descida do
-   * Espaço o Chrome já acende o anel de qualquer um, até do que o mouse clicou.
-   */
-  private focused: { el: Element; byKeys: boolean } | null = null;
 
   protected readonly langName = computed(() => {
     const l = this.voz.lang();
@@ -292,7 +287,6 @@ export class VozFita {
 
   /** O botão de ouvir (na faixa) ou a etiqueta da língua (na fita): abre o menu das línguas embaixo dele. */
   choose(e: MouseEvent, button: HTMLElement): void {
-    if (!this.host.nativeElement.contains(button)) this.opener = button;
     this.menuKind.set('lingua');
     this.openMenu(e, button, 'ouvir');
   }
@@ -345,38 +339,49 @@ export class VozFita {
     }, HINT_MS);
   }
 
-  /** Os atalhos, enquanto a fita está à mostra: no documento, porque o foco pode estar solto na página. */
+  /**
+   * Os atalhos, enquanto a fita está à mostra: no documento, porque o foco pode estar solto na página. O Espaço vem
+   * antes de todos, na captura (pedido do dono, 24/nov): ele pausa e continua sempre, mesmo com o foco no título de
+   * um card que fecha, num botão, no spoiler ou na caixinha da tarefa, e esse controle nem fica sabendo (nem a descida
+   * nem a subida chegam nele: o botão seria apertado na subida). As setas vêm por último, depois de quem as quiser.
+   */
   private listenKeys(): void {
     if (this.unlistenKeys) return;
     const down = (e: KeyboardEvent) => this.onKey(e);
+    const space = (e: KeyboardEvent) => this.onSpace(e);
     const up = (e: KeyboardEvent) => {
       if (e.key !== ' ' || !this.spaceDown) return;
       this.spaceDown = false;
       e.preventDefault();
+      e.stopPropagation();
     };
-    const focus = (e: FocusEvent) => (this.focused = focusOf(e.target));
-    this.focused = focusOf(document.activeElement);
+    document.addEventListener('keydown', space, true);
     document.addEventListener('keydown', down);
-    document.addEventListener('keyup', up);
-    document.addEventListener('focusin', focus);
+    document.addEventListener('keyup', up, true);
     this.unlistenKeys = () => {
+      document.removeEventListener('keydown', space, true);
       document.removeEventListener('keydown', down);
-      document.removeEventListener('keyup', up);
-      document.removeEventListener('focusin', focus);
+      document.removeEventListener('keyup', up, true);
     };
   }
 
-  /** Um atalho da fita: ← → a frase, Espaço pausa e continua, ↑ ↓ a velocidade (cada um como a tecla dele na chapa). */
+  /** O Espaço: pausa e continua a leitura, onde quer que o foco esteja (menos onde se escreve e num menu aberto). */
+  private onSpace(e: KeyboardEvent): void {
+    if (e.key !== ' ' || e.ctrlKey || e.altKey || e.metaKey || e.shiftKey || e.isComposing || !this.reading()) return;
+    if (!keysHere(e.target, SPACE_ELSEWHERE)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    this.spaceDown = true;
+    if (!e.repeat) this.voz.toggle();
+  }
+
+  /** Um atalho das setas: ← → a frase, ↑ ↓ a velocidade (cada um como a tecla dele na chapa). O Espaço é `onSpace`. */
   private onKey(e: KeyboardEvent): void {
     const action = KEYS[e.key];
-    if (!action || e.defaultPrevented || e.ctrlKey || e.altKey || e.metaKey || e.shiftKey || e.isComposing || !this.reading()) return;
-    if (!keysHere(e.target) || (action === 'play' && this.spaceIsTheirs(e.target))) return;
+    if (!action || action === 'play' || e.defaultPrevented || e.ctrlKey || e.altKey || e.metaKey || e.shiftKey || e.isComposing || !this.reading()) return;
+    if (!keysHere(e.target, `${TYPING}, ${OWN_KEYS}`)) return;
     e.preventDefault();
     switch (action) {
-      case 'play':
-        this.spaceDown = true;
-        if (!e.repeat) this.voz.toggle();
-        return;
       case 'prev':
         if (this.voz.at() <= 0) return;
         this.press('prev');
@@ -400,22 +405,6 @@ export class VozFita {
         this.say(`Velocidade ${rateName(next)}.`);
       }
     }
-  }
-
-  /**
-   * O Espaço é do controle com o foco, e não da fita? O anel de foco diz (pedido do dono, 24/nov): o controle que
-   * o teclado trouxe (uma etiqueta do trilho, o X, a folha ao lado, a outra anotação) fica com o Espaço dele. Os da
-   * voz (as teclas da fita e o Ouvir da faixa) pausam sempre: o Espaço é o atalho deles. Os do texto de qualquer
-   * nota (o card que fecha, o Copiar do código, o spoiler) são dele, como antes, mesmo clicados com o mouse; fora do
-   * texto, o que o mouse só clicou (sem anel) e o link (que o Espaço não aperta) deixam o Espaço pausar.
-   */
-  private spaceIsTheirs(target: EventTarget | null): boolean {
-    const el = target instanceof Element ? target : null;
-    const control = el?.closest(IN_TEXT);
-    if (!el || !control || this.host.nativeElement.contains(control) || this.opener?.contains(control)) return false;
-    // o texto de uma nota: esta, a outra lado a lado, a folha ao lado
-    if (control.closest('app-rich-text')) return true;
-    return control.matches(PRESSED) && this.focused?.el === el && this.focused.byKeys;
   }
 
   /**
@@ -479,7 +468,6 @@ export class VozFita {
     this.unlistenKeys?.();
     this.unlistenKeys = null;
     this.spaceDown = false;
-    this.focused = null;
     for (const t of [this.pressTimer, this.saidTimer, this.hintTimer]) if (t !== null) clearTimeout(t);
     this.pressTimer = this.saidTimer = this.hintTimer = null;
     this.hint.set(null);
@@ -609,28 +597,19 @@ function rateName(r: number): string {
 }
 
 /**
- * O atalho vale aqui? Não onde a pessoa digita, num menu, nem numa folha aberta por cima da ficha
- * (comentários, compartilhar); na ficha aberta (as duas lado a lado também) e no foco solto na página, sim.
+ * O atalho vale aqui? Não dentro do que tem a tecla para si (`elsewhere`: onde a pessoa digita, um menu), nem numa
+ * folha aberta por cima da ficha (comentários, compartilhar); na ficha aberta (as duas lado a lado também) e no foco
+ * solto na página, sim.
  */
-function keysHere(target: EventTarget | null): boolean {
+function keysHere(target: EventTarget | null, elsewhere: string): boolean {
   const el = target instanceof Element ? target : null;
-  if (el?.closest(TYPING) || el?.closest(OWN_KEYS)) return false;
+  if (el?.closest(elsewhere)) return false;
   const sheet = el?.closest('dialog');
   if (sheet) return sheet.classList.contains('reader');
   try {
     return !document.querySelector('dialog:modal:not(.reader)');
   } catch {
     return true;
-  }
-}
-
-/** O que ganhou o foco, e se o anel dele está à mostra (o foco veio do teclado). */
-function focusOf(target: EventTarget | null): { el: Element; byKeys: boolean } | null {
-  if (!(target instanceof Element) || target === document.body) return null;
-  try {
-    return { el: target, byKeys: target.matches(':focus-visible') };
-  } catch {
-    return { el: target, byKeys: false };
   }
 }
 

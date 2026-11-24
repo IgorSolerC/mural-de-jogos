@@ -309,73 +309,73 @@ describe('Ouvir a nota na ficha aberta', () => {
     expect(fake.queue).toEqual([]);
   });
 
-  it('o card que fecha com o foco fica com o Espaço dele (a leitura não pausa)', async () => {
-    fixture.componentInstance.open(note('n-1', 'Card', ['Antes.', '', '> [!aviso]- Fechado', '> Dentro.'].join('\n')));
+  it('o Espaço pausa e continua sempre, com o foco onde estiver: o título do card que fecha, um botão, a caixinha da tarefa (pedido do dono, 24/nov)', async () => {
+    fixture.componentInstance.open(note('n-1', 'Card', ['Antes.', '', '- [ ] Uma tarefa.', '', '> [!aviso]- Fechado', '> Dentro.'].join('\n')));
     await settle();
     await listen('pt');
+    const reading = () => fake.queue.length > 0;
+    expect(reading()).toBeTrue();
+    // o título do card que fecha, com o foco: o Espaço pausa, e o card fica fechado. O evento de mentira não abre o
+    // card de verdade: o que garante isso é nem a descida nem a subida chegarem nele (a conta abaixo); com o
+    // navegador de verdade, o .angular/pptr/espaco-card.mjs abre o card com o mouse e aperta o Espaço
     const summary = q<HTMLElement>('.text summary')!;
+    const details = summary.parentElement as HTMLDetailsElement;
+    let reached = 0;
+    const count = () => reached++;
+    summary.addEventListener('keydown', count);
+    summary.addEventListener('keyup', count);
     summary.focus();
-    expect(key(' ', summary).defaultPrevented).toBeFalse();
+    expect(key(' ', summary).defaultPrevented).toBeTrue();
     await settle();
-    expect(fake.queue.length).toBeGreaterThan(0);
-    // o botão da fita com o foco, não: o Espaço pausa
-    q<HTMLButtonElement>('.fita .velocidade')!.focus();
-    expect(key(' ', q('.fita .velocidade')!).defaultPrevented).toBeTrue();
-  });
-
-  it('o botão fora do texto que o teclado trouxe (com o anel) fica com o Espaço; o que o mouse clicou deixa pausar', async () => {
-    // o anel do foco (:focus-visible) é do navegador: aqui, o que ele diria vem do teste
-    let ring = true;
-    const matches = Element.prototype.matches;
-    spyOn(Element.prototype, 'matches').and.callFake(function (this: Element, s: string) {
-      return s === ':focus-visible' ? ring : matches.call(this, s);
-    });
-    fixture.componentInstance.open(note('n-1', 'Card', 'Uma frase. Outra frase.'));
+    expect(reading()).withContext('pausou').toBeFalse();
+    expect(details.open).toBeFalse();
+    expect(reached).withContext('o card nem ouve o Espaço').toBe(0);
+    // de novo: continua
+    expect(key(' ', summary).defaultPrevented).toBeTrue();
     await settle();
-    await listen('pt');
+    expect(reading()).withContext('continuou').toBeTrue();
+    // um botão da faixa e a caixinha da tarefa: o mesmo
     const look = q<HTMLButtonElement>('.faixa-nome button[aria-label="Ver só a cartolina"]')!;
-    look.focus();
-    expect(key(' ', look).defaultPrevented).withContext('pelo teclado, o Espaço aperta o botão').toBeFalse();
-    await settle();
-    expect(fake.queue.length).withContext('a leitura segue').toBeGreaterThan(0);
-    // o mesmo botão clicado com o mouse (sem anel): o Espaço pausa
-    look.blur();
-    ring = false;
     look.focus();
     expect(key(' ', look).defaultPrevented).toBeTrue();
     await settle();
-    expect(fake.queue).toEqual([]);
-    // o Ouvir da faixa é da voz: com o anel, o Espaço continua a leitura (não reabre o menu das línguas)
-    const ouvir = q<HTMLButtonElement>('.faixa-nome .ouvir')!;
-    ouvir.blur();
-    ring = true;
-    ouvir.focus();
-    expect(key(' ', ouvir).defaultPrevented).toBeTrue();
+    expect(reading()).toBeFalse();
+    const box = q<HTMLInputElement>('.text input[type="checkbox"]')!;
+    box.focus();
+    expect(key(' ', box).defaultPrevented).toBeTrue();
     await settle();
-    expect(fake.queue.length).toBeGreaterThan(0);
+    expect(reading()).toBeTrue();
+    expect(box.checked).toBeFalse();
   });
 
-  it('o card do texto da outra nota fica com o Espaço mesmo clicado; o link fora do texto, não (o Espaço não o aperta)', async () => {
-    spyOn(Element.prototype, 'matches').and.callThrough().withArgs(':focus-visible').and.returnValue(false);
+  it('o controle do texto que tem o Espaço para si (o spoiler, o Copiar do código) também não o recebe', async () => {
     fixture.componentInstance.open(note('n-1', 'Card', 'Uma frase. Outra frase.'));
     await settle();
     await listen('pt');
-    // a outra anotação, lado a lado: o texto dela também é texto de nota
-    const other = document.body.appendChild(document.createElement('app-rich-text'));
-    other.innerHTML = '<details><summary>Fechado</summary>Dentro.</details><a href="#x">link</a>';
-    const link = document.body.appendChild(document.createElement('a'));
-    link.href = '#y';
-    link.textContent = 'fora';
+    const own = q('.text')!.appendChild(document.createElement('span'));
+    own.setAttribute('role', 'button');
+    own.tabIndex = 0;
+    const handler = jasmine.createSpy('o Espaço do controle');
+    own.addEventListener('keydown', handler);
     try {
-      const summary = other.querySelector('summary')!;
-      summary.focus();
-      expect(key(' ', summary).defaultPrevented).withContext('o card da outra nota').toBeFalse();
-      link.focus();
-      expect(key(' ', link).defaultPrevented).withContext('o link fora do texto: pausa').toBeTrue();
+      expect(key(' ', own).defaultPrevented).toBeTrue();
+      expect(handler).not.toHaveBeenCalled();
+      await settle();
+      expect(fake.queue).toEqual([]);
     } finally {
-      other.remove();
-      link.remove();
+      own.remove();
     }
+  });
+
+  it('num menu aberto, o Espaço escolhe o item dele (a leitura não pausa)', async () => {
+    fixture.componentInstance.open(note('n-1', 'Card', 'Uma frase. Outra frase.'));
+    await settle();
+    await listen('pt');
+    q<HTMLButtonElement>('.fita .velocidade')!.click();
+    await settle();
+    const item = document.querySelector<HTMLButtonElement>('.menu-contexto [data-k]')!;
+    expect(key(' ', item).defaultPrevented).toBeFalse();
+    document.querySelectorAll('.menu-contexto').forEach((m) => (m as HTMLElement).hidePopover?.());
   });
 
   it('↑ e ↓ trocam a velocidade, um passo por vez, até as pontas; o leitor de tela ouve a nova', async () => {
