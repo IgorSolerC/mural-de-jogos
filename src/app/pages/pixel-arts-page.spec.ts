@@ -6,10 +6,12 @@ import { PixelPiece } from '../core/pixel-gallery';
 import { PixelGallery } from '../core/pixel-gallery-store';
 import { PIXEL_PREFS_KEY } from '../core/pixel-gallery-view';
 import { Toasts } from '../ui/toast';
+import { Confirm } from '../ui/confirm';
 import { ReviewStore } from '../core/review-store';
 import { Review } from '../core/review';
 import { expectEtiquetaPadrao } from '../testing/etiqueta-acoes.spec';
 import { PixelArtsPage } from './pixel-arts-page';
+import { DRAFTS_DB, PixelDraft, PixelDrafts } from '../core/pixel-drafts';
 
 /** A galeria de pixel arts (PLANO-PIXEL-ARTS.md, rodada 2): a Mostra, a Grade, a busca, os filtros e a ficha. */
 
@@ -220,7 +222,7 @@ describe('a galeria de pixel arts', () => {
     await settle();
     const before = gallery.get('pa')!;
     const sheet = fixture.debugElement.query((d) => d.name === 'app-pixel-sheet').componentInstance;
-    sheet['copyDrawing']({ values: { pixels: '3/03', width: '2', height: '2', palette: 'classica', colors: '' }, layers: undefined });
+    sheet['copyDrawing']({ values: { pixels: '3/03', width: '2', height: '2', palette: 'classica', colors: '' }, layers: undefined, draft: null });
     await settle();
     const copy = gallery.pieces().find((p) => p.title === 'Gato (cópia)')!;
     expect(copy.art).toEqual(['2x2', '3/03']);
@@ -341,7 +343,7 @@ describe('a galeria de pixel arts', () => {
     page['atelie']('pa');
     await settle();
     expect(host.querySelector('app-pixel-studio')).not.toBeNull();
-    page['studioSaved']({ values: { pixels: '3/03', width: '2', height: '2', palette: 'classica', colors: '' }, layers: undefined });
+    page['studioSaved']({ values: { pixels: '3/03', width: '2', height: '2', palette: 'classica', colors: '' }, layers: undefined, draft: null });
     page['studioClosed']();
     await settle();
     expect(host.querySelector('app-pixel-studio')).toBeNull();
@@ -357,7 +359,7 @@ describe('a galeria de pixel arts', () => {
     const before = gallery.get('pa')!;
     page['atelie']('pa');
     await settle();
-    page['studioCopied']({ values: { pixels: '3/03', width: '2', height: '2', palette: 'classica', colors: '' }, layers: undefined });
+    page['studioCopied']({ values: { pixels: '3/03', width: '2', height: '2', palette: 'classica', colors: '' }, layers: undefined, draft: null });
     page['studioClosed']();
     await settle();
     expect(gallery.get('pa')!.art).toEqual(before.art);
@@ -368,6 +370,118 @@ describe('a galeria de pixel arts', () => {
     TestBed.inject(Toasts).current()!.action!.run();
     await settle();
     expect(gallery.get(copy.id)).toBeUndefined();
+  });
+
+  describe('o rascunho do ateliê (PLANO-RASCUNHOS-PIXEL.md, rodada 2)', () => {
+    let drafts: PixelDrafts;
+    const wipe = () =>
+      new Promise<void>((resolve) => {
+        const req = indexedDB.deleteDatabase(DRAFTS_DB);
+        req.onsuccess = req.onerror = req.onblocked = () => resolve();
+      });
+    const draft = (id: string, pixels: string): PixelDraft => ({ id, origin: { kind: 'obra', id: 'pa' }, title: 'Gato', values: { pixels, width: '2', height: '2', palette: 'classica', colors: '' }, base: '', createdAt: 1, savedAt: 1 });
+    beforeEach(async () => {
+      await wipe();
+      drafts = TestBed.inject(PixelDrafts);
+      await drafts.ready;
+    });
+    afterEach(wipe);
+
+    it('o Salvar que guardou na obra tira o rascunho; o Salvar que não guardou o deixa', async () => {
+      await mount();
+      const page = fixture.componentInstance;
+      await drafts.put(draft('rgal0001', '3/03'));
+      page['atelie']('pa');
+      await settle();
+      page['studioSaved']({ values: draft('x', '3/03').values, layers: undefined, draft: 'rgal0001' });
+      page['studioClosed']();
+      await settle();
+      expect(gallery.get('pa')!.art).toEqual(['2x2', '3/03']);
+      expect(await drafts.get('rgal0001')).toBeNull();
+      // a obra sumiu e a galeria está cheia: o desenho não coube, e o rascunho fica
+      await drafts.put(draft('rgal0002', '1/01'));
+      page['atelie']('pa');
+      await settle();
+      spyOn(gallery, 'get').and.returnValue(undefined);
+      spyOn(gallery, 'create').and.returnValue(null);
+      page['studioSaved']({ values: draft('x', '1/01').values, layers: undefined, draft: 'rgal0002' });
+      expect(await drafts.get('rgal0002')).not.toBeNull();
+    });
+
+    it('a cópia guardada tira o rascunho dela', async () => {
+      await mount();
+      const page = fixture.componentInstance;
+      await drafts.put(draft('rgal0003', '3/03'));
+      page['atelie']('pa');
+      await settle();
+      page['studioCopied']({ values: draft('x', '3/03').values, layers: undefined, draft: 'rgal0003' });
+      expect(await drafts.get('rgal0003')).toBeNull();
+    });
+
+    it('Descartar: o aviso "Mudanças descartadas" com o Desfazer, que abre o ateliê da obra de novo com o desenho descartado', async () => {
+      await mount();
+      const page = fixture.componentInstance;
+      page['atelie']('pa');
+      await settle();
+      page['studioDiscarded'](draft('rgal0004', '3/03'));
+      page['studioClosed']();
+      await settle();
+      expect(host.querySelector('app-pixel-studio')).toBeNull();
+      const toast = TestBed.inject(Toasts).current()!;
+      expect(toast.text).toBe('Mudanças descartadas');
+      toast.action!.run();
+      await settle();
+      expect(host.querySelector('app-pixel-studio')).not.toBeNull();
+      expect(page['studio']()!.resume!.values['pixels']).toBe('3/03');
+      expect(page['studio']()!.draft.origin).toEqual({ kind: 'obra', id: 'pa' });
+      expect((await drafts.get('rgal0004'))!.values['pixels']).toBe('3/03');
+    });
+
+    it('na ficha da obra, o rascunho fica depois do Salvar do ateliê e sai quando a ficha salva', async () => {
+      await mount();
+      host.querySelector<HTMLButtonElement>('[data-ficha="pa"] .hit')!.click();
+      await settle();
+      const field = fixture.debugElement.query((d) => d.name === 'app-pixel-field').componentInstance;
+      await drafts.put(draft('rficha02', '3/03'));
+      field['saved']({ values: draft('x', '3/03').values, layers: undefined, draft: 'rficha02' });
+      await settle();
+      expect(field.draftId()).toBe('rficha02');
+      // o próximo ateliê nesta ficha continua o mesmo rascunho
+      expect(field['target']()).toEqual(jasmine.objectContaining({ origin: { kind: 'obra', id: 'pa' }, title: 'Gato', draftId: 'rficha02' }));
+      expect(await drafts.get('rficha02')).not.toBeNull();
+      host.querySelector<HTMLButtonElement>('dialog.obra button[type="submit"]')!.click();
+      await settle();
+      expect(gallery.get('pa')!.art).toEqual(['2x2', '3/03']);
+      expect(await drafts.get('rficha02')).toBeNull();
+    });
+
+    it('na ficha da obra, descartar a ficha tira o rascunho; a obra apagada noutro aparelho o deixa', async () => {
+      await mount();
+      host.querySelector<HTMLButtonElement>('[data-ficha="pa"] .hit')!.click();
+      await settle();
+      let field = fixture.debugElement.query((d) => d.name === 'app-pixel-field').componentInstance;
+      await drafts.put(draft('rficha03', '3/03'));
+      field['saved']({ values: draft('x', '3/03').values, layers: undefined, draft: 'rficha03' });
+      await settle();
+      const sheet = fixture.debugElement.query((d) => d.name === 'app-pixel-sheet').componentInstance;
+      sheet['askDiscard']();
+      await settle();
+      TestBed.inject(Confirm).answer(true);
+      await settle();
+      expect(host.querySelector<HTMLDialogElement>('dialog.obra')!.open).toBeFalse();
+      expect(await drafts.get('rficha03')).toBeNull();
+
+      host.querySelector<HTMLButtonElement>('[data-ficha="pa"] .hit')!.click();
+      await settle();
+      field = fixture.debugElement.query((d) => d.name === 'app-pixel-field').componentInstance;
+      await drafts.put(draft('rficha04', '3/03'));
+      field['saved']({ values: draft('x', '3/03').values, layers: undefined, draft: 'rficha04' });
+      await settle();
+      gallery.remove(['pa']);
+      host.querySelector<HTMLButtonElement>('dialog.obra button[type="submit"]')!.click();
+      await settle();
+      expect(await drafts.get('rficha04')).not.toBeNull();
+    });
   });
 
   it('o ateliê fechado sem salvar (Descartar) deixa a obra como era', async () => {

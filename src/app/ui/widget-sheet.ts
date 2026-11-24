@@ -15,7 +15,8 @@ import { NoteWidget } from './note-widget';
 import { Pin } from './pin';
 import { PixelLookArt } from './pixel-look-art';
 import { PixelField } from './pixel-studio/pixel-field';
-import type { StudioResult } from './pixel-studio/pixel-studio';
+import type { DraftTarget, StudioResult } from './pixel-studio/pixel-studio';
+import { PixelDrafts } from '../core/pixel-drafts';
 import { PixelGallery } from '../core/pixel-gallery-store';
 import { PixelPiece, artValues, valuesArt } from '../core/pixel-gallery';
 import { PixelPicker } from './pixel-picker';
@@ -91,6 +92,13 @@ export class WidgetSheet {
   readonly closed = output<void>();
 
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
+  private readonly pixelField = viewChild(PixelField);
+  private readonly pixelDrafts = inject(PixelDrafts);
+  /**
+   * O rascunho que o ateliê grava (PLANO-RASCUNHOS-PIXEL.md): o desenho do widget, com a legenda de nome. Fica até o
+   * Pôr (ou o Tirar); a folha fechada sem pôr deixa o rascunho guardado.
+   */
+  protected readonly pixelDraft = computed<Pick<DraftTarget, 'origin' | 'title'>>(() => ({ origin: { kind: 'widget' }, title: this.values()['caption']?.trim() ?? '' }));
   private readonly injector = inject(Injector);
   private readonly store = inject(ReviewStore);
 
@@ -372,26 +380,30 @@ export class WidgetSheet {
    */
   protected copyToGallery(r: StudioResult): void {
     const caption = this.values()['caption']?.trim() ?? '';
-    this.intoGallery(valuesArt({ ...this.values(), ...r.values }), caption ? `${caption} (cópia)` : '', 'Guardei a cópia na galeria de pixel arts; o desenho do widget ficou como era.');
+    const kept = this.intoGallery(valuesArt({ ...this.values(), ...r.values }), caption ? `${caption} (cópia)` : '', 'Guardei a cópia na galeria de pixel arts; o desenho do widget ficou como era.');
+    // o desenho da cópia está na galeria: o rascunho dela sai
+    if (kept && r.draft) void this.pixelDrafts.remove(r.draft);
   }
 
-  private intoGallery(art: string[] | null, title: string, done: string): void {
+  /** Guarda o desenho na galeria; devolve se ele está lá (guardado agora, ou já estava). */
+  private intoGallery(art: string[] | null, title: string, done: string): boolean {
     if (!art) {
       this.toasts.show('Desenhe pelo menos um ponto para guardar na galeria.');
-      return;
+      return false;
     }
     const go = { label: 'Ver', run: () => void this.router.navigateByUrl(PIXEL_ARTS_PATH) };
     // o mesmo desenho já está lá: não guarda outra cópia
     if (this.gallery.pieces().some((p) => JSON.stringify(p.art) === JSON.stringify(art))) {
       this.toasts.show('Este desenho já está na galeria de pixel arts.', go);
-      return;
+      return true;
     }
     const made = this.gallery.create({ art, title });
     if (!made) {
       this.toasts.show('A galeria está cheia: apague uma pixel art para guardar outra.');
-      return;
+      return false;
     }
     this.toasts.show(done, go);
+    return true;
   }
 
   /** Vários campos de uma vez (o ateliê da pixel art manda os pontos, a tela, a paleta e as cores). */
@@ -471,11 +483,14 @@ export class WidgetSheet {
     }
     const body = this.def().body?.(this.values());
     this.done.emit({ name: this.name(), args, size: this.size(), ...(body ? { body } : {}) });
+    // o desenho foi para a folha: o rascunho do ateliê sai
+    this.pixelField()?.forgetDraft();
     this.close();
   }
 
   protected remove(): void {
     this.removed.emit();
+    this.pixelField()?.forgetDraft();
     this.close();
   }
 }

@@ -1,3 +1,5 @@
+import { Toasts } from './toast';
+import { PixelDraft, PixelDrafts } from '../core/pixel-drafts';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Cloud } from '../core/cloud-config';
@@ -249,6 +251,32 @@ describe('a pixel art da galeria como capa', () => {
     expect((await TestBed.inject(ImageStore).get(localImageId(changed[0].coverUrl ?? '')!))?.tipo).toBe('image/png');
     expect(el.querySelector('.capa.on .de')?.textContent).toBe('Pixel art');
     expect(el.querySelector('[role="status"].dica-capa')?.textContent).toContain('também ficou na sua galeria');
+  });
+
+  it('o rascunho do desenho novo (PLANO-RASCUNHOS-PIXEL.md): sai quando a obra foi para a galeria; o Descartar tem o Desfazer', async () => {
+    const { fixture, el, changed } = await make([]);
+    const drafts = TestBed.inject(PixelDrafts);
+    await drafts.ready;
+    const sheet = await openSheet(fixture, el);
+    sheet.querySelector<HTMLButtonElement>('.foot .criar')!.click();
+    await fixture.whenStable();
+    const picker = fixture.componentInstance as unknown as { drawn(r: unknown): void; studioClosed(): Promise<void>; studio(): unknown; studioDiscarded(d: PixelDraft): void; studioDraft(): unknown; studioResume(): PixelDraft | null };
+    expect(picker.studioDraft()).toEqual({ origin: { kind: 'nova' }, title: 'Meu jogo' });
+    const values = artValues(['2x2', '10/01']);
+    const d: PixelDraft = { id: 'rcapa001', origin: { kind: 'nova' }, title: 'Meu jogo', values, base: '', createdAt: 1, savedAt: 1 };
+    await drafts.put(d);
+    picker.drawn({ values, layers: undefined, draft: 'rcapa001' });
+    await picker.studioClosed();
+    await settle(fixture, () => changed.length > 0);
+    expect(await drafts.get('rcapa001')).toBeNull();
+    // descartado: o aviso, e o Desfazer abre o ateliê de novo com o desenho
+    picker.studioDiscarded(d);
+    const toast = TestBed.inject(Toasts).current()!;
+    expect(toast.text).toBe('Mudanças descartadas');
+    toast.action!.run();
+    expect(picker.studio()).not.toBeNull();
+    expect(picker.studioResume()!.id).toBe('rcapa001');
+    await drafts.remove('rcapa001');
   });
 
   it('fechar o ateliê sem nenhum ponto não guarda nada nem muda a capa', async () => {

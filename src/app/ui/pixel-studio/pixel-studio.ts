@@ -43,12 +43,14 @@ import { ImageStore } from '../../core/image-store';
 import { MuralSrc } from '../stored-image';
 import { REF_REACH, DotsLayer, PIXEL_REFS_MAX, PixelRef, RefLayer, fitRef, mapRefs, refsCount, RowsCache, Layer, PIXEL_LAYERS_MAX, StoredLayer, acrossDots, cleanLayerName, dotsBelow, dotsCount, duplicateLayer, flattenLayers, insertAbove, mapDots, mergeDown, moveLayerTo, newLayerId, nextLayerName, readLayers, sameStack, setRows, singleLayer, writeLayers } from '../../core/pixel-layers';
 import { Confirm } from '../confirm';
+import { Toasts } from '../toast';
 import { ContextMenu, MenuBy, MenuItem, MenuSections } from '../context-menu';
 import { downloadBlob, drawPixelArt, pngName, pngScale } from '../../core/pixel-png';
 import { PaletteSheet } from './palette-sheet';
 import { ICON, IconModule } from '../icons';
 import { PixelThumb } from '../pixel-thumb';
 import { ColorMap } from './color-map';
+import { DraftOrigin, PixelDraft, PixelDrafts, draftKey, newDraftId } from '../../core/pixel-drafts';
 
 /** As ferramentas do ateliê (as que pintam e a mão). */
 export type StudioTool = 'selecao' | 'varinha' | 'mover' | 'lapis' | 'borracha' | 'balde' | 'conta-gotas' | 'linha' | 'retangulo' | 'elipse' | 'mao';
@@ -95,7 +97,42 @@ type Drag =
 export interface StudioResult {
   values: WidgetValues;
   layers: StoredLayer[] | undefined;
+  /**
+   * O rascunho deste desenho (core/pixel-drafts.ts), ou null: quem recebe o tira (`PixelDrafts.remove`) quando o
+   * desenho ficou guardado de verdade. Até lá ele fica, e nada se perde se a gravação falhar.
+   */
+  draft: string | null;
 }
+
+/**
+ * O rascunho que o ateliê grava enquanto se desenha (PLANO-RASCUNHOS-PIXEL.md, D7): de onde o desenho veio e o nome
+ * que se mostra. `draftId` continua um rascunho que já é deste desenho (o da ficha, entre um ateliê e outro), com
+ * `base`, o desenho de antes de tudo.
+ */
+export interface DraftTarget {
+  origin: DraftOrigin;
+  title: string;
+  draftId?: string;
+  base?: string;
+}
+
+/**
+ * O aviso do Descartar (PLANO-RASCUNHOS-PIXEL.md, D5), com o Desfazer: o rascunho descartado volta ao banco e o
+ * ateliê abre de novo com ele (`reopen`, quem abriu o ateliê). Sem IndexedDB, o desenho volta da memória.
+ */
+export function offerUndoDiscard(toasts: Toasts, drafts: PixelDrafts, d: PixelDraft, reopen: (d: PixelDraft) => void): void {
+  toasts.show('Mudanças descartadas', {
+    label: 'Desfazer',
+    run: () => {
+      void drafts.put({ ...d, savedAt: Date.now() });
+      reopen(d);
+    },
+  });
+}
+
+/** Quanto esperar depois da última mudança para gravar o rascunho, e o máximo sem gravar desenhando sem parar. */
+const DRAFT_QUIET_MS = 1000;
+const DRAFT_MAX_MS = 5000;
 
 /** As três respostas da folha "Trazer a imagem". */
 type ImportChoice = 'paleta' | 'cores' | 'referencia';
@@ -159,15 +196,22 @@ export class PixelStudio {
   readonly saved = output<StudioResult>();
   /** A pessoa saiu salvando como cópia: o desenho vai para uma obra nova, e o de quem abriu fica como era. */
   readonly copied = output<StudioResult>();
+  /** Saiu descartando o que mudou: o desenho descartado, para o Desfazer do aviso (`offerUndoDiscard`). Só com `draft`. */
+  readonly discarded = output<PixelDraft>();
   readonly closed = output<void>();
   /** Há um original para deixar como era: a pergunta de sair oferece o "Salvar como cópia". */
   readonly copy = input(false);
+  /** O rascunho que o ateliê grava neste aparelho enquanto se desenha; sem ele, nenhum. */
+  readonly draft = input<DraftTarget | null>(null);
+  /** Continuar um rascunho guardado: o desenho dele por cima dos valores (que são o salvo, o de antes). */
+  readonly resume = input<PixelDraft | null>(null);
   /** O nome da obra (o nome do PNG baixado pelo Arquivo); sem nome, "pixel-art". */
   readonly artName = input('');
 
   private readonly injector = inject(Injector);
   private readonly confirm = inject(Confirm);
   private readonly images = inject(ImageStore);
+  private readonly drafts = inject(PixelDrafts);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly mesa = viewChild.required<ElementRef<HTMLElement>>('mesa');
   private readonly board = viewChild.required<ElementRef<SVGSVGElement>>('folha');
@@ -494,8 +538,25 @@ export class PixelStudio {
       const q = this.importAsk();
       if (q) URL.revokeObjectURL(q.url);
     });
+    // o rascunho: na hora quando a aba some (o celular que troca de app, a aba fechada) e quando o ateliê sai da tela;
+    // às pressas primeiro (a gravação do banco começada aqui pode ser cortada com a página saindo)
+    const hide = () => {
+      this.stashDraft();
+      void this.flushDraft();
+    };
+    const hidden = () => {
+      if (document.visibilityState === 'hidden') hide();
+    };
+    document.addEventListener('visibilitychange', hidden);
+    window.addEventListener('pagehide', hide);
+    destroy.onDestroy(() => {
+      document.removeEventListener('visibilitychange', hidden);
+      window.removeEventListener('pagehide', hide);
+      void this.flushDraft().finally(() => this.unhold?.());
+    });
     afterNextRender(() => {
       this.load(this.values());
+      this.startDraft();
       const el = this.dialog().nativeElement;
       if (!el.open) el.showModal();
       const mesa = this.mesa().nativeElement;
@@ -518,12 +579,19 @@ export class PixelStudio {
 
   /** Os valores da folha viram o desenho do ateliê. */
   private load(v: WidgetValues): void {
+    this.fill(v, this.stack() as StoredLayer[] | undefined);
+    this.opened = this.written();
+    this.openedInk = hasInk(this.flat());
+  }
+
+  /** Põe o desenho no ateliê (os valores e, numa obra da galeria, a pilha), sem passo no desfazer. */
+  private fill(v: WidgetValues, stored: StoredLayer[] | undefined): void {
     const w = clampSide(v['width']);
     const h = clampSide(v['height']);
     this.w.set(w);
     this.h.set(h);
     const rows = gridOf(v['pixels'] ?? '', w, h);
-    const stack = this.layered() ? readLayers(this.stack() as StoredLayer[] | undefined, { w, h, rows }) : singleLayer(rows);
+    const stack = this.layered() ? readLayers(stored, { w, h, rows }) : singleLayer(rows);
     // abre na camada de pontos de cima que está à mostra (onde se desenha por último; a escondida não pinta)
     const dots = [...stack].reverse().filter((l): l is DotsLayer => l.kind === 'pontos');
     const top = dots.find((l) => !l.hidden) ?? dots[0] ?? (stack[0] as DotsLayer);
@@ -533,8 +601,125 @@ export class PixelStudio {
     this.palette.set(paletteWord(v['palette'] ?? '') ?? DEFAULT_PALETTE);
     this.colors.set(parseColors(v['colors'] ?? '') ?? {});
     if (this.fg() > this.count()) this.fg.set(Math.min(1, this.count()));
-    this.opened = this.written();
-    this.openedInk = hasInk(this.flat());
+  }
+
+  // ===== o rascunho (PLANO-RASCUNHOS-PIXEL.md, rodada 2) =====
+
+  /** O rascunho deste ateliê (o id), quando já há um. */
+  private draftId: string | null = null;
+  /** O rascunho veio de antes, com o desenho de quando o ateliê abriu (o da ficha): descartar volta a ele, não o apaga. */
+  private draftCarried = false;
+  private draftBase = '';
+  private draftCreated = 0;
+  /** A pessoa já respondeu (salvou, copiou, descartou): o rascunho não é mais deste ateliê. */
+  private draftSettled = false;
+  private draftTimer: ReturnType<typeof setTimeout> | null = null;
+  private draftDue = 0;
+  private unhold: (() => void) | null = null;
+  /** Quando o rascunho foi guardado por último (a barra de estado mostra), ou null. */
+  protected readonly draftSaved = signal<number | null>(null);
+  /** O navegador não deixa guardar o rascunho (a barra de estado avisa). */
+  protected readonly draftOff = computed(() => !!this.draft() && !this.drafts.available());
+
+  /** A hora de uma gravação, como o relógio mostra ("14:32"). */
+  protected clock(t: number): string {
+    return new Date(t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  /** Depois de abrir: o rascunho que continua (o desenho dele por cima do salvo) e a trava. */
+  private startDraft(): void {
+    const t = this.draft();
+    if (!t) return;
+    const r = this.resume();
+    this.draftBase = r?.base ?? t.base ?? draftKey(this.values());
+    this.draftId = r?.id ?? t.draftId ?? null;
+    // o da ficha (o mesmo rascunho de antes, também quando o Desfazer de um Descartar o traz de volta)
+    this.draftCarried = !!t.draftId && this.draftId === t.draftId;
+    this.draftCreated = r?.createdAt ?? Date.now();
+    if (this.draftId) this.unhold = this.drafts.hold(this.draftId);
+    if (r) {
+      this.fill(r.values, r.layers);
+      this.draftSaved.set(r.savedAt || null);
+    }
+  }
+
+  /** A aba está sumindo: o rascunho de agora, guardado na hora (`PixelDrafts.stash`), sem esperar o banco. */
+  private stashDraft(): void {
+    if (!this.draft() || this.draftSettled || !this.opened) return;
+    if (!this.changedSinceOpen() && !this.draftCarried) return;
+    this.drafts.stash(this.draftOf(this.result()));
+  }
+
+  /** A mudança chegou: grava o rascunho um pouco depois (e no máximo a cada cinco segundos desenhando sem parar). */
+  private scheduleDraft(): void {
+    if (!this.draft() || this.draftSettled) return;
+    const now = Date.now();
+    if (!this.draftTimer) this.draftDue = now + DRAFT_MAX_MS;
+    else clearTimeout(this.draftTimer);
+    this.draftTimer = setTimeout(() => void this.flushDraft(), Math.max(0, Math.min(DRAFT_QUIET_MS, this.draftDue - now)));
+  }
+
+  /** O rascunho com o desenho de agora (ou outro: o de quando abriu, no Descartar do rascunho da ficha). */
+  private draftOf(r: Omit<StudioResult, 'draft'>): PixelDraft {
+    const t = this.draft()!;
+    if (!this.draftId) {
+      this.draftId = newDraftId();
+      this.unhold = this.drafts.hold(this.draftId);
+    }
+    return { id: this.draftId, origin: t.origin, title: t.title, values: r.values, ...(r.layers ? { layers: r.layers } : {}), base: this.draftBase, createdAt: this.draftCreated, savedAt: Date.now() };
+  }
+
+  /**
+   * Grava o rascunho agora. Sem mudança desde que abriu, não há o que guardar (e o rascunho que havia, desfeito até
+   * o de antes, sai; o da ficha fica, com o desenho que a ficha tem).
+   */
+  private async flushDraft(): Promise<void> {
+    if (this.draftTimer) clearTimeout(this.draftTimer);
+    this.draftTimer = null;
+    if (!this.draft() || this.draftSettled || !this.opened) return;
+    if (!this.changedSinceOpen() && !this.draftCarried) {
+      if (this.draftId) {
+        const id = this.draftId;
+        this.draftId = null;
+        this.unhold?.();
+        this.unhold = null;
+        this.draftSaved.set(null);
+        await this.drafts.remove(id);
+      }
+      return;
+    }
+    const d = this.draftOf(this.result());
+    if (await this.drafts.put(d)) this.draftSaved.set(d.savedAt);
+  }
+
+  /**
+   * A pessoa respondeu. Salvar e a cópia: o rascunho em dia, e quem recebe o desenho o tira quando guardar (o id vai
+   * junto; a cópia de dentro de uma ficha ganha um rascunho só dela). Descartar: o rascunho sai (o da ficha volta ao
+   * desenho que a ficha tem).
+   */
+  private async settleDraft(answer: 'salvar' | 'copia' | 'descartar'): Promise<string | null> {
+    if (!this.draft()) return null;
+    // o rascunho em dia antes de o desenho sair, mas com teto: um banco preso não segura o Salvar
+    if (answer !== 'descartar') await Promise.race([this.flushDraft(), new Promise((r) => setTimeout(r, DRAFT_QUIET_MS))]);
+    this.draftSettled = true;
+    if (this.draftTimer) clearTimeout(this.draftTimer);
+    this.draftTimer = null;
+    const id = this.draftId;
+    if (answer === 'copia' && this.draftCarried && id) {
+      // a cópia vai para um rascunho dela (quem a guardar o tira), e o da ficha volta ao desenho que a ficha tem
+      const [values, layers] = JSON.parse(this.opened) as [WidgetValues, StoredLayer[] | null];
+      const copy: PixelDraft = { ...this.draftOf(this.result()), id: newDraftId(), origin: { kind: 'nova' } };
+      await this.drafts.put(copy);
+      await this.drafts.put(this.draftOf({ values, layers: layers ?? undefined }));
+      return copy.id;
+    }
+    if (answer === 'descartar' && id) {
+      if (this.draftCarried) {
+        const [values, layers] = JSON.parse(this.opened) as [WidgetValues, StoredLayer[] | null];
+        await this.drafts.put(this.draftOf({ values, layers: layers ?? undefined }));
+      } else await this.drafts.remove(id);
+    }
+    return id;
   }
 
   /** O desenho escrito de quando o ateliê abriu: sair com o mesmo não pergunta nada (D2). */
@@ -553,7 +738,7 @@ export class PixelStudio {
   }
 
   /** O desenho que sai do ateliê: o achatado nos valores do widget e, numa obra da galeria, a pilha. */
-  private result(): StudioResult {
+  private result(): Omit<StudioResult, 'draft'> {
     return {
       values: { pixels: writeGrid(this.flat()), width: String(this.w()), height: String(this.h()), palette: this.palette(), colors: writeColors(this.colors(), this.palette()) },
       layers: this.layered() ? writeLayers(this.stackNow()) : undefined,
@@ -582,11 +767,16 @@ export class PixelStudio {
       const answer = await this.askLeave();
       if (answer === null) return;
       if (answer === 'descartar') {
+        // o que foi descartado, para o Desfazer (antes de o rascunho sair do banco)
+        const gone = this.draft() ? this.draftOf(this.result()) : null;
+        await this.settleDraft('descartar');
+        if (gone) this.discarded.emit(gone);
         this.exit();
         return;
       }
       if (!(await this.readyToClose())) return;
-      const r = this.result();
+      const draft = await this.settleDraft(answer);
+      const r = { ...this.result(), draft };
       if (answer === 'copia') this.copied.emit(r);
       else this.saved.emit(r);
       this.exit();
@@ -660,6 +850,7 @@ export class PixelStudio {
     const r = this.result();
     this.changed.emit(r.values);
     if (this.layered()) this.stackChanged.emit(r.layers);
+    this.scheduleDraft();
   }
 
   /** Guarda no desfazer o desenho de antes de uma mudança. */

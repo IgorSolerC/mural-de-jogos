@@ -17,7 +17,8 @@ import { ICON, IconModule } from './icons';
 import { PixelArt } from './pixel-art';
 import { PixelPieceCard } from './pixel-piece';
 import { PixelField } from './pixel-studio/pixel-field';
-import type { StudioResult } from './pixel-studio/pixel-studio';
+import type { DraftTarget, StudioResult } from './pixel-studio/pixel-studio';
+import { PixelDrafts } from '../core/pixel-drafts';
 import { RichEditor } from './rich-editor';
 import { TagPicker } from './tag-picker';
 import { Toasts } from './toast';
@@ -57,6 +58,7 @@ export class PixelSheet {
   private readonly transitions = inject(ViewTransitions);
   private readonly confirm = inject(Confirm);
   protected readonly folders = inject(PixelFolders);
+  private readonly pixelDrafts = inject(PixelDrafts);
 
   /** A obra nova foi para a galeria (a página a assenta na parede). */
   readonly created = output<string>();
@@ -72,6 +74,7 @@ export class PixelSheet {
   protected readonly looks = PIXEL_LOOKS;
 
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
+  private readonly field = viewChild(PixelField);
 
   /** Cada vez que a ficha abre: o desenho (e o ateliê aberto sozinho na obra nova) nasce de novo. */
   protected readonly session = signal(0);
@@ -96,6 +99,17 @@ export class PixelSheet {
   /** O que a ficha tinha ao abrir: fechar com algo diferente pergunta antes de descartar. */
   private snapshot = '';
   private askingDiscard = false;
+  /** A ficha fechou sem guardar o desenho (a obra sumiu noutro aparelho): o rascunho fica. */
+  private keepDraft = false;
+
+  /**
+   * O rascunho que o ateliê grava (PLANO-RASCUNHOS-PIXEL.md): da obra que se edita, ou de uma obra nova. O Salvar do
+   * ateliê ainda não é salvar: o rascunho fica até a ficha salvar, ou até a pessoa descartar a ficha.
+   */
+  protected readonly draftTarget = computed<Pick<DraftTarget, 'origin' | 'title'>>(() => {
+    const e = this.editing();
+    return { origin: e ? { kind: 'obra', id: e.id } : { kind: 'nova' }, title: pieceTitleOf(this.title()) || (e?.title ?? '') };
+  });
 
   /** O desenho escrito (sem a legenda), ou null sem nenhum ponto. */
   protected readonly art = computed(() => valuesArt(this.values()));
@@ -183,6 +197,13 @@ export class PixelSheet {
     this.dialog().nativeElement.close();
   }
 
+  /** A ficha fechou: salva, descartada ou sem mudança, o rascunho do desenho dela sai (menos quando não deu para salvar). */
+  protected closed(): void {
+    if (this.keepDraft) this.keepDraft = false;
+    else this.field()?.forgetDraft();
+    this.shown.set(false);
+  }
+
   /** O ateliê mudou o desenho (na hora, a cada traço). */
   protected drawn(v: WidgetValues): void {
     // o ateliê manda o desenho (os pontos, a grade, a paleta, as cores): o jeito fica o da ficha
@@ -207,6 +228,7 @@ export class PixelSheet {
       return;
     }
     this.keepNewColors();
+    if (r.draft) void this.pixelDrafts.remove(r.draft);
     this.toasts.show(`Guardei a cópia, “${pieceTitle(made)}”, na galeria; esta ficha ficou com o desenho de antes.`, { label: 'Desfazer', run: () => this.transitions.run(() => this.gallery.remove([made.id])) });
   }
 
@@ -319,9 +341,12 @@ export class PixelSheet {
     const patch = this.changes(editing, art);
     const saved = this.hooks.saved;
     this.keepNewColors();
+    // apagada noutro aparelho enquanto a ficha estava aberta: o desenho fica nos rascunhos
+    const gone = !this.gallery.get(editing.id);
+    this.keepDraft = gone;
     this.close();
-    // apagada noutro aparelho enquanto a ficha estava aberta: o que foi escrito não some calado
-    if (!this.gallery.get(editing.id)) {
+    // o que foi escrito não some calado
+    if (gone) {
       this.toasts.show(`“${pieceTitle(editing)}” foi apagada noutro aparelho: não deu para salvar.`);
       return;
     }

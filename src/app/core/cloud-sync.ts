@@ -22,6 +22,7 @@ import { CalendarStore } from './calendar-store';
 import { SpendingState, sanitizeSpending, spendingToSync } from './spending';
 import { SpendingStore } from './spending-store';
 import { PixelGalleryState, pixelGalleryToSync, sanitizePixelGallery } from './pixel-gallery';
+import { PixelDrafts } from './pixel-drafts';
 import { PixelGallery } from './pixel-gallery-store';
 import { DictMarksState, dictMarksToSync, markSays, sanitizeDictMarks } from './dictionary/marks';
 import { DictionaryMarks } from './dictionary/marks-store';
@@ -800,6 +801,8 @@ export class CloudSync {
   private readonly calendar = inject(CalendarStore);
   private readonly spending = inject(SpendingStore);
   private readonly pixel = inject(PixelGallery);
+  /** Os rascunhos da pixel art deste aparelho (não sobem; contam como mural de ninguém ao entrar). */
+  private readonly pixelDrafts = inject(PixelDrafts);
   private readonly dictionary = inject(DictionaryMarks);
   private readonly study = inject(StudyStore);
   private readonly reset = inject(BrowserReset);
@@ -1071,6 +1074,8 @@ export class CloudSync {
         await this.images.recount();
         // os quadros livres daqui também (a loja lê o banco dela ao subir, sem esperar o app)
         await this.freeBoards.ready;
+        // e os rascunhos da pixel art (PLANO-RASCUNHOS-PIXEL.md)
+        await this.pixelDrafts.ready;
         state = await this.firstSync(accountId);
         if (!state) return;
       }
@@ -1297,7 +1302,8 @@ export class CloudSync {
       this.kanban.state().boards.some((b) => b.cards.length > 0) ||
       BLOCK_KINDS.some((kind) => this.blockAt(kind) !== null) ||
       this.images.count() > 0 ||
-      this.freeBoards.count() > 0
+      this.freeBoards.count() > 0 ||
+      this.pixelDrafts.count() > 0
     );
   }
 
@@ -1319,6 +1325,7 @@ export class CloudSync {
     const reminders = this.calendar.state().reminders.length;
     const cards = this.study.saved().cards.length;
     const arts = this.pixel.count();
+    const sketches = this.pixelDrafts.count();
     const marked = this.dictionary.count();
     const kept = this.store.versions().length;
     const parts = [
@@ -1329,6 +1336,7 @@ export class CloudSync {
       ...(reminders ? [plural(reminders, 'lembrete', 'lembretes')] : []),
       ...(cards ? [plural(cards, 'flashcard', 'flashcards')] : []),
       ...(arts ? [plural(arts, 'pixel art', 'pixel arts')] : []),
+      ...(sketches ? [plural(sketches, 'rascunho de pixel art', 'rascunhos de pixel art')] : []),
       ...(marked ? [plural(marked, 'palavra marcada no dicionário', 'palavras marcadas no dicionário')] : []),
       ...(kept ? [plural(kept, 'versão guardada', 'versões guardadas')] : []),
     ];

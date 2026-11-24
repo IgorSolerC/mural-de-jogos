@@ -3,7 +3,9 @@ import { DEFAULT_PALETTE, PALETTES, clampSide, gridOf, hasInk, inkCount, palette
 import { StoredLayer } from '../../core/pixel-layers';
 import { WidgetValues } from '../../core/widgets';
 import { ICON, IconModule } from '../icons';
-import { PixelStudio, StudioResult } from './pixel-studio';
+import { DraftTarget, PixelStudio, StudioResult, offerUndoDiscard } from './pixel-studio';
+import { PixelDraft, PixelDrafts, draftKey } from '../../core/pixel-drafts';
+import { Toasts } from '../toast';
 import { PixelThumb } from '../pixel-thumb';
 
 /**
@@ -12,6 +14,10 @@ import { PixelThumb } from '../pixel-thumb';
  * que abre o ateliê (ui/pixel-studio/pixel-studio.ts) por cima de tudo. O desenho novo, ainda sem ponto
  * nenhum, já abre no ateliê. Sair do ateliê pergunta (PLANO-RASCUNHOS-PIXEL.md): o Salvar passa o desenho adiante
  * (`changed`), o Salvar como cópia também (`copied`, e quem usa faz a cópia), e o Descartar não passa nada.
+ *
+ * O rascunho (`draft`): o ateliê grava o desenho neste aparelho enquanto se desenha. O Salvar daqui ainda não é
+ * salvar (a folha de quem usa é que guarda): o rascunho fica, e o ateliê seguinte nesta folha continua o mesmo; quem
+ * usa o tira (`forgetDraft`) quando guardou de verdade, ou quando a pessoa descartou a folha.
  */
 @Component({
   selector: 'app-pixel-field',
@@ -30,7 +36,7 @@ import { PixelThumb } from '../pixel-thumb';
         <p class="linha-nome">{{ inked() ? 'O desenho' : 'Nada desenhado ainda' }}</p>
         <p class="linha-desc">{{ summary() }}</p>
       </div>
-      <button type="button" class="papel" data-campo="pixels" aria-haspopup="dialog" [attr.aria-describedby]="missing() ? ids() + '-falta' : null" (click)="open.set(true)">
+      <button type="button" class="papel" data-campo="pixels" aria-haspopup="dialog" [attr.aria-describedby]="missing() ? ids() + '-falta' : null" (click)="openStudio()">
         <lucide-icon [img]="BrushIcon" [size]="16" aria-hidden="true" />
         {{ inked() ? 'Abrir o ateliê' : 'Desenhar' }}
       </button>
@@ -40,7 +46,7 @@ import { PixelThumb } from '../pixel-thumb';
     }
     @defer (when open()) {
       @if (open()) {
-        <app-pixel-studio [values]="values()" [layered]="layered()" [stack]="stack()" [copy]="copyable()" (saved)="saved($event)" (copied)="copied.emit($event)" (closed)="closed()" />
+        <app-pixel-studio [values]="values()" [layered]="layered()" [stack]="stack()" [copy]="copyable()" [draft]="target()" [resume]="resume()" (saved)="saved($event)" (copied)="copied.emit($event)" (discarded)="discarded($event)" (closed)="closed()" />
       }
     }
   `,
@@ -63,16 +69,34 @@ export class PixelField {
    * ateliê; quem usa pode dizer (a ficha de uma obra nova não tem original).
    */
   readonly copy = input<boolean | null>(null);
+  /** De onde o desenho vem e o nome, para o rascunho que o ateliê grava; sem ele, nenhum. */
+  readonly draft = input<Pick<DraftTarget, 'origin' | 'title'> | null>(null);
   /** O ateliê saiu salvando: o desenho novo (os valores e, com `layered`, a pilha logo depois). */
   readonly changed = output<WidgetValues>();
   readonly stackChanged = output<StoredLayer[] | undefined>();
-  /** O ateliê saiu salvando como cópia: quem usa guarda a cópia, e o desenho daqui fica como era. */
+  /**
+   * O ateliê saiu salvando como cópia: quem usa guarda a cópia, e o desenho daqui fica como era. A cópia tem o
+   * rascunho dela (`draft`), que quem usa tira depois de guardá-la.
+   */
   readonly copied = output<StudioResult>();
 
   protected readonly EmptyIcon = ICON.pixelArt;
   protected readonly BrushIcon = ICON.editar;
   protected readonly open = signal(false);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly drafts = inject(PixelDrafts);
+  private readonly toasts = inject(Toasts);
+  /** O rascunho desta folha, depois de um Salvar do ateliê: o id e o desenho de antes de tudo. */
+  private readonly carried = signal<{ id: string; base: string } | null>(null);
+  /** O desenho de quando o primeiro ateliê desta folha abriu. */
+  private base: string | null = null;
+  /** O ateliê abre continuando este rascunho (o Desfazer do Descartar). */
+  protected readonly resume = signal<PixelDraft | null>(null);
+  protected readonly target = computed<DraftTarget | null>(() => {
+    const t = this.draft();
+    const c = this.carried();
+    return t ? { ...t, ...(c ? { draftId: c.id, base: c.base } : {}) } : null;
+  });
 
   protected readonly w = computed(() => clampSide(this.values()['width']));
   protected readonly h = computed(() => clampSide(this.values()['height']));
@@ -91,23 +115,50 @@ export class PixelField {
 
   constructor() {
     afterNextRender(() => {
-      if (this.autoOpen() && !this.inked()) this.open.set(true);
+      if (this.autoOpen() && !this.inked()) this.openStudio();
     });
   }
 
   /** Abre o ateliê por quem usa (o "Desenhar uma nova" da folha da galeria, na folha do widget). */
   openStudio(): void {
+    // o desenho de antes de tudo: o de agora, enquanto não há rascunho desta folha (a folha do widget pode ter trocado
+    // de desenho pela galeria entre um ateliê e outro)
+    if (!this.carried()) this.base = draftKey(this.values());
     this.open.set(true);
   }
 
+  /** O rascunho desta folha (o id), quando há um. */
+  draftId(): string | null {
+    return this.carried()?.id ?? null;
+  }
+
+  /** A folha guardou o desenho, ou foi descartada: o rascunho sai. */
+  forgetDraft(): void {
+    const id = this.draftId();
+    this.carried.set(null);
+    if (id) void this.drafts.remove(id);
+  }
+
   protected saved(r: StudioResult): void {
+    if (r.draft) this.carried.set({ id: r.draft, base: this.carried()?.base ?? this.base ?? draftKey(this.values()) });
     this.changed.emit(r.values);
     if (this.layered()) this.stackChanged.emit(r.layers);
+  }
+
+  /** Descartou: o aviso com o Desfazer, que abre o ateliê de novo com o desenho descartado. */
+  protected discarded(d: PixelDraft): void {
+    offerUndoDiscard(this.toasts, this.drafts, d, (back) => {
+      // com o ateliê aberto de novo, o descartado só volta para os rascunhos
+      if (this.open()) return;
+      this.resume.set(back);
+      this.openStudio();
+    });
   }
 
   /** O ateliê fechou: o foco volta para o botão que o abre. */
   protected closed(): void {
     this.open.set(false);
+    this.resume.set(null);
     queueMicrotask(() => this.host.nativeElement.querySelector<HTMLElement>('[data-campo="pixels"]')?.focus());
   }
 }

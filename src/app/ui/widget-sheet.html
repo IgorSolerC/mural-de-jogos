@@ -63,7 +63,7 @@
                     @case ('pixels') {
                       <!-- a pixel art: a miniatura do desenho e o ateliê, que abre por cima (lá moram a tela, a paleta e as cores) -->
                       <!-- a nova, com a galeria vazia, já abre no ateliê; com obras, a folha da galeria abre antes (ver o construtor) -->
-                      <app-pixel-field #pixelField class="largo" [values]="values()" [missing]="isMissing(f)" [autoOpen]="!swap() && !gallery.count()" [ids]="ids + '-pixel'" (changed)="patch($event)" (copied)="copyToGallery($event)" />
+                      <app-pixel-field #pixelField class="largo" [values]="values()" [missing]="isMissing(f)" [autoOpen]="!swap() && !gallery.count()" [ids]="ids + '-pixel'" [draft]="pixelDraft()" (changed)="patch($event)" (copied)="copyToGallery($event)" />
                       <div class="galeria-acoes largo">
                         @if (gallery.count()) {
                           <!-- uma que já está na galeria de pixel arts (Extras): a folha da galeria, com os filtros -->

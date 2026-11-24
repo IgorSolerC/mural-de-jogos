@@ -1133,6 +1133,12 @@
   &.pos {
     min-width: 92px;
   }
+
+  // o rascunho guardado (PLANO-RASCUNHOS-PIXEL.md): inteiro, e a dica é que encurta
+  &.rascunho {
+    flex: none;
+    white-space: nowrap;
+  }
 }
 
 .estado-amostra {

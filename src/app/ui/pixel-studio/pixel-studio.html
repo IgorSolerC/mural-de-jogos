@@ -510,6 +510,12 @@
           <lucide-icon [img]="I.caber" [size]="15" aria-hidden="true" />
         </button>
       </span>
+      <!-- o rascunho guardado neste aparelho (PLANO-RASCUNHOS-PIXEL.md): em silêncio, sem falar a cada gravação -->
+      @if (draftOff()) {
+        <span class="estado-item rascunho" title="Este navegador não deixa guardar nada: o desenho só fica se você salvar">Sem rascunho neste navegador</span>
+      } @else if (draftSaved(); as t) {
+        <span class="estado-item rascunho" title="O desenho fica guardado neste aparelho até você salvar ou descartar">Rascunho guardado às {{ clock(t) }}</span>
+      }
       <span class="estado-dica" [class.aviso]="!!notice()">{{ notice() ?? hint() }}</span>
     </footer>
   </div>

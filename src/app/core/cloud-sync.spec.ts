@@ -1,5 +1,6 @@
 import { EnvironmentInjector, createEnvironmentInjector, provideZonelessChangeDetection } from '@angular/core';
 import { BOARDS_DB, FreeBoardStore } from './free-board-store';
+import { DRAFTS_DB, PixelDrafts } from './pixel-drafts';
 import { addPieces } from './free-board';
 import { TestBed } from '@angular/core/testing';
 import { ACCOUNT_KEY, CloudAccount, SESSION_KEY } from './cloud-account';
@@ -240,6 +241,8 @@ describe('sincronização com a nuvem', () => {
     await deleteDatabase(IMAGES_DB);
     // o mesmo para os quadros livres (PLANO-QUADRO-LIVRE.md): um quadro que sobrou também é mural de ninguém
     await deleteDatabase(BOARDS_DB);
+    // e os rascunhos da pixel art (PLANO-RASCUNHOS-PIXEL.md)
+    await deleteDatabase(DRAFTS_DB);
     localStorage.clear();
     localStorage.setItem(SESSION_KEY, TOKEN);
     localStorage.setItem(ACCOUNT_KEY, JSON.stringify(ACCOUNT));
@@ -727,6 +730,16 @@ describe('sincronização com a nuvem', () => {
       const a = device();
       a.study.addDeck('Kanjis', 'amarelo');
       expect((a.sync as unknown as { localHasContent(): boolean }).localHasContent()).toBeTrue();
+    });
+
+    it('um rascunho da pixel art também é conteúdo do navegador (pergunta antes de ir para a conta), e a pergunta o conta', async () => {
+      const a = device();
+      const drafts = TestBed.inject(PixelDrafts);
+      await drafts.ready;
+      await drafts.put({ id: 'rconta01', origin: { kind: 'nova' }, title: 'Gato', values: { width: '1', height: '1', pixels: '1' }, base: '', createdAt: 1, savedAt: 1 });
+      expect((a.sync as unknown as { localHasContent(): boolean }).localHasContent()).toBeTrue();
+      expect((a.sync as unknown as { describe(d: unknown): string }).describe(a.store.snapshot())).toBe('1 rascunho de pixel art');
+      await drafts.remove('rconta01');
     });
 
     it('sem nada nos Estudos, o mural privado não ganha a chave', async () => {

@@ -19,6 +19,7 @@ import { COLLEAGUES_DB, ColleagueStore } from './colleague-store';
 import { POMODORO_KEY, POMODORO_DEFAULT, start } from './pomodoro';
 import { TRACKS_KEY } from './pomodoro-tracks';
 import { VOZ_KEY } from './voz';
+import { DRAFTS_DB, PixelDrafts, STASH_PREFIX } from './pixel-drafts';
 
 function databases(): Promise<string[]> {
   return indexedDB.databases().then((list) => list.map((d) => d.name ?? ''));
@@ -474,6 +475,40 @@ describe('limpar o navegador (sair da conta)', () => {
     TestBed.resetTestingModule();
     await eraseSave();
     expect(await databases()).not.toContain(BOARDS_DB);
+  });
+
+  it('os rascunhos da pixel art (o banco deles, PLANO-RASCUNHOS-PIXEL.md) saem no Sair, mesmo com a conexão aberta nesta aba', async () => {
+    signedInBrowser();
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+    const drafts = TestBed.inject(PixelDrafts);
+    const draft = { id: 'rsair001', origin: { kind: 'nova' as const }, title: 'Gato', values: { width: '1', height: '1', pixels: '1' }, base: '', createdAt: 1, savedAt: 1 };
+    expect(await drafts.put(draft)).toBeTrue();
+    // e o guardado às pressas (a aba sumindo), no localStorage
+    drafts.stash({ ...draft, savedAt: 2 });
+    expect(localStorage.getItem(STASH_PREFIX + 'rsair001')).not.toBeNull();
+    expect(await databases()).toContain(DRAFTS_DB);
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.setItem(RESET_KEY, JSON.stringify({ keep: [], motivo: 'saiu' }));
+    expect(await resetOnBoot()).toBeTrue();
+    expect(await databases()).not.toContain(DRAFTS_DB);
+    expect(localStorage.getItem(STASH_PREFIX + 'rsair001')).toBeNull();
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+    const again = TestBed.inject(PixelDrafts);
+    await again.ready;
+    expect(again.count()).toBe(0);
+    expect(await again.get('rsair001')).toBeNull();
+    TestBed.resetTestingModule();
+  });
+
+  it('"Apagar o save" leva os rascunhos da pixel art também', async () => {
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+    const drafts = TestBed.inject(PixelDrafts);
+    await drafts.put({ id: 'rsave001', origin: { kind: 'widget' }, title: '', values: { width: '1', height: '1', pixels: '1' }, base: '', createdAt: 1, savedAt: 1 });
+    expect(await databases()).toContain(DRAFTS_DB);
+    TestBed.resetTestingModule();
+    await eraseSave();
+    expect(await databases()).not.toContain(DRAFTS_DB);
   });
 
   it('enquanto a página recarrega para limpar, nenhuma imagem é guardada', async () => {

@@ -5,6 +5,7 @@ import { PIXEL_GALLERY_KEY, PixelGallery } from '../core/pixel-gallery-store';
 import { Toasts } from './toast';
 import { Confirm } from './confirm';
 import { widgetDef } from '../core/widgets';
+import { PixelDrafts } from '../core/pixel-drafts';
 
 /** A folha do widget com a pixel art: o desenho numa linha, o ateliê por cima, e o Pôr sai com a marca. */
 describe('a folha do widget com a pixel art', () => {
@@ -48,8 +49,9 @@ describe('a folha do widget com a pixel art', () => {
     expect(TestBed.inject(Confirm).current()?.title).toBe('Salvar as mudanças?');
     expect(host.querySelector('app-pixel-field .linha-nome')?.textContent).toContain('Nada desenhado ainda');
     TestBed.inject(Confirm).answer('confirm');
-    for (let i = 0; i < 3; i++) {
-      await new Promise((r) => setTimeout(r));
+    // (o Salvar espera o rascunho ficar em dia no banco)
+    for (let i = 0; i < 10; i++) {
+      await new Promise((r) => setTimeout(r, 20));
       await fixture.whenStable();
       fixture.detectChanges();
     }
@@ -134,6 +136,33 @@ describe('a folha do widget com a pixel art', () => {
     expect(done.length).toBe(0);
     expect(host.querySelector('.pe .falta')?.textContent).toContain('Falta desenhar');
     expect(document.activeElement).toBe(host.querySelector('app-pixel-field [data-campo="pixels"]'));
+  });
+
+  it('o rascunho do ateliê (PLANO-RASCUNHOS-PIXEL.md): é do widget, com a legenda de nome, e sai no Pôr; a cópia guardada tira o dela', async () => {
+    const { fixture, host, done } = await open({ width: '2', height: '1', pixels: '12', caption: 'Dupla' }, true);
+    const drafts = TestBed.inject(PixelDrafts);
+    await drafts.ready;
+    const field = fixture.debugElement.query((d) => d.name === 'app-pixel-field').componentInstance;
+    expect(field['target']()).toEqual({ origin: { kind: 'widget' }, title: 'Dupla' });
+    const values = { pixels: '21', width: '2', height: '1', palette: 'classica', colors: '' };
+    await drafts.put({ id: 'rwidg001', origin: { kind: 'widget' }, title: 'Dupla', values, base: '', createdAt: 1, savedAt: 1 });
+    field['saved']({ values, layers: undefined, draft: 'rwidg001' });
+    fixture.detectChanges();
+    expect(await drafts.get('rwidg001')).not.toBeNull();
+    // a cópia guardada na galeria: o rascunho dela sai (o do widget fica)
+    localStorage.removeItem('meu-mural:pixel-arts:v1');
+    await drafts.put({ id: 'rwidg002', origin: { kind: 'nova' }, title: 'Dupla', values: { ...values, pixels: '22' }, base: '', createdAt: 1, savedAt: 1 });
+    (fixture.componentInstance as unknown as { copyToGallery(r: unknown): void }).copyToGallery({ values: { ...values, pixels: '22' }, layers: undefined, draft: 'rwidg002' });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(await drafts.get('rwidg002')).toBeNull();
+    expect(await drafts.get('rwidg001')).not.toBeNull();
+    (host.querySelector('.pe .ok') as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(done.length).toBe(1);
+    expect(await drafts.get('rwidg001')).toBeNull();
+    const gallery = TestBed.inject(PixelGallery);
+    gallery.remove(gallery.pieces().map((p) => p.id));
+    localStorage.removeItem('meu-mural:pixel-arts:v1');
   });
 
   it('o Salvar como cópia do ateliê: o desenho novo vai para a galeria "(cópia)", e o widget fica com o de antes', async () => {

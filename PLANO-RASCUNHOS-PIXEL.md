@@ -37,7 +37,10 @@ high no fim. Um commit (com push) por rodada.
 - **D7. Um rascunho por vez de ateliê aberto**, gravado um segundo depois da última mudança (e no máximo a cada
   cinco segundos desenhando sem parar), e na hora quando a aba some (`visibilitychange`, `pagehide`). Guarda o
   desenho inteiro (as camadas), o nome, de onde veio (a obra, uma obra nova, um widget) e o desenho de quando
-  abriu (para achar o rascunho ao abrir de novo e para saber se ainda há mudança).
+  abriu (para achar o rascunho ao abrir de novo e para saber se ainda há mudança). Feito (rodada 2): a gravação do IndexedDB
+  começada no `pagehide` é cortada com a página saindo (visto na build de produção), então a aba que some guarda
+  também às pressas no localStorage (`meu-mural:rascunho-guardando:<id>`, síncrono), que a próxima abertura passa
+  para o banco; o `put` que chega depois tira o guardado às pressas.
 - **D8. O rascunho só some quando o desenho está salvo de verdade**: Salvar ou Salvar como cópia (que deram
   certo; a galeria cheia não apaga nada) ou Descartar. Numa ficha (a da obra, a do widget), o Salvar do ateliê
   ainda não é salvar: o rascunho fica até a ficha salvar, ou até a pessoa descartar na pergunta da ficha. A folha
@@ -53,7 +56,8 @@ high no fim. Um commit (com push) por rodada.
 - **D11. Duas abas**: o ateliê aberto segura o rascunho (`navigator.locks`); a outra aba não o continua nem o
   oferece ("aberto noutra aba"), e a lista se atualiza entre as abas (`BroadcastChannel`). A aba que morre solta.
 - **D12. Confiança à vista**: a barra de estado do ateliê diz "Rascunho guardado às 14:32" (e, sem IndexedDB,
-  "Sem rascunho neste navegador"), em silêncio para o leitor de tela (não fala a cada gravação).
+  "Sem rascunho neste navegador"), em silêncio para o leitor de tela (não fala a cada gravação). No celular a barra de
+  estado do ateliê não aparece: a rodada 4 decide onde a hora do rascunho mora lá.
 
 ## Compartilhado e sincronização
 
@@ -69,6 +73,7 @@ galeria é do mural privado: salvar um rascunho é um `update`/`create` como qua
    aviso entre abas), o ateliê gravando, a barra de estado, o Desfazer do Descartar, a limpeza
    (`browser-reset.spec.ts`), `localHasContent`.
 3. **O rascunho à vista** (D9, D10): a seção Rascunhos na galeria, continuar e descartar, a pergunta ao abrir,
-   o aviso da folha do widget. Novidades.
+   o aviso da folha do widget. Novidades. Falta da rodada 2: a folha do widget fechada sem Pôr deixa o rascunho (ainda sem
+   aviso nem lugar para vê-lo), e a ficha da obra apagada noutro aparelho diz só "não deu para salvar".
 4. **Fim**: crítica do Impeccable, /code-review high, fotos de perto no computador e no celular, DESIGN.md,
    memória.

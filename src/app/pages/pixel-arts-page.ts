@@ -62,7 +62,8 @@ import { PixelImportSheet } from '../ui/pixel-import-sheet';
 import { SelectionTray, TrayAction } from '../ui/selection-tray';
 import { PixelPieceCard } from '../ui/pixel-piece';
 import { PixelSheet } from '../ui/pixel-sheet';
-import { PixelStudio, StudioResult } from '../ui/pixel-studio/pixel-studio';
+import { DraftTarget, PixelStudio, StudioResult, offerUndoDiscard } from '../ui/pixel-studio/pixel-studio';
+import { PixelDraft, PixelDrafts } from '../core/pixel-drafts';
 import { PixelTile } from '../ui/pixel-tile';
 import { SearchHighlight } from '../ui/search-highlight';
 import { SearchStrip } from '../ui/search-strip';
@@ -665,7 +666,8 @@ export class PixelArtsPage {
 
   /** O desenho aberto direto no ateliê (o Ateliê da etiqueta), com o que mudou até agora. */
   /** O Ateliê aberto pela etiqueta: a obra e o desenho dela quando abriu; `went`, para onde o foco vai ao fechar (a obra, ou a cópia). */
-  protected readonly studio = signal<{ id: string; title: string; values: WidgetValues; layers: StoredLayer[] | undefined; went?: string } | null>(null);
+  protected readonly studio = signal<{ id: string; title: string; values: WidgetValues; layers: StoredLayer[] | undefined; draft: DraftTarget; resume?: PixelDraft; went?: string } | null>(null);
+  private readonly pixelDrafts = inject(PixelDrafts);
 
   constructor() {
     const host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
@@ -892,9 +894,18 @@ export class PixelArtsPage {
   }
 
   /** O Ateliê da etiqueta: o desenho direto no ateliê, por cima de tudo; sair pergunta o que fazer com o que mudou. */
-  protected atelie(id: string): void {
+  protected atelie(id: string, resume?: PixelDraft): void {
     const p = this.gallery.get(id);
-    if (p) this.studio.set({ id, title: p.title, values: artValues(p.art), layers: p.layers });
+    if (p) this.studio.set({ id, title: p.title, values: artValues(p.art), layers: p.layers, draft: { origin: { kind: 'obra', id }, title: p.title }, resume });
+    // (a obra sumiu enquanto o aviso estava à mostra: o desenho descartado volta como obra nova, no Salvar)
+    else if (resume) this.studio.set({ id, title: resume.title, values: resume.values, layers: resume.layers, draft: { origin: resume.origin, title: resume.title }, resume });
+  }
+
+  /** Descartou: o aviso, com o Desfazer que abre o ateliê de novo com o desenho descartado (D5). */
+  protected studioDiscarded(d: PixelDraft): void {
+    const s = this.studio();
+    // (com outro ateliê aberto, o descartado só volta para os rascunhos: abrir por cima tiraria o de agora sem perguntar)
+    if (s) offerUndoDiscard(this.toasts, this.pixelDrafts, d, (back) => !this.studio() && this.atelie(s.id, back));
   }
 
   /** Salvar: o desenho vai para a obra (com o Desfazer); o jeito fica o da obra. */
@@ -905,6 +916,8 @@ export class PixelArtsPage {
     const art = valuesArt({ ...s.values, ...r.values });
     if (p && art) {
       const undo = this.gallery.update(s.id, { art, layers: r.layers });
+      // guardado (ou já era este desenho): o rascunho sai; não deu, ele fica
+      if (undo || JSON.stringify([art, r.layers ?? null]) === JSON.stringify([p.art, p.layers ?? null])) this.dropDraft(r);
       if (undo) this.toasts.show(`“${pieceTitle(p)}” mudou na galeria`, { label: 'Desfazer', run: () => this.transitions.run(undo) });
       else if (JSON.stringify([art, r.layers ?? null]) !== JSON.stringify([p.art, p.layers ?? null])) this.toasts.show(`Não deu para salvar “${pieceTitle(p)}”: o desenho ficou como era.`);
     } else if (p) {
@@ -916,6 +929,7 @@ export class PixelArtsPage {
         this.toasts.show('A pixel art foi apagada noutro aparelho, e a galeria está cheia: o desenho não coube.');
         return;
       }
+      this.dropDraft(r);
       this.toasts.show('A pixel art foi apagada noutro aparelho: guardei o desenho como uma obra nova.');
       this.studio.set({ ...s, went: made.id });
     }
@@ -937,8 +951,14 @@ export class PixelArtsPage {
       this.toasts.show('A galeria está cheia: apague uma pixel art para guardar a cópia.');
       return;
     }
+    this.dropDraft(r);
     this.toasts.show(`Guardei a cópia, “${pieceTitle(made)}”; ${p ? `“${pieceTitle(p)}” ficou como era` : 'a de antes não está mais na galeria'}.`, { label: 'Desfazer', run: () => this.transitions.run(() => this.gallery.remove([made.id])) });
     this.studio.set({ ...s, went: made.id });
+  }
+
+  /** O desenho do ateliê ficou guardado na galeria: o rascunho dele sai. */
+  private dropDraft(r: StudioResult): void {
+    if (r.draft) void this.pixelDrafts.remove(r.draft);
   }
 
   /** O ateliê fechou (salvando, ou não): o foco volta para o Ateliê da obra, ou vai para a obra nova. */

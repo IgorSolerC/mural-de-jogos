@@ -21,7 +21,9 @@ import { PixelPiece, artValues, pieceTitle, pieceTitleOf, pixelArtOf, valuesArt 
 import { PixelPicker } from './pixel-picker';
 import { WidgetValues } from '../core/widgets';
 import { PixelGallery } from '../core/pixel-gallery-store';
-import { PixelStudio, StudioResult } from './pixel-studio/pixel-studio';
+import { DraftTarget, PixelStudio, StudioResult, offerUndoDiscard } from './pixel-studio/pixel-studio';
+import { PixelDraft, PixelDrafts } from '../core/pixel-drafts';
+import { Toasts } from './toast';
 import { StoredLayer } from '../core/pixel-layers';
 import { Kind, PickedGame, initialOf } from '../core/review';
 import { Settings } from '../core/settings';
@@ -197,7 +199,7 @@ function joinSources(list: string[]): string {
     @if (studio(); as v) {
       <!-- já, e não quando a página sossegar: o ateliê abre logo depois do clique -->
       @defer (on immediate) {
-        <app-pixel-studio [values]="v" [layered]="true" (saved)="drawn($event)" (closed)="studioClosed()" />
+        <app-pixel-studio [values]="v" [layered]="true" [draft]="studioDraft()" [resume]="studioResume()" (saved)="drawn($event)" (discarded)="studioDiscarded($event)" (closed)="studioClosed()" />
       }
     }
     <!-- a outra porta, sem botão: só onde há teclado e mouse (no celular não há Ctrl+V nem arrastar arquivo) -->
@@ -502,6 +504,8 @@ export class CoverPicker {
   private readonly fileField = viewChild<ElementRef<HTMLInputElement>>('fileField');
   private readonly images = inject(ImageStore);
   private readonly gallery = inject(PixelGallery);
+  private readonly pixelDrafts = inject(PixelDrafts);
+  private readonly toasts = inject(Toasts);
 
   /** As capas que dá para escolher; a primeira é a que veio com o item. */
   private readonly choices = signal<CoverChoice[]>([]);
@@ -542,6 +546,12 @@ export class CoverPicker {
   protected studioLayers: StoredLayer[] | undefined = undefined;
   /** O ateliê saiu pelo Salvar (sem isso, fechou descartando). */
   private studioSaved = false;
+  /** O rascunho do desenho salvo, que sai quando ele foi para a galeria (PLANO-RASCUNHOS-PIXEL.md). */
+  private studioDraftId: string | null = null;
+  /** O rascunho que o ateliê grava: uma obra nova, com o nome do item. */
+  protected readonly studioDraft = computed<DraftTarget>(() => ({ origin: { kind: 'nova' }, title: pieceTitleOf(this.game().name) }));
+  /** O ateliê abre continuando este desenho (o Desfazer do Descartar). */
+  protected readonly studioResume = signal<PixelDraft | null>(null);
   /** A frase de depois de desenhar: a obra nova também ficou na galeria. */
   protected readonly drawnNote = signal<string | null>(null);
   /** Um arquivo arrastado por cima das capas. */
@@ -778,12 +788,20 @@ export class CoverPicker {
   }
 
   /** O Desenhar uma nova da folha da galeria: o ateliê por cima de tudo, com a tela em branco. */
-  protected drawNew(): void {
+  protected drawNew(resume: PixelDraft | null = null): void {
     this.imageError.set(null);
     this.drawnNote.set(null);
     this.studioLayers = undefined;
     this.studioSaved = false;
+    this.studioDraftId = null;
+    this.studioResume.set(resume);
     this.studio.set(artValues([]));
+  }
+
+  /** Descartou: o aviso, com o Desfazer que abre o ateliê de novo com o desenho descartado. */
+  protected studioDiscarded(d: PixelDraft): void {
+    // (com o ateliê aberto de novo, o descartado só volta para os rascunhos)
+    offerUndoDiscard(this.toasts, this.pixelDrafts, d, (back) => !this.studio() && this.drawNew(back));
   }
 
   /** O ateliê saiu salvando: o desenho fica para quando ele fechar (Descartar não manda nada, e nada muda). */
@@ -791,6 +809,7 @@ export class CoverPicker {
     this.studio.update((s) => (s ? { ...s, ...r.values } : s));
     this.studioLayers = r.layers;
     this.studioSaved = true;
+    this.studioDraftId = r.draft;
   }
 
   /**
@@ -802,6 +821,9 @@ export class CoverPicker {
     this.studio.set(null);
     const saved = this.studioSaved;
     this.studioSaved = false;
+    const draft = this.studioDraftId;
+    this.studioDraftId = null;
+    this.studioResume.set(null);
     const art = saved && values && valuesArt(values);
     if (!art) {
       this.focusLater('.pixel-btn');
@@ -809,10 +831,12 @@ export class CoverPicker {
     }
     const piece = this.gallery.create({ art, layers: this.studioLayers, title: pieceTitleOf(this.game().name) });
     if (!piece) {
+      // o rascunho fica: o desenho não se perde
       this.imageError.set('A galeria de pixel arts está cheia: apague alguma lá para guardar esta.');
       this.focusLater('.pixel-btn');
       return;
     }
+    if (draft) void this.pixelDrafts.remove(draft);
     if (await this.usePiece(piece)) this.drawnNote.set(`“${pieceTitle(piece)}” também ficou na sua galeria de pixel arts.`);
   }
 

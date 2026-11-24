@@ -1,4 +1,4 @@
-<dialog #dialog class="sheet recortar obra" [class.editando]="!!editing()" aria-labelledby="obra-titulo" (cancel)="requestClose($event)" (close)="shown.set(false)" (backdropClose)="requestClose()">
+<dialog #dialog class="sheet recortar obra" [class.editando]="!!editing()" aria-labelledby="obra-titulo" (cancel)="requestClose($event)" (close)="closed()" (backdropClose)="requestClose()">
   <form class="folha" (submit)="save($event)" novalidate>
     <!-- a faixa da base de corte do ateliê: o grafite com a grade -->
     <header class="masthead">
@@ -30,7 +30,7 @@
           <!-- só com a ficha aberta: a obra nova abre o ateliê sozinha, e fechada ela não abriria nada por cima -->
           @if (shown()) {
             @for (k of [session()]; track k) {
-              <app-pixel-field ids="obra" [values]="values()" [layered]="true" [stack]="layers()" [missing]="attempted() && !art()" [autoOpen]="!editing()" [copy]="!!editing()" (changed)="drawn($event)" (stackChanged)="layers.set($event)" (copied)="copyDrawing($event)" />
+              <app-pixel-field ids="obra" [values]="values()" [layered]="true" [stack]="layers()" [missing]="attempted() && !art()" [autoOpen]="!editing()" [copy]="!!editing()" [draft]="draftTarget()" (changed)="drawn($event)" (stackChanged)="layers.set($event)" (copied)="copyDrawing($event)" />
             }
           }
         </section>
