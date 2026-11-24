@@ -44,6 +44,10 @@
             >{{ m.label }}</button>
           }
         </div>
+        <!-- no celular, a barra de estado não cabe: a hora do rascunho mora aqui, em silêncio para o leitor de tela -->
+        @if (draftSaved(); as t) {
+          <span class="guardado" aria-hidden="true" title="O desenho fica guardado neste aparelho até você salvar ou descartar">Guardado {{ clock(t) }}</span>
+        }
         <div class="barra-acoes">
           <button type="button" class="tecla" title="Desfazer (Ctrl Z)" aria-label="Desfazer" [disabled]="!canUndo()" (click)="undo()">
             <lucide-icon [img]="I.desfazer" [size]="18" aria-hidden="true" />

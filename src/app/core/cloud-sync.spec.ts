@@ -739,6 +739,11 @@ describe('sincronização com a nuvem', () => {
       await drafts.put({ id: 'rconta01', origin: { kind: 'nova' }, title: 'Gato', values: { width: '1', height: '1', pixels: '1' }, base: '', createdAt: 1, savedAt: 1 });
       expect((a.sync as unknown as { localHasContent(): boolean }).localHasContent()).toBeTrue();
       expect((a.sync as unknown as { describe(d: unknown): string }).describe(a.store.snapshot())).toBe('1 rascunho de pixel art');
+      // a pergunta não promete o backup que eles não têm
+      const confirm = { choose: jasmine.createSpy('choose').and.resolveTo(null) };
+      (a.sync as unknown as { confirm: unknown }).confirm = confirm;
+      await (a.sync as unknown as { ask(r: boolean): Promise<unknown> }).ask(false);
+      expect(confirm.choose.calls.mostRecent().args[0].text).toContain('os rascunhos de pixel art, não');
       await drafts.remove('rconta01');
     });
 

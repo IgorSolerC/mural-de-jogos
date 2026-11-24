@@ -43,14 +43,13 @@ import { ImageStore } from '../../core/image-store';
 import { MuralSrc } from '../stored-image';
 import { REF_REACH, DotsLayer, PIXEL_REFS_MAX, PixelRef, RefLayer, fitRef, mapRefs, refsCount, RowsCache, Layer, PIXEL_LAYERS_MAX, StoredLayer, acrossDots, cleanLayerName, dotsBelow, dotsCount, duplicateLayer, flattenLayers, insertAbove, mapDots, mergeDown, moveLayerTo, newLayerId, nextLayerName, readLayers, sameStack, setRows, singleLayer, writeLayers } from '../../core/pixel-layers';
 import { Confirm } from '../confirm';
-import { Toasts } from '../toast';
 import { ContextMenu, MenuBy, MenuItem, MenuSections } from '../context-menu';
 import { downloadBlob, drawPixelArt, pngName, pngScale } from '../../core/pixel-png';
 import { PaletteSheet } from './palette-sheet';
 import { ICON, IconModule } from '../icons';
 import { PixelThumb } from '../pixel-thumb';
 import { ColorMap } from './color-map';
-import { DraftOrigin, PixelDraft, PixelDrafts, draftKey, newDraftId } from '../../core/pixel-drafts';
+import { DraftOrigin, PixelDraft, PixelDrafts, draftKey, draftWhen, newDraftId } from '../../core/pixel-drafts';
 
 /** As ferramentas do ateliê (as que pintam e a mão). */
 export type StudioTool = 'selecao' | 'varinha' | 'mover' | 'lapis' | 'borracha' | 'balde' | 'conta-gotas' | 'linha' | 'retangulo' | 'elipse' | 'mao';
@@ -114,20 +113,6 @@ export interface DraftTarget {
   title: string;
   draftId?: string;
   base?: string;
-}
-
-/**
- * O aviso do Descartar (PLANO-RASCUNHOS-PIXEL.md, D5), com o Desfazer: o rascunho descartado volta ao banco e o
- * ateliê abre de novo com ele (`reopen`, quem abriu o ateliê). Sem IndexedDB, o desenho volta da memória.
- */
-export function offerUndoDiscard(toasts: Toasts, drafts: PixelDrafts, d: PixelDraft, reopen: (d: PixelDraft) => void): void {
-  toasts.show('Mudanças descartadas', {
-    label: 'Desfazer',
-    run: () => {
-      void drafts.put({ ...d, savedAt: Date.now() });
-      reopen(d);
-    },
-  });
 }
 
 /** Quanto esperar depois da última mudança para gravar o rascunho, e o máximo sem gravar desenhando sem parar. */
@@ -787,7 +772,9 @@ export class PixelStudio {
 
   /** A pergunta de sair: o que fazer com as mudanças. */
   private async askLeave(): Promise<'salvar' | 'copia' | 'descartar' | null> {
-    const gone = this.openedInk ? 'o desenho volta a ser o de antes' : 'o desenho some';
+    // continuando um rascunho guardado, descartar leva ele junto (o Desfazer do aviso o traz de volta)
+    const r = this.resume();
+    const gone = (this.openedInk ? 'o desenho volta a ser o de antes' : 'o desenho some') + (r && !this.draftCarried ? `, e o rascunho guardado ${draftWhen(r.savedAt)} também sai` : '');
     if (this.copy()) {
       const c = await this.confirm.choose({
         title: 'Salvar as mudanças?',

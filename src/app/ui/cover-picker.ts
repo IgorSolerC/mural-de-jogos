@@ -21,7 +21,8 @@ import { PixelPiece, artValues, pieceTitle, pieceTitleOf, pixelArtOf, valuesArt 
 import { PixelPicker } from './pixel-picker';
 import { WidgetValues } from '../core/widgets';
 import { PixelGallery } from '../core/pixel-gallery-store';
-import { DraftTarget, PixelStudio, StudioResult, offerUndoDiscard } from './pixel-studio/pixel-studio';
+import { DraftTarget, PixelStudio, StudioResult } from './pixel-studio/pixel-studio';
+import { offerUndoDiscard } from './pixel-studio/draft-ask';
 import { PixelDraft, PixelDrafts } from '../core/pixel-drafts';
 import { Toasts } from './toast';
 import { StoredLayer } from '../core/pixel-layers';

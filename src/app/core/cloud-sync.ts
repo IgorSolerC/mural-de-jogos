@@ -1074,8 +1074,11 @@ export class CloudSync {
         await this.images.recount();
         // os quadros livres daqui também (a loja lê o banco dela ao subir, sem esperar o app)
         await this.freeBoards.ready;
-        // e os rascunhos da pixel art (PLANO-RASCUNHOS-PIXEL.md)
-        await this.pixelDrafts.ready;
+        // e os rascunhos da pixel art (PLANO-RASCUNHOS-PIXEL.md), com teto: um banco preso (uma limpeza a caminho)
+        // não segura a sincronização, que espera dentro da trava dela
+        let draftsTimer: ReturnType<typeof setTimeout> | undefined;
+        await Promise.race([this.pixelDrafts.ready, new Promise((resolve) => (draftsTimer = setTimeout(resolve, 3000)))]);
+        clearTimeout(draftsTimer);
         state = await this.firstSync(accountId);
         if (!state) return;
       }
@@ -1254,7 +1257,8 @@ export class CloudSync {
   /** O mural de ninguém (de antes de entrar) vai para a conta? */
   private async ask(remoteHas: boolean): Promise<'juntar' | 'conta' | null> {
     const here = this.describe(this.store.snapshot());
-    const kept = 'As resenhas, as anotações e as listas daqui ficam guardadas como backup por 30 dias, em Ajustes.';
+    // (os rascunhos da pixel art não entram no backup: a pergunta não promete o que não guarda)
+    const kept = `As resenhas, as anotações e as listas daqui ficam guardadas como backup por 30 dias, em Ajustes${this.pixelDrafts.count() ? '; os rascunhos de pixel art, não' : ''}.`;
     if (!remoteHas) {
       const choice = await this.confirm.choose({
         title: 'Levar o mural para a conta?',

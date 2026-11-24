@@ -63,7 +63,8 @@ import { PixelImportSheet } from '../ui/pixel-import-sheet';
 import { SelectionTray, TrayAction } from '../ui/selection-tray';
 import { PixelPieceCard } from '../ui/pixel-piece';
 import { PixelSheet } from '../ui/pixel-sheet';
-import { DraftTarget, PixelStudio, StudioResult, offerUndoDiscard } from '../ui/pixel-studio/pixel-studio';
+import { DraftTarget, PixelStudio, StudioResult } from '../ui/pixel-studio/pixel-studio';
+import { offerUndoDiscard } from '../ui/pixel-studio/draft-ask';
 import { askDraft, discardDraft } from '../ui/pixel-studio/draft-ask';
 import { PixelDraftTile } from '../ui/pixel-draft-tile';
 import { PixelDraft, PixelDrafts } from '../core/pixel-drafts';
@@ -1361,7 +1362,7 @@ export class PixelArtsPage {
 
   /** O foco no primeiro rascunho (o continuado e salvo saiu da seção: vai para a obra; descartado, fica aqui). */
   private focusDrafts(): void {
-    afterNextRender(() => (this.host.querySelector<HTMLElement>('app-pixel-draft-tile .hit:not(:disabled)') ?? this.host.querySelector<HTMLElement>('#busca-pixel'))?.focus(), { injector: this.injector });
+    afterNextRender(() => (this.host.querySelector<HTMLElement>('app-pixel-draft-tile .hit:not([aria-disabled])') ?? this.host.querySelector<HTMLElement>('#busca-pixel'))?.focus(), { injector: this.injector });
   }
 
   /** A galeria tem algo para mostrar: obras, ou pastas (mesmo sem obra nenhuma, elas continuam à mão). */

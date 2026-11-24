@@ -4,7 +4,8 @@ import { DRAFTS_DB, PixelDraft, PixelDrafts, STASH_PREFIX, draftKey } from '../.
 import { WidgetValues } from '../../core/widgets';
 import { Confirm } from '../confirm';
 import { Toasts } from '../toast';
-import { DraftTarget, PixelStudio, StudioResult, offerUndoDiscard } from './pixel-studio';
+import { DraftTarget, PixelStudio, StudioResult } from './pixel-studio';
+import { offerUndoDiscard } from './draft-ask';
 
 /** O rascunho que o ateliê guarda neste aparelho (PLANO-RASCUNHOS-PIXEL.md, rodada 2): nada se perde, nem descartando. */
 describe('pixel art: o rascunho do ateliê', () => {
@@ -187,6 +188,8 @@ describe('pixel art: o rascunho do ateliê', () => {
     pronto();
     await tick();
     expect(confirm.current()?.title).toBe('Salvar as mudanças?');
+    // descartar o continuado leva o rascunho junto: a pergunta diz
+    expect(confirm.current()!.text).toContain('e o rascunho guardado em ');
     confirm.answer('confirm');
     await tick();
     expect(saved[0].values['pixels']).toBe('22');
@@ -234,6 +237,16 @@ describe('pixel art: o rascunho do ateliê', () => {
     fixture.destroy();
     await new Promise((r) => setTimeout(r, 30));
     expect(await held()).not.toContain('meu-mural:rascunho:' + d.id);
+  });
+
+  it('a hora do rascunho também no alto do ateliê, para o celular (onde a barra de estado não cabe), em silêncio', async () => {
+    await make();
+    expect(host.querySelector('.guardado')).toBeNull();
+    paint(1, 0);
+    await hide();
+    const top = host.querySelector('.barra .guardado')!;
+    expect(top.textContent).toMatch(/^Guardado \d\d:\d\d$/);
+    expect(top.getAttribute('aria-hidden')).toBe('true');
   });
 
   it('sem IndexedDB, a barra avisa que não há rascunho neste navegador', async () => {

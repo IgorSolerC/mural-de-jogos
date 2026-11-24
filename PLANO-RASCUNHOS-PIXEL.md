@@ -77,4 +77,9 @@ galeria é do mural privado: salvar um rascunho é um `update`/`create` como qua
    e a ficha da obra apagada noutro aparelho diz que o desenho ficou nos rascunhos. A ficha descartada com um
    rascunho continuado nela tira o rascunho com o Desfazer.
 4. **Fim**: crítica do Impeccable, /code-review high, fotos de perto no computador e no celular, DESIGN.md,
-   memória.
+   memória. Feito: a crítica deu 31/40; vieram dela a hora do rascunho no alto do ateliê do celular ("Guardado
+   14:32"), a pergunta de sair dizendo que o rascunho continuado também sai, os avisos com Desfazer por 10 s, o
+   picote fechando a seção, o Descartar do aviso do widget com Desfazer, a outra aba avisada e o rascunho ocupado
+   alcançável pelo teclado. Do /code-review high: a pergunta de entrar na conta não promete backup dos rascunhos, a
+   obra apagada pela ficha deixa o desenho nos rascunhos, a aba que caiu solta o rascunho ao voltar o foco, e sem
+   banco só o último guardado às pressas fica no localStorage. Ficou: duas abas na mesma obra geram dois rascunhos.

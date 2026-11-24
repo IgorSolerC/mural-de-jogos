@@ -21,7 +21,7 @@ import { PixelThumb } from './pixel-thumb';
     <span class="quadro">
       <app-pixel-thumb [art]="art()" />
     </span>
-    <button type="button" class="hit" [disabled]="busy()" (click)="continued.emit()">
+    <button type="button" class="hit" [attr.aria-disabled]="busy() || null" (click)="!busy() && continued.emit()">
       <span class="sr-only">Continuar o rascunho {{ title() }}, {{ meta() }}</span>
     </button>
     <span class="linha">

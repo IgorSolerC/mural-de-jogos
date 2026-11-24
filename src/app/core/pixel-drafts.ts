@@ -1,4 +1,4 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
 import { StoredLayer, sanitizeLayers } from './pixel-layers';
 import { clampSide } from './pixel-art';
 import { readJson, removeKey, storageFrozen, writeJson } from './storage';
@@ -143,6 +143,20 @@ async function run<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRe
   });
 }
 
+/** As chaves dos rascunhos guardados às pressas no localStorage. */
+function stashKeys(): string[] {
+  const keys: string[] = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k?.startsWith(STASH_PREFIX)) keys.push(k);
+    }
+  } catch {
+    /* sem localStorage */
+  }
+  return keys;
+}
+
 /** Um id novo de rascunho. */
 export function newDraftId(): string {
   return 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -169,6 +183,13 @@ export class PixelDrafts {
   constructor() {
     this.ready = this.recover().then(() => this.refresh());
     this.channel?.addEventListener('message', () => void this.refresh());
+    // a aba que segurava um rascunho e caiu solta a trava sem avisar: voltando para esta, relê
+    if (typeof window !== 'undefined') {
+      const focus = () => void this.refresh();
+      window.addEventListener('focus', focus);
+      // (o canal fica aberto: o ateliê que sai depois ainda grava e avisa)
+      inject(DestroyRef).onDestroy(() => window.removeEventListener('focus', focus));
+    }
   }
 
   /** Relê o banco. */
@@ -188,21 +209,14 @@ export class PixelDrafts {
    * o banco (`recover`). O `put` que chegar ao banco depois o tira.
    */
   stash(d: PixelDraft): void {
+    // sem banco, o guardado às pressas não tem para onde ir: fica só o último, para não encher o localStorage
+    if (!this.available()) for (const k of stashKeys()) if (k !== STASH_PREFIX + d.id) removeKey(k);
     writeJson(STASH_PREFIX + d.id, d);
   }
 
   /** Os rascunhos guardados às pressas (a aba que sumiu) vão para o banco, quando são mais novos que o de lá. */
   private async recover(): Promise<void> {
-    let keys: string[] = [];
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k?.startsWith(STASH_PREFIX)) keys.push(k);
-      }
-    } catch {
-      keys = [];
-    }
-    for (const k of keys) {
+    for (const k of stashKeys()) {
       const d = sanitizeDraft(readJson(k));
       if (d && d.id === k.slice(STASH_PREFIX.length)) {
         const there = await this.get(d.id);

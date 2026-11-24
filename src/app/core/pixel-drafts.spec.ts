@@ -83,6 +83,15 @@ describe('os rascunhos da pixel art', () => {
     expect(localStorage.getItem(STASH_PREFIX + 'rasc0002')).toBeNull();
   });
 
+  it('sem banco, o guardado às pressas fica só o último (não enche o localStorage)', async () => {
+    const drafts = TestBed.inject(PixelDrafts);
+    await drafts.ready;
+    drafts.stash(draft('rasc0001', 10));
+    drafts.available.set(false);
+    drafts.stash(draft('rasc0002', 20));
+    expect(Object.keys(localStorage).filter((k) => k.startsWith(STASH_PREFIX))).toEqual([STASH_PREFIX + 'rasc0002']);
+  });
+
   it('com o navegador sendo limpo (saiu da conta), nada grava', async () => {
     const drafts = TestBed.inject(PixelDrafts);
     await drafts.ready;

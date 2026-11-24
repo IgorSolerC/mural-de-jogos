@@ -17,6 +17,7 @@ import { PixelLookArt } from './pixel-look-art';
 import { PixelField } from './pixel-studio/pixel-field';
 import type { DraftTarget, StudioResult } from './pixel-studio/pixel-studio';
 import { PixelDrafts } from '../core/pixel-drafts';
+import { UNDO_MS, discardDraft } from './pixel-studio/draft-ask';
 import { PixelGallery } from '../core/pixel-gallery-store';
 import { PixelPiece, artValues, valuesArt } from '../core/pixel-gallery';
 import { PixelPicker } from './pixel-picker';
@@ -322,7 +323,19 @@ export class WidgetSheet {
    */
   protected sheetClosed(): void {
     const id = this.pixelField()?.draftId();
-    if (id) this.toasts.show('O desenho ficou nos rascunhos da galeria de pixel arts.', { label: 'Descartar', run: () => void this.pixelDrafts.remove(id) });
+    if (id)
+      this.toasts.show(
+        'O desenho ficou nos rascunhos da galeria de pixel arts.',
+        {
+          label: 'Descartar',
+          run: () => {
+            const d = this.pixelDrafts.list().find((x) => x.id === id);
+            if (d) discardDraft(this.pixelDrafts, this.toasts, d);
+            else void this.pixelDrafts.remove(id);
+          },
+        },
+        UNDO_MS,
+      );
     this.closed.emit();
   }
 

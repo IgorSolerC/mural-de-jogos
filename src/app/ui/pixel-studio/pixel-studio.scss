@@ -150,6 +150,10 @@
   display: none;
 }
 
+.guardado {
+  display: none;
+}
+
 .barra-acoes {
   display: flex;
   align-items: center;
@@ -1392,6 +1396,25 @@ button.estado-item {
   .menu-geral {
     display: inline-flex;
     height: 40px;
+  }
+
+  /* a hora do rascunho guardado (no computador, ela está na barra de estado) */
+  .guardado {
+    display: block;
+    margin-left: auto;
+    overflow: hidden;
+    color: var(--ink-2);
+    font-family: var(--f-label);
+    font-weight: 600;
+    font-size: 0.8rem;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .guardado + .barra-acoes {
+    margin-left: 0;
   }
 
   .barra {

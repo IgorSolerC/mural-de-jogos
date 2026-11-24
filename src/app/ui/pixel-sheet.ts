@@ -379,6 +379,8 @@ export class PixelSheet {
     const editing = this.editing();
     if (!editing) return;
     const run = this.hooks.remove;
+    // o desenho que só estava na ficha fica nos rascunhos (o Desfazer do apagar traz a obra, e ele continua lá)
+    this.keepDraft = true;
     this.close();
     if (run) run();
     else {

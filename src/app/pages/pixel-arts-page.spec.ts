@@ -534,12 +534,18 @@ describe('a galeria de pixel arts', () => {
       await idle();
       const tile = host.querySelector('[data-rascunho="rgal0018"]')!;
       expect(tile.querySelector('.meta')!.textContent).toContain('Aberto no ateliê de outra aba');
-      expect(tile.querySelector<HTMLButtonElement>('.hit')!.disabled).toBeTrue();
+      // (o teclado chega nele, e o leitor de tela ouve por que não continua)
+      expect(tile.querySelector('.hit')!.getAttribute('aria-disabled')).toBe('true');
+      expect(tile.querySelector('.hit')!.textContent).toContain('Aberto no ateliê de outra aba');
+      tile.querySelector<HTMLButtonElement>('.hit')!.click();
+      await settle();
+      expect(fixture.componentInstance['studio']()).toBeNull();
       expect(tile.querySelector('.acoes')).toBeNull();
       void fixture.componentInstance['atelie']('pa');
       await idle();
       expect(TestBed.inject(Confirm).current()).toBeNull();
       expect(fixture.componentInstance['studio']()!.resume).toBeUndefined();
+      expect(TestBed.inject(Toasts).current()!.text).toBe('O rascunho desta arte está aberto no ateliê de outra aba: abri o salvo.');
       release();
     });
 
@@ -615,6 +621,20 @@ describe('a galeria de pixel arts', () => {
       expect(await drafts.get('rficha02')).toBeNull();
     });
 
+    it('apagar a obra pela ficha deixa nos rascunhos o desenho que só estava na ficha', async () => {
+      await mount();
+      host.querySelector<HTMLButtonElement>('[data-ficha="pa"] .hit')!.click();
+      await settle();
+      const field = fixture.debugElement.query((d) => d.name === 'app-pixel-field').componentInstance;
+      await drafts.put(draft('rficha05', '3/03'));
+      field['saved']({ values: draft('x', '3/03').values, layers: undefined, draft: 'rficha05' });
+      await settle();
+      fixture.debugElement.query((d) => d.name === 'app-pixel-sheet').componentInstance['removeEditing']();
+      await settle();
+      expect(gallery.get('pa')).toBeUndefined();
+      expect(await drafts.get('rficha05')).not.toBeNull();
+    });
+
     it('na ficha da obra, descartar a ficha tira o rascunho; a obra apagada noutro aparelho o deixa', async () => {
       await mount();
       host.querySelector<HTMLButtonElement>('[data-ficha="pa"] .hit')!.click();
@@ -648,6 +668,7 @@ describe('a galeria de pixel arts', () => {
       host.querySelector<HTMLButtonElement>('dialog.obra button[type="submit"]')!.click();
       await settle();
       expect(await drafts.get('rficha04')).not.toBeNull();
+      expect(TestBed.inject(Toasts).current()!.text).toContain('O desenho ficou nos rascunhos da galeria.');
     });
   });
 

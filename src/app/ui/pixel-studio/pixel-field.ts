@@ -3,7 +3,8 @@ import { DEFAULT_PALETTE, PALETTES, clampSide, gridOf, hasInk, inkCount, palette
 import { StoredLayer } from '../../core/pixel-layers';
 import { WidgetValues } from '../../core/widgets';
 import { ICON, IconModule } from '../icons';
-import { DraftTarget, PixelStudio, StudioResult, offerUndoDiscard } from './pixel-studio';
+import { DraftTarget, PixelStudio, StudioResult } from './pixel-studio';
+import { offerUndoDiscard } from './draft-ask';
 import { PixelDraft, PixelDrafts, draftKey } from '../../core/pixel-drafts';
 import { Toasts } from '../toast';
 import { Confirm } from '../confirm';

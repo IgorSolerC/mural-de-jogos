@@ -189,8 +189,10 @@ app-pixel-tile[data-marcada] {
 
 /* ===== Os rascunhos do ateliê (PLANO-RASCUNHOS-PIXEL.md): no alto da raiz, no tamanho da Grade ===== */
 .rascunhos {
-  /* o vão até as pastas e as obras é da seção, como o das pastas */
-  padding: 6px 0 40px;
+  /* fecha com o picote (o da barra da galeria, na tinta da parede): daqui para baixo, o que está salvo */
+  margin-bottom: 34px;
+  padding: 6px 0 30px;
+  border-bottom: 2px dashed rgb(189 181 168 / 0.3);
 }
 .rascunhos-topo {
   display: flex;

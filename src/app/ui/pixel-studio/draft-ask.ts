@@ -4,6 +4,7 @@ import { WidgetValues } from '../../core/widgets';
 import { Confirm } from '../confirm';
 import { ICON } from '../icons';
 import { Toasts } from '../toast';
+// (só o tipo: o ateliê é carregado pelo @defer de quem o abre, e um valor importado dele o traria junto)
 import type { DraftTarget } from './pixel-studio';
 
 /**
@@ -33,7 +34,11 @@ export async function askDraft(confirm: Confirm, drafts: PixelDrafts, toasts: To
   if (!drafts.list().some(match)) return null;
   await drafts.refresh();
   const d = drafts.list().find((x) => match(x) && !drafts.busy().has(x.id));
-  if (!d) return null;
+  if (!d) {
+    // o rascunho desta arte está aberto no ateliê de outra aba (D11): abre o salvo, e diz
+    if (drafts.list().some(match)) toasts.show('O rascunho desta arte está aberto no ateliê de outra aba: abri o salvo.');
+    return null;
+  }
   const c = await confirm.choose({
     title: 'Continuar o rascunho?',
     text: `${name} tem um rascunho guardado neste aparelho ${draftWhen(d.savedAt)}, com mudanças que não foram salvas. Abrindo o salvo, o rascunho continua guardado.`,
@@ -47,8 +52,29 @@ export async function askDraft(confirm: Confirm, drafts: PixelDrafts, toasts: To
   return null;
 }
 
+/**
+ * O aviso do Descartar (PLANO-RASCUNHOS-PIXEL.md, D5), com o Desfazer: o rascunho descartado volta ao banco e o
+ * ateliê abre de novo com ele (`reopen`, quem abriu o ateliê). Sem IndexedDB, o desenho volta da memória.
+ */
+export function offerUndoDiscard(toasts: Toasts, drafts: PixelDrafts, d: PixelDraft, reopen: (d: PixelDraft) => void): void {
+  toasts.show(
+    'Mudanças descartadas',
+    {
+      label: 'Desfazer',
+      run: () => {
+        void drafts.put({ ...d, savedAt: Date.now() });
+        reopen(d);
+      },
+    },
+    UNDO_MS,
+  );
+}
+
+/** Quanto o aviso com o Desfazer de um rascunho fica à mostra: mais que os outros, é a arte de alguém. */
+export const UNDO_MS = 10_000;
+
 /** Tira o rascunho, com o aviso e o Desfazer que o traz de volta. */
 export function discardDraft(drafts: PixelDrafts, toasts: Toasts, d: PixelDraft): void {
   void drafts.remove(d.id);
-  toasts.show('Rascunho descartado', { label: 'Desfazer', run: () => void drafts.put(d) });
+  toasts.show('Rascunho descartado', { label: 'Desfazer', run: () => void drafts.put(d) }, UNDO_MS);
 }
