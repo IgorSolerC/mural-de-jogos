@@ -33,6 +33,9 @@ import {
   sortPieces,
 } from '../core/pixel-gallery-view';
 import { downloadBlob, pieceToPng, pngName } from '../core/pixel-png';
+import { NO_SCALE, PixelScale, Rgba, asksScale, guessScale, imageArt, pixelSized, titleOfFile } from '../core/pixel-import';
+import { ImageReadError, imageFilesOf, readImagePixels } from '../ui/image-pixels';
+import { WallFileDrop } from './wall-file-drop';
 import { lookKey } from '../core/category-looks';
 import { TEXT_MAX, fold } from '../core/review';
 import { Settings } from '../core/settings';
@@ -71,6 +74,38 @@ import { Toasts } from '../ui/toast';
  */
 const TOO_BIG_FOR_NOTE = `, mas passa do tamanho de uma anotação (${TEXT_MAX.toLocaleString('pt-BR')} letras): para pôr numa anotação, baixe o PNG e cole a imagem.`;
 
+/** O que ficou de fora de uma soltada de imagens, por quê. */
+interface DropSkips {
+  /** Não eram imagens. */
+  others: number;
+  /** O navegador não abriu. */
+  broken: number;
+  /** Grandes demais para abrir (o arquivo ou o lado). */
+  big: number;
+  /** Todas transparentes (nenhum ponto para trazer). */
+  blank?: number;
+  /** A galeria encheu (de obras ou de peso). */
+  full?: number;
+}
+
+/**
+ * O aviso de uma soltada de imagens: quantas chegaram e onde ("“Mario” chegou em Bichos", "3 pixel arts chegaram à
+ * galeria") e, entre parênteses, o que ficou de fora.
+ */
+export function droppedText(made: readonly Pick<PixelPiece, 'title'>[], where: string | null, s: DropSkips): string {
+  const n = (k: number, one: string, many: string) => `${k} ${k === 1 ? one : many}`;
+  const out = [
+    s.others && n(s.others, 'não é imagem', 'não são imagens'),
+    s.broken && n(s.broken, 'não abriu', 'não abriram'),
+    s.big && n(s.big, 'é grande demais', 'são grandes demais'),
+    s.blank && n(s.blank, 'é toda transparente', 'são todas transparentes'),
+    s.full && `${n(s.full, 'não coube', 'não couberam')}: a galeria encheu`,
+  ].filter(Boolean);
+  const place = where ? `em ${where}` : 'à galeria';
+  const head = !made.length ? 'Nenhuma imagem virou pixel art' : made.length === 1 ? `“${pieceTitle(made[0])}” chegou ${place}` : `${made.length} pixel arts chegaram ${place}`;
+  return `${head}${out.length ? ` (${out.join(', ')})` : ''}.`;
+}
+
 /**
  * Pixel arts (PLANO-PIXEL-ARTS.md): a galeria de todas as pixel arts guardadas, em Extras. A Wishlist das Análises
  * é a base: a pasta de cima com a busca (no título, nas tags e na descrição), o Filtrar (a folha das Anotações,
@@ -102,6 +137,7 @@ export class PixelArtsPage {
   private readonly injector = inject(Injector);
 
   protected readonly AddIcon = ICON.pixelArt;
+  protected readonly ImageIcon = ICON.imagem;
   protected readonly ChevronIcon = ICON.abrir;
   protected readonly FilterIcon = ICON.filtrar;
   protected readonly MarkIcon = ICON.marcado;
@@ -482,6 +518,88 @@ export class PixelArtsPage {
     this.land(made[0].id);
   }
 
+  // ===== Trazer imagens do computador (PLANO-SOLTAR-IMAGENS.md): soltar na página, ou o seletor de arquivos =====
+
+  /** Lendo as imagens de uma soltada: outra espera esta acabar. */
+  protected readonly reading = signal(false);
+  private readonly filePicker = viewChild<ElementRef<HTMLInputElement>>('arquivos');
+  /** A pasta de quando o seletor de arquivos abriu (as escolhidas vão para ela). */
+  private pickFolder: string | null = null;
+
+  /** O seletor de arquivos do aparelho (o jeito sem arrastar: no celular, o único), para a pasta `folder`. */
+  protected pickFiles(folder: string | null = this.openFolder()): void {
+    this.pickFolder = folder;
+    this.filePicker()?.nativeElement.click();
+  }
+
+  protected picked(e: Event): void {
+    const input = e.target as HTMLInputElement;
+    const files = Array.from(input.files ?? []);
+    // (o mesmo arquivo escolhido de novo também avisa)
+    input.value = '';
+    if (files.length) void this.takeFiles(files, this.pickFolder);
+  }
+
+  /**
+   * As imagens soltas (ou escolhidas) viram obras na pasta `folder`: cada uma lida pixel por pixel, a pixel art
+   * ampliada de volta ao tamanho dela (a adivinhada), no teto de 256, com as cores dela e o nome do arquivo.
+   */
+  async takeFiles(list: FileList | readonly File[], folder: string | null): Promise<void> {
+    if (this.reading()) return;
+    const all = Array.from(list);
+    const files = imageFilesOf(all);
+    const skipped: DropSkips = { others: all.length - files.length, broken: 0, big: 0 };
+    if (!files.length) {
+      this.toasts.show(all.length === 1 ? 'Isso não é uma imagem: solte um PNG, GIF, JPG ou WebP.' : 'Nenhum desses arquivos é uma imagem: solte PNG, GIF, JPG ou WebP.');
+      return;
+    }
+    this.reading.set(true);
+    if (files.length > 3) this.toasts.show(`Lendo ${files.length} imagens…`);
+    const read: { title: string; img: Rgba; scale: PixelScale }[] = [];
+    try {
+      for (const f of files) {
+        try {
+          const img = await readImagePixels(f);
+          read.push({ title: titleOfFile(f.name), img, scale: (asksScale(img.w, img.h) && guessScale(img)) || NO_SCALE });
+        } catch (err) {
+          if (err instanceof ImageReadError && err.problem === 'grande') skipped.big++;
+          else skipped.broken++;
+        }
+      }
+    } finally {
+      this.reading.set(false);
+    }
+    // a pasta pode ter saído enquanto as imagens eram lidas (desfeita aqui, ou noutro aparelho): elas vão para a raiz
+    this.bringImages(read, folder && this.folderTree().live(folder) ? folder : null, skipped);
+  }
+
+  /** As lidas viram obras de uma vez (um passo do Desfazer); o aviso diz quantas, para onde e o que ficou de fora. */
+  private bringImages(list: readonly { title: string; img: Rgba; scale: PixelScale }[], folder: string | null, skipped: DropSkips): void {
+    const made: PixelPiece[] = [];
+    let blank = 0;
+    let full = 0;
+    for (const it of list) {
+      const art = imageArt(pixelSized(it.img, it.scale));
+      if (!art) {
+        blank++;
+        continue;
+      }
+      const p = this.gallery.create({ art, title: it.title, folder: folder ?? undefined });
+      if (p) made.push(p);
+      else full++;
+    }
+    const text = droppedText(made, folder ? this.folderName(folder) : null, { ...skipped, blank, full });
+    if (!made.length) {
+      this.toasts.show(text);
+      return;
+    }
+    // os filtros que esconderiam as que chegaram saem da frente; a parede vai até a pasta delas
+    if (made.some((p) => !pieceMatches(p, this.filter()))) this.filter.set(NO_PIXEL_FILTER);
+    if (!this.filtering() && folder !== this.openFolder()) this.enterFolder(folder, true, false);
+    this.undoToast(text, () => this.gallery.remove(made.map((p) => p.id)));
+    this.land(made[0].id);
+  }
+
   /** O desenho aberto direto no ateliê (o Ateliê da etiqueta), com o que mudou até agora. */
   protected readonly studio = signal<{ id: string; title: string; values: WidgetValues; layers: StoredLayer[] | undefined } | null>(null);
 
@@ -558,6 +676,20 @@ export class PixelArtsPage {
       },
     });
     this.destroyRef.onDestroy(() => drag.off());
+    // soltar imagens do computador: numa pasta, num pedaço do caminho, ou em qualquer lugar (a pasta aberta)
+    const files = new WallFileDrop({
+      host,
+      on: () => !this.reading() && !this.studio() && !document.querySelector('dialog[open]'),
+      wall: () => host.querySelector<HTMLElement>('.mostra, .grade, .vazio'),
+      scope: () => host.querySelector('.mostra, .grade, .vazio'),
+      openFolder: () => this.openFolder(),
+      folderName: (id) => this.folderTree().live(id)?.name ?? null,
+      rootName: 'a galeria',
+      label: (n, where) => `${n === 1 ? 'Trazer a imagem' : `Trazer ${n} imagens`} para ${where}`,
+      open: (id) => this.enterFolder(id),
+      drop: (list, folder) => void this.takeFiles(list, folder),
+    });
+    this.destroyRef.onDestroy(() => files.off());
     // a pasta aberta mora no endereço (o Voltar do navegador sobe)
     this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((q) => this.asked.set(q.get('pasta')));
     // a vista e a ordem ficam no aparelho (writeJson respeita a trava da limpeza do logout)
@@ -928,6 +1060,7 @@ export class PixelArtsPage {
             this.add(f.id);
           },
         },
+        { id: 'trazer-imagens', label: 'Trazer imagens do computador…', icon: ICON.imagem, dialog: true, run: () => this.pickFiles(f.id) },
         { id: 'nova-pasta', label: 'Nova pasta dentro', icon: ICON.novaPasta, run: () => this.newFolder(f.id) },
         { id: 'renomear', label: 'Renomear', icon: ICON.editar, run: () => this.naming.set(f.id) },
         { id: 'mover', label: 'Mover para…', icon: ICON.guardarNaPasta, dialog: true, run: () => this.moving.set({ kind: 'pasta', id: f.id, name: f.name, from: this.folderTree().parentOf(f.id) }) },
@@ -956,6 +1089,7 @@ export class PixelArtsPage {
         { id: 'nova-obra', label: 'Nova pixel art aqui', icon: ICON.adicionar, dialog: true, keys: 'N', ariaKeys: 'N', run: () => this.add() },
         { id: 'nova-pasta', label: 'Nova pasta aqui', icon: ICON.novaPasta, run: () => this.newFolder(this.openFolder()) },
       ],
+      [{ id: 'trazer-imagens', label: 'Trazer imagens do computador…', icon: ICON.imagem, dialog: true, run: () => this.pickFiles() }],
       ...(this.inNotes().length ? [[{ id: 'trazer', label: 'Trazer das anotações…', icon: ICON.anotacoes, dialog: true, count: this.newInNotes() ? { n: this.newInNotes(), say: `${this.newInNotes()} ainda fora da galeria` } : undefined, run: () => this.importing.set(true) }]] : []),
     ];
   }

@@ -210,12 +210,12 @@ describe('as pastas da galeria de pixel arts', () => {
   it('o menu da pasta e o do vão; Desfazer a pasta sobe o que tinha', async () => {
     await mount();
     await rightClick(() => host.querySelector('.grade')!);
-    expect(labels()).toEqual(['Nova pixel art aqui', 'Nova pasta aqui']);
+    expect(labels()).toEqual(['Nova pixel art aqui', 'Nova pasta aqui', 'Trazer imagens do computador…']);
     TestBed.inject(Toasts).dismiss();
     document.querySelectorAll<HTMLElement>('.menu-contexto').forEach((m) => m.hidePopover?.());
     await settle();
     await rightClick(() => host.querySelector(`app-folder-card[data-pasta="${bichos}"]`)!);
-    expect(labels()).toEqual(['Abrir', 'Marcar', 'Nova pixel art aqui', 'Nova pasta dentro', 'Renomear', 'Mover para…', 'Desfazer a pasta']);
+    expect(labels()).toEqual(['Abrir', 'Marcar', 'Nova pixel art aqui', 'Trazer imagens do computador…', 'Nova pasta dentro', 'Renomear', 'Mover para…', 'Desfazer a pasta']);
     option('Desfazer a pasta').click();
     await settle();
     const q = TestBed.inject(Confirm).current()!;

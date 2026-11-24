@@ -303,14 +303,14 @@ describe('a galeria de pixel arts', () => {
     const h = host.getBoundingClientRect();
     expect(ctx(document.body, h.left + 4, h.bottom + 4)).toBeTrue();
     await settle();
-    expect(labels()).toEqual(['Nova pixel art aqui', 'Nova pasta aqui']);
+    expect(labels()).toEqual(['Nova pixel art aqui', 'Nova pasta aqui', 'Trazer imagens do computador…']);
     panel().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   });
 
   it('o botão direito no vão da parede: uma obra nova', async () => {
     await mount();
     await rightClick(host.querySelector('.mostra')!);
-    expect(labels()).toEqual(['Nova pixel art aqui', 'Nova pasta aqui']);
+    expect(labels()).toEqual(['Nova pixel art aqui', 'Nova pasta aqui', 'Trazer imagens do computador…']);
     option('Nova pixel art aqui').click();
     await settle();
     expect(host.querySelector<HTMLDialogElement>('dialog.obra')!.open).toBeTrue();

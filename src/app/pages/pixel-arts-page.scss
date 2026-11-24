@@ -43,11 +43,13 @@ app-pixel-tile[data-alvo] {
   outline: 2.5px dashed var(--hi);
   outline-offset: 6px;
 }
-/* o vão da pasta aberta (soltar ali guarda nela): o mesmo tracejado, em volta da parede */
+/* o vão da pasta aberta (soltar ali guarda nela; as imagens do computador também, pages/wall-file-drop.ts): o
+   mesmo tracejado, em volta da parede ou do cartaz da galeria vazia */
 .mostra[data-alvo],
 .grade[data-alvo],
 .pastas[data-alvo],
-.no-results[data-alvo] {
+.no-results[data-alvo],
+.vazio[data-alvo] {
   outline: 2.5px dashed var(--hi);
   outline-offset: 10px;
   border-radius: 4px;

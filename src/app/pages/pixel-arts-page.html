@@ -167,11 +167,15 @@
     <section class="no-results cartolina pasta-vazia" aria-live="polite">
       <app-pin class="pin" color="#f4f4f0" />
       <h2>{{ folderPath().at(-1)?.name }} está vazia</h2>
-      <p>Nenhuma pixel art nesta pasta ainda. A que você desenhar aqui já nasce nela, e dá para arrastar uma até o nome dela no caminho.</p>
+      <p>Nenhuma pixel art nesta pasta ainda. A que você desenhar aqui já nasce nela; dá para arrastar uma até o nome dela no caminho, ou soltar aqui imagens do computador.</p>
       <div class="acoes-vazio">
         <button type="button" class="btn-ink" (click)="add()">
           <lucide-icon [img]="AddIcon" [size]="19" aria-hidden="true" />
           Nova pixel art
+        </button>
+        <button type="button" class="btn-quiet" (click)="pickFiles()">
+          <lucide-icon [img]="ImageIcon" [size]="18" aria-hidden="true" />
+          Trazer do computador
         </button>
       </div>
     </section>
@@ -227,11 +231,16 @@
       </svg>
     </span>
     <h2 id="pixel-vazio">Nenhuma pixel art na galeria</h2>
-    <p>Desenhe no ateliê, quadradinho por quadradinho, e guarde aqui com nome, tags e descrição. Dá para baixar cada uma em PNG ou colar numa anotação.</p>
+    <p>Desenhe no ateliê, quadradinho por quadradinho, ou solte aqui as pixel arts do seu computador. Cada uma fica com nome, tags e descrição, e dá para baixar em PNG ou colar numa anotação.</p>
     <div class="acoes-convite">
       <button type="button" class="btn-ink" (click)="add()" aria-keyshortcuts="n">
         <lucide-icon [img]="AddIcon" [size]="19" aria-hidden="true" />
         Nova pixel art
+      </button>
+      <!-- as imagens do computador (o jeito sem arrastar) -->
+      <button type="button" class="btn-quiet" (click)="pickFiles()">
+        <lucide-icon [img]="ImageIcon" [size]="18" aria-hidden="true" />
+        Trazer do computador
       </button>
       <!-- as que já moram como widget nas anotações: trazer de lá, sem desenhar de novo -->
       @if (newInNotes(); as n) {
@@ -242,6 +251,9 @@
     </div>
   </section>
 }
+
+<!-- trazer imagens do computador: o seletor de arquivos (as soltas chegam pelo soltar, pages/wall-file-drop.ts) -->
+<input #arquivos type="file" accept="image/*" multiple hidden (change)="picked($event)" />
 
 <!-- trazer as pixel arts das anotações -->
 @if (importing()) {

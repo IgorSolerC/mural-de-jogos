@@ -1,0 +1,200 @@
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideZonelessChangeDetection } from '@angular/core';
+import { Router, provideRouter } from '@angular/router';
+import { inkOf } from '../core/pixel-art';
+import { PixelFolders } from '../core/pixel-folders';
+import { PixelPiece, pixelArtOf } from '../core/pixel-gallery';
+import { PixelGallery } from '../core/pixel-gallery-store';
+import { PIXEL_PREFS_KEY } from '../core/pixel-gallery-view';
+import { Toasts } from '../ui/toast';
+import { PixelArtsPage, droppedText } from './pixel-arts-page';
+
+/** Soltar imagens do computador na galeria (PLANO-SOLTAR-IMAGENS.md, rodada 3). */
+
+const at = (h: number) => new Date(Date.UTC(2026, 10, 24, h)).toISOString();
+const piece = (id: string, title: string, extra: Partial<PixelPiece> = {}): PixelPiece => ({ id, title, art: ['2x2', '12/21'], createdAt: at(1), at: at(1), ...extra });
+
+const COLORS: Record<string, string> = { k: '#14121e', r: '#e43b44', y: '#fee761' };
+const HEART = ['.kk.kk.', 'krrkrrk', 'krryrrk', 'krrrrrk', '.krrrk.', '..krk..', '...k...'];
+
+/** Um PNG de verdade: cada caractere um ponto de `k` × `k` pixels (o "." é o transparente). */
+function png(rows: string[], name: string, k = 1): Promise<File> {
+  const c = document.createElement('canvas');
+  c.width = rows[0].length * k;
+  c.height = rows.length * k;
+  const g = c.getContext('2d')!;
+  rows.forEach((r, y) =>
+    [...r].forEach((ch, x) => {
+      if (ch === '.') return;
+      g.fillStyle = COLORS[ch];
+      g.fillRect(x * k, y * k, k, k);
+    }),
+  );
+  return new Promise((res) => c.toBlob((b) => res(new File([b!], name, { type: 'image/png' })), 'image/png'));
+}
+
+describe('soltar imagens do computador na galeria de pixel arts', () => {
+  let host: HTMLElement;
+  let gallery: PixelGallery;
+  let fixture: ComponentFixture<PixelArtsPage>;
+  let bichos: string;
+
+  async function settle(): Promise<void> {
+    for (let i = 0; i < 4; i++) {
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
+      TestBed.tick();
+    }
+  }
+  async function mount(): Promise<void> {
+    fixture = TestBed.createComponent(PixelArtsPage);
+    host = fixture.nativeElement;
+    document.body.appendChild(host);
+    await settle();
+  }
+  /** O arrastar do navegador com os arquivos, até o ponto do elemento. */
+  function drag(type: 'dragenter' | 'dragover' | 'drop', el: Element, files: File[]): DragEvent {
+    const data = new DataTransfer();
+    for (const f of files) data.items.add(f);
+    const r = el.getBoundingClientRect();
+    const e = new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: data, clientX: r.left + r.width / 2, clientY: r.top + Math.min(r.height / 2, 40) });
+    el.dispatchEvent(e);
+    return e;
+  }
+  /** Espera as imagens serem lidas (o createImageBitmap é de verdade). */
+  async function until(ok: () => boolean): Promise<void> {
+    for (let i = 0; i < 60 && !ok(); i++) await settle();
+  }
+  const toast = () => TestBed.inject(Toasts).current();
+
+  beforeEach(() => {
+    localStorage.clear();
+    localStorage.setItem(PIXEL_PREFS_KEY, JSON.stringify({ vista: 'grade' }));
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), provideRouter([])] });
+    gallery = TestBed.inject(PixelGallery);
+    gallery.state.set({ pieces: [piece('pa', 'Gato')], removed: {} });
+    bichos = TestBed.inject(PixelFolders).create(null, 'Bichos')!.id;
+  });
+
+  afterEach(async () => {
+    host?.remove();
+    TestBed.inject(Toasts).dismiss();
+    await TestBed.inject(Router).navigate([], { queryParams: {} });
+    localStorage.clear();
+  });
+
+  it('o aviso diz quantas chegaram, onde, e o que ficou de fora', () => {
+    expect(droppedText([{ title: 'Mario' }], null, { others: 0, broken: 0, big: 0 })).toBe('“Mario” chegou à galeria.');
+    expect(droppedText([{ title: '' }, { title: 'b' }], 'Bichos', { others: 1, broken: 0, big: 2, blank: 0, full: 0 })).toBe('2 pixel arts chegaram em Bichos (1 não é imagem, 2 são grandes demais).');
+    expect(droppedText([], null, { others: 0, broken: 1, big: 0, blank: 1, full: 3 })).toBe('Nenhuma imagem virou pixel art (1 não abriu, 1 é toda transparente, 3 não couberam: a galeria encheu).');
+  });
+
+  it('arrastando imagens por cima, a parede acende e a etiqueta diz para onde vão; soltar traz com o nome do arquivo e as cores dela', async () => {
+    await mount();
+    const wall = host.querySelector('.grade')!;
+    const file = await png(HEART, 'Coração vermelho.png');
+    expect(drag('dragover', wall, [file]).defaultPrevented).toBeTrue();
+    expect(wall.hasAttribute('data-alvo')).toBeTrue();
+    expect(host.querySelector('.arrasto-dica')!.textContent).toBe('Trazer a imagem para a galeria');
+    drag('drop', wall, [file]);
+    expect(wall.hasAttribute('data-alvo')).toBeFalse();
+    expect(host.querySelector('.arrasto-dica')).toBeNull();
+    await until(() => gallery.count() === 2);
+    const made = gallery.pieces().find((p) => p.title === 'Coração vermelho')!;
+    const art = pixelArtOf(made);
+    expect([art.w, art.h, art.palette]).toEqual([7, 7, 'propria']);
+    expect(inkOf(art.palette, art.colors).slice(1, 4)).toEqual(['#14121e', '#e43b44', '#fee761']);
+    expect(made.folder).toBeUndefined();
+    expect(toast()?.text).toBe('“Coração vermelho” chegou à galeria.');
+    // o Desfazer tira o que chegou
+    toast()!.action!.run();
+    await settle();
+    expect(gallery.count()).toBe(1);
+  });
+
+  it('soltar numa pasta guarda nela, e a parede vai até ela', async () => {
+    await mount();
+    const card = host.querySelector(`app-folder-card[data-pasta="${bichos}"]`)!;
+    const files = [await png(HEART, 'um.png'), await png(['rr', 'ry'], 'dois.png')];
+    drag('dragover', card, files);
+    expect(card.hasAttribute('data-alvo')).toBeTrue();
+    expect(host.querySelector('.arrasto-dica')!.textContent).toBe('Trazer 2 imagens para Bichos');
+    drag('drop', card, files);
+    await until(() => gallery.count() === 3);
+    expect(gallery.pieces().filter((p) => p.folder === bichos).map((p) => p.title).sort()).toEqual(['dois', 'um']);
+    await settle();
+    expect(toast()?.text).toBe('2 pixel arts chegaram em Bichos.');
+    expect(host.querySelector('app-folder-path')?.textContent).toContain('Bichos');
+  });
+
+  it('a pixel art ampliada (maior que 64) volta ao tamanho de verdade', async () => {
+    await mount();
+    const file = await png(HEART, 'grande.png', 12);
+    drag('drop', host.querySelector('.grade')!, [file]);
+    await until(() => gallery.count() === 2);
+    const art = pixelArtOf(gallery.pieces().find((p) => p.title === 'grande')!);
+    expect([art.w, art.h]).toEqual([7, 7]);
+  });
+
+  it('com uma folha aberta por cima, soltar não traz nada, e o navegador não abre o arquivo no lugar do site', async () => {
+    await mount();
+    const dialog = document.createElement('dialog');
+    document.body.append(dialog);
+    dialog.show();
+    const wall = host.querySelector('.grade')!;
+    const file = await png(HEART, 'nao.png');
+    expect(drag('dragover', wall, [file]).defaultPrevented).toBeTrue();
+    expect(wall.hasAttribute('data-alvo')).toBeFalse();
+    expect(drag('drop', wall, [file]).defaultPrevented).toBeTrue();
+    await settle();
+    dialog.remove();
+    expect(gallery.count()).toBe(1);
+  });
+
+  it('a pasta que saiu enquanto as imagens eram lidas: elas vão para a raiz (nunca para uma pasta que não existe)', async () => {
+    await mount();
+    const card = host.querySelector(`app-folder-card[data-pasta="${bichos}"]`)!;
+    drag('drop', card, [await png(HEART, 'orfa.png')]);
+    TestBed.inject(PixelFolders).dissolve(bichos);
+    await until(() => gallery.count() === 2);
+    expect(gallery.pieces().find((p) => p.title === 'orfa')!.folder).toBeUndefined();
+  });
+
+  it('o que não é imagem fica de fora, com o aviso', async () => {
+    await mount();
+    drag('drop', host.querySelector('.grade')!, [new File(['oi'], 'nota.txt', { type: 'text/plain' })]);
+    await settle();
+    expect(gallery.count()).toBe(1);
+    expect(toast()?.text).toContain('não é uma imagem');
+  });
+
+  it('o texto arrastado (não arquivo) não acende nada', async () => {
+    await mount();
+    const wall = host.querySelector('.grade')!;
+    const data = new DataTransfer();
+    data.setData('text/plain', 'oi');
+    const r = wall.getBoundingClientRect();
+    const e = new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: data, clientX: r.left + 10, clientY: r.top + 10 });
+    wall.dispatchEvent(e);
+    expect(e.defaultPrevented).toBeFalse();
+    expect(wall.hasAttribute('data-alvo')).toBeFalse();
+  });
+
+  it('sem arrastar: o seletor de arquivos traz para a pasta aberta (o menu do vão e o cartaz vazio o abrem)', async () => {
+    gallery.state.set({ pieces: [], removed: {} });
+    TestBed.inject(PixelFolders).dissolve(bichos);
+    await mount();
+    const input = host.querySelector<HTMLInputElement>('input[type="file"]')!;
+    const clicked = spyOn(input, 'click');
+    const button = [...host.querySelectorAll<HTMLButtonElement>('.vazio button')].find((b) => b.textContent!.includes('Trazer do computador'))!;
+    button.click();
+    expect(clicked).toHaveBeenCalled();
+    const data = new DataTransfer();
+    data.items.add(await png(HEART, 'escolhida.png'));
+    input.files = data.files;
+    input.dispatchEvent(new Event('change'));
+    await until(() => gallery.count() === 1);
+    expect(gallery.pieces()[0].title).toBe('escolhida');
+    expect(input.value).toBe('');
+  });
+});
