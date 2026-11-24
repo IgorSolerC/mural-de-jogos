@@ -24,6 +24,7 @@
 
 .palavra {
   font-family: var(--dic-letra);
+  color: var(--ink);
   font-size: 2rem;
   line-height: 1.2;
   overflow-wrap: anywhere;
@@ -35,6 +36,42 @@
     font-size: 0.4em;
     letter-spacing: 0.06em;
     color: rgb(21 21 21 / 0.7);
+  }
+}
+
+/* a palavra que abre a lousa: sem cara de botão; sob o mouse, a pincelada vermelha da lousa embaixo dela */
+.palavra.lousa {
+  position: relative;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: zoom-in;
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 6%;
+    right: 6%;
+    bottom: -1px;
+    height: 4px;
+    border-radius: 50% 40% 55% 45%;
+    background: var(--shu);
+    opacity: 0;
+    scale: 0.4 1;
+    transition:
+      opacity var(--t-ui) var(--ease-ui),
+      scale var(--t-physical) var(--ease-physical);
+  }
+  &:hover::after,
+  &:focus-visible::after {
+    opacity: 0.8;
+    scale: 1 1;
+  }
+  &:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 3px;
+    border-radius: 3px;
   }
 }
 

@@ -140,7 +140,7 @@
               <app-word-seals [small]="true" [word]="w.text" [learned]="learned(w)" [favorite]="favorite(w)" [learnedSaid]="learnedSaid(w)" (learnedChange)="setLearned(w, $event)" (favoriteChange)="setFavorite(w, $event)" />
             </td>
             <th scope="row" class="c-palavra">
-              <span class="t-palavra" lang="ja">{{ w.text }}</span>
+              <button type="button" class="t-palavra" lang="ja" [attr.aria-label]="'Ver ' + w.text + ' grande e aprender a escrever'" title="Ver grande e aprender a escrever" (click)="openBoard(w)">{{ w.text }}</button>
               @if (w.text !== w.reading) {
                 <span class="t-leitura" lang="ja">{{ w.reading }}</span>
               }
@@ -173,10 +173,17 @@
         }
         <ol class="folha" role="list">
           @for (w of s.words; track w.id) {
-            <li class="verbete" app-word-entry [word]="w"></li>
+            <li class="verbete" app-word-entry [word]="w" [drawable]="true" (draw)="openBoard($event)"></li>
           }
         </ol>
       </section>
     }
   </div>
+}
+
+<!-- a lousa da palavra aberta (num pedaço à parte, com os traços e a letra de pincel só quando abre) -->
+@if (boardWord(); as b) {
+  @defer (on immediate) {
+    <app-word-board [word]="b.word" [hasPrev]="b.index > 0" [hasNext]="b.index >= 0 && b.index < shown().length - 1" (step)="stepBoard($event)" (closed)="closeBoard()" />
+  }
 }

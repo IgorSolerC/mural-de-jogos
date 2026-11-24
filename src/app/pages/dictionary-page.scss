@@ -162,9 +162,24 @@ thead .c-palavra {
 }
 .t-palavra {
   display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
   font-family: var(--dic-letra);
   font-size: 1.3rem;
   line-height: 1.2;
+  text-align: left;
+  cursor: zoom-in;
+
+  &:hover {
+    text-decoration: underline 2px #b42a20;
+    text-underline-offset: 4px;
+  }
+  &:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
 }
 .t-leitura {
   display: block;

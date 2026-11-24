@@ -67,7 +67,8 @@
               "node_modules/@fontsource/caveat/latin-700.css",
               "node_modules/@fontsource-variable/fraunces/wght.css",
               "src/styles.scss",
-              { "input": "src/klee-one.scss", "bundleName": "klee-one", "inject": false }
+              { "input": "src/klee-one.scss", "bundleName": "klee-one", "inject": false },
+              { "input": "src/yuji-syuku.scss", "bundleName": "yuji-syuku", "inject": false }
             ]
           },
           "configurations": {

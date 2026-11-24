@@ -1,0 +1,562 @@
+@use 'paper-kit' as kit;
+
+/* A lousa do Dicionário Japonês (ui/word-board.ts): papel de arroz, a palavra no pincel, o quadrado 田字格 e a tabela
+   de passos. O vermelho é o do carimbo (o 判子) do dicionário. */
+
+:host {
+  --shu: #b42a20;
+  --shu-claro: rgb(180 42 32 / 0.34);
+  --arroz: #f6f0e1;
+  --pincel: 'Yuji Syuku', 'Klee One', 'Yu Mincho', serif;
+  --lapis: 'Klee One', var(--f-carta-palavra);
+}
+
+.lousa {
+  max-width: min(1000px, calc(100vw - 24px));
+}
+
+.papel {
+  @include kit.folha;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  /* o foco começa aqui (para o Espaço tocar): o papel não ganha anel */
+  &:focus {
+    outline: none;
+  }
+  /* o papel de arroz: o creme com a fibra comprida (a do logo do dicionário) */
+  background:
+    repeating-linear-gradient(97deg, rgb(120 100 70 / 0.045) 0 1px, transparent 1px 7px),
+    var(--paper-grain),
+    var(--arroz);
+  background-blend-mode: multiply;
+}
+
+/* ===== O alto: andar pela lista e fechar ===== */
+
+.cab {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 12px 0;
+}
+.andar {
+  display: flex;
+  gap: 4px;
+}
+.redondo {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover:not(:disabled) {
+    background: rgb(21 21 21 / 0.08);
+  }
+  &:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+  &:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: -2px;
+  }
+}
+
+/* ===== A palavra no pincel ===== */
+
+.palavra-grande {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 0 20px 18px;
+  text-align: center;
+}
+.pinceladas {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px 6px;
+}
+.caractere {
+  position: relative;
+  padding: 0 6px 10px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-family: var(--pincel);
+  font-size: clamp(3.4rem, 9vw, 6.2rem);
+  line-height: 1.05;
+  cursor: pointer;
+  transition:
+    color var(--t-ui) var(--ease-ui),
+    translate var(--t-physical) var(--ease-physical);
+
+  /* o escolhido ganha a pincelada vermelha embaixo */
+  &::after {
+    content: '';
+    position: absolute;
+    left: 18%;
+    right: 18%;
+    bottom: 2px;
+    height: 6px;
+    border-radius: 50% 40% 55% 45%;
+    background: var(--shu);
+    opacity: 0;
+    scale: 0.4 1;
+    transition:
+      opacity var(--t-ui) var(--ease-ui),
+      scale var(--t-physical) var(--ease-physical);
+  }
+  &.escolhido::after {
+    opacity: 0.85;
+    scale: 1 1;
+  }
+  &:hover:not(:disabled):not(.escolhido) {
+    translate: 0 -2px;
+  }
+  &:disabled {
+    color: rgb(21 21 21 / 0.3);
+    cursor: default;
+  }
+  &:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+.leitura {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin: 0;
+
+  span[lang='ja'] {
+    font-family: var(--lapis);
+    font-size: 1.3rem;
+  }
+  .romaji {
+    font-family: var(--f-label);
+    font-weight: 600;
+    font-size: 1.05rem;
+    letter-spacing: 0.03em;
+    color: rgb(21 21 21 / 0.72);
+  }
+  .sentido {
+    font-family: var(--f-hand);
+    font-size: 1.2rem;
+  }
+}
+
+/* os seletores de papel: o recorte tracejado, e o escolhido é o adesivo de tinta (o seletor do editor) */
+%recorte {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 2px;
+  outline: 1.5px dashed rgb(21 21 21 / 0.42);
+  outline-offset: -1.5px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.84rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    rotate var(--t-physical) var(--ease-physical),
+    scale var(--t-physical) var(--ease-physical);
+
+  &:hover:not([aria-pressed='true']) {
+    background: rgb(21 21 21 / 0.06);
+    outline-color: rgb(21 21 21 / 0.72);
+  }
+  &[aria-pressed='true'] {
+    outline-color: transparent;
+    background: var(--ink);
+    color: var(--paper);
+    rotate: -1.5deg;
+    scale: 1.02;
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.35),
+      0 4px 8px -3px rgb(0 0 0 / 0.35);
+  }
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    &[aria-pressed='true'] {
+      rotate: 0deg;
+      scale: 1;
+    }
+  }
+}
+
+.escrita {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+
+  button {
+    @extend %recorte;
+  }
+  span {
+    margin-left: 4px;
+    font-family: var(--lapis);
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+}
+
+/* ===== A mesa: o quadrado e a tabela de passos ===== */
+
+.mesa {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 22px;
+  padding: 18px 22px 8px;
+  border-top: 1px dashed rgb(21 21 21 / 0.22);
+}
+@media (min-width: 840px) {
+  .mesa {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+    align-items: start;
+  }
+}
+
+.quadro-col {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+}
+
+.jeitos {
+  display: flex;
+  gap: 8px;
+
+  .jeito {
+    @extend %recorte;
+  }
+}
+
+.quadrado {
+  position: relative;
+  width: min(440px, 100%, calc(100dvh - 330px));
+  min-width: 220px;
+  aspect-ratio: 1;
+  container-type: inline-size;
+  border-radius: 3px;
+  background: #fbf8ef;
+  box-shadow:
+    inset 0 0 0 1px rgb(21 21 21 / 0.08),
+    0 1px 2px rgb(0 0 0 / 0.12);
+}
+.grade,
+.tracos,
+.tela {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.grade {
+  rect {
+    fill: none;
+    stroke: var(--shu);
+    stroke-width: 1.4;
+    opacity: 0.75;
+  }
+  .cruz {
+    stroke: var(--shu-claro);
+    stroke-width: 0.6;
+    stroke-dasharray: 2.4 2;
+  }
+}
+
+/* o Pincel: o caractere enorme, no meio do quadrado */
+.no-pincel {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--pincel);
+  font-size: 78cqi;
+  line-height: 1;
+  color: var(--ink);
+  translate: 0 2%;
+}
+
+/* a Ordem: o modelo apagado, os traços feitos em tinta e o que está sendo feito em vermelho */
+.tracos path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.fantasma {
+  stroke: rgb(21 21 21 / 0.09);
+  stroke-width: 5;
+}
+.feito {
+  stroke: var(--ink);
+  stroke-width: 5;
+  transition: stroke 400ms var(--ease-ui);
+}
+/* o que acabou de ser feito passo a passo fica vermelho, como na tabela */
+.feito.ultimo {
+  stroke: var(--shu);
+}
+.tracando {
+  stroke: var(--shu);
+  stroke-width: 5.4;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+}
+.numero {
+  fill: var(--shu);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 6.4px;
+  paint-order: stroke;
+  stroke: #fbf8ef;
+  stroke-width: 1.8px;
+}
+
+/* o Treinar: o modelo bem apagado, a guia do próximo traço tracejada e a tela por cima */
+.modelo {
+  stroke: rgb(21 21 21 / 0.12);
+  stroke-width: 6;
+}
+.guia {
+  stroke: var(--shu);
+  stroke-width: 1.6;
+  stroke-dasharray: 3 2.4;
+  opacity: 0.85;
+}
+.guia-ponto {
+  fill: var(--shu);
+}
+.guia-n {
+  fill: var(--shu);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 6px;
+}
+.tela {
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.aviso {
+  position: absolute;
+  inset: auto 12px 12px;
+  margin: 0;
+  font-family: var(--f-hand);
+  font-size: 1.05rem;
+  text-align: center;
+  color: rgb(21 21 21 / 0.72);
+}
+
+.controles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 8px;
+}
+/* tocar: o botão de tinta redondo (o mesmo peso do Pronto) */
+.tocar {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--hi);
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 0.3);
+  transition: scale var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    scale: 1.06;
+  }
+  &:focus-visible {
+    outline: 3px solid var(--shu);
+    outline-offset: 3px;
+  }
+}
+.contador {
+  min-width: 4.5em;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.velocidade {
+  display: flex;
+  gap: 6px;
+  margin-left: 6px;
+
+  button {
+    @extend %recorte;
+    min-height: 32px;
+    padding: 0 10px;
+    font-size: 0.76rem;
+  }
+}
+.papelzinho {
+  @extend %recorte;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+}
+.modelo-sw {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.84rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+
+  input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--ink);
+  }
+}
+
+/* ===== A tabela de passos (筆順) ===== */
+
+.passos h3 {
+  margin: 0 0 10px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.84rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+
+  span {
+    margin-left: 6px;
+    font-family: var(--lapis);
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    color: var(--shu);
+  }
+}
+.passos-lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.passo {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: #fbf8ef;
+  box-shadow: inset 0 0 0 1px rgb(180 42 32 / 0.4);
+  cursor: pointer;
+  transition: box-shadow var(--t-ui) var(--ease-ui);
+
+  svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  path {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 6;
+  }
+  .cruz {
+    stroke: rgb(180 42 32 / 0.22);
+    stroke-width: 1.2;
+    stroke-dasharray: 4 4;
+  }
+  .antes {
+    stroke: var(--ink);
+  }
+  .novo {
+    stroke: var(--shu);
+  }
+  &:hover,
+  &.aqui {
+    box-shadow:
+      inset 0 0 0 2px var(--shu),
+      0 2px 4px rgb(0 0 0 / 0.15);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+}
+.passo-n {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.66rem;
+  color: rgb(21 21 21 / 0.62);
+}
+
+.credito {
+  padding: 10px 22px 14px;
+  font-family: var(--f-ui);
+  font-size: 0.78rem;
+  color: rgb(21 21 21 / 0.66);
+
+  a {
+    color: inherit;
+    text-underline-offset: 2px;
+  }
+}
+
+@media (max-width: 520px) {
+  .mesa {
+    padding-inline: 14px;
+  }
+  .velocidade {
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .caractere,
+  .caractere::after,
+  .feito {
+    transition: none;
+  }
+}

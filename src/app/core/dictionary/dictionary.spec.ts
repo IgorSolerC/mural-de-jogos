@@ -190,9 +190,9 @@ JP1,犬,いぬ,cachorro,${dia}
   });
 
   it('guarda tudo no endereço, só o que não é o padrão', () => {
-    const s: DictState = { query: 'kuru', filter: { jlpt: ['N5', 'N4'], register: ['anime/mangá'] }, sort: 'reading', dir: 'desc', view: 'tabela' };
+    const s: DictState = { query: 'kuru', filter: { jlpt: ['N5', 'N4'], register: ['anime/mangá'] }, sort: 'reading', dir: 'desc', view: 'tabela', word: 'JP0242' };
     const p = paramsOf(s);
-    expect(p).toEqual(jasmine.objectContaining({ q: 'kuru', ordem: 'leitura', dir: 'desc', vista: 'tabela', jlpt: 'N5,N4', registro: 'anime/mangá', tema: null }));
+    expect(p).toEqual(jasmine.objectContaining({ q: 'kuru', ordem: 'leitura', dir: 'desc', vista: 'tabela', palavra: 'JP0242', jlpt: 'N5,N4', registro: 'anime/mangá', tema: null }));
     const back = stateFromParams(Object.fromEntries(Object.entries(p).filter(([, v]) => v !== null)) as Record<string, string>);
     expect(back).toEqual(s);
     expect(stateFromParams({ ordem: 'nada', dir: 'x', vista: 'y' })).toEqual(DEFAULT_STATE);

@@ -27,6 +27,18 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-23-lousa',
+    version: '1.53.0',
+    kind: 'funcionalidade',
+    date: '2026-11-23',
+    title: 'A lousa do Dicionário Japonês',
+    items: [
+      'Tocando na palavra de um verbete do Dicionário Japonês, ela abre na lousa: a palavra enorme na letra de pincel e, no quadrado de caligrafia (田字格), três jeitos de aprender a escrever cada caractere, kanji ou kana: Pincel (o caractere grande), Ordem (os traços aparecendo um a um, numerados, com tocar, pausar, passo a passo e velocidade) e Treinar (você traça por cima do modelo, com o próximo traço como guia). Ao lado, a tabela com a ordem dos traços (筆順), e as setas andam pelas palavras da lista.',
+    ],
+    notice: 'Novo: toque numa palavra do Dicionário Japonês para aprender a escrevê-la.',
+    until: '2026-12-07',
+  },
+  {
     id: '2026-11-23-dicionario-na-leitura',
     version: '1.52.1',
     kind: 'ajustes',

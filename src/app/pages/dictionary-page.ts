@@ -37,6 +37,7 @@ import { SearchHighlight } from '../ui/search-highlight';
 import { SearchStrip } from '../ui/search-strip';
 import { SectionHead } from '../ui/section-head';
 import { Toasts } from '../ui/toast';
+import { WordBoard } from '../ui/word-board';
 import { WordEntry, daySaid } from '../ui/word-entry';
 import { markFavorite, markLearned } from '../ui/word-marking';
 import { WordSeals } from '../ui/word-seals';
@@ -78,7 +79,7 @@ const COLUMNS: readonly Column[] = [
  */
 @Component({
   selector: 'app-dictionary-page',
-  imports: [FacetFilters, FilterTags, IconModule, Pin, SearchHighlight, SearchStrip, SectionHead, WordEntry, WordSeals],
+  imports: [FacetFilters, FilterTags, IconModule, Pin, SearchHighlight, SearchStrip, SectionHead, WordBoard, WordEntry, WordSeals],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './dictionary-page.html',
   styleUrl: './dictionary-page.scss',
@@ -198,11 +199,12 @@ export class DictionaryPage {
 
   /* ===== Mudar o endereço (a única coisa que a página escreve) ===== */
 
-  private go(next: Partial<DictState>): void {
+  /** `push`: uma entrada nova no histórico (abrir a lousa: o voltar do celular fecha ela). */
+  private go(next: Partial<DictState>, push = false): void {
     const s = { ...this.state(), query: this.query(), ...next };
     this.query.set(s.query);
     this.sentQuery = s.query;
-    void this.router.navigate([], { relativeTo: this.route, queryParams: paramsOf(s), replaceUrl: true });
+    void this.router.navigate([], { relativeTo: this.route, queryParams: paramsOf(s), replaceUrl: !push });
   }
 
   protected setQuery(query: string): void {
@@ -233,6 +235,30 @@ export class DictionaryPage {
 
   protected toggle(key: FacetKey, value: string): void {
     this.go({ filter: toggleFacet(this.state().filter, key, value) });
+  }
+
+  /* ===== A lousa ===== */
+
+  /** A palavra aberta na lousa e o lugar dela na lista (as setas andam pela lista que a página mostra). */
+  protected readonly boardWord = computed(() => {
+    const id = this.state().word;
+    if (!id) return null;
+    const word = this.all.find((w) => w.id === id);
+    return word ? { word, index: this.shown().findIndex((w) => w.id === id) } : null;
+  });
+
+  protected openBoard(w: Word): void {
+    this.go({ word: w.id }, !this.state().word);
+  }
+
+  protected closeBoard(): void {
+    if (this.state().word) this.go({ word: null });
+  }
+
+  protected stepBoard(delta: -1 | 1): void {
+    const b = this.boardWord();
+    const next = b && b.index >= 0 ? this.shown()[b.index + delta] : undefined;
+    if (next) this.go({ word: next.id });
   }
 
   protected toggleFavorites(): void {

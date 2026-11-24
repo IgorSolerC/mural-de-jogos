@@ -116,6 +116,25 @@ describe('o Dicionário Japonês', () => {
     localStorage.removeItem(DICT_MARKS_KEY);
   });
 
+  it('tocar na palavra abre a lousa, que mora no endereço; as setas andam pela lista e fechar tira do endereço', async () => {
+    await open('/extras/dicionario?q=kuru');
+    host.querySelector<HTMLButtonElement>('.verbete .palavra.lousa')!.click();
+    await settle();
+    expect(query()['palavra']).toBe('JP0242');
+    for (let i = 0; i < 20 && !host.querySelector('app-word-board dialog'); i++) await settle();
+    const dialog = host.querySelector<HTMLDialogElement>('app-word-board dialog')!;
+    expect(dialog.open).toBeTrue();
+    // a próxima da lista que a busca mostra
+    host.querySelector<HTMLButtonElement>('app-word-board [aria-label="Próxima palavra"]')!.click();
+    await settle();
+    expect(query()['palavra']).not.toBe('JP0242');
+    dialog.close();
+    // o "close" do diálogo chega numa tarefa depois
+    await new Promise((r) => setTimeout(r, 0));
+    await settle();
+    expect(query()['palavra']).toBeUndefined();
+  });
+
   it('ordena pela leitura em linhas do silabário, e a seta inverte', async () => {
     await open('/extras/dicionario?ordem=leitura');
     expect(heads()[0]).toBe('あ行');

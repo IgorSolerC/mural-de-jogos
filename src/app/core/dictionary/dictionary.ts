@@ -533,9 +533,11 @@ export interface DictState {
   sort: SortKey | null;
   dir: Direction;
   view: 'verbetes' | 'tabela';
+  /** A palavra aberta na lousa (o id), ou null. */
+  word: string | null;
 }
 
-export const DEFAULT_STATE: DictState = { query: '', filter: {}, sort: null, dir: 'asc', view: 'verbetes' };
+export const DEFAULT_STATE: DictState = { query: '', filter: {}, sort: null, dir: 'asc', view: 'verbetes', word: null };
 
 /** A ordem que vale: a escolhida, ou a padrão (Relevância enquanto busca, Prioridade sem busca). */
 export function effectiveSort(s: DictState): SortKey {
@@ -558,6 +560,7 @@ export function stateFromParams(p: Record<string, string | undefined>): DictStat
     sort,
     dir: p['dir'] === 'desc' ? 'desc' : 'asc',
     view: p['vista'] === 'tabela' ? 'tabela' : 'verbetes',
+    word: p['palavra'] && /^[\w-]{1,64}$/.test(p['palavra']) ? p['palavra'] : null,
   };
 }
 
@@ -568,6 +571,7 @@ export function paramsOf(s: DictState): Record<string, string | null> {
     ordem: s.sort ? SORTS.find((o) => o.value === s.sort)!.param : null,
     dir: s.dir === 'desc' ? 'desc' : null,
     vista: s.view === 'tabela' ? 'tabela' : null,
+    palavra: s.word,
   };
   for (const facet of FACETS) out[facet.param] = s.filter[facet.key]?.length ? s.filter[facet.key]!.join(',') : null;
   return out;

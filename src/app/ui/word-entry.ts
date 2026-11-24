@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { MONTHS_SHORT } from '../core/dates';
 import { Word, facetLabel } from '../core/dictionary/dictionary';
 import { hasKanji } from '../core/dictionary/kana';
@@ -21,18 +22,26 @@ export function daySaid(day: string | null): string {
  */
 @Component({
   selector: '[app-word-entry]',
-  imports: [WordSeals],
+  imports: [NgTemplateOutlet, WordSeals],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @let w = word();
     <div class="cabeca-verbete">
-      <span class="palavra" lang="ja">
+      <!-- na página, a palavra abre a lousa (ver grande e aprender a escrever) -->
+      @if (drawable()) {
+        <button type="button" class="palavra lousa" lang="ja" [attr.aria-label]="'Ver ' + w.text + ' grande e aprender a escrever'" title="Ver grande e aprender a escrever" (click)="draw.emit(w)">
+          <ng-container *ngTemplateOutlet="escrita" />
+        </button>
+      } @else {
+        <span class="palavra" lang="ja"><ng-container *ngTemplateOutlet="escrita" /></span>
+      }
+      <ng-template #escrita>
         @if (ruby()) {
           <ruby>{{ w.text }}<rp>(</rp><rt>{{ w.reading }}</rt><rp>)</rp></ruby>
         } @else {
           {{ w.text }}
         }
-      </span>
+      </ng-template>
       <span class="romaji">{{ w.romaji }}</span>
       <span class="marcas">
         <app-word-seals
@@ -83,6 +92,9 @@ export class WordEntry {
   private readonly toasts = inject(Toasts);
 
   readonly word = input.required<Word>();
+  /** A palavra é o botão que abre a lousa (na página do dicionário). */
+  readonly drawable = input(false);
+  readonly draw = output<Word>();
 
   protected readonly ticks = [1, 2, 3, 4, 5];
   /** A leitura vai em furigana por cima só quando a palavra tem kanji. */
