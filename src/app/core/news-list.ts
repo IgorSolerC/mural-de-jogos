@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-24-citar-na-tela-estreita',
+    id: '2026-11-24-espaco-no-botao-com-foco',
     version: '1.53.2',
     kind: 'ajustes',
     date: '2026-11-24',
@@ -46,6 +46,7 @@ export const NEWS: NewsEntry[] = [
       'Selecionar o título de um card que fecha numa anotação (arrastando, com dois ou três toques) não abre nem fecha mais o card.',
       'As quinas de cima dos cartões do Dicionário Japonês não mostram mais um fio branco na curva.',
       'Na lousa do Dicionário Japonês, o traço que estava no meio ao passar para outra palavra não aparece mais nela, e o caractere tocado enquanto os traços chegam continua escolhido.',
+      'Ouvindo uma anotação, o Espaço aperta o botão a que você chegou pelo teclado (o card que abre, uma etiqueta do pé da folha, o X, a outra anotação ao lado) em vez de pausar a leitura; o que foi só clicado com o mouse e os botões da própria fita continuam pausando.',
     ],
   },
   {

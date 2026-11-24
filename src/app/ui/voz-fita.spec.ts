@@ -323,6 +323,61 @@ describe('Ouvir a nota na ficha aberta', () => {
     expect(key(' ', q('.fita .velocidade')!).defaultPrevented).toBeTrue();
   });
 
+  it('o botão fora do texto que o teclado trouxe (com o anel) fica com o Espaço; o que o mouse clicou deixa pausar', async () => {
+    // o anel do foco (:focus-visible) é do navegador: aqui, o que ele diria vem do teste
+    let ring = true;
+    const matches = Element.prototype.matches;
+    spyOn(Element.prototype, 'matches').and.callFake(function (this: Element, s: string) {
+      return s === ':focus-visible' ? ring : matches.call(this, s);
+    });
+    fixture.componentInstance.open(note('n-1', 'Card', 'Uma frase. Outra frase.'));
+    await settle();
+    await listen('pt');
+    const look = q<HTMLButtonElement>('.faixa-nome button[aria-label="Ver só a cartolina"]')!;
+    look.focus();
+    expect(key(' ', look).defaultPrevented).withContext('pelo teclado, o Espaço aperta o botão').toBeFalse();
+    await settle();
+    expect(fake.queue.length).withContext('a leitura segue').toBeGreaterThan(0);
+    // o mesmo botão clicado com o mouse (sem anel): o Espaço pausa
+    look.blur();
+    ring = false;
+    look.focus();
+    expect(key(' ', look).defaultPrevented).toBeTrue();
+    await settle();
+    expect(fake.queue).toEqual([]);
+    // o Ouvir da faixa é da voz: com o anel, o Espaço continua a leitura (não reabre o menu das línguas)
+    const ouvir = q<HTMLButtonElement>('.faixa-nome .ouvir')!;
+    ouvir.blur();
+    ring = true;
+    ouvir.focus();
+    expect(key(' ', ouvir).defaultPrevented).toBeTrue();
+    await settle();
+    expect(fake.queue.length).toBeGreaterThan(0);
+  });
+
+  it('o card do texto da outra nota fica com o Espaço mesmo clicado; o link fora do texto, não (o Espaço não o aperta)', async () => {
+    spyOn(Element.prototype, 'matches').and.callThrough().withArgs(':focus-visible').and.returnValue(false);
+    fixture.componentInstance.open(note('n-1', 'Card', 'Uma frase. Outra frase.'));
+    await settle();
+    await listen('pt');
+    // a outra anotação, lado a lado: o texto dela também é texto de nota
+    const other = document.body.appendChild(document.createElement('app-rich-text'));
+    other.innerHTML = '<details><summary>Fechado</summary>Dentro.</details><a href="#x">link</a>';
+    const link = document.body.appendChild(document.createElement('a'));
+    link.href = '#y';
+    link.textContent = 'fora';
+    try {
+      const summary = other.querySelector('summary')!;
+      summary.focus();
+      expect(key(' ', summary).defaultPrevented).withContext('o card da outra nota').toBeFalse();
+      link.focus();
+      expect(key(' ', link).defaultPrevented).withContext('o link fora do texto: pausa').toBeTrue();
+    } finally {
+      other.remove();
+      link.remove();
+    }
+  });
+
   it('↑ e ↓ trocam a velocidade, um passo por vez, até as pontas; o leitor de tela ouve a nova', async () => {
     fixture.componentInstance.open(note('n-1', 'の (De / Posse)', NO));
     await settle();

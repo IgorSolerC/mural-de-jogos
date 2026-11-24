@@ -16,6 +16,10 @@ const HANDS_OFF_MS = 4000;
 const OWN_TAP = 'a, button, input, label, summary, [role="button"], [role="link"], .spoiler:not(.revelado)';
 /** Onde a pessoa digita: as teclas da fita não valem ali (a caixinha da tarefa fica com o Espaço dela). */
 const TYPING = 'input, textarea, select, [contenteditable]:not([contenteditable="false"])';
+/** Os controles do texto de uma nota: com o foco num deles, o Espaço é dele (ver `spaceIsTheirs`). */
+const IN_TEXT = 'a, button, summary, [role="button"], [role="link"], [role="checkbox"], [role="switch"]';
+/** O que o Espaço aperta de fato (um link, não: o Espaço rolaria a página), fora do texto. */
+const PRESSED = 'button, summary, [role="button"], [role="checkbox"], [role="switch"]';
 /** Um menu ou uma lista com o foco: as setas são dele. */
 const OWN_KEYS = '[role="menu"], [role="menubar"], [role="listbox"], [role="tablist"], [role="slider"], .menu-contexto';
 /** Os atalhos da fita (PLANO-VOZ-ESTUDO.md): o que cada tecla faz. */
@@ -161,6 +165,13 @@ export class VozFita {
   protected readonly hint = signal<VoiceHint | null>(null);
   private hintTimer: ReturnType<typeof setTimeout> | null = null;
   private unlistenKeys: (() => void) | null = null;
+  /** O botão de ouvir da faixa que abriu o menu das línguas: como as teclas da fita, é da voz (o Espaço pausa). */
+  private opener: HTMLElement | null = null;
+  /**
+   * Quem está com o foco, e se chegou pelo teclado (o anel à mostra), visto quando o foco chegou: na descida do
+   * Espaço o Chrome já acende o anel de qualquer um, até do que o mouse clicou.
+   */
+  private focused: { el: Element; byKeys: boolean } | null = null;
 
   protected readonly langName = computed(() => {
     const l = this.voz.lang();
@@ -281,6 +292,7 @@ export class VozFita {
 
   /** O botão de ouvir (na faixa) ou a etiqueta da língua (na fita): abre o menu das línguas embaixo dele. */
   choose(e: MouseEvent, button: HTMLElement): void {
+    if (!this.host.nativeElement.contains(button)) this.opener = button;
     this.menuKind.set('lingua');
     this.openMenu(e, button, 'ouvir');
   }
@@ -342,11 +354,15 @@ export class VozFita {
       this.spaceDown = false;
       e.preventDefault();
     };
+    const focus = (e: FocusEvent) => (this.focused = focusOf(e.target));
+    this.focused = focusOf(document.activeElement);
     document.addEventListener('keydown', down);
     document.addEventListener('keyup', up);
+    document.addEventListener('focusin', focus);
     this.unlistenKeys = () => {
       document.removeEventListener('keydown', down);
       document.removeEventListener('keyup', up);
+      document.removeEventListener('focusin', focus);
     };
   }
 
@@ -354,7 +370,7 @@ export class VozFita {
   private onKey(e: KeyboardEvent): void {
     const action = KEYS[e.key];
     if (!action || e.defaultPrevented || e.ctrlKey || e.altKey || e.metaKey || e.shiftKey || e.isComposing || !this.reading()) return;
-    if (!keysHere(e.target) || (action === 'play' && this.inText(e.target))) return;
+    if (!keysHere(e.target) || (action === 'play' && this.spaceIsTheirs(e.target))) return;
     e.preventDefault();
     switch (action) {
       case 'play':
@@ -387,12 +403,19 @@ export class VozFita {
   }
 
   /**
-   * Um controle do texto com o foco (o card que fecha, o Copiar do código, o spoiler): o Espaço é dele. Os
-   * botões da fita e da faixa não contam: quem clicou neles com o mouse e aperta Espaço quer pausar.
+   * O Espaço é do controle com o foco, e não da fita? O anel de foco diz (pedido do dono, 24/nov): o controle que
+   * o teclado trouxe (uma etiqueta do trilho, o X, a folha ao lado, a outra anotação) fica com o Espaço dele. Os da
+   * voz (as teclas da fita e o Ouvir da faixa) pausam sempre: o Espaço é o atalho deles. Os do texto de qualquer
+   * nota (o card que fecha, o Copiar do código, o spoiler) são dele, como antes, mesmo clicados com o mouse; fora do
+   * texto, o que o mouse só clicou (sem anel) e o link (que o Espaço não aperta) deixam o Espaço pausar.
    */
-  private inText(target: EventTarget | null): boolean {
-    const control = target instanceof Element ? target.closest('a, button, summary, [role="button"], [role="link"]') : null;
-    return !!control && this.roots().some((r) => r?.contains(control));
+  private spaceIsTheirs(target: EventTarget | null): boolean {
+    const el = target instanceof Element ? target : null;
+    const control = el?.closest(IN_TEXT);
+    if (!el || !control || this.host.nativeElement.contains(control) || this.opener?.contains(control)) return false;
+    // o texto de uma nota: esta, a outra lado a lado, a folha ao lado
+    if (control.closest('app-rich-text')) return true;
+    return control.matches(PRESSED) && this.focused?.el === el && this.focused.byKeys;
   }
 
   /**
@@ -456,6 +479,7 @@ export class VozFita {
     this.unlistenKeys?.();
     this.unlistenKeys = null;
     this.spaceDown = false;
+    this.focused = null;
     for (const t of [this.pressTimer, this.saidTimer, this.hintTimer]) if (t !== null) clearTimeout(t);
     this.pressTimer = this.saidTimer = this.hintTimer = null;
     this.hint.set(null);
@@ -597,6 +621,16 @@ function keysHere(target: EventTarget | null): boolean {
     return !document.querySelector('dialog:modal:not(.reader)');
   } catch {
     return true;
+  }
+}
+
+/** O que ganhou o foco, e se o anel dele está à mostra (o foco veio do teclado). */
+function focusOf(target: EventTarget | null): { el: Element; byKeys: boolean } | null {
+  if (!(target instanceof Element) || target === document.body) return null;
+  try {
+    return { el: target, byKeys: target.matches(':focus-visible') };
+  } catch {
+    return { el: target, byKeys: false };
   }
 }
 
