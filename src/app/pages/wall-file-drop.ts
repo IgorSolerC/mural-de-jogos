@@ -93,11 +93,12 @@ export class WallFileDrop {
     // (o navegador só diz quantos arquivos, não quais, enquanto se arrasta)
     this.count = Array.from(e.dataTransfer?.items ?? []).filter((i) => i.kind === 'file').length || 1;
     this.at = { x: e.clientX, y: e.clientY };
-    this.follow();
+    this.follow(e.target instanceof Element ? e.target : null);
   }
 
-  private follow(): void {
-    const next = this.targetAt(this.at.x, this.at.y);
+  /** O alvo de agora: o elemento debaixo do ponteiro (o do evento; depois de abrir uma pasta, o do ponto). */
+  private follow(under: Element | null = null): void {
+    const next = this.targetAt(under ?? document.elementFromPoint(this.at.x, this.at.y));
     if (next?.el !== this.target?.el || next?.folder !== this.target?.folder) {
       this.target?.el.removeAttribute('data-alvo');
       next?.el.setAttribute('data-alvo', '');
@@ -128,8 +129,7 @@ export class WallFileDrop {
   }
 
   /** O alvo debaixo do ponteiro: um pedaço do caminho, uma pasta, ou a parede da pasta aberta. */
-  private targetAt(x: number, y: number): Target | null {
-    const hit = document.elementFromPoint(x, y);
+  private targetAt(hit: Element | null): Target | null {
     if (!hit || !this.cfg.host.contains(hit)) return null;
     const open = this.cfg.openFolder();
     const crumb = hit.closest<HTMLElement>('app-folder-path [data-caminho]');
@@ -154,7 +154,7 @@ export class WallFileDrop {
       this.clear();
       return;
     }
-    const target = this.targetAt(e.clientX, e.clientY);
+    const target = this.targetAt(e.target instanceof Element ? e.target : document.elementFromPoint(e.clientX, e.clientY));
     const files = e.dataTransfer?.files;
     this.clear();
     if (target && files?.length) this.cfg.drop(files, target.folder);

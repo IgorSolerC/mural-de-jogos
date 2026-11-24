@@ -34,6 +34,7 @@ import {
 } from '../core/pixel-gallery-view';
 import { downloadBlob, pieceToPng, pngName } from '../core/pixel-png';
 import { NO_SCALE, PixelScale, Rgba, asksScale, guessScale, imageArt, pixelSized, titleOfFile } from '../core/pixel-import';
+import { DroppedBig, PixelDropSheet } from '../ui/pixel-drop-sheet';
 import { ImageReadError, imageFilesOf, readImagePixels } from '../ui/image-pixels';
 import { WallFileDrop } from './wall-file-drop';
 import { lookKey } from '../core/category-looks';
@@ -73,6 +74,18 @@ import { Toasts } from '../ui/toast';
  * 256 × 256, uma bem picada não cabe, e o editor não guardaria a anotação.
  */
 const TOO_BIG_FOR_NOTE = `, mas passa do tamanho de uma anotação (${TEXT_MAX.toLocaleString('pt-BR')} letras): para pôr numa anotação, baixe o PNG e cole a imagem.`;
+
+/** Uma imagem de uma soltada, já lida: o passo com que vem (as grandes, o que a folha responder) e o palpite. */
+interface ReadImage {
+  key: string;
+  file: File;
+  title: string;
+  img: Rgba;
+  scale: PixelScale;
+  /** Maior que 64 × 64: a folha pergunta se é ampliada. */
+  ask: boolean;
+  guess: PixelScale | null;
+}
 
 /** O que ficou de fora de uma soltada de imagens, por quê. */
 interface DropSkips {
@@ -121,7 +134,7 @@ export function droppedText(made: readonly Pick<PixelPiece, 'title'>[], where: s
  */
 @Component({
   selector: 'app-pixel-arts-page',
-  imports: [ContextMenu, FilterCard, FilterTags, FolderCard, FolderMoveSheet, FolderPath, IconModule, Pin, PixelBulkTags, PixelImportSheet, SelectionTray, PixelPieceCard, PixelSheet, PixelStudio, PixelTile, SearchHighlight, SearchStrip],
+  imports: [ContextMenu, FilterCard, FilterTags, FolderCard, FolderMoveSheet, FolderPath, IconModule, Pin, PixelBulkTags, PixelDropSheet, PixelImportSheet, SelectionTray, PixelPieceCard, PixelSheet, PixelStudio, PixelTile, SearchHighlight, SearchStrip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class.com-tira]': 'marking()' },
   templateUrl: './pixel-arts-page.html',
@@ -555,12 +568,14 @@ export class PixelArtsPage {
     }
     this.reading.set(true);
     if (files.length > 3) this.toasts.show(`Lendo ${files.length} imagens…`);
-    const read: { title: string; img: Rgba; scale: PixelScale }[] = [];
+    const read: ReadImage[] = [];
     try {
-      for (const f of files) {
+      for (const [i, f] of files.entries()) {
         try {
           const img = await readImagePixels(f);
-          read.push({ title: titleOfFile(f.name), img, scale: (asksScale(img.w, img.h) && guessScale(img)) || NO_SCALE });
+          // a maior que 64 pergunta se é ampliada: o palpite vai junto
+          const ask = asksScale(img.w, img.h);
+          read.push({ key: `${i}`, file: f, title: titleOfFile(f.name), img, scale: NO_SCALE, ask, guess: ask ? guessScale(img) : null });
         } catch (err) {
           if (err instanceof ImageReadError && err.problem === 'grande') skipped.big++;
           else skipped.broken++;
@@ -569,6 +584,40 @@ export class PixelArtsPage {
     } finally {
       this.reading.set(false);
     }
+    const asked = read.filter((r) => r.ask);
+    if (!asked.length) {
+      this.bringRead(read, folder, skipped);
+      return;
+    }
+    // as grandes: a folha pergunta (as pequenas esperam e vêm junto, num passo só do Desfazer)
+    const where = folder ? (this.folderTree().live(folder)?.name ?? 'a galeria') : 'a galeria';
+    this.dropAsk.set({ read, folder, skipped, where, big: asked.map((r) => ({ key: r.key, title: r.title, url: URL.createObjectURL(r.file), img: r.img, guess: r.guess })) });
+  }
+
+  /** A soltada com imagens grandes, esperando a resposta da folha (ui/pixel-drop-sheet.ts). */
+  protected readonly dropAsk = signal<{ read: ReadImage[]; folder: string | null; skipped: DropSkips; where: string; big: DroppedBig[] } | null>(null);
+
+  /** A folha respondeu: cada grande com o passo dela, e todas da soltada vêm. */
+  protected dropAnswered(scales: ReadonlyMap<string, PixelScale>): void {
+    const q = this.dropAsk();
+    if (!q) return;
+    this.dropClosed();
+    this.bringRead(
+      q.read.map((r) => ({ ...r, scale: scales.get(r.key) ?? r.scale })),
+      q.folder,
+      q.skipped,
+    );
+  }
+
+  /** A folha fechou (Cancelar, Esc, ou depois de responder): as miniaturas saem da memória. */
+  protected dropClosed(): void {
+    const q = this.dropAsk();
+    if (!q) return;
+    for (const b of q.big) URL.revokeObjectURL(b.url);
+    this.dropAsk.set(null);
+  }
+
+  private bringRead(read: readonly ReadImage[], folder: string | null, skipped: DropSkips): void {
     // a pasta pode ter saído enquanto as imagens eram lidas (desfeita aqui, ou noutro aparelho): elas vão para a raiz
     this.bringImages(read, folder && this.folderTree().live(folder) ? folder : null, skipped);
   }
@@ -679,7 +728,8 @@ export class PixelArtsPage {
     // soltar imagens do computador: numa pasta, num pedaço do caminho, ou em qualquer lugar (a pasta aberta)
     const files = new WallFileDrop({
       host,
-      on: () => !this.reading() && !this.studio() && !document.querySelector('dialog[open]'),
+      // (as folhas da página por cima; uma modal de fora já deixa a página inerte, e nada chega aqui)
+      on: () => !this.reading() && !this.studio() && !host.querySelector('dialog[open]'),
       wall: () => host.querySelector<HTMLElement>('.mostra, .grade, .vazio'),
       scope: () => host.querySelector('.mostra, .grade, .vazio'),
       openFolder: () => this.openFolder(),
@@ -689,7 +739,11 @@ export class PixelArtsPage {
       open: (id) => this.enterFolder(id),
       drop: (list, folder) => void this.takeFiles(list, folder),
     });
-    this.destroyRef.onDestroy(() => files.off());
+    this.destroyRef.onDestroy(() => {
+      files.off();
+      // a página saiu com a folha das grandes aberta: as miniaturas saem da memória
+      this.dropClosed();
+    });
     // a pasta aberta mora no endereço (o Voltar do navegador sobe)
     this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((q) => this.asked.set(q.get('pasta')));
     // a vista e a ordem ficam no aparelho (writeJson respeita a trava da limpeza do logout)

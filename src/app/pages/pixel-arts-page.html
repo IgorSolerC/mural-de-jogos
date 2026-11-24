@@ -254,6 +254,10 @@
 
 <!-- trazer imagens do computador: o seletor de arquivos (as soltas chegam pelo soltar, pages/wall-file-drop.ts) -->
 <input #arquivos type="file" accept="image/*" multiple hidden (change)="picked($event)" />
+<!-- as maiores que 64 × 64 de uma soltada: é pixel art ampliada? (as pequenas vêm junto) -->
+@if (dropAsk(); as q) {
+  <app-pixel-drop-sheet [items]="q.big" [small]="q.read.length - q.big.length" [where]="q.where" (brought)="dropAnswered($event)" (closed)="dropClosed()" />
+}
 
 <!-- trazer as pixel arts das anotações -->
 @if (importing()) {

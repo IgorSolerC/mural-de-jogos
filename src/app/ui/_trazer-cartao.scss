@@ -1,0 +1,103 @@
+@use 'pixel-studio/xadrez' as x;
+
+// As respostas de "Trazer a imagem" em cartões de papel (o ateliê, ui/pixel-studio/camadas.scss, e a folha das
+// imagens soltas na galeria, ui/pixel-drop-sheet.ts): cada um com a prévia de como fica, o título e a frase; o
+// escolhido com o anel de tinta. Fora do ateliê, a prévia é só o desenho: sem o xadrez, o fundo e a margem (o dono
+// quer isso só no ateliê).
+@mixin cartoes($xadrez: true) {
+  .trazer-escolhas {
+    display: grid;
+    gap: 8px;
+  }
+
+  .trazer-cartao {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 3px;
+    background: #fbfaf6;
+    box-shadow:
+      inset 0 0 0 1px rgb(21 21 21 / 0.14),
+      0 1px 2px rgb(0 0 0 / 0.12);
+    cursor: pointer;
+    transition: box-shadow var(--t-ui) var(--ease-ui);
+
+    input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    &:hover:not(.off) {
+      box-shadow:
+        inset 0 0 0 1px rgb(21 21 21 / 0.3),
+        0 2px 4px rgb(0 0 0 / 0.16);
+    }
+
+    &:has(input:focus-visible) {
+      outline: 3px dashed var(--ink);
+      outline-offset: 2px;
+    }
+
+    &.on {
+      box-shadow:
+        inset 0 0 0 2.5px #151515,
+        0 2px 4px rgb(0 0 0 / 0.18);
+    }
+
+    &.off {
+      cursor: default;
+      opacity: 0.55;
+    }
+  }
+
+  .trazer-previa {
+    flex: none;
+    width: 64px;
+    height: 64px;
+    border-radius: 2px;
+    @if $xadrez {
+      padding: 3px;
+      @include x.xadrez(8px);
+      box-shadow: inset 0 0 0 1px rgb(21 21 21 / 0.16);
+    } @else {
+      /* fora do ateliê, só o desenho: sem o xadrez, o fundo e a margem */
+      display: grid;
+    }
+
+    &.foto {
+      padding: 0;
+      overflow: hidden;
+
+      img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0.6;
+      }
+    }
+  }
+
+  .trazer-texto {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .trazer-titulo {
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.95rem;
+    letter-spacing: 0.04em;
+    color: var(--ink);
+  }
+
+  .trazer-desc {
+    color: var(--ink-2);
+    font-size: 0.86rem;
+    line-height: 1.35;
+  }
+}

@@ -2,6 +2,7 @@
 @use '../indice' as ind;
 @use '../divisorias' as div;
 @use 'xadrez' as x;
+@use '../trazer-cartao' as tc;
 
 /* As camadas do ateliê (PLANO-CAMADAS.md): na folha, um desenho por camada à mostra, um em cima do outro, e por
    cima deles o dos fios, da mira e das formigas; na tira da direita, a pilha como as listas de índice do site
@@ -300,96 +301,7 @@
   box-shadow: inset 0 0 0 1px rgb(21 21 21 / 0.18), 0 1px 2px rgb(0 0 0 / 0.25);
 }
 
-.trazer-escolhas {
-  display: grid;
-  gap: 8px;
-}
-
-.trazer-cartao {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  border-radius: 3px;
-  background: #fbfaf6;
-  box-shadow:
-    inset 0 0 0 1px rgb(21 21 21 / 0.14),
-    0 1px 2px rgb(0 0 0 / 0.12);
-  cursor: pointer;
-  transition: box-shadow var(--t-ui) var(--ease-ui);
-
-  input {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  &:hover:not(.off) {
-    box-shadow:
-      inset 0 0 0 1px rgb(21 21 21 / 0.3),
-      0 2px 4px rgb(0 0 0 / 0.16);
-  }
-
-  &:has(input:focus-visible) {
-    outline: 3px dashed var(--ink);
-    outline-offset: 2px;
-  }
-
-  &.on {
-    box-shadow:
-      inset 0 0 0 2.5px #151515,
-      0 2px 4px rgb(0 0 0 / 0.18);
-  }
-
-  &.off {
-    cursor: default;
-    opacity: 0.55;
-  }
-}
-
-.trazer-previa {
-  flex: none;
-  width: 64px;
-  height: 64px;
-  padding: 3px;
-  border-radius: 2px;
-  @include x.xadrez(8px);
-  box-shadow: inset 0 0 0 1px rgb(21 21 21 / 0.16);
-
-  &.foto {
-    padding: 0;
-    overflow: hidden;
-
-    img {
-      display: block;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      opacity: 0.6;
-    }
-  }
-}
-
-.trazer-texto {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.trazer-titulo {
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.95rem;
-  letter-spacing: 0.04em;
-  color: var(--ink);
-}
-
-.trazer-desc {
-  color: var(--ink-2);
-  font-size: 0.86rem;
-  line-height: 1.35;
-}
+@include tc.cartoes;
 
 /* ===== a crítica final (rodada 8) ===== */
 /* o aviso de agora na barra de estado (pintar na escondida, juntar a escondida): em marca-texto, por uns segundos */

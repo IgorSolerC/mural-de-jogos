@@ -1,0 +1,154 @@
+@use 'trazer-cartao' as tc;
+
+/* A folha das imagens grandes soltas na galeria (ui/pixel-drop-sheet.ts): a ficha de fichário do "Trazer das
+   anotações" e, em cada imagem, os cartões de resposta do "Trazer a imagem" do ateliê, sem o xadrez (fora do
+   ateliê, a pixel art vai sem ele). */
+@include tc.cartoes($xadrez: false);
+
+.soltar .ficha {
+  width: min(680px, calc(100vw - 24px));
+}
+
+.soltas {
+  display: grid;
+  gap: 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* entre uma imagem e a outra, o fio pontilhado das fichas */
+.solta + .solta {
+  padding-top: 20px;
+  border-top: 1.5px dashed rgb(21 21 21 / 0.2);
+}
+
+.solta-nome {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 10px;
+}
+
+/* a imagem como veio: nítida, como pixel art */
+.solta-foto {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 2px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  background: #fbfaf6;
+  box-shadow:
+    inset 0 0 0 1px rgb(21 21 21 / 0.18),
+    0 1px 2px rgb(0 0 0 / 0.25);
+}
+
+.solta-txt {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.solta-titulo {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.solta-tam {
+  color: var(--ink-2);
+  font-size: 0.88rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* as duas respostas lado a lado quando cabem */
+@media (min-width: 600px) {
+  .trazer-escolhas {
+    grid-template-columns: 1fr 1fr;
+  }
+  .trazer-cartao {
+    align-items: start;
+  }
+}
+
+/* a prévia maior que a do ateliê: aqui ela é a resposta */
+.trazer-previa {
+  width: 72px;
+  height: 72px;
+}
+
+.achou {
+  font-weight: 700;
+  color: var(--ink-2);
+  letter-spacing: 0.02em;
+}
+
+/* os pixels por ponto: o − e o + de papel, com o número no meio (o toque nele não troca a resposta) */
+.passo {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  cursor: default;
+}
+
+/* o −, o número e o + nunca se separam */
+.passo-ctl {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.passo-nome {
+  white-space: nowrap;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.passo-n {
+  min-width: 3.6em;
+  text-align: center;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.passo-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: #fff;
+  color: var(--ink);
+  box-shadow:
+    inset 0 0 0 1px rgb(21 21 21 / 0.22),
+    0 1px 2px rgb(0 0 0 / 0.12);
+  cursor: pointer;
+  transition:
+    box-shadow var(--t-ui) var(--ease-ui),
+    scale var(--t-ui) var(--ease-ui);
+
+  &:hover:not(:disabled) {
+    scale: 1.06;
+    box-shadow:
+      inset 0 0 0 1px rgb(21 21 21 / 0.4),
+      0 2px 4px rgb(0 0 0 / 0.16);
+  }
+
+  &:focus-visible {
+    outline: 3px dashed var(--ink);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+}

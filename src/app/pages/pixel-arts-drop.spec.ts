@@ -127,19 +127,62 @@ describe('soltar imagens do computador na galeria de pixel arts', () => {
     expect(host.querySelector('app-folder-path')?.textContent).toContain('Bichos');
   });
 
-  it('a pixel art ampliada (maior que 64) volta ao tamanho de verdade', async () => {
+  /** A folha das grandes, aberta. */
+  const sheet = () => document.querySelector<HTMLDialogElement>('app-pixel-drop-sheet dialog[open]');
+  const cards = () => [...sheet()!.querySelectorAll<HTMLLabelElement>('.trazer-cartao')];
+
+  it('a maior que 64 pergunta se é pixel art ampliada, com o palpite já escolhido; Trazer volta ao tamanho de verdade, com as pequenas junto', async () => {
     await mount();
-    const file = await png(HEART, 'grande.png', 12);
-    drag('drop', host.querySelector('.grade')!, [file]);
-    await until(() => gallery.count() === 2);
+    drag('drop', host.querySelector('.grade')!, [await png(HEART, 'grande.png', 12), await png(['rr', 'ry'], 'pequena.png')]);
+    await until(() => !!sheet());
+    // as pequenas esperam a resposta
+    expect(gallery.count()).toBe(1);
+    expect(sheet()!.querySelector('h2')!.textContent).toContain('É uma pixel art ampliada?');
+    expect(sheet()!.querySelector('.sub')!.textContent).toContain('mais 1 pequena vem junto');
+    expect(sheet()!.querySelector('.solta-tam')!.textContent).toContain('84 × 84 pixels');
+    expect(cards()[0].classList).toContain('on');
+    expect(cards()[0].textContent).toContain('o site achou');
+    expect(cards()[0].querySelector('.passo-n')!.textContent).toBe('12 × 12');
+    expect(cards()[0].querySelector('.trazer-desc')!.textContent).toContain('vira 7 × 7 pontos');
+    expect(cards()[1].querySelector('.trazer-desc')!.textContent).toContain('vira 84 × 84 pontos');
+    [...sheet()!.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent!.includes('Trazer 2'))!.click();
+    await settle();
+    expect(gallery.count()).toBe(3);
     const art = pixelArtOf(gallery.pieces().find((p) => p.title === 'grande')!);
     expect([art.w, art.h]).toEqual([7, 7]);
+    expect(toast()?.text).toBe('2 pixel arts chegaram à galeria.');
+  });
+
+  it('"Do tamanho dela" deixa cada pixel um ponto; o passo à mão muda o tamanho; Cancelar não traz nenhuma', async () => {
+    await mount();
+    drag('drop', host.querySelector('.grade')!, [await png(HEART, 'grande.png', 12)]);
+    await until(() => !!sheet());
+    // o + muda o passo (e escolhe a ampliada)
+    const more = cards()[0].querySelectorAll<HTMLButtonElement>('.passo-btn')[1];
+    more.click();
+    await settle();
+    expect(cards()[0].querySelector('.passo-n')!.textContent).toBe('13 × 13');
+    expect(cards()[0].querySelector('.trazer-desc')!.textContent).toContain('vira 7 × 7 pontos');
+    cards()[1].querySelector('input')!.click();
+    await settle();
+    expect(cards()[1].classList).toContain('on');
+    [...sheet()!.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent!.includes('Trazer 1'))!.click();
+    await settle();
+    const art = pixelArtOf(gallery.pieces().find((p) => p.title === 'grande')!);
+    expect([art.w, art.h]).toEqual([84, 84]);
+    // de novo, e Cancelar
+    drag('drop', host.querySelector('.grade')!, [await png(HEART, 'outra.png', 12)]);
+    await until(() => !!sheet());
+    [...sheet()!.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent!.trim() === 'Cancelar')!.click();
+    await settle();
+    expect(sheet()).toBeNull();
+    expect(gallery.pieces().some((p) => p.title === 'outra')).toBeFalse();
   });
 
   it('com uma folha aberta por cima, soltar não traz nada, e o navegador não abre o arquivo no lugar do site', async () => {
     await mount();
     const dialog = document.createElement('dialog');
-    document.body.append(dialog);
+    host.append(dialog);
     dialog.show();
     const wall = host.querySelector('.grade')!;
     const file = await png(HEART, 'nao.png');
