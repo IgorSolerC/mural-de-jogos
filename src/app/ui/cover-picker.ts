@@ -21,7 +21,7 @@ import { PixelPiece, artValues, pieceTitle, pieceTitleOf, pixelArtOf, valuesArt 
 import { PixelPicker } from './pixel-picker';
 import { WidgetValues } from '../core/widgets';
 import { PixelGallery } from '../core/pixel-gallery-store';
-import { PixelStudio } from './pixel-studio/pixel-studio';
+import { PixelStudio, StudioResult } from './pixel-studio/pixel-studio';
 import { StoredLayer } from '../core/pixel-layers';
 import { Kind, PickedGame, initialOf } from '../core/review';
 import { Settings } from '../core/settings';
@@ -197,7 +197,7 @@ function joinSources(list: string[]): string {
     @if (studio(); as v) {
       <!-- já, e não quando a página sossegar: o ateliê abre logo depois do clique -->
       @defer (on immediate) {
-        <app-pixel-studio [values]="v" [layered]="true" (changed)="drawing($event)" (stackChanged)="studioLayers = $event" (closed)="studioClosed()" />
+        <app-pixel-studio [values]="v" [layered]="true" (saved)="drawn($event)" (closed)="studioClosed()" />
       }
     }
     <!-- a outra porta, sem botão: só onde há teclado e mouse (no celular não há Ctrl+V nem arrastar arquivo) -->
@@ -540,6 +540,8 @@ export class CoverPicker {
   protected readonly studio = signal<WidgetValues | null>(null);
   /** As camadas do desenho novo (ele vai para a galeria com elas). */
   protected studioLayers: StoredLayer[] | undefined = undefined;
+  /** O ateliê saiu pelo Salvar (sem isso, fechou descartando). */
+  private studioSaved = false;
   /** A frase de depois de desenhar: a obra nova também ficou na galeria. */
   protected readonly drawnNote = signal<string | null>(null);
   /** Um arquivo arrastado por cima das capas. */
@@ -780,21 +782,27 @@ export class CoverPicker {
     this.imageError.set(null);
     this.drawnNote.set(null);
     this.studioLayers = undefined;
+    this.studioSaved = false;
     this.studio.set(artValues([]));
   }
 
-  protected drawing(v: WidgetValues): void {
-    this.studio.update((s) => (s ? { ...s, ...v } : s));
+  /** O ateliê saiu salvando: o desenho fica para quando ele fechar (Descartar não manda nada, e nada muda). */
+  protected drawn(r: StudioResult): void {
+    this.studio.update((s) => (s ? { ...s, ...r.values } : s));
+    this.studioLayers = r.layers;
+    this.studioSaved = true;
   }
 
   /**
-   * O ateliê fechou: com pelo menos um ponto, o desenho vai para a galeria com o nome do item e vira a capa; sem
-   * ponto, nada muda e o teclado volta para o Pixel art.
+   * O ateliê fechou: salvo e com pelo menos um ponto, o desenho vai para a galeria com o nome do item e vira a capa;
+   * descartado ou sem ponto, nada muda e o teclado volta para o Pixel art.
    */
   protected async studioClosed(): Promise<void> {
     const values = this.studio();
     this.studio.set(null);
-    const art = values && valuesArt(values);
+    const saved = this.studioSaved;
+    this.studioSaved = false;
+    const art = saved && values && valuesArt(values);
     if (!art) {
       this.focusLater('.pixel-btn');
       return;

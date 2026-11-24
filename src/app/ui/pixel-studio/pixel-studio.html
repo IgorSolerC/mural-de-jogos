@@ -6,7 +6,7 @@
   #dialog
   class="atelie"
   [attr.aria-labelledby]="ids + '-titulo'"
-  (close)="closed.emit()"
+  (close)="onDialogClosed()"
   (cancel)="onCancel($event)"
   (keydown)="onKey($event); $event.stopPropagation()"
   (keyup)="onKeyUp($event)"

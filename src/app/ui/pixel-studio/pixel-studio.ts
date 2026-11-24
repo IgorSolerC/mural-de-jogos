@@ -91,6 +91,12 @@ type Drag =
   | { kind: 'escala'; handle: Handle; start: Box; x: number; y: number }
   | { kind: 'ref'; id: string; mode: Handle | 'mover'; start: Box; x: number; y: number; before: Snap };
 
+/** O desenho que sai do ateliê (Salvar ou Salvar como cópia): os valores do widget e, numa obra da galeria, a pilha. */
+export interface StudioResult {
+  values: WidgetValues;
+  layers: StoredLayer[] | undefined;
+}
+
 /** As três respostas da folha "Trazer a imagem". */
 type ImportChoice = 'paleta' | 'cores' | 'referencia';
 
@@ -142,11 +148,20 @@ export class PixelStudio {
   readonly layered = input(false);
   /** As camadas guardadas da obra quando o ateliê abriu (sem elas, uma camada com o desenho). */
   readonly stack = input<readonly StoredLayer[] | undefined>(undefined);
-  /** O desenho mudou: os valores novos do widget (`pixels`, `width`, `height`, `palette`, `colors`), o achatado. */
+  /**
+   * O desenho mudou, a cada mudança: os valores novos do widget (`pixels`, `width`, `height`, `palette`, `colors`), o
+   * achatado. É só para acompanhar: o que fica é o que sai em `saved` (PLANO-RASCUNHOS-PIXEL.md, D1).
+   */
   readonly changed = output<WidgetValues>();
-  /** A pilha mudou (só com `layered`): as camadas como a obra guarda, ou nada quando é a camada única de sempre. */
+  /** A pilha mudou, a cada mudança (só com `layered`): as camadas como a obra guarda, ou nada quando é a camada única de sempre. */
   readonly stackChanged = output<StoredLayer[] | undefined>();
+  /** A pessoa saiu salvando: o desenho que fica (logo antes de `closed`). */
+  readonly saved = output<StudioResult>();
+  /** A pessoa saiu salvando como cópia: o desenho vai para uma obra nova, e o de quem abriu fica como era. */
+  readonly copied = output<StudioResult>();
   readonly closed = output<void>();
+  /** Há um original para deixar como era: a pergunta de sair oferece o "Salvar como cópia". */
+  readonly copy = input(false);
   /** O nome da obra (o nome do PNG baixado pelo Arquivo); sem nome, "pixel-art". */
   readonly artName = input('');
 
@@ -518,21 +533,114 @@ export class PixelStudio {
     this.palette.set(paletteWord(v['palette'] ?? '') ?? DEFAULT_PALETTE);
     this.colors.set(parseColors(v['colors'] ?? '') ?? {});
     if (this.fg() > this.count()) this.fg.set(Math.min(1, this.count()));
+    this.opened = this.written();
+    this.openedInk = hasInk(this.flat());
   }
 
-  /** Fechando (a pergunta de tudo escondido aberta): outro Pronto não abre outra. */
+  /** O desenho escrito de quando o ateliê abriu: sair com o mesmo não pergunta nada (D2). */
+  private opened = '';
+  /** O desenho de quando abriu tinha algum ponto (descartar volta a ele; sem ponto, o desenho some). */
+  private openedInk = false;
+  /** Fechando (a pergunta de sair aberta): outro Pronto, ou outro Esc, não abre outra. */
   private closing = false;
+  /** O ateliê está saindo de propósito: o `close` do `<dialog>` agora é o fim (ver `onDialogClosed`). */
+  private leaving = false;
 
+  /** O desenho de agora escrito como sai do ateliê: o que se compara com o de quando abriu. */
+  private written(): string {
+    const r = this.result();
+    return JSON.stringify([r.values, r.layers ?? null]);
+  }
+
+  /** O desenho que sai do ateliê: o achatado nos valores do widget e, numa obra da galeria, a pilha. */
+  private result(): StudioResult {
+    return {
+      values: { pixels: writeGrid(this.flat()), width: String(this.w()), height: String(this.h()), palette: this.palette(), colors: writeColors(this.colors(), this.palette()) },
+      layers: this.layered() ? writeLayers(this.stackNow()) : undefined,
+    };
+  }
+
+  /** Mudou alguma coisa desde que o ateliê abriu (o desenho escrito, não o desfazer: desfazer tudo é não mudar nada). */
+  protected changedSinceOpen(): boolean {
+    return this.written() !== this.opened;
+  }
+
+  /**
+   * Sair (o Pronto, o Esc, o menu Arquivo): sem mudança, fecha; com mudança, a pergunta de sempre (D3): Salvar, Salvar
+   * como cópia (com um original), Descartar, ou voltar ao ateliê (o Esc e o clique fora, o seguro).
+   */
   protected async close(): Promise<void> {
     if (this.closing) return;
     this.endStroke();
     this.anchor();
+    if (!this.changedSinceOpen()) {
+      this.exit();
+      return;
+    }
     this.closing = true;
-    const ok = await this.readyToClose().finally(() => (this.closing = false));
-    if (!ok) return;
+    try {
+      const answer = await this.askLeave();
+      if (answer === null) return;
+      if (answer === 'descartar') {
+        this.exit();
+        return;
+      }
+      if (!(await this.readyToClose())) return;
+      const r = this.result();
+      if (answer === 'copia') this.copied.emit(r);
+      else this.saved.emit(r);
+      this.exit();
+    } finally {
+      this.closing = false;
+    }
+  }
+
+  /** A pergunta de sair: o que fazer com as mudanças. */
+  private async askLeave(): Promise<'salvar' | 'copia' | 'descartar' | null> {
+    const gone = this.openedInk ? 'o desenho volta a ser o de antes' : 'o desenho some';
+    if (this.copy()) {
+      const c = await this.confirm.choose({
+        title: 'Salvar as mudanças?',
+        text: `Salvando como cópia, o desenho vai para uma pixel art nova na galeria, e o original fica como era. Descartando, ${gone}.`,
+        confirm: 'Salvar',
+        secondary: 'Salvar como cópia',
+        third: 'Descartar',
+        cancel: 'Voltar ao ateliê',
+        icon: ICON.pronto,
+      });
+      return c === 'confirm' ? 'salvar' : c === 'secondary' ? 'copia' : c === 'third' ? 'descartar' : null;
+    }
+    const c = await this.confirm.choose({
+      title: 'Salvar as mudanças?',
+      text: `Descartando, ${gone}.`,
+      confirm: 'Salvar',
+      secondary: 'Descartar',
+      cancel: 'Voltar ao ateliê',
+      icon: ICON.pronto,
+    });
+    return c === 'confirm' ? 'salvar' : c === 'secondary' ? 'descartar' : null;
+  }
+
+  /** Fecha de propósito (a resposta já foi dada, ou não havia o que perguntar). */
+  private exit(): void {
+    this.leaving = true;
     const el = this.dialog().nativeElement;
     if (el.open) el.close();
     else this.closed.emit();
+  }
+
+  /**
+   * O `<dialog>` fechou. De propósito, é o fim. Sem ser (o Chrome fecha o diálogo no segundo Esc seguido, mesmo com
+   * o `cancel` segurado, D4): com mudança, ele abre de novo e pergunta; nada se perde por um Esc a mais.
+   */
+  protected onDialogClosed(): void {
+    if (this.leaving || !this.changedSinceOpen()) {
+      this.leaving = true;
+      this.closed.emit();
+      return;
+    }
+    this.dialog().nativeElement.showModal();
+    void this.close();
   }
 
   // ===== o desenho e o desfazer =====
@@ -547,16 +655,11 @@ export class PixelStudio {
     return { ...s, layers: setRows(s.layers, s.current, rows) };
   }
 
-  /** Manda o desenho de agora para a folha (o achatado) e, numa obra da galeria, a pilha. */
+  /** Conta o desenho de agora a quem acompanha (o achatado e, numa obra da galeria, a pilha). */
   private emit(): void {
-    this.changed.emit({
-      pixels: writeGrid(this.flat()),
-      width: String(this.w()),
-      height: String(this.h()),
-      palette: this.palette(),
-      colors: writeColors(this.colors(), this.palette()),
-    });
-    if (this.layered()) this.stackChanged.emit(writeLayers(this.stackNow()));
+    const r = this.result();
+    this.changed.emit(r.values);
+    if (this.layered()) this.stackChanged.emit(r.layers);
   }
 
   /** Guarda no desfazer o desenho de antes de uma mudança. */
@@ -1536,7 +1639,7 @@ export class PixelStudio {
             { id: 'baixar', label: 'Baixar em PNG', hint: 'Cada ponto um quadrado, para mostrar', icon: ICON.baixar, run: () => void this.download(false) },
             { id: 'baixar-original', label: 'Baixar no tamanho original', hint: 'Um pixel por ponto, para abrir num editor de pixel art', icon: ICON.baixar, run: () => void this.download(true) },
           ],
-          [{ id: 'pronto', label: 'Pronto', hint: 'Fecha o ateliê; o desenho já está guardado', icon: ICON.pronto, keys: 'Esc', run: () => void this.close() }],
+          [{ id: 'pronto', label: 'Pronto', hint: 'Sai do ateliê (com mudança, pergunta se salva)', icon: ICON.pronto, keys: 'Esc', run: () => void this.close() }],
         ],
       },
       {
@@ -2063,9 +2166,8 @@ export class PixelStudio {
     this.colorsOpen.set(!same);
   }
 
-  /** O Esc do ateliê: com tudo escondido, pergunta antes de fechar. */
+  /** O Esc do ateliê (o `cancel` do `<dialog>`): nunca fecha sozinho; sai pelo caminho de sempre, que pergunta se mudou. */
   protected onCancel(e: Event): void {
-    if (!this.layered() || hasInk(this.flat())) return;
     e.preventDefault();
     void this.close();
   }

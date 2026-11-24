@@ -17,6 +17,7 @@ import { ICON, IconModule } from './icons';
 import { PixelArt } from './pixel-art';
 import { PixelPieceCard } from './pixel-piece';
 import { PixelField } from './pixel-studio/pixel-field';
+import type { StudioResult } from './pixel-studio/pixel-studio';
 import { RichEditor } from './rich-editor';
 import { TagPicker } from './tag-picker';
 import { Toasts } from './toast';
@@ -187,6 +188,26 @@ export class PixelSheet {
     // o ateliê manda o desenho (os pontos, a grade, a paleta, as cores): o jeito fica o da ficha
     this.values.update((old) => ({ ...old, ...v }));
     if (this.art()) this.attempted.set(false);
+  }
+
+  /**
+   * O "Salvar como cópia" do ateliê, editando uma obra: o desenho vai para uma obra nova ("X (cópia)", com o que a
+   * ficha tem agora de tags, descrição, jeito e pasta), e esta ficha fica com o desenho de antes.
+   */
+  protected copyDrawing(r: StudioResult): void {
+    const art = valuesArt({ ...this.values(), ...r.values });
+    if (!art) {
+      this.toasts.show('Uma pixel art precisa de pelo menos um ponto: a cópia não foi feita.');
+      return;
+    }
+    const title = pieceTitleOf(this.title()) || (this.editing()?.title ?? '');
+    const made = this.gallery.create({ art, layers: r.layers, title: title ? `${title} (cópia)` : '', tags: this.tags(), note: this.note(), folder: this.folder() ?? undefined });
+    if (!made) {
+      this.toasts.show('A galeria está cheia: apague uma pixel art para guardar a cópia.');
+      return;
+    }
+    this.keepNewColors();
+    this.toasts.show(`Guardei a cópia, “${pieceTitle(made)}”, na galeria; esta ficha ficou com o desenho de antes.`, { label: 'Desfazer', run: () => this.transitions.run(() => this.gallery.remove([made.id])) });
   }
 
   protected pickLook(l: PixelLook): void {

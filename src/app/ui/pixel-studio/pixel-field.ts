@@ -3,14 +3,15 @@ import { DEFAULT_PALETTE, PALETTES, clampSide, gridOf, hasInk, inkCount, palette
 import { StoredLayer } from '../../core/pixel-layers';
 import { WidgetValues } from '../../core/widgets';
 import { ICON, IconModule } from '../icons';
-import { PixelStudio } from './pixel-studio';
+import { PixelStudio, StudioResult } from './pixel-studio';
 import { PixelThumb } from '../pixel-thumb';
 
 /**
  * O desenho da pixel art na folha do widget (o campo `pixels`): uma linha só, como a escolha do ícone. A
  * miniatura do desenho (sem o xadrez, que é só do ateliê), a tela e as cores ("16 × 16 · 12 cores · Sweetie 16") e o botão de papel
  * que abre o ateliê (ui/pixel-studio/pixel-studio.ts) por cima de tudo. O desenho novo, ainda sem ponto
- * nenhum, já abre no ateliê. O ateliê manda as mudanças na hora; esta linha só passa adiante (`changed`).
+ * nenhum, já abre no ateliê. Sair do ateliê pergunta (PLANO-RASCUNHOS-PIXEL.md): o Salvar passa o desenho adiante
+ * (`changed`), o Salvar como cópia também (`copied`, e quem usa faz a cópia), e o Descartar não passa nada.
  */
 @Component({
   selector: 'app-pixel-field',
@@ -39,7 +40,7 @@ import { PixelThumb } from '../pixel-thumb';
     }
     @defer (when open()) {
       @if (open()) {
-        <app-pixel-studio [values]="values()" [layered]="layered()" [stack]="stack()" (changed)="changed.emit($event)" (stackChanged)="stackChanged.emit($event)" (closed)="closed()" />
+        <app-pixel-studio [values]="values()" [layered]="layered()" [stack]="stack()" [copy]="copyable()" (saved)="saved($event)" (copied)="copied.emit($event)" (closed)="closed()" />
       }
     }
   `,
@@ -57,8 +58,16 @@ export class PixelField {
   readonly layered = input(false);
   /** As camadas da obra (sem elas, uma só). */
   readonly stack = input<readonly StoredLayer[] | undefined>(undefined);
+  /**
+   * O "Salvar como cópia" na pergunta de sair do ateliê: null (o de sempre), quando já havia um desenho ao abrir o
+   * ateliê; quem usa pode dizer (a ficha de uma obra nova não tem original).
+   */
+  readonly copy = input<boolean | null>(null);
+  /** O ateliê saiu salvando: o desenho novo (os valores e, com `layered`, a pilha logo depois). */
   readonly changed = output<WidgetValues>();
   readonly stackChanged = output<StoredLayer[] | undefined>();
+  /** O ateliê saiu salvando como cópia: quem usa guarda a cópia, e o desenho daqui fica como era. */
+  readonly copied = output<StudioResult>();
 
   protected readonly EmptyIcon = ICON.pixelArt;
   protected readonly BrushIcon = ICON.editar;
@@ -72,6 +81,7 @@ export class PixelField {
   private readonly rows = computed(() => gridOf(this.values()['pixels'] ?? '', this.w(), this.h()));
   protected readonly drawing = computed(() => ({ w: this.w(), h: this.h(), rows: this.rows(), palette: this.palette(), colors: this.colors() }));
   protected readonly inked = computed(() => hasInk(this.rows()));
+  protected readonly copyable = computed(() => this.copy() ?? this.inked());
   protected readonly summary = computed(() => {
     const n = inkCount(this.palette(), this.colors());
     const label = PALETTES.find((p) => p.value === this.palette())?.label ?? '';
@@ -88,6 +98,11 @@ export class PixelField {
   /** Abre o ateliê por quem usa (o "Desenhar uma nova" da folha da galeria, na folha do widget). */
   openStudio(): void {
     this.open.set(true);
+  }
+
+  protected saved(r: StudioResult): void {
+    this.changed.emit(r.values);
+    if (this.layered()) this.stackChanged.emit(r.layers);
   }
 
   /** O ateliê fechou: o foco volta para o botão que o abre. */

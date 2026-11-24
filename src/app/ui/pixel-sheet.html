@@ -30,7 +30,7 @@
           <!-- só com a ficha aberta: a obra nova abre o ateliê sozinha, e fechada ela não abriria nada por cima -->
           @if (shown()) {
             @for (k of [session()]; track k) {
-              <app-pixel-field ids="obra" [values]="values()" [layered]="true" [stack]="layers()" [missing]="attempted() && !art()" [autoOpen]="!editing()" (changed)="drawn($event)" (stackChanged)="layers.set($event)" />
+              <app-pixel-field ids="obra" [values]="values()" [layered]="true" [stack]="layers()" [missing]="attempted() && !art()" [autoOpen]="!editing()" [copy]="!!editing()" (changed)="drawn($event)" (stackChanged)="layers.set($event)" (copied)="copyDrawing($event)" />
             }
           }
         </section>

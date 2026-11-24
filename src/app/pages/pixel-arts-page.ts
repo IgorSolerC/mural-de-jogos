@@ -62,7 +62,7 @@ import { PixelImportSheet } from '../ui/pixel-import-sheet';
 import { SelectionTray, TrayAction } from '../ui/selection-tray';
 import { PixelPieceCard } from '../ui/pixel-piece';
 import { PixelSheet } from '../ui/pixel-sheet';
-import { PixelStudio } from '../ui/pixel-studio/pixel-studio';
+import { PixelStudio, StudioResult } from '../ui/pixel-studio/pixel-studio';
 import { PixelTile } from '../ui/pixel-tile';
 import { SearchHighlight } from '../ui/search-highlight';
 import { SearchStrip } from '../ui/search-strip';
@@ -664,7 +664,8 @@ export class PixelArtsPage {
   }
 
   /** O desenho aberto direto no ateliê (o Ateliê da etiqueta), com o que mudou até agora. */
-  protected readonly studio = signal<{ id: string; title: string; values: WidgetValues; layers: StoredLayer[] | undefined } | null>(null);
+  /** O Ateliê aberto pela etiqueta: a obra e o desenho dela quando abriu; `went`, para onde o foco vai ao fechar (a obra, ou a cópia). */
+  protected readonly studio = signal<{ id: string; title: string; values: WidgetValues; layers: StoredLayer[] | undefined; went?: string } | null>(null);
 
   constructor() {
     const host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
@@ -890,43 +891,63 @@ export class PixelArtsPage {
     this.sheet().edit(p, { remove: () => this.remove(id), saved: () => (this.filtering() || this.whereIs(id) === this.openFolder() ? this.follow(id) : this.focusWall()) });
   }
 
-  /** O Ateliê da etiqueta: o desenho direto no ateliê, por cima de tudo; o que mudar vai para a obra ao fechar. */
+  /** O Ateliê da etiqueta: o desenho direto no ateliê, por cima de tudo; sair pergunta o que fazer com o que mudou. */
   protected atelie(id: string): void {
     const p = this.gallery.get(id);
     if (p) this.studio.set({ id, title: p.title, values: artValues(p.art), layers: p.layers });
   }
 
-  protected drawn(v: WidgetValues): void {
-    // o ateliê manda o desenho (os pontos, a grade, a paleta, as cores): o jeito fica o da obra
-    this.studio.update((s) => (s ? { ...s, values: { ...s.values, ...v } } : s));
-  }
-
-  protected restacked(layers: StoredLayer[] | undefined): void {
-    this.studio.update((s) => (s ? { ...s, layers } : s));
-  }
-
-  /** O ateliê fechou: o desenho mudado vai para a obra (com o Desfazer), e o foco volta para o Ateliê dela. */
-  protected studioClosed(): void {
+  /** Salvar: o desenho vai para a obra (com o Desfazer); o jeito fica o da obra. */
+  protected studioSaved(r: StudioResult): void {
     const s = this.studio();
-    this.studio.set(null);
     if (!s) return;
     const p = this.gallery.get(s.id);
-    const art = valuesArt(s.values);
+    const art = valuesArt({ ...s.values, ...r.values });
     if (p && art) {
-      const undo = this.gallery.update(s.id, { art, layers: s.layers });
+      const undo = this.gallery.update(s.id, { art, layers: r.layers });
       if (undo) this.toasts.show(`“${pieceTitle(p)}” mudou na galeria`, { label: 'Desfazer', run: () => this.transitions.run(undo) });
+      else if (JSON.stringify([art, r.layers ?? null]) !== JSON.stringify([p.art, p.layers ?? null])) this.toasts.show(`Não deu para salvar “${pieceTitle(p)}”: o desenho ficou como era.`);
     } else if (p) {
       this.toasts.show('Uma pixel art precisa de pelo menos um ponto: o desenho ficou como era.');
     } else if (art) {
       // apagada noutro aparelho enquanto o ateliê estava aberto: o desenho não some, vira uma obra nova
-      const made = this.gallery.create({ art, layers: s.layers, folder: this.openFolder() ?? undefined });
-      if (made) {
-        this.toasts.show('A pixel art foi apagada noutro aparelho: guardei o desenho como uma obra nova.');
-        this.land(made.id);
+      const made = this.gallery.create({ art, layers: r.layers, title: s.title, folder: this.openFolder() ?? undefined });
+      if (!made) {
+        this.toasts.show('A pixel art foi apagada noutro aparelho, e a galeria está cheia: o desenho não coube.');
+        return;
       }
+      this.toasts.show('A pixel art foi apagada noutro aparelho: guardei o desenho como uma obra nova.');
+      this.studio.set({ ...s, went: made.id });
+    }
+  }
+
+  /** Salvar como cópia: uma obra nova com o desenho ("X (cópia)", as tags, a descrição e a pasta da de antes); a de antes fica como era. */
+  protected studioCopied(r: StudioResult): void {
+    const s = this.studio();
+    if (!s) return;
+    const p = this.gallery.get(s.id);
+    const art = valuesArt({ ...s.values, ...r.values });
+    if (!art) {
+      this.toasts.show('Uma pixel art precisa de pelo menos um ponto: a cópia não foi feita.');
       return;
     }
-    this.follow(s.id, 'app-pixel-actions .atelie');
+    const title = p?.title ?? s.title;
+    const made = this.gallery.create({ art, layers: r.layers, title: title ? `${title} (cópia)` : '', tags: p?.tags ?? [], note: p?.note ?? '', folder: p ? p.folder : (this.openFolder() ?? undefined) });
+    if (!made) {
+      this.toasts.show('A galeria está cheia: apague uma pixel art para guardar a cópia.');
+      return;
+    }
+    this.toasts.show(`Guardei a cópia, “${pieceTitle(made)}”; ${p ? `“${pieceTitle(p)}” ficou como era` : 'a de antes não está mais na galeria'}.`, { label: 'Desfazer', run: () => this.transitions.run(() => this.gallery.remove([made.id])) });
+    this.studio.set({ ...s, went: made.id });
+  }
+
+  /** O ateliê fechou (salvando, ou não): o foco volta para o Ateliê da obra, ou vai para a obra nova. */
+  protected studioClosed(): void {
+    const s = this.studio();
+    this.studio.set(null);
+    if (!s) return;
+    if (s.went) this.land(s.went);
+    else this.follow(s.id, 'app-pixel-actions .atelie');
   }
 
   /** O Baixar: o PNG nítido da obra (grande, ou no tamanho original: um pixel por ponto). */

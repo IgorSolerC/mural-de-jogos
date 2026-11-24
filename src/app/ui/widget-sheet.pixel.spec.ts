@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { WidgetDone, WidgetSheet } from './widget-sheet';
 import { PIXEL_GALLERY_KEY, PixelGallery } from '../core/pixel-gallery-store';
 import { Toasts } from './toast';
+import { Confirm } from './confirm';
 import { widgetDef } from '../core/widgets';
 
 /** A folha do widget com a pixel art: o desenho numa linha, o ateliê por cima, e o Pôr sai com a marca. */
@@ -43,7 +44,16 @@ describe('a folha do widget com a pixel art', () => {
     fixture.detectChanges();
     (studio.querySelector('.pronto') as HTMLButtonElement).click();
     await fixture.whenStable();
-    fixture.detectChanges();
+    // sair pergunta (PLANO-RASCUNHOS-PIXEL.md): antes de responder, nada chegou na folha
+    expect(TestBed.inject(Confirm).current()?.title).toBe('Salvar as mudanças?');
+    expect(host.querySelector('app-pixel-field .linha-nome')?.textContent).toContain('Nada desenhado ainda');
+    TestBed.inject(Confirm).answer('confirm');
+    for (let i = 0; i < 3; i++) {
+      await new Promise((r) => setTimeout(r));
+      await fixture.whenStable();
+      fixture.detectChanges();
+    }
+    expect(host.querySelector('app-pixel-field .linha-nome')?.textContent).toContain('O desenho');
     expect(host.querySelector('app-pixel-field .linha-desc')?.textContent).toContain('2 × 1 · 9 cores · Clássica');
     (host.querySelector('.jeito input[value="figurinha"]') as HTMLInputElement).click();
     fixture.detectChanges();
@@ -124,6 +134,23 @@ describe('a folha do widget com a pixel art', () => {
     expect(done.length).toBe(0);
     expect(host.querySelector('.pe .falta')?.textContent).toContain('Falta desenhar');
     expect(document.activeElement).toBe(host.querySelector('app-pixel-field [data-campo="pixels"]'));
+  });
+
+  it('o Salvar como cópia do ateliê: o desenho novo vai para a galeria "(cópia)", e o widget fica com o de antes', async () => {
+    localStorage.removeItem('meu-mural:pixel-arts:v1');
+    const { fixture, host } = await open({ width: '2', height: '1', pixels: '12', caption: 'Dupla' }, true);
+    const gallery = TestBed.inject(PixelGallery);
+    const before = gallery.count();
+    const sheet = fixture.componentInstance as unknown as { copyToGallery(r: { values: Record<string, string>; layers: undefined }): void; values(): Record<string, string> };
+    sheet.copyToGallery({ values: { pixels: '21', width: '2', height: '1', palette: 'classica', colors: '' }, layers: undefined });
+    fixture.detectChanges();
+    expect(gallery.count()).toBe(before + 1);
+    expect(gallery.pieces().at(-1)).toEqual(jasmine.objectContaining({ title: 'Dupla (cópia)', art: ['2x1', '21'] }));
+    expect(sheet.values()['pixels']).toBe('12');
+    expect(host.querySelector('app-pixel-field')).not.toBeNull();
+    expect(TestBed.inject(Toasts).current()!.text).toContain('o desenho do widget ficou como era');
+    gallery.remove([gallery.pieces().at(-1)!.id]);
+    localStorage.removeItem('meu-mural:pixel-arts:v1');
   });
 
   it('Guardar na galeria de pixel arts: uma cópia do desenho, com a legenda de nome; o widget fica como está', async () => {

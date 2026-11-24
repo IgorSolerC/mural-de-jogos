@@ -229,7 +229,7 @@ describe('a pixel art da galeria como capa', () => {
 
   /** O ateliê, por dentro: abrir pelo Desenhar uma nova, pintar e fechar (o ateliê de verdade manda o mesmo). */
   function studioOf(fixture: ComponentFixture<CoverPicker>) {
-    const picker = fixture.componentInstance as unknown as { drawing(v: Record<string, string>): void; studioClosed(): Promise<void>; studio(): unknown };
+    const picker = fixture.componentInstance as unknown as { drawn(r: { values: Record<string, string>; layers: undefined }): void; studioClosed(): Promise<void>; studio(): unknown };
     return picker;
   }
 
@@ -241,7 +241,7 @@ describe('a pixel art da galeria como capa', () => {
     expect(sheet.open).toBeFalse();
     const picker = studioOf(fixture as ComponentFixture<CoverPicker>);
     expect(picker.studio()).not.toBeNull();
-    picker.drawing(artValues(['2x2', '10/01']));
+    picker.drawn({ values: artValues(['2x2', '10/01']), layers: undefined });
     await picker.studioClosed();
     await settle(fixture, () => changed.length > 0);
     const gallery = TestBed.inject(PixelGallery);

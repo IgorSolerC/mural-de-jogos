@@ -15,6 +15,7 @@ import { NoteWidget } from './note-widget';
 import { Pin } from './pin';
 import { PixelLookArt } from './pixel-look-art';
 import { PixelField } from './pixel-studio/pixel-field';
+import type { StudioResult } from './pixel-studio/pixel-studio';
 import { PixelGallery } from '../core/pixel-gallery-store';
 import { PixelPiece, artValues, valuesArt } from '../core/pixel-gallery';
 import { PixelPicker } from './pixel-picker';
@@ -362,7 +363,19 @@ export class WidgetSheet {
    * continua no texto como está. O aviso leva até a galeria.
    */
   protected keepInGallery(): void {
-    const art = valuesArt(this.values());
+    this.intoGallery(valuesArt(this.values()), this.values()['caption'] ?? '', 'Guardei uma cópia na galeria de pixel arts.');
+  }
+
+  /**
+   * O "Salvar como cópia" do ateliê (PLANO-RASCUNHOS-PIXEL.md): o desenho novo vai para a galeria, com a legenda e
+   * "(cópia)" de nome, e o widget fica com o de antes.
+   */
+  protected copyToGallery(r: StudioResult): void {
+    const caption = this.values()['caption']?.trim() ?? '';
+    this.intoGallery(valuesArt({ ...this.values(), ...r.values }), caption ? `${caption} (cópia)` : '', 'Guardei a cópia na galeria de pixel arts; o desenho do widget ficou como era.');
+  }
+
+  private intoGallery(art: string[] | null, title: string, done: string): void {
     if (!art) {
       this.toasts.show('Desenhe pelo menos um ponto para guardar na galeria.');
       return;
@@ -373,12 +386,12 @@ export class WidgetSheet {
       this.toasts.show('Este desenho já está na galeria de pixel arts.', go);
       return;
     }
-    const made = this.gallery.create({ art, title: this.values()['caption'] ?? '' });
+    const made = this.gallery.create({ art, title });
     if (!made) {
       this.toasts.show('A galeria está cheia: apague uma pixel art para guardar outra.');
       return;
     }
-    this.toasts.show('Guardei uma cópia na galeria de pixel arts.', go);
+    this.toasts.show(done, go);
   }
 
   /** Vários campos de uma vez (o ateliê da pixel art manda os pontos, a tela, a paleta e as cores). */

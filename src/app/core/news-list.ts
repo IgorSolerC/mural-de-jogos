@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-24-trazer-na-barra',
+    id: '2026-11-24-sair-do-atelie',
     version: '1.53.2',
     kind: 'ajustes',
     date: '2026-11-24',
@@ -41,6 +41,7 @@ export const NEWS: NewsEntry[] = [
       'O sublinhado dos links nas anotações ficou mais grosso e num azul mais escuro, que se vê também nos cards coloridos.',
       'No mural de músicas, as capas não têm mais o aro cinza do disco marcado, e a capa de pixel art enche a capa do álbum, sem a moldura escura em volta e com os pontos nítidos.',
       'As pixel arts vão até 256 × 256 pontos (antes, 64 × 64): no ateliê, na galeria, no widget e nas capas.',
+      'Sair do ateliê da pixel art (o Pronto, o Esc) pergunta o que fazer com o que mudou: Salvar, Descartar ou, num desenho que já existia, Salvar como cópia, que leva o desenho novo para uma pixel art nova na galeria e deixa o de antes como era. Sem nada mudado, ele fecha direto.',
       'Na galeria de pixel arts, as imagens do computador entram soltando na página (ou pelo Trazer, na barra da galeria): cada uma vira uma pixel art com as cores dela e o nome do arquivo, na pasta em que você soltou. A maior que 64 × 64 pergunta se é uma pixel art ampliada, com a prévia das duas respostas e quantos pixels tem cada ponto (o site adivinha, e dá para mudar), e volta ao tamanho de verdade.',
     ],
     correcoes: [

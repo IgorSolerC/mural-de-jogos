@@ -214,6 +214,22 @@ describe('a galeria de pixel arts', () => {
     expect(gallery.get('pa')).toEqual(jasmine.objectContaining({ title: 'Gato', tags: ['bichos', 'pretos'] }));
   });
 
+  it('o Salvar como cópia do ateliê da ficha: uma obra nova "(cópia)" com o nome e as tags da ficha, e a ficha fica com o desenho de antes', async () => {
+    await mount();
+    host.querySelector<HTMLButtonElement>('[data-ficha="pa"] .hit')!.click();
+    await settle();
+    const before = gallery.get('pa')!;
+    const sheet = fixture.debugElement.query((d) => d.name === 'app-pixel-sheet').componentInstance;
+    sheet['copyDrawing']({ values: { pixels: '3/03', width: '2', height: '2', palette: 'classica', colors: '' }, layers: undefined });
+    await settle();
+    const copy = gallery.pieces().find((p) => p.title === 'Gato (cópia)')!;
+    expect(copy.art).toEqual(['2x2', '3/03']);
+    expect(copy.tags ?? []).toEqual(before.tags ?? []);
+    expect(sheet['art']()).toEqual(before.art);
+    expect(gallery.get('pa')).toBe(before);
+    expect(TestBed.inject(Toasts).current()!.text).toContain('esta ficha ficou com o desenho de antes');
+  });
+
   it('a ficha não guarda uma obra sem desenho', async () => {
     gallery.state.set({ pieces: [], removed: {} });
     await mount();
@@ -319,13 +335,13 @@ describe('a galeria de pixel arts', () => {
     expect(host.querySelector<HTMLDialogElement>('dialog.obra')!.open).toBeTrue();
   });
 
-  it('o Ateliê da etiqueta abre o desenho direto no ateliê; o que muda vai para a obra ao fechar, com o Desfazer', async () => {
+  it('o Ateliê da etiqueta abre o desenho direto no ateliê; o Salvar leva o que mudou para a obra, com o Desfazer', async () => {
     await mount();
     const page = fixture.componentInstance;
     page['atelie']('pa');
     await settle();
     expect(host.querySelector('app-pixel-studio')).not.toBeNull();
-    page['drawn']({ pixels: '3/03', width: '2', height: '2', palette: 'classica', colors: '' });
+    page['studioSaved']({ values: { pixels: '3/03', width: '2', height: '2', palette: 'classica', colors: '' }, layers: undefined });
     page['studioClosed']();
     await settle();
     expect(host.querySelector('app-pixel-studio')).toBeNull();
@@ -333,6 +349,39 @@ describe('a galeria de pixel arts', () => {
     TestBed.inject(Toasts).current()!.action!.run();
     await settle();
     expect(gallery.get('pa')!.art).toEqual(['2x2', '12/21']);
+  });
+
+  it('o Salvar como cópia do ateliê: uma obra nova "(cópia)" com as tags e a pasta da de antes, que fica como era', async () => {
+    await mount();
+    const page = fixture.componentInstance;
+    const before = gallery.get('pa')!;
+    page['atelie']('pa');
+    await settle();
+    page['studioCopied']({ values: { pixels: '3/03', width: '2', height: '2', palette: 'classica', colors: '' }, layers: undefined });
+    page['studioClosed']();
+    await settle();
+    expect(gallery.get('pa')!.art).toEqual(before.art);
+    const copy = gallery.pieces().find((p) => p.title === `${before.title} (cópia)`)!;
+    expect(copy.art).toEqual(['2x2', '3/03']);
+    expect(copy.tags ?? []).toEqual(before.tags ?? []);
+    expect(copy.folder).toEqual(before.folder);
+    TestBed.inject(Toasts).current()!.action!.run();
+    await settle();
+    expect(gallery.get(copy.id)).toBeUndefined();
+  });
+
+  it('o ateliê fechado sem salvar (Descartar) deixa a obra como era', async () => {
+    await mount();
+    const page = fixture.componentInstance;
+    const before = gallery.get('pa')!;
+    const n = gallery.pieces().length;
+    page['atelie']('pa');
+    await settle();
+    page['studioClosed']();
+    await settle();
+    expect(host.querySelector('app-pixel-studio')).toBeNull();
+    expect(gallery.get('pa')).toBe(before);
+    expect(gallery.pieces().length).toBe(n);
   });
 
   it('trazer das anotações: o convite da galeria vazia, a folha com as que ainda não estão, e as escolhidas viram obras', async () => {

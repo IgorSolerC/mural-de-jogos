@@ -21,7 +21,7 @@ describe('pixel art: as camadas do ateliê', () => {
     asked = 0;
     TestBed.configureTestingModule({
       imports: [PixelStudio],
-      providers: [provideZonelessChangeDetection(), { provide: Confirm, useValue: { ask: () => (asked++, Promise.resolve(answer)) } }],
+      providers: [provideZonelessChangeDetection(), { provide: Confirm, useValue: { ask: () => (asked++, Promise.resolve(answer)), choose: () => Promise.resolve('confirm') } }],
     });
     fixture = TestBed.createComponent(PixelStudio);
     values = { ...start };
