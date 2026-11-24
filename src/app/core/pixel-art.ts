@@ -6,7 +6,7 @@ import { labelKey as key } from './text';
  *
  *   {{pixel: 8x8 | 0110011/11111111/11111111/0111111/001111/00011 | pastel | Coração}}
  *
- * - a grade, `LxA` (de 1 a 64 cada lado);
+ * - a grade, `LxA` (de 1 a 256 cada lado);
  * - os pontos, as fileiras de cima para baixo separadas por "/", um caractere por ponto: 0 é o
  *   transparente; de 1 a 9, de a a z e de A a Z, as 61 cores da paleta (ver `inkChar`). Os 0 do fim de
  *   cada fileira e as fileiras vazias do fim não se escrevem, e cinco ou mais pontos iguais seguidos vão
@@ -20,7 +20,7 @@ import { labelKey as key } from './text';
  */
 
 /** O maior lado da grade, em pontos. */
-export const PIXEL_MAX = 64;
+export const PIXEL_MAX = 256;
 /** A grade de quando nada foi escrito (a folha abre nela). */
 export const PIXEL_DEFAULT_SIDE = 16;
 
@@ -228,7 +228,7 @@ export function pixelLookWord(a: string): PixelLook | null {
 
 // ===== as partes escritas =====
 
-const DIMS = /^(\d{1,2})\s*[x×]\s*(\d{1,2})$/i;
+const DIMS = /^(\d{1,3})\s*[x×]\s*(\d{1,3})$/i;
 /** Os pontos de antes das letras (em qualquer lugar da linha): algarismos e "/", com pelo menos um algarismo. */
 const ROWS = /^[0-9/*]*[0-9][0-9/*]*$/;
 /**
@@ -245,7 +245,7 @@ const RUN_MIN = 5;
 const COLORS = /^[1-9a-zA-Z]#(?:[0-9a-f]{6}|[0-9a-f]{3})(?:\s+[1-9a-zA-Z]#(?:[0-9a-f]{6}|[0-9a-f]{3}))*$/i;
 const HEX = /^#(?:[0-9a-f]{6}|[0-9a-f]{3})$/i;
 
-/** "16x16" → 16 por 16; null se não é uma grade que vale (de 1 a 64 cada lado). */
+/** "16x16" → 16 por 16; null se não é uma grade que vale (de 1 a 256 cada lado). */
 export function parseDims(a: string): { w: number; h: number } | null {
   const m = DIMS.exec(a.trim());
   if (!m) return null;
@@ -254,7 +254,7 @@ export function parseDims(a: string): { w: number; h: number } | null {
   return w >= 1 && h >= 1 && w <= PIXEL_MAX && h <= PIXEL_MAX ? { w, h } : null;
 }
 
-/** Um lado da grade, entre 1 e 64 (o que não é número vira `fallback`). */
+/** Um lado da grade, entre 1 e 256 (o que não é número vira `fallback`). */
 export function clampSide(n: number | string | undefined, fallback = PIXEL_DEFAULT_SIDE): number {
   // (o campo vazio é o de sempre, e não 0: Number('') é 0)
   const v = typeof n === 'string' ? (n.trim() ? Number(n) : NaN) : (n ?? NaN);
@@ -374,9 +374,21 @@ export function expandRow(row: string): string {
   return out.slice(0, PIXEL_MAX);
 }
 
-/** Uma fileira com as sequências de cinco ou mais pontos iguais abreviadas: "000000011" → "0*0711". */
+/** A maior quantidade que uma abreviação escreve (dois algarismos, que todo site lê). */
+const RUN_MAX = 99;
+
+/**
+ * Uma fileira com as sequências de cinco ou mais pontos iguais abreviadas: "000000011" → "0*0711". A de 100 ou
+ * mais (numa grade de mais de 99) vai em pedaços de 99: "0*99" e o resto, abreviado se ainda for de cinco ou mais.
+ */
 export function compressRow(row: string): string {
-  return row.replace(/([0-9a-zA-Z])\1*/g, (run, d: string) => (run.length >= RUN_MIN ? `${d}*${String(run.length).padStart(2, '0')}` : run));
+  return row.replace(/([0-9a-zA-Z])\1*/g, (run, d: string) => {
+    if (run.length < RUN_MIN) return run;
+    let n = run.length;
+    let out = '';
+    for (; n > RUN_MAX; n -= RUN_MAX) out += `${d}*${RUN_MAX}`;
+    return out + (n >= RUN_MIN ? `${d}*${String(n).padStart(2, '0')}` : d.repeat(n));
+  });
 }
 
 /**

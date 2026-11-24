@@ -54,7 +54,7 @@ describe('pixel art: as ferramentas do ateliê', () => {
     expect(resizeCanvas(rows, 2, 2, 4, 4, { x: 1, y: 1 })).toEqual(['0000', '0120', '0340', '0000']);
     expect(resizeCanvas(rows, 2, 2, 3, 2, { x: 2, y: 0 })).toEqual(['012', '034']);
     expect(resizeCanvas(rows, 2, 2, 1, 1, { x: 2, y: 2 })).toEqual(['4']);
-    expect(resizeCanvas(rows, 2, 2, 99, 1, { x: 0, y: 0 })[0].length).toBe(64);
+    expect(resizeCanvas(rows, 2, 2, 300, 1, { x: 0, y: 0 })[0].length).toBe(256);
   });
 
   it('o zoom anda pelos níveis, cabe na tela e se diz em porcento', () => {

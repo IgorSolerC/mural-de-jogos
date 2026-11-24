@@ -129,7 +129,7 @@ export interface Anchor {
 }
 
 /**
- * A tela de `w` × `h` com outro tamanho, `nw` × `nh` (de 1 a 64), o desenho preso na âncora: crescer põe
+ * A tela de `w` × `h` com outro tamanho, `nw` × `nh` (de 1 a 256), o desenho preso na âncora: crescer põe
  * transparente em volta, diminuir corta a beirada do lado oposto à âncora (o Tamanho da tela do Aseprite).
  */
 /** Quanto o desenho anda quando a tela de `w` × `h` vira `nw` × `nh` presa na âncora (as referências andam junto). */

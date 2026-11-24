@@ -34,7 +34,7 @@ import {
 } from '../core/pixel-gallery-view';
 import { downloadBlob, pieceToPng, pngName } from '../core/pixel-png';
 import { lookKey } from '../core/category-looks';
-import { fold } from '../core/review';
+import { TEXT_MAX, fold } from '../core/review';
 import { Settings } from '../core/settings';
 import { readJson, writeJson } from '../core/storage';
 import { ViewTransitions } from '../core/view-transitions';
@@ -64,6 +64,12 @@ import { SearchHighlight } from '../ui/search-highlight';
 import { SearchStrip } from '../ui/search-strip';
 import { TagChip } from '../ui/tag-chips';
 import { Toasts } from '../ui/toast';
+
+/**
+ * O fim do aviso de quando o widget copiado passa do tamanho de uma anotação (`TEXT_MAX`): com obras de até
+ * 256 × 256, uma bem picada não cabe, e o editor não guardaria a anotação.
+ */
+const TOO_BIG_FOR_NOTE = `, mas passa do tamanho de uma anotação (${TEXT_MAX.toLocaleString('pt-BR')} letras): para pôr numa anotação, baixe o PNG e cole a imagem.`;
 
 /**
  * Pixel arts (PLANO-PIXEL-ARTS.md): a galeria de todas as pixel arts guardadas, em Extras. A Wishlist das Análises
@@ -247,10 +253,11 @@ export class PixelArtsPage {
       inside: (id) => this.inside(id).map((p) => p.id),
     },
     // o Ctrl+C das marcadas: as linhas dos widgets, para colar numa anotação (com as de dentro das pastas marcadas)
-    copy: (items, inside) => ({
-      text: items.map(pieceWidgetLine).join('\n\n'),
-      done: `${items.length === 1 ? 'Copiei a pixel art como widget' : `Copiei as ${items.length} pixel arts como widgets`}${insideWords(inside, items.length, this.selection.folders().length)}.`,
-    }),
+    copy: (items, inside) => {
+      const text = items.map(pieceWidgetLine).join('\n\n');
+      const said = `${items.length === 1 ? 'Copiei a pixel art como widget' : `Copiei as ${items.length} pixel arts como widgets`}${insideWords(inside, items.length, this.selection.folders().length)}`;
+      return { text, done: said + (text.length > TEXT_MAX ? TOO_BIG_FOR_NOTE : '.') };
+    },
   });
 
   /** As obras de uma pasta e das de dentro dela, na ordem da galeria: o que vai junto com a pasta marcada. */
@@ -1001,7 +1008,8 @@ export class PixelArtsPage {
   protected copyWidget(id: string): Promise<void> {
     const p = this.gallery.get(id);
     if (!p) return Promise.resolve();
-    return this.toasts.copy(pieceWidgetLine(p), 'Copiei a pixel art como widget: cole numa anotação.', 'Não deu para copiar. Tente de novo.');
+    const line = pieceWidgetLine(p);
+    return this.toasts.copy(line, line.length > TEXT_MAX ? 'Copiei a pixel art como widget' + TOO_BIG_FOR_NOTE : 'Copiei a pixel art como widget: cole numa anotação.', 'Não deu para copiar. Tente de novo.');
   }
 
   /** Uma cópia da obra, com "(cópia)" no nome: entra como a mais nova, e a tela vai até ela. */

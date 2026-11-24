@@ -20,6 +20,21 @@ export const PIXEL_NOTE_MAX = WISH_NOTE_MAX;
 /** Até quantas obras (um 64 × 64 de 61 cores é uns 5 kB; 500 cabem no navegador com folga). */
 export const PIXEL_GALLERY_MAX = 500;
 /**
+ * O peso que a galeria pode ter, em letras dos desenhos (o `art` e as camadas): com obras de até 256 × 256, umas
+ * poucas muito picadas encheriam o armazenamento do navegador e o mural da nuvem antes das 500. Como o teto das
+ * obras, só barra a obra nova.
+ */
+export const PIXEL_GALLERY_TEXT_MAX = 2_500_000;
+
+/** O peso da obra, em letras do desenho e das camadas (ver `PIXEL_GALLERY_TEXT_MAX`). */
+export function pieceWeight(p: Pick<PixelPiece, 'art' | 'layers'>): number {
+  let n = 0;
+  for (const a of p.art) n += a.length;
+  for (const l of p.layers ?? []) n += l.rows?.length ?? 0;
+  return n;
+}
+
+/**
  * O grupo das pastas da galeria, em `NotesConfig.folders` (as das Anotações, como a Wishlist): com os dois-pontos,
  * que a chave de um grupo das Anotações nunca tem do jeito que se escreve (um grupo "Pixel" seria `pixel`).
  */
@@ -29,8 +44,8 @@ export const PIXEL_FOLDER_GROUP = 'galeria:pixel-arts';
  * `'pixel|<tag>'`: um espaço próprio ao lado dos murais (nenhum mural se chama assim).
  */
 export const PIXEL_TAG_SPACE = 'pixel';
-/** O tamanho do que um desenho escrito pode ter (64 × 64 com letras, sem abreviar, cabe com folga). */
-const ART_TEXT_MAX = 12_000;
+/** O tamanho do que um desenho escrito pode ter (256 × 256 com letras, sem abreviar, cabe com folga). */
+const ART_TEXT_MAX = 70_000;
 
 export interface PixelPiece {
   id: string;

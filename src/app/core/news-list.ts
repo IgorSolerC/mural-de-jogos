@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-24-espaco-sempre-pausa',
+    id: '2026-11-24-pixel-art-256',
     version: '1.53.2',
     kind: 'ajustes',
     date: '2026-11-24',
@@ -40,6 +40,7 @@ export const NEWS: NewsEntry[] = [
       'A etiqueta do modo estudo, na fita de ouvir a nota, virou um olho: aberto com o texto à mostra, fechado com o texto escondido no rabisco.',
       'O sublinhado dos links nas anotações ficou mais grosso e num azul mais escuro, que se vê também nos cards coloridos.',
       'No mural de músicas, as capas não têm mais o aro cinza do disco marcado, e a capa de pixel art enche a capa do álbum, sem a moldura escura em volta e com os pontos nítidos.',
+      'As pixel arts vão até 256 × 256 pontos (antes, 64 × 64): no ateliê, na galeria, no widget e nas capas.',
     ],
     correcoes: [
       'No Dicionário Japonês, o índice de dedo mostra o anel do foco ao andar pelo teclado.',

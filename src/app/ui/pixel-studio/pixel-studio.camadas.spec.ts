@@ -1,6 +1,6 @@
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { StoredLayer } from '../../core/pixel-layers';
+import { REF_REACH, StoredLayer } from '../../core/pixel-layers';
 import { WidgetValues } from '../../core/widgets';
 import { Confirm } from '../confirm';
 import { ImageStore } from '../../core/image-store';
@@ -450,8 +450,8 @@ describe('pixel art: as referências do ateliê', () => {
     await make({ width: '4', height: '4' }, [{ id: 'r', name: 'Foto', ref: { src: 'murall://imagem/' + ID, x: 0, y: 0, w: 4, h: 4, opacity: 0.5 } }, { id: 'c1', name: 'Camada 1', rows: '1' }]);
     st()['selectLayer']('r');
     fixture.detectChanges();
-    drag(host.querySelector('.alca[data-alca="se"]')!, 400, 400);
-    expect(ref()?.w ?? 0).toBeLessThanOrEqual(256);
+    drag(host.querySelector('.alca[data-alca="se"]')!, 1200, 1200);
+    expect(ref()?.w ?? 0).toBeLessThanOrEqual(REF_REACH);
     board().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
     fixture.detectChanges();
     expect((host.querySelector('dialog.atelie') as HTMLDialogElement).open).toBeTrue();

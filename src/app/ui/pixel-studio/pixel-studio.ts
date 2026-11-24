@@ -2741,8 +2741,14 @@ export class PixelStudio {
     }
   });
 
-  /** A prévia: o desenho no maior tamanho inteiro (1×, 2×, 3×…) que cabe em 112 pontos de tela. */
-  protected readonly previewScale = computed(() => Math.max(1, Math.floor(112 / Math.max(this.w(), this.h()))));
+  /**
+   * A prévia: o desenho no maior tamanho inteiro (1×, 2×, 3×…) que cabe em 112 pontos de tela; maior que 112 pontos,
+   * encolhido até caber (menos de um pixel por ponto).
+   */
+  protected readonly previewScale = computed(() => {
+    const side = Math.max(this.w(), this.h());
+    return side > 112 ? 112 / side : Math.floor(112 / side);
+  });
 
   /** O nome de um ponto da âncora, para quem não vê: "em cima, à esquerda", "no meio". */
   protected anchorName(a: Anchor): string {

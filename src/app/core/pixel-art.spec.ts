@@ -56,7 +56,29 @@ describe('pixel art: a marca no texto', () => {
     // escrito à mão com um algarismo só, no fim da fileira, também vale
     expect(expandRow('3*5')).toBe('33333');
     // nunca passa do tamanho máximo da grade (uma fileira enorme escrita à mão não pesa)
-    expect(expandRow('1*99'.repeat(50)).length).toBe(64);
+    expect(expandRow('1*99'.repeat(50)).length).toBe(256);
+  });
+
+  it('a sequência de 100 ou mais vai em pedaços de 99, com dois algarismos (o site antigo lê igual)', () => {
+    expect(compressRow('0'.repeat(250))).toBe('0*990*990*52');
+    expect(compressRow('0'.repeat(102) + '1')).toBe('0*990001');
+    expect(compressRow('a'.repeat(99))).toBe('a*99');
+    for (const n of [99, 100, 103, 104, 198, 255]) expect(expandRow(compressRow('3'.repeat(n) + '1'))).toBe('3'.repeat(n) + '1');
+  });
+
+  it('uma grade de 256 × 256 vai ao texto e volta igual', () => {
+    const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    let seed = 7;
+    const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+    // pedaços de várias larguras (curtas e de mais de 99), como numa imagem trazida
+    const rows = Array.from({ length: 256 }, () => {
+      let r = '';
+      while (r.length < 256) r += chars[Math.floor(rnd() * 62)].repeat(1 + Math.floor(rnd() * (rnd() < 0.1 ? 180 : 4)));
+      return r.slice(0, 256);
+    });
+    const art = readPixelArt(writePixelArt({ ...readPixelArt(['256x256']), rows, caption: '' })!);
+    expect([art.w, art.h]).toEqual([256, 256]);
+    expect(art.rows).toEqual(rows);
   });
 
   it('a linha sem abreviação, de antes, continua valendo; e a abreviada é lida igual', () => {
@@ -92,11 +114,13 @@ describe('pixel art: a marca no texto', () => {
     expect(writeColors(odd.colors, odd.palette)).toBe('');
   });
 
-  it('a grade vale de 1 a 64 de cada lado', () => {
+  it('a grade vale de 1 a 256 de cada lado', () => {
     expect(parseDims('16x16')).toEqual({ w: 16, h: 16 });
     expect(parseDims('32×8')).toEqual({ w: 32, h: 8 });
     expect(parseDims('64x64')).toEqual({ w: 64, h: 64 });
-    expect(parseDims('65x8')).toBeNull();
+    expect(parseDims('200x150')).toEqual({ w: 200, h: 150 });
+    expect(parseDims('256x256')).toEqual({ w: 256, h: 256 });
+    expect(parseDims('257x8')).toBeNull();
     expect(parseDims('0x8')).toBeNull();
   });
 

@@ -15,8 +15,8 @@ export const PIXEL_REFS_MAX = 8;
 export const LAYER_NAME_MAX = 40;
 /** O nome da camada de uma obra sem camadas (a primeira de toda obra nova). */
 export const FIRST_LAYER_NAME = 'Camada 1';
-/** O tamanho do texto dos pontos de uma camada (64 × 64 com letras, sem abreviar, cabe com folga). */
-const LAYER_TEXT_MAX = 12_000;
+/** O tamanho do texto dos pontos de uma camada (256 × 256 com letras, sem abreviar, cabe com folga). */
+const LAYER_TEXT_MAX = 70_000;
 /** Até onde a referência pode ir, em pontos da grade, fora do papel (o bastante para mover e esticar à vontade). */
 export const REF_REACH = PIXEL_MAX * 4;
 /** A menor opacidade da referência (abaixo disso ela some e ninguém a acha mais). */

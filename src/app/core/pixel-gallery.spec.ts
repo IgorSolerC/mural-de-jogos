@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { NoteFolders } from './note-folders';
-import { PIXEL_FOLDER_GROUP, PIXEL_GALLERY_MAX, PixelPiece, pixelArtsInNotes, pixelArtsInText, cleanArt, mergePixelGallery, pieceTitle, pieceWidgetLine, pixelGalleryToSync, sanitizePixelGallery, sanitizePixelPiece } from './pixel-gallery';
+import { PIXEL_FOLDER_GROUP, PIXEL_GALLERY_MAX, PIXEL_GALLERY_TEXT_MAX, PixelPiece, pieceWeight, pixelArtsInNotes, pixelArtsInText, cleanArt, mergePixelGallery, pieceTitle, pieceWidgetLine, pixelGalleryToSync, sanitizePixelGallery, sanitizePixelPiece } from './pixel-gallery';
 import { PixelGallery } from './pixel-gallery-store';
 import { PixelFolders } from './pixel-folders';
 import { parseWidgetLine } from './widgets';
@@ -36,6 +36,22 @@ describe('a galeria de pixel arts (os dados)', () => {
     expect(both.removed).toEqual({ b: '2026-11-16T10:30:00.000Z' });
     // a mesma junção dos dois lados (as impressões dos aparelhos batem)
     expect(JSON.stringify(mergePixelGallery(there, here))).toBe(JSON.stringify(both));
+  });
+
+  it('uma obra de 256 × 256 bem picada vale, e o aparelho que não a lê (o site antigo) não a apaga na junção', () => {
+    const rows = Array.from({ length: 256 }, (_, y) => Array.from({ length: 256 }, (_, x) => '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'[(x * 7 + y * 13) % 62]).join(''));
+    const art = cleanArt(['256x256', rows.join('/')])!;
+    expect(art[0]).toBe('256x256');
+    expect(pieceWeight({ art })).toBeGreaterThan(60_000);
+    const big = piece('grande', '2026-11-24T10:00:00.000Z', { art });
+    // o outro aparelho deixou a obra de fora (sem lápide): ela continua aqui
+    const both = mergePixelGallery(sanitizePixelGallery({ pieces: [big, piece('a', '2026-11-24T09:00:00.000Z')], removed: {} }), sanitizePixelGallery({ pieces: [piece('a', '2026-11-24T09:00:00.000Z')], removed: {} }));
+    expect(both.pieces.map((p) => p.id)).toEqual(['a', 'grande']);
+  });
+
+  it('o peso da obra conta o desenho e as camadas de pontos', () => {
+    expect(pieceWeight({ art: ['2x2', '12/21'] })).toBe(8);
+    expect(pieceWeight({ art: ['2x1', '12'], layers: [{ id: 'a', name: 'A', rows: '1' }, { id: 'r', name: 'R', ref: { src: 'murall://imagem/x', x: 0, y: 0, w: 1, h: 1, opacity: 1 } }] })).toBe(6);
   });
 
   it('sem nenhuma obra nem apagada, nada vai para a nuvem', () => {
@@ -114,6 +130,18 @@ describe('a galeria de pixel arts (o armazém)', () => {
 
   it('não passa do teto', () => {
     gallery.state.set({ pieces: Array.from({ length: PIXEL_GALLERY_MAX }, (_, i) => piece('p' + i, '2026-11-16T10:00:00.000Z')), removed: {} });
+    expect(gallery.full()).toBeTrue();
+    expect(gallery.create({ art: ['1x1', '1'] })).toBeNull();
+  });
+
+  it('não passa do peso: a obra nova que passaria fica de fora, e as de antes ficam', () => {
+    const heavy = Array.from({ length: 40 }, (_, i) => piece('pesada' + i, '2026-11-24T10:00:00.000Z', { art: ['256x1', '1'.repeat(10) + 'x'.repeat(PIXEL_GALLERY_TEXT_MAX / 40 - 16)] }));
+    gallery.state.set({ pieces: heavy, removed: {} });
+    expect(gallery.weight()).toBeGreaterThanOrEqual(PIXEL_GALLERY_TEXT_MAX - 40 * 16);
+    expect(gallery.create({ art: ['256x1', 'ab'.repeat(128)] })).toBeNull();
+    // a pequena ainda cabe enquanto não chega ao teto
+    expect(gallery.create({ art: ['1x1', '1'] })).not.toBeNull();
+    gallery.state.set({ pieces: [...heavy, piece('mais', '2026-11-24T10:00:00.000Z', { art: ['256x1', 'z'.repeat(256)] }), piece('mais2', '2026-11-24T10:00:00.000Z', { art: ['256x1', 'y'.repeat(256)] })], removed: {} });
     expect(gallery.full()).toBeTrue();
     expect(gallery.create({ art: ['1x1', '1'] })).toBeNull();
   });

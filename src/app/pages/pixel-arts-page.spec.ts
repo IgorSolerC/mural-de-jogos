@@ -273,6 +273,20 @@ describe('a galeria de pixel arts', () => {
     option('Copiar como widget').click();
     await settle();
     expect(written).toEqual(['{{pixel: 2x2 | 12/21 | ponto-cruz | Espada}}']);
+    expect(TestBed.inject(Toasts).current()?.text).toBe('Copiei a pixel art como widget: cole numa anotação.');
+  });
+
+  it('a obra grande demais para uma anotação vai copiada, e o aviso diz que ela não cabe numa', async () => {
+    spyOn(navigator.clipboard, 'writeText').and.callFake(async () => {});
+    await mount();
+    const CH = '123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const rows = Array.from({ length: 256 }, (_, y) => Array.from({ length: 256 }, (_, x) => CH[(x * 7 + y * 3) % 61]).join(''));
+    const big = TestBed.inject(PixelGallery).create({ art: ['256x256', rows.join('/'), 'completa'], title: 'Grande' })!;
+    await settle();
+    await rightClick(host.querySelector(`[data-ficha="${big.id}"] .hit`)!);
+    option('Copiar como widget').click();
+    await settle();
+    expect(TestBed.inject(Toasts).current()?.text).toContain('passa do tamanho de uma anotação');
   });
 
   it('o nada vai até o fim da página, abaixo da busca; a pasta da busca fica com o do navegador', async () => {

@@ -4,8 +4,10 @@ import {
   PixelPatch,
   PixelPiece,
   PIXEL_GALLERY_MAX,
+  PIXEL_GALLERY_TEXT_MAX,
   mergePixelGallery,
   orderedGallery,
+  pieceWeight,
   sanitizePixelGallery,
   withPixelPatch,
 } from './pixel-gallery';
@@ -57,15 +59,18 @@ export class PixelGallery {
     return this.byId().get(id);
   }
 
-  /** Cabe mais uma obra? */
-  readonly full = computed(() => this.count() >= PIXEL_GALLERY_MAX);
+  /** O peso da galeria, em letras dos desenhos (ver `PIXEL_GALLERY_TEXT_MAX`). */
+  readonly weight = computed(() => this.pieces().reduce((n, p) => n + pieceWeight(p), 0));
 
-  /** Uma obra nova com o desenho e os campos (null: o desenho não vale, ou a galeria está cheia). */
+  /** Cabe mais uma obra? */
+  readonly full = computed(() => this.count() >= PIXEL_GALLERY_MAX || this.weight() >= PIXEL_GALLERY_TEXT_MAX);
+
+  /** Uma obra nova com o desenho e os campos (null: o desenho não vale, ou a galeria está cheia, de obras ou de peso). */
   create(fields: PixelPatch & Pick<PixelPiece, 'art'>): PixelPiece | null {
     if (this.full()) return null;
     const now = new Date().toISOString();
     const piece = withPixelPatch({ id: newId(), title: '', art: [], createdAt: now, at: now }, fields);
-    if (!piece) return null;
+    if (!piece || this.weight() + pieceWeight(piece) > PIXEL_GALLERY_TEXT_MAX) return null;
     this.put([piece]);
     return piece;
   }
