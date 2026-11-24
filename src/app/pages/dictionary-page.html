@@ -164,19 +164,25 @@
   </div>
 } @else {
   <!-- os Verbetes: a página do dicionário, em seções da ordem escolhida -->
-  <div class="paginas" [appRealceBusca]="query()" realceEm=".palavra, .romaji, .sentido, .exemplos, .nota">
-    @for (s of sections(); track s.key?.id ?? 'todas'; let i = $index) {
-      <!-- o id pelo lugar da seção: o nome dela pode ter espaço ("Partícula composta") -->
-      <section class="secao" [attr.aria-labelledby]="s.key ? 'dic-secao-' + i : null" [attr.aria-label]="s.key ? null : 'Palavras'">
-        @if (s.key; as k) {
-          <app-section-head [label]="k.label" [count]="s.words.length" [detail]="k.detail ?? ''" [level]="2" [headingId]="'dic-secao-' + i" />
-        }
-        <ol class="folha" role="list">
-          @for (w of s.words; track w.id) {
-            <li class="verbete" app-word-entry [word]="w" [drawable]="true" (draw)="openBoard($event)"></li>
+  <div class="livro" [class.com-indice]="thumbRows()">
+    <div class="paginas" [appRealceBusca]="query()" realceEm=".palavra, .romaji, .sentido, .exemplos, .nota">
+      @for (s of sections(); track s.key?.id ?? 'todas'; let i = $index) {
+        <!-- o id pelo lugar da seção: o nome dela pode ter espaço ("Partícula composta") -->
+        <section class="secao" [attr.data-secao]="s.key?.id ?? null" [attr.aria-labelledby]="s.key ? 'dic-secao-' + i : null" [attr.aria-label]="s.key ? null : 'Palavras'">
+          @if (s.key; as k) {
+            <app-section-head [label]="k.label" [count]="s.words.length" [detail]="k.detail ?? ''" [level]="2" [headingId]="'dic-secao-' + i" />
           }
-        </ol>
-      </section>
+          <ol class="folha" role="list">
+            @for (w of s.words; track w.id) {
+              <li class="verbete" app-word-entry [word]="w" [drawable]="true" (draw)="openBoard($event)"></li>
+            }
+          </ol>
+        </section>
+      }
+    </div>
+    <!-- o índice de dedo (os entalhes あかさ… na borda das páginas), com a ordem Leitura -->
+    @if (thumbRows(); as rows) {
+      <app-thumb-index [rows]="rows" [current]="thumbAt()" (jump)="jumpTo($event)" />
     }
   </div>
 }

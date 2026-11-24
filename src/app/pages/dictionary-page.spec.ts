@@ -129,9 +129,11 @@ describe('o Dicionário Japonês', () => {
     await settle();
     expect(query()['palavra']).not.toBe('JP0242');
     dialog.close();
-    // o "close" do diálogo chega numa tarefa depois
-    await new Promise((r) => setTimeout(r, 0));
-    await settle();
+    // o "close" do diálogo chega numa tarefa depois (às vezes mais de uma, com a suíte ocupada): espera ele chegar
+    for (let i = 0; i < 20 && query()['palavra'] !== undefined; i++) {
+      await new Promise((r) => setTimeout(r, 10));
+      await settle();
+    }
     expect(query()['palavra']).toBeUndefined();
   });
 
@@ -143,6 +145,36 @@ describe('o Dicionário Japonês', () => {
     await settle();
     expect(query()['dir']).toBe('desc');
     expect(heads()[0]).toBe('わ行');
+  });
+
+  it('com a ordem Leitura, o índice de dedo pula para a linha do silabário; a linha vazia fica apagada', async () => {
+    const go = async (url: string) => {
+      await harness.navigateByUrl(url, DictionaryPage);
+      await settle();
+    };
+    await open('/extras/dicionario');
+    expect(host.querySelector('app-thumb-index')).toBeNull();
+    await go('/extras/dicionario?ordem=leitura');
+    const tabs = () => [...host.querySelectorAll<HTMLButtonElement>('app-thumb-index .entalhe')];
+    expect(tabs().map((b) => b.textContent!.trim())).toEqual(['あ', 'か', 'さ', 'た', 'な', 'は', 'ま', 'や', 'ら', 'わ']);
+    expect(tabs().every((b) => !b.disabled)).toBeTrue();
+    const scrolled: string[] = [];
+    spyOn(HTMLElement.prototype, 'scrollIntoView').and.callFake(function (this: HTMLElement) {
+      scrolled.push(this.dataset['secao'] ?? '');
+    });
+    tabs()[1].click();
+    await settle();
+    expect(scrolled[0]).toBe('kana-1');
+    expect(tabs()[1].getAttribute('aria-current')).toBe('location');
+    // o foco vai para o nome da linha, como num link dentro da página
+    expect(document.activeElement?.textContent).toContain('か行');
+    expect(tabs()[1].getAttribute('aria-label')).toMatch(/^か \(ka\): \d+ palavras$/);
+    // a busca deixa só a linha das palavras achadas; as outras ficam, apagadas
+    await go('/extras/dicionario?ordem=leitura&q=taberu');
+    expect(tabs().filter((b) => !b.disabled).map((b) => b.textContent!.trim())).toEqual(['た']);
+    // na Tabela não há seções: nem índice
+    await go('/extras/dicionario?ordem=leitura&vista=tabela');
+    expect(host.querySelector('app-thumb-index')).toBeNull();
   });
 
   it('a Tabela tem todas as colunas, e a cabeça ordena', async () => {

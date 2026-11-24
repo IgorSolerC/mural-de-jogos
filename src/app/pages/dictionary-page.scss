@@ -41,6 +41,16 @@ app-facet-filters.cartela {
   gap: 34px;
 }
 
+/* com o índice de dedo (a ordem Leitura), os entalhes ficam numa coluna colados na borda direita das páginas */
+.livro.com-indice {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 0;
+}
+.secao {
+  scroll-margin-top: 16px;
+}
+
 /* cada seção só é desenhada perto da tela: 933 verbetes não pesam na rolagem */
 .secao {
   content-visibility: auto;

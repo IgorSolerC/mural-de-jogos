@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterRenderEffect, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { map } from 'rxjs';
@@ -24,6 +24,7 @@ import {
   stateFromParams,
   toggleFacet,
 } from '../core/dictionary/dictionary';
+import { KANA_ROWS } from '../core/dictionary/kana';
 import { isLearned } from '../core/dictionary/marks';
 import { DictionaryMarks } from '../core/dictionary/marks-store';
 import { dictionaryWords } from '../core/dictionary/words';
@@ -36,6 +37,7 @@ import { Pin } from '../ui/pin';
 import { SearchHighlight } from '../ui/search-highlight';
 import { SearchStrip } from '../ui/search-strip';
 import { SectionHead } from '../ui/section-head';
+import { ThumbIndex, ThumbRow } from '../ui/thumb-index';
 import { Toasts } from '../ui/toast';
 import { WordBoard } from '../ui/word-board';
 import { WordEntry, daySaid } from '../ui/word-entry';
@@ -80,7 +82,7 @@ const COLUMNS: readonly Column[] = [
  */
 @Component({
   selector: 'app-dictionary-page',
-  imports: [FacetFilters, FilterTags, IconModule, Pin, SearchHighlight, SearchStrip, SectionHead, WordBoard, WordEntry, WordSeals, WordVoice],
+  imports: [FacetFilters, FilterTags, IconModule, Pin, SearchHighlight, SearchStrip, SectionHead, ThumbIndex, WordBoard, WordEntry, WordSeals, WordVoice],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './dictionary-page.html',
   styleUrl: './dictionary-page.scss',
@@ -123,9 +125,33 @@ export class DictionaryPage {
   /** A folha aberta pelo teclado: o foco vai para o primeiro recorte. */
   protected readonly filterByKeyboard = signal(false);
   private readonly filterBtn = viewChild<ElementRef<HTMLButtonElement>>('filterBtn');
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  /**
+   * O último entalhe tocado, e quando: no pé da página, a linha curta do fim nunca chega ao alto da tela, e vale o
+   * toque, mas só logo depois dele (rolando à mão, volta a valer o que está no alto).
+   */
+  private thumbJumped: { id: string; at: number } | null = null;
 
   constructor() {
     loadKleeOne();
+    // o índice de dedo acompanha a rolagem (um cálculo por quadro, e só com o índice à mostra)
+    let frame = 0;
+    const onScroll = () => {
+      if (!frame && this.thumbRows())
+        frame = requestAnimationFrame(() => {
+          frame = 0;
+          this.spyThumb();
+        });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    inject(DestroyRef).onDestroy(() => {
+      window.removeEventListener('scroll', onScroll);
+      cancelAnimationFrame(frame);
+    });
+    // as seções mudaram (busca, filtro, a ordem trocada para Leitura): o entalhe aceso é medido de novo
+    afterRenderEffect(() => {
+      if (this.thumbRows()) untracked(() => this.spyThumb());
+    });
     effect(() => {
       const fromUrl = this.state().query;
       // o endereço mudou por fora (não foi a página que mandou): a busca segue
@@ -167,6 +193,60 @@ export class DictionaryPage {
     );
   });
   protected readonly sections = computed(() => sectionsOf(this.shown(), this.sort()));
+
+  /* ===== O índice de dedo (PLANO-DICIONARIO.md, 5.3) ===== */
+
+  /**
+   * Os entalhes do índice, com a ordem Leitura nos Verbetes: as dez linhas do silabário sempre (a que a busca ou os
+   * filtros esvaziaram fica apagada) e, se houver, a de Outros. Fora disso, null: o índice não aparece.
+   */
+  protected readonly thumbRows = computed<ThumbRow[] | null>(() => {
+    if (this.sort() !== 'reading' || this.state().view !== 'verbetes' || !this.shown().length) return null;
+    const counts = new Map(this.sections().map((s) => [s.key?.id, s.words.length]));
+    const rows = KANA_ROWS.map((r, i) => ({ id: `kana-${i}`, kana: r.kana, romaji: r.romaji, count: counts.get(`kana-${i}`) ?? 0 }));
+    const others = counts.get('kana-outros');
+    if (others) rows.push({ id: 'kana-outros', kana: '他', romaji: 'outros', count: others });
+    return rows;
+  });
+  /** A linha em que a página está (a última seção cujo topo já passou do alto da tela). */
+  protected readonly thumbAt = signal<string | null>(null);
+
+  private spyThumb(): void {
+    const heads = [...this.host.nativeElement.querySelectorAll<HTMLElement>('.secao[data-secao]')];
+    let at = heads[0]?.dataset['secao'] ?? null;
+    for (const h of heads) {
+      if (h.getBoundingClientRect().top > 140) break;
+      at = h.dataset['secao']!;
+    }
+    // no pé da página: a linha tocada, se está à vista (a curta do fim não sobe até o alto)
+    const bottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
+    const recent = this.thumbJumped && performance.now() - this.thumbJumped.at < 1000 ? this.thumbJumped.id : null;
+    const jumped = bottom && recent ? heads.find((h) => h.dataset['secao'] === recent) : undefined;
+    if (jumped && jumped.getBoundingClientRect().top < window.innerHeight) at = recent;
+    this.thumbAt.set(at);
+  }
+
+  /** Um entalhe: a página pula para a linha do silabário. */
+  protected jumpTo(id: string): void {
+    const el = this.host.nativeElement.querySelector<HTMLElement>(`.secao[data-secao="${id}"]`);
+    if (!el) return;
+    this.thumbJumped = { id, at: performance.now() };
+    el.scrollIntoView({ block: 'start' });
+    // como um link na página: o leitor de tela continua da linha, e não do índice
+    const heading = el.querySelector<HTMLElement>('[id^="dic-secao-"]');
+    if (heading) {
+      heading.tabIndex = -1;
+      heading.focus({ preventScroll: true });
+    }
+    // as seções longe da tela têm a altura estimada (content-visibility): desenhadas as de perto, o pulo é refeito
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        el.scrollIntoView({ block: 'start' });
+        this.spyThumb();
+      }),
+    );
+    this.thumbAt.set(id);
+  }
 
   protected readonly searching = computed(() => !!this.query().trim());
   protected readonly filtered = computed(() => isFiltered(this.state().filter));
