@@ -48,6 +48,18 @@ export function draftKey(v: WidgetValues): string {
   return JSON.stringify([v['width'] ?? '', v['height'] ?? '', v['pixels'] ?? '', v['palette'] ?? '', v['colors'] ?? '']);
 }
 
+/** Quando o rascunho foi guardado, para uma frase: "hoje às 14:32", "ontem às 9:05", "em 12/11 às 14:32". */
+export function draftWhen(t: number, now: Date = new Date()): string {
+  const d = new Date(t);
+  const hour = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const days = Math.round((day(now) - day(d)) / 86_400_000);
+  if (days === 0) return `hoje às ${hour}`;
+  if (days === 1) return `ontem às ${hour}`;
+  const date = d.toLocaleDateString('pt-BR', d.getFullYear() === now.getFullYear() ? { day: '2-digit', month: '2-digit' } : { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return `em ${date} às ${hour}`;
+}
+
 const ID_RE = /^[\w-]{4,64}$/;
 /** O id de uma obra da galeria (o mesmo de core/pixel-gallery.ts). */
 const PIECE_RE = /^[\w-]{1,64}$/;
@@ -146,6 +158,8 @@ export class PixelDrafts {
   readonly count = computed(() => this.list().length);
   /** O banco abriu (sem ele, aba anônima de alguns navegadores: o ateliê diz que não há rascunho). */
   readonly available = signal(true);
+  /** Os rascunhos abertos num ateliê de outra aba (D11): não se continuam nem se oferecem daqui. */
+  readonly busy = signal<ReadonlySet<string>>(new Set());
   /** A primeira leitura do banco terminou. */
   readonly ready: Promise<void>;
   /** Os rascunhos que esta aba segura num ateliê aberto (id → soltar). */
@@ -163,6 +177,7 @@ export class PixelDrafts {
       const all = ((await run<unknown[]>('readonly', (s) => s.getAll())) ?? []).map(sanitizeDraft).filter((d): d is PixelDraft => !!d);
       this.list.set(all.sort((a, b) => b.savedAt - a.savedAt));
       this.available.set(true);
+      this.busy.set(await this.heldElsewhere());
     } catch {
       this.available.set(false);
     }
@@ -246,7 +261,14 @@ export class PixelDrafts {
     let release = () => {};
     const done = new Promise<void>((r) => (release = r));
     const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
-    void locks?.request(LOCK + id, () => done).catch(() => undefined);
+    // as outras abas ficam sabendo quando a trava pega e quando solta (a lista delas diz "aberto noutra aba")
+    void locks
+      ?.request(LOCK + id, () => {
+        this.channel?.postMessage('mudou');
+        return done;
+      })
+      .then(() => this.channel?.postMessage('mudou'))
+      .catch(() => undefined);
     const free = () => {
       release();
       this.held.delete(id);

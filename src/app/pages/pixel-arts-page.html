@@ -1,3 +1,29 @@
+<!-- os rascunhos do ateliê (PLANO-RASCUNHOS-PIXEL.md): no alto da raiz, antes das pastas e das obras -->
+<ng-template #rascunhos>
+  @if (showDrafts()) {
+    <section class="rascunhos" aria-labelledby="rascunhos-titulo">
+      <div class="rascunhos-topo">
+        <h2 id="rascunhos-titulo" class="rascunhos-titulo">Rascunhos <span class="rascunhos-n">{{ pixelDrafts.count() }}</span></h2>
+        <p class="rascunhos-dica">Guardados só neste aparelho, até você salvar ou descartar.</p>
+      </div>
+      <ul class="rascunhos-lista">
+        @for (d of pixelDrafts.list(); track d.id) {
+          <li>
+            <app-pixel-draft-tile
+              [attr.data-rascunho]="d.id"
+              [draft]="d"
+              [pieceThere]="d.origin.kind === 'obra' && !!gallery.get(d.origin.id)"
+              [busy]="pixelDrafts.busy().has(d.id)"
+              (continued)="continueDraft(d)"
+              (discarded)="dropStoredDraft(d)"
+            />
+          </li>
+        }
+      </ul>
+    </section>
+  }
+</ng-template>
+
 <!-- o nome está na barra embaixo do topo (ui/area-bar.ts), com a volta para Outros -->
 <h1 class="sr-only">Pixel arts</h1>
 
@@ -138,6 +164,8 @@
 
   <p class="sr-only" aria-live="polite">{{ folderSaid() }}</p>
 
+  <ng-container [ngTemplateOutlet]="rascunhos" />
+
   @if (folderKids().length) {
     <!-- as pastas da aberta (ou da raiz), antes das obras: as mesmas das Anotações -->
     <section class="pastas" aria-label="Pastas">
@@ -229,6 +257,7 @@
     </div>
   }
 } @else {
+  <ng-container [ngTemplateOutlet]="rascunhos" />
   <!-- o primeiro uso: uma folha de papel milimetrado pregada, com o convite -->
   <section class="vazio" aria-labelledby="pixel-vazio">
     <app-pin class="pin" color="#2f6bff" />
@@ -323,6 +352,6 @@
 <!-- o Ateliê da etiqueta: o desenho direto no ateliê, por cima de tudo -->
 @if (studio(); as s) {
   @defer {
-    <app-pixel-studio [values]="s.values" [layered]="true" [stack]="s.layers" [artName]="s.title" [copy]="true" [draft]="s.draft" [resume]="s.resume ?? null" (saved)="studioSaved($event)" (copied)="studioCopied($event)" (discarded)="studioDiscarded($event)" (closed)="studioClosed()" />
+    <app-pixel-studio [values]="s.values" [layered]="true" [stack]="s.layers" [artName]="s.title" [copy]="!s.fresh" [draft]="s.draft" [resume]="s.resume ?? null" (saved)="studioSaved($event)" (copied)="studioCopied($event)" (discarded)="studioDiscarded($event)" (closed)="studioClosed()" />
   }
 }

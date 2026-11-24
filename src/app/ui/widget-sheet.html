@@ -1,5 +1,5 @@
 <!-- as teclas ficam aqui: o editor por baixo não ouve o Esc nem o que se digita -->
-<dialog #dialog class="sheet wfolha" [attr.aria-labelledby]="ids + '-titulo'" (close)="closed.emit()" (backdropClose)="close()" (keydown)="$event.stopPropagation()">
+<dialog #dialog class="sheet wfolha" [attr.aria-labelledby]="ids + '-titulo'" (close)="sheetClosed()" (backdropClose)="close()" (keydown)="$event.stopPropagation()">
   @let d = def();
   <div class="ficha cartolina" style="--stock: var(--stock-amarelo)" data-cor="amarelo">
     <app-pin class="pin" />

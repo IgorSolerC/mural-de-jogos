@@ -5,7 +5,7 @@ import { PIXEL_GALLERY_KEY, PixelGallery } from '../core/pixel-gallery-store';
 import { Toasts } from './toast';
 import { Confirm } from './confirm';
 import { widgetDef } from '../core/widgets';
-import { PixelDrafts } from '../core/pixel-drafts';
+import { PixelDrafts, draftKey } from '../core/pixel-drafts';
 
 /** A folha do widget com a pixel art: o desenho numa linha, o ateliê por cima, e o Pôr sai com a marca. */
 describe('a folha do widget com a pixel art', () => {
@@ -163,6 +163,54 @@ describe('a folha do widget com a pixel art', () => {
     const gallery = TestBed.inject(PixelGallery);
     gallery.remove(gallery.pieces().map((p) => p.id));
     localStorage.removeItem('meu-mural:pixel-arts:v1');
+  });
+
+  it('a folha fechada sem o Pôr, com um rascunho do ateliê na mão: o aviso diz que ficou nos rascunhos, com o Descartar', async () => {
+    const { fixture } = await open({ width: '2', height: '1', pixels: '12', caption: 'Dupla' }, true);
+    const drafts = TestBed.inject(PixelDrafts);
+    await drafts.ready;
+    const values = { pixels: '21', width: '2', height: '1', palette: 'classica', colors: '' };
+    await drafts.put({ id: 'rwidg003', origin: { kind: 'widget' }, title: 'Dupla', values, base: '', createdAt: 1, savedAt: 1 });
+    const field = fixture.debugElement.query((d) => d.name === 'app-pixel-field').componentInstance;
+    field['saved']({ values, layers: undefined, draft: 'rwidg003' });
+    fixture.detectChanges();
+    (fixture.nativeElement as HTMLElement).querySelector<HTMLDialogElement>('dialog.wfolha')!.close();
+    await new Promise((r) => setTimeout(r, 20));
+    const toast = TestBed.inject(Toasts).current()!;
+    expect(toast.text).toBe('O desenho ficou nos rascunhos da galeria de pixel arts.');
+    expect(await drafts.get('rwidg003')).not.toBeNull();
+    toast.action!.run();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(await drafts.get('rwidg003')).toBeNull();
+  });
+
+  it('abrir o ateliê de um widget com o mesmo desenho de um rascunho pergunta se é para continuar', async () => {
+    const start = { width: '2', height: '1', pixels: '12', caption: 'Dupla' };
+    const { fixture, host } = await open(start, true);
+    const drafts = TestBed.inject(PixelDrafts);
+    await drafts.ready;
+    const values = { pixels: '21', width: '2', height: '1', palette: 'classica', colors: '' };
+    const field = fixture.debugElement.query((d) => d.name === 'app-pixel-field').componentInstance;
+    await drafts.put({ id: 'rwidg004', origin: { kind: 'widget' }, title: 'Dupla', values, base: draftKey(field.values()), createdAt: 1, savedAt: Date.now() });
+    // um de outro desenho não conta
+    await drafts.put({ id: 'rwidg005', origin: { kind: 'widget' }, title: 'Outro', values, base: draftKey({ ...start, pixels: '11' }), createdAt: 1, savedAt: Date.now() });
+    host.querySelector<HTMLButtonElement>('app-pixel-field [data-campo="pixels"]')!.click();
+    for (let i = 0; i < 6; i++) {
+      await new Promise((r) => setTimeout(r, 20));
+      fixture.detectChanges();
+    }
+    const confirm = TestBed.inject(Confirm);
+    expect(confirm.current()?.title).toBe('Continuar o rascunho?');
+    expect(confirm.current()!.text).toContain('“Dupla” tem um rascunho');
+    confirm.answer('confirm');
+    for (let i = 0; i < 6; i++) {
+      await new Promise((r) => setTimeout(r, 20));
+      fixture.detectChanges();
+    }
+    expect(field['resume']()!.id).toBe('rwidg004');
+    expect(host.querySelector<HTMLDialogElement>('dialog.atelie')!.open).toBeTrue();
+    await drafts.remove('rwidg004');
+    await drafts.remove('rwidg005');
   });
 
   it('o Salvar como cópia do ateliê: o desenho novo vai para a galeria "(cópia)", e o widget fica com o de antes', async () => {

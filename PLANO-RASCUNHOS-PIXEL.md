@@ -73,7 +73,8 @@ galeria é do mural privado: salvar um rascunho é um `update`/`create` como qua
    aviso entre abas), o ateliê gravando, a barra de estado, o Desfazer do Descartar, a limpeza
    (`browser-reset.spec.ts`), `localHasContent`.
 3. **O rascunho à vista** (D9, D10): a seção Rascunhos na galeria, continuar e descartar, a pergunta ao abrir,
-   o aviso da folha do widget. Novidades. Falta da rodada 2: a folha do widget fechada sem Pôr deixa o rascunho (ainda sem
-   aviso nem lugar para vê-lo), e a ficha da obra apagada noutro aparelho diz só "não deu para salvar".
+   o aviso da folha do widget. Novidades. Feito (rodada 3), com o que faltava da 2: a folha do widget fechada sem Pôr avisa,
+   e a ficha da obra apagada noutro aparelho diz que o desenho ficou nos rascunhos. A ficha descartada com um
+   rascunho continuado nela tira o rascunho com o Desfazer.
 4. **Fim**: crítica do Impeccable, /code-review high, fotos de perto no computador e no celular, DESIGN.md,
    memória.

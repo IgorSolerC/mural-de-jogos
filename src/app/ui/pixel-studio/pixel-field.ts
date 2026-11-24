@@ -6,6 +6,8 @@ import { ICON, IconModule } from '../icons';
 import { DraftTarget, PixelStudio, StudioResult, offerUndoDiscard } from './pixel-studio';
 import { PixelDraft, PixelDrafts, draftKey } from '../../core/pixel-drafts';
 import { Toasts } from '../toast';
+import { Confirm } from '../confirm';
+import { askDraft, discardDraft, sameArt } from './draft-ask';
 import { PixelThumb } from '../pixel-thumb';
 
 /**
@@ -36,7 +38,7 @@ import { PixelThumb } from '../pixel-thumb';
         <p class="linha-nome">{{ inked() ? 'O desenho' : 'Nada desenhado ainda' }}</p>
         <p class="linha-desc">{{ summary() }}</p>
       </div>
-      <button type="button" class="papel" data-campo="pixels" aria-haspopup="dialog" [attr.aria-describedby]="missing() ? ids() + '-falta' : null" (click)="openStudio()">
+      <button type="button" class="papel" data-campo="pixels" aria-haspopup="dialog" [attr.aria-describedby]="missing() ? ids() + '-falta' : null" (click)="startStudio()">
         <lucide-icon [img]="BrushIcon" [size]="16" aria-hidden="true" />
         {{ inked() ? 'Abrir o ateliê' : 'Desenhar' }}
       </button>
@@ -86,6 +88,7 @@ export class PixelField {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly drafts = inject(PixelDrafts);
   private readonly toasts = inject(Toasts);
+  private readonly confirm = inject(Confirm);
   /** O rascunho desta folha, depois de um Salvar do ateliê: o id e o desenho de antes de tudo. */
   private readonly carried = signal<{ id: string; base: string } | null>(null);
   /** O desenho de quando o primeiro ateliê desta folha abriu. */
@@ -120,23 +123,50 @@ export class PixelField {
   }
 
   /** Abre o ateliê por quem usa (o "Desenhar uma nova" da folha da galeria, na folha do widget). */
-  openStudio(): void {
+  openStudio(resume: PixelDraft | null = null): void {
+    this.resume.set(resume);
     // o desenho de antes de tudo: o de agora, enquanto não há rascunho desta folha (a folha do widget pode ter trocado
     // de desenho pela galeria entre um ateliê e outro)
     if (!this.carried()) this.base = draftKey(this.values());
     this.open.set(true);
   }
 
+  /**
+   * O botão do ateliê: a mesma arte com um rascunho guardado (a mesma obra, o widget com o mesmo desenho) pergunta
+   * antes se é para continuar o rascunho (D9). O rascunho desta folha (depois de um Salvar do ateliê) não pergunta:
+   * o desenho dela já é o dele.
+   */
+  protected async startStudio(): Promise<void> {
+    if (this.asking) return;
+    const t = this.draft();
+    const name = t?.title ? `“${t.title}”` : t?.origin.kind === 'obra' ? 'Esta pixel art' : 'Este desenho';
+    this.asking = true;
+    try {
+      const d = t && !this.carried() ? await askDraft(this.confirm, this.drafts, this.toasts, sameArt(t, this.values()), name) : null;
+      if (!this.open()) this.openStudio(d);
+    } finally {
+      this.asking = false;
+    }
+  }
+  /** A pergunta "Continuar o rascunho?" está aberta: outro clique não faz outra. */
+  private asking = false;
+
   /** O rascunho desta folha (o id), quando há um. */
   draftId(): string | null {
     return this.carried()?.id ?? null;
   }
 
-  /** A folha guardou o desenho, ou foi descartada: o rascunho sai. */
-  forgetDraft(): void {
+  /**
+   * A folha guardou o desenho (o rascunho sai), ou foi descartada (`undo`: sai com o aviso e o Desfazer, que o traz de
+   * volta, porque ele pode ser um rascunho de antes, continuado aqui).
+   */
+  forgetDraft(undo = false): void {
     const id = this.draftId();
     this.carried.set(null);
-    if (id) void this.drafts.remove(id);
+    if (!id) return;
+    const d = undo ? this.drafts.list().find((x) => x.id === id) : undefined;
+    if (d) discardDraft(this.drafts, this.toasts, d);
+    else void this.drafts.remove(id);
   }
 
   protected saved(r: StudioResult): void {
@@ -150,8 +180,7 @@ export class PixelField {
     offerUndoDiscard(this.toasts, this.drafts, d, (back) => {
       // com o ateliê aberto de novo, o descartado só volta para os rascunhos
       if (this.open()) return;
-      this.resume.set(back);
-      this.openStudio();
+      this.openStudio(back);
     });
   }
 

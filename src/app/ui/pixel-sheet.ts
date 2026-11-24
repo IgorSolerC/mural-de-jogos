@@ -200,9 +200,12 @@ export class PixelSheet {
   /** A ficha fechou: salva, descartada ou sem mudança, o rascunho do desenho dela sai (menos quando não deu para salvar). */
   protected closed(): void {
     if (this.keepDraft) this.keepDraft = false;
-    else this.field()?.forgetDraft();
+    else this.field()?.forgetDraft(this.discarding);
+    this.discarding = false;
     this.shown.set(false);
   }
+  /** A ficha está fechando pelo Descartar da pergunta: o rascunho sai com o Desfazer. */
+  private discarding = false;
 
   /** O ateliê mudou o desenho (na hora, a cada traço). */
   protected drawn(v: WidgetValues): void {
@@ -289,7 +292,10 @@ export class PixelSheet {
         confirm: 'Descartar',
         cancel: 'Continuar',
       });
-      if (sure) this.close();
+      if (sure) {
+        this.discarding = true;
+        this.close();
+      }
     } finally {
       this.askingDiscard = false;
     }
@@ -347,7 +353,7 @@ export class PixelSheet {
     this.close();
     // o que foi escrito não some calado
     if (gone) {
-      this.toasts.show(`“${pieceTitle(editing)}” foi apagada noutro aparelho: não deu para salvar.`);
+      this.toasts.show(`“${pieceTitle(editing)}” foi apagada noutro aparelho: não deu para salvar. ${this.field()?.draftId() ? 'O desenho ficou nos rascunhos da galeria.' : ''}`.trim());
       return;
     }
     this.transitions.run(() => {

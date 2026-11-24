@@ -186,3 +186,52 @@ app-pixel-tile[data-marcada] {
     padding: 36px 22px 26px;
   }
 }
+
+/* ===== Os rascunhos do ateliê (PLANO-RASCUNHOS-PIXEL.md): no alto da raiz, no tamanho da Grade ===== */
+.rascunhos {
+  /* o vão até as pastas e as obras é da seção, como o das pastas */
+  padding: 6px 0 40px;
+}
+.rascunhos-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+  margin-bottom: 12px;
+}
+.rascunhos-titulo {
+  margin: 0;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  color: var(--wall-ink);
+}
+.rascunhos-n {
+  margin-left: 4px;
+  color: var(--wall-ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.rascunhos-dica {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--wall-ink-2);
+}
+.rascunhos-lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 28px 18px;
+  margin: 0;
+  padding: 14px 0 0;
+  list-style: none;
+}
+.rascunhos-lista > li {
+  display: grid;
+  min-width: 0;
+}
+@media (max-width: 559px) {
+  .rascunhos-lista {
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 22px 12px;
+  }
+}

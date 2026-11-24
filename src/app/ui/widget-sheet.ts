@@ -316,6 +316,16 @@ export class WidgetSheet {
     });
   }
 
+  /**
+   * A folha fechou. Sem o Pôr, com um rascunho do ateliê na mão (o Salvar do ateliê ainda não é salvar): o desenho
+   * ficou nos rascunhos da galeria de pixel arts, e o aviso diz isso, com o Descartar (D8).
+   */
+  protected sheetClosed(): void {
+    const id = this.pixelField()?.draftId();
+    if (id) this.toasts.show('O desenho ficou nos rascunhos da galeria de pixel arts.', { label: 'Descartar', run: () => void this.pixelDrafts.remove(id) });
+    this.closed.emit();
+  }
+
   protected close(): void {
     const el = this.dialog().nativeElement;
     if (el.open) el.close();

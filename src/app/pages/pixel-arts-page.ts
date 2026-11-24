@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, afterNextRender, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -63,6 +64,8 @@ import { SelectionTray, TrayAction } from '../ui/selection-tray';
 import { PixelPieceCard } from '../ui/pixel-piece';
 import { PixelSheet } from '../ui/pixel-sheet';
 import { DraftTarget, PixelStudio, StudioResult, offerUndoDiscard } from '../ui/pixel-studio/pixel-studio';
+import { askDraft, discardDraft } from '../ui/pixel-studio/draft-ask';
+import { PixelDraftTile } from '../ui/pixel-draft-tile';
 import { PixelDraft, PixelDrafts } from '../core/pixel-drafts';
 import { PixelTile } from '../ui/pixel-tile';
 import { SearchHighlight } from '../ui/search-highlight';
@@ -142,7 +145,7 @@ export function droppedText(made: readonly Pick<PixelPiece, 'title'>[], where: s
  */
 @Component({
   selector: 'app-pixel-arts-page',
-  imports: [ContextMenu, FilterCard, FilterTags, FolderCard, FolderMoveSheet, FolderPath, IconModule, Pin, PixelBulkTags, PixelDropSheet, PixelImportSheet, SelectionTray, PixelPieceCard, PixelSheet, PixelStudio, PixelTile, SearchHighlight, SearchStrip],
+  imports: [NgTemplateOutlet, PixelDraftTile, ContextMenu, FilterCard, FilterTags, FolderCard, FolderMoveSheet, FolderPath, IconModule, Pin, PixelBulkTags, PixelDropSheet, PixelImportSheet, SelectionTray, PixelPieceCard, PixelSheet, PixelStudio, PixelTile, SearchHighlight, SearchStrip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class.com-tira]': 'marking()' },
   templateUrl: './pixel-arts-page.html',
@@ -666,8 +669,16 @@ export class PixelArtsPage {
 
   /** O desenho aberto direto no ateliê (o Ateliê da etiqueta), com o que mudou até agora. */
   /** O Ateliê aberto pela etiqueta: a obra e o desenho dela quando abriu; `went`, para onde o foco vai ao fechar (a obra, ou a cópia). */
-  protected readonly studio = signal<{ id: string; title: string; values: WidgetValues; layers: StoredLayer[] | undefined; draft: DraftTarget; resume?: PixelDraft; went?: string } | null>(null);
-  private readonly pixelDrafts = inject(PixelDrafts);
+  /**
+   * O Ateliê aberto por cima da galeria: o de uma obra, ou (`fresh`) o de um rascunho continuado que vira obra nova (o
+   * de uma obra nova, de um widget, ou de uma obra que saiu da galeria).
+   */
+  protected readonly studio = signal<{ id: string; title: string; values: WidgetValues; layers: StoredLayer[] | undefined; draft: DraftTarget; resume?: PixelDraft; fresh?: boolean; went?: string } | null>(null);
+  protected readonly pixelDrafts = inject(PixelDrafts);
+  /** A pergunta "Continuar o rascunho?" está aberta. */
+  private askingDraft = false;
+  /** A seção Rascunhos: na raiz, sem busca nem filtro, quando há algum (D9). */
+  protected readonly showDrafts = computed(() => this.pixelDrafts.count() > 0 && !this.openFolder() && !this.filtering());
 
   constructor() {
     const host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
@@ -894,11 +905,45 @@ export class PixelArtsPage {
   }
 
   /** O Ateliê da etiqueta: o desenho direto no ateliê, por cima de tudo; sair pergunta o que fazer com o que mudou. */
-  protected atelie(id: string, resume?: PixelDraft): void {
+  protected async atelie(id: string, resume?: PixelDraft): Promise<void> {
+    // a obra tem um rascunho guardado: continuar, ou abrir o salvo (D9); um clique a mais, com a pergunta aberta, não faz outra
+    if (!resume && this.gallery.get(id)) {
+      if (this.askingDraft) return;
+      this.askingDraft = true;
+      try {
+        resume = (await askDraft(this.confirm, this.pixelDrafts, this.toasts, (d) => d.origin.kind === 'obra' && d.origin.id === id, `“${pieceTitle(this.gallery.get(id)!)}”`)) ?? undefined;
+      } finally {
+        this.askingDraft = false;
+      }
+    }
+    if (this.studio()) return;
     const p = this.gallery.get(id);
     if (p) this.studio.set({ id, title: p.title, values: artValues(p.art), layers: p.layers, draft: { origin: { kind: 'obra', id }, title: p.title }, resume });
     // (a obra sumiu enquanto o aviso estava à mostra: o desenho descartado volta como obra nova, no Salvar)
-    else if (resume) this.studio.set({ id, title: resume.title, values: resume.values, layers: resume.layers, draft: { origin: resume.origin, title: resume.title }, resume });
+    else if (resume) this.continueDraft(resume);
+  }
+
+  /**
+   * Continuar um rascunho da seção Rascunhos (D10): o de uma obra que está na galeria abre o ateliê dela; o resto
+   * (uma obra nova, um widget, uma obra que saiu da galeria) abre o ateliê com a tela em branco por baixo, e o Salvar
+   * o guarda como obra nova. O aberto no ateliê de outra aba não continua daqui (D11).
+   */
+  protected continueDraft(d: PixelDraft): void {
+    if (this.pixelDrafts.busy().has(d.id)) {
+      this.toasts.show('Este rascunho está aberto no ateliê de outra aba.');
+      return;
+    }
+    if (this.studio()) return;
+    if (d.origin.kind === 'obra' && this.gallery.get(d.origin.id)) {
+      void this.atelie(d.origin.id, d);
+      return;
+    }
+    this.studio.set({ id: '', title: d.title, values: artValues([]), layers: undefined, draft: { origin: d.origin, title: d.title }, resume: d, fresh: true });
+  }
+
+  /** O Descartar da etiqueta de um rascunho: ele sai, com o Desfazer. */
+  protected dropStoredDraft(d: PixelDraft): void {
+    discardDraft(this.pixelDrafts, this.toasts, d);
   }
 
   /** Descartou: o aviso, com o Desfazer que abre o ateliê de novo com o desenho descartado (D5). */
@@ -912,6 +957,10 @@ export class PixelArtsPage {
   protected studioSaved(r: StudioResult): void {
     const s = this.studio();
     if (!s) return;
+    if (s.fresh) {
+      this.saveFresh(s.title, r);
+      return;
+    }
     const p = this.gallery.get(s.id);
     const art = valuesArt({ ...s.values, ...r.values });
     if (p && art) {
@@ -956,6 +1005,24 @@ export class PixelArtsPage {
     this.studio.set({ ...s, went: made.id });
   }
 
+  /** O rascunho continuado vira uma obra nova, na pasta aberta (a raiz, de onde ele foi continuado). */
+  private saveFresh(title: string, r: StudioResult): void {
+    const s = this.studio()!;
+    const art = valuesArt(r.values);
+    if (!art) {
+      this.toasts.show('Uma pixel art precisa de pelo menos um ponto: o rascunho continua guardado.');
+      return;
+    }
+    const made = this.gallery.create({ art, layers: r.layers, title, folder: this.openFolder() ?? undefined });
+    if (!made) {
+      this.toasts.show('A galeria está cheia: apague uma pixel art para guardar esta. O rascunho continua guardado.');
+      return;
+    }
+    this.dropDraft(r);
+    this.toasts.show(`Guardei “${pieceTitle(made)}” na galeria.`, { label: 'Desfazer', run: () => this.transitions.run(() => this.gallery.remove([made.id])) });
+    this.studio.set({ ...s, went: made.id });
+  }
+
   /** O desenho do ateliê ficou guardado na galeria: o rascunho dele sai. */
   private dropDraft(r: StudioResult): void {
     if (r.draft) void this.pixelDrafts.remove(r.draft);
@@ -967,6 +1034,7 @@ export class PixelArtsPage {
     this.studio.set(null);
     if (!s) return;
     if (s.went) this.land(s.went);
+    else if (s.fresh) this.focusDrafts();
     else this.follow(s.id, 'app-pixel-actions .atelie');
   }
 
@@ -1289,6 +1357,11 @@ export class PixelArtsPage {
   /** O foco no alto da parede (o caminho, ou a busca): a obra de antes saiu daqui. */
   private focusWall(): void {
     afterNextRender(() => (this.host.querySelector<HTMLElement>('app-folder-path .aqui') ?? this.host.querySelector<HTMLElement>('#busca-pixel'))?.focus(), { injector: this.injector });
+  }
+
+  /** O foco no primeiro rascunho (o continuado e salvo saiu da seção: vai para a obra; descartado, fica aqui). */
+  private focusDrafts(): void {
+    afterNextRender(() => (this.host.querySelector<HTMLElement>('app-pixel-draft-tile .hit:not(:disabled)') ?? this.host.querySelector<HTMLElement>('#busca-pixel'))?.focus(), { injector: this.injector });
   }
 
   /** A galeria tem algo para mostrar: obras, ou pastas (mesmo sem obra nenhuma, elas continuam à mão). */

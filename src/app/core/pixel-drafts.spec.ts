@@ -1,6 +1,6 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { DRAFTS_DB, PixelDraft, PixelDrafts, STASH_PREFIX, draftKey, sanitizeDraft } from './pixel-drafts';
+import { DRAFTS_DB, PixelDraft, PixelDrafts, STASH_PREFIX, draftKey, draftWhen, sanitizeDraft } from './pixel-drafts';
 import { freezeStorage, thawStorage } from './storage';
 
 /** Os rascunhos do ateliê (PLANO-RASCUNHOS-PIXEL.md, rodada 2): guardados no IndexedDB deste aparelho. */
@@ -103,6 +103,29 @@ describe('os rascunhos da pixel art', () => {
     expect(sanitizeDraft({ ...draft('rasc0001', 1), origin: { kind: 'outra' } })).toBeNull();
     expect(sanitizeDraft({ ...draft('rasc0001', 1), values: { pixels: '1' } })).toBeNull();
     expect(sanitizeDraft('lixo')).toBeNull();
+  });
+
+  it('quando foi guardado, numa frase: hoje, ontem, a data (com o ano, de outro ano)', () => {
+    const now = new Date(2026, 10, 24, 18, 0);
+    expect(draftWhen(new Date(2026, 10, 24, 14, 32).getTime(), now)).toBe('hoje às 14:32');
+    expect(draftWhen(new Date(2026, 10, 23, 9, 5).getTime(), now)).toBe('ontem às 09:05');
+    expect(draftWhen(new Date(2026, 10, 12, 14, 32).getTime(), now)).toBe('em 12/11 às 14:32');
+    expect(draftWhen(new Date(2025, 10, 12, 14, 32).getTime(), now)).toBe('em 12/11/2025 às 14:32');
+  });
+
+  it('o rascunho aberto noutra aba (a trava de lá) fica em `busy`, e sai quando ela solta', async () => {
+    const drafts = TestBed.inject(PixelDrafts);
+    await drafts.ready;
+    let release = () => {};
+    const held = new Promise<void>((r) => (release = r));
+    const done = navigator.locks.request('meu-mural:rascunho:rasc0009', () => held);
+    await new Promise((r) => setTimeout(r, 20));
+    await drafts.refresh();
+    expect(drafts.busy().has('rasc0009')).toBeTrue();
+    release();
+    await done;
+    await drafts.refresh();
+    expect(drafts.busy().has('rasc0009')).toBeFalse();
   });
 
   it('a mesma chave para o mesmo desenho, outra para outro', () => {

@@ -56,8 +56,13 @@ describe('a galeria de pixel arts', () => {
   }
   const button = (label: string) => [...host.querySelectorAll<HTMLButtonElement>('button')].find((b) => (b.getAttribute('aria-label') ?? b.textContent!.trim()) === label)!;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     localStorage.clear();
+    // sem rascunho de outro teste: a obra com rascunho pergunta antes de abrir o ateliê (PLANO-RASCUNHOS-PIXEL.md)
+    await new Promise<void>((resolve) => {
+      const req = indexedDB.deleteDatabase(DRAFTS_DB);
+      req.onsuccess = req.onerror = req.onblocked = () => resolve();
+    });
     // a troca direta, sem a View Transition de verdade (como nas specs da parede): uma transição ainda no meio quando a página
     // de um teste sai e a do outro começa derruba o Chrome sem tela
     TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), provideRouter([]), { provide: ViewTransitions, useValue: { run: (change: () => void) => change() } }] });
@@ -387,21 +392,172 @@ describe('a galeria de pixel arts', () => {
     });
     afterEach(wipe);
 
+    const tiles = () => [...host.querySelectorAll<HTMLElement>('app-pixel-draft-tile')].map((t) => t.getAttribute('data-rascunho'));
+    /** Espera o banco e a parede (as leituras do IndexedDB levam mais que um quadro). */
+    async function idle(): Promise<void> {
+      for (let i = 0; i < 6; i++) {
+        await new Promise((r) => setTimeout(r, 15));
+        await settle();
+      }
+    }
+
+    it('a seção Rascunhos no alto da raiz: cada um com o desenho, de onde veio e quando; buscando, não aparece', async () => {
+      await drafts.put({ ...draft('rgal0010', '3/03'), savedAt: Date.now() });
+      await drafts.put({ ...draft('rgal0011', '1/01'), origin: { kind: 'widget' }, title: '', savedAt: Date.now() - 1000 });
+      await drafts.put({ ...draft('rgal0012', '1/01'), origin: { kind: 'obra', id: 'sumiu' }, savedAt: Date.now() - 2000 });
+      await mount();
+      await idle();
+      const section = host.querySelector('section.rascunhos')!;
+      expect(section.querySelector('h2')!.textContent).toContain('Rascunhos');
+      expect(tiles()).toEqual(['rgal0010', 'rgal0011', 'rgal0012']);
+      const metas = [...section.querySelectorAll('.meta')].map((m) => m.textContent!.trim());
+      expect(metas[0]).toMatch(/^Mudanças na obra · hoje às \d\d:\d\d$/);
+      expect(metas[1]).toContain('De um widget das anotações');
+      expect(metas[2]).toContain('A obra saiu da galeria');
+      expect(section.querySelectorAll('.nome')[1].textContent).toBe('Sem título');
+      // antes das obras
+      expect(section.compareDocumentPosition(host.querySelector('[data-ficha="pa"]')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      // a etiqueta no padrão do Finalizar e do Fixar
+      expectEtiquetaPadrao(host.querySelector<HTMLElement>('[data-rascunho="rgal0010"] .acoes')!);
+      fixture.componentInstance['setQuery']('gato');
+      await settle();
+      expect(host.querySelector('section.rascunhos')).toBeNull();
+    });
+
+    it('a galeria vazia, com um rascunho: a seção aparece em cima do convite', async () => {
+      gallery.state.set({ pieces: [], removed: {} });
+      await drafts.put(draft('rgal0013', '3/03'));
+      await mount();
+      await idle();
+      expect(tiles()).toEqual(['rgal0013']);
+      expect(host.querySelector('section.vazio')).not.toBeNull();
+    });
+
+    it('continuar o rascunho de uma obra abre o ateliê dela com o desenho do rascunho, sem perguntar', async () => {
+      await drafts.put(draft('rgal0014', '3/03'));
+      await mount();
+      await idle();
+      host.querySelector<HTMLButtonElement>('[data-rascunho="rgal0014"] .hit')!.click();
+      await idle();
+      const s = fixture.componentInstance['studio']()!;
+      expect(TestBed.inject(Confirm).current()).toBeNull();
+      expect(s.id).toBe('pa');
+      expect(s.fresh).toBeFalsy();
+      expect(s.resume!.id).toBe('rgal0014');
+    });
+
+    it('continuar o rascunho de uma obra nova (ou de um widget) e salvar: vira obra nova na galeria, e o rascunho sai', async () => {
+      await drafts.put({ ...draft('rgal0015', '3/03'), origin: { kind: 'nova' }, title: 'Lua' });
+      await mount();
+      await idle();
+      const page = fixture.componentInstance;
+      host.querySelector<HTMLButtonElement>('[data-rascunho="rgal0015"] .continuar')!.click();
+      await settle();
+      expect(page['studio']()!.fresh).toBeTrue();
+      const n = gallery.count();
+      // pelo ateliê de verdade: o Pronto pergunta (o rascunho é mudança sobre a tela em branco), e o Salvar guarda
+      await idle();
+      expect(host.querySelector('app-pixel-studio [data-cor]') ?? host.querySelector('app-pixel-studio')).not.toBeNull();
+      host.querySelector<HTMLButtonElement>('app-pixel-studio .barra-acoes .pronto')!.click();
+      await idle();
+      const q = TestBed.inject(Confirm).current()!;
+      expect(q.title).toBe('Salvar as mudanças?');
+      // um desenho sem original: sem a cópia
+      expect(q.third).toBeNull();
+      TestBed.inject(Confirm).answer('confirm');
+      await idle();
+      await idle();
+      expect(gallery.count()).toBe(n + 1);
+      expect(gallery.pieces().find((p) => p.title === 'Lua')!.art).toEqual(['2x2', '3/03']);
+      expect(await drafts.get('rgal0015')).toBeNull();
+      expect(tiles()).toEqual([]);
+    });
+
+    it('o Descartar da etiqueta tira o rascunho, e o Desfazer o traz de volta', async () => {
+      await drafts.put(draft('rgal0016', '3/03'));
+      await mount();
+      await idle();
+      host.querySelector<HTMLButtonElement>('[data-rascunho="rgal0016"] .descartar')!.click();
+      await idle();
+      expect(tiles()).toEqual([]);
+      const toast = TestBed.inject(Toasts).current()!;
+      expect(toast.text).toBe('Rascunho descartado');
+      toast.action!.run();
+      await idle();
+      expect(tiles()).toEqual(['rgal0016']);
+    });
+
+    it('o Ateliê de uma obra com rascunho pergunta: Continuar o rascunho, Descartar o rascunho, ou Abrir o salvo (o Esc)', async () => {
+      await drafts.put(draft('rgal0017', '3/03'));
+      await mount();
+      await idle();
+      const page = fixture.componentInstance;
+      const confirm = TestBed.inject(Confirm);
+      // Abrir o salvo (o Esc e o clique fora também): o salvo, e o rascunho fica
+      void page['atelie']('pa');
+      await idle();
+      const q = confirm.current()!;
+      expect(q.title).toBe('Continuar o rascunho?');
+      expect([q.confirm, q.secondary, q.cancel]).toEqual(['Continuar o rascunho', 'Descartar o rascunho', 'Abrir o salvo']);
+      expect(q.text).toContain('“Gato” tem um rascunho guardado neste aparelho');
+      confirm.answer(false);
+      await idle();
+      expect(page['studio']()!.resume).toBeUndefined();
+      expect(await drafts.get('rgal0017')).not.toBeNull();
+      page['studioClosed']();
+      await settle();
+      // Continuar o rascunho
+      void page['atelie']('pa');
+      await idle();
+      confirm.answer('confirm');
+      await idle();
+      expect(page['studio']()!.resume!.id).toBe('rgal0017');
+      page['studioClosed']();
+      await settle();
+      // Descartar o rascunho: ele sai, e abre o salvo
+      void page['atelie']('pa');
+      await idle();
+      confirm.answer('secondary');
+      await idle();
+      expect(page['studio']()!.resume).toBeUndefined();
+      expect(await drafts.get('rgal0017')).toBeNull();
+    });
+
+    it('o rascunho aberto no ateliê de outra aba: na seção, sem continuar nem descartar; ao abrir a obra, não se oferece', async () => {
+      await drafts.put(draft('rgal0018', '3/03'));
+      // a outra aba segura a trava (a mesma que o ateliê dela segura)
+      let release = () => {};
+      const other = new Promise<void>((r) => (release = r));
+      void navigator.locks.request('meu-mural:rascunho:rgal0018', () => other);
+      await mount();
+      await drafts.refresh();
+      await idle();
+      const tile = host.querySelector('[data-rascunho="rgal0018"]')!;
+      expect(tile.querySelector('.meta')!.textContent).toContain('Aberto no ateliê de outra aba');
+      expect(tile.querySelector<HTMLButtonElement>('.hit')!.disabled).toBeTrue();
+      expect(tile.querySelector('.acoes')).toBeNull();
+      void fixture.componentInstance['atelie']('pa');
+      await idle();
+      expect(TestBed.inject(Confirm).current()).toBeNull();
+      expect(fixture.componentInstance['studio']()!.resume).toBeUndefined();
+      release();
+    });
+
     it('o Salvar que guardou na obra tira o rascunho; o Salvar que não guardou o deixa', async () => {
       await mount();
       const page = fixture.componentInstance;
-      await drafts.put(draft('rgal0001', '3/03'));
       page['atelie']('pa');
       await settle();
+      await drafts.put(draft('rgal0001', '3/03'));
       page['studioSaved']({ values: draft('x', '3/03').values, layers: undefined, draft: 'rgal0001' });
       page['studioClosed']();
       await settle();
       expect(gallery.get('pa')!.art).toEqual(['2x2', '3/03']);
       expect(await drafts.get('rgal0001')).toBeNull();
       // a obra sumiu e a galeria está cheia: o desenho não coube, e o rascunho fica
-      await drafts.put(draft('rgal0002', '1/01'));
       page['atelie']('pa');
       await settle();
+      await drafts.put(draft('rgal0002', '1/01'));
       spyOn(gallery, 'get').and.returnValue(undefined);
       spyOn(gallery, 'create').and.returnValue(null);
       page['studioSaved']({ values: draft('x', '1/01').values, layers: undefined, draft: 'rgal0002' });
@@ -411,9 +567,9 @@ describe('a galeria de pixel arts', () => {
     it('a cópia guardada tira o rascunho dela', async () => {
       await mount();
       const page = fixture.componentInstance;
-      await drafts.put(draft('rgal0003', '3/03'));
       page['atelie']('pa');
       await settle();
+      await drafts.put(draft('rgal0003', '3/03'));
       page['studioCopied']({ values: draft('x', '3/03').values, layers: undefined, draft: 'rgal0003' });
       expect(await drafts.get('rgal0003')).toBeNull();
     });
@@ -430,7 +586,11 @@ describe('a galeria de pixel arts', () => {
       const toast = TestBed.inject(Toasts).current()!;
       expect(toast.text).toBe('Mudanças descartadas');
       toast.action!.run();
-      await settle();
+      // (o ateliê chega pelo @defer: com a suíte inteira, mais que uns quadros)
+      for (let i = 0; i < 40 && !host.querySelector('app-pixel-studio'); i++) {
+        await new Promise((r) => setTimeout(r, 25));
+        await settle();
+      }
       expect(host.querySelector('app-pixel-studio')).not.toBeNull();
       expect(page['studio']()!.resume!.values['pixels']).toBe('3/03');
       expect(page['studio']()!.draft.origin).toEqual({ kind: 'obra', id: 'pa' });
@@ -470,6 +630,13 @@ describe('a galeria de pixel arts', () => {
       await settle();
       expect(host.querySelector<HTMLDialogElement>('dialog.obra')!.open).toBeFalse();
       expect(await drafts.get('rficha03')).toBeNull();
+      // com o Desfazer: o rascunho pode ser um de antes, continuado na ficha
+      const undo = TestBed.inject(Toasts).current()!;
+      expect(undo.text).toBe('Rascunho descartado');
+      undo.action!.run();
+      await new Promise((r) => setTimeout(r, 30));
+      expect(await drafts.get('rficha03')).not.toBeNull();
+      await drafts.remove('rficha03');
 
       host.querySelector<HTMLButtonElement>('[data-ficha="pa"] .hit')!.click();
       await settle();
