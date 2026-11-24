@@ -32,8 +32,8 @@ high no fim. Um commit (com push) por rodada.
   A abreviação `d*nn` continua com dois algarismos: uma sequência de 100 ou mais vira duas (`0*99` + `0*21`), e
   todo site antigo lê.
 - **D2. Até 64 × 64 entra direto**, sem pergunta: o pedido só pergunta das maiores.
-- **D3. A paleta é sempre a da imagem** (`propria`): com até 61 cores, as cores exatas dela, da mais usada para a
-  menos; com mais, as 61 do corte na mediana, e cada ponto na mais perto. Quase transparente (alfa < 128) vira o
+- **D3. A paleta é sempre a da imagem** (`propria`): com até 61 cores, as cores exatas dela, da mais escura para a
+  mais clara (a ordem do "com as cores dela" do ateliê); com mais, as 61 do corte na mediana, e cada ponto na mais perto. Quase transparente (alfa < 128) vira o
   transparente.
 - **D4. O nome é o do arquivo**, sem a extensão, limpo (o teto do título); "image.png" (o nome do colado) fica
   "Sem título".
@@ -44,7 +44,7 @@ high no fim. Um commit (com push) por rodada.
 - **D7. Uma soltada é um passo do Desfazer**: o aviso diz quantas vieram e para onde, e o Desfazer tira todas.
 - **D8. A ampliada, adivinhada**: o site procura de quantos em quantos pontos a cor muda, em cada eixo (`kx`,
   `ky`, e onde a grade começa); acha a grade quando quase todas as mudanças de cor caem nela. Cada ponto da obra
-  é a cor que mais aparece no quadradinho. Proporção certa = cada eixo dividido pelo dele.
+  é a cor que mais aparece no miolo do quadradinho (a beirada do JPEG borra); sem cor repetida, a média dele. Proporção certa = cada eixo dividido pelo dele.
 - **D9. Acima de 256 depois da conversão** (ou a imagem comum maior que 256), a obra encolhe até caber em
   256 × 256, sem deformar.
 - **D10. O peso**: a galeria inteira tem um teto de texto (`PIXEL_GALLERY_TEXT_MAX`), além das 500 obras, para
