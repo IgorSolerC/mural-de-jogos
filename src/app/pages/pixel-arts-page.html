@@ -48,6 +48,14 @@
           </button>
         </div>
 
+        <!-- as imagens do computador sem arrastar (no celular, o jeito): para a pasta aberta -->
+        <div class="pasta-grupo">
+          <button type="button" class="tinta" (click)="pickFiles()" aria-label="Trazer imagens do computador" title="Trazer imagens do computador (ou solte-as em qualquer lugar da galeria, ou numa pasta)">
+            <lucide-icon [img]="ImageIcon" [size]="18" aria-hidden="true" />
+            <span aria-hidden="true">Trazer</span>
+          </button>
+        </div>
+
         <!-- marcar várias para mover, pôr tags, baixar ou apagar juntas (no toque, o jeito de marcar sem o Ctrl) -->
         <div class="pasta-grupo">
           <button

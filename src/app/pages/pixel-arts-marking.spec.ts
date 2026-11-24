@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ViewTransitions } from '../core/view-transitions';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { Router, provideRouter } from '@angular/router';
 import { PixelFolders } from '../core/pixel-folders';
@@ -41,7 +42,9 @@ describe('marcar várias pixel arts', () => {
   beforeEach(() => {
     localStorage.clear();
     localStorage.setItem(PIXEL_PREFS_KEY, JSON.stringify({ vista: 'grade' }));
-    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), provideRouter([])] });
+    // a troca direta, sem a View Transition de verdade (como nas specs da parede): uma transição ainda no meio quando a página
+    // de um teste sai e a do outro começa derruba o Chrome sem tela
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), provideRouter([]), { provide: ViewTransitions, useValue: { run: (change: () => void) => change() } }] });
     gallery = TestBed.inject(PixelGallery);
     gallery.state.set({
       pieces: [piece('pa', 'Gato', { createdAt: at(5), tags: ['bichos', 'preto'] }), piece('pb', 'Cachorro', { createdAt: at(4), tags: ['bichos'] }), piece('pc', 'Espada', { createdAt: at(3) })],

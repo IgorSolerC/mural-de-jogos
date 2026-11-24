@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ViewTransitions } from '../core/view-transitions';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { PixelPiece } from '../core/pixel-gallery';
@@ -55,7 +56,9 @@ describe('a galeria de pixel arts', () => {
 
   beforeEach(() => {
     localStorage.clear();
-    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), provideRouter([])] });
+    // a troca direta, sem a View Transition de verdade (como nas specs da parede): uma transição ainda no meio quando a página
+    // de um teste sai e a do outro começa derruba o Chrome sem tela
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), provideRouter([]), { provide: ViewTransitions, useValue: { run: (change: () => void) => change() } }] });
     gallery = TestBed.inject(PixelGallery);
     gallery.state.set({
       pieces: [

@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { ViewTransitions } from '../core/view-transitions';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { NoteFolders } from '../core/note-folders';
@@ -37,7 +38,9 @@ describe('marcar pastas na galeria de pixel arts', () => {
   beforeEach(async () => {
     localStorage.clear();
     copied = [];
-    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), provideRouter([])] });
+    // a troca direta, sem a View Transition de verdade (como nas specs da parede): uma transição ainda no meio quando a página
+    // de um teste sai e a do outro começa derruba o Chrome sem tela
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), provideRouter([]), { provide: ViewTransitions, useValue: { run: (change: () => void) => change() } }] });
     spyOn(navigator.clipboard, 'writeText').and.callFake(async (t: string) => void copied.push(t));
     TestBed.inject(Settings).setNotesConfig({
       folders: [

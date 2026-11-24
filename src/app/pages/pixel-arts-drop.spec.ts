@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ViewTransitions } from '../core/view-transitions';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { Router, provideRouter } from '@angular/router';
 import { inkOf } from '../core/pixel-art';
@@ -70,7 +71,9 @@ describe('soltar imagens do computador na galeria de pixel arts', () => {
   beforeEach(() => {
     localStorage.clear();
     localStorage.setItem(PIXEL_PREFS_KEY, JSON.stringify({ vista: 'grade' }));
-    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), provideRouter([])] });
+    // a troca direta, sem a View Transition de verdade (como nas specs da parede): uma transição ainda no meio quando a página
+    // de um teste sai e a do outro começa derruba o Chrome sem tela
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), provideRouter([]), { provide: ViewTransitions, useValue: { run: (change: () => void) => change() } }] });
     gallery = TestBed.inject(PixelGallery);
     gallery.state.set({ pieces: [piece('pa', 'Gato')], removed: {} });
     bichos = TestBed.inject(PixelFolders).create(null, 'Bichos')!.id;
@@ -167,6 +170,14 @@ describe('soltar imagens do computador na galeria de pixel arts', () => {
     await settle();
     expect(gallery.pieces().map((p) => p.title)).toContain('pequena');
     expect(gallery.pieces().map((p) => p.title)).not.toContain('grande');
+  });
+
+  it('a barra da galeria tem o Trazer (sem arrastar), para a pasta aberta', async () => {
+    await mount();
+    const input = host.querySelector<HTMLInputElement>('input[type="file"]')!;
+    const clicked = spyOn(input, 'click');
+    host.querySelector<HTMLButtonElement>('.pasta button[aria-label="Trazer imagens do computador"]')!.click();
+    expect(clicked).toHaveBeenCalled();
   });
 
   it('"Do tamanho dela" deixa cada pixel um ponto; o passo à mão muda o tamanho; Cancelar não traz nenhuma', async () => {
