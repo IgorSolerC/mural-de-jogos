@@ -153,6 +153,22 @@ describe('soltar imagens do computador na galeria de pixel arts', () => {
     expect(toast()?.text).toBe('2 pixel arts chegaram à galeria.');
   });
 
+  it('"Só as pequenas" traz as pequenas e deixa as grandes de fora; as prévias saem na mesma medida (a diferença se vê)', async () => {
+    await mount();
+    drag('drop', host.querySelector('.grade')!, [await png(HEART, 'grande.png', 12), await png(['rr', 'ry'], 'pequena.png')]);
+    await until(() => !!sheet());
+    const thumbs = [...sheet()!.querySelectorAll<HTMLElement>('app-pixel-thumb')].map((t) => t.getBoundingClientRect().width);
+    // a de 7 × 7 bem menor que a de 84 × 84 (que enche a caixa)
+    expect(thumbs[1]).toBeCloseTo(72, 0);
+    expect(thumbs[0]).toBeLessThan(30);
+    // o passo fica fora do rótulo do rádio
+    expect(sheet()!.querySelector('label .passo-btn')).toBeNull();
+    [...sheet()!.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent!.includes('Só a pequena'))!.click();
+    await settle();
+    expect(gallery.pieces().map((p) => p.title)).toContain('pequena');
+    expect(gallery.pieces().map((p) => p.title)).not.toContain('grande');
+  });
+
   it('"Do tamanho dela" deixa cada pixel um ponto; o passo à mão muda o tamanho; Cancelar não traz nenhuma', async () => {
     await mount();
     drag('drop', host.querySelector('.grade')!, [await png(HEART, 'grande.png', 12)]);
@@ -201,6 +217,39 @@ describe('soltar imagens do computador na galeria de pixel arts', () => {
     TestBed.inject(PixelFolders).dissolve(bichos);
     await until(() => gallery.count() === 2);
     expect(gallery.pieces().find((p) => p.title === 'orfa')!.folder).toBeUndefined();
+  });
+
+  it('a foto grande (sem palpite) espera a resposta já encolhida, e a folha diz o tamanho de como veio', async () => {
+    await mount();
+    const c = document.createElement('canvas');
+    c.width = 1500;
+    c.height = 1000;
+    const g = c.getContext('2d')!;
+    const grad = g.createLinearGradient(0, 0, 1500, 1000);
+    grad.addColorStop(0, '#2a6fdb');
+    grad.addColorStop(1, '#d1495b');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 1500, 1000);
+    const photo = await new Promise<File>((res) => c.toBlob((b) => res(new File([b!], 'foto.png', { type: 'image/png' })), 'image/png'));
+    drag('drop', host.querySelector('.grade')!, [photo]);
+    await until(() => !!sheet());
+    expect(sheet()!.querySelector('.solta-tam')!.textContent).toContain('1500 × 1000 pixels');
+    expect(cards()[1].classList).toContain('on');
+    expect(cards()[1].querySelector('.trazer-desc')!.textContent).toContain('vira 256 × 171 pontos');
+    // a guardada para a resposta tem no máximo 1024 de lado
+    const page = fixture.componentInstance as unknown as { dropAsk: () => { big: { img: { w: number; h: number } }[] } };
+    expect(Math.max(page.dropAsk().big[0].img.w, page.dropAsk().big[0].img.h)).toBe(1024);
+    [...sheet()!.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent!.includes('Trazer 1'))!.click();
+    await settle();
+    const art = pixelArtOf(gallery.pieces().find((p) => p.title === 'foto')!);
+    expect([art.w, art.h]).toEqual([256, 171]);
+  });
+
+  it('a etiqueta conta só as imagens do arrasto', async () => {
+    await mount();
+    const wall = host.querySelector('.grade')!;
+    drag('dragover', wall, [await png(HEART, 'a.png'), new File(['x'], 'b.txt', { type: 'text/plain' })]);
+    expect(host.querySelector('.arrasto-dica')!.textContent).toBe('Trazer a imagem para a galeria');
   });
 
   it('o que não é imagem fica de fora, com o aviso', async () => {

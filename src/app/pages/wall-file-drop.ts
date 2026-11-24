@@ -46,18 +46,28 @@ export class WallFileDrop {
   /** O último ponto do ponteiro (a parede troca embaixo dele quando uma pasta abre). */
   private at = { x: 0, y: 0 };
   private count = 0;
+  /**
+   * Quantos elementos da página o arrasto entrou e não saiu: chega a 0 só quando ele sai da página (o Safari manda o
+   * dragleave de um filho para outro sem dizer para onde).
+   */
+  private depth = 0;
 
   constructor(private readonly cfg: WallFileDropConfig) {
     const host = cfg.host;
     const over = (e: DragEvent) => this.over(e);
+    const enter = (e: DragEvent) => {
+      if (carriesFiles(e.dataTransfer)) this.depth++;
+      this.over(e);
+    };
     const leave = (e: DragEvent) => {
+      if (!carriesFiles(e.dataTransfer)) return;
       // saiu da página (e não só de um filho dela para outro)
-      const to = e.relatedTarget as Node | null;
-      if (!to || !host.contains(to)) this.clear();
+      this.depth = Math.max(0, this.depth - 1);
+      if (!this.depth) this.clear();
     };
     const drop = (e: DragEvent) => this.dropped(e);
     const end = () => this.clear();
-    host.addEventListener('dragenter', over);
+    host.addEventListener('dragenter', enter);
     host.addEventListener('dragover', over);
     host.addEventListener('dragleave', leave);
     host.addEventListener('drop', drop);
@@ -65,7 +75,7 @@ export class WallFileDrop {
     document.addEventListener('dragend', end);
     document.addEventListener('drop', end);
     this.off = () => {
-      host.removeEventListener('dragenter', over);
+      host.removeEventListener('dragenter', enter);
       host.removeEventListener('dragover', over);
       host.removeEventListener('dragleave', leave);
       host.removeEventListener('drop', drop);
@@ -90,8 +100,9 @@ export class WallFileDrop {
       return;
     }
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
-    // (o navegador só diz quantos arquivos, não quais, enquanto se arrasta)
-    this.count = Array.from(e.dataTransfer?.items ?? []).filter((i) => i.kind === 'file').length || 1;
+    // (o navegador só diz o tipo de cada arquivo, não qual, enquanto se arrasta: contam as imagens)
+    const items = Array.from(e.dataTransfer?.items ?? []).filter((i) => i.kind === 'file');
+    this.count = items.filter((i) => i.type.startsWith('image/')).length || items.length || 1;
     this.at = { x: e.clientX, y: e.clientY };
     this.follow(e.target instanceof Element ? e.target : null);
   }
@@ -109,7 +120,9 @@ export class WallFileDrop {
       tip.hidden = !next;
       if (next) {
         const where = next.folder ? (this.cfg.folderName(next.folder) ?? this.cfg.rootName) : this.cfg.rootName;
-        tip.textContent = this.cfg.label(this.count, where);
+        // (o leitor de tela lê de novo a cada mudança: só quando o texto muda)
+        const text = this.cfg.label(this.count, where);
+        if (tip.textContent !== text) tip.textContent = text;
         const w = tip.offsetWidth;
         const h = tip.offsetHeight;
         tip.style.translate = `${Math.max(8, Math.min(this.at.x + 18, innerWidth - w - 8))}px ${Math.min(this.at.y + 22, innerHeight - h - 8)}px`;
@@ -175,6 +188,7 @@ export class WallFileDrop {
   }
 
   private clear(): void {
+    this.depth = 0;
     clearTimeout(this.springTimer);
     this.springFor = undefined;
     this.target?.el.removeAttribute('data-alvo');

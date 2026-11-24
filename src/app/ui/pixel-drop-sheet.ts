@@ -13,13 +13,21 @@ export interface DroppedBig {
   title: string;
   /** O endereço da imagem do arquivo (a miniatura de como ela veio); quem abriu a folha o solta. */
   url: string;
+  /** A imagem lida (a que não parece ampliada pode vir já encolhida: os passos à mão contam nela). */
   img: Rgba;
+  /** O tamanho dela, como veio. */
+  w: number;
+  h: number;
   /** O passo que o site adivinhou (null: não parece ampliada). */
   guess: PixelScale | null;
 }
 
 /** A resposta de cada uma: ampliada (com o passo) ou do tamanho dela. */
 type Choice = { as: 'ampliada'; k: number } | { as: 'tamanho' };
+
+/** A caixa das prévias, e o lado da menor delas (uma de 7 × 7 ao lado de uma de 256 sumiria). */
+const PREVIEW_BOX = 72;
+const PREVIEW_MIN = 22;
 
 /** O maior passo que se escolhe à mão (mais que isso, nenhuma pixel art). */
 const STEP_MAX = 64;
@@ -64,33 +72,37 @@ let uid = 0;
                   <img class="solta-foto" alt="" [src]="it.url" />
                   <span class="solta-txt">
                     <span class="solta-titulo" [id]="id + '-n' + i">{{ it.title || 'Sem título' }}</span>
-                    <span class="solta-tam">{{ it.img.w }} × {{ it.img.h }} pixels</span>
+                    <span class="solta-tam">{{ it.w }} × {{ it.h }} pixels</span>
                   </span>
                 </p>
                 <div class="trazer-escolhas" role="radiogroup" [attr.aria-labelledby]="id + '-n' + i">
-                  <label class="trazer-cartao" [class.on]="c.as === 'ampliada'">
-                    <input type="radio" [name]="id + '-como' + i" [checked]="c.as === 'ampliada'" (change)="choose(it, { as: 'ampliada', k: stepOf(it) })" />
-                    <span class="trazer-previa" aria-hidden="true"><app-pixel-thumb [art]="pv.ampliada" /></span>
-                    <span class="trazer-texto">
-                      <span class="trazer-titulo">Pixel art ampliada@if (it.guess) {<span class="achou"> · o site achou</span>}</span>
-                      <span class="trazer-desc">{{ scaledText(it) }}</span>
-                      <span class="passo" (click)="$event.preventDefault()">
-                        <span class="passo-nome">Pixels por ponto</span>
-                        <span class="passo-ctl">
-                        <button type="button" class="passo-btn" [disabled]="stepOf(it) <= 2" [attr.aria-label]="'Menos pixels por ponto (agora ' + stepOf(it) + ')'" (click)="step(it, -1)">
+                  <!-- a ampliada: o cartão com o passo embaixo, fora do rótulo do botão de rádio (um botão dentro de
+                       um rótulo não vale, e o leitor de tela juntaria tudo no nome da resposta) -->
+                  <div class="trazer-cartao com-passo" [class.on]="c.as === 'ampliada'">
+                    <label class="cartao-escolha">
+                      <input type="radio" [name]="id + '-como' + i" [checked]="c.as === 'ampliada'" (change)="choose(it, { as: 'ampliada', k: stepOf(it) })" />
+                      <span class="trazer-previa" aria-hidden="true"><app-pixel-thumb [art]="pv.ampliada" [style.width.px]="pv.aw" [style.height.px]="pv.ah" /></span>
+                      <span class="trazer-texto">
+                        <span class="trazer-titulo">Pixel art ampliada@if (it.guess) {<span class="achou"> · o site achou</span>}</span>
+                        <span class="trazer-desc">{{ scaledText(it) }}</span>
+                      </span>
+                    </label>
+                    <div class="passo" role="group" [attr.aria-label]="'Pixels por ponto de ' + (it.title || 'Sem título')">
+                      <span class="passo-nome" aria-hidden="true">Pixels por ponto</span>
+                      <span class="passo-ctl">
+                        <button type="button" class="passo-btn" [disabled]="stepOf(it) <= 2" [attr.aria-label]="'Menos pixels por ponto (agora ' + stepLabel(it) + ')'" (click)="step(it, -1)">
                           <lucide-icon [img]="LessIcon" [size]="16" aria-hidden="true" />
                         </button>
                         <span class="passo-n" aria-live="polite">{{ stepLabel(it) }}</span>
-                        <button type="button" class="passo-btn" [disabled]="stepOf(it) >= stepMax(it)" [attr.aria-label]="'Mais pixels por ponto (agora ' + stepOf(it) + ')'" (click)="step(it, 1)">
+                        <button type="button" class="passo-btn" [disabled]="stepOf(it) >= stepMax(it)" [attr.aria-label]="'Mais pixels por ponto (agora ' + stepLabel(it) + ')'" (click)="step(it, 1)">
                           <lucide-icon [img]="MoreIcon" [size]="16" aria-hidden="true" />
                         </button>
-                        </span>
                       </span>
-                    </span>
-                  </label>
+                    </div>
+                  </div>
                   <label class="trazer-cartao" [class.on]="c.as === 'tamanho'">
                     <input type="radio" [name]="id + '-como' + i" [checked]="c.as === 'tamanho'" (change)="choose(it, { as: 'tamanho' })" />
-                    <span class="trazer-previa" aria-hidden="true"><app-pixel-thumb [art]="pv.tamanho" /></span>
+                    <span class="trazer-previa" aria-hidden="true"><app-pixel-thumb [art]="pv.tamanho" [style.width.px]="pv.tw" [style.height.px]="pv.th" /></span>
                     <span class="trazer-texto">
                       <span class="trazer-titulo">Do tamanho dela</span>
                       <span class="trazer-desc">{{ plainText(it) }}</span>
@@ -105,6 +117,10 @@ let uid = 0;
         <footer class="foot">
           <div class="fim">
             <button type="button" class="btn-quiet" (click)="close()">Cancelar</button>
+            @if (small()) {
+              <!-- as pequenas não precisam da resposta: dá para trazer só elas -->
+              <button type="button" class="btn-quiet" (click)="bringSmall()">Só {{ small() === 1 ? 'a pequena' : 'as ' + small() + ' pequenas' }}</button>
+            }
             <button type="button" class="btn-ink aplicar" (click)="bring()">Trazer {{ total() }}</button>
           </div>
         </footer>
@@ -119,7 +135,7 @@ export class PixelDropSheet {
   readonly small = input(0);
   /** Para onde vão ("Bichos", "a galeria"). */
   readonly where = input('a galeria');
-  /** O passo de cada uma (sem ampliação: um pixel por ponto). */
+  /** O passo de cada uma (sem ampliação: um pixel por ponto); a que fica de fora não vem no mapa. */
   readonly brought = output<ReadonlyMap<string, PixelScale>>();
   readonly closed = output<void>();
 
@@ -194,7 +210,7 @@ export class PixelDropSheet {
   }
 
   protected plainText(it: DroppedBig): string {
-    return `Cada pixel vira um ponto: ${this.sizeText(it.img.w, it.img.h)}.`;
+    return `Cada pixel vira um ponto: ${this.sizeText(it.w, it.h)}.`;
   }
 
   /**
@@ -208,9 +224,19 @@ export class PixelDropSheet {
     if (!art) this.made.set(key, (art = artOf(s ? pixelSized(it.img, s) : pixelSized(it.img))));
     return art;
   }
+  /**
+   * As duas prévias na mesma medida (os mesmos pixels de tela por ponto, a maior enchendo a caixa): a de 7 × 7 sai
+   * pequena e a de 84 × 84 grande, e a diferença das respostas se vê. A menor nunca fica abaixo de `PREVIEW_MIN`.
+   */
   protected readonly previews = computed(() => {
-    const out = new Map<string, { ampliada: PixelArt; tamanho: PixelArt }>();
-    for (const it of this.items()) out.set(it.key, { ampliada: this.previewOf(it, this.scaleOf(it, this.stepOf(it))), tamanho: this.previewOf(it, null) });
+    const out = new Map<string, { ampliada: PixelArt; tamanho: PixelArt; aw: number; ah: number; tw: number; th: number }>();
+    for (const it of this.items()) {
+      const ampliada = this.previewOf(it, this.scaleOf(it, this.stepOf(it)));
+      const tamanho = this.previewOf(it, null);
+      const k = PREVIEW_BOX / Math.max(ampliada.w, ampliada.h, tamanho.w, tamanho.h);
+      const side = (a: PixelArt, n: number) => Math.max(n * k, (PREVIEW_MIN * n) / Math.max(a.w, a.h));
+      out.set(it.key, { ampliada, tamanho, aw: side(ampliada, ampliada.w), ah: side(ampliada, ampliada.h), tw: side(tamanho, tamanho.w), th: side(tamanho, tamanho.h) });
+    }
     return out;
   });
 
@@ -221,6 +247,12 @@ export class PixelDropSheet {
       out.set(it.key, c.as === 'ampliada' ? this.scaleOf(it, c.k) : { kx: 1, ky: 1, ox: 0, oy: 0 });
     }
     this.brought.emit(out);
+    this.close();
+  }
+
+  /** Só as pequenas da soltada: nenhuma grande no mapa. */
+  protected bringSmall(): void {
+    this.brought.emit(new Map());
     this.close();
   }
 

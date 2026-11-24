@@ -33,7 +33,7 @@ import {
   sortPieces,
 } from '../core/pixel-gallery-view';
 import { downloadBlob, pieceToPng, pngName } from '../core/pixel-png';
-import { NO_SCALE, PixelScale, Rgba, asksScale, guessScale, imageArt, pixelSized, titleOfFile } from '../core/pixel-import';
+import { NO_SCALE, PixelScale, Rgba, asksScale, fitSide, guessScale, imageArt, pixelSized, shrinkRgba, titleOfFile } from '../core/pixel-import';
 import { DroppedBig, PixelDropSheet } from '../ui/pixel-drop-sheet';
 import { ImageReadError, imageFilesOf, readImagePixels } from '../ui/image-pixels';
 import { WallFileDrop } from './wall-file-drop';
@@ -80,12 +80,19 @@ interface ReadImage {
   key: string;
   file: File;
   title: string;
+  /** A imagem lida (a grande sem palpite, já encolhida até `WAIT_SIDE`). */
   img: Rgba;
+  /** O tamanho dela, como veio. */
+  w: number;
+  h: number;
   scale: PixelScale;
   /** Maior que 64 × 64: a folha pergunta se é ampliada. */
   ask: boolean;
   guess: PixelScale | null;
 }
+
+/** O lado maior de uma imagem grande sem palpite enquanto a folha pergunta (ver `takeFiles`). */
+const WAIT_SIDE = 1024;
 
 /** O que ficou de fora de uma soltada de imagens, por quê. */
 interface DropSkips {
@@ -563,11 +570,12 @@ export class PixelArtsPage {
     const files = imageFilesOf(all);
     const skipped: DropSkips = { others: all.length - files.length, broken: 0, big: 0 };
     if (!files.length) {
-      this.toasts.show(all.length === 1 ? 'Isso não é uma imagem: solte um PNG, GIF, JPG ou WebP.' : 'Nenhum desses arquivos é uma imagem: solte PNG, GIF, JPG ou WebP.');
+      this.toasts.show(all.length === 1 ? 'Isso não é uma imagem: traga um PNG, GIF, JPG ou WebP.' : 'Nenhum desses arquivos é uma imagem: traga PNG, GIF, JPG ou WebP.');
       return;
     }
     this.reading.set(true);
-    if (files.length > 3) this.toasts.show(`Lendo ${files.length} imagens…`);
+    // ler demora (a imagem grande, ou muitas): o aviso diz que está lendo
+    const slow = setTimeout(() => this.toasts.show(files.length === 1 ? 'Lendo a imagem…' : `Lendo ${files.length} imagens…`), files.length > 3 ? 0 : 400);
     const read: ReadImage[] = [];
     try {
       for (const [i, f] of files.entries()) {
@@ -575,13 +583,19 @@ export class PixelArtsPage {
           const img = await readImagePixels(f);
           // a maior que 64 pergunta se é ampliada: o palpite vai junto
           const ask = asksScale(img.w, img.h);
-          read.push({ key: `${i}`, file: f, title: titleOfFile(f.name), img, scale: NO_SCALE, ask, guess: ask ? guessScale(img) : null });
+          const guess = ask ? guessScale(img) : null;
+          // a grande que não é ampliada (uma foto) espera a resposta já encolhida: dez fotos inteiras na memória
+          // derrubariam o celular, e a obra para em 256 de qualquer jeito
+          const fit = !guess ? fitSide(img.w, img.h, WAIT_SIDE) : img;
+          const kept = fit.w < img.w ? shrinkRgba(img, fit.w, fit.h) : img;
+          read.push({ key: `${i}`, file: f, title: titleOfFile(f.name), img: kept, w: img.w, h: img.h, scale: NO_SCALE, ask, guess });
         } catch (err) {
           if (err instanceof ImageReadError && err.problem === 'grande') skipped.big++;
           else skipped.broken++;
         }
       }
     } finally {
+      clearTimeout(slow);
       this.reading.set(false);
     }
     const asked = read.filter((r) => r.ask);
@@ -591,19 +605,19 @@ export class PixelArtsPage {
     }
     // as grandes: a folha pergunta (as pequenas esperam e vêm junto, num passo só do Desfazer)
     const where = folder ? (this.folderTree().live(folder)?.name ?? 'a galeria') : 'a galeria';
-    this.dropAsk.set({ read, folder, skipped, where, big: asked.map((r) => ({ key: r.key, title: r.title, url: URL.createObjectURL(r.file), img: r.img, guess: r.guess })) });
+    this.dropAsk.set({ read, folder, skipped, where, big: asked.map((r) => ({ key: r.key, title: r.title, url: URL.createObjectURL(r.file), img: r.img, w: r.w, h: r.h, guess: r.guess })) });
   }
 
   /** A soltada com imagens grandes, esperando a resposta da folha (ui/pixel-drop-sheet.ts). */
   protected readonly dropAsk = signal<{ read: ReadImage[]; folder: string | null; skipped: DropSkips; where: string; big: DroppedBig[] } | null>(null);
 
-  /** A folha respondeu: cada grande com o passo dela, e todas da soltada vêm. */
+  /** A folha respondeu: cada grande com o passo dela (a que não veio no mapa fica de fora), e as pequenas vêm junto. */
   protected dropAnswered(scales: ReadonlyMap<string, PixelScale>): void {
     const q = this.dropAsk();
     if (!q) return;
     this.dropClosed();
     this.bringRead(
-      q.read.map((r) => ({ ...r, scale: scales.get(r.key) ?? r.scale })),
+      q.read.filter((r) => !r.ask || scales.has(r.key)).map((r) => ({ ...r, scale: scales.get(r.key) ?? r.scale })),
       q.folder,
       q.skipped,
     );
