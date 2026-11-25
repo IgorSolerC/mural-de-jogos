@@ -56,15 +56,17 @@ const LABELS = [5, 30, 60, 90, 120];
     </div>
   `,
   styles: `
+    @use 'regua-escolar' as regua;
+
     :host {
-      --tinta-fase: #e62e2d;
-      --marca: rgb(255 120 100 / 0.5);
+      --tinta-fase: #{regua.$tinta-estudo};
+      --marca: #{regua.$marca-estudo};
       display: grid;
       gap: 8px;
     }
     :host(.pausa) {
-      --tinta-fase: #0f8a3e;
-      --marca: rgb(110 225 140 / 0.55);
+      --tinta-fase: #{regua.$tinta-pausa};
+      --marca: #{regua.$marca-pausa};
     }
 
     .topo {
@@ -143,59 +145,23 @@ const LABELS = [5, 30, 60, 90, 120];
 
     /* a régua de madeira, com o trecho escolhido pintado de marca-texto */
     .regua {
-      position: relative;
-      height: 46px;
-      border-radius: 3px;
-      background:
-        repeating-linear-gradient(90deg, rgb(120 80 30 / 0.06) 0 2px, transparent 2px 9px),
-        linear-gradient(#ecd8a6, #dcc08a);
-      box-shadow:
-        inset 0 1px 0 rgb(255 255 255 / 0.55),
-        inset 0 -2px 3px rgb(110 70 20 / 0.25),
-        0 1px 1px rgb(0 0 0 / 0.25),
-        0 6px 10px -6px rgb(0 0 0 / 0.45);
+      @include regua.madeira;
     }
 
     /* 12px de margem dos dois lados: onde o meio do cursor alcança nas pontas */
     .pintado {
-      position: absolute;
-      top: 6px;
+      @include regua.marca;
       left: 6px;
       width: calc(6px + (100% - 24px) * var(--v));
-      height: 14px;
-      border-radius: 2px 7px 5px 2px;
       background: var(--marca);
-      mix-blend-mode: multiply;
     }
 
     .riscos {
-      position: absolute;
-      inset: 0 12px auto;
-      display: flex;
-      justify-content: space-between;
-
-      i {
-        width: 1.5px;
-        height: 10px;
-        background: rgb(40 25 10 / 0.7);
-
-        &.grande {
-          height: 18px;
-          background: #2a1a0a;
-        }
-      }
+      @include regua.riscos;
     }
 
     .numeros b {
-      position: absolute;
-      bottom: 4px;
-      left: calc(12px + (100% - 24px) * var(--at));
-      translate: -50% 0;
-      color: #2a1a0a;
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 0.78rem;
-      line-height: 1;
+      @include regua.numero;
       transition: opacity var(--t-ui) var(--ease-ui);
 
       /* o número embaixo do cursor some, para não ser lido pela metade */
@@ -226,31 +192,13 @@ const LABELS = [5, 30, 60, 90, 120];
       }
       &::-webkit-slider-thumb {
         -webkit-appearance: none;
-        width: 24px;
-        height: 54px;
+        @include regua.fita-crepe(var(--tinta-fase));
         margin-top: -4px;
-        border: 0;
-        border-radius: 1px;
-        background:
-          linear-gradient(var(--tinta-fase), var(--tinta-fase)) center / 3px 70% no-repeat,
-          rgb(222 205 160 / 0.94);
-        box-shadow:
-          0 1px 1px rgb(0 0 0 / 0.25),
-          0 4px 6px -3px rgb(0 0 0 / 0.45);
         rotate: -3deg;
         transition: scale var(--t-ui) var(--ease-ui);
       }
       &::-moz-range-thumb {
-        width: 24px;
-        height: 54px;
-        border: 0;
-        border-radius: 1px;
-        background:
-          linear-gradient(var(--tinta-fase), var(--tinta-fase)) center / 3px 70% no-repeat,
-          rgb(222 205 160 / 0.94);
-        box-shadow:
-          0 1px 1px rgb(0 0 0 / 0.25),
-          0 4px 6px -3px rgb(0 0 0 / 0.45);
+        @include regua.fita-crepe(var(--tinta-fase));
       }
       &:hover::-webkit-slider-thumb,
       &:active::-webkit-slider-thumb {
