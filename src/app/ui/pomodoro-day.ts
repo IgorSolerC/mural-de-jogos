@@ -16,16 +16,24 @@ export function focusText(ms: number): string {
   return `${Math.floor(min / 60)}h${String(min % 60).padStart(2, '0')}`;
 }
 
+/** Quantas horas a régua mostra, no mínimo (um dia de estudo cabe; um estudo de 25 min não some nela). */
+const MIN_SPAN = 8;
+
 /**
- * As horas que a régua mostra: das 8h às 22h, alargando para caber o primeiro trecho de hoje e a hora de agora (com
- * uma hora de folga depois dela), sempre dentro do dia.
+ * As horas que a régua mostra: do primeiro trecho de hoje (ou de uma hora antes de agora) até duas horas depois de
+ * agora, com pelo menos oito horas e sempre dentro do dia. Só a parte do dia que importa: os trechos ficam largos.
  */
 export function dayWindow(runs: readonly PomodoroRun[], now: number): { from: number; to: number } {
   const midnight = dayStart(now);
   const hourOf = (ms: number) => (ms - midnight) / HOUR;
-  const first = runs.length ? Math.max(0, hourOf(runs[0].a)) : 24;
-  const from = Math.max(0, Math.min(8, Math.floor(first), Math.floor(hourOf(now))));
-  const to = Math.min(24, Math.max(22, Math.ceil(hourOf(now) + 1)));
+  const nowH = hourOf(now);
+  const first = runs.length ? Math.max(0, hourOf(runs[0].a)) : nowH - 1;
+  let from = Math.max(0, Math.floor(Math.min(first, nowH - 1)));
+  let to = Math.max(from + MIN_SPAN, Math.ceil(nowH + 2));
+  if (to > 24) {
+    to = 24;
+    from = Math.max(0, Math.min(from, to - MIN_SPAN));
+  }
   return { from, to };
 }
 
@@ -181,16 +189,18 @@ export class PomodoroDay {
     })),
   );
 
-  /** Um risco a cada meia hora; o grande, na hora cheia. */
+  /** Um risco a cada quarto de hora (meia hora num dia comprido); o grande, na hora cheia. */
   protected readonly ticks = computed(() => {
     const { from, to } = this.window();
-    return Array.from({ length: (to - from) * 2 + 1 }, (_, i) => ({ h: from + i / 2, grande: i % 2 === 0 }));
+    const per = to - from <= 10 ? 4 : 2;
+    return Array.from({ length: (to - from) * per + 1 }, (_, i) => ({ h: from + i / per, grande: i % per === 0 }));
   });
 
-  /** Os números: de duas em duas horas (de três em três num dia comprido). */
+  /** Os números: de hora em hora (de duas em duas, de três em três quando o dia de estudo é comprido). */
   protected readonly numbers = computed(() => {
     const { from, to } = this.window();
-    const step = to - from > 16 ? 3 : 2;
+    const span = to - from;
+    const step = span <= 10 ? 1 : span <= 16 ? 2 : 3;
     const first = Math.ceil(from / step) * step;
     const nowH = (this.now() - this.midnight()) / HOUR;
     const out: { h: number; at: number; coberto: boolean }[] = [];

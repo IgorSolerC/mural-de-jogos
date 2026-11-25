@@ -1,30 +1,19 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, inject, signal } from '@angular/core';
 import { Clock } from '../core/clock';
-import { chime, wakeChime } from '../core/chime';
-import {
-  POMODORO_CORNERS,
-  POMODORO_PRESETS,
-  POMODORO_SKINS,
-  PomodoroCorner,
-  PomodoroPhase,
-  PomodoroSkin,
-  doneToday,
-  phaseEnd,
-  phaseMs,
-  remainingMs,
-} from '../core/pomodoro';
+import { wakeChime } from '../core/chime';
+import { POMODORO_SKINS, PomodoroPhase, doneToday, phaseEnd, phaseMs, remainingMs, todayRuns } from '../core/pomodoro';
 import { PomodoroStore } from '../core/pomodoro-store';
+import { trackName } from '../core/pomodoro-tracks';
 import { PomodoroTracks } from '../core/pomodoro-tracks-store';
 import { ICON, IconModule } from '../ui/icons';
-import { MinutesRuler } from '../ui/minutes-ruler';
+import { PomodoroDay } from '../ui/pomodoro-day';
 import { PomodoroDial } from '../ui/pomodoro-dial';
-import { PomodoroTrackList } from '../ui/pomodoro-tracks';
+import { PomodoroPart, PomodoroSheet } from '../ui/pomodoro-sheet';
+import { Shelf } from '../ui/shelf';
 import { Toasts } from '../ui/toast';
 
-/** O tempo das skins da cartela com o Pomodoro desligado: um que mostra os quatro algarismos diferentes. */
-const SAMPLE_MS = (18 * 60 + 42) * 1000;
-/** No máximo tantos tomatinhos desenhados; o resto vira "+N". */
-const MAX_TOMATOES = 8;
+/** No máximo tantos tomatinhos de pé na tábua (o número certo está na régua do dia). */
+const MAX_TOMATOES = 6;
 
 /** "14h35", a hora do aparelho (escrita assim para não ser lida como o tempo que falta, que é "18:36"). */
 function hourOf(ms: number): string {
@@ -33,15 +22,14 @@ function hourOf(ms: number): string {
 }
 
 /**
- * O Pomodoro (`/extras/pomodoro`, PLANO-POMODORO.md, seção 4): a bancada de foco. À esquerda, a vitrine com o
- * relógio grande na skin escolhida e o botão de começar; à direita, a folha de súmula dos jogos com os tempos e
- * a música; embaixo, a parede de relógios (as 12 skins, vivas) e o canto da tela.
- *
- * Tudo vale na hora: mudar um tempo com o turno andando já muda o que falta.
+ * O Pomodoro (`/extras/pomodoro`, PLANO-POMODORO-REWORK.md): uma tela só, sem rolar. O relógio grande de pé na
+ * prateleira de Outros, com um tomatinho na tábua por estudo de hoje; na frente da tábua, três fitas Dymo (o tempo, a
+ * música, o relógio) que abrem a folha dos ajustes na parte de cada uma; embaixo, a frase do estado com os botões e a
+ * régua do dia.
  */
 @Component({
   selector: 'app-pomodoro-page',
-  imports: [IconModule, MinutesRuler, PomodoroDial, PomodoroTrackList],
+  imports: [IconModule, PomodoroDay, PomodoroDial, PomodoroSheet, Shelf],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './pomodoro-page.html',
   styleUrl: './pomodoro-page.scss',
@@ -49,16 +37,33 @@ function hourOf(ms: number): string {
 export class PomodoroPage {
   protected readonly store = inject(PomodoroStore);
   private readonly tracks = inject(PomodoroTracks);
-  private readonly clock = inject(Clock);
+  protected readonly clock = inject(Clock);
   private readonly toasts = inject(Toasts);
 
   protected readonly ICON = ICON;
-  protected readonly SKINS = POMODORO_SKINS;
-  protected readonly CORNERS = POMODORO_CORNERS;
-  protected readonly PRESETS = POMODORO_PRESETS;
 
   constructor() {
     this.clock.use();
+    // a página ocupa a sobra da tela embaixo do topo (que muda de altura com a largura): mede onde ela começa
+    const host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+    let topo = '';
+    const fit = () => {
+      const next = `${Math.round(host.getBoundingClientRect().top + scrollY)}px`;
+      if (next !== topo) host.style.setProperty('--topo', (topo = next));
+    };
+    // de novo quando o que vem antes muda de altura (a fonte que chega depois, um aviso no topo): o corpo da página
+    // cresce junto (o tamanho desta página não muda a medida, então não fica medindo em volta)
+    // (no quadro seguinte: mudar o layout dentro do aviso dele é o "ResizeObserver loop" no console)
+    const watch = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => requestAnimationFrame(fit));
+    afterNextRender(() => {
+      fit();
+      watch?.observe(document.body);
+    });
+    addEventListener('resize', fit);
+    inject(DestroyRef).onDestroy(() => {
+      removeEventListener('resize', fit);
+      watch?.disconnect();
+    });
   }
 
   protected readonly s = this.store.save;
@@ -68,26 +73,36 @@ export class PomodoroPage {
   protected readonly left = computed(() => (this.on() ? remainingMs(this.s(), this.clock.now()) : phaseMs(this.s(), 'estudo')));
   protected readonly total = computed(() => (this.on() ? phaseMs(this.s()) : phaseMs(this.s(), 'estudo')));
   protected readonly phase = computed<PomodoroPhase>(() => (this.on() ? this.s().phase : 'estudo'));
-  /** As skins da cartela: o tempo de verdade com o Pomodoro ligado; desligado, um de amostra. */
-  protected readonly sampleMs = computed(() => (this.on() ? this.left() : SAMPLE_MS));
-  protected readonly sampleTotal = computed(() => (this.on() ? this.total() : 25 * 60_000));
 
   protected readonly done = computed(() => doneToday(this.s(), this.clock.now()));
   protected readonly tomatoes = computed(() => Array.from({ length: Math.min(this.done(), MAX_TOMATOES) }, (_, i) => i));
+  protected readonly runs = computed(() => todayRuns(this.s(), this.clock.now()));
+  /** A fase que anda agora, para o traço do agora na régua (parado ou desligado: nenhuma). */
+  protected readonly runningPhase = computed<PomodoroPhase | null>(() => (this.on() && !this.paused() ? this.s().phase : null));
 
-  /** A linha embaixo do relógio: o estado e a hora em que a fase acaba. */
+  /** A frase ao lado dos botões: o estado e quando a fase acaba. */
   protected readonly status = computed(() => {
     const s = this.s();
-    if (!s.on) return `Desligado. Começa com ${s.study} min de estudo e ${s.rest} de pausa.`;
+    if (!s.on) return `Pronto para ${s.study} min de estudo.`;
     if (s.pausedAt !== null) {
       const min = Math.ceil(remainingMs(s, this.clock.now()) / 60_000);
-      return `Pausado. Faltam ${min} min de ${s.phase === 'estudo' ? 'estudo' : 'pausa'}.`;
+      return `Parado. Faltam ${min} min de ${s.phase === 'estudo' ? 'estudo' : 'pausa'}.`;
     }
     const at = hourOf(phaseEnd(s));
-    const min = Math.ceil(remainingMs(s, this.clock.now()) / 60_000);
-    const left = min <= 1 ? 'Falta menos de 1 min' : `Faltam ${min} min`;
-    return s.phase === 'estudo' ? `${left} de estudo. A pausa começa às ${at}.` : `${left} de pausa. O estudo volta às ${at}.`;
+    return s.phase === 'estudo' ? `Estudando. A pausa começa às ${at}.` : `Pausa. O estudo volta às ${at}.`;
   });
+
+  /** As fitas: o tempo, a música (a deste estudo, a escolhida para o próximo ou a primeira do sorteio) e o relógio. */
+  protected readonly timeTape = computed(() => `${this.s().study}/${this.s().rest} min`);
+  protected readonly musicTape = computed(() => {
+    if (!this.s().music) return 'Sem música';
+    const t = this.tracks.current() ?? this.tracks.next() ?? this.tracks.tracks().find((x) => x.on) ?? null;
+    return t ? trackName(t) : 'Rádio lofi';
+  });
+  protected readonly skinTape = computed(() => POMODORO_SKINS.find((k) => k.value === this.s().skin)?.label ?? '');
+
+  /** A folha dos ajustes aberta, na parte da fita tocada. */
+  protected readonly sheet = signal<PomodoroPart | null>(null);
 
   protected startFocus(): void {
     wakeChime();
@@ -114,39 +129,5 @@ export class PomodoroPage {
         this.tracks.restoreTurn(turn);
       },
     });
-  }
-
-  protected setMinutes(which: PomodoroPhase, minutes: number): void {
-    this.store.setMinutes(which, minutes);
-  }
-
-  protected preset(study: number, rest: number): void {
-    this.store.preset(study, rest);
-  }
-
-  protected isPreset(study: number, rest: number): boolean {
-    return this.s().study === study && this.s().rest === rest;
-  }
-
-  protected setSkin(skin: PomodoroSkin): void {
-    this.store.setSkin(skin);
-  }
-
-  protected setCorner(corner: PomodoroCorner): void {
-    this.store.setCorner(corner);
-  }
-
-  protected toggleMusic(): void {
-    this.store.setMusic(!this.s().music);
-  }
-
-  /** O sininho de amostra, para ouvir antes (e acordar o som da página). */
-  protected testChime(): void {
-    wakeChime();
-    setTimeout(() => chime(this.phase() === 'estudo' ? 'pausa' : 'estudo'), 60);
-  }
-
-  protected skinLabel(skin: PomodoroSkin): string {
-    return POMODORO_SKINS.find((k) => k.value === skin)?.label ?? '';
   }
 }

@@ -1,7 +1,7 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { POMODORO_KEY, POMODORO_SKINS } from '../core/pomodoro';
+import { POMODORO_KEY } from '../core/pomodoro';
 import { PomodoroStore } from '../core/pomodoro-store';
 import { TRACKS_KEY } from '../core/pomodoro-tracks';
 import { PomodoroTracks } from '../core/pomodoro-tracks-store';
@@ -21,13 +21,21 @@ describe('a página do Pomodoro', () => {
     localStorage.removeItem(TRACKS_KEY);
   });
 
-  async function open() {
+  /** Abre a página; com `part`, toca a fita dela (a folha dos ajustes abre nessa parte). */
+  async function open(part?: 'tempo' | 'musica' | 'relogio') {
     const f = TestBed.createComponent(PomodoroPage);
     await f.whenStable();
     const host = f.nativeElement as HTMLElement;
     const store = TestBed.inject(PomodoroStore);
     const tracks = TestBed.inject(PomodoroTracks);
-    const button = (text: string) => [...host.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.trim().startsWith(text));
+    /** Um botão pelo começo do texto ou pelo nome (os de só desenho). */
+    const button = (text: string) =>
+      [...host.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.trim().startsWith(text) || b.getAttribute('aria-label') === text);
+    const tape = (i: number) => host.querySelectorAll<HTMLButtonElement>('.fita')[i];
+    if (part) {
+      tape({ tempo: 0, musica: 1, relogio: 2 }[part]).click();
+      await f.whenStable();
+    }
     const rows = () => [...host.querySelectorAll<HTMLElement>('.faixa:not(.vazia)')];
     const names = () => rows().map((r) => r.querySelector('.faixa-nome')!.textContent!.trim());
     /** Escreve o link no "Pôr uma música" e aperta o Pôr na lista. */
@@ -40,19 +48,23 @@ describe('a página do Pomodoro', () => {
       await new Promise((r) => setTimeout(r));
       await f.whenStable();
     };
-    return { f, host, store, tracks, button, rows, names, put };
+    return { f, host, store, tracks, button, tape, rows, names, put };
   }
 
-  it('desligada, mostra 25/5 prontos e um botão só para começar', async () => {
+  it('desligada: o relógio de pé na prateleira, pronto, e um botão só para começar', async () => {
     const { host, button } = await open();
-    expect(host.querySelector('.estado')!.textContent).toContain('Desligado. Começa com 25 min de estudo e 5 de pausa.');
-    expect(host.querySelector('.vitrine app-pomodoro-dial')!.getAttribute('data-tempo')).toBe('25:00');
+    expect(host.querySelector('.estado')!.textContent).toBe('Pronto para 25 min de estudo.');
+    expect(host.querySelector('app-shelf app-pomodoro-dial')!.getAttribute('data-tempo')).toBe('25:00');
     expect(button('Começar o foco')).toBeDefined();
     expect(button('Pausar')).toBeUndefined();
+    // nada dos ajustes na página: só as três fitas
+    expect(host.querySelector('app-minutes-ruler')).toBeNull();
+    expect(host.querySelector('app-pomodoro-tracks')).toBeNull();
+    expect(host.querySelectorAll('app-pomodoro-dial').length).toBe(1);
   });
 
   it('Começar o foco liga o Pomodoro e grava no aparelho', async () => {
-    const { f, store, button } = await open();
+    const { f, store, button, host } = await open();
     button('Começar o foco')!.click();
     await f.whenStable();
     expect(store.on()).toBeTrue();
@@ -60,37 +72,54 @@ describe('a página do Pomodoro', () => {
     expect(button('Pausar')).toBeDefined();
     expect(button('Pular para a pausa')).toBeDefined();
     expect(button('Desligar')).toBeDefined();
-    expect(f.nativeElement.querySelector('.estado').textContent).toMatch(/^Faltam 25 min de estudo\. A pausa começa às \d{1,2}h\d{2}\.$/);
+    expect(host.querySelector('.estado')!.textContent).toMatch(/^Estudando\. A pausa começa às \d{1,2}h\d{2}\.$/);
+    button('Pausar')!.click();
+    await f.whenStable();
+    expect(host.querySelector('.estado')!.textContent).toBe('Parado. Faltam 25 min de estudo.');
   });
 
-  it('as réguas mudam os tempos, de 5 em 5, de 5 a 120', async () => {
-    const { f, host, store } = await open();
-    const range = host.querySelector<HTMLInputElement>('#pomodoro-estudo')!;
-    expect(range.min).toBe('5');
-    expect(range.max).toBe('120');
-    expect(range.step).toBe('5');
-    range.value = '50';
-    range.dispatchEvent(new Event('input'));
+  it('as três fitas dizem o que está valendo e abrem a folha na parte de cada uma', async () => {
+    const { f, host, store, tape } = await open();
+    const text = (i: number) => tape(i).querySelector('.fita-texto')!.textContent!.trim();
+    expect([text(0), text(1), text(2)]).toEqual(['25/5 min', 'Rádio lofi de sempre', 'Tomate']);
+    expect(tape(0).getAttribute('aria-label')).toBe('Tempo: 25/5 min. Ajustar');
+    expect(tape(0).getAttribute('aria-haspopup')).toBe('dialog');
+    store.setSkin('neon');
+    store.setMusic(false);
+    store.preset(50, 10);
     await f.whenStable();
-    expect(store.save().study).toBe(50);
-    // o mais e o menos da pausa
-    const plus = host.querySelector<HTMLButtonElement>('[aria-label="Mais 5 minutos de pausa"]')!;
-    plus.click();
+    expect([text(0), text(1), text(2)]).toEqual(['50/10 min', 'Sem música', 'Neon']);
+    tape(2).click();
     await f.whenStable();
-    expect(store.save().rest).toBe(10);
-    expect(host.querySelector<HTMLButtonElement>('[aria-label="Menos 5 minutos de pausa"]')!.disabled).toBeFalse();
+    const pressed = host.querySelector('app-pomodoro-sheet .parte[aria-pressed="true"] .parte-nome')!;
+    expect(pressed.textContent!.trim()).toBe('Relógio');
+    expect(host.querySelector<HTMLDialogElement>('app-pomodoro-sheet dialog')!.open).toBeTrue();
+    // fechar tira a folha da página
+    const dialog = host.querySelector<HTMLDialogElement>('app-pomodoro-sheet dialog')!;
+    const fired = new Promise((r) => dialog.addEventListener('close', r, { once: true }));
+    dialog.close();
+    await fired;
+    await f.whenStable();
+    expect(host.querySelector('app-pomodoro-sheet')).toBeNull();
   });
 
-  it('os tempos prontos trocam os dois de uma vez', async () => {
-    const { f, store, button } = await open();
-    button('Profundo')!.click();
-    await f.whenStable();
-    expect([store.save().study, store.save().rest]).toEqual([90, 20]);
-    expect(button('Profundo')!.getAttribute('aria-pressed')).toBe('true');
+  it('os estudos de hoje: um tomatinho na tábua por estudo (até seis) e a régua do dia com os trechos', async () => {
+    const d = new Date();
+    d.setHours(12, 0, 0, 0);
+    const agora = d.getTime();
+    spyOn(Date, 'now').and.returnValue(agora);
+    const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const log = [{ a: agora - 40 * 60_000, b: agora - 15 * 60_000, f: 'estudo' }];
+    localStorage.setItem(POMODORO_KEY, JSON.stringify({ v: 1, day, done: 8, log }));
+    const { host } = await open();
+    expect(host.querySelectorAll('.tomatinhos .tomatinho').length).toBe(6);
+    const day0 = host.querySelector('app-pomodoro-day')!;
+    expect(day0.querySelector('.dia-conta')!.textContent).toBe('8 estudos · 25 min de foco');
+    expect(day0.querySelectorAll('.trecho').length).toBe(1);
   });
 
   it('a lista começa com a rádio de sempre, marcada no sorteio; ligado, é ela que toca', async () => {
-    const { f, names, rows, button } = await open();
+    const { f, names, rows, button } = await open('musica');
     expect(names()).toEqual(['Rádio lofi de sempre']);
     expect(rows()[0].querySelector('.faixa-marca')!.getAttribute('aria-checked')).toBe('true');
     expect(rows()[0].classList).not.toContain('da-vez');
@@ -101,7 +130,7 @@ describe('a página do Pomodoro', () => {
   });
 
   it('as marcadas entram no sorteio de cada estudo; a dica diz quantas', async () => {
-    const { f, host, store, tracks, rows, put, button } = await open();
+    const { f, host, store, tracks, rows, put, button } = await open('musica');
     const hint = () => host.querySelector('.link-dica')!.textContent!.trim();
     expect(hint()).toContain('Ela toca em todo estudo');
     await put('https://exemplo.com/a.mp3');
@@ -129,7 +158,7 @@ describe('a página do Pomodoro', () => {
 
   it('a música única de antes da lista vira o primeiro item, com o título achado', async () => {
     localStorage.setItem(POMODORO_KEY, JSON.stringify({ v: 1, musicUrl: 'https://www.youtube.com/watch?v=jfKfPfyJRdk' }));
-    const { f, names } = await open();
+    const { f, names } = await open('musica');
     await new Promise((r) => setTimeout(r));
     await f.whenStable();
     expect(names()).toEqual(['lofi hip hop radio']);
@@ -137,7 +166,7 @@ describe('a página do Pomodoro', () => {
   });
 
   it('pôr uma música: o link que toca entra no fim com o título do vídeo; o que não toca mostra o erro', async () => {
-    const { host, names, put } = await open();
+    const { host, names, put } = await open('musica');
     await put('https://exemplo.com/pagina');
     const input = host.querySelector<HTMLInputElement>('#pomodoro-link')!;
     expect(input.getAttribute('aria-invalid')).toBe('true');
@@ -157,7 +186,7 @@ describe('a página do Pomodoro', () => {
   });
 
   it('o lápis renomeia ali mesmo; o Esc desiste e o foco volta ao lápis', async () => {
-    const { f, host, names, tracks, put } = await open();
+    const { f, host, names, tracks, put } = await open('musica');
     await put('https://exemplo.com/foco.mp3');
     const id = tracks.tracks()[1].id;
     host.querySelector<HTMLButtonElement>(`[data-faixa-lapis="${id}"]`)!.click();
@@ -180,7 +209,7 @@ describe('a página do Pomodoro', () => {
   });
 
   it('tocar outra escolhe a da vez; tirar da lista tem Desfazer', async () => {
-    const { f, host, names, tracks, rows, put, button } = await open();
+    const { f, host, names, tracks, rows, put, button } = await open('musica');
     await put('https://exemplo.com/foco.mp3');
     const id = tracks.tracks()[1].id;
     rows()[1].querySelector<HTMLButtonElement>('[title="Tocar no próximo estudo"]')!.click();
@@ -210,33 +239,15 @@ describe('a página do Pomodoro', () => {
   });
 
   it('a música desligada esconde o campo do link', async () => {
-    const { f, host, store } = await open();
+    const { f, host, store } = await open('musica');
     host.querySelector<HTMLButtonElement>('.interruptor')!.click();
     await f.whenStable();
     expect(store.save().music).toBeFalse();
     expect(host.querySelector('#pomodoro-link')).toBeNull();
   });
 
-  it('a parede tem as 12 skins vivas, e tocar uma escolhe o relógio do canto', async () => {
-    const { f, host, store } = await open();
-    const clocks = host.querySelectorAll<HTMLButtonElement>('.relogios [role="radio"]');
-    expect(clocks.length).toBe(POMODORO_SKINS.length);
-    clocks[3].click();
-    await f.whenStable();
-    expect(store.save().skin).toBe(POMODORO_SKINS[3].value);
-    expect(clocks[3].getAttribute('aria-checked')).toBe('true');
-    expect(host.querySelector('.vitrine app-pomodoro-dial')!.classList).toContain('d-' + POMODORO_SKINS[3].value);
-  });
-
-  it('o canto da tela muda pela telinha', async () => {
-    const { f, host, store } = await open();
-    host.querySelector<HTMLButtonElement>('.tela [aria-label="Em cima, à esquerda"]')!.click();
-    await f.whenStable();
-    expect(store.save().corner).toBe('se');
-  });
-
   it('o Desfazer do desligar volta com a música que tocava, mesmo escolhida outra para o próximo no meio', async () => {
-    const { f, tracks, rows, put, button } = await open();
+    const { f, tracks, rows, put, button } = await open('musica');
     await put('https://exemplo.com/a.mp3');
     button('Começar o foco')!.click();
     await f.whenStable();

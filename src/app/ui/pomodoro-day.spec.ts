@@ -19,11 +19,14 @@ describe('a régua do dia do Pomodoro', () => {
     return f.nativeElement as HTMLElement;
   }
 
-  it('das 8h às 22h num dia comum, alargando para o primeiro trecho e para agora', () => {
-    expect(dayWindow([], at(14))).toEqual({ from: 8, to: 22 });
-    expect(dayWindow([{ a: at(6, 40), b: at(7, 5), f: 'estudo' }], at(14))).toEqual({ from: 6, to: 22 });
-    expect(dayWindow([], at(22, 30))).toEqual({ from: 8, to: 24 });
-    expect(dayWindow([], at(5, 10))).toEqual({ from: 5, to: 22 });
+  it('do primeiro trecho (ou de uma hora antes de agora) até duas horas depois de agora, com pelo menos 8 horas', () => {
+    // nada hoje: uma hora antes, oito horas
+    expect(dayWindow([], at(14, 20))).toEqual({ from: 13, to: 21 });
+    // o dia de estudo desde as 6h40
+    expect(dayWindow([{ a: at(6, 40), b: at(7, 5), f: 'estudo' }], at(9))).toEqual({ from: 6, to: 14 });
+    expect(dayWindow([{ a: at(6, 40), b: at(7, 5), f: 'estudo' }], at(18, 30))).toEqual({ from: 6, to: 21 });
+    // de noite, até a meia-noite, ainda com oito horas
+    expect(dayWindow([], at(23, 10))).toEqual({ from: 16, to: 24 });
     // o trecho que veio de ontem começa na meia-noite
     expect(dayWindow([{ a: at(0) - 20 * MIN, b: at(0, 10), f: 'estudo' }], at(9)).from).toBe(0);
   });
@@ -45,8 +48,9 @@ describe('a régua do dia do Pomodoro', () => {
     const trechos = host.querySelectorAll<HTMLElement>('.trecho');
     expect(trechos.length).toBe(3);
     expect(trechos[1].classList).toContain('pausa');
-    // 9h numa régua das 8h às 22h: 1/14 do caminho
-    expect(Number(trechos[0].style.getPropertyValue('--de'))).toBeCloseTo(1 / 14, 5);
+    // 9h numa régua das 9h às 17h: o começo
+    expect(Number(trechos[0].style.getPropertyValue('--de'))).toBeCloseTo(0, 5);
+    expect(Number(trechos[0].style.getPropertyValue('--ate'))).toBeCloseTo(25 / 60 / 8, 5);
     expect(trechos[0].title).toBe('Estudo das 9h00 às 9h25');
     expect(host.querySelector('.dia-conta')!.textContent).toBe('1 estudo · 40 min de foco');
     // o leitor de tela ouve a lista dos trechos
@@ -55,14 +59,15 @@ describe('a régua do dia do Pomodoro', () => {
     expect(host.querySelector('.regua')!.getAttribute('aria-hidden')).toBe('true');
   });
 
-  it('os riscos de meia em meia hora, os números de duas em duas, e o agora na fita-crepe', async () => {
-    const host = await open([], at(15), 0, null);
-    expect(host.querySelectorAll('.riscos i').length).toBe(29);
-    expect(host.querySelectorAll('.riscos i.grande').length).toBe(15);
-    expect([...host.querySelectorAll('.numeros b')].map((b) => b.textContent)).toEqual(['8h', '10h', '12h', '14h', '16h', '18h', '20h', '22h']);
+  it('os riscos de quarto em quarto de hora, os números de hora em hora, e o agora na fita-crepe', async () => {
+    const host = await open([], at(15, 30), 0, null);
+    // das 14h às 22h
+    expect(host.querySelectorAll('.riscos i').length).toBe(33);
+    expect(host.querySelectorAll('.riscos i.grande').length).toBe(9);
+    expect([...host.querySelectorAll('.numeros b')].map((b) => b.textContent)).toEqual(['14h', '15h', '16h', '17h', '18h', '19h', '20h', '21h', '22h']);
     const agora = host.querySelector<HTMLElement>('.agora')!;
-    expect(Number(agora.style.getPropertyValue('--at'))).toBeCloseTo(0.5, 5);
-    // o número embaixo da fita-crepe some (às 15h, nenhum: 14h e 16h ficam)
+    expect(Number(agora.style.getPropertyValue('--at'))).toBeCloseTo(1.5 / 8, 5);
+    // o número embaixo da fita-crepe some (às 15h30, nenhum: 15h e 16h ficam a meia hora)
     expect(host.querySelectorAll('.numeros b.coberto').length).toBe(0);
     expect(agora.classList).toContain('parado');
     expect(host.querySelector('.dia-conta')!.textContent).toBe('nenhum estudo ainda');
@@ -75,6 +80,12 @@ describe('a régua do dia do Pomodoro', () => {
     expect(nums.at(-1)!.textContent).toBe('0h');
     const h = await open([], at(14, 5), 0, null);
     expect([...h.querySelectorAll('.numeros b.coberto')].map((b) => b.textContent)).toEqual(['14h']);
+  });
+
+  it('um dia de estudo comprido passa a numerar de duas em duas horas', async () => {
+    const host = await open([{ a: at(7), b: at(7, 25), f: 'estudo' }], at(19), 1, null);
+    expect([...host.querySelectorAll('.numeros b')].map((b) => b.textContent)).toEqual(['8h', '10h', '12h', '14h', '16h', '18h', '20h']);
+    expect(host.querySelectorAll('.riscos i').length).toBe(29);
   });
 
   it('o primeiro estudo do dia andando já conta o foco', async () => {
