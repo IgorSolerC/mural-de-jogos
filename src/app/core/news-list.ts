@@ -32,10 +32,10 @@ export const NEWS: NewsEntry[] = [
     kind: 'funcionalidade',
     date: '2026-11-25',
     title: 'Canvas no mural de anotações',
-    notice: 'Novo: o canvas, um quadro livre direto no mural. Botão direito no mural, "Novo canvas aqui".',
+    notice: 'Novo: o canvas, um quadro livre direto no mural. Botão direito no mural (no celular, toque e segure), "Novo canvas aqui".',
     until: '2026-12-09',
     items: [
-      'O canvas: um quadro livre que mora no mural de anotações, como as cartolinas. O botão direito no mural (ou numa pasta) tem "Novo canvas aqui": ele nasce na hora e abre em tela cheia já no Editar, com o nome pronto para escrever. Saindo sem pôr nada nele, ele não fica.',
+      'O canvas: um quadro livre que mora no mural de anotações, como as cartolinas. O botão direito no mural (no celular, o dedo segurado), ou numa pasta, tem "Novo canvas aqui": ele nasce na hora e abre em tela cheia já no Editar, com o nome pronto para escrever. Saindo sem pôr nada nele, ele não fica.',
       'Na parede, o canvas é um pedaço de eucatex numa moldura de alumínio, pendurado num prego pelo barbante, com o quadro desenhado em miniatura (ou a capa dele) e o nome numa fita Dymo. Ele aparece em todas as vistas: na Comum e na Inteira, pendurado; na Visão geral, deitado na mesa; na Lista, com uma moldurinha e quantas peças tem.',
       'O canvas tem o que a anotação tem: grupo, pasta, tags, data, capa e quem vê (nos Detalhes, no topo do canvas aberto ou no botão direito), Fixar e Finalizar, marcar com Ctrl+clique, mover para outra pasta, duplicar, copiar o que está escrito nele e apagar com Desfazer. A busca do mural acha o canvas pelo que está escrito no quadro. Ele não entra no Kanban, nos Flashcards nem no widget Nota.',
       'Quem visita o seu mural vê os seus canvas públicos do mesmo jeito, e toca neles para abrir.',

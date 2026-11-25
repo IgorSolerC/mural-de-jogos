@@ -8,6 +8,7 @@ import { Audience, Review, audienceFields, audienceOf, isCanvas, isPrivate, sani
 import { ReviewStore } from './review-store';
 import { BUILD } from './build';
 import { storageFrozen } from './storage';
+import { localDay } from './dates';
 import { CloudAccount } from './cloud-account';
 import { CloudSync } from './cloud-sync';
 import { MemberRole, isMemberRole } from './shared-notes';
@@ -199,8 +200,20 @@ export class CanvasLink {
     return { note, board };
   }
 
-  /** O Desfazer do `remove`: o quadro volta primeiro, depois a anotação. */
+  /**
+   * O Desfazer do `remove`: o quadro volta primeiro, depois a anotação. No meio, o quadro está aqui sem a anotação:
+   * a conversão espera (`making`), senão faria outra anotação com o mesmo id antes de a de verdade voltar.
+   */
   async undoRemove(removed: RemovedCanvas): Promise<void> {
+    this.making++;
+    try {
+      await this.undoRemoveNow(removed);
+    } finally {
+      this.making--;
+    }
+  }
+
+  private async undoRemoveNow(removed: RemovedCanvas): Promise<void> {
     const id = removed.note.canvas;
     const board = removed.board ?? (id ? this.copies.get(id) : undefined);
     if (board && !this.boards.get(board.id)) await this.boards.restore(board);
@@ -361,7 +374,8 @@ export class CanvasLink {
         kind: 'anotacoes',
         game: { name: board.nome || CANVAS_DEFAULT_TITLE, coverUrl: null, source: 'manual' },
         text: '',
-        completedAt: at.slice(0, 10),
+        // (o dia daqui, e não o de Greenwich: o quadro mexido à noite é do dia em que foi mexido)
+        completedAt: localDay(new Date(at)),
         stock: 'cinza',
         ...(group ? { category: group } : {}),
         ...audienceFields(board.publico ? 'visivel' : 'privada', null, at),

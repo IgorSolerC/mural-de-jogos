@@ -267,9 +267,21 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
     expect(back.style.transform).toBe('translate(120px, 60px) scale(1)');
   });
 
-  it('o quadro vazio diz que está vazio', async () => {
+  it('o quadro vazio diz que está vazio; ao dono, como pôr a primeira peça (a tecla E com o mouse, o botão Editar no toque)', async () => {
     await open(board([], [], 'Novo'));
     expect(el.querySelector('.vazio')!.textContent).toContain('Este quadro está vazio');
+    // (quem visita não edita: a dica é só do dono)
+    expect(el.querySelector('.vazio .dica-tecla')).toBeNull();
+    fixture.componentRef.setInput('owner', {});
+    await fixture.whenStable();
+    const tecla = el.querySelector<HTMLElement>('.vazio .dica-tecla')!;
+    const toque = el.querySelector<HTMLElement>('.vazio .dica-toque')!;
+    expect(tecla.textContent).toContain('Editar (E)');
+    expect(toque.textContent).toContain('Toque em Editar');
+    // (só uma das duas aparece: a do jeito de apontar deste aparelho)
+    const shown = [tecla, toque].filter((e) => getComputedStyle(e).display !== 'none');
+    expect(shown.length).toBe(1);
+    expect(shown[0]).toBe(matchMedia('(pointer: coarse)').matches ? toque : tecla);
   });
 
   describe('no editar', () => {

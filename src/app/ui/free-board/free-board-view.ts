@@ -134,7 +134,8 @@ interface EdgeLabel {
         @if (editing()) {
           <p class="vazio">Arraste imagens para cá, ou escolha uma ferramenta embaixo.</p>
         } @else {
-          <p class="vazio">Este quadro está vazio.@if (owner()) { Editar (E) põe a primeira peça.}</p>
+          <!-- (a tecla E é do teclado: no toque, o caminho é o botão Editar) -->
+          <p class="vazio">Este quadro está vazio.@if (owner()) {<span class="dica-tecla"> Editar (E) põe a primeira peça.</span><span class="dica-toque"> Toque em Editar para pôr a primeira peça.</span>}</p>
         }
       }
       <p id="fb-como" class="sr-only">Arraste para andar, role para dar zoom. Tab passa pelas peças; as setas do teclado andam; + e − dão zoom; 0 mostra tudo; L mostra o quadro em texto.</p>

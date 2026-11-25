@@ -398,3 +398,18 @@
   margin: 8px 0;
   font: 400 1rem var(--f-hand);
 }
+
+/* o aviso do quadro vazio: a tecla E com o mouse, o botão Editar no toque */
+.vazio .dica-toque {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .vazio .dica-tecla {
+    display: none;
+  }
+
+  .vazio .dica-toque {
+    display: inline;
+  }
+}

@@ -231,6 +231,7 @@ export class NoteMenu {
     try {
       const copy = await this.canvases.duplicate(id);
       if (copy) this.toasts.show(`${copy.game.name} foi criado`, { label: 'Abrir', run: () => this.opened.emit(copy.id) });
+      else this.toasts.show('O quadro deste canvas ainda não chegou neste aparelho. Tente de novo daqui a pouco.');
     } catch (e) {
       this.toasts.show(e instanceof FreeBoardProblem ? e.message : 'Não deu para duplicar o canvas.');
     }

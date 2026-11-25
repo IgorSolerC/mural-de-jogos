@@ -365,4 +365,15 @@ Marcar o Andamento (seção 9).
   do quadro ou ao mural. API e MCP: as ferramentas falam "canvas" (os nomes `*_quadro` ficam); `criar_quadro` cria o
   quadro e o elo o converte. Quem recebeu um quadro solto de outra pessoa só o vê de novo quando o aparelho do dono
   abrir o site novo (a conversão leva as pessoas para a anotação).
-- [ ] Rodada 6: fechamento
+- [x] Rodada 6: fechamento (25/nov, BUILD 1054): crítica do Impeccable em dois agentes (29/40, Good;
+  `.impeccable/critique/2026-11-25T17-55-00Z__src-app-ui-canvas-card-ts.md`): o detector não acusa nada nas peças do
+  canvas. Consertados: o aviso do quadro vazio no toque ("Toque em Editar para pôr a primeira peça", em vez da tecla
+  E) e a faixa das Novidades, que dizia só "botão direito" (agora "no celular, toque e segure"). **/code-review high**
+  das cinco rodadas: o Desfazer de um canvas apagado deixava a conversão fazer outra anotação no meio (o quadro volta
+  antes da anotação; agora o Desfazer segura a conversão, `making`), a data do canvas convertido saía do dia UTC
+  (agora o dia daqui) e o Duplicar sem o quadro no aparelho não dizia nada (agora um bilhete).
+  **Ficam para o dono decidir** (a crítica sugeriu, mas mexem no que ele fixou): uma segunda entrada para criar o
+  canvas (3.1 diz "nenhum outro botão por enquanto"); o canvas aberto com cara de canvas (a fita Dymo no topo, a
+  moldura na borda), porque o topo do quadro é o aprovado (aparência congelada); um sinal pequeno de compartilhado ou
+  público na moldura (D2 tirou tudo do card); o rótulo da moldura na miniatura (o quadro que é uma moldura só vira
+  uma placa cinza).

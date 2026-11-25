@@ -16,6 +16,7 @@ import { Review, isCanvas, sanitizeReview, storedNote } from './review';
 import { ReviewStore } from './review-store';
 import { StudyStore } from './study-store';
 import { thawStorage } from './storage';
+import { localDay } from './dates';
 import { fold } from './text';
 import { matchesQuery } from './wall-filter';
 
@@ -262,7 +263,7 @@ describe('canvas: o elo com o quadro (PLANO-CANVAS.md, 4.2)', () => {
     await settle(link);
     const note = store.get(canvasNoteId(id))!;
     expect(note).toEqual(
-      jasmine.objectContaining({ kind: 'anotacoes', text: '', category: 'Jogos', completedAt: '2026-10-03', stock: 'cinza', createdAt: '2026-10-03T15:20:00.000Z', canvas: id }),
+      jasmine.objectContaining({ kind: 'anotacoes', text: '', category: 'Jogos', completedAt: localDay(new Date('2026-10-03T15:20:00.000Z')), stock: 'cinza', createdAt: '2026-10-03T15:20:00.000Z', canvas: id }),
     );
     expect(note.game.name).toBe('Mansão');
     // o público vira "visível": à mostra como estava, sem ir para o Feed de ninguém
@@ -276,6 +277,26 @@ describe('canvas: o elo com o quadro (PLANO-CANVAS.md, 4.2)', () => {
     await settle(link);
     expect(store.notes().filter(isCanvas).length).toBe(2);
     expect(boards.get(id)!.nome).toBe('Mansão');
+  });
+
+  it('o Desfazer do apagar não deixa a conversão fazer outra anotação no meio (o quadro volta antes dela)', async () => {
+    const note = await link.create({ category: 'Jogos', folder: 'a1234567', audience: 'privada' });
+    store.update({ ...store.get(note.id)!, tags: ['Planta'], updatedAt: new Date().toISOString() }, store.get(note.id)!);
+    await settle(link);
+    const removed = (await link.remove(note.id))!;
+    // o elo acerta tudo entre o quadro voltar e a anotação voltar (o pior momento)
+    const restore = boards.restore.bind(boards);
+    spyOn(boards, 'restore').and.callFake(async (b) => {
+      const back = await restore(b);
+      await link.reconcile();
+      return back;
+    });
+    await link.undoRemove(removed);
+    await settle(link);
+    const back = store.get(note.id)!;
+    expect(back.tags).toEqual(['Planta']);
+    expect(back.folder).toBe('a1234567');
+    expect(store.notes().filter((n) => n.id === note.id).length).toBe(1);
   });
 
   it('o quadro cuja anotação saiu depois da última mexida nele não volta como canvas: sai junto', async () => {
