@@ -184,6 +184,57 @@ describe('o que está perto da tela (NearScreen)', () => {
   });
 });
 
+/** Uma página em partes que o navegador só desenha perto da tela (content-visibility: auto), como as seções do dicionário. */
+@Component({
+  imports: [NearScreen],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    @for (part of parts; track part) {
+      <section class="parte" [attr.data-parte]="part" style="content-visibility: auto; contain-intrinsic-block-size: auto 4000px">
+        @for (i of items; track i) {
+          <div class="lugar" [attr.data-id]="part + i" appPerto #perto="perto">
+            @if (perto.near()) {
+              <b class="ficha" style="display: block; height: 40px">{{ part + i }}</b>
+            } @else {
+              <i class="vaga" data-vaga style="display: block; height: 40px"></i>
+            }
+          </div>
+        }
+      </section>
+    }
+  `,
+})
+class Partes {
+  readonly parts = ['a', 'b', 'c'];
+  readonly items = Array.from({ length: 100 }, (_, i) => i);
+}
+
+describe('o que está perto da tela, em partes que o navegador só desenha perto dela (content-visibility)', () => {
+  let host: HTMLElement;
+  afterEach(() => host?.remove());
+
+  it('a parte na tela monta antes da pintura; a de longe nem é medida (medir forçaria o desenho dela inteira)', () => {
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+    const measured = new Set<string>();
+    const rect = Element.prototype.getBoundingClientRect;
+    spyOn(Element.prototype, 'getBoundingClientRect').and.callFake(function (this: Element) {
+      const id = this.getAttribute('data-id');
+      if (id) measured.add(id);
+      return rect.call(this);
+    });
+    const fixture = TestBed.createComponent(Partes);
+    host = fixture.nativeElement;
+    Object.assign(host.style, { position: 'absolute', top: '0', left: '0', width: '300px' });
+    document.body.append(host);
+    fixture.detectChanges();
+    TestBed.tick();
+    const mountedIn = (part: string) => host.querySelectorAll(`[data-parte="${part}"] .ficha`).length;
+    expect(mountedIn('a')).withContext('a parte do alto, na tela').toBeGreaterThan(0);
+    expect(mountedIn('c')).withContext('a parte do pé, longe').toBe(0);
+    expect([...measured].some((id) => id.startsWith('c'))).withContext('nada da parte de longe foi medido').toBeFalse();
+  });
+});
+
 describe('as alturas medidas (HeightMemo)', () => {
   it('a medida de uma ficha só vale na largura em que foi medida (o NearPool.measured, das vagas com palpite próprio)', () => {
     TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });

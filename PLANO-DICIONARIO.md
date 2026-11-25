@@ -177,9 +177,11 @@ Sem peça nova: o `appPerto` (ui/near-screen.ts) do Kanban e dos Estudos, com a 
    das palavras guardadas por ordem (as palavras não mudam), os valores das linhas dos filtros guardados.
 2. **Os Verbetes só perto da tela**: o lugar de cada verbete (`li appPerto`) fica na lista e nas colunas; longe,
    uma vaga tracejada de giz, do tamanho do cartão (palpite pelo conteúdo, corrigido pela medida), com a palavra e
-   o sentido para o leitor de tela. As seções perdem o `content-visibility` (as vagas já não pesam).
+   o sentido para o leitor de tela. As seções seguem com o `content-visibility` (a altura delas é a soma das vagas), e
+   o `NearPool` não mede o que está numa parte que o navegador não desenha (mediria forçando o desenho dela).
 3. **A Tabela só perto da tela**: as linhas longe da caixa que rola viram uma linha vazia da altura dela; as
    larguras das colunas fixas (as de hoje), para a tabela não mudar de largura conforme as linhas montam.
-4. **A busca não segura a tecla**: o campo responde na hora e a lista segue a busca um instante depois.
+4. **A busca não segura a tecla**: o campo responde na hora e a lista segue a busca quando a pessoa para de digitar
+   (150 ms); apagar tudo vale na hora. O pulo do índice de dedo se refaz até a linha parar no lugar.
 
 Nada aqui mexe nas marcas nem na sincronização (o dicionário só lê; as marcas seguem pelo guardador delas).

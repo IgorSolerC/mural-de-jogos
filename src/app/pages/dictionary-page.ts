@@ -48,6 +48,12 @@ import { WordVoice } from '../ui/word-voice';
 
 type View = DictState['view'];
 
+/**
+ * Digitando, a lista espera a pessoa parar por este tempo (ms) antes de procurar: cada tecla aparece no campo na hora,
+ * e só a última procura nas 1.449 palavras (PLANO-DICIONARIO.md, 8.4).
+ */
+export const SEARCH_PAUSE_MS = 150;
+
 /** Uma coluna da Tabela: o nome, a ordem que o clique na cabeça escolhe (sem, a coluna não ordena) e a largura. */
 interface Column {
   id: string;
@@ -90,6 +96,13 @@ const TABLE_WIDTH = COLUMNS.reduce((n, c) => n + c.width, 0);
  * até a linha montar). Montada uma vez, vale a medida dela (ui/near-screen.ts).
  */
 export function tableRowGuess(w: Word): number {
+  let guess = rowGuesses.get(w);
+  if (guess === undefined) rowGuesses.set(w, (guess = rowGuessOf(w)));
+  return guess;
+}
+/** Os palpites já feitos (a palavra não muda: um por palavra, e não a cada vez que a Tabela confere). */
+const rowGuesses = new WeakMap<Word, number>();
+function rowGuessOf(w: Word): number {
   const line = 0.92 * 16 * 1.35;
   const lines = (text: string, perLine: number) => Math.max(1, Math.ceil(text.length / perLine));
   const most = Math.max(lines(w.meaning, 18), lines(w.composition, 20), lines(w.notes, 36), lines(w.origin, 28), lines(w.registers.join(', '), 8));
@@ -138,12 +151,17 @@ export class DictionaryPage {
   });
 
   /**
-   * A busca digitada: manda na lista e no campo na hora, e só depois vai para o endereço. Ler de volta do endereço a
-   * cada tecla reescreveria o campo com uma navegação atrasada enquanto a pessoa ainda digita; o endereço só manda
-   * quando muda por fora (voltar do navegador, um link).
+   * A busca digitada, no campo na hora. Ler de volta do endereço a cada tecla reescreveria o campo com uma navegação
+   * atrasada enquanto a pessoa ainda digita; o endereço só manda quando muda por fora (voltar do navegador, um link).
    */
   protected readonly query = signal(this.state().query);
+  /**
+   * A busca que a lista mostra: a digitada, quando a pessoa para de digitar (`SEARCH_PAUSE_MS`), e na hora quando ela
+   * apaga tudo, mexe em outra coisa ou o endereço muda por fora. Junto, a busca vai para o endereço.
+   */
+  protected readonly searched = signal(this.state().query);
   private sentQuery = this.state().query;
+  private typing: ReturnType<typeof setTimeout> | undefined;
 
   protected readonly filterOpen = signal(false);
   /** A folha aberta pelo teclado: o foco vai para o primeiro recorte. */
@@ -188,11 +206,20 @@ export class DictionaryPage {
     });
     const onResize = () => this.measureColumn();
     window.addEventListener('resize', onResize, { passive: true });
-    inject(DestroyRef).onDestroy(() => window.removeEventListener('resize', onResize));
+    inject(DestroyRef).onDestroy(() => {
+      window.removeEventListener('resize', onResize);
+      clearTimeout(this.typing);
+      this.stopJump?.();
+    });
     effect(() => {
       const fromUrl = this.state().query;
       // o endereço mudou por fora (não foi a página que mandou): a busca segue
-      if (fromUrl !== this.sentQuery) untracked(() => this.query.set(fromUrl));
+      if (fromUrl !== this.sentQuery)
+        untracked(() => {
+          clearTimeout(this.typing);
+          this.query.set(fromUrl);
+          this.searched.set(fromUrl);
+        });
       this.sentQuery = fromUrl;
     });
   }
@@ -207,7 +234,7 @@ export class DictionaryPage {
 
   /** O que a busca achou, com quanto cada palavra combina (todas, sem busca). */
   private readonly found = computed(() => {
-    const q = this.query();
+    const q = this.searched();
     if (!q.trim()) return { words: this.all, scores: null };
     const score = matcher(q);
     const scores = new Map<string, number>();
@@ -219,7 +246,7 @@ export class DictionaryPage {
   });
 
   /** O que a busca e os filtros mostram, na ordem escolhida. */
-  protected readonly sort = computed(() => effectiveSort({ ...this.state(), query: this.query() }));
+  protected readonly sort = computed(() => effectiveSort({ ...this.state(), query: this.searched() }));
   private readonly dir = computed(() => this.state().dir);
   /**
    * Todas as palavras na ordem escolhida, refeita só quando a ordem muda: buscar, filtrar e marcar só tiram palavras
@@ -244,16 +271,41 @@ export class DictionaryPage {
 
   /** A largura de uma coluna dos Verbetes (0 antes de medir): o palpite da altura das vagas depende dela. */
   private readonly column = signal(0);
+  /** Os Verbetes estão em duas colunas (larga) ou numa só (estreita). */
+  private readonly twoColumns = signal(true);
 
   private measureColumn(): void {
     const li = this.host.nativeElement.querySelector<HTMLElement>('.lugar-verbete');
-    if (li?.offsetWidth) this.column.set(li.offsetWidth);
+    if (!li?.offsetWidth) return;
+    this.column.set(li.offsetWidth);
+    this.twoColumns.set(li.offsetWidth * 2 <= (li.parentElement?.offsetWidth ?? 0));
   }
+
+  /** O palpite da altura de cada verbete, feito uma vez por largura de coluna (e não a cada vez que a página confere). */
+  private readonly guesses = computed(() => {
+    const width = this.column() || 600;
+    return new Map(this.all.map((w) => [w.id, entryHeightGuess(w, width)]));
+  });
 
   /** A altura da vaga de um verbete: a medida dele, se já foi montado; senão, o palpite pelo que ele tem dentro. */
   protected entryHeight(w: Word): number {
-    return this.nearPool.measured('verbete', w.id) ?? entryHeightGuess(w, this.column() || 600);
+    return this.nearPool.measured('verbete', w.id) ?? this.guesses().get(w.id)!;
   }
+
+  /**
+   * A altura de cada seção dos Verbetes, para a seção que o navegador ainda não desenhou (content-visibility): o nome
+   * e as vagas dela, divididas pelas colunas (as duas colunas se equilibram), com o vão entre os cartões. Feita quando
+   * as seções ou a largura mudam; desenhada uma vez, a seção guarda a altura de verdade (`auto`).
+   */
+  protected readonly sectionHeights = computed(() => {
+    const twoColumns = this.twoColumns();
+    const gap = twoColumns ? 32 : 20;
+    this.guesses();
+    return this.sections().map((s) => {
+      const total = untracked(() => s.words.reduce((n, w) => n + this.entryHeight(w) + gap, 0)) - gap;
+      return Math.round(62 + (twoColumns ? total / 2 : total));
+    });
+  });
 
   /** A altura da vaga de uma linha da Tabela: a medida dela, se já foi montada; senão, o palpite. */
   protected rowHeight(w: Word): number {
@@ -306,17 +358,44 @@ export class DictionaryPage {
       heading.tabIndex = -1;
       heading.focus({ preventScroll: true });
     }
-    // as vagas longe da tela têm a altura estimada: montados os verbetes de perto, o pulo é refeito
-    requestAnimationFrame(() =>
-      requestAnimationFrame(() => {
-        el.scrollIntoView({ block: 'start' });
-        this.spyThumb();
-      }),
-    );
     this.thumbAt.set(id);
+    this.holdJump(el);
   }
 
-  protected readonly searching = computed(() => !!this.query().trim());
+  /** O pulo do índice que ainda está acertando o lugar (ver `holdJump`), para outro pulo ou a saída o pararem. */
+  private jumpFrame = 0;
+  private stopJump: (() => void) | null = null;
+
+  /**
+   * As seções e as vagas longe da tela têm a altura estimada: desenhadas as de perto (e as de cima que o navegador
+   * desenha pela primeira vez), a linha sai do lugar. O pulo é refeito a cada quadro até ela ficar parada por três
+   * quadros, por no máximo 15; a pessoa rolando ou teclando, para na hora.
+   */
+  private holdJump(el: HTMLElement): void {
+    this.stopJump?.();
+    const target = el.getBoundingClientRect().top;
+    let frames = 0;
+    let still = 0;
+    const stop = () => {
+      cancelAnimationFrame(this.jumpFrame);
+      for (const type of ['wheel', 'touchstart', 'keydown'] as const) removeEventListener(type, stop);
+      this.stopJump = null;
+      this.spyThumb();
+    };
+    for (const type of ['wheel', 'touchstart', 'keydown'] as const) addEventListener(type, stop, { passive: true });
+    this.stopJump = stop;
+    const redo = () => {
+      if (!el.isConnected || ++frames > 15) return stop();
+      if (Math.abs(el.getBoundingClientRect().top - target) > 1) {
+        el.scrollIntoView({ block: 'start' });
+        still = 0;
+      } else if (++still >= 3) return stop();
+      this.jumpFrame = requestAnimationFrame(redo);
+    };
+    this.jumpFrame = requestAnimationFrame(redo);
+  }
+
+  protected readonly searching = computed(() => !!this.searched().trim());
   protected readonly filtered = computed(() => isFiltered(this.state().filter));
   /** Há busca ou filtro: a linha "Mostrando N de 933" e o Limpar. */
   protected readonly narrowing = computed(() => this.searching() || this.filtered());
@@ -339,7 +418,7 @@ export class DictionaryPage {
   protected readonly countSaid = computed(() => `Mostrando ${this.shown().length} de ${plural(this.all.length, 'palavra', 'palavras')}`);
 
   /** O cartão de quando nada aparece. */
-  protected readonly noneTitle = computed(() => (this.searching() && !this.filtered() ? `Nada com “${this.query().trim()}”` : 'Nenhuma palavra com esse filtro'));
+  protected readonly noneTitle = computed(() => (this.searching() && !this.filtered() ? `Nada com “${this.searched().trim()}”` : 'Nenhuma palavra com esse filtro'));
   protected readonly noneText = computed(() =>
     this.searching()
       ? 'Procure em português, em romaji (kuru), em kana (くる) ou em kanji (来る). Os filtros ligados também valem para a busca.'
@@ -350,14 +429,20 @@ export class DictionaryPage {
 
   /** `push`: uma entrada nova no histórico (abrir a lousa: o voltar do celular fecha ela). */
   private go(next: Partial<DictState>, push = false): void {
+    clearTimeout(this.typing);
     const s = { ...this.state(), query: this.query(), ...next };
     this.query.set(s.query);
+    this.searched.set(s.query);
     this.sentQuery = s.query;
     void this.router.navigate([], { relativeTo: this.route, queryParams: paramsOf(s), replaceUrl: !push });
   }
 
+  /** Uma tecla na busca: o campo na hora; a lista e o endereço quando a pessoa para (apagar tudo vale na hora). */
   protected setQuery(query: string): void {
-    this.go({ query });
+    this.query.set(query);
+    clearTimeout(this.typing);
+    if (!query.trim()) this.go({ query });
+    else this.typing = setTimeout(() => this.go({ query }), SEARCH_PAUSE_MS);
   }
 
   protected setSort(value: string): void {

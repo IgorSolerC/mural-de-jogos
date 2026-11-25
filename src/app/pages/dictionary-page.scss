@@ -50,6 +50,12 @@ app-facet-filters.cartela {
 .secao {
   scroll-margin-top: 16px;
 }
+
+/* a seção longe da tela nem é desenhada (os lugares das palavras dela não pesam no layout); a altura dela, até ser
+   desenhada uma vez, é a soma das vagas (ver sectionHeight) */
+.secao {
+  content-visibility: auto;
+}
 .secao app-section-head {
   margin-bottom: 14px;
 }

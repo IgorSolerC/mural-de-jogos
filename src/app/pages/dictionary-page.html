@@ -112,7 +112,7 @@
   </section>
 } @else if (state().view === 'tabela') {
   <!-- a Tabela: o livro-razão com todas as colunas; a cabeça ordena -->
-  <div class="razao" tabindex="0" role="region" aria-label="Tabela das palavras" [appRealceBusca]="query()" realceEm="td:not(.linha-vaga), tbody th">
+  <div class="razao" tabindex="0" role="region" aria-label="Tabela das palavras" [appRealceBusca]="searched()" realceEm="td:not(.linha-vaga), tbody th">
     <table [style.width.rem]="tableWidth">
       <colgroup>
         @for (c of columns; track c.id) {
@@ -179,10 +179,10 @@
 } @else {
   <!-- os Verbetes: a página do dicionário, em seções da ordem escolhida -->
   <div class="livro" [class.com-indice]="thumbRows()">
-    <div class="paginas" [appRealceBusca]="query()" realceEm=".palavra, .romaji, .sentido, .nota, .lig-ja, .lig-pt">
+    <div class="paginas" [appRealceBusca]="searched()" realceEm=".palavra, .romaji, .sentido, .nota, .lig-ja, .lig-pt">
       @for (s of sections(); track s.key?.id ?? 'todas'; let i = $index) {
         <!-- o id pelo lugar da seção: o nome dela pode ter espaço ("Partícula composta") -->
-        <section class="secao" [attr.data-secao]="s.key?.id ?? null" [attr.aria-labelledby]="s.key ? 'dic-secao-' + i : null" [attr.aria-label]="s.key ? null : 'Palavras'">
+        <section class="secao" [style.contain-intrinsic-block-size]="'auto ' + sectionHeights()[i] + 'px'" [attr.data-secao]="s.key?.id ?? null" [attr.aria-labelledby]="s.key ? 'dic-secao-' + i : null" [attr.aria-label]="s.key ? null : 'Palavras'">
           @if (s.key; as k) {
             <app-section-head [label]="k.label" [count]="s.words.length" [detail]="k.detail ?? ''" [level]="2" [headingId]="'dic-secao-' + i" />
           }

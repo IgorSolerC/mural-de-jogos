@@ -7,7 +7,7 @@ import { DICT_MARKS_KEY } from '../core/dictionary/marks-store';
 import { dictionaryWords } from '../core/dictionary/words';
 import { NEAR_TUNING, NearPool, setEverythingNear } from '../ui/near-screen';
 import { entryHeightGuess } from '../ui/word-entry';
-import { DictionaryPage, tableRowGuess } from './dictionary-page';
+import { DictionaryPage, SEARCH_PAUSE_MS, tableRowGuess } from './dictionary-page';
 
 /** O Dicionário Japonês (PLANO-DICIONARIO.md): a busca, os filtros, a ordem e a vista, todos no endereço. */
 describe('o Dicionário Japonês', () => {
@@ -61,8 +61,16 @@ describe('o Dicionário Japonês', () => {
   it('o que se digita vai para o endereço, e Limpar tira a busca e os filtros', async () => {
     await open('/extras/dicionario?jlpt=N3');
     const input = host.querySelector<HTMLInputElement>('#busca-dicionario')!;
-    input.value = 'sinbun';
-    input.dispatchEvent(new Event('input'));
+    // cada tecla no campo na hora; a lista e o endereço esperam a pessoa parar de digitar
+    for (const typed of ['s', 'si', 'sin', 'sinbun']) {
+      input.value = typed;
+      input.dispatchEvent(new Event('input'));
+      await settle();
+      expect(input.value).toBe(typed);
+      expect(query()['q']).withContext('ainda digitando').toBeUndefined();
+    }
+    expect(host.querySelectorAll('.verbete').length).withContext('a lista de antes, enquanto digita').toBe(dictionaryWords().words.filter((w) => w.jlpt === 'N3').length);
+    await new Promise((r) => setTimeout(r, SEARCH_PAUSE_MS + 30));
     await settle();
     expect(query()['q']).toBe('sinbun');
     expect(words()).toEqual([]);
@@ -71,6 +79,17 @@ describe('o Dicionário Japonês', () => {
     button('Limpar a busca e os filtros').click();
     await settle();
     expect(query()).toEqual({});
+    expect(host.querySelectorAll('.verbete').length).toBe(1449);
+    // apagar tudo na busca vale na hora
+    input.value = 'kuru';
+    input.dispatchEvent(new Event('input'));
+    await new Promise((r) => setTimeout(r, SEARCH_PAUSE_MS + 30));
+    await settle();
+    expect(query()['q']).toBe('kuru');
+    input.value = '';
+    input.dispatchEvent(new Event('input'));
+    await settle();
+    expect(query()['q']).toBeUndefined();
     expect(host.querySelectorAll('.verbete').length).toBe(1449);
   });
 
@@ -352,6 +371,19 @@ describe('o Dicionário Japonês', () => {
       await until(() => !place.querySelector('.verbete'), 'longe de novo, volta a ser vaga');
       expect(TestBed.inject(NearPool).measured('verbete', id.id)).toBeCloseTo(real, 0);
       expect(parseFloat(getComputedStyle(place).height)).toBeCloseTo(real, 0);
+    });
+
+    it('a seção que o navegador ainda não desenhou tem a altura da soma das vagas dela (a rolagem não pula ao chegar nela)', async () => {
+      await open('/extras/dicionario');
+      const sections = [...host.querySelectorAll<HTMLElement>('.secao')];
+      expect(getComputedStyle(sections[0]).contentVisibility).toBe('auto');
+      // a segunda seção, desenhada: a altura de verdade fica perto do palpite que ela tinha antes
+      const second = sections[1];
+      const guess = parseFloat(second.style.containIntrinsicBlockSize.replace('auto', ''));
+      second.scrollIntoView({ block: 'start' });
+      await until(() => !!second.querySelector('.verbete'), 'desenhada perto da tela');
+      const real = second.getBoundingClientRect().height;
+      expect(Math.abs(real - guess) / real).withContext(`real ${real}, palpite ${guess}`).toBeLessThan(0.15);
     });
 
     it('trocar a ordem monta na hora o que ficou na tela, sem uma tela de vagas', async () => {

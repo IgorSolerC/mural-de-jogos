@@ -63,6 +63,8 @@ export class NearPool implements OnDestroy {
   private scrolledTo = 0;
   private calm: ReturnType<typeof setTimeout> | undefined;
   private listening = false;
+  /** As partes não desenhadas já medidas neste quadro: está na tela ou não (ver `skippedOnScreen`). */
+  private partsSeen: { partOf: Map<Element, Element | null>; onScreen: Map<Element, boolean> } | null = null;
   private readonly onScroll = (e: Event) => this.scrollSeen(e);
 
   constructor() {
@@ -151,6 +153,9 @@ export class NearPool implements OnDestroy {
 
   private check(near: NearScreen): void {
     if (typeof innerHeight !== 'number') return;
+    // dentro de uma parte que o navegador ainda não desenha (content-visibility: auto): medir forçaria o desenho dela
+    // inteira. Longe da tela, não está na tela; na tela (acabou de entrar, ainda sem a primeira pintura), mede
+    if (near.el.checkVisibility?.({ contentVisibilityAuto: true }) === false && !this.skippedOnScreen(near.el)) return;
     const r = near.el.getBoundingClientRect();
     if (r.bottom <= 0 || r.top >= innerHeight || r.right <= 0 || r.left >= innerWidth || (!r.width && !r.height)) return;
     // dentro da caixa que rola, também: o que a coluna corta não está na tela
@@ -159,6 +164,35 @@ export class NearPool implements OnDestroy {
     near.far = false;
     this.due.delete(near);
     near.mount();
+  }
+
+  /**
+   * A parte não desenhada (content-visibility: auto) em volta de `el` está na tela: a caixa dela o navegador mede sem
+   * desenhar o que tem dentro. As fichas entram aos montes no mesmo quadro: neste quadro, cada caixa que já se sabe
+   * de que parte é, e cada parte, se está na tela, fica guardada (`partsSeen`).
+   */
+  private skippedOnScreen(el: Element): boolean {
+    if (!this.partsSeen) {
+      this.partsSeen = { partOf: new Map(), onScreen: new Map() };
+      requestAnimationFrame(() => (this.partsSeen = null));
+    }
+    const { partOf, onScreen } = this.partsSeen;
+    const walked: Element[] = [];
+    let part: Element | null = el.parentElement;
+    while (part && !partOf.has(part) && part.checkVisibility({ contentVisibilityAuto: true }) === false) {
+      walked.push(part);
+      part = part.parentElement;
+    }
+    if (part && partOf.has(part)) part = partOf.get(part)!;
+    for (const w of walked) partOf.set(w, part);
+    if (!part) return false;
+    let on = onScreen.get(part);
+    if (on === undefined) {
+      const r = part.getBoundingClientRect();
+      on = r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth;
+      onScreen.set(part, on);
+    }
+    return on;
   }
 
   private observerOf(near: NearScreen): IntersectionObserver {
