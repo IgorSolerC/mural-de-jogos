@@ -339,31 +339,53 @@
     color: var(--pdf-tinta-3);
   }
 
-  // o card: o papel do jeito chapado, como o callout do Obsidian (sem o rasgo e a sombra de
-  // papel colado), o título em negrito na tinta dele; o comprido (mais que uma página) quebra de página
-  // com o fundo junto
+  // o card: papel sobre papel, como na tela (ui/_formatado.scss), sem as sombras: a folha do jeito com o
+  // título em negrito na tinta dele, e o texto na folha clara, com a moldura da cor em volta. O comprido (mais
+  // que uma página) quebra de página com o fundo junto
+  $moldura: 4px;
   .cartao:not(app-note-widget *) {
     margin: 0.45em 0;
-    padding: 0.7em 1em;
-    border-radius: 4px;
+    padding: 0 $moldura $moldura;
+    border-radius: 8px;
     background: var(--c-papel);
+    box-shadow: none;
     filter: none;
     -webkit-box-decoration-break: clone;
     box-decoration-break: clone;
     // o curto vai inteiro para a página seguinte (o mais alto que uma página quebra assim mesmo)
     break-inside: avoid;
   }
-  .cartao:not(app-note-widget *)::before,
+  // sem a linha de cima (o Vazio sem título, que abra ou não), a moldura em cima também
+  .cartao:not(app-note-widget *):not(:has(> .cartao-topo .cartao-titulo, > .cartao-topo .cartao-icone)) {
+    padding-top: $moldura;
+  }
+  // os seguidos, unidos num bloco só (como na tela)
+  .cartao:not(app-note-widget *) + .cartao {
+    margin-top: 0;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+  }
+  .cartao:not(app-note-widget *):has(+ .cartao) {
+    margin-bottom: 0;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
   .cartao:not(app-note-widget *)::after {
     content: none;
   }
   .cartao-topo:not(app-note-widget *) {
     gap: 0.5em;
+    padding: 0.5em calc(1em - #{$moldura}) 0.45em;
     font-family: inherit;
     font-weight: 650;
     font-size: 0.98em;
     line-height: 1.4;
     break-after: avoid;
+  }
+  .cartao-corpo:not(app-note-widget *) {
+    padding: 0.55em calc(1em - #{$moldura}) 0.6em;
+    border-radius: 6px;
+    box-shadow: none;
   }
   // a letra do PDF no título, sem a escala da caneta
   .cartao-titulo:not(app-note-widget *) {
@@ -371,9 +393,6 @@
   }
   .cartao-icone:not(app-note-widget *) {
     rotate: none;
-  }
-  .cartao-topo:has(.cartao-titulo) + .cartao-corpo:not(app-note-widget *) {
-    margin-top: 0.3em;
   }
   .cartao-seta:not(app-note-widget *) {
     display: none;

@@ -78,9 +78,14 @@ describe('o card no modo Visual', () => {
     expect(dom[1].classList).toContain('vis-no-cartao');
     expect(dom[2].classList).toContain('vis-cartao-fim');
     expect(dom[3].classList).not.toContain('vis-no-cartao');
-    // o papel é pintado do lado de fora também (o border-image), sem fita na de cima
+    // o papel é pintado do lado de fora também (o border-image), sem fita na de cima; a de cima e a última, num
+    // ::after por baixo das letras (os cantos redondos), a faixa com os de cima e a última com os de baixo
     expect(getComputedStyle(dom[1]).borderImageSource).toContain('gradient');
     expect(getComputedStyle(dom[0], '::before').content).toBe('none');
+    expect(getComputedStyle(dom[0], '::after').borderTopLeftRadius).toBe('10px');
+    expect(getComputedStyle(dom[0], '::after').borderBottomLeftRadius).toBe('0px');
+    expect(getComputedStyle(dom[2], '::after').borderBottomRightRadius).toBe('10px');
+    expect(getComputedStyle(dom[2], '::after').zIndex).toBe('-2');
     cursor(4);
     digita('!');
     expect(valor).toBe(T + '!');
@@ -324,24 +329,33 @@ describe('o card no modo Visual', () => {
   });
 
   describe('a linha recuada dentro do card', () => {
-    /** O papel de cada linha na tela: "[" a de cima, ">" a de dentro, ">_" a última (o rasgo), "." fora. */
+    /** O papel de cada linha na tela: "[" a de cima, ">" a de dentro, ">_" a última (a do pé), "." fora. */
     const papel = () =>
       ([...view.dom.children] as HTMLElement[]).map((e) => {
         const c = e.classList;
         if (c.contains('vis-cartao-topo')) return c.contains('vis-cartao-fim') ? '[_' : '[';
         return c.contains('vis-no-cartao') ? (c.contains('vis-cartao-fim') ? '>_' : '>') : '.';
       });
-    /** Onde o papel da linha começa e acaba na tela: a caixa dela mais o que o border-image passa dos lados. */
+    /**
+     * Onde o papel da linha começa e acaba na tela: a caixa dela mais o que o border-image passa dos lados (ou, na de
+     * cima e na última, pintadas no ::after, o que ele passa).
+     */
     const beiradas = (e: HTMLElement): [number, number] => {
-      const [, d = '0', , l = d] = getComputedStyle(e).borderImageOutset.split(' ');
       const r = e.getBoundingClientRect();
+      if (getComputedStyle(e).borderImageSource === 'none') {
+        const a = getComputedStyle(e, '::after');
+        return [Math.round(r.left + parseFloat(a.left)), Math.round(r.right - parseFloat(a.right))];
+      }
+      const [, d = '0', , l = d] = getComputedStyle(e).borderImageOutset.split(' ');
       return [Math.round(r.left - parseFloat(l)), Math.round(r.right + parseFloat(d))];
     };
+    /** A linha pintada: pelo border-image ou, na de cima e na última, pelo ::after. */
+    const pintada = (e: HTMLElement) => getComputedStyle(e).borderImageSource.includes('gradient') || getComputedStyle(e, '::after').content !== 'none';
     /** Cada linha de dentro no papel, de ponta a ponta como a de cima (a recuada também): ele não se parte. */
     function noPapel(): void {
       const filhos = [...view.dom.children] as HTMLElement[];
       for (const e of filhos.slice(1)) {
-        expect(getComputedStyle(e).borderImageSource).withContext(e.textContent!).toContain('gradient');
+        expect(pintada(e)).withContext(e.textContent!).toBeTrue();
         expect(beiradas(e)).withContext(e.textContent!).toEqual(beiradas(filhos[0]));
       }
     }
@@ -369,7 +383,7 @@ describe('o card no modo Visual', () => {
       ['quatro espaços', '    '],
       ['um tab', '\t'],
     ] as const)
-      it(`com ${nome}, também na última linha (a do rasgo); escrever no card não muda as recuadas`, async () => {
+      it(`com ${nome}, também na última linha (a do pé); escrever no card não muda as recuadas`, async () => {
         const texto = `> [!nota] T\n> a\n> ${recuo}b\n> ${recuo}c`;
         await make(`> [!nota] T\n> a\n> b\n> c`);
         await chega(texto);
@@ -378,7 +392,7 @@ describe('o card no modo Visual', () => {
         cursor(1);
         digita('!');
         expect(valor).toBe(texto.replace('> a', '> a!'));
-        // na última, recuada: ela continua no papel, com o rasgo (o recuo mexido sai em espaços, como fora do card)
+        // na última, recuada: ela continua no papel, com o pé (o recuo mexido sai em espaços, como fora do card)
         cursor(3);
         digita('?');
         expect(valor).toMatch(/\n> +c\?$/);

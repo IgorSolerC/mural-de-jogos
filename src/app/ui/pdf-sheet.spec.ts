@@ -63,9 +63,11 @@ const LOOKS: Record<string, (el: HTMLElement) => void> = {
     expect(css(el, '::before').width).toBe('2px');
   },
   '.cartao[data-jeito="aviso"]': (el) => {
-    // o papel do jeito, chapado: sem o rasgo e sem a sombra de papel colado
+    // papel sobre papel, como na tela, sem as sombras: a folha do jeito, e o texto numa folha clara
     expect(css(el).backgroundColor).toBe('rgb(251, 223, 194)');
     expect(css(el).filter).toBe('none');
+    expect(css(el).boxShadow).toBe('none');
+    expect(css(el.querySelector('.cartao-corpo')!).backgroundColor).not.toBe('rgb(251, 223, 194)');
     expect(css(el, '::before').content).toBe('none');
     expect(css(el, '::after').content).toBe('none');
     expect(css(el.querySelector('.cartao-topo')!).fontFamily).toMatch(INTER);
@@ -244,15 +246,15 @@ describe('a ficha em PDF (ui/pdf-sheet.ts)', () => {
     fixture.nativeElement.remove();
   });
 
-  it('o Vazio sai sem desenho; sem título, o papel começa no texto, mesmo o que fecha; o Estudo, com o livro', async () => {
+  it('o Vazio sai sem desenho; sem título, a moldura em cima e a folha clara, mesmo o que fecha; o Estudo, com o livro', async () => {
     const { fixture, el } = await sheet({ text: '> [!blank] T\n> a\n\n> [!blank]\n> b\n\n> [!blank]-\n> c\n\n> [!estudo] E\n> d' });
     const [comTitulo, sem, fecha, estudo] = Array.from(el.querySelectorAll<HTMLElement>('.cartao'));
     expect(comTitulo.querySelector('.cartao-icone')).toBeNull();
-    expect(css(comTitulo.querySelector('.cartao-corpo')!).marginTop).not.toBe('0px');
+    expect(css(comTitulo).paddingTop).toBe('0px');
     expect(sem.querySelector('.cartao-topo')).toBeNull();
-    expect(css(sem.querySelector('.cartao-corpo')!).marginTop).toBe('0px');
+    expect(css(sem).paddingTop).toBe('4px');
     expect(css(fecha.querySelector('summary')!).display).toBe('none');
-    expect(css(fecha.querySelector('.cartao-corpo')!).marginTop).toBe('0px');
+    expect(css(fecha).paddingTop).toBe('4px');
     expect(estudo.querySelector('.cartao-icone svg')).not.toBeNull();
     expect(css(estudo).backgroundColor).toBe('rgb(250, 220, 231)');
     fixture.nativeElement.remove();

@@ -61,7 +61,7 @@ export type PieceMeasured = PieceMeasure & { id: string; settled: boolean };
       }
       @case ('bilhete') {
         <!-- o texto é o card das anotações (core/callouts.ts): o papel do jeito ou da cor, o desenho e o título em
-             cima (a primeira linha), o resto embaixo e o pé rasgado. No meio, só o papel e o título -->
+             cima (a primeira linha), o resto embaixo, na folha clara. No meio, só o papel e o título -->
         <div class="cartao" [attr.data-jeito]="paper()" [class.liso]="level() === 'meio'">
           @if (cardTitle2(); as t) {
             <div class="cartao-topo">
@@ -360,7 +360,7 @@ function watchDrawing(box: HTMLElement, measure: (again: () => void) => void): (
 }
 
 /**
- * A altura que o card do texto pede para mostrar tudo o que tem (o título, o corpo inteiro e o pé rasgado), em px do
+ * A altura que o card do texto pede para mostrar tudo o que tem (o título, o corpo inteiro e a moldura do pé), em px do
  * mundo, medida no próprio card por um instante sem o corte embaixo (a classe `medindo`). Null se o card não está
  * desenhado com o texto (longe ou no meio, onde só o título aparece).
  */
@@ -370,6 +370,5 @@ export function cardNeed(piece: HTMLElement): number | null {
   card.classList.add('medindo');
   const h = card.offsetHeight;
   card.classList.remove('medindo');
-  // o rasgo fica nos 7 px de baixo da peça
-  return h ? h + 7 : null;
+  return h || null;
 }

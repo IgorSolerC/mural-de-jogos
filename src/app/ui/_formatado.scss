@@ -874,37 +874,58 @@ $item-lugar: 1.35em;
 // a cor do papel e da tinta de cada jeito (--c-papel, --c-tinta) mora em src/styles.scss, no
 // [data-jeito]: a mesma na leitura, no Visual, no menu do card e no PDF
 
-// a fibra do papel colorido: fios em pé, de tons e espaços desiguais (um padrão só a cada 31px, que a
-// olho não se vê). Em pé: no Visual, pintado linha por linha, ela casa de uma linha para a outra.
-// `$f` são os quatro tons dos fios, `$v` o vão entre eles (o Visual pinta tudo numa imagem só)
-@function cartao-fibra($f1, $f2, $f3, $f4, $v) {
-  @return repeating-linear-gradient(90deg, $f1 0 1px, $v 1px 5px, $f2 5px 6px, $v 6px 13px, $f3 13px 14px, $v 14px 18px, $f4 18px 19px, $v 19px 31px);
-}
+// O card de 25/nov (o 18 do laboratório dos cards, escolhido pelo dono): papel sobre papel. Uma folha colorida
+// segura o título (a faixa de cima), e o que tem dentro vem numa folha clara colada por cima dela, com a cor da
+// folha de baixo em volta (a moldura). Sem rasgo (o dono odiava) e sem fibra: o papel liso, os cantos redondos.
 
-// o papel: a cor do jeito com a fibra, e a sombra de papel colado (que segue o rasgo)
-@mixin cartao-papel {
+// a folha de baixo: a cor do jeito, a sombra curta de papel colado
+@mixin cartao-folha {
   color: #1b1916;
-  background: cartao-fibra(rgb(0 0 0 / 0.018), rgb(0 0 0 / 0.011), rgb(0 0 0 / 0.024), rgb(0 0 0 / 0.009), transparent), var(--c-papel);
-  filter: drop-shadow(0 1px 0.5px rgb(0 0 0 / 0.16)) drop-shadow(0 3px 3px rgb(0 0 0 / 0.1));
+  background: var(--c-papel);
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.16);
 }
 
-// o lado de dentro do papel: meia linha da pauta em cima e embaixo (o card soma uma linha só)
+// a folha clara de cima, com o texto: um pouco da cor do jeito num creme
+@function cartao-miolo-cor() {
+  @return color-mix(in srgb, var(--c-papel) 22%, #fffdf8);
+}
+@mixin cartao-miolo {
+  background: cartao-miolo-cor();
+  border-radius: 7px;
+  box-shadow: 0 1px 1.5px rgb(0 0 0 / 0.12);
+}
+
+// a moldura: quanto da folha de baixo aparece dos lados e no pé da folha clara
+$cartao-moldura: 5px;
+
+// o lado de dentro: onde o texto começa, contado da beirada da folha de baixo
 $cartao-lado-n: 0.85;
 $cartao-lado: $cartao-lado-n * 1em;
 
-// a beirada de baixo, rasgada à mão (um pedaço de papel arrancado do bloco): um rasgo comprido e
-// desigual (os dentes de 2 a 5px, a mordida de 2 a 7px), que só se repete a cada 300px
-@mixin cartao-rasgo {
+// As folgas, em linhas da pauta (o card abre e fecha nela). A faixa do título tem duas linhas: a do título e mais
+// uma, repartida em cima e embaixo. A folha clara soma mais uma: em cima do texto, embaixo dele e a moldura do pé.
+// O card fechado é só a faixa (duas linhas); o aberto soma duas linhas ao que tem dentro.
+$cartao-topo-cima: 0.45;
+$cartao-topo-baixo: 0.55;
+$cartao-miolo-cima: 0.35;
+// embaixo do texto, o resto da linha (a moldura do pé completa)
+@function cartao-miolo-baixo($linha) {
+  @return calc(#{$linha} * #{1 - $cartao-miolo-cima} - #{$cartao-moldura});
+}
+
+// Os cards seguidos (sem linha em branco entre eles) se unem num bloco só: os cantos de dentro retos, e só a
+// troca de cor separa um do outro. Entre dois do mesmo papel, um fio claro, para ainda se ver onde um acaba.
+// `$papeis` são os papéis que um card pode ter ([data-jeito], src/styles.scss)
+$cartao-papeis: nota, info, dica, feito, pergunta, aviso, perigo, exemplo, citacao, rosa, cartolina;
+@mixin cartao-fio-claro {
   content: '';
   position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(100% - 1px);
-  height: 7px;
-  background: inherit;
+  z-index: 1;
+  top: 0;
+  height: 1px;
+  background: rgb(255 255 255 / 0.7);
   pointer-events: none;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 7' preserveAspectRatio='none'%3E%3Cpath d='M0 0H300V2.4L297.2 4.1 294.6 2.6 290.8 5.9 287.9 3.2 285.6 3.8 281.4 2.5 278.7 4.6 276.1 3.1 272.2 6.6 269.8 3.4 265.9 2.8 263.1 4.4 258.7 2.9 256.4 5.2 253.6 3.6 249.2 3.1 246.8 4.9 243.1 2.6 240.4 3.9 236.9 6.1 234.6 3.3 230.1 2.7 227.3 4.2 224.8 3.5 220.6 5.6 217.9 2.9 214.2 3.7 211.4 2.4 208.7 4.8 204.3 3.2 201.8 4.1 198.1 6.9 195.6 3.6 191.7 2.8 188.4 4.5 185.9 3.1 181.6 3.9 179.2 2.5 175.4 5.1 172.6 3.4 168.9 4.3 166.1 2.7 162.3 3.8 159.7 6.2 156.4 3.5 152.6 2.9 149.9 4.7 146.2 3.2 143.5 4 139.8 2.6 137.1 5.4 133.4 3.3 130.6 4.1 126.8 2.8 124.2 3.6 120.9 5.9 117.6 3.1 113.8 2.6 111.1 4.4 107.7 3.5 104.9 4.9 101.2 2.7 98.4 3.8 94.7 6.4 92.1 3.2 88.3 2.9 85.6 4.6 81.9 3.3 79.2 2.5 75.4 4.2 72.8 3.7 69.1 5.7 66.3 3 62.6 4 59.8 2.6 56.1 3.9 53.4 6 49.6 3.4 46.9 2.8 43.2 4.5 40.5 3.1 36.8 4.8 34.1 2.7 30.4 3.6 27.7 5.5 24.1 3.2 21.3 4.3 17.6 2.6 14.9 3.9 11.2 6.3 8.6 3.5 4.8 2.9 2.1 4.2 0 3Z'/%3E%3C/svg%3E") 0 0 / 300px 100% repeat-x;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 7' preserveAspectRatio='none'%3E%3Cpath d='M0 0H300V2.4L297.2 4.1 294.6 2.6 290.8 5.9 287.9 3.2 285.6 3.8 281.4 2.5 278.7 4.6 276.1 3.1 272.2 6.6 269.8 3.4 265.9 2.8 263.1 4.4 258.7 2.9 256.4 5.2 253.6 3.6 249.2 3.1 246.8 4.9 243.1 2.6 240.4 3.9 236.9 6.1 234.6 3.3 230.1 2.7 227.3 4.2 224.8 3.5 220.6 5.6 217.9 2.9 214.2 3.7 211.4 2.4 208.7 4.8 204.3 3.2 201.8 4.1 198.1 6.9 195.6 3.6 191.7 2.8 188.4 4.5 185.9 3.1 181.6 3.9 179.2 2.5 175.4 5.1 172.6 3.4 168.9 4.3 166.1 2.7 162.3 3.8 159.7 6.2 156.4 3.5 152.6 2.9 149.9 4.7 146.2 3.2 143.5 4 139.8 2.6 137.1 5.4 133.4 3.3 130.6 4.1 126.8 2.8 124.2 3.6 120.9 5.9 117.6 3.1 113.8 2.6 111.1 4.4 107.7 3.5 104.9 4.9 101.2 2.7 98.4 3.8 94.7 6.4 92.1 3.2 88.3 2.9 85.6 4.6 81.9 3.3 79.2 2.5 75.4 4.2 72.8 3.7 69.1 5.7 66.3 3 62.6 4 59.8 2.6 56.1 3.9 53.4 6 49.6 3.4 46.9 2.8 43.2 4.5 40.5 3.1 36.8 4.8 34.1 2.7 30.4 3.6 27.7 5.5 24.1 3.2 21.3 4.3 17.6 2.6 14.9 3.9 11.2 6.3 8.6 3.5 4.8 2.9 2.1 4.2 0 3Z'/%3E%3C/svg%3E") 0 0 / 300px 100% repeat-x;
 }
 
 // a linha de cima: o desenho do jeito e o título, na tinta dele (uma linha da pauta). A letra é a do
@@ -940,7 +961,7 @@ $cartao-lado: $cartao-lado-n * 1em;
   }
 }
 
-// a setinha de fechar, depois do título (o card que fecha)
+// a setinha de fechar, presa na beirada da direita (o card que fecha), não depois do título
 @mixin cartao-seta {
   flex: none;
   display: inline-flex;

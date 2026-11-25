@@ -1067,12 +1067,12 @@ export const CARD_STYLES = `
       --line: 1.4rem;
       --linhas: 8;
       --broche-folga: 12px;
-      /* embaixo, só o rasgo e a sombra do card que acaba o texto (ui/_formatado.scss, cartao-rasgo) */
-      --pe-folga: 9px;
+      /* embaixo, só a sombra curta do card que acaba o texto (ui/_formatado.scss, cartao-folha) */
+      --pe-folga: 3px;
       position: relative;
       /* a folga em cima e dos lados (desfeita na margem, o texto fica onde sempre esteve): o broche
          de ampliar de um widget sai metade para fora do canto dele (ui/zoom-knob.ts), e o corte da
-         caixa o cortava no widget do alto do texto. Embaixo, a do pé rasgado do card (o texto que
+         caixa o cortava no widget do alto do texto. Embaixo, a da sombra do card (o texto que
          passa da ficha continua cortado no mesmo lugar, e o esmaecido também) */
       margin: calc(14px - var(--broche-folga)) calc(-1 * var(--broche-folga)) calc(-1 * var(--pe-folga));
       padding: var(--broche-folga) var(--broche-folga) var(--pe-folga);

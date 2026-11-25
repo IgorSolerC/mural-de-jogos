@@ -1,29 +1,34 @@
 @use '../formatado';
 
-// O card do modo Visual (ver cartoes.ts): o papel da leitura (ui/_formatado.scss), pintado linha por
-// linha. À parte de visual-editor.scss (o mesmo componente, sem o encapsulamento do Angular), que vem
-// antes. A cor de cada jeito mora em src/styles.scss ([data-jeito]).
+// O card do modo Visual (ver cartoes.ts): o papel sobre papel da leitura (ui/_formatado.scss), pintado linha por
+// linha. À parte de visual-editor.scss (o mesmo componente, sem o encapsulamento do Angular), que vem antes. A
+// cor de cada jeito mora em src/styles.scss ([data-jeito]). Plano, como sempre foi: sem as sombras de papel
+// colado (pintada linha por linha, a sombra de cada uma marcava a emenda com a de cima).
+
+$m: formatado.$cartao-moldura;
+// o canto da folha clara e o da folha de baixo
+$r-miolo: 7px;
+$r-folha: 10px;
 
 .vis-folha > .ProseMirror {
-  // Cada linha do card leva o papel do jeito dele por um border-image que passa dos lados (a margem do
-  // card e, na descrição de um item, o recuo dela): o texto fica onde a leitura o põe, e o papel vai de
-  // ponta a ponta, sem emenda (1px a mais em cima e embaixo: a linha de baixo cobre a de cima, sem
-  // o fio claro da emenda entre as duas). Meia linha da pauta em cima da de cima e embaixo da última, como na
-  // leitura; o rasgo no pé da última.
+  // Cada linha de dentro leva a folha clara, com a moldura da cor dos lados, por um border-image que passa dos
+  // lados (a margem do card e, na descrição de um item, o recuo dela): o texto fica onde a leitura o põe, e o
+  // papel vai de ponta a ponta, sem emenda (1px a mais em cima e embaixo: a linha de baixo cobre a de cima,
+  // sem o fio claro da emenda entre as duas)
   > :is(.vis-cartao-topo, .vis-no-cartao) {
-    @include formatado.cartao-papel;
     --c-lado: calc(#{formatado.$cartao-lado-n} * var(--vis-letra));
     --c-fora: calc(var(--vis-corpo, 0) * var(--vis-letra) + var(--c-lado));
+    --c-miolo: #{formatado.cartao-miolo-cor()};
     position: relative;
     margin-left: var(--c-fora);
     margin-right: var(--c-lado);
-    background: none;
-    border-image: formatado.cartao-fibra(
-        color-mix(in srgb, var(--c-papel) 98.2%, #000),
-        color-mix(in srgb, var(--c-papel) 98.9%, #000),
-        color-mix(in srgb, var(--c-papel) 97.6%, #000),
-        color-mix(in srgb, var(--c-papel) 99.1%, #000),
-        var(--c-papel)
+    color: #1b1916;
+    border-image: linear-gradient(
+        to right,
+        var(--c-papel) $m,
+        var(--c-miolo) $m,
+        var(--c-miolo) calc(100% - #{$m}),
+        var(--c-papel) calc(100% - #{$m})
       )
       fill 0 / 0 / 1px var(--c-lado) 1px var(--c-fora);
   }
@@ -31,46 +36,109 @@
     margin-left: calc(var(--c-fora) + max(0px, calc((var(--recuo, 0) - var(--vis-tira, 0)) * var(--vis-espaco, 0.27em))));
     border-image-outset: 1px var(--c-lado) 1px calc(var(--c-fora) + max(0px, calc((var(--recuo, 0) - var(--vis-tira, 0)) * var(--vis-espaco, 0.27em))));
   }
-  > .vis-cartao-topo {
-    @include formatado.cartao-topo;
-    padding-top: calc(var(--line) / 2);
-    border-radius: 2px 2px 0 0;
-    text-indent: 0;
+
+  // A de cima e a última se pintam inteiras num ::after por baixo das letras (o z-index 0 faz da linha o fundo
+  // delas, como no bloco de código): assim elas têm os cantos redondos da folha e os da folha clara. Embaixo
+  // do papel do código (o ::before dele, z-index -1), quando o código fecha o card
+  > :is(.vis-cartao-topo, .vis-cartao-fim) {
+    z-index: 0;
+    border-image: none;
   }
-  // sem a sombra de papel colado na escrita: pintada linha por linha, a sombra de cada uma (até só a
-  // da última) marcava a emenda com a de cima. A da leitura, que é um papel só, fica
-  > :is(.vis-cartao-topo, .vis-no-cartao) {
-    filter: none;
-  }
-  > .vis-cartao-fim {
-    padding-bottom: calc(var(--line) / 2);
-  }
-  // o bloco de código que fecha o card: embaixo dele, a meia linha de papel do card (sem ela, tudo o que
-  // vem depois saía meia linha fora da pauta), e o papel do código para antes dela
-  > pre.codigo.vis-cartao-fim {
-    padding-bottom: calc(var(--line) / 2);
-    // a barra desenhada no pé do papel do código, não no da meia linha do card
-    --cod-rolo-pe: calc(var(--line) / 2);
-  }
-  > pre.codigo.vis-cartao-fim::before {
-    bottom: calc(var(--line) / 2);
-  }
-  // a tabela de papel que fecha o card: a meia linha vem depois dos 8px que a margem negativa desconta
-  // (a sombra do papel, ver formatado.tabela-rolo-papel)
-  > :is(.jeito-branca, .jeito-listrada, .jeito-quadriculada, .jeito-recibo).vis-cartao-fim {
-    padding-bottom: calc(var(--line) / 2 + 8px);
-  }
-  > .vis-cartao-fim::after {
-    @include formatado.cartao-rasgo;
+  > :is(.vis-cartao-topo, .vis-cartao-fim)::after {
+    content: '';
+    position: absolute;
+    z-index: -2;
+    top: -1px;
+    bottom: -1px;
     left: calc(var(--c-fora) * -1);
     right: calc(var(--c-lado) * -1);
+    height: auto;
+    pointer-events: none;
     background: var(--c-papel);
   }
+
+  // a de cima: o título na faixa da cor (duas linhas da pauta, como na leitura), e embaixo dela o alto da folha
+  // clara (a folga em cima do texto), com os cantos redondos
+  > .vis-cartao-topo {
+    @include formatado.cartao-topo;
+    --c-miolo-cima: calc(var(--line) * #{formatado.$cartao-miolo-cima} + 1px);
+    padding-top: calc(var(--line) * #{formatado.$cartao-topo-cima});
+    padding-bottom: calc(var(--line) * #{formatado.$cartao-topo-baixo + formatado.$cartao-miolo-cima});
+    text-indent: 0;
+  }
+  > .vis-cartao-topo::after {
+    border-radius: $r-folha $r-folha 0 0;
+    background:
+      radial-gradient(circle at 100% 100%, var(--c-miolo) $r-miolo - 0.5px, transparent $r-miolo) left $m bottom calc(var(--c-miolo-cima) - #{$r-miolo}) / $r-miolo $r-miolo no-repeat,
+      radial-gradient(circle at 0 100%, var(--c-miolo) $r-miolo - 0.5px, transparent $r-miolo) right $m bottom calc(var(--c-miolo-cima) - #{$r-miolo}) / $r-miolo $r-miolo no-repeat,
+      linear-gradient(var(--c-miolo), var(--c-miolo)) center bottom calc(var(--c-miolo-cima) - #{$r-miolo}) / calc(100% - #{2 * $m + 2 * $r-miolo}) $r-miolo no-repeat,
+      linear-gradient(var(--c-miolo), var(--c-miolo)) center bottom / calc(100% - #{2 * $m}) calc(var(--c-miolo-cima) - #{$r-miolo}) no-repeat,
+      var(--c-papel);
+  }
+  // o card só com a linha de cima (fechado ou vazio): só a faixa, redonda nos quatro cantos
+  > .vis-cartao-topo.vis-cartao-fim {
+    padding-bottom: calc(var(--line) * #{formatado.$cartao-topo-baixo});
+  }
+  > .vis-cartao-topo.vis-cartao-fim::after {
+    border-radius: $r-folha;
+    background: var(--c-papel);
+  }
+
+  // a última: o resto da linha embaixo do texto, o pé da folha clara com os cantos redondos e a moldura
+  > .vis-no-cartao.vis-cartao-fim {
+    padding-bottom: calc(var(--line) * #{1 - formatado.$cartao-miolo-cima});
+  }
+  > .vis-no-cartao.vis-cartao-fim::after {
+    border-radius: 0 0 $r-folha $r-folha;
+    background:
+      radial-gradient(circle at 100% 0, var(--c-miolo) $r-miolo - 0.5px, transparent $r-miolo) left #{$m} bottom #{$m} / #{$r-miolo} #{$r-miolo} no-repeat,
+      radial-gradient(circle at 0 0, var(--c-miolo) $r-miolo - 0.5px, transparent $r-miolo) right #{$m} bottom #{$m} / #{$r-miolo} #{$r-miolo} no-repeat,
+      linear-gradient(var(--c-miolo), var(--c-miolo)) center bottom $m / calc(100% - #{2 * $m + 2 * $r-miolo}) $r-miolo no-repeat,
+      linear-gradient(var(--c-miolo), var(--c-miolo)) center top / calc(100% - #{2 * $m}) calc(100% - #{$m + $r-miolo}) no-repeat,
+      var(--c-papel);
+  }
+  // o bloco de código que fecha o card: o papel do código para antes do pé
+  > pre.codigo.vis-cartao-fim {
+    // a barra desenhada no pé do papel do código, não no pé do card
+    --cod-rolo-pe: calc(var(--line) * #{1 - formatado.$cartao-miolo-cima});
+  }
+  > pre.codigo.vis-cartao-fim::before {
+    bottom: calc(var(--line) * #{1 - formatado.$cartao-miolo-cima});
+  }
+  // o recuo do código empurra o bloco inteiro: o pé do card volta até a beirada dele
+  > pre.codigo.vis-cartao-fim::after {
+    left: calc(-1 * (var(--c-fora) + max(0px, calc((var(--recuo, 0) - var(--vis-tira, 0)) * var(--vis-espaco, 0.27em)))));
+  }
+  // a tabela de papel que fecha o card: o pé vem depois dos 8px que a margem negativa desconta (a sombra do
+  // papel, ver formatado.tabela-rolo-papel)
+  > :is(.jeito-branca, .jeito-listrada, .jeito-quadriculada, .jeito-recibo).vis-cartao-fim {
+    padding-bottom: calc(var(--line) * #{1 - formatado.$cartao-miolo-cima} + 8px);
+  }
+
+  // os cards seguidos se unem num bloco só: os cantos de dentro retos, e entre dois do mesmo papel um fio claro
+  > .vis-cartao-fim:has(+ .vis-cartao-topo)::after {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+  > .vis-cartao-fim + .vis-cartao-topo::after {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+  }
+  @each $p in formatado.$cartao-papeis {
+    > .vis-cartao-fim[data-jeito='#{$p}'] + .vis-cartao-topo[data-jeito='#{$p}']::before {
+      @include formatado.cartao-fio-claro;
+      left: calc(var(--c-lado) - var(--c-fora));
+      right: 0;
+    }
+  }
+
   .vis-cartao-icone {
     @include formatado.cartao-icone;
   }
+  // a setinha presa na beirada da direita, como na leitura
   .vis-cartao-seta {
     @include formatado.cartao-seta;
+    margin-left: auto;
   }
   :is(.vis-cartao-icone, .vis-cartao-seta)[hidden] {
     display: none;
@@ -78,7 +146,6 @@
   > .vis-cartao-topo[data-dobra='-'] .vis-cartao-seta {
     rotate: -90deg;
   }
-  // a setinha logo depois do título, como na leitura
   .vis-cartao-titulo {
     @include formatado.cartao-titulo;
     flex: 0 1 auto;
@@ -99,10 +166,10 @@
     mask: none;
     background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 10' preserveAspectRatio='none'%3E%3Cpath d='M2 5.5C20 3 38 7.6 58 5S96 3.2 118 5.6 160 7 198 4.6' fill='none' stroke='%231b1916' stroke-opacity='.5' stroke-width='2.2' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") center / 100% 10px no-repeat;
   }
-  // a divisória que fecha o card: o risco no meio da linha dela, e embaixo a meia linha de papel (ela não
-  // tem letras: sem isto, a meia linha caía dentro da altura mínima)
+  // a divisória que fecha o card: o risco no meio da linha dela, e embaixo o pé (ela não tem letras: sem isto,
+  // o pé caía dentro da altura mínima)
   > .divisoria.vis-cartao-fim {
-    min-height: calc(var(--line) * 1.5);
+    min-height: calc(var(--line) * #{2 - formatado.$cartao-miolo-cima});
     background-position: 50% calc(var(--line) / 2 - 5px);
   }
 }

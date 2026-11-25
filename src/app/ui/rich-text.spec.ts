@@ -37,15 +37,22 @@ describe('o texto formatado na leitura', () => {
     expect(cards[0].querySelector('.cartao-topo .cartao-icone svg')).not.toBeNull();
     expect(cards[0].querySelector('.cartao-titulo .negrito')?.textContent).toBe('ir');
     expect(cards[1].querySelector('.cartao-titulo')!.textContent!.trim()).toBe('Pergunta');
-    // sem fita, e o rasgo no pé
+    // papel sobre papel, sem fita e sem rasgo: o que tem dentro numa folha clara, com a moldura da cor em volta
     expect(getComputedStyle(cards[0], '::before').content).toBe('none');
-    expect(getComputedStyle(cards[0], '::after').maskImage).toContain('svg');
+    expect(getComputedStyle(cards[0], '::after').content).toBe('none');
+    const corpo = cards[0].querySelector<HTMLElement>('.cartao-corpo')!;
+    expect(getComputedStyle(corpo).backgroundColor).not.toBe(getComputedStyle(cards[0]).backgroundColor);
+    const [fora, dentro] = [cards[0].getBoundingClientRect(), corpo.getBoundingClientRect()];
+    expect(dentro.left - fora.left).toBe(5);
+    expect(fora.right - dentro.right).toBe(5);
+    expect(fora.bottom - dentro.bottom).toBe(5);
+    expect(getComputedStyle(cards[0]).borderTopLeftRadius).toBe('10px');
     // a tarefa de dentro marca a linha certa do texto
     cards[0].querySelector<HTMLInputElement>('input[type=checkbox]')!.click();
     expect(toggled).toEqual([1]);
   });
 
-  it('o título do card é na letra do título da cartolina, na escala dela, sem mudar a altura da linha', async () => {
+  it('o título do card é na letra do título da cartolina, na escala dela, numa faixa de duas linhas da pauta', async () => {
     const el = await render('> [!nota] Ingredientes\n> tilápia');
     el.style.cssText = 'display: block; width: 420px; font-size: 16px; --line: 24px';
     const topo = el.querySelector<HTMLElement>('.cartao-topo')!;
@@ -56,7 +63,40 @@ describe('o texto formatado na leitura', () => {
     expect(getComputedStyle(titulo).fontWeight).toBe(raiz.getPropertyValue('--w-titulo-ficha').trim());
     const escala = Number(raiz.getPropertyValue('--e-titulo-ficha'));
     expect(parseFloat(getComputedStyle(titulo).fontSize)).toBeCloseTo(16 * escala, 1);
-    expect(topo.getBoundingClientRect().height).toBe(24);
+    expect(topo.getBoundingClientRect().height).toBeCloseTo(48, 0);
+  });
+
+  it('o card abre e fecha na pauta: fechado é só a faixa (duas linhas), aberto soma duas linhas ao que tem dentro', async () => {
+    const el = await render('> [!nota] T\n> a\n> b\n\n> [!dica]- F\n> c\n\n> [!vazio]\n> d');
+    el.style.cssText = 'display: block; width: 420px; font-size: 16px; --line: 24px';
+    const [aberto, fechado, semTopo] = Array.from(el.querySelectorAll<HTMLElement>('.cartao'));
+    expect(aberto.getBoundingClientRect().height).toBeCloseTo(24 * 5, 1);
+    expect(fechado.getBoundingClientRect().height).toBeCloseTo(24 * 2, 1);
+    // sem a faixa (o Vazio sem título): a moldura em cima também, e mesmo assim uma linha a mais que o texto
+    expect(semTopo.getBoundingClientRect().height).toBeCloseTo(24 * 2, 1);
+    expect(semTopo.querySelector<HTMLElement>('.cartao-corpo')!.getBoundingClientRect().top - semTopo.getBoundingClientRect().top).toBe(5);
+  });
+
+  it('os cards seguidos se unem num bloco só: os cantos de dentro retos, e entre dois do mesmo papel um fio claro', async () => {
+    const el = await render('> [!dica]- A\n> a\n> [!dica]- B\n> b\n> [!nota]- C\n> c\n\n> [!nota]- D\n> d');
+    const [a, b, c, d] = Array.from(el.querySelectorAll<HTMLElement>('.cartao'));
+    const css = (e: HTMLElement) => getComputedStyle(e);
+    // colados, sem vão
+    expect(b.getBoundingClientRect().top).toBe(a.getBoundingClientRect().bottom);
+    expect(c.getBoundingClientRect().top).toBe(b.getBoundingClientRect().bottom);
+    expect(css(a).borderTopLeftRadius).toBe('10px');
+    expect(css(a).borderBottomLeftRadius).toBe('0px');
+    expect(css(b).borderTopRightRadius).toBe('0px');
+    expect(css(b).borderBottomRightRadius).toBe('0px');
+    expect(css(c).borderTopLeftRadius).toBe('0px');
+    expect(css(c).borderBottomLeftRadius).toBe('10px');
+    // o fio claro só entre os dois de mesmo papel; entre papéis diferentes, a troca de cor basta
+    expect(getComputedStyle(b, '::before').content).not.toBe('none');
+    expect(getComputedStyle(b, '::before').backgroundColor).toBe('rgba(255, 255, 255, 0.7)');
+    expect(getComputedStyle(c, '::before').content).toBe('none');
+    // depois da linha em branco, outro card, solto
+    expect(css(d).borderTopLeftRadius).toBe('10px');
+    expect(getComputedStyle(d, '::before').content).toBe('none');
   });
 
   it('o Estudo: o livro no papel rosa, com o nome no lugar do título', async () => {
@@ -107,16 +147,17 @@ describe('o texto formatado na leitura', () => {
     expect(com.querySelector<HTMLElement>('.cartao-topo')!.dataset['l']).toBe('4');
   });
 
-  it('o Vazio que fecha, sem título: a setinha na beirada é o toque, com o nome só para o leitor de tela', async () => {
+  it('o Vazio que fecha, sem título: a setinha na beirada da direita é o toque, com o nome só para o leitor de tela', async () => {
     const el = await render('> [!vazio]-\n> dentro');
     const details = el.querySelector<HTMLDetailsElement>('details.cartao')!;
     const summary = details.querySelector<HTMLElement>('summary')!;
     expect(summary.querySelector('.cartao-titulo')).toBeNull();
     expect(summary.querySelector('.cartao-icone')).toBeNull();
     expect(summary.textContent!.trim()).toBe('Card sem título');
-    // o traço da setinha na beirada do texto (a caixa dela passa um pouco), e uma linha da pauta inteira para tocar
-    expect(summary.querySelector<HTMLElement>('.cartao-seta')!.getBoundingClientRect().left).toBeLessThan(summary.getBoundingClientRect().left);
-    expect(summary.getBoundingClientRect().height).toBeCloseTo(parseFloat(getComputedStyle(summary).minHeight), 0);
+    // a setinha presa na beirada da direita (como em todo card que fecha), e a faixa de duas linhas da pauta para tocar
+    const seta = summary.querySelector<HTMLElement>('.cartao-seta')!.getBoundingClientRect();
+    expect(summary.getBoundingClientRect().right - seta.right).toBeCloseTo(parseFloat(getComputedStyle(summary).paddingRight), 0);
+    expect(summary.getBoundingClientRect().height).toBeCloseTo(2 * parseFloat(getComputedStyle(summary).minHeight), 0);
     expect(parseFloat(getComputedStyle(summary).minHeight)).toBeGreaterThan(20);
     expect(details.open).toBeFalse();
     summary.click();

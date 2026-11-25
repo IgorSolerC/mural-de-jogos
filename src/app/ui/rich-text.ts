@@ -570,20 +570,54 @@ const FOLD_WAIT = 260;
     @include formatado.seta-url;
     @include formatado.marca-lembrete;
 
-    /* ===== O card: o papel colorido colado no texto (ver ui/_formatado.scss), com a beirada de
-       baixo rasgada. Meia linha da pauta em cima e embaixo: o card soma uma linha ===== */
+    /* ===== O card: papel sobre papel (ver ui/_formatado.scss). A folha da cor do jeito com o título na faixa de
+       cima (duas linhas da pauta); o que tem dentro numa folha clara colada por cima, com a moldura da cor em volta
+       (mais uma linha). Fechado, só a faixa ===== */
     .cartao {
-      @include formatado.cartao-papel;
+      @include formatado.cartao-folha;
       position: relative;
       margin: 0;
-      padding: calc(var(--line, 1.5em) / 2) formatado.$cartao-lado;
-      border-radius: 2px 2px 0 0;
+      padding: 0 formatado.$cartao-moldura formatado.$cartao-moldura;
     }
-    .cartao::after {
-      @include formatado.cartao-rasgo;
+    details.cartao:not([open]),
+    .cartao:not(:has(> .cartao-corpo)) {
+      padding-bottom: 0;
+    }
+    /* sem a faixa (o Vazio sem título): a moldura em cima também, descontada da folga do texto */
+    .cartao:not(:has(> .cartao-topo)) {
+      padding-top: formatado.$cartao-moldura;
     }
     .cartao-topo {
       @include formatado.cartao-topo;
+      /* a linha do título tem a altura de uma linha mesmo sem letras (o Vazio sem título que fecha, só com a
+         setinha): a folga vem por fora dela, e a faixa fica sempre com duas linhas da pauta */
+      box-sizing: content-box;
+      padding: calc(var(--line, 1.5em) * #{formatado.$cartao-topo-cima}) calc(#{formatado.$cartao-lado} - #{formatado.$cartao-moldura})
+        calc(var(--line, 1.5em) * #{formatado.$cartao-topo-baixo});
+    }
+    .cartao-corpo {
+      @include formatado.cartao-miolo;
+      padding: calc(var(--line, 1.5em) * #{formatado.$cartao-miolo-cima}) calc(#{formatado.$cartao-lado} - #{formatado.$cartao-moldura})
+        formatado.cartao-miolo-baixo(var(--line, 1.5em));
+    }
+    .cartao:not(:has(> .cartao-topo)) > .cartao-corpo {
+      padding-top: calc(var(--line, 1.5em) * #{formatado.$cartao-miolo-cima} - #{formatado.$cartao-moldura});
+    }
+    /* os cards seguidos se unem num bloco só: os cantos de dentro retos, e entre dois do mesmo papel um fio claro */
+    .cartao + .cartao {
+      border-top-left-radius: 0;
+      border-top-right-radius: 0;
+    }
+    .cartao:has(+ .cartao) {
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
+    }
+    @each $p in formatado.$cartao-papeis {
+      .cartao[data-jeito='#{$p}'] + .cartao[data-jeito='#{$p}']::before {
+        @include formatado.cartao-fio-claro;
+        left: formatado.$cartao-lado;
+        right: formatado.$cartao-lado;
+      }
     }
     .cartao-titulo {
       @include formatado.cartao-titulo;
@@ -591,8 +625,10 @@ const FOLD_WAIT = 260;
     .cartao-icone {
       @include formatado.cartao-icone;
     }
+    /* a setinha presa na beirada da direita, onde quer que o título acabe */
     .cartao-seta {
       @include formatado.cartao-seta;
+      margin-left: auto;
     }
     /* o que fecha: o título é o botão (sem o triângulo do navegador), a setinha vira com ele fechado */
     summary.cartao-topo {
@@ -602,20 +638,13 @@ const FOLD_WAIT = 260;
     summary.cartao-topo::-webkit-details-marker {
       display: none;
     }
-    /* a setinha sozinha (o Vazio sem título): o traço dela na beirada do texto, sem a folga do desenho */
-    summary.cartao-topo:not(:has(.cartao-titulo)) .cartao-seta {
-      margin-left: -0.25em;
-    }
-    .cartao:not([open]) > summary.cartao-topo:not(:has(.cartao-titulo)) .cartao-seta {
-      margin-left: -0.4em;
-    }
     .cartao:not([open]) > summary .cartao-seta {
       rotate: -90deg;
     }
     summary.cartao-topo:focus-visible {
       outline: 2.5px solid var(--c-tinta);
-      outline-offset: 1px;
-      border-radius: 2px;
+      outline-offset: -3px;
+      border-radius: 8px;
     }
     @media (hover: hover) {
       summary.cartao-topo:hover .cartao-seta {

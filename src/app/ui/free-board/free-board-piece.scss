@@ -100,37 +100,37 @@
   visibility: hidden;
 }
 
-/* ===== O texto: o card das anotações (ui/_formatado.scss, as mesmas peças da leitura e do Visual): o papel do
-   jeito ou da cor com a fibra e a sombra de papel colado, o desenho e o título a pincel em cima, o pé rasgado.
-   O papel enche a peça (o rasgo cabe nos 7px de baixo) ===== */
+/* ===== O texto: o card das anotações (ui/_formatado.scss, as mesmas peças da leitura e do Visual): papel sobre
+   papel. A folha do jeito ou da cor segura o desenho e o título a pincel (a faixa de cima); o texto vem na folha
+   clara colada por cima, com a moldura da cor em volta. O papel enche a peça ===== */
 
 .cartao {
-  @include formatado.cartao-papel;
+  @include formatado.cartao-folha;
   position: absolute;
-  inset: 0 0 7px;
+  inset: 0;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  padding: 0.55em formatado.$cartao-lado;
-  border-radius: 2px 2px 0 0;
+  padding: 0 formatado.$cartao-moldura formatado.$cartao-moldura;
   font: 400 1.15rem / 1.35 var(--f-hand);
   --line: 1.5em;
 }
 
-.cartao::after {
-  @include formatado.cartao-rasgo;
+/* só o título (ou no meio): a faixa enche a peça, sem a moldura do pé */
+.cartao:not(:has(> .cartao-corpo)) {
+  padding-bottom: 0;
 }
 
-/* no meio, sem a sombra e sem a fibra (são muitas peças pequenas na tela) */
+/* no meio, sem a sombra (são muitas peças pequenas na tela) */
 .cartao.liso {
-  filter: none;
-  background-image: none;
+  box-shadow: none;
 }
 
 .cartao-topo {
   @include formatado.cartao-topo;
   flex: none;
   align-items: flex-start;
+  padding: 0.45em calc(#{formatado.$cartao-lado} - #{formatado.$cartao-moldura}) 0.5em;
   font-size: 1.12em;
 }
 
@@ -157,12 +157,20 @@
   -webkit-line-clamp: 1;
 }
 
+/* o texto na folha clara (sem título, a moldura em cima também) */
 .cartao-corpo {
+  @include formatado.cartao-miolo;
   display: block;
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  box-sizing: border-box;
+  padding: 0.4em calc(#{formatado.$cartao-lado} - #{formatado.$cartao-moldura}) 0.5em;
   font: inherit;
+}
+
+.cartao:not(:has(> .cartao-topo)) {
+  padding-top: formatado.$cartao-moldura;
 }
 
 /* medindo a altura que o texto pede (ver `cardNeed`): o papel do tamanho do que tem, sem o corte embaixo */
