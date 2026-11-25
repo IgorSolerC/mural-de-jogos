@@ -156,8 +156,9 @@ export function noteRoutes(app: Hono, deps: Deps): void {
             params: [id, g.dono_id, grupoId, userId, dados, at, at, userId],
           },
           ...noteImageStatements(id, [dados]),
+          ...boardsFollow(id, groupWho(grupoId)),
         ],
-        2 + 2 * imageIdsIn(dados, 200).length,
+        2 + 2 * imageIdsIn(dados, 200).length + (id.startsWith('cv-') ? MAX_MEMBERS : 0),
       );
     } catch (error) {
       // dois pedidos iguais ao mesmo tempo: o outro criou; devolve a de agora
@@ -186,6 +187,17 @@ export function noteRoutes(app: Hono, deps: Deps): void {
 
   /** O dono e todo mundo que está na anotação (para marcar o mural público de cada um). */
   const everyone = (id: string): Who => ({ sql: 'SELECT dono_id FROM notas WHERE id = ? UNION SELECT usuario_id FROM nota_membros WHERE nota_id = ?', params: [id, id] });
+
+  /** Quem está num grupo compartilhado (o dono e as pessoas). */
+  const groupWho = (grupoId: string): Who => ({ sql: 'SELECT dono_id FROM grupos WHERE id = ? UNION SELECT usuario_id FROM grupo_membros WHERE grupo_id = ?', params: [grupoId, grupoId] });
+
+  /**
+   * O quadro de um canvas segue a anotação dele (PLANO-CANVAS.md, 6; o acesso em routes/boards.ts): quem entra, sai
+   * ou muda de papel na anotação `cv-` pede a lista dos quadros de novo (o quadro aparece, some ou muda de papel).
+   * Nas outras anotações, nada.
+   */
+  const boardsFollow = (id: string, ...who: Who[]): Statement[] =>
+    id.startsWith('cv-') ? who.map((w) => ({ sql: `UPDATE usuarios SET quadros_versao = quadros_versao + 1 WHERE id IN (${w.sql})`, params: w.params })) : [];
 
   const idInUse = () => new HttpError(409, 'nota-id-em-uso', 'Essa anotação não pode ser compartilhada assim. Faça uma cópia dela e tente de novo.');
 
@@ -337,6 +349,12 @@ export function noteRoutes(app: Hono, deps: Deps): void {
       if (access) return c.json({ nota: await detail(existing, access) }, 200);
       throw idInUse();
     }
+    // a anotação de um canvas é de quem tem o quadro (o id é `cv-` e o do quadro, PLANO-CANVAS.md D7): o id de um
+    // quadro de outra conta (o público, visto na visita) não se toma de antemão
+    if (id.startsWith('cv-')) {
+      const board = await deps.db.first<{ usuario_id: string }>('SELECT usuario_id FROM quadros WHERE id = ?', [id.slice(3)]);
+      if (board && board.usuario_id !== s.userId) throw idInUse();
+    }
     if (grupoId) return c.json({ nota: await createInGroup(s.userId, id, grupoId, dados) }, 201);
     if ((await countFor(s.userId)) >= MAX_NOTES_PER_USER) {
       throw new HttpError(429, 'notas-demais', `Você já tem ${MAX_NOTES_PER_USER} anotações compartilhadas, o máximo.`);
@@ -369,8 +387,9 @@ export function noteRoutes(app: Hono, deps: Deps): void {
           ...[...people.values()].flatMap(({ p, role }) => memberStatements(row, p, role, s.userId, true, at, now)),
           // as imagens coladas nela: quem está na anotação passa a vê-las (ver domain/image.ts)
           ...noteImageStatements(id, [dados]),
+          ...boardsFollow(id, everyone(id)),
         ],
-        3 + 9 * people.size + 2 * imageIdsIn(dados, 200).length,
+        3 + 10 * people.size + 2 * imageIdsIn(dados, 200).length,
       );
     } catch (error) {
       // dois pedidos iguais ao mesmo tempo: o outro criou; devolve a de agora
@@ -481,8 +500,12 @@ export function noteRoutes(app: Hono, deps: Deps): void {
     try {
       await write(
         deps,
-        [...memberStatements(n, p, role, s.userId, !current, at, now), { sql: 'UPDATE notas SET versao = versao + 1 WHERE id = ?', params: [id] }],
-        current ? 3 : 12,
+        [
+          ...memberStatements(n, p, role, s.userId, !current, at, now),
+          { sql: 'UPDATE notas SET versao = versao + 1 WHERE id = ?', params: [id] },
+          ...boardsFollow(id, { sql: 'SELECT ?', params: [p.id] }),
+        ],
+        current ? 4 : 13,
       );
     } catch (error) {
       // dois pedidos para pôr a mesma pessoa ao mesmo tempo: o outro já a pôs (a chave da tabela
@@ -522,8 +545,9 @@ export function noteRoutes(app: Hono, deps: Deps): void {
         { sql: 'UPDATE notas SET versao = versao + 1 WHERE id = ?', params: [id] },
         // a anotação sai do mural público de quem saiu (ver domain/shared-public.ts)
         ...markStatements({ sql: 'SELECT ?', params: [target] }, deps.now(), id),
+        ...boardsFollow(id, { sql: 'SELECT ?', params: [target] }),
       ],
-      10,
+      11,
     );
     if (target === s.userId) return c.json({ ok: true });
     const saved = await note(id);
@@ -578,8 +602,10 @@ export function noteRoutes(app: Hono, deps: Deps): void {
               sql: `UPDATE ${table} SET dono_id = ? WHERE dono_id = ? AND ref = ? AND EXISTS (SELECT 1 FROM notas WHERE id = ? AND rev = ? AND dono_id = ?)`,
               params: [owner, n.dono_id, id, id, n.rev + 1, owner],
             }))),
+        // o canvas: quem estava e quem passa a estar (as pessoas dela e as dos dois grupos)
+        ...boardsFollow(id, everyone(id), ...[n.grupo_id, target].flatMap((g) => (g ? [groupWho(g)] : []))),
       ],
-      owner === n.dono_id ? 1 : 4,
+      (owner === n.dono_id ? 1 : 4) + (id.startsWith('cv-') ? 3 * MAX_MEMBERS : 0),
     );
     const saved = await note(id);
     if (!saved) throw notFound();
@@ -611,12 +637,14 @@ export function noteRoutes(app: Hono, deps: Deps): void {
       [
         // antes de as pessoas saírem: a anotação sai do mural público de cada uma (e do da dona)
         ...markStatements(everyone(id), deps.now(), id),
+        // o canvas: o quadro deixa de ser de quem estava nela (o do dono fica com ele)
+        ...boardsFollow(id, everyone(id), ...(n.grupo_id ? [groupWho(n.grupo_id)] : [])),
         { sql: 'DELETE FROM nota_membros WHERE nota_id = ?', params: [id] },
         { sql: "DELETE FROM atividades WHERE tipo = 'compartilhou' AND ref = ?", params: [id] },
         { sql: 'DELETE FROM nota_imagens WHERE nota_id = ?', params: [id] },
         { sql: 'DELETE FROM notas WHERE id = ?', params: [id] },
       ],
-      6 + 8 * (members?.n ?? 0),
+      6 + 9 * (members?.n ?? 0),
     );
     return c.json({ ok: true });
   });

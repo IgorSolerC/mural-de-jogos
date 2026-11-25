@@ -188,9 +188,9 @@ export class NoteMenu {
         hint: 'A frente, os baralhos e o mural, na aba Flashcard',
         run: () => this.desk.editReview(id, 'flashcard'),
       });
-      // dividir com outras pessoas (ou ver quem está, para quem não gere a anotação)
-      // (o canvas se compartilha a partir da rodada 4 do PLANO-CANVAS.md: antes disso, a anotação iria sem o quadro)
-      if (!canvas) act.push({ id: 'compartilhar', label: !entry || canManage(entry.papel) ? 'Compartilhar' : 'Pessoas', icon: ICON.pessoas, dialog: true, run: () => this.openShare(id, a.back) });
+      // dividir com outras pessoas (ou ver quem está, para quem não gere a anotação); o canvas também: quem está na
+      // anotação dele está no quadro (PLANO-CANVAS.md, 6)
+      act.push({ id: 'compartilhar', label: !entry || canManage(entry.papel) ? 'Compartilhar' : 'Pessoas', icon: ICON.pessoas, dialog: true, run: () => this.openShare(id, a.back) });
       if (canvas && writes && !entry) act.push({ id: 'duplicar', label: 'Duplicar', icon: ICON.duplicar, hint: 'Um canvas novo igual a este, ao lado', run: () => void this.duplicate(id) });
     }
     if (mine && !a.board) act.push(...(this.more()?.(r) ?? []));

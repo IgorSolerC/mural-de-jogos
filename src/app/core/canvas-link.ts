@@ -60,6 +60,11 @@ export interface NewCanvas {
  * 3. quadro sem o canvas: a anotação apagada depois da última mexida no quadro leva o quadro junto (apagada por
  *    qualquer caminho: o mural, várias de uma vez, a API, outro aparelho). O quadro que nunca teve anotação vira
  *    canvas só na rodada 5 (a conversão).
+ *
+ * O canvas compartilhado (rodada 4): a anotação mora na nuvem das compartilhadas, e o acesso ao quadro vem dela (a
+ * nuvem dá o quadro a quem está na anotação). O quadro seu segue a anotação como o de sempre (o nome, o grupo e o
+ * público); apagar e trazer de volta são da nuvem: a anotação apagada para todos leva o quadro seu (`sharedMine`).
+ * O quadro de outra pessoa é dela: aqui, nada se acerta nele.
  */
 @Injectable({ providedIn: 'root' })
 export class CanvasLink {
@@ -70,6 +75,12 @@ export class CanvasLink {
   private readonly seen = new Set<string>();
   /** Os quadros apagados junto com a anotação nesta página, para voltarem com ela (o Desfazer de qualquer caminho). */
   private readonly copies = new Map<string, FreeBoard>();
+  /**
+   * Os canvas compartilhados com o quadro seu, vistos nesta página (o id da anotação e o do quadro): a anotação que
+   * sai daqui depois disso foi apagada para todos (por você em outro aparelho, ou pelo dono do grupo), e o quadro vai
+   * junto. A que nunca esteve aqui não conta (nunca apagar o que só ainda não chegou).
+   */
+  private readonly sharedMine = new Map<string, string>();
   private running: Promise<void> | null = null;
   private again = false;
 
@@ -233,8 +244,16 @@ export class CanvasLink {
     for (const note of canvases) {
       const id = note.canvas!;
       linked.add(id);
-      // a compartilhada e o quadro de outra pessoa seguem o dono (rodada 4)
-      if (shared.has(note.id) || this.sync.roleOf(id) !== 'dono') continue;
+      // o quadro de outra pessoa segue o dono dele
+      if (this.sync.roleOf(id) !== 'dono') continue;
+      if (shared.has(note.id)) {
+        // a compartilhada: o quadro seu segue a anotação; apagar e trazer de volta são da nuvem
+        if (!this.boards.get(id)) continue;
+        this.seen.add(id);
+        this.sharedMine.set(note.id, id);
+        await this.mirror(note);
+        continue;
+      }
       if (this.boards.get(id)) {
         this.seen.add(id);
         await this.mirror(note);
@@ -256,6 +275,12 @@ export class CanvasLink {
         else this.store.remove(note.id);
       }
       // nunca esteve aqui: ainda não chegou (o aparelho novo, a lista dos quadros descendo)
+    }
+    // a compartilhada com o quadro seu que saiu daqui (apagada para todos): o quadro vai junto
+    for (const [noteId, boardId] of [...this.sharedMine]) {
+      if (this.store.get(noteId)) continue;
+      this.sharedMine.delete(noteId);
+      if (this.boards.get(boardId) && this.sync.roleOf(boardId) === 'dono') await this.dropBoard(boardId);
     }
     for (const board of this.boards.boards()) {
       if (linked.has(board.id) || this.sync.roleOf(board.id) !== 'dono') continue;
@@ -301,7 +326,8 @@ export class CanvasLink {
   /** O quadro volta ao que a anotação diz: o nome, o grupo e o público. */
   private async mirror(note: Review): Promise<void> {
     const id = note.canvas;
-    if (!id || this.store.sharedIds().has(note.id) || this.sync.roleOf(id) !== 'dono') return;
+    // (o quadro de outra pessoa: o dono dele acerta, pela anotação que também chega a ele)
+    if (!id || this.sync.roleOf(id) !== 'dono') return;
     const board = this.boards.get(id);
     if (!board) return;
     const want = canvasBoardFields(note);

@@ -1,8 +1,10 @@
 @use '../ui/etiqueta-acoes' as et;
 @use '../ui/etiqueta-topo' as topo;
 
-/* os Detalhes no topo do canvas aberto (pages/board-screen.ts): a etiqueta do topo, com o azul das informações */
-.etiqueta-topo.detalhes {
+/* os Detalhes e o Compartilhar no topo do canvas aberto (pages/board-screen.ts): a etiqueta do topo, com o azul (o
+   Compartilhar como era o do Quadro livre, pages/free-boards-page.scss) */
+.etiqueta-topo.detalhes,
+.etiqueta-topo.compartilhar {
   @include topo.etiqueta-topo;
   @include et.cor-na-mao(var(--etiqueta-azul));
 }

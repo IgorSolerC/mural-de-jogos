@@ -6,11 +6,15 @@ import { canvasPath } from '../core/areas';
 import { CANVAS_DEFAULT_TITLE, CanvasLink } from '../core/canvas-link';
 import { Desk } from '../core/desk';
 import { deleteDatabase } from '../core/erase-save';
-import { FbNode, addPieces } from '../core/free-board';
+import { FbNode, addPieces, newBoardId, newFreeBoard } from '../core/free-board';
 import { BOARDS_DB, FreeBoardStore } from '../core/free-board-store';
 import { ReviewStore } from '../core/review-store';
 import { thawStorage } from '../core/storage';
 import { CanvasPage } from './canvas-page';
+import { canvasNoteId } from '../core/canvas-id';
+import { FreeBoardSync } from '../core/free-board-sync';
+import { sanitizeReview } from '../core/review';
+import { SharedEntry, SharedStore } from '../core/shared-store';
 
 @Component({ template: '<p class="mural">o mural</p>' })
 class WallStub {}
@@ -129,4 +133,51 @@ describe('o canvas aberto (CanvasPage)', () => {
     expect($('.mural')).not.toBeNull();
   });
 
+  it('o canvas compartilhado com quem só lê (PLANO-CANVAS.md, 6): o nome sem campo, sem os Detalhes e sem o Editar', async () => {
+    const id = newBoardId();
+    await boards.save(newFreeBoard('Planta', 'Trabalho', '2026-11-20T10:00:00.000Z', id)!);
+    TestBed.inject(FreeBoardSync).shared.set(new Map([[id, { papel: 'leitor', dono: { codigo: 'ABCD-1234', nome: 'Ana' }, grupo: null }]]));
+    const note = sanitizeReview({
+      id: canvasNoteId(id),
+      kind: 'anotacoes',
+      game: { name: 'Planta', source: 'manual' },
+      text: '',
+      completedAt: '2026-11-20',
+      createdAt: '2026-11-20T10:00:00.000Z',
+      updatedAt: '2026-11-20T10:00:00.000Z',
+    })!;
+    store.setShared([note]);
+    TestBed.inject(SharedStore).entries.set(new Map([[note.id, { id: note.id, papel: 'leitor', grupo: null, membros: [], view: note } as unknown as SharedEntry]]));
+    await harness.navigateByUrl(canvasPath(note.id));
+    await settle();
+    expect($('.tela-cheia app-free-board')).not.toBeNull();
+    expect($('.nome-campo')).toBeNull();
+    expect($('.nome-quadro')!.textContent!.trim()).toBe('Planta');
+    expect($('.etiqueta-topo.detalhes')).toBeNull();
+    expect($('.etiqueta-topo.editar')).toBeNull();
+    // (sem a conta, não há com quem compartilhar: a etiqueta só aparece com ela)
+    expect($('.etiqueta-topo.compartilhar')).toBeNull();
+  });
+
+  it('o editor da anotação compartilhada muda o nome e abre os Detalhes; o quadro é do dono, e ele edita', async () => {
+    const id = newBoardId();
+    await boards.save(newFreeBoard('Planta', 'Trabalho', '2026-11-20T10:00:00.000Z', id)!);
+    TestBed.inject(FreeBoardSync).shared.set(new Map([[id, { papel: 'editor', dono: { codigo: 'ABCD-1234', nome: 'Ana' }, grupo: null }]]));
+    const note = sanitizeReview({
+      id: canvasNoteId(id),
+      kind: 'anotacoes',
+      game: { name: 'Planta', source: 'manual' },
+      text: '',
+      completedAt: '2026-11-20',
+      createdAt: '2026-11-20T10:00:00.000Z',
+      updatedAt: '2026-11-20T10:00:00.000Z',
+    })!;
+    store.setShared([note]);
+    TestBed.inject(SharedStore).entries.set(new Map([[note.id, { id: note.id, papel: 'editor', grupo: null, membros: [], view: note } as unknown as SharedEntry]]));
+    await harness.navigateByUrl(canvasPath(note.id));
+    await settle();
+    expect($<HTMLInputElement>('.nome-campo')!.value).toBe('Planta');
+    expect($('.etiqueta-topo.detalhes')).not.toBeNull();
+    expect($('.etiqueta-topo.editar')).not.toBeNull();
+  });
 });

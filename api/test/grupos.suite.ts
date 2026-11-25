@@ -346,6 +346,96 @@ export function gruposSuite(label: string, getDb: () => Db) {
       expect((await t.res(t.json('GET', `/v1/murais/${t.ana.codigo}/quadros`))).body.quadros.map((q: any) => q.id)).toEqual([Q]);
     });
 
+    it('o canvas (PLANO-CANVAS.md, 6): quem está na anotação cv- do quadro está no quadro, com o papel dela; sair, ser tirado e apagar tiram', async () => {
+      const t = await setup();
+      const Q = 'quadroCanvas01qqqqqqqq';
+      const N = `cv-${Q}`;
+      const versao = async (id: string) => (await t.db.first<{ v: number }>('SELECT quadros_versao AS v FROM usuarios WHERE id = ?', [id]))!.v;
+      await t.putBoard(t.ana.token, Q, 0);
+      const antes = await versao(t.bia.id);
+      const shared = await t.res(
+        t.json('POST', '/v1/notas', { id: N, dados: nota(N), membros: [{ codigo: t.bia.codigo, papel: 'editor' }, { codigo: t.cris.codigo, papel: 'leitor' }] }, t.ana.token),
+      );
+      expect(shared.status).toBe(201);
+      // o site de quem entrou pede a lista dos quadros de novo, e o quadro está nela com o papel da anotação
+      expect(await versao(t.bia.id)).toBeGreaterThan(antes);
+      expect(await t.boards(t.bia.token)).toEqual([[Q, 'editor']]);
+      expect(await t.boards(t.cris.token)).toEqual([[Q, 'leitor']]);
+      expect((await t.res(t.json('GET', `/v1/eu/quadros/${Q}`, undefined, t.cris.token))).status).toBe(200);
+      // o editor grava (o quadro continua da Ana); o leitor não
+      expect((await t.putBoard(t.bia.token, Q, 1)).status).toBe(200);
+      expect((await t.putBoard(t.cris.token, Q, 2)).body.erro).toBe('so-leitura');
+      expect((await t.db.first<{ usuario_id: string }>('SELECT usuario_id FROM quadros WHERE id = ?', [Q]))!.usuario_id).toBe(t.ana.id);
+      // a gravação avisa quem está na anotação (a lista de cada um muda)
+      const daCris = await versao(t.cris.id);
+      t.advance(2_500);
+      await t.putBoard(t.ana.token, Q, 2);
+      expect(await versao(t.cris.id)).toBeGreaterThan(daCris);
+      // uma regra de acesso só: o quadro do canvas não chama ninguém por fora da anotação
+      expect((await t.res(t.json('PUT', `/v1/eu/quadros/${Q}/membros/${t.davi.codigo}`, { papel: 'editor' }, t.ana.token))).body.erro).toBe('quadro-do-canvas');
+      // mudar o papel na anotação muda no quadro
+      await t.res(t.json('PUT', `/v1/notas/${N}/membros/${t.cris.codigo}`, { papel: 'editor' }, t.ana.token));
+      expect(await t.boards(t.cris.token)).toEqual([[Q, 'editor']]);
+      // tirada da anotação, a Cris deixa de ver o quadro; a Bia sai sozinha e também
+      await t.res(t.json('DELETE', `/v1/notas/${N}/membros/${t.cris.codigo}`, undefined, t.ana.token));
+      expect(await t.boards(t.cris.token)).toEqual([]);
+      expect((await t.res(t.json('GET', `/v1/eu/quadros/${Q}`, undefined, t.cris.token))).status).toBe(404);
+      await t.res(t.json('DELETE', `/v1/notas/${N}/membros/eu`, undefined, t.bia.token));
+      expect(await t.boards(t.bia.token)).toEqual([]);
+      // apagar a anotação para todos: quem estava nela deixa de ver o quadro
+      await t.res(t.json('PUT', `/v1/notas/${N}/membros/${t.davi.codigo}`, { papel: 'leitor' }, t.ana.token));
+      expect(await t.boards(t.davi.token)).toEqual([[Q, 'leitor']]);
+      const doDavi = await versao(t.davi.id);
+      expect((await t.res(t.json('DELETE', `/v1/notas/${N}`, undefined, t.ana.token))).status).toBe(200);
+      expect(await versao(t.davi.id)).toBeGreaterThan(doDavi);
+      expect(await t.boards(t.davi.token)).toEqual([]);
+    });
+
+    it('o canvas: a anotação cv- de outra conta não dá o quadro de ninguém, e o id do quadro de outra conta não se toma', async () => {
+      const t = await setup();
+      const eva = await t.login('eva', 'Eva');
+      // o quadro da Ana já está na nuvem: ninguém mais cria a anotação dele
+      const Q = 'quadroCanvas02qqqqqqqq';
+      await t.putBoard(t.ana.token, Q, 0);
+      expect((await t.res(t.json('POST', '/v1/notas', { id: `cv-${Q}`, dados: nota(`cv-${Q}`), membros: [{ codigo: t.davi.codigo, papel: 'gestor' }] }, eva.token))).body.erro).toBe(
+        'nota-id-em-uso',
+      );
+      // a anotação tomada antes de o quadro subir não leva a ele: só vale a anotação de quem tem o quadro
+      const Z = 'quadroCanvas03qqqqqqqq';
+      expect((await t.res(t.json('POST', '/v1/notas', { id: `cv-${Z}`, dados: nota(`cv-${Z}`), membros: [{ codigo: t.davi.codigo, papel: 'gestor' }] }, eva.token))).status).toBe(201);
+      await t.putBoard(t.ana.token, Z, 0);
+      expect(await t.boards(t.davi.token)).toEqual([]);
+      expect(await t.boards(eva.token)).toEqual([]);
+      expect((await t.res(t.json('GET', `/v1/eu/quadros/${Z}`, undefined, eva.token))).status).toBe(404);
+    });
+
+    it('o canvas num grupo compartilhado: a anotação de quem escreveu no grupo leva o quadro dela a todos do grupo', async () => {
+      const t = await setup();
+      await t.shareGroup();
+      // a Cris (editora) cria o canvas no grupo: o quadro é dela, a anotação é do dono do grupo, escrita por ela
+      const Q = 'quadroCanvas04qqqqqqqq';
+      await t.putBoard(t.cris.token, Q, 0);
+      expect((await t.newNote(t.cris.token, `cv-${Q}`)).status).toBe(201);
+      expect(await t.boards(t.davi.token)).toEqual([[Q, 'leitor']]);
+      expect(await t.boards(t.bia.token)).toEqual([[Q, 'gestor']]);
+      expect(await t.boards(t.ana.token)).toEqual([[Q, 'gestor']]);
+      expect((await t.putBoard(t.bia.token, Q, 1)).status).toBe(200);
+      expect((await t.putBoard(t.davi.token, Q, 2)).body.erro).toBe('so-leitura');
+    });
+
+    it('o canvas solto que vai para um grupo compartilhado: quem está no grupo passa a ver o quadro (a lista dele muda)', async () => {
+      const t = await setup();
+      await t.shareGroup();
+      const Q = 'quadroCanvas05qqqqqqqq';
+      await t.putBoard(t.cris.token, Q, 0);
+      expect((await t.newNote(t.cris.token, `cv-${Q}`, null)).status).toBe(201);
+      expect(await t.boards(t.davi.token)).toEqual([]);
+      const antes = (await t.db.first<{ v: number }>('SELECT quadros_versao AS v FROM usuarios WHERE id = ?', [t.davi.id]))!.v;
+      expect((await t.res(t.json('PUT', `/v1/notas/cv-${Q}/grupo`, { grupo: GRUPO }, t.cris.token))).status).toBe(200);
+      expect((await t.db.first<{ v: number }>('SELECT quadros_versao AS v FROM usuarios WHERE id = ?', [t.davi.id]))!.v).toBeGreaterThan(antes);
+      expect(await t.boards(t.davi.token)).toEqual([[Q, 'leitor']]);
+    });
+
     it('um quadro solto com pessoas: o dono chama, a pessoa vê e (editor) grava; sair tira; quem sai do grupo deixa o quadro que fez nele (P4)', async () => {
       const t = await setup();
       const Q = 'quadroSolto0001qqqqqqq';

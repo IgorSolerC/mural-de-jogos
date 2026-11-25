@@ -39,6 +39,7 @@ export const NEWS: NewsEntry[] = [
       'Na parede, o canvas é um pedaço de eucatex numa moldura de alumínio, pendurado num prego pelo barbante, com o quadro desenhado em miniatura (ou a capa dele) e o nome numa fita Dymo. Ele aparece em todas as vistas: na Comum e na Inteira, pendurado; na Visão geral, deitado na mesa; na Lista, com uma moldurinha e quantas peças tem.',
       'O canvas tem o que a anotação tem: grupo, pasta, tags, data, capa e quem vê (nos Detalhes, no topo do canvas aberto ou no botão direito), Fixar e Finalizar, marcar com Ctrl+clique, mover para outra pasta, duplicar, copiar o que está escrito nele e apagar com Desfazer. A busca do mural acha o canvas pelo que está escrito no quadro. Ele não entra no Kanban, nos Flashcards nem no widget Nota.',
       'Quem visita o seu mural vê os seus canvas públicos do mesmo jeito, e toca neles para abrir.',
+      'O canvas se compartilha como a anotação: "Compartilhar" no botão direito ou no topo do canvas aberto. Quem você chama vê o canvas em Compartilhadas e abre o seu quadro, com o papel que você deu: quem edita mexe nas peças e no nome junto com você, quem só lê abre sem o Editar. Num grupo compartilhado, o canvas vai para todos do grupo. Tirar alguém (ou a pessoa sair) tira o quadro dela, e apagar o canvas apaga para todos.',
     ],
   },
   {

@@ -5,6 +5,7 @@ import { CANVAS_DEFAULT_TITLE, CANVAS_NO_GROUP, CanvasLink } from './canvas-link
 import { deleteDatabase } from './erase-save';
 import { FbNode, addPieces, boardsMovedGroup, newBoardId, newFreeBoard } from './free-board';
 import { BOARDS_DB, FreeBoardStore } from './free-board-store';
+import { FreeBoardSync } from './free-board-sync';
 import { canvasSearchText } from './free-board-text';
 import { boardIdFor, placeCard } from './kanban';
 import { KanbanStore } from './kanban-store';
@@ -219,6 +220,35 @@ describe('canvas: o elo com o quadro (PLANO-CANVAS.md, 4.2)', () => {
     await boards.save(newFreeBoard('Mapa do jogo', 'jogos', T0, id)!);
     await settle(link);
     expect(boards.get(id)).toEqual(jasmine.objectContaining({ nome: 'Mapa do jogo', grupo: 'Jogos' }));
+  });
+
+  it('o canvas compartilhado com o quadro seu: o quadro segue a anotação; apagada para todos, o quadro vai junto (PLANO-CANVAS.md, 6)', async () => {
+    const note = await link.create({ category: 'Jogos', audience: 'privada' });
+    const cur = store.get(note.id)!;
+    // compartilhada (aqui ou em outro aparelho): a anotação passa a vir da nuvem das compartilhadas
+    store.setShared([{ ...cur, game: { ...cur.game, name: 'Planta da casa' }, updatedAt: new Date().toISOString() }]);
+    await settle(link);
+    expect(store.sharedIds().has(note.id)).toBeTrue();
+    expect(boards.get(note.canvas!)!.nome).toBe('Planta da casa');
+    // apagada para todos (a nuvem tirou daqui): o quadro sai junto
+    store.setShared([]);
+    await settle(link);
+    expect(store.get(note.id)).toBeUndefined();
+    expect(boards.get(note.canvas!)).toBeNull();
+  });
+
+  it('o canvas compartilhado com você: o quadro é de quem compartilhou, e nada aqui mexe nele (nem quando você sai)', async () => {
+    const id = newBoardId();
+    await boards.save(newFreeBoard('Do dono', 'Trabalho', T0, id)!);
+    TestBed.inject(FreeBoardSync).shared.set(new Map([[id, { papel: 'editor', dono: { codigo: 'ABCD-1234', nome: 'Ana' }, grupo: null }]]));
+    store.setShared([sanitizeReview(raw(canvasNoteId(id), { game: { name: 'Planta', source: 'manual' } }))!]);
+    await settle(link);
+    // o nome e o grupo do quadro são do dono (a anotação dele também chega a ele)
+    expect(boards.get(id)).toEqual(jasmine.objectContaining({ nome: 'Do dono', grupo: 'Trabalho' }));
+    // saiu da anotação: quem tira o quadro daqui é a lista dos quadros (a nuvem deixa de dar), não o elo
+    store.setShared([]);
+    await settle(link);
+    expect(boards.get(id)).toBeTruthy();
   });
 
   it('o quadro sem anotação nenhuma (um quadro da aba Quadro livre) fica como está: a conversão é a rodada 5', async () => {

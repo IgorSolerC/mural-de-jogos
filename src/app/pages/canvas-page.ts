@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -9,6 +9,10 @@ import { Desk } from '../core/desk';
 import { FreeBoardStore } from '../core/free-board-store';
 import { isCanvas } from '../core/review';
 import { ReviewStore } from '../core/review-store';
+import { canManage, canWrite } from '../core/shared-notes';
+import { SharedStore } from '../core/shared-store';
+import { CloudAccount } from '../core/cloud-account';
+import { ShareSheet } from '../ui/share-sheet';
 import { canvasPieces } from '../ui/canvas-card';
 import { ICON, IconModule } from '../ui/icons';
 import { BoardScreen } from './board-screen';
@@ -23,7 +27,7 @@ import { BoardScreen } from './board-screen';
  */
 @Component({
   selector: 'app-canvas-page',
-  imports: [BoardScreen, IconModule],
+  imports: [BoardScreen, IconModule, ShareSheet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h1 class="sr-only">Canvas{{ note() ? ": " + note()!.game.name : "" }}</h1>
@@ -31,7 +35,7 @@ import { BoardScreen } from './board-screen';
       [boardId]="boardId()"
       [name]="note()?.game?.name ?? null"
       kind="Canvas"
-      [renamable]="!!note()"
+      [renamable]="!!note() && writes()"
       [selectName]="fresh"
       [startEditing]="fresh"
       missing="Este canvas não está aqui. Ele pode ter sido apagado."
@@ -40,12 +44,26 @@ import { BoardScreen } from './board-screen';
       (renamed)="rename($event)"
     >
       @if (note(); as n) {
-        <button type="button" class="etiqueta-topo detalhes" aria-haspopup="dialog" (click)="details(n.id)" title="O grupo, a pasta, as tags, a capa e quem vê">
-          <lucide-icon [img]="Icons.detalhes" [size]="18" aria-hidden="true" />
-          <span class="etiqueta-nome">Detalhes</span>
-        </button>
+        <!-- quem está na anotação está no quadro (PLANO-CANVAS.md, 6): o Compartilhar do canvas é o da anotação -->
+        @if (signedIn()) {
+          <button type="button" class="etiqueta-topo compartilhar" aria-haspopup="dialog" (click)="sharing.set(true)" [title]="manages() ? 'Chamar pessoas para ver ou editar este canvas' : 'Quem está neste canvas'">
+            <lucide-icon [img]="Icons.pessoas" [size]="18" aria-hidden="true" />
+            <span class="etiqueta-nome">{{ manages() ? "Compartilhar" : "Pessoas" }}</span>
+          </button>
+        }
+        @if (writes()) {
+          <button type="button" class="etiqueta-topo detalhes" aria-haspopup="dialog" (click)="details(n.id)" title="O grupo, a pasta, as tags, a capa e quem vê">
+            <lucide-icon [img]="Icons.detalhes" [size]="18" aria-hidden="true" />
+            <span class="etiqueta-nome">Detalhes</span>
+          </button>
+        }
       }
     </app-board-screen>
+    @if (sharing() && note(); as n) {
+      @defer (on immediate) {
+        <app-share-sheet [noteId]="n.id" (closed)="sharing.set(false)" (left)="left()" />
+      }
+    }
   `,
   styleUrl: './canvas-page.scss',
 })
@@ -57,7 +75,10 @@ export class CanvasPage {
   private readonly router = inject(Router);
   private readonly title = inject(Title);
   private readonly screen = viewChild(BoardScreen);
-  protected readonly Icons = { detalhes: ICON.informacao };
+  private readonly shared = inject(SharedStore);
+  protected readonly Icons = { detalhes: ICON.informacao, pessoas: ICON.pessoas };
+  /** A folha de quem está no canvas (a da anotação) aberta. */
+  protected readonly sharing = signal(false);
 
   private readonly route = inject(ActivatedRoute);
   private readonly id = toSignal(this.route.paramMap.pipe(map((p) => p.get('id') ?? '')), { initialValue: '' });
@@ -71,6 +92,18 @@ export class CanvasPage {
     const n = this.store.get(this.id());
     return n && isCanvas(n) ? n : null;
   });
+  /** A compartilhada: o seu papel nela (sem ela, o canvas é só seu). */
+  private readonly entry = computed(() => this.shared.get(this.id()) ?? null);
+  /** Quem escreve na anotação muda o nome e os Detalhes; quem só lê, não (o quadro também: ver BoardScreen). */
+  protected readonly writes = computed(() => {
+    const e = this.entry();
+    return !e || canWrite(e.papel);
+  });
+  protected readonly manages = computed(() => {
+    const e = this.entry();
+    return !e || canManage(e.papel);
+  });
+  protected readonly signedIn = inject(CloudAccount).signedIn;
   protected readonly boardId = computed(() => this.note()?.canvas ?? boardIdOfNote(this.id()) ?? '');
 
   constructor() {
@@ -96,6 +129,12 @@ export class CanvasPage {
 
   protected rename(name: string): void {
     void this.link.rename(this.id(), name);
+  }
+
+  /** Saiu do canvas pela folha (quem não é o dono): ele some daqui, e a tela volta para o mural. */
+  protected left(): void {
+    this.sharing.set(false);
+    void this.close();
   }
 
   protected details(id: string): void {

@@ -94,21 +94,55 @@ async function boardAccess(deps: Deps, q: { id: string; usuario_id: string; grup
   if (q.usuario_id === userId) return 'dono';
   const m = await deps.db.first<{ papel: string }>('SELECT papel FROM quadro_membros WHERE quadro_id = ? AND usuario_id = ?', [q.id, userId]);
   let role: Access | null = asRole(m?.papel);
-  if (q.grupo_id) {
-    const g = await deps.db.first<{ dono_id: string; papel: string | null }>(
-      'SELECT g.dono_id, gm.papel FROM grupos g LEFT JOIN grupo_membros gm ON gm.grupo_id = g.id AND gm.usuario_id = ? WHERE g.id = ?',
-      [userId, q.grupo_id],
-    );
-    if (g) role = widest(role, g.dono_id === userId ? 'gestor' : asRole(g.papel));
-  }
+  if (q.grupo_id) role = widest(role, await groupAccess(deps, q.grupo_id, userId));
+  return widest(role, await canvasNoteAccess(deps, q, userId));
+}
+
+/** O papel de `userId` num grupo compartilhado, para um quadro (o dono do grupo gere: 'gestor'). */
+async function groupAccess(deps: Deps, grupoId: string, userId: string): Promise<Access | null> {
+  const g = await deps.db.first<{ dono_id: string; papel: string | null }>(
+    'SELECT g.dono_id, gm.papel FROM grupos g LEFT JOIN grupo_membros gm ON gm.grupo_id = g.id AND gm.usuario_id = ? WHERE g.id = ?',
+    [userId, grupoId],
+  );
+  return g ? (g.dono_id === userId ? 'gestor' : asRole(g.papel)) : null;
+}
+
+/**
+ * O id da anotação compartilhada de um canvas (PLANO-CANVAS.md, D7 e 6): `cv-` e o id do quadro. O elo mora no id,
+ * então a nuvem acha a anotação do quadro sem coluna nova (e sem o site dizer: um site de antes também serve).
+ */
+export const canvasNoteIdOf = (boardId: string) => `cv-${boardId}`;
+
+/**
+ * O papel de `userId` no quadro de um canvas pela anotação dele (PLANO-CANVAS.md, 6: "quem vê/edita a anotação do
+ * canvas vê/edita o quadro"): as pessoas da anotação compartilhada e as do grupo dela, com o papel delas; o dono da
+ * anotação (o do grupo, numa de grupo) gere. Só vale a anotação do dono do quadro: a dele (`dono_id`) ou a que ele
+ * escreveu num grupo (`criado_por`); outra conta que tomasse o id `cv-` não ganha nada com isso.
+ */
+async function canvasNoteAccess(deps: Deps, q: { id: string; usuario_id: string }, userId: string): Promise<Access | null> {
+  const n = await deps.db.first<{ dono_id: string; grupo_id: string | null; criado_por: string | null; papel: string | null }>(
+    'SELECT n.dono_id, n.grupo_id, n.criado_por, m.papel FROM notas n LEFT JOIN nota_membros m ON m.nota_id = n.id AND m.usuario_id = ? WHERE n.id = ?',
+    [userId, canvasNoteIdOf(q.id)],
+  );
+  if (!n || (n.dono_id !== q.usuario_id && n.criado_por !== q.usuario_id)) return null;
+  let role: Access | null = n.dono_id === userId ? 'gestor' : asRole(n.papel);
+  if (n.grupo_id) role = widest(role, await groupAccess(deps, n.grupo_id, userId));
   return role;
 }
 
-/** Todo mundo que está num quadro (o dono, as pessoas dele e as do grupo dele): um SQL com o id do quadro três vezes. */
+/**
+ * A condição de `usuarios` para todo mundo que está num quadro (o dono, as pessoas dele, as do grupo dele e, num
+ * canvas, as da anotação e do grupo dela): `id IN (...)` separados por OR, com o id do quadro quatro vezes e o da
+ * anotação do canvas três (`EVERYONE_OF_BOARD_PARAMS`). Sem UNION: o D1 recusa um SELECT composto tão comprido.
+ * (Pode trazer a mais, numa anotação `cv-` que não é do dono do quadro: só faz uma lista ser pedida à toa.)
+ */
 const EVERYONE_OF_BOARD =
-  'SELECT usuario_id FROM quadros WHERE id = ? UNION SELECT usuario_id FROM quadro_membros WHERE quadro_id = ? ' +
-  'UNION SELECT gm.usuario_id FROM grupo_membros gm JOIN quadros q ON q.grupo_id = gm.grupo_id WHERE q.id = ? ' +
-  'UNION SELECT g.dono_id FROM grupos g JOIN quadros q ON q.grupo_id = g.id WHERE q.id = ?';
+  'id IN (SELECT usuario_id FROM quadros WHERE id = ?) OR id IN (SELECT usuario_id FROM quadro_membros WHERE quadro_id = ?) ' +
+  'OR id IN (SELECT gm.usuario_id FROM grupo_membros gm JOIN quadros q ON q.grupo_id = gm.grupo_id WHERE q.id = ?) ' +
+  'OR id IN (SELECT g.dono_id FROM grupos g JOIN quadros q ON q.grupo_id = g.id WHERE q.id = ?) ' +
+  'OR id IN (SELECT usuario_id FROM nota_membros WHERE nota_id = ?) OR id IN (SELECT dono_id FROM notas WHERE id = ?) ' +
+  'OR id IN (SELECT gm.usuario_id FROM grupo_membros gm JOIN notas n ON n.grupo_id = gm.grupo_id WHERE n.id = ?)';
+const EVERYONE_OF_BOARD_PARAMS = (id: string) => [id, id, id, id, canvasNoteIdOf(id), canvasNoteIdOf(id), canvasNoteIdOf(id)];
 
 function publicBoardRoutes(app: Hono, deps: Deps): void {
   const owner = async (c: Context): Promise<string> => {
@@ -196,8 +230,11 @@ export function boardRoutes(app: Hono, deps: Deps): void {
     const theirs = await deps.db.all<Row & { grupo_id: string | null; codigo: string; nome: string }>(
       'SELECT q.id, q.usuario_id, q.rev, q.bytes, q.atualizado_em, q.apagado_em, q.grupo_id, u.codigo, u.nome FROM quadros q JOIN usuarios u ON u.id = q.usuario_id ' +
         'WHERE q.usuario_id <> ? AND q.apagado_em IS NULL AND (EXISTS (SELECT 1 FROM quadro_membros m WHERE m.quadro_id = q.id AND m.usuario_id = ?) ' +
-        'OR q.grupo_id IN (SELECT grupo_id FROM grupo_membros WHERE usuario_id = ?) OR q.grupo_id IN (SELECT id FROM grupos WHERE dono_id = ?)) LIMIT ?',
-      [s.userId, s.userId, s.userId, s.userId, MAX_BOARDS * 4],
+        'OR q.grupo_id IN (SELECT grupo_id FROM grupo_membros WHERE usuario_id = ?) OR q.grupo_id IN (SELECT id FROM grupos WHERE dono_id = ?) ' +
+        // o quadro de um canvas: pela anotação compartilhada dele (as pessoas dela, o grupo dela, o dono dela)
+        "OR ('cv-' || q.id) IN (SELECT nota_id FROM nota_membros WHERE usuario_id = ?) OR ('cv-' || q.id) IN (SELECT id FROM notas WHERE dono_id = ?) " +
+        "OR ('cv-' || q.id) IN (SELECT n.id FROM notas n JOIN grupo_membros gm ON gm.grupo_id = n.grupo_id WHERE gm.usuario_id = ?)) LIMIT ?",
+      [s.userId, s.userId, s.userId, s.userId, s.userId, s.userId, s.userId, MAX_BOARDS * 4],
     );
     const shared = [];
     for (const r of theirs) {
@@ -307,7 +344,7 @@ export function boardRoutes(app: Hono, deps: Deps): void {
             params: [id, s.userId, body, body.length, at, mark, publico ?? 0, grupo ?? null, id],
           },
       // o contador de todo mundo que está no quadro (o site de cada um pede a lista quando ele muda)
-      { sql: `UPDATE usuarios SET quadros_versao = quadros_versao + 1 WHERE (id = ? OR id IN (${EVERYONE_OF_BOARD})) AND EXISTS (${ours})`, params: [s.userId, id, id, id, id, id, mark] },
+      { sql: `UPDATE usuarios SET quadros_versao = quadros_versao + 1 WHERE (id = ? OR ${EVERYONE_OF_BOARD}) AND EXISTS (${ours})`, params: [s.userId, ...EVERYONE_OF_BOARD_PARAMS(id), id, mark] },
       ...(changes
         ? [
             { sql: `DELETE FROM quadro_imagens WHERE quadro_id = ? AND imagem_id NOT IN (SELECT value FROM json_each(?)) AND EXISTS (${ours})`, params: [id, list, id, mark] },
@@ -338,6 +375,10 @@ export function boardRoutes(app: Hono, deps: Deps): void {
     if (!q || !role) throw new HttpError(404, 'quadro-nao-encontrado', 'Esse quadro não está na nuvem.');
     if (!canManage(role)) throw new HttpError(403, 'so-gestor', 'Só o dono e os gestores escolhem quem está neste quadro.');
     if (q.grupo_id) throw new HttpError(400, 'quadro-do-grupo', 'Este quadro vai com o grupo: chame a pessoa pelo grupo.');
+    // o quadro de um canvas compartilhado: as pessoas são as da anotação (PLANO-CANVAS.md, 6: uma regra de acesso só)
+    if (await deps.db.first('SELECT 1 AS x FROM notas WHERE id = ?', [canvasNoteIdOf(id)])) {
+      throw new HttpError(400, 'quadro-do-canvas', 'Este quadro é de um canvas: chame a pessoa pelo Compartilhar da anotação.');
+    }
     const body = await readJson(c);
     const papel = body['papel'];
     if (!isRole(papel)) throw new HttpError(400, 'papel-invalido', 'Escolha entre gestor, editor e leitor.');

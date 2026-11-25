@@ -108,12 +108,12 @@ describe('menu da anotação no mural (NoteMenu)', () => {
     expect(option('Apagar anotação').closest('.leva')!.querySelectorAll('.escolha').length).toBe(1);
   });
 
-  it('num canvas: os Detalhes no lugar do Editar, o Duplicar, e nada do Kanban, dos Flashcards ou do link (PLANO-CANVAS.md, 3.4)', async () => {
+  it('num canvas: os Detalhes no lugar do Editar, o Compartilhar, o Duplicar, e nada do Kanban, dos Flashcards ou do link (PLANO-CANVAS.md, 3.4 e 6)', async () => {
     store.add(note(canvasNoteId('Mapa0viagem0Portugal01'), 'Mapa da viagem', ''));
     await mount();
     rightClick(row(canvasNoteId('Mapa0viagem0Portugal01')).querySelector('.hit')!, 60, 80);
     await settle();
-    expect(menuLabels(el)).toEqual(['Abrir', 'Detalhes', 'Marcar', 'Copiar o conteúdo', 'Fixar no topo', 'Finalizar', 'Duplicar', 'Apagar anotação']);
+    expect(menuLabels(el)).toEqual(['Abrir', 'Detalhes', 'Marcar', 'Copiar o conteúdo', 'Fixar no topo', 'Finalizar', 'Compartilhar', 'Duplicar', 'Apagar anotação']);
     option('Detalhes').click();
     expect(desk.editReview).toHaveBeenCalledWith(canvasNoteId('Mapa0viagem0Portugal01'));
   });

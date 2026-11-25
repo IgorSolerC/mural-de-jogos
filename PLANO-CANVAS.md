@@ -254,7 +254,7 @@ Marcar o Andamento (seção 9).
    `app-free-board` (tirar de `free-boards-page.ts` a parte que abre o quadro, sem copiar); o topo com o nome e
    Detalhes; o editor em modo canvas (3.3); o menu do card (3.4). Teste de que na visita o canvas abre como no
    dono (como `ui/visit-study.spec.ts`).
-4. **Compartilhar e nuvem.** Migração `api/migrations/0028_quadros_nota.sql` (`quadros.nota_id`, índice);
+4. **Compartilhar e nuvem.** (Feita sem a migração: ver D9.) Migração `api/migrations/0028_quadros_nota.sql` (`quadros.nota_id`, índice);
    `boardAccess` em `api/src/routes/boards.ts` passa a aceitar o papel vindo de `nota_membros` (e do grupo da
    nota) quando `nota_id` aponta para uma nota compartilhada; o envio do dono manda `Quadro-Nota` (como o
    `Quadro-Grupo`); compartilhar a anotação do canvas pelo Quem vê dá acesso ao quadro, e parar de compartilhar
@@ -310,6 +310,7 @@ Marcar o Andamento (seção 9).
   sem a trava.
 - **D8.** O widget Nota com um canvas colado (pelo id ou pelo título) mostra o papel rasgado da ficha que não
   existe; os seletores (`CardPicker`) nem oferecem o canvas.
+- **D9.** (rodada 4) A anotação do quadro sai do id na nuvem também: sem `quadros.nota_id` nem `Quadro-Nota`.
 
 ## 9. Andamento
 
@@ -339,6 +340,17 @@ Marcar o Andamento (seção 9).
   caminho de sempre (o elo leva o quadro e o traz de volta no Desfazer). Na visita, o canvas abre o quadro público
   pela tela de quadros dela (`visitBoardPath`); a rota própria da visita fica para a rodada 5, quando a fileira
   "Quadro livre" sai. Os endereços antigos do Quadro livre também ficam para a rodada 5. Novidades 1.55.0.
-- [ ] Rodada 4: compartilhar e nuvem
+- [x] Rodada 4: compartilhar e nuvem (25/nov, BUILD 1052): **sem a migração `quadros.nota_id`** (decisão D9): a nuvem
+  acha a anotação do quadro pelo id (`cv-` e o do quadro, D7), então não há coluna nem cabeçalho `Quadro-Nota`, e um
+  site de antes também serve. `boardAccess` (`api/src/routes/boards.ts`) soma o papel da anotação `cv-` (as pessoas
+  dela e o grupo dela; o dono dela gere), só a do dono do quadro (`dono_id` ou `criado_por` numa de grupo); a lista
+  `/v1/eu/quadros` traz os quadros dos canvas em que a pessoa está; quem está na anotação entra no aviso
+  `quadros_versao` das gravações (sem UNION: o D1 recusa o SELECT composto comprido). Entrar, sair, mudar de papel,
+  mudar de grupo e apagar a anotação `cv-` sobem o `quadros_versao` de quem muda (`boardsFollow` em `notes.ts`). O
+  quadro de um canvas compartilhado não chama ninguém por fora (`quadro-do-canvas`), e o id `cv-` do quadro de outra
+  conta não se toma. No site: o Compartilhar volta ao menu do canvas e ganha a etiqueta no topo do canvas aberto (a
+  folha da anotação); quem só lê abre sem o Editar, sem renomear e sem os Detalhes; o elo leva a anotação
+  compartilhada ao quadro seu e, apagada para todos, leva o quadro (`sharedMine`). A trava pela build continua só no
+  mural privado: nada de campo novo nas compartilhadas nesta rodada (o canvas resiste pelo id).
 - [ ] Rodada 5: a conversão e o fim da aba
 - [ ] Rodada 6: fechamento
