@@ -130,6 +130,8 @@ export interface CopyContext {
    * core/reminder-links.ts); null, ele não está no seu Calendário (o link sai só com o texto).
    */
   reminderDate?(id: string): string | null;
+  /** O que está escrito no quadro de um canvas, em lista (PLANO-CANVAS.md, 3.4); null, o quadro não está aqui. */
+  canvasText?(boardId: string): string | null;
 }
 
 /**

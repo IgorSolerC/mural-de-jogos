@@ -1,0 +1,8 @@
+@use '../ui/etiqueta-acoes' as et;
+@use '../ui/etiqueta-topo' as topo;
+
+/* os Detalhes no topo do canvas aberto (pages/board-screen.ts): a etiqueta do topo, com o azul das informações */
+.etiqueta-topo.detalhes {
+  @include topo.etiqueta-topo;
+  @include et.cor-na-mao(var(--etiqueta-azul));
+}

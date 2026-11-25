@@ -47,7 +47,7 @@ const f = (id: string, name: string): NoteFolder => ({ id, group: 'estudos', nam
   template: `
     <div class="em-volta" style="padding: 40px 60px 400px">
       <app-wall-toolbar />
-      <app-wall-board [access]="access" [folderActions]="actions ? folders : null" (create)="created = created + 1" />
+      <app-wall-board [access]="access" [folderActions]="actions ? folders : null" (create)="created = created + 1" (createCanvas)="canvases = canvases + 1" />
     </div>
   `,
 })
@@ -56,6 +56,7 @@ class PageHost {
   readonly folders = TestBed.inject(NoteFolders);
   actions = true;
   created = 0;
+  canvases = 0;
 }
 
 describe('o botão direito no nada do mural de anotações', () => {
@@ -135,21 +136,21 @@ describe('o botão direito no nada do mural de anotações', () => {
     const w = wall.getBoundingClientRect();
     // o vão da parede (entre as fichas, à direita da última)
     expect(await rightClick(wall, w.right - 4, w.top + 4)).toBeTrue();
-    expect(items()).toEqual(['Nova anotação aqui', 'Nova pasta aqui']);
+    expect(items()).toEqual(['Nova anotação aqui', 'Novo canvas aqui', 'Nova pasta aqui']);
     expect(caption()).toBe('Ações de Estudos');
     close();
     // a margem de quem contém a página, ao lado da parede
     const a = around().getBoundingClientRect();
     expect(await rightClick(around(), a.left + 10, w.top + 10)).toBeTrue();
-    expect(items()).toEqual(['Nova anotação aqui', 'Nova pasta aqui']);
+    expect(items()).toEqual(['Nova anotação aqui', 'Novo canvas aqui', 'Nova pasta aqui']);
     close();
     // o fim da página, embaixo da última ficha (a folga no pé de quem a contém)
     expect(await rightClick(around(), a.left + a.width / 2, a.bottom - 20)).toBeTrue();
-    expect(items()).toEqual(['Nova anotação aqui', 'Nova pasta aqui']);
+    expect(items()).toEqual(['Nova anotação aqui', 'Novo canvas aqui', 'Nova pasta aqui']);
     close();
     // o próprio corpo da página, embaixo de tudo
     expect(await rightClick(document.body, a.left + a.width / 2, a.bottom + 2)).toBeTrue();
-    expect(items()).toEqual(['Nova anotação aqui', 'Nova pasta aqui']);
+    expect(items()).toEqual(['Nova anotação aqui', 'Novo canvas aqui', 'Nova pasta aqui']);
   });
 
   it('o Nova pasta aqui do nada cria a pasta, e o Nova anotação aqui abre a nova', async () => {
@@ -165,6 +166,13 @@ describe('o botão direito no nada do mural de anotações', () => {
     Array.from(openMenu()!.querySelectorAll<HTMLButtonElement>('.escolha')).find((b) => b.textContent!.includes('Nova anotação aqui'))!.click();
     await settle();
     expect(host.created).toBe(1);
+    // o Novo canvas aqui (PLANO-CANVAS.md, 3.1): logo depois da Nova anotação aqui, a página cria
+    await rightClick(around(), a.left + 10, a.bottom - 20);
+    const canvas = Array.from(openMenu()!.querySelectorAll<HTMLButtonElement>('.escolha')).find((b) => b.textContent!.includes('Novo canvas aqui'))!;
+    expect(canvas.querySelector('lucide-icon, svg')).not.toBeNull();
+    canvas.click();
+    await settle();
+    expect(host.canvases).toBe(1);
   });
 
   it('acima do fim da busca, na barra do mural, num campo e num link, fica o do navegador', async () => {
@@ -217,7 +225,7 @@ describe('o botão direito no nada do mural de anotações', () => {
     await mount({ tab: ALL_TAB });
     const a = around().getBoundingClientRect();
     expect(await rightClick(around(), a.left + 10, a.bottom - 20)).toBeTrue();
-    expect(items()).toEqual(['Nova anotação']);
+    expect(items()).toEqual(['Nova anotação', 'Novo canvas']);
     expect(caption()).toBe('Ações de Anotações');
   });
 
@@ -248,7 +256,7 @@ describe('o botão direito no nada do mural de anotações', () => {
     expect(empty).not.toBeNull();
     const at = middle(empty);
     expect(await rightClick(empty, at.x, at.y)).toBeTrue();
-    expect(items()).toEqual(['Nova anotação aqui', 'Nova pasta aqui']);
+    expect(items()).toEqual(['Nova anotação aqui', 'Novo canvas aqui', 'Nova pasta aqui']);
     expect(caption()).toBe('Ações de Vazia');
   });
 
@@ -371,7 +379,7 @@ describe('o botão direito no nada do mural de anotações', () => {
     touch('pointerdown', x, y);
     await new Promise((r) => setTimeout(r, HOLD_MS + 60));
     await settle(2);
-    expect(items()).toEqual(['Nova anotação aqui', 'Nova pasta aqui']);
+    expect(items()).toEqual(['Nova anotação aqui', 'Novo canvas aqui', 'Nova pasta aqui']);
     touch('pointerup', x, y, window);
   });
 });

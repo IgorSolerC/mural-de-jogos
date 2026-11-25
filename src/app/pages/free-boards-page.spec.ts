@@ -10,6 +10,7 @@ import { FreeBoardSync } from '../core/free-board-sync';
 import { studyGroupId } from '../core/study';
 import { Confirm } from '../ui/confirm';
 import { FreeBoardsPage } from './free-boards-page';
+import { BoardScreen } from './board-screen';
 import { expectEtiquetaPadrao } from '../testing/etiqueta-acoes.spec';
 import { Desk } from '../core/desk';
 import { FreeBoardNoteAsk } from '../core/free-board-note-ask';
@@ -261,7 +262,8 @@ describe('a página do Quadro livre', () => {
     reviews.reviews.set([mk('n1', 'Senhas', 'Jogos'), mk('n2', 'Daily', 'Trabalho'), mk('n3', 'Chefe final', 'Jogos', { completedAt: '2026-11-02T10:00:00.000Z' })]);
     await go(freeBoardPath(studyGroupId('Jogos'), 'mansao'));
     // o dono pede pelo quadro (a peça chama `owner.pickNote`)
-    const instance = getDebugNode(host.querySelector('app-free-boards-page')!)!.componentInstance as FreeBoardsPage;
+    // (a tela cheia do quadro é a peça pages/board-screen.ts, a mesma do canvas aberto)
+    const instance = getDebugNode(host.querySelector('app-board-screen')!)!.componentInstance as BoardScreen;
     const asked = instance.owner.pickNote('Jogos');
     await settle();
     const names = $$('dialog.escolher .escolha .nome').map(text);

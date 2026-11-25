@@ -84,6 +84,8 @@ export class WallBoard {
   readonly opened = output<string>();
   /** "Nova anotação" no cartão de "Tudo finalizado" (só no seu mural). */
   readonly create = output<void>();
+  /** "Novo canvas aqui" (PLANO-CANVAS.md, 3.1): quem usa cria o canvas no grupo e na pasta abertos (só o dono). */
+  readonly createCanvas = output<void>();
   /**
    * O que muda as pastas (só a página do dono passa, `NoteFolders`): com elas, arrastar organiza, a pasta
    * ganha nome e menu, e a anotação de uma pasta pode sair dela. A visita não tem como.
@@ -391,6 +393,15 @@ export class WallBoard {
             this.create.emit();
           },
         },
+        {
+          id: 'novo-canvas',
+          label: 'Novo canvas aqui',
+          icon: ICON.canvas,
+          run: () => {
+            this.motion.run(() => this.view.enterFolder(f.id));
+            this.createCanvas.emit();
+          },
+        },
         { id: 'nova-pasta', label: 'Nova pasta dentro', icon: ICON.novaPasta, run: () => this.newFolder(f.id) },
         { id: 'renomear', label: 'Renomear', icon: ICON.editar, run: () => this.naming.set(f.id) },
         {
@@ -455,10 +466,17 @@ export class WallBoard {
     const open = this.view.openFolder();
     // a pasta mora num grupo: no Tudo, só a anotação, e sem o "aqui" (ela nasce no grupo de sempre, não na seção
     // do clique)
-    if (this.view.folderGroup() === null) return [[{ id: 'nova-nota', label: 'Nova anotação', icon: ICON.adicionar, dialog: true, run: () => this.create.emit() }]];
+    if (this.view.folderGroup() === null)
+      return [
+        [
+          { id: 'nova-nota', label: 'Nova anotação', icon: ICON.adicionar, dialog: true, run: () => this.create.emit() },
+          { id: 'novo-canvas', label: 'Novo canvas', icon: ICON.canvas, run: () => this.createCanvas.emit() },
+        ],
+      ];
     return [
       [
         { id: 'nova-nota', label: 'Nova anotação aqui', icon: ICON.adicionar, dialog: true, run: () => this.create.emit() },
+        { id: 'novo-canvas', label: 'Novo canvas aqui', icon: ICON.canvas, run: () => this.createCanvas.emit() },
         { id: 'nova-pasta', label: 'Nova pasta aqui', icon: ICON.novaPasta, run: () => this.newFolder(open) },
       ],
     ];

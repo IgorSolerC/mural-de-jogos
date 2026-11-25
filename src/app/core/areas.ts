@@ -80,6 +80,11 @@ export function freeBoardPath(group?: string | null, board?: string | null): str
   return '/anotacoes/quadro-livre' + (group ? `/${group}` + (board ? `/${board}` : '') : '');
 }
 
+/** Um canvas aberto em tela cheia (PLANO-CANVAS.md, 3.2), pelo id da anotação dele. */
+export function canvasPath(noteId: string): string {
+  return `/anotacoes/canvas/${encodeURIComponent(noteId)}`;
+}
+
 /**
  * Os Estudos de quem se visita (PLANO-BARALHOS-PUBLICOS.md): os baralhos públicos da pessoa aberta no mural
  * do colega, por grupo e baralho como os seus.

@@ -1,7 +1,11 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, viewChild } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { ICON, IconModule } from '../ui/icons';
-import { reviewPath } from '../core/areas';
+import { canvasPath, reviewPath } from '../core/areas';
+import { CanvasLink } from '../core/canvas-link';
+import { FreeBoardProblem } from '../core/free-board-store';
+import { newNoteAudience } from '../core/mural-config';
+import { Toasts } from '../ui/toast';
 import { Desk } from '../core/desk';
 import { isNotes } from '../core/kinds';
 import { Mural } from '../core/mural';
@@ -36,6 +40,8 @@ export class WallPage {
   private readonly reactions = inject(Reactions);
   private readonly view = inject(WallView);
   private readonly router = inject(Router);
+  private readonly canvases = inject(CanvasLink);
+  private readonly toasts = inject(Toasts);
   protected readonly bulk = inject(NoteBulk);
   protected readonly board = viewChild(WallBoard);
   private readonly byId = computed(() => new Map(this.mural.reviews().map((r) => [r.id, r])));
@@ -135,4 +141,25 @@ export class WallPage {
     this.side.picking.set(false);
     void this.router.navigateByUrl(reviewPath(this.mural.kind(), 'lado-a-lado'));
   }
+
+  /**
+   * "Novo canvas aqui" (PLANO-CANVAS.md, 3.1): nasce na hora, sem formulário, no grupo e na pasta abertos (no Tudo,
+   * sem grupo, como a anotação nova), com quem vê o padrão do grupo; abre em tela cheia já no Editar, com o nome
+   * selecionado para escrever.
+   */
+  protected async newCanvas(): Promise<void> {
+    const category = this.view.newNoteCategory();
+    try {
+      const note = await this.canvases.create({
+        category,
+        folder: this.view.newNoteSubject(),
+        audience: newNoteAudience(this.settings.notesConfig(), category),
+      });
+      void this.router.navigateByUrl(`${canvasPath(note.id)}?novo=1`, { state: { voltar: this.router.url } });
+    } catch (e) {
+      // (o teto de quadros por conta avisa como hoje: o canvas é um quadro por dentro)
+      this.toasts.show(e instanceof FreeBoardProblem ? e.message : 'Não deu para criar o canvas.');
+    }
+  }
+
 }

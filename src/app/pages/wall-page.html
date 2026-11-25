@@ -24,7 +24,7 @@
   </section>
 } @else {
   <app-wall-toolbar class="toolbar" />
-  <app-wall-board [access]="access()" [folderActions]="folders" [bulkEdit]="flow.open" (opened)="desk.openReview($event)" (create)="desk.newReview()" />
+  <app-wall-board [access]="access()" [folderActions]="folders" [bulkEdit]="flow.open" (opened)="desk.openReview($event)" (create)="desk.newReview()" (createCanvas)="newCanvas()" />
 
   @if (side.picking()) {
     <app-selection-tray

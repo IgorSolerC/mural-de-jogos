@@ -63,7 +63,9 @@ import {
   musicGame,
   fold,
   MUSIC_FORM_LABEL,
+  isCanvas,
 } from '../core/review';
+import { FreeBoardStore } from '../core/free-board-store';
 import { GameLookup, isJointCredit, isSteamCover } from '../core/game-lookup';
 import { cap, g, isMusic, isNotes, profileOf } from '../core/kinds';
 import { Cloud } from '../core/cloud-config';
@@ -278,7 +280,8 @@ export class ReviewEditor {
 
   /** Setas, Home e End trocam de aba, como um tablist. */
   protected onModeKey(e: KeyboardEvent): void {
-    const order: EditorMode[] = this.readOnly() ? ['kanban', 'flashcard'] : this.notes() ? ['escrever', 'cartolina', 'kanban', 'flashcard'] : ['escrever', 'cartolina'];
+    // (o canvas só tem a aba dele: PLANO-CANVAS.md, 3.3)
+    const order: EditorMode[] = this.canvasNote() ? ['escrever'] : this.readOnly() ? ['kanban', 'flashcard'] : this.notes() ? ['escrever', 'cartolina', 'kanban', 'flashcard'] : ['escrever', 'cartolina'];
     if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) return;
     const at = order.indexOf(this.mode());
     const next = e.key === 'Home' ? 0 : e.key === 'End' ? order.length - 1 : (at + (e.key === 'ArrowRight' ? 1 : order.length - 1)) % order.length;
@@ -708,6 +711,18 @@ export class ReviewEditor {
   protected readonly kind = signal<Kind>('jogos');
   /** Uma anotação, não uma resenha: título escrito, capa opcional, categorias, sem notas (ver `isNotes`). */
   protected readonly notes = computed(() => isNotes(this.kind()));
+  /**
+   * Os Detalhes de um canvas (PLANO-CANVAS.md, 3.3): o título, a capa, o grupo, a pasta, as tags, a data e quem vê.
+   * Somem o texto (o corpo é o quadro), a cartolina (o card não é cartolina), o Kanban e os Flashcards.
+   */
+  protected readonly canvasNote = computed(() => isCanvas(this.editing()));
+  private readonly freeBoards = inject(FreeBoardStore);
+  /** O quadro do canvas, para a ficha do palco desenhar a miniatura. */
+  protected readonly canvasBoard = computed(() => {
+    const id = this.editing()?.canvas;
+    this.freeBoards.boards();
+    return id ? this.freeBoards.get(id) : null;
+  });
   /** Uma ficha de música: uma resenha com o tipo (álbum ou música), o artista e o que toca no vinil (ver MusicFields). */
   protected readonly music = computed(() => isMusic(this.kind()));
   protected readonly formLabel = MUSIC_FORM_LABEL;
@@ -1185,6 +1200,8 @@ export class ReviewEditor {
       ...(this.revisitRoot() ? { revisitOf: this.revisitRoot()! } : {}),
       ...this.artFields(),
       ...(this.isPrivate() ? { private: true as const } : {}),
+      // o canvas continua canvas (a anotação é salva a partir daqui; PLANO-CANVAS.md, 3.3)
+      ...(this.canvasNote() ? { canvas: this.editing()!.canvas } : {}),
       createdAt: '',
       updatedAt: '',
     };
@@ -1407,7 +1424,8 @@ export class ReviewEditor {
     // a frente de carta como está (a "Nova carta" de um baralho abre nessa aba)
     const newCard = this.flashcard().reset(this.id(), !review);
     // a aba pedida; quem só lê a compartilhada não tem a do que se escreve
-    const tab = isNotes(kind) ? (this.askedTab ?? (newCard ? 'flashcard' : this.readOnly() ? 'kanban' : null)) : null;
+    // (o canvas não tem Kanban nem Flashcard: fica na aba dele)
+    const tab = isNotes(kind) && !isCanvas(review) ? (this.askedTab ?? (newCard ? 'flashcard' : this.readOnly() ? 'kanban' : null)) : null;
     this.askedTab = null;
     if (tab) this.mode.set(tab);
     this.snapshot = this.serialize();

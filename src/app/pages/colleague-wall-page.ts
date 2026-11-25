@@ -3,6 +3,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs';
 import { visitBoardPath, visitKanbanPath, visitStudyPath } from '../core/areas';
+import { studyGroupId } from '../core/study';
 import { VisitKanban } from '../ui/visit-kanban';
 import { VisitBoards } from '../core/visit-boards';
 import { ICON, IconModule } from '../ui/icons';
@@ -295,6 +296,12 @@ export class ColleagueWallPage {
   protected open(id: string): void {
     const review = this.visit.wall().find((r) => r.id === id);
     if (!review) return;
+    // o canvas abre o quadro público dela em tela cheia, como o seu abre o seu (PLANO-CANVAS.md, 3.2)
+    if (review.canvas) {
+      const board = this.visit.canvasBoard()(review.canvas);
+      void this.router.navigateByUrl(visitBoardPath(studyGroupId(board?.grupo || review.category || 'Sem grupo'), review.canvas));
+      return;
+    }
     // com as outras fichas da pessoa: a leitura anda entre as vezes de uma obra que ela rejogou;
     // a revelada uma a uma abre à mostra, com "Esconder a nota"
     this.reader().open(review, this.name(), this.visit.wall(), this.visit.isSecret(id), this.visit.code(), null, this.visit.singles().has(id));

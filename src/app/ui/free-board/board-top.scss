@@ -88,6 +88,31 @@
     0 6px 10px -4px rgb(0 0 0 / 0.5);
 }
 
+/* o nome que se escreve (o canvas): o mesmo papel, com o cursor e a seleção da casa; sem o h2 mexer na fileira */
+.nome-titulo {
+  display: flex;
+  min-width: 0;
+  margin: 0;
+}
+
+.nome-campo {
+  width: min(26ch, 100%);
+  border: 0;
+  outline: 0;
+  caret-color: var(--ink);
+
+  &::selection {
+    background: var(--hi);
+    color: var(--ink);
+  }
+
+  &:focus-visible {
+    box-shadow:
+      0 0 0 3px var(--hi),
+      0 6px 10px -4px rgb(0 0 0 / 0.5);
+  }
+}
+
 @media (max-width: 420px) {
   .topo-esq {
     gap: 8px;

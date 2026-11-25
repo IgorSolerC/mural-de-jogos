@@ -1,0 +1,52 @@
+@use '../ui/etiqueta-acoes' as et;
+@use '../ui/etiqueta-topo' as topo;
+
+/* ===== O quadro aberto: a parede inteira, por cima do site ===== */
+
+.tela-cheia {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: var(--wall);
+}
+
+.quadro {
+  position: absolute;
+  inset: 0;
+}
+
+/* o topo do quadro aberto (voltar, nome, tela cheia) é a peça ui/free-board/board-top.ts, a mesma na visita; o
+   Editar e o Pronto do dono são as etiquetas do topo (ui/_etiqueta-topo.scss) */
+.etiqueta-topo {
+  @include topo.etiqueta-topo;
+}
+
+.etiqueta-topo.editar {
+  @include et.cor-na-mao(var(--etiqueta-amarelo));
+}
+
+.etiqueta-topo.pronto {
+  @include et.cor-na-mao(var(--etiqueta-verde));
+}
+
+.aviso {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+  margin: 0;
+  padding: 20px 26px 18px;
+  background: var(--paper) var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  font: 400 1.2rem / 1.35 var(--f-hand);
+  box-shadow: var(--shadow-card);
+  rotate: -0.8deg;
+
+  p {
+    margin: 0;
+  }
+}

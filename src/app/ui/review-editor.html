@@ -74,7 +74,7 @@
           <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
         </button>
       </div>
-      <div class="modos" [class.quatro]="notes() && !readOnly()" role="tablist" aria-label="Partes da ficha" (keydown)="onModeKey($event)">
+      <div class="modos" [class.quatro]="notes() && !readOnly() && !canvasNote()" role="tablist" aria-label="Partes da ficha" (keydown)="onModeKey($event)">
         @if (!readOnly()) {
         <button
           type="button"
@@ -87,8 +87,10 @@
           (click)="setMode('escrever')"
         >
           <lucide-icon [img]="WriteIcon" [size]="16" aria-hidden="true" />
-          {{ notes() ? 'Anotação' : 'Resenha' }}
+          {{ canvasNote() ? 'Canvas' : notes() ? 'Anotação' : 'Resenha' }}
         </button>
+        <!-- o canvas não é cartolina (PLANO-CANVAS.md, 3.3): sem o papel, a estampa, o rabisco e o estrago -->
+        @if (!canvasNote()) {
         <button
           type="button"
           role="tab"
@@ -103,7 +105,9 @@
           Cartolina
         </button>
         }
-        @if (notes()) {
+        }
+        <!-- (o canvas fica fora do Kanban e dos Flashcards: PLANO-CANVAS.md, 4.1) -->
+        @if (notes() && !canvasNote()) {
           <!-- o lugar no quadro do grupo: a etapa, a importância, a observação e as dependências -->
           <button
             type="button"
@@ -408,7 +412,9 @@
             </section>
           }
 
-          <!-- o texto: na anotação, o principal, logo depois das etiquetas; na resenha, depois do julgamento -->
+          <!-- o texto: na anotação, o principal, logo depois das etiquetas; na resenha, depois do julgamento. O canvas
+               não tem texto: o corpo dele é o quadro -->
+          @if (!canvasNote()) {
           <section class="bloco texto" [class.principal]="notes()">
             <label [for]="texto.areaId" [class]="notes() ? 'sr-only' : 'pergunta'">{{ notes() ? 'Anotação' : 'O que achou?' }}</label>
             <app-rich-editor
@@ -434,6 +440,7 @@
               <p class="field-error" role="alert">O texto passou de {{ textMaxShown }} caracteres. Tire {{ textExcess() }} para salvar.</p>
             }
           </section>
+          }
         </div>
 
         <!-- ===== Kanban: a anotação como tarefa no quadro do grupo (ui/kanban-props.ts); só desenhada nesta aba, e vale ao salvar.
@@ -491,6 +498,7 @@
           <!-- na aba Kanban, a coluna do quadro com a anotação nela -->
           <app-kanban-preview [board]="kbBoard()" [note]="preview()" [place]="kbPlace()" [from]="kbFrom()" [firstColumn]="kbFirstColumn()" />
         }
+        @if (!canvasNote()) {
         <div class="palco-topo">
           <button
             type="button"
@@ -503,10 +511,11 @@
             Ficha inteira
           </button>
         </div>
+        }
         <div class="previa-slot" #previewSlot [class.inteira]="showWhole()" [style.height.px]="wide() ? null : previewHeight()">
           <div class="previa-frame" #previewFrame [style.--preview-scale]="previewScale()">
             <div class="previa" inert>
-              <app-review-card [review]="preview()" [compact]="phone()" [full]="showWhole()" [preview]="true" [looks]="categoryLooks()" [empty]="notes() ? !noteTitle().trim() : !game()" />
+              <app-review-card [review]="preview()" [canvasBoard]="canvasBoard()" [compact]="phone() && !canvasNote()" [full]="showWhole()" [preview]="true" [looks]="categoryLooks()" [empty]="notes() ? !noteTitle().trim() : !game()" />
             </div>
           </div>
         </div>

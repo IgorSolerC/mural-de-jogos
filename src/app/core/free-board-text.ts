@@ -91,6 +91,24 @@ export function boardAsText(board: FreeBoard): string {
   return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n';
 }
 
+/**
+ * O canvas como texto para colar fora do site (o "Copiar" do menu e o Ctrl+C das marcadas, PLANO-CANVAS.md 3.4): as
+ * molduras como títulos e as peças em lista, na ordem de leitura, e as setas no fim; sem os ids (são da API).
+ */
+export function canvasAsText(board: FreeBoard): string {
+  const { items, arrows } = boardOutline(board);
+  const lines: string[] = [];
+  for (const it of items) {
+    if (it.frame) lines.push('', `${it.label}:`);
+    else lines.push(`${'  '.repeat(Math.max(0, it.depth - 1))}- ${it.label}`);
+  }
+  if (arrows.length) {
+    lines.push('', 'Setas:');
+    for (const a of arrows) lines.push(`- ${a.from} → ${a.to}${a.label ? ` (${a.label})` : ''}`);
+  }
+  return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 /** O texto de cada quadro para a busca, já dobrado (o quadro não muda: cada mudança é um objeto novo). */
 const searchCache = new WeakMap<FreeBoard, string>();
 

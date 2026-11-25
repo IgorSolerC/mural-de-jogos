@@ -10,6 +10,7 @@ import { WallState } from '../core/wall-view';
 import { WallAccess, WallBoard } from '../pages/wall-board';
 import { scrollSettled } from '../testing/scroll-settled.spec';
 import { NoteMenu } from './note-menu';
+import { canvasNoteId } from '../core/canvas-id';
 
 /** As opções à vista no menu aberto, pelo texto. */
 const menuLabels = (root: ParentNode): string[] => Array.from(root.querySelectorAll<HTMLElement>('.menu-contexto .escolha .nome')).map((x) => x.textContent?.trim() ?? '');
@@ -105,6 +106,16 @@ describe('menu da anotação no mural (NoteMenu)', () => {
     // apagar vai sozinho no fim, em vermelho
     expect(option('Apagar anotação').classList).toContain('perigo');
     expect(option('Apagar anotação').closest('.leva')!.querySelectorAll('.escolha').length).toBe(1);
+  });
+
+  it('num canvas: os Detalhes no lugar do Editar, o Duplicar, e nada do Kanban, dos Flashcards ou do link (PLANO-CANVAS.md, 3.4)', async () => {
+    store.add(note(canvasNoteId('Mapa0viagem0Portugal01'), 'Mapa da viagem', ''));
+    await mount();
+    rightClick(row(canvasNoteId('Mapa0viagem0Portugal01')).querySelector('.hit')!, 60, 80);
+    await settle();
+    expect(menuLabels(el)).toEqual(['Abrir', 'Detalhes', 'Marcar', 'Copiar o conteúdo', 'Fixar no topo', 'Finalizar', 'Duplicar', 'Apagar anotação']);
+    option('Detalhes').click();
+    expect(desk.editReview).toHaveBeenCalledWith(canvasNoteId('Mapa0viagem0Portugal01'));
   });
 
   it('nunca sai da tela: perto da beirada, vira para o outro lado do ponteiro', async () => {

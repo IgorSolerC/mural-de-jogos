@@ -1,6 +1,8 @@
-import { ChangeDetectionStrategy, Component, ElementRef, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, inject, input, output, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ICON, IconModule } from '../icons';
+
+let seq = 0;
 
 /**
  * O topo do quadro aberto, o mesmo no seu Quadro livre e na visita (a regra "Visita: as mesmas peças do dono",
@@ -29,7 +31,26 @@ import { ICON, IconModule } from '../icons';
             </button>
           }
         </span>
-        <h2 class="nome-quadro" [title]="name()">{{ name() }}</h2>
+        @if (renamable()) {
+          <!-- o nome se escreve ali mesmo (o canvas: renomear muda a anotação); Enter ou sair do campo guarda, Esc volta -->
+          <h2 class="nome-titulo">
+            <label class="sr-only" [attr.for]="fieldId">Nome</label>
+            <input
+              #campo
+              [id]="fieldId"
+              class="nome-quadro nome-campo"
+              type="text"
+              autocomplete="off"
+              maxlength="200"
+              [value]="name()"
+              (keydown.enter)="$event.preventDefault(); campo.blur()"
+              (keydown.escape)="$event.stopPropagation(); campo.value = name(); campo.blur()"
+              (blur)="commit(campo)"
+            />
+          </h2>
+        } @else {
+          <h2 class="nome-quadro" [title]="name()">{{ name() }}</h2>
+        }
       </div>
       <div class="topo-dir">
         <ng-content />
@@ -53,10 +74,32 @@ export class FreeBoardTop {
   /** O caminho da lista (a visita, por link); sem ele, o voltar avisa por `back` (a página do dono). */
   readonly backPath = input<string | null>(null);
   readonly back = output<void>();
+  /** O nome se escreve no topo (o canvas, PLANO-CANVAS.md 3.2): `renamed` leva o nome novo. */
+  readonly renamable = input(false);
+  /** Ao abrir, o nome já vem selecionado para escrever (o canvas novo). */
+  readonly selectName = input(false);
+  readonly renamed = output<string>();
+  protected readonly fieldId = `nome-quadro-${++seq}`;
 
   private readonly host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
   protected readonly Icons = { voltar: ICON.voltar, cheia: ICON.telaCheia, sair: ICON.diminuir };
   protected readonly fullscreen = signal(typeof document !== 'undefined' && !!document.fullscreenElement);
+
+  constructor() {
+    afterNextRender(() => {
+      if (!this.renamable() || !this.selectName()) return;
+      const field = this.host.querySelector<HTMLInputElement>('.nome-campo');
+      field?.focus();
+      field?.select();
+    });
+  }
+
+  /** Saiu do campo: o nome novo (sem espaços sobrando), se mudou e não ficou vazio. */
+  protected commit(field: HTMLInputElement): void {
+    const name = field.value.replace(/\s+/g, ' ').trim();
+    if (!name) field.value = this.name();
+    else if (name !== this.name()) this.renamed.emit(name);
+  }
 
   protected onFullscreenChange(): void {
     this.fullscreen.set(!!document.fullscreenElement);

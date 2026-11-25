@@ -1,5 +1,6 @@
 @use '../ui/paper-kit' as kit;
 @use '../ui/etiqueta-acoes' as et;
+@use '../ui/etiqueta-topo' as topo;
 
 :host {
   display: block;
@@ -126,73 +127,10 @@
   gap: 8px;
 }
 
-/* ===== O quadro aberto: a parede inteira, por cima do site ===== */
-
-.tela-cheia {
-  position: fixed;
-  inset: 0;
-  z-index: 300;
-  background: var(--wall);
-}
-
-.quadro {
-  position: absolute;
-  inset: 0;
-}
-
-/* o topo do quadro aberto (voltar, nome, tela cheia) é a peça ui/free-board/board-top.ts, a mesma na visita */
-
-/* o Editar e o Pronto do dono, dentro do topo: etiquetas de tinta com o nome, como o voltar e a tela cheia
-   (a peça ui/_etiqueta-acoes.scss; as cores vêm do grupo do topo) */
-.etiqueta-topo {
-  @include et.botao;
-  @include et.mostra;
-  @include et.com-nome;
-}
-
-.etiqueta-topo.editar {
-  @include et.cor-na-mao(var(--etiqueta-amarelo));
-}
-
-.etiqueta-topo.pronto {
-  @include et.cor-na-mao(var(--etiqueta-verde));
-}
-
-/* o Compartilhar (PLANO-COMPARTILHAR.md, rodada 6): a mesma etiqueta, com a cor das pessoas */
+/* o Compartilhar no topo do quadro aberto (pages/board-screen.ts): a etiqueta do topo, com a cor das pessoas */
 .etiqueta-topo.compartilhar {
+  @include topo.etiqueta-topo;
   @include et.cor-na-mao(var(--etiqueta-azul));
-}
-
-/* 44 px para o dedo, e o nome fica também no toque (o com-nome da peça o tira para caber num card) */
-.etiqueta-topo {
-  width: auto;
-  height: 44px;
-  padding: 0 16px 0 12px;
-  gap: 7px;
-  font-size: 0.92rem;
-  letter-spacing: 0.12em;
-}
-
-.aviso {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  translate: -50% -50%;
-  display: grid;
-  gap: 14px;
-  justify-items: center;
-  margin: 0;
-  padding: 20px 26px 18px;
-  background: var(--paper) var(--paper-grain);
-  background-blend-mode: multiply;
-  color: var(--ink);
-  font: 400 1.2rem / 1.35 var(--f-hand);
-  box-shadow: var(--shadow-card);
-  rotate: -0.8deg;
-
-  p {
-    margin: 0;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

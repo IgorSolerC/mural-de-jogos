@@ -1,3 +1,6 @@
+import type { Review } from './review';
+import type { FreeBoard } from './free-board';
+import { canvasAsText } from './free-board-text';
 import { notesAsText } from './note-copy';
 
 const note = (name: string, text: string) => ({ game: { name, coverUrl: null, source: 'manual' as const }, text });
@@ -60,5 +63,14 @@ describe('os widgets na cópia das anotações', () => {
 
   it('o widget fica no lugar dele, entre as outras linhas', () => {
     expect(copy('Antes\n\n{{imagem: https://x.com/a.jpg}}\n\nDepois')).toBe('TÍTULO: N\nDESCRIÇÃO: Antes\n\n{imagem: https://x.com/a.jpg}\n\nDepois');
+  });
+
+  it('o canvas copia o que está escrito no quadro dele (PLANO-CANVAS.md, 3.4)', () => {
+    const board = { v: 1, id: 'Mapa0viagem0Portugal01', nome: 'Mapa', grupo: 'Viagem', em: '2026-11-20T10:00:00.000Z', n: [{ i: 'm1', t: 'm', x: 0, y: 0, w: 500, h: 300, nome: 'Lisboa' }, { i: 'a1', t: 'x', x: 20, y: 40, w: 120, h: 52, txt: 'Pastéis de Belém' }, { i: 'a2', t: 'x', x: 800, y: 40, w: 120, h: 52, txt: 'Sintra' }], e: [{ i: 'e1', a: 'a1', b: 'a2' }] } as unknown as FreeBoard;
+    const canvas = { game: { name: 'Mapa da viagem' }, text: '', canvas: board.id } as Pick<Review, 'game' | 'text' | 'canvas'>;
+    const text = notesAsText([canvas], { now: 0, canvasText: (id) => (id === board.id ? canvasAsText(board) : null) });
+    expect(text).toBe(['TÍTULO: Mapa da viagem', 'DESCRIÇÃO: Lisboa:', '- Pastéis de Belém', '- Sintra', '', 'Setas:', '- Pastéis de Belém → Sintra'].join('\n'));
+    // sem o quadro aqui, só o título
+    expect(notesAsText([canvas], { now: 0 })).toBe('TÍTULO: Mapa da viagem\nDESCRIÇÃO:');
   });
 });

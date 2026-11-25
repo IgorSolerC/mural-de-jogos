@@ -76,25 +76,6 @@
 
 <app-context-menu #menu [caption]="menuCaption()" [sections]="menuSections()" (closed)="menuOn.set(null)" />
 
-<!-- o que só o dono faz no quadro (a peça pede, ver ui/free-board/owner-tools.ts): a anotação e a folha do widget -->
-<app-card-picker
-  [open]="picking()"
-  (openChange)="onPickerOpen($event)"
-  [onlyKind]="notesKind"
-  [doneOption]="false"
-  heading="Pôr uma anotação no quadro"
-  hint="Qualquer anotação sua, de qualquer grupo, como o widget Nota. Ela continua onde está."
-  footHint="Toque numa anotação para pôr no quadro."
-  createLabel="Nova anotação"
-  (picked)="onPicked($event)"
-  (create)="onCreateNote($event)"
-/>
-@if (sheetStart(); as st) {
-  @defer (on immediate) {
-    <app-widget-sheet [start]="st" [swap]="sheetEditing()" [onCard]="false" [inBoard]="true" (done)="onSheetDone($event)" (removed)="onSheetRemoved()" (closed)="onSheetClosed()" />
-  }
-}
-
 <!-- a folha Compartilhar de um quadro (um pedaço à parte, só quando aberta) -->
 @if (sharing(); as id) {
   @defer (on immediate) {
@@ -102,51 +83,12 @@
   }
 }
 
-<!-- o quadro aberto: a tela inteira, só para ver -->
-@if (wantedBoard()) {
-  <div class="tela-cheia" role="dialog" aria-modal="true" [attr.aria-label]="open() ? 'Quadro ' + open()!.nome : 'Quadro'">
-    @if (open(); as b) {
-      @if (camera() !== undefined) {
-        <app-free-board
-          class="quadro"
-          [board]="shownBoard() ?? b"
-          [camera]="camera() ?? null"
-          [editing]="editing()"
-          [owner]="owner"
-          [links]="boardLinks"
-          [autofocus]="true"
-          (cameraChange)="saveCamera(b.id, $event)"
-          (changed)="save($event)"
-          (editToggle)="setEditing($event)"
-          (notice)="toasts.show($event)"
-        />
-      }
-      <app-free-board-top [name]="b.nome" (back)="close()">
-        <button type="button" class="etiqueta-topo compartilhar" aria-haspopup="dialog" (click)="sharing.set(b.id)" title="Quem vê e quem edita o quadro">
-          <lucide-icon [img]="Icons.pessoas" [size]="18" aria-hidden="true" />
-          Compartilhar
-        </button>
-        @if (openRole() === 'leitor') {
-          <!-- quem só lê o quadro de outra pessoa: sem o Editar -->
-        } @else if (editing()) {
-          <button type="button" class="etiqueta-topo pronto" (click)="setEditing(false)" title="Sair do editar (E)">
-            <lucide-icon [img]="Icons.pronto" [size]="18" aria-hidden="true" />
-            Pronto
-          </button>
-        } @else {
-          <button type="button" class="etiqueta-topo editar" (click)="setEditing(true)" title="Editar o quadro (E)">
-            <lucide-icon [img]="Icons.editar" [size]="18" aria-hidden="true" />
-            Editar
-          </button>
-        }
-      </app-free-board-top>
-    } @else if (!loaded()) {
-      <p class="aviso">Trazendo o quadro…</p>
-    } @else {
-      <div class="aviso">
-        <p>Este quadro não está aqui. Ele pode ter sido apagado.</p>
-        <button type="button" class="btn-ink" (click)="close()">Voltar para a lista</button>
-      </div>
-    }
-  </div>
+<!-- o quadro aberto: a tela inteira (pages/board-screen.ts, a mesma do canvas aberto), com o Compartilhar no topo -->
+@if (wantedBoard(); as id) {
+  <app-board-screen [boardId]="id" [startEditing]="id === editNext()" (closed)="close()">
+    <button type="button" class="etiqueta-topo compartilhar" aria-haspopup="dialog" (click)="sharing.set(id)" title="Quem vê e quem edita o quadro">
+      <lucide-icon [img]="Icons.pessoas" [size]="18" aria-hidden="true" />
+      <span class="etiqueta-nome">Compartilhar</span>
+    </button>
+  </app-board-screen>
 }

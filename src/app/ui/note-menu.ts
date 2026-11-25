@@ -9,7 +9,9 @@ import { NoteDone } from '../core/note-done';
 import { notesAsText } from '../core/note-copy';
 import { NotePin } from '../core/note-pin';
 import { Reactions } from '../core/reactions';
-import { Review, isDone, isPinnedNote } from '../core/review';
+import { Review, isCanvas, isDone, isPinnedNote } from '../core/review';
+import { CanvasLink } from '../core/canvas-link';
+import { FreeBoardProblem } from '../core/free-board-store';
 import { canManage, canWrite, removalOf } from '../core/shared-notes';
 import { SharedStore } from '../core/shared-store';
 import { readText } from '../core/storage';
@@ -93,6 +95,7 @@ export class NoteMenu {
   readonly more = input<((r: Review) => MenuItem[]) | null>(null);
 
   private readonly desk = inject(Desk);
+  private readonly canvases = inject(CanvasLink);
   private readonly study = inject(StudyStore);
   private readonly shared = inject(SharedStore);
   private readonly reactions = inject(Reactions);
@@ -122,8 +125,17 @@ export class NoteMenu {
     const note = isNotes(r.kind);
     const entry = mine && note ? (this.shared.get(id) ?? null) : null;
     const writes = mine && (!entry || canWrite(entry.papel));
-    const first: MenuItem[] = [{ id: 'abrir', label: 'Abrir', icon: ICON.aumentar, dialog: true, run: () => this.opened.emit(id) }];
-    if (writes) first.push({ id: 'editar', label: 'Editar', icon: ICON.editar, dialog: true, run: () => this.desk.editReview(id) });
+    // o canvas (PLANO-CANVAS.md, 3.4): o das anotações, sem o Kanban, os Flashcards e o link da leitura; os Detalhes no
+    // lugar do Editar (o quadro se edita aberto), o Copiar leva o que está escrito no quadro, e ele se duplica
+    const canvas = isCanvas(r);
+    const first: MenuItem[] = [{ id: 'abrir', label: 'Abrir', icon: canvas ? ICON.canvas : ICON.aumentar, dialog: true, run: () => this.opened.emit(id) }];
+    if (writes) {
+      first.push(
+        canvas
+          ? { id: 'editar', label: 'Detalhes', icon: ICON.informacao, dialog: true, hint: 'O grupo, a pasta, as tags, a capa e quem vê', run: () => this.desk.editReview(id) }
+          : { id: 'editar', label: 'Editar', icon: ICON.editar, dialog: true, run: () => this.desk.editReview(id) },
+      );
+    }
     // marcar várias para fazer junto (no toque, o jeito de marcar sem o Ctrl): a primeira liga o modo
     const sel = this.selection();
     const edit = this.bulkEdit();
@@ -138,7 +150,7 @@ export class NoteMenu {
     const copy: MenuItem[] = [];
     // a resenha de outra pessoa pode estar coberta (Evitar spoilers): o texto dela não se copia daqui
     if (!this.secret().has(id) && (note || mine)) {
-      copy.push({ id: 'copiar', label: 'Copiar o conteúdo', icon: ICON.copiar, hint: 'O título e o texto, sem as marcas', run: () => void this.copy(r) });
+      copy.push({ id: 'copiar', label: 'Copiar o conteúdo', icon: ICON.copiar, hint: canvas ? 'O título e o que está escrito no quadro' : 'O título e o texto, sem as marcas', run: () => void this.copy(r) });
     }
     // a anotação é uma das marcadas (Ctrl+clique): copiar todas, como o Ctrl+C (com as de dentro das pastas marcadas)
     const marked = sel?.marking() ? sel.count() : 0;
@@ -147,7 +159,7 @@ export class NoteMenu {
     }
     const code = this.linkCode(r, entry);
     // (a ficha em segredo de quem se visita não dá nada dela, nem o link)
-    if (code && hasLink(r) && !this.secret().has(id)) {
+    if (code && hasLink(r) && !canvas && !this.secret().has(id)) {
       copy.push({ id: 'link', label: 'Copiar o link', icon: ICON.link, hint: `O endereço que abre só esta ${note ? 'anotação' : 'ficha'}`, run: () => void this.copyLink(code, r, mine && !entry) });
     }
 
@@ -168,7 +180,7 @@ export class NoteMenu {
       }
       // a carta é de cada um, também na compartilhada de quem só lê: o editor na aba Flashcard (vira carta, ou muda a frente e os baralhos)
       const card = this.study.cardOf().has(id);
-      act.push({
+      if (!canvas) act.push({
         id: 'estudar',
         label: card ? 'Editar o flashcard' : 'Transformar em flashcard…',
         icon: ICON.camadas,
@@ -177,7 +189,9 @@ export class NoteMenu {
         run: () => this.desk.editReview(id, 'flashcard'),
       });
       // dividir com outras pessoas (ou ver quem está, para quem não gere a anotação)
-      act.push({ id: 'compartilhar', label: !entry || canManage(entry.papel) ? 'Compartilhar' : 'Pessoas', icon: ICON.pessoas, dialog: true, run: () => this.openShare(id, a.back) });
+      // (o canvas se compartilha a partir da rodada 4 do PLANO-CANVAS.md: antes disso, a anotação iria sem o quadro)
+      if (!canvas) act.push({ id: 'compartilhar', label: !entry || canManage(entry.papel) ? 'Compartilhar' : 'Pessoas', icon: ICON.pessoas, dialog: true, run: () => this.openShare(id, a.back) });
+      if (canvas && writes && !entry) act.push({ id: 'duplicar', label: 'Duplicar', icon: ICON.duplicar, hint: 'Um canvas novo igual a este, ao lado', run: () => void this.duplicate(id) });
     }
     if (mine && !a.board) act.push(...(this.more()?.(r) ?? []));
 
@@ -210,6 +224,16 @@ export class NoteMenu {
     if (entry && entry.papel !== 'dono') return entry.dono.codigo;
     if (this.owner() === null) return this.reactions.myCode();
     return r.sharedBy?.codigo ?? this.ownerCode();
+  }
+
+  /** Duplica o canvas (o quadro e a anotação), com o Abrir no bilhete. */
+  private async duplicate(id: string): Promise<void> {
+    try {
+      const copy = await this.canvases.duplicate(id);
+      if (copy) this.toasts.show(`${copy.game.name} foi criado`, { label: 'Abrir', run: () => this.opened.emit(copy.id) });
+    } catch (e) {
+      this.toasts.show(e instanceof FreeBoardProblem ? e.message : 'Não deu para duplicar o canvas.');
+    }
   }
 
   /** O texto de uma ficha só, como o Ctrl+C das marcadas copia (ver core/note-copy.ts). */

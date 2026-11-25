@@ -327,7 +327,18 @@ Marcar o Andamento (seção 9).
   16:10 do plano dava 134px e passava da regra 2.5. O quadro vem da vista (`WallState.canvasBoard`): o seu
   pelo `FreeBoardStore`, o da visita pelos quadros públicos (`VisitBoards`, trazidos quando há canvas no
   mural). DESIGN.md "Canvas na parede". Sem Novidades: ainda não há como criar um canvas (rodada 3).
-- [ ] Rodada 3: criar e abrir
+- [x] Rodada 3: criar e abrir (25/nov, BUILD 1051): "Novo canvas aqui" / "Novo canvas" no menu do nada e no da
+  pasta (`WallBoard.createCanvas`, a página cria pelo `CanvasLink`), a rota `/anotacoes/canvas/:id`
+  (`pages/canvas-page.ts`) sobre a tela cheia que saiu de `free-boards-page.ts` para `pages/board-screen.ts` (a
+  aba velha a usa até a rodada 5, e não lista mais os quadros dos canvas). Todo "abrir anotação" (o `openReview`
+  da mesa) leva o canvas para a rota dele. O topo escreve o nome (`FreeBoardTop.renamable`) e tem os Detalhes; no
+  celular, as etiquetas do topo ficam só com o desenho. O editor em modo canvas (só a aba Canvas: sem texto,
+  cartolina, Kanban e Flashcard), que agora leva o campo `canvas` ao salvar (a anotação é salva a partir da
+  prévia: sem isso, virava cartolina até recarregar). O menu do card: Detalhes, Copiar (o texto do quadro,
+  `canvasAsText`), Duplicar; sem Kanban, Flashcards, link e Compartilhar (este volta na rodada 4). Apagar pelo
+  caminho de sempre (o elo leva o quadro e o traz de volta no Desfazer). Na visita, o canvas abre o quadro público
+  pela tela de quadros dela (`visitBoardPath`); a rota própria da visita fica para a rodada 5, quando a fileira
+  "Quadro livre" sai. Os endereços antigos do Quadro livre também ficam para a rodada 5. Novidades 1.55.0.
 - [ ] Rodada 4: compartilhar e nuvem
 - [ ] Rodada 5: a conversão e o fim da aba
 - [ ] Rodada 6: fechamento

@@ -55,7 +55,8 @@ import { StudyGroupTabs, StudyTab } from './study-group-tabs';
       </div>
     }
   `,
-  styleUrl: '../pages/free-boards-page.scss',
+  // a lista e a tela cheia do quadro são as do dono (a aba Quadro livre e pages/board-screen.ts)
+  styleUrls: ['../pages/free-boards-page.scss', '../pages/board-screen.scss'],
 })
 export class VisitBoardsView {
   readonly name = input.required<string>();

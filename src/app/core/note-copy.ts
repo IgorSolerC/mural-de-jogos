@@ -19,10 +19,11 @@ import { CopyContext } from './widgets';
  * DESCRIÇÃO: Protetor
  * ```
  */
-export function notesAsText(notes: readonly Pick<Review, 'game' | 'text'>[], ctx: CopyContext = { now: Date.now() }): string {
+export function notesAsText(notes: readonly Pick<Review, 'game' | 'text' | 'canvas'>[], ctx: CopyContext = { now: Date.now() }): string {
   return notes
     .map((n, i) => {
-      const text = copyText(n.text ?? '', ctx).trim();
+      // o canvas: o que está escrito no quadro dele, em lista (PLANO-CANVAS.md, 3.4)
+      const text = (n.canvas ? (ctx.canvasText?.(n.canvas) ?? '') : copyText(n.text ?? '', ctx)).trim();
       const number = notes.length > 1 ? `${i + 1}.\n` : '';
       return `${number}TÍTULO: ${n.game.name.trim()}\nDESCRIÇÃO:${text ? ` ${text}` : ''}`;
     })

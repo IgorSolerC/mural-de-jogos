@@ -1,6 +1,9 @@
 import { Component, input, provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
+import { canvasNoteId } from '../core/canvas-id';
+import { visitBoardPath } from '../core/areas';
+import { studyGroupId } from '../core/study';
 import { Colleague, ColleagueStore, wallOf } from '../core/colleague-store';
 import { Mural } from '../core/mural';
 import { Profile } from '../core/profile';
@@ -236,6 +239,26 @@ describe('O mural de outra pessoa (ColleagueWallPage)', () => {
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('.resumo')!.textContent!.trim()).toBe('2 jogos · 2 em segredo');
+  });
+
+  it('o canvas dela abre o quadro público em tela cheia, como o seu abre o seu, e não a leitura (PLANO-CANVAS.md, 3.2)', async () => {
+    const canvas = sanitizeReview({
+      id: canvasNoteId('Mapa0viagem0Portugal01'),
+      kind: 'anotacoes',
+      game: { name: 'Mapa da viagem', coverUrl: null, source: 'manual' },
+      text: '',
+      category: 'Viagem',
+      completedAt: '2026-10-20',
+      createdAt: '2026-10-20T12:00:00.000Z',
+      updatedAt: '2026-10-20T12:00:00.000Z',
+    })!;
+    const fixture = create(marina({ reviews: [canvas] }));
+    TestBed.inject(Mural).kind.set('anotacoes');
+    await settle();
+    const router = TestBed.inject(Router);
+    const go = spyOn(router, 'navigateByUrl').and.resolveTo(true);
+    (fixture.componentInstance as unknown as { open(id: string): void }).open(canvas.id);
+    expect(go).toHaveBeenCalledWith(visitBoardPath(studyGroupId('Viagem'), 'Mapa0viagem0Portugal01'));
   });
 
   it('sem ninguém aberto: o caminho para o Comparar', async () => {

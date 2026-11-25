@@ -1,5 +1,6 @@
 import { CloudSync } from './core/cloud-sync';
 import { CanvasLink } from './core/canvas-link';
+import { isCanvas } from './core/review';
 import { NewerBuild } from './core/newer-build';
 import { NoteFolders } from './core/note-folders';
 import { CloudMurals } from './core/cloud-murals';
@@ -8,7 +9,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { ICON, IconModule } from './ui/icons';
 import { filter, map } from 'rxjs';
-import { AUTHORIZE_PATH, CALENDAR_PATH, PIXEL_ARTS_PATH, SPENDING_PATH, areaOf, isVisitPath, listOf, pathOf, reviewPath, wallPath } from './core/areas';
+import { AUTHORIZE_PATH, CALENDAR_PATH, PIXEL_ARTS_PATH, SPENDING_PATH, areaOf, canvasPath, isVisitPath, listOf, pathOf, reviewPath, wallPath } from './core/areas';
 import { Backup } from './core/backup';
 import { Desk, EditorPart, EditorTab } from './core/desk';
 import { keptMessage } from './core/kept-versions';
@@ -248,7 +249,11 @@ export class App {
       newReview: () => this.newReview(),
       openReview: (id, fromId) => {
         const r = this.store.get(id);
-        if (r) this.reader().open(r, null, [], false, null, (fromId && this.store.get(fromId)) || null);
+        // o canvas abre em tela cheia, e não na leitura (PLANO-CANVAS.md, D4): de qualquer lugar (a parede, a busca, um link)
+        if (r && isCanvas(r)) {
+          this.reader().close();
+          void this.router.navigateByUrl(canvasPath(r.id), { state: { voltar: this.router.url } });
+        } else if (r) this.reader().open(r, null, [], false, null, (fromId && this.store.get(fromId)) || null);
       },
       // da ficha do mural: a nova herda a categoria, e o editor fecha de volta no mural
       newNote: (title, fromId) => this.newNote(title, fromId ?? null, false),
@@ -453,7 +458,9 @@ export class App {
     const sure = await this.confirm.ask({
       text: revisits.length
         ? `${what} sai do mural, com as notas e o texto. ${revisits.length === 1 ? `A ${p.revisit.one} fica e passa a ser a original.` : `As ${revisitCountOf(p, revisits.length)} ficam, e a mais antiga passa a ser a original.`}`
-        : isNotes(r.kind)
+        : isCanvas(r)
+          ? `${what} sai do mural, com o quadro e as peças dele.`
+          : isNotes(r.kind)
           ? `${what} sai do mural, com o texto.`
           : `${what} sai do mural, com as notas e o texto.`,
       confirm: 'Remover do mural',

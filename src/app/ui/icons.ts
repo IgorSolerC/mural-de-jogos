@@ -72,6 +72,7 @@ import {
   Coins,
   Columns3,
   Copy,
+  CopyPlus,
   CopyCheck,
   CornerDownRight,
   Cpu,
@@ -194,6 +195,7 @@ import {
   Plane,
   Play,
   Plus,
+  Presentation,
   Puzzle,
   Quote,
   Redo2,
@@ -624,6 +626,10 @@ export const ICON = {
   semEstrela: StarOff,
   etiqueta: Tag,
   etiquetas: Tags,
+  /** O canvas (PLANO-CANVAS.md): o quadro no cavalete, o "Novo canvas aqui" e o que abre um. */
+  canvas: Presentation,
+  /** Duplicar um canvas (o quadro e a anotação, PLANO-CANVAS.md 3.4): a cópia ao lado, e não o copiar do texto. */
+  duplicar: CopyPlus,
   /** As pastas das anotações (PLANO-PASTAS.md): a pasta, uma nova, guardar numa e desfazer uma. */
   pastaDeNotas: Folder,
   novaPasta: FolderPlus,

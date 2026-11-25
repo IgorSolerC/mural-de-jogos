@@ -51,6 +51,8 @@ export const routes: Routes = [
   { path: 'anotacoes/estudos/:grupo', title: 'Flashcards', canActivate: [enterNotes], loadComponent: study },
   { path: 'anotacoes/estudos/:grupo/:baralho', title: 'Flashcards', canActivate: [enterNotes], loadComponent: study },
   // o Calendário morava aqui até 02/nov/2026: o endereço de antes vai para o novo com a query (dia, lembrete)
+  // o canvas aberto (PLANO-CANVAS.md, 3.2): o id da anotação
+  { path: 'anotacoes/canvas/:id', title: 'Canvas', canActivate: [enterNotes], loadComponent: () => import('./pages/canvas-page').then((m) => m.CanvasPage) },
   { matcher: freeBoardMatcher, title: 'Quadro livre', canActivate: [enterNotes], loadComponent: () => import('./pages/free-boards-page').then((m) => m.FreeBoardsPage) },
   { path: 'anotacoes/calendario', redirectTo: toCalendar },
   { path: 'analises', pathMatch: 'full', redirectTo: toReviews() },

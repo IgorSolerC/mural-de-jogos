@@ -1,3 +1,5 @@
+import { FreeBoardStore } from './free-board-store';
+import { canvasAsText } from './free-board-text';
 import { Injectable, inject } from '@angular/core';
 import { CardFinder } from './card-finder';
 import { ReminderLinks } from './reminder-links';
@@ -13,9 +15,18 @@ import { CopyContext } from './widgets';
 export class CopyContexts {
   private readonly cards = inject(CardFinder);
   private readonly reminders = inject(ReminderLinks);
+  private readonly boards = inject(FreeBoardStore);
 
   /** O contexto da cópia feita agora. */
   now(): CopyContext {
-    return { now: Date.now(), cardTitle: (id) => this.cards.find(id)?.review.game.name ?? null, reminderDate: (id) => this.reminders.dateOf(id) };
+    return {
+      now: Date.now(),
+      cardTitle: (id) => this.cards.find(id)?.review.game.name ?? null,
+      reminderDate: (id) => this.reminders.dateOf(id),
+      canvasText: (id) => {
+        const board = this.boards.get(id);
+        return board ? canvasAsText(board) : null;
+      },
+    };
   }
 }
