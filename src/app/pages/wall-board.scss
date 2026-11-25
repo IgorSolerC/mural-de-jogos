@@ -466,6 +466,23 @@
   }
 }
 
+/* o canvas (PLANO-CANVAS.md, 2.3): o tracejado e o número em volta da moldura, e não do prego (--cv-topo: a altura
+   do prego e do barbante; embaixo, a folga da fita Dymo) */
+.lugar[data-marcada] > app-review-card.canvas {
+  &.picking::after {
+    top: calc(var(--cv-topo) - 12px);
+  }
+
+  &:not([data-veu])::before {
+    inset: calc(var(--cv-topo) - 8px) -8px 6px;
+    border-radius: 11px;
+  }
+
+  &::after {
+    top: calc(var(--cv-topo) - 26px);
+  }
+}
+
 @keyframes marca-cola {
   from {
     scale: 0.6;

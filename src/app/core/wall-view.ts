@@ -6,6 +6,7 @@ import { KANBAN_LAST_KEY, boardIdFor } from './kanban';
 import { KanbanStore } from './kanban-store';
 import { FreeBoardStore } from './free-board-store';
 import { canvasSearchText } from './free-board-text';
+import type { FreeBoard } from './free-board';
 import { SharedStore } from './shared-store';
 import { Kind, KindProfile, countOf, hasTabs, isMusic, isNotes, revisitCountOf } from './kinds';
 import { Mural } from './mural';
@@ -270,10 +271,18 @@ export abstract class WallState {
   /** As pastas das anotações do dono do mural (as suas, ou as públicas de quem você visita; core/folders.ts). */
   abstract readonly folders: Signal<FolderTree>;
   /**
-   * O que está escrito no quadro de cada canvas, já dobrado, para a busca (PLANO-CANVAS.md, 4.2); '' na ficha que
-   * não é canvas, ou quando o quadro não está aqui. Sem quadros (a visita, por enquanto), nada.
+   * O quadro de cada canvas (PLANO-CANVAS.md), pelo id: os seus, ou os públicos de quem você visita. null: o quadro
+   * ainda não chegou (ou não é para ver). A parede o desenha no canvas, e a busca procura no que está escrito nele.
    */
-  readonly canvasText: Signal<(r: Review) => string> = signal(() => '');
+  readonly canvasBoard: Signal<(id: string) => FreeBoard | null> = signal(() => null);
+  /** O que está escrito no quadro de cada canvas, já dobrado, para a busca (4.2); '' na ficha que não é canvas. */
+  readonly canvasText = computed<(r: Review) => string>(() => {
+    const board = this.canvasBoard();
+    return (r) => {
+      const b = r.canvas ? board(r.canvas) : null;
+      return b ? canvasSearchText(b) : '';
+    };
+  });
   /**
    * A ordem das categorias montada à mão pelo dono (a engrenagem do mural, ver core/mural-config.ts),
    * pela chave; null, da maior para a menor. Só o seu mural tem: a de quem visita não vem junto.
@@ -1213,14 +1222,11 @@ export class WallView extends WallState {
   readonly categoryLooks = this.settings.categoryLooks.asReadonly();
   readonly folders = inject(NoteFolders).tree;
   private readonly freeBoards = inject(FreeBoardStore);
-  override readonly canvasText = computed<(r: Review) => string>(() => {
-    // (a lista diz quando mudou; o texto sai do guardado, que é o mesmo objeto até mudar: a lista refaz os de outra
-    // pessoa a cada mudança, com o grupo daqui)
+  override readonly canvasBoard = computed<(id: string) => FreeBoard | null>(() => {
+    // (a lista diz quando mudou; o quadro sai do guardado, que é o mesmo objeto até mudar: a lista refaz os de outra
+    // pessoa a cada mudança, com o grupo daqui, e o texto da busca se refaria junto)
     this.freeBoards.boards();
-    return (r) => {
-      const board = r.canvas ? this.freeBoards.get(r.canvas) : null;
-      return board ? canvasSearchText(board) : '';
-    };
+    return (id) => this.freeBoards.get(id);
   });
   override readonly categoryOrder = computed(() => activeOrder(this.settings.notesConfig()));
   override readonly madeGroups = computed<readonly string[]>(() => this.settings.madeGroups().map((g) => g.label));

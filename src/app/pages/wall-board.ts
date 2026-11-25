@@ -174,6 +174,7 @@ export class WallBoard {
     times: this.view.times(),
     boardOnly: this.shownBoard(),
     studyOnly: this.view.studyOnly(),
+    canvasBoard: this.view.canvasBoard(),
     folders: this.cardFolders(),
     // nas anotações, o número das marcadas é pintado só nelas (ver NoteSelection.paint e o .picking::after do
     // wall-board.scss): marcar uma não refaz as entradas de todas as fichas da parede

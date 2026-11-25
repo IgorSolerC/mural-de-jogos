@@ -1,7 +1,9 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { NO_FOLDERS, foldersOfSnapshot } from './folders';
 import { ColleagueStore } from './colleague-store';
-import { Review } from './review';
+import { Review, isCanvas } from './review';
+import { VisitBoards } from './visit-boards';
+import type { FreeBoard } from './free-board';
 import { SpoilerShield } from './spoiler-shield';
 import { WallMotion } from './wall-motion';
 import { VISIT_KEY, WallState } from './wall-view';
@@ -57,6 +59,17 @@ export class VisitView extends WallState {
     return [...own, ...groups.filter((r) => !ids.has(r.id))];
   });
 
+  /**
+   * Os quadros públicos da pessoa (core/visit-boards.ts): o canvas da visita é o mesmo do dono, desenhado com o
+   * quadro dela. Com algum canvas no mural, a lista é trazida (a mesma da seção dos quadros, só na memória).
+   */
+  private readonly visitBoards = inject(VisitBoards);
+  override readonly canvasBoard = computed<(id: string) => FreeBoard | null>(() => {
+    const byId = new Map(this.visitBoards.boards().map((b) => [b.id, b]));
+    return (id) => byId.get(id) ?? null;
+  });
+  private readonly hasCanvas = computed(() => this.wall().some(isCanvas));
+
   /** "Mostrar notas": de quem (o id da pessoa), para outra pessoa abrir seguindo Ajustes de novo. */
   private readonly revealedFor = signal<string | null>(null);
   override readonly revealed = computed(() => !!this.colleague() && this.revealedFor() === this.colleague()!.id);
@@ -90,6 +103,11 @@ export class VisitView extends WallState {
     effect(() => {
       const code = this.code();
       untracked(() => void this.publicGroups.load(code));
+    });
+    // os quadros públicos dela, quando o mural tem canvas (o desenho de cada um é o quadro)
+    effect(() => {
+      const code = this.code();
+      if (code && this.hasCanvas()) untracked(() => void this.visitBoards.load(code));
     });
   }
 

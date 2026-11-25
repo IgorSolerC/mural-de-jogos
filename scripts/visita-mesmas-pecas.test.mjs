@@ -92,6 +92,12 @@ const PECAS = [
     o: 'os Detalhes da anotação aberta, na folha ao lado da leitura (PLANO-LEITURA-UNIFICADA.md)',
   },
   {
+    peca: 'src/app/ui/canvas-card.ts',
+    usa: 'app-canvas-card',
+    marcas: [/<svg class="barbante" viewBox/, /<span class="dymo" aria-hidden="true">\{\{ name\(\) \}\}/],
+    o: 'o canvas na parede (PLANO-CANVAS.md): o eucatex pendurado no prego, com a miniatura do quadro e a fita Dymo',
+  },
+  {
     peca: 'src/app/ui/voz-fita.ts',
     usa: 'app-voz-fita',
     marcas: [/class="fita" role="group" aria-label="Ouvir a nota"/],
@@ -105,6 +111,8 @@ const VISITA = [
   { molde: 'src/app/pages/colleague-wall-page.html', pecas: ['app-wall-board', 'app-wall-toolbar', 'app-review-reader', 'app-visit-study', 'app-visit-boards'] },
   { molde: 'src/app/ui/visit-boards.ts', pecas: ['app-study-group-tabs', 'app-free-board-card', 'app-free-board', 'app-free-board-top'] },
   { molde: 'src/app/ui/visit-kanban.ts', pecas: ['app-study-group-tabs', 'app-kanban-column-head', 'app-kanban-note'] },
+  // a ficha da parede (a mesma do dono, na visita, pelo pool do mural) desenha o canvas pela peça
+  { molde: 'src/app/ui/review-card.ts', pecas: ['app-canvas-card'] },
   // a ficha aberta (a mesma do dono, na visita) traz a fita da voz
   // e o "+" que abre outra anotação ao lado, com o seletor de sempre (as anotações que a pessoa publicou)
   // e os Detalhes da anotação, na folha ao lado (PLANO-LEITURA-UNIFICADA.md)
@@ -136,6 +144,7 @@ const SO_LEEM = [
   'src/app/core/visit-groups.ts',
   'src/app/ui/section-head.ts',
   'src/app/ui/voz-fita.ts',
+  'src/app/ui/canvas-card.ts',
   'src/app/ui/reader-details.ts',
   'src/app/ui/voz-frases.ts',
   'src/app/ui/voz-estudo.ts',

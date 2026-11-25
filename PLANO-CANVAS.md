@@ -320,7 +320,13 @@ Marcar o Andamento (seção 9).
   Desfazer, duplicar, o reconciliador), o quadro do canvas fica no apagar do grupo, os filtros (Kanban pelo
   `notesById`, Flashcards, `CardPicker`, widget Nota, Calendário) e a busca pelo texto do quadro
   (`canvasSearchText`, `WallState.canvasText`; a visita ainda não busca no quadro: rodada 2 ou 3).
-- [ ] Rodada 2: o card na parede
+- [x] Rodada 2: o card na parede (25/nov, BUILD 1050): `ui/canvas-card.ts` (o desenho), montado pela própria
+  `ReviewCard` no modo canvas (e não um segundo componente no pool: assim o clique, o marcar, o teclado, os
+  botões de hover, o véu de entrada e a visita vêm da ficha de sempre; os pedaços que ficam na moldura viram
+  `ng-template`s projetados nela). As quatro vistas; na Visão geral a altura é a das outras fichas (98px): o
+  16:10 do plano dava 134px e passava da regra 2.5. O quadro vem da vista (`WallState.canvasBoard`): o seu
+  pelo `FreeBoardStore`, o da visita pelos quadros públicos (`VisitBoards`, trazidos quando há canvas no
+  mural). DESIGN.md "Canvas na parede". Sem Novidades: ainda não há como criar um canvas (rodada 3).
 - [ ] Rodada 3: criar e abrir
 - [ ] Rodada 4: compartilhar e nuvem
 - [ ] Rodada 5: a conversão e o fim da aba

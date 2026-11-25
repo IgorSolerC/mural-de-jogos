@@ -1,0 +1,169 @@
+@use '../../../shared/eucatex';
+
+/* ===== O canvas na parede (PLANO-CANVAS.md, 2.1): eucatex na moldura de alumínio, pendurado num prego =====
+   A ficha (review-card.ts) gira tudo em volta do prego e diz, pelas variáveis, o que muda com o mouse: a sombra
+   longe encurta (--cv-longe) e o anel do foco do teclado (--cv-foco) fica a 5px da moldura. --cv-topo: a altura
+   do prego e do barbante acima da moldura. */
+:host {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.pendurado {
+  position: relative;
+  padding-top: var(--cv-topo, 50px);
+}
+
+/* o prego: metal, com o brilho em cima à esquerda e a sombra curta de quem está cravado na parede */
+.prego {
+  position: absolute;
+  top: 0;
+  left: calc(50% - 6px);
+  z-index: 2;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f4f4f0 0 18%, #a7abb0 45%, #55595e 100%);
+  box-shadow: 1px 3px 3px rgb(0 0 0 / 0.6);
+}
+
+/* o barbante: do prego até a beirada de cima, entrando por trás da moldura e da orelha (z -5, atrás de tudo) */
+.barbante {
+  position: absolute;
+  top: 5px;
+  left: 13%;
+  z-index: -5;
+  width: 74%;
+  height: calc(var(--cv-topo, 50px) + 8px);
+  overflow: visible;
+
+  path {
+    fill: none;
+    stroke: #e3d5b4;
+    stroke-width: 1.8;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+    filter: drop-shadow(1px 1px 1px rgb(0 0 0 / 0.55));
+  }
+}
+
+/* a moldura: alumínio escovado, com a espessura aparecendo à direita e embaixo (ela tem corpo) e a sombra caindo
+   longe, porque está afastada da parede pelo barbante */
+.moldura {
+  position: relative;
+  padding: 7px;
+  border-radius: 3px;
+  background: linear-gradient(135deg, #d9dcdf 0%, #9ea3a8 22%, #eef0f1 48%, #8f949a 74%, #c9ccd0 100%);
+  box-shadow:
+    3px 4px 0 #6d7176,
+    4px 5px 0 #4b4e52,
+    var(--cv-longe, 10px 22px 26px rgb(0 0 0 / 0.55));
+  outline: var(--cv-foco, 0 solid transparent);
+  outline-offset: 5px;
+  transition: box-shadow var(--t-physical) var(--ease-physical);
+}
+
+/* o eucatex: o grafite da parede, em ponto pequeno, fundo na moldura */
+.eucatex {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  @include eucatex.eucatex(#2b2926, var(--wall-hole), $luz: false, $passo: 9px);
+
+  /* a moldura faz sombra para dentro, por cima do que estiver desenhado */
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    box-shadow: inset 0 2px 5px rgb(0 0 0 / 0.8);
+    pointer-events: none;
+  }
+
+  app-board-sketch {
+    position: absolute;
+    inset: 0;
+    --sketch-respiro: 9px;
+  }
+}
+
+/* sem peças: escrito a giz no meio do eucatex */
+.vazio {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font: 400 0.95rem var(--f-hand);
+  color: var(--wall-ink-2);
+}
+
+/* com capa: a foto encapada no plástico de contato, preenchendo o eucatex */
+.capa {
+  position: absolute;
+  inset: 7px;
+
+  ::ng-deep .frame {
+    aspect-ratio: auto;
+    height: 100%;
+  }
+}
+
+/* a fita Dymo com o nome, presa na beirada de baixo, torta e saindo para baixo da moldura */
+.dymo {
+  position: absolute;
+  left: 18px;
+  bottom: -14px;
+  z-index: 3;
+  max-width: calc(100% - 44px);
+  overflow: hidden;
+  padding: 5px 11px 4px;
+  background: #121212;
+  color: #ebe5d8;
+  font: 700 0.95rem / 1 var(--f-label);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  rotate: -1.5deg;
+  box-shadow: 0 2px 3px rgb(0 0 0 / 0.5);
+  /* as letras em relevo: a fita empurrada por baixo */
+  text-shadow:
+    0 -1px 0 rgb(0 0 0 / 0.6),
+    0 1px 0 rgb(255 255 255 / 0.25);
+}
+
+/* ===== Visão geral: deitado na mesa, sem prego, a moldura mais baixa (16:10) e a fita menor ===== */
+:host(.geral) {
+  .pendurado {
+    padding-top: 0;
+  }
+
+  .moldura {
+    padding: 5px;
+    box-shadow:
+      2px 3px 0 #6d7176,
+      3px 4px 0 #4b4e52,
+      var(--cv-longe, 0 6px 10px rgb(0 0 0 / 0.45));
+  }
+
+  /* a altura das outras fichas da Visão geral (98px, com a folga da fita): o canvas nunca passa delas (2.5) */
+  .eucatex {
+    aspect-ratio: auto;
+    height: 77px;
+  }
+
+  .dymo {
+    left: 12px;
+    bottom: -11px;
+    max-width: calc(100% - 30px);
+    padding: 4px 9px 3px;
+    font-size: 0.78rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .moldura {
+    transition: none;
+  }
+}

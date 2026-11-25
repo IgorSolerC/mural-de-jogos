@@ -4,20 +4,25 @@
 // na parede de eucatex do perfil (`src/app/ui/_profile-materials.scss`, gerado por `scripts/paredes.py`) e
 // no véu das beiradas do Kanban; o cofre, no body dele (`projects/cofre/src/styles.scss`).
 
-/* `$luz: false` para um pedaço de parede pequeno, que fica sem o tubo em cima (as prévias) */
-@mixin eucatex($cor, $buraco, $luz: true) {
+@use 'sass:math';
+
+/* `$luz: false` para um pedaço de parede pequeno, que fica sem o tubo em cima (as prévias). `$passo`: a
+   distância entre os furos; menor, a parede em ponto pequeno (o eucatex dentro da moldura de um canvas) */
+@mixin eucatex($cor, $buraco, $luz: true, $passo: 26px) {
+  $k: math.div($passo, 26px);
+  $meio: $passo * 0.5;
   $furos:
-    radial-gradient(circle at 13px 14px, rgb(255 255 255 / 0.05) 2.4px, transparent 3px),
-    radial-gradient(circle at 13px 13px, $buraco 2.6px, transparent 3.2px);
+    radial-gradient(circle at $meio ($meio + 1px * $k), rgb(255 255 255 / 0.05) 2.4px * $k, transparent 3px * $k),
+    radial-gradient(circle at $meio $meio, $buraco 2.6px * $k, transparent 3.2px * $k);
   background-color: $cor;
   @if $luz {
     /* a luz ocupa só os 900 px de cima: os mesmos pixels de uma camada da página inteira, menos para pintar */
     background-image: radial-gradient(ellipse 90% 900px at 50% -120px, rgb(255 250 235 / 0.1), transparent 70%), $furos;
-    background-size: 100% 900px, 26px 26px, 26px 26px;
+    background-size: 100% 900px, $passo $passo, $passo $passo;
     background-repeat: no-repeat, repeat, repeat;
   } @else {
     background-image: $furos;
-    background-size: 26px 26px;
+    background-size: $passo $passo;
     background-repeat: repeat;
   }
   background-position: 0 0;

@@ -4,7 +4,9 @@ import { FolderTree, folderNameOf } from '../core/folders';
 import { ICON, IconModule } from './icons';
 import { CategoryLabel } from './category-label';
 import { CategoryLook, CategoryLooks, categoryColorHex, lookKey } from '../core/category-looks';
-import { Review, isDone, isPinnedNote } from '../core/review';
+import { Review, isCanvas, isDone, isPinnedNote } from '../core/review';
+import type { FreeBoard } from '../core/free-board';
+import { canvasPieces } from './canvas-card';
 import { checkCount } from '../core/rich-text';
 import { notebookDate } from '../core/notebook';
 import { pinningFor } from '../core/wall-physics';
@@ -18,6 +20,8 @@ interface Row {
   stock: string;
   date: string;
   tasks: { done: number; total: number } | null;
+  /** O canvas (PLANO-CANVAS.md, 2.6): a moldurinha no lugar da tirinha, e as peças no lugar das tarefas. */
+  canvas: { pieces: number | null } | null;
   pinned: boolean;
   done: boolean;
   /** Só no Kanban (à mostra no mural pelo "Mostrar" da pasta). */
@@ -44,7 +48,10 @@ interface Row {
       @for (r of rows(); track r.id) {
         <li class="linha" [attr.data-ficha]="r.id" [class.feita]="r.done" [style.--cor]="r.stock">
           <button type="button" class="hit" (click)="opened.emit(r.id)">
-            <span class="cor" aria-hidden="true"></span>
+            <span class="cor" [class.moldurinha]="!!r.canvas" aria-hidden="true"></span>
+            @if (r.canvas) {
+              <span class="sr-only">Canvas: </span>
+            }
             <span class="nome-linha">
               <span class="titulo">{{ r.title }}</span>
               @if (r.pinned) {
@@ -71,9 +78,13 @@ interface Row {
             } @else {
               <span aria-hidden="true"></span>
             }
-            <span class="meta">
+            <span class="meta" [class.pecas]="!!r.canvas?.pieces">
               <span class="tarefas" [class.todas]="r.tasks && r.tasks.done === r.tasks.total">
-                @if (r.tasks; as k) {
+                @if (r.canvas; as c) {
+                  @if (c.pieces) {
+                    {{ c.pieces === 1 ? '1 peça' : c.pieces + ' peças' }}
+                  }
+                } @else if (r.tasks; as k) {
                   {{ k.done }}/{{ k.total }}<span class="sr-only"> tarefas feitas</span>
                 }
               </span>
@@ -153,6 +164,13 @@ interface Row {
       background: var(--cor);
       box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.18);
     }
+    /* o canvas: uma moldurinha de alumínio com o grafite dentro, do tamanho da tirinha */
+    .cor.moldurinha {
+      border: 2px solid #b3b7bc;
+      border-radius: 1px;
+      background: #2b2926;
+      box-shadow: 0 1px 1px rgb(0 0 0 / 0.35);
+    }
 
     .nome-linha {
       display: flex;
@@ -230,10 +248,15 @@ interface Row {
       letter-spacing: 0.04em;
       font-variant-numeric: tabular-nums;
     }
+    /* as peças do canvas ("13 peças") são mais compridas que as tarefas ("2/4"): a coluna cresce só nessa linha */
+    .meta.pecas {
+      grid-template-columns: auto 5ch;
+    }
 
     .tarefas {
       text-align: right;
       opacity: 0.7;
+      white-space: nowrap;
       &.todas {
         color: #1f7a3c;
         opacity: 1;
@@ -347,6 +370,8 @@ export class NoteIndex {
   readonly boardOnly = input<ReadonlySet<string>>(new Set());
   /** Das de cima, as fora do mural só por causa dos Estudos. */
   readonly studyOnly = input<ReadonlySet<string>>(new Set());
+  /** O quadro de cada canvas (ver `WallState.canvasBoard`): a linha diz quantas peças ele tem. */
+  readonly canvasBoard = input<(id: string) => FreeBoard | null>(() => null);
   readonly opened = output<string>();
 
   protected readonly PinIcon = ICON.fixar;
@@ -368,6 +393,7 @@ export class NoteIndex {
         stock: `var(--stock-${pinningFor(r.id, r.stock).stock})`,
         date: shortDay(r.completedAt),
         tasks: tasks.total ? tasks : null,
+        canvas: isCanvas(r) ? { pieces: canvasPieces(r.canvas ? this.canvasBoard()(r.canvas) : null) } : null,
         pinned: isPinnedNote(r),
         done: isDone(r),
         board: this.boardOnly().has(r.id),

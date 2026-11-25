@@ -16,6 +16,7 @@ import {
   untracked,
 } from '@angular/core';
 import { Review, ScoreKey } from '../core/review';
+import type { FreeBoard } from '../core/free-board';
 import { Settings } from '../core/settings';
 import { pinningFor } from '../core/wall-physics';
 import { onWallSettle } from '../core/wall-settle';
@@ -62,6 +63,8 @@ export interface WallCardProps {
   boardOnly: ReadonlySet<string>;
   /** As fora do mural só por causa dos Estudos (a etiqueta diz "Só nos Estudos"). */
   studyOnly?: ReadonlySet<string>;
+  /** O quadro de cada canvas, pelo id (ver `WallState.canvasBoard`). */
+  canvasBoard?: (id: string) => FreeBoard | null;
 }
 
 const NO_PROPS: WallCardProps = {
@@ -941,6 +944,7 @@ export class WallCardPool implements OnDestroy {
     ref.setInput('folders', p.folders ?? null);
     ref.setInput('boardOnly', p.boardOnly.has(r.id));
     ref.setInput('studyOnly', !!p.studyOnly?.has(r.id));
+    ref.setInput('canvasBoard', r.canvas ? (p.canvasBoard?.(r.canvas) ?? null) : null);
   }
 }
 

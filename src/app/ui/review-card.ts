@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, output, untracked, viewChild } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { NoteFolders } from '../core/note-folders';
+import { CanvasCard } from './canvas-card';
 import { FolderTree, folderNameOf } from '../core/folders';
 import { ICON, IconModule } from './icons';
 import { cap, g, profileOf, revisitCountOf } from '../core/kinds';
@@ -27,7 +29,10 @@ import {
   musicFormOf,
   MUSIC_FORM_LABEL,
   isPrivate,
+  isCanvas,
 } from '../core/review';
+import type { FreeBoard } from '../core/free-board';
+import { canvasPieces } from './canvas-card';
 import { cutsPaper, decorCuts, lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
@@ -101,7 +106,7 @@ function watchDistance(el: HTMLElement): () => void {
 }
 
 /** O que a ficha usa no molde (o mesmo da ficha colada, ver ui/glued-review-card.ts). */
-export const CARD_IMPORTS = [IconModule, Rabisco, PaperArtLayer, Pin, PenMark, StatusLabel, CoverSleeve, RecordCover, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls, CommentBubble, SharedPatch, ReactionBubble, RichText, Corta, DoneStamp, NoteTag, CategoryLabel];
+export const CARD_IMPORTS = [NgTemplateOutlet, CanvasCard, IconModule, Rabisco, PaperArtLayer, Pin, PenMark, StatusLabel, CoverSleeve, RecordCover, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls, CommentBubble, SharedPatch, ReactionBubble, RichText, Corta, DoneStamp, NoteTag, CategoryLabel];
 
 /** O que vai no elemento da ficha: as classes e as variáveis do papel (a ficha colada herda, ver ui/glued-review-card.ts). */
 const CARD_HOST = {
@@ -142,6 +147,8 @@ const CARD_HOST = {
   '[class.fixada]': 'note() && review().noteRank === "fixada"',
   '[class.carimbando]': 'stamping()',
   '[class.feita]': '!capas() && !!doneAt()',
+  // o canvas (PLANO-CANVAS.md, 2): o eucatex pendurado no lugar da cartolina
+  '[class.canvas]': 'canvasMode()',
 };
 
 /** O molde da ficha. */
@@ -151,198 +158,285 @@ export const CARD_TEMPLATE = `
     <div class="corpo">
     <!-- o papel da ficha: a cartolina, o rabisco e o estrago, por baixo da foto e dos adesivos -->
     <app-paper-art [id]="artId()" [scribble]="review().scribble" [scribbleSeed]="review().scribbleSeed" [scribbleInk]="review().scribbleInk" [paper]="review().paper" [paperSeed]="review().paperSeed" [damage]="review().damage" [seed]="review().damageSeed" [stains]="review().stains" [decors]="review().decors" [glitter]="review().paper === 'glitter'" [dark]="dark()" [content]="review()" [look]="paperLook()" />
-    <!-- na Visão geral as fichas estão soltas na mesa: sem a tachinha que finge segurá-las -->
-    @if (!overview()) {
-      <app-pin class="pin" [color]="pin().pinColor" />
+    @if (canvasMode()) {
+      <!-- o canvas (PLANO-CANVAS.md, 2): o eucatex pendurado no prego, no lugar da cartolina; a orelha, o carimbo, os
+           botões e as reações ficam presos na moldura, e o botão que abre cobre tudo, como na cartolina -->
+      <app-canvas-card [board]="canvasBoard()" [name]="review().game.name" [game]="review().game" [overview]="overview()">
+        <ng-container *ngTemplateOutlet="orelhaTpl" />
+        <ng-container *ngTemplateOutlet="marcaTpl" />
+        <ng-container *ngTemplateOutlet="acoesTpl" />
+        <ng-container *ngTemplateOutlet="carimboTpl" />
+        <ng-container *ngTemplateOutlet="reacoesTpl" />
+      </app-canvas-card>
+      <ng-container *ngTemplateOutlet="hitTpl" />
+    } @else {
+      <!-- na Visão geral as fichas estão soltas na mesa: sem a tachinha que finge segurá-las -->
+      @if (!overview()) {
+        <app-pin class="pin" [color]="pin().pinColor" />
+      }
+      <!-- a categoria da anotação: a orelha de divisória de papel manilha, colada atrás da cartolina e
+           saindo pela beirada de cima, como as abas do mural (o nome vai também na lista das tags,
+           para o leitor de tela). Na ficha de música, a orelha é do artista (a aba dele no mural). Com
+           um grupo aberto no mural, o grupo já está dito na aba: a orelha diz o assunto, com o desenho
+           do assunto e a cor do grupo, e a anotação sem assunto fica sem orelha -->
+      <ng-container *ngTemplateOutlet="orelhaTpl" />
+
+      <div class="head">
+        @if (!overview() && (!note() || review().game.coverUrl)) {
+        <div class="cover" data-colado [class.toca]="spins()">
+          <div class="box">
+            @if (music()) {
+              <!-- a música: o vinil saindo da capa do álbum; o botão do disco toca a amostra ali mesmo.
+                   Na ficha simples e na de capa e nome, o disco só aponta para fora, parado -->
+              <app-record-cover [game]="review().game" [tucked]="!spins()" [still]="bare()" />
+              @if (review().status !== 'finalizado' && !capas()) {
+                <app-status-label class="faixa faixa-disco" [status]="review().status" [kind]="review().kind" [band]="true" />
+              }
+            } @else {
+            <app-cover-sleeve [game]="review().game" [decorative]="true" [size]="compact() ? 'thumb' : 'card'">
+              <!-- Finalizado é o normal e não se anuncia; o que foge do normal vem impresso na faixa da capa -->
+              @if (review().status !== 'finalizado' && !capas() && !note()) {
+                <app-status-label class="faixa" [status]="review().status" [kind]="review().kind" [band]="true" />
+              }
+            </app-cover-sleeve>
+            }
+            <!-- Só capa e nome, que não tem a linha da data: os selinhos da foto, colados um embaixo do
+                 outro no canto, cada um um pouco por cima do de cima: quem vê (o cadeado da privada, o
+                 olho da pública), o "outra vez" que distingue a rejogada da original e o de feito. Um
+                 selo novo entra no fim. Nas outras vistas, quem vê é o desenho antes da data -->
+            @if (capas() && (audience() || review().revisitOf || doneAt()) && !bare()) {
+              <span class="selos">
+                @if (audience(); as q) {
+                  <span class="selo" [class.privada-selo]="q.kind === 'privada'" [class.publica-selo]="q.kind === 'publica'" [title]="q.text">
+                    <lucide-icon [img]="q.icon" [size]="13" aria-hidden="true" />
+                    <span class="sr-only">{{ q.text }}</span>
+                  </span>
+                }
+                @if (capas() && review().revisitOf) {
+                  <span class="selo vez-selo" aria-hidden="true"><lucide-icon [img]="AgainIcon" [size]="13" aria-hidden="true" /></span>
+                }
+                <!-- só capa e nome: no lugar do carimbo, um selinho de feito -->
+                @if (capas() && doneAt()) {
+                  <span class="selo feito-selo" aria-hidden="true"><lucide-icon [img]="DoneIcon" [size]="13" aria-hidden="true" /></span>
+                }
+              </span>
+            }
+          </div>
+        </div>
+        } @else if (capas() && (audience() || doneAt()) && !bare()) {
+          <!-- anotação sem capa, só capa e nome: os selinhos ficam no canto da ficha -->
+          <span class="selos selos-ficha">
+            @if (audience(); as q) {
+              <span class="selo" [class.privada-selo]="q.kind === 'privada'" [class.publica-selo]="q.kind === 'publica'" [title]="q.text">
+                <lucide-icon [img]="q.icon" [size]="13" aria-hidden="true" />
+                <span class="sr-only">{{ q.text }}</span>
+              </span>
+            }
+            @if (capas() && doneAt()) {
+              <span class="selo feito-selo" aria-hidden="true"><lucide-icon [img]="DoneIcon" [size]="13" aria-hidden="true" /></span>
+            }
+          </span>
+        }
+
+        <div class="words">
+          <h4 class="title" data-queima>{{ empty() || bare() ? emptyName() : review().game.name }}</h4>
+          @if (bare()) {
+            <!-- só a cartolina: a linha de data fica como no molde, sem dizer nada -->
+            <p class="meta molde" data-queima>{{ bareMeta() }}</p>
+          } @else if (overview()) {
+            <!-- a Visão geral não tem a linha da data: só a orelha, o título e as tags -->
+          } @else if (!capas() && note()) {
+            <p class="meta meta-nota" data-queima>
+              <!-- o assunto, primeiro: o grupo está na orelha, o assunto abre a linha -->
+              @if (metaSubject(); as s) {
+                <span class="assunto"><lucide-icon class="tarefas-icone" [img]="SubjectIcon" [size]="compact() ? 13 : 14" aria-hidden="true" /><span class="sr-only">Pasta: </span>{{ s }}</span>
+              }
+              <!-- quem vê (o cadeado ou o olho) e a data; sem data, o lugar dela fica vazio (a linha
+                   continua, do mesmo tamanho) -->
+              @if (review().completedAt || audience()) {
+                @if (metaSubject()) {
+                  <span aria-hidden="true"> · </span>
+                }
+                <span class="quando">
+                  @if (audience(); as q) {
+                    <span class="quem-ve" [title]="q.text"><lucide-icon class="quem-ve-icone" [img]="q.icon" [size]="compact() ? 13 : 14" aria-hidden="true" /><span class="sr-only">{{ q.text }}. </span></span>
+                  }
+                  @if (shownDay(); as day) {
+                    <time [attr.datetime]="day">{{ date() }}</time>
+                  }
+                </span>
+              }
+              <!-- as tarefas: quantas já foram feitas -->
+              @if (tasks(); as t) {
+                @if (review().completedAt || audience() || metaSubject()) {
+                  <span aria-hidden="true"> · </span>
+                }
+                <span class="tarefas-conta" [class.todas]="t.done === t.total"><lucide-icon class="tarefas-icone" [img]="TasksIcon" [size]="compact() ? 13 : 14" aria-hidden="true" />{{ t.done }}/{{ t.total }}<span class="sr-only"> tarefas feitas</span></span>
+              }
+              <!-- no quadro: a anotação só com o título ainda pede para ser detalhada -->
+              @if (noText()) {
+                @if (review().completedAt || audience() || tasks() || metaSubject()) {
+                  <span aria-hidden="true"> · </span>
+                }
+                <span class="sem-texto"><lucide-icon class="tarefas-icone" [img]="NoTextIcon" [size]="compact() ? 13 : 14" aria-hidden="true" />Sem descrição</span>
+              }
+            </p>
+          } @else if (!capas()) {
+          <p class="meta" data-queima>
+            <!-- a música diz primeiro o que é: um álbum inteiro ou uma música só -->
+            @if (music() && !compact() && !empty()) {
+              <span>{{ formLabel() }}</span><span aria-hidden="true"> · </span>
+            }
+            <!-- a rejogada diz o que é antes da data; a original jogada mais vezes diz quantas, depois -->
+            @if (review().revisitOf) {
+              <span class="vez-marca"><lucide-icon class="vez-icone" [img]="AgainIcon" [size]="compact() ? 13 : 14" aria-hidden="true" /><span [class.sr-only]="compact()">{{ revisitWord() }}</span></span><span aria-hidden="true"> · </span>
+            }
+            <span class="quando">
+              <!-- quem vê: o cadeado ou o olho antes da data -->
+              @if (audience(); as q) {
+                <span class="quem-ve" [title]="q.text"><lucide-icon class="quem-ve-icone" [img]="q.icon" [size]="compact() ? 13 : 14" aria-hidden="true" /><span class="sr-only">{{ q.text }}. </span></span>
+              }
+              @if (shownDay(); as day) {
+                <time [attr.datetime]="day">{{ date() }}</time>
+              } @else {
+                <span>{{ date() }}</span>
+              }
+            </span>
+            <!-- sem spoilers, a linha fica só com a data: as horas e as caveiras também contam o que achou -->
+            @if (!review().revisitOf && times() > 1) {
+              <span aria-hidden="true"> · </span><span class="vez-marca" [title]="timesTitle()"><lucide-icon class="vez-icone" [img]="AgainIcon" [size]="compact() ? 13 : 14" aria-hidden="true" />{{ times() }}×<span class="sr-only"> ({{ timesTitle() }})</span></span>
+            }
+            @if (review().hoursPlayed !== null && !compact() && !masked()) {
+              <span aria-hidden="true"> · </span><span>{{ hours() }}</span>
+            }
+            @if (review().difficulty !== 'nenhuma' && !masked()) {
+              <span aria-hidden="true"> · </span><app-skulls class="caveiras" [value]="review().difficulty" [size]="compact() ? 13 : 14" [showLabel]="false" [ghosts]="false" />
+            }
+            @if (compact() && sortedCell(); as c) {
+              <span aria-hidden="true"> · </span><span class="sorted"><span>{{ labels[c.key] }} </span>@if (c.ten) {<span class="selo-dez">{{ c.value }}</span>} @else if (c.ruim) {<span class="fita-rasgada">{{ c.value }}</span>} @else {<span class="nota-valor">{{ c.value }}</span>}<app-pen-mark /></span>
+            }
+            @if (compact() && bonuses().length) {
+              <app-bonus-tally class="tally" [bonuses]="bonuses()" [masked]="masked()" />
+            }
+          </p>
+          }
+        </div>
+
+        <!-- O julgamento: etiqueta dupla, a Média no papel e o veredito na faixa preta -->
+        @if (note()) {
+          <!-- a categoria (o adesivo) e as tags (as etiquetas de papel pardo), no lugar da etiqueta da
+               nota: o espaço ao lado da foto é delas -->
+          @if (!capas() && (noteLabels().category || noteLabels().ear || noteLabels().tags.length)) {
+            <ul class="judge categorias" data-colado aria-label="Grupo e tags">
+              <!-- a categoria (ou o assunto) está na orelha de cima; aqui, só para o leitor de tela -->
+              @if (noteLabels().category; as c) {
+                <li class="sr-only">{{ c.label }} (grupo)</li>
+              }
+              @if (noteLabels().ear?.subject) {
+                <li class="sr-only">{{ folderName() }} (pasta)</li>
+              }
+              @for (t of noteLabels().tags; track t; let i = $index) {
+                <li><app-note-tag [label]="t" [index]="i + 1" [size]="compact() && !overview() ? 'mini' : 'card'" [color]="tagColor(t)" /><span class="sr-only"> (tag)</span></li>
+              }
+              @if (noteLabels().hidden) {
+                <li class="mais">+{{ noteLabels().hidden }}</li>
+              }
+            </ul>
+          }
+        } @else if (!capas()) {
+          <app-judge-label class="judge" data-colado [value]="review().scores.final" [verdict]="review().verdict" [size]="compact() ? 'compact' : 'card'" [fit]="true" [masked]="masked()" [stack]="music() && !compact()" />
+        }
+      </div>
+
+      <!-- antes do texto: no teclado, primeiro a ficha e os botões dela, depois as tarefas e os links -->
+      <!-- Marcando para o lado a lado: o adesivo redondo no canto diz se a ficha vai e em que ordem -->
+      <ng-container *ngTemplateOutlet="marcaTpl" />
+      <ng-container *ngTemplateOutlet="hitTpl" />
+      <!-- o alfinete e o check da anotação: duas etiquetas de tinta presas na beirada de cima, que
+           aparecem com o mouse em cima da ficha (ou o foco do teclado); no toque, ficam sempre -->
+      <ng-container *ngTemplateOutlet="acoesTpl" />
+      @if (note() && !compact() && !capas()) {
+        @if (review().text.trim()) {
+          <!-- o começo da anotação, já formatado (listas, tarefas): a parede mostra o que tem nela -->
+          <!-- o estrago queima o texto de dentro: o esmaecido do fim fica na caixa (os dois juntos) -->
+          <div class="nota-texto" [class.marcavel]="interactive()" appCorta>
+            <app-rich-text data-queima [text]="review().text" [fold]="true" [foldKey]="review().id" [checkable]="ticks()" [links]="noteLinks()" [anchors]="preview()" (toggled)="toggleTask($event)" />
+          </div>
+        }
+      } @else if (!compact() && !capas()) {
+        @if (full() && !bare() && review().text.trim()) {
+          <!-- a ficha inteira: o texto todo, formatado, na letra de quem escreveu -->
+          @if (masked()) {
+            <p class="texto-inteiro" data-queima><app-rabisco [text]="fullMasked()" /><span class="sr-only">Texto escondido</span></p>
+          } @else {
+            <div class="texto-inteiro" [class.marcavel]="interactive()" data-queima><app-rich-text [text]="review().text" [fold]="true" [foldKey]="review().id" [checkable]="ticks()" [links]="noteLinks()" [anchors]="preview()" (toggled)="toggleTask($event)" /></div>
+          }
+        } @else if (lead(); as line) {
+          @if (masked() && !bare()) {
+            <p class="lead" data-queima>“<app-rabisco [text]="line" />”<span class="sr-only">Texto escondido</span></p>
+          } @else {
+            <p class="lead" data-queima>“{{ line }}”</p>
+          }
+        }
+
+        <!-- Os bônus: adesivos colados na cartolina, os a favor primeiro -->
+        @if (bonuses().length) {
+          <ul class="bonus" data-colado aria-label="Bônus">
+            @for (b of shownBonuses().shown; track b.id; let i = $index) {
+              <li>
+                <app-bonus-sticker [bonus]="b" [index]="i" [masked]="masked()" [seed]="review().id" />
+                @if (!masked()) {
+                  <span class="sr-only">({{ b.kind === 'favor' ? 'a favor' : 'contra' }})</span>
+                }
+              </li>
+            }
+            @if (shownBonuses().hidden.length) {
+              <li class="mais"><span aria-hidden="true">mais</span> <app-bonus-tally [bonuses]="shownBonuses().hidden" [masked]="masked()" /></li>
+            }
+          </ul>
+        }
+
+        <app-boletim class="boletim" data-queima [review]="review()" [highlight]="masked() ? null : highlight()" [masked]="masked()" />
+      }
+
+      <!-- finalizada: o carimbo redondo batido no canto da ficha, por cima do papel (some com o estrago) -->
+      <ng-container *ngTemplateOutlet="carimboTpl" />
+      <!-- a anotação que está só no Kanban, à mostra no mural ("Mostrar" na pasta): a etiqueta de tinta
+           presa na quina de baixo, do lado oposto às reações -->
+      @if (boardOnly() && !bare()) {
+        <span class="so-kanban" aria-hidden="true">
+          <lucide-icon [img]="studyOnly() ? StudyIcon : BoardIcon" [size]="compact() || capas() ? 12 : 13" aria-hidden="true" />
+          @if (!capas() && !overview()) {
+            <span>{{ studyOnly() ? 'Só nos Flashcards' : 'Só no Kanban' }}</span>
+          }
+        </span>
+      }
+      <!-- os comentários e as reações, cada um no seu remendo colado na quina de baixo (só quando há algum);
+           o dos comentários abre a ficha já com eles -->
+      <!-- (na Visão geral, nada além da orelha, do título e das tags: tudo isso fica na leitura) -->
+      <ng-container *ngTemplateOutlet="reacoesTpl" />
     }
-    <!-- a categoria da anotação: a orelha de divisória de papel manilha, colada atrás da cartolina e
-         saindo pela beirada de cima, como as abas do mural (o nome vai também na lista das tags,
-         para o leitor de tela). Na ficha de música, a orelha é do artista (a aba dele no mural). Com
-         um grupo aberto no mural, o grupo já está dito na aba: a orelha diz o assunto, com o desenho
-         do assunto e a cor do grupo, e a anotação sem assunto fica sem orelha -->
+    <!-- os pedaços que a cartolina e o canvas desenham, cada um no seu lugar (no canvas, presos na moldura) -->
+    <ng-template #orelhaTpl>
     @if ((note() || music()) && !capas() && !bare() && noteLabels().ear; as e) {
       <span #abaCat class="aba-cat" [class.orelha-cor]="!!catColor()" [style.--cat-cor]="catColor()" aria-hidden="true">
         <app-cat-label [label]="e.label" [look]="catLook()" [glyph]="music() ? ArtistIcon : e.subject ? SubjectIcon : null" [iconSize]="compact() ? 12 : 13" />
       </span>
     }
-
-    <div class="head">
-      @if (!overview() && (!note() || review().game.coverUrl)) {
-      <div class="cover" data-colado [class.toca]="spins()">
-        <div class="box">
-          @if (music()) {
-            <!-- a música: o vinil saindo da capa do álbum; o botão do disco toca a amostra ali mesmo.
-                 Na ficha simples e na de capa e nome, o disco só aponta para fora, parado -->
-            <app-record-cover [game]="review().game" [tucked]="!spins()" [still]="bare()" />
-            @if (review().status !== 'finalizado' && !capas()) {
-              <app-status-label class="faixa faixa-disco" [status]="review().status" [kind]="review().kind" [band]="true" />
-            }
-          } @else {
-          <app-cover-sleeve [game]="review().game" [decorative]="true" [size]="compact() ? 'thumb' : 'card'">
-            <!-- Finalizado é o normal e não se anuncia; o que foge do normal vem impresso na faixa da capa -->
-            @if (review().status !== 'finalizado' && !capas() && !note()) {
-              <app-status-label class="faixa" [status]="review().status" [kind]="review().kind" [band]="true" />
-            }
-          </app-cover-sleeve>
-          }
-          <!-- Só capa e nome, que não tem a linha da data: os selinhos da foto, colados um embaixo do
-               outro no canto, cada um um pouco por cima do de cima: quem vê (o cadeado da privada, o
-               olho da pública), o "outra vez" que distingue a rejogada da original e o de feito. Um
-               selo novo entra no fim. Nas outras vistas, quem vê é o desenho antes da data -->
-          @if (capas() && (audience() || review().revisitOf || doneAt()) && !bare()) {
-            <span class="selos">
-              @if (audience(); as q) {
-                <span class="selo" [class.privada-selo]="q.kind === 'privada'" [class.publica-selo]="q.kind === 'publica'" [title]="q.text">
-                  <lucide-icon [img]="q.icon" [size]="13" aria-hidden="true" />
-                  <span class="sr-only">{{ q.text }}</span>
-                </span>
-              }
-              @if (capas() && review().revisitOf) {
-                <span class="selo vez-selo" aria-hidden="true"><lucide-icon [img]="AgainIcon" [size]="13" aria-hidden="true" /></span>
-              }
-              <!-- só capa e nome: no lugar do carimbo, um selinho de feito -->
-              @if (capas() && doneAt()) {
-                <span class="selo feito-selo" aria-hidden="true"><lucide-icon [img]="DoneIcon" [size]="13" aria-hidden="true" /></span>
-              }
-            </span>
-          }
-        </div>
-      </div>
-      } @else if (capas() && (audience() || doneAt()) && !bare()) {
-        <!-- anotação sem capa, só capa e nome: os selinhos ficam no canto da ficha -->
-        <span class="selos selos-ficha">
-          @if (audience(); as q) {
-            <span class="selo" [class.privada-selo]="q.kind === 'privada'" [class.publica-selo]="q.kind === 'publica'" [title]="q.text">
-              <lucide-icon [img]="q.icon" [size]="13" aria-hidden="true" />
-              <span class="sr-only">{{ q.text }}</span>
-            </span>
-          }
-          @if (capas() && doneAt()) {
-            <span class="selo feito-selo" aria-hidden="true"><lucide-icon [img]="DoneIcon" [size]="13" aria-hidden="true" /></span>
-          }
-        </span>
-      }
-
-      <div class="words">
-        <h4 class="title" data-queima>{{ empty() || bare() ? emptyName() : review().game.name }}</h4>
-        @if (bare()) {
-          <!-- só a cartolina: a linha de data fica como no molde, sem dizer nada -->
-          <p class="meta molde" data-queima>{{ bareMeta() }}</p>
-        } @else if (overview()) {
-          <!-- a Visão geral não tem a linha da data: só a orelha, o título e as tags -->
-        } @else if (!capas() && note()) {
-          <p class="meta meta-nota" data-queima>
-            <!-- o assunto, primeiro: o grupo está na orelha, o assunto abre a linha -->
-            @if (metaSubject(); as s) {
-              <span class="assunto"><lucide-icon class="tarefas-icone" [img]="SubjectIcon" [size]="compact() ? 13 : 14" aria-hidden="true" /><span class="sr-only">Pasta: </span>{{ s }}</span>
-            }
-            <!-- quem vê (o cadeado ou o olho) e a data; sem data, o lugar dela fica vazio (a linha
-                 continua, do mesmo tamanho) -->
-            @if (review().completedAt || audience()) {
-              @if (metaSubject()) {
-                <span aria-hidden="true"> · </span>
-              }
-              <span class="quando">
-                @if (audience(); as q) {
-                  <span class="quem-ve" [title]="q.text"><lucide-icon class="quem-ve-icone" [img]="q.icon" [size]="compact() ? 13 : 14" aria-hidden="true" /><span class="sr-only">{{ q.text }}. </span></span>
-                }
-                @if (shownDay(); as day) {
-                  <time [attr.datetime]="day">{{ date() }}</time>
-                }
-              </span>
-            }
-            <!-- as tarefas: quantas já foram feitas -->
-            @if (tasks(); as t) {
-              @if (review().completedAt || audience() || metaSubject()) {
-                <span aria-hidden="true"> · </span>
-              }
-              <span class="tarefas-conta" [class.todas]="t.done === t.total"><lucide-icon class="tarefas-icone" [img]="TasksIcon" [size]="compact() ? 13 : 14" aria-hidden="true" />{{ t.done }}/{{ t.total }}<span class="sr-only"> tarefas feitas</span></span>
-            }
-            <!-- no quadro: a anotação só com o título ainda pede para ser detalhada -->
-            @if (noText()) {
-              @if (review().completedAt || audience() || tasks() || metaSubject()) {
-                <span aria-hidden="true"> · </span>
-              }
-              <span class="sem-texto"><lucide-icon class="tarefas-icone" [img]="NoTextIcon" [size]="compact() ? 13 : 14" aria-hidden="true" />Sem descrição</span>
-            }
-          </p>
-        } @else if (!capas()) {
-        <p class="meta" data-queima>
-          <!-- a música diz primeiro o que é: um álbum inteiro ou uma música só -->
-          @if (music() && !compact() && !empty()) {
-            <span>{{ formLabel() }}</span><span aria-hidden="true"> · </span>
-          }
-          <!-- a rejogada diz o que é antes da data; a original jogada mais vezes diz quantas, depois -->
-          @if (review().revisitOf) {
-            <span class="vez-marca"><lucide-icon class="vez-icone" [img]="AgainIcon" [size]="compact() ? 13 : 14" aria-hidden="true" /><span [class.sr-only]="compact()">{{ revisitWord() }}</span></span><span aria-hidden="true"> · </span>
-          }
-          <span class="quando">
-            <!-- quem vê: o cadeado ou o olho antes da data -->
-            @if (audience(); as q) {
-              <span class="quem-ve" [title]="q.text"><lucide-icon class="quem-ve-icone" [img]="q.icon" [size]="compact() ? 13 : 14" aria-hidden="true" /><span class="sr-only">{{ q.text }}. </span></span>
-            }
-            @if (shownDay(); as day) {
-              <time [attr.datetime]="day">{{ date() }}</time>
-            } @else {
-              <span>{{ date() }}</span>
-            }
-          </span>
-          <!-- sem spoilers, a linha fica só com a data: as horas e as caveiras também contam o que achou -->
-          @if (!review().revisitOf && times() > 1) {
-            <span aria-hidden="true"> · </span><span class="vez-marca" [title]="timesTitle()"><lucide-icon class="vez-icone" [img]="AgainIcon" [size]="compact() ? 13 : 14" aria-hidden="true" />{{ times() }}×<span class="sr-only"> ({{ timesTitle() }})</span></span>
-          }
-          @if (review().hoursPlayed !== null && !compact() && !masked()) {
-            <span aria-hidden="true"> · </span><span>{{ hours() }}</span>
-          }
-          @if (review().difficulty !== 'nenhuma' && !masked()) {
-            <span aria-hidden="true"> · </span><app-skulls class="caveiras" [value]="review().difficulty" [size]="compact() ? 13 : 14" [showLabel]="false" [ghosts]="false" />
-          }
-          @if (compact() && sortedCell(); as c) {
-            <span aria-hidden="true"> · </span><span class="sorted"><span>{{ labels[c.key] }} </span>@if (c.ten) {<span class="selo-dez">{{ c.value }}</span>} @else if (c.ruim) {<span class="fita-rasgada">{{ c.value }}</span>} @else {<span class="nota-valor">{{ c.value }}</span>}<app-pen-mark /></span>
-          }
-          @if (compact() && bonuses().length) {
-            <app-bonus-tally class="tally" [bonuses]="bonuses()" [masked]="masked()" />
-          }
-        </p>
-        }
-      </div>
-
-      <!-- O julgamento: etiqueta dupla, a Média no papel e o veredito na faixa preta -->
-      @if (note()) {
-        <!-- a categoria (o adesivo) e as tags (as etiquetas de papel pardo), no lugar da etiqueta da
-             nota: o espaço ao lado da foto é delas -->
-        @if (!capas() && (noteLabels().category || noteLabels().ear || noteLabels().tags.length)) {
-          <ul class="judge categorias" data-colado aria-label="Grupo e tags">
-            <!-- a categoria (ou o assunto) está na orelha de cima; aqui, só para o leitor de tela -->
-            @if (noteLabels().category; as c) {
-              <li class="sr-only">{{ c.label }} (grupo)</li>
-            }
-            @if (noteLabels().ear?.subject) {
-              <li class="sr-only">{{ folderName() }} (pasta)</li>
-            }
-            @for (t of noteLabels().tags; track t; let i = $index) {
-              <li><app-note-tag [label]="t" [index]="i + 1" [size]="compact() && !overview() ? 'mini' : 'card'" [color]="tagColor(t)" /><span class="sr-only"> (tag)</span></li>
-            }
-            @if (noteLabels().hidden) {
-              <li class="mais">+{{ noteLabels().hidden }}</li>
-            }
-          </ul>
-        }
-      } @else if (!capas()) {
-        <app-judge-label class="judge" data-colado [value]="review().scores.final" [verdict]="review().verdict" [size]="compact() ? 'compact' : 'card'" [fit]="true" [masked]="masked()" [stack]="music() && !compact()" />
-      }
-    </div>
-
-    <!-- antes do texto: no teclado, primeiro a ficha e os botões dela, depois as tarefas e os links -->
-    <!-- Marcando para o lado a lado: o adesivo redondo no canto diz se a ficha vai e em que ordem -->
-    @if (picking() && review().revisitOf) {
-      <!-- a rejogada não vai pro lado a lado: nem marca, nem abre -->
-    } @else if (picking()) {
+    </ng-template>
+    <ng-template #marcaTpl>
+    @if (picking() && !review().revisitOf) {
       <span class="marca" aria-hidden="true">
         @if (pickedAt(); as n) {
           <span class="n">{{ n }}</span>
         }
       </span>
+    }
+    </ng-template>
+    <ng-template #hitTpl>
+    @if (picking() && review().revisitOf) {
+      <!-- a rejogada não vai pro lado a lado: nem marca, nem abre -->
+    } @else if (picking()) {
       <button
         type="button"
         class="hit"
@@ -353,8 +447,8 @@ export const CARD_TEMPLATE = `
     } @else {
       <button type="button" class="hit" [attr.aria-label]="bare() ? 'A cartolina da ficha secreta' : spoken()" (click)="opened.emit(review().id)"></button>
     }
-    <!-- o alfinete e o check da anotação: duas etiquetas de tinta presas na beirada de cima, que
-         aparecem com o mouse em cima da ficha (ou o foco do teclado); no toque, ficam sempre -->
+    </ng-template>
+    <ng-template #acoesTpl>
     @if (canPin()) {
       <div class="acoes">
         @if (canFinish()) {
@@ -383,69 +477,15 @@ export const CARD_TEMPLATE = `
         </button>
       </div>
     }
-    @if (note() && !compact() && !capas()) {
-      @if (review().text.trim()) {
-        <!-- o começo da anotação, já formatado (listas, tarefas): a parede mostra o que tem nela -->
-        <!-- o estrago queima o texto de dentro: o esmaecido do fim fica na caixa (os dois juntos) -->
-        <div class="nota-texto" [class.marcavel]="interactive()" appCorta>
-          <app-rich-text data-queima [text]="review().text" [fold]="true" [foldKey]="review().id" [checkable]="ticks()" [links]="noteLinks()" [anchors]="preview()" (toggled)="toggleTask($event)" />
-        </div>
-      }
-    } @else if (!compact() && !capas()) {
-      @if (full() && !bare() && review().text.trim()) {
-        <!-- a ficha inteira: o texto todo, formatado, na letra de quem escreveu -->
-        @if (masked()) {
-          <p class="texto-inteiro" data-queima><app-rabisco [text]="fullMasked()" /><span class="sr-only">Texto escondido</span></p>
-        } @else {
-          <div class="texto-inteiro" [class.marcavel]="interactive()" data-queima><app-rich-text [text]="review().text" [fold]="true" [foldKey]="review().id" [checkable]="ticks()" [links]="noteLinks()" [anchors]="preview()" (toggled)="toggleTask($event)" /></div>
-        }
-      } @else if (lead(); as line) {
-        @if (masked() && !bare()) {
-          <p class="lead" data-queima>“<app-rabisco [text]="line" />”<span class="sr-only">Texto escondido</span></p>
-        } @else {
-          <p class="lead" data-queima>“{{ line }}”</p>
-        }
-      }
-
-      <!-- Os bônus: adesivos colados na cartolina, os a favor primeiro -->
-      @if (bonuses().length) {
-        <ul class="bonus" data-colado aria-label="Bônus">
-          @for (b of shownBonuses().shown; track b.id; let i = $index) {
-            <li>
-              <app-bonus-sticker [bonus]="b" [index]="i" [masked]="masked()" [seed]="review().id" />
-              @if (!masked()) {
-                <span class="sr-only">({{ b.kind === 'favor' ? 'a favor' : 'contra' }})</span>
-              }
-            </li>
-          }
-          @if (shownBonuses().hidden.length) {
-            <li class="mais"><span aria-hidden="true">mais</span> <app-bonus-tally [bonuses]="shownBonuses().hidden" [masked]="masked()" /></li>
-          }
-        </ul>
-      }
-
-      <app-boletim class="boletim" data-queima [review]="review()" [highlight]="masked() ? null : highlight()" [masked]="masked()" />
-    }
-
-    <!-- finalizada: o carimbo redondo batido no canto da ficha, por cima do papel (some com o estrago) -->
+    </ng-template>
+    <ng-template #carimboTpl>
     @if (!capas() && !overview() && doneAt(); as at) {
       <span class="carimbo" [class.clara]="dark()" data-queima>
         <app-done-stamp [at]="at" [size]="compact() ? 'compact' : 'card'" [dark]="dark()" [hit]="stamping()" />
       </span>
     }
-    <!-- a anotação que está só no Kanban, à mostra no mural ("Mostrar" na pasta): a etiqueta de tinta
-         presa na quina de baixo, do lado oposto às reações -->
-    @if (boardOnly() && !bare()) {
-      <span class="so-kanban" aria-hidden="true">
-        <lucide-icon [img]="studyOnly() ? StudyIcon : BoardIcon" [size]="compact() || capas() ? 12 : 13" aria-hidden="true" />
-        @if (!capas() && !overview()) {
-          <span>{{ studyOnly() ? 'Só nos Flashcards' : 'Só no Kanban' }}</span>
-        }
-      </span>
-    }
-    <!-- os comentários e as reações, cada um no seu remendo colado na quina de baixo (só quando há algum);
-         o dos comentários abre a ficha já com eles -->
-    <!-- (na Visão geral, nada além da orelha, do título e das tags: tudo isso fica na leitura) -->
+    </ng-template>
+    <ng-template #reacoesTpl>
     @if (!overview() && (reactTarget() || sharedHere())) {
       <div class="reacoes">
         <!-- a compartilhada (no seu mural): quem está nela, ou o aviso de conflito -->
@@ -458,6 +498,7 @@ export const CARD_TEMPLATE = `
         }
       </div>
     }
+    </ng-template>
     </div>
 `;
 
@@ -1651,6 +1692,108 @@ export const CARD_STYLES = `
       left: 10px;
       padding: 4px 5px 3px;
     }
+
+    /* ===== O canvas (PLANO-CANVAS.md, 2): o eucatex na moldura, pendurado no prego (ui/canvas-card.ts) =====
+       A ficha continua sendo o lugar, o botão e o que só o dono faz; o papel dela fica invisível (ele ainda dirige
+       a entrada da ficha, ver ui/paper-layer.ts) e o desenho é o do canvas. Gira em volta do prego, sem a tachinha
+       e sem a sombra da cartolina: a sombra é da moldura, que diz pelo --cv-longe quando encurta. Nunca passa da
+       largura da ficha, e a altura sai da largura (16:9): cabe sempre na de uma anotação comum (2.5). */
+    :host(.canvas) {
+      --cv-topo: 50px;
+      /* chegando (a ficha nova cai, ver land): sem a sombra da cartolina, e sem a tachinha para o soco */
+      --land-shadow: none;
+      padding: 0 0 14px;
+      box-shadow: none;
+      rotate: calc(var(--tilt) * 1.3deg);
+      transform-origin: 50% 6px;
+    }
+    /* só a moldura (e o que está preso nela) é o canvas: a parede em volta do prego e do barbante continua sendo
+       parede (o clique e o botão direito no nada, o mouse que passa) */
+    :host(.canvas) {
+      pointer-events: none;
+    }
+    :host(.canvas) ::ng-deep app-canvas-card .moldura,
+    :host(.canvas) .hit {
+      pointer-events: auto;
+    }
+    :host(.canvas) .hit {
+      top: var(--cv-topo);
+    }
+    :host(.canvas) ::ng-deep app-paper-art,
+    :host(.canvas) ::ng-deep .sombra-assada {
+      visibility: hidden;
+    }
+    :host(.canvas) .corpo::after {
+      display: none;
+    }
+    /* a vaga tracejada (o véu): onde a moldura fica, sem o prego */
+    :host(.canvas)::before {
+      top: var(--cv-topo);
+      bottom: 14px;
+      border-radius: 3px;
+    }
+    /* mouse em cima, ou o foco do teclado: endireita no prego, e a sombra longe encurta (sem o quique: o único do
+       sistema é a tachinha) */
+    :host(.canvas:hover:not([data-quieta])),
+    :host(.canvas:has(:focus-visible)) {
+      rotate: 0deg;
+      translate: 0 0;
+      box-shadow: none;
+      --cv-longe: 7px 15px 18px rgb(0 0 0 / 0.5);
+    }
+    /* apertando: volta para a parede, como a ficha */
+    :host(.canvas:active) {
+      rotate: calc(var(--tilt) * 1.3deg);
+      box-shadow: none;
+      --cv-longe: 10px 22px 26px rgb(0 0 0 / 0.55);
+    }
+    /* o foco do teclado: o anel amarelo a 5px da moldura, e não em volta do prego */
+    :host(.canvas:has(.hit:focus-visible)) {
+      outline: none;
+      --cv-foco: 3px solid var(--hi);
+    }
+    /* sem a tachinha, a orelha vai até perto do canto (o da direita é do Finalizar e do Fixar) */
+    :host(.canvas) .aba-cat {
+      max-width: calc(100% - 14px - 96px);
+    }
+    /* o carimbo da finalizada por cima do eucatex, no canto de baixo, longe da fita */
+    :host(.canvas) .carimbo {
+      right: 16px;
+      bottom: 16px;
+      mix-blend-mode: normal;
+    }
+    :host(.canvas.feita:not(.compact)) {
+      min-height: 0;
+    }
+    /* Visão geral: deitado na mesa (sem prego), quase reto, da altura mínima das outras */
+    :host(.canvas.geral) {
+      --cv-topo: 0px;
+      padding: 0 0 11px;
+      rotate: calc(var(--tilt) * 0.3deg);
+      transform-origin: 50% 50%;
+      min-height: 98px;
+    }
+    :host(.canvas.geral:hover:not([data-quieta])),
+    :host(.canvas.geral:has(:focus-visible)) {
+      rotate: 0deg;
+      --cv-longe: 0 4px 7px rgb(0 0 0 / 0.4);
+    }
+    :host(.canvas.geral:active) {
+      rotate: calc(var(--tilt) * 0.3deg);
+    }
+    :host(.canvas.geral) .acoes {
+      bottom: -15px;
+    }
+    :host(.canvas.geral) .aba-cat {
+      max-width: calc(100% - 14px);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      :host(.canvas),
+      :host(.canvas.geral) {
+        rotate: 0deg;
+        transition: none;
+      }
+    }
 `;
 
 /**
@@ -1717,6 +1860,14 @@ export class ReviewCard {
   readonly masked = input(false);
   /** Só a cartolina, sem nada escrito: a dica do Muraldle. */
   readonly bare = input(false);
+  /** O quadro do canvas (a anotação que é um canvas, PLANO-CANVAS.md): quem usa dá, pela vista do mural. */
+  readonly canvasBoard = input<FreeBoard | null>(null);
+  /**
+   * A anotação é um canvas e aparece como um (o eucatex pendurado): na parede, em toda vista dela (a Comum, a
+   * Inteira e a Visão geral). A ficha simples de fora do mural (o Kanban, o Calendário, o widget Nota) não tem
+   * canvas, e a secreta do Muraldle é só a cartolina.
+   */
+  protected readonly canvasMode = computed(() => isCanvas(this.review()) && !this.bare() && !this.capas() && (!this.compact() || this.overview()));
   /** Só a cartolina: como a capa aparece (null, escondida). */
   readonly bareCover = input<'cinza' | 'borrada' | 'nitida' | null>(null);
   /** Só a cartolina: o pedaço da resenha que já pode aparecer, no lugar da frase. */
@@ -2055,6 +2206,17 @@ export class ReviewCard {
   /** O que o leitor de tela diz ao chegar no botão da ficha. */
   protected readonly spoken = computed(() => {
     const r = this.review();
+    if (this.canvasMode()) {
+      // o card não mostra tags nem data (o dono achou poluído): tudo vem aqui, para quem lê a tela
+      const n = canvasPieces(this.canvasBoard());
+      const pieces = n === null ? '' : n === 1 ? '1 peça' : `${n} peças`;
+      const cats = [r.category ? `grupo ${r.category}` : '', this.folderName() ? `pasta ${this.folderName()}` : '', ...(r.tags ?? []).map((t) => `tag ${t}`)].filter(Boolean).join(', ');
+      const when = r.completedAt === null ? NO_DAY_LABEL.toLowerCase() : formatReviewDate(r.completedAt);
+      const rank = r.noteRank === 'fixada' ? 'fixado' : '';
+      const done = r.doneAt ? `finalizado em ${doneDayLong(r.doneAt)}` : '';
+      const who = this.shared.get(r.id) ? 'compartilhado' : isPrivate(r) ? 'privado' : 'público';
+      return `Abrir canvas: ${[r.game.name, pieces, rank, done, cats, when, who].filter(Boolean).join(', ')}`;
+    }
     if (isNote(r)) {
       const cats = [r.category ? `grupo ${r.category}` : '', this.folderName() ? `pasta ${this.folderName()}` : '', ...(r.tags ?? []).map((t) => `tag ${t}`)].filter(Boolean).join(', ');
       const when = r.completedAt === null ? NO_DAY_LABEL.toLowerCase() : formatReviewDate(r.completedAt);

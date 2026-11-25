@@ -5,6 +5,10 @@ import { Mural } from './mural';
 import { NO_FILTER } from './wall-filter';
 import { Review, sanitizeReview } from './review';
 import { VisitView } from './visit-view';
+import { VisitBoards } from './visit-boards';
+import { canvasNoteId } from './canvas-id';
+import type { FreeBoard } from './free-board';
+import { ReviewCard } from '../ui/review-card';
 import { VISIT_KEY, WallState, WallView } from './wall-view';
 
 const note = (id: string, title: string, category: string | null): Review =>
@@ -97,5 +101,67 @@ describe('VisitView', () => {
     expect(visit.activeTab()).toBe('');
     expect(visit.isCollapsed('comuns')).toBeFalse();
     expect(visit.showDone()).toBeFalse();
+  });
+});
+
+/** O canvas na visita (PLANO-CANVAS.md, rodada 2): a mesma ficha do dono, desenhada com o quadro público dela. */
+describe('VisitView: o canvas de quem você visita', () => {
+  const BOARD = 'Mapa0viagem0Portugal01';
+  const canvas = sanitizeReview({
+    id: canvasNoteId(BOARD),
+    kind: 'anotacoes',
+    game: { name: 'Mapa da viagem' },
+    text: '',
+    category: 'Viagem',
+    completedAt: '2026-11-20',
+    createdAt: '2026-11-20T10:00:00.000Z',
+    updatedAt: '2026-11-20T10:00:00.000Z',
+  })!;
+  const marina = { ...person('Marina', [canvas, note('m1', 'Daily', 'Trabalho')]), codigo: 'K7QFM2XA' } as Colleague;
+  const board = { v: 1, id: BOARD, nome: 'Mapa', grupo: 'Viagem', em: '2026-11-20T10:00:00.000Z', n: [{ i: 'a1', t: 'x', x: 0, y: 0, w: 200, h: 120, txt: 'Lisboa' }], e: [] } as unknown as FreeBoard;
+  let loads: (string | null | undefined)[];
+
+  beforeEach(() => {
+    localStorage.clear();
+    loads = [];
+    const boards = signal<readonly FreeBoard[]>([]);
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        VisitView,
+        { provide: ColleagueStore, useValue: { selected: signal<Colleague | null>(marina) } },
+        { provide: VisitBoards, useValue: { boards, load: async (code: string | null | undefined) => (loads.push(code), boards.set([board])) } },
+      ],
+    });
+    TestBed.inject(Mural).kind.set('anotacoes');
+  });
+  afterEach(() => localStorage.clear());
+
+  it('com algum canvas no mural, traz os quadros públicos dela, e cada canvas acha o seu pelo id', async () => {
+    const visit = TestBed.inject(VisitView);
+    TestBed.tick();
+    await Promise.resolve();
+    expect(loads).toEqual(['K7QFM2XA']);
+    expect(visit.canvasBoard()(BOARD)).toBe(board);
+    expect(visit.canvasBoard()('outro0quadro0qualquer1')).toBeNull();
+    // a busca da visita também acha o canvas pelo que está escrito no quadro
+    visit.query.set('lisboa');
+    expect(visit.canvasText()(canvas)).toContain('lisboa');
+  });
+
+  it('a ficha da visita é a mesma do dono: com o quadro dela, o canvas pendurado e a miniatura', async () => {
+    const visit = TestBed.inject(VisitView);
+    TestBed.tick();
+    await Promise.resolve();
+    const fixture = TestBed.createComponent(ReviewCard);
+    fixture.componentRef.setInput('review', canvas);
+    fixture.componentRef.setInput('canvasBoard', visit.canvasBoard()(BOARD));
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('app-canvas-card .eucatex app-board-sketch svg')).not.toBeNull();
+    expect(el.querySelector('button.hit')!.getAttribute('aria-label')).toContain('Abrir canvas: Mapa da viagem, 1 peça');
+    // o que é do dono (o Finalizar e o Fixar) fica de fora: a visita não marca nada
+    expect(el.querySelector('.acoes')).toBeNull();
+    fixture.destroy();
   });
 });

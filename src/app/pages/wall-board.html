@@ -175,7 +175,7 @@
           }
         } @else {
           @if (lista()) {
-            <app-note-index [id]="'fichas-' + idOf(g.key)" [reviews]="g.reviews" [ear]="groupTab() ? 'assunto' : 'grupo'" [folders]="cardFolders()" [looks]="access().looks" [boardOnly]="shownBoard()" [studyOnly]="view.studyOnly()" (opened)="opened.emit($event)" />
+            <app-note-index [id]="'fichas-' + idOf(g.key)" [reviews]="g.reviews" [ear]="groupTab() ? 'assunto' : 'grupo'" [folders]="cardFolders()" [looks]="access().looks" [boardOnly]="shownBoard()" [studyOnly]="view.studyOnly()" [canvasBoard]="view.canvasBoard()" (opened)="opened.emit($event)" />
           } @else {
             <div class="fichas" [id]="'fichas-' + idOf(g.key)" [appFichas]="g.reviews" [appFichasMosaico]="inteira()" [appFichasCopias]="g.copies" [appFichasSecao]="g.key"></div>
           }
