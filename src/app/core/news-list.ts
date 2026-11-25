@@ -27,12 +27,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-25-canvas-do-grupo-para-todos',
+    id: '2026-11-25-sem-fitas-no-perfil',
     version: '1.55.1',
     kind: 'ajustes',
     date: '2026-11-25',
-    title: 'O card do texto mais forte, arrastar o canvas e o canvas de um grupo para todos',
+    title: 'Sem os enfeites que fingiam segurar, o card do texto mais forte e o canvas de um grupo para todos',
     melhorias: [
+      'Sem os enfeites que só fingiam segurar as coisas: no perfil, a polaroid, a folha "Sobre mim", as fichinhas dos números e as polaroids pequenas das seções ficam sem os pedaços de fita-crepe.',
       'Na anotação aberta, o card do texto tem a faixa do título e a borda numa cor um pouco mais forte, a caminho da cor das cartolinas, para se destacar da folha clara. Nas cartolinas do mural ele continua como era.',
     ],
     correcoes: [

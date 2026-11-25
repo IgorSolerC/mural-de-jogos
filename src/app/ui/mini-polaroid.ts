@@ -3,7 +3,7 @@ import { Stock } from '../core/review';
 import { MuralSrc } from './stored-image';
 
 /**
- * Uma polaroid pequena presa com um pedaço de fita: a foto (uma capa, um emoji ou a inicial, na
+ * Uma polaroid pequena: a foto (uma capa, um emoji ou a inicial, na
  * cartolina escolhida) e o nome escrito à mão embaixo. É a do quadro de cima do perfil em miniatura.
  * Serve às seções do perfil no tipo Polaroid (a capa, em retrato) e às pessoas no Seguindo/Seguidores
  * (o emoji, quadrada). Quem usa põe o link ou o botão em volta; `--tilt` entorta, `--ergue` levanta
@@ -15,7 +15,6 @@ import { MuralSrc } from './stored-image';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class.mp-retrato]': "shape() === 'retrato'" },
   template: `
-    <span class="mp-fita" aria-hidden="true"></span>
     <span class="mp-foto cartolina" [attr.data-cor]="stock()" [style.--stock]="'var(--stock-' + stock() + ')'" aria-hidden="true">
       @if (photo(); as url) {
         <img [muralSrc]="url" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" (error)="broken.set(url)" />
@@ -56,22 +55,6 @@ import { MuralSrc } from './stored-image';
       transition:
         translate var(--t-physical) var(--ease-physical),
         rotate var(--t-physical) var(--ease-physical);
-    }
-
-    /* o pedaço de fita-crepe que prende a polaroid na parede */
-    .mp-fita {
-      position: absolute;
-      z-index: 2;
-      top: -9px;
-      left: 28%;
-      width: 44%;
-      height: 17px;
-      background-color: rgb(222 205 160 / 0.88);
-      background-image: var(--paper-grain);
-      background-blend-mode: multiply;
-      clip-path: polygon(0 8%, 3px 32%, 0 58%, 2px 92%, 100% 100%, calc(100% - 3px) 70%, 100% 40%, calc(100% - 2px) 4%);
-      filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3));
-      rotate: calc(var(--tilt, 0deg) * -1.5);
     }
 
     .mp-foto {

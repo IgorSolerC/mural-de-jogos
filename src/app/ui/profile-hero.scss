@@ -6,7 +6,6 @@
 :host {
   display: block;
   container-type: inline-size;
-  --fita: rgb(222 205 160 / 0.88);
 }
 
 /* ===== A moldura: pinus cru, com o veio da madeira, presa por quatro parafusos (ou a escolhida) ===== */
@@ -281,37 +280,6 @@ button.gente-item {
   }
 }
 
-/* masking tape: os pedaços que prendem a polaroid e a folha */
-.fita {
-  position: absolute;
-  z-index: 2;
-  height: 22px;
-  background-color: var(--fita);
-  background-image: var(--paper-grain);
-  background-blend-mode: multiply;
-  clip-path: polygon(0 8%, 4px 32%, 0 58%, 3px 92%, 100% 100%, calc(100% - 4px) 70%, 100% 40%, calc(100% - 3px) 4%);
-  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3));
-
-  &.f1 {
-    top: -10px;
-    left: -9%;
-    width: 38%;
-    rotate: -34deg;
-  }
-  &.f2 {
-    top: -8px;
-    right: -9%;
-    width: 36%;
-    rotate: 30deg;
-  }
-  &.f3 {
-    top: -12px;
-    left: calc(50% - 58px);
-    width: 116px;
-    rotate: -2.5deg;
-  }
-}
-
 /* ===== A folha "Sobre mim" ===== */
 .lado {
   display: grid;
@@ -494,20 +462,6 @@ button.gente-item {
   }
   &:nth-child(4) {
     rotate: 1.3deg;
-  }
-
-  &::before {
-    content: '';
-    position: absolute;
-    top: -12px;
-    left: calc(50% - 22px);
-    width: 44px;
-    height: 16px;
-    background-color: var(--fita);
-    background-image: var(--paper-grain);
-    background-blend-mode: multiply;
-    rotate: -4deg;
-    filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.25));
   }
 
   &[data-faixa='rosa'] {

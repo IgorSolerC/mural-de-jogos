@@ -21,8 +21,6 @@
            embaixo dela, a fita de quando o mural mudou -->
       <div class="coluna-foto">
       <figure class="polaroid">
-        <span class="fita f1" aria-hidden="true"></span>
-        <span class="fita f2" aria-hidden="true"></span>
         <div class="foto cartolina" [attr.data-cor]="profile().photo" [style.--stock]="'var(--stock-' + profile().photo + ')'">
           <span class="emoji" role="img" [attr.aria-label]="'Foto de ' + name()">{{ profile().emoji }}</span>
           <span class="brilho-foto" aria-hidden="true"></span>
@@ -54,9 +52,8 @@
       </div>
 
       <div class="lado">
-        <!-- a folha quadriculada, presa com fita: o título em letras recortadas, a descrição à mão -->
+        <!-- a folha quadriculada: o título em letras recortadas, a descrição à mão -->
         <article class="folha" aria-label="Sobre mim">
-          <span class="fita f3" aria-hidden="true"></span>
           <h2 class="recortes" aria-hidden="true">
             @for (c of cuts; track $index) {
               @if (c.paper) {
@@ -87,7 +84,7 @@
           }
         </article>
 
-        <!-- as fichinhas dos números, cada uma presa por um pedaço de fita, e embaixo as ações -->
+        <!-- as fichinhas dos números e, embaixo, as ações -->
         <div class="lateral">
         <ul class="numeros" aria-label="Números">
           @for (n of numbers(); track n.label) {
