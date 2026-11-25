@@ -93,10 +93,10 @@ describe('o card mais forte na anotação aberta', () => {
   it('a cor da cartolina pega a forte da cartolina da ficha aberta', async () => {
     const { fora, texto } = leitor('azul');
     const [card] = await render(fora, texto, ['cartolina']);
-    expect(fundo(card)).toBe('rgb(171, 220, 251)');
+    expect(fundo(card)).toBe('rgb(182, 223, 250)');
     // escura, a mesma cor (o papel do card é claro também numa cartolina escura)
     texto.closest('article')!.setAttribute('data-cor', 'azul-escuro');
-    expect(fundo(card)).toBe('rgb(171, 220, 251)');
+    expect(fundo(card)).toBe('rgb(182, 223, 250)');
   });
 
   it('nas cartolinas nada muda: no mural, e na ficha colada no texto da anotação aberta', async () => {

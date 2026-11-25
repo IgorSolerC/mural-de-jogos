@@ -1988,11 +1988,11 @@ img.revelada {
   --c-tinta: var(--cartolina-tinta, #4b463e);
 }
 /* (e o fundo forte e a tinta dele, para a anotação aberta: ver abaixo) */
-@each $cores, $papel, $tinta, $fundo, $tinta-forte in ((vermelho vermelho-escuro) #f7d9d4 #9d2118 #f3b0a8 #902018),
-  ((laranja laranja-escuro) #fbdfc2 #934407 #fdc492 #874009), ((amarelo amarelo-escuro) #faeea4 #735400 #fce578 #735400),
-  ((verde verde-escuro) #d8f0db #1f6a2c #aeedb5 #1f6a2c), ((azul azul-escuro) #dce8f7 #1e4f8e #abdcfb #1e4f8e),
-  ((lilas lilas-escuro) #e6dcf5 #553594 #d7c3f8 #553594), ((rosa rosa-escuro) #fadce7 #99214f #fcafcb #8c2049),
-  ((cinza cinza-escuro branco preto) #e7e4de #4b463e #dad5cf #4b463e)
+@each $cores, $papel, $tinta, $fundo, $tinta-forte in ((vermelho vermelho-escuro) #f7d9d4 #9d2118 #f4b9b2 #972118),
+  ((laranja laranja-escuro) #fbdfc2 #934407 #fcca9d #8d4208), ((amarelo amarelo-escuro) #faeea4 #735400 #fce782 #735400),
+  ((verde verde-escuro) #d8f0db #1f6a2c #b7eebd #1f6a2c), ((azul azul-escuro) #dce8f7 #1e4f8e #b6dffa #1e4f8e),
+  ((lilas lilas-escuro) #e6dcf5 #553594 #dac9f7 #553594), ((rosa rosa-escuro) #fadce7 #99214f #fcb9d1 #99214f),
+  ((cinza cinza-escuro branco preto) #e7e4de #4b463e #ddd8d2 #4b463e)
 {
   @each $cor in $cores {
     [data-cor='#{$cor}'],
@@ -2006,13 +2006,13 @@ img.revelada {
 }
 
 /* Na anotação aberta (a folha creme da leitura, também na tela cheia e lado a lado), a parte de fora do card (a
-   faixa do título e a moldura) ganha a cor mais forte do papel dele, a caminho da cartolina da mesma cor (45% do
-   caminho do papel claro até ela; 80% ficou pesado demais, disse o dono), para o card não sumir no creme; o miolo
-   claro fica o mesmo. Onde a cor forte pediria, a tinta do título escurece até 4,8:1 sobre ela. Nas cartolinas, nada
-   muda (as do mural e a ficha colada no texto; o pedido do dono, 25/nov). */
-@each $jeito, $fundo, $tinta in (nota #e3c892 #6a4818), (info #abdcfb #1e4f8e), (dica #a0e5d4 #106255), (feito #c2e6a6 #2b681b),
-  (pergunta #fce578 #735400), (aviso #fdc492 #874009), (perigo #f3b0a8 #902018), (exemplo #d7c3f8 #553594), (citacao #dad5cf #4b463e),
-  (rosa #fcafcb #8c2049)
+   faixa do título e a moldura) ganha a cor mais forte do papel dele, a caminho da cartolina da mesma cor (35% do
+   caminho do papel claro até ela; 80% e 45% ficaram pesados demais, disse o dono), para o card não sumir no
+   creme; o miolo claro fica o mesmo. Onde a cor forte pediria, a tinta do título escurece até 4,8:1 sobre ela. Nas
+   cartolinas, nada muda (as do mural e a ficha colada no texto; o pedido do dono, 25/nov). */
+@each $jeito, $fundo, $tinta in (nota #e5cd99 #6a4818), (info #b6dffa #1e4f8e), (dica #ace7d8 #0f6658), (feito #c8e8b0 #2b681b),
+  (pergunta #fce782 #735400), (aviso #fcca9d #8d4208), (perigo #f4b9b2 #972118), (exemplo #dac9f7 #553594), (citacao #ddd8d2 #4b463e),
+  (rosa #fcb9d1 #99214f)
 {
   app-review-reader .text [data-jeito='#{$jeito}']:not(app-review-card *) {
     --c-fundo: #{$fundo};
@@ -2020,7 +2020,7 @@ img.revelada {
   }
 }
 app-review-reader .text [data-jeito='cartolina']:not(app-review-card *) {
-  --c-fundo: var(--cartolina-fundo, #dad5cf);
+  --c-fundo: var(--cartolina-fundo, #ddd8d2);
   --c-tinta: var(--cartolina-tinta-forte, #4b463e);
 }
 
