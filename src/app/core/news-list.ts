@@ -33,7 +33,7 @@ export const NEWS: NewsEntry[] = [
     date: '2026-11-25',
     title: 'O card do texto mais forte na anotação aberta',
     melhorias: [
-      'Na anotação aberta, o card do texto tem a faixa do título e a borda numa cor mais forte, perto da cor das cartolinas, para se destacar da folha clara. Nas cartolinas do mural ele continua como era.',
+      'Na anotação aberta, o card do texto tem a faixa do título e a borda numa cor um pouco mais forte, a caminho da cor das cartolinas, para se destacar da folha clara. Nas cartolinas do mural ele continua como era.',
     ],
   },
   {
