@@ -1,7 +1,7 @@
 ﻿prioridade,id,japones,leitura,romaji,portugues,importancia,frequencia,uso,jlpt,registro,classe,tema,escrita,grupo_verbo,rank_corpus_internet,composicao,notas,exemplos,origem,aprendida
 1,JP0037,だ,だ,da,é / são (forma casual de です),10,5,Altíssimo,N5,casual,cópula,gramática,kana,-,29,"だった (era), じゃない (não é), だろう (deve ser)","Liga o sujeito ao que ele é, na fala informal: 学生だ (é estudante). No fim da frase, não vai depois de adjetivo-i (高いだ está errado). Conjuga: だった (era), じゃない (não é), だろう (deve ser).","今日は日曜日[だ]。 → Hoje é domingo.
 彼は医者[だ]。 → Ele é médico.
-きれい[だ]ね。 → É bonito, né?",Contração de である (de aru).,
+きれい[だ]ね。 → É bonito, né?",Contração de である (de aru).,2026-11-25
 2,JP0045,〜ます,ます,masu,forma educada dos verbos,10,5,Altíssimo,N5,educado,auxiliar,gramática,kana,-,16,"〜ません (negativo), 〜ました (passado), 〜ましょう (vamos)","Vai no radical do verbo (食べる → 食べます, 行く → 行きます) e deixa a fala educada: com desconhecidos, no trabalho, com mais velhos. Conjuga sozinha: 〜ません (negativo), 〜ました (passado), 〜ましょう (""vamos"").","毎日、日本語を勉強し[ます]。 → Estudo japonês todo dia.
 明日は学校に行き[ません]。 → Amanhã não vou à escola.
 一緒に食べ[ましょう]。 → Vamos comer juntos.",,
@@ -16,10 +16,10 @@
 今、テレビを見[て]います。 → Agora estou vendo TV.",,
 6,JP0093,それ,それ,sore,isso (perto de quem ouve) / isso (o que acabou de ser dito),10,5,Altíssimo,N5,neutro,demonstrativo,gramática,kana,-,66,"それで (e então), それから (depois disso), それに (além disso)","Aponta uma coisa perto de quem ouve, ou algo que acabou de ser dito. É da série こ・そ・あ・ど: これ (isto), それ (isso), あれ (aquilo, longe dos dois), どれ (qual). Antes de substantivo, usa-se その.","[それ]は何ですか。 → O que é isso?
 [それ]、私のペンです。 → Essa é a minha caneta.
-[それ]はいい考えですね。 → Essa é uma boa ideia, né?",,
+[それ]はいい考えですね。 → Essa é uma boa ideia, né?",,2026-11-25
 7,JP0096,その,その,sono,esse(a) (antes de substantivo),10,5,Altíssimo,N5,neutro,demonstrativo,gramática,kana,-,48,"その後 (sono go, depois disso), そのまま (do jeito que está)","Vem sempre antes de um substantivo: その本 (esse livro), perto de quem ouve ou já mencionado antes. Sozinho, se diz それ. Da série この・その・あの・どの.","[その]かばん、かわいいね。 → Essa bolsa é bonitinha, né?
 [その]本を取ってください。 → Me passe esse livro, por favor.
-[その]日はとても寒かった。 → Naquele dia fez muito frio.",,
+[その]日はとても寒かった。 → Naquele dia fez muito frio.",,2026-11-25
 8,JP0116,どう,どう,dou,como / que tal,10,5,Altíssimo,N5,neutro,interrogativo,gramática,kana,-,162,"どうですか (que tal?), どうして (por quê), どうやって (de que jeito)","Pergunta sobre o estado ou a opinião: 日本はどう？ (como é o Japão?). Para oferecer ou sugerir, どうですか (que tal?); mais educado, いかがですか. Para perguntar o meio, どうやって (de que jeito).","コーヒーは[どう]ですか。 → Que tal um café?
 テスト、[どう]だった？ → Como foi a prova?
 この漢字は[どう]読みますか。 → Como se lê este kanji?",,2026-11-23
@@ -160,7 +160,7 @@
 「どうして寝ないの？」「眠くない[から]。」 → ""Por que você não dorme?"" ""Porque não estou com sono.""",,
 54,JP0038,でした,でした,deshita,era / foi (passado de です),9,5,Altíssimo,N5,educado,cópula,gramática,kana,-,,"です (é), だった (forma casual), ではありませんでした (não era)","Vai com substantivos e adjetivos-na: 学生でした, 静かでした. Com adjetivo-i não se usa: o passado é 高かったです, não 高いでした. O negativo é ではありませんでした ou じゃなかったです; a forma casual é だった.","昨日は雨[でした]。 → Ontem choveu.
 テストは簡単[でした]。 → A prova foi fácil.
-前は学生[でした]。 → Antes eu era estudante.",,
+前は学生[でした]。 → Antes eu era estudante.",,2026-11-25
 55,JP0049,〜ている,ている,te iru,estar fazendo / estado atual,9,5,Altíssimo,N5,neutro,auxiliar,gramática,kana,-,,"食べている (estar comendo), 〜ています (forma educada), 〜てる (forma falada)","Vai na forma て do verbo: 食べる → 食べている. Com verbos de ação, é a ação em curso (estar comendo); com verbos de mudança, o estado que ficou: 結婚している (ser casado), 知っている (saber). Na fala vira 〜てる; a forma educada é 〜ています.","今、ご飯を食べ[ています]。 → Estou comendo agora.
 兄は結婚し[ている]。 → Meu irmão mais velho é casado.
 東京に住ん[でいます]。 → Moro em Tóquio.",,
@@ -208,7 +208,7 @@
 昨日、マンガを[読んだ]。 → Ontem li mangá.",,
 70,JP0512,大丈夫,だいじょうぶ,daijoubu,tudo bem / está bem / sem problema,9,5,Altíssimo,N5,neutro,adjetivo-na,emoções,kanji,-,1654,"丈夫 (robusto, resistente)","Pergunta ou responde se alguém está bem ou se algo serve. Muito usado para recusar com educação: 大丈夫です (não precisa, obrigado). Também diz que algo é seguro, que não vai quebrar ou falhar.","[大丈夫]？けがはない？ → Você está bem? Não se machucou?
 明日の三時、[大丈夫]？ → Amanhã às três, pode ser?
-「袋はいりますか。」「[大丈夫]です。」 → ""Precisa de sacola?"" ""Não precisa, obrigado.""",Do chinês 大丈夫 (homem de valor): 大 (grande) + 丈夫 (homem feito).,
+「袋はいりますか。」「[大丈夫]です。」 → ""Precisa de sacola?"" ""Não precisa, obrigado.""",Do chinês 大丈夫 (homem de valor): 大 (grande) + 丈夫 (homem feito).,2026-11-25
 71,JP0521,本当,ほんとう,hontou,verdade / real / de verdade,9,5,Altíssimo,N5,neutro,adjetivo-na,mente,kanji,-,1288,"本当に (realmente), ほんと (forma falada)","Substantivo e adjetivo-na: 本当の話 (uma história real). 本当に é ""realmente"", ""muito"": 本当にありがとう. Na fala, se encurta para ほんと: ほんと？ (sério?).","それは[本当]ですか。 → Isso é verdade?
 [本当]にありがとう。 → Muito obrigado mesmo.
 これは[本当]の話だよ。 → Isso é uma história real, viu.",,
@@ -296,7 +296,7 @@
 [あれ]、どうなった？ → E aquilo, como ficou?",,
 99,JP0099,そこ,そこ,soko,aí (perto de quem ouve) / esse ponto (da conversa),8,5,Altíssimo,N5,neutro,demonstrativo,gramática,kana,-,294,"ここ (aqui), あそこ (lá), どこ (onde), そちら (aí, educado)","Indica o lugar perto de quem ouve, ou um lugar já mencionado. Também aponta um ponto da conversa: そこが問題だ (esse é o problema). Faz série com ここ, あそこ e どこ.","[そこ]に座ってください。 → Sente-se aí, por favor.
 かばんは[そこ]にあります。 → A bolsa está aí.
-[そこ]が問題なんだ。 → Esse é que é o problema.",,
+[そこ]が問題なんだ。 → Esse é que é o problema.",,2026-11-25
 100,JP0112,どんな,どんな,donna,que tipo de / como (é),8,5,Altíssimo,N5,neutro,interrogativo,gramática,kana,-,652,"こんな (este tipo de), そんな (esse tipo de), あんな (aquele tipo de), どのような (que tipo de, educado)","Vem antes de um substantivo e pergunta pelo tipo ou pelo jeito: どんな人？ (que tipo de pessoa?). Com でも, vira ""qualquer"": どんなことでも (qualquer coisa). A forma mais educada é どのような.","[どんな]音楽が好きですか。 → De que tipo de música você gosta?
 新しい先生は[どんな]人？ → Como é o professor novo?
 [どんな]ことでも聞いてください。 → Pergunte qualquer coisa, por favor.",,
@@ -459,7 +459,7 @@
 「ありがとう」[と]言った。 → Disse ""obrigado"".",,
 153,JP0039,だった,だった,datta,era / foi,8,5,Altíssimo,N4,casual,cópula,gramática,kana,-,,"だ (é), でした (era, educado), じゃなかった (não era)","Passado de だ, com substantivos e adjetivos-na: 学生だった (era estudante), 静かだった (era tranquilo). Os adjetivos-i fazem o passado sozinhos (高かった). A forma educada é でした.","昨日は雨[だった]。 → Ontem foi dia de chuva.
 子どものころ、野球が好き[だった]。 → Quando criança, eu gostava de beisebol.
-あの店、静か[だった]ね。 → Aquele restaurante era tranquilo, né?",Contração de であった.,
+あの店、静か[だった]ね。 → Aquele restaurante era tranquilo, né?",Contração de であった.,2026-11-25
 154,JP0036,という,という,to iu,chamado ... / que se chama / o fato de que,8,5,Altíssimo,N4,neutro,expressão gramatical,gramática,kana,-,47,"〜ということ (o fato de que), 〜というのは (o que é ..., quer dizer), って (casual)","Liga um nome ou uma frase a um substantivo: 田中という人 (uma pessoa chamada Tanaka). 〜ということ faz da frase ""o fato de que""; 〜というのは explica o que algo quer dizer. Na fala casual, vira って.","田中[という]人が来ました。 → Veio uma pessoa chamada Tanaka.
 これは何[という]花ですか。 → Como se chama esta flor?
 彼が結婚した[という]話を聞いた。 → Ouvi a notícia de que ele se casou.",と (partícula de citação) + 言う (dizer).,
@@ -1021,7 +1021,7 @@
 [初めて]の海外旅行です。 → É minha primeira viagem ao exterior.",,
 338,JP0576,時々,ときどき,tokidoki,às vezes,6,4,Alto,N5,neutro,advérbio,tempo,kanji,-,2718,"よく (com frequência), たまに (de vez em quando)",Para o que acontece de vez em quando: menos que よく (com frequência) e mais que たまに (uma vez ou outra). O 々 repete o kanji anterior.,"[時々]映画を見ます。 → Às vezes vejo filmes.
 父は[時々]料理をします。 → Meu pai cozinha às vezes.
-日曜日は[時々]公園に行く。 → Aos domingos, às vezes vou ao parque.","Repetição de 時 (toki, tempo, hora); o segundo とき vira どき.",
+日曜日は[時々]公園に行く。 → Aos domingos, às vezes vou ao parque.","Repetição de 時 (toki, tempo, hora); o segundo とき vira どき.",2026-11-25
 339,JP0803,おはようございます,おはようございます,ohayou gozaimasu,bom dia,6,4,Alto,N5,educado,expressão,cumprimentos,kana,-,,"おはよう (bom dia, casual), こんにちは (olá / boa tarde)","Entre amigos e família, basta おはよう. Usa-se de manhã; em muitos trabalhos, é também o cumprimento de quem chega para o turno, a qualquer hora.","先生、[おはようございます]。 → Bom dia, professor.
 皆さん、[おはようございます]。 → Bom dia a todos.
 [おはようございます]、今日もよろしくお願いします。 → Bom dia, conto com vocês hoje também.","De お早く (o + hayaku, ""cedo"", de 早い), que virou お早う, + ございます (forma muito educada de ある).",

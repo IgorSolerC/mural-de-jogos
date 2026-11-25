@@ -217,10 +217,10 @@ sem seta nenhuma",Do inglês hero.
     expect(find('ポルトガル語').examples.length).toBe(3);
   });
 
-  it('as palavras que o dono já aprendeu (14 a 23/nov) vêm com o dia, e as homógrafas são verbetes próprios', () => {
+  it('as palavras que o dono já aprendeu (14 a 25/nov) vêm com o dia, e as homógrafas são verbetes próprios', () => {
     const all = dictionaryWords().words;
     const learned = all.filter((w) => w.learnedOn);
-    expect(learned.length).toBe(108);
+    expect(learned.length).toBe(116);
     const on = (text: string, meaning: string) => all.find((w) => w.text === text && w.meaning.startsWith(meaning))!;
     expect(on('です', 'é').learnedOn).toBe('2026-11-14');
     expect(on('好き', 'gostar').learnedOn).toBe('2026-11-23');
@@ -237,6 +237,10 @@ sem seta nenhuma",Do inglês hero.
     }
     expect(on('〜人', 'contador de pessoas').learnedOn).toBe('2026-11-23');
     expect(on('〜人', 'pessoa de').learnedOn).toBeNull();
+    // as de 25/nov: a série そ (それ, その, そこ), a cópula informal e os passados, 時々 e 大丈夫
+    for (const text of ['それ', 'その', 'そこ', 'だ', 'でした', 'だった', '時々', '大丈夫']) {
+      expect(all.find((w) => w.text === text)?.learnedOn).withContext(text).toBe('2026-11-25');
+    }
     // as prioridades seguem uma por uma, sem buraco nem repetição
     expect(all.map((w) => w.order)).toEqual(all.map((_, i) => i + 1));
   });
