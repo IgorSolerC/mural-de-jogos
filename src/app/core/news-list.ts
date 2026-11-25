@@ -27,13 +27,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-25-fichas-menos-tortas',
+    id: '2026-11-25-pra-depois-sem-fita',
     version: '1.55.1',
     kind: 'ajustes',
     date: '2026-11-25',
     title: 'Sem os enfeites que fingiam segurar, o card do texto mais forte e o canvas de um grupo para todos',
     melhorias: [
-      'Sem os enfeites que só fingiam segurar as coisas: as fichas das anotações e das análises não têm mais a tachinha, em todos os murais e vistas (o título sobe para o alto da ficha, rente à capa), e nas vistas Comum e Fichas inteiras elas ficam só metade tão tortas, mais sutis; no perfil, a polaroid, a folha "Sobre mim", as fichinhas dos números e as polaroids pequenas das seções ficam sem os pedaços de fita-crepe.',
+      'Sem os enfeites que só fingiam segurar as coisas: as fichas das anotações e das análises não têm mais a tachinha, em todos os murais e vistas (o título sobe para o alto da ficha, rente à capa), e nas vistas Comum e Fichas inteiras elas ficam só metade tão tortas, mais sutis; as folhas do Pra depois ficam sem a fita-crepe; no perfil, a polaroid, a folha "Sobre mim", as fichinhas dos números e as polaroids pequenas das seções ficam sem os pedaços de fita-crepe.',
       'Na anotação aberta, o card do texto tem a faixa do título e a borda numa cor um pouco mais forte, a caminho da cor das cartolinas, para se destacar da folha clara. Nas cartolinas do mural ele continua como era.',
     ],
     correcoes: [

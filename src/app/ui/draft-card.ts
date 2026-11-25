@@ -7,10 +7,9 @@ import { daysAgoLabel } from '../core/dates';
 
 /**
  * Um título guardado para resenhar depois: ainda não é cartolina, é uma folha arrancada às pressas
- * e presa na parede. Cada uma de um papel (caderno de espiral, fichário, quadriculado, bloco de
- * recados, post-it), presa do seu jeito (fita no meio, nos dois cantos, num canto só; o post-it gruda
- * sozinho), com a capa colada, num clipe ou em cantoneiras de álbum. No cabeçalho, a lápis, o dia
- * em que foi guardado; e a folha amarela com o tempo, para quem espera há mais tempo saltar aos olhos.
+ * e posta na parede. Cada uma de um papel (caderno de espiral, fichário, quadriculado, bloco de
+ * recados, post-it), sem fita que finja segurá-la (saiu em 25/nov/2026, a pedido), com a capa
+ * colada, num clipe ou em cantoneiras de álbum. No cabeçalho, a lápis, o dia em que foi guardado; e a folha amarela com o tempo, para quem espera há mais tempo saltar aos olhos.
  */
 @Component({
   selector: 'app-draft-card',
@@ -21,8 +20,6 @@ import { daysAgoLabel } from '../core/dates';
     '[class.is-preview]': 'preview()',
     '[class]': '"papel-" + page().kind + " idade-" + age()',
     '[style.--tilt]': 'pin().tilt',
-    '[style.--tape-tilt]': 'page().tapeTilt',
-    '[style.--tape-x]': 'page().tapeX + "%"',
     '[style.--postit]': 'page().color',
     '[style.--drop-y]': 'pin().dropY + "px"',
     '[style.--largura]': 'page().width',
@@ -31,19 +28,6 @@ import { daysAgoLabel } from '../core/dates';
     '[style.view-transition-name]': 'preview() ? null : "pendente-" + draft().id',
   },
   template: `
-    @switch (page().hold) {
-      @case ('fita') {
-        <span class="tape meio" aria-hidden="true"></span>
-      }
-      @case ('fitas') {
-        <span class="tape esq" aria-hidden="true"></span>
-        <span class="tape dir" aria-hidden="true"></span>
-      }
-      @case ('canto') {
-        <span class="tape esq" aria-hidden="true"></span>
-      }
-    }
-
     <div class="sheet">
       <p class="cabecalho" aria-hidden="true">
         @if (page().kind === 'espiral' || page().kind === 'fichario') {
@@ -97,7 +81,7 @@ import { daysAgoLabel } from '../core/dates';
       width: 100%;
       margin-top: calc(var(--drop-y) * 0.5);
       rotate: calc(var(--tilt) * 1deg);
-      transform-origin: 50% 0;
+      transform-origin: 50% 50%;
       /* a folha é recortada pela máscara: a sombra vem de filtro, não de box-shadow */
       filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3)) drop-shadow(0 8px 9px rgb(0 0 0 / 0.42));
       transition:
@@ -113,7 +97,7 @@ import { daysAgoLabel } from '../core/dates';
       --idade: 0.22;
     }
 
-    /* Mexe como papel solto: gira em volta da fita e desgruda um pouco */
+    /* Mexe como papel solto: endireita um pouco e desgruda da parede */
     :host(:hover),
     :host(:focus-within) {
       rotate: calc(var(--tilt) * 0.3deg);
@@ -215,37 +199,6 @@ import { daysAgoLabel } from '../core/dates';
         var(--postit);
       /* a ponta levantada: o canto de baixo à direita chanfrado, como papel que descolou */
       clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 14px) 100%, 0 100%);
-    }
-
-    /* ===== Fita-crepe segurando a folha pelo alto ===== */
-    .tape {
-      position: absolute;
-      z-index: 5;
-      top: -8px;
-      width: 48px;
-      height: 17px;
-      background: rgb(222 205 160 / 0.86);
-      box-shadow: 0 1px 1px rgb(0 0 0 / 0.2);
-    }
-    .tape.meio {
-      left: calc(var(--tape-x) - 24px);
-      rotate: calc(var(--tape-tilt) * 1deg);
-    }
-    .tape.esq {
-      top: -2px;
-      left: -14px;
-      width: 44px;
-      rotate: calc(-40deg + var(--tape-tilt) * 0.5deg);
-    }
-    .tape.dir {
-      top: -2px;
-      right: -14px;
-      width: 44px;
-      rotate: calc(38deg + var(--tape-tilt) * 0.5deg);
-    }
-    :host-context(body.has-tape) .tape {
-      background: url('textures/fita-crepe.png') center / 100% 100% no-repeat;
-      box-shadow: none;
     }
 
     /* ===== O cabeçalho da folha: o dia em que foi guardado, a lápis ===== */
@@ -401,12 +354,9 @@ import { daysAgoLabel } from '../core/dates';
       rotate: calc(var(--tilt) * 0.5deg);
     }
 
-    /* Chegada: a folha é colada às pressas, a fita bate por cima */
+    /* Chegada: a folha cai na parede às pressas */
     :host(.is-landing) {
       animation: stick 560ms var(--ease-physical) both;
-    }
-    :host(.is-landing) .tape {
-      animation: tape 460ms 220ms var(--ease-physical) both;
     }
     @keyframes stick {
       0% {
@@ -416,12 +366,6 @@ import { daysAgoLabel } from '../core/dates';
       }
       50% {
         opacity: 1;
-      }
-    }
-    @keyframes tape {
-      0% {
-        scale: 1.6 1.2;
-        opacity: 0;
       }
     }
   `,

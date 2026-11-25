@@ -398,7 +398,7 @@ Each review stores its stock. A new card is born in a stock drawn at random from
 - **Error Ink** (`error-ink`): field errors and import errors on paper.
 
 ### Materials on paper
-- **Masking Tape** (`tape`): the Pra depois pages, the Nota a nota sheet and the marking strip. Section headings left the tape on 2026-11-12: they are written in chalk on the wall (see "Section head and pile"). Photos on wall cards are glued, not taped. The search-strip tape still uses the older `rgb(222 205 160 / 0.82)`.
+- **Masking Tape** (`tape`): the Nota a nota sheet (the Pra depois pages lost theirs on 2026-11-25) and the marking strip. Section headings left the tape on 2026-11-12: they are written in chalk on the wall (see "Section head and pile"). Photos on wall cards are glued, not taped. The search-strip tape still uses the older `rgb(222 205 160 / 0.82)`.
 - **Pen underline** (`red`): the sorted attribute is marked by a single hand-drawn stroke of Marker Red under its name, never by a highlighter band (see "Sort mark and Lado a lado" below). The yellow and white highlighters were removed: the yellow read as a flat yellow block inside the white label, the white as a spreadsheet selection.
 
 ### Pins and status stripes
@@ -930,14 +930,14 @@ The user asked to turn "Meu mural de JOGOS" into five walls (Jogos, Livros, Film
 ## Pra depois (notebook pass)
 
 - **Sheets (5 papers).** Each pending title is a sheet torn off in a hurry and stuck to the wall, drawn per id (`core/notebook.ts`): `espiral` (ruled notebook page with the spiral bites on the left, red margin), `fichario` (binder paper with three real punched holes the wall shows through, double red margin), `quadriculada` (blue graph paper torn from a top spiral), `bloco` (a pale yellow message-pad sheet, grey rules, a strip of red pad glue on top and a finely serrated top edge) and `postit` (yellow, pink, blue, green or orange; it sticks by itself, no tape, with its bottom-right corner lifting off).
-- **How it hangs.** Masking tape in the middle (at 30–70% of the width), two pieces across the top corners, or one across the top-left corner; the post-it has none. The cover is glued (-1.5deg), held by a steel paper clip over its top edge (always on post-its), or set in four black photo-album corners. The cover stays desaturated until hover, as before.
+- **How it hangs.** No tape since 2026-11-25 (the user: decorative holders with no practical purpose); `pageFor` still draws `hold`, `tapeX` and `tapeTilt`, unused, so the frozen sheets keep their seeds. The sheet turns around its middle. The cover is glued (-1.5deg), held by a steel paper clip over its top edge (always on post-its), or set in four black photo-album corners. The cover stays desaturated until hover, as before.
 - **Date header.** The day the title was saved, in pencil (Kalam 700, tabular) at the top right; on notebook and binder paper after a printed blue "Data" and on a pale printed line. The year shows only when it is not this year.
 - **It yellows.** Under a week the sheet is fresh; from 7 to 30 days a warm multiply tint at 11%; after 30 days 22% plus darker edges. The chalk hint under the search explains it ("As mais amarelas estão esperando há mais tempo.") only once some sheet has yellowed. The hit button says how long it waited ("…, guardado há 12 dias").
 - **Heading.** A school notebook label: white, 6px die-cut corners, a printed blue double frame (`#3a67b8`), the printed field "Matéria" and "Pra resenhar depois" in Permanent Marker on a dotted line.
 - **Shelf.** The same global `.prateleira` as the Wishlist: search strip, chalk hint, and on the ruler Mais novos (by the day saved), Mais antigos, A–Z. The sheets use the same `collage()` columns (at least 168px, 32px apart; two on phones), each 88–100% of its column (post-its 82–90%).
 - **Guardar button.** The sibling of the Wishlist coupon: a sheet torn from a spiral notebook (ruled, red margin, spiral bites on the left, shadow by filter), "Anote aqui" in small blue printed caps over "Guardar jogo" in Kalam 700, and a blue `NotebookPen` that "writes" (slides down the rules) on hover. It sits in the header, where "Nova resenha" is on the other tabs (smaller on phones, beside the poster), and N opens it.
 - **Add dialog, Pra depois mode.** The Wishlist's dialog opened with `open('draft')`: the masthead is a blue notebook cover (`#3a67b8` with a fine cross-hatch) titled "Guardar pra depois" in Permanent Marker; the live preview is the notebook sheet (`app-draft-card` with `preview`, dated today, 150px); "Outra folha" re-draws it; the submit reads "Guardar na fila" (or "Ver na fila" for a repeat) with the `NotebookPen` icon.
-- **Empty state.** A loose notebook sheet taped to the wall; its button now opens the Pra depois dialog.
+- **Empty state.** A loose notebook sheet on the wall (no tape since 2026-11-25); its button now opens the Pra depois dialog.
 
 
 

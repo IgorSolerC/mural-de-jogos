@@ -86,7 +86,6 @@ import { SearchStrip } from '../ui/search-strip';
       </div>
     } @else {
       <section class="empty" aria-labelledby="fila-vazia">
-        <span class="tape" aria-hidden="true"></span>
         <h2 id="fila-vazia">{{ g(mural.profile(), 'Nenhum', 'Nenhuma') }} {{ mural.profile().singular }} na fila</h2>
         <p>
           {{ mural.profile().finished }} Guarde aqui só o nome e a capa, e escreva a resenha quando der. Na hora de pregar,
@@ -150,18 +149,6 @@ import { SearchStrip } from '../ui/search-strip';
         repeating-linear-gradient(to bottom, transparent 0 26px, rgb(70 120 200 / 0.28) 26px 27.5px, transparent 27.5px 28px),
         #fbfaf3;
       filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3)) drop-shadow(0 10px 12px rgb(0 0 0 / 0.45));
-    }
-    .empty .tape {
-      position: absolute;
-      top: -9px;
-      left: calc(50% - 30px);
-      width: 60px;
-      height: 20px;
-      rotate: 4deg;
-      background: rgb(222 205 160 / 0.86);
-    }
-    :host-context(body.has-tape) .empty .tape {
-      background: url('textures/fita-crepe.png') center / 100% 100% no-repeat;
     }
     .empty h2 {
       font-family: var(--f-marker);
