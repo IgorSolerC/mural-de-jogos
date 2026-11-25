@@ -27,16 +27,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-25-arrastar-canvas-para-pasta',
+    id: '2026-11-25-canvas-do-grupo-para-todos',
     version: '1.55.1',
     kind: 'ajustes',
     date: '2026-11-25',
-    title: 'O card do texto mais forte e arrastar o canvas para as pastas',
+    title: 'O card do texto mais forte, arrastar o canvas e o canvas de um grupo para todos',
     melhorias: [
       'Na anotação aberta, o card do texto tem a faixa do título e a borda numa cor um pouco mais forte, a caminho da cor das cartolinas, para se destacar da folha clara. Nas cartolinas do mural ele continua como era.',
     ],
     correcoes: [
       'Arrastar no mural voltou a guardar nas pastas e a juntar com outra anotação quando o que vai na mão é um canvas (sozinho ou entre as marcadas), ou uma anotação pega por um widget ou por um trecho escondido: a pasta não se acendia e soltar não fazia nada.',
+      'O canvas de um grupo compartilhado chega a todos do grupo: o quadro dele não subia para a nuvem, e quem não era o dono via o canvas sem a miniatura e, ao abrir, o aviso de que ele não estava ali. Os que ficaram para trás sobem sozinhos na próxima vez que o Murall do dono estiver aberto.',
     ],
   },
   {

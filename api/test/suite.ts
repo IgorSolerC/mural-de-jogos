@@ -189,6 +189,21 @@ export function apiSuite(label: string, getDb: () => Db) {
         expect(res.headers.get('Access-Control-Max-Age')).toBe('86400');
       });
 
+      it('a pré-consulta do envio de um quadro libera os cabeçalhos dele, o grupo compartilhado junto', async () => {
+        const { call } = await setup();
+        const res = await call('/v1/eu/quadros/quadroDeGrupo0001qqqqqq', {
+          method: 'OPTIONS',
+          headers: {
+            Origin: 'http://localhost:4200',
+            'Access-Control-Request-Method': 'PUT',
+            'Access-Control-Request-Headers': 'authorization,quadro-rev-base,quadro-publico,quadro-grupo',
+          },
+        });
+        expect(res.status).toBe(204);
+        const allowed = (res.headers.get('Access-Control-Allow-Headers') ?? '').toLowerCase().split(',').map((h) => h.trim());
+        expect(allowed).toEqual(expect.arrayContaining(['authorization', 'quadro-rev-base', 'quadro-publico', 'quadro-grupo']));
+      });
+
       it('erros também levam o CORS (o site consegue ler a mensagem)', async () => {
         const { call } = await setup({ MODO: 'desligado' });
         const res = await call('/v1/nada', { headers: { Origin: 'https://igorsolerc.github.io' } });

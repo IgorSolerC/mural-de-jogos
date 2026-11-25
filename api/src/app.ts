@@ -62,6 +62,24 @@ export function isOpenPath(path: string): boolean {
 const API_VERSION = 1;
 
 /**
+ * Os cabeçalhos que o site (e as AIs) mandam e a API lê. O navegador pergunta antes (a pré-consulta do CORS) e
+ * bloqueia o pedido inteiro se um deles não estiver aqui: um cabeçalho novo lido por uma rota entra nesta lista
+ * (o teste test/cabecalhos.test.ts confere). Foi o que deixou os quadros dos grupos compartilhados sem subir: o
+ * `Quadro-Grupo` faltava.
+ */
+export const REQUEST_HEADERS = [
+  'Authorization',
+  'Content-Type',
+  'Mural-Rev-Base',
+  'Quadro-Rev-Base',
+  'Quadro-Imagens',
+  'Quadro-Publico',
+  'Quadro-Grupo',
+  'Idempotency-Key',
+  'Mcp-Protocol-Version',
+] as const;
+
+/**
  * A API inteira, montada a partir das dependências prontas. Só usa `Request`/`Response` padrão da
  * web (via Hono), então roda igual no Worker da Cloudflare e no Node (ver `src/entry/`).
  */
@@ -76,7 +94,7 @@ export function createApp(deps: Deps): Hono {
       // cabeçalho, sem cookie
       origin: (origin, c) => (isOpenPath(c.req.path) ? '*' : config.allowedOrigins.includes(origin) ? origin : null),
       allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowHeaders: ['Authorization', 'Content-Type', 'Mural-Rev-Base', 'Quadro-Rev-Base', 'Quadro-Imagens', 'Quadro-Publico', 'Idempotency-Key', 'Mcp-Protocol-Version'],
+      allowHeaders: [...REQUEST_HEADERS],
       exposeHeaders: ['Mural-Rev', 'Mural-Agora', 'Mural-Codigo', 'Mural-Pedidos', 'Mural-Pedidos-Aprovar', 'Imagem-Sua', 'Quadros-Versao', 'Quadro-Rev'],
       // O Chrome limita a 2 horas, o Firefox a 1 dia: menos pré-consultas, menos requisições na cota.
       maxAge: 86_400,
