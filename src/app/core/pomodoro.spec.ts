@@ -4,6 +4,8 @@ import {
   clampMinutes,
   clockText,
   doneToday,
+  focusMs,
+  MAX_RUNS,
   pause,
   phaseEnd,
   progressOf,
@@ -15,6 +17,7 @@ import {
   spokenTime,
   start,
   stop,
+  todayRuns,
 } from './pomodoro';
 
 const MIN = 60_000;
@@ -38,7 +41,7 @@ describe('Pomodoro: as regras', () => {
 
   it('guarda o que é válido', () => {
     const r = readPomodoro({ study: 50, rest: 10, skin: 'neon', corner: 'se', music: false, musicUrl: ' https://x.com/a.mp3 ', on: true, session: 7, phase: 'pausa', startedAt: T0, pausedAt: T0 + MIN, day: '2026-11-08', done: 3 });
-    expect(r).toEqual({ v: 1, study: 50, rest: 10, skin: 'neon', corner: 'se', music: false, musicUrl: 'https://x.com/a.mp3', on: true, session: 7, phase: 'pausa', startedAt: T0, pausedAt: T0 + MIN, day: '2026-11-08', done: 3 });
+    expect(r).toEqual({ v: 1, study: 50, rest: 10, skin: 'neon', corner: 'se', music: false, musicUrl: 'https://x.com/a.mp3', on: true, session: 7, phase: 'pausa', startedAt: T0, pausedAt: T0 + MIN, day: '2026-11-08', done: 3, log: [], runAt: null });
   });
 
   it('os tempos vão de 5 a 120, de 5 em 5', () => {
@@ -135,9 +138,9 @@ describe('Pomodoro: as regras', () => {
     // pausar e continuar, mudar o tempo, desligar: a mesma rodada
     expect(resume(pause(s, T0 + MIN), T0 + 2 * MIN).session).toBe(1);
     expect(setMinutes(s, 'estudo', 50, T0 + MIN).session).toBe(1);
-    expect(stop(s).session).toBe(1);
+    expect(stop(s, T0 + MIN).session).toBe(1);
     // ligar de novo é outra
-    expect(start(stop(s), T0 + 60 * MIN).session).toBe(2);
+    expect(start(stop(s, T0 + MIN), T0 + 60 * MIN).session).toBe(2);
     // fechado por muito tempo: o estudo em que para é uma rodada nova
     expect(advance(s, T0 + 3 * 60 * MIN).session).toBe(2);
     // o guardado estranho começa do zero
@@ -161,11 +164,87 @@ describe('Pomodoro: as regras', () => {
   });
 
   it('desligar guarda os ajustes e os tomatinhos', () => {
-    const s = stop(advance(start({ ...POMODORO_DEFAULT, study: 50, skin: 'neon' }, T0), T0 + 50 * MIN));
+    const s = stop(advance(start({ ...POMODORO_DEFAULT, study: 50, skin: 'neon' }, T0), T0 + 50 * MIN), T0 + 51 * MIN);
     expect(s.on).toBeFalse();
     expect(s.study).toBe(50);
     expect(s.skin).toBe('neon');
     expect(s.done).toBe(1);
+  });
+
+  describe('a régua do dia: os trechos andados hoje', () => {
+    const fases = (runs: { a: number; b: number; f: string }[]) => runs.map((r) => `${r.f} ${(r.a - T0) / MIN}-${(r.b - T0) / MIN}`);
+
+    it('cada fase que acaba vira um trecho, fechado no fim exato (duas abas gravam o mesmo)', () => {
+      const s = start(POMODORO_DEFAULT, T0);
+      expect(s.runAt).toBe(T0);
+      // a aba que avança atrasada fecha no mesmo lugar que a que avançou na hora
+      const late = advance(s, T0 + 27 * MIN);
+      expect(late).toEqual(advance(s, T0 + 25 * MIN));
+      expect(fases(late.log)).toEqual(['estudo 0-25']);
+      expect(late.runAt).toBe(T0 + 25 * MIN);
+      expect(fases(advance(late, T0 + 30 * MIN).log)).toEqual(['estudo 0-25', 'pausa 25-30']);
+    });
+
+    it('pausar, pular e desligar fecham o trecho; continuar abre outro', () => {
+      let s = start(POMODORO_DEFAULT, T0);
+      s = pause(s, T0 + 10 * MIN);
+      expect(s.runAt).toBeNull();
+      s = resume(s, T0 + 12 * MIN);
+      expect(s.runAt).toBe(T0 + 12 * MIN);
+      s = skip(s, T0 + 20 * MIN);
+      s = stop(s, T0 + 23 * MIN);
+      expect(fases(s.log)).toEqual(['estudo 0-10', 'estudo 12-20', 'pausa 20-23']);
+      expect(s.runAt).toBeNull();
+      // pular pausado não abre trecho nenhum
+      const p = skip(pause(start(POMODORO_DEFAULT, T0), T0 + MIN), T0 + 2 * MIN);
+      expect(fases(p.log)).toEqual(['estudo 0-1']);
+      expect(p.runAt).toBeNull();
+    });
+
+    it('o trecho curto demais (pausar e continuar logo) não entra', () => {
+      const s = pause(start(POMODORO_DEFAULT, T0), T0 + 3000);
+      expect(s.log).toEqual([]);
+    });
+
+    it('fechado por muito tempo: só a fase que acabou entra, o resto ninguém viu andar', () => {
+      const s = advance(start(POMODORO_DEFAULT, T0), T0 + 3 * 60 * MIN);
+      expect(fases(s.log)).toEqual(['estudo 0-25']);
+      expect(s.runAt).toBeNull();
+    });
+
+    it('o que está andando aparece até agora, sem passar do fim da fase', () => {
+      const s = start(POMODORO_DEFAULT, T0);
+      expect(fases(todayRuns(s, T0 + 6 * MIN))).toEqual(['estudo 0-6']);
+      expect(fases(todayRuns(s, T0 + 40 * MIN))).toEqual(['estudo 0-25']);
+      expect(todayRuns(pause(s, T0 + MIN), T0 + 6 * MIN).length).toBe(1);
+      expect(todayRuns(POMODORO_DEFAULT, T0)).toEqual([]);
+    });
+
+    it('a régua é só de hoje, e o foco soma só os estudos (o de ontem conta da meia-noite)', () => {
+      const meiaNoite = new Date(2026, 10, 9).getTime();
+      const s = { ...POMODORO_DEFAULT, log: [
+        { a: T0, b: T0 + 25 * MIN, f: 'estudo' as const },
+        { a: meiaNoite - 10 * MIN, b: meiaNoite + 15 * MIN, f: 'estudo' as const },
+        { a: meiaNoite + 15 * MIN, b: meiaNoite + 20 * MIN, f: 'pausa' as const },
+      ] };
+      const amanha = meiaNoite + 60 * MIN;
+      expect(todayRuns(s, amanha).length).toBe(2);
+      expect(focusMs(todayRuns(s, amanha), amanha)).toBe(15 * MIN);
+      // começar no dia seguinte já leva só os de hoje
+      expect(start(s, amanha).log.length).toBe(2);
+    });
+
+    it('o guardado estranho cai fora, e o turno andando de um site velho conta do começo da fase', () => {
+      const lixo = [{ a: 5, b: 1, f: 'estudo' }, { a: 'x', b: 2, f: 'pausa' }, { a: 1, b: 2, f: 'outra' }, null, { a: 1, b: 2, f: 'pausa' }];
+      expect(readPomodoro({ log: lixo }).log).toEqual([{ a: 1, b: 2, f: 'pausa' }]);
+      const muitos = Array.from({ length: MAX_RUNS + 10 }, (_, i) => ({ a: i, b: i + 1, f: 'estudo' }));
+      expect(readPomodoro({ log: muitos }).log.length).toBe(MAX_RUNS);
+      expect(readPomodoro({ on: true, startedAt: T0, pausedAt: null }).runAt).toBe(T0);
+      // depois de uma pausa, o começo da fase (empurrado) não passa para antes do último trecho
+      expect(readPomodoro({ on: true, startedAt: T0, pausedAt: null, log: [{ a: T0, b: T0 + 9 * MIN, f: 'estudo' }] }).runAt).toBe(T0 + 9 * MIN);
+      expect(readPomodoro({ on: true, startedAt: T0, pausedAt: T0 + MIN, runAt: T0 }).runAt).toBeNull();
+      expect(readPomodoro({ on: false, runAt: T0 }).runAt).toBeNull();
+    });
   });
 
   it('o tempo à mostra passa de 99 minutos e arredonda o segundo para cima', () => {

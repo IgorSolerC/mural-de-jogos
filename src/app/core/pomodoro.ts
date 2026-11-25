@@ -52,6 +52,20 @@ export const MAX_MINUTES = 120;
 export const MINUTE_STEP = 5;
 const MIN = 60_000;
 
+/** Um trecho andado de uma fase (ms): a régua do dia (ui/pomodoro-day.ts) pinta cada um. */
+export interface PomodoroRun {
+  /** Quando começou. */
+  a: number;
+  /** Quando parou (pausou, pulou, desligou ou acabou). */
+  b: number;
+  f: PomodoroPhase;
+}
+
+/** Quantos trechos ficam guardados (só os de hoje; um dia inteiro de 25/5 tem 58). */
+export const MAX_RUNS = 96;
+/** Um trecho mais curto que isto (o pausar e continuar logo depois) não entra na régua. */
+const MIN_RUN = 5000;
+
 export interface PomodoroSave {
   v: 1;
   study: number;
@@ -77,6 +91,10 @@ export interface PomodoroSave {
   day: string;
   /** Estudos completos no dia. */
   done: number;
+  /** Os trechos andados hoje, do mais velho ao mais novo (os de antes de hoje saem a cada um que fecha). */
+  log: PomodoroRun[];
+  /** Quando começou o trecho que está andando; null pausado ou desligado. */
+  runAt: number | null;
 }
 
 export const POMODORO_DEFAULT: PomodoroSave = {
@@ -94,6 +112,8 @@ export const POMODORO_DEFAULT: PomodoroSave = {
   pausedAt: null,
   day: '',
   done: 0,
+  log: [],
+  runAt: null,
 };
 
 /** Os minutos de um tempo: o múltiplo de 5 mais perto, de 5 a 120 (o que não é número, o padrão). */
@@ -106,12 +126,28 @@ const isSkin = (v: unknown): v is PomodoroSkin => POMODORO_SKINS.some((s) => s.v
 const isCorner = (v: unknown): v is PomodoroCorner => POMODORO_CORNERS.some((c) => c.value === v);
 const isTime = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0;
 
+function readRuns(v: unknown): PomodoroRun[] {
+  if (!Array.isArray(v)) return [];
+  const out: PomodoroRun[] = [];
+  for (const r of v.slice(-MAX_RUNS)) {
+    if (!r || typeof r !== 'object') continue;
+    const { a, b, f } = r as Partial<Record<keyof PomodoroRun, unknown>>;
+    if (isTime(a) && isTime(b) && b >= a && (f === 'estudo' || f === 'pausa')) out.push({ a, b, f });
+  }
+  return out;
+}
+
 /** O guardado, conferido campo a campo: o que estiver estranho cai no padrão. */
 export function readPomodoro(raw: unknown): PomodoroSave {
   const d = POMODORO_DEFAULT;
   if (!raw || typeof raw !== 'object') return { ...d };
   const r = raw as Partial<Record<keyof PomodoroSave, unknown>>;
   const on = r.on === true && isTime(r.startedAt);
+  const pausedAt = on && isTime(r.pausedAt) ? r.pausedAt : null;
+  // andando sem o começo do trecho (guardado por um site de antes da régua do dia): conta do começo da fase
+  // (empurrado pelas pausas), sem passar para antes do último trecho guardado
+  const running = on && pausedAt === null;
+  const log = readRuns(r.log);
   return {
     v: 1,
     study: clampMinutes(r.study, d.study),
@@ -124,10 +160,44 @@ export function readPomodoro(raw: unknown): PomodoroSave {
     session: typeof r.session === 'number' && Number.isInteger(r.session) && r.session > 0 ? r.session : 0,
     phase: r.phase === 'pausa' ? 'pausa' : 'estudo',
     startedAt: on ? (r.startedAt as number) : 0,
-    pausedAt: on && isTime(r.pausedAt) ? r.pausedAt : null,
+    pausedAt,
     day: typeof r.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r.day) ? r.day : '',
     done: typeof r.done === 'number' && Number.isInteger(r.done) && r.done > 0 ? Math.min(r.done, 999) : 0,
+    log,
+    runAt: running ? (isTime(r.runAt) ? r.runAt : Math.max(r.startedAt as number, log.at(-1)?.b ?? 0)) : null,
   };
+}
+
+/** A meia-noite do dia do aparelho em `at`. */
+export function dayStart(at: number): number {
+  const d = new Date(at);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+/** Os trechos de hoje (o que passa da meia-noite fica). */
+function keepToday(log: readonly PomodoroRun[], at: number): PomodoroRun[] {
+  const from = dayStart(at);
+  return log.filter((r) => r.b > from).slice(-MAX_RUNS);
+}
+
+/** Fecha o trecho que está andando em `at` (o curto demais não entra). */
+function closeRun(s: PomodoroSave, at: number): Pick<PomodoroSave, 'log' | 'runAt'> {
+  const run: PomodoroRun[] = s.runAt !== null && at - s.runAt >= MIN_RUN ? [{ a: s.runAt, b: at, f: s.phase }] : [];
+  return { log: keepToday([...s.log, ...run], at), runAt: null };
+}
+
+/** Os trechos de hoje para a régua do dia, com o que está andando até `now` (sem passar do fim da fase). */
+export function todayRuns(s: PomodoroSave, now: number): PomodoroRun[] {
+  const runs = keepToday(s.log, now);
+  if (s.on && s.pausedAt === null && s.runAt !== null && now > s.runAt) runs.push({ a: s.runAt, b: Math.min(now, phaseEnd(s)), f: s.phase });
+  return runs;
+}
+
+/** O tempo de estudo dos trechos (ms), só o de hoje (o que veio de ontem conta da meia-noite). */
+export function focusMs(runs: readonly PomodoroRun[], now: number): number {
+  const from = dayStart(now);
+  return runs.reduce((t, r) => (r.f === 'estudo' ? t + Math.max(0, r.b - Math.max(r.a, from)) : t), 0);
 }
 
 /** A duração da fase (ms). */
@@ -166,21 +236,21 @@ function countDone(s: PomodoroSave, at: number): Pick<PomodoroSave, 'day' | 'don
 
 /** Liga: começa um estudo agora. */
 export function start(s: PomodoroSave, now: number): PomodoroSave {
-  return { ...s, on: true, session: nextSession(s), phase: 'estudo', startedAt: now, pausedAt: null };
+  return { ...s, on: true, session: nextSession(s), phase: 'estudo', startedAt: now, pausedAt: null, log: keepToday(s.log, now), runAt: now };
 }
 
-/** Desliga: o turno some, os ajustes e os tomatinhos ficam. */
-export function stop(s: PomodoroSave): PomodoroSave {
-  return { ...s, on: false, phase: 'estudo', startedAt: 0, pausedAt: null };
+/** Desliga: o turno some, os ajustes, os tomatinhos e os trechos de hoje ficam. */
+export function stop(s: PomodoroSave, now: number): PomodoroSave {
+  return { ...s, ...closeRun(s, now), on: false, phase: 'estudo', startedAt: 0, pausedAt: null };
 }
 
 export function pause(s: PomodoroSave, now: number): PomodoroSave {
-  return !s.on || s.pausedAt !== null ? s : { ...s, pausedAt: now };
+  return !s.on || s.pausedAt !== null ? s : { ...s, ...closeRun(s, now), pausedAt: now };
 }
 
 /** Continua de onde parou: o tempo pausado não conta (a fase começa mais tarde). */
 export function resume(s: PomodoroSave, now: number): PomodoroSave {
-  return !s.on || s.pausedAt === null ? s : { ...s, startedAt: s.startedAt + (now - s.pausedAt), pausedAt: null };
+  return !s.on || s.pausedAt === null ? s : { ...s, startedAt: s.startedAt + (now - s.pausedAt), pausedAt: null, runAt: now };
 }
 
 const other = (p: PomodoroPhase): PomodoroPhase => (p === 'estudo' ? 'pausa' : 'estudo');
@@ -194,7 +264,15 @@ export function nextSession(s: PomodoroSave): number {
 export function skip(s: PomodoroSave, now: number): PomodoroSave {
   if (!s.on) return s;
   const phase = other(s.phase);
-  return { ...s, phase, session: phase === 'estudo' ? nextSession(s) : s.session, startedAt: now, pausedAt: s.pausedAt === null ? null : now };
+  const running = s.pausedAt === null;
+  return {
+    ...s,
+    ...(running ? { ...closeRun(s, now), runAt: now } : {}),
+    phase,
+    session: phase === 'estudo' ? nextSession(s) : s.session,
+    startedAt: now,
+    pausedAt: running ? null : now,
+  };
 }
 
 /**
@@ -209,10 +287,12 @@ export function advance(s: PomodoroSave, now: number): PomodoroSave {
   if (now < end) return s;
   const counted = s.phase === 'estudo' ? countDone(s, end) : {};
   const phase = other(s.phase);
-  const next: PomodoroSave = { ...s, ...counted, phase, session: phase === 'estudo' ? nextSession(s) : s.session, startedAt: end };
+  // o trecho fecha no fim exato da fase (e não agora): duas abas gravam o mesmo
+  const next: PomodoroSave = { ...s, ...counted, ...closeRun(s, end), runAt: end, phase, session: phase === 'estudo' ? nextSession(s) : s.session, startedAt: end };
   if (now < phaseEnd(next)) return next;
-  // ficou fechado: a pausa que viria também passou (ou o estudo seguinte); para no começo de um estudo
-  return { ...next, phase: 'estudo', session: next.phase === 'estudo' ? next.session : nextSession(next), startedAt: now, pausedAt: now };
+  // ficou fechado: a pausa que viria também passou (ou o estudo seguinte); para no começo de um estudo (a régua
+  // fica só com a fase que acabou: o resto ninguém viu andar)
+  return { ...next, runAt: null, phase: 'estudo', session: next.phase === 'estudo' ? next.session : nextSession(next), startedAt: now, pausedAt: now };
 }
 
 /**

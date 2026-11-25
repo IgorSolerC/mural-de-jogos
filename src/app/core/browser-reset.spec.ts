@@ -290,10 +290,12 @@ describe('limpar o navegador (sair da conta)', () => {
     expect(localStorage.getItem(STUDY_SIZE_KEY)).toBeNull();
   });
 
-  it('o Pomodoro (os ajustes, a música escolhida e o turno ligado) sai junto', async () => {
+  it('o Pomodoro (os ajustes, a música escolhida, o turno ligado e os estudos de hoje da régua) sai junto', async () => {
     signedInBrowser();
-    writeJson(POMODORO_KEY, { ...start(POMODORO_DEFAULT, Date.now()), musicUrl: 'https://exemplo.com/foco.mp3', skin: 'neon' });
+    const log = [{ a: Date.now() - 30 * 60_000, b: Date.now() - 5 * 60_000, f: 'estudo' }];
+    writeJson(POMODORO_KEY, { ...start(POMODORO_DEFAULT, Date.now()), musicUrl: 'https://exemplo.com/foco.mp3', skin: 'neon', log });
     expect(localStorage.getItem(POMODORO_KEY)).toContain('foco.mp3');
+    expect(localStorage.getItem(POMODORO_KEY)).toContain('"log":[{');
     localStorage.removeItem(SESSION_KEY);
     localStorage.setItem(RESET_KEY, JSON.stringify({ keep: [], motivo: 'saiu' }));
     expect(await resetOnBoot()).toBeTrue();

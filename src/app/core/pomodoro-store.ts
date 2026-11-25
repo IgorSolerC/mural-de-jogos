@@ -57,19 +57,21 @@ export class PomodoroStore {
   }
 
   /** Desliga; devolve como estava, para o Desfazer. */
-  stop(): PomodoroSave {
+  stop(now = Date.now()): PomodoroSave {
     const before = this.state();
-    this.write(stop(before));
+    this.write(stop(before, now));
     return before;
   }
 
   /**
    * O Desfazer do desligar: o turno volta exatamente como estava (o tempo do meio contou); o que mudou nos
    * ajustes depois de desligar (a música, o link, os tempos, a skin) fica como está agora.
+   * Os trechos de hoje voltam como eram.
    */
   restore(before: PomodoroSave): void {
-    const { on, phase, startedAt, pausedAt } = before;
-    this.write(readPomodoro({ ...this.state(), on, phase, startedAt, pausedAt }));
+    // o trecho que o desligar fechou volta a andar (senão a régua do dia o pintaria duas vezes)
+    const { on, phase, startedAt, pausedAt, log, runAt } = before;
+    this.write(readPomodoro({ ...this.state(), on, phase, startedAt, pausedAt, log, runAt }));
   }
 
   togglePause(now = Date.now()): void {
