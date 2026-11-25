@@ -1987,17 +1987,41 @@ img.revelada {
   --c-papel: var(--cartolina-papel, #e7e4de);
   --c-tinta: var(--cartolina-tinta, #4b463e);
 }
-@each $cores, $papel, $tinta in ((vermelho vermelho-escuro) #f7d9d4 #9d2118), ((laranja laranja-escuro) #fbdfc2 #934407),
-  ((amarelo amarelo-escuro) #faeea4 #735400), ((verde verde-escuro) #d8f0db #1f6a2c), ((azul azul-escuro) #dce8f7 #1e4f8e),
-  ((lilas lilas-escuro) #e6dcf5 #553594), ((rosa rosa-escuro) #fadce7 #99214f), ((cinza cinza-escuro branco preto) #e7e4de #4b463e)
+/* (e o fundo forte e a tinta dele, para a anotação aberta: ver abaixo) */
+@each $cores, $papel, $tinta, $fundo, $tinta-forte in ((vermelho vermelho-escuro) #f7d9d4 #9d2118 #f18f86 #691e17),
+  ((laranja laranja-escuro) #fbdfc2 #934407 #feaf6d #75390b), ((amarelo amarelo-escuro) #faeea4 #735400 #fede56 #735400),
+  ((verde verde-escuro) #d8f0db #1f6a2c #8eea97 #1f662b), ((azul azul-escuro) #dce8f7 #1e4f8e #86d2fd #1e4f8e),
+  ((lilas lilas-escuro) #e6dcf5 #553594 #cbb0fa #52348e), ((rosa rosa-escuro) #fadce7 #99214f #fe8db5 #731f3e),
+  ((cinza cinza-escuro branco preto) #e7e4de #4b463e #cfcac3 #4b463e)
 {
   @each $cor in $cores {
     [data-cor='#{$cor}'],
     [data-cartolina='#{$cor}'] {
       --cartolina-papel: #{$papel};
       --cartolina-tinta: #{$tinta};
+      --cartolina-fundo: #{$fundo};
+      --cartolina-tinta-forte: #{$tinta-forte};
     }
   }
+}
+
+/* Na anotação aberta (a folha creme da leitura, também na tela cheia e lado a lado), a parte de fora do card (a
+   faixa do título e a moldura) ganha a cor forte do papel dele, perto da cartolina da mesma cor (80% do caminho do
+   papel claro até ela), para o card não sumir no creme; o miolo claro fica o mesmo. Onde a cor forte pediria, a
+   tinta do título escurece até 4,8:1 sobre ela. Nas cartolinas, nada muda (as do mural e a ficha colada no texto;
+   o pedido do dono, 25/nov). */
+@each $jeito, $fundo, $tinta in (nota #ddb979 #624318), (info #86d2fd #1e4f8e), (dica #77ddc5 #115a4e), (feito #ace082 #29601b),
+  (pergunta #fede56 #735400), (aviso #feaf6d #75390b), (perigo #f18f86 #691e17), (exemplo #cbb0fa #52348e), (citacao #cfcac3 #4b463e),
+  (rosa #fe8db5 #731f3e)
+{
+  app-review-reader .text [data-jeito='#{$jeito}']:not(app-review-card *) {
+    --c-fundo: #{$fundo};
+    --c-tinta: #{$tinta};
+  }
+}
+app-review-reader .text [data-jeito='cartolina']:not(app-review-card *) {
+  --c-fundo: var(--cartolina-fundo, #cfcac3);
+  --c-tinta: var(--cartolina-tinta-forte, #4b463e);
 }
 
 /* O código na linha numa folha pautada (a folha diz o --cod-pauta-alfa da linha dela; ver ui/_formatado.scss):

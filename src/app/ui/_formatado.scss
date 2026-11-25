@@ -878,10 +878,11 @@ $item-lugar: 1.35em;
 // segura o título (a faixa de cima), e o que tem dentro vem numa folha clara colada por cima dela, com a cor da
 // folha de baixo em volta (a moldura). Sem rasgo (o dono odiava) e sem fibra: o papel liso, os cantos redondos.
 
-// a folha de baixo: a cor do jeito, a sombra curta de papel colado
+// a folha de baixo: a cor do jeito, a sombra curta de papel colado. Na anotação aberta (a folha creme), a cor
+// mais forte do --c-fundo (src/styles.scss); fora dela, o papel do jeito
 @mixin cartao-folha {
   color: #1b1916;
-  background: var(--c-papel);
+  background: var(--c-fundo, var(--c-papel));
   border-radius: 10px;
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.16);
 }

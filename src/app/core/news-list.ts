@@ -27,6 +27,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-25-card-forte-na-anotacao-aberta',
+    version: '1.55.1',
+    kind: 'ajustes',
+    date: '2026-11-25',
+    title: 'O card do texto mais forte na anotação aberta',
+    melhorias: [
+      'Na anotação aberta, o card do texto tem a faixa do título e a borda numa cor mais forte, perto da cor das cartolinas, para se destacar da folha clara. Nas cartolinas do mural ele continua como era.',
+    ],
+  },
+  {
     id: '2026-11-25-canvas-no-mural',
     version: '1.55.0',
     kind: 'funcionalidade',
