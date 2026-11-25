@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { POMODORO_KEY } from '../core/pomodoro';
 import { PomodoroStore } from '../core/pomodoro-store';
-import { TRACKS_KEY } from '../core/pomodoro-tracks';
+import { TRACKS_KEY, trackName } from '../core/pomodoro-tracks';
 import { PomodoroTracks } from '../core/pomodoro-tracks-store';
 import { Toasts } from '../ui/toast';
 import { PomodoroPage } from './pomodoro-page';
@@ -103,6 +103,19 @@ describe('a página do Pomodoro', () => {
     expect(host.querySelector('app-pomodoro-sheet')).toBeNull();
   });
 
+  it('a fita da música diz a que vai tocar: a do sorteio do próximo estudo, e a deste estudo ligado', async () => {
+    const { f, tracks, tape, button, put } = await open('musica');
+    await put('https://exemplo.com/a.mp3');
+    await put('https://exemplo.com/b.mp3');
+    const text = () => tape(1).querySelector('.fita-texto')!.textContent!.trim();
+    const promised = text();
+    button('Começar o foco')!.click();
+    await f.whenStable();
+    // a prometida é a que toca (o sorteio de cada rodada só depende da lista e da rodada)
+    expect(trackName(tracks.current()!)).toBe(promised);
+    expect(text()).toBe(promised);
+  });
+
   it('os estudos de hoje: um tomatinho na tábua por estudo (até seis) e a régua do dia com os trechos', async () => {
     const d = new Date();
     d.setHours(12, 0, 0, 0);
@@ -112,7 +125,7 @@ describe('a página do Pomodoro', () => {
     const log = [{ a: agora - 40 * 60_000, b: agora - 15 * 60_000, f: 'estudo' }];
     localStorage.setItem(POMODORO_KEY, JSON.stringify({ v: 1, day, done: 8, log }));
     const { host } = await open();
-    expect(host.querySelectorAll('.tomatinhos .tomatinho').length).toBe(6);
+    expect(host.querySelectorAll('.tomatinhos .tomatinho').length).toBe(8);
     const day0 = host.querySelector('app-pomodoro-day')!;
     expect(day0.querySelector('.dia-conta')!.textContent).toBe('8 estudos · 25 min de foco');
     expect(day0.querySelectorAll('.trecho').length).toBe(1);
@@ -273,6 +286,45 @@ describe('a página do Pomodoro', () => {
     localStorage.setItem(POMODORO_KEY, JSON.stringify(old));
     window.dispatchEvent(new StorageEvent('storage', { key: POMODORO_KEY }));
     expect(store.save().session).toBe(session);
+  });
+
+  it('o Espaço começa, pausa e continua; num botão, num campo ou com a folha aberta, não', async () => {
+    const { f, store, host, tape } = await open();
+    const space = (target: EventTarget = document.body) => {
+      const e = new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true });
+      target.dispatchEvent(e);
+      return e;
+    };
+    expect(space().defaultPrevented).toBeTrue();
+    await f.whenStable();
+    expect(store.on()).toBeTrue();
+    space();
+    await f.whenStable();
+    expect(store.paused()).toBeTrue();
+    space();
+    await f.whenStable();
+    expect(store.paused()).toBeFalse();
+    // no botão, o Espaço é dele (aperta o botão), não do atalho
+    expect(space(tape(0)).defaultPrevented).toBeFalse();
+    expect(store.paused()).toBeFalse();
+    // com a folha aberta, também não
+    tape(0).click();
+    await f.whenStable();
+    space();
+    await f.whenStable();
+    expect(store.paused()).toBeFalse();
+    expect(host.querySelector('app-pomodoro-sheet')).not.toBeNull();
+  });
+
+  it('parado, o relógio apaga um pouco', async () => {
+    const { f, host, button } = await open();
+    button('Começar o foco')!.click();
+    await f.whenStable();
+    const dial = host.querySelector('app-shelf app-pomodoro-dial')!;
+    expect(dial.classList).not.toContain('apagado');
+    button('Pausar')!.click();
+    await f.whenStable();
+    expect(dial.classList).toContain('apagado');
   });
 
   it('desligar pela página tem Desfazer', async () => {

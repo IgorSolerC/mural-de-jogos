@@ -32,15 +32,23 @@
 
 .grande {
   --dial: clamp(18px, min(2.5vw, 4vh), 46px);
+  transition: filter var(--t-physical) var(--ease-physical);
+
+  /* parado, o relógio apaga um pouco (o tempo dele já respira devagar): de longe se vê que não anda */
+  &.apagado {
+    filter: saturate(0.45) brightness(0.82);
+  }
 }
 
-/* os estudos de hoje, de pé na tábua à direita do relógio */
+/* os estudos de hoje, de pé na tábua à direita do relógio: seis por andar, o sétimo começa outro em cima */
 .tomatinhos {
   position: absolute;
   bottom: 2px;
   left: calc(100% + 18px);
   display: flex;
-  gap: 1px;
+  flex-wrap: wrap-reverse;
+  gap: 0 1px;
+  width: calc(6 * 27px);
 }
 
 .tomatinho {
@@ -92,6 +100,18 @@
   lucide-icon {
     display: inline-flex;
     flex: none;
+    color: var(--hi);
+  }
+
+  /* o lápis no fim: a fita muda alguma coisa (as de Outros só dão nome) */
+  .lapis {
+    margin-left: 1px;
+    color: rgb(235 229 216 / 0.55);
+    transition: color var(--t-ui) var(--ease-ui);
+  }
+
+  &:hover .lapis,
+  &:focus-visible .lapis {
     color: var(--hi);
   }
 
@@ -151,29 +171,13 @@
   @include kit.botao-papel;
 }
 
+/* o desligar, mais quieto que os outros dois: o texto a giz, sem papel (tem Desfazer) */
 .desligar {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: none;
+  min-height: 44px;
   color: var(--wall-ink-2);
-  cursor: pointer;
-  transition:
-    color var(--t-ui) var(--ease-ui),
-    background-color var(--t-ui) var(--ease-ui);
 
   &:hover {
     color: var(--wall-ink);
-    background: rgb(243 239 230 / 0.1);
-  }
-
-  &:focus-visible {
-    outline: 3px solid var(--hi);
-    outline-offset: 2px;
   }
 }
 
@@ -194,9 +198,10 @@
     --dial: 21px;
   }
 
-  /* os tomatinhos menores, para os seis caberem na tábua ao lado do relógio */
+  /* os tomatinhos menores, para os seis de cada andar caberem na tábua ao lado do relógio */
   .tomatinhos {
     left: calc(100% + 6px);
+    width: calc(6 * 17px);
   }
 
   .tomatinho {
@@ -204,27 +209,40 @@
     height: 16px;
   }
 
-  /* as fitas em duas linhas, no meio da tela (não da tábua, que é mais estreita que elas) */
+  /* as três fitas numa linha só, menores, coladas na tábua (a da música corta o nome) */
   .fitas {
-    flex-wrap: wrap;
     justify-content: center;
-    gap: 8px;
+    gap: 6px;
     width: calc(100vw - 32px);
   }
 
   .fita {
-    max-width: min(300px, 86vw);
+    gap: 5px;
+    min-height: 26px;
+    padding: 5px 8px 4px;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+
+    &:nth-child(2) {
+      flex: 0 1 auto;
+      min-width: 0;
+    }
+
+    .lapis {
+      display: none;
+    }
   }
 
   .acao {
     flex-direction: column;
-    margin-top: 96px;
+    margin-top: 60px;
     text-align: center;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fita {
+  .fita,
+  .grande {
     transition: none;
   }
 }

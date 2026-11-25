@@ -42,7 +42,8 @@ describe('a folha dos ajustes do Pomodoro', () => {
     expect(part('Música').getAttribute('aria-pressed')).toBe('true');
     expect(part('Tempo').getAttribute('aria-pressed')).toBe('false');
     expect(part('Tempo').querySelector('.parte-valor')!.textContent).toBe('25/5 min');
-    expect(part('Música').querySelector('.parte-valor')!.textContent).toBe('1 música');
+    // a que vai tocar, como na fita da prateleira
+    expect(part('Música').querySelector('.parte-valor')!.textContent).toBe('Rádio lofi de sempre');
     expect(part('Relógio').querySelector('.parte-valor')!.textContent).toBe('Tomate');
     expect(host.querySelector('app-pomodoro-tracks')).not.toBeNull();
   });

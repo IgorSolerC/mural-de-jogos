@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-25-pomodoro-refeito',
+    id: '2026-11-25-pomodoro-espaco',
     version: '1.54.1',
     kind: 'ajustes',
     date: '2026-11-25',
@@ -35,6 +35,7 @@ export const NEWS: NewsEntry[] = [
     melhorias: [
       'A página do Pomodoro cabe numa tela só: o relógio de pé numa prateleira, com um tomatinho na tábua por estudo de hoje, e três fitas na frente da tábua (o tempo, a música e o relógio) que abrem os ajustes numa folha: os tempos e o sininho, as músicas, e os 12 relógios com o canto da tela.',
       'Embaixo do relógio, a régua do dia: cada estudo e cada pausa de hoje pintados no horário em que aconteceram, o agora e quanto tempo de foco você já fez.',
+      'Na página do Pomodoro, o Espaço começa o foco, pausa e continua, e o relógio parado fica apagado.',
     ],
   },
   {

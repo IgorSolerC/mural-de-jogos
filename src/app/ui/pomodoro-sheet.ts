@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, comput
 import { chime, wakeChime } from '../core/chime';
 import { POMODORO_CORNERS, POMODORO_PRESETS, POMODORO_SKINS } from '../core/pomodoro';
 import { PomodoroStore } from '../core/pomodoro-store';
+import { trackName } from '../core/pomodoro-tracks';
 import { PomodoroTracks } from '../core/pomodoro-tracks-store';
 import { BackdropClose } from './backdrop-close';
 import { ICON, IconModule } from './icons';
@@ -146,11 +147,11 @@ export class PomodoroSheet {
   /** O que está valendo, embaixo do nome de cada adesivo. */
   protected readonly values = computed<Record<PomodoroPart, string>>(() => {
     const s = this.s();
-    const n = this.tracks.tracks().length;
+    // a que vai tocar, como na fita da prateleira (sem nenhuma marcada, a rádio lofi de sempre)
+    const t = this.tracks.upcoming();
     return {
       tempo: `${s.study}/${s.rest} min`,
-      // sem nenhuma na lista, toca a rádio lofi de sempre
-      musica: !s.music ? 'desligada' : n === 0 ? 'rádio lofi' : n === 1 ? '1 música' : `${n} músicas`,
+      musica: !s.music ? 'desligada' : t ? trackName(t) : 'rádio lofi',
       relogio: POMODORO_SKINS.find((k) => k.value === s.skin)?.label ?? '',
     };
   });

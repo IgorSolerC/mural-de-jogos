@@ -151,12 +151,12 @@ dialog.pomodoro-folha {
 
 .skin {
   display: grid;
-  grid-template-rows: 58px auto;
+  grid-template-rows: 50px auto;
   justify-items: center;
   align-items: center;
   gap: 2px;
   min-width: 0;
-  padding: 6px 4px 7px;
+  padding: 4px 4px 5px;
   border: 2px dashed rgb(21 21 21 / 0.22);
   border-radius: 6px;
   background: rgb(21 21 21 / 0.03);
@@ -170,7 +170,7 @@ dialog.pomodoro-folha {
   .skin-palco {
     display: grid;
     place-items: center;
-    --dial: 6px;
+    --dial: 5.4px;
   }
 
   .skin-nome {

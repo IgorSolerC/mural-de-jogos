@@ -4,7 +4,7 @@
   <!-- ===== A prateleira: o relógio de pé, os tomatinhos de hoje e as três fitas na frente da tábua ===== -->
   <app-shelf class="tabua">
     <span class="em-pe">
-      <app-pomodoro-dial class="grande" [skin]="s().skin" [ms]="left()" [total]="total()" [phase]="phase()" [paused]="paused()" [idle]="!on()" />
+      <app-pomodoro-dial class="grande" [class.apagado]="paused()" [skin]="s().skin" [ms]="left()" [total]="total()" [phase]="phase()" [paused]="paused()" [idle]="!on()" />
       @if (tomatoes().length) {
         <span class="tomatinhos" aria-hidden="true">
           @for (t of tomatoes(); track t) {
@@ -19,14 +19,17 @@
         <button type="button" class="fita" aria-haspopup="dialog" [attr.aria-label]="'Tempo: ' + timeTape() + '. Ajustar'" (click)="sheet.set('tempo')">
           <lucide-icon [img]="ICON.cronometro" [size]="15" aria-hidden="true" />
           <span class="fita-texto">{{ timeTape() }}</span>
+          <lucide-icon class="lapis" [img]="ICON.escrever" [size]="12" aria-hidden="true" />
         </button>
         <button type="button" class="fita" aria-haspopup="dialog" [attr.aria-label]="'Música: ' + musicTape() + '. Ajustar'" (click)="sheet.set('musica')">
           <lucide-icon [img]="ICON.musica" [size]="15" aria-hidden="true" />
           <span class="fita-texto">{{ musicTape() }}</span>
+          <lucide-icon class="lapis" [img]="ICON.escrever" [size]="12" aria-hidden="true" />
         </button>
         <button type="button" class="fita" aria-haspopup="dialog" [attr.aria-label]="'Relógio: ' + skinTape() + '. Ajustar'" (click)="sheet.set('relogio')">
           <lucide-icon [img]="ICON.relogio" [size]="15" aria-hidden="true" />
           <span class="fita-texto">{{ skinTape() }}</span>
+          <lucide-icon class="lapis" [img]="ICON.escrever" [size]="12" aria-hidden="true" />
         </button>
       </span>
     </span>
@@ -37,12 +40,12 @@
     <p class="estado" role="status">{{ status() }}</p>
     <div class="botoes">
       @if (!on()) {
-        <button type="button" class="btn-ink comecar" (click)="startFocus()">
+        <button type="button" class="btn-ink comecar" aria-keyshortcuts="Space" (click)="startFocus()">
           <lucide-icon [img]="ICON.cronometro" [size]="20" aria-hidden="true" />
           Começar o foco
         </button>
       } @else {
-        <button type="button" class="botao-papel" (click)="togglePause()">
+        <button type="button" class="botao-papel" aria-keyshortcuts="Space" (click)="togglePause()">
           <lucide-icon [img]="paused() ? ICON.estudar : ICON.pausa" [size]="18" aria-hidden="true" />
           {{ paused() ? 'Continuar' : 'Pausar' }}
         </button>
@@ -50,8 +53,9 @@
           <lucide-icon [img]="ICON.pular" [size]="18" aria-hidden="true" />
           Pular
         </button>
-        <button type="button" class="desligar" (click)="turnOff()" aria-label="Desligar" title="Desligar">
-          <lucide-icon [img]="ICON.fechar" [size]="20" aria-hidden="true" />
+        <button type="button" class="btn-quiet desligar" (click)="turnOff()">
+          <lucide-icon [img]="ICON.fechar" [size]="18" aria-hidden="true" />
+          Desligar
         </button>
       }
     </div>

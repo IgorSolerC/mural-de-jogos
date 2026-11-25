@@ -12,8 +12,8 @@ import { PomodoroPart, PomodoroSheet } from '../ui/pomodoro-sheet';
 import { Shelf } from '../ui/shelf';
 import { Toasts } from '../ui/toast';
 
-/** No máximo tantos tomatinhos de pé na tábua (o número certo está na régua do dia). */
-const MAX_TOMATOES = 6;
+/** No máximo tantos tomatinhos na tábua, em dois andares de seis (o número certo está em cima da régua do dia). */
+const MAX_TOMATOES = 12;
 
 /** "14h35", a hora do aparelho (escrita assim para não ser lida como o tempo que falta, que é "18:36"). */
 function hourOf(ms: number): string {
@@ -29,6 +29,7 @@ function hourOf(ms: number): string {
  */
 @Component({
   selector: 'app-pomodoro-page',
+  host: { '(document:keydown)': 'onKey($event)' },
   imports: [IconModule, PomodoroDay, PomodoroDial, PomodoroSheet, Shelf],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './pomodoro-page.html',
@@ -92,17 +93,33 @@ export class PomodoroPage {
     return s.phase === 'estudo' ? `Estudando. A pausa começa às ${at}.` : `Pausa. O estudo volta às ${at}.`;
   });
 
-  /** As fitas: o tempo, a música (a deste estudo, a escolhida para o próximo ou a primeira do sorteio) e o relógio. */
+  /**
+   * As fitas: o tempo, a música (a deste estudo; fora dele, a do próximo, a escolhida à mão ou a que o sorteio dá, que
+   * só depende da lista e da rodada) e o relógio.
+   */
   protected readonly timeTape = computed(() => `${this.s().study}/${this.s().rest} min`);
   protected readonly musicTape = computed(() => {
     if (!this.s().music) return 'Sem música';
-    const t = this.tracks.current() ?? this.tracks.next() ?? this.tracks.tracks().find((x) => x.on) ?? null;
+    const t = this.tracks.upcoming();
     return t ? trackName(t) : 'Rádio lofi';
   });
   protected readonly skinTape = computed(() => POMODORO_SKINS.find((k) => k.value === this.s().skin)?.label ?? '');
 
   /** A folha dos ajustes aberta, na parte da fita tocada. */
   protected readonly sheet = signal<PomodoroPart | null>(null);
+
+  /**
+   * O Espaço começa o foco e pausa ou continua, como o tocar e pausar de um player: só com a página na frente (fora de
+   * campos, botões e links, onde o Espaço é deles, e sem a folha aberta).
+   */
+  protected onKey(e: KeyboardEvent): void {
+    if (e.key !== ' ' || e.repeat || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || this.sheet()) return;
+    const t = e.target as HTMLElement | null;
+    if (t?.closest('input, textarea, select, button, a, [contenteditable], dialog, [role="menu"]')) return;
+    e.preventDefault();
+    if (this.on()) this.togglePause();
+    else this.startFocus();
+  }
 
   protected startFocus(): void {
     wakeChime();

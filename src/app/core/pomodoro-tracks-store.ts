@@ -49,6 +49,14 @@ export class PomodoroTracks {
     if (s.on && s.phase === 'estudo') return null;
     return turn?.session === nextSession(s) ? (this.state().tracks.find((t) => t.id === turn.id) ?? null) : null;
   });
+  /**
+   * A música que vai tocar: a deste estudo; fora dele, a do próximo (a escolhida à mão ou a que o sorteio dá, que só
+   * depende da lista e da rodada). null: a rádio de sempre (nenhuma marcada).
+   */
+  readonly upcoming = computed(() => {
+    const s = this.pomodoro.save();
+    return s.on && s.phase === 'estudo' ? this.current() : sessionTrack(this.state(), nextSession(s));
+  });
   /** Quantas entram no sorteio. */
   readonly marked = computed(() => this.state().tracks.filter((t) => t.on).length);
 
