@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterRenderEffect, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, afterNextRender, afterRenderEffect, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { map } from 'rxjs';
@@ -128,6 +128,7 @@ export class DictionaryPage {
   private readonly marks = inject(DictionaryMarks);
   private readonly toasts = inject(Toasts);
   private readonly nearPool = inject(NearPool);
+  private readonly injector = inject(Injector);
   protected readonly StarIcon = ICON.estrela;
 
   protected readonly FilterIcon = ICON.filtrar;
@@ -204,12 +205,21 @@ export class DictionaryPage {
         this.measureColumn();
       });
     });
-    const onResize = () => this.measureColumn();
+    // a janela mudando de tamanho: uma medida por quadro (cada largura nova refaz os palpites das 1.449 vagas)
+    let resizing = 0;
+    const onResize = () => {
+      if (!resizing)
+        resizing = requestAnimationFrame(() => {
+          resizing = 0;
+          this.measureColumn();
+        });
+    };
     window.addEventListener('resize', onResize, { passive: true });
     inject(DestroyRef).onDestroy(() => {
       window.removeEventListener('resize', onResize);
+      cancelAnimationFrame(resizing);
       clearTimeout(this.typing);
-      this.stopJump?.();
+      this.stopJump?.(false);
     });
     effect(() => {
       const fromUrl = this.state().query;
@@ -307,6 +317,28 @@ export class DictionaryPage {
     });
   });
 
+  /**
+   * O Tab chegou numa vaga (o verbete ou a linha ainda não montados): ela vira o cartão na hora, e o foco entra nele,
+   * no primeiro botão indo para a frente e no último voltando (Shift+Tab). Sem isso, o Tab pularia as palavras ainda
+   * não montadas: nas duas colunas, a de baixo da esquerda vem depois da de cima da direita.
+   */
+  protected enterVaga(perto: NearScreen, e: FocusEvent): void {
+    const place = perto.el;
+    const from = e.relatedTarget;
+    const back = from instanceof Node && !!(place.compareDocumentPosition(from) & Node.DOCUMENT_POSITION_FOLLOWING);
+    // um clique na vaga (rolando rápido) só a monta: o foco entra no cartão só quando chegou pelo teclado
+    const byKeyboard = e.target instanceof Element && e.target.matches(':focus-visible');
+    perto.mount();
+    if (!byKeyboard) return;
+    afterNextRender(
+      () => {
+        const stops = [...place.querySelectorAll<HTMLElement>('button, a[href], input, [tabindex]:not([tabindex="-1"])')].filter((el) => !el.closest('[data-vaga]'));
+        (back ? stops.at(-1) : stops[0])?.focus();
+      },
+      { injector: this.injector },
+    );
+  }
+
   /** A altura da vaga de uma linha da Tabela: a medida dela, se já foi montada; senão, o palpite. */
   protected rowHeight(w: Word): number {
     return this.nearPool.measured('linha', w.id) ?? tableRowGuess(w);
@@ -364,25 +396,28 @@ export class DictionaryPage {
 
   /** O pulo do índice que ainda está acertando o lugar (ver `holdJump`), para outro pulo ou a saída o pararem. */
   private jumpFrame = 0;
-  private stopJump: (() => void) | null = null;
+  private stopJump: ((spy?: boolean) => void) | null = null;
 
   /**
    * As seções e as vagas longe da tela têm a altura estimada: desenhadas as de perto (e as de cima que o navegador
    * desenha pela primeira vez), a linha sai do lugar. O pulo é refeito a cada quadro até ela ficar parada por três
-   * quadros, por no máximo 15; a pessoa rolando ou teclando, para na hora.
+   * quadros, por no máximo 15; a pessoa rolando, tocando (a barra de rolagem também) ou teclando, para na hora.
    */
   private holdJump(el: HTMLElement): void {
-    this.stopJump?.();
+    this.stopJump?.(false);
     const target = el.getBoundingClientRect().top;
     let frames = 0;
     let still = 0;
-    const stop = () => {
+    const events = ['wheel', 'pointerdown', 'touchstart', 'keydown'] as const;
+    const onInput = () => stop();
+    // (saindo da página, só solta: medir o índice de uma página que está indo embora não serve para nada)
+    const stop = (spy = true) => {
       cancelAnimationFrame(this.jumpFrame);
-      for (const type of ['wheel', 'touchstart', 'keydown'] as const) removeEventListener(type, stop);
+      for (const type of events) removeEventListener(type, onInput);
       this.stopJump = null;
-      this.spyThumb();
+      if (spy) this.spyThumb();
     };
-    for (const type of ['wheel', 'touchstart', 'keydown'] as const) addEventListener(type, stop, { passive: true });
+    for (const type of events) addEventListener(type, onInput, { passive: true });
     this.stopJump = stop;
     const redo = () => {
       if (!el.isConnected || ++frames > 15) return stop();

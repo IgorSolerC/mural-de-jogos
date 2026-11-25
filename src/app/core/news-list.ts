@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-25-busca-sem-segurar',
+    id: '2026-11-25-dicionario-teclado',
     version: '1.55.1',
     kind: 'ajustes',
     date: '2026-11-25',

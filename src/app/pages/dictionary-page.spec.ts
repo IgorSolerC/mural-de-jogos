@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { DICT_MARKS_KEY } from '../core/dictionary/marks-store';
+import { sortWords } from '../core/dictionary/dictionary';
 import { dictionaryWords } from '../core/dictionary/words';
 import { NEAR_TUNING, NearPool, setEverythingNear } from '../ui/near-screen';
 import { entryHeightGuess } from '../ui/word-entry';
@@ -345,8 +346,9 @@ describe('o Dicionário Japonês', () => {
     it('cada palavra tem o seu lugar na lista; as de longe são vagas da altura do cartão, com a palavra para o leitor de tela', async () => {
       await open('/extras/dicionario');
       expect(places().length).toBe(1449);
-      // as do alto já montadas na primeira pintura, as do pé ainda vagas
-      expect(places()[0].querySelector('.verbete')).withContext('a primeira, na tela').not.toBeNull();
+      // (a janela dos testes vem de outros testes em qualquer lugar: o começo da lista na tela)
+      places()[0].scrollIntoView({ block: 'start' });
+      await until(() => !!places()[0].querySelector('.verbete'), 'a primeira, na tela');
       const last = places().at(-1)!;
       const vaga = last.querySelector<HTMLElement>('.vaga-verbete')!;
       expect(vaga).withContext('a última, longe').not.toBeNull();
@@ -386,19 +388,56 @@ describe('o Dicionário Japonês', () => {
       expect(Math.abs(real - guess) / real).withContext(`real ${real}, palpite ${guess}`).toBeLessThan(0.15);
     });
 
+    it('o Tab que chega numa vaga monta o cartão e entra nele (no primeiro botão; voltando, no último)', async () => {
+      await open('/extras/dicionario');
+      const place = places()[900];
+      const vaga = place.querySelector<HTMLElement>('.vaga-verbete')!;
+      expect(vaga.tabIndex).toBe(0);
+      // (o teclado: a vaga ganha o foco com o anel; um clique na vaga só a monta)
+      const realMatches = Element.prototype.matches;
+      const byKeyboard = spyOn(Element.prototype, 'matches').and.callFake(function (this: Element, sel: string) {
+        return sel === ':focus-visible' || realMatches.call(this, sel);
+      });
+      vaga.dispatchEvent(new FocusEvent('focus', { relatedTarget: places()[899] }));
+      await until(() => !!place.querySelector('.verbete') && place.contains(document.activeElement), 'montado, com o foco dentro');
+      expect(document.activeElement!.classList).toContain('palavra');
+      // voltando (Shift+Tab, vindo de depois): o último botão do cartão
+      const back = places()[1100];
+      const vaga2 = back.querySelector<HTMLElement>('.vaga-verbete')!;
+      vaga2.dispatchEvent(new FocusEvent('focus', { relatedTarget: places()[1101] }));
+      await until(() => !!back.querySelector('.verbete') && back.contains(document.activeElement), 'montado, voltando');
+      const stops = [...back.querySelectorAll<HTMLElement>('button')];
+      expect(document.activeElement).toBe(stops.at(-1)!);
+      // um clique (sem o anel do teclado): monta, e o foco fica onde estava
+      byKeyboard.and.callThrough();
+      const clicked = places()[1300];
+      const focused = document.activeElement;
+      // (o clique é numa vaga na tela, antes de o observador montá-la)
+      clicked.scrollIntoView({ block: 'center' });
+      clicked.querySelector<HTMLElement>('.vaga-verbete')!.dispatchEvent(new FocusEvent('focus'));
+      await until(() => !!clicked.querySelector('.verbete'), 'montado pelo clique');
+      await settle();
+      expect(document.activeElement).toBe(focused);
+    });
+
     it('trocar a ordem monta na hora o que ficou na tela, sem uma tela de vagas', async () => {
       await open('/extras/dicionario');
+      places()[0].scrollIntoView({ block: 'start' });
+      await until(() => !!places()[0].querySelector('.verbete'), 'a primeira, na tela');
       await harness.navigateByUrl('/extras/dicionario?ordem=portugues', DictionaryPage);
       await harness.fixture.whenStable();
+      // sem esperar quadro nenhum: a primeira da ordem nova (outra palavra no mesmo lugar) já vem montada
       const first = places()[0];
       expect(first.querySelector('.verbete')).withContext('a primeira da ordem nova').not.toBeNull();
+      expect(first.querySelector('.verbete .sentido')!.textContent!.trim()).toBe(sortWords(dictionaryWords().words, 'meaning', 'asc')[0].meaning);
     });
       it('na Tabela, as linhas longe da caixa que rola são vagas da altura delas; rolando, montam sem mudar a largura', async () => {
       await open('/extras/dicionario?vista=tabela');
       const box = host.querySelector<HTMLElement>('.razao')!;
       const rows = () => [...host.querySelectorAll<HTMLTableRowElement>('tbody tr')];
       expect(rows().length).toBe(1449);
-      expect(rows()[0].querySelector('.c-palavra')).withContext('a primeira, na caixa').not.toBeNull();
+      box.scrollIntoView({ block: 'start' });
+      await until(() => !!rows()[0].querySelector('.c-palavra'), 'a primeira, na caixa');
       const last = rows().at(-1)!;
       const vaga = last.querySelector<HTMLTableCellElement>('.linha-vaga')!;
       expect(vaga).withContext('a última, longe').not.toBeNull();

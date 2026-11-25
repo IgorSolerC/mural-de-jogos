@@ -167,7 +167,7 @@
             <td class="c-notas">{{ w.notes }}</td>
             <td class="c-origem">{{ w.origin }}</td>
             } @else {
-              <td class="linha-vaga" data-vaga [attr.colspan]="columns.length" [style.height.px]="rowHeight(w)">
+              <td class="linha-vaga" data-vaga tabindex="0" [attr.colspan]="columns.length" [style.height.px]="rowHeight(w)" (focus)="enterVaga(perto, $event)">
                 <span class="sr-only"><span lang="ja">{{ w.text }}</span>, {{ w.meaning }}</span>
               </td>
             }
@@ -187,14 +187,15 @@
             <app-section-head [label]="k.label" [count]="s.words.length" [detail]="k.detail ?? ''" [level]="2" [headingId]="'dic-secao-' + i" />
           }
           <!-- só o que está perto da tela é montado (ui/near-screen.ts): longe, o lugar fica na lista e nas colunas,
-               com a vaga tracejada de giz da altura do cartão, e a palavra e o sentido para o leitor de tela -->
+               com a vaga tracejada de giz da altura do cartão, e a palavra e o sentido para o leitor de tela; o Tab que
+               chega nela monta o cartão e entra nele -->
           <ol class="folha" role="list">
             @for (w of s.words; track w.id) {
               <li class="lugar-verbete" appPerto #perto="perto" appPertoMede="verbete" [appPertoId]="w.id">
                 @if (perto.near()) {
                   <div class="verbete" app-word-entry [word]="w" [drawable]="true" (draw)="openBoard($event)"></div>
                 } @else {
-                  <div class="vaga-verbete" data-vaga [style.height.px]="entryHeight(w)">
+                  <div class="vaga-verbete" data-vaga tabindex="0" [style.height.px]="entryHeight(w)" (focus)="enterVaga(perto, $event)">
                     <span class="sr-only"><span lang="ja">{{ w.text }}</span>, {{ w.meaning }}</span>
                   </div>
                 }

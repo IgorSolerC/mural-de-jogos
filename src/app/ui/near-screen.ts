@@ -174,7 +174,10 @@ export class NearPool implements OnDestroy {
   private skippedOnScreen(el: Element): boolean {
     if (!this.partsSeen) {
       this.partsSeen = { partOf: new Map(), onScreen: new Map() };
-      requestAnimationFrame(() => (this.partsSeen = null));
+      // até o próximo quadro, ou a próxima tarefa (a aba escondida não tem quadros)
+      const forget = () => (this.partsSeen = null);
+      requestAnimationFrame(forget);
+      setTimeout(forget);
     }
     const { partOf, onScreen } = this.partsSeen;
     const walked: Element[] = [];
