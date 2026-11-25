@@ -149,7 +149,7 @@ describe('VisitView: o canvas de quem você visita', () => {
     expect(visit.canvasText()(canvas)).toContain('lisboa');
   });
 
-  it('a ficha da visita é a mesma do dono: com o quadro dela, o canvas pendurado e a miniatura', async () => {
+  it('a ficha da visita é a mesma do dono: com o quadro dela, o canvas na moldura e a miniatura', async () => {
     const visit = TestBed.inject(VisitView);
     TestBed.tick();
     await Promise.resolve();

@@ -145,7 +145,7 @@ const CARD_HOST = {
   '[class.fixada]': 'note() && review().noteRank === "fixada"',
   '[class.carimbando]': 'stamping()',
   '[class.feita]': '!capas() && !!doneAt()',
-  // o canvas (PLANO-CANVAS.md, 2): o eucatex pendurado no lugar da cartolina
+  // o canvas (PLANO-CANVAS.md, 2): o eucatex na moldura no lugar da cartolina
   '[class.canvas]': 'canvasMode()',
 };
 
@@ -157,7 +157,7 @@ export const CARD_TEMPLATE = `
     <!-- o papel da ficha: a cartolina, o rabisco e o estrago, por baixo da foto e dos adesivos -->
     <app-paper-art [id]="artId()" [scribble]="review().scribble" [scribbleSeed]="review().scribbleSeed" [scribbleInk]="review().scribbleInk" [paper]="review().paper" [paperSeed]="review().paperSeed" [damage]="review().damage" [seed]="review().damageSeed" [stains]="review().stains" [decors]="review().decors" [glitter]="review().paper === 'glitter'" [dark]="dark()" [content]="review()" [look]="paperLook()" />
     @if (canvasMode()) {
-      <!-- o canvas (PLANO-CANVAS.md, 2): o eucatex pendurado no prego, no lugar da cartolina; a orelha, o carimbo, os
+      <!-- o canvas (PLANO-CANVAS.md, 2): o eucatex na moldura, no lugar da cartolina; a orelha, o carimbo, os
            botões e as reações ficam presos na moldura, e o botão que abre cobre tudo, como na cartolina -->
       <app-canvas-card [board]="canvasBoard()" [name]="review().game.name" [game]="review().game" [overview]="overview()">
         <ng-container *ngTemplateOutlet="orelhaTpl" />
@@ -1669,21 +1669,20 @@ export const CARD_STYLES = `
       padding: 4px 5px 3px;
     }
 
-    /* ===== O canvas (PLANO-CANVAS.md, 2): o eucatex na moldura, pendurado no prego (ui/canvas-card.ts) =====
+    /* ===== O canvas (PLANO-CANVAS.md, 2): o eucatex na moldura de alumínio (ui/canvas-card.ts) =====
        A ficha continua sendo o lugar, o botão e o que só o dono faz; o papel dela fica invisível (ele ainda dirige
-       a entrada da ficha, ver ui/paper-layer.ts) e o desenho é o do canvas. Gira em volta do prego, sem a tachinha
-       e sem a sombra da cartolina: a sombra é da moldura, que diz pelo --cv-longe quando encurta. Nunca passa da
-       largura da ficha, e a altura sai da largura (16:9): cabe sempre na de uma anotação comum (2.5). */
+       a entrada da ficha, ver ui/paper-layer.ts) e o desenho é o do canvas. Gira em volta do meio, como a ficha (o
+       prego e o barbante saíram em 25/nov/2026, a pedido), sem a sombra da cartolina: a sombra é da moldura, que
+       diz pelo --cv-longe quando encurta. Nunca passa da largura da ficha, e a altura sai da largura (3:2): cabe
+       sempre na de uma anotação comum (2.5). Na Comum e na Inteira, metade do giro, como as fichas (--giro). */
     :host(.canvas) {
-      --cv-topo: 50px;
       /* chegando (a ficha nova cai, ver land): sem a sombra da cartolina */
       --land-shadow: none;
       padding: 0 0 14px;
       box-shadow: none;
-      rotate: calc(var(--tilt) * 1.3deg);
-      transform-origin: 50% 6px;
+      rotate: calc(var(--tilt) * var(--giro) * 1.3deg);
     }
-    /* só a moldura (e o que está preso nela) é o canvas: a parede em volta do prego e do barbante continua sendo
+    /* só a moldura (e o que está preso nela) e o botão são o canvas: o resto da caixa da ficha continua sendo
        parede (o clique e o botão direito no nada, o mouse que passa) */
     :host(.canvas) {
       pointer-events: none;
@@ -1692,9 +1691,6 @@ export const CARD_STYLES = `
     :host(.canvas) .hit {
       pointer-events: auto;
     }
-    :host(.canvas) .hit {
-      top: var(--cv-topo);
-    }
     :host(.canvas) ::ng-deep app-paper-art,
     :host(.canvas) ::ng-deep .sombra-assada {
       visibility: hidden;
@@ -1702,13 +1698,12 @@ export const CARD_STYLES = `
     :host(.canvas) .corpo::after {
       display: none;
     }
-    /* a vaga tracejada (o véu): onde a moldura fica, sem o prego */
+    /* a vaga tracejada (o véu): onde a moldura fica, sem a folga da fita */
     :host(.canvas)::before {
-      top: var(--cv-topo);
       bottom: 14px;
       border-radius: 3px;
     }
-    /* mouse em cima, ou o foco do teclado: endireita no prego, e a sombra longe encurta */
+    /* mouse em cima, ou o foco do teclado: endireita, e a sombra longe encurta */
     :host(.canvas:hover:not([data-quieta])),
     :host(.canvas:has(:focus-visible)) {
       rotate: 0deg;
@@ -1718,16 +1713,16 @@ export const CARD_STYLES = `
     }
     /* apertando: volta para a parede, como a ficha */
     :host(.canvas:active) {
-      rotate: calc(var(--tilt) * 1.3deg);
+      rotate: calc(var(--tilt) * var(--giro) * 1.3deg);
       box-shadow: none;
       --cv-longe: 10px 22px 26px rgb(0 0 0 / 0.55);
     }
-    /* o foco do teclado: o anel amarelo a 5px da moldura, e não em volta do prego */
+    /* o foco do teclado: o anel amarelo a 5px da moldura, e não em volta da folga da fita */
     :host(.canvas:has(.hit:focus-visible)) {
       outline: none;
       --cv-foco: 3px solid var(--hi);
     }
-    /* sem a tachinha, a orelha vai até perto do canto (o da direita é do Finalizar e do Fixar) */
+    /* a orelha vai até perto do canto (o da direita é do Finalizar e do Fixar) */
     :host(.canvas) .aba-cat {
       max-width: calc(100% - 14px - 96px);
     }
@@ -1740,9 +1735,8 @@ export const CARD_STYLES = `
     :host(.canvas.feita:not(.compact)) {
       min-height: 0;
     }
-    /* Visão geral: deitado na mesa (sem prego), quase reto, da altura mínima das outras */
+    /* Visão geral: deitado na mesa, quase reto, da altura mínima das outras */
     :host(.canvas.geral) {
-      --cv-topo: 0px;
       padding: 0 0 11px;
       rotate: calc(var(--tilt) * 0.3deg);
       transform-origin: 50% 50%;
@@ -1838,7 +1832,7 @@ export class ReviewCard {
   /** O quadro do canvas (a anotação que é um canvas, PLANO-CANVAS.md): quem usa dá, pela vista do mural. */
   readonly canvasBoard = input<FreeBoard | null>(null);
   /**
-   * A anotação é um canvas e aparece como um (o eucatex pendurado): na parede, em toda vista dela (a Comum, a
+   * A anotação é um canvas e aparece como um (o eucatex na moldura): na parede, em toda vista dela (a Comum, a
    * Inteira e a Visão geral). A ficha simples de fora do mural (o Kanban, o Calendário, o widget Nota) não tem
    * canvas, e a secreta do Muraldle é só a cartolina.
    */

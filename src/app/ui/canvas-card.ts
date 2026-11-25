@@ -5,10 +5,11 @@ import { CoverSleeve } from './cover-sleeve';
 import { BoardSketch } from './free-board/board-sketch';
 
 /**
- * O canvas na parede (PLANO-CANVAS.md, 2): um pedaço de eucatex numa moldura de alumínio, pendurado num prego por
- * um barbante, com o quadro desenhado em miniatura e o nome numa fita Dymo. Só o desenho: a ficha (ui/review-card.ts)
- * dá o lugar, o giro, o foco, o botão que abre e o que só o dono faz, e projeta dentro da moldura a orelha do grupo,
- * o carimbo, os botões de hover e as reações (o que fica preso na moldura, e não no prego).
+ * O canvas na parede (PLANO-CANVAS.md, 2): um pedaço de eucatex numa moldura de alumínio, com o quadro desenhado em
+ * miniatura e o nome numa fita Dymo. O prego e o barbante que fingiam pendurá-lo saíram em 25/nov/2026, a pedido do
+ * dono, e o eucatex cresceu para o lugar deles (3:2, era 16:9). Só o desenho: a ficha (ui/review-card.ts) dá o lugar,
+ * o giro, o foco, o botão que abre e o que só o dono faz, e projeta dentro da moldura a orelha do grupo, o carimbo,
+ * os botões de hover e as reações.
  *
  * Tudo aqui é `aria-hidden`: quem lê a tela ouve o botão da ficha, que diz o nome, as peças, o grupo e o resto.
  */
@@ -18,29 +19,22 @@ import { BoardSketch } from './free-board/board-sketch';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class.geral]': 'overview()' },
   template: `
-    <div class="pendurado">
-      <!-- na Visão geral, deitado na mesa: sem o prego e o barbante -->
-      @if (!overview()) {
-        <span class="prego" aria-hidden="true"></span>
-        <svg class="barbante" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true"><path d="M6 40 L50 2 L94 40" /></svg>
-      }
-      <div class="moldura">
-        <div class="eucatex" aria-hidden="true">
-          @if (cover(); as game) {
-            <app-cover-sleeve class="capa" [game]="game" [decorative]="true" />
-          } @else if (board(); as b) {
-            @if (pieces()) {
-              <app-board-sketch [board]="b" />
-            } @else {
-              <span class="vazio">Canvas vazio</span>
-            }
+    <div class="moldura">
+      <div class="eucatex" aria-hidden="true">
+        @if (cover(); as game) {
+          <app-cover-sleeve class="capa" [game]="game" [decorative]="true" />
+        } @else if (board(); as b) {
+          @if (pieces()) {
+            <app-board-sketch [board]="b" />
+          } @else {
+            <span class="vazio">Canvas vazio</span>
           }
-        </div>
-        <span class="dymo" aria-hidden="true">{{ name() }}</span>
-        <!-- a orelha do grupo (atrás da moldura: o barbante passa por trás dela), o carimbo, os botões de hover, o
-             adesivo de marcar e as reações: presos na moldura -->
-        <ng-content />
+        }
       </div>
+      <span class="dymo" aria-hidden="true">{{ name() }}</span>
+      <!-- a orelha do grupo (atrás da moldura), o carimbo, os botões de hover, o adesivo de marcar e as reações:
+           presos na moldura -->
+      <ng-content />
     </div>
   `,
   styleUrl: './canvas-card.scss',
@@ -51,7 +45,7 @@ export class CanvasCard {
   readonly name = input.required<string>();
   /** A anotação com capa: a foto no lugar da miniatura. */
   readonly game = input<PickedGame | null>(null);
-  /** A Visão geral: deitado na mesa, sem o prego. */
+  /** A Visão geral: deitado na mesa, mais baixo. */
   readonly overview = input(false);
 
   protected readonly pieces = computed(() => canvasPieces(this.board()) ?? 0);

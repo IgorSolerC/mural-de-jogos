@@ -8,7 +8,7 @@ import { expectEtiquetaPadrao } from '../testing/etiqueta-acoes.spec';
 import { NoteIndex } from './note-index';
 import { ReviewCard } from './review-card';
 
-/** O canvas na parede (PLANO-CANVAS.md, rodada 2): a ficha desenha o eucatex pendurado no lugar da cartolina. */
+/** O canvas na parede (PLANO-CANVAS.md, rodada 2): a ficha desenha o eucatex na moldura no lugar da cartolina. */
 
 const T = '2026-11-20T10:00:00.000Z';
 const BOARD = newBoardId();
@@ -78,13 +78,18 @@ describe('o canvas na parede (PLANO-CANVAS.md, 2)', () => {
     return fixture.nativeElement as HTMLElement;
   }
 
-  it('desenha o prego, o barbante, a moldura com a miniatura e a fita com o nome; nada da cartolina', async () => {
+  it('desenha a moldura com a miniatura e a fita com o nome, sem prego nem barbante; nada da cartolina', async () => {
     const el = await show(canvas(), { canvasBoard: board(), checkable: true });
     expect(el.classList).toContain('canvas');
     const card = el.querySelector('app-canvas-card')!;
-    expect(card.querySelector('.prego')).not.toBeNull();
-    expect(card.querySelector('svg.barbante')).not.toBeNull();
+    // o prego e o barbante só fingiam pendurar o quadro (pedido do dono, 25/nov/2026)
+    expect(card.querySelector('.prego')).toBeNull();
+    expect(card.querySelector('svg.barbante')).toBeNull();
     expect(card.querySelector('.moldura .eucatex app-board-sketch svg')).not.toBeNull();
+    // o eucatex cresceu para o lugar deles: 3:2, e a moldura começa no alto da ficha
+    const eucatex = card.querySelector<HTMLElement>('.eucatex')!;
+    expect(eucatex.offsetWidth / eucatex.offsetHeight).toBeCloseTo(1.5, 1);
+    expect(Math.abs(card.querySelector('.moldura')!.getBoundingClientRect().top - el.getBoundingClientRect().top)).toBeLessThan(2);
     expect(card.querySelector('.dymo')!.textContent!.trim()).toBe('Mapa da viagem');
     expect(getComputedStyle(card.querySelector('.dymo')!).textTransform).toBe('uppercase');
     // sem a tachinha, a cabeça, as tags e a data à vista (D2): tudo no nome do botão
@@ -98,15 +103,13 @@ describe('o canvas na parede (PLANO-CANVAS.md, 2)', () => {
     expect(card.querySelector('.moldura > .acoes')).not.toBeNull();
   });
 
-  it('a parede em volta do prego continua parede: o botão começa na moldura', async () => {
+  it('o botão começa no alto da moldura, sem a parede de cima que era do prego', async () => {
     const el = await show(canvas(), { canvasBoard: board() });
     const hit = el.querySelector('button.hit')!.getBoundingClientRect();
     const moldura = el.querySelector('app-canvas-card .moldura')!.getBoundingClientRect();
     expect(Math.abs(hit.top - moldura.top)).toBeLessThan(6);
+    expect(Math.abs(hit.top - el.getBoundingClientRect().top)).toBeLessThan(2);
     expect(getComputedStyle(el).pointerEvents).toBe('none');
-    // ao lado do barbante, acima da moldura, o clique cai na parede
-    const at = document.elementFromPoint(moldura.left + 10, moldura.top - 20);
-    expect(el.contains(at)).toBeFalse();
   });
 
   it('o botão que abre diz tudo o que o card não mostra (2.4); o desenho é aria-hidden', async () => {
@@ -132,15 +135,16 @@ describe('o canvas na parede (PLANO-CANVAS.md, 2)', () => {
     expect(vazio.querySelector('.eucatex app-board-sketch')).toBeNull();
   });
 
-  it('gira em volta do prego (tilt × 1,3) e endireita com o foco do teclado, com o anel na moldura', async () => {
+  it('gira em volta do meio (tilt × 1,3, metade na Comum) e endireita com o foco do teclado, com o anel na moldura', async () => {
     const el = await show(canvas(), { canvasBoard: board() });
     // (sem a transição: o --tilt chega depois do primeiro desenho, e o giro estaria no meio dela)
     el.style.transition = 'none';
     const tilt = Number(el.style.getPropertyValue('--tilt'));
     // (com o ponteiro do navegador de teste por cima, ela já está reta: é o mouse em cima)
     const still = !el.matches(':hover, :has(:focus-visible)');
-    expect(getComputedStyle(el).rotate).toBe(!still ? '0deg' : tilt ? `${+(tilt * 1.3).toFixed(4)}deg` : 'none');
-    expect(getComputedStyle(el).transformOrigin.split(' ')[1]).toBe('6px');
+    if (!still) expect(getComputedStyle(el).rotate).toBe('0deg');
+    else expect(parseFloat(getComputedStyle(el).rotate) || 0).toBeCloseTo(tilt * 1.3 * 0.5, 3);
+    expect(parseFloat(getComputedStyle(el).transformOrigin.split(' ')[1])).toBeCloseTo(el.offsetHeight / 2, 0);
     expect(getComputedStyle(el).boxShadow).toBe('none');
     el.querySelector<HTMLButtonElement>('button.hit')!.focus({ focusVisible: true } as FocusOptions);
     await new Promise((r) => setTimeout(r, 50));
@@ -175,10 +179,8 @@ describe('o canvas na parede (PLANO-CANVAS.md, 2)', () => {
     expect(el.querySelector('button.hit')!.getAttribute('aria-label')).toBe('Marcar: Mapa da viagem');
   });
 
-  it('a Visão geral: deitado na mesa, sem prego nem barbante, da altura das outras fichas', async () => {
+  it('a Visão geral: deitado na mesa, da altura das outras fichas', async () => {
     const el = await show(canvas(), { canvasBoard: board(), compact: true, overview: true }, 190);
-    expect(el.querySelector('app-canvas-card .prego')).toBeNull();
-    expect(el.querySelector('app-canvas-card svg.barbante')).toBeNull();
     expect(el.offsetHeight).toBe(98);
   });
 

@@ -1,55 +1,17 @@
 @use '../../../shared/eucatex';
 
-/* ===== O canvas na parede (PLANO-CANVAS.md, 2.1): eucatex na moldura de alumínio, pendurado num prego =====
-   A ficha (review-card.ts) gira tudo em volta do prego e diz, pelas variáveis, o que muda com o mouse: a sombra
-   longe encurta (--cv-longe) e o anel do foco do teclado (--cv-foco) fica a 5px da moldura. --cv-topo: a altura
-   do prego e do barbante acima da moldura. */
+/* ===== O canvas na parede (PLANO-CANVAS.md, 2.1): eucatex na moldura de alumínio =====
+   A ficha (review-card.ts) gira tudo em volta do meio e diz, pelas variáveis, o que muda com o mouse: a sombra
+   longe encurta (--cv-longe) e o anel do foco do teclado (--cv-foco) fica a 5px da moldura. Sem prego nem barbante
+   (saíram em 25/nov/2026, a pedido): a moldura começa no alto da ficha. */
 :host {
   position: relative;
   display: block;
   min-width: 0;
 }
 
-.pendurado {
-  position: relative;
-  padding-top: var(--cv-topo, 50px);
-}
-
-/* o prego: metal, com o brilho em cima à esquerda e a sombra curta de quem está cravado na parede */
-.prego {
-  position: absolute;
-  top: 0;
-  left: calc(50% - 6px);
-  z-index: 2;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #f4f4f0 0 18%, #a7abb0 45%, #55595e 100%);
-  box-shadow: 1px 3px 3px rgb(0 0 0 / 0.6);
-}
-
-/* o barbante: do prego até a beirada de cima, entrando por trás da moldura e da orelha (z -5, atrás de tudo) */
-.barbante {
-  position: absolute;
-  top: 5px;
-  left: 13%;
-  z-index: -5;
-  width: 74%;
-  height: calc(var(--cv-topo, 50px) + 8px);
-  overflow: visible;
-
-  path {
-    fill: none;
-    stroke: #e3d5b4;
-    stroke-width: 1.8;
-    stroke-linejoin: round;
-    vector-effect: non-scaling-stroke;
-    filter: drop-shadow(1px 1px 1px rgb(0 0 0 / 0.55));
-  }
-}
-
 /* a moldura: alumínio escovado, com a espessura aparecendo à direita e embaixo (ela tem corpo) e a sombra caindo
-   longe, porque está afastada da parede pelo barbante */
+   longe, porque o corpo dela a afasta da parede */
 .moldura {
   position: relative;
   padding: 7px;
@@ -64,10 +26,11 @@
   transition: box-shadow var(--t-physical) var(--ease-physical);
 }
 
-/* o eucatex: o grafite da parede, em ponto pequeno, fundo na moldura */
+/* o eucatex: o grafite da parede, em ponto pequeno, fundo na moldura. 3:2 (era 16:9 com o prego e o barbante em
+   cima): cresce para o lugar deles, e nunca passa da altura de antes, nem da de uma anotação comum (2.5) */
 .eucatex {
   position: relative;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 3 / 2;
   overflow: hidden;
   @include eucatex.eucatex(#2b2926, var(--wall-hole), $luz: false, $passo: 9px);
 
@@ -133,12 +96,8 @@
     0 1px 0 rgb(255 255 255 / 0.25);
 }
 
-/* ===== Visão geral: deitado na mesa, sem prego, a moldura mais baixa (16:10) e a fita menor ===== */
+/* ===== Visão geral: deitado na mesa, a moldura mais baixa e a fita menor ===== */
 :host(.geral) {
-  .pendurado {
-    padding-top: 0;
-  }
-
   .moldura {
     padding: 5px;
     box-shadow:
