@@ -41,7 +41,8 @@ import {
   writeGrid,
   writeInkGroups,
 } from '../../core/pixel-art';
-import { addGroup, groupOfInk, inkOrder, looseInks, moveGroup, moveToGroup, probeRow, remapInkGroups, removeGroup, suggestGroupName } from '../../core/pixel-ink-groups';
+import { addGroup, groupOfInk, groupsByHue, inkOrder, looseInks, moveGroup, moveToGroup, probeRow, remapInkGroups, removeGroup, suggestGroupName } from '../../core/pixel-ink-groups';
+import { dragPile, scopeOf } from '../drag-pile';
 import { Anchor, anchorOffset, BRUSH_MAX, BrushShape, Dither, Symmetry, ZOOMS, ZOOM_KEYS, convertRows, ditherKeeps, medianCut, moveInk, removeInk, removeInks, unusedInks, usedInks, sortInks, ellipseCells, fitZoom, mirrored, perfectCorner, rectCells, replaceInk, resizeCanvas, shapeBox, snapLine, stampCells, stepZoom, zoomLabel } from '../../core/pixel-tools';
 import { ALL_HANDLES, Box, Handle, resizeBox } from '../../core/resize-box';
 import { Float, Mask, scaleFloat, combineMask, composite, flipMask, flipRows, invertMask, lift, maskAny, maskBounds, maskOutline, outline, placedMask, rectMask, rotateMask, rotateRows, wandMask } from '../../core/pixel-selection';
@@ -291,6 +292,16 @@ export class PixelStudio {
   protected readonly groupNaming = signal<number | null>(null);
   /** O grupo do menu aberto (o índice). */
   protected readonly menuGroup = signal<number | null>(null);
+  /** As cores marcadas (Ctrl ou Shift + clique) para ir juntas para um grupo. */
+  protected readonly marked = signal<ReadonlySet<number>>(new Set());
+  /** As marcadas na ordem da tela. */
+  protected readonly markedList = computed(() => inkOrder(this.groups(), this.count()).filter((n) => this.marked().has(n)));
+  /** De onde o Shift + clique conta o intervalo: a última pastilha tocada. */
+  private markAnchor: number | null = null;
+  /** O arrasto leva as marcadas (o maço), não só a pastilha pega. */
+  protected readonly draggingMany = signal(false);
+  /** Onde as cores arrastadas vão cair: o grupo (o índice) ou as soltas (-1). */
+  protected readonly dropZone = signal<number | null>(null);
   /** Os caminhos de cada grade, guardados pela grade: pintar refaz só os da camada escolhida. */
   private readonly pathCache = new RowsCache((rows) => inkPaths(rows, 'pixel'));
   protected readonly paths = computed(() => this.pathCache.of(this.flat()));
@@ -892,6 +903,7 @@ export class PixelStudio {
     this.palette.set(s.palette);
     this.colors.set(s.colors);
     this.groups.set(s.groups);
+    if (this.marked().size) this.marked.set(new Set());
     this.clampInks();
     this.emit();
     this.syncHistory();
@@ -1372,6 +1384,11 @@ export class PixelStudio {
       e.preventDefault();
       const selecting = this.tool() === 'selecao' || this.tool() === 'varinha';
       if (!e.repeat && !this.drag && !(selecting && e.shiftKey)) this.held.set('conta-gotas');
+      return;
+    }
+    if (e.key === 'Escape' && this.marked().size) {
+      e.preventDefault();
+      this.clearMarks();
       return;
     }
     if (e.key === 'Escape' && this.refLayer()) {
@@ -2523,9 +2540,112 @@ export class PixelStudio {
   // arrastar uma pastilha para outro lugar
   protected swatchDragStart(e: DragEvent, n: number): void {
     if (n < 1) return;
+    // pegar uma marcada leva todas as marcadas, no maço do Kanban; pegar outra leva só ela
+    const many = this.marked().has(n) && this.marked().size > 1;
     this.dragging.set(n);
+    this.draggingMany.set(many);
     e.dataTransfer?.setData('text/plain', inkChar(n));
-    if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+    if (!e.dataTransfer) return;
+    e.dataTransfer.effectAllowed = 'move';
+    if (many) {
+      const img = this.dragImage(e.currentTarget as HTMLElement, n);
+      e.dataTransfer.setDragImage(img, 22, 22);
+      setTimeout(() => img.remove());
+    }
+  }
+
+  /** O maço que segue o ponteiro levando várias: a pastilha pega por cima, até duas marcadas por baixo, e quantas vão. */
+  private dragImage(top: HTMLElement, n: number): HTMLElement {
+    const root = this.dialog().nativeElement;
+    const under = this.markedList()
+      .filter((x) => x !== n)
+      .map((x) => root.querySelector<HTMLElement>(`.pastilha[data-cor="${x}"]`))
+      .filter((el): el is HTMLElement => !!el);
+    const copy = (el: HTMLElement) => {
+      const c = el.cloneNode(true) as HTMLElement;
+      c.removeAttribute('data-cor');
+      c.classList.remove('on', 'fundo', 'marcada', 'arrastada');
+      c.querySelector('.pastilha-marca')?.remove();
+      return c;
+    };
+    const holder = document.createElement('div');
+    for (const name of scopeOf(top)) holder.setAttribute(name, '');
+    holder.className = 'maco-cores';
+    holder.append(dragPile(top, under, this.markedList().length, copy, scopeOf(top)));
+    root.append(holder);
+    return holder;
+  }
+
+  /** As cores do arrasto de agora: as marcadas (o maço) ou a pega. */
+  private dragged(): number[] {
+    const n = this.dragging();
+    if (n === null) return [];
+    return this.draggingMany() ? this.markedList() : [n];
+  }
+
+  protected endDrag(): void {
+    this.dragging.set(null);
+    this.draggingMany.set(false);
+    this.dropZone.set(null);
+  }
+
+  /** Arrastando por cima de um grupo (ou das soltas): ele recebe, e se acende quando as cores mudariam de grupo. */
+  protected zoneOver(e: DragEvent, zone: number): void {
+    const from = this.dragging();
+    if (from === null) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    const moving = this.draggingMany() || groupOfInk(this.groups(), from) !== zone;
+    this.dropZone.set(moving ? zone : null);
+  }
+
+  protected zoneLeave(e: DragEvent, zone: number): void {
+    const into = e.relatedTarget as Node | null;
+    if (into && (e.currentTarget as Node).contains(into)) return;
+    if (this.dropZone() === zone) this.dropZone.set(null);
+  }
+
+  /** Soltou no grupo (no nome, no vazio, entre as pastilhas) ou nas soltas: as cores mudam de grupo. */
+  protected zoneDrop(e: DragEvent, zone: number): void {
+    const list = this.dragged();
+    this.endDrag();
+    if (!list.length) return;
+    e.preventDefault();
+    this.putInGroup(list, zone);
+  }
+
+  /** O clique na pastilha: escolhe a cor (e desmarca); com Ctrl, marca ou desmarca; com Shift, marca o intervalo. */
+  protected swatchClick(e: MouseEvent, n: number): void {
+    if (n > 0 && (e.ctrlKey || e.metaKey)) {
+      const next = new Set(this.marked());
+      if (next.has(n)) next.delete(n);
+      else next.add(n);
+      this.marked.set(next);
+      this.markAnchor = n;
+      return;
+    }
+    if (n > 0 && e.shiftKey) {
+      const order = inkOrder(this.groups(), this.count()).filter((x) => x > 0);
+      const to = order.indexOf(n);
+      let from = order.indexOf(this.markAnchor ?? this.fg());
+      if (from < 0) from = to;
+      this.marked.set(new Set(order.slice(Math.min(from, to), Math.max(from, to) + 1)));
+      return;
+    }
+    this.clearMarks();
+    this.markAnchor = n;
+    this.chooseInk(n);
+  }
+
+  protected clearMarks(): void {
+    if (this.marked().size) this.marked.set(new Set());
+  }
+
+  /** Um grupo por família de cor (Cinzas, Vermelhos, Azuis…), no lugar dos de agora: um passo do desfazer. */
+  protected groupByHue(): void {
+    const groups = groupsByHue(drawingInks(this.palette(), this.colors()));
+    this.change({ groups }, `Cores agrupadas pelo tom, em ${groups.length} grupos`);
+    this.folded.set(new Set());
   }
 
   protected swatchDragOver(e: DragEvent, n: number): void {
@@ -2533,13 +2653,17 @@ export class PixelStudio {
   }
 
   protected swatchDrop(e: DragEvent, n: number): void {
+    // no transparente, quem recebe é a área das soltas (o drop sobe até ela)
+    if (n < 1) return;
     const from = this.dragging();
-    this.dragging.set(null);
-    if (from === null || n < 1) return;
+    const list = this.dragged();
+    this.endDrag();
+    if (from === null) return;
     e.preventDefault();
-    // para outro grupo (ou para as soltas), muda o grupo; dentro do mesmo, muda o lugar
+    // para outro grupo (ou para as soltas), muda o grupo; dentro do mesmo, muda o lugar (só uma: o maço não tem lugar)
     const to = groupOfInk(this.groups(), n);
-    if (to !== groupOfInk(this.groups(), from)) this.putInGroup([from], to);
+    if (list.length > 1) this.putInGroup(list, to);
+    else if (to !== groupOfInk(this.groups(), from)) this.putInGroup([from], to);
     else this.moveSwatch(from, n);
   }
 
@@ -2585,16 +2709,27 @@ export class PixelStudio {
   private groupMoves(): MenuItem[] {
     const groups = this.groups();
     const full = groups.length >= INK_GROUPS_MAX;
+    // com cores marcadas, o menu fala delas; sem, da cor da frente
+    const marks = this.markedList();
+    const k = marks.length;
     const items: MenuItem[] = [
-      { id: 'novo-grupo', label: 'Novo grupo', hint: full ? `Cabem ${INK_GROUPS_MAX} grupos` : 'Para organizar as cores (o desenho não muda)', icon: ICON.novaPasta, disabled: full, run: () => this.newGroup() },
+      k
+        ? { id: 'novo-grupo', label: k === 1 ? 'Novo grupo com a marcada' : `Novo grupo com as ${k} marcadas`, hint: full ? `Cabem ${INK_GROUPS_MAX} grupos` : 'O nome sai das cores; o desenho não muda', icon: ICON.novaPasta, disabled: full, run: () => this.newGroup(marks) }
+        : { id: 'novo-grupo', label: 'Novo grupo', hint: full ? `Cabem ${INK_GROUPS_MAX} grupos` : 'Para organizar as cores (o desenho não muda)', icon: ICON.novaPasta, disabled: full, run: () => this.newGroup() },
+      { id: 'pelo-tom', label: 'Agrupar pelo tom', hint: groups.length ? 'Um grupo por família de cor, no lugar dos de agora (Ctrl+Z desfaz)' : 'Um grupo por família de cor: Cinzas, Vermelhos, Azuis…', icon: ICON.paleta, run: () => this.groupByHue() },
     ];
     const n = this.fg();
-    if (n < 1 || !groups.length) return items;
-    const at = groupOfInk(groups, n);
+    const moving = k ? marks : n > 0 ? [n] : [];
+    if (!moving.length || !groups.length) return items;
+    const who = k > 1 ? `As ${k} marcadas vão` : k === 1 ? 'A marcada vai' : `A cor ${inkChar(n)} vai`;
+    const at = new Set(moving.map((x) => groupOfInk(groups, x)));
     groups.forEach((g, i) => {
-      if (i !== at) items.push({ id: 'grupo-' + i, label: `Pôr em ${g.name}`, hint: `A cor ${inkChar(n)} vai para o grupo ${g.name}`, icon: ICON.pasta, run: () => this.putInGroup([n], i) });
+      if (at.size > 1 || !at.has(i)) items.push({ id: 'grupo-' + i, label: k > 1 ? `Pôr as ${k} em ${g.name}` : `Pôr em ${g.name}`, hint: `${who} para o grupo ${g.name}`, icon: ICON.pasta, run: () => this.putInGroup(moving, i) });
     });
-    if (at >= 0) items.push({ id: 'soltar', label: `Tirar de ${groups[at].name}`, hint: `A cor ${inkChar(n)} volta a ficar solta`, icon: ICON.desfazer, run: () => this.putInGroup([n], -1) });
+    if ([...at].some((i) => i >= 0)) {
+      const one = at.size === 1 ? groups[[...at][0]] : null;
+      items.push({ id: 'soltar', label: one ? `Tirar de ${one.name}` : 'Tirar dos grupos', hint: k > 1 ? 'As marcadas voltam a ficar soltas' : 'Volta a ficar solta', icon: ICON.desfazer, run: () => this.putInGroup(moving, -1) });
+    }
     return items;
   }
 
@@ -2606,7 +2741,7 @@ export class PixelStudio {
       inks.map((n) => this.inks()[n]).filter((c): c is string => !!c),
       groups.map((g) => g.name),
     );
-    this.change({ groups: addGroup(groups, name, inks) }, `Grupo ${name} novo`);
+    this.change({ groups: addGroup(groups, name, inks) }, inks.length ? `Grupo ${name} novo, com ${inks.length === 1 ? 'a cor' : `as ${inks.length} cores`}` : `Grupo ${name} novo`);
     this.startGroupRename(this.groups().length - 1);
   }
 

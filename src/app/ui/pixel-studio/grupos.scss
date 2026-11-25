@@ -1,4 +1,5 @@
 @use '../regua-teclas' as rt;
+@use '../pilha-arrasto' as pilha;
 
 /* Os grupos das cores no painel (PLANO-GRUPOS-CORES.md): as soltas primeiro, como a paleta de sempre; depois cada
    grupo, separado por um fio, com a seta de recolher, o nome que a pessoa deu e quantas cores tem; recolhido, a fita
@@ -165,3 +166,112 @@
     transition: none;
   }
 }
+
+/* ===== marcar e arrastar (rodada 3) ===== */
+
+/* a marcada (Ctrl ou Shift + clique): o adesivo de tinta com o tique, no canto, como a escolhida da grade do seletor */
+.pastilha.marcada {
+  z-index: 1;
+}
+
+.pastilha-marca {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border: 2px solid var(--paper);
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.35);
+  color: var(--hi);
+  rotate: -8deg;
+  pointer-events: none;
+  animation: cola var(--t-physical) var(--ease-physical);
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+/* quantas estão marcadas, o grupo novo com elas e o desmarcar */
+.marcadas {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 36px;
+  padding: 0 2px 0 10px;
+  border-radius: 3px;
+  background: rgb(21 21 21 / 0.07);
+}
+
+.marcadas-n {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  letter-spacing: 0.03em;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.marcadas-agrupar {
+  @include rt.tecla;
+  display: inline-flex;
+  gap: 5px;
+  width: auto;
+  height: 32px;
+  padding: 0 9px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+.marcadas-fechar {
+  @include rt.tecla;
+  flex: none;
+  width: 32px;
+  height: 32px;
+}
+
+/* o grupo (ou as soltas) que vai receber as cores arrastadas: o fundo de lápis e o recorte tracejado em volta */
+.cor-grupo,
+.soltas {
+  border-radius: 3px;
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    outline-color var(--t-ui) var(--ease-ui);
+  outline: 2px dashed transparent;
+  outline-offset: 2px;
+}
+
+.recebe {
+  background: rgb(21 21 21 / 0.07);
+  outline-color: var(--ink);
+}
+
+/* o maço que segue o ponteiro levando várias (ui/_pilha-arrasto.scss, o do Kanban e do mural), fora da tela */
+.maco-cores {
+  position: fixed;
+  top: 0;
+  left: -1000px;
+  padding: 20px 48px 36px 8px;
+
+  .pastilha {
+    width: 38px;
+    height: 38px;
+  }
+}
+
+@include pilha.maco;

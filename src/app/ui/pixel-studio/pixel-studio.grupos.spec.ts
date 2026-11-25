@@ -126,7 +126,7 @@ describe('pixel art: os grupos das cores no ateliê', () => {
       expect(soltas()).toEqual(['Transparente', 'Cor 1', 'Cor 2', 'Cor 5', 'Cor 6', 'Cor 7', 'Cor 8', 'Cor 9']);
       expect(sections().map((s) => s.querySelector('.cor-grupo-nome')?.textContent?.trim())).toEqual(['Quentes2', 'Vazio0']);
       expect(swatchesOf(sections()[0])).toEqual(['Cor 3', 'Cor 4']);
-      expect(sections()[1].querySelector('.grupo-vazio')?.textContent).toContain('Nenhuma cor');
+      expect(sections()[1].querySelector('.grupo-vazio')?.textContent).toContain('Arraste cores');
     });
 
     it('"Novo grupo" faz um vazio com o nome aberto; Enter grava o nome, um passo do desfazer', async () => {
@@ -232,6 +232,117 @@ describe('pixel art: os grupos das cores no ateliê', () => {
       fixture.detectChanges();
       expect(values['groups']).toBe('grupos [A]3');
       expect(soltas()).toContain('Cor 4');
+    });
+  });
+
+  describe('marcar e arrastar (rodada 3)', () => {
+    const options = () => [...document.querySelectorAll<HTMLButtonElement>('.menu-contexto .escolha')];
+    const option = (label: string) => options().find((b) => b.textContent?.includes(label));
+    const sw = (n: number) => host.querySelector(`.cores-paleta .pastilha[data-cor="${n}"]`) as HTMLElement;
+    const marks = () => [...host.querySelectorAll('.pastilha.marcada')].map((b) => Number(b.getAttribute('data-cor')));
+    const fgNow = () => Number(host.querySelector('.pastilha.on')?.getAttribute('data-cor'));
+    function tap(n: number, init: MouseEventInit = {}): void {
+      sw(n).dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ...init }));
+      fixture.detectChanges();
+    }
+    async function settle(): Promise<void> {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    }
+
+    it('Ctrl + clique marca e desmarca sem mudar a cor da frente; Shift marca o intervalo na ordem da tela', async () => {
+      await make({ width: '1', height: '1', pixels: '1', groups: 'grupos [A]23' });
+      tap(4, { ctrlKey: true });
+      tap(6, { ctrlKey: true });
+      expect(marks()).toEqual([4, 6]);
+      expect(fgNow()).toBe(1);
+      expect(host.querySelector('.marcadas-n')?.textContent).toContain('2 cores marcadas');
+      tap(6, { ctrlKey: true });
+      expect(marks()).toEqual([4]);
+      // da 6 (a última tocada) até a 2: na tela, 6 7 8 9 (soltas) e depois 2 (no grupo A)
+      tap(2, { shiftKey: true });
+      expect(marks().sort((a, b) => a - b)).toEqual([2, 6, 7, 8, 9]);
+      // o clique simples escolhe e desmarca
+      tap(5);
+      expect(marks()).toEqual([]);
+      expect(fgNow()).toBe(5);
+    });
+
+    it('o Esc desmarca (e não fecha o ateliê)', async () => {
+      await make({ width: '1', height: '1', pixels: '1' });
+      tap(3, { ctrlKey: true });
+      sw(3).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      fixture.detectChanges();
+      expect(marks()).toEqual([]);
+      expect((host.querySelector('dialog.atelie') as HTMLDialogElement).open).toBeTrue();
+    });
+
+    it('"Agrupar" faz o grupo com as marcadas, com o nome tirado das cores', async () => {
+      await make({ width: '1', height: '1', pixels: '1' });
+      // na clássica, a 4 é o vermelho e a 5 o laranja: quentes
+      tap(4, { ctrlKey: true });
+      tap(5, { ctrlKey: true });
+      (host.querySelector('.marcadas-agrupar') as HTMLButtonElement).click();
+      await settle();
+      expect(values['groups']).toBe('grupos [Quentes]45');
+      expect(marks()).toEqual([]);
+      expect(host.querySelector<HTMLInputElement>('.grupo-nome-campo')?.value).toBe('Quentes');
+    });
+
+    it('arrastar uma marcada leva todas para o grupo onde caiu (no nome, no vazio ou numa pastilha)', async () => {
+      await make({ width: '1', height: '1', pixels: '1', groups: 'grupos [A] [B]9' });
+      tap(4, { ctrlKey: true });
+      tap(5, { ctrlKey: true });
+      sw(4).dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: new DataTransfer() }));
+      fixture.detectChanges();
+      expect(host.querySelectorAll('.pastilha.arrastada').length).toBe(2);
+      const grupoA = host.querySelector('[data-grupo="0"]') as HTMLElement;
+      grupoA.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: new DataTransfer() }));
+      fixture.detectChanges();
+      expect(grupoA.classList).toContain('recebe');
+      grupoA.querySelector('.grupo-vazio')!.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: new DataTransfer() }));
+      fixture.detectChanges();
+      expect(values['groups']).toBe('grupos [A]45 [B]9');
+      expect(host.querySelector('.recebe')).toBeNull();
+      // de novo, numa pastilha do B: as duas vão para o B, sem renumerar
+      tap(4, { ctrlKey: true });
+      tap(5, { ctrlKey: true });
+      sw(5).dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: new DataTransfer() }));
+      sw(9).dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: new DataTransfer() }));
+      fixture.detectChanges();
+      expect(values['groups']).toBe('grupos [A] [B]459');
+      expect(values['palette']).toBe('classica');
+      // e para as soltas
+      sw(9).dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: new DataTransfer() }));
+      (host.querySelector('.soltas') as HTMLElement).dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: new DataTransfer() }));
+      fixture.detectChanges();
+      expect(values['groups']).toBe('grupos [A] [B]45');
+      // soltar em cima do transparente também é soltar nas soltas
+      sw(4).dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: new DataTransfer() }));
+      sw(0).dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: new DataTransfer() }));
+      fixture.detectChanges();
+      expect(values['groups']).toBe('grupos [A] [B]5');
+    });
+
+    it('o menu das cores fala das marcadas e agrupa pelo tom (um passo do desfazer)', async () => {
+      await make({ width: '1', height: '1', pixels: '1', groups: 'grupos [A]1' });
+      tap(4, { ctrlKey: true });
+      tap(5, { ctrlKey: true });
+      (host.querySelector('.cores-topo [aria-label="Mais sobre as cores"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(option('Novo grupo com as 2 marcadas')).toBeTruthy();
+      option('Pôr as 2 em A')!.click();
+      fixture.detectChanges();
+      expect(values['groups']).toBe('grupos [A]145');
+      (host.querySelector('.cores-topo [aria-label="Mais sobre as cores"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      option('Agrupar pelo tom')!.click();
+      fixture.detectChanges();
+      expect(values['groups']).toMatch(/^grupos \[Cinzas\]\S+ \[Vermelhos\]4 /);
+      expect(values['pixels']).toBe('1');
+      run('undo');
+      expect(values['groups']).toBe('grupos [A]145');
     });
   });
 });

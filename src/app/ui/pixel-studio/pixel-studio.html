@@ -360,6 +360,7 @@
            vazio abre o menu das cores -->
       <ng-template #pastilha let-n>
         @let on = fg() === n;
+        @let mark = marked().has(n);
         <button
           type="button"
           role="radio"
@@ -367,23 +368,49 @@
           [class.on]="on"
           [class.fundo]="bg() === n"
           [class.vazia]="n === 0"
-          [class.arrastada]="dragging() === n"
+          [class.marcada]="mark"
+          [class.arrastada]="dragging() === n || (draggingMany() && mark)"
+          [attr.data-cor]="n"
           [attr.draggable]="n > 0 ? 'true' : null"
           [style.--cor]="inks()[n] ?? 'transparent'"
           [attr.aria-checked]="on"
-          [attr.aria-label]="n === 0 ? 'Transparente' : 'Cor ' + inkChar(n)"
-          [title]="swatchTitle(n) + ' · o direito escolhe o fundo'"
-          (click)="chooseInk(n)"
-          (dblclick)="editInk()"
+          [attr.aria-label]="(n === 0 ? 'Transparente' : 'Cor ' + inkChar(n)) + (mark ? ', marcada' : '')"
+          [title]="swatchTitle(n) + (n === 0 ? ' · o direito escolhe o fundo' : ' · o direito escolhe o fundo · Ctrl ou Shift marcam, para arrastar para um grupo')"
+          (click)="swatchClick($event, n)"
+          (dblclick)="$event.ctrlKey || $event.metaKey || $event.shiftKey ? null : editInk()"
           (contextmenu)="swatchMenu($event, n)"
           (dragstart)="swatchDragStart($event, n)"
           (dragover)="swatchDragOver($event, n)"
           (drop)="swatchDrop($event, n)"
-          (dragend)="dragging.set(null)"
-        ></button>
+          (dragend)="endDrag()"
+        >
+          @if (mark) {
+            <span class="pastilha-marca" aria-hidden="true"><lucide-icon [img]="I.pronto" [size]="10" /></span>
+          }
+        </button>
       </ng-template>
       <div class="cores-paleta parte-cores" (contextmenu)="paletteMenu($event)">
-        <div class="pastilhas" role="radiogroup" [attr.aria-label]="groups().length ? 'Cor da frente: as soltas' : 'Cor da frente'">
+        @if (marked().size; as k) {
+          <div class="marcadas">
+            <span class="marcadas-n" role="status">{{ k === 1 ? '1 cor marcada' : k + ' cores marcadas' }}</span>
+            <button type="button" class="marcadas-agrupar" [disabled]="groups().length >= GROUPS_MAX" [title]="groups().length >= GROUPS_MAX ? 'Cabem ' + GROUPS_MAX + ' grupos' : 'Um grupo novo com as marcadas (ou arraste para um grupo)'" (click)="newGroup(markedList())">
+              <lucide-icon [img]="I.novaPasta" [size]="16" aria-hidden="true" />
+              Agrupar
+            </button>
+            <button type="button" class="marcadas-fechar" title="Desmarcar (Esc)" aria-label="Desmarcar" (click)="clearMarks()">
+              <lucide-icon [img]="I.fechar" [size]="16" aria-hidden="true" />
+            </button>
+          </div>
+        }
+        <div
+          class="pastilhas soltas"
+          role="radiogroup"
+          [attr.aria-label]="groups().length ? 'Cor da frente: as soltas' : 'Cor da frente'"
+          [class.recebe]="dropZone() === -1"
+          (dragover)="zoneOver($event, -1)"
+          (dragleave)="zoneLeave($event, -1)"
+          (drop)="zoneDrop($event, -1)"
+        >
           @for (n of loose(); track n) {
             <ng-container *ngTemplateOutlet="pastilha; context: { $implicit: n }" />
           }
@@ -395,7 +422,7 @@
         </div>
         @for (gr of groups(); track $index; let gi = $index) {
           @let shut = folded().has(gr.name);
-          <section class="cor-grupo" [attr.data-grupo]="gi" [attr.aria-label]="'Grupo ' + gr.name">
+          <section class="cor-grupo" [attr.data-grupo]="gi" [attr.aria-label]="'Grupo ' + gr.name" [class.recebe]="dropZone() === gi" (dragover)="zoneOver($event, gi)" (dragleave)="zoneLeave($event, gi)" (drop)="zoneDrop($event, gi)">
             <div class="grupo-topo" (contextmenu)="openGroupMenu($event, gi)">
               <button type="button" class="grupo-seta" [attr.aria-expanded]="!shut" [attr.aria-label]="(shut ? 'Abrir ' : 'Recolher ') + gr.name" [title]="(shut ? 'Abrir o grupo' : 'Recolher o grupo') + ' · F2 renomeia'" (click)="toggleFold(gi)" (keydown)="groupKey($event, gi)">
                 <lucide-icon [img]="I.abrir" [size]="16" aria-hidden="true" />
@@ -424,7 +451,7 @@
                   }
                 </div>
               } @else {
-                <p class="grupo-vazio">Nenhuma cor ainda</p>
+                <p class="grupo-vazio">Arraste cores para cá</p>
               }
             }
           </section>

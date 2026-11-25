@@ -34,6 +34,7 @@ export const NEWS: NewsEntry[] = [
     title: 'Grupos de cores no ateliê da pixel art',
     items: [
       'No ateliê da pixel art, as cores podem ficar em grupos ("Cinzas", "Tons de pele"): o "Novo grupo", embaixo das cores (ou no botão direito no painel), faz um grupo com o nome aberto para escrever, e a cor arrastada para a pastilha de um grupo entra nele (o "…" das cores também põe e tira a cor da frente). Cada grupo recolhe, mostrando só uma fita das cores dele, e o "…" do grupo renomeia, sobe, desce e desfaz o grupo. O grupo só organiza: o desenho e a paleta não mudam, e ele vai junto com a arte para a galeria e para as anotações.',
+      'Ctrl + clique marca uma cor de cada vez e Shift + clique marca um intervalo (o Esc desmarca): as marcadas vão juntas, arrastadas como um maço, para o grupo onde caírem, ou viram um grupo novo pelo "Agrupar", com o nome tirado das cores ("Cinzas", "Quentes", "Azuis"). E o "…" das cores tem "Agrupar pelo tom", que separa a paleta inteira em Cinzas, Vermelhos, Verdes, Azuis e as outras famílias de uma vez.',
     ],
   },
   {
