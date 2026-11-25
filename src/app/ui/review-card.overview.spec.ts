@@ -84,10 +84,9 @@ describe('a ficha na Visão geral e a orelha do assunto', () => {
     expect(Number(getComputedStyle(carimbo).zIndex)).toBeLessThan(6);
   });
 
-  it('a simples de sempre (Kanban, Calendário, widget Nota) continua com a tachinha, a capa e a linha da data', async () => {
+  it('a simples de sempre (Kanban, Calendário, widget Nota) continua com a capa e a linha da data', async () => {
     await show(note(), { compact: true });
     expect(el.classList).not.toContain('geral');
-    expect(el.querySelector('app-pin')).not.toBeNull();
     expect(el.querySelector('.cover')).not.toBeNull();
     expect(el.querySelector('.meta .assunto')!.textContent).toContain('Dailys');
   });
@@ -134,5 +133,27 @@ describe('a ficha na Visão geral e a orelha do assunto', () => {
     })!;
     await show(music, { subjectEar: true });
     expect(ear()).toBe('Artista');
+  });
+
+  // pedido do dono (25/nov/2026, "Remover seguradores estéticos"): a tachinha só fingia segurar a ficha
+  it('nenhuma vista tem a tachinha, e a ficha torta gira em volta do meio', async () => {
+    const game = sanitizeReview({ ...note(), id: 'jvisao01', kind: 'jogos', scores: { historia: 8, diversao: 8, jogabilidade: 8, visual: 8 } })!;
+    for (const [r, inputs] of [
+      [note(), {}],
+      [note(), { compact: true }],
+      [note(), { capas: true }],
+      [game, {}],
+      [game, { compact: true }],
+    ] as [Review, Record<string, unknown>][]) {
+      await show(r, inputs);
+      expect(el.querySelector('app-pin')).withContext(`${r.kind} ${JSON.stringify(inputs)}`).toBeNull();
+      const [ox, oy] = getComputedStyle(el).transformOrigin.split(' ').map(parseFloat);
+      expect(ox).withContext(`${r.kind} ${JSON.stringify(inputs)}`).toBeCloseTo(el.offsetWidth / 2, 0);
+      expect(oy).withContext(`${r.kind} ${JSON.stringify(inputs)}`).toBeCloseTo(el.offsetHeight / 2, 0);
+      // nada mede mais a orelha para pôr a tachinha depois dela
+      expect(el.style.getPropertyValue('--aba-fim')).toBe('');
+      fixture.destroy();
+      TestBed.resetTestingModule();
+    }
   });
 });

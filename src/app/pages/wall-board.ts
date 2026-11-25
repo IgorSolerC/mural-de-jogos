@@ -47,10 +47,9 @@ interface Pile {
   first: readonly Review[];
   /** As de trás, a mais longe primeiro: só a cor, e a distância da de cima (1 é a logo atrás). */
   back: { stock: string; depth: number }[];
-  /** O desnível, a inclinação e a tachinha da ficha de cima: as de trás acompanham. */
+  /** O desnível e a inclinação da ficha de cima: as de trás acompanham. */
   drop: string;
   tilt: string;
-  pin: string;
 }
 
 /** O que muda nas fichas conforme quem olha o mural (o dono ou quem visita); o resto vem da vista. */
@@ -997,8 +996,6 @@ export class WallBoard {
           .reverse(),
         drop: `${pin.dropY}px`,
         tilt: String(pin.tilt),
-        // a tachinha da ficha da parede (ver ReviewCard.pinX)
-        pin: `${Math.round(42 + (pin.pinX - 40) * 0.8)}%`,
       });
     }
     return out;

@@ -55,9 +55,6 @@ import { CARD_IMPORTS, CARD_STYLES, CARD_TEMPLATE, ReviewCard } from './review-c
           transition: none;
         }
       }
-      .pin {
-        display: none;
-      }
     `,
     `
       /* O papel próprio: a cartolina escura em volta pinta tudo o que está dentro com o papel escuro, e

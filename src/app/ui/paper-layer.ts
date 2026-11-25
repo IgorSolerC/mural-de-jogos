@@ -256,7 +256,7 @@ export class PaperDefs {}
       overflow: visible;
     }
     /* A orelha dobra a ficha inteira, com a foto e os adesivos colados nela: a aba vem por cima de
-       tudo (a ficha abaixa a foto e os adesivos para 2 quando tem orelha); a tachinha continua acima */
+       tudo (a ficha abaixa a foto e os adesivos para 2 quando tem orelha) */
     .frente.por-cima {
       z-index: 3;
     }
@@ -939,7 +939,7 @@ export class PaperArtLayer {
 
   /**
    * A sombra da ficha recortada, assada a partir do papel assado e das peças que passam da beirada (a
-   * tachinha, a orelha): fica por baixo de tudo, e a ficha parada perde o filtro (ver review-card.ts,
+   * orelha): fica por baixo de tudo, e a ficha parada perde o filtro (ver review-card.ts,
    * `[data-sombra-assada]`). Levantada pelo mouse ou pelo foco, a ficha volta ao filtro de sempre.
    */
   private async assarSombra(escala: number, vez: number): Promise<void> {
@@ -949,7 +949,7 @@ export class PaperArtLayer {
     const filtro = filtroParado(card);
     if (!filtro || filtro === 'none') return;
     const imagens = this.assadas.map((a) => a.assada);
-    const pecas = Array.from(card.querySelectorAll(':scope > .corpo > app-pin, :scope > .corpo > .aba-cat'));
+    const pecas = Array.from(card.querySelectorAll(':scope > .corpo > .aba-cat'));
     const l = this.lembrada;
     let assada: Assada | null = l?.sombra ? retomar(l.sombra) : null;
     if (!assada) assada = await pegarSombra({ imagens, pecas, filtro, W: s.W, H: s.H }, escala);

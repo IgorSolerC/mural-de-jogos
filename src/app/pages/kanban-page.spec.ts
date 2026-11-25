@@ -348,7 +348,7 @@ describe('página do Kanban', () => {
     const fichas = column('afazer').querySelectorAll('app-review-card');
     expect(fichas.length).toBe(2);
     expect(column('afazer').querySelector('.aba-cat')).toBeNull();
-    for (const pin of column('afazer').querySelectorAll('app-review-card app-pin')) expect(getComputedStyle(pin).display).toBe('none');
+    expect(column('afazer').querySelector('app-review-card app-pin')).toBeNull();
     expect(column('afazer').querySelector('.etiqueta-nome')!.textContent!.replace(/\s+/g, ' ')).toContain('A fazer , 2 anotações');
   });
 

@@ -44,10 +44,6 @@ import { CARD_IMPORTS, CARD_STYLES, CARD_TEMPLATE, ReviewCard } from './review-c
       :host(.compact) .words {
         padding-top: 0;
       }
-      /* no quadro, sem tachinha: uma em cada ficha era só barulho */
-      .pin {
-        display: none;
-      }
       :host(.compact) .meta {
         margin-top: 2px;
         font-size: 0.76rem;

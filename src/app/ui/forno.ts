@@ -193,7 +193,7 @@ const MARCA = 'forno-arquivo:';
 const MARCA_RE = /url\(forno-arquivo:([^)\s]+)\)/g;
 
 /**
- * Troca os `url(...)` que apontam para arquivos (a fibra fotográfica da cartolina, a foto das tachinhas)
+ * Troca os `url(...)` que apontam para arquivos (a fibra fotográfica da cartolina)
  * por uma marca com o endereço deles. A receita fica pequena (a fibra sozinha tem quase 1 MB embutida, e
  * aparecia uma vez por camada): o resumo da chave sai rápido, e a imagem guardada é achada sem montar
  * megabytes. O arquivo só entra na hora de desenhar (ver `materializar`).
@@ -752,7 +752,7 @@ export function fornoCache(): { imagens: number; emUso: number; bytes: number } 
 // ===================== A sombra das recortadas =====================
 
 /**
- * Uma cópia de uma peça da ficha (a tachinha, a orelha da categoria), com o estilo calculado de cada
+ * Uma cópia de uma peça da ficha (a orelha da categoria), com o estilo calculado de cada
  * elemento dela no lugar das regras: só a forma importa (a silhueta da sombra), então as imagens de
  * fora (a capa) viram caixas.
  */
@@ -801,7 +801,7 @@ function filtroNaEscala(filtro: string, escala: number): string {
 export interface PedidoDeSombra {
   /** As imagens assadas do papel, no lugar delas (o inset de cada uma, como em `Assada`). */
   readonly imagens: readonly Assada[];
-  /** As peças que passam da beirada, vivas na ficha (a tachinha, a orelha). */
+  /** As peças que passam da beirada, vivas na ficha (a orelha). */
   readonly pecas: readonly Element[];
   /** O filtro da ficha parada (a lista de drop-shadow). */
   readonly filtro: string;
@@ -935,7 +935,7 @@ export function desligarForno(): void {
 /** As variáveis que os desenhos usam no próprio SVG (a letra dos rabiscos com texto), fora das regras. */
 const VARIAVEIS_DOS_DESENHOS = ['--f-label', '--f-hand'];
 
-let doPapel: { folhas: number; pino: string; variaveis: string[]; classes: Set<string> } | null = null;
+let doPapel: { folhas: number; variaveis: string[]; classes: Set<string> } | null = null;
 
 /**
  * O que, na página, chega ao papel: as variáveis que as regras do papel usam (a fibra, a textura
@@ -944,12 +944,9 @@ let doPapel: { folhas: number; pino: string; variaveis: string[]; classes: Set<s
  */
 function lidoPeloPapel(): { variaveis: string[]; classes: Set<string> } {
   const folhas = document.styleSheets.length;
-  const pino = document.querySelector('app-pin');
-  const atributoDoPino = pino ? atributoNg(pino, '_nghost') : '';
-  if (doPapel?.folhas === folhas && doPapel.pino === atributoDoPino) return doPapel;
-  // as peças da silhueta da sombra: a tachinha (a foto dela chega com `body.has-pins`, num
-  // :host-context, que no CSS compilado só tem o atributo do componente) e a orelha
-  const daSilhueta = (sel: string) => /app-pin|\.pin(?![\w-])|\.aba-cat(?![\w-])/.test(sel) || (!!atributoDoPino && sel.includes(atributoDoPino));
+  if (doPapel?.folhas === folhas) return doPapel;
+  // a peça da silhueta da sombra: a orelha (a tachinha saiu das fichas em 25/nov/2026)
+  const daSilhueta = (sel: string) => /\.aba-cat(?![\w-])/.test(sel);
   const variaveis = new Set(VARIAVEIS_DOS_DESENHOS);
   const classes = new Set<string>();
   const andar = (lista: CSSRuleList) => {
@@ -971,7 +968,7 @@ function lidoPeloPapel(): { variaveis: string[]; classes: Set<string> } {
       /* folha de outro endereço */
     }
   }
-  doPapel = { folhas, pino: atributoDoPino, variaveis: [...variaveis].sort(), classes };
+  doPapel = { folhas, variaveis: [...variaveis].sort(), classes };
   return doPapel;
 }
 

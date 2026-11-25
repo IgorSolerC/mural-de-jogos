@@ -3,7 +3,6 @@ import { TestBed } from '@angular/core/testing';
 import { paperVars } from '../core/paper-art';
 import { CamadaInfo, agrupar, alcanceDaSombra, assar, chaveDe, desligarForno, marcarUrls, materializar, embutirUrls, filaDoForno, fornoCache, fornoEpoca, fornoErro, pegarSombra, grupos, pegar, receita, resetForno, soltar } from './forno';
 import { ASLEEP, PaperArtLayer, PaperDefs, REVELANDO, SOMBRA_ASSADA, filtroParado } from './paper-layer';
-import { Pin } from './pin';
 import { FORNO_DB, atalhosGuardados, fornoGuardado, guardarNoForno, lerDoForno } from '../core/forno-store';
 import { deleteDatabase } from '../core/erase-save';
 import { resetPace, tick } from './pace';
@@ -426,22 +425,13 @@ describe('o forno nas fichas do mural', () => {
     document.documentElement.classList.add('lapis-liso');
     await quadro();
     expect(fornoEpoca()).withContext('o lápis liso muda o desenho').toBeGreaterThan(antes);
-    // a tachinha que aparece pela primeira vez (a folha dela chega) e, logo depois, a foto das
-    // tachinhas: a silhueta da sombra muda
-    const pino = TestBed.createComponent(Pin);
-    pino.detectChanges();
-    // (o TestBed monta a tachinha num div: na ficha ela é um <app-pin>, com o atributo do componente)
-    const tag = document.createElement('app-pin');
-    for (const a of Array.from((pino.nativeElement as HTMLElement).attributes)) if (a.name.startsWith('_nghost')) tag.setAttribute(a.name, '');
-    document.body.append(tag);
-    await quadro();
-    const comPino = fornoEpoca();
+    // a foto das tachinhas que chega não mexe nas fichas: a tachinha saiu delas (só as folhas a têm)
+    const semPino = fornoEpoca();
     document.body.classList.add('has-pins');
     await quadro();
-    expect(fornoEpoca()).withContext('a foto das tachinhas muda a silhueta da sombra').toBeGreaterThan(comPino);
+    expect(fornoEpoca()).withContext('a foto das tachinhas não assa as fichas de novo').toBe(semPino);
     document.body.classList.remove('has-pins');
-    tag.remove();
-    pino.destroy();
+    await quadro();
     document.documentElement.classList.remove('parede-arrastando', 'lapis-liso');
     document.body.classList.remove('has-tray');
     document.documentElement.style.removeProperty('--vv-h');

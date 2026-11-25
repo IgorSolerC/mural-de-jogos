@@ -166,7 +166,7 @@
                  beirada da cor. A ficha de cima não se usa (inert): a pilha inteira é o atalho do mouse para abrir
                  (o botão da cabeça é quem abre para o teclado e o leitor de tela) -->
             @let p = piles().get(g.key)!;
-            <div class="guardadas" aria-hidden="true" [attr.data-pilha]="idOf(g.key)" [style.--pilha-drop]="p.drop" [style.--pilha-giro]="p.tilt" [style.--pilha-eixo]="p.pin" (click)="toggleGroup(g.key, $event)">
+            <div class="guardadas" aria-hidden="true" [attr.data-pilha]="idOf(g.key)" [style.--pilha-drop]="p.drop" [style.--pilha-giro]="p.tilt" (click)="toggleGroup(g.key, $event)">
               @for (s of p.back; track $index) {
                 <span class="folha cartolina" [attr.data-cor]="s.stock" [style.--stock]="'var(--stock-' + s.stock + ')'" [style.--k]="s.depth"></span>
               }

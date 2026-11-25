@@ -82,8 +82,8 @@
    e a fileira continua alinhada. Na lista, a fechada é só a cabeça.
 
    A ficha de cima não se usa (inert): a pilha inteira abre a seção. As folhas de trás começam onde o papel
-   da ficha começa (o vão da orelha, --orelha, mais o desnível dela, --pilha-drop) e giram em volta da
-   tachinha dela (--pilha-eixo), pela inclinação dela (--pilha-giro). */
+   da ficha começa (o vão da orelha, --orelha, mais o desnível dela, --pilha-drop) e giram em volta do
+   meio, como ela, pela inclinação dela (--pilha-giro). */
 .guardadas {
   --orelha: 0px;
   position: relative;
@@ -117,7 +117,7 @@
      sombra, até a quarta (--k), como as fichas guardadas de qualquer jeito numa pilha */
   translate: calc(var(--k) * 5px) calc(var(--k) * 4px);
   rotate: calc(var(--pilha-giro, 0) * 1deg + var(--k) * 0.9deg);
-  transform-origin: var(--pilha-eixo, 50%) 12px;
+  transform-origin: 50% 50%;
   filter: brightness(calc(1 - var(--k) * 0.04));
   transition:
     translate var(--t-physical) var(--ease-physical),

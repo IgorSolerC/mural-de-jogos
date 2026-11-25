@@ -29,9 +29,6 @@ import { CARD_IMPORTS, CARD_STYLES, CARD_TEMPLATE, ReviewCard } from './review-c
       :host(.compact) .words {
         padding-top: 0;
       }
-      .pin {
-        display: none;
-      }
     `,
   ],
 })

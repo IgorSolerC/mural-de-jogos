@@ -99,7 +99,7 @@ describe('a nota colada no texto (o widget Nota)', () => {
     expect(el.querySelector('.lugar')!.hasAttribute('data-colado')).toBeTrue();
     expect(el.querySelectorAll('.fita').length).toBe(0);
     // colada, e não pregada: sem a tachinha
-    expect(getComputedStyle(inner.querySelector('.pin')!).display).toBe('none');
+    expect(inner.querySelector('app-pin')).toBeNull();
   });
 
   it('encolhe até a altura do tamanho, e até a largura da linha', async () => {

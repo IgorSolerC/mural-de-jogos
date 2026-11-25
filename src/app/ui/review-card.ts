@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, output, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, output, untracked } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { NoteFolders } from '../core/note-folders';
 import { CanvasCard } from './canvas-card';
@@ -50,7 +50,6 @@ import { Luz } from './luz';
 import { Skulls } from './difficulty';
 import { PenMark } from './pen-mark';
 import { PaperArtLayer } from './paper-layer';
-import { Pin } from './pin';
 import { StatusLabel } from './status-label';
 import { ReactionBubble } from './reactions';
 import { CommentBubble } from './comment-bubble';
@@ -106,7 +105,7 @@ function watchDistance(el: HTMLElement): () => void {
 }
 
 /** O que a ficha usa no molde (o mesmo da ficha colada, ver ui/glued-review-card.ts). */
-export const CARD_IMPORTS = [NgTemplateOutlet, CanvasCard, IconModule, Rabisco, PaperArtLayer, Pin, PenMark, StatusLabel, CoverSleeve, RecordCover, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls, CommentBubble, SharedPatch, ReactionBubble, RichText, Corta, DoneStamp, NoteTag, CategoryLabel];
+export const CARD_IMPORTS = [NgTemplateOutlet, CanvasCard, IconModule, Rabisco, PaperArtLayer, PenMark, StatusLabel, CoverSleeve, RecordCover, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls, CommentBubble, SharedPatch, ReactionBubble, RichText, Corta, DoneStamp, NoteTag, CategoryLabel];
 
 /** O que vai no elemento da ficha: as classes e as variáveis do papel (a ficha colada herda, ver ui/glued-review-card.ts). */
 const CARD_HOST = {
@@ -123,7 +122,6 @@ const CARD_HOST = {
   '[attr.data-cor]': 'pin().stock',
   '[style.--pen]': 'pin().stock === "vermelho" ? "var(--ink)" : null',
   '[style.--tilt]': 'pin().tilt',
-  '[style.--pin-x]': 'pinX() + "%"',
   '[style.--drop-y]': 'pin().dropY + "px"',
   // a prévia no editor não disputa o nome com a ficha de verdade que está no mural, nem a cópia (a
   // anotação de duas tags, ordenando por tag) com a primeira vez dela na parede
@@ -170,10 +168,6 @@ export const CARD_TEMPLATE = `
       </app-canvas-card>
       <ng-container *ngTemplateOutlet="hitTpl" />
     } @else {
-      <!-- na Visão geral as fichas estão soltas na mesa: sem a tachinha que finge segurá-las -->
-      @if (!overview()) {
-        <app-pin class="pin" [color]="pin().pinColor" />
-      }
       <!-- a categoria da anotação: a orelha de divisória de papel manilha, colada atrás da cartolina e
            saindo pela beirada de cima, como as abas do mural (o nome vai também na lista das tags,
            para o leitor de tela). Na ficha de música, a orelha é do artista (a aba dele no mural). Com
@@ -419,7 +413,7 @@ export const CARD_TEMPLATE = `
     <!-- os pedaços que a cartolina e o canvas desenham, cada um no seu lugar (no canvas, presos na moldura) -->
     <ng-template #orelhaTpl>
     @if ((note() || music()) && !capas() && !bare() && noteLabels().ear; as e) {
-      <span #abaCat class="aba-cat" [class.orelha-cor]="!!catColor()" [style.--cat-cor]="catColor()" aria-hidden="true">
+      <span class="aba-cat" [class.orelha-cor]="!!catColor()" [style.--cat-cor]="catColor()" aria-hidden="true">
         <app-cat-label [label]="e.label" [look]="catLook()" [glyph]="music() ? ArtistIcon : e.subject ? SubjectIcon : null" [iconSize]="compact() ? 12 : 13" />
       </span>
     }
@@ -509,9 +503,6 @@ export const CARD_STYLES = `
       view-transition-class: ficha;
       --pad: 16px;
       --cover-w: 112px;
-      /* onde a tachinha fura: o --pin-x da ficha, ou logo depois da orelha da categoria, se o nome
-         dela for até lá (--aba-fim: onde a orelha acaba, medido no construtor) */
-      --tachinha: max(var(--pin-x), calc(var(--aba-fim, 0px) + 17px));
       position: relative;
       display: flex;
       flex-direction: column;
@@ -529,7 +520,8 @@ export const CARD_STYLES = `
       --sombra-papel-alta: drop-shadow(0 2px 2px rgb(0 0 0 / 0.3)) drop-shadow(0 11px 12px rgb(0 0 0 / 0.45)) drop-shadow(0 22px 24px rgb(0 0 0 / 0.32));
       /* --inclina: na colagem das fichas inteiras, a ficha comprida endireita (ver keptTilt, em pages/wall-cards.ts) */
       rotate: calc(var(--tilt) * var(--inclina, 1) * 1deg);
-      transform-origin: var(--tachinha) 12px;
+      /* nada segura a ficha num ponto (a tachinha saiu em 25/nov/2026, a pedido): ela gira em volta do meio */
+      transform-origin: 50% 50%;
       /* (a lâmpada, --luz, acende devagar em quem a usa: a folha holográfica do Platinado e a
          purpurina. Animada aqui, a ficha inteira era recalculada a cada quadro, por 600ms, em toda
          ficha por onde o mouse passava) */
@@ -540,7 +532,7 @@ export const CARD_STYLES = `
         filter var(--t-ui) var(--ease-ui);
     }
 
-    /* O corpo é a ficha toda, no lugar dela: sem posição própria (as camadas do papel, a tachinha e o
+    /* O corpo é a ficha toda, no lugar dela: sem posição própria (as camadas do papel, a orelha e o
        botão continuam medidos pela ficha) e sem transformação (que mudaria isso). Só a opacidade
        dele anima, quando a ficha entra (ver ui/veil.ts). */
     .corpo {
@@ -712,7 +704,7 @@ export const CARD_STYLES = `
       opacity: 0;
     }
 
-    /* Empurrãozinho: a ficha gira em volta da tachinha e desgruda da parede. Pelo teclado também, com
+    /* Empurrãozinho: a ficha endireita um pouco e desgruda da parede. Pelo teclado também, com
        o foco que aparece (:focus-visible), e não com qualquer foco: o clique deixa o foco na ficha (e a
        leitura, ao fechar, devolve o foco a ela), e a ficha ficava levantada com o mouse já longe.
        Com a página rolando ([data-quieta], ver pages/wall-cards.ts), o mouse parado não levanta as
@@ -743,14 +735,6 @@ export const CARD_STYLES = `
     }
     .hit:focus-visible {
       outline: none;
-    }
-
-    /* a tachinha segura tudo, até a decoração (4) que passa por cima da foto */
-    .pin {
-      top: -9px;
-      left: calc(var(--tachinha) - 13px);
-      z-index: 5;
-      pointer-events: none;
     }
 
     /* ===== Cabeça: a foto colada + o que foi escrito + o julgamento ===== */
@@ -785,8 +769,6 @@ export const CARD_STYLES = `
       flex-direction: column;
       align-items: flex-start;
       min-width: 0;
-      /* a tachinha fura o papel acima do nome, sem encostar nele */
-      padding-top: 10px;
     }
     :host(.vazia) .title,
     :host(.so-cartolina) .title,
@@ -999,9 +981,8 @@ export const CARD_STYLES = `
 
     /* ===== Anotação: a categoria na orelha de divisória =====
        Papel manilha colado atrás da cartolina, como a divisória de matéria do caderno: o papel da ficha
-       (camadas -3 e -2) cobre o pé da orelha, que só aparece saindo pela beirada de cima, entre o canto
-       e a tachinha, com o desenho e o nome a pincel atômico, como as abas do mural. O nome vai inteiro:
-       com um nome comprido, a tachinha é que vai para depois da orelha (ver --aba-fim). Só não passa
+       (camadas -3 e -2) cobre o pé da orelha, que só aparece saindo pela beirada de cima, perto do canto,
+       com o desenho e o nome a pincel atômico, como as abas do mural. O nome vai inteiro, só não passa
        do canto da direita, que é do Finalizar e do Fixar. */
     .aba-cat {
       position: absolute;
@@ -1290,7 +1271,7 @@ export const CARD_STYLES = `
     :host(.compact.feita) .words > :first-child {
       margin-right: 72px;
     }
-    /* o carimbo bateu: a ficha sente o tranco na tachinha (na ficha, não no corpo: um corpo com
+    /* o carimbo bateu: a ficha sente o tranco (na ficha, não no corpo: um corpo com
        transformação passaria a medir as camadas do papel) */
     :host(.carimbando) {
       animation: tranco 420ms 240ms var(--ease-physical);
@@ -1371,7 +1352,7 @@ export const CARD_STYLES = `
     }
 
     /* ===== Ficha simples: uma tira de cartolina =====
-       Toda tira tem a mesma altura, a de um nome em duas linhas: a folga da tachinha, o nome,
+       Toda tira tem a mesma altura, a de um nome em duas linhas: a folga de cima, o nome,
        a data e a etiqueta. A foto, na proporção de sempre, ocupa essa altura inteira, e o nome
        e a etiqueta ficam empilhados ao lado dela. */
     :host(.compact) {
@@ -1429,11 +1410,11 @@ export const CARD_STYLES = `
     }
 
     /* ===== Só capa e nome: a foto colada e o nome escrito embaixo, como legenda =====
-       Para ver o máximo de fichas de uma vez. A tachinha fura a cartolina acima da foto; o nome
-       ocupa sempre a altura de duas linhas, para as fileiras não ficarem desencontradas. */
+       Para ver o máximo de fichas de uma vez. O nome ocupa sempre a altura de duas linhas, para as
+       fileiras não ficarem desencontradas. */
     :host(.capas) {
       --cover-w: 100%;
-      padding: 18px 9px 9px;
+      padding: 9px;
       margin-top: calc(var(--drop-y) * 0.4);
     }
     :host(.capas) .head {
@@ -1490,7 +1471,7 @@ export const CARD_STYLES = `
       align-self: stretch;
       margin-top: 0;
     }
-    /* a tachinha fura acima do vinil: aqui a folga é a do nome para o disco */
+    /* a folga do nome para o vinil, que sai por cima da capa */
     :host(.ficha-musica:not(.compact):not(.capas)) .words {
       padding-top: 14px;
     }
@@ -1518,12 +1499,9 @@ export const CARD_STYLES = `
       align-self: center;
     }
 
-    /* Chegada ao mural: a ficha cai, a tachinha entra com força */
+    /* Chegada ao mural: a ficha cai na parede */
     :host(.is-landing) {
       animation: land 620ms var(--ease-physical) both;
-    }
-    :host(.is-landing) .pin {
-      animation: punch 520ms 260ms var(--ease-physical) both;
     }
     @keyframes land {
       0% {
@@ -1534,16 +1512,6 @@ export const CARD_STYLES = `
         box-shadow: var(--land-shadow, var(--shadow-lift));
       }
       55% {
-        opacity: 1;
-      }
-    }
-    @keyframes punch {
-      0% {
-        scale: 2.2;
-        opacity: 0;
-      }
-      60% {
-        scale: 0.9;
         opacity: 1;
       }
     }
@@ -1605,7 +1573,7 @@ export const CARD_STYLES = `
 
     /* ===== Visão geral (mural de anotações): a ficha de relance =====
        Para ver o quadro inteiro de uma vez, como fichas espalhadas na mesa para escolher uma: pequenas,
-       soltas (sem a tachinha), quase retas e todas na mesma linha da fileira (sem o desnível da
+       soltas, quase retas e todas na mesma linha da fileira (sem o desnível da
        parede), com só o que se reconhece de longe: a orelha, o título e as tags. A finalizada tem o
        título riscado, como na lista, no lugar do carimbo. Vem depois das regras do celular: vale lá
        também. */
@@ -1614,7 +1582,6 @@ export const CARD_STYLES = `
       margin-top: 0;
       min-height: 98px;
       rotate: calc(var(--tilt) * 0.3deg);
-      transform-origin: 50% 50%;
     }
     :host(.geral:hover:not([data-quieta])),
     :host(.geral:has(:focus-visible)) {
@@ -1666,7 +1633,7 @@ export const CARD_STYLES = `
         display: none;
       }
     }
-    /* sem a tachinha, a orelha pode ir até o canto */
+    /* sem o Finalizar e o Fixar no canto de cima, a orelha pode ir até o canto */
     :host(.geral) .aba-cat {
       max-width: calc(100% - 14px);
     }
@@ -1700,7 +1667,7 @@ export const CARD_STYLES = `
        largura da ficha, e a altura sai da largura (16:9): cabe sempre na de uma anotação comum (2.5). */
     :host(.canvas) {
       --cv-topo: 50px;
-      /* chegando (a ficha nova cai, ver land): sem a sombra da cartolina, e sem a tachinha para o soco */
+      /* chegando (a ficha nova cai, ver land): sem a sombra da cartolina */
       --land-shadow: none;
       padding: 0 0 14px;
       box-shadow: none;
@@ -1732,8 +1699,7 @@ export const CARD_STYLES = `
       bottom: 14px;
       border-radius: 3px;
     }
-    /* mouse em cima, ou o foco do teclado: endireita no prego, e a sombra longe encurta (sem o quique: o único do
-       sistema é a tachinha) */
+    /* mouse em cima, ou o foco do teclado: endireita no prego, e a sombra longe encurta */
     :host(.canvas:hover:not([data-quieta])),
     :host(.canvas:has(:focus-visible)) {
       rotate: 0deg;
@@ -1826,8 +1792,8 @@ export class ReviewCard {
   readonly highlight = input<ScoreKey | null>(null);
   readonly compact = input(false);
   /**
-   * A Visão geral do mural de anotações (junto com `compact`): a ficha pequena, quase reta e sem
-   * tachinha, só com a orelha, o título e as tags, para ver o quadro inteiro de uma vez. A simples do
+   * A Visão geral do mural de anotações (junto com `compact`): a ficha pequena e quase reta, só com
+   * a orelha, o título e as tags, para ver o quadro inteiro de uma vez. A simples do
    * Kanban, do Calendário e do widget Nota não muda.
    */
   readonly overview = input(false);
@@ -2115,11 +2081,11 @@ export class ReviewCard {
   protected readonly paperVars = computed(() => paperVars(this.review().paper, this.review().pattern, lookOf(this.review()), this.review().patternSeed, this.dark(), this.review().id));
   /**
    * O que pinta o papel por fora das camadas dele (a cor e as variáveis do papel) e o que entra na
-   * silhueta da sombra (onde a tachinha fica, a orelha e a cor dela): a chave do forno (ver ui/forno.ts).
+   * silhueta da sombra (a orelha e a cor dela): a chave do forno (ver ui/forno.ts).
    */
   protected readonly paperLook = computed(
     () =>
-      `${this.pin().stock}|${JSON.stringify(this.paperVars())}|${this.pinX()}|${this.pin().pinColor}|${this.noteLabels().ear?.label ?? ''}|${this.catColor() ?? ''}|${this.compact()}|${this.overview()}`,
+      `${this.pin().stock}|${JSON.stringify(this.paperVars())}|${this.noteLabels().ear?.label ?? ''}|${this.catColor() ?? ''}|${this.compact()}|${this.overview()}`,
   );
   protected readonly cut = computed(() => cutsPaper(this.review().damage) || !!this.review().stains?.some((m) => cutsPaper(m.stain)) || !!this.review().decors?.some((m) => decorCuts(m.decor)));
   /** "Nome do jogo", "Nome da série". */
@@ -2133,10 +2099,6 @@ export class ReviewCard {
       .filter(Boolean)
       .join(' · ');
   });
-  /** A orelha da categoria (a tachinha vai para depois dela). */
-  private readonly abaCat = viewChild<ElementRef<HTMLElement>>('abaCat');
-  /** A tachinha fica no meio da ficha (42–58%), acima do nome, longe da foto. */
-  protected readonly pinX = computed(() => Math.round(42 + (this.pin().pinX - 40) * 0.8));
   /** O instante da ordem (a criação, a última mudança, a finalização), quando o mural ordena por ele. */
   private readonly sortedAt = computed(() => {
     const r = this.review();
@@ -2258,20 +2220,6 @@ export class ReviewCard {
     let unwatch = () => {};
     afterNextRender(() => (unwatch = watchDistance(el)));
     inject(DestroyRef).onDestroy(() => unwatch());
-    // a orelha da categoria com o nome inteiro: a tachinha fura a ficha depois dela (ver --tachinha)
-    effect((onCleanup) => {
-      const aba = this.abaCat()?.nativeElement;
-      if (!aba) {
-        el.style.removeProperty('--aba-fim');
-        return;
-      }
-      const measure = () => el.style.setProperty('--aba-fim', `${aba.offsetLeft + aba.offsetWidth}px`);
-      // o observador avisa já na primeira vez, depois do layout e antes da pintura: medir aqui mesmo,
-      // na hora de montar, obrigava o navegador a refazer o layout da parede a cada ficha montada
-      const ro = new ResizeObserver(measure);
-      ro.observe(aba);
-      onCleanup(() => ro.disconnect());
-    });
   }
 }
 
