@@ -519,9 +519,9 @@ export const CARD_STYLES = `
       --sombra-alta: 0 2px 2px rgb(0 0 0 / 0.3), 0 14px 22px -7px rgb(0 0 0 / 0.5), 0 28px 46px -20px rgb(0 0 0 / 0.5);
       --sombra-papel-alta: drop-shadow(0 2px 2px rgb(0 0 0 / 0.3)) drop-shadow(0 11px 12px rgb(0 0 0 / 0.45)) drop-shadow(0 22px 24px rgb(0 0 0 / 0.32));
       /* --inclina: na colagem das fichas inteiras, a ficha comprida endireita (ver keptTilt, em pages/wall-cards.ts).
-         --giro: quanto da inclinação sorteada a vista usa (metade na Comum e na Inteira, ver abaixo) */
-      --giro: 1;
-      rotate: calc(var(--tilt) * var(--inclina, 1) * var(--giro) * 1deg);
+         --giro-ficha: quanto da inclinação sorteada a vista usa (metade na Comum e na Inteira, ver abaixo) */
+      --giro-ficha: 1;
+      rotate: calc(var(--tilt) * var(--inclina, 1) * var(--giro-ficha) * 1deg);
       /* nada segura a ficha num ponto (a tachinha saiu em 25/nov/2026, a pedido): ela gira em volta do meio */
       transform-origin: 50% 50%;
       /* (a lâmpada, --luz, acende devagar em quem a usa: a folha holográfica do Platinado e a
@@ -538,7 +538,7 @@ export const CARD_STYLES = `
        "mais sutil"); a Simples, a Capa e nome e a Visão geral ficam como eram. A pilha das seções fechadas
        acompanha, e a vaga da ficha também (--giro-vista, em pages/wall-board.scss). */
     :host(:not(.compact):not(.capas)) {
-      --giro: 0.5;
+      --giro-ficha: 0.5;
     }
 
     /* O corpo é a ficha toda, no lugar dela: sem posição própria (as camadas do papel, a orelha e o
@@ -720,7 +720,7 @@ export const CARD_STYLES = `
        fichas que passam por baixo dele: só quando a rolagem para. */
     :host(:hover:not([data-quieta])),
     :host(:has(:focus-visible)) {
-      rotate: calc(var(--tilt) * var(--inclina, 1) * var(--giro) * 0.35deg);
+      rotate: calc(var(--tilt) * var(--inclina, 1) * var(--giro-ficha) * 0.35deg);
       translate: 0 -3px;
       box-shadow: var(--sombra-alta);
       --shine: 100%;
@@ -764,7 +764,7 @@ export const CARD_STYLES = `
     }
     .box {
       position: relative;
-      rotate: calc(var(--tilt) * var(--giro) * -0.6deg);
+      rotate: calc(var(--tilt) * var(--giro-ficha) * -0.6deg);
     }
     /* a faixa de status, impressa no pé da arte, de uma borda à outra */
     .faixa {
@@ -1545,7 +1545,7 @@ export const CARD_STYLES = `
       :host {
         --cover-w: 104px;
         max-width: none;
-        rotate: calc(var(--tilt) * var(--inclina, 1) * var(--giro) * 0.5deg);
+        rotate: calc(var(--tilt) * var(--inclina, 1) * var(--giro-ficha) * 0.5deg);
         margin-top: calc(var(--drop-y) * 0.4);
       }
       :host(.compact:not(.paired)) {
@@ -1674,13 +1674,13 @@ export const CARD_STYLES = `
        a entrada da ficha, ver ui/paper-layer.ts) e o desenho é o do canvas. Gira em volta do meio, como a ficha (o
        prego e o barbante saíram em 25/nov/2026, a pedido), sem a sombra da cartolina: a sombra é da moldura, que
        diz pelo --cv-longe quando encurta. Nunca passa da largura da ficha, e a altura sai da largura (3:2): cabe
-       sempre na de uma anotação comum (2.5). Na Comum e na Inteira, metade do giro, como as fichas (--giro). */
+       sempre na de uma anotação comum (2.5). Na Comum e na Inteira, metade do giro, como as fichas (--giro-ficha). */
     :host(.canvas) {
       /* chegando (a ficha nova cai, ver land): sem a sombra da cartolina */
       --land-shadow: none;
       padding: 0 0 14px;
       box-shadow: none;
-      rotate: calc(var(--tilt) * var(--giro) * 1.3deg);
+      rotate: calc(var(--tilt) * var(--giro-ficha) * 1.3deg);
     }
     /* só a moldura (e o que está preso nela) e o botão são o canvas: o resto da caixa da ficha continua sendo
        parede (o clique e o botão direito no nada, o mouse que passa) */
@@ -1713,7 +1713,7 @@ export const CARD_STYLES = `
     }
     /* apertando: volta para a parede, como a ficha */
     :host(.canvas:active) {
-      rotate: calc(var(--tilt) * var(--giro) * 1.3deg);
+      rotate: calc(var(--tilt) * var(--giro-ficha) * 1.3deg);
       box-shadow: none;
       --cv-longe: 10px 22px 26px rgb(0 0 0 / 0.55);
     }

@@ -116,7 +116,7 @@
   /* cada uma mais longe da de cima: mais para a direita, mais para baixo, mais torta e um tico mais na
      sombra, até a quarta (--k), como as fichas guardadas de qualquer jeito numa pilha */
   translate: calc(var(--k) * 5px) calc(var(--k) * 4px);
-  rotate: calc(var(--pilha-giro, 0) * var(--giro-vista, 1) * 1deg + var(--k) * 0.9deg);
+  rotate: calc(var(--pilha-giro, 0) * var(--giro-vista, 1) * var(--giro-celular, 1) * 1deg + var(--k) * 0.9deg);
   transform-origin: 50% 50%;
   filter: brightness(calc(1 - var(--k) * 0.04));
   transition:
@@ -132,7 +132,7 @@
 
   .folha {
     translate: calc(var(--k) * 9px) calc(var(--k) * 6px);
-    rotate: calc(var(--pilha-giro, 0) * var(--giro-vista, 1) * 1deg + var(--k) * 1.8deg);
+    rotate: calc(var(--pilha-giro, 0) * var(--giro-vista, 1) * var(--giro-celular, 1) * 1deg + var(--k) * 1.8deg);
   }
 }
 
@@ -142,7 +142,7 @@
   opacity: 0;
 }
 
-/* na Comum e na Inteira a ficha gira só metade da inclinação sorteada (o --giro dela, em ui/review-card.ts): a vaga
+/* na Comum e na Inteira a ficha gira só metade da inclinação sorteada (o --giro-ficha dela, em ui/review-card.ts): a vaga
    e as folhas de trás da pilha acompanham */
 .wall:not(.compact, .capas, .geral, .lista) {
   --giro-vista: 0.5;
@@ -341,8 +341,9 @@
   }
 
   /* a pilha na largura de uma ficha: a tela inteira, ou uma coluna da grade (duas na Visão geral, três na
-     Capa e nome) */
+     Capa e nome); as folhas de trás quase retas como a ficha de cima, que no celular gira metade */
   .guardadas {
+    --giro-celular: 0.5;
     width: 100%;
   }
 
