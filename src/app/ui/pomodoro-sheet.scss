@@ -1,0 +1,322 @@
+@use 'sheet';
+@use 'paper-kit' as kit;
+
+/* A folha dos ajustes do Pomodoro (ui/pomodoro-sheet.ts): a ficha de fichário dos diálogos, com a faixa do tomate e,
+   embaixo dela, a cartela de três adesivos que troca a parte (o recorte tracejado; a escolhida, o adesivo de tinta). */
+
+:host {
+  display: contents;
+}
+
+dialog.pomodoro-folha {
+  width: 100%;
+  max-width: min(660px, calc(100vw - 24px));
+}
+
+.ficha {
+  position: relative;
+  /* a mesma altura nas três partes: trocar de parte não faz a folha pular; o miolo rola */
+  height: min(600px, calc(100dvh - 24px));
+}
+
+.head {
+  align-items: center;
+  margin-bottom: 0;
+}
+
+.titulos {
+  @include sheet.titulos;
+}
+
+.sub {
+  @include sheet.sub;
+}
+
+/* ===== A cartela: Tempo, Música, Relógio ===== */
+.partes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 18px 24px 4px;
+}
+
+.parte {
+  @include kit.adesivo-escolha;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 10px;
+  row-gap: 3px;
+  justify-items: start;
+  min-height: 58px;
+  padding: 9px 12px 8px;
+  text-align: left;
+
+  lucide-icon {
+    display: inline-flex;
+    grid-row: 1 / 3;
+    align-self: center;
+  }
+
+  .parte-nome {
+    font-size: 0.98rem;
+  }
+
+  .parte-valor {
+    max-width: 100%;
+    overflow: hidden;
+    font-family: var(--f-hand);
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: 0;
+    text-transform: none;
+    text-overflow: ellipsis;
+    color: var(--ink-2);
+  }
+
+  &[aria-pressed='true'] .parte-valor {
+    color: var(--hi);
+  }
+}
+
+.body {
+  gap: 18px;
+  padding-top: 20px;
+}
+
+/* ===== Tempo ===== */
+.reguas {
+  display: grid;
+  gap: 22px;
+}
+
+.atalhos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.atalho {
+  @include kit.adesivo-escolha;
+
+  .minutos {
+    margin-left: 6px;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.7;
+  }
+}
+
+.linha {
+  @include kit.linha;
+  padding: 4px 0 14px;
+
+  &:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+}
+
+.sino {
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 1px dashed rgb(21 21 21 / 0.25);
+}
+
+.linha-titulo {
+  @include kit.linha-titulo;
+}
+
+.linha-desc {
+  @include kit.linha-desc;
+  display: block;
+}
+
+.interruptor {
+  @include kit.interruptor;
+}
+
+.ouvir {
+  @include kit.botao-papel;
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+/* ===== Relógio: as 12 skins numa grade, cada uma no recorte; a escolhida, contornada em tinta ===== */
+.skins {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.skin {
+  display: grid;
+  grid-template-rows: 58px auto;
+  justify-items: center;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 6px 4px 7px;
+  border: 2px dashed rgb(21 21 21 / 0.22);
+  border-radius: 6px;
+  background: rgb(21 21 21 / 0.03);
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    border-color var(--t-ui) var(--ease-ui),
+    background-color var(--t-ui) var(--ease-ui),
+    translate var(--t-physical) var(--ease-physical);
+
+  .skin-palco {
+    display: grid;
+    place-items: center;
+    --dial: 6px;
+  }
+
+  .skin-nome {
+    max-width: 100%;
+    overflow: hidden;
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.74rem;
+    letter-spacing: 0.1em;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--ink-2);
+  }
+
+  @media (hover: hover) {
+    &:hover:not([aria-checked='true']) {
+      border-color: rgb(21 21 21 / 0.5);
+      translate: 0 -2px;
+    }
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  &[aria-checked='true'] {
+    border: 2px solid var(--ink);
+    background: #fff6cf;
+
+    .skin-nome {
+      color: var(--ink);
+    }
+  }
+}
+
+/* ===== O canto da tela: uma telinha com os quatro cantos para tocar ===== */
+.cantos {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding-top: 4px;
+}
+
+.tela {
+  position: relative;
+  flex: none;
+  width: 132px;
+  height: 84px;
+  border: 3px solid #2a2622;
+  border-radius: 8px;
+  background: #3a3530;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 0.3);
+}
+
+.canto {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+
+  &.canto-se {
+    top: 0;
+    left: 0;
+  }
+
+  &.canto-sd {
+    top: 0;
+    right: 0;
+  }
+
+  &.canto-ie {
+    bottom: 0;
+    left: 0;
+  }
+
+  &.canto-id {
+    right: 0;
+    bottom: 0;
+  }
+
+  .ponto {
+    width: 22px;
+    height: 14px;
+    border: 2px dashed rgb(243 239 230 / 0.45);
+    border-radius: 3px;
+    transition:
+      border-color var(--t-ui) var(--ease-ui),
+      scale var(--t-ui) var(--ease-ui);
+  }
+
+  @media (hover: hover) {
+    &:hover .ponto {
+      border-color: rgb(243 239 230 / 0.85);
+      scale: 1.08;
+    }
+  }
+
+  &[aria-checked='true'] .ponto {
+    border: 0;
+    background: var(--hi);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--hi);
+    outline-offset: -2px;
+  }
+}
+
+@media (max-width: 560px) {
+  .partes {
+    gap: 6px;
+    padding-inline: 16px;
+  }
+
+  .parte {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    padding-inline: 4px;
+    text-align: center;
+
+    lucide-icon {
+      grid-row: auto;
+    }
+  }
+
+  .skins {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .cantos {
+    flex-wrap: wrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skin,
+  .canto .ponto {
+    transition: none;
+  }
+}
