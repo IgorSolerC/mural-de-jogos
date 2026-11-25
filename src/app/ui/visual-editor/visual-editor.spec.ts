@@ -1397,8 +1397,8 @@ describe('o modo Visual do texto', () => {
         // em linhas, a partir do alto da pauta (a tabela de papel tem margem negativa para a sombra)
         const emLinhas = (y: number) => (y - top0) / line;
         const inteiro = (v: number) => Math.abs(v - Math.round(v));
-        // as linhas do card ficam em meia linha de propósito: o que conta é o que vem depois dele
-        const blocos = ([...pm.children] as HTMLElement[]).filter((e) => !e.matches('.vis-cartao-topo, .vis-no-cartao'));
+        // as linhas do card (e o pé dele) ficam fora da pauta de propósito: o que conta é o que vem depois dele
+        const blocos = ([...pm.children] as HTMLElement[]).filter((e) => !e.matches('.vis-cartao-topo, .vis-no-cartao, .vis-cartao-pe'));
         expect(blocos.length).toBeGreaterThan(10);
         for (const e of blocos) {
           const r = e.getBoundingClientRect();

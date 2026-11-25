@@ -40,6 +40,8 @@ describe('o card no modo Visual', () => {
   });
 
   /** As linhas: o tipo e o card (a coluna do ">", ou "-" fora dele). */
+  /** As linhas na tela, sem o pé dos cards (a peça depois da última linha, que não é texto). */
+  const linhasDom = () => ([...view.dom.children] as HTMLElement[]).filter((e) => !e.classList.contains('vis-cartao-pe'));
   const linhas = () => {
     const out: string[] = [];
     view.state.doc.forEach((n) => out.push(`${n.type.name}${n.attrs['cartao'] != null ? '>' : ''}:${n.textContent}`));
@@ -72,7 +74,7 @@ describe('o card no modo Visual', () => {
   it('abre como linhas, com o papel nas de dentro, e sai igual', async () => {
     await make(T);
     expect(linhas()).toEqual(['cartaoTopo:Antes', 'linha>:uma linha', 'item>:item', 'linha:', 'linha:fora']);
-    const dom = [...view.dom.children] as HTMLElement[];
+    const dom = linhasDom();
     expect(dom[0].classList).toContain('vis-cartao-topo');
     expect(dom[0].dataset['jeito']).toBe('aviso');
     expect(dom[1].classList).toContain('vis-no-cartao');
@@ -84,11 +86,30 @@ describe('o card no modo Visual', () => {
     expect(getComputedStyle(dom[0], '::before').content).toBe('none');
     expect(getComputedStyle(dom[0], '::after').borderTopLeftRadius).toBe('10px');
     expect(getComputedStyle(dom[0], '::after').borderBottomLeftRadius).toBe('0px');
-    expect(getComputedStyle(dom[2], '::after').borderBottomRightRadius).toBe('10px');
-    expect(getComputedStyle(dom[2], '::after').zIndex).toBe('-2');
+    // o pé numa peça à parte depois da última linha (na linha, a tabela o cortava e rolava por causa dele)
+    const pe = view.dom.querySelector<HTMLElement>(':scope > .vis-cartao-pe')!;
+    expect(pe.previousElementSibling).toBe(dom[2]);
+    expect(pe.dataset['jeito']).toBe('aviso');
+    expect(getComputedStyle(pe).borderBottomRightRadius).toBe('10px');
+    expect(getComputedStyle(dom[2], '::after').content).toBe('none');
     cursor(4);
     digita('!');
     expect(valor).toBe(T + '!');
+  });
+
+  it('a tabela que fecha o card: o pé vem depois dela, com a moldura, e ela não rola de lado à toa', async () => {
+    await make('> [!dica]- Dia\n> | A | B |\n> | --- | --- |\n> | 1 | 2 |\n\nfora');
+    const tabela = linhasDom().find((e) => e.classList.contains('tabela-rolo'))!;
+    expect(tabela.classList).toContain('vis-cartao-fim');
+    expect(tabela.scrollWidth).toBeLessThanOrEqual(tabela.clientWidth);
+    const pe = tabela.nextElementSibling as HTMLElement;
+    expect(pe.classList).toContain('vis-cartao-pe');
+    expect(pe.dataset['jeito']).toBe('dica');
+    // da largura do card: da beirada de fora da linha de cima até a da direita
+    const topo = linhasDom()[0];
+    const fora = parseFloat(getComputedStyle(topo, '::after').left);
+    expect(Math.round(pe.getBoundingClientRect().left)).toBe(Math.round(topo.getBoundingClientRect().left + fora));
+    expect(getComputedStyle(pe).backgroundColor).toBe('rgb(214, 239, 230)');
   });
 
   it('Enter: da de cima desce para dentro; dentro, a linha nova fica no card; na última vazia, sai dele', async () => {
@@ -121,7 +142,7 @@ describe('o card no modo Visual', () => {
 
   it('os botões do card do cursor: o jeito anda por todos (do último, volta ao primeiro; com Shift, para trás) e o fechar pelos três; o cursor fica', async () => {
     await make('> [!aviso] T\n> a\n> - b\n\nfora');
-    const topo = () => view.dom.children[0] as HTMLElement;
+    const topo = () => linhasDom()[0];
     const botoes = () => Array.from(topo().querySelectorAll<HTMLButtonElement>('.vis-cartao-controles button'));
     cursor(4);
     expect(topo().classList).not.toContain('vis-cartao-ativo');
@@ -164,7 +185,7 @@ describe('o card no modo Visual', () => {
     const titulo = topo[1].querySelector<HTMLElement>('.vis-cartao-titulo')!;
     expect(titulo.dataset['vazio']).toBe('Título (opcional)');
     // o título começa na mesma beirada do texto de dentro (a Nota, depois do desenho)
-    const dentro = view.dom.children[4] as HTMLElement;
+    const dentro = linhasDom()[4];
     expect(titulo.getBoundingClientRect().left).toBe(dentro.getBoundingClientRect().left);
     expect(topo[0].querySelector<HTMLElement>('.vis-cartao-titulo')!.getBoundingClientRect().left).toBeGreaterThan(dentro.getBoundingClientRect().left);
     cursor(4);
@@ -331,7 +352,7 @@ describe('o card no modo Visual', () => {
   describe('a linha recuada dentro do card', () => {
     /** O papel de cada linha na tela: "[" a de cima, ">" a de dentro, ">_" a última (a do pé), "." fora. */
     const papel = () =>
-      ([...view.dom.children] as HTMLElement[]).map((e) => {
+      linhasDom().map((e) => {
         const c = e.classList;
         if (c.contains('vis-cartao-topo')) return c.contains('vis-cartao-fim') ? '[_' : '[';
         return c.contains('vis-no-cartao') ? (c.contains('vis-cartao-fim') ? '>_' : '>') : '.';
@@ -353,7 +374,7 @@ describe('o card no modo Visual', () => {
     const pintada = (e: HTMLElement) => getComputedStyle(e).borderImageSource.includes('gradient') || getComputedStyle(e, '::after').content !== 'none';
     /** Cada linha de dentro no papel, de ponta a ponta como a de cima (a recuada também): ele não se parte. */
     function noPapel(): void {
-      const filhos = [...view.dom.children] as HTMLElement[];
+      const filhos = linhasDom();
       for (const e of filhos.slice(1)) {
         expect(pintada(e)).withContext(e.textContent!).toBeTrue();
         expect(beiradas(e)).withContext(e.textContent!).toEqual(beiradas(filhos[0]));
@@ -438,8 +459,8 @@ describe('o card no modo Visual', () => {
     it('a descrição de um item no card fica no alinhamento do texto dele, como na leitura, também depois de mudar no Markdown', async () => {
       const texto = '> [!nota] T\n> - item\n>   corpo\n> fim';
       await make(texto);
-      const corpo = () => view.dom.children[2] as HTMLElement;
-      const item = () => view.dom.children[1] as HTMLElement;
+      const corpo = () => linhasDom()[2];
+      const item = () => linhasDom()[1];
       expect(corpo().style.getPropertyValue('--vis-corpo')).toBe('1.35');
       expect(papel()).toEqual(['[', '>', '>', '>_']);
       // o texto da descrição na coluna do texto do item, e o papel por inteiro
@@ -457,7 +478,7 @@ describe('o card no modo Visual', () => {
 
     it('a descrição do item acaba com o card (a linha recuada de fora não é dela); o desenho perdido na composição volta', async () => {
       await make('> [!nota] T\n> - [x] um\n>   corpo\n\n  depois\n1. dois');
-      const el = (i: number) => view.dom.children[i] as HTMLElement;
+      const el = (i: number) => linhasDom()[i];
       expect(el(2).style.getPropertyValue('--vis-corpo')).toBe('1.35');
       expect(el(2).classList).toContain('vis-feita');
       expect(el(4).style.getPropertyValue('--vis-corpo')).toBe('');

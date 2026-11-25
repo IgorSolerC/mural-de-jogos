@@ -120,7 +120,23 @@ function quemFica(trs: readonly Transaction[], velho: EditorState, novo: EditorS
 
 const DESENHO = new PluginKey<{ chave: string; deco: DecorationSet }>('vis-cartoes');
 
-/** Cada linha de dentro com a classe do papel (e a cor do card), a última com o pé rasgado. */
+/**
+ * O pé do card: o fim da folha clara e a moldura da cor embaixo dela, numa peça à parte depois da última linha
+ * (não é texto: o cursor passa por cima). Na própria linha ele era cortado quando ela rola de lado (a tabela) e a
+ * fazia rolar.
+ */
+function pe(jeito: string): () => HTMLElement {
+  return () => {
+    const el = document.createElement('div');
+    el.className = 'vis-cartao-pe';
+    el.dataset['jeito'] = jeito;
+    el.contentEditable = 'false';
+    el.setAttribute('aria-hidden', 'true');
+    return el;
+  };
+}
+
+/** Cada linha de dentro com a classe do papel (e a cor do card), a última marcada, e o pé depois dela. */
 function desenhar(doc: PMNode): DecorationSet {
   const decos: Decoration[] = [];
   for (const c of cardsDe(doc)) {
@@ -132,6 +148,7 @@ function desenhar(doc: PMNode): DecorationSet {
       decos.push(Decoration.node(pos, pos + n.nodeSize, { class: 'vis-no-cartao' + (i === c.ultimo ? ' vis-cartao-fim' : ''), 'data-jeito': jeito }));
       pos += n.nodeSize;
     }
+    if (c.ultimo > c.topo) decos.push(Decoration.widget(c.fim, pe(jeito), { side: -1, ignoreSelection: true, key: `pe:${jeito}` }));
   }
   return DecorationSet.create(doc, decos);
 }
