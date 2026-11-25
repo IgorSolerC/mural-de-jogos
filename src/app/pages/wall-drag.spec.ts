@@ -2,6 +2,8 @@ import { Component, provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideLocationMocks } from '@angular/common/testing';
 import { provideRouter } from '@angular/router';
+import { canvasNoteId } from '../core/canvas-id';
+import { newBoardId } from '../core/free-board';
 import { Mural } from '../core/mural';
 import { NoteFolder } from '../core/folders';
 import { NoteFolders } from '../core/note-folders';
@@ -187,6 +189,28 @@ describe('arrastar para organizar as pastas', () => {
     await settle();
     expect(folders.of(store.get('nd000001')!)).toBe('phist000001');
     expect(folders.tree().kids('estudos', null).map((x) => x.name)).toEqual(['História', 'Programação']);
+  });
+
+  it('o canvas sobre uma pasta guarda nela: a moldura da cópia que segue o ponteiro não esconde a pasta', async () => {
+    await mount();
+    const id = canvasNoteId(newBoardId());
+    store.reviews.update((list) => [...list, sanitizeReview({ ...note(id, 'Mapa', 'Estudos'), text: '', stock: 'cinza' })!]);
+    const c = await card(id);
+    expect(c.querySelector('app-canvas-card')).not.toBeNull();
+    // pega no meio da moldura: é ela que fica embaixo do ponteiro na cópia (e liga o toque de volta, ui/review-card.ts)
+    const frame = c.querySelector('app-canvas-card .moldura')!;
+    frame.scrollIntoView({ block: 'center' });
+    const r = frame.getBoundingClientRect();
+    const a = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    c.querySelector('.hit')!.dispatchEvent(pe('pointerdown', a.x, a.y));
+    window.dispatchEvent(pe('pointermove', a.x + 12, a.y + 4));
+    const b = middle(folderCard('phist000001'));
+    window.dispatchEvent(pe('pointermove', b.x, b.y));
+    expect(el.querySelector('.arrasto-dica:not([hidden])')?.textContent).toBe('Guardar em História');
+    expect(folderCard('phist000001').hasAttribute('data-alvo')).toBeTrue();
+    window.dispatchEvent(pe('pointerup', b.x, b.y));
+    await settle();
+    expect(folders.of(store.get(id)!)).toBe('phist000001');
   });
 
   it('uma pasta sobre outra entra nela', async () => {

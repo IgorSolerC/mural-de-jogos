@@ -27,13 +27,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-25-card-forte-na-anotacao-aberta',
+    id: '2026-11-25-arrastar-canvas-para-pasta',
     version: '1.55.1',
     kind: 'ajustes',
     date: '2026-11-25',
-    title: 'O card do texto mais forte na anotação aberta',
+    title: 'O card do texto mais forte e arrastar o canvas para as pastas',
     melhorias: [
       'Na anotação aberta, o card do texto tem a faixa do título e a borda numa cor um pouco mais forte, a caminho da cor das cartolinas, para se destacar da folha clara. Nas cartolinas do mural ele continua como era.',
+    ],
+    correcoes: [
+      'Arrastar no mural voltou a guardar nas pastas e a juntar com outra anotação quando o que vai na mão é um canvas (sozinho ou entre as marcadas), ou uma anotação pega por um widget ou por um trecho escondido: a pasta não se acendia e soltar não fazia nada.',
     ],
   },
   {

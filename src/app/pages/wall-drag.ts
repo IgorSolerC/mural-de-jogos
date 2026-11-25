@@ -336,7 +336,7 @@ export class WallDrag {
   /** O alvo debaixo do ponteiro, se soltar ali faz alguma coisa. */
   private targetAt(x: number, y: number): Target | null {
     const item = this.item;
-    const hit = document.elementFromPoint(x, y);
+    const hit = this.under(x, y);
     if (!item || !hit) return null;
     const open = this.cfg.openFolder();
     // um pedaço do caminho (na barra): guarda ali e, parando, sobe até ele
@@ -379,6 +379,18 @@ export class WallDrag {
       return { el: box, drop: { kind: 'juntar', with: other }, label: `Nova pasta com ${plural(item.ids.length + 1, ...units)} e ${plural(item.folders.length, 'pasta', 'pastas')}` };
     }
     return { el: box, drop: { kind: 'juntar', with: other }, label: this.pieces.joinLabel(item.ids.length) };
+  }
+
+  /**
+   * O que está debaixo do ponteiro, sem contar a cópia e a etiqueta. A cópia traz o CSS da ficha, e o que a ficha liga
+   * de volta ao toque dentro de uma parte sem toque (a moldura do canvas, o broche de um widget, o spoiler) ficaria
+   * tocável na cópia, bem embaixo do ponteiro, e esconderia a pasta ou a ficha de baixo.
+   */
+  private under(x: number, y: number): Element | null {
+    for (const el of document.elementsFromPoint(x, y)) {
+      if (!this.ghost?.contains(el) && !this.tip?.contains(el)) return el;
+    }
+    return null;
   }
 
   /** Guardar o que se arrasta na pasta `id` (null: a raiz): a frase, ou null se já está lá ou não pode. */
