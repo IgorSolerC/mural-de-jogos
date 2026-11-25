@@ -91,11 +91,11 @@ Uma nota nova nasce privada. Um grupo que não existe é recusado (422 \`grupo-n
 - Baralho: \`id\`, \`nome\`, \`grupo\` (o das anotações dele; não muda por \`editar_baralho\`), \`cor\`, \`icone\` (só se escolhe no app), \`novas_por_dia\`, \`no_mural\`, \`estilo\` (o desenho da frente), \`pausado\` (desde quando a pessoa pausou o baralho no app, ou \`null\`: pausado, nada dele entra nas filas até ela retomar, e só ela pausa e retoma; a \`volta_em\` das cartas paradas nele é a de antes da pausa, e anda o tempo dela quando ela retomar), \`posicao\`, \`cartas\`, \`por_nivel\`. A configuração (\`retencao\`, \`revisoes_por_dia\`, \`ordem_das_novas\`) só se lê.
 - \`tirar_dos_estudos\`, \`recomecar_carta\` e \`apagar_baralho\` perdem progresso (com Desfazer no histórico): pergunte antes. Apagar um baralho tira dos Estudos a carta que só estava nele; nenhuma anotação é apagada. Das anotações compartilhadas, só as dos grupos em que a pessoa é dona ou gestora viram carta pela API, e a chave limitada a alguns grupos só vê as cartas das notas deles e os baralhos deles.
 
-## O Quadro livre
+## Os canvas (o Quadro livre de antes)
 
-- O **Quadro livre** são paredes sem fim, uma por quadro, dentro de um grupo das Anotações: **molduras** com título (as regiões), **bilhetes** (texto curto), as **anotações** coladas (o widget Nota), imagens, os widgets das anotações e **setas** entre as peças, com rótulo.
-- \`ver_quadros\` lista; \`ler_quadro\` traz o quadro em texto, com o id de cada peça entre colchetes. Para pôr algo: \`criar_quadro\` (vazio, num grupo), \`acrescentar_no_quadro\` (bilhetes e anotações, cada um perto de uma peça ou à direita de tudo, setas e uma moldura em volta de peças) e \`ligar_no_quadro\` (só setas). Nas setas e na moldura, as peças novas do mesmo pedido são \`nova1\`, \`nova2\`...
-- Mover, mudar e apagar peças (e apagar o quadro) só a pessoa faz, no Murall. Os pedidos entram quando o Murall abre, como os outros.
+- Um **canvas** é uma parede sem fim que mora no mural de anotações, ao lado das anotações de um grupo (o Quadro livre, que tinha aba própria, virou isso; as ferramentas continuam com \`quadro\` no nome e o id é o do quadro): **molduras** com título (as regiões), **bilhetes** (texto curto), as **anotações** coladas (o widget Nota), imagens, os widgets das anotações e **setas** entre as peças, com rótulo.
+- \`ver_quadros\` lista; \`ler_quadro\` traz o quadro em texto, com o id de cada peça entre colchetes. Para pôr algo: \`criar_quadro\` (um canvas vazio, num grupo), \`acrescentar_no_quadro\` (bilhetes e anotações, cada um perto de uma peça ou à direita de tudo, setas e uma moldura em volta de peças) e \`ligar_no_quadro\` (só setas). Nas setas e na moldura, as peças novas do mesmo pedido são \`nova1\`, \`nova2\`...
+- Mover, mudar e apagar peças (e apagar o canvas) só a pessoa faz, no Murall. Os pedidos entram quando o Murall abre, como os outros.
 
 ## O Calendário
 

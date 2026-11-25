@@ -436,7 +436,10 @@ const CAMPOS_DO_BARALHO: Record<string, Esquema> = {
   estilo: { type: 'string', enum: ESTILOS_ENUM, description: 'O desenho da frente das cartas (o padrão: classica).' },
 };
 
-/** O Quadro livre (PLANO-QUADRO-LIVRE.md, 7.8): ler os quadros em texto e pedir quadros e peças novas. */
+/**
+ * Os canvas (o Quadro livre de antes, PLANO-QUADRO-LIVRE.md 7.8 e PLANO-CANVAS.md rodada 5): ler os quadros em texto e
+ * pedir canvas e peças novas. Os nomes das ferramentas continuam os de antes (`quadro`), para nenhuma AI ligada quebrar.
+ */
 const quadroArg = (o: string): Esquema => ({ type: 'string', minLength: 1, maxLength: 60, description: `${o}: o id do quadro (22 letras, de ver_quadros) ou o nome dele.` });
 const refDePeca: Esquema = { type: 'string', pattern: '^([A-Za-z0-9_-]{1,24}|nova\\d{1,2})$', description: 'O id de uma peça do quadro (o que vem entre colchetes em ler_quadro), ou novaN: a N-ésima peça nova deste mesmo pedido.' };
 const setasArg: Esquema = {
@@ -449,9 +452,9 @@ const setasArg: Esquema = {
 export const FERRAMENTAS_DO_QUADRO_LIVRE: readonly Ferramenta[] = [
   {
     nome: 'ver_quadros',
-    titulo: 'Ver os quadros livres',
+    titulo: 'Ver os canvas',
     descricao:
-      'Os quadros do Quadro livre (paredes sem fim com molduras, bilhetes, anotações, imagens e setas), com o grupo, quantas peças e setas, e quando mudaram. Com grupo, só os dele.',
+      'Os canvas do mural de anotações (paredes sem fim com molduras, bilhetes, anotações, imagens e setas), com o grupo, quantas peças e setas, e quando mudaram. Com grupo, só os dele.',
     escopo: 'notas:ler',
     somenteLeitura: true,
     destrutiva: false,
@@ -461,7 +464,7 @@ export const FERRAMENTAS_DO_QUADRO_LIVRE: readonly Ferramenta[] = [
   },
   {
     nome: 'ler_quadro',
-    titulo: 'Ler um quadro livre',
+    titulo: 'Ler um canvas',
     descricao:
       'Um quadro em texto: as molduras como títulos, as peças dentro delas na ordem de leitura (de cima para baixo, da esquerda para a direita), cada uma com o id entre colchetes, e as setas no fim ("A → B (rótulo)"). Use os ids para acrescentar_no_quadro e ligar_no_quadro.',
     escopo: 'notas:ler',
@@ -473,14 +476,15 @@ export const FERRAMENTAS_DO_QUADRO_LIVRE: readonly Ferramenta[] = [
   },
   {
     nome: 'criar_quadro',
-    titulo: 'Criar um quadro livre',
-    descricao: 'Um quadro novo e vazio num grupo das Anotações (veja ver_contexto). Ele nasce privado. Devolve o id, que já vale para acrescentar_no_quadro.',
+    titulo: 'Criar um canvas',
+    descricao:
+      'Um canvas novo e vazio num grupo das Anotações (veja ver_contexto): ele aparece no mural de anotações, ao lado das anotações do grupo, e nasce privado. Devolve o id do quadro dele, que já vale para acrescentar_no_quadro.',
     escopo: 'notas:criar',
     somenteLeitura: false,
     destrutiva: false,
     entrada: obj(
       {
-        nome: { type: 'string', minLength: 1, maxLength: 60, description: 'O nome do quadro.' },
+        nome: { type: 'string', minLength: 1, maxLength: 60, description: 'O nome do canvas.' },
         grupo: { type: 'string', minLength: 1, maxLength: 80, description: 'O grupo das Anotações.' },
         chave_idempotencia: idem,
       },
@@ -491,9 +495,9 @@ export const FERRAMENTAS_DO_QUADRO_LIVRE: readonly Ferramenta[] = [
   },
   {
     nome: 'acrescentar_no_quadro',
-    titulo: 'Acrescentar no quadro livre',
+    titulo: 'Acrescentar no canvas',
     descricao:
-      'Põe peças novas num quadro: bilhetes (texto curto) e anotações (pelo id), cada uma ao lado de uma peça que já está lá (perto) ou à direita de tudo; setas entre peças (as de lá pelo id, as novas por novaN); e uma moldura com título em volta de peças. Não move nem apaga nada.',
+      'Põe peças novas num canvas: bilhetes (texto curto) e anotações (pelo id), cada uma ao lado de uma peça que já está lá (perto) ou à direita de tudo; setas entre peças (as de lá pelo id, as novas por novaN); e uma moldura com título em volta de peças. Não move nem apaga nada.',
     escopo: 'notas:criar',
     somenteLeitura: false,
     destrutiva: false,
@@ -527,8 +531,8 @@ export const FERRAMENTAS_DO_QUADRO_LIVRE: readonly Ferramenta[] = [
   },
   {
     nome: 'ligar_no_quadro',
-    titulo: 'Ligar peças no quadro livre',
-    descricao: 'Setas novas entre peças que já estão no quadro (pelos ids de ler_quadro), com rótulo opcional.',
+    titulo: 'Ligar peças no canvas',
+    descricao: 'Setas novas entre peças que já estão no canvas (pelos ids de ler_quadro), com rótulo opcional.',
     escopo: 'notas:criar',
     somenteLeitura: false,
     destrutiva: false,

@@ -19,7 +19,7 @@ import { BoardScreen } from './board-screen';
 
 /**
  * O canvas aberto (PLANO-CANVAS.md, 3.2): `/anotacoes/canvas/:id`, o id da anotação. A tela cheia do quadro
- * (pages/board-screen.ts, a mesma da aba Quadro livre), ver primeiro e Editar depois; o nome no topo se escreve e
+ * (pages/board-screen.ts, a do Quadro livre de antes), ver primeiro e Editar depois; o nome no topo se escreve e
  * renomeia a anotação (o elo leva ao quadro), e os Detalhes abrem o editor da anotação (grupo, tags, capa, quem vê).
  * O canvas recém-criado (`?novo=1`) abre já no Editar com o nome selecionado; saindo sem mexer em nada (o nome padrão
  * e nenhuma peça), ele é apagado sem perguntar, como o bilhete vazio do quadro. Fechar volta para onde estava, com o

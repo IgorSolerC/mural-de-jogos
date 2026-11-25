@@ -1,4 +1,7 @@
-import { provideZonelessChangeDetection } from '@angular/core';
+import { provideZonelessChangeDetection, signal } from '@angular/core';
+import { CloudAccount } from './cloud-account';
+import { CloudSync } from './cloud-sync';
+import { SharedStore } from './shared-store';
 import { TestBed } from '@angular/core/testing';
 import { CANVAS_ID_PREFIX, boardIdOfNote, canvasNoteId } from './canvas-id';
 import { CANVAS_DEFAULT_TITLE, CANVAS_NO_GROUP, CanvasLink } from './canvas-link';
@@ -144,7 +147,7 @@ describe('canvas: o elo com o quadro (PLANO-CANVAS.md, 4.2)', () => {
     expect(boards.get(note.canvas!)).toEqual(jasmine.objectContaining({ grupo: 'Estudos', nome: 'Kana', publico: true }));
   });
 
-  it('o quadro mexido à parte (um site antigo, a aba Quadro livre) volta ao que a anotação diz', async () => {
+  it('o quadro mexido à parte (um site antigo, a API) volta ao que a anotação diz', async () => {
     const note = await link.create({ category: 'Jogos', audience: 'privada' });
     await boards.rename(note.canvas!, 'Outro nome');
     await boards.moveToGroup(note.canvas!, 'Trabalho');
@@ -180,7 +183,7 @@ describe('canvas: o elo com o quadro (PLANO-CANVAS.md, 4.2)', () => {
     expect(boards.get(note.canvas!)!.n.map((n) => n.i)).toEqual(['n1']);
   });
 
-  it('o quadro apagado à parte (a aba Quadro livre) leva a anotação junto', async () => {
+  it('o quadro apagado à parte (um site antigo, outro caminho) leva a anotação junto', async () => {
     const note = await link.create({ category: 'Jogos', audience: 'privada' });
     await new Promise((r) => setTimeout(r, 5));
     await boards.remove(note.canvas!);
@@ -251,11 +254,37 @@ describe('canvas: o elo com o quadro (PLANO-CANVAS.md, 4.2)', () => {
     expect(boards.get(id)).toBeTruthy();
   });
 
-  it('o quadro sem anotação nenhuma (um quadro da aba Quadro livre) fica como está: a conversão é a rodada 5', async () => {
-    const b = await boards.create('Velho', 'Jogos');
+  it('o quadro sem anotação nenhuma (o da aba Quadro livre, que saiu) vira canvas: o nome, o grupo, o dia e o público dele (rodada 5)', async () => {
+    const id = newBoardId();
+    await boards.save({ ...newFreeBoard('Mansão', 'Jogos', '2026-10-03T15:20:00.000Z', id)!, publico: true });
+    const solo = newBoardId();
+    await boards.save(newFreeBoard('Rascunho', CANVAS_NO_GROUP, '2026-10-04T09:00:00.000Z', solo)!);
     await settle(link);
-    expect(boards.get(b.id)).toBeTruthy();
-    expect(store.notes().length).toBe(0);
+    const note = store.get(canvasNoteId(id))!;
+    expect(note).toEqual(
+      jasmine.objectContaining({ kind: 'anotacoes', text: '', category: 'Jogos', completedAt: '2026-10-03', stock: 'cinza', createdAt: '2026-10-03T15:20:00.000Z', canvas: id }),
+    );
+    expect(note.game.name).toBe('Mansão');
+    // o público vira "visível": à mostra como estava, sem ir para o Feed de ninguém
+    expect(note.private).toBeUndefined();
+    expect(note.quiet).toBeTrue();
+    // o sem grupo fica sem grupo, e o privado, privado
+    const other = store.get(canvasNoteId(solo))!;
+    expect(other.category).toBeUndefined();
+    expect(other.private).toBeTrue();
+    // o quadro continua o mesmo, e o canvas não se faz duas vezes
+    await settle(link);
+    expect(store.notes().filter(isCanvas).length).toBe(2);
+    expect(boards.get(id)!.nome).toBe('Mansão');
+  });
+
+  it('o quadro cuja anotação saiu depois da última mexida nele não volta como canvas: sai junto', async () => {
+    const note = await link.create({ category: 'Jogos', audience: 'privada' });
+    await new Promise((r) => setTimeout(r, 5));
+    store.remove(note.id);
+    await settle(link);
+    expect(boards.get(note.canvas!)).toBeNull();
+    expect(store.get(note.id)).toBeUndefined();
   });
 
   it('duplicar: a cópia do quadro, com as peças, e uma anotação nova apontando para ela', async () => {
@@ -328,5 +357,82 @@ describe('canvas: fora do Kanban e dos Flashcards (PLANO-CANVAS.md, 4.1)', () =>
     study.addCard('nota-comum1', [deck]);
     expect(study.cardOf().has(canvasNoteId(board))).toBeFalse();
     expect(study.cardOf().has('nota-comum1')).toBeTrue();
+  });
+});
+
+describe('canvas: a conversão com a conta (PLANO-CANVAS.md, rodada 5)', () => {
+  let link: CanvasLink;
+  let store: ReviewStore;
+  let boards: FreeBoardStore;
+  const active = signal(true);
+  const lastSyncAt = signal<number | null>(null);
+
+  beforeEach(async () => {
+    localStorage.clear();
+    await deleteDatabase(BOARDS_DB);
+    active.set(true);
+    lastSyncAt.set(null);
+    TestBed.configureTestingModule({
+      providers: [provideZonelessChangeDetection(), { provide: CloudSync, useValue: { active, lastSyncAt } }],
+    });
+    store = TestBed.inject(ReviewStore);
+    boards = TestBed.inject(FreeBoardStore);
+    link = TestBed.inject(CanvasLink);
+    await boards.ready;
+  });
+
+  afterEach(async () => {
+    thawStorage();
+    TestBed.resetTestingModule();
+    await new Promise((r) => setTimeout(r, 0));
+    await deleteDatabase(BOARDS_DB);
+    localStorage.clear();
+  });
+
+  it('com a conta, o quadro espera o mural da nuvem descer nesta página (o canvas feito em outro aparelho ainda vem chegando)', async () => {
+    const id = newBoardId();
+    await boards.save(newFreeBoard('Mansão', 'Jogos', T0, id)!);
+    await settle(link);
+    expect(store.get(canvasNoteId(id))).toBeUndefined();
+    // a anotação de outro aparelho chega com o mural, com o que só ela tem (as tags): ela vale, e nada se converte
+    store.add(sanitizeReview(raw(canvasNoteId(id), { tags: ['Planta'] }))!);
+    lastSyncAt.set(Date.now() + 1);
+    await settle(link);
+    expect(store.get(canvasNoteId(id))!.tags).toEqual(['Planta']);
+    // (e a lista das compartilhadas também: a anotação dele pode ser uma compartilhada, a de um grupo)
+    const other0 = newBoardId();
+    await boards.save(newFreeBoard('Ainda não', 'Jogos', T0, other0)!);
+    await settle(link);
+    expect(store.get(canvasNoteId(other0))).toBeUndefined();
+    TestBed.inject(SharedStore).listedAt.set(Date.now() + 1);
+    await settle(link);
+    expect(store.get(canvasNoteId(id))!.tags).toEqual(['Planta']);
+    // um quadro sem anotação nenhuma, depois da descida: vira canvas
+    const other = newBoardId();
+    await boards.save(newFreeBoard('Velho', 'Jogos', T0, other)!);
+    await settle(link);
+    expect(store.get(canvasNoteId(other))?.canvas).toBe(other);
+  });
+
+  it('as pessoas chamadas só para o quadro passam para a anotação, com os mesmos papéis, e saem do quadro', async () => {
+    lastSyncAt.set(Date.now() + 1);
+    TestBed.inject(SharedStore).listedAt.set(Date.now() + 1);
+    const id = newBoardId();
+    await boards.save(newFreeBoard('Planta', 'Trabalho', T0, id)!);
+    await settle(link);
+    const shared = TestBed.inject(SharedStore);
+    const share = spyOn(shared, 'share').and.resolveTo({} as never);
+    const calls: string[] = [];
+    spyOn(TestBed.inject(CloudAccount), 'request').and.callFake(((path: string, init?: { method?: string }) => {
+      calls.push(`${init?.method ?? 'GET'} ${path}`);
+      return Promise.resolve(path.endsWith('/membros') ? { membros: [{ codigo: 'BXAA-0001', papel: 'editor' }, { codigo: 'CRSS-0002', papel: 'leitor' }] } : {});
+    }) as never);
+    TestBed.inject(FreeBoardSync).withPeople.set(new Set([id]));
+    await settle(link);
+    expect(share).toHaveBeenCalledOnceWith(jasmine.objectContaining({ id: canvasNoteId(id) }), [
+      { codigo: 'BXAA-0001', papel: 'editor' },
+      { codigo: 'CRSS-0002', papel: 'leitor' },
+    ]);
+    expect(calls).toEqual([`GET /v1/eu/quadros/${id}/membros`, `DELETE /v1/eu/quadros/${id}/membros/BXAA-0001`, `DELETE /v1/eu/quadros/${id}/membros/CRSS-0002`]);
   });
 });

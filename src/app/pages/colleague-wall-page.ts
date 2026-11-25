@@ -2,8 +2,8 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, u
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs';
-import { visitBoardPath, visitKanbanPath, visitStudyPath } from '../core/areas';
-import { studyGroupId } from '../core/study';
+import { visitCanvasPath, visitKanbanPath, visitStudyPath } from '../core/areas';
+import { boardIdOfNote } from '../core/canvas-id';
 import { VisitKanban } from '../ui/visit-kanban';
 import { VisitBoards } from '../core/visit-boards';
 import { ICON, IconModule } from '../ui/icons';
@@ -24,7 +24,7 @@ import { ReviewReader } from '../ui/review-reader';
 import { Toasts } from '../ui/toast';
 import { WallToolbar } from '../ui/wall-toolbar';
 import { VisitStudy } from '../ui/visit-study';
-import { VisitBoardsView } from '../ui/visit-boards';
+import { VisitCanvasView } from '../ui/visit-canvas';
 import { WallAccess, WallBoard } from './wall-board';
 import { ONE_DECIMAL as avgFmt } from '../core/review';
 import { labelKey, plural } from '../core/text';
@@ -46,7 +46,7 @@ const NO_PICKS: ReadonlyMap<string, number> = new Map();
  */
 @Component({
   selector: 'app-colleague-wall-page',
-  imports: [Busy, IconModule, PersonPhoto, ReviewReader, RouterLink, VisitBoardsView, VisitKanban, VisitStudy, WallBoard, WallToolbar],
+  imports: [Busy, IconModule, PersonPhoto, ReviewReader, RouterLink, VisitCanvasView, VisitKanban, VisitStudy, WallBoard, WallToolbar],
   providers: [VisitView, { provide: WallState, useExisting: VisitView }],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './colleague-wall-page.html',
@@ -111,7 +111,8 @@ export class ColleagueWallPage {
     this.route.paramMap.pipe(
       map((p) => ({
         studying: p.get('secao') === 'estudos',
-        boards: p.get('secao') === 'quadro-livre',
+        oldBoards: p.get('secao') === 'quadro-livre',
+        canvas: p.get('secao') === 'canvas' ? p.get('canvas') : null,
         kanban: p.get('secao') === 'kanban',
         group: p.get('grupo'),
         deck: p.get('baralho'),
@@ -121,7 +122,8 @@ export class ColleagueWallPage {
     {
       initialValue: {
         studying: this.route.snapshot.paramMap.get('secao') === 'estudos',
-        boards: this.route.snapshot.paramMap.get('secao') === 'quadro-livre',
+        oldBoards: this.route.snapshot.paramMap.get('secao') === 'quadro-livre',
+        canvas: this.route.snapshot.paramMap.get('secao') === 'canvas' ? this.route.snapshot.paramMap.get('canvas') : null,
         kanban: this.route.snapshot.paramMap.get('secao') === 'kanban',
         group: null,
         deck: null,
@@ -145,12 +147,26 @@ export class ColleagueWallPage {
     });
   })();
 
-  /** O Quadro livre da pessoa (`/comparar/mural/quadro-livre/...`): os quadros públicos dela (PLANO-QUADRO-LIVRE.md, 4.8). */
+  /**
+   * Um canvas público dela aberto (`/comparar/mural/canvas/:id`, PLANO-CANVAS.md rodada 5): o quadro em tela cheia,
+   * por cima do mural dela. O quadro vem dos quadros públicos dela (`VisitBoards`).
+   */
   protected readonly visitBoards = inject(VisitBoards);
-  protected readonly boarding = computed(() => this.params().boards);
-  protected readonly boardId = computed(() => this.params().board);
-  protected readonly hasBoards = computed(() => this.visitBoards.boards().length > 0);
-  protected readonly visitBoardPath = visitBoardPath;
+  protected readonly canvasId = computed(() => this.params().canvas);
+  protected readonly canvasBoardId = computed(() => {
+    const id = this.canvasId();
+    return id ? (this.visit.wall().find((r) => r.id === id)?.canvas ?? boardIdOfNote(id)) : null;
+  });
+  protected readonly canvasTitle = computed(() => {
+    const id = this.canvasId();
+    return (id && this.visit.wall().find((r) => r.id === id)?.game.name) || null;
+  });
+  /** O Quadro livre da visita de antes (a aba saiu): o endereço de um quadro abre o canvas dele; o resto, o mural. */
+  private readonly oldBoards = effect(() => {
+    const p = this.params();
+    if (!p.oldBoards) return;
+    untracked(() => void this.router.navigateByUrl(p.board ? visitCanvasPath(`cv-${p.board}`) : '/comparar/mural', { replaceUrl: true }));
+  });
   /** O Kanban dos grupos públicos da pessoa (`/comparar/mural/kanban/...`, PLANO-COMPARTILHAR.md 4.6). */
   protected readonly kanbaning = computed(() => this.params().kanban);
   protected readonly hasKanban = computed(() => this.visit.publicGroups.groups().length > 0);
@@ -161,7 +177,7 @@ export class ColleagueWallPage {
   /** A pessoa tem baralho público: nas Anotações, as seções Mural e Estudos. */
   protected readonly hasStudy = computed(() => !!this.colleague()?.estudos?.decks.length);
   protected readonly sections = computed(
-    () => ((this.hasStudy() || this.hasBoards() || this.hasKanban()) && isNotes(this.mural.kind())) || this.studying() || this.boarding() || this.kanbaning(),
+    () => ((this.hasStudy() || this.hasKanban()) && isNotes(this.mural.kind())) || this.studying() || this.kanbaning(),
   );
   protected readonly visitStudyPath = visitStudyPath;
   private readonly from: 'perfil' | 'amigos' | 'comparar' = this.prevUrl.startsWith('/perfil/')
@@ -298,8 +314,7 @@ export class ColleagueWallPage {
     if (!review) return;
     // o canvas abre o quadro público dela em tela cheia, como o seu abre o seu (PLANO-CANVAS.md, 3.2)
     if (review.canvas) {
-      const board = this.visit.canvasBoard()(review.canvas);
-      void this.router.navigateByUrl(visitBoardPath(studyGroupId(board?.grupo || review.category || 'Sem grupo'), review.canvas));
+      void this.router.navigateByUrl(visitCanvasPath(review.id));
       return;
     }
     // com as outras fichas da pessoa: a leitura anda entre as vezes de uma obra que ela rejogou;

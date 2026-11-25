@@ -24,8 +24,8 @@ import { WidgetDone, WidgetSheet } from '../ui/widget-sheet';
 /**
  * Um quadro aberto em tela cheia, do dono (PLANO-CANVAS.md, 3.2): a peça do quadro (`app-free-board`, a mesma da
  * visita) com o topo, o Editar e o Pronto, e o que só o dono faz nela (pôr uma anotação, a folha do widget, guardar
- * as imagens, guardar cada mudança e a câmera deste aparelho). O canvas aberto (pages/canvas-page.ts) e a aba Quadro
- * livre (até a rodada 5) a usam igual; o que cada um põe no topo vem dentro (o Detalhes, o Compartilhar).
+ * as imagens, guardar cada mudança e a câmera deste aparelho). O canvas aberto (pages/canvas-page.ts) a usa; o que
+ * ele põe no topo vem dentro (os Detalhes, o Compartilhar).
  */
 @Component({
   selector: 'app-board-screen',

@@ -5,7 +5,7 @@ import { ICON, IconModule } from '../icons';
 let seq = 0;
 
 /**
- * O topo do quadro aberto, o mesmo no seu Quadro livre e na visita (a regra "Visita: as mesmas peças do dono",
+ * O topo do quadro aberto, o mesmo no seu canvas e na visita (a regra "Visita: as mesmas peças do dono",
  * no CLAUDE.md): a etiqueta de tinta de voltar, o nome a pincel na fita e, à direita, o que quem usa põe
  * dentro (o Editar e o Pronto do dono, etiquetas de tinta também) e a da tela cheia do navegador. Uma fileira
  * só: o nome encolhe com reticências, nunca passa por baixo dos botões.

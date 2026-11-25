@@ -2160,8 +2160,8 @@
     "/ext/v1/quadros": {
       "get": {
         "operationId": "ver_quadros",
-        "summary": "Ver os quadros livres",
-        "description": "Os quadros do Quadro livre (paredes sem fim com molduras, bilhetes, anotações, imagens e setas), com o grupo, quantas peças e setas, e quando mudaram. Com grupo, só os dele. Permissão: notas:ler.",
+        "summary": "Ver os canvas",
+        "description": "Os canvas do mural de anotações (paredes sem fim com molduras, bilhetes, anotações, imagens e setas), com o grupo, quantas peças e setas, e quando mudaram. Com grupo, só os dele. Permissão: notas:ler.",
         "parameters": [
           {
             "name": "grupo",
@@ -2186,8 +2186,8 @@
       },
       "post": {
         "operationId": "criar_quadro",
-        "summary": "Criar um quadro livre",
-        "description": "Um quadro novo e vazio num grupo das Anotações (veja ver_contexto). Ele nasce privado. Devolve o id, que já vale para acrescentar_no_quadro. Permissão: notas:criar.",
+        "summary": "Criar um canvas",
+        "description": "Um canvas novo e vazio num grupo das Anotações (veja ver_contexto): ele aparece no mural de anotações, ao lado das anotações do grupo, e nasce privado. Devolve o id do quadro dele, que já vale para acrescentar_no_quadro. Permissão: notas:criar.",
         "parameters": [
           {
             "name": "Idempotency-Key",
@@ -2211,7 +2211,7 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 60,
-                    "description": "O nome do quadro."
+                    "description": "O nome do canvas."
                   },
                   "grupo": {
                     "type": "string",
@@ -2242,7 +2242,7 @@
     "/ext/v1/quadros/{id}": {
       "get": {
         "operationId": "ler_quadro",
-        "summary": "Ler um quadro livre",
+        "summary": "Ler um canvas",
         "description": "Um quadro em texto: as molduras como títulos, as peças dentro delas na ordem de leitura (de cima para baixo, da esquerda para a direita), cada uma com o id entre colchetes, e as setas no fim (\"A → B (rótulo)\"). Use os ids para acrescentar_no_quadro e ligar_no_quadro. Permissão: notas:ler.",
         "parameters": [
           {
@@ -2270,8 +2270,8 @@
     "/ext/v1/quadros/{id}/pecas": {
       "post": {
         "operationId": "acrescentar_no_quadro",
-        "summary": "Acrescentar no quadro livre",
-        "description": "Põe peças novas num quadro: bilhetes (texto curto) e anotações (pelo id), cada uma ao lado de uma peça que já está lá (perto) ou à direita de tudo; setas entre peças (as de lá pelo id, as novas por novaN); e uma moldura com título em volta de peças. Não move nem apaga nada. Permissão: notas:criar.",
+        "summary": "Acrescentar no canvas",
+        "description": "Põe peças novas num canvas: bilhetes (texto curto) e anotações (pelo id), cada uma ao lado de uma peça que já está lá (perto) ou à direita de tudo; setas entre peças (as de lá pelo id, as novas por novaN); e uma moldura com título em volta de peças. Não move nem apaga nada. Permissão: notas:criar.",
         "parameters": [
           {
             "name": "id",
@@ -2402,8 +2402,8 @@
     "/ext/v1/quadros/{id}/setas": {
       "post": {
         "operationId": "ligar_no_quadro",
-        "summary": "Ligar peças no quadro livre",
-        "description": "Setas novas entre peças que já estão no quadro (pelos ids de ler_quadro), com rótulo opcional. Permissão: notas:criar.",
+        "summary": "Ligar peças no canvas",
+        "description": "Setas novas entre peças que já estão no canvas (pelos ids de ler_quadro), com rótulo opcional. Permissão: notas:criar.",
         "parameters": [
           {
             "name": "id",

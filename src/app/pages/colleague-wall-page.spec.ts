@@ -1,9 +1,9 @@
 import { Component, input, provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { Router, provideRouter } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
+import { of } from 'rxjs';
 import { canvasNoteId } from '../core/canvas-id';
-import { visitBoardPath } from '../core/areas';
-import { studyGroupId } from '../core/study';
+import { visitCanvasPath } from '../core/areas';
 import { Colleague, ColleagueStore, wallOf } from '../core/colleague-store';
 import { Mural } from '../core/mural';
 import { Profile } from '../core/profile';
@@ -258,7 +258,26 @@ describe('O mural de outra pessoa (ColleagueWallPage)', () => {
     const router = TestBed.inject(Router);
     const go = spyOn(router, 'navigateByUrl').and.resolveTo(true);
     (fixture.componentInstance as unknown as { open(id: string): void }).open(canvas.id);
-    expect(go).toHaveBeenCalledWith(visitBoardPath(studyGroupId('Viagem'), 'Mapa0viagem0Portugal01'));
+    expect(go).toHaveBeenCalledWith(visitCanvasPath(canvas.id));
+  });
+
+  it('o Quadro livre da visita de antes (a aba saiu): o endereço de um quadro abre o canvas dele; o da lista, o mural', async () => {
+    const go = spyOn(Router.prototype, 'navigateByUrl').and.resolveTo(true);
+    for (const [params, want] of [
+      [{ secao: 'quadro-livre', grupo: 'viagem', quadro: 'Mapa0viagem0Portugal01' }, visitCanvasPath('cv-Mapa0viagem0Portugal01')],
+      [{ secao: 'quadro-livre' }, '/comparar/mural'],
+    ] as const) {
+      TestBed.resetTestingModule();
+      const map = convertToParamMap(params);
+      const route = { paramMap: of(map), snapshot: { paramMap: map, queryParamMap: convertToParamMap({}) } };
+      go.calls.reset();
+      // (depois do provideRouter, que dá a rota de sempre)
+      TestBed.overrideProvider(ActivatedRoute, { useValue: route });
+      create(marina());
+      TestBed.tick();
+      await settle();
+      expect(go).withContext(JSON.stringify(params)).toHaveBeenCalledWith(want, { replaceUrl: true });
+    }
   });
 
   it('sem ninguém aberto: o caminho para o Comparar', async () => {

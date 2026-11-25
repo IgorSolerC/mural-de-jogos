@@ -400,7 +400,7 @@ interface Summary {
       }
     }
 
-    /* quatro seções (as Anotações, com o Quadro livre): no celular estreito, as letras se apertam para caber numa fileira */
+    /* quatro seções ou mais: no celular estreito, as letras se apertam para caber numa fileira */
     @container indice (max-width: 389px) {
       .secoes.quatro .secao {
         padding: 0 5px;

@@ -178,10 +178,10 @@ describe('o índice embaixo do topo', () => {
     expect(host.classList).toContain('vazio');
   });
 
-  it('nas Anotações: Mural, Kanban, Estudos e o Quadro livre, sem a etiqueta do mural; o Kanban, os Estudos e o Quadro livre ficam acesos por dentro', async () => {
+  it('nas Anotações: Mural, Kanban e Estudos, sem a etiqueta do mural (o Quadro livre virou o canvas, no mural); o Kanban e os Estudos ficam acesos por dentro', async () => {
     await go('/anotacoes');
     expect(picker()).toBeNull();
-    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Mural', 'Kanban', 'Flashcards', 'Quadro livre']);
+    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Mural', 'Kanban', 'Flashcards']);
     expect(tabs()[0].classList).toContain('on');
     expect(tabs()[1].getAttribute('href')).toBe('/anotacoes/kanban');
     await go('/anotacoes/kanban/qualquer');
@@ -190,9 +190,9 @@ describe('o índice embaixo do topo', () => {
     await go('/anotacoes/estudos/umbaralho');
     expect(tabs()[2].classList).toContain('on');
     expect(tabs()[2].getAttribute('href')).toBe('/anotacoes/estudos');
-    await go('/anotacoes/quadro-livre/g1/q1');
-    expect(tabs()[3].classList).toContain('on');
-    expect(tabs()[3].getAttribute('href')).toBe('/anotacoes/quadro-livre');
+    // o canvas aberto mora no mural
+    await go('/anotacoes/canvas/cv-qualquer');
+    expect(tabs()[0].classList).toContain('on');
   });
 
   it('os Gastos e o Calendário moram em Outros: sem abas nem seletor, com a volta para Outros e o logo de cada um', async () => {
@@ -214,7 +214,7 @@ describe('o índice embaixo do topo', () => {
     }
     // o cofre e o Calendário saíram das Anotações
     await go('/anotacoes');
-    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Mural', 'Kanban', 'Flashcards', 'Quadro livre']);
+    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Mural', 'Kanban', 'Flashcards']);
   });
 
   it('nos Gastos, quantos lançamentos o mês aberto tem', async () => {

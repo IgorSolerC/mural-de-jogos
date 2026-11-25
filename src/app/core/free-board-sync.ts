@@ -30,6 +30,8 @@ interface RemoteItem {
   /** Num quadro de outra pessoa: o seu papel nele (pelo quadro ou pelo grupo) e de quem ele é. */
   papel?: SharedRole;
   dono?: { codigo: string; nome: string };
+  /** Num quadro seu: quantas pessoas foram chamadas só para ele (o Compartilhar de antes do canvas). */
+  pessoas?: number;
 }
 
 /** Um quadro de outra pessoa em que você está: o seu papel e de quem ele é. */
@@ -63,6 +65,11 @@ export class FreeBoardSync {
   readonly shared = signal<ReadonlyMap<string, SharedBoardInfo>>(readShared());
   /** O grupo compartilhado que a nuvem tem para cada quadro seu, da última lista. */
   private readonly remoteGroup = new Map<string, string | null>();
+  /**
+   * Os quadros seus com pessoas chamadas só para eles, da última lista (o Compartilhar do quadro, de antes do canvas):
+   * o elo leva essas pessoas para a anotação do canvas (PLANO-CANVAS.md, rodada 5).
+   */
+  readonly withPeople = signal<ReadonlySet<string>>(new Set());
 
   /** O seu papel no quadro: dono do seu, ou o que a nuvem disse do de outra pessoa. */
   roleOf(id: string): SharedRole {
@@ -177,6 +184,7 @@ export class FreeBoardSync {
     }
     this.shared.set(shared);
     writeJson(SHARED_BOARDS_KEY, Object.fromEntries(shared));
+    this.withPeople.set(new Set([...remote.values()].filter((q) => !q.papel && !q.apagado && (q.pessoas ?? 0) > 0).map((q) => q.id)));
     for (const rec of await this.store.all()) {
       const r = remote.get(rec.id);
       if (!r) {

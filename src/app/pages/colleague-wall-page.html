@@ -88,7 +88,7 @@
     <nav class="secoes" [attr.aria-label]="'Anotações de ' + c.name">
       <ul>
         <li>
-          <a class="secao" routerLink="/comparar/mural" [class.on]="!studying() && !boarding() && !kanbaning()" [attr.aria-current]="!studying() && !boarding() && !kanbaning() ? 'page' : null">Mural</a>
+          <a class="secao" routerLink="/comparar/mural" [class.on]="!studying() && !kanbaning()" [attr.aria-current]="!studying() && !kanbaning() ? 'page' : null">Mural</a>
         </li>
         @if (hasKanban() || kanbaning()) {
           <li>
@@ -100,11 +100,6 @@
             <a class="secao" [routerLink]="visitStudyPath()" [class.on]="studying()" [attr.aria-current]="studying() ? 'page' : null">Flashcards</a>
           </li>
         }
-        @if (hasBoards() || boarding()) {
-          <li>
-            <a class="secao" [routerLink]="visitBoardPath()" [class.on]="boarding()" [attr.aria-current]="boarding() ? 'page' : null">Quadro livre</a>
-          </li>
-        }
       </ul>
     </nav>
   }
@@ -112,19 +107,6 @@
   @if (kanbaning()) {
     @defer (on immediate) {
       <app-visit-kanban [name]="c.name" [groupId]="studyGroup()" (opened)="openCard($event)" />
-    }
-  } @else if (boarding()) {
-    @if (hasBoards() || visitBoards.loading()) {
-      @defer (on immediate) {
-        <app-visit-boards [name]="c.name" [groupId]="studyGroup()" [boardId]="boardId()" />
-      }
-    } @else {
-      <section class="vazio cartolina" aria-labelledby="vazio-titulo">
-        <span class="fita-vazio" aria-hidden="true"></span>
-        <h2 id="vazio-titulo">{{ c.name }} não tem quadros públicos</h2>
-        <p>Os quadros de {{ c.name }} ficam só com {{ c.name }}. As anotações públicas estão no mural.</p>
-        <a class="btn-ink" routerLink="/comparar/mural">Ver o mural</a>
-      </section>
     }
   } @else if (studying()) {
     @if (hasStudy()) {
@@ -149,6 +131,12 @@
     <!-- a mesma régua e a mesma parede do seu mural, sobre as fichas da pessoa -->
     <app-wall-toolbar class="toolbar" />
     <app-wall-board [access]="access()" (opened)="open($event)" />
+  }
+  <!-- um canvas público dela aberto: o quadro em tela cheia, por cima do mural (PLANO-CANVAS.md, rodada 5) -->
+  @if (canvasBoardId(); as board) {
+    @defer (on immediate) {
+      <app-visit-canvas [name]="c.name" [boardId]="board" [title]="canvasTitle()" />
+    }
   }
 } @else {
   <section class="vazio cartolina" aria-labelledby="vazio-titulo">

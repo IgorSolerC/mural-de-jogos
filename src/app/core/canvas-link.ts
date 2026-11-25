@@ -8,13 +8,18 @@ import { Audience, Review, audienceFields, audienceOf, isCanvas, isPrivate, sani
 import { ReviewStore } from './review-store';
 import { BUILD } from './build';
 import { storageFrozen } from './storage';
+import { CloudAccount } from './cloud-account';
+import { CloudSync } from './cloud-sync';
+import { MemberRole, isMemberRole } from './shared-notes';
+import { normalizeCode } from './cloud-murals';
+import { SharedStore } from './shared-store';
 
 /** O título de um canvas novo. */
 export const CANVAS_DEFAULT_TITLE = 'Canvas sem nome';
-/**
- * O grupo do quadro de um canvas sem grupo: o quadro precisa de um (core/free-board.ts), e a anotação manda. Só
- * aparece na aba Quadro livre até ela sair (rodada 5).
- */
+/** Quanto espera para tentar de novo levar as pessoas de um quadro para a anotação, depois de uma falha. */
+const PEOPLE_RETRY_MS = 60_000;
+
+/** O grupo do quadro de um canvas sem grupo: o quadro precisa de um (core/free-board.ts), e a anotação manda. */
 export const CANVAS_NO_GROUP = 'Sem grupo';
 
 /** O grupo que o quadro do canvas deve ter (o da anotação). */
@@ -58,8 +63,11 @@ export interface NewCanvas {
  *    Desfazer, uma versão posta de volta) traz o quadro de volta, pela cópia guardada (ou vazio). O quadro que
  *    nunca chegou (um aparelho novo, a lista dos quadros ainda descendo) fica esperando;
  * 3. quadro sem o canvas: a anotação apagada depois da última mexida no quadro leva o quadro junto (apagada por
- *    qualquer caminho: o mural, várias de uma vez, a API, outro aparelho). O quadro que nunca teve anotação vira
- *    canvas só na rodada 5 (a conversão).
+ *    qualquer caminho: o mural, várias de uma vez, a API, outro aparelho). O quadro que nunca teve anotação (o da
+ *    aba Quadro livre, que saiu; o pedido `criar_quadro` da API) vira canvas (rodada 5, a conversão): a anotação com
+ *    o nome, o grupo e o público dele, do dia dele. Só depois de o mural da nuvem descer nesta página (com a conta):
+ *    num aparelho novo, a anotação do canvas feito em outro ainda vem chegando, e a conversão a faria de novo, por
+ *    cima. As pessoas chamadas só para o quadro (o Compartilhar dele, de antes) passam para a anotação.
  *
  * O canvas compartilhado (rodada 4): a anotação mora na nuvem das compartilhadas, e o acesso ao quadro vem dela (a
  * nuvem dá o quadro a quem está na anotação). O quadro seu segue a anotação como o de sempre (o nome, o grupo e o
@@ -71,6 +79,15 @@ export class CanvasLink {
   private readonly store = inject(ReviewStore);
   private readonly boards = inject(FreeBoardStore);
   private readonly sync = inject(FreeBoardSync);
+  private readonly cloud = inject(CloudSync);
+  private readonly account = inject(CloudAccount);
+  private readonly shared = inject(SharedStore);
+  /** Quando a página subiu: a conversão espera um mural da nuvem descido depois disso. */
+  private readonly startedAt = Date.now();
+  /** Criando ou duplicando aqui (o quadro nasce antes da anotação): a conversão espera, para não fazer outra. */
+  private making = 0;
+  /** Os quadros cujas pessoas já estão passando para a anotação (uma vez por página). */
+  private readonly moving = new Set<string>();
   /** Os quadros de canvas que estiveram aqui nesta página (o que some depois disso foi apagado em outro aparelho). */
   private readonly seen = new Set<string>();
   /** Os quadros apagados junto com a anotação nesta página, para voltarem com ela (o Desfazer de qualquer caminho). */
@@ -88,6 +105,9 @@ export class CanvasLink {
     effect(() => {
       this.store.reviews();
       this.boards.boards();
+      this.cloud.lastSyncAt();
+      this.shared.listedAt();
+      this.sync.withPeople();
       untracked(() => void this.reconcile());
     });
   }
@@ -117,6 +137,15 @@ export class CanvasLink {
    * teto de quadros (`FB_MAX_BOARDS`) avisa pelo erro do quadro (`FreeBoardProblem`).
    */
   async create(opts: NewCanvas): Promise<Review> {
+    this.making++;
+    try {
+      return await this.createNow(opts);
+    } finally {
+      this.making--;
+    }
+  }
+
+  private async createNow(opts: NewCanvas): Promise<Review> {
     const group = cleanCategory(opts.category ?? '');
     const board = await this.boards.create(opts.title?.trim() || CANVAS_DEFAULT_TITLE, group || CANVAS_NO_GROUP);
     const now = new Date().toISOString();
@@ -183,6 +212,15 @@ export class CanvasLink {
 
   /** Um canvas novo igual a este (o "Duplicar"): a cópia do quadro, e a anotação nova apontando para ela. */
   async duplicate(noteId: string): Promise<Review | null> {
+    this.making++;
+    try {
+      return await this.duplicateNow(noteId);
+    } finally {
+      this.making--;
+    }
+  }
+
+  private async duplicateNow(noteId: string): Promise<Review | null> {
     const note = this.store.get(noteId);
     if (!note || !isCanvas(note)) return null;
     await this.boards.ready;
@@ -289,6 +327,84 @@ export class CanvasLink {
       const gone = this.store.deletedAt(noteId);
       // a anotação apagada depois da última mexida no quadro leva ele junto
       if (gone && gone >= board.em) await this.dropBoard(board.id);
+      // o quadro que nunca teve anotação (ou foi mexido depois de ela sair) vira canvas
+      else if (this.mayConvert()) await this.convert(board);
+    }
+    // as pessoas chamadas só para o quadro passam para a anotação (uma regra de acesso só, PLANO-CANVAS.md 6)
+    for (const id of this.sync.withPeople()) {
+      if (!this.moving.has(id) && this.store.get(canvasNoteId(id)) && this.boards.get(id)) void this.movePeople(id);
+    }
+  }
+
+  /**
+   * Converter agora: sem a conta, sempre; com ela, só depois de o mural da nuvem e a lista das compartilhadas
+   * descerem nesta página (o canvas feito em outro aparelho, o de um grupo compartilhado, já chegou). Nem no meio
+   * de um criar ou duplicar daqui.
+   */
+  private mayConvert(): boolean {
+    if (this.making) return false;
+    if (!this.cloud.active()) return true;
+    return (this.cloud.lastSyncAt() ?? 0) >= this.startedAt && (this.shared.listedAt() ?? 0) >= this.startedAt;
+  }
+
+  /**
+   * O quadro sem anotação vira canvas (rodada 5): o nome, o grupo e o público dele, o dia e a hora dele (`em`), a
+   * cor cinza. O público entra como "visível" (como estava: à mostra na visita, sem ir para o Feed de ninguém). O id
+   * é o do quadro: dois aparelhos que convertem o mesmo quadro chegam à mesma anotação.
+   */
+  private async convert(board: FreeBoard): Promise<void> {
+    const at = board.em;
+    const group = board.grupo === CANVAS_NO_GROUP ? '' : cleanCategory(board.grupo);
+    const note = sanitizeReview(
+      {
+        id: canvasNoteId(board.id),
+        kind: 'anotacoes',
+        game: { name: board.nome || CANVAS_DEFAULT_TITLE, coverUrl: null, source: 'manual' },
+        text: '',
+        completedAt: at.slice(0, 10),
+        stock: 'cinza',
+        ...(group ? { category: group } : {}),
+        ...audienceFields(board.publico ? 'visivel' : 'privada', null, at),
+        createdAt: at,
+        updatedAt: at,
+      },
+      BUILD,
+    );
+    if (!note || this.store.get(note.id)) return;
+    this.store.add(note);
+    this.seen.add(board.id);
+  }
+
+  /**
+   * Leva as pessoas chamadas só para o quadro (o Compartilhar dele, de antes do canvas) para a anotação, com os
+   * mesmos papéis, e as tira do quadro: quem vê a anotação vê o quadro, e uma regra só decide (PLANO-CANVAS.md, 6).
+   * Só no seu canvas solto (a de um grupo vai com o grupo). Uma falha tenta de novo depois de um minuto.
+   */
+  private async movePeople(boardId: string): Promise<void> {
+    this.moving.add(boardId);
+    const noteId = canvasNoteId(boardId);
+    try {
+      const res = await this.account.request<{ membros?: { codigo?: unknown; papel?: unknown }[] }>(`/v1/eu/quadros/${boardId}/membros`);
+      const people = (res?.membros ?? []).flatMap((m) =>
+        typeof m.codigo === 'string' && normalizeCode(m.codigo) && isMemberRole(m.papel) ? [{ codigo: normalizeCode(m.codigo)!, papel: m.papel as MemberRole }] : [],
+      );
+      const entry = this.shared.get(noteId);
+      if (entry && (entry.papel !== 'dono' || entry.grupo)) return;
+      const note = this.store.get(noteId);
+      if (!note || !people.length) return;
+      if (!entry) await this.shared.share(note, people);
+      else {
+        const there = new Set(entry.membros.map((m) => m.codigo));
+        for (const p of people) if (!there.has(p.codigo)) await this.shared.setRole(noteId, p.codigo, p.papel);
+      }
+      // na anotação: o quadro deixa de chamar por fora (a nuvem passa a dar o quadro pela anotação)
+      for (const p of people) await this.account.request(`/v1/eu/quadros/${boardId}/membros/${encodeURIComponent(p.codigo)}`, { method: 'DELETE' });
+    } catch {
+      // (sem rede, a nuvem recusou: tenta de novo daqui a um minuto, na próxima passada)
+      setTimeout(() => {
+        this.moving.delete(boardId);
+        void this.reconcile();
+      }, PEOPLE_RETRY_MS);
     }
   }
 

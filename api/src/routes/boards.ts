@@ -222,8 +222,10 @@ export function boardRoutes(app: Hono, deps: Deps): void {
     const s = await sessionOf(deps, c);
     const user = await deps.db.first<{ quadros_versao: number }>('SELECT quadros_versao FROM usuarios WHERE id = ?', [s.userId]);
     c.header('Quadros-Versao', String(user?.quadros_versao ?? 0));
-    const rows = await deps.db.all<Row & { grupo_id: string | null }>(
-      'SELECT id, rev, bytes, atualizado_em, apagado_em, grupo_id FROM quadros WHERE usuario_id = ? ORDER BY atualizado_em DESC',
+    // (as pessoas chamadas só para o quadro: o site as leva para a anotação do canvas, PLANO-CANVAS.md rodada 5)
+    const rows = await deps.db.all<Row & { grupo_id: string | null; pessoas: number }>(
+      'SELECT id, rev, bytes, atualizado_em, apagado_em, grupo_id, (SELECT COUNT(*) FROM quadro_membros m WHERE m.quadro_id = quadros.id) AS pessoas ' +
+        'FROM quadros WHERE usuario_id = ? ORDER BY atualizado_em DESC',
       [s.userId],
     );
     // os de outras pessoas em que você está (pelo quadro ou pelo grupo dele), sem as lápides
@@ -243,7 +245,15 @@ export function boardRoutes(app: Hono, deps: Deps): void {
     }
     return c.json({
       quadros: [
-        ...rows.map((r) => ({ id: r.id, rev: r.rev, bytes: r.bytes, atualizadoEm: r.atualizado_em, ...(r.grupo_id ? { grupo: r.grupo_id } : {}), ...(r.apagado_em ? { apagado: r.apagado_em } : {}) })),
+        ...rows.map((r) => ({
+          id: r.id,
+          rev: r.rev,
+          bytes: r.bytes,
+          atualizadoEm: r.atualizado_em,
+          ...(r.grupo_id ? { grupo: r.grupo_id } : {}),
+          ...(r.apagado_em ? { apagado: r.apagado_em } : {}),
+          ...(r.pessoas ? { pessoas: r.pessoas } : {}),
+        })),
         ...shared,
       ],
     });

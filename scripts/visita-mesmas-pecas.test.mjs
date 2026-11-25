@@ -50,12 +50,6 @@ const PECAS = [
     o: 'o Quadro livre na tela (PLANO-QUADRO-LIVRE.md): a câmera, as peças e as setas',
   },
   {
-    peca: 'src/app/ui/free-board/board-card.ts',
-    usa: 'app-free-board-card',
-    marcas: [/<a\b[^>]*class="folha"[^>]*data-quadro/],
-    o: 'a folha kraft de um quadro do Quadro livre, com a miniatura',
-  },
-  {
     peca: 'src/app/ui/free-board/board-top.ts',
     usa: 'app-free-board-top',
     marcas: [/<h2 [^>]*class="nome-quadro"/, /class="tela-btn"/],
@@ -108,8 +102,8 @@ const PECAS = [
 /** Os moldes da visita e as peças que precisam aparecer neles. */
 const VISITA = [
   { molde: 'src/app/ui/visit-study.html', pecas: ['app-study-card-wall', 'app-study-piles', 'app-study-group-tabs', 'app-section-head'] },
-  { molde: 'src/app/pages/colleague-wall-page.html', pecas: ['app-wall-board', 'app-wall-toolbar', 'app-review-reader', 'app-visit-study', 'app-visit-boards'] },
-  { molde: 'src/app/ui/visit-boards.ts', pecas: ['app-study-group-tabs', 'app-free-board-card', 'app-free-board', 'app-free-board-top'] },
+  { molde: 'src/app/pages/colleague-wall-page.html', pecas: ['app-wall-board', 'app-wall-toolbar', 'app-review-reader', 'app-visit-study', 'app-visit-canvas'] },
+  { molde: 'src/app/ui/visit-canvas.ts', pecas: ['app-free-board', 'app-free-board-top'] },
   { molde: 'src/app/ui/visit-kanban.ts', pecas: ['app-study-group-tabs', 'app-kanban-column-head', 'app-kanban-note'] },
   // a ficha da parede (a mesma do dono, na visita, pelo pool do mural) desenha o canvas pela peça
   { molde: 'src/app/ui/review-card.ts', pecas: ['app-canvas-card'] },
@@ -133,10 +127,9 @@ const SO_LEEM = [
   'src/app/ui/free-board/free-board-piece.ts',
   'src/app/ui/free-board/scene.ts',
   'src/app/ui/free-board/thumbs.ts',
-  'src/app/ui/free-board/board-card.ts',
   'src/app/ui/free-board/board-top.ts',
   'src/app/ui/free-board/board-sketch.ts',
-  'src/app/ui/visit-boards.ts',
+  'src/app/ui/visit-canvas.ts',
   'src/app/core/visit-boards.ts',
   'src/app/ui/visit-kanban.ts',
   'src/app/ui/kanban-column-head.ts',

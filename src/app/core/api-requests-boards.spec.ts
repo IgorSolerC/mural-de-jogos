@@ -67,7 +67,7 @@ describe('Quadro livre: os pedidos da API das AIs', () => {
     }
     expect(addToBoard(b, { pecas: [{ nota: 'nao-existe' }] }, ctx, AT)).toEqual({ erro: jasmine.stringContaining('nao-existe') } as never);
     expect(addToBoard(b, { setas: [{ de: 'a', para: 'zz' }] }, ctx, AT)).toEqual({ erro: jasmine.stringContaining('zz') } as never);
-    expect(boardWords('quadro-livre.acrescentar', { pecas: [{ bilhete: 'x' }], setas: [{ de: 'a', para: 'b' }] }, 'Mansão', false)).toBe('Acrescentar 1 peça e 1 seta no quadro “Mansão”');
+    expect(boardWords('quadro-livre.acrescentar', { pecas: [{ bilhete: 'x' }], setas: [{ de: 'a', para: 'b' }] }, 'Mansão', false)).toBe('Acrescentar 1 peça e 1 seta no canvas “Mansão”');
   });
 
   describe('na loja', () => {

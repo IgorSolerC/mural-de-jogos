@@ -2,7 +2,7 @@
 @use '../ui/etiqueta-topo' as topo;
 
 /* os Detalhes e o Compartilhar no topo do canvas aberto (pages/board-screen.ts): a etiqueta do topo, com o azul (o
-   Compartilhar como era o do Quadro livre, pages/free-boards-page.scss) */
+   Compartilhar como era o do Quadro livre de antes) */
 .etiqueta-topo.detalhes,
 .etiqueta-topo.compartilhar {
   @include topo.etiqueta-topo;

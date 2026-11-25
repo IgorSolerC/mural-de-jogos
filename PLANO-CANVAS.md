@@ -352,5 +352,17 @@ Marcar o Andamento (seção 9).
   folha da anotação); quem só lê abre sem o Editar, sem renomear e sem os Detalhes; o elo leva a anotação
   compartilhada ao quadro seu e, apagada para todos, leva o quadro (`sharedMine`). A trava pela build continua só no
   mural privado: nada de campo novo nas compartilhadas nesta rodada (o canvas resiste pelo id).
-- [ ] Rodada 5: a conversão e o fim da aba
+- [x] Rodada 5: a conversão e o fim da aba (25/nov, BUILD 1053): o elo converte o quadro sem anotação (o nome, o
+  grupo, o dia `em`, o público como "visível", para não ir ao Feed; cor cinza), **só depois de o mural da nuvem e a
+  lista das compartilhadas descerem nesta página** (`CloudSync.lastSyncAt`, `SharedStore.listedAt`): num aparelho
+  novo, a anotação de outro aparelho ainda vem chegando, e a conversão a faria por cima (perdendo tags, pasta, capa).
+  Nem no meio de um criar ou duplicar daqui (`making`). As pessoas chamadas só para o quadro (`quadro_membros`) passam
+  para a anotação com os mesmos papéis e saem do quadro: a lista `/v1/eu/quadros` diz `pessoas` nos quadros seus
+  (`FreeBoardSync.withPeople`). Saíram a aba (`shared/topo-do-murall.ts`), `pages/free-boards-page.*`,
+  `ui/free-board/board-card.ts`, `ui/board-share.ts`, o apagar do quadro de `RemoveAsking`, e a fileira Quadro livre
+  da visita (`ui/visit-boards.ts` virou `ui/visit-canvas.ts`, o canvas aberto por cima do mural dela em
+  `/comparar/mural/canvas/:id`). Os endereços antigos (`/anotacoes/quadro-livre/...` e o da visita) levam ao canvas
+  do quadro ou ao mural. API e MCP: as ferramentas falam "canvas" (os nomes `*_quadro` ficam); `criar_quadro` cria o
+  quadro e o elo o converte. Quem recebeu um quadro solto de outra pessoa só o vê de novo quando o aparelho do dono
+  abrir o site novo (a conversão leva as pessoas para a anotação).
 - [ ] Rodada 6: fechamento

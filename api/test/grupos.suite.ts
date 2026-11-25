@@ -442,6 +442,8 @@ export function gruposSuite(label: string, getDb: () => Db) {
       await t.putBoard(t.ana.token, Q, 0);
       expect((await t.res(t.json('PUT', `/v1/eu/quadros/${Q}/membros/${t.bia.codigo}`, { papel: 'editor' }, t.ana.token))).body.membros.map((m: any) => m.nome)).toEqual(['Bia']);
       expect(await t.boards(t.bia.token)).toEqual([[Q, 'editor']]);
+      // na lista do dono, quantas pessoas o quadro chamou (o site as leva para a anotação do canvas, PLANO-CANVAS.md rodada 5)
+      expect((await t.res(t.json('GET', '/v1/eu/quadros', undefined, t.ana.token))).body.quadros.find((q: any) => q.id === Q).pessoas).toBe(1);
       expect((await t.putBoard(t.bia.token, Q, 1)).status).toBe(200);
       expect((await t.res(t.json('PUT', `/v1/eu/quadros/${Q}/membros/${t.cris.codigo}`, { papel: 'leitor' }, t.bia.token))).body.erro).toBe('so-gestor');
       expect((await t.res(t.json('DELETE', `/v1/eu/quadros/${Q}/membros/eu`, undefined, t.bia.token))).status).toBe(200);

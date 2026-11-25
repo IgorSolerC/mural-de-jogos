@@ -133,7 +133,7 @@ describe('as três partes do site', () => {
     it('o Calendário mora em Outros, e os dois endereços de antes levam para lá com o dia e o lembrete', async () => {
       expect(CALENDAR_PATH).toBe('/extras/calendario');
       expect(muralFree(CALENDAR_PATH)).toBe(true);
-      expect(NOTE_SECTIONS.map((s) => s.label)).toEqual(['Mural', 'Kanban', 'Flashcards', 'Quadro livre']);
+      expect(NOTE_SECTIONS.map((s) => s.label)).toEqual(['Mural', 'Kanban', 'Flashcards']);
       for (const antes of ['/anotacoes/calendario', '/utilidades/calendario']) {
         await router.navigateByUrl(antes + '?vista=dia&dia=2026-11-02&lembrete=rk2x9abc');
         expect(router.url).withContext(antes).toBe('/extras/calendario?vista=dia&dia=2026-11-02&lembrete=rk2x9abc');
@@ -155,6 +155,15 @@ describe('as três partes do site', () => {
       mural.kind.set('anotacoes');
       await router.navigateByUrl('/comparar/mural');
       expect(mural.kind()).toBe('anotacoes');
+    });
+
+    it('o Quadro livre saiu (PLANO-CANVAS.md, rodada 5): o endereço de um quadro abre o canvas dele; o resto, o mural de anotações', async () => {
+      await router.navigateByUrl('/anotacoes/quadro-livre/jogos/visitaQuadroLivre00001');
+      expect(router.url).toBe('/anotacoes/canvas/cv-visitaQuadroLivre00001');
+      for (const antes of ['/anotacoes/quadro-livre', '/anotacoes/quadro-livre/jogos']) {
+        await router.navigateByUrl(antes);
+        expect(router.url).withContext(antes).toBe('/anotacoes');
+      }
     });
 
     it('o Perfil, Amigos e os Ajustes não mexem no mural', async () => {

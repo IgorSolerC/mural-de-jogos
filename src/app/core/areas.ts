@@ -36,7 +36,8 @@ export const REVIEW_SECTIONS: readonly AreaSection[] = [
  * `shared/topo-do-murall.ts`, a mesma do topo do cofre; uma seção nova entra lá (e nas rotas) e aparece
  * sozinha no índice.
  */
-export const NOTE_SECTIONS: readonly AreaSection[] = SECOES_DAS_ANOTACOES.map((s) => ({ slug: s.slug, label: s.label }));
+// (o canvas aberto, `/anotacoes/canvas/:id`, mora no mural: a aba acesa é a dele)
+export const NOTE_SECTIONS: readonly AreaSection[] = SECOES_DAS_ANOTACOES.map((s) => ({ slug: s.slug, label: s.label, ...(s.slug === '' ? { also: ['canvas'] } : {}) }));
 
 /** Os Gastos, em Outros desde 23/nov/2026 (antes nas Utilidades, `/utilidades/gastos`). */
 export const SPENDING_PATH = '/extras/gastos';
@@ -72,18 +73,19 @@ export function studyPath(group?: string | null, deck?: string | null): string {
   return '/anotacoes/estudos' + (group ? `/${group}` + (deck ? `/${deck}` : '') : '');
 }
 
-/**
- * O Quadro livre (PLANO-QUADRO-LIVRE.md): Tudo, um grupo (`group`, o id do grupo, o mesmo dos Flashcards:
- * `studyGroupId`) ou um quadro aberto em tela cheia.
- */
-export function freeBoardPath(group?: string | null, board?: string | null): string {
-  return '/anotacoes/quadro-livre' + (group ? `/${group}` + (board ? `/${board}` : '') : '');
-}
-
 /** Um canvas aberto em tela cheia (PLANO-CANVAS.md, 3.2), pelo id da anotação dele. */
 export function canvasPath(noteId: string): string {
   return `/anotacoes/canvas/${encodeURIComponent(noteId)}`;
 }
+
+/**
+ * O endereço do Quadro livre de antes (a aba saiu, PLANO-CANVAS.md rodada 5): o de um quadro abre o canvas dele (a
+ * anotação `cv-` e o id do quadro), e o da lista, o mural de anotações. Um link guardado não quebra.
+ */
+export const fromFreeBoard: RedirectFunction = (route) => {
+  const board = route.params['quadro'];
+  return typeof board === 'string' && board ? canvasPath(`cv-${board}`) : '/anotacoes';
+};
 
 /**
  * Os Estudos de quem se visita (PLANO-BARALHOS-PUBLICOS.md): os baralhos públicos da pessoa aberta no mural
@@ -98,9 +100,12 @@ export function visitKanbanPath(group?: string | null): string {
   return '/comparar/mural/kanban' + (group ? `/${group}` : '');
 }
 
-/** O Quadro livre de quem se visita (PLANO-QUADRO-LIVRE.md, 4.8): os quadros públicos da pessoa, por grupo. */
-export function visitBoardPath(group?: string | null, board?: string | null): string {
-  return '/comparar/mural/quadro-livre' + (group ? `/${group}` + (board ? `/${board}` : '') : '');
+/**
+ * Um canvas público de quem se visita (PLANO-CANVAS.md, rodada 5), pelo id da anotação: o quadro dela em tela cheia,
+ * como o seu abre o seu (o Quadro livre da visita, `/comparar/mural/quadro-livre/...`, saiu com a aba).
+ */
+export function visitCanvasPath(noteId: string): string {
+  return `/comparar/mural/canvas/${encodeURIComponent(noteId)}`;
 }
 
 /**

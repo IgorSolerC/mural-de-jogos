@@ -57,6 +57,7 @@ export async function applyBoardRequest(store: FreeBoardStore, req: { op: string
       const group = groups.find((g) => dobra(g) === dobra(d.grupo));
       if (ctx.closes?.(group ?? d.grupo)) return failed(CLOSED);
       if (groups.length && !group) return failed(`Não há o grupo "${d.grupo}" nas Anotações. Os grupos: ${groups.join(', ')}.`);
+      // o quadro sem anotação vira canvas pelo elo (core/canvas-link.ts, a conversão): aparece no mural de anotações
       const made = await store.create(d.nome, group ?? d.grupo, req.alvo);
       return { estado: 'aplicado', resultado: { quadro: quadroLivreV1(made) }, antes: null };
     }
@@ -168,7 +169,7 @@ export function boardWords(op: string, dados: unknown, title: string, past: bool
   if (!ehOpQuadro(op)) return null;
   const v = (now: string, then: string) => (past ? then : now);
   const t = `“${title}”`;
-  if (op === 'quadro-livre.criar') return `${v('Criar', 'criou')} o quadro livre ${t}`;
+  if (op === 'quadro-livre.criar') return `${v('Criar', 'criou')} o canvas ${t}`;
   const d = (dados ?? {}) as AcrescentarNoQuadroV1;
   const parts = [
     d.pecas?.length ? `${d.pecas.length} ${d.pecas.length === 1 ? 'peça' : 'peças'}` : '',
@@ -176,7 +177,7 @@ export function boardWords(op: string, dados: unknown, title: string, past: bool
     d.moldura ? 'uma moldura' : '',
   ].filter(Boolean);
   const what = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} e ${parts.at(-1)}` : (parts[0] ?? 'peças');
-  return `${v('Acrescentar', 'acrescentou')} ${what} no quadro ${t}`;
+  return `${v('Acrescentar', 'acrescentou')} ${what} no canvas ${t}`;
 }
 
 /** O nome do quadro que a pessoa reconhece. */

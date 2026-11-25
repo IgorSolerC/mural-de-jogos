@@ -1,11 +1,9 @@
 import { Component, provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, RouterOutlet, provideRouter } from '@angular/router';
-import { visitBoardPath } from '../core/areas';
 import { FreeBoard, sanitizeFreeBoard } from '../core/free-board';
-import { studyGroupId } from '../core/study';
 import { VisitBoards } from '../core/visit-boards';
-import { VisitBoardsView } from './visit-boards';
+import { VisitCanvasView } from './visit-canvas';
 
 const BOARD = sanitizeFreeBoard({
   v: 1,
@@ -21,21 +19,21 @@ const BOARD = sanitizeFreeBoard({
   e: [],
 })!;
 
-/** A rota da visita com o grupo e o quadro, como a página do colega dá. */
+/** O canvas aberto na visita, como a página do colega dá (o quadro do canvas e o título da anotação). */
 @Component({
   selector: 'app-host',
-  imports: [VisitBoardsView],
-  template: '<app-visit-boards name="Ana" [groupId]="group()" [boardId]="board()" />',
+  imports: [VisitCanvasView],
+  template: '<app-visit-canvas name="Ana" [boardId]="board()" [title]="title()" />',
 })
 class Host {
-  readonly group = signal<string | null>(null);
-  readonly board = signal<string | null>(null);
+  readonly board = signal('visitaQuadroLivre00001');
+  readonly title = signal<string | null>('Mapa da mansão');
 }
 
 @Component({ selector: 'app-raiz', imports: [RouterOutlet], template: '<router-outlet />' })
 class Raiz {}
 
-describe('a visita no Quadro livre (as mesmas peças do dono)', () => {
+describe('o canvas aberto na visita (as mesmas peças do dono, PLANO-CANVAS.md rodada 5)', () => {
   const settle = async () => {
     for (let k = 0; k < 5; k++) {
       await new Promise((r) => setTimeout(r, 0));
@@ -53,29 +51,15 @@ describe('a visita no Quadro livre (as mesmas peças do dono)', () => {
     });
   });
 
-  it('a lista: as abas dos grupos e as mesmas folhas kraft do dono, com o caminho da visita', async () => {
-    const f = TestBed.createComponent(Host);
-    document.body.appendChild(f.nativeElement);
-    await settle();
-    const el = f.nativeElement as HTMLElement;
-    expect(el.querySelector('app-study-group-tabs')).not.toBeNull();
-    const card = el.querySelector('app-free-board-card a')!;
-    expect(card.getAttribute('href')).toContain(visitBoardPath(studyGroupId('Jogos'), BOARD.id));
-    expect(card.querySelector('.nome')!.textContent!.trim()).toBe('Mansão');
-    f.nativeElement.remove();
-  });
-
   it('o quadro aberto é a mesma peça do dono, só para ver: sem o editar, e o E não liga nada', async () => {
     const f = TestBed.createComponent(Host);
-    f.componentInstance.group.set(studyGroupId('Jogos'));
-    f.componentInstance.board.set(BOARD.id);
     f.nativeElement.style.cssText = 'display:block;width:900px;height:600px';
     document.body.appendChild(f.nativeElement);
     await settle();
     const el = f.nativeElement as HTMLElement;
     const view = el.querySelector('app-free-board')!;
     expect(view).not.toBeNull();
-    expect(el.querySelector('.nome-quadro')!.textContent!.trim()).toBe('Mansão');
+    expect(el.querySelector('.nome-quadro')!.textContent!.trim()).toBe('Mapa da mansão');
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     await settle();
     expect(view.querySelector('[data-peca="a"]')).not.toBeNull();
@@ -83,11 +67,23 @@ describe('a visita no Quadro livre (as mesmas peças do dono)', () => {
     await settle();
     expect(el.querySelector('app-free-board-tools')).toBeNull();
     expect(el.querySelector('.editar, .pronto')).toBeNull();
-    // o Esc volta para a lista do grupo
+    // o Esc volta para o mural dela
     const router = TestBed.inject(Router);
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
     await settle();
-    expect(router.url).toBe(visitBoardPath(studyGroupId('Jogos')));
+    expect(router.url).toBe('/comparar/mural');
+    f.nativeElement.remove();
+  });
+
+  it('o canvas que não é público (ou não veio): o aviso, e o caminho de volta para o mural', async () => {
+    const f = TestBed.createComponent(Host);
+    f.componentInstance.board.set('outroQuadroQualquer001');
+    document.body.appendChild(f.nativeElement);
+    await settle();
+    const el = f.nativeElement as HTMLElement;
+    expect(el.querySelector('app-free-board')).toBeNull();
+    expect(el.querySelector('.aviso')!.textContent).toContain('não é público');
+    expect(el.querySelector('.aviso a')!.getAttribute('href')).toBe('/comparar/mural');
     f.nativeElement.remove();
   });
 });

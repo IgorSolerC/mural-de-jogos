@@ -49,12 +49,14 @@ export interface SecaoDasAnotacoes {
   readonly label: string;
 }
 
-/** Mural, Kanban, Estudos e o Quadro livre, nesta ordem (o Calendário mudou para Outros). */
+/**
+ * Mural, Kanban e Estudos, nesta ordem (o Calendário mudou para Outros; o Quadro livre virou o canvas, que mora no
+ * mural, PLANO-CANVAS.md).
+ */
 export const SECOES_DAS_ANOTACOES: readonly SecaoDasAnotacoes[] = [
   { slug: '', label: 'Mural' },
   { slug: 'kanban', label: 'Kanban' },
   { slug: 'estudos', label: 'Flashcards' },
-  { slug: 'quadro-livre', label: 'Quadro livre' },
 ];
 
 /** Um desenho de traço (o formato dos ícones Lucide): a lista de elementos do SVG, 24×24. */

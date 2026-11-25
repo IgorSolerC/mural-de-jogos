@@ -218,6 +218,11 @@ export class SharedStore implements SharedSink {
   /** As anotações compartilhadas da conta de agora (id → anotação). */
   readonly entries = signal<ReadonlyMap<string, SharedEntry>>(new Map());
   /**
+   * Quando a lista das compartilhadas desceu inteira pela última vez nesta página (null: ainda não). O canvas só
+   * converte um quadro sem anotação depois disso (core/canvas-link.ts): a anotação dele pode ser uma compartilhada.
+   */
+  readonly listedAt = signal<number | null>(null);
+  /**
    * O lugar de cada uma no mural de quem está aqui, com quando mudou (ver `Place`), também das que
    * ainda não chegaram neste aparelho: elas já chegam no lugar escolhido em outro.
    */
@@ -739,6 +744,7 @@ export class SharedStore implements SharedSink {
       const page = await this.account.request<{ notas?: unknown[] }>(`/v1/eu/notas/detalhes?ids=${ids.map(encodeURIComponent).join(',')}`);
       for (const raw of Array.isArray(page?.notas) ? page.notas : []) this.integrateDetail(raw);
     }
+    this.listedAt.set(Date.now());
     // chegou uma anotação de outra pessoa: o aviso "compartilhou com você" já está no correio, sem esperar a conferida dele
     const arrived = [...this.entries().values()].some((e) => !before.has(e.id) && e.papel !== 'dono');
     if (arrived && this.auto) {

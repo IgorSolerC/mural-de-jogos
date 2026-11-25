@@ -1,6 +1,6 @@
 import { Routes, UrlMatchResult, UrlSegment } from '@angular/router';
 import { onlyAdmin } from './core/admin';
-import { CALENDAR_PATH, DICTIONARY_PATH, PIXEL_ARTS_PATH, POMODORO_PATH, SPENDING_PATH, enterExtras, enterNotes, enterReviews, movedTo, toCalendar, toLastWall, toReviews } from './core/areas';
+import { CALENDAR_PATH, DICTIONARY_PATH, PIXEL_ARTS_PATH, POMODORO_PATH, SPENDING_PATH, enterExtras, enterNotes, enterReviews, fromFreeBoard, movedTo, toCalendar, toLastWall, toReviews } from './core/areas';
 
 const wall = () => import('./pages/wall-page').then((m) => m.WallPage);
 const kanban = () => import('./pages/kanban-page').then((m) => m.KanbanPage);
@@ -17,6 +17,9 @@ export function visitMatcher(segments: UrlSegment[]): UrlMatchResult | null {
   const [a, b, secao, grupo, baralho, ...rest] = segments;
   if (a?.path !== 'comparar' || b?.path !== 'mural' || rest.length) return null;
   if (!secao) return { consumed: segments, posParams: {} };
+  // o canvas público dela (PLANO-CANVAS.md, rodada 5), pelo id da anotação
+  if (secao.path === 'canvas') return grupo && !baralho ? { consumed: segments, posParams: { secao, canvas: grupo } } : null;
+  // o Quadro livre da visita de antes (saiu com a aba): a página leva ao canvas do quadro, ou ao mural
   if (secao.path === 'quadro-livre') return { consumed: segments, posParams: { secao, ...(grupo ? { grupo } : {}), ...(baralho ? { quadro: baralho } : {}) } };
   // o Kanban dos grupos públicos (PLANO-COMPARTILHAR.md, 4.6): um grupo por vez
   if (secao.path === 'kanban' && !baralho) return { consumed: segments, posParams: { secao, ...(grupo ? { grupo } : {}) } };
@@ -25,8 +28,8 @@ export function visitMatcher(segments: UrlSegment[]): UrlMatchResult | null {
 }
 
 /**
- * O Quadro livre: `/anotacoes/quadro-livre[/:grupo[/:quadro]]` (PLANO-QUADRO-LIVRE.md, 4.1). Uma rota com três
- * endereços, como a visita: abrir e fechar um quadro não refaz a página (a lista fica onde estava).
+ * O Quadro livre de antes: `/anotacoes/quadro-livre[/:grupo[/:quadro]]`. A aba saiu (PLANO-CANVAS.md, rodada 5):
+ * o endereço de um quadro leva ao canvas dele, e o resto ao mural de anotações (`fromFreeBoard`).
  */
 export function freeBoardMatcher(segments: UrlSegment[]): UrlMatchResult | null {
   const [a, b, grupo, quadro, ...rest] = segments;
@@ -53,7 +56,7 @@ export const routes: Routes = [
   // o Calendário morava aqui até 02/nov/2026: o endereço de antes vai para o novo com a query (dia, lembrete)
   // o canvas aberto (PLANO-CANVAS.md, 3.2): o id da anotação
   { path: 'anotacoes/canvas/:id', title: 'Canvas', canActivate: [enterNotes], loadComponent: () => import('./pages/canvas-page').then((m) => m.CanvasPage) },
-  { matcher: freeBoardMatcher, title: 'Quadro livre', canActivate: [enterNotes], loadComponent: () => import('./pages/free-boards-page').then((m) => m.FreeBoardsPage) },
+  { matcher: freeBoardMatcher, redirectTo: fromFreeBoard },
   { path: 'anotacoes/calendario', redirectTo: toCalendar },
   { path: 'analises', pathMatch: 'full', redirectTo: toReviews() },
   {
