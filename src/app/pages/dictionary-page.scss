@@ -50,12 +50,6 @@ app-facet-filters.cartela {
 .secao {
   scroll-margin-top: 16px;
 }
-
-/* cada seção só é desenhada perto da tela: 933 verbetes não pesam na rolagem */
-.secao {
-  content-visibility: auto;
-  contain-intrinsic-block-size: auto 1400px;
-}
 .secao app-section-head {
   margin-bottom: 14px;
 }
@@ -69,22 +63,33 @@ app-facet-filters.cartela {
   columns: 2;
   column-gap: 32px;
 }
-/* na parede escura, a sombra cheia das fichas (na folhinha da seleção, o cartão fica com a leve, sobre o papel) */
-.verbete {
+/* o lugar de cada verbete na coluna: o cartão, ou a vaga enquanto ele está longe da tela */
+.lugar-verbete {
   margin: 0 0 32px;
-  box-shadow:
-    0 0 0 1px rgb(0 0 0 / 0.35),
-    var(--shadow-card);
+  break-inside: avoid;
 
   &:last-child {
     margin-bottom: 0;
   }
 }
+/* na parede escura, a sombra cheia das fichas (na folhinha da seleção, o cartão fica com a leve, sobre o papel) */
+.verbete {
+  margin: 0;
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.35),
+    var(--shadow-card);
+}
+/* o verbete ainda não montado: o tracejado de giz das cartas dos Estudos, bem ralo, da altura do cartão */
+.vaga-verbete {
+  box-sizing: border-box;
+  border: 2px dashed rgb(241 241 236 / 0.16);
+  border-radius: 5px;
+}
 @media (max-width: 900px) {
   .folha {
     columns: 1;
   }
-  .verbete {
+  .lugar-verbete {
     margin-bottom: 20px;
   }
 }

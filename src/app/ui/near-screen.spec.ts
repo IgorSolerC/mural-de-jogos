@@ -185,6 +185,18 @@ describe('o que está perto da tela (NearScreen)', () => {
 });
 
 describe('as alturas medidas (HeightMemo)', () => {
+  it('a medida de uma ficha só vale na largura em que foi medida (o NearPool.measured, das vagas com palpite próprio)', () => {
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+    const pool = TestBed.inject(NearPool);
+    const memo = (pool as unknown as { memo: HeightMemo }).memo;
+    memo.remember('verbete', 'JP0001', 512);
+    expect(pool.measured('verbete', 'JP0001')).toBe(512);
+    expect(pool.measured('verbete', 'JP0002')).withContext('sem medida própria, nem a média').toBeNull();
+    // a janela mudou de largura: nada de uma altura zero, e sim nenhuma medida
+    spyOnProperty(window, 'innerWidth').and.returnValue(innerWidth + 123);
+    expect(pool.measured('verbete', 'JP0001')).toBeNull();
+  });
+
   it('a média é por tipo, e medir de novo a mesma ficha não a conta duas vezes', () => {
     const memo = new HeightMemo<'a' | 'b'>();
     memo.remember('a', '1', 100);

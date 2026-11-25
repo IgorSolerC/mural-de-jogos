@@ -656,6 +656,20 @@ function bareReading(w: Word): string {
   if (r === undefined) bare.set(w, (r = w.reading.replace(/〜/g, '')));
   return r;
 }
+/** O português sem a pontuação do começo (aspas, hífen), como a ordem Português e as seções dela leem. */
+const bareMeanings = new WeakMap<Word, string>();
+function bareMeaning(w: Word): string {
+  let m = bareMeanings.get(w);
+  if (m === undefined) bareMeanings.set(w, (m = w.meaning.replace(/^[^\p{L}\p{N}]+/u, '')));
+  return m;
+}
+/** A letra da seção na ordem Português: a primeira letra ou algarismo, sem acento e em maiúscula (# sem nenhum). */
+const meaningLetters = new WeakMap<Word, string>();
+function meaningLetter(w: Word): string {
+  let l = meaningLetters.get(w);
+  if (l === undefined) meaningLetters.set(w, (l = fold(bareMeaning(w)).replace(/^[^a-z0-9]+/, '').charAt(0).toUpperCase() || '#'));
+  return l;
+}
 const jlptAt = (w: Word) => (JLPT_ORDER.includes(w.jlpt) ? JLPT_ORDER.indexOf(w.jlpt) : JLPT_ORDER.length);
 
 /** Comparar no sentido natural de cada ordem; o desempate é sempre a prioridade. */
@@ -674,7 +688,13 @@ function compare(key: SortKey, score: (w: Word) => number): (a: Word, b: Word) =
     case 'reading':
       return (a, b) => jaColl.compare(bareReading(a), bareReading(b));
     case 'meaning':
-      return (a, b) => nameColl.compare(a.meaning, b.meaning);
+      // primeiro a letra da seção (as que começam com aspas ou hífen, "que bom!" e -ico, entram na letra delas; o "10
+      // mil" fica no 1, e não depois do 9), depois o nome inteiro
+      return (a, b) => {
+        const la = meaningLetter(a);
+        const lb = meaningLetter(b);
+        return la < lb ? -1 : la > lb ? 1 : nameColl.compare(bareMeaning(a), bareMeaning(b)) || nameColl.compare(a.meaning, b.meaning);
+      };
     case 'wordClass':
       return (a, b) => nameColl.compare(a.wordClass, b.wordClass);
     case 'theme':
@@ -720,7 +740,7 @@ export function sectionOf(w: Word, key: SortKey): SectionKey | null {
       return row ? { id: `kana-${row.index}`, label: `${row.kana}行`, detail: row.romaji } : { id: 'kana-outros', label: 'Outros' };
     }
     case 'meaning': {
-      const letter = fold(w.meaning).replace(/^[^a-z0-9]+/, '').charAt(0).toUpperCase() || '#';
+      const letter = meaningLetter(w);
       return { id: `letra-${letter}`, label: letter };
     }
     case 'wordClass':

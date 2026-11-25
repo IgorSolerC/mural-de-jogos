@@ -37,10 +37,11 @@ import { Pin } from '../ui/pin';
 import { SearchHighlight } from '../ui/search-highlight';
 import { SearchStrip } from '../ui/search-strip';
 import { SectionHead } from '../ui/section-head';
+import { NearPool, NearScreen } from '../ui/near-screen';
 import { ThumbIndex, ThumbRow } from '../ui/thumb-index';
 import { Toasts } from '../ui/toast';
 import { WordBoard } from '../ui/word-board';
-import { WordEntry, daySaid } from '../ui/word-entry';
+import { WordEntry, daySaid, entryHeightGuess } from '../ui/word-entry';
 import { markFavorite, markLearned } from '../ui/word-marking';
 import { WordSeals } from '../ui/word-seals';
 import { WordVoice } from '../ui/word-voice';
@@ -83,7 +84,7 @@ const COLUMNS: readonly Column[] = [
  */
 @Component({
   selector: 'app-dictionary-page',
-  imports: [FacetFilters, FilterTags, IconModule, Pin, SearchHighlight, SearchStrip, SectionHead, ThumbIndex, WordBoard, WordEntry, WordSeals, WordVoice],
+  imports: [FacetFilters, FilterTags, IconModule, NearScreen, Pin, SearchHighlight, SearchStrip, SectionHead, ThumbIndex, WordBoard, WordEntry, WordSeals, WordVoice],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './dictionary-page.html',
   styleUrl: './dictionary-page.scss',
@@ -93,6 +94,7 @@ export class DictionaryPage {
   private readonly route = inject(ActivatedRoute);
   private readonly marks = inject(DictionaryMarks);
   private readonly toasts = inject(Toasts);
+  private readonly nearPool = inject(NearPool);
   protected readonly StarIcon = ICON.estrela;
 
   protected readonly FilterIcon = ICON.filtrar;
@@ -153,6 +155,19 @@ export class DictionaryPage {
     afterRenderEffect(() => {
       if (this.thumbRows()) untracked(() => this.spyThumb());
     });
+    // outra busca, outro filtro, outra ordem, outra vista: o que está na tela é montado antes da pintura, sem passar
+    // por uma tela de vagas (ver ui/near-screen.ts); e a largura das colunas, para o palpite das vagas
+    afterRenderEffect(() => {
+      this.shown();
+      this.state().view;
+      untracked(() => {
+        this.nearPool.settle();
+        this.measureColumn();
+      });
+    });
+    const onResize = () => this.measureColumn();
+    window.addEventListener('resize', onResize, { passive: true });
+    inject(DestroyRef).onDestroy(() => window.removeEventListener('resize', onResize));
     effect(() => {
       const fromUrl = this.state().query;
       // o endereço mudou por fora (não foi a página que mandou): a busca segue
@@ -204,6 +219,21 @@ export class DictionaryPage {
   });
   protected readonly sections = computed(() => sectionsOf(this.shown(), this.sort()));
 
+  /* ===== Só o que está perto da tela (PLANO-DICIONARIO.md, 8.2) ===== */
+
+  /** A largura de uma coluna dos Verbetes (0 antes de medir): o palpite da altura das vagas depende dela. */
+  private readonly column = signal(0);
+
+  private measureColumn(): void {
+    const li = this.host.nativeElement.querySelector<HTMLElement>('.lugar-verbete');
+    if (li?.offsetWidth) this.column.set(li.offsetWidth);
+  }
+
+  /** A altura da vaga de um verbete: a medida dele, se já foi montado; senão, o palpite pelo que ele tem dentro. */
+  protected entryHeight(w: Word): number {
+    return this.nearPool.measured('verbete', w.id) ?? entryHeightGuess(w, this.column() || 600);
+  }
+
   /* ===== O índice de dedo (PLANO-DICIONARIO.md, 5.3) ===== */
 
   /**
@@ -242,13 +272,15 @@ export class DictionaryPage {
     if (!el) return;
     this.thumbJumped = { id, at: performance.now() };
     el.scrollIntoView({ block: 'start' });
+    // o que ficou na tela é montado já, e não aos poucos
+    this.nearPool.settle();
     // como um link na página: o leitor de tela continua da linha, e não do índice
     const heading = el.querySelector<HTMLElement>('[id^="dic-secao-"]');
     if (heading) {
       heading.tabIndex = -1;
       heading.focus({ preventScroll: true });
     }
-    // as seções longe da tela têm a altura estimada (content-visibility): desenhadas as de perto, o pulo é refeito
+    // as vagas longe da tela têm a altura estimada: montados os verbetes de perto, o pulo é refeito
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
         el.scrollIntoView({ block: 'start' });

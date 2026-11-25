@@ -27,17 +27,18 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-25-dicionario-leve',
+    id: '2026-11-25-verbetes-perto-da-tela',
     version: '1.55.1',
     kind: 'ajustes',
     date: '2026-11-25',
     title: 'Sem os enfeites que fingiam segurar, o card do texto mais forte, o canvas de um grupo para todos e o Dicionário Japonês mais leve',
     melhorias: [
       'Sem os enfeites que só fingiam segurar as coisas: as fichas das anotações e das análises não têm mais a tachinha, em todos os murais e vistas (o título sobe para o alto da ficha, rente à capa), e nas vistas Comum e Fichas inteiras elas ficam só metade tão tortas, mais sutis; as folhas do Pra depois ficam sem a fita-crepe; no perfil, a polaroid, a folha "Sobre mim", as fichinhas dos números e as polaroids pequenas das seções ficam sem os pedaços de fita-crepe.',
-      'O Dicionário Japonês ficou mais leve: buscar, filtrar e ordenar fazem menos contas a cada toque.',
+      'O Dicionário Japonês ficou bem mais leve: nos Verbetes, só as palavras perto da tela são montadas (as outras guardam o lugar com um tracejado), e buscar, filtrar e ordenar respondem rápido mesmo em aparelhos mais fracos.',
       'Na anotação aberta, o card do texto tem a faixa do título e a borda numa cor um pouco mais forte, a caminho da cor das cartolinas, para se destacar da folha clara. Nas cartolinas do mural ele continua como era.',
     ],
     correcoes: [
+      'Na ordem Português do Dicionário Japonês, cada letra aparece uma vez só: os sentidos que começam com aspas ou hífen ("que bom!", -ico) iam para antes do A, e o "10 mil" abria o 1 de novo depois do 9.',
       'Arrastar no mural voltou a guardar nas pastas e a juntar com outra anotação quando o que vai na mão é um canvas (sozinho ou entre as marcadas), ou uma anotação pega por um widget ou por um trecho escondido: a pasta não se acendia e soltar não fazia nada.',
       'O canvas de um grupo compartilhado chega a todos do grupo: o quadro dele não subia para a nuvem, e quem não era o dono via o canvas sem a miniatura e, ao abrir, o aviso de que ele não estava ali. Os que ficaram para trás sobem sozinhos na próxima vez que o Murall do dono estiver aberto.',
     ],

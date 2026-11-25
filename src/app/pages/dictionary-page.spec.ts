@@ -5,6 +5,8 @@ import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { DICT_MARKS_KEY } from '../core/dictionary/marks-store';
 import { dictionaryWords } from '../core/dictionary/words';
+import { NEAR_TUNING, NearPool, setEverythingNear } from '../ui/near-screen';
+import { entryHeightGuess } from '../ui/word-entry';
 import { DictionaryPage } from './dictionary-page';
 
 /** O Dicionário Japonês (PLANO-DICIONARIO.md): a busca, os filtros, a ordem e a vista, todos no endereço. */
@@ -13,6 +15,9 @@ describe('o Dicionário Japonês', () => {
   let host: HTMLElement;
 
   const account = signal<{ codigo: string; nome: string } | null>(null);
+  // a janela dos testes é baixa: tudo montado, menos no bloco que testa justamente isso (o último)
+  beforeEach(() => setEverythingNear(true));
+  afterEach(() => setEverythingNear(false));
   async function open(url: string): Promise<void> {
     TestBed.configureTestingModule({
       providers: [provideZonelessChangeDetection(), provideRouter([{ path: 'extras/dicionario', component: DictionaryPage }]), { provide: CloudAccount, useValue: { account } }],
@@ -286,5 +291,63 @@ describe('o Dicionário Japonês', () => {
     expect(query()['dir']).toBe('desc');
     expect(imp.closest('th')!.getAttribute('aria-sort')).toBe('ascending');
     expect(host.querySelector('tbody .c-imp')!.textContent!.trim()).toBe('0');
+  });
+  describe('só o que está perto da tela (PLANO-DICIONARIO.md, 8.2)', () => {
+    const tuning = { ...NEAR_TUNING };
+    beforeEach(() => {
+      setEverythingNear(false);
+      Object.assign(NEAR_TUNING, { leaveAfter: 60, sweepEvery: 20 });
+    });
+    afterEach(() => {
+      Object.assign(NEAR_TUNING, tuning);
+      scrollTo(0, 0);
+    });
+    const until = async (ok: () => boolean, what: string) => {
+      for (let i = 0; i < 200 && !ok(); i++) {
+        await new Promise((r) => setTimeout(r, 10));
+        await settle();
+      }
+      expect(ok()).withContext(what).toBeTrue();
+    };
+    const places = () => [...host.querySelectorAll<HTMLElement>('.lugar-verbete')];
+
+    it('cada palavra tem o seu lugar na lista; as de longe são vagas da altura do cartão, com a palavra para o leitor de tela', async () => {
+      await open('/extras/dicionario');
+      expect(places().length).toBe(1449);
+      // as do alto já montadas na primeira pintura, as do pé ainda vagas
+      expect(places()[0].querySelector('.verbete')).withContext('a primeira, na tela').not.toBeNull();
+      const last = places().at(-1)!;
+      const vaga = last.querySelector<HTMLElement>('.vaga-verbete')!;
+      expect(vaga).withContext('a última, longe').not.toBeNull();
+      expect(host.querySelectorAll('.verbete').length).toBeLessThan(200);
+      const w = dictionaryWords().words.find((x) => x.order === 1449)!;
+      expect(vaga.textContent!.replace(/\s+/g, ' ').trim()).toBe(`${w.text}, ${w.meaning}`);
+      expect(vaga.querySelector('[lang="ja"]')!.textContent).toBe(w.text);
+      expect(parseFloat(vaga.style.height)).toBeGreaterThan(300);
+      expect(getComputedStyle(vaga).borderStyle).toBe('dashed');
+    });
+
+    it('rolando até a vaga, ela vira o cartão; ao montar, a altura fica perto do palpite, e a vaga que volta tem a medida', async () => {
+      await open('/extras/dicionario');
+      const place = places()[600];
+      place.scrollIntoView({ block: 'center' });
+      await until(() => !!place.querySelector('.verbete'), 'montado perto da tela');
+      const id = dictionaryWords().words.find((x) => x.order === 601)!;
+      const real = parseFloat(getComputedStyle(place).height);
+      const guess = entryHeightGuess(id, place.offsetWidth);
+      expect(Math.abs(real - guess) / real).withContext(`medido ${real}, palpite ${guess}`).toBeLessThan(0.2);
+      scrollTo(0, 0);
+      await until(() => !place.querySelector('.verbete'), 'longe de novo, volta a ser vaga');
+      expect(TestBed.inject(NearPool).measured('verbete', id.id)).toBeCloseTo(real, 0);
+      expect(parseFloat(getComputedStyle(place).height)).toBeCloseTo(real, 0);
+    });
+
+    it('trocar a ordem monta na hora o que ficou na tela, sem uma tela de vagas', async () => {
+      await open('/extras/dicionario');
+      await harness.navigateByUrl('/extras/dicionario?ordem=portugues', DictionaryPage);
+      await harness.fixture.whenStable();
+      const first = places()[0];
+      expect(first.querySelector('.verbete')).withContext('a primeira da ordem nova').not.toBeNull();
+    });
   });
 });

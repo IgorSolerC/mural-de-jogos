@@ -173,9 +173,19 @@
           @if (s.key; as k) {
             <app-section-head [label]="k.label" [count]="s.words.length" [detail]="k.detail ?? ''" [level]="2" [headingId]="'dic-secao-' + i" />
           }
+          <!-- só o que está perto da tela é montado (ui/near-screen.ts): longe, o lugar fica na lista e nas colunas,
+               com a vaga tracejada de giz da altura do cartão, e a palavra e o sentido para o leitor de tela -->
           <ol class="folha" role="list">
             @for (w of s.words; track w.id) {
-              <li class="verbete" app-word-entry [word]="w" [drawable]="true" (draw)="openBoard($event)"></li>
+              <li class="lugar-verbete" appPerto #perto="perto" appPertoMede="verbete" [appPertoId]="w.id">
+                @if (perto.near()) {
+                  <div class="verbete" app-word-entry [word]="w" [drawable]="true" (draw)="openBoard($event)"></div>
+                } @else {
+                  <div class="vaga-verbete" data-vaga [style.height.px]="entryHeight(w)">
+                    <span class="sr-only"><span lang="ja">{{ w.text }}</span>, {{ w.meaning }}</span>
+                  </div>
+                }
+              </li>
             }
           </ol>
         </section>

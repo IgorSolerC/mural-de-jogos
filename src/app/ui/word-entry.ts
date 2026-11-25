@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, input, output, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { MONTHS_SHORT } from '../core/dates';
-import { Word, classFamily, exampleParts, facetLabel, relatedWords } from '../core/dictionary/dictionary';
+import { Word, classFamily, exampleParts, examplePlain, facetLabel, relatedWords } from '../core/dictionary/dictionary';
 import { hasKanji } from '../core/dictionary/kana';
 import { DictionaryMarks } from '../core/dictionary/marks-store';
 import { dictionaryWords } from '../core/dictionary/words';
@@ -12,6 +12,34 @@ import { WordVoice } from './word-voice';
 /** "em 14 de nov": o dia, dito curto. */
 export function daySaid(day: string | null): string {
   return day ? `em ${Number(day.slice(8, 10))} de ${MONTHS_SHORT[Number(day.slice(5, 7)) - 1]}` : '';
+}
+
+/** A classe, o grupo do verbo, o tema e a escrita, a linha miúda do verbete. */
+function grammarOf(w: Word): string {
+  return [w.wordClass, w.verbGroup && facetLabel('verbGroup', w.verbGroup), w.theme, facetLabel('script', w.script)].filter(Boolean).join(' · ');
+}
+
+/**
+ * A altura do verbete pelo que ele tem dentro, numa coluna de `width` px: a vaga do verbete ainda não montado (a
+ * página do dicionário só monta o que está perto da tela). Cada pedaço de texto conta pelas linhas que ocupa
+ * (letras ÷ largura); os pesos saíram das medidas dos 1.449 verbetes em três larguras (de 358 a 656 px, erro médio
+ * de 12 a 25 px num cartão de uns 550). Montado uma vez, vale a medida dele (ui/near-screen.ts).
+ */
+export function entryHeightGuess(w: Word, width: number): number {
+  const per = (chars: number) => chars / Math.max(width, 200);
+  const examples = w.examples.reduce((n, e) => n + examplePlain(e.ja).length + 0.55 * e.pt.length, 0);
+  const related = w.composition.replace(/[(),]/g, '').length;
+  const registers = w.registers.length === 1 && w.registers[0] === 'neutro' ? 0 : w.registers.join(', ').length + 3;
+  return Math.round(
+    167 +
+      61 * w.examples.length +
+      117 * per(examples) +
+      222 * per(w.notes.length) +
+      (w.origin ? 22 + 202 * per(w.origin.length + 9) : 0) +
+      155 * per(w.meaning.length) +
+      (related ? 74 + 373 * per(related) : 0) +
+      162 * per(grammarOf(w).length + registers),
+  );
 }
 
 /**
@@ -174,10 +202,7 @@ export class WordEntry {
   protected readonly ruby = computed(() => hasKanji(this.word().text) && this.word().text !== this.word().reading);
   protected readonly jlpt = computed(() => facetLabel('jlpt', this.word().jlpt));
   /** A classe, o grupo do verbo, o tema e a escrita, numa linha miúda. */
-  protected readonly grammar = computed(() => {
-    const w = this.word();
-    return [w.wordClass, w.verbGroup && facetLabel('verbGroup', w.verbGroup), w.theme, facetLabel('script', w.script)].filter(Boolean).join(' · ');
-  });
+  protected readonly grammar = computed(() => grammarOf(this.word()));
   /** O registro só quando diz alguma coisa (neutro sozinho é o normal). */
   protected readonly registers = computed(() => {
     const r = this.word().registers;

@@ -94,6 +94,16 @@ export class NearPool implements OnDestroy {
     return this.memo.height(kind, id, guess);
   }
 
+  /**
+   * A medida desta ficha, se ela já foi montada (sem a média do tipo): para quem tem um palpite melhor que a média,
+   * como o verbete do dicionário, que sabe a própria altura pelo que tem dentro.
+   */
+  measured(kind: string, id: string): number | null {
+    // (a altura primeiro: ela esquece as medidas de outra largura de janela, e só então se sabe se esta foi medida)
+    const height = this.memo.height(kind, id, 0);
+    return this.memo.knows(kind, id) ? height : null;
+  }
+
   /** Só para os testes: esquece as alturas medidas. */
   forgetHeights(): void {
     this.memo.forget();

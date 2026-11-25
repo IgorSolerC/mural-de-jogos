@@ -380,6 +380,12 @@ sem seta nenhuma",Do inglês hero.
         for (const o of g.options) expect(o.n).withContext(`${JSON.stringify(f)} ${g.key} ${o.value}`).toBe(want.get(o.value) ?? 0);
       }
     }
+    // cada seção aparece uma vez só, em toda ordem (o Português punha as que começam com aspas antes do A)
+    for (const s of SORTS)
+      for (const dir of ['asc', 'desc'] as const) {
+        const ids = sectionsOf(sortWords(all, s.value, dir), s.value).map((x) => x.key?.id);
+        expect(new Set(ids).size).withContext(`${s.value} ${dir}: ${ids.join(' ')}`).toBe(ids.length);
+      }
     // ordenar todas e tirar as que não aparecem dá a mesma ordem que ordenar só as que aparecem, nos dois sentidos
     const some = (w: (typeof all)[number]) => w.order % 5 !== 0 && w.jlpt !== 'N1';
     for (const s of SORTS.filter((o) => o.value !== 'relevance'))
