@@ -31,7 +31,8 @@ export type Paper =
 /**
  * Os papéis que o tempo (ou o computador) já marcou: a cor desbotada no sol, a imagem que parou de
  * carregar. Eram estragos até a build 301; viraram papel porque não rasgam nada, só mudam a cara da
- * cartolina. O desenho é o mesmo de quando eram estragos, com o mesmo sorteio (`Review.paperSeed`).
+ * cartolina. Desde a build 1071 são iguais em toda ficha, sem sorteio (o `Review.paperSeed` das fichas
+ * de antes fica guardado, sem mudar o desenho).
  */
 export type AgedPaper = 'desbotado' | 'carregando';
 export const AGED_PAPERS: readonly AgedPaper[] = ['desbotado', 'carregando'];

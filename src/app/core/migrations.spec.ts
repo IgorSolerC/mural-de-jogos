@@ -40,15 +40,13 @@ describe('conversões das fichas de builds antigas', () => {
     expect([all.paper, all.pattern, all.scribble, all.stains, all.decors]).toEqual(['desbotado', 'gatinhos', 'novelo', [{ stain: 'cafe', seed: 5 }], [{ decor: 'selo' }]]);
   });
 
-  it('a ficha convertida desenha igualzinho: o papel usa o mesmo sorteio do estrago de antes', () => {
+  it('a ficha convertida desenha o papel, igual ao de toda ficha (desde a build 1071, sem sorteio)', () => {
     const r = sanitizeReview({ ...base, damage: 'desbotado', damageSeed: 98765 })!;
-    const art = paperArt({ id: r.id, W: 420, H: 300, paper: r.paper, paperSeed: r.paperSeed, uid: 't' });
-    // o desenho do estrago de antes sorteava pela chave `id:estrago:desbotado:sorteio`; o do papel também
+    const art = paperArt({ id: r.id, W: 420, H: 300, paper: r.paper, uid: 't' });
     expect(art.clareia).toContain("id='t-sol'");
-    expect(art).toEqual(paperArt({ id: r.id, W: 420, H: 300, paper: 'desbotado', paperSeed: 98765, uid: 't' }));
-    expect(art).not.toEqual(paperArt({ id: r.id, W: 420, H: 300, paper: 'desbotado', paperSeed: 98764, uid: 't' }));
+    expect(art).toEqual(paperArt({ id: 'outra', W: 420, H: 300, paper: 'desbotado', uid: 't' }));
     // o papel de sempre (e os de textura) não desenham nada aqui
-    expect(paperArt({ id: r.id, W: 420, H: 300, paper: 'perolado', paperSeed: 5, uid: 't' }).clareia).toBe('');
+    expect(paperArt({ id: r.id, W: 420, H: 300, paper: 'perolado', uid: 't' }).clareia).toBe('');
   });
 
   it('o sorteio do papel só vai com o papel marcado pelo tempo', () => {

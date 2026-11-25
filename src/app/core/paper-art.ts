@@ -311,9 +311,8 @@ export interface ArtInput {
   damage?: Damage;
   /** O sorteio do estrago (Review.damageSeed); sem ele, o estrago sai só do id. */
   seed?: number;
-  /** O papel marcado pelo tempo (desbotado, carregando), com o sorteio dele (Review.paperSeed). */
+  /** O papel marcado pelo tempo (desbotado, carregando): igual em toda ficha, sem sorteio. */
   paper?: Paper;
-  paperSeed?: number;
   /** As manchas por cima do papel (café, água, sangue, mofo, pegadas, traças), na ordem do desenho. */
   stains?: readonly StainMark[];
   /** O sorteio do rabisco (Review.scribbleSeed); sem ele, o rabisco sai só do id. */
@@ -337,9 +336,8 @@ export function paperArt(input: ArtInput): PaperArt {
   // nas amostras miúdas o traço afina junto, senão o novelo vira borrão
   const sw = input.plain ? Math.max(0.3, k * 1.3) : Math.max(0.6, k);
   if (input.scribble) out.fundo += scribbleArt(input.scribble, W, H, k, sw, rng(hash(`${input.id}:rabisco:${input.scribble}${input.scribbleSeed ? `:${input.scribbleSeed}` : ''}`)), input.plain, SCRIBBLE_INK[input.scribbleInk ?? DEFAULT_SCRIBBLE_INK] ?? 1);
-  // o desbotado e o carregando sorteiam do mesmo jeito que quando eram estragos (e vinham aqui, depois
-  // do rabisco): a ficha de antes sai igualzinha
-  if (isAgedPaper(input.paper)) damageArt(input.paper, W, H, k, sw, rng(hash(`${input.id}:estrago:${input.paper}${input.paperSeed ? `:${input.paperSeed}` : ''}`)), input.uid, out);
+  // o desbotado e o carregando são iguais em toda ficha (desde a build 1071): nem o id nem o sorteio mudam o desenho
+  if (isAgedPaper(input.paper)) damageArt(input.paper, W, H, k, sw, rng(0), input.uid, out);
   if (input.damage) damageArt(input.damage, W, H, k, sw, rng(hash(`${input.id}:estrago:${input.damage}${input.seed ? `:${input.seed}` : ''}`)), input.uid, out);
   // as manchas sorteiam do mesmo jeito que quando eram um estrago: a ficha de antes sai igualzinha.
   // Uma por cima da outra, na ordem; da segunda em diante os ids do SVG ganham outro nome
@@ -2244,7 +2242,7 @@ function damageArt(d: Damage | Stain | AgedPaper, W: number, H: number, k: numbe
       crumbling(W, H, k, sw, r, out);
       break;
     case 'desbotado':
-      sunFaded(W, H, k, r, uid, out);
+      sunFaded(W, H, uid, out);
       break;
     case 'laser':
       laserCuts(W, H, k, r, out);
@@ -2256,7 +2254,7 @@ function damageArt(d: Damage | Stain | AgedPaper, W: number, H: number, k: numbe
       acid(W, H, k, r, out);
       break;
     case 'carregando':
-      halfLoaded(W, H, k, r, out);
+      halfLoaded(W, H, k, uid, out);
       break;
     case 'fuligem':
       soot(W, H, k, r, uid, out);
@@ -4953,78 +4951,19 @@ function crumbling(W: number, H: number, k: number, sw: number, r: () => number,
 // ----- Desbotada no sol -----
 
 /**
- * Ficou anos no sol: a cor desbotou (mais do lado de onde a luz vinha), menos onde alguma coisa
- * cobria a ficha (outra ficha num canto, a moldura embaixo, um bilhete colado), que ficou com a cor
- * de antes, de beirada nítida. Uma linha fina de poeira marca onde a coisa encostava. Metade das
- * vezes nada cobria a ficha e ela desbotou inteira (o sorteio vem depois de todos os outros, para a
- * que tem a marca continuar igual).
+ * Ficou anos no sol, pendurada: a cor desbotou de cima para baixo, viva no alto e lavada no pé. Igual em
+ * toda ficha (desde a build 1071, a pedido do dono: antes cada clique sorteava de onde vinha a luz e,
+ * metade das vezes, o pedaço que algo cobria, com a cor de antes): só o degradê, sem sorteio. A cor
+ * lavada é a da própria cartolina, mais clara e sem croma; na escura ela clareia menos (a conta usa a
+ * luz da cartolina), para a tinta clara do que está escrito continuar lida no pé.
  */
-function sunFaded(W: number, H: number, k: number, r: () => number, uid: string, out: PaperArt): void {
-  const q = Math.max(0.45, k);
-  const kind = Math.floor(r() * 3);
-  const covers: Pt[][] = [];
-  const rot = (pts: Pt[], c: Pt, deg: number): Pt[] => {
-    const a = (deg * Math.PI) / 180,
-      ca = Math.cos(a),
-      sa = Math.sin(a);
-    return pts.map(([x, y]) => [c[0] + (x - c[0]) * ca - (y - c[1]) * sa, c[1] + (x - c[0]) * sa + (y - c[1]) * ca]);
-  };
-  if (kind === 0) {
-    // outra ficha por cima de um canto (nunca o da foto)
-    const c = Math.floor(r() * 3);
-    const w = W * (0.32 + r() * 0.2),
-      h = H * (0.36 + r() * 0.22);
-    const x0 = c === 2 ? -W * 0.2 : W - w,
-      y0 = c === 0 ? -H * 0.3 : H - h;
-    const rect: Pt[] = [
-      [x0, y0],
-      [x0 + w + W * 0.2, y0],
-      [x0 + w + W * 0.2, y0 + h + H * 0.3],
-      [x0, y0 + h + H * 0.3],
-    ];
-    covers.push(rot(rect, [c === 2 ? w * 0.6 : W - w * 0.6, c === 0 ? h * 0.6 : H - h * 0.6], (r() - 0.5) * 12));
-  } else if (kind === 1) {
-    // a moldura (ou a prateleira) cobria o pé da ficha
-    const h = H * (0.13 + r() * 0.12);
-    const tilt = (r() - 0.5) * H * 0.05;
-    covers.push([
-      [-10, H - h + tilt],
-      [W + 10, H - h - tilt],
-      [W + 10, H + 10],
-      [-10, H + 10],
-    ]);
-  } else {
-    // um bilhete colado em cima, que alguém tirou depois
-    const w = W * (0.24 + r() * 0.12),
-      h = w * (0.8 + r() * 0.3);
-    const cx = W * (0.62 + r() * 0.2),
-      cy = H * (0.45 + r() * 0.25);
-    covers.push(
-      rot(
-        [
-          [cx - w / 2, cy - h / 2],
-          [cx + w / 2, cy - h / 2],
-          [cx + w / 2, cy + h / 2],
-          [cx - w / 2, cy + h / 2],
-        ],
-        [cx, cy],
-        (r() - 0.5) * 18,
-      ),
-    );
-  }
-  // o lado de onde o sol vinha desbota mais
-  const ang = r() * Math.PI * 2;
-  const gx1 = 0.5 - Math.cos(ang) * 0.5,
-    gy1 = 0.5 - Math.sin(ang) * 0.5;
-  const strong = 0.58 + r() * 0.12,
-    weak = 0.3 + r() * 0.1;
-  if (r() < 0.5) covers.length = 0;
-  const holes = covers.map((c) => `${poly(reversed(c))}Z`).join('');
+function sunFaded(W: number, H: number, uid: string, out: PaperArt): void {
+  const lavada = 'oklch(from var(--stock) calc(l + (0.95 - l) * (0.25 + 0.75 * l)) calc(c * 0.3) h)';
+  // a cor no atributo é a de reserva, para o navegador que não conhece a cor relativa (o style manda onde ela vale)
+  const stop = (at: number, op: number) => `<stop offset='${at}' stop-color='rgb(245 239 225)' style='stop-color:${lavada}' stop-opacity='${op}'/>`;
   out.clareia +=
-    `<defs><linearGradient id='${uid}-sol' x1='${gx1.toFixed(2)}' y1='${gy1.toFixed(2)}' x2='${(1 - gx1).toFixed(2)}' y2='${(1 - gy1).toFixed(2)}'><stop offset='0' stop-color='rgb(246 240 226)' stop-opacity='${strong.toFixed(2)}'/><stop offset='1' stop-color='rgb(242 236 222)' stop-opacity='${weak.toFixed(2)}'/></linearGradient></defs>` +
-    `<path d='M-6 -6H${f1(W + 6)}V${f1(H + 6)}H-6Z${holes}' fill='url(#${uid}-sol)'/>`;
-  if (covers.length)
-    out.fundo += `<g fill='none' stroke='rgb(90 80 66)' stroke-opacity='.16' stroke-width='${f1(1.2 * q)}' filter='url(#papel-borra)'>${covers.map((c) => `<path d='${poly(c)}Z'/>`).join('')}</g>`;
+    `<defs><linearGradient id='${uid}-sol' x1='0' y1='0' x2='0' y2='1'>${stop(0, 0.12)}${stop(0.5, 0.4)}${stop(1, 0.72)}</linearGradient></defs>` +
+    `<path d='M-6 -6H${f1(W + 6)}V${f1(H + 6)}H-6Z' fill='url(#${uid}-sol)'/>`;
 }
 
 // ----- Cortada a laser -----
@@ -5231,38 +5170,57 @@ function acid(W: number, H: number, k: number, r: () => number, out: PaperArt): 
 // ----- Carregou pela metade -----
 
 /**
- * A ficha é uma imagem que parou de carregar: de uma fileira para baixo só o cinza do arquivo
- * incompleto (a última fileira parou no meio, em blocos de 8), com os pixels da última linha escorridos
- * em listras logo abaixo e a grade dos blocos aparecendo de leve. Impresso no papel: por baixo do que
- * está escrito.
+ * Uma cartolina cinza comum que alguém começou a pintar e parou na metade: o alto na cor da cartolina,
+ * em pinceladas deitadas (umas faixas um tiquinho mais claras ou mais escuras, onde o pincel passou de
+ * novo), e o pé no cinza cru. A última pincelada acaba numa beirada irregular, com a tinta mais grossa
+ * onde o pincel parou e as cerdas secas riscando o cinza logo abaixo, cada vez mais falhadas. O cinza é
+ * o da luz da própria cartolina, até a da cartolina cinza (o cinza na clara, o escuro na escura), para a tinta do texto
+ * continuar lida nas duas metades. Igual em toda ficha, sem sorteio (desde a build 1071, a pedido do
+ * dono): é o desenho que pode aparecer enquanto o forno assa a ficha. Impresso no papel, por baixo do
+ * que está escrito.
  */
-function halfLoaded(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
-  const kk = Math.max(0.45, k);
-  const b = 8 * kk;
-  const rows = Math.ceil(H / b),
-    cols = Math.ceil(W / b);
-  const stopRow = Math.max(2, Math.floor(rows * (0.42 + r() * 0.24)));
-  const stopCol = Math.floor(cols * (0.15 + r() * 0.7));
-  const y0 = stopRow * b,
-    y1 = y0 + b;
-  const grey = `M-6 ${f1(y1)}H${f1(W + 6)}V${f1(H + 6)}H-6Z M${f1(stopCol * b)} ${f1(y0)}H${f1(W + 6)}V${f1(y1 + 0.5)}H${f1(stopCol * b)}Z`;
-  // os pixels da última linha escorridos: listras finas da cor do papel, umas mais claras, outras mais escuras
-  let streaks = '';
-  for (let x = 0; x < W; x += 2 * kk) {
-    if (r() < 0.45) continue;
-    const top = x >= stopCol * b ? y0 : y1;
-    const len = b * (0.4 + r() * r() * 4);
-    const mix = r() < 0.5 ? `color-mix(in oklab, var(--stock) ${Math.round(60 + r() * 30)}%, #000)` : `color-mix(in oklab, var(--stock) ${Math.round(55 + r() * 35)}%, #fff)`;
-    streaks += `<rect x='${f1(x)}' y='${f1(top)}' width='${f1(2 * kk)}' height='${f1(len)}' style='fill:${mix}' opacity='${(0.55 + r() * 0.4).toFixed(2)}'/>`;
+function halfLoaded(W: number, H: number, k: number, uid: string, out: PaperArt): void {
+  const q = Math.max(0.45, k);
+  const r = rng(hash('carregou-pela-metade'));
+  const cinza = 'oklch(from var(--stock) min(l + 0.04, 0.82) 0.012 75)';
+  // a beirada da última pincelada: ondula devagar, com um tremido miúdo das cerdas
+  const y0 = H * 0.5;
+  const n = Math.max(12, Math.round(W / (7 * q)));
+  const fase = r() * Math.PI * 2;
+  const edge: Pt[] = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    edge.push([t * W, y0 + (Math.sin(t * Math.PI * 2.2 + fase) * 4.5 + Math.sin(t * Math.PI * 7.4 + fase * 1.7) * 1.6 + (r() - 0.5) * 2.4) * q]);
   }
-  // a grade dos blocos, quase sumida
-  let grid = '';
-  for (let x = 0; x <= W; x += b * 2) grid += `M${f1(x)} ${f1(y1)}V${f1(H)}`;
-  for (let y = y1; y <= H; y += b * 2) grid += `M0 ${f1(y)}H${f1(W)}`;
+  const grey = `M-6 ${f1(H + 6)}L-6 ${f1(edge[0][1])}${cont(edge)}L${f1(W + 6)} ${f1(edge[n][1])}L${f1(W + 6)} ${f1(H + 6)}Z`;
+  // as pinceladas do alto: faixas deitadas da largura do pincel, bem de leve
+  let strokes = '';
+  for (let y = 4 * q; y < y0 - 6 * q; y += (9 + r() * 7) * q) {
+    const h = (5 + r() * 7) * q,
+      x = -6 + r() * W * 0.12,
+      w = W * (0.45 + r() * 0.6);
+    const tom = r() < 0.5 ? `color-mix(in oklab, var(--stock) 88%, #000)` : `color-mix(in oklab, var(--stock) 86%, #fff)`;
+    strokes += `<rect x='${f1(x)}' y='${f1(y)}' width='${f1(w)}' height='${f1(h)}' rx='${f1(h / 2)}' style='fill:${tom}' opacity='${(0.12 + r() * 0.14).toFixed(2)}'/>`;
+  }
+  // as cerdas secas logo abaixo da beirada: falhas deitadas no cinza, por onde aparece a cartolina
+  // pintada (com a fibra dela), finas e de ponta fina, mais compridas e cheias perto da beirada
+  let bristles = '';
+  for (let j = 0; j < 34; j++) {
+    const d = Math.pow(r(), 1.5),
+      x = r() * W * 0.9 - W * 0.05,
+      len = W * (0.12 + r() * 0.5) * (1 - d * 0.6),
+      i = Math.min(n, Math.max(0, Math.round((x / W) * n))),
+      y = edge[i][1] + (1 + d * 15) * q,
+      h = (0.7 + r() * 1.5) * q * (1 - d * 0.5);
+    bristles += `<path d='M${f1(x)} ${f1(y - h / 2)}H${f1(x + len * 0.82)}L${f1(x + len)} ${f1(y)}L${f1(x + len * 0.82)} ${f1(y + h / 2)}H${f1(x)}Z' fill-opacity='${(0.9 - d * 0.55).toFixed(2)}'/>`;
+  }
   out.clareia +=
-    `<path d='${grey}' fill='rgb(136 136 136)' fill-opacity='.94'/>` +
-    `<g>${streaks}</g>` +
-    `<path d='${grid}' fill='none' stroke='#000' stroke-opacity='.05' stroke-width='${f1(0.6 * kk)}'/>`;
+    `<defs><mask id='${uid}-cerdas' maskUnits='userSpaceOnUse' x='-10' y='-10' width='${f1(W + 20)}' height='${f1(H + 20)}'><rect x='-10' y='-10' width='${f1(W + 20)}' height='${f1(H + 20)}' fill='#fff'/><g fill='#000'>${bristles}</g></mask></defs>` +
+    // a cor no atributo é a de reserva (a cartolina cinza), para o navegador sem a cor relativa
+    `<path d='${grey}' fill='rgb(201 195 188)' style='fill:${cinza}' fill-opacity='.86' mask='url(#${uid}-cerdas)'/>` +
+    `<g>${strokes}</g>` +
+    // a tinta mais grossa onde o pincel parou
+    `<path d='${poly(edge)}' fill='none' style='stroke:color-mix(in oklab, var(--stock) 80%, #000)' stroke-opacity='.3' stroke-width='${f1(1.2 * q)}' stroke-linecap='round'/>`;
 }
 
 // ===================== Manchas da quarta leva =====================

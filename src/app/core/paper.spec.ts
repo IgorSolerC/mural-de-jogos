@@ -469,6 +469,37 @@ describe('papel da ficha', () => {
   describe('os desenhos', () => {
     const base = { id: 'r1', W: 420, H: 300, uid: 't' };
 
+    it('Desbotada no sol e Carregou pela metade são iguais em toda ficha, de qualquer id (build 1071)', () => {
+      for (const paper of ['desbotado', 'carregando'] as const) {
+        const one = paperArt({ ...base, paper });
+        expect(paperArt({ ...base, id: 'outra-ficha', paper })).withContext(paper).toEqual(one);
+        // só a cor do papel: nada é cortado nem fica por cima do que está escrito
+        expect([one.cut, one.fundo, one.frente, one.relevo]).withContext(paper).toEqual([[], '', '', '']);
+      }
+    });
+
+    it('a Desbotada no sol é só o degradê, viva em cima e lavada embaixo, sem o pedaço que algo cobria', () => {
+      const { clareia } = paperArt({ ...base, paper: 'desbotado' });
+      expect(clareia).toContain("x1='0' y1='0' x2='0' y2='1'");
+      const ops = [...clareia.matchAll(/stop-opacity='([\d.]+)'/g)].map((m) => +m[1]);
+      expect(ops.length).toBe(3);
+      expect(ops[0]).toBeLessThan(ops[1]);
+      expect(ops[1]).toBeLessThan(ops[2]);
+      // um caminho só, a ficha inteira, sem buraco no meio
+      expect(clareia.match(/<path /g)?.length).toBe(1);
+      expect(clareia.match(/Z/g)?.length).toBe(1);
+    });
+
+    it('a Carregou pela metade é a cartolina cinza da luz dela, pintada na cor da cartolina até a metade', () => {
+      const { clareia } = paperArt({ ...base, paper: 'carregando' });
+      expect(clareia).toContain('oklch(from var(--stock)');
+      expect(clareia).toContain("mask='url(#t-cerdas)'");
+      // a beirada da tinta fica perto da metade da ficha
+      const ys = [...clareia.matchAll(/<path d='M-6 ([\d.]+)L-6 ([\d.]+)/g)].map((m) => +m[2]);
+      expect(ys.length).toBe(1);
+      expect(Math.abs(ys[0] - 150)).toBeLessThan(15);
+    });
+
     it('é a mesma ficha a cada visita', () => {
       expect(paperArt({ ...base, damage: 'rasgado', scribble: 'novelo' })).toEqual(paperArt({ ...base, damage: 'rasgado', scribble: 'novelo' }));
     });

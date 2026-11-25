@@ -39,7 +39,7 @@ const DRAG_PX = 6;
   },
   template: `
     @if (view(); as c) {
-      <app-paper-art class="verso-papel-arte" [id]="c.look.artId" [paper]="c.look.paper" [paperSeed]="c.look.paperSeed" [glitter]="c.look.paper === 'glitter'" [dark]="c.look.dark" />
+      <app-paper-art class="verso-papel-arte" [id]="c.look.artId" [paper]="c.look.paper" [glitter]="c.look.paper === 'glitter'" [dark]="c.look.dark" />
       <div class="verso-conteudo">
         <!-- o título é o da anotação (a frente já mostrou o dela), uma vez só, com o subtítulo da frente ao lado -->
         <h3 class="verso-titulo" [class.frase]="c.phrase" lang="und">{{ c.title }}@if (c.subtitle) {<span> · {{ c.subtitle }}</span>}</h3>
@@ -91,7 +91,7 @@ export class StudyCardBack {
       title,
       phrase: isPhraseTitle(title),
       subtitle: card.front.subtitle,
-      look: { stock, dark, artId: artIdOf(note), paper: note.paper, paperSeed: note.paperSeed, vars: paperVars(note.paper, note.pattern, lookOf(note), note.patternSeed, dark, note.id) },
+      look: { stock, dark, artId: artIdOf(note), paper: note.paper, vars: paperVars(note.paper, note.pattern, lookOf(note), note.patternSeed, dark, note.id) },
       noteId: note.id,
       text: note.text,
     };

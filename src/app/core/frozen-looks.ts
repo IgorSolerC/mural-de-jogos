@@ -62,8 +62,8 @@ export const FROZEN_DAMAGES: readonly Damage[] = [
 ];
 /**
  * Desbotada no sol e Carregou pela metade eram estragos até a build 301 e viraram papel. As digitais
- * continuam com o nome de estrago (`damage:desbotado:…`), agora desenhadas como papel com o mesmo
- * sorteio: é a prova de que nenhuma ficha convertida mudou.
+ * continuam com o nome de estrago (`damage:desbotado:…`). Desde a build 1071 (a pedido do dono) os dois
+ * são iguais em toda ficha, sem sorteio: as digitais foram regravadas e são as mesmas em todo sorteio.
  */
 export const FROZEN_AGED_PAPERS: readonly AgedPaper[] = ['desbotado', 'carregando'];
 /** As manchas eram estragos até 2026-09-29: as digitais delas vieram de lá, iguais. */
@@ -128,7 +128,7 @@ export function frozenPrints(): Record<string, string> {
   for (const paper of FROZEN_AGED_PAPERS)
     for (const id of IDS)
       for (const s of SIZES)
-        for (const seed of SEEDS) out[`damage:${paper}:${id}:${s.W}x${s.H}:${seed ?? '-'}`] = artPrint({ id, W: s.W, H: s.H, plain: s.plain, paper, paperSeed: seed, uid: 'f' });
+        for (const seed of SEEDS) out[`damage:${paper}:${id}:${s.W}x${s.H}:${seed ?? '-'}`] = artPrint({ id, W: s.W, H: s.H, plain: s.plain, paper, uid: 'f' });
   for (const stain of FROZEN_STAINS)
     for (const id of IDS)
       for (const s of SIZES)

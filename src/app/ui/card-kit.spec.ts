@@ -123,18 +123,15 @@ describe('CardKit: várias manchas e decorações', () => {
     expect(el.textContent).not.toContain('Desbotada no sol');
   });
 
-  it('Desbotada no sol e Carregou pela metade estão no Papel, e cada clique sorteia de outro jeito', async () => {
+  it('Desbotada no sol e Carregou pela metade estão no Papel, fixos: escolher não sorteia, e limpa o sorteio de antes', async () => {
+    host.paperSeed.set(777);
     await open('papel');
     click('Desbotada no sol');
-    expect(host.paper()).toBe('desbotado');
-    const first = host.paperSeed();
-    expect(first).not.toBeNull();
+    expect([host.paper(), host.paperSeed()]).toEqual(['desbotado', null]);
     click('Desbotada no sol');
-    expect(host.paperSeed()).not.toBe(first);
+    expect(host.paperSeed()).toBeNull();
     click('Carregou pela metade');
-    expect(host.paper()).toBe('carregando');
-    click('Canson');
-    expect([host.paper(), host.paperSeed()]).toEqual(['canson', null]);
+    expect([host.paper(), host.paperSeed()]).toEqual(['carregando', null]);
   });
 
   it('com o botão solto fora da régua de assuntos, passar o mouse por cima não arrasta', async () => {

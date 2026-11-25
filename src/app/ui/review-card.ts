@@ -155,7 +155,7 @@ export const CARD_TEMPLATE = `
          ui/veil.ts); a marca tracejada da vaga fica na própria ficha, por baixo -->
     <div class="corpo">
     <!-- o papel da ficha: a cartolina, o rabisco e o estrago, por baixo da foto e dos adesivos -->
-    <app-paper-art [id]="artId()" [scribble]="review().scribble" [scribbleSeed]="review().scribbleSeed" [scribbleInk]="review().scribbleInk" [paper]="review().paper" [paperSeed]="review().paperSeed" [damage]="review().damage" [seed]="review().damageSeed" [stains]="review().stains" [decors]="review().decors" [glitter]="review().paper === 'glitter'" [dark]="dark()" [content]="review()" [look]="paperLook()" />
+    <app-paper-art [id]="artId()" [scribble]="review().scribble" [scribbleSeed]="review().scribbleSeed" [scribbleInk]="review().scribbleInk" [paper]="review().paper" [damage]="review().damage" [seed]="review().damageSeed" [stains]="review().stains" [decors]="review().decors" [glitter]="review().paper === 'glitter'" [dark]="dark()" [content]="review()" [look]="paperLook()" />
     @if (canvasMode()) {
       <!-- o canvas (PLANO-CANVAS.md, 2): o eucatex na moldura, no lugar da cartolina; a orelha, o carimbo, os
            botões e as reações ficam presos na moldura, e o botão que abre cobre tudo, como na cartolina -->

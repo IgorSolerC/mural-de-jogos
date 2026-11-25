@@ -34,7 +34,6 @@ import {
   Scribble,
   Stain,
   StainMark,
-  isAgedPaper,
   newSeed,
 } from '../core/paper';
 import { DAMAGE_ICON, DECOR_ICON, SCRIBBLE_ICON, STAIN_ICON, kitIcon } from '../core/kit-icons';
@@ -300,8 +299,8 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
               <label class="retalho" [class.on]="o.value === value()">
                 <input type="radio" [name]="uid + '-' + tab()" [checked]="o.value === value()" (click)="choose(o.value)" [attr.aria-label]="o.label" />
                 <span class="mini" [style]="miniVars(o)" [style.--stock]="'var(--stock-' + stock() + ')'" [attr.data-cor]="stock()">
-                  <!-- só a aba Papel chega aqui: o retalho mostra o papel (o marcado pelo tempo, com o sorteio do escolhido) -->
-                  <app-paper-art [id]="id()" [paper]="o.paper" [paperSeed]="o.value === value() ? paperSeed() : null" [dark]="isDark(stock())" [plain]="true" />
+                  <!-- só a aba Papel chega aqui: o retalho mostra o papel -->
+                  <app-paper-art [id]="id()" [paper]="o.paper" [dark]="isDark(stock())" [plain]="true" />
                   @if (o.value === null) {
                     <span class="nada">nenhum</span>
                   }
@@ -995,7 +994,10 @@ export class CardKit {
   readonly pinColor = input.required<string>();
   readonly stock = model.required<Stock>();
   readonly paper = model.required<Paper>();
-  /** O sorteio do papel marcado pelo tempo (desbotado, carregando): cada clique nele desbota de outro jeito. */
+  /**
+   * O sorteio do papel marcado pelo tempo: desde a build 1071 o desbotado e o carregando são iguais em
+   * toda ficha, e escolher um papel limpa o sorteio que ficou guardado das fichas de antes.
+   */
   readonly paperSeed = model.required<number | null>();
   readonly pattern = model.required<Pattern | null>();
   readonly scribble = model.required<Scribble | null>();
@@ -1216,8 +1218,7 @@ export class CardKit {
       case 'papel': {
         const paper = (v ?? 'cartolina') as Paper;
         this.paper.set(paper);
-        // o desbotado e o carregando sorteiam como o estrago: cada clique, mesmo no escolhido, de outro jeito
-        this.paperSeed.set(isAgedPaper(paper) ? newSeed(this.paperSeed()) : null);
+        this.paperSeed.set(null);
         break;
       }
       case 'estampa':

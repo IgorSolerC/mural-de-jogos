@@ -272,8 +272,9 @@ export interface Review {
   /** O papel da cartolina (canson, linho, glitter, desbotado…); sem o campo, a cartolina de sempre. */
   paper?: Paper;
   /**
-   * O sorteio do papel marcado pelo tempo (desbotado, carregando), como o do estrago: cada clique
-   * desbota de outro jeito. Nas fichas que tinham esses dois como estrago, é o sorteio de lá.
+   * O sorteio do papel marcado pelo tempo (desbotado, carregando), das fichas de antes da build 1071:
+   * guardado como veio, mas não muda mais o desenho (os dois são iguais em toda ficha, e o estojo não
+   * sorteia mais). Nas fichas que tinham esses dois como estrago, é o sorteio de lá.
    */
   paperSeed?: number;
   /** A estampa de papelaria impressa na cartolina (gatinhos, caveiras…); sem o campo, lisa. */

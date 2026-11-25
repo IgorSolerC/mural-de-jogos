@@ -336,10 +336,8 @@ export class PaperArtLayer {
   readonly damage = input<Damage | undefined>(undefined);
   /** O sorteio do estrago (Review.damageSeed). */
   readonly seed = input<number | null | undefined>(undefined);
-  /** O papel (Review.paper): só o marcado pelo tempo (desbotado, carregando) é desenhado aqui. */
+  /** O papel (Review.paper): só o marcado pelo tempo (desbotado, carregando) é desenhado aqui, igual em toda ficha. */
   readonly paper = input<Paper | undefined>(undefined);
-  /** O sorteio dele (Review.paperSeed). */
-  readonly paperSeed = input<number | null | undefined>(undefined);
   /** As manchas por cima do papel (Review.stains), com os sorteios, na ordem do desenho. */
   readonly stains = input<readonly StainMark[] | undefined>(undefined);
   /** As decorações por cima de tudo (Review.decors), com os sorteios, na ordem do desenho. */
@@ -427,7 +425,7 @@ export class PaperArtLayer {
     const holes = this.decorDrawing()?.cut ?? [];
     const stains = this.stains() ?? [];
     if (!s || (!this.scribble() && !this.aged() && !this.damage() && !stains.length && !holes.length)) return null;
-    const art = this.memo('papel', paperArt, { id: this.id(), W: s.W, H: s.H, scribble: this.scribble(), scribbleSeed: this.scribbleSeed() ?? undefined, scribbleInk: this.scribbleInk() ?? undefined, paper: this.aged(), paperSeed: this.paperSeed() ?? undefined, damage: this.damage(), seed: this.seed() ?? undefined, stains, uid: this.uid, plain: this.plain() });
+    const art = this.memo('papel', paperArt, { id: this.id(), W: s.W, H: s.H, scribble: this.scribble(), scribbleSeed: this.scribbleSeed() ?? undefined, scribbleInk: this.scribbleInk() ?? undefined, paper: this.aged(), damage: this.damage(), seed: this.seed() ?? undefined, stains, uid: this.uid, plain: this.plain() });
     return holes.length ? { ...art, cut: [...art.cut, ...holes] } : art;
   });
 
