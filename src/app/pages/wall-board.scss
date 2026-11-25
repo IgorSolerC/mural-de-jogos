@@ -116,7 +116,7 @@
   /* cada uma mais longe da de cima: mais para a direita, mais para baixo, mais torta e um tico mais na
      sombra, até a quarta (--k), como as fichas guardadas de qualquer jeito numa pilha */
   translate: calc(var(--k) * 5px) calc(var(--k) * 4px);
-  rotate: calc(var(--pilha-giro, 0) * 1deg + var(--k) * 0.9deg);
+  rotate: calc(var(--pilha-giro, 0) * var(--giro-vista, 1) * 1deg + var(--k) * 0.9deg);
   transform-origin: 50% 50%;
   filter: brightness(calc(1 - var(--k) * 0.04));
   transition:
@@ -132,7 +132,7 @@
 
   .folha {
     translate: calc(var(--k) * 9px) calc(var(--k) * 6px);
-    rotate: calc(var(--pilha-giro, 0) * 1deg + var(--k) * 1.8deg);
+    rotate: calc(var(--pilha-giro, 0) * var(--giro-vista, 1) * 1deg + var(--k) * 1.8deg);
   }
 }
 
@@ -140,6 +140,12 @@
    aparecer sem a de cima */
 .guardadas:has([data-veu]) .folha {
   opacity: 0;
+}
+
+/* na Comum e na Inteira a ficha gira só metade da inclinação sorteada (o --giro dela, em ui/review-card.ts): a vaga
+   e as folhas de trás da pilha acompanham */
+.wall:not(.compact, .capas, .geral, .lista) {
+  --giro-vista: 0.5;
 }
 
 /* o vão da orelha, o mesmo das fichas da seção do lado */
@@ -246,8 +252,8 @@
   margin-top: var(--drop-y);
   border: 2px dashed rgb(241 241 236 / 0.16);
   border-radius: var(--raio-cartolina);
-  rotate: calc(var(--tilt) * var(--inclina, 1) * 1deg);
-  transform-origin: 50% 12px;
+  rotate: calc(var(--tilt) * var(--inclina, 1) * var(--giro-vista, 1) * 1deg);
+  transform-origin: 50% 50%;
   pointer-events: none;
 }
 
@@ -358,7 +364,7 @@
 
   /* a vaga no celular: quase reta e mais perto da de cima, como a ficha */
   .vaga {
-    rotate: calc(var(--tilt) * var(--inclina, 1) * 0.5deg);
+    rotate: calc(var(--tilt) * var(--inclina, 1) * var(--giro-vista, 1) * 0.5deg);
     margin-top: calc(var(--drop-y) * 0.4);
   }
 

@@ -518,8 +518,10 @@ export const CARD_STYLES = `
          segunda é a mesma sombra para o papel recortado, em drop-shadow. */
       --sombra-alta: 0 2px 2px rgb(0 0 0 / 0.3), 0 14px 22px -7px rgb(0 0 0 / 0.5), 0 28px 46px -20px rgb(0 0 0 / 0.5);
       --sombra-papel-alta: drop-shadow(0 2px 2px rgb(0 0 0 / 0.3)) drop-shadow(0 11px 12px rgb(0 0 0 / 0.45)) drop-shadow(0 22px 24px rgb(0 0 0 / 0.32));
-      /* --inclina: na colagem das fichas inteiras, a ficha comprida endireita (ver keptTilt, em pages/wall-cards.ts) */
-      rotate: calc(var(--tilt) * var(--inclina, 1) * 1deg);
+      /* --inclina: na colagem das fichas inteiras, a ficha comprida endireita (ver keptTilt, em pages/wall-cards.ts).
+         --giro: quanto da inclinação sorteada a vista usa (metade na Comum e na Inteira, ver abaixo) */
+      --giro: 1;
+      rotate: calc(var(--tilt) * var(--inclina, 1) * var(--giro) * 1deg);
       /* nada segura a ficha num ponto (a tachinha saiu em 25/nov/2026, a pedido): ela gira em volta do meio */
       transform-origin: 50% 50%;
       /* (a lâmpada, --luz, acende devagar em quem a usa: a folha holográfica do Platinado e a
@@ -530,6 +532,13 @@ export const CARD_STYLES = `
         translate var(--t-physical) var(--ease-physical),
         box-shadow var(--t-ui) var(--ease-ui),
         filter var(--t-ui) var(--ease-ui);
+    }
+
+    /* Na Comum e na Inteira a ficha fica só metade tão torta quanto o sorteio dela (pedido do dono, 25/nov/2026:
+       "mais sutil"); a Simples, a Capa e nome e a Visão geral ficam como eram. A pilha das seções fechadas
+       acompanha, e a vaga da ficha também (--giro-vista, em pages/wall-board.scss). */
+    :host(:not(.compact):not(.capas)) {
+      --giro: 0.5;
     }
 
     /* O corpo é a ficha toda, no lugar dela: sem posição própria (as camadas do papel, a orelha e o
@@ -711,7 +720,7 @@ export const CARD_STYLES = `
        fichas que passam por baixo dele: só quando a rolagem para. */
     :host(:hover:not([data-quieta])),
     :host(:has(:focus-visible)) {
-      rotate: calc(var(--tilt) * var(--inclina, 1) * 0.35deg);
+      rotate: calc(var(--tilt) * var(--inclina, 1) * var(--giro) * 0.35deg);
       translate: 0 -3px;
       box-shadow: var(--sombra-alta);
       --shine: 100%;
@@ -755,7 +764,7 @@ export const CARD_STYLES = `
     }
     .box {
       position: relative;
-      rotate: calc(var(--tilt) * -0.6deg);
+      rotate: calc(var(--tilt) * var(--giro) * -0.6deg);
     }
     /* a faixa de status, impressa no pé da arte, de uma borda à outra */
     .faixa {
@@ -1536,7 +1545,7 @@ export const CARD_STYLES = `
       :host {
         --cover-w: 104px;
         max-width: none;
-        rotate: calc(var(--tilt) * var(--inclina, 1) * 0.5deg);
+        rotate: calc(var(--tilt) * var(--inclina, 1) * var(--giro) * 0.5deg);
         margin-top: calc(var(--drop-y) * 0.4);
       }
       :host(.compact:not(.paired)) {

@@ -3,6 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { folderTree } from '../core/folders';
 import { Review, sanitizeReview } from '../core/review';
 import { ReviewCard } from './review-card';
+import { pinningFor } from '../core/wall-physics';
 
 function note(extra: Record<string, unknown> = {}): Review {
   return sanitizeReview({
@@ -152,6 +153,23 @@ describe('a ficha na Visão geral e a orelha do assunto', () => {
       expect(oy).withContext(`${r.kind} ${JSON.stringify(inputs)}`).toBeCloseTo(el.offsetHeight / 2, 0);
       // nada mede mais a orelha para pôr a tachinha depois dela
       expect(el.style.getPropertyValue('--aba-fim')).toBe('');
+      fixture.destroy();
+      TestBed.resetTestingModule();
+    }
+  });
+
+  // pedido do dono (25/nov/2026): na Comum e na Inteira, metade da inclinação sorteada; as outras vistas como eram
+  it('a Comum e a Inteira ficam só metade tão tortas; a Simples e a Capa e nome, como sempre', async () => {
+    const tilt = pinningFor(note().id, note().stock).tilt;
+    for (const [inputs, fator] of [
+      [{}, 0.5],
+      [{ full: true }, 0.5],
+      [{ compact: true }, 1],
+      [{ capas: true }, 1],
+    ] as [Record<string, unknown>, number][]) {
+      await show(note(), inputs);
+      el.style.transition = 'none';
+      expect(parseFloat(getComputedStyle(el).rotate)).withContext(JSON.stringify(inputs)).toBeCloseTo(tilt * fator, 2);
       fixture.destroy();
       TestBed.resetTestingModule();
     }

@@ -620,7 +620,7 @@ One physical curve, `cubic-bezier(0.16, 1, 0.3, 1)` at 380ms, is used for anythi
 
 ### Do:
 - **Do** put every review on one of the eight cartolina stocks, saved on the review (drawn at creation, then the user's choice), and set all text on it in marker black.
-- **Do** derive tilt (±0.8°–3.4°, never 0), pin x, pin colour (both used only by the sheets since 2026-11-25) and drop offset (0–14px) from the review id with the wall-physics hash, so the wall looks the same on every visit.
+- **Do** derive tilt (±0.8°–3.4°, never 0; the Comum and Fichas inteiras views show half of it since 2026-11-25, the user wanted it subtler, and the slot and the closed pile follow), pin x, pin colour (both used only by the sheets since 2026-11-25) and drop offset (0–14px) from the review id with the wall-physics hash, so the wall looks the same on every visit.
 - **Do** rotate cards around their own pin (`transform-origin` at the pin) on hover and focus, reducing the tilt to 35% and lifting 3px with `--shadow-lift`.
 - **Do** give the Média and the verdict equal weight on a wall card, as the two halves of one sticker label at the same height: the Média as the Barlow Condensed italic numeral on the paper half, the verdict as paper lettering on a black band. Every other score is a smaller Permanent Marker numeral.
 - **Do** glue the photo flat to the card and keep it clear; stamps and scores live on the cartolina or the judgment label. The one exception is the status tape, stuck flush across the foot of the photo.
