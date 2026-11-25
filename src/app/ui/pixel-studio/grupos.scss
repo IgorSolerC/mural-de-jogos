@@ -1,0 +1,167 @@
+@use '../regua-teclas' as rt;
+
+/* Os grupos das cores no painel (PLANO-GRUPOS-CORES.md): as soltas primeiro, como a paleta de sempre; depois cada
+   grupo, separado por um fio, com a seta de recolher, o nome que a pessoa deu e quantas cores tem; recolhido, a fita
+   das cores dele (a da folha das paletas). O vazio e o "Novo grupo" são o recorte tracejado do "+" da paleta.
+   À parte do pixel-studio.scss, que já está perto do teto de uma folha de estilo. */
+
+.cores-paleta {
+  display: grid;
+  gap: 10px;
+}
+
+.cor-grupo {
+  display: grid;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid rgb(21 21 21 / 0.12);
+}
+
+.grupo-topo {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  min-height: 30px;
+}
+
+.grupo-seta {
+  @include rt.tecla;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  color: var(--ink-2);
+
+  lucide-icon {
+    display: inline-flex;
+    transition: rotate var(--t-ui) var(--ease-ui);
+  }
+
+  /* recolhido: a seta deitada, apontando para o grupo que não aparece */
+  &[aria-expanded='false'] lucide-icon {
+    rotate: -90deg;
+  }
+}
+
+.cor-grupo-nome {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+  cursor: default;
+  user-select: none;
+}
+
+.cor-grupo-n {
+  margin-left: 6px;
+  color: var(--ink-2);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* recolhido: as cores dele em quadradinhos, até onde couber */
+.grupo-fita {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 2px;
+  min-width: 0;
+  margin-left: 8px;
+  overflow: hidden;
+
+  span {
+    flex: none;
+    width: 9px;
+    height: 9px;
+    border-radius: 1px;
+    background: var(--cor);
+    box-shadow: inset 0 0 0 1px rgb(21 21 21 / 0.15);
+  }
+}
+
+.grupo-mais {
+  @include rt.tecla;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  margin-left: auto;
+}
+
+.grupo-nome-campo {
+  height: 30px;
+  margin-left: 2px;
+}
+
+/* o recorte tracejado: o grupo vazio e o botão do grupo novo */
+%recorte {
+  min-height: 34px;
+  border-radius: 2px;
+  outline: 1.5px dashed rgb(21 21 21 / 0.42);
+  outline-offset: -1.5px;
+}
+
+.grupo-vazio {
+  @extend %recorte;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 4px 8px;
+  color: var(--ink-2);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.novo-grupo {
+  @extend %recorte;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    outline-color var(--t-ui) var(--ease-ui);
+
+  lucide-icon {
+    display: inline-flex;
+  }
+
+  &:hover:not(:disabled) {
+    background: rgb(21 21 21 / 0.06);
+    outline-color: rgb(21 21 21 / 0.75);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    color: rgb(21 21 21 / 0.38);
+    cursor: default;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grupo-seta lucide-icon,
+  .novo-grupo {
+    transition: none;
+  }
+}

@@ -356,36 +356,83 @@
         </span>
       </div>
 
-      <div class="pastilhas parte-cores" role="radiogroup" aria-label="Cor da frente">
-        @for (n of swatches(); track n) {
-          @let on = fg() === n;
-          <button
-            type="button"
-            role="radio"
-            class="pastilha"
-            [class.on]="on"
-            [class.fundo]="bg() === n"
-            [class.vazia]="n === 0"
-            [class.arrastada]="dragging() === n"
-            [attr.draggable]="n > 0 ? 'true' : null"
-            [style.--cor]="inks()[n] ?? 'transparent'"
-            [attr.aria-checked]="on"
-            [attr.aria-label]="n === 0 ? 'Transparente' : 'Cor ' + inkChar(n)"
-            [title]="swatchTitle(n) + ' · o direito escolhe o fundo'"
-            (click)="chooseInk(n)"
-            (dblclick)="editInk()"
-            (contextmenu)="swatchMenu($event, n)"
-            (dragstart)="swatchDragStart($event, n)"
-            (dragover)="swatchDragOver($event, n)"
-            (drop)="swatchDrop($event, n)"
-            (dragend)="dragging.set(null)"
-          ></button>
+      <!-- a paleta: as cores soltas (sem grupo) primeiro, depois cada grupo (PLANO-GRUPOS-CORES.md); o botão direito no
+           vazio abre o menu das cores -->
+      <ng-template #pastilha let-n>
+        @let on = fg() === n;
+        <button
+          type="button"
+          role="radio"
+          class="pastilha"
+          [class.on]="on"
+          [class.fundo]="bg() === n"
+          [class.vazia]="n === 0"
+          [class.arrastada]="dragging() === n"
+          [attr.draggable]="n > 0 ? 'true' : null"
+          [style.--cor]="inks()[n] ?? 'transparent'"
+          [attr.aria-checked]="on"
+          [attr.aria-label]="n === 0 ? 'Transparente' : 'Cor ' + inkChar(n)"
+          [title]="swatchTitle(n) + ' · o direito escolhe o fundo'"
+          (click)="chooseInk(n)"
+          (dblclick)="editInk()"
+          (contextmenu)="swatchMenu($event, n)"
+          (dragstart)="swatchDragStart($event, n)"
+          (dragover)="swatchDragOver($event, n)"
+          (drop)="swatchDrop($event, n)"
+          (dragend)="dragging.set(null)"
+        ></button>
+      </ng-template>
+      <div class="cores-paleta parte-cores" (contextmenu)="paletteMenu($event)">
+        <div class="pastilhas" role="radiogroup" [attr.aria-label]="groups().length ? 'Cor da frente: as soltas' : 'Cor da frente'">
+          @for (n of loose(); track n) {
+            <ng-container *ngTemplateOutlet="pastilha; context: { $implicit: n }" />
+          }
+          @if (count() < INK_MAX) {
+            <button type="button" class="pastilha mais" [title]="'Acrescentar uma cor (até ' + INK_MAX + ')'" aria-label="Acrescentar uma cor" (click)="addInk()">
+              <lucide-icon [img]="I.adicionar" [size]="16" aria-hidden="true" />
+            </button>
+          }
+        </div>
+        @for (gr of groups(); track $index; let gi = $index) {
+          @let shut = folded().has(gr.name);
+          <section class="cor-grupo" [attr.data-grupo]="gi" [attr.aria-label]="'Grupo ' + gr.name">
+            <div class="grupo-topo" (contextmenu)="openGroupMenu($event, gi)">
+              <button type="button" class="grupo-seta" [attr.aria-expanded]="!shut" [attr.aria-label]="(shut ? 'Abrir ' : 'Recolher ') + gr.name" [title]="(shut ? 'Abrir o grupo' : 'Recolher o grupo') + ' · F2 renomeia'" (click)="toggleFold(gi)" (keydown)="groupKey($event, gi)">
+                <lucide-icon [img]="I.abrir" [size]="16" aria-hidden="true" />
+              </button>
+              @if (groupNaming() === gi) {
+                <input class="camada-nome-campo grupo-nome-campo" type="text" autocomplete="off" spellcheck="false" [attr.maxlength]="GROUP_NAME_MAX" [value]="gr.name" [attr.aria-label]="'Nome do grupo ' + gr.name" (keydown)="groupRenameKey($event, gi)" (blur)="finishGroupRename(gi, $any($event.target).value)" />
+              } @else {
+                <h4 class="cor-grupo-nome" [id]="ids + '-grupo-' + gi" title="Dois cliques: renomear" (dblclick)="startGroupRename(gi)">{{ gr.name }}<span class="cor-grupo-n">{{ gr.inks.length }}</span></h4>
+                @if (shut && gr.inks.length) {
+                  <span class="grupo-fita" aria-hidden="true">
+                    @for (n of gr.inks; track n) {
+                      <span [style.--cor]="inks()[n]"></span>
+                    }
+                  </span>
+                }
+                <button type="button" class="grupo-mais" [title]="'Mais sobre o grupo ' + gr.name" [attr.aria-label]="'Mais sobre o grupo ' + gr.name" aria-haspopup="menu" (click)="openGroupMenu($event, gi)">
+                  <lucide-icon [img]="I.maisOpcoes" [size]="16" aria-hidden="true" />
+                </button>
+              }
+            </div>
+            @if (!shut) {
+              @if (gr.inks.length) {
+                <div class="pastilhas" role="radiogroup" [attr.aria-label]="'Cor da frente: ' + gr.name">
+                  @for (n of gr.inks; track n) {
+                    <ng-container *ngTemplateOutlet="pastilha; context: { $implicit: n }" />
+                  }
+                </div>
+              } @else {
+                <p class="grupo-vazio">Nenhuma cor ainda</p>
+              }
+            }
+          </section>
         }
-        @if (count() < INK_MAX) {
-          <button type="button" class="pastilha mais" [title]="'Acrescentar uma cor (até ' + INK_MAX + ')'" aria-label="Acrescentar uma cor" (click)="addInk()">
-            <lucide-icon [img]="I.adicionar" [size]="16" aria-hidden="true" />
-          </button>
-        }
+        <button type="button" class="novo-grupo" [disabled]="groups().length >= GROUPS_MAX" [title]="groups().length >= GROUPS_MAX ? 'Cabem ' + GROUPS_MAX + ' grupos' : 'Um grupo para organizar as cores (o desenho não muda)'" (click)="newGroup()">
+          <lucide-icon [img]="I.novaPasta" [size]="16" aria-hidden="true" />
+          Novo grupo
+        </button>
       </div>
 
       <!-- a cor da frente: o mapa sempre aberto (como o do Aseprite) e o Hex; o lugar dela e o tirar ficam no menu Cores -->
@@ -548,6 +595,7 @@
   <app-context-menu #menuBarra [caption]="barCaption()" [sections]="barSections()" (closed)="barClosed()" (sideways)="barSide($event)" />
   <app-context-menu #menuCores caption="Cores" [sections]="colorItems()" />
   <app-context-menu #menuCamada [caption]="menuLayerName()" [sections]="layerItems()" />
+  <app-context-menu #menuGrupo [caption]="menuGroupName()" [sections]="groupItems()" />
   @if (paletteOpen()) {
     <app-palette-sheet [rows]="flat()" [w]="iw" [h]="ih" [palette]="palette()" [colors]="colors()" (picked)="applyPalette($event)" (closed)="paletteOpen.set(false)" />
   }

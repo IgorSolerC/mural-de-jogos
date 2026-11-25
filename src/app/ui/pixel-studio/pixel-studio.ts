@@ -4,6 +4,8 @@ import {
   Cell,
   InkPath,
   DEFAULT_PALETTE,
+  INK_GROUPS_MAX,
+  INK_GROUP_NAME_MAX,
   INK_MAX,
   InkGroup,
   PALETTES,
@@ -11,6 +13,7 @@ import {
   PaletteName,
   blankGrid,
   clampSide,
+  cleanGroupName,
   drawingInks,
   fitInGrid,
   flipH,
@@ -38,7 +41,7 @@ import {
   writeGrid,
   writeInkGroups,
 } from '../../core/pixel-art';
-import { probeRow, remapInkGroups } from '../../core/pixel-ink-groups';
+import { addGroup, groupOfInk, inkOrder, looseInks, moveGroup, moveToGroup, probeRow, remapInkGroups, removeGroup, suggestGroupName } from '../../core/pixel-ink-groups';
 import { Anchor, anchorOffset, BRUSH_MAX, BrushShape, Dither, Symmetry, ZOOMS, ZOOM_KEYS, convertRows, ditherKeeps, medianCut, moveInk, removeInk, removeInks, unusedInks, usedInks, sortInks, ellipseCells, fitZoom, mirrored, perfectCorner, rectCells, replaceInk, resizeCanvas, shapeBox, snapLine, stampCells, stepZoom, zoomLabel } from '../../core/pixel-tools';
 import { ALL_HANDLES, Box, Handle, resizeBox } from '../../core/resize-box';
 import { Float, Mask, scaleFloat, combineMask, composite, flipMask, flipRows, invertMask, lift, maskAny, maskBounds, maskOutline, outline, placedMask, rectMask, rotateMask, rotateRows, wandMask } from '../../core/pixel-selection';
@@ -163,7 +166,7 @@ let uid = 0;
   imports: [ColorMap, ContextMenu, IconModule, MuralSrc, NgTemplateOutlet, PaletteSheet, PixelThumb],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './pixel-studio.html',
-  styleUrls: ['./pixel-studio.scss', './camadas.scss'],
+  styleUrls: ['./pixel-studio.scss', './camadas.scss', './grupos.scss'],
   host: { '(window:blur)': 'onBlur()' },
 })
 export class PixelStudio {
@@ -213,6 +216,7 @@ export class PixelStudio {
   private readonly barMenu = viewChild.required<ContextMenu>('menuBarra');
   private readonly colorsMenu = viewChild.required<ContextMenu>('menuCores');
   private readonly layerMenu = viewChild.required<ContextMenu>('menuCamada');
+  private readonly groupMenu = viewChild.required<ContextMenu>('menuGrupo');
 
   protected readonly ids = 'at-' + ++uid;
   protected readonly I = ICON;
@@ -250,6 +254,8 @@ export class PixelStudio {
   protected readonly PIXEL_MAX = PIXEL_MAX;
   protected readonly BRUSH_MAX = BRUSH_MAX;
   protected readonly INK_MAX = INK_MAX;
+  protected readonly GROUPS_MAX = INK_GROUPS_MAX;
+  protected readonly GROUP_NAME_MAX = INK_GROUP_NAME_MAX;
 
   // ===== o desenho =====
 
@@ -277,7 +283,14 @@ export class PixelStudio {
   protected readonly inks = computed(() => inkOf(this.palette(), this.colors()));
   /** Quantas cores o desenho tem (as pastilhas, fora o transparente). */
   protected readonly count = computed(() => inkCount(this.palette(), this.colors()));
-  protected readonly swatches = computed(() => drawingInks(this.palette(), this.colors()).map((_, i) => i));
+  /** As cores soltas (fora de qualquer grupo), com o transparente primeiro: as primeiras pastilhas do painel. */
+  protected readonly loose = computed(() => [0, ...looseInks(this.groups(), this.count())]);
+  /** Os grupos recolhidos, pelo nome, enquanto o ateliê está aberto. */
+  protected readonly folded = signal<ReadonlySet<string>>(new Set());
+  /** O grupo com o nome aberto para escrever (o índice). */
+  protected readonly groupNaming = signal<number | null>(null);
+  /** O grupo do menu aberto (o índice). */
+  protected readonly menuGroup = signal<number | null>(null);
   /** Os caminhos de cada grade, guardados pela grade: pintar refaz só os da camada escolhida. */
   private readonly pathCache = new RowsCache((rows) => inkPaths(rows, 'pixel'));
   protected readonly paths = computed(() => this.pathCache.of(this.flat()));
@@ -2239,7 +2252,7 @@ export class PixelStudio {
     this.naming.set(id);
     afterNextRender(
       () => {
-        const input = this.dialog().nativeElement.querySelector<HTMLInputElement>('.camada-nome-campo');
+        const input = this.dialog().nativeElement.querySelector<HTMLInputElement>('.camada-linha .camada-nome-campo');
         input?.focus();
         input?.select();
       },
@@ -2391,8 +2404,14 @@ export class PixelStudio {
 
   /** [ e ]: a cor anterior e a próxima da paleta (dando a volta). */
   protected stepInk(dir: 1 | -1): void {
-    const n = this.count() + 1;
-    this.chooseInk((((this.fg() + dir) % n) + n) % n);
+    // na ordem da tela: as soltas, depois cada grupo; a escolhida num grupo recolhido abre ele
+    const order = inkOrder(this.groups(), this.count());
+    const n = order.length;
+    const at = Math.max(0, order.indexOf(this.fg()));
+    const ink = order[(((at + dir) % n) + n) % n];
+    this.chooseInk(ink);
+    const g = this.groups()[groupOfInk(this.groups(), ink)];
+    if (g && this.folded().has(g.name)) this.setFolded(g.name, false);
   }
 
   /** A paleta escolhida: os números ficam (o desenho troca de cor junto, como no Aseprite). */
@@ -2518,7 +2537,10 @@ export class PixelStudio {
     this.dragging.set(null);
     if (from === null || n < 1) return;
     e.preventDefault();
-    this.moveSwatch(from, n);
+    // para outro grupo (ou para as soltas), muda o grupo; dentro do mesmo, muda o lugar
+    const to = groupOfInk(this.groups(), n);
+    if (to !== groupOfInk(this.groups(), from)) this.putInGroup([from], to);
+    else this.moveSwatch(from, n);
   }
 
   /** O menu das cores (o "…" ao lado da paleta). */
@@ -2546,8 +2568,161 @@ export class PixelStudio {
           ],
         ]
       : []),
+    this.groupMoves(),
     ...(this.fg() > 0 && this.count() > 1 ? [[{ id: 'tirar-cor', label: `Tirar a cor ${inkChar(this.fg())}`, icon: ICON.apagar, danger: true, run: () => this.removeFg() }]] : []),
   ]);
+
+  /** O botão direito no vazio do painel das cores: o menu das cores, no ponteiro (a pastilha e o grupo têm o deles). */
+  protected paletteMenu(e: MouseEvent): void {
+    if (e.defaultPrevented || (e.target as Element).closest('input')) return;
+    e.preventDefault();
+    this.colorsMenu().show({ key: 'cores', x: e.clientX, y: e.clientY, back: e.currentTarget as HTMLElement, by: 'mouse' });
+  }
+
+  // ===== os grupos das cores (PLANO-GRUPOS-CORES.md) =====
+
+  /** A leva do menu das cores que mexe nos grupos: o grupo novo e, com uma cor na frente, para onde ela vai. */
+  private groupMoves(): MenuItem[] {
+    const groups = this.groups();
+    const full = groups.length >= INK_GROUPS_MAX;
+    const items: MenuItem[] = [
+      { id: 'novo-grupo', label: 'Novo grupo', hint: full ? `Cabem ${INK_GROUPS_MAX} grupos` : 'Para organizar as cores (o desenho não muda)', icon: ICON.novaPasta, disabled: full, run: () => this.newGroup() },
+    ];
+    const n = this.fg();
+    if (n < 1 || !groups.length) return items;
+    const at = groupOfInk(groups, n);
+    groups.forEach((g, i) => {
+      if (i !== at) items.push({ id: 'grupo-' + i, label: `Pôr em ${g.name}`, hint: `A cor ${inkChar(n)} vai para o grupo ${g.name}`, icon: ICON.pasta, run: () => this.putInGroup([n], i) });
+    });
+    if (at >= 0) items.push({ id: 'soltar', label: `Tirar de ${groups[at].name}`, hint: `A cor ${inkChar(n)} volta a ficar solta`, icon: ICON.desfazer, run: () => this.putInGroup([n], -1) });
+    return items;
+  }
+
+  /** Um grupo novo no fim, com as cores dadas (o nome sai delas), já com o nome aberto para escrever. */
+  protected newGroup(inks: readonly number[] = []): void {
+    const groups = this.groups();
+    if (groups.length >= INK_GROUPS_MAX) return;
+    const name = suggestGroupName(
+      inks.map((n) => this.inks()[n]).filter((c): c is string => !!c),
+      groups.map((g) => g.name),
+    );
+    this.change({ groups: addGroup(groups, name, inks) }, `Grupo ${name} novo`);
+    this.startGroupRename(this.groups().length - 1);
+  }
+
+  /** As cores para o grupo `to` (-1: soltas): o desenho e os números não mudam. */
+  protected putInGroup(inks: readonly number[], to: number): void {
+    const g = this.groups()[to];
+    const who = inks.length === 1 ? `A cor ${inkChar(inks[0])}` : `${inks.length} cores`;
+    this.change({ groups: moveToGroup(this.groups(), inks, to) }, g ? `${who} em ${g.name}` : inks.length === 1 ? `${who} ficou solta` : `${who} ficaram soltas`);
+    if (g && this.folded().has(g.name)) this.setFolded(g.name, false);
+  }
+
+  private setFolded(name: string, shut: boolean): void {
+    const next = new Set(this.folded());
+    if (shut) next.add(name);
+    else next.delete(name);
+    this.folded.set(next);
+  }
+
+  protected toggleFold(i: number): void {
+    const g = this.groups()[i];
+    if (g) this.setFolded(g.name, !this.folded().has(g.name));
+  }
+
+  /** F2 na seta do grupo renomeia. */
+  protected groupKey(e: KeyboardEvent, i: number): void {
+    if (e.key !== 'F2') return;
+    e.preventDefault();
+    e.stopPropagation();
+    this.startGroupRename(i);
+  }
+
+  protected startGroupRename(i: number): void {
+    this.groupNaming.set(i);
+    afterNextRender(
+      () => {
+        const input = this.dialog().nativeElement.querySelector<HTMLInputElement>('.grupo-nome-campo');
+        input?.focus();
+        input?.select();
+      },
+      { injector: this.injector },
+    );
+  }
+
+  /** O nome escrito ali mesmo: Enter (ou sair do campo) grava; vazio ou o Esc, fica o de antes. */
+  protected finishGroupRename(i: number, raw: string | null): void {
+    if (this.groupNaming() !== i) return;
+    this.groupNaming.set(null);
+    const name = raw === null ? '' : cleanGroupName(raw);
+    const g = this.groups()[i];
+    if (g && name && name !== g.name) {
+      const shut = this.folded().has(g.name);
+      this.change({ groups: this.groups().map((x, k) => (k === i ? { ...x, name } : x)) }, `Grupo renomeado: ${name}`);
+      if (shut) {
+        this.setFolded(g.name, false);
+        this.setFolded(name, true);
+      }
+    }
+    queueMicrotask(() => this.dialog().nativeElement.querySelector<HTMLElement>(`[data-grupo="${i}"] .grupo-seta`)?.focus());
+  }
+
+  protected groupRenameKey(e: KeyboardEvent, i: number): void {
+    e.stopPropagation();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      this.finishGroupRename(i, (e.target as HTMLInputElement).value);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      this.finishGroupRename(i, null);
+    }
+  }
+
+  /** O grupo um lugar para cima (-1) ou para baixo (1) no painel. */
+  protected stepGroup(i: number, dir: 1 | -1): void {
+    this.change({ groups: moveGroup(this.groups(), i, dir) }, dir < 0 ? 'Grupo para cima' : 'Grupo para baixo');
+  }
+
+  /** O grupo desfeito: as cores dele ficam soltas (nenhuma sai da paleta). */
+  protected dissolveGroup(i: number): void {
+    const g = this.groups()[i];
+    if (!g) return;
+    this.change({ groups: removeGroup(this.groups(), i) }, g.inks.length ? `Grupo ${g.name} desfeito: as cores ficaram soltas` : `Grupo ${g.name} desfeito`);
+    this.setFolded(g.name, false);
+  }
+
+  /** O menu de um grupo: no "…" do grupo ou no botão direito no nome dele. */
+  protected openGroupMenu(e: MouseEvent, i: number): void {
+    if ((e.target as Element).closest('input')) return;
+    e.preventDefault();
+    this.menuGroup.set(i);
+    const btn = e.currentTarget as HTMLElement;
+    const r = btn.getBoundingClientRect();
+    const byKeys = e.detail === 0;
+    const atBtn = byKeys || e.type === 'click';
+    this.groupMenu().show({ key: 'grupo-' + i, x: atBtn ? r.left : e.clientX, y: atBtn ? r.bottom + 4 : e.clientY, back: btn, by: byKeys ? 'teclado' : 'mouse' });
+  }
+
+  protected readonly menuGroupName = computed(() => this.groups()[this.menuGroup() ?? -1]?.name ?? 'Grupo');
+
+  protected readonly groupItems = computed<MenuSections>(() => {
+    const i = this.menuGroup() ?? -1;
+    const groups = this.groups();
+    const g = groups[i];
+    if (!g) return [];
+    const shut = this.folded().has(g.name);
+    return [
+      [
+        { id: 'renomear', label: 'Renomear', icon: ICON.editar, keys: 'F2', run: () => this.startGroupRename(i) },
+        { id: 'recolher', label: shut ? 'Abrir' : 'Recolher', icon: shut ? ICON.abrir : ICON.recolher, run: () => this.toggleFold(i) },
+      ],
+      [
+        ...(i > 0 ? [{ id: 'subir', label: 'Subir', icon: ICON.acima, run: () => this.stepGroup(i, -1) }] : []),
+        ...(i < groups.length - 1 ? [{ id: 'descer', label: 'Descer', icon: ICON.abaixo, run: () => this.stepGroup(i, 1) }] : []),
+      ],
+      [{ id: 'desfazer-grupo', label: 'Desfazer o grupo', hint: 'As cores ficam, soltas; o desenho não muda', icon: ICON.desfazer, run: () => this.dissolveGroup(i) }],
+    ].filter((sec) => sec.length);
+  });
 
   /** "+": uma cor nova no fim da paleta (a cópia da da frente), já escolhida e aberta para editar. */
   protected addInk(): void {
