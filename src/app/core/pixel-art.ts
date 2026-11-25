@@ -13,6 +13,7 @@ import { labelKey as key } from './text';
  *   abreviados: "0*12" são doze 0. Uma linha só de algarismos é a de antes das letras, e lê igual;
  * - a paleta, uma palavra (`classica`, a de sempre, não se escreve);
  * - as cores trocadas e as acrescentadas, só as que mudaram: "3#e43b44 7#3355aa h#ffcc00";
+ * - os grupos das cores, que só organizam a paleta no ateliê: "grupos [Cinzas]1567 [Quentes]89a" (ver `InkGroup`);
  * - o jeito (`pixel`, o de sempre, não se escreve);
  * - a legenda, o primeiro texto que não é nada disso.
  *
@@ -244,6 +245,11 @@ const RUN_MIN = 5;
 /** As cores trocadas: "3#e43b44 c#35a", separadas por espaço (o caractere da cor, de 1 a Z). */
 const COLORS = /^[1-9a-zA-Z]#(?:[0-9a-f]{6}|[0-9a-f]{3})(?:\s+[1-9a-zA-Z]#(?:[0-9a-f]{6}|[0-9a-f]{3}))*$/i;
 const HEX = /^#(?:[0-9a-f]{6}|[0-9a-f]{3})$/i;
+/** Os grupos das cores: a palavra `grupos` (minúscula: a legenda "Grupos" continua legenda) e cada grupo, `[nome]cores`. */
+// (um \s* só entre um grupo e outro: dois deixariam o teste de uma linha que não fecha tentar todos os jeitos de dividir
+// os espaços, e a página travaria)
+const GROUPS = /^grupos(?:\s*\[[^[\]]*\][0-9a-zA-Z]*)*\s*$/;
+const GROUP = /\[([^[\]]*)\]([0-9a-zA-Z]*)/g;
 
 /** "16x16" → 16 por 16; null se não é uma grade que vale (de 1 a 256 cada lado). */
 export function parseDims(a: string): { w: number; h: number } | null {
@@ -292,6 +298,64 @@ export function writeColors(colors: Readonly<Record<number, string>>, palette: P
     .filter(([n, c]) => c && c !== base[n - 1])
     .map(([n, c]) => `${inkChar(n)}${c}`)
     .join(' ');
+}
+
+// ===== os grupos das cores (PLANO-GRUPOS-CORES.md) =====
+
+/**
+ * Um grupo das cores do desenho ("Cinzas", "Quentes"): só organiza a paleta no ateliê, nunca muda o número de uma
+ * cor nem o desenho. `inks` são os números (1 a 61), em ordem; uma cor fica em um grupo só.
+ */
+export interface InkGroup {
+  name: string;
+  inks: number[];
+}
+
+/** Até quantos grupos um desenho tem, e o tamanho do nome de um. */
+export const INK_GROUPS_MAX = 16;
+export const INK_GROUP_NAME_MAX = 24;
+
+/** O nome de um grupo limpo: sem os colchetes, as chaves e a barra (que a linha usa), numa linha só, curto. */
+export function cleanGroupName(raw: unknown): string {
+  if (typeof raw !== 'string') return '';
+  return raw
+    .replace(/[[\]{}|\\]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, INK_GROUP_NAME_MAX)
+    .trim();
+}
+
+/**
+ * Os grupos limpos para uma paleta de `count` cores: cada cor dentro da paleta, em um grupo só (vale o primeiro), em
+ * ordem; o nome limpo (o vazio vira "Grupo N"); até `INK_GROUPS_MAX`. O grupo vazio fica (a pessoa o fez para encher).
+ */
+export function sanitizeInkGroups(raw: readonly InkGroup[] | null | undefined, count: number): InkGroup[] {
+  const seen = new Set<number>();
+  const out: InkGroup[] = [];
+  for (const g of raw ?? []) {
+    if (out.length >= INK_GROUPS_MAX) break;
+    if (!g || !Array.isArray(g.inks)) continue;
+    const inks = g.inks.filter((n) => Number.isInteger(n) && n >= 1 && n <= Math.min(count, INK_MAX) && !seen.has(n) && !!seen.add(n));
+    out.push({ name: cleanGroupName(g.name) || `Grupo ${out.length + 1}`, inks: inks.sort((a, b) => a - b) });
+  }
+  return out;
+}
+
+/** Os grupos escritos ("grupos [Cinzas]1567 [Quentes]89a") → os grupos; null se não é isso. */
+export function parseInkGroups(a: string): InkGroup[] | null {
+  const t = a.trim();
+  if (!GROUPS.test(t)) return null;
+  const out: InkGroup[] = [];
+  for (const m of t.matchAll(GROUP)) out.push({ name: m[1], inks: [...m[2]].map(inkIndex).filter((n) => n > 0) });
+  return sanitizeInkGroups(out, INK_MAX);
+}
+
+/** Os grupos de volta ao texto, limpos para a paleta de `count` cores; "" sem grupo nenhum. */
+export function writeInkGroups(groups: readonly InkGroup[] | undefined, count: number): string {
+  const clean = sanitizeInkGroups(groups, count);
+  if (!clean.length) return '';
+  return 'grupos ' + clean.map((g) => `[${g.name}]${g.inks.map(inkChar).join('')}`).join(' ');
 }
 
 /** As cores de uma paleta pronta (a do 1 primeiro); a própria não tem nenhuma. */
@@ -417,6 +481,8 @@ export interface PixelArt {
   palette: PaletteName;
   /** As cores trocadas e as acrescentadas, do número (1 a 61) à cor ("#e43b44"). */
   colors: Record<number, string>;
+  /** Os grupos das cores (só organizam a paleta no ateliê); sem grupo, vazio. */
+  groups: InkGroup[];
   look: PixelLook;
   caption: string;
 }
@@ -434,6 +500,7 @@ export function readPixelArt(args: readonly string[]): PixelArt {
   let palette: PaletteName | null = null;
   let colors: Record<number, string> | null = null;
   let look: PixelLook | null = null;
+  let groups: InkGroup[] | null = null;
   let caption = '';
   let afterDims = false;
   for (const a of args) {
@@ -442,6 +509,7 @@ export function readPixelArt(args: readonly string[]): PixelArt {
     const p: PaletteName | null = palette ? null : paletteWord(a);
     const l: PixelLook | null = look ? null : pixelLookWord(a);
     const c: Record<number, string> | null = colors ? null : parseColors(a);
+    const g: InkGroup[] | null = groups ? null : parseInkGroups(a);
     // (uma palavra de paleta ou de jeito com algarismo, "pico8", "c64", continua palavra)
     const rows = raw === null && (ROWS.test(t) || (afterDims && ROWS_LETTERS.test(t) && ROWS_MARK.test(t) && !paletteWord(a) && !pixelLookWord(a)));
     afterDims = !!d;
@@ -450,6 +518,7 @@ export function readPixelArt(args: readonly string[]): PixelArt {
     else if (p) palette = p;
     else if (c) colors = c;
     else if (l) look = l;
+    else if (g) groups = g;
     else if (!caption && a.trim()) caption = a.trim();
   }
   const text = raw ?? '';
@@ -460,16 +529,16 @@ export function readPixelArt(args: readonly string[]): PixelArt {
   // sem grade e sem pontos (o "{{pixel}}" de um widget novo), a grade de sempre
   const w = dims?.w ?? (text ? clampSide(longest) : PIXEL_DEFAULT_SIDE);
   const h = dims?.h ?? (text ? clampSide(written.length) : PIXEL_DEFAULT_SIDE);
-  return { w, h, rows: gridOf(text, w, h), raw: text, palette: palette ?? DEFAULT_PALETTE, colors: colors ?? {}, look: look ?? DEFAULT_PIXEL_LOOK, caption };
+  return { w, h, rows: gridOf(text, w, h), raw: text, palette: palette ?? DEFAULT_PALETTE, colors: colors ?? {}, groups: groups ?? [], look: look ?? DEFAULT_PIXEL_LOOK, caption };
 }
 
 /**
  * Os parâmetros escritos, na ordem da folha: a grade, os pontos, a paleta (a clássica não se escreve),
- * as cores trocadas, o jeito (o pixel não se escreve) e a legenda. Uma legenda que é a palavra de uma
+ * as cores trocadas, os grupos das cores, o jeito (o pixel não se escreve) e a legenda. Uma legenda que é a palavra de uma
  * paleta ou de um jeito ("Pastel") faz os dois irem escritos antes dela: a primeira palavra de cada um
  * é ele. Null: o desenho não tem nenhum ponto.
  */
-export function writePixelArt(art: Pick<PixelArt, 'w' | 'h' | 'rows' | 'palette' | 'colors' | 'look' | 'caption'>): string[] | null {
+export function writePixelArt(art: Pick<PixelArt, 'w' | 'h' | 'rows' | 'palette' | 'colors' | 'look' | 'caption'> & { groups?: readonly InkGroup[] }): string[] | null {
   const rows = gridOf(art.rows.join('/'), art.w, art.h);
   if (!hasInk(rows)) return null;
   let grid = writeGrid(rows);
@@ -482,11 +551,14 @@ export function writePixelArt(art: Pick<PixelArt, 'w' | 'h' | 'rows' | 'palette'
   // a legenda com cara de cor trocada ("3#fff") seria lida como as cores: sem trocada nenhuma, vai a do 1
   // como ela já é, que ocupa o lugar das cores e não muda nada
   const colors = writeColors(art.colors, art.palette) || (caption && parseColors(caption) ? `1${inkOf(art.palette, art.colors)[1]}` : '');
+  // os grupos só dentro da paleta; a legenda com cara de grupos ("grupos [x]") faz ir um "grupos" vazio antes dela
+  const groups = writeInkGroups(art.groups, inkCount(art.palette, art.colors)) || (caption && parseInkGroups(caption) ? 'grupos' : '');
   return [
     `${art.w}x${art.h}`,
     grid,
     named || art.palette !== DEFAULT_PALETTE ? art.palette : '',
     colors,
+    groups,
     named || art.look !== DEFAULT_PIXEL_LOOK ? art.look : '',
     caption,
   ].filter(Boolean);

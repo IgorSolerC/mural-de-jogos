@@ -358,19 +358,31 @@ function reorder(rows: readonly string[], inks: readonly (string | null)[], orde
   return { rows: remapRows(rows, map), colors };
 }
 
+/** Abaixo desta saturação, a cor conta como cinza (ordenar pelo tom e os grupos das cores). */
+export const GREY_SAT = 0.12;
+
+/**
+ * A luz (0 a 1, como o olho pesa), a saturação (0 a 1) e o tom de uma cor: de 0 a 6 no círculo das cores (0 o vermelho,
+ * 1 o amarelo, 2 o verde, 3 o ciano, 4 o azul, 5 o magenta).
+ */
+export function inkTone([r, g, b]: readonly [number, number, number]): { light: number; sat: number; hue: number } {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const light = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  const sat = max === 0 ? 0 : (max - min) / max;
+  let hue = 0;
+  if (max !== min) {
+    const d = max - min;
+    hue = max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  }
+  return { light, sat, hue };
+}
+
 /** Ordena a paleta pela luz (do escuro ao claro) ou pelo tom (o círculo das cores; os cinzas no fim, pela luz). */
 export function sortInks(rows: readonly string[], inks: readonly (string | null)[], by: 'luz' | 'tom'): { rows: string[]; colors: Record<number, string> } {
-  const info = inksRgb(inks).map(({ i, rgb: [r, g, b] }) => {
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    const light = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-    const sat = max === 0 ? 0 : (max - min) / max;
-    let hue = 0;
-    if (max !== min) {
-      const d = max - min;
-      hue = max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
-    }
-    return { i, light, hue: sat < 0.12 ? 7 : hue };
+  const info = inksRgb(inks).map(({ i, rgb }) => {
+    const t = inkTone(rgb);
+    return { i, light: t.light, hue: t.sat < GREY_SAT ? 7 : t.hue };
   });
   info.sort((a, b) => (by === 'luz' ? a.light - b.light : a.hue - b.hue || a.light - b.light) || a.i - b.i);
   return reorder(rows, inks, info.map((x) => x.i));

@@ -5,6 +5,7 @@ import {
   InkPath,
   DEFAULT_PALETTE,
   INK_MAX,
+  InkGroup,
   PALETTES,
   PIXEL_MAX,
   PaletteName,
@@ -29,11 +30,15 @@ import {
   paletteColors,
   paletteWord,
   parseColors,
+  parseInkGroups,
   quantize,
+  sanitizeInkGroups,
   shiftGrid,
   writeColors,
   writeGrid,
+  writeInkGroups,
 } from '../../core/pixel-art';
+import { probeRow, remapInkGroups } from '../../core/pixel-ink-groups';
 import { Anchor, anchorOffset, BRUSH_MAX, BrushShape, Dither, Symmetry, ZOOMS, ZOOM_KEYS, convertRows, ditherKeeps, medianCut, moveInk, removeInk, removeInks, unusedInks, usedInks, sortInks, ellipseCells, fitZoom, mirrored, perfectCorner, rectCells, replaceInk, resizeCanvas, shapeBox, snapLine, stampCells, stepZoom, zoomLabel } from '../../core/pixel-tools';
 import { ALL_HANDLES, Box, Handle, resizeBox } from '../../core/resize-box';
 import { Float, Mask, scaleFloat, combineMask, composite, flipMask, flipRows, invertMask, lift, maskAny, maskBounds, maskOutline, outline, placedMask, rectMask, rotateMask, rotateRows, wandMask } from '../../core/pixel-selection';
@@ -71,7 +76,7 @@ interface BarMenu {
 /** Quantos passos o desfazer guarda. */
 const UNDO_MAX = 120;
 
-/** Um passo do desfazer: o desenho inteiro (a pilha das camadas e a escolhida, a tela, a paleta e as cores). */
+/** Um passo do desfazer: o desenho inteiro (a pilha das camadas e a escolhida, a tela, a paleta, as cores e os grupos delas). */
 interface Snap {
   layers: Layer[];
   current: string;
@@ -79,6 +84,7 @@ interface Snap {
   h: number;
   palette: PaletteName;
   colors: Record<number, string>;
+  groups: InkGroup[];
 }
 
 /** O arrasto de agora: pintando, arrastando a vista ou aproximando com dois dedos. */
@@ -257,6 +263,8 @@ export class PixelStudio {
   protected readonly current = signal('c1');
   protected readonly palette = signal<PaletteName>(DEFAULT_PALETTE);
   protected readonly colors = signal<Record<number, string>>({});
+  /** Os grupos das cores (PLANO-GRUPOS-CORES.md): só organizam o painel; nenhum muda o número de uma cor. */
+  protected readonly groups = signal<InkGroup[]>([]);
 
   /** A pilha de agora, com os pontos da escolhida em dia. */
   protected readonly stackNow = computed<Layer[]>(() => {
@@ -585,6 +593,7 @@ export class PixelStudio {
     this.rows.set(top.rows);
     this.palette.set(paletteWord(v['palette'] ?? '') ?? DEFAULT_PALETTE);
     this.colors.set(parseColors(v['colors'] ?? '') ?? {});
+    this.groups.set(sanitizeInkGroups(parseInkGroups(v['groups'] ?? ''), this.count()));
     if (this.fg() > this.count()) this.fg.set(Math.min(1, this.count()));
   }
 
@@ -725,7 +734,7 @@ export class PixelStudio {
   /** O desenho que sai do ateliê: o achatado nos valores do widget e, numa obra da galeria, a pilha. */
   private result(): Omit<StudioResult, 'draft'> {
     return {
-      values: { pixels: writeGrid(this.flat()), width: String(this.w()), height: String(this.h()), palette: this.palette(), colors: writeColors(this.colors(), this.palette()) },
+      values: { pixels: writeGrid(this.flat()), width: String(this.w()), height: String(this.h()), palette: this.palette(), colors: writeColors(this.colors(), this.palette()), groups: writeInkGroups(this.groups(), this.count()) },
       layers: this.layered() ? writeLayers(this.stackNow()) : undefined,
     };
   }
@@ -823,7 +832,7 @@ export class PixelStudio {
   // ===== o desenho e o desfazer =====
 
   private snap(): Snap {
-    return { layers: this.stackNow(), current: this.current(), w: this.w(), h: this.h(), palette: this.palette(), colors: this.colors() };
+    return { layers: this.stackNow(), current: this.current(), w: this.w(), h: this.h(), palette: this.palette(), colors: this.colors(), groups: this.groups() };
   }
 
   /** O desenho de agora com outros pontos na camada escolhida (o de antes de um traço, para o desfazer). */
@@ -869,6 +878,7 @@ export class PixelStudio {
     if (this.chosenRef() && !s.layers.some((l) => l.id === this.chosenRef())) this.chosenRef.set(null);
     this.palette.set(s.palette);
     this.colors.set(s.colors);
+    this.groups.set(s.groups);
     this.clampInks();
     this.emit();
     this.syncHistory();
@@ -884,6 +894,8 @@ export class PixelStudio {
     const { rows, ...rest } = next;
     const after: Snap = { ...before, ...rest };
     if (rows) after.layers = setRows(after.layers, after.current, rows);
+    // os grupos só com as cores que a paleta ainda tem (ela pode ter diminuído)
+    after.groups = sanitizeInkGroups(after.groups, inkCount(after.palette, after.colors));
     if (sameSnap(before, after)) return;
     this.remember(before);
     this.restore(after);
@@ -2401,7 +2413,8 @@ export class PixelStudio {
     const from = drawingInks(this.palette(), this.colors());
     const to = drawingInks(p.palette, {});
     const layers = mapDots(this.stackNow(), (r) => convertRows(r, from, to));
-    this.change({ layers, palette: p.palette, colors: {} }, `Paleta ${PALETTES.find((x) => x.value === p.palette)?.label ?? ''}, com as cores mais perto`);
+    const groups = this.groupsAfter((r) => convertRows(r, from, to), to.length - 1);
+    this.change({ layers, palette: p.palette, colors: {}, groups }, `Paleta ${PALETTES.find((x) => x.value === p.palette)?.label ?? ''}, com as cores mais perto`);
   }
 
   /**
@@ -2411,11 +2424,20 @@ export class PixelStudio {
   private ownPalette(fn: (rows: string[]) => { rows: string[]; colors: Record<number, string> }, said: string): void {
     const bgColor = this.bg() > 0 ? this.inks()[this.bg()] : null;
     const { layers, out } = acrossDots(this.stackNow(), fn);
-    this.change({ layers, palette: 'propria', colors: out.colors }, said);
+    const groups = this.groupsAfter((r) => fn(r).rows, inkCount('propria', out.colors));
+    this.change({ layers, palette: 'propria', colors: out.colors, groups }, said);
     if (bgColor) {
       const at = Object.entries(out.colors).find(([, c]) => c === bgColor)?.[0];
       this.bg.set(at ? Number(at) : 0);
     }
+  }
+
+  /**
+   * Os grupos depois de uma conta que renumera a paleta (`fn`, a que passa nas fileiras): ela passa na fileira de prova,
+   * que diz para onde foi cada número. `count`: quantas cores a paleta tem depois.
+   */
+  private groupsAfter(fn: (rows: string[]) => string[], count: number): InkGroup[] {
+    return remapInkGroups(this.groups(), fn([probeRow(this.count())])[0] ?? '', count);
   }
 
   /** Tira a cor da frente: os pontos dela ficam transparentes e as de depois descem um número. */
@@ -2933,8 +2955,10 @@ export class PixelStudio {
         const from = drawingInks(this.palette(), this.colors());
         const to = q.ownInks;
         const layers = mapDots(this.stackNow(), (r) => convertRows(r, from, to));
-        this.addLayerWith(q.ownRows, `${q.name} numa camada nova, com as ${n} cores dela`, { layers, palette: 'propria', colors: q.ownColors }, q.name);
-      } else this.change({ rows: q.ownRows, palette: 'propria', colors: q.ownColors }, `Imagem trazida para ${w} por ${h} pontos, com as ${n} cores dela`);
+        const groups = this.groupsAfter((r) => convertRows(r, from, to), n);
+        this.addLayerWith(q.ownRows, `${q.name} numa camada nova, com as ${n} cores dela`, { layers, palette: 'propria', colors: q.ownColors, groups }, q.name);
+        // (o desenho inteiro com as cores dela: os grupos ficam, vazios, para a pessoa encher de novo)
+      } else this.change({ rows: q.ownRows, palette: 'propria', colors: q.ownColors, groups: this.groups().map((g) => ({ ...g, inks: [] })) }, `Imagem trazida para ${w} por ${h} pontos, com as ${n} cores dela`);
       return;
     }
     if (this.importIntoLayer()) this.addLayerWith(q.palRows, `${q.name} numa camada nova, nas cores da paleta`, {}, q.name);
@@ -3089,7 +3113,15 @@ function sameRows(a: readonly string[], b: readonly string[]): boolean {
 }
 
 function sameSnap(a: Snap, b: Snap): boolean {
-  return a.w === b.w && a.h === b.h && a.palette === b.palette && a.current === b.current && sameStack(a.layers, b.layers) && JSON.stringify(a.colors) === JSON.stringify(b.colors);
+  return (
+    a.w === b.w &&
+    a.h === b.h &&
+    a.palette === b.palette &&
+    a.current === b.current &&
+    sameStack(a.layers, b.layers) &&
+    JSON.stringify(a.colors) === JSON.stringify(b.colors) &&
+    JSON.stringify(a.groups) === JSON.stringify(b.groups)
+  );
 }
 
 function gridLines(w: number, h: number, keep: (i: number) => boolean): string {

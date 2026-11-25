@@ -33,7 +33,7 @@ export interface PixelDraft {
   origin: DraftOrigin;
   /** O nome que se mostra (a obra, a legenda do widget); vazio, "Sem título". */
   title: string;
-  /** O desenho, nos valores do widget (`pixels`, `width`, `height`, `palette`, `colors`). */
+  /** O desenho, nos valores do widget (`pixels`, `width`, `height`, `palette`, `colors`, `groups`). */
   values: WidgetValues;
   /** As camadas (só de uma obra da galeria). */
   layers?: StoredLayer[];
@@ -45,7 +45,9 @@ export interface PixelDraft {
 
 /** A chave de um desenho (os valores que importam, numa ordem só): o mesmo desenho dá a mesma chave. */
 export function draftKey(v: WidgetValues): string {
-  return JSON.stringify([v['width'] ?? '', v['height'] ?? '', v['pixels'] ?? '', v['palette'] ?? '', v['colors'] ?? '']);
+  // (os grupos das cores só entram quando há: a chave dos rascunhos de antes deles continua a mesma)
+  const groups = v['groups'] ? [v['groups']] : [];
+  return JSON.stringify([v['width'] ?? '', v['height'] ?? '', v['pixels'] ?? '', v['palette'] ?? '', v['colors'] ?? '', ...groups]);
 }
 
 /** Quando o rascunho foi guardado, para uma frase: "hoje às 14:32", "ontem às 9:05", "em 12/11 às 14:32". */

@@ -1,5 +1,5 @@
 import { DAY_MS } from './dates';
-import { DEFAULT_PIXEL_LOOK, PALETTES, PIXEL_LOOKS, PIXEL_MAX, clampSide, gridOf, paletteWord, parseColors, pixelLookWord, pixelSummary, readPixelArt, writeColors, writeGrid, writePixelArt } from './pixel-art';
+import { DEFAULT_PIXEL_LOOK, PALETTES, PIXEL_LOOKS, PIXEL_MAX, clampSide, gridOf, inkCount, paletteWord, parseColors, parseInkGroups, pixelLookWord, pixelSummary, readPixelArt, writeColors, writeGrid, writeInkGroups, writePixelArt } from './pixel-art';
 import { DEFAULT_TABLE_LOOK, TABLE_LOOKS, parseTableText, tableIsEmpty, tableLookOf, tableLookWord, writeTable } from './tables';
 import { cap } from './text';
 import { localImageId } from './images';
@@ -1198,7 +1198,8 @@ const PIXEL: WidgetDef = {
   swap: 'Salvar o desenho',
   fields: [
     { key: 'pixels', label: 'O desenho', kind: 'pixels', required: true, missing: 'Falta desenhar' },
-    // a paleta e a tela moram no ateliê (ui/pixel-studio/), não na folha: os campos ficam só nos valores
+    // a paleta, os grupos das cores (`groups`, sem campo) e a tela moram no ateliê (ui/pixel-studio/), não na folha:
+    // os campos ficam só nos valores
     { key: 'palette', label: 'Paleta', kind: 'choice', options: PALETTES, display: 'select', shown: () => false },
     { key: 'width', label: 'Largura', kind: 'number', range: [1, PIXEL_MAX], shown: () => false },
     { key: 'height', label: 'Altura', kind: 'number', range: [1, PIXEL_MAX], shown: () => false },
@@ -1213,6 +1214,7 @@ const PIXEL: WidgetDef = {
       height: String(art.h),
       palette: art.palette,
       colors: writeColors(art.colors, art.palette),
+      groups: writeInkGroups(art.groups, inkCount(art.palette, art.colors)),
       look: art.look,
       caption: art.caption,
     };
@@ -1226,6 +1228,7 @@ const PIXEL: WidgetDef = {
       rows: gridOf(v['pixels'] ?? '', w, h),
       palette: paletteWord(v['palette'] ?? '') ?? 'classica',
       colors: parseColors(v['colors'] ?? '') ?? {},
+      groups: parseInkGroups(v['groups'] ?? '') ?? [],
       look: pixelLookWord(v['look'] ?? '') ?? DEFAULT_PIXEL_LOOK,
       caption: v['caption'] ?? '',
     });
