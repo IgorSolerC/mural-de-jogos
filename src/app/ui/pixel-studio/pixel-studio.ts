@@ -2625,7 +2625,7 @@ export class PixelStudio {
       return;
     }
     if (n > 0 && e.shiftKey) {
-      const order = inkOrder(this.groups(), this.count()).filter((x) => x > 0);
+      const order = this.shownOrder();
       const to = order.indexOf(n);
       let from = order.indexOf(this.markAnchor ?? this.fg());
       if (from < 0) from = to;
@@ -2635,6 +2635,12 @@ export class PixelStudio {
     this.clearMarks();
     this.markAnchor = n;
     this.chooseInk(n);
+  }
+
+  /** As cores à mostra, na ordem da tela (sem o transparente e sem as dos grupos recolhidos): o intervalo do Shift. */
+  private shownOrder(): number[] {
+    const hidden = new Set(this.groups().flatMap((g) => (this.folded().has(g.name) ? g.inks : [])));
+    return inkOrder(this.groups(), this.count()).filter((x) => x > 0 && !hidden.has(x));
   }
 
   protected clearMarks(): void {
@@ -2716,7 +2722,7 @@ export class PixelStudio {
       k
         ? { id: 'novo-grupo', label: k === 1 ? 'Novo grupo com a marcada' : `Novo grupo com as ${k} marcadas`, hint: full ? `Cabem ${INK_GROUPS_MAX} grupos` : 'O nome sai das cores; o desenho não muda', icon: ICON.novaPasta, disabled: full, run: () => this.newGroup(marks) }
         : { id: 'novo-grupo', label: 'Novo grupo', hint: full ? `Cabem ${INK_GROUPS_MAX} grupos` : 'Para organizar as cores (o desenho não muda)', icon: ICON.novaPasta, disabled: full, run: () => this.newGroup() },
-      { id: 'pelo-tom', label: 'Agrupar pelo tom', hint: groups.length ? 'Um grupo por família de cor, no lugar dos de agora (Ctrl+Z desfaz)' : 'Um grupo por família de cor: Cinzas, Vermelhos, Azuis…', icon: ICON.paleta, run: () => this.groupByHue() },
+      { id: 'pelo-tom', label: 'Agrupar pelo tom', hint: groups.length ? 'Um grupo por família de cor, no lugar dos de agora (Ctrl+Z desfaz)' : 'Um grupo por família de cor: Cinzas, Vermelhos, Azuis…', icon: ICON.simples, run: () => this.groupByHue() },
     ];
     const n = this.fg();
     const moving = k ? marks : n > 0 ? [n] : [];
@@ -2727,7 +2733,8 @@ export class PixelStudio {
       if (at.size > 1 || !at.has(i)) items.push({ id: 'grupo-' + i, label: k > 1 ? `Pôr as ${k} em ${g.name}` : `Pôr em ${g.name}`, hint: `${who} para o grupo ${g.name}`, icon: ICON.pasta, run: () => this.putInGroup(moving, i) });
     });
     if ([...at].some((i) => i >= 0)) {
-      const one = at.size === 1 ? groups[[...at][0]] : null;
+      const inGroups = [...at].filter((i) => i >= 0);
+      const one = inGroups.length === 1 ? groups[inGroups[0]] : null;
       items.push({ id: 'soltar', label: one ? `Tirar de ${one.name}` : 'Tirar dos grupos', hint: k > 1 ? 'As marcadas voltam a ficar soltas' : 'Volta a ficar solta', icon: ICON.desfazer, run: () => this.putInGroup(moving, -1) });
     }
     return items;
@@ -2741,7 +2748,7 @@ export class PixelStudio {
       inks.map((n) => this.inks()[n]).filter((c): c is string => !!c),
       groups.map((g) => g.name),
     );
-    this.change({ groups: addGroup(groups, name, inks) }, inks.length ? `Grupo ${name} novo, com ${inks.length === 1 ? 'a cor' : `as ${inks.length} cores`}` : `Grupo ${name} novo`);
+    this.change({ groups: addGroup(groups, name, inks) }, inks.length ? `Grupo ${name} novo, com ${inks.length === 1 ? 'a cor' : `as ${inks.length} cores`}` : `Grupo ${name} novo: arraste cores para ele (Ctrl ou Shift + clique marcam várias)`);
     this.startGroupRename(this.groups().length - 1);
   }
 
@@ -2762,7 +2769,11 @@ export class PixelStudio {
 
   protected toggleFold(i: number): void {
     const g = this.groups()[i];
-    if (g) this.setFolded(g.name, !this.folded().has(g.name));
+    if (!g) return;
+    const shut = !this.folded().has(g.name);
+    this.setFolded(g.name, shut);
+    // o que some não fica marcado: arrastar ou pôr num grupo levaria cores que não se veem
+    if (shut && g.inks.some((n) => this.marked().has(n))) this.marked.set(new Set([...this.marked()].filter((n) => !g.inks.includes(n))));
   }
 
   /** F2 na seta do grupo renomeia. */

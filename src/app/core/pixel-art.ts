@@ -509,7 +509,8 @@ export function readPixelArt(args: readonly string[]): PixelArt {
     const p: PaletteName | null = palette ? null : paletteWord(a);
     const l: PixelLook | null = look ? null : pixelLookWord(a);
     const c: Record<number, string> | null = colors ? null : parseColors(a);
-    const g: InkGroup[] | null = groups ? null : parseInkGroups(a);
+    // (o "grupos" sozinho só vem antes de uma legenda; no fim, é a legenda "grupos" de uma linha de antes)
+    const g: InkGroup[] | null = groups || (t === 'grupos' && a === args.at(-1)) ? null : parseInkGroups(a);
     // (uma palavra de paleta ou de jeito com algarismo, "pico8", "c64", continua palavra)
     const rows = raw === null && (ROWS.test(t) || (afterDims && ROWS_LETTERS.test(t) && ROWS_MARK.test(t) && !paletteWord(a) && !pixelLookWord(a)));
     afterDims = !!d;

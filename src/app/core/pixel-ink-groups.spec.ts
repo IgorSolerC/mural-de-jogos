@@ -53,6 +53,13 @@ describe('pixel art: os grupos das cores', () => {
       expect(parseInkGroups('grupos de cor')).toBeNull();
     });
 
+    it('a legenda "grupos" de uma linha de antes continua legenda; a escrita agora vai e volta', () => {
+      expect(readPixelArt(['1x1', '1', 'grupos']).caption).toBe('grupos');
+      const line = writePixelArt({ ...readPixelArt(['1x1', '1']), caption: 'grupos' })!;
+      expect(readPixelArt(line).caption).toBe('grupos');
+      expect(readPixelArt(line).groups).toEqual([]);
+    });
+
     it('uma linha comprida que não fecha não trava a leitura', () => {
       const t = performance.now();
       expect(parseInkGroups('grupos' + ' [a]  '.repeat(40) + '!')).toBeNull();

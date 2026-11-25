@@ -269,6 +269,19 @@ describe('pixel art: os grupos das cores no ateliê', () => {
       expect(fgNow()).toBe(5);
     });
 
+    it('o intervalo do Shift pula as cores de um grupo recolhido; recolher desmarca as dele', async () => {
+      await make({ width: '1', height: '1', pixels: '1', groups: 'grupos [A]23 [B]45' });
+      (host.querySelector('[data-grupo="1"] .grupo-seta') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      // na tela: 1 6 7 8 9, depois 2 3 (A); o B está recolhido
+      tap(9, { ctrlKey: true });
+      tap(3, { shiftKey: true });
+      expect(marks().sort((a, b) => a - b)).toEqual([2, 3, 9]);
+      (host.querySelector('[data-grupo="0"] .grupo-seta') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(host.querySelector('.marcadas-n')?.textContent).toContain('1 cor marcada');
+    });
+
     it('o Esc desmarca (e não fecha o ateliê)', async () => {
       await make({ width: '1', height: '1', pixels: '1' });
       tap(3, { ctrlKey: true });

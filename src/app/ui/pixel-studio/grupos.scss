@@ -275,3 +275,23 @@
 }
 
 @include pilha.maco;
+
+/* a segunda linha do grupo vazio: como levar várias. No toque não se arrasta: o vazio diz o caminho do menu */
+.grupo-vazio-dica {
+  display: block;
+  font-size: 0.72rem;
+}
+
+.com-toque {
+  display: none;
+}
+
+@media (hover: none) {
+  .com-mouse {
+    display: none;
+  }
+
+  .com-toque {
+    display: inline;
+  }
+}
