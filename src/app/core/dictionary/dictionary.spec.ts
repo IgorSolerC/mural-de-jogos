@@ -1,4 +1,4 @@
-import { DEFAULT_STATE, DictState, MarkLookup, effectiveSort, lookupWords, facetChips, facetGroups, keysOf, matchScore, paramsOf, parseCsv, passes, readWords, sectionsOf, sortWords, spokenOf, stateFromParams, toggleFacet, compositionParts, relatedWords, classFamily, CLASS_FAMILIES, kanjiIn, wordsWithKanji, exampleParts, examplePlain, readExamples } from './dictionary';
+import { DEFAULT_STATE, DictState, MarkLookup, effectiveSort, lookupWords, facetChips, facetGroups, keysOf, matchScore, FACETS, facetValues, SORTS, paramsOf, parseCsv, passes, readWords, sectionsOf, sortWords, spokenOf, stateFromParams, toggleFacet, compositionParts, relatedWords, classFamily, CLASS_FAMILIES, kanjiIn, wordsWithKanji, exampleParts, examplePlain, readExamples } from './dictionary';
 import { foldJa, kanaRow, looseRomaji, romajiToKana } from './kana';
 import { dictionaryWords } from './words';
 
@@ -358,6 +358,35 @@ sem seta nenhuma",Do inglês hero.
     expect(sortWords(words, 'use', 'asc').map((w) => w.text)).toEqual(['だ', '来る', '新聞', '食べる', '東京', 'テレビ']);
     expect(sectionsOf(sortWords(words, 'priority', 'asc'), 'priority')[0].key?.label).toBe('Importância 10');
     expect(sectionsOf(sortWords(words, 'relevance', 'asc'), 'relevance').length).toBe(1);
+  });
+
+  it('as contas de uma passada dão o mesmo que as de antes (leveza, PLANO-DICIONARIO.md 8.1)', () => {
+    const all = dictionaryWords().words;
+    const marks: MarkLookup = { learned: (w) => w.order % 3 === 0, favorite: (id) => id.endsWith('7') };
+    // a conta de antes: para cada linha, cada palavra que passa nas outras
+    const slow = (found: typeof all, f: Parameters<typeof passes>[1]) =>
+      FACETS.map((facet) => {
+        const n = new Map<string, number>();
+        for (const w of found) if (passes(w, f, facet.key, marks)) for (const v of facetValues(w, facet.key, marks)) n.set(v, (n.get(v) ?? 0) + 1);
+        return n;
+      });
+    const filters: Parameters<typeof passes>[1][] = [{}, { jlpt: ['N5'] }, { jlpt: ['N5', 'N4'], wordClass: ['verbo'] }, { learned: ['sim'], favorite: ['sim'], theme: ['comida', 'tempo'] }, { use: ['Alto'], importance: ['10', '9'], script: ['kana'] }];
+    for (const f of filters) {
+      const found = all.filter((w) => w.order % 2 === 0);
+      const fast = facetGroups(all, found, f, marks);
+      const ref = slow(found, f);
+      for (const g of fast) {
+        const want = ref[FACETS.findIndex((x) => x.key === g.key)];
+        for (const o of g.options) expect(o.n).withContext(`${JSON.stringify(f)} ${g.key} ${o.value}`).toBe(want.get(o.value) ?? 0);
+      }
+    }
+    // ordenar todas e tirar as que não aparecem dá a mesma ordem que ordenar só as que aparecem, nos dois sentidos
+    const some = (w: (typeof all)[number]) => w.order % 5 !== 0 && w.jlpt !== 'N1';
+    for (const s of SORTS.filter((o) => o.value !== 'relevance'))
+      for (const dir of ['asc', 'desc'] as const)
+        expect(sortWords(all, s.value, dir).filter(some).map((w) => w.id))
+          .withContext(`${s.value} ${dir}`)
+          .toEqual(sortWords(all.filter(some), s.value, dir).map((w) => w.id));
   });
 
   it('guarda tudo no endereço, só o que não é o padrão', () => {

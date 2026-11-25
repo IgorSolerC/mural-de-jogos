@@ -163,3 +163,23 @@ One, a palavra em tinta vermelha, a tradução embaixo na letra de mão); a orig
 relacionadas com o 関 (que era o 例 da composição; na lousa também). A Tabela ganhou a coluna Origem; as frases
 ficam só nos verbetes. O teste "todas as palavras do dicionário seguem o padrão" (dictionary.spec.ts) falha se uma
 palavra entrar sem descrição, sem as três frases marcadas ou com `;` nos sentidos.
+
+## 8. Leveza (pedido de 25/nov: "laggado" para filtrar, interagir e ordenar, nos Verbetes e na Tabela)
+
+Medido na build de produção com a CPU 4× mais lenta (`.angular/pptr/dic-bench.mjs`): abrir 3,6 s com 82 mil
+elementos; ordenar por Leitura 4,3 s; digitar "taberu" trava até 4,6 s numa tecla; a Tabela abre em 4,5 s (41 mil
+elementos), ordena em 3,9 s e engasga ao rolar. O que pesa é montar as 1.449 palavras de uma vez (cada verbete com
+os botões, a voz e as frases; cada linha com 16 células, os selos e a voz), e cada troca refazer todas.
+
+Sem peça nova: o `appPerto` (ui/near-screen.ts) do Kanban e dos Estudos, com a vaga do tamanho da peça.
+
+1. **As contas** (core/dictionary/dictionary.ts): a busca lida uma vez por busca (não uma por palavra), as ordens
+   das palavras guardadas por ordem (as palavras não mudam), os valores das linhas dos filtros guardados.
+2. **Os Verbetes só perto da tela**: o lugar de cada verbete (`li appPerto`) fica na lista e nas colunas; longe,
+   uma vaga tracejada de giz, do tamanho do cartão (palpite pelo conteúdo, corrigido pela medida), com a palavra e
+   o sentido para o leitor de tela. As seções perdem o `content-visibility` (as vagas já não pesam).
+3. **A Tabela só perto da tela**: as linhas longe da caixa que rola viram uma linha vazia da altura dela; as
+   larguras das colunas fixas (as de hoje), para a tabela não mudar de largura conforme as linhas montam.
+4. **A busca não segura a tecla**: o campo responde na hora e a lista segue a busca um instante depois.
+
+Nada aqui mexe nas marcas nem na sincronização (o dicionário só lê; as marcas seguem pelo guardador delas).

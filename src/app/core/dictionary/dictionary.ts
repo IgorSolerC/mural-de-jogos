@@ -316,13 +316,23 @@ export function keysOf(w: Word): WordKeys {
   };
 }
 
-/** Uma busca lida: cada pedaço separado por espaço, dobrado, e o romaji como kana quando é romaji. */
+/**
+ * Uma busca lida: cada pedaço separado por espaço, dobrado, e o romaji como kana quando é romaji. As expressões do
+ * "começo de uma palavra" já montadas: a busca é lida uma vez e procurada em todas as palavras.
+ */
 interface Term {
   plain: string;
   ja: string;
   kana: string | null;
   loose: string;
+  /** O pedaço no começo de uma palavra do português (a partir de duas letras). */
+  wordStart: RegExp | null;
+  /** O pedaço em letras latinas no começo de uma palavra das notas; null quando ele tem japonês. */
+  extraStart: RegExp | null;
 }
+
+/** O pedaço no começo de uma palavra: depois do começo do texto ou de algo que não é letra nem número. */
+const startOfWord = (s: string) => new RegExp(`(^|[^a-z0-9])${escapeRe(s)}`);
 
 function termsOf(query: string): Term[] {
   return query
@@ -331,7 +341,16 @@ function termsOf(query: string): Term[] {
     .filter(Boolean)
     .map((t) => {
       const kana = romajiToKana(t);
-      return { plain: fold(t), ja: foldJa(t.replace(/〜/g, '')), kana: kana ? foldJa(kana) : null, loose: looseRomaji(t) };
+      const plain = fold(t);
+      const ja = foldJa(t.replace(/〜/g, ''));
+      return {
+        plain,
+        ja,
+        kana: kana ? foldJa(kana) : null,
+        loose: looseRomaji(t),
+        wordStart: plain.length >= 2 ? startOfWord(plain) : null,
+        extraStart: ja && !/[^\x00-\x7f]/.test(ja) ? startOfWord(ja) : null,
+      };
     })
     .filter((t) => t.plain || t.ja);
 }
@@ -356,17 +375,17 @@ function termScore(k: WordKeys, t: Term): number {
   if (t.loose.length >= 2) best = Math.max(best, tier(k.romajiLoose, t.loose, [94, 72, 40]));
   for (const s of k.senses) best = Math.max(best, tier(s, t.plain, [90, 68, 0]));
   // dentro do português, só a partir do começo de uma palavra ("comer" acha "comer algo", não "começo")
-  if (!best && t.plain.length >= 2 && new RegExp(`(^|[^a-z0-9])${escapeRe(t.plain)}`).test(k.meaning)) best = 42;
+  if (!best && t.wordStart?.test(k.meaning)) best = 42;
   // na composição, nas notas, na classe e no tema, só a partir de duas letras (uma letra está em quase tudo); em
   // letras latinas, só do começo de uma palavra, como no português: as notas citam o romaji, e "sushi" não pode achar
   // o 下 pelo "kutsushita" de 靴下
-  if (!best && (t.ja.length >= 2 || hasKanji(t.ja)) && (inExtra(k.extra, t.ja) || (t.kana && k.extra.includes(t.kana)))) best = 10;
+  if (!best && (t.ja.length >= 2 || hasKanji(t.ja)) && (inExtra(k.extra, t) || (t.kana && k.extra.includes(t.kana)))) best = 10;
   return best;
 }
 
 /** O pedaço está no texto: o japonês em qualquer lugar; o latino, do começo de uma palavra. */
-function inExtra(extra: string, s: string): boolean {
-  return /[^\x00-\x7f]/.test(s) ? extra.includes(s) : new RegExp(`(^|[^a-z0-9])${escapeRe(s)}`).test(extra);
+function inExtra(extra: string, t: Term): boolean {
+  return t.extraStart ? t.extraStart.test(extra) : extra.includes(t.ja);
 }
 
 function escapeRe(s: string): string {
@@ -378,15 +397,22 @@ function escapeRe(s: string): string {
  * precisa achar alguma coisa; busca vazia combina com tudo (1).
  */
 export function matchScore(k: WordKeys, query: string): number {
+  return matcher(query)(k);
+}
+
+/** A busca lida uma vez, para procurar em muitas palavras: o mesmo `matchScore`, sem ler a busca de novo a cada uma. */
+export function matcher(query: string): (k: WordKeys) => number {
   const terms = termsOf(query);
-  if (!terms.length) return 1;
-  let total = 0;
-  for (const t of terms) {
-    const s = termScore(k, t);
-    if (!s) return 0;
-    total += s;
-  }
-  return total;
+  if (!terms.length) return () => 1;
+  return (k) => {
+    let total = 0;
+    for (const t of terms) {
+      const s = termScore(k, t);
+      if (!s) return 0;
+      total += s;
+    }
+    return total;
+  };
 }
 
 /**
@@ -540,18 +566,51 @@ export function passes(w: Word, f: DictFilter, except?: FacetKey, marks: MarkLoo
  * um grupo escolhido.
  */
 export function facetGroups(all: readonly Word[], found: readonly Word[], f: DictFilter, marks: MarkLookup = NO_MARK_LOOKUP): FacetGroup<FacetKey>[] {
+  // uma passada só: as linhas que cada palavra não passa. Quem não passa em duas não conta em nenhuma; em uma, só
+  // nela (com ela solta, apareceria)
+  const counts = new Map<FacetKey, Map<string, number>>(FACETS.map((facet) => [facet.key, new Map()]));
+  for (const w of found) {
+    let failed: FacetKey | null = null;
+    let twice = false;
+    for (const facet of FACETS) {
+      const chosen = f[facet.key];
+      if (!chosen?.length) continue;
+      const mine = facetValues(w, facet.key, marks);
+      if (chosen.some((v) => mine.includes(v))) continue;
+      twice = failed !== null;
+      failed = facet.key;
+      if (twice) break;
+    }
+    if (twice) continue;
+    for (const facet of FACETS) {
+      if (failed && failed !== facet.key) continue;
+      const row = counts.get(facet.key)!;
+      for (const v of facetValues(w, facet.key, marks)) row.set(v, (row.get(v) ?? 0) + 1);
+    }
+  }
+  const known = valuesOf(all);
   return FACETS.map((facet) => {
-    const counts = new Map<string, number>();
-    for (const w of found) if (passes(w, f, facet.key, marks)) for (const v of facetValues(w, facet.key, marks)) counts.set(v, (counts.get(v) ?? 0) + 1);
-    const values = MARK_VALUES[facet.key] ?? orderValues(facet.key, [...new Set(all.flatMap((w) => facetValues(w, facet.key)))], all);
+    const values = MARK_VALUES[facet.key] ?? known.get(facet.key)!;
     const chosen = f[facet.key] ?? [];
+    const row = counts.get(facet.key)!;
     return {
       key: facet.key,
       title: facet.title,
       desc: facet.desc,
-      options: values.map((v) => ({ value: v, label: facetLabel(facet.key, v), n: counts.get(v) ?? 0, on: chosen.includes(v) })),
+      options: values.map((v) => ({ value: v, label: facetLabel(facet.key, v), n: row.get(v) ?? 0, on: chosen.includes(v) })),
     };
   }).filter((g) => g.key !== 'verbGroup' || g.options.some((o) => o.n || o.on));
+}
+
+/** Os valores de cada linha dos filtros num dicionário, já na ordem (as palavras não mudam: lidos uma vez por lista). */
+const knownValues = new WeakMap<readonly Word[], Map<FacetKey, string[]>>();
+function valuesOf(all: readonly Word[]): Map<FacetKey, string[]> {
+  let known = knownValues.get(all);
+  if (!known) {
+    known = new Map(FACETS.map((facet) => [facet.key, orderValues(facet.key, [...new Set(all.flatMap((w) => facetValues(w, facet.key)))], all)]));
+    knownValues.set(all, known);
+  }
+  return known;
 }
 
 /** Os filtros ligados, como adesivos com X embaixo da pasta, na ordem das linhas. */
@@ -590,6 +649,13 @@ export const SORTS: readonly SortOption[] = [
 ];
 
 const jaColl = new Intl.Collator('ja');
+/** A leitura sem o 〜, como a ordem Leitura compara (guardada: a ordem compara cada palavra muitas vezes). */
+const bare = new WeakMap<Word, string>();
+function bareReading(w: Word): string {
+  let r = bare.get(w);
+  if (r === undefined) bare.set(w, (r = w.reading.replace(/〜/g, '')));
+  return r;
+}
 const jlptAt = (w: Word) => (JLPT_ORDER.includes(w.jlpt) ? JLPT_ORDER.indexOf(w.jlpt) : JLPT_ORDER.length);
 
 /** Comparar no sentido natural de cada ordem; o desempate é sempre a prioridade. */
@@ -606,7 +672,7 @@ function compare(key: SortKey, score: (w: Word) => number): (a: Word, b: Word) =
     case 'jlpt':
       return (a, b) => jlptAt(a) - jlptAt(b);
     case 'reading':
-      return (a, b) => jaColl.compare(a.reading.replace(/〜/g, ''), b.reading.replace(/〜/g, ''));
+      return (a, b) => jaColl.compare(bareReading(a), bareReading(b));
     case 'meaning':
       return (a, b) => nameColl.compare(a.meaning, b.meaning);
     case 'wordClass':

@@ -16,7 +16,7 @@ import {
   facetLabel,
   filterCount,
   isFiltered,
-  matchScore,
+  matcher,
   paramsOf,
   passes,
   sectionsOf,
@@ -172,9 +172,11 @@ export class DictionaryPage {
   /** O que a busca achou, com quanto cada palavra combina (todas, sem busca). */
   private readonly found = computed(() => {
     const q = this.query();
+    if (!q.trim()) return { words: this.all, scores: null };
+    const score = matcher(q);
     const scores = new Map<string, number>();
     for (const w of this.all) {
-      const s = matchScore(this.data.keys.get(w.id)!, q);
+      const s = score(this.data.keys.get(w.id)!);
       if (s) scores.set(w.id, s);
     }
     return { words: this.all.filter((w) => scores.has(w.id)), scores };
@@ -182,16 +184,23 @@ export class DictionaryPage {
 
   /** O que a busca e os filtros mostram, na ordem escolhida. */
   protected readonly sort = computed(() => effectiveSort({ ...this.state(), query: this.query() }));
+  private readonly dir = computed(() => this.state().dir);
+  /**
+   * Todas as palavras na ordem escolhida, refeita só quando a ordem muda: buscar, filtrar e marcar só tiram palavras
+   * dela (a ordem desempata pela prioridade, então tirar palavras não muda a ordem das que ficam).
+   */
+  private readonly ordered = computed(() => {
+    const sort = this.sort();
+    return sort === 'relevance' ? null : sortWords(this.all, sort, this.dir());
+  });
   protected readonly shown = computed(() => {
-    const { filter, dir } = this.state();
+    const { filter } = this.state();
     const { words, scores } = this.found();
     const marks = this.lookup();
-    return sortWords(
-      words.filter((w) => passes(w, filter, undefined, marks)),
-      this.sort(),
-      dir,
-      (w) => scores.get(w.id) ?? 0,
-    );
+    const keep = (w: Word) => (!scores || scores.has(w.id)) && passes(w, filter, undefined, marks);
+    const ordered = this.ordered();
+    if (ordered) return ordered.filter(keep);
+    return sortWords(words.filter(keep), 'relevance', this.dir(), (w) => scores?.get(w.id) ?? 0);
   });
   protected readonly sections = computed(() => sectionsOf(this.shown(), this.sort()));
 
