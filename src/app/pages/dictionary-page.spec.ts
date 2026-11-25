@@ -7,7 +7,7 @@ import { DICT_MARKS_KEY } from '../core/dictionary/marks-store';
 import { dictionaryWords } from '../core/dictionary/words';
 import { NEAR_TUNING, NearPool, setEverythingNear } from '../ui/near-screen';
 import { entryHeightGuess } from '../ui/word-entry';
-import { DictionaryPage } from './dictionary-page';
+import { DictionaryPage, tableRowGuess } from './dictionary-page';
 
 /** O Dicionário Japonês (PLANO-DICIONARIO.md): a busca, os filtros, a ordem e a vista, todos no endereço. */
 describe('o Dicionário Japonês', () => {
@@ -274,6 +274,18 @@ describe('o Dicionário Japonês', () => {
     expect(host.querySelector('app-thumb-index')).toBeNull();
   });
 
+  it('as colunas da Tabela têm largura fixa, e nenhum texto passa por cima da coluna do lado', async () => {
+    await open('/extras/dicionario?vista=tabela');
+    const table = host.querySelector<HTMLTableElement>('table')!;
+    expect(getComputedStyle(table).tableLayout).toBe('fixed');
+    expect(table.querySelectorAll('col').length).toBe(16);
+    // as colunas de uma linha: com outra letra (a destes testes), quebram a linha em vez de passar da coluna
+    for (const c of ['c-n', 'c-romaji', 'c-jlpt', 'c-uso', 'c-imp', 'c-classe', 'c-tema', 'c-escrita', 'c-rank'])
+      for (const cell of host.querySelectorAll<HTMLElement>(`tbody .${c}`)) expect(cell.scrollWidth).withContext(`${c}: ${cell.textContent!.trim()}`).toBeLessThanOrEqual(cell.clientWidth + 1);
+    // e a cabeça de cada coluna cabe nela
+    for (const th of host.querySelectorAll<HTMLElement>('thead th')) expect(th.scrollWidth).withContext(th.textContent!.trim()).toBeLessThanOrEqual(th.clientWidth + 1);
+  });
+
   it('a Tabela tem todas as colunas, e a cabeça ordena', async () => {
     await open('/extras/dicionario?vista=tabela');
     expect(host.querySelector('.verbete')).toBeNull();
@@ -349,5 +361,33 @@ describe('o Dicionário Japonês', () => {
       const first = places()[0];
       expect(first.querySelector('.verbete')).withContext('a primeira da ordem nova').not.toBeNull();
     });
-  });
+      it('na Tabela, as linhas longe da caixa que rola são vagas da altura delas; rolando, montam sem mudar a largura', async () => {
+      await open('/extras/dicionario?vista=tabela');
+      const box = host.querySelector<HTMLElement>('.razao')!;
+      const rows = () => [...host.querySelectorAll<HTMLTableRowElement>('tbody tr')];
+      expect(rows().length).toBe(1449);
+      expect(rows()[0].querySelector('.c-palavra')).withContext('a primeira, na caixa').not.toBeNull();
+      const last = rows().at(-1)!;
+      const vaga = last.querySelector<HTMLTableCellElement>('.linha-vaga')!;
+      expect(vaga).withContext('a última, longe').not.toBeNull();
+      expect(vaga.colSpan).toBe(16);
+      const w = dictionaryWords().words.find((x) => x.order === 1449)!;
+      expect(vaga.textContent!.replace(/\s+/g, ' ').trim()).toBe(`${w.text}, ${w.meaning}`);
+      expect(Math.abs(last.getBoundingClientRect().height - tableRowGuess(w))).toBeLessThanOrEqual(1);
+      expect(host.querySelectorAll('tbody .c-palavra').length).toBeLessThan(200);
+      const width = host.querySelector('table')!.offsetWidth;
+      // no meio da caixa: a linha monta, com a altura perto do palpite (no máximo uma linha de texto a mais ou a menos)
+      const row = rows()[700];
+      box.scrollTop = row.offsetTop - box.clientHeight / 2;
+      await until(() => !!row.querySelector('.c-palavra'), 'montada perto da caixa');
+      const word = dictionaryWords().words.find((x) => x.order === 701)!;
+      expect(Math.abs(row.getBoundingClientRect().height - tableRowGuess(word))).toBeLessThanOrEqual(21);
+      expect(host.querySelector('table')!.offsetWidth).withContext('a largura não muda').toBe(width);
+      // de volta ao alto: a linha volta a ser vaga, com a altura que tinha montada
+      const real = row.getBoundingClientRect().height;
+      box.scrollTop = 0;
+      await until(() => !row.querySelector('.c-palavra'), 'longe de novo');
+      expect(row.getBoundingClientRect().height).toBeCloseTo(real, 0);
+    });
+});
 });

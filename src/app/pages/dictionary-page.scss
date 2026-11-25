@@ -109,7 +109,10 @@ app-facet-filters.cartela {
   }
 }
 
+/* as larguras das colunas são fixas (no <colgroup>, ver COLUMNS): as linhas de longe são vagas, e a tabela não pode
+   mudar de largura conforme elas montam */
 table {
+  table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
   min-width: 100%;
@@ -174,13 +177,19 @@ tbody th {
 tbody tr:hover > * {
   background-color: rgb(255 218 66 / 0.2);
 }
+/* a linha ainda não montada: só o espaço dela, com o tracejado de baixo das outras */
+tbody .linha-vaga {
+  padding: 0;
+}
+tbody tr:hover > .linha-vaga {
+  background-color: transparent;
+}
 
 /* a palavra fica presa à esquerda enquanto a tabela anda para o lado */
 .c-palavra {
   position: sticky;
   left: 0;
   z-index: 1;
-  min-width: 7.5rem;
   background-color: var(--papel-ficha);
   box-shadow: 6px 0 8px -8px rgb(0 0 0 / 0.5);
 }
@@ -222,30 +231,14 @@ thead .c-palavra {
 thead .num {
   text-align: right;
 }
-.c-sentido {
-  min-width: 13rem;
-}
 .c-composicao {
-  min-width: 12rem;
   font-family: var(--dic-letra);
-}
-.c-notas {
-  min-width: 18rem;
-}
-.c-origem {
-  min-width: 14rem;
 }
 .c-marcas {
   padding-block: 6px;
 }
-.c-romaji,
-.c-jlpt,
-.c-uso,
-.c-classe,
-.c-tema,
-.c-escrita {
-  white-space: nowrap;
-}
+/* o romaji, o JLPT, o uso, a classe, o tema e a escrita cabem numa linha (a coluna tem a largura do maior); com outra
+   letra (a do site ainda chegando), quebram a linha em vez de passar por cima da coluna do lado */
 
 /* o romaji da Tabela e, ao lado, os fones que dizem a palavra (ui/word-voice.ts) */
 .t-romaji {

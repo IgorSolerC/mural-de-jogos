@@ -112,8 +112,13 @@
   </section>
 } @else if (state().view === 'tabela') {
   <!-- a Tabela: o livro-razão com todas as colunas; a cabeça ordena -->
-  <div class="razao" tabindex="0" role="region" aria-label="Tabela das palavras" [appRealceBusca]="query()" realceEm="td, tbody th">
-    <table>
+  <div class="razao" tabindex="0" role="region" aria-label="Tabela das palavras" [appRealceBusca]="query()" realceEm="td:not(.linha-vaga), tbody th">
+    <table [style.width.rem]="tableWidth">
+      <colgroup>
+        @for (c of columns; track c.id) {
+          <col [style.width.rem]="c.width" />
+        }
+      </colgroup>
       <thead>
         <tr>
           @for (c of columns; track c.id) {
@@ -133,8 +138,11 @@
         </tr>
       </thead>
       <tbody>
+        <!-- só as linhas perto da caixa que rola são montadas (ui/near-screen.ts): longe, uma linha vazia da altura
+             dela, com a palavra e o sentido para o leitor de tela -->
         @for (w of shown(); track w.id) {
-          <tr>
+          <tr appPerto=".razao" #perto="perto" appPertoMede="linha" [appPertoId]="w.id">
+            @if (perto.near()) {
             <td class="c-n num">{{ w.order }}</td>
             <td class="c-marcas">
               <app-word-seals [small]="true" [word]="w.text" [learned]="learned(w)" [favorite]="favorite(w)" [learnedSaid]="learnedSaid(w)" (learnedChange)="setLearned(w, $event)" (favoriteChange)="setFavorite(w, $event)" />
@@ -158,6 +166,11 @@
             <td class="c-composicao">{{ w.composition }}</td>
             <td class="c-notas">{{ w.notes }}</td>
             <td class="c-origem">{{ w.origin }}</td>
+            } @else {
+              <td class="linha-vaga" data-vaga [attr.colspan]="columns.length" [style.height.px]="rowHeight(w)">
+                <span class="sr-only"><span lang="ja">{{ w.text }}</span>, {{ w.meaning }}</span>
+              </td>
+            }
           </tr>
         }
       </tbody>

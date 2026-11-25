@@ -55,26 +55,46 @@ interface Column {
   sort?: SortKey;
   /** Números, à direita e com algarismos alinhados. */
   num?: boolean;
+  /**
+   * A largura, em rem: fixa, para a tabela não mudar de largura conforme as linhas perto da tela montam (as de longe
+   * são vagas). São as que a tabela tinha quando cada coluna se ajustava ao maior texto dela, arredondadas para cima.
+   */
+  width: number;
 }
 
 const COLUMNS: readonly Column[] = [
-  { id: 'n', label: 'Nº', sort: 'priority', num: true },
-  { id: 'marcas', label: 'Marcas' },
-  { id: 'palavra', label: 'Japonês', sort: 'reading' },
-  { id: 'romaji', label: 'Romaji' },
-  { id: 'sentido', label: 'Português', sort: 'meaning' },
-  { id: 'jlpt', label: 'JLPT', sort: 'jlpt' },
-  { id: 'uso', label: 'Uso', sort: 'use' },
-  { id: 'imp', label: 'Imp.', sort: 'importance', num: true },
-  { id: 'classe', label: 'Classe', sort: 'wordClass' },
-  { id: 'tema', label: 'Tema', sort: 'theme' },
-  { id: 'escrita', label: 'Escrita' },
-  { id: 'registro', label: 'Registro' },
-  { id: 'rank', label: 'Internet', sort: 'rank', num: true },
-  { id: 'composicao', label: 'Relacionadas' },
-  { id: 'notas', label: 'Descrição' },
-  { id: 'origem', label: 'Origem' },
+  { id: 'n', label: 'Nº', sort: 'priority', num: true, width: 3.79 },
+  { id: 'marcas', label: 'Marcas', width: 5.38 },
+  { id: 'palavra', label: 'Japonês', sort: 'reading', width: 7.5 },
+  { id: 'romaji', label: 'Romaji', width: 12.07 },
+  { id: 'sentido', label: 'Português', sort: 'meaning', width: 13 },
+  { id: 'jlpt', label: 'JLPT', sort: 'jlpt', width: 5.29 },
+  { id: 'uso', label: 'Uso', sort: 'use', width: 5.17 },
+  { id: 'imp', label: 'Imp.', sort: 'importance', num: true, width: 3.33 },
+  { id: 'classe', label: 'Classe', sort: 'wordClass', width: 10.17 },
+  { id: 'tema', label: 'Tema', sort: 'theme', width: 7.32 },
+  { id: 'escrita', label: 'Escrita', width: 6.74 },
+  { id: 'registro', label: 'Registro', width: 7 },
+  { id: 'rank', label: 'Internet', sort: 'rank', num: true, width: 5.28 },
+  { id: 'composicao', label: 'Relacionadas', width: 12 },
+  { id: 'notas', label: 'Descrição', width: 18 },
+  { id: 'origem', label: 'Origem', width: 14 },
 ];
+const TABLE_WIDTH = COLUMNS.reduce((n, c) => n + c.width, 0);
+
+/**
+ * A altura de uma linha da Tabela pelo que ela tem dentro: a vaga da linha ainda não montada (só as perto da caixa
+ * que rola são montadas). Com as larguras fixas, cada coluna que quebra a linha cabe tantas letras por linha (medido
+ * nas 1.449 linhas: erro médio de 4,5 px, nunca mais de uma linha); a linha tem a altura da coluna mais alta, e
+ * nunca menos que a da palavra com a leitura embaixo. Conta com a letra de 16 px do site (com outra, o palpite erra
+ * até a linha montar). Montada uma vez, vale a medida dela (ui/near-screen.ts).
+ */
+export function tableRowGuess(w: Word): number {
+  const line = 0.92 * 16 * 1.35;
+  const lines = (text: string, perLine: number) => Math.max(1, Math.ceil(text.length / perLine));
+  const most = Math.max(lines(w.meaning, 18), lines(w.composition, 20), lines(w.notes, 36), lines(w.origin, 28), lines(w.registers.join(', '), 8));
+  return Math.max(61.7, Math.round(19 + most * line));
+}
 
 /**
  * O Dicionário Japonês de Outros (PLANO-DICIONARIO.md): as palavras do CSV do dono para consultar. A pasta da
@@ -106,6 +126,7 @@ export class DictionaryPage {
     { value: 'tabela', label: 'Tabela', hint: 'Todas as colunas numa tabela', icon: ICON.tabela },
   ];
   protected readonly columns = COLUMNS;
+  protected readonly tableWidth = TABLE_WIDTH;
 
   private readonly data = dictionaryWords();
   /** Todas as palavras, na ordem do CSV. */
@@ -232,6 +253,11 @@ export class DictionaryPage {
   /** A altura da vaga de um verbete: a medida dele, se já foi montado; senão, o palpite pelo que ele tem dentro. */
   protected entryHeight(w: Word): number {
     return this.nearPool.measured('verbete', w.id) ?? entryHeightGuess(w, this.column() || 600);
+  }
+
+  /** A altura da vaga de uma linha da Tabela: a medida dela, se já foi montada; senão, o palpite. */
+  protected rowHeight(w: Word): number {
+    return this.nearPool.measured('linha', w.id) ?? tableRowGuess(w);
   }
 
   /* ===== O índice de dedo (PLANO-DICIONARIO.md, 5.3) ===== */
