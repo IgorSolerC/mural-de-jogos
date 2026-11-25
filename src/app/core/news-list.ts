@@ -27,15 +27,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-25-pomodoro-espaco',
+    id: '2026-11-25-dicionario-mais-palavras',
     version: '1.54.1',
     kind: 'ajustes',
     date: '2026-11-25',
-    title: 'O Pomodoro numa tela só, com a régua do dia',
+    title: 'O Pomodoro numa tela só, com a régua do dia, e mais 417 palavras no Dicionário Japonês',
     melhorias: [
       'A página do Pomodoro cabe numa tela só: o relógio de pé numa prateleira, com um tomatinho na tábua por estudo de hoje, e três fitas na frente da tábua (o tempo, a música e o relógio) que abrem os ajustes numa folha: os tempos e o sininho, as músicas, e os 12 relógios com o canto da tela.',
       'Embaixo do relógio, a régua do dia: cada estudo e cada pausa de hoje pintados no horário em que aconteceram, o agora e quanto tempo de foco você já fez.',
       'Na página do Pomodoro, o Espaço começa o foco, pausa e continua, e o relógio parado fica apagado.',
+      'Mais 417 palavras no Dicionário Japonês, das mais usadas no dia a dia, todas no mesmo padrão (sentidos, descrição, três frases, origem e relacionadas): família e pessoas, o corpo e a casa, lugares e países, comida, escola e trabalho, os dias do mês (二日 a 十日 e 二十日), verbos como 並ぶ, 引っ越す e 付き合う, adjetivos como 悔しい e 面倒くさい, advérbios como やっと, せっかく e さすが, e a gramática de 〜てから, 〜ように, 〜てくれる e 〜ことにする. São 1.449 palavras.',
     ],
   },
   {

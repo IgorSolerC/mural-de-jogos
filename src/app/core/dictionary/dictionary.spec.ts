@@ -70,8 +70,12 @@ sem seta nenhuma",Do inglês hero.
   it('nas notas e nas relacionadas, o romaji só acha do começo de uma palavra', () => {
     const all = dictionaryWords().words;
     const hits = (q: string) => all.filter((w) => matchScore(keysOf(w), q) > 0).map((w) => w.text);
-    // "kutsushita" (靴下, nas relacionadas de 下 e de 靴) não acha "sushi"
-    expect(hits('sushi')).toEqual(['寿司']);
+    // "kutsushita" (靴下, nas relacionadas de 下 e de 靴) não acha "sushi" nelas; o próprio 靴下 e as notas que
+    // dizem "sushi" em português (皿, 醤油) acham
+    const sushi = hits('sushi');
+    expect(sushi).toContain('寿司');
+    expect(sushi).not.toContain('下');
+    expect(sushi).not.toContain('靴');
     // o japonês nas notas continua achando em qualquer lugar
     expect(hits('靴下')).toContain('下');
   });
@@ -183,11 +187,34 @@ sem seta nenhuma",Do inglês hero.
     expect([...classes].filter((c) => !(c in CLASS_FAMILIES))).toEqual([]);
   });
 
-  it('lê a lista inteira do dono: 1032 palavras, todas com id único', () => {
+  it('lê a lista inteira do dono: 1449 palavras, todas com id único', () => {
     const all = dictionaryWords().words;
-    expect(all.length).toBe(1032);
-    expect(new Set(all.map((w) => w.id)).size).toBe(1032);
+    expect(all.length).toBe(1449);
+    expect(new Set(all.map((w) => w.id)).size).toBe(1449);
     expect(all.every((w) => w.text && w.reading && w.meaning)).toBeTrue();
+  });
+
+  it('as 417 palavras de 25/nov entram por aprender, no fim do bloco delas, e as homógrafas novas são verbetes próprios', () => {
+    const all = dictionaryWords().words;
+    const added = all.filter((w) => Number(w.id.slice(2)) > 1032);
+    expect(added.length).toBe(417);
+    expect(added.every((w) => w.learnedOn === null)).toBeTrue();
+    // cada uma depois de todas as antigas do mesmo bloco (importância, frequência): a ordem de antes não muda
+    for (const w of added) {
+      const older = all.filter((o) => Number(o.id.slice(2)) <= 1032 && o.importance === w.importance && o.frequency === w.frequency);
+      expect(older.every((o) => o.order < w.order)).withContext(w.text).toBeTrue();
+    }
+    const find = (text: string) => all.find((w) => w.text === text)!;
+    // 時 (toki) não é o 〜時 das horas, e 亡くなる (falecer) não é 無くなる (acabar)
+    expect(find('時').reading).toBe('とき');
+    expect(find('〜時').reading).toBe('じ');
+    expect(find('亡くなる').meaning).toBe('falecer');
+    expect(find('無くなる').meaning).toContain('acabar');
+    // os dias do mês com a leitura nativa
+    expect(['二日', '三日', '四日', '五日', '六日', '七日', '八日', '九日', '十日', '二十日'].map((t) => find(t).reading)).toEqual([
+      'ふつか', 'みっか', 'よっか', 'いつか', 'むいか', 'なのか', 'ようか', 'ここのか', 'とおか', 'はつか',
+    ]);
+    expect(find('ポルトガル語').examples.length).toBe(3);
   });
 
   it('as palavras que o dono já aprendeu (14 a 23/nov) vêm com o dia, e as homógrafas são verbetes próprios', () => {
