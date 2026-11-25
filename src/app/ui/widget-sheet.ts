@@ -4,7 +4,7 @@ import { LucideIconData } from 'lucide-angular';
 import { ICON, IconModule } from './icons';
 import { NoteLinks, resolveNote } from '../core/note-links';
 import { cap, profileOf } from '../core/kinds';
-import { Review, isNote } from '../core/review';
+import { Review, isCanvas, isNote } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { DAY_MS } from '../core/dates';
 import { WIDGETS, WIDGET_SIZES, WidgetDef, WidgetField, WidgetSize, WidgetValues, fieldsFor, widgetDef, widgetLines } from '../core/widgets';
@@ -221,8 +221,9 @@ export class WidgetSheet {
   protected readonly chosenCard = computed<Review | null>(() => {
     if (this.name() !== 'nota') return null;
     const v = this.values();
-    if (v['id']) return this.store.get(v['id']) ?? null;
-    return v['title'] ? resolveNote(this.notes() ?? this.store.notes(), v['title']) : null;
+    // (o canvas não é colado pelo widget Nota: PLANO-CANVAS.md)
+    const card = v['id'] ? (this.store.get(v['id']) ?? null) : v['title'] ? resolveNote(this.notes() ?? this.store.notes(), v['title']) : null;
+    return card && !isCanvas(card) ? card : null;
   });
 
   private cardJustPicked = false;

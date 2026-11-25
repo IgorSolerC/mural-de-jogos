@@ -182,9 +182,10 @@ function searchedText(text: string): string {
 /**
  * A busca do mural: nome, texto e bônus (nas anotações, a categoria, o assunto e as tags; nas músicas, o
  * artista, o álbum de onde a música é e a faixa de destaque), sem ligar para acento nem caixa.
- * `needle` já vem dobrado; "#bug" procura só nas tags.
+ * `needle` já vem dobrado; "#bug" procura só nas tags. `more` dá o texto de fora da ficha, já dobrado: o que está
+ * escrito no quadro de um canvas (ver `canvasSearchText`).
  */
-export function matchesQuery(r: Review, needle: string, tree: FolderTree = NO_FOLDERS): boolean {
+export function matchesQuery(r: Review, needle: string, tree: FolderTree = NO_FOLDERS, more?: (r: Review) => string): boolean {
   if (!needle) return true;
   if (needle.startsWith('#')) {
     const tag = needle.slice(1);
@@ -197,7 +198,8 @@ export function matchesQuery(r: Review, needle: string, tree: FolderTree = NO_FO
     (!!r.category && fold(r.category).includes(needle)) ||
     fold(folderNameOf(tree, r) ?? '').includes(needle) ||
     !!r.tags?.some((t) => fold(t).includes(needle)) ||
-    (!!r.game.form && [r.game.by, r.game.album, r.game.sampleTitle].some((t) => !!t && fold(t).includes(needle)))
+    (!!r.game.form && [r.game.by, r.game.album, r.game.sampleTitle].some((t) => !!t && fold(t).includes(needle))) ||
+    (!!more && more(r).includes(needle))
   );
 }
 

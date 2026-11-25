@@ -4,6 +4,8 @@ import { FolderTree, NoteFolder, folderNameOf } from './folders';
 import { Injectable, Signal, WritableSignal, computed, effect, forwardRef, inject, signal, untracked } from '@angular/core';
 import { KANBAN_LAST_KEY, boardIdFor } from './kanban';
 import { KanbanStore } from './kanban-store';
+import { FreeBoardStore } from './free-board-store';
+import { canvasSearchText } from './free-board-text';
 import { SharedStore } from './shared-store';
 import { Kind, KindProfile, countOf, hasTabs, isMusic, isNotes, revisitCountOf } from './kinds';
 import { Mural } from './mural';
@@ -267,6 +269,11 @@ export abstract class WallState {
   abstract readonly categoryLooks: Signal<CategoryLooks>;
   /** As pastas das anotações do dono do mural (as suas, ou as públicas de quem você visita; core/folders.ts). */
   abstract readonly folders: Signal<FolderTree>;
+  /**
+   * O que está escrito no quadro de cada canvas, já dobrado, para a busca (PLANO-CANVAS.md, 4.2); '' na ficha que
+   * não é canvas, ou quando o quadro não está aqui. Sem quadros (a visita, por enquanto), nada.
+   */
+  readonly canvasText: Signal<(r: Review) => string> = signal(() => '');
   /**
    * A ordem das categorias montada à mão pelo dono (a engrenagem do mural, ver core/mural-config.ts),
    * pela chave; null, da maior para a menor. Só o seu mural tem: a de quem visita não vem junto.
@@ -913,21 +920,21 @@ export abstract class WallState {
     const needle = fold(this.query().trim());
     const out = this.outByTags();
     // a parede inteira: as fichas e as rejogadas, cada uma no seu lugar (as anotações finalizadas, só à mostra)
-    return this.pool().filter((r) => matchesQuery(r, needle, this.folders()) && !out(r));
+    return this.pool().filter((r) => matchesQuery(r, needle, this.folders(), needle ? this.canvasText() : undefined) && !out(r));
   });
 
   /** Quantas fichas que a busca acharia as tags escondidas tiram do mural. */
   readonly tagHidden = computed(() => {
     const needle = fold(this.query().trim());
     const out = this.outByTags();
-    return this.pool().filter((r) => out(r) && matchesQuery(r, needle, this.folders())).length;
+    return this.pool().filter((r) => out(r) && matchesQuery(r, needle, this.folders(), needle ? this.canvasText() : undefined)).length;
   });
 
   /** Quantas anotações finalizadas, escondidas, a busca acharia (para o mural dizer que elas existem). */
   readonly doneMatches = computed(() => {
     const needle = fold(this.query().trim());
     if (!needle || this.showDone()) return 0;
-    return this.tabbed().filter((r) => isDone(r) && !this.stamping().has(r.id) && this.showsBoard(r) && matchesQuery(r, needle, this.folders())).length;
+    return this.tabbed().filter((r) => isDone(r) && !this.stamping().has(r.id) && this.showsBoard(r) && matchesQuery(r, needle, this.folders(), needle ? this.canvasText() : undefined)).length;
   });
 
   /** Quantas anotações só no Kanban, escondidas, a busca acharia (para o mural dizer que elas existem). */
@@ -935,7 +942,7 @@ export abstract class WallState {
     const needle = fold(this.query().trim());
     if (!needle || !this.boardOnly().size) return 0;
     const out = this.outByTags();
-    return this.tabbed().filter((r) => !this.showsBoard(r) && this.showsDone(r) && matchesQuery(r, needle, this.folders()) && !out(r)).length;
+    return this.tabbed().filter((r) => !this.showsBoard(r) && this.showsDone(r) && matchesQuery(r, needle, this.folders(), needle ? this.canvasText() : undefined) && !out(r)).length;
   });
 
   /** Quantas anotações à mostra, nas outras abas, a busca acharia (para oferecer procurar em todas). */
@@ -943,7 +950,7 @@ export abstract class WallState {
     const needle = fold(this.query().trim());
     if (!needle || this.activeTab() === ALL_TAB) return 0;
     const out = this.outByTags();
-    return this.wall().filter((r) => !this.inTab(r) && this.shows(r) && matchesQuery(r, needle, this.folders()) && !out(r)).length;
+    return this.wall().filter((r) => !this.inTab(r) && this.shows(r) && matchesQuery(r, needle, this.folders(), needle ? this.canvasText() : undefined) && !out(r)).length;
   });
 
   /** Os grupos da cartela, com quantas fichas cada opção mostraria. */
@@ -1205,6 +1212,16 @@ export class WallView extends WallState {
   readonly owner = signal<string | null>(null).asReadonly();
   readonly categoryLooks = this.settings.categoryLooks.asReadonly();
   readonly folders = inject(NoteFolders).tree;
+  private readonly freeBoards = inject(FreeBoardStore);
+  override readonly canvasText = computed<(r: Review) => string>(() => {
+    // (a lista diz quando mudou; o texto sai do guardado, que é o mesmo objeto até mudar: a lista refaz os de outra
+    // pessoa a cada mudança, com o grupo daqui)
+    this.freeBoards.boards();
+    return (r) => {
+      const board = r.canvas ? this.freeBoards.get(r.canvas) : null;
+      return board ? canvasSearchText(board) : '';
+    };
+  });
   override readonly categoryOrder = computed(() => activeOrder(this.settings.notesConfig()));
   override readonly madeGroups = computed<readonly string[]>(() => this.settings.madeGroups().map((g) => g.label));
   override readonly hiddenTabs = computed<ReadonlySet<string>>(() => new Set([...hiddenKeys(this.settings.notesConfig())].map((k) => `c:${k}`)));

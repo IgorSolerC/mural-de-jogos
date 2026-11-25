@@ -4,6 +4,8 @@ import { NoteLinks } from '../core/note-links';
 import { Review, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { LinkedCard } from './linked-card';
+import { canvasNoteId } from '../core/canvas-id';
+import { newBoardId } from '../core/free-board';
 
 function card(id: string, name: string, kind = 'jogos', extra: Record<string, unknown> = {}): Review {
   return sanitizeReview({
@@ -183,6 +185,18 @@ describe('a nota colada no texto (o widget Nota)', () => {
     expect(el.querySelector('app-review-card')).toBeNull();
     expect(el.querySelector('.perdida-nome')?.textContent).toBe('Uma ficha apagada');
     expect(el.querySelector('.perdida-dica')?.textContent).toContain('apagada');
+  });
+
+  it('o canvas não é colado pelo widget Nota (PLANO-CANVAS.md, D6): nem pelo id, nem pelo título', async () => {
+    const id = canvasNoteId(newBoardId());
+    TestBed.inject(ReviewStore).reviews.update((list) => [card(id, 'Mapa do canvas', 'anotacoes'), ...list]);
+    await show([`#${id}`, 'Mapa do canvas']);
+    expect(el.querySelector('app-review-card')).toBeNull();
+    fixture.destroy();
+    el.remove();
+    const notes = TestBed.inject(ReviewStore).notes();
+    await show(['Mapa do canvas'], { resolve: (t) => notes.find((n) => n.game.name === t) ?? null });
+    expect(el.querySelector('app-review-card')).toBeNull();
   });
 
   it('a privada (o cadeado no texto de quem visita) diz que é privada, e não que foi apagada', async () => {

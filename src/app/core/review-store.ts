@@ -351,6 +351,11 @@ export class ReviewStore {
     return this.reviews().find((r) => r.id === id);
   }
 
+  /** Quando a ficha `id` foi apagada (ISO), ou null se não está entre as apagadas (ver `Deleted`). */
+  deletedAt(id: string): string | null {
+    return this.deleted().reviews[id] ?? null;
+  }
+
   /**
    * Prega a ficha. A de uma obra que já está no mural (o mesmo nome) entra como rejogada dela (ver
    * `asRevisit`). Devolve a troca de original, se a ficha nova é uma rejogada mais antiga que ela (ver `settle`).

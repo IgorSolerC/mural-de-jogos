@@ -1,3 +1,4 @@
+import { BUILD_SEEN_KEY, TRIED_KEY } from './newer-build';
 import { BOARDS_VERSION_KEY } from './free-board-sync';
 import { ACCOUNT_KEY, SESSION_KEY } from './cloud-account';
 import { BEFORE_CLOUD_DB, readBeforeCloud, saveBeforeCloud } from './cloud-before';
@@ -80,6 +81,15 @@ describe('limpar o navegador (sair da conta)', () => {
     localStorage.setItem(BOARDS_VERSION_KEY, '12');
     await wipeBrowser();
     expect(localStorage.getItem(BOARDS_VERSION_KEY)).toBeNull();
+  });
+
+  it('a marca da build mais nova que abriu aqui e o "já recarreguei" da aba (a trava do site velho) saem na limpeza', async () => {
+    signedInBrowser();
+    localStorage.setItem(BUILD_SEEN_KEY, '2000');
+    sessionStorage.setItem(TRIED_KEY, '2000');
+    await wipeBrowser();
+    expect(localStorage.getItem(BUILD_SEEN_KEY)).toBeNull();
+    expect(sessionStorage.getItem(TRIED_KEY)).toBeNull();
   });
 
   it('a bandeira de admin mora na conta guardada e sai na limpeza', async () => {

@@ -334,13 +334,15 @@ export function boardInGroup(board: Pick<FreeBoard, 'grupo'>, group: string | nu
 /**
  * Os quadros quando o grupo `from` vira `to` (renomeado ou juntado a outro) ou é apagado (`to` null):
  * renomeado, os quadros dele passam a ser de `to` (também quando só muda a escrita, a caixa ou um acento);
- * apagado, saem (decisão D12, como os baralhos). Devolve a lista nova, os que mudaram e os que saíram.
+ * apagado, saem (decisão D12, como os baralhos), menos os de `keep` (os quadros dos canvas que ficaram, ver
+ * core/canvas-link.ts). Devolve a lista nova, os que mudaram e os que saíram.
  */
 export function boardsMovedGroup(
   boards: readonly FreeBoard[],
   from: string,
   to: string | null,
   at: string,
+  keep: ReadonlySet<string> = new Set(),
 ): { boards: FreeBoard[]; changed: FreeBoard[]; removed: FreeBoard[] } {
   const fromKey = groupKey(from);
   const label = to === null ? null : cleanCategory(to);
@@ -351,7 +353,9 @@ export function boardsMovedGroup(
     if (!fromKey || groupKey(b.grupo) !== fromKey) {
       out.push(b);
     } else if (label === null || !groupKey(label)) {
-      removed.push(b);
+      // o quadro de um canvas não sai com o grupo: a anotação dele ficou (sem grupo), e o elo leva o quadro junto
+      if (keep.has(b.id)) out.push(b);
+      else removed.push(b);
     } else if (b.grupo === label) {
       out.push(b);
     } else {

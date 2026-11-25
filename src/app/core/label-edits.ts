@@ -311,8 +311,14 @@ export class LabelEdits {
     // os baralhos do grupo vão com ele (também quando só muda a escrita: a caixa, um acento); apagado, saem
     this.study.moveGroup(category, to);
     // os quadros livres do grupo também (apagado, saem com ele: PLANO-QUADRO-LIVRE.md, decisão D12)
-    void this.freeBoards.moveGroup(category, to);
+    // (menos os dos canvas: a anotação ficou, sem grupo, e o quadro vai com ela)
+    void this.freeBoards.moveGroup(category, to, this.canvasBoards());
     return result;
+  }
+
+  /** Os quadros que são de algum canvas do mural (ver core/canvas-link.ts). */
+  private canvasBoards(): Set<string> {
+    return new Set(this.store.notes().flatMap((n) => (n.canvas ? [n.canvas] : [])));
   }
 
   /** As anotações do grupo (pela chave), as suas e as compartilhadas que estão nele no seu mural. */
@@ -393,7 +399,8 @@ export class LabelEdits {
     this.kanban.moveCategory(from, toKey);
     this.study.moveGroup(category, target);
     // (os quadros livres moram no IndexedDB: a falha de um não desfaz o resto)
-    await this.freeBoards.moveGroup(category, target).catch(() => undefined);
+    // (os dos canvas que ficaram vão com a anotação; os dos apagados saem com o grupo)
+    await this.freeBoards.moveGroup(category, target, this.canvasBoards()).catch(() => undefined);
     return result;
   }
 

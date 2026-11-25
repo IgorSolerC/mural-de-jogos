@@ -36,6 +36,7 @@ import { Confirm } from '../ui/confirm';
 import { plural } from './text';
 import { KeyValueStore, SYNC_STORAGE } from './sync-storage';
 import { buildOf } from './migrations';
+import { NewerBuild } from './newer-build';
 import { DeviceTag, sanitizeDevice } from './device';
 import { BLOCK_KINDS, BaseContent, BlockKind, readBaseContent, writeBaseContent } from './sync-base';
 import { SyncConflict, SyncConflicts, blockDefault, sanitizeConflicts, storedConflicts } from './sync-conflicts';
@@ -246,8 +247,11 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  *     Estudos guardados levam só uma cópia deles. Um site da 63 mudaria só a cópia, e a mudança não chegaria ao grupo.
  * 65: as marcas do Dicionário Japonês (`dicionario`, aprendida e favorita, só no mural privado, juntadas palavra a
  *     palavra; PLANO-DICIONARIO.md, 4.2). Um site da 64 enviaria o mural sem elas, e as marcas sumiriam da nuvem.
+ * 66: o canvas (`canvas` nas anotações, o id do quadro; PLANO-CANVAS.md, 4.1). Um site da 65 limparia a anotação sem
+ *     o campo; ele volta pelo id (`cv-` e o do quadro), mas o site velho não deve nem enviar. Desde a build 1049, a
+ *     build do mural também trava (ver core/newer-build.ts): campo novo não precisa mais esperar esta versão.
  */
-export const SYNC_SCHEMA = 65;
+export const SYNC_SCHEMA = 66;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };
@@ -821,6 +825,7 @@ export class CloudSync {
   /** Onde moram as fichas (o IndexedDB, dividido com as outras abas): ver `catchUpTabs` e `persistNow`. */
   private readonly data = inject(LocalData);
   private readonly appRef = inject(ApplicationRef);
+  private readonly newer = inject(NewerBuild);
 
   readonly status = signal<SyncStatus>('fora');
   /** O que mostrar junto do estado (erros e avisos), já em português. */
@@ -1108,7 +1113,7 @@ export class CloudSync {
     let takenAt = Date.now();
     for (let attempt = 0; ; attempt++) {
       if (remote.kind === 'doc') {
-        if (isNewerSchema(remote.data)) throw this.outdated();
+        if (this.tooNew(remote.data)) throw this.outdated();
         this.integrate(state.conta, remote, this.knownFor(state));
         // o público da nuvem agora é o que veio com este mural (de outro aparelho, talvez com outra regra)
         state = { ...state, rev: remote.rev, publicas: publicPrintOf(remote.data) };
@@ -1178,7 +1183,7 @@ export class CloudSync {
       return null;
     }
     const remote = await this.fetchRemote();
-    if (remote.kind === 'doc' && isNewerSchema(remote.data)) throw this.outdated();
+    if (remote.kind === 'doc' && this.tooNew(remote.data)) throw this.outdated();
     const localHas = this.localHasContent();
     const remoteHas = remote.kind === 'doc' && this.hasContent(remote.data);
     const base: SyncState = { conta: accountId, rev: remote.kind === 'doc' ? remote.rev : 0, impressao: '', em: null };
@@ -1981,6 +1986,17 @@ export class CloudSync {
   private noteClock(res: Response): void {
     const cloud = Date.parse(res.headers.get('Mural-Agora') ?? '');
     if (Number.isFinite(cloud)) this.clockSkew.set(cloud - Date.now());
+  }
+
+  /**
+   * O mural da nuvem foi gravado por um site mais novo (o formato da sincronização, ou só a build: ver
+   * core/newer-build.ts)? Este não junta nem envia: o saneamento dele jogaria fora os campos que não conhece. Pela
+   * build, a página também recarrega (uma vez), para virar o site novo.
+   */
+  private tooNew(data: Record<string, unknown>): boolean {
+    if (isNewerSchema(data)) return true;
+    const from = buildOf(data);
+    return from > BUILD && this.newer.seen(from, false);
   }
 
   private outdated(): CloudError {

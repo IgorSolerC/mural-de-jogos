@@ -1,6 +1,8 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Review, sanitizeReview } from '../core/review';
+import { Review, isCanvas, sanitizeReview } from '../core/review';
+import { canvasNoteId } from '../core/canvas-id';
+import { newBoardId } from '../core/free-board';
 import { ReviewStore } from '../core/review-store';
 import { CardPicker } from './card-picker';
 import { folderTree } from '../core/folders';
@@ -72,6 +74,15 @@ describe('escolher a ficha da Nota', () => {
     await fixture.whenStable();
     expect(names()).toEqual(['Diário da viagem', 'Roteiro']);
     expect(el.querySelector('.escolha .meta')!.textContent).toContain('Japão');
+  });
+
+  it('o canvas não aparece para escolher (PLANO-CANVAS.md: fora do Kanban, dos Flashcards, do widget Nota e do Calendário)', async () => {
+    const store = TestBed.inject(ReviewStore);
+    store.reviews.update((list) => [card(canvasNoteId(newBoardId()), 'Mapa do canvas', 'anotacoes', '2026-10-09T10:00:00.000Z'), ...list]);
+    expect(store.reviews().filter(isCanvas).length).toBe(1);
+    await open();
+    expect(names()).not.toContain('Mapa do canvas');
+    expect(names()).toContain('Comprar um console');
   });
 
   it('todas as suas, de todos os murais, das mexidas por último primeiro; menos aquela onde vai ser colada', async () => {

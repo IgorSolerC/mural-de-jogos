@@ -1,6 +1,6 @@
 import { DestroyRef, Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { IconChoice } from './icon-choices';
-import { LightStock, audienceFields } from './review';
+import { LightStock, audienceFields, isCanvas } from './review';
 import { ReviewStore } from './review-store';
 import { GroupStudies } from './group-studies';
 import { GroupStudy, knownDecks, overlayStudy, personalCopy, samePart, sameDecks, studyPart } from './shared-study';
@@ -108,8 +108,11 @@ export class StudyStore {
     return st;
   });
   private lastDecks: Deck[] = [];
-  /** As anotações que existem (a carta de uma apagada não aparece nem entra na fila). */
-  private readonly notesById = computed(() => new Map(this.store.notes().map((n) => [n.id, n])));
+  /**
+   * As anotações que existem (a carta de uma apagada não aparece nem entra na fila). Sem os canvas
+   * (PLANO-CANVAS.md): eles não viram flashcard, e uma carta de canvas não vale.
+   */
+  private readonly notesById = computed(() => new Map(this.store.notes().flatMap((n) => (isCanvas(n) ? [] : [[n.id, n] as const]))));
   /** O grupo da anotação (o seu, nas compartilhadas); `undefined`: ela não existe. */
   readonly groupOf: GroupOf = (note) => {
     const n = this.notesById().get(note);
@@ -460,6 +463,8 @@ export class StudyStore {
    * Nenhum do grupo, nada muda.
    */
   addCard(note: string, decks: readonly string[], front: CardFront = {}, wall?: boolean): void {
+    // o canvas não vira flashcard
+    if (isCanvas(this.store.get(note))) return;
     const ids = this.decksFor(note, decks);
     if (!ids.length) return;
     const st = this.state();

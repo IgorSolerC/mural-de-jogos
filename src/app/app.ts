@@ -1,4 +1,6 @@
 import { CloudSync } from './core/cloud-sync';
+import { CanvasLink } from './core/canvas-link';
+import { NewerBuild } from './core/newer-build';
 import { NoteFolders } from './core/note-folders';
 import { CloudMurals } from './core/cloud-murals';
 import { ChangeDetectionStrategy, Component, afterNextRender, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
@@ -97,6 +99,10 @@ export class App {
   protected readonly backup = inject(Backup);
   /** A sincronização com a nuvem: só age com a nuvem ligada e a pessoa logada (ver core/cloud-sync.ts). */
   private readonly cloudSync = inject(CloudSync);
+  /** A trava do site velho: recarrega quando uma build mais nova abriu em outra aba (ver core/newer-build.ts). */
+  private readonly newerBuild = inject(NewerBuild);
+  /** O elo dos canvas com os quadros deles: o reconciliador sobe com o app (ver core/canvas-link.ts). */
+  private readonly canvasLink = inject(CanvasLink);
   /** O link ?mural=CÓDIGO abre o mural de alguém (ver core/cloud-murals.ts). */
   private readonly cloudMurals = inject(CloudMurals);
   /** As novidades do site e a faixa do topo (ver core/news.ts). */

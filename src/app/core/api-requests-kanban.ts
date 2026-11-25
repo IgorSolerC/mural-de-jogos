@@ -36,7 +36,7 @@ import {
   touch,
   updateColumn,
 } from './kanban';
-import { Review, fold, isDone, isNote, withDone } from './review';
+import { Review, fold, isCanvas, isDone, isNote, withDone } from './review';
 
 /**
  * Os pedidos do Kanban aplicados pelo site (PLANO-API.md, 9.2; rodada 8), pelas mesmas funções da
@@ -122,7 +122,8 @@ function columnOf(b: KanbanBoard, ref: string): KanbanColumn | undefined {
 /** As notas que a API alcança (das compartilhadas, só as dos grupos em que a conta é dono ou gestor), pelo id. */
 function reachable(notes: NoteBook): Map<string, Review> {
   const hidden = notes.hidden();
-  return new Map(notes.notes().filter((n) => !hidden.has(n.id)).map((n) => [n.id, n]));
+  // (sem os canvas: eles não entram no Kanban)
+  return new Map(notes.notes().filter((n) => !hidden.has(n.id) && !isCanvas(n)).map((n) => [n.id, n]));
 }
 
 /** O cartão de uma nota como a v1 mostra, no quadro de agora. */

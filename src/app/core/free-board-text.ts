@@ -2,6 +2,7 @@ import { FbNode, FreeBoard, shownEdges, shownNodes } from './free-board';
 import { framesOf, readingOrder } from './free-board-geometry';
 import { plainText } from './rich-text';
 import { parseWidgetLine, readCardRef, widgetDef, widgetSpoken } from './widgets';
+import { fold } from './text';
 
 /**
  * O Quadro livre como texto (PLANO-QUADRO-LIVRE.md, 4.9 e 7.8): as molduras como títulos, as peças dentro delas
@@ -88,4 +89,23 @@ export function boardAsText(board: FreeBoard): string {
     for (const a of arrows) lines.push(`- ${a.from} → ${a.to}${a.label ? ` (${a.label})` : ''}`);
   }
   return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n';
+}
+
+/** O texto de cada quadro para a busca, já dobrado (o quadro não muda: cada mudança é um objeto novo). */
+const searchCache = new WeakMap<FreeBoard, string>();
+
+/**
+ * Tudo o que o quadro diz, numa linha só e dobrado (sem acento nem caixa), para a busca do mural achar o canvas
+ * pelo que está escrito nele (PLANO-CANVAS.md, 4.2): os nomes das molduras, os bilhetes inteiros, o que cada widget
+ * diz e os rótulos das setas. Guardado por quadro, para a busca não refazer a cada letra.
+ */
+export function canvasSearchText(board: FreeBoard): string {
+  const kept = searchCache.get(board);
+  if (kept !== undefined) return kept;
+  const parts: string[] = [board.nome];
+  for (const n of shownNodes(board)) parts.push(n.t === 'x' ? plainText(n.txt) : pieceLabel(n).label);
+  for (const e of shownEdges(board)) if (e.txt) parts.push(e.txt);
+  const text = fold(parts.join(' ').replace(/\s+/g, ' '));
+  searchCache.set(board, text);
+  return text;
 }

@@ -3,6 +3,7 @@ import { scoreDisplay } from './settings';
 import { cleanCategory, cleanSubject, sanitizeTags } from './note-labels';
 import { Damage, DecorMark, Paper, Pattern, Scribble, StainMark, isAgedPaper, sanitizeDamage, sanitizeDecors, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizePatternInk, sanitizeScribble, sanitizeScribbleInk, sanitizeSeed, sanitizeStains } from './paper';
 import { BUILD } from './build';
+import { boardIdOfNote } from './canvas-id';
 import { migrateReview } from './migrations';
 import { cleanLabel, fold, nameKey, slugOf } from './text';
 import { PASTA_ID_RE } from '../../../contrato/api-v1/notas';
@@ -367,6 +368,12 @@ export interface Review {
    */
   sharedBy?: { codigo: string; nome: string };
   /**
+   * Só nas anotações: a anotação é um canvas (PLANO-CANVAS.md), e este é o id do quadro dele (core/free-board.ts).
+   * Sai sempre do id da anotação (`cv-` e o id do quadro, ver core/canvas-id.ts): um site de antes do canvas joga
+   * o campo fora, mas guarda o id, e o site novo o põe de volta. O texto do canvas fica vazio: o corpo é o quadro.
+   */
+  canvas?: string;
+  /**
    * Quando uma ficha que era privada (ou só visível) passou a ser publicada (ISO). Para quem segue, ela é nova a partir
    * daí, não de quando foi escrita (ver core/cloud-sync.ts). Sem o campo, vale `createdAt`.
    */
@@ -403,6 +410,14 @@ export function withPin(r: Review, pinned: boolean, now: string): Review {
 /** É uma anotação (do mural de anotações), não uma resenha? */
 export function isNote(r: Pick<Review, 'kind'>): boolean {
   return isNotes(r.kind);
+}
+
+/**
+ * A anotação é um canvas (PLANO-CANVAS.md): o corpo é um quadro, e não um texto. Fica fora do Kanban, dos
+ * Flashcards, dos seletores de nota, do widget Nota e do Calendário.
+ */
+export function isCanvas(r: Pick<Review, 'canvas'> | null | undefined): boolean {
+  return !!r?.canvas;
 }
 
 /** É uma ficha do mural de músicas (um álbum ou uma música)? */
@@ -1304,6 +1319,8 @@ export function sanitizeNote(r: Record<string, any>, game: PickedGame): Review {
     ...(NOTE_RANKS.includes(r['noteRank']) ? { noteRank: r['noteRank'] as NoteRank } : {}),
     ...optional('doneAt', isoOr(r['doneAt'], '') || undefined),
     ...optional('sharedBy', sanitizeSharedBy(r['sharedBy'])),
+    // o canvas sai do id (ver core/canvas-id.ts), também quando um site antigo jogou o campo fora
+    ...optional('canvas', boardIdOfNote(base.id) ?? undefined),
     createdAt,
     updatedAt: isoOr(r['updatedAt'], createdAt),
   };

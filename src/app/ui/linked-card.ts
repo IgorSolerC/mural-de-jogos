@@ -5,7 +5,7 @@ import { ICON, IconModule } from './icons';
 import { CardFinder, FoundCard } from '../core/card-finder';
 import { cap, profileOf } from '../core/kinds';
 import { NoteLinks } from '../core/note-links';
-import { Review, isDarkStock, isNote } from '../core/review';
+import { Review, isCanvas, isDarkStock, isNote } from '../core/review';
 import { NoteDone } from '../core/note-done';
 import { lookOf } from '../core/paper';
 import { ownPaperVars } from '../core/paper-art';
@@ -590,10 +590,15 @@ export class LinkedCard {
   protected readonly ref = computed(() => readCardRef(this.args()));
   protected readonly found = computed<FoundCard | null>(() => {
     const { id, title } = this.ref();
-    if (id) return this.finder.find(id);
+    // o canvas não é colado pelo widget Nota (PLANO-CANVAS.md): fica como a ficha que não existe
+    if (id) {
+      const f = this.finder.find(id);
+      return f && !isCanvas(f.review) ? f : null;
+    }
     // só o título: a anotação dele, entre as que o texto conhece
     const note = title ? (this.links()?.resolve?.(title) ?? null) : null;
-    return note ? (this.finder.find(note.id) ?? { review: note, mine: false, masked: false, looks: {} }) : null;
+    if (!note || isCanvas(note)) return null;
+    return this.finder.find(note.id) ?? { review: note, mine: false, masked: false, looks: {} };
   });
   protected readonly openable = computed(() => !!this.found() && !!this.links()?.openCard);
 

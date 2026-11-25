@@ -3,12 +3,16 @@ import { bootstrapApplication } from '@angular/platform-browser';
 import { appConfig } from './app/app.config';
 import { App } from './app/app';
 import { resetOnBoot, watchOtherTabs } from './app/core/browser-reset';
+import { markBuild, newerBuildSeen } from './app/core/newer-build';
 
 // Saiu da conta (aqui ou em outra aba), ou o mural daqui é de uma conta que não está mais nele: o
 // navegador é limpo antes de o app ler qualquer coisa (ver core/browser-reset.ts).
 watchOtherTabs();
 const booted = resetOnBoot().catch(() => false);
-void booted.then(() => bootstrapApplication(App, appConfig)).catch((err) => console.error(err));
+// Depois da limpeza (ela apagaria a marca): uma build mais nova já abriu neste navegador, e esta é a velha
+// (uma versão guardada, uma aba de antes do deploy). Recarrega antes de ler e gravar (ver core/newer-build.ts).
+const reloading = booted.then(() => newerBuildSeen(markBuild(), { freeze: true }) === 'recarregando');
+void reloading.then((r) => (r ? undefined : bootstrapApplication(App, appConfig))).catch((err) => console.error(err));
 
 // O mural offline (public/sw.js). No `ng serve` fica de fora, para não servir arquivo velho.
 if (!isDevMode() && 'serviceWorker' in navigator) {

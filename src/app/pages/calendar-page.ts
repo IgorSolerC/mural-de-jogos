@@ -31,7 +31,7 @@ import {
 } from '../core/calendar';
 import { CalendarStore } from '../core/calendar-store';
 import { Desk } from '../core/desk';
-import { Review } from '../core/review';
+import { Review, isCanvas } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { readText, writeText } from '../core/storage';
@@ -387,9 +387,9 @@ export class CalendarPage {
     return isPast(r, day, this.today(), this.now());
   }
 
-  /** As anotações anexadas que existem (uma apagada some da lista sem mexer no lembrete). */
+  /** As anotações anexadas que existem (uma apagada some da lista sem mexer no lembrete; o canvas não entra). */
   protected notesOf(r: Reminder): Review[] {
-    return r.notes.map((id) => this.store.get(id)).filter((n): n is Review => !!n);
+    return r.notes.map((id) => this.store.get(id)).filter((n): n is Review => !!n && !isCanvas(n));
   }
 
   /** O pedaço de uma vez de vários dias neste dia (null num lembrete de um dia só): as tiras se emendam. */

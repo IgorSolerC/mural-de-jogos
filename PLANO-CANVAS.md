@@ -173,8 +173,17 @@ volta a anotação **e** o quadro). Fora: tudo do Kanban, dos Flashcards e "Abri
   trata dado de uma build mais nova (`BUILD` no mural da nuvem e no backup, `core/migrations.ts`, as folhas que não
   abriam em `stale-chunks`) e travar: o site velho que vê um mural de build mais nova recarrega antes de gravar.
   Se a trava não existir, criá-la nesta rodada (é o que protege todo campo novo daqui para a frente).
-- O id da anotação de um canvas **convertido** (rodada 5) é derivado do quadro (`cv-` + id do quadro): dois
-  aparelhos convertendo ao mesmo tempo geram a mesma anotação, e a junção do mural não duplica.
+- O id da anotação de **todo** canvas (não só do convertido) é derivado do quadro: `cv-` + id do quadro
+  (`core/canvas-id.ts`, decisão D7). O `canvas` sai do id no `sanitizeNote`: um site de antes da trava (a build
+  1048 e as anteriores, ainda abertas em alguma aba ou aparelho) joga o campo fora, mas guarda o id, e a anotação
+  volta a ser canvas no site novo. E dois aparelhos convertendo o mesmo quadro (rodada 5) geram a mesma anotação.
+- **A trava** (feita na rodada 1, `core/newer-build.ts`): só havia a da nuvem pelo formato (`SYNC_SCHEMA`, que subiu para 66 com o canvas), que pede lembrar de subir a versão e não pegava as abas. Cada site marca a build dele em
+  `meu-mural:build` na subida (`main.ts`); o que acha uma marca maior (outra aba abriu a nova, ou é uma versão
+  guardada) para de gravar e recarrega, uma vez por aba e por build (`meu-mural:recarregou-build` no
+  sessionStorage). Na nuvem, o mural de uma build maior faz a sincronização parar sem juntar nem enviar
+  (`desatualizado`, como o `SYNC_SCHEMA` maior) e recarregar uma vez. Sem conseguir, um bilhete pede para
+  recarregar. Cuidado: um `ng serve` logado na conta de verdade com a BUILD já somada (antes do deploy) trava os
+  outros aparelhos até o deploy chegar.
 - Kanban e Flashcards ignoram o canvas: `KanbanStore` (quadro, `boardOnly`, colunas), os seletores de anotação
   (`CardPicker`, "Escolher a nota"), o virar flashcard, o widget Nota (escolher uma nota) e o Calendário filtram
   `isCanvas`. Escrever um teste por lugar.
@@ -194,9 +203,24 @@ Um lugar só para manter os dois juntos. **A anotação manda**; o quadro segue:
 | apagar o grupo com destino / mover o grupo | o `moveGroup` que já existe e as anotações do grupo andam juntas |
 
 - Renomear pelo topo do canvas muda a **anotação**, e o elo leva ao quadro (nunca o contrário).
-- Um **reconciliador** roda na subida e quando a lista de quadros ou de anotações muda: quadro sem anotação vira
-  canvas (rodada 5, a conversão); anotação de canvas cujo quadro sumiu (apagado em outro aparelho) some também,
-  com a lápide; campos que divergiram (um aparelho velho) voltam ao da anotação.
+- Um **reconciliador** roda na subida e quando a lista de quadros ou de anotações muda (`CanvasLink.reconcile`,
+  injetado no `App`). Decide pelas datas e **nunca apaga o que só ainda não chegou**:
+  - canvas e quadro aqui (o quadro é seu): nome, grupo e público do quadro voltam ao da anotação;
+  - canvas sem o quadro: só age quando sabe que o quadro foi apagado: a lápide daqui (a mais nova vale: a lápide
+    leva a anotação, a anotação mais nova traz o quadro de volta vazio) ou o quadro esteve aqui nesta página e
+    sumiu (a nuvem o tirou). O quadro que nunca esteve aqui (aparelho novo, a lista descendo) fica esperando;
+  - quadro sem o canvas: a anotação apagada (por qualquer caminho: mural, várias, API, outro aparelho) depois da
+    última mexida no quadro leva o quadro junto, com a cópia em memória, que volta se a anotação voltar (o
+    Desfazer de qualquer caminho). O quadro que nunca teve anotação vira canvas só na rodada 5;
+  - o quadro apagado em outro aparelho mas mexido aqui vira uma cópia (`keepCopy`): o canvas passa para ela
+    (a anotação ganha o id `cv-` da cópia, `FreeBoardStore.copyOf`);
+  - a compartilhada e o quadro de outra pessoa ficam de fora até a rodada 4.
+- **Para a rodada 4:** a trava pela build só confere o mural privado; as anotações compartilhadas (`notas`) e o
+  documento de um grupo compartilhado ainda passam pelo saneamento de um site velho. O canvas resiste pelo id,
+  mas campo novo nesses documentos precisa da mesma conferência.
+- Apagar o grupo sem destino (as anotações vão para Sem grupo) não leva o quadro de um canvas
+  (`boardsMovedGroup(..., keep)`), e a folha de apagar o grupo não conta esses quadros. O canvas sem grupo tem o
+  quadro no grupo `Sem grupo` (o quadro precisa de um).
 - A busca do mural casa o texto do canvas (`free-board-text`), guardado em memória por id do quadro e `em`.
 - Backup: as anotações e os quadros já vão no backup; conferir que restaurar traz os dois e o elo.
 - **Regra do logout:** nada novo no navegador. Se surgir chave nova, começa com `meu-mural:` e entra no teste de
@@ -282,12 +306,20 @@ Marcar o Andamento (seção 9).
 - **D4.** Clicar abre o canvas (não a leitura). Os detalhes ficam em "Detalhes" (topo e menu).
 - **D5.** Canvas novo nasce sem formulário, direto no Editar, com o nome selecionado; vazio e sem nome some ao sair.
 - **D6.** Calendário, widget Nota, Comparar e perfil ficam sem canvas na primeira versão.
+- **D7.** O elo mora no id (`cv-` + quadro) para todo canvas, não só no campo `canvas` (4.1): protege dos sites
+  sem a trava.
+- **D8.** O widget Nota com um canvas colado (pelo id ou pelo título) mostra o papel rasgado da ficha que não
+  existe; os seletores (`CardPicker`) nem oferecem o canvas.
 
 ## 9. Andamento
 
 - [x] Exemplos e escolha (25/nov): três rodadas no laboratório; escolhida a versão "pendurado no prego" (`f`),
   refinada (o barbante atrás da orelha e da moldura, sem os olhais, o nome com reticências).
-- [ ] Rodada 1: os dados e o elo
+- [x] Rodada 1: os dados e o elo (25/nov, BUILD 1049): `Review.canvas` e `isCanvas` (o campo sai do id,
+  D7), a trava do site velho (`core/newer-build.ts`), `core/canvas-link.ts` (criar, renomear, apagar com
+  Desfazer, duplicar, o reconciliador), o quadro do canvas fica no apagar do grupo, os filtros (Kanban pelo
+  `notesById`, Flashcards, `CardPicker`, widget Nota, Calendário) e a busca pelo texto do quadro
+  (`canvasSearchText`, `WallState.canvasText`; a visita ainda não busca no quadro: rodada 2 ou 3).
 - [ ] Rodada 2: o card na parede
 - [ ] Rodada 3: criar e abrir
 - [ ] Rodada 4: compartilhar e nuvem

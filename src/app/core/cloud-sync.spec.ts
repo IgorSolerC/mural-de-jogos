@@ -31,6 +31,8 @@ import { deleteDatabase } from './erase-save';
 import { Colleague, ColleagueStore } from './colleague-store';
 import { cloudColleagueId } from './cloud-murals';
 import { checkOtherTabs } from './storage';
+import { BUILD } from './build';
+import { NewerBuild, TRIED_KEY } from './newer-build';
 
 const API = 'https://api.teste';
 const TOKEN = 'A'.repeat(43);
@@ -1459,6 +1461,37 @@ describe('sincronização com a nuvem', () => {
     expect(cloud.puts).toBe(puts);
   });
 
+  it('mural gravado por uma build mais nova do site: não junta nem envia, e a página recarrega uma vez (PLANO-CANVAS.md, 4.1)', async () => {
+    const newer = TestBed.inject(NewerBuild);
+    const reload = jasmine.createSpy('reload');
+    newer.reload = reload;
+    try {
+      await cloud.seed({ app: 'meu-mural', version: 2, build: BUILD + 1, reviews: [review('rnovo1', 'Do futuro')], drafts: [], wishes: [], deleted: {} });
+      const a = device();
+      a.store.add(review('rlocal1', 'Daqui'));
+      const puts = cloud.puts;
+      await a.sync.syncNow();
+      expect(a.sync.status()).toBe('desatualizado');
+      expect(a.names()).toEqual(['Daqui']);
+      expect(cloud.puts).toBe(puts);
+      expect(reload).toHaveBeenCalledTimes(1);
+      // de novo (a página recarregada ainda é a velha): não recarrega outra vez, nem envia
+      await a.sync.syncNow();
+      expect(reload).toHaveBeenCalledTimes(1);
+      expect(cloud.puts).toBe(puts);
+    } finally {
+      sessionStorage.removeItem(TRIED_KEY);
+    }
+  });
+
+  it('mural gravado por esta build (ou uma mais velha): sincroniza como sempre', async () => {
+    await cloud.seed({ app: 'meu-mural', version: 2, build: BUILD - 1, reviews: [review('rvelho1', 'Do passado')], drafts: [], wishes: [], deleted: {} });
+    const a = device();
+    await a.sync.syncNow();
+    expect(a.sync.status()).toBe('ok');
+    expect(a.names()).toEqual(['Do passado']);
+  });
+
   it('as resenhas novas (até 7 dias) vão na lista para avisar quem segue', async () => {
     const a = device();
     const now = new Date().toISOString();
@@ -1952,6 +1985,6 @@ describe('versão do formato (SYNC_SCHEMA)', () => {
     const source = [sanitizeReview, sanitizeNote, sanitizeDraft, sanitizeWish].map((f) => f.toString().replace(/\s+/g, '')).join('|');
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
     const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 65, hex: '7f2a06a0b04439093edd3c333637dfdab920648555a8e4cd2c5702b02ac68445' });
+    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 66, hex: 'f22c46fb902bdf8482e2b9611f1c96a35af983f4c9adf4be51dadf71037bd8d3' });
   });
 });

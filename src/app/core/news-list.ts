@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-25-card-papel-sobre-papel',
+    id: '2026-11-25-trava-do-site-velho',
     version: '1.54.1',
     kind: 'ajustes',
     date: '2026-11-25',
@@ -37,6 +37,7 @@ export const NEWS: NewsEntry[] = [
       'A página do Pomodoro cabe numa tela só: o relógio de pé numa prateleira, com um tomatinho na tábua por estudo de hoje, e três fitas na frente da tábua (o tempo, a música e o relógio) que abrem os ajustes numa folha: os tempos e o sininho, as músicas, e os 12 relógios com o canto da tela.',
       'Embaixo do relógio, a régua do dia: cada estudo e cada pausa de hoje pintados no horário em que aconteceram, o agora e quanto tempo de foco você já fez.',
       'Na página do Pomodoro, o Espaço começa o foco, pausa e continua, e o relógio parado fica apagado.',
+      'Um Murall aberto antes de uma atualização (numa aba esquecida, em outro aparelho) recarrega sozinho quando vê que outro já está na versão nova, em vez de gravar por cima o que ele ainda não conhece. Se não der para recarregar na hora, um bilhete pede para recarregar.',
       'Mais 417 palavras no Dicionário Japonês, das mais usadas no dia a dia, todas no mesmo padrão (sentidos, descrição, três frases, origem e relacionadas): família e pessoas, o corpo e a casa, lugares e países, comida, escola e trabalho, os dias do mês (二日 a 十日 e 二十日), verbos como 並ぶ, 引っ越す e 付き合う, adjetivos como 悔しい e 面倒くさい, advérbios como やっと, せっかく e さすが, e a gramática de 〜てから, 〜ように, 〜てくれる e 〜ことにする. São 1.449 palavras.',
     ],
   },

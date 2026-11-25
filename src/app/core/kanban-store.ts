@@ -2,6 +2,7 @@ import { DestroyRef, Injectable, computed, effect, inject, signal, untracked } f
 import { EMPTY_KANBAN, Importance, KanbanBoard, KanbanCard, KanbanState, attachLegacy, boardCategories, boardIdFor, categoryKey, freshBoard, liveCards, mergeKanban, moveBoardCategory, onWall, restoredBoard, sanitizeKanban, setWall } from './kanban';
 import { activeOrder, kanbanOnly } from './mural-config';
 import { sanitizeTags } from './note-labels';
+import { isCanvas } from './review';
 import { ReviewStore } from './review-store';
 import { Settings } from './settings';
 import { StudyStore } from './study-store';
@@ -90,8 +91,11 @@ export class KanbanStore {
    */
   readonly categories = computed(() => boardCategories(this.store.notes(), activeOrder(this.settings.notesConfig()), this.settings.madeGroups()));
 
-  /** As anotações pelo id (para ver quais do quadro ainda são da categoria dele). */
-  readonly notesById = computed(() => new Map(this.store.notes().map((r) => [r.id, r])));
+  /**
+   * As anotações pelo id (para ver quais do quadro ainda são da categoria dele). Sem os canvas (PLANO-CANVAS.md):
+   * eles não entram no Kanban, e um cartão de canvas num quadro não vale.
+   */
+  readonly notesById = computed(() => new Map(this.store.notes().flatMap((r) => (isCanvas(r) ? [] : [[r.id, r] as const]))));
 
   /**
    * As anotações que estão só no Kanban, fora do mural (pelo id): as que estão no quadro do grupo delas
@@ -169,7 +173,7 @@ export class KanbanStore {
   notesAt(place: NotePlace): ReturnType<ReviewStore['notes']> {
     const only = this.boardOnly();
     const on = this.onBoard();
-    return this.store.notes().filter((n) => (place.wall && !only.has(n.id)) || (place.board && on.has(n.id)));
+    return this.store.notes().filter((n) => (place.wall && !only.has(n.id)) || (place.board && on.has(n.id) && !isCanvas(n)));
   }
 
   /** As anotações do quadro deste grupo ficam só no Kanban (a escolha do grupo)? */

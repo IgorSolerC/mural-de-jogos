@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, inject, input, model, output, signal, viewChild } from '@angular/core';
 import { ICON, IconModule } from './icons';
 import { KINDS, Kind, cap, profileOf } from '../core/kinds';
-import { Review, formatReviewDate, formatScore, isNote, isPrivate } from '../core/review';
+import { Review, formatReviewDate, formatScore, isCanvas, isNote, isPrivate } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { belongs } from '../core/kanban';
 import { pinningFor } from '../core/wall-physics';
@@ -189,13 +189,18 @@ export class CardPicker {
   private readonly search = viewChild<ElementRef<HTMLInputElement>>('search');
   private readonly lista = viewChild<ElementRef<HTMLElement>>('lista');
 
-  /** Todas as suas fichas, menos aquela onde a nota vai ser colada. */
+  /**
+   * Todas as suas fichas, menos aquela onde a nota vai ser colada e os canvas (PLANO-CANVAS.md: fora do Kanban,
+   * dos Flashcards, do widget Nota e do Calendário, todos escolhem por aqui).
+   */
   protected readonly cards = computed(() => {
     const self = this.selfId();
     const only = this.onlyKind();
     const out = new Set(this.exclude());
     const cat = this.onlyCategory();
-    return (this.source() ?? this.store.reviews()).filter((r) => r.id !== self && !out.has(r.id) && (!only || r.kind === only) && (!cat || belongs({ category: cat }, r)));
+    return (this.source() ?? this.store.reviews()).filter(
+      (r) => r.id !== self && !out.has(r.id) && !isCanvas(r) && (!only || r.kind === only) && (!cat || belongs({ category: cat }, r)),
+    );
   });
   /** O mural da lista: o escolhido no "Onde", ou o único (o "Buscar nota" do Kanban). */
   private readonly listKind = computed(() => this.onlyKind() ?? this.kind());

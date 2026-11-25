@@ -91,6 +91,14 @@ export class FreeBoardStore {
 
   // ===== ler =====
 
+  /** Os quadros que viraram cópia nesta página (apagados em outro aparelho, mexidos aqui): o id de antes → o da cópia. */
+  private readonly copied = new Map<string, string>();
+
+  /** A cópia que ficou no lugar do quadro `id` (ver `keepCopy`), se ele virou uma nesta página. */
+  copyOf(id: string): string | null {
+    return this.copied.get(id) ?? null;
+  }
+
   get(id: string): FreeBoard | null {
     return this.records.get(id)?.quadro ?? null;
   }
@@ -236,11 +244,11 @@ export class FreeBoardStore {
 
   /**
    * O grupo `from` virou `to` (renomeado ou juntado) ou foi apagado (`to` null): os quadros vão junto, ou
-   * saem com ele (decisão D12). Devolve quantos mudaram ou saíram.
+   * saem com ele (decisão D12), menos os de `keep` (os quadros dos canvas). Devolve quantos mudaram ou saíram.
    */
-  async moveGroup(from: string, to: string | null): Promise<number> {
+  async moveGroup(from: string, to: string | null, keep?: ReadonlySet<string>): Promise<number> {
     await this.ready;
-    const moved = boardsMovedGroup(this.boards(), from, to, new Date().toISOString());
+    const moved = boardsMovedGroup(this.boards(), from, to, new Date().toISOString(), keep);
     for (const b of moved.changed) await this.save(b);
     for (const b of moved.removed) await this.remove(b.id);
     return moved.changed.length + moved.removed.length;
@@ -368,6 +376,7 @@ export class FreeBoardStore {
     const copy = newFreeBoard(freeBoardName(this.boards(), stored.quadro.grupo, `${stored.quadro.nome} (cópia)`), stored.quadro.grupo, new Date().toISOString());
     if (!copy) return null;
     const saved = await this.save({ ...copy, n: stored.quadro.n, e: stored.quadro.e });
+    this.copied.set(id, saved.id);
     await this.dropRecord(id);
     return saved;
   }

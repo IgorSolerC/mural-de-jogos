@@ -290,7 +290,14 @@ export class GroupDeleteSheet {
     const ids = new Set(this.decks().map((d) => d.id));
     return this.study.state().cards.filter((c) => c.decks.length && c.decks.every((d) => ids.has(d))).length;
   });
-  private readonly boards = computed(() => this.freeBoards.goingWithGroup(this.name()).map((b) => b.nome));
+  /** Os quadros livres que saem com o grupo (os dos canvas não: são anotações, e vão para onde elas forem). */
+  private readonly boards = computed(() => {
+    const canvases = new Set(this.store.notes().flatMap((n) => (n.canvas ? [n.canvas] : [])));
+    return this.freeBoards
+      .goingWithGroup(this.name())
+      .filter((b) => !canvases.has(b.id))
+      .map((b) => b.nome);
+  });
   private readonly kanbanCards = computed(() => this.kanban.get(boardIdFor(this.name()))?.cards.length ?? 0);
   /** Nada nele (o grupo criado à mão, ainda sem nada): apagar só tira o nome, sem perguntar para onde vai. */
   protected readonly empty = computed(() => !this.notes().length && !this.folderCount() && !this.decks().length && !this.boards().length && !this.kanbanCards());
