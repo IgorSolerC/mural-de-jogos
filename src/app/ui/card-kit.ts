@@ -6,6 +6,7 @@ import {
   DAMAGES,
   DAMAGE_LABEL,
   DECORS,
+  DECOR_GROUPS,
   DECOR_LABEL,
   DEFAULT_PATTERN_INK,
   INK_TONES,
@@ -28,7 +29,6 @@ import {
   Paper,
   Pattern,
   PatternLook,
-  groupOfPattern,
   SCRIBBLES,
   SCRIBBLE_INK_LABEL,
   SCRIBBLE_LABEL,
@@ -79,6 +79,14 @@ interface Option {
   stain?: Stain;
   decor?: Decor;
 }
+
+/** As abas de muitas opções, separadas por assunto (a régua de assuntos em cima e um bloco por assunto). */
+type GroupedTab = 'estampa' | 'decoracao';
+const isGroupedTab = (t: Tab): t is GroupedTab => t === 'estampa' || t === 'decoracao';
+const GROUPS: Record<GroupedTab, readonly { id: string; label: string; items: readonly string[] }[]> = {
+  estampa: PATTERN_GROUPS.map((g) => ({ id: g.id, label: g.label, items: g.patterns })),
+  decoracao: DECOR_GROUPS.map((g) => ({ id: g.id, label: g.label, items: g.decors })),
+};
 
 /** As abas em que se escolhe mais de um: as manchas e as decorações não estragam a cartolina. */
 type MultiTab = 'mancha' | 'decoracao';
@@ -258,26 +266,27 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
               }
               </div>
             </ng-template>
-            @if (tab() === 'estampa') {
-              <!-- são muitas: os assuntos em cima, para ir direto ao que se quer; Todas mostra tudo, com o assunto
-                   de cada bloco escrito antes dele. O assunto da estampa escolhida ganha um pontinho -->
+            @if (grouped()) {
+              <!-- são muitas (as estampas, as decorações): os assuntos em cima, para ir direto ao que se quer;
+                   Todas mostra tudo, com o assunto de cada bloco escrito antes dele. O assunto do que está na
+                   ficha ganha um pontinho -->
               <!-- com o mouse, a régua também corre clicando e arrastando para o lado -->
               <div
                 class="assuntos"
                 role="group"
-                aria-label="Assunto das estampas"
+                [attr.aria-label]="tab() === 'estampa' ? 'Assunto das estampas' : 'Assunto das decorações'"
                 (pointerdown)="dragStart($event)"
                 (pointermove)="dragMove($event)"
                 (pointerup)="dragEnd($event)"
                 (pointercancel)="dragEnd($event)"
               >
-                @for (g of groupChips; track g.id) {
+                @for (g of groupChips(); track g.id) {
                   <button
                     type="button"
                     class="assunto"
                     [attr.data-assunto]="g.id"
                     [class.on]="group() === g.id"
-                    [class.usada]="g.id !== 'todas' && chosenGroup() === g.id"
+                    [class.usada]="usedGroups().has(g.id)"
                     [attr.aria-pressed]="group() === g.id"
                     (click)="selectGroup(g.id)"
                   >
@@ -287,17 +296,17 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
               </div>
               @if (group() === 'todas') {
                 <div class="carimbos">
-                  <ng-container *ngTemplateOutlet="carimbo; context: { $implicit: plainOption }" />
+                  <ng-container *ngTemplateOutlet="carimbo; context: { $implicit: options()[0] }" />
                 </div>
               }
-              @for (sec of patternSections(); track sec.id) {
+              @for (sec of sections(); track sec.id) {
                 <section class="bloco" [attr.aria-label]="sec.label">
                   @if (group() === 'todas') {
                     <h3 class="giz bloco-titulo">{{ sec.label }}</h3>
                   }
                   <div class="carimbos">
                     @if (group() !== 'todas') {
-                      <ng-container *ngTemplateOutlet="carimbo; context: { $implicit: plainOption }" />
+                      <ng-container *ngTemplateOutlet="carimbo; context: { $implicit: options()[0] }" />
                     }
                     @for (o of sec.options; track o.value) {
                       <ng-container *ngTemplateOutlet="carimbo; context: { $implicit: o }" />
@@ -1024,24 +1033,31 @@ export class CardKit {
     const svg = iconSvgs().patterns;
     return Object.fromEntries(PATTERNS.map((p) => [p, sanitizer.bypassSecurityTrustHtml(svg[p])])) as Record<Pattern, SafeHtml>;
   })();
-  /** O assunto das estampas à vista: Todas, ou um só. */
+  /** O assunto à vista nas abas de assuntos (Estampa, Decoração): Todas, ou um só. */
   protected readonly group = signal<string>('todas');
-  protected readonly groupChips: readonly { id: string; label: string }[] = [{ id: 'todas', label: 'Todas' }, ...PATTERN_GROUPS];
-  /** A Lisa, que fica sempre à vista, em qualquer assunto. */
-  protected readonly plainOption: Option = { value: null, label: 'Lisa' };
-  /** As estampas por assunto: todos os blocos, ou só o escolhido. */
-  protected readonly patternSections = computed(() => {
-    const g = this.group();
-    return PATTERN_GROUPS.filter((x) => g === 'todas' || x.id === g).map((x) => ({
-      id: x.id,
-      label: x.label,
-      options: x.patterns.map((p): Option => ({ value: p, label: PATTERN_LABEL[p], pattern: p })),
-    }));
+  /** A aba aberta tem assuntos (as estampas e as decorações, que são muitas). */
+  protected readonly grouped = computed(() => isGroupedTab(this.tab()));
+  /** Os assuntos da aba aberta, com o Todas na frente. */
+  protected readonly groupChips = computed(() => {
+    const t = this.tab();
+    return isGroupedTab(t) ? [{ id: 'todas', label: 'Todas' }, ...GROUPS[t]] : [];
   });
-  /** O assunto da estampa que a ficha tem. */
-  protected readonly chosenGroup = computed(() => {
-    const p = this.pattern();
-    return p ? groupOfPattern(p)?.id : undefined;
+  /**
+   * Os blocos da aba aberta, por assunto: todos, ou só o escolhido. As opções são as da aba (a mesma
+   * lista de `options`), só separadas; a primeira delas (Lisa, Nenhuma) fica fora dos blocos, sempre à vista.
+   */
+  protected readonly sections = computed(() => {
+    const t = this.tab(),
+      g = this.group();
+    if (!isGroupedTab(t)) return [];
+    const byValue = new Map(this.all[t].map((o) => [o.value, o]));
+    return GROUPS[t].filter((x) => g === 'todas' || x.id === g).map((x) => ({ id: x.id, label: x.label, options: x.items.map((v) => byValue.get(v)!) }));
+  });
+  /** Os assuntos do que a ficha tem na aba aberta (a estampa, ou as decorações): cada um ganha o pontinho. */
+  protected readonly usedGroups = computed(() => {
+    const t = this.tab();
+    const values: string[] = t === 'estampa' ? (this.pattern() ? [this.pattern()!] : []) : t === 'decoracao' ? this.decors().map((m) => m.decor) : [];
+    return new Set(isGroupedTab(t) ? values.map((v) => GROUPS[t].find((x) => x.items.includes(v))?.id).filter((id): id is string => !!id) : []);
   });
 
   /** O desenho de cada rabisco, estrago, mancha e decoração, no mesmo traço das estampas. */
@@ -1198,8 +1214,9 @@ export class CardKit {
     this.showChip(id);
     const painel = this.el.querySelector<HTMLElement>('.painel'),
       ajustes = this.el.querySelector<HTMLElement>('.ajustes');
-    if (!painel || !ajustes) return;
-    const past = ajustes.getBoundingClientRect().bottom - painel.getBoundingClientRect().top;
+    if (!painel) return;
+    // sem os ajustes em cima (a Decoração), o começo da lista é o alto do painel
+    const past = ajustes ? ajustes.getBoundingClientRect().bottom - painel.getBoundingClientRect().top : -painel.scrollTop;
     if (past < 0) painel.scrollTo(0, painel.scrollTop + past);
   }
 
@@ -1260,9 +1277,10 @@ export class CardKit {
 
   protected selectTab(tab: Tab): void {
     this.tab.set(tab);
-    // a Estampa abre no assunto da estampa que a ficha já tem; sem estampa, em Todas
-    if (tab === 'estampa') {
-      const g = this.chosenGroup() ?? 'todas';
+    // a Estampa e a Decoração abrem no assunto do que a ficha já tem (o da primeira decoração); sem nada, em Todas
+    if (isGroupedTab(tab)) {
+      const first = tab === 'estampa' ? this.pattern() : (this.decors()[0]?.decor ?? null);
+      const g = (first && GROUPS[tab].find((x) => x.items.includes(first))?.id) || 'todas';
       this.group.set(g);
       // a régua já desenhada: leva o assunto escolhido para dentro da vista
       setTimeout(() => this.showChip(g));

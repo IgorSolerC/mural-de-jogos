@@ -1,4 +1,4 @@
-import { DAMAGES, DAMAGE_LABEL, DECORS, DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, PATTERNS, PATTERN_GROUPS, PATTERN_LABEL, groupOfPattern, SCRIBBLES, STAINS, cutsPaper, lookOf, decorCuts, newSeed, sanitizeDamage, sanitizeDecor, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizePatternInk, sanitizeScribble, sanitizeSeed, darkGlitter, glitterShift, textureOf, inkStepFor, lightInk, sanitizeInkTone } from './paper';
+import { DAMAGES, DAMAGE_LABEL, DECORS, DECOR_GROUPS, groupOfDecor, DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, PATTERNS, PATTERN_GROUPS, PATTERN_LABEL, groupOfPattern, SCRIBBLES, STAINS, cutsPaper, lookOf, decorCuts, newSeed, sanitizeDamage, sanitizeDecor, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizePatternInk, sanitizeScribble, sanitizeSeed, darkGlitter, glitterShift, textureOf, inkStepFor, lightInk, sanitizeInkTone } from './paper';
 import { GRID_PATTERNS } from './pattern-grids';
 import { TILE_CACHE, cutMask, lightPattern, motifIcon, ownPaperVars, paperArt, paperStyle, paperVars, patternTile, tileCacheSize } from './paper-art';
 import { decorArt } from './decor-art';
@@ -873,6 +873,15 @@ describe('papel da ficha', () => {
   });
 
   describe('as decorações', () => {
+    it('cada decoração mora em um assunto só, e a ordem do estojo é a dos assuntos', () => {
+      const all = DECOR_GROUPS.flatMap((g) => g.decors);
+      expect(new Set(all).size).toBe(all.length);
+      expect([...DECORS]).toEqual(all);
+      expect(all.length).toBe(41);
+      expect(groupOfDecor('teia')!.id).toBe('natureza');
+      expect(groupOfDecor('disquete')!.id).toBe('tela');
+    });
+
     const base = { id: 'r1', W: 420, H: 300, uid: 't' };
 
     it('cada uma desenha algo, e o mesmo sorteio é sempre a mesma; outro sorteio, outra', () => {

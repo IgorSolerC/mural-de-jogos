@@ -601,56 +601,33 @@ export type Decor =
   | 'laco'
   | 'pena';
 
+/** Um assunto de decorações, para achar mais fácil no editor (como as estampas). */
+export interface DecorGroup {
+  id: string;
+  label: string;
+  decors: readonly Decor[];
+}
+
 /**
- * Na ordem do estojo: o que brilha e a festa (as joias, o laço); os adesivos e as coisas
- * de jogo; a papelaria (selo, post-it, rotuladora, lápis, ingresso, locadora, etiqueta, carimbo,
- * medalha, lacre); o que prende e fura (os prendedores, os parafusos, as cantoneiras, a silver tape);
- * o tempo e os bichos (a pena); a TV e o computador (o tubo, as barras, o disquete, a janela de
- * erro).
+ * As decorações por assunto, na ordem do estojo (25/nov/2026, a pedido do dono): o que brilha e a
+ * festa; os adesivos; a papelaria (selo, post-it, rotuladora, lápis, ingresso, etiquetas, carimbo,
+ * medalha, lacre); o que prende e fura (os prendedores, os parafusos, as cantoneiras, as fitas); a
+ * natureza; a TV e o computador.
  */
-export const DECORS: readonly Decor[] = [
-  'purpurina',
-  'confete',
-  'estrelinhas',
-  'joias',
-  'neon',
-  'laco',
-  'adesivos',
-  'gamer',
-  'bottons',
-  'vidas',
-  'selo',
-  'postit',
-  'rotuladora',
-  'lapis',
-  'ingresso',
-  'locadora',
-  'promocao',
-  'carimbo',
-  'medalha',
-  'lacre',
-  'clipe',
-  'prendedor',
-  'pregador',
-  'grampos',
-  'alfinete',
-  'argolas',
-  'ilhoses',
-  'parafusos',
-  'cantoneiras',
-  'silvertape',
-  'curativo',
-  'cuidado',
-  'neve',
-  'petalas',
-  'pena',
-  'teia',
-  'beijo',
-  'crt',
-  'barras',
-  'disquete',
-  'erro',
+export const DECOR_GROUPS: readonly DecorGroup[] = [
+  { id: 'brilho', label: 'Brilho e festa', decors: ['purpurina', 'confete', 'estrelinhas', 'joias', 'neon', 'laco'] },
+  { id: 'adesivos', label: 'Adesivos', decors: ['adesivos', 'gamer', 'bottons', 'vidas', 'beijo'] },
+  { id: 'papelaria', label: 'Papelaria', decors: ['selo', 'postit', 'rotuladora', 'lapis', 'ingresso', 'locadora', 'promocao', 'carimbo', 'medalha', 'lacre'] },
+  { id: 'prender', label: 'Prender e furar', decors: ['clipe', 'prendedor', 'pregador', 'grampos', 'alfinete', 'argolas', 'ilhoses', 'parafusos', 'cantoneiras', 'silvertape', 'curativo', 'cuidado'] },
+  { id: 'natureza', label: 'Natureza', decors: ['neve', 'petalas', 'pena', 'teia'] },
+  { id: 'tela', label: 'TV e computador', decors: ['crt', 'barras', 'disquete', 'erro'] },
 ];
+
+/** Todas as decorações, na ordem dos assuntos. */
+export const DECORS: readonly Decor[] = DECOR_GROUPS.flatMap((g) => g.decors);
+
+/** O assunto de uma decoração. */
+export const groupOfDecor = (d: Decor): DecorGroup | undefined => DECOR_GROUPS.find((g) => g.decors.includes(d));
 
 export const DECOR_LABEL: Record<Decor, string> = {
   purpurina: 'Purpurina',

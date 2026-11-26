@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-25-papelaria-nova',
+    id: '2026-11-25-decoracoes-por-assunto',
     version: '1.55.1',
     kind: 'ajustes',
     date: '2026-11-25',
@@ -36,6 +36,7 @@ export const NEWS: NewsEntry[] = [
       'Os papéis Desbotada no sol e Carregou pela metade ficaram fixos, iguais em toda ficha: a Desbotada é só o degradê, já desbotada em cima e mais ainda embaixo (sem o pedaço que algo cobria), e a Carregou pela metade virou uma cartolina cinza pintada até a metade na cor dela, a pincel.',
       'Uma terceira fileira de cores para as cartolinas: as pastéis (vermelho, laranja, amarelo, verde, azul, lilás e rosa, mais suaves e claras) e, no lugar do branco e do preto, o bege e o marrom.',
       'Seis estampas novas na Papelaria, das que mudam a textura do papel: Caligrafia, Xadrez escocês, Listrado, Zigue-zague, Losangos e Bolinhas.',
+      'As decorações ficaram separadas por assunto, como as estampas: Brilho e festa, Adesivos, Papelaria, Prender e furar, Natureza, e TV e computador, com a régua de assuntos em cima.',
       'A estampa e o rabisco ganharam a escolha da tinta: a Automática continua a de sempre (preta na cartolina clara, branca na escura), e dá para escolher Preta ou Branca em qualquer cartolina.',
       'O papel Aquarela saiu do estojo, por ser parecido demais com o Canson: as fichas e os cards padrão do Kanban que o tinham passam a ter o Canson.',
       'Sem os enfeites que só fingiam segurar as coisas: as fichas das anotações e das análises não têm mais a tachinha, em todos os murais e vistas (o título sobe para o alto da ficha, rente à capa), e nas vistas Comum e Fichas inteiras elas ficam só metade tão tortas, mais sutis; as folhas do Pra depois ficam sem a fita-crepe; no perfil, a polaroid, a folha "Sobre mim", as fichinhas dos números e as polaroids pequenas das seções ficam sem os pedaços de fita-crepe.',

@@ -136,6 +136,30 @@ describe('CardKit: várias manchas e decorações', () => {
     expect([host.paper(), host.paperSeed()]).toEqual(['carregando', null]);
   });
 
+  it('as decorações por assunto, como as estampas: a régua em cima, um bloco por assunto e o pontinho no da escolhida', async () => {
+    host.decors.set([{ decor: 'teia', seed: 4 }]);
+    fixture.detectChanges();
+    await open('decoracao');
+    const chips = () => [...el.querySelectorAll<HTMLButtonElement>('.assuntos .assunto')];
+    expect(chips().map((b) => b.textContent!.trim())).toEqual(['Todas', 'Brilho e festa', 'Adesivos', 'Papelaria', 'Prender e furar', 'Natureza', 'TV e computador']);
+    // abre no assunto da decoração que a ficha tem, com o pontinho nele
+    expect(el.querySelector('.assunto.on')!.textContent!.trim()).toBe('Natureza');
+    expect(el.querySelector('.assunto.usada')!.textContent!.trim()).toBe('Natureza');
+    expect(box('Neve')).not.toBeNull();
+    expect(box('Purpurina')).toBeNull();
+    // a Nenhuma fica à vista em qualquer assunto
+    expect(box('Nenhuma')).not.toBeNull();
+    chips()[0].click();
+    fixture.detectChanges();
+    expect([...el.querySelectorAll('.bloco-titulo')].map((h) => h.textContent!.trim())).toEqual(['Brilho e festa', 'Adesivos', 'Papelaria', 'Prender e furar', 'Natureza', 'TV e computador']);
+    click('Purpurina');
+    expect(host.decors().map((m) => m.decor)).toEqual(['teia', 'purpurina']);
+    expect([...el.querySelectorAll('.assunto.usada')].map((b) => b.textContent!.trim())).toEqual(['Brilho e festa', 'Natureza']);
+    // a Estampa continua com os assuntos dela
+    await open('estampa');
+    expect(chips()[1].textContent!.trim()).toBe('Papelaria');
+  });
+
   it('a tinta da estampa e do lápis: Automática, Preta ou Branca; apagada sem a camada', async () => {
     const tones = () => [...el.querySelectorAll<HTMLButtonElement>('.tinta .assunto')];
     const pick = (label: string) => {
