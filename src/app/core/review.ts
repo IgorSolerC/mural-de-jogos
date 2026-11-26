@@ -1,7 +1,7 @@
 import { KIND_PROFILES, Kind, isKind, isMusic, isNotes, profileOf } from './kinds';
 import { scoreDisplay } from './settings';
 import { cleanCategory, cleanSubject, sanitizeTags } from './note-labels';
-import { Damage, DecorMark, InkTone, Paper, Pattern, Scribble, StainMark, isAgedPaper, sanitizeDamage, sanitizeDecors, sanitizeInkTone, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizePatternInk, sanitizeScribble, sanitizeScribbleInk, sanitizeSeed, sanitizeStains } from './paper';
+import { Damage, DecorMark, InkTone, Paper, Pattern, Scribble, StainMark, isAgedPaper, sanitizeDamages, sanitizeDecors, sanitizeInkTone, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizePatternInk, sanitizeScribble, sanitizeScribbleInk, sanitizeSeed, sanitizeStains } from './paper';
 import { BUILD } from './build';
 import { boardIdOfNote } from './canvas-id';
 import { migrateReview } from './migrations';
@@ -331,6 +331,14 @@ export interface Review {
   damage?: Damage;
   /** O sorteio do estrago que a pessoa escolheu (cada clique rasga de outro jeito); sem ele, o jeito sai do id. */
   damageSeed?: number;
+  /**
+   * O segundo estrago, o estético (a orelha, a dobra, a beirada…), só quando a ficha tem os dois: aí o
+   * destrutivo fica em `damage` e este aqui, por baixo dele. Com um estrago só, ele mora em `damage`,
+   * de qualquer bloco (ver `pairOf` em core/paper.ts).
+   */
+  wear?: Damage;
+  /** O sorteio do estrago estético. */
+  wearSeed?: number;
   /**
    * As manchas por cima do papel (café, água, sangue, mofo, pegadas), até três, cada uma com o seu
    * sorteio, na ordem em que foram escolhidas (a última fica por cima). Vão junto com o estrago.
@@ -1282,8 +1290,7 @@ export function sanitizeReview(raw: unknown, from = 0): Review | null {
     ...optional('scribbleSeed', sanitizeScribble(r['scribble']) ? sanitizeSeed(r['scribbleSeed']) : undefined),
     ...optional('scribbleInk', sanitizeScribble(r['scribble']) ? sanitizeScribbleInk(r['scribbleInk']) : undefined),
     ...optional('scribbleTone', sanitizeScribble(r['scribble']) ? sanitizeInkTone(r['scribbleTone']) : undefined),
-    ...optional('damage', sanitizeDamage(r['damage'])),
-    ...optional('damageSeed', sanitizeDamage(r['damage']) ? sanitizeSeed(r['damageSeed']) : undefined),
+    ...sanitizeDamages(r),
     ...optional('stains', sanitizeStains(r['stains'])),
     ...optional('decors', sanitizeDecors(r['decors'])),
     text: str(r['text']),

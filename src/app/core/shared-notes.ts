@@ -360,7 +360,7 @@ const LOOK_GROUPS: readonly (readonly string[])[] = [
   ['paper', 'paperSeed'],
   ['pattern', 'patternSpacing', 'patternSize', 'patternJitter', 'patternInk', 'patternSeed', 'patternTone'],
   ['scribble', 'scribbleSeed', 'scribbleInk', 'scribbleTone'],
-  ['damage', 'damageSeed'],
+  ['damage', 'damageSeed', 'wear', 'wearSeed'],
   ['stains'],
   ['decors'],
 ];

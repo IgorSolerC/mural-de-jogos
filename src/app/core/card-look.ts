@@ -27,6 +27,8 @@ export const LOOK_FIELDS = [
   'scribbleTone',
   'damage',
   'damageSeed',
+  'wear',
+  'wearSeed',
   'stains',
   'decors',
 ] as const;

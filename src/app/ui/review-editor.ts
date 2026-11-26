@@ -570,6 +570,8 @@ export class ReviewEditor {
     this.patternLook.update(({ tone: _, ...rest }) => rest);
     this.damage.set(null);
     this.damageSeed.set(null);
+    this.wear.set(null);
+    this.wearSeed.set(null);
     this.stains.set([]);
     this.decors.set([]);
   }
@@ -884,6 +886,9 @@ export class ReviewEditor {
   protected readonly damage = signal<Damage | null>(null);
   /** O jeito do estrago que a pessoa sorteou (um clique a mais no estrago, outro jeito). */
   protected readonly damageSeed = signal<number | null>(null);
+  /** O estrago estético quando a ficha tem os dois (ver Review.wear), e o sorteio dele. */
+  protected readonly wear = signal<Damage | null>(null);
+  protected readonly wearSeed = signal<number | null>(null);
   /** As manchas por cima do papel (até três, na ordem em que foram escolhidas), cada uma com o jeito sorteado. */
   protected readonly stains = signal<StainMark[]>([]);
   /** As decorações por cima de tudo, como as manchas. */
@@ -1133,6 +1138,8 @@ export class ReviewEditor {
     this.scribbleTone.set(look.scribbleTone ?? null);
     this.damage.set(look.damage ?? null);
     this.damageSeed.set(look.damageSeed ?? null);
+    this.wear.set(look.wear ?? null);
+    this.wearSeed.set(look.wearSeed ?? null);
     this.stains.set([...(look.stains ?? [])]);
     this.decors.set([...(look.decors ?? [])]);
   }
@@ -1200,6 +1207,8 @@ export class ReviewEditor {
       scribbleTone: (this.scribble() && this.scribbleTone()) || undefined,
       damage: this.damage() ?? undefined,
       damageSeed: (this.damage() && this.damageSeed()) || undefined,
+      wear: (this.damage() && this.wear()) || undefined,
+      wearSeed: (this.damage() && this.wear() && this.wearSeed()) || undefined,
       stains: this.stains().length ? this.stains() : undefined,
       decors: this.decors().length ? this.decors() : undefined,
       text: this.text(),
@@ -1596,6 +1605,7 @@ export class ReviewEditor {
       ...(this.scribble() && this.scribbleTone() ? { scribbleTone: this.scribbleTone()! } : {}),
       ...(this.damage() ? { damage: this.damage()! } : {}),
       ...(this.damage() && this.damageSeed() ? { damageSeed: this.damageSeed()! } : {}),
+      ...(this.damage() && this.wear() ? { wear: this.wear()!, ...(this.wearSeed() ? { wearSeed: this.wearSeed()! } : {}) } : {}),
       ...(this.stains().length ? { stains: this.stains() } : {}),
       ...(this.decors().length ? { decors: this.decors() } : {}),
       ...(this.overrideOn() ? { finalOverride: final } : {}),
@@ -2082,6 +2092,8 @@ export class ReviewEditor {
       this.scribbleTone(),
       this.damage(),
       this.damageSeed(),
+      this.wear(),
+      this.wearSeed(),
       this.stains(),
       this.decors(),
       this.overrideOn() ? this.overrideText().trim() : null,

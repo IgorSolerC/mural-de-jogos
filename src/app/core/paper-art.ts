@@ -282,6 +282,11 @@ export interface PaperArt {
   cut: string[];
   evenodd: boolean;
   /**
+   * Os pedaços do segundo estrago, quando ele preenche com a outra regra (um de beirada em par-ou-ímpar
+   * e um rasgo comum, por exemplo): cada um recorta com a sua. Só existe nesse caso.
+   */
+  cutOther?: { cut: string[]; evenodd: boolean };
+  /**
    * Onde o papel rasgou, a cor da cartolina (e o que está escrito nela) solta antes da fibra: estas
    * faixas somem da cor e deixam aparecer o miolo claro, que só o `cut` recorta. Como na wishlist.
    */
@@ -311,6 +316,10 @@ export interface ArtInput {
   damage?: Damage;
   /** O sorteio do estrago (Review.damageSeed); sem ele, o estrago sai só do id. */
   seed?: number;
+  /** O estrago estético quando a ficha tem os dois (Review.wear), desenhado antes, por baixo do destrutivo. */
+  wear?: Damage;
+  /** O sorteio dele (Review.wearSeed). */
+  wearSeed?: number;
   /** O papel marcado pelo tempo (desbotado, carregando): igual em toda ficha, sem sorteio. */
   paper?: Paper;
   /** As manchas por cima do papel (café, água, sangue, mofo, pegadas, traças), na ordem do desenho. */
@@ -338,7 +347,16 @@ export function paperArt(input: ArtInput): PaperArt {
   if (input.scribble) out.fundo += scribbleArt(input.scribble, W, H, k, sw, rng(hash(`${input.id}:rabisco:${input.scribble}${input.scribbleSeed ? `:${input.scribbleSeed}` : ''}`)), input.plain, SCRIBBLE_INK[input.scribbleInk ?? DEFAULT_SCRIBBLE_INK] ?? 1);
   // o desbotado e o carregando são iguais em toda ficha (desde a build 1071): nem o id nem o sorteio mudam o desenho
   if (isAgedPaper(input.paper)) damageArt(input.paper, W, H, k, sw, rng(0), input.uid, out);
-  if (input.damage) damageArt(input.damage, W, H, k, sw, rng(hash(`${input.id}:estrago:${input.damage}${input.seed ? `:${input.seed}` : ''}`)), input.uid, out);
+  // os dois estragos (25/nov/2026): o estético antes, por baixo; cada um sorteia como se fosse o único,
+  // e o de cima ganha outro nome nos ids do SVG. Sem o estético, o estrago sai como sempre
+  const damageRng = (d: Damage, seed?: number) => rng(hash(`${input.id}:estrago:${d}${seed ? `:${seed}` : ''}`));
+  if (input.wear) damageArt(input.wear, W, H, k, sw, damageRng(input.wear, input.wearSeed), input.uid, out);
+  if (input.damage && !input.wear) damageArt(input.damage, W, H, k, sw, damageRng(input.damage, input.seed), input.uid, out);
+  else if (input.damage) {
+    const top: PaperArt = { cut: [], evenodd: false, core: [], fundo: '', clareia: '', relevo: '', frente: '', fita: '' };
+    damageArt(input.damage, W, H, k, sw, damageRng(input.damage, input.seed), `${input.uid}d`, top);
+    mergeArt(out, top);
+  }
   // as manchas sorteiam do mesmo jeito que quando eram um estrago: a ficha de antes sai igualzinha.
   // Uma por cima da outra, na ordem; da segunda em diante os ids do SVG ganham outro nome
   (input.stains ?? []).forEach(({ stain, seed }, i) => {
@@ -353,13 +371,32 @@ export function paperArt(input: ArtInput): PaperArt {
   return out;
 }
 
+/** Junta o desenho do segundo estrago (`top`) ao do primeiro: o recorte de cada um com a regra dele. */
+function mergeArt(out: PaperArt, top: PaperArt): void {
+  if (top.cut.length) {
+    if (!out.cut.length) {
+      out.cut = top.cut;
+      out.evenodd = top.evenodd;
+    } else if (out.evenodd === top.evenodd) out.cut.push(...top.cut);
+    else out.cutOther = { cut: top.cut, evenodd: top.evenodd };
+  }
+  out.core.push(...top.core);
+  out.fundo += top.fundo;
+  out.clareia += top.clareia;
+  out.relevo += top.relevo;
+  out.frente += top.frente;
+  out.fita += top.fita;
+  if (top.topo) out.topo = (out.topo ?? '') + top.topo;
+}
+
 /**
  * A máscara do papel: opaca onde há papel, transparente nos pedaços que foram embora. A máscara de
  * CSS lê a transparência, não o preto; por isso o recorte é feito dentro do SVG, com um <mask>.
  */
 export function cutMask(art: PaperArt, W: number, H: number, layer: 'cor' | 'miolo' | 'queima' = 'cor'): string | null {
   // a Fita arrancada só tira a cor, sem furar: ela tem máscara da cor, mas não do papel
-  if (!art.cut.length && (layer !== 'cor' || !art.core.length)) return null;
+  const other = art.cutOther?.cut ?? [];
+  if (!art.cut.length && !other.length && (layer !== 'cor' || !art.core.length)) return null;
   const w = f1(W),
     h = f1(H);
   // cada pedaço num <path> próprio: juntos eles somam, sem o fill-rule de um furar o outro
@@ -367,10 +404,12 @@ export function cutMask(art: PaperArt, W: number, H: number, layer: 'cor' | 'mio
   // O carvão precisa cobrir a antialiasing do recorte, mas o brilho difuso não deve vazar
   // para o espaço vazio. A máscara da queimadura devolve só 1,5 px ao lado cortado.
   const edge = layer === 'queima'
-    ? `<g fill='none' stroke='#fff' stroke-width='3' stroke-linejoin='round'>${art.cut.map((d) => `<path d='${d}'/>`).join('')}</g>`
+    ? `<g fill='none' stroke='#fff' stroke-width='3' stroke-linejoin='round'>${[...art.cut, ...other].map((d) => `<path d='${d}'/>`).join('')}</g>`
     : '';
+  // o segundo estrago com a outra regra de preenchimento (ver PaperArt.cutOther)
+  const second = other.length ? `<g fill='#000' fill-rule='${art.cutOther!.evenodd ? 'evenodd' : 'nonzero'}'>${other.map((d) => `<path d='${d}'/>`).join('')}</g>` : '';
   return `url("data:image/svg+xml,${encodeURIComponent(
-    `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}' viewBox='0 0 ${w} ${h}'><mask id='m' maskUnits='userSpaceOnUse' x='-20' y='-20' width='${f1(W + 40)}' height='${f1(H + 40)}'><rect x='-20' y='-20' width='${f1(W + 40)}' height='${f1(H + 40)}' fill='#fff'/><g fill='#000' fill-rule='${art.evenodd ? 'evenodd' : 'nonzero'}'>${paths.map((d) => `<path d='${d}'/>`).join('')}</g>${edge}</mask><rect x='-20' y='-20' width='${f1(W + 40)}' height='${f1(H + 40)}' fill='#fff' mask='url(#m)'/></svg>`,
+    `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}' viewBox='0 0 ${w} ${h}'><mask id='m' maskUnits='userSpaceOnUse' x='-20' y='-20' width='${f1(W + 40)}' height='${f1(H + 40)}'><rect x='-20' y='-20' width='${f1(W + 40)}' height='${f1(H + 40)}' fill='#fff'/><g fill='#000' fill-rule='${art.evenodd ? 'evenodd' : 'nonzero'}'>${paths.map((d) => `<path d='${d}'/>`).join('')}</g>${second}${edge}</mask><rect x='-20' y='-20' width='${f1(W + 40)}' height='${f1(H + 40)}' fill='#fff' mask='url(#m)'/></svg>`,
   )}")`;
 }
 

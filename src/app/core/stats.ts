@@ -845,7 +845,8 @@ export function wallStats(list: readonly Review[], kind: Kind, sessions: readonl
     papers: tally(list, (r) => (r.paper && r.paper !== 'cartolina' ? r.paper : null), (p) => PAPER_LABEL[p as keyof typeof PAPER_LABEL]),
     patterns: tally(list, (r) => r.pattern ?? null, (p) => PATTERN_LABEL[p as keyof typeof PATTERN_LABEL]),
     scribbles: tally(list, (r) => r.scribble ?? null, (p) => SCRIBBLE_LABEL[p as keyof typeof SCRIBBLE_LABEL]),
-    damages: tally(list, (r) => r.damage ?? null, (p) => DAMAGE_LABEL[p as keyof typeof DAMAGE_LABEL]),
+    // os dois estragos contam (o estético da ficha que tem os dois mora em wear)
+    damages: tally(list, (r) => (r.damage ? [r.damage, ...(r.wear ? [r.wear] : [])] : null), (p) => DAMAGE_LABEL[p as keyof typeof DAMAGE_LABEL]),
     stains: tally(list, (r) => r.stains?.map((m) => m.stain), (p) => STAIN_LABEL[p as keyof typeof STAIN_LABEL]),
     decors: tally(list, (r) => r.decors?.map((m) => m.decor), (p) => DECOR_LABEL[p as keyof typeof DECOR_LABEL]),
     decorated: list.filter(isDecorated).length,

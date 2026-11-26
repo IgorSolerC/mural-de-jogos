@@ -22,6 +22,8 @@ import { CardKit } from './card-kit';
     [(scribbleTone)]="scribbleTone"
     [(damage)]="damage"
     [(damageSeed)]="damageSeed"
+    [(wear)]="wear"
+    [(wearSeed)]="wearSeed"
     [(stains)]="stains"
     [(decors)]="decors"
   />`,
@@ -39,6 +41,8 @@ class Host {
   scribbleTone = signal<InkTone | null>(null);
   damage = signal<Damage | null>(null);
   damageSeed = signal<number | null>(null);
+  wear = signal<Damage | null>(null);
+  wearSeed = signal<number | null>(null);
   stains = signal<StainMark[]>([]);
   decors = signal<DecorMark[]>([]);
 }
@@ -116,11 +120,26 @@ describe('CardKit: várias manchas e decorações', () => {
     expect(el.querySelector('.tirar')).toBeNull();
   });
 
-  it('o estrago continua um só', async () => {
+  it('o estrago em dois blocos: um destrutivo e um estético, cada um com o seu Nenhum', async () => {
     await open('estrago');
+    expect([...el.querySelectorAll('.bloco-titulo')].map((h) => h.textContent!.trim())).toEqual(['Destrutivos Nenhum', 'Estéticos Nenhum']);
     click('Rasgada');
     click('Queimada');
-    expect(host.damage()).toBe('queimado');
+    // no mesmo bloco, um só
+    expect([host.damage(), host.wear()]).toEqual(['queimado', null]);
+    // o estético vai junto, por baixo: o destrutivo fica no damage, o estético no wear
+    click('Amassada');
+    expect([host.damage(), host.wear()]).toEqual(['queimado', 'amassado']);
+    expect(host.wearSeed()).not.toBeNull();
+    expect(el.querySelector('legend')!.textContent).toContain('Queimada + Amassada');
+    expect(el.querySelector('[id$="-aba-estrago"] .aba-conta')!.textContent!.trim()).toBe('2');
+    // tirar o destrutivo: o estético sozinho volta para o damage, com o sorteio dele
+    const seed = host.wearSeed();
+    (el.querySelectorAll<HTMLInputElement>('input[aria-label="Nenhum"]')[0]).click();
+    fixture.detectChanges();
+    expect([host.damage(), host.damageSeed(), host.wear(), host.wearSeed()]).toEqual(['amassado', seed, null, null]);
+    // e o estético sozinho aparece marcado no bloco dele
+    expect(box('Amassada').checked).toBeTrue();
     expect(el.querySelector('input[type="checkbox"]')).toBeNull();
     expect(el.textContent).not.toContain('Desbotada no sol');
   });
@@ -222,6 +241,10 @@ describe('CardKit: várias manchas e decorações', () => {
         [(scribbleTone)]="scribbleTone"
         [(damage)]="damage"
         [(damageSeed)]="damageSeed"
+        [(wear)]="wear"
+        [(wearSeed)]="wearSeed"
+    [(wear)]="wear"
+    [(wearSeed)]="wearSeed"
         [(stains)]="stains"
         [(decors)]="decors"
       />
@@ -242,6 +265,8 @@ class TwoKits {
   scribbleTone = signal<InkTone | null>(null);
   damage = signal<Damage | null>(null);
   damageSeed = signal<number | null>(null);
+  wear = signal<Damage | null>(null);
+  wearSeed = signal<number | null>(null);
   stains = signal<StainMark[]>([]);
   decors = signal<DecorMark[]>([]);
 }

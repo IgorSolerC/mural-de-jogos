@@ -132,7 +132,7 @@ const CARD_HOST = {
   // o papel escolhido (textura) e, quando falta um pedaço, o papel recortado desenhado nas marcas
   '[style]': 'paperVars()',
   '[class.recortada]': 'cut()',
-  '[class.orelha]': 'review().damage === "orelha"',
+  '[class.orelha]': 'review().damage === "orelha" || review().wear === "orelha"',
   // marcando pro lado a lado, a rejogada fica de fora (lá é uma ficha por obra)
   '[class.fora]': 'picking() && !!review().revisitOf',
   // a anotação: sem nota, as categorias no lugar da etiqueta, o texto à mostra. Um nome só da
@@ -155,7 +155,7 @@ export const CARD_TEMPLATE = `
          ui/veil.ts); a marca tracejada da vaga fica na própria ficha, por baixo -->
     <div class="corpo">
     <!-- o papel da ficha: a cartolina, o rabisco e o estrago, por baixo da foto e dos adesivos -->
-    <app-paper-art [id]="artId()" [scribble]="review().scribble" [scribbleSeed]="review().scribbleSeed" [scribbleInk]="review().scribbleInk" [scribbleTone]="review().scribbleTone" [paper]="review().paper" [damage]="review().damage" [seed]="review().damageSeed" [stains]="review().stains" [decors]="review().decors" [glitter]="review().paper === 'glitter'" [dark]="dark()" [content]="review()" [look]="paperLook()" />
+    <app-paper-art [id]="artId()" [scribble]="review().scribble" [scribbleSeed]="review().scribbleSeed" [scribbleInk]="review().scribbleInk" [scribbleTone]="review().scribbleTone" [paper]="review().paper" [damage]="review().damage" [seed]="review().damageSeed" [wear]="review().wear" [wearSeed]="review().wearSeed" [stains]="review().stains" [decors]="review().decors" [glitter]="review().paper === 'glitter'" [dark]="dark()" [content]="review()" [look]="paperLook()" />
     @if (canvasMode()) {
       <!-- o canvas (PLANO-CANVAS.md, 2): o eucatex na moldura, no lugar da cartolina; a orelha, o carimbo, os
            botões e as reações ficam presos na moldura, e o botão que abre cobre tudo, como na cartolina -->
@@ -2090,7 +2090,7 @@ export class ReviewCard {
     () =>
       `${this.pin().stock}|${JSON.stringify(this.paperVars())}|${this.noteLabels().ear?.label ?? ''}|${this.catColor() ?? ''}|${this.compact()}|${this.overview()}`,
   );
-  protected readonly cut = computed(() => cutsPaper(this.review().damage) || !!this.review().stains?.some((m) => cutsPaper(m.stain)) || !!this.review().decors?.some((m) => decorCuts(m.decor)));
+  protected readonly cut = computed(() => cutsPaper(this.review().damage) || cutsPaper(this.review().wear) || !!this.review().stains?.some((m) => cutsPaper(m.stain)) || !!this.review().decors?.some((m) => decorCuts(m.decor)));
   /** "Nome do jogo", "Nome da série". */
   protected readonly emptyName = computed(() =>
     this.note() ? 'Título da anotação' : this.music() ? 'Álbum ou música' : `Nome ${g(this.profile(), 'do', 'da')} ${this.profile().singular}`,

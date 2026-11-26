@@ -180,7 +180,7 @@ export class PaperDefs {}
         <div class="camada relevo" [class]="maskCls()" [innerHTML]="html().relevo"></div>
       }
       @if (a.frente) {
-        <div class="camada frente" [class]="burnDamage() ? burnCls() : maskCls()" [class.por-cima]="damage() === 'orelha'" [innerHTML]="html().frente"></div>
+        <div class="camada frente" [class]="burnDamage() ? burnCls() : maskCls()" [class.por-cima]="dogEar()" [innerHTML]="html().frente"></div>
       }
       @if (a.fita) {
         <div class="camada frente" [innerHTML]="html().fita"></div>
@@ -336,6 +336,11 @@ export class PaperArtLayer {
   readonly damage = input<Damage | undefined>(undefined);
   /** O sorteio do estrago (Review.damageSeed). */
   readonly seed = input<number | null | undefined>(undefined);
+  /** O estrago estético quando a ficha tem os dois (Review.wear), por baixo do destrutivo, e o sorteio dele. */
+  readonly wear = input<Damage | undefined>(undefined);
+  readonly wearSeed = input<number | null | undefined>(undefined);
+  /** A orelha, em qualquer um dos dois estragos: ela dobra a ficha com a foto e os adesivos. */
+  protected readonly dogEar = computed(() => this.damage() === 'orelha' || this.wear() === 'orelha');
   /** O papel (Review.paper): só o marcado pelo tempo (desbotado, carregando) é desenhado aqui, igual em toda ficha. */
   readonly paper = input<Paper | undefined>(undefined);
   /** As manchas por cima do papel (Review.stains), com os sorteios, na ordem do desenho. */
@@ -394,7 +399,7 @@ export class PaperArtLayer {
   /** O papel marcado pelo tempo, que tem desenho; os outros são só textura. */
   private readonly aged = computed(() => (isAgedPaper(this.paper()) ? this.paper() : undefined));
   /** Tem algo desenhado no papel (rabisco, papel marcado, estrago, mancha, decoração): mudar de tamanho custa. */
-  readonly needsArt = computed(() => !!(this.scribble() || this.aged() || this.damage() || this.stains()?.length || this.decors()?.length));
+  readonly needsArt = computed(() => !!(this.scribble() || this.aged() || this.damage() || this.wear() || this.stains()?.length || this.decors()?.length));
   /** A ficha (o elemento em volta do papel), conhecida depois da primeira renderização. */
   card: HTMLElement | null = null;
   /**
@@ -426,8 +431,8 @@ export class PaperArtLayer {
     const s = this.size();
     const holes = this.decorDrawing()?.cut ?? [];
     const stains = this.stains() ?? [];
-    if (!s || (!this.scribble() && !this.aged() && !this.damage() && !stains.length && !holes.length)) return null;
-    const art = this.memo('papel', paperArt, { id: this.id(), W: s.W, H: s.H, scribble: this.scribble(), scribbleSeed: this.scribbleSeed() ?? undefined, scribbleInk: this.scribbleTone() ? inkStepFor(this.scribbleInk() ?? DEFAULT_SCRIBBLE_INK, this.scribbleTone(), this.dark(), SCRIBBLE_INK.length) : (this.scribbleInk() ?? undefined), paper: this.aged(), damage: this.damage(), seed: this.seed() ?? undefined, stains, uid: this.uid, plain: this.plain() });
+    if (!s || (!this.scribble() && !this.aged() && !this.damage() && !this.wear() && !stains.length && !holes.length)) return null;
+    const art = this.memo('papel', paperArt, { id: this.id(), W: s.W, H: s.H, scribble: this.scribble(), scribbleSeed: this.scribbleSeed() ?? undefined, scribbleInk: this.scribbleTone() ? inkStepFor(this.scribbleInk() ?? DEFAULT_SCRIBBLE_INK, this.scribbleTone(), this.dark(), SCRIBBLE_INK.length) : (this.scribbleInk() ?? undefined), paper: this.aged(), damage: this.damage(), seed: this.seed() ?? undefined, wear: this.wear(), wearSeed: this.wearSeed() ?? undefined, stains, uid: this.uid, plain: this.plain() });
     return holes.length ? { ...art, cut: [...art.cut, ...holes] } : art;
   });
 
@@ -1038,7 +1043,7 @@ export class PaperArtLayer {
     const s = this.size();
     const next = new Set<HTMLElement>();
     if (mask && s) {
-      const all = this.damage() === 'orelha';
+      const all = this.dogEar();
       const burn = (el: HTMLElement) => {
         if (all || !el.querySelector(STICKERS)) {
           next.add(el);

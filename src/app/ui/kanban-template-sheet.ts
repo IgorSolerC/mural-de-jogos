@@ -60,6 +60,8 @@ import { SaveKey } from './save-key';
                 [(scribbleTone)]="scribbleTone"
                 [(damage)]="damage"
                 [(damageSeed)]="damageSeed"
+                [(wear)]="wear"
+                [(wearSeed)]="wearSeed"
                 [(stains)]="stains"
                 [(decors)]="decors"
               />
@@ -111,6 +113,8 @@ export class KanbanTemplateSheet {
   protected readonly scribbleTone = signal<InkTone | null>(null);
   protected readonly damage = signal<Damage | null>(null);
   protected readonly damageSeed = signal<number | null>(null);
+  protected readonly wear = signal<Damage | null>(null);
+  protected readonly wearSeed = signal<number | null>(null);
   protected readonly stains = signal<StainMark[]>([]);
   protected readonly decors = signal<DecorMark[]>([]);
 
@@ -134,6 +138,8 @@ export class KanbanTemplateSheet {
       scribbleTone: this.scribbleTone() ?? undefined,
       damage: this.damage() ?? undefined,
       damageSeed: this.damageSeed() ?? undefined,
+      wear: this.wear() ?? undefined,
+      wearSeed: this.wearSeed() ?? undefined,
       stains: this.stains(),
       decors: this.decors(),
     });
@@ -172,6 +178,8 @@ export class KanbanTemplateSheet {
     this.scribbleTone.set(look.scribbleTone ?? null);
     this.damage.set(look.damage ?? null);
     this.damageSeed.set(look.damageSeed ?? null);
+    this.wear.set(look.wear ?? null);
+    this.wearSeed.set(look.wearSeed ?? null);
     this.stains.set([...(look.stains ?? [])]);
     this.decors.set([...(look.decors ?? [])]);
   }

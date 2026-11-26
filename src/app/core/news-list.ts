@@ -27,15 +27,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-25-decoracoes-por-assunto',
+    id: '2026-11-25-dois-estragos',
     version: '1.55.1',
     kind: 'ajustes',
     date: '2026-11-25',
-    title: 'Sem os enfeites que fingiam segurar, o card do texto mais forte, o canvas de um grupo para todos e o Dicionário Japonês mais leve',
+    title: 'O estojo das cartolinas arrumado, sem os enfeites que fingiam segurar, o card do texto mais forte, o canvas de um grupo para todos e o Dicionário Japonês mais leve',
     melhorias: [
       'Os papéis Desbotada no sol e Carregou pela metade ficaram fixos, iguais em toda ficha: a Desbotada é só o degradê, já desbotada em cima e mais ainda embaixo (sem o pedaço que algo cobria), e a Carregou pela metade virou uma cartolina cinza pintada até a metade na cor dela, a pincel.',
       'Uma terceira fileira de cores para as cartolinas: as pastéis (vermelho, laranja, amarelo, verde, azul, lilás e rosa, mais suaves e claras) e, no lugar do branco e do preto, o bege e o marrom.',
       'Seis estampas novas na Papelaria, das que mudam a textura do papel: Caligrafia, Xadrez escocês, Listrado, Zigue-zague, Losangos e Bolinhas.',
+      'Os estragos ficaram em dois blocos, Destrutivos (rasgos, furos, fogo…) e Estéticos (as beiradas, a orelha, as dobras, o amassado), e uma cartolina pode ter um de cada ao mesmo tempo.',
       'As decorações ficaram separadas por assunto, como as estampas: Brilho e festa, Adesivos, Papelaria, Prender e furar, Natureza, e TV e computador, com a régua de assuntos em cima.',
       'A estampa e o rabisco ganharam a escolha da tinta: a Automática continua a de sempre (preta na cartolina clara, branca na escura), e dá para escolher Preta ou Branca em qualquer cartolina.',
       'O papel Aquarela saiu do estojo, por ser parecido demais com o Canson: as fichas e os cards padrão do Kanban que o tinham passam a ter o Canson.',

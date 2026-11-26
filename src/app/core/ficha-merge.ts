@@ -36,7 +36,7 @@ const GROUPS: readonly { keys: readonly string[]; part: FichaPart }[] = [
   { keys: ['paper', 'paperSeed'], part: 'aparencia' },
   { keys: ['pattern', 'patternSpacing', 'patternSize', 'patternJitter', 'patternInk', 'patternSeed', 'patternTone'], part: 'aparencia' },
   { keys: ['scribble', 'scribbleSeed', 'scribbleInk', 'scribbleTone'], part: 'aparencia' },
-  { keys: ['damage', 'damageSeed'], part: 'aparencia' },
+  { keys: ['damage', 'damageSeed', 'wear', 'wearSeed'], part: 'aparencia' },
   { keys: ['stains'], part: 'aparencia' },
   { keys: ['decors'], part: 'aparencia' },
   { keys: ['private', 'quiet', 'publishedAt'], part: 'publico' },

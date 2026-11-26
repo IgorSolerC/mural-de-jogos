@@ -1,4 +1,4 @@
-import { DAMAGES, DAMAGE_LABEL, DECORS, DECOR_GROUPS, groupOfDecor, DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, PATTERNS, PATTERN_GROUPS, PATTERN_LABEL, groupOfPattern, SCRIBBLES, STAINS, cutsPaper, lookOf, decorCuts, newSeed, sanitizeDamage, sanitizeDecor, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizePatternInk, sanitizeScribble, sanitizeSeed, darkGlitter, glitterShift, textureOf, inkStepFor, lightInk, sanitizeInkTone } from './paper';
+import { DAMAGES, DAMAGE_GROUPS, DAMAGE_LABEL, isAestheticDamage, pairOf, sanitizeDamages, splitDamages, DECORS, DECOR_GROUPS, groupOfDecor, DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, PATTERNS, PATTERN_GROUPS, PATTERN_LABEL, groupOfPattern, SCRIBBLES, STAINS, cutsPaper, lookOf, decorCuts, newSeed, sanitizeDamage, sanitizeDecor, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizePatternInk, sanitizeScribble, sanitizeSeed, darkGlitter, glitterShift, textureOf, inkStepFor, lightInk, sanitizeInkTone } from './paper';
 import { GRID_PATTERNS } from './pattern-grids';
 import { TILE_CACHE, cutMask, lightPattern, motifIcon, ownPaperVars, paperArt, paperStyle, paperVars, patternTile, tileCacheSize } from './paper-art';
 import { decorArt } from './decor-art';
@@ -6,6 +6,58 @@ import { DAMAGE_ICON } from './kit-icons';
 import { sanitizeReview } from './review';
 
 describe('papel da ficha', () => {
+  describe('os dois estragos (25/nov/2026)', () => {
+    it('cada estrago num bloco só, destrutivo ou estético', () => {
+      const all = DAMAGE_GROUPS.flatMap((g) => g.damages);
+      expect(new Set(all).size).toBe(all.length);
+      expect([...all].sort()).toEqual([...DAMAGES].sort());
+      expect(isAestheticDamage('orelha')).toBeTrue();
+      expect(isAestheticDamage('rasgado')).toBeFalse();
+    });
+
+    it('com um só, ele fica no damage (de qualquer bloco); com os dois, o estético vai no wear', () => {
+      expect(pairOf(null, null, 'amassado', 7)).toEqual({ damage: 'amassado', damageSeed: 7 });
+      expect(pairOf('rasgado', 3, null, null)).toEqual({ damage: 'rasgado', damageSeed: 3 });
+      expect(pairOf('rasgado', 3, 'amassado', 7)).toEqual({ damage: 'rasgado', damageSeed: 3, wear: 'amassado', wearSeed: 7 });
+      expect(splitDamages({ damage: 'amassado', damageSeed: 7 })).toEqual({ destructive: null, destructiveSeed: null, aesthetic: 'amassado', aestheticSeed: 7 });
+      expect(splitDamages({ damage: 'rasgado', damageSeed: 3, wear: 'amassado', wearSeed: 7 })).toEqual({ destructive: 'rasgado', destructiveSeed: 3, aesthetic: 'amassado', aestheticSeed: 7 });
+    });
+
+    it('o que vem guardado sai sempre no formato do par, e a ficha de um estrago só não muda', () => {
+      expect(sanitizeDamages({ damage: 'orelha', damageSeed: 5 })).toEqual({ damage: 'orelha', damageSeed: 5 });
+      expect(sanitizeDamages({ damage: 'furado', wear: 'orelha', wearSeed: 2 })).toEqual({ damage: 'furado', wear: 'orelha', wearSeed: 2 });
+      // o estético sozinho no wear volta para o damage; dois do mesmo bloco, fica o de damage
+      expect(sanitizeDamages({ wear: 'dobrado', wearSeed: 9 })).toEqual({ damage: 'dobrado', damageSeed: 9 });
+      expect(sanitizeDamages({ damage: 'orelha', wear: 'dobrado' })).toEqual({ damage: 'orelha' });
+      expect(sanitizeDamages({ damage: 'furado', wear: 'rasgado' })).toEqual({ damage: 'furado' });
+      expect(sanitizeDamages({ damage: 'nada', wear: 'lixo' })).toEqual({});
+      const r = sanitizeReview({ kind: 'anotacoes', game: { name: 'a' }, text: '', damage: 'queimado', damageSeed: 4, wear: 'puido', wearSeed: 8 })!;
+      expect([r.damage, r.damageSeed, r.wear, r.wearSeed]).toEqual(['queimado', 4, 'puido', 8]);
+    });
+
+    it('os dois no mesmo papel: o estético por baixo, sem mudar o de um estrago só, e cada recorte com a regra dele', () => {
+      const base = { id: 'r1', W: 420, H: 300, uid: 't' };
+      // sem o estético, igualzinho a antes
+      expect(paperArt({ ...base, damage: 'rasgado', seed: 3 })).toEqual(paperArt({ ...base, damage: 'rasgado', seed: 3, wear: undefined }));
+      for (const g of DAMAGE_GROUPS[1].damages)
+        for (const d of DAMAGE_GROUPS[0].damages) {
+          const both = paperArt({ ...base, damage: d, seed: 3, wear: g, wearSeed: 5 });
+          const alone = paperArt({ ...base, damage: g, seed: 5 });
+          // o estético desenhado como se fosse o único (o mesmo sorteio, os mesmos ids)
+          expect(both.fundo.startsWith(alone.fundo)).withContext(`${g}+${d}`).toBeTrue();
+          // os ids do de cima não batem com os do de baixo
+          const ids = [...(both.fundo + both.clareia + both.frente + both.relevo + both.fita).matchAll(/id='([^']+)'/g)].map((m) => m[1]);
+          expect(new Set(ids).size).withContext(`${g}+${d}`).toBe(ids.length);
+          // a máscara junta os dois recortes
+          const top = paperArt({ ...base, damage: d, seed: 3 });
+          const cuts = both.cut.length + (both.cutOther?.cut.length ?? 0);
+          expect(cuts).withContext(`${g}+${d}`).toBe(alone.cut.length + top.cut.length);
+          if (both.cutOther) expect(both.cutOther.evenodd).withContext(`${g}+${d}`).not.toBe(both.evenodd);
+          if (cuts) expect(cutMask(both, 420, 300)).withContext(`${g}+${d}`).toBeTruthy();
+        }
+    });
+  });
+
   describe('a tinta da estampa e do lápis (25/nov/2026)', () => {
     it('a automática é a de sempre (branca só na escura); a escolhida vale em qualquer cartolina', () => {
       expect([lightInk(null, false), lightInk(undefined, true)]).toEqual([false, true]);

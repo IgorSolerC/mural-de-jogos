@@ -462,6 +462,33 @@ export const DAMAGES: readonly Damage[] = [
   'desintegrado',
 ];
 
+/**
+ * Os estragos em dois (25/nov/2026, a pedido do dono): os destrutivos, que tiram um pedaço do papel
+ * (rasgam, furam, queimam, cortam, comem), e os estéticos, que só marcam a cartolina ou mudam a beirada
+ * dela (a orelha, as dobras, o amassado, o picote, a beirada recortada ou puída). Uma ficha pode ter um
+ * de cada: o estético por baixo, o destrutivo por cima.
+ */
+export interface DamageGroup {
+  id: 'destrutivos' | 'esteticos';
+  label: string;
+  damages: readonly Damage[];
+}
+export const DAMAGE_GROUPS: readonly DamageGroup[] = [
+  {
+    id: 'destrutivos',
+    label: 'Destrutivos',
+    damages: ['rasgado', 'rasgao', 'partido', 'remendado', 'costurado', 'colado', 'quebracabeca', 'arranhado', 'garras', 'mordido', 'furado', 'desgrampeado', 'baleado', 'laser', 'queimado', 'raio', 'acido', 'esfarelado', 'glitch', 'corrompido', 'desintegrado'],
+  },
+  {
+    id: 'esteticos',
+    label: 'Estéticos',
+    damages: ['caderno', 'picotado', 'postal', 'recortado', 'tirinhas', 'cantos', 'puido', 'orelha', 'dobrado', 'amassado', 'descascado'],
+  },
+];
+const AESTHETIC: ReadonlySet<Damage> = new Set(DAMAGE_GROUPS[1].damages);
+/** Um estrago estético (marca o papel ou a beirada, sem tirar pedaço)? */
+export const isAestheticDamage = (d: Damage | null | undefined): boolean => !!d && AESTHETIC.has(d);
+
 export const DAMAGE_LABEL: Record<Damage, string> = {
   rasgado: 'Rasgada',
   rasgao: 'Rasgão',
@@ -752,6 +779,51 @@ export function newSeed(prev?: number | null): number {
   do s = 1 + Math.floor(Math.random() * SEED_MAX);
   while (s === prev);
   return s;
+}
+
+// ===================== Os dois estragos =====================
+
+/**
+ * Os estragos de uma ficha, como ficam guardados. `damage` é o estrago de sempre, de qualquer um dos dois
+ * blocos: a ficha com um só não muda (e um site antigo continua lendo). Só com os dois, o destrutivo
+ * fica em `damage` e o estético em `wear`, cada um com o seu sorteio.
+ */
+export interface DamagePair {
+  damage?: Damage;
+  damageSeed?: number;
+  wear?: Damage;
+  wearSeed?: number;
+}
+
+/** Monta o par guardado a partir do destrutivo e do estético escolhidos (cada um pode faltar). */
+export function pairOf(destructive: Damage | null | undefined, destructiveSeed: number | null | undefined, aesthetic: Damage | null | undefined, aestheticSeed: number | null | undefined): DamagePair {
+  const d = destructive && !isAestheticDamage(destructive) ? destructive : null;
+  const a = aesthetic && isAestheticDamage(aesthetic) ? aesthetic : null;
+  if (d && a) return { damage: d, ...(destructiveSeed ? { damageSeed: destructiveSeed } : {}), wear: a, ...(aestheticSeed ? { wearSeed: aestheticSeed } : {}) };
+  if (d) return { damage: d, ...(destructiveSeed ? { damageSeed: destructiveSeed } : {}) };
+  if (a) return { damage: a, ...(aestheticSeed ? { damageSeed: aestheticSeed } : {}) };
+  return {};
+}
+
+/** O destrutivo e o estético de uma ficha (o par guardado lido de volta), com os sorteios. */
+export function splitDamages(r: DamagePair): { destructive: Damage | null; destructiveSeed: number | null; aesthetic: Damage | null; aestheticSeed: number | null } {
+  const single = r.damage ?? null;
+  if (single && isAestheticDamage(single)) return { destructive: null, destructiveSeed: null, aesthetic: single, aestheticSeed: r.damageSeed ?? null };
+  return { destructive: single, destructiveSeed: single ? (r.damageSeed ?? null) : null, aesthetic: single && r.wear && isAestheticDamage(r.wear) ? r.wear : null, aestheticSeed: single && r.wear ? (r.wearSeed ?? null) : null };
+}
+
+/**
+ * Os estragos que vieram guardados ou da nuvem: só o que existe, e o par sempre no formato de `pairOf`
+ * (o estético sozinho no `wear` volta para o `damage`; dois do mesmo bloco, fica o de `damage`).
+ */
+export function sanitizeDamages(raw: { damage?: unknown; damageSeed?: unknown; wear?: unknown; wearSeed?: unknown }): DamagePair {
+  const damage = sanitizeDamage(raw.damage),
+    wear = sanitizeDamage(raw.wear);
+  const damageSeed = damage ? sanitizeSeed(raw.damageSeed) : undefined,
+    wearSeed = wear ? sanitizeSeed(raw.wearSeed) : undefined;
+  if (damage && wear && !isAestheticDamage(damage) && isAestheticDamage(wear)) return pairOf(damage, damageSeed, wear, wearSeed);
+  if (damage) return pairOf(isAestheticDamage(damage) ? null : damage, damageSeed, isAestheticDamage(damage) ? damage : null, damageSeed);
+  return wear && isAestheticDamage(wear) ? pairOf(null, null, wear, wearSeed) : {};
 }
 
 // ===================== Manchas e decorações, até três =====================

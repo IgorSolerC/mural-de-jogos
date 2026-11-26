@@ -4,7 +4,9 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { LucideIconData } from 'lucide-angular';
 import {
   DAMAGES,
+  DAMAGE_GROUPS,
   DAMAGE_LABEL,
+  DamageGroup,
   DECORS,
   DECOR_GROUPS,
   DECOR_LABEL,
@@ -37,7 +39,10 @@ import {
   Scribble,
   Stain,
   StainMark,
+  isAestheticDamage,
   newSeed,
+  pairOf,
+  splitDamages,
 } from '../core/paper';
 import { DAMAGE_ICON, DECOR_ICON, SCRIBBLE_ICON, STAIN_ICON, kitIcon } from '../core/kit-icons';
 import { motifIcon, paperVars } from '../core/paper-art';
@@ -78,7 +83,11 @@ interface Option {
   damage?: Damage;
   stain?: Stain;
   decor?: Decor;
+  /** No Estrago: o bloco da opção (o Nenhum de cada bloco também tem o dele). */
+  slot?: DamageSlot;
 }
+
+type DamageSlot = DamageGroup['id'];
 
 /** As abas de muitas opções, separadas por assunto (a régua de assuntos em cima e um bloco por assunto). */
 type GroupedTab = 'estampa' | 'decoracao';
@@ -154,7 +163,7 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
       } @else {
         <fieldset>
           <legend class="giz">
-            {{ tabLabel() }} <b>{{ multi() ? (picked().length ? picked().length + ' de ' + maxMarks : 'Nenhuma') : chosen().label }}</b>
+            {{ tabLabel() }} <b>{{ multi() ? (picked().length ? picked().length + ' de ' + maxMarks : 'Nenhuma') : tab() === 'estrago' ? damageLegend() : chosen().label }}</b>
           </legend>
           @if (multi()) {
             <p class="sr-only" [id]="uid + '-dica'">Marcar de novo uma que já está na ficha sorteia ela de outro jeito; o botão Tirar, no canto, tira.</p>
@@ -247,7 +256,8 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
                     [attr.aria-describedby]="o.value !== null ? uid + '-dica' : null"
                   />
                 } @else {
-                  <input type="radio" [name]="uid + '-' + tab()" [checked]="o.value === value()" (click)="choose(o.value)" [attr.aria-label]="o.label" />
+                  <!-- no Estrago, um grupo de rádio por bloco: um destrutivo e um estético -->
+                  <input type="radio" [name]="uid + '-' + tab() + (o.slot ? '-' + o.slot : '')" [checked]="isOn(o)" (click)="pick(o)" [attr.aria-label]="o.label" />
                 }
                 @if (iconOf(o); as icon) {
                   <span class="icone" [innerHTML]="icon"></span>
@@ -308,6 +318,18 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
                     @if (group() !== 'todas') {
                       <ng-container *ngTemplateOutlet="carimbo; context: { $implicit: options()[0] }" />
                     }
+                    @for (o of sec.options; track o.value) {
+                      <ng-container *ngTemplateOutlet="carimbo; context: { $implicit: o }" />
+                    }
+                  </div>
+                </section>
+              }
+            } @else if (tab() === 'estrago') {
+              <!-- os estragos em dois blocos, cada um com o seu Nenhum: um destrutivo e um estético na mesma ficha -->
+              @for (sec of damageSections; track sec.id) {
+                <section class="bloco" [attr.aria-label]="sec.label">
+                  <h3 class="giz bloco-titulo">{{ sec.label }} <b>{{ slotLabel(sec.id) }}</b></h3>
+                  <div class="carimbos">
                     @for (o of sec.options; track o.value) {
                       <ng-container *ngTemplateOutlet="carimbo; context: { $implicit: o }" />
                     }
@@ -1087,6 +1109,9 @@ export class CardKit {
   readonly damage = model.required<Damage | null>();
   /** O sorteio do estrago: cada clique num estrago, mesmo no que já está, rasga de outro jeito. */
   readonly damageSeed = model.required<number | null>();
+  /** O estrago estético quando a ficha tem os dois (ver Review.wear e `pairOf`), e o sorteio dele. */
+  readonly wear = model.required<Damage | null>();
+  readonly wearSeed = model.required<number | null>();
   /** As manchas por cima do papel, até três, na ordem em que foram escolhidas, cada uma com o seu sorteio. */
   readonly stains = model.required<StainMark[]>();
   /** As decorações por cima de tudo, como as manchas. */
@@ -1193,8 +1218,59 @@ export class CardKit {
 
   /** A opção está marcada: a escolhida, ou "Nenhuma" com a lista vazia. */
   protected isOn(o: Option): boolean {
+    if (o.slot) return o.value === this.slotValue(o.slot);
     if (!this.multi()) return o.value === this.value();
     return o.value === null ? !this.picked().length : this.orderOf(o) > 0;
+  }
+
+  /** Os dois blocos do Estrago, cada um com o seu Nenhum na frente. */
+  protected readonly damageSections = DAMAGE_GROUPS.map((g) => ({
+    id: g.id,
+    label: g.label,
+    options: [{ value: null, label: 'Nenhum', slot: g.id } as Option, ...g.damages.map((d): Option => ({ value: d, label: DAMAGE_LABEL[d], damage: d, slot: g.id }))],
+  }));
+  /** O destrutivo e o estético da ficha, lidos do par guardado. */
+  private readonly damages = computed(() =>
+    splitDamages({ damage: this.damage() ?? undefined, damageSeed: this.damageSeed() ?? undefined, wear: this.wear() ?? undefined, wearSeed: this.wearSeed() ?? undefined }),
+  );
+  /** O estrago escolhido no bloco. */
+  protected slotValue(slot: DamageSlot): Damage | null {
+    return slot === 'destrutivos' ? this.damages().destructive : this.damages().aesthetic;
+  }
+  protected slotLabel(slot: DamageSlot): string {
+    const d = this.slotValue(slot);
+    return d ? DAMAGE_LABEL[d] : 'Nenhum';
+  }
+  /** O que a ficha tem de estrago, para o alto da aba: os dois juntos, ou Nenhum. */
+  protected readonly damageLegend = computed(() => {
+    const { destructive, aesthetic } = this.damages();
+    return [destructive, aesthetic].filter((d): d is Damage => !!d).map((d) => DAMAGE_LABEL[d]).join(' + ') || 'Nenhum';
+  });
+
+  /** Um clique num carimbo de escolher um: o do Estrago vai para o bloco dele. */
+  protected pick(o: Option): void {
+    if (o.slot) this.chooseDamage(o.slot, o.value as Damage | null);
+    else this.choose(o.value);
+  }
+
+  /**
+   * Escolhe o estrago de um bloco, sem mexer no do outro. Cada clique, mesmo no escolhido, rasga de outro
+   * jeito (um sorteio novo); o par vai guardado no formato de `pairOf` (um só fica em `damage`).
+   */
+  private chooseDamage(slot: DamageSlot, v: Damage | null): void {
+    let { destructive, destructiveSeed, aesthetic, aestheticSeed } = this.damages();
+    if (slot === 'destrutivos') {
+      destructiveSeed = v ? newSeed(destructiveSeed) : null;
+      destructive = v;
+    } else {
+      aestheticSeed = v ? newSeed(aestheticSeed) : null;
+      aesthetic = v;
+    }
+    const p = pairOf(destructive, destructiveSeed, aesthetic, aestheticSeed);
+    this.damage.set(p.damage ?? null);
+    this.damageSeed.set(p.damageSeed ?? null);
+    this.wear.set(p.wear ?? null);
+    this.wearSeed.set(p.wearSeed ?? null);
   }
 
   /** Abre a aba (as etiquetas "na ficha" do editor levam direto a ela). */
@@ -1291,7 +1367,7 @@ export class CardKit {
   /** A aba mostra um pontinho quando a ficha tem algo escolhido ali. */
   /** Quantas marcas da aba estão na ficha (só as de várias: manchas e decorações). */
   protected marks(t: Tab): number {
-    return t === 'mancha' ? this.stains().length : t === 'decoracao' ? this.decors().length : 0;
+    return t === 'mancha' ? this.stains().length : t === 'decoracao' ? this.decors().length : t === 'estrago' && this.wear() ? 2 : 0;
   }
 
   protected used(t: Tab): boolean {
@@ -1323,8 +1399,7 @@ export class CardKit {
         this.scribbleSeed.set(v ? newSeed(this.scribbleSeed()) : null);
         break;
       case 'estrago':
-        this.damage.set(v as Damage | null);
-        this.damageSeed.set(v ? newSeed(this.damageSeed()) : null);
+        this.chooseDamage(isAestheticDamage(v as Damage | null) ? 'esteticos' : 'destrutivos', v as Damage | null);
         break;
     }
   }
