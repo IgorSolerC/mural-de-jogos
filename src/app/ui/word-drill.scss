@@ -249,3 +249,126 @@ lucide-icon {
     padding: 18px 16px 20px;
   }
 }
+
+/* ===== O Escrever à mão: a dica e os quadrados ===== */
+.em-romaji {
+  margin: 0;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: clamp(1.8rem, 6vw, 2.6rem);
+  letter-spacing: 0.06em;
+  line-height: 1.15;
+}
+
+/* um par por caractere: o quadrado da pessoa em cima e, conferido, o certo embaixo (no celular os pares quebram juntos) */
+.quadros {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px 12px;
+  width: 100%;
+  margin-top: 18px;
+}
+
+.par {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 8px;
+  width: clamp(84px, calc((100% - (var(--n) - 1) * 12px) / var(--n)), 200px);
+}
+
+.quadro {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  container-type: inline-size;
+  border-radius: 3px;
+  background: #fbf8ef;
+  box-shadow:
+    inset 0 0 0 1px rgb(21 21 21 / 0.08),
+    0 1px 2px rgb(0 0 0 / 0.12);
+}
+
+.grade,
+.pincel,
+.ordem {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* conferido: os pares ficam menores (dois quadrados em pé cabem na tela) */
+.conferidos .par {
+  width: clamp(84px, calc((100% - (var(--n) - 1) * 12px) / var(--n)), 160px);
+}
+
+/* conferido: o da pessoa fica como está, sem mais traçar */
+.conferidos .pincel {
+  cursor: default;
+}
+
+/* o certo: um fio vermelho em cima diz que é a resposta */
+.quadro.certo {
+  background: #fffdf6;
+  box-shadow:
+    inset 0 0 0 1px rgb(21 21 21 / 0.08),
+    0 -3px 0 -1px var(--shu),
+    0 1px 2px rgb(0 0 0 / 0.12);
+  animation: aparece 220ms var(--ease-ui, ease-out);
+}
+
+.no-pincel {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: 'Yuji Syuku', 'Klee One', 'Yu Mincho', serif;
+  font-size: 78cqi;
+  line-height: 1;
+  translate: 0 2%;
+}
+
+.desfazer-quadro {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 32px;
+  border: 0;
+  border-radius: 4px;
+  background: rgb(21 21 21 / 0.06);
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    scale var(--t-ui) var(--ease-ui),
+    color var(--t-ui) var(--ease-ui);
+
+  &:hover:not(:disabled) {
+    scale: 1.06;
+    color: var(--shu);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+  &:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+}
+
+.limpar {
+  @include kit.botao-papel;
+  & {
+    min-height: 38px;
+    margin-top: 14px;
+    font-size: 0.8rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quadro.certo {
+    animation: none;
+  }
+}

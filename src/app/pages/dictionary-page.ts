@@ -43,7 +43,7 @@ import { Toasts } from '../ui/toast';
 import { WordBoard } from '../ui/word-board';
 import { WordDrill } from '../ui/word-drill';
 import { DrillStart, WordDrillSetup } from '../ui/word-drill-setup';
-import { DrillWay } from '../core/dictionary/drill';
+import { DRILL_WAYS, DrillWay } from '../core/dictionary/drill';
 import { WordEntry, daySaid, entryHeightGuess } from '../ui/word-entry';
 import { markFavorite, markLearned } from '../ui/word-marking';
 import { WordSeals } from '../ui/word-seals';
@@ -542,7 +542,7 @@ export class DictionaryPage {
   /* ===== O Treino (PLANO-TREINO-DICIONARIO.md) ===== */
 
   /** Os jeitos de treinar que a mesa já tem. */
-  protected readonly drillWays: readonly DrillWay[] = ['pt-jp', 'jp-pt'];
+  protected readonly drillWays: readonly DrillWay[] = DRILL_WAYS;
   /** A folha de montar aberta. */
   protected readonly drilling = signal<'montar' | null>(null);
   /** O treino na mesa: a montagem e as palavras que combinam. */

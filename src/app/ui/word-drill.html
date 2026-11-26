@@ -33,6 +33,24 @@
         </p>
 
         @switch (it.way) {
+          @case ('escrever') {
+            <!-- a dica: o som, o romaji ou a tradução -->
+            @switch (it.hint) {
+              @case ('som') {
+                <div class="so-som">
+                  <app-word-voice [word]="it.word" [big]="true" label="Ouvir a palavra de novo" />
+                  <p class="miudo">Ouça e escreva <span class="tecla" aria-hidden="true">R</span></p>
+                </div>
+              }
+              @case ('romaji') {
+                <p class="em-romaji">{{ it.word.romaji }}</p>
+              }
+              @default {
+                <p class="em-pt">{{ it.word.meaning }}</p>
+              }
+            }
+            <p class="miudo">{{ chars().length === 1 ? '1 caractere' : chars().length + ' caracteres' }}</p>
+          }
           @case ('pt-jp') {
             <p class="em-pt">{{ it.word.meaning }}</p>
             <p class="miudo">{{ it.word.wordClass }}</p>
@@ -49,6 +67,39 @@
           }
         }
 
+        @if (it.way === 'escrever') {
+          <!-- um quadrado por caractere para escrever com o pincel; conferido, o certo embaixo de cada um -->
+          <div class="quadros" [style.--n]="chars().length" [class.conferidos]="checked()">
+            @for (c of chars(); track $index; let i = $index) {
+              <div class="par">
+                <div class="quadro">
+                  <app-tianzige class="grade" />
+                  <app-brush-pad class="pincel" [strokes]="drawings()[i] ?? []" (strokesChange)="setDrawing(i, $event)" [label]="'Quadrado ' + (i + 1) + ' de ' + chars().length + ': ' + (drawings()[i]?.length ?? 0) + ' traços'" [attr.inert]="checked() ? '' : null" />
+                </div>
+                @if (!checked()) {
+                  <button type="button" class="desfazer-quadro" [disabled]="!drawings()[i]?.length" (click)="undoIn(i)" [attr.aria-label]="'Desfazer o último traço do quadrado ' + (i + 1)">
+                    <lucide-icon [img]="UndoIcon" [size]="15" aria-hidden="true" />
+                  </button>
+                } @else {
+                  <div class="quadro certo">
+                    <app-tianzige class="grade" />
+                    @if (strokes()?.[c]; as st) {
+                      <app-stroke-replay class="ordem" [strokes]="st" [go]="replayAt() === i" [label]="c + ', na ordem dos traços'" (done)="nextReplay(i)" />
+                    } @else {
+                      <span class="no-pincel" lang="ja">{{ c }}</span>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
+          @if (!checked()) {
+            <button type="button" class="limpar" [disabled]="!anyDrawn()" (click)="clearAll()">
+              <lucide-icon [img]="ClearIcon" [size]="15" aria-hidden="true" />
+              Limpar tudo
+            </button>
+          }
+        } @else {
         <form class="responder" (submit)="$event.preventDefault(); check()">
           <label class="campo" [class.conferido]="checked()">
             <span class="sr-only">{{ it.way === 'pt-jp' ? 'Em japonês' : 'Em português' }}</span>
@@ -70,14 +121,17 @@
             <p class="como-kana" aria-live="polite"><span class="sr-only">Lido como </span><span lang="ja">{{ k }}</span></p>
           }
         </form>
+        }
 
         @if (checked()) {
           <!-- a resposta certa: a palavra com a leitura, o romaji, o sentido e ouvir; e se bateu -->
           <section class="certa" aria-label="Resposta">
-            <p class="bateu" [class.nao]="!match()">
-              <lucide-icon [img]="match() ? RightIcon : WrongIcon" [size]="17" aria-hidden="true" />
-              {{ match() ?? 'Não bateu' }}
-            </p>
+            @if (it.way !== 'escrever') {
+              <p class="bateu" [class.nao]="!match()">
+                <lucide-icon [img]="match() ? RightIcon : WrongIcon" [size]="17" aria-hidden="true" />
+                {{ match() ?? 'Não bateu' }}
+              </p>
+            }
             <div class="certa-palavra">
               <p class="certa-ja" lang="ja">
                 @if (withKanji()) {
@@ -89,7 +143,7 @@
               <app-word-voice [word]="it.word" />
             </div>
             <p class="certa-romaji">{{ it.word.romaji }}</p>
-            @if (it.way !== 'pt-jp') {
+            @if (it.way === 'jp-pt' || (it.way === 'escrever' && it.hint !== 'traducao')) {
               <p class="certa-pt">{{ it.word.meaning }}</p>
             }
           </section>
@@ -101,7 +155,7 @@
     <div class="botoes">
       @if (!checked()) {
         <button type="button" class="mostrar" aria-keyshortcuts="Enter" (click)="press($event, 'conferir')">
-          Conferir
+          {{ it.way === 'escrever' ? 'Terminei' : 'Conferir' }}
           <span class="tecla" aria-hidden="true">Enter</span>
         </button>
       } @else {

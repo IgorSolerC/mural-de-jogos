@@ -1,12 +1,15 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
 import { Word, spokenOf } from '../core/dictionary/dictionary';
-import { DrillAnswer, DrillItem, DrillSetup, JaMatch, WAY_INFO, checkJa, checkPt, drawDrill, drillScore } from '../core/dictionary/drill';
+import { BrushStroke, DrillAnswer, DrillItem, DrillSetup, JaMatch, WAY_INFO, checkJa, checkPt, drawDrill, drillScore, drillText } from '../core/dictionary/drill';
 import { hasKanji, romajiToKana } from '../core/dictionary/kana';
 import { BOUNCE_MS, reducedMotion } from '../core/motion';
 import { Voz } from '../core/voz';
 import { loadKleeOne } from './font-sheet';
 import { ICON, IconModule } from './icons';
 import { WordVoice } from './word-voice';
+import { BrushPad } from './brush-pad';
+import { StrokeReplay, Strokes, Tianzige } from './stroke-order';
+import { boardChars } from './word-board';
 
 /** A pergunta de cada jeito, em uma frase. */
 const QUESTION: Record<DrillItem['way'], string> = {
@@ -31,7 +34,7 @@ const JA_MATCH_SAID: Record<Exclude<JaMatch, null>, string> = {
  */
 @Component({
   selector: 'app-word-drill',
-  imports: [IconModule, WordVoice],
+  imports: [BrushPad, IconModule, StrokeReplay, Tianzige, WordVoice],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './word-drill.html',
   styleUrl: './word-drill.scss',
@@ -50,6 +53,7 @@ export class WordDrill {
   protected readonly RightIcon = ICON.pronto;
   protected readonly UndoIcon = ICON.desfazer;
   protected readonly AgainIcon = ICON.recomecar;
+  protected readonly ClearIcon = ICON.borracha;
   protected readonly WAY_INFO = WAY_INFO;
   protected readonly QUESTION = QUESTION;
   protected readonly calm = reducedMotion();
@@ -65,6 +69,12 @@ export class WordDrill {
   /** O que a pessoa digitou na palavra da vez, e se já conferiu. */
   protected readonly typed = signal('');
   protected readonly checked = signal(false);
+  /** Os traços de cada quadrado (o Escrever à mão), um por caractere. */
+  protected readonly drawings = signal<BrushStroke[][]>([]);
+  /** Os traços do KanjiVG, quando chegam (o pedaço deles vem sob demanda, só com o Escrever). */
+  protected readonly strokes = signal<Record<string, Strokes> | null>(null);
+  /** Depois de conferir: o quadrado certo que está se desenhando (um depois do outro). */
+  protected readonly replayAt = signal(-1);
   /** O que o leitor de tela diz (conferiu, respondeu). */
   protected readonly spoken = signal('');
   private started = Date.now();
@@ -80,6 +90,14 @@ export class WordDrill {
     const it = this.item();
     return !!it && hasKanji(it.word.text) && it.word.reading !== it.word.text;
   });
+
+  /** Os caracteres da palavra da vez, cada um no seu quadrado (o Escrever à mão). */
+  protected readonly chars = computed(() => {
+    const it = this.item();
+    return it?.way === 'escrever' ? boardChars(drillText(it.word)) : [];
+  });
+  /** Já traçou alguma coisa em algum quadrado. */
+  protected readonly anyDrawn = computed(() => this.drawings().some((d) => d.length > 0));
 
   /** O romaji digitado lido como kana, ao vivo (o Português → japonês sem teclado japonês). */
   protected readonly asKana = computed(() => {
@@ -111,12 +129,21 @@ export class WordDrill {
       this.begin(this.pool());
     });
     inject(DestroyRef).onDestroy(() => this.voz.hushTitle());
+    // os traços chegaram depois de conferir (o pedaço ainda baixava): os quadrados certos se desenham agora
+    effect(() => {
+      if (!this.strokes()) return;
+      untracked(() => {
+        if (this.checked() && this.replayAt() >= this.chars().length) this.nextReplay(-1);
+      });
+    });
   }
 
   /** Um treino novo com estas palavras (o primeiro, ou o Outro treino do fim). */
   private begin(words: readonly Word[]): void {
     const voice = this.voz.voicesOf('ja').length > 0;
     this.items.set(drawDrill(words, this.setup(), `${Date.now()}:${this.rounds++}`, voice));
+    if (!this.strokes() && this.items().some((i) => i.way === 'escrever'))
+      import('../core/dictionary/strokes').then((m) => this.strokes.set(m.STROKES)).catch(() => undefined);
     this.answers.set([]);
     this.finished.set(false);
     this.started = Date.now();
@@ -124,10 +151,12 @@ export class WordDrill {
   }
 
   /** A palavra da vez chega: o campo limpo, a voz quando a pergunta é falada, o foco no campo. */
-  private arrive(typed = ''): void {
+  private arrive(typed = '', drawing: BrushStroke[][] = []): void {
     this.voz.hushTitle();
     this.typed.set(typed);
     this.checked.set(false);
+    this.replayAt.set(-1);
+    this.drawings.set(this.chars().map((_, i) => drawing[i] ?? []));
     this.swappedAt = performance.now();
     const it = this.item();
     if (!it) {
@@ -135,8 +164,13 @@ export class WordDrill {
       this.focusLater('.fim .btn-ink');
       return;
     }
-    if (it.way === 'jp-pt' && it.show === 'falado') this.say(it.word);
-    this.focusLater('.campo input');
+    if (this.spokenQuestion(it)) this.say(it.word);
+    this.focusLater(it.way === 'escrever' ? '.mostrar' : '.campo input');
+  }
+
+  /** A pergunta é só a voz: o Japonês → português falado, ou o Escrever com a dica do som. */
+  protected spokenQuestion(it: DrillItem): boolean {
+    return (it.way === 'jp-pt' && it.show === 'falado') || (it.way === 'escrever' && it.hint === 'som');
   }
 
   protected say(w: Word): void {
@@ -174,6 +208,13 @@ export class WordDrill {
     if (!this.item() || this.checked()) return;
     this.checked.set(true);
     this.swappedAt = performance.now();
+    if (this.item()?.way === 'escrever') {
+      // os quadrados certos se desenham um depois do outro, embaixo dos da pessoa; quem decide é ela
+      this.nextReplay(-1);
+      this.spoken.set('A palavra certa está embaixo de cada quadrado. Acertou?');
+      this.focusLater('.acertei');
+      return;
+    }
     const m = this.match();
     this.spoken.set(m ? `${m}.` : 'Não bateu.');
     this.focusLater(m ? '.acertei' : '.errei');
@@ -182,7 +223,8 @@ export class WordDrill {
   protected answer(ok: boolean): void {
     const it = this.item();
     if (!it || !this.checked()) return;
-    this.answers.update((list) => [...list, { item: it, ok, typed: this.typed() }]);
+    const answer: DrillAnswer = it.way === 'escrever' ? { item: it, ok, drawing: this.drawings() } : { item: it, ok, typed: this.typed() };
+    this.answers.update((list) => [...list, answer]);
     if (this.answers().length >= this.items().length) this.finished.set(true);
     this.arrive();
     if (!this.finished()) this.spoken.set(ok ? 'Acertou.' : 'Errou.');
@@ -195,8 +237,31 @@ export class WordDrill {
     if (!last) return;
     this.answers.set(list.slice(0, -1));
     this.finished.set(false);
-    this.arrive(last.typed ?? '');
+    this.arrive(last.typed ?? '', last.drawing ?? []);
     this.spoken.set('Resposta desfeita');
+  }
+
+  /** Os traços de um quadrado mudaram (o pincel). */
+  protected setDrawing(i: number, list: BrushStroke[]): void {
+    this.drawings.update((all) => all.map((d, j) => (j === i ? list : d)));
+  }
+
+  /** O Desfazer de um quadrado: o último traço dele. */
+  protected undoIn(i: number): void {
+    this.setDrawing(i, (this.drawings()[i] ?? []).slice(0, -1));
+  }
+
+  protected clearAll(): void {
+    this.drawings.update((all) => all.map(() => []));
+  }
+
+  /** O próximo quadrado certo que se desenha (os sem traços, só na letra de pincel, passam na hora). */
+  protected nextReplay(i: number): void {
+    const chars = this.chars();
+    const data = this.strokes();
+    let j = i + 1;
+    while (j < chars.length && !data?.[chars[j]]) j++;
+    this.replayAt.set(j);
   }
 
   /** O clique que era para o botão de antes (o do teclado, `detail` 0, vale). */
@@ -216,6 +281,13 @@ export class WordDrill {
     const key = e.key.toLowerCase();
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (inField && !this.checked()) return;
+    const onButton = e.target instanceof Element && !!e.target.closest('button, a[href]');
+    // no Escrever, o Enter confere de qualquer lugar (o quadro de traçar não é um campo)
+    if (key === 'enter' && !onButton && !this.checked() && this.item()?.way === 'escrever') {
+      e.preventDefault();
+      this.check();
+      return;
+    }
     if (e.repeat && ['1', '2', 'enter'].includes(key)) {
       e.preventDefault();
       return;
@@ -225,7 +297,7 @@ export class WordDrill {
       this.undo();
     } else if (key === 'r') {
       const it = this.item();
-      if (it && (this.checked() || (it.way === 'jp-pt' && it.show === 'falado'))) {
+      if (it && (this.checked() || this.spokenQuestion(it))) {
         e.preventDefault();
         this.say(it.word);
       }

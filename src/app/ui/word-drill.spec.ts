@@ -239,6 +239,61 @@ describe('Treino do dicionário', () => {
       expect(el.textContent).not.toContain('食べる');
     });
 
+    async function drawIn(i: number): Promise<void> {
+      const canvas = el.querySelectorAll<HTMLCanvasElement>('.quadro canvas')[i];
+      const r = canvas.getBoundingClientRect();
+      const at = (x: number, y: number) => ({ clientX: r.left + (x * r.width) / 109, clientY: r.top + (y * r.height) / 109, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 1, bubbles: true });
+      canvas.dispatchEvent(new PointerEvent('pointerdown', at(20, 30)));
+      for (let k = 1; k <= 5; k++) canvas.dispatchEvent(new PointerEvent('pointermove', at(20 + k * 10, 30)));
+      canvas.dispatchEvent(new PointerEvent('pointerup', at(70, 30)));
+      await settle(fixture);
+    }
+
+    it('Escrever à mão: um quadrado por caractere, a dica, o Desfazer de um quadrado só', async () => {
+      await open(['食べる'], { ways: ['escrever'], hints: ['romaji'] });
+      expect(el.querySelector('.em-romaji')!.textContent).toContain('taberu');
+      expect(el.querySelectorAll('.quadro canvas').length).toBe(3);
+      expect(el.textContent).toContain('3 caracteres');
+      // a palavra não aparece antes de conferir
+      expect(el.textContent).not.toContain('食べる');
+      await drawIn(0);
+      await drawIn(0);
+      await drawIn(2);
+      const comp = fixture.componentInstance as unknown as { drawings(): unknown[][] };
+      expect(comp.drawings().map((d) => d.length)).toEqual([2, 0, 1]);
+      el.querySelectorAll<HTMLButtonElement>('.desfazer-quadro')[0].click();
+      await settle(fixture);
+      expect(comp.drawings().map((d) => d.length)).toEqual([1, 0, 1]);
+      el.querySelector<HTMLButtonElement>('.limpar')!.click();
+      await settle(fixture);
+      expect(comp.drawings().map((d) => d.length)).toEqual([0, 0, 0]);
+    });
+
+    it('Escrever à mão: o Enter confere, o certo aparece embaixo de cada quadrado na ordem dos traços, e o Desfazer devolve o desenho', async () => {
+      await open(['食べる', '来る'], { ways: ['escrever'], hints: ['traducao'] });
+      const first = el.querySelectorAll('.quadro canvas').length;
+      await drawIn(0);
+      await key('Enter');
+      for (let i = 0; i < 40 && !el.querySelector('.quadro.certo app-stroke-replay'); i++) await settle(fixture);
+      expect(el.querySelectorAll('.quadro.certo').length).toBe(first);
+      expect(el.querySelector('.quadro.certo app-stroke-replay')).toBeTruthy();
+      expect(el.querySelector('.bateu')).toBeNull();
+      expect(el.querySelector('.desfazer-quadro')).toBeNull();
+      await key('2');
+      expect(el.querySelector('[data-monte="acertos"]')!.textContent).toContain('1');
+      await key('z');
+      const comp = fixture.componentInstance as unknown as { drawings(): unknown[][] };
+      expect(comp.drawings()[0].length).toBe(1);
+      expect(el.querySelector('.quadro.certo')).toBeNull();
+    });
+
+    it('Escrever com a dica do som: a voz diz a palavra ao chegar', async () => {
+      await open(['食べる'], { ways: ['escrever'], hints: ['som'] });
+      fake.begin();
+      expect(fake.spoken.at(-1)!.text).toBe('たべる');
+      expect(el.querySelector('.so-som app-word-voice')).toBeTruthy();
+    });
+
     it('Parar depois de uma resposta mostra o fim com o que já foi feito; Outro treino recomeça', async () => {
       await open(['テレビ', '来る', '食べる'], { ways: ['pt-jp'] });
       await type('xx');
