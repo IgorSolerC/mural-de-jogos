@@ -46,6 +46,7 @@ import {
   Car,
   CaseLower,
   CaseSensitive,
+  ALargeSmall,
   CassetteTape,
   ChartNoAxesColumn,
   ChartNoAxesColumnIncreasing,
@@ -595,6 +596,8 @@ export const ICON = {
   tarefas: ListChecks,
   marcaTexto: Highlighter,
   letra: Type,
+  /** O tamanho da letra do card do texto no canvas. */
+  tamanhoDaLetra: ALargeSmall,
   /** Os templates do texto: o carimbo, o mesmo texto quantas vezes quiser. */
   templates: Stamp,
   /** Guardar o trecho selecionado (como template). */

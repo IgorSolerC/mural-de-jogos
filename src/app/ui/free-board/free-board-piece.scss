@@ -112,7 +112,9 @@
   flex-direction: column;
   box-sizing: border-box;
   padding: 0 formatado.$cartao-moldura formatado.$cartao-moldura;
-  font: 400 1.15rem / 1.35 var(--f-hand);
+  /* o tamanho da letra do card (--fs, da peça): o título, os respiros e a faixa vão junto, em em; a moldura de papel
+     fica nos 5 px (a beirada é do papel, não da letra) */
+  font: 400 calc(1.15rem * var(--fs, 1)) / 1.35 var(--f-hand);
   --line: 1.5em;
 }
 

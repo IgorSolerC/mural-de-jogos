@@ -254,6 +254,9 @@
 .jeito {
   @include et.cor-na-mao(var(--etiqueta-lilas));
 }
+.letra {
+  @include et.cor-na-mao(var(--etiqueta-azul));
+}
 .rotulo {
   @include et.cor-na-mao(var(--etiqueta-amarelo));
 }

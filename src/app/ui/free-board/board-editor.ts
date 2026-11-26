@@ -1,7 +1,7 @@
 import { computed, signal } from '@angular/core';
 import { CALLOUT_PAPERS } from '../../core/callouts';
-import { FB_MAX_NODES, FbColor, FbEdge, FbEnds, FbNode, FbNote, FbSide, FreeBoard, connect, moveNodes, patchEdge, patchNodes, removePieces, shownNodes, withGroups } from '../../core/free-board';
-import { Point, Rect, autoSides, boundsOf, nearestSide, rectBetween } from '../../core/free-board-geometry';
+import { FB_MAX_NODES, FbColor, FbEdge, FbEnds, FbNode, FbNote, FbSide, FreeBoard, connect, fontStep, moveNodes, nextFont, noteFont, patchEdge, patchNodes, removePieces, shownNodes, withGroups } from '../../core/free-board';
+import { HOLE, Point, Rect, autoSides, boundsOf, nearestSide, rectBetween } from '../../core/free-board-geometry';
 import { DRAG_SLOP } from './camera-rig';
 import { Handle, History, boxSelect, dragSet, hitEdge, hitPiece, keepsHover, linkTarget, newNode, resized, sizeRule, snappedDelta } from './edit-ops';
 
@@ -39,6 +39,11 @@ export interface EditorHost {
   say(text: string): void;
   /** Soltou a seta no vazio: o menu "Texto aqui", "Anotação aqui"... (a seta liga na peça nova). */
   dropArrow(from: string, side: FbSide, at: Point, screen: Point): void;
+  /**
+   * A altura (px do mundo) que o card do texto pede para mostrar tudo com a letra `fs`, medida nele por um instante;
+   * null se ele não está desenhado de perto.
+   */
+  cardHeight?(id: string, fs: number): number | null;
 }
 
 /**
@@ -193,6 +198,39 @@ export class BoardEditor {
   paintCard(word: string): void {
     const ids = new Set(this.selectedNodes().filter((n) => n.t === 'x').map((n) => n.i));
     if (ids.size) this.change((b) => patchNodes(b, ids, (n) => (n.t === 'x' ? withCardColor(n, word) : n), now()));
+  }
+
+  /**
+   * O tamanho da letra nos textos selecionados: um degrau (`fs`) ou um passo de cada um (`dir`). O card cresce até
+   * caber o que tem com a letra nova (nunca encolhe sozinho), no mesmo passo do desfazer (PLANO-CAIXAS-DE-TEXTO.md, D3).
+   */
+  setFont(to: { fs: number } | { dir: 1 | -1 }): void {
+    const texts = this.selectedNodes().filter((n): n is FbNote => n.t === 'x');
+    const want = new Map<string, number>();
+    const grow = new Map<string, number>();
+    for (const n of texts) {
+      const fs = 'fs' in to ? fontStep(to.fs) : nextFont(noteFont(n), to.dir);
+      if (fs === noteFont(n)) continue;
+      want.set(n.i, fs);
+      const need = this.host.cardHeight?.(n.i, fs);
+      if (need) grow.set(n.i, Math.ceil(need / HOLE) * HOLE);
+    }
+    const ids = new Set(want.keys());
+    if (!ids.size) return;
+    this.change((b) =>
+      patchNodes(
+        b,
+        ids,
+        (n) => {
+          if (n.t !== 'x') return n;
+          const { fs: _, ...rest } = n;
+          const fs = want.get(n.i)!;
+          const h = grow.get(n.i) ?? 0;
+          return { ...rest, ...(fs !== 1 ? { fs } : {}), ...(h > n.h ? { h } : {}) };
+        },
+        now(),
+      ),
+    );
   }
 
   /** As pontas da seta selecionada. */

@@ -7,7 +7,7 @@ import { BoardEditor, Writing } from './board-editor';
 import { ALL_HANDLES } from './edit-ops';
 
 /** O que a etiqueta da seleção pede (a peça do quadro faz). */
-export type SelectionAction = 'cor' | 'jeito' | 'rotulo' | 'cadeado' | 'frente' | 'tras' | 'duplicar' | 'apagar';
+export type SelectionAction = 'cor' | 'jeito' | 'letra' | 'rotulo' | 'cadeado' | 'frente' | 'tras' | 'duplicar' | 'apagar';
 
 /**
  * A camada da edição do Quadro livre (PLANO-QUADRO-LIVRE.md, 4.4 e seção 11): no mundo, por cima das peças, o
@@ -95,6 +95,11 @@ export type SelectionAction = 'cor' | 'jeito' | 'rotulo' | 'cadeado' | 'frente' 
               <lucide-icon [img]="lookIcon() ?? Icons.jeito" [size]="16" aria-hidden="true" />
             </button>
           }
+          @if (t.font) {
+            <button type="button" class="botao letra" aria-label="Tamanho da letra" title="Tamanho da letra (Ctrl+Shift+&gt; e Ctrl+Shift+&lt;)" (pointerdown)="$event.stopPropagation()" (click)="act.emit('letra')">
+              <lucide-icon [img]="Icons.letra" [size]="16" aria-hidden="true" />
+            </button>
+          }
           @if (t.label) {
             <button type="button" class="botao rotulo" aria-label="Rótulo" title="Rótulo" (pointerdown)="$event.stopPropagation()" (click)="act.emit('rotulo')">
               <lucide-icon [img]="Icons.rotulo" [size]="16" aria-hidden="true" />
@@ -153,7 +158,7 @@ export class FreeBoardEditOverlay {
   });
   readonly act = output<SelectionAction>();
 
-  protected readonly Icons = { cor: ICON.paleta, jeito: ICON.moldura, rotulo: ICON.etiqueta, presa: ICON.setaPresa, solta: ICON.setaSolta, frente: ICON.frente, tras: ICON.tras, duplicar: ICON.copiar, apagar: ICON.apagar };
+  protected readonly Icons = { cor: ICON.paleta, jeito: ICON.moldura, letra: ICON.tamanhoDaLetra, rotulo: ICON.etiqueta, presa: ICON.setaPresa, solta: ICON.setaSolta, frente: ICON.frente, tras: ICON.tras, duplicar: ICON.copiar, apagar: ICON.apagar };
   protected readonly titleMax = FB_FRAME_TITLE_MAX;
   protected readonly labelMax = FB_LABEL_MAX;
 
@@ -237,10 +242,19 @@ export class FreeBoardEditOverlay {
       const below = [...this.nodes().values()].some(
         (n) => n.t === 'm' && !ids.has(n.i) && !!n.nome && intersects(over, { x: n.x + 26, y: n.y + 22, w: Math.min(n.w - 52, 28 + n.nome.length * 16), h: 30 }),
       );
-      return { x: box.x, y: below ? box.y + box.h : box.y, below, color: colorable, look: sel.length === 1 ? this.lookLabel() : null, label: false, stack: true };
+      return {
+        x: box.x,
+        y: below ? box.y + box.h : box.y,
+        below,
+        color: colorable,
+        look: sel.length === 1 ? this.lookLabel() : null,
+        font: sel.every((n) => n.t === 'x'),
+        label: false,
+        stack: true,
+      };
     }
     const m = ed.selectedEdge() ? this.edgeMid() : null;
-    if (m) return { x: m.x, y: m.y - 24, below: false, color: true, look: null, label: true, stack: false };
+    if (m) return { x: m.x, y: m.y - 24, below: false, color: true, look: null, font: false, label: true, stack: false };
     return null;
   });
 

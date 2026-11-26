@@ -63,6 +63,8 @@ export interface FbNote extends FbBase {
   k?: CalloutLook;
   /** A cor do card (uma das dez das anotações, `[!nota|azul]`). Omitida, a do jeito. */
   kc?: string;
+  /** O tamanho da letra, um dos degraus de `FB_FONT_SIZES` (vezes a letra de sempre). Omitido, a Média (1). */
+  fs?: number;
 }
 
 export interface FbWidget extends FbBase {
@@ -192,7 +194,7 @@ function extras(raw: Record<string, unknown>, known: ReadonlySet<string>): Recor
   return out;
 }
 
-const NODE_KEYS = new Set(['i', 't', 'x', 'y', 'w', 'h', 'c', 'g', 'nome', 'txt', 'src', 'k', 'kc']);
+const NODE_KEYS = new Set(['i', 't', 'x', 'y', 'w', 'h', 'c', 'g', 'nome', 'txt', 'src', 'k', 'kc', 'fs']);
 const EDGE_KEYS = new Set(['i', 'a', 'b', 'as', 'bs', 'fx', 'p', 'c', 'txt']);
 const BOARD_KEYS = new Set(['v', 'id', 'nome', 'grupo', 'em', 'publico', 'n', 'e']);
 
@@ -223,7 +225,8 @@ export function sanitizeNode(raw: unknown): FbNode | FbUnknownNode | null {
     case 'x': {
       const k = CALLOUTS.find((d) => d.look === r['k'])?.look;
       const kc = CALLOUT_PAPERS.find((d) => d.word === r['kc'])?.word;
-      return { ...base, t: 'x', txt: text(r['txt'], FB_TEXT_MAX), ...(k ? { k } : {}), ...(kc ? { kc } : {}) };
+      const fs = fontStep(r['fs']);
+      return { ...base, t: 'x', txt: text(r['txt'], FB_TEXT_MAX), ...(k ? { k } : {}), ...(kc ? { kc } : {}), ...(fs !== 1 ? { fs } : {}) };
     }
     case 'w': {
       const src = text(r['src'], FB_SRC_MAX).trim();
@@ -527,6 +530,38 @@ export function withGroups(board: Pick<FreeBoard, 'n'>, ids: ReadonlySet<string>
 }
 
 // ===== o texto como card (o callout das anotações) =====
+
+/**
+ * Os tamanhos da letra do card do texto (PLANO-CAIXAS-DE-TEXTO.md, D1), em vezes a letra de sempre: um número (o site
+ * antigo guarda o campo como veio, e a junção dos compartilhados é campo a campo), preso ao degrau mais perto.
+ */
+export const FB_FONT_SIZES = [
+  { fs: 0.75, name: 'Pequena' },
+  { fs: 1, name: 'Média' },
+  { fs: 1.4, name: 'Grande' },
+  { fs: 2, name: 'Bem grande' },
+  { fs: 3, name: 'Enorme' },
+] as const;
+
+/** O degrau mais perto do que veio (1, a Média, se não é um número). */
+export function fontStep(v: unknown): number {
+  if (typeof v !== 'number' || !Number.isFinite(v) || v <= 0) return 1;
+  let best = 1;
+  for (const { fs } of FB_FONT_SIZES) if (Math.abs(Math.log(fs / v)) < Math.abs(Math.log(best / v))) best = fs;
+  return best;
+}
+
+/** O tamanho da letra do card (1, a Média, sem o campo). */
+export function noteFont(n: Pick<FbNote, 'fs'>): number {
+  return n.fs ?? 1;
+}
+
+/** O degrau seguinte (`dir` 1, maior; -1, menor), ou o mesmo nas pontas. */
+export function nextFont(fs: number, dir: 1 | -1): number {
+  const steps = FB_FONT_SIZES.map((s) => s.fs as number);
+  const at = steps.indexOf(fontStep(fs));
+  return steps[Math.max(0, Math.min(steps.length - 1, at + dir))];
+}
 
 /** O jeito do card do texto (sem um, a Nota, como o card novo das anotações). */
 export function noteLook(n: Pick<FbNote, 'k'>): CalloutLook {

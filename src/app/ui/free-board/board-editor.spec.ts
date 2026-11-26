@@ -9,7 +9,7 @@ function board(n: FbNode[], e: { i: string; a: string; b: string; [k: string]: u
 }
 
 /** Um editor com o quadro guardado na memória, como a peça faz. */
-function setup(start: FreeBoard) {
+function setup(start: FreeBoard, cardHeight?: EditorHost['cardHeight']) {
   let current = start;
   const commits: FreeBoard[] = [];
   const said: string[] = [];
@@ -23,6 +23,7 @@ function setup(start: FreeBoard) {
     },
     say: (t) => said.push(t),
     dropArrow: (...args) => dropped.push(args),
+    cardHeight,
   };
   const ed = new BoardEditor(host);
   const at = (x: number, y: number) => ({ x, y });
@@ -264,6 +265,48 @@ describe('Quadro livre: o editor', () => {
     t.ed.writing.set({ kind: 'bilhete', id: 'a' });
     t.ed.write({ kind: 'bilhete', id: 'a' }, 'um', 40);
     expect(t.board.n[0].h).toBe(234);
+  });
+
+  it('o tamanho da letra: um degrau escolhido ou um passo de cada texto selecionado, num passo do desfazer; a molduras não', () => {
+    const t = setup(board([note('a', 0, 0), { ...note('b', 300, 0), fs: 2 } as FbNode, frame('m', 0, 300, 400, 300)]));
+    t.ed.select(['a', 'b', 'm']);
+    t.ed.setFont({ fs: 1.4 });
+    expect(t.board.n.map((n) => n['fs'])).toEqual([1.4, 1.4, undefined]);
+    expect(t.commits.length).toBe(1);
+    t.ed.setFont({ dir: 1 });
+    expect(t.board.n.map((n) => n['fs'])).toEqual([2, 2, undefined]);
+    // a Média é a de sempre: o campo sai
+    t.ed.setFont({ fs: 1 });
+    expect(t.board.n.some((n) => 'fs' in n)).toBeFalse();
+    // nas pontas, o passo não muda nada (nem grava)
+    const before = t.commits.length;
+    t.ed.setFont({ dir: -1 });
+    t.ed.setFont({ dir: -1 });
+    expect(t.board.n[0]['fs']).toBe(0.75);
+    expect(t.commits.length).toBe(before + 1);
+    t.ed.undo();
+    expect(t.board.n[0]['fs']).toBeUndefined();
+  });
+
+  it('com a letra maior, o card cresce até caber (medido nele com a letra nova, em furos) e nunca encolhe sozinho', () => {
+    const asked: [string, number][] = [];
+    const t = setup(board([note('a', 0, 0, 208, 104), note('b', 300, 0, 208, 104)]), (id, fs) => {
+      asked.push([id, fs]);
+      return id === 'a' ? 104 * fs + 10 : null;
+    });
+    t.ed.select(['a', 'b']);
+    t.ed.setFont({ fs: 2 });
+    expect(asked).toEqual([
+      ['a', 2],
+      ['b', 2],
+    ]);
+    // 218 → 234 (nove furos); o que não está desenhado de perto fica com a altura dele
+    expect(t.board.n.map((n) => n.h)).toEqual([234, 104]);
+    t.ed.setFont({ fs: 0.75 });
+    expect(t.board.n.map((n) => n.h)).toEqual([234, 104]);
+    t.ed.undo();
+    t.ed.undo();
+    expect(t.board.n.map((n) => n.h)).toEqual([104, 104]);
   });
 
   it('a cor do card: a palavra no kc, e a cartolina de antes dos cards sai; a cor da moldura no texto junto vira a do card', () => {

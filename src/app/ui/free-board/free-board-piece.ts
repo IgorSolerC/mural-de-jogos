@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, output, untracked, viewChild } from '@angular/core';
 import { CardFinder } from '../../core/card-finder';
-import { FbNode, noteColor, noteLook, noteParts } from '../../core/free-board';
+import { FbNode, noteColor, noteFont, noteLook, noteParts } from '../../core/free-board';
 import { calloutFallbackTitle, calloutPaper } from '../../core/callouts';
 import { CALLOUT_ICON } from '../callout-looks';
 import { NoteLinks } from '../../core/note-links';
@@ -49,6 +49,8 @@ export type PieceMeasured = PieceMeasure & { id: string; settled: boolean };
     '[attr.data-tipo]': 'info().kind',
     '[attr.data-nivel]': 'level()',
     '[attr.data-cor]': 'color()',
+    // o tamanho da letra do card do texto (PLANO-CAIXAS-DE-TEXTO.md, D1): o card é em em, cresce por igual
+    '[style.--fs]': 'font()',
     '[style.left.px]': 'node().x',
     '[style.top.px]': 'node().y',
     '[style.width.px]': 'node().w',
@@ -134,6 +136,10 @@ export class FreeBoardPiece {
   protected readonly title = computed(() => {
     const n = this.node();
     return n.t === 'm' ? (n.nome ?? '') : '';
+  });
+  protected readonly font = computed(() => {
+    const n = this.node();
+    return n.t === 'x' ? noteFont(n) : null;
   });
   protected readonly color = computed(() => {
     const n = this.node();
@@ -367,11 +373,15 @@ function watchDrawing(box: HTMLElement, measure: (again: () => void) => void): (
  * mundo, medida no próprio card por um instante sem o corte embaixo (a classe `medindo`). Null se o card não está
  * desenhado com o texto (longe ou no meio, onde só o título aparece).
  */
-export function cardNeed(piece: HTMLElement): number | null {
+export function cardNeed(piece: HTMLElement, fs?: number): number | null {
   const card = piece.querySelector<HTMLElement>(':scope > .cartao');
   if (!card || card.classList.contains('liso')) return null;
+  // com outra letra (a escolhida agora, antes de guardar): a mesma conta, com ela por um instante
+  const was = piece.style.getPropertyValue('--fs');
+  if (fs !== undefined) piece.style.setProperty('--fs', String(fs));
   card.classList.add('medindo');
   const h = card.offsetHeight;
   card.classList.remove('medindo');
+  if (fs !== undefined) piece.style.setProperty('--fs', was);
   return h || null;
 }

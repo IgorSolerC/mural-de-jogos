@@ -1,4 +1,4 @@
-import { FbColor, FbNode, FbSide, FreeBoard, connect, groupPieces, noteColor, noteLook, patchNodes, removePieces, restack, shownNodes, ungroupPieces } from '../../core/free-board';
+import { FB_FONT_SIZES, FbColor, FbNode, FbNote, FbSide, FreeBoard, connect, groupPieces, noteColor, noteFont, noteLook, patchNodes, removePieces, restack, shownNodes, ungroupPieces } from '../../core/free-board';
 import { CALLOUTS, CALLOUT_DEFAULT_COLOR_NAME, CALLOUT_PAPERS, CalloutLook, calloutDef } from '../../core/callouts';
 import { CALLOUT_ICON } from '../callout-looks';
 import { CALLOUT_HEX, DEFAULT_FRAME, STOCK_HEX } from './far-layer';
@@ -384,7 +384,25 @@ export class BoardEditing {
       }
       case 'cor':
         return this.h.menu('cor', 'Cor', [this.colorItems()], anchor.x, anchor.y, 'mouse');
+      case 'letra':
+        return this.h.menu('letra', 'Tamanho da letra', [this.fontItems()], anchor.x, anchor.y, 'mouse');
     }
+  }
+
+  /** Os tamanhos da letra dos textos selecionados (o de agora com o tique, se todos têm o mesmo). */
+  private fontItems(): MenuItem[] {
+    const texts = this.ed.selectedNodes().filter((n): n is FbNote => n.t === 'x');
+    const now = new Set(texts.map((n) => noteFont(n)));
+    const one = now.size === 1 ? [...now][0] : null;
+    return FB_FONT_SIZES.map(
+      (s): MenuItem => ({
+        id: `letra-${s.fs}`,
+        label: s.fs === 1 ? `${s.name} (a de sempre)` : s.name,
+        icon: ICON.tamanhoDaLetra,
+        on: one === s.fs,
+        run: () => this.ed.setFont({ fs: s.fs }),
+      }),
+    );
   }
 
   /**
@@ -678,6 +696,7 @@ export class BoardEditing {
     const look = !many ? this.lookLabel(n) : null;
     if (look && n.t === 'x') first.push({ id: 'jeito', label: 'Jeito do card…', icon: CALLOUT_ICON[noteLook(n)] ?? ICON.moldura, dialog: true, run: () => this.reopenLooks(n) });
     else if (look) first.push({ id: 'jeito', label: look, icon: ICON.moldura, run: () => this.cycleLook() });
+    if (n.t === 'x' && this.ed.selectedNodes().every((x) => x.t === 'x')) first.push({ id: 'letra', label: 'Tamanho da letra…', icon: ICON.tamanhoDaLetra, dialog: true, run: () => this.reopenFonts() });
     const order: MenuItem[] = [
       { id: 'copiar', label: 'Copiar', icon: ICON.copiar, keys: 'Ctrl+C', run: () => this.copyToClipboard() },
       { id: 'duplicar', label: 'Duplicar', icon: ICON.copiar, keys: 'Ctrl+D', run: () => this.duplicate() },
@@ -705,6 +724,11 @@ export class BoardEditing {
   private reopenLooks(n: FbNode): void {
     const r = this.h.visor().getBoundingClientRect();
     setTimeout(() => this.h.menu('jeito', 'Jeito do card', [this.cardLookItems(n)], r.left + r.width / 2, r.top + r.height / 2, 'teclado'));
+  }
+
+  private reopenFonts(): void {
+    const r = this.h.visor().getBoundingClientRect();
+    setTimeout(() => this.h.menu('letra', 'Tamanho da letra', [this.fontItems()], r.left + r.width / 2, r.top + r.height / 2, 'teclado'));
   }
 
   private reopenColors(): void {
@@ -816,6 +840,12 @@ export class BoardEditing {
     const ctrl = e.ctrlKey || e.metaKey;
     const k = e.key.toLowerCase();
     if (ctrl) {
+      // a letra dos textos selecionados, um degrau (como nos editores de texto: Ctrl+Shift+> e Ctrl+Shift+<)
+      if (e.shiftKey && (e.key === '>' || e.key === '<' || e.code === 'Period' || e.code === 'Comma')) {
+        if (!this.ed.selectedNodes().some((n) => n.t === 'x')) return false;
+        this.ed.setFont({ dir: e.key === '>' || e.code === 'Period' ? 1 : -1 });
+        return true;
+      }
       switch (k) {
         case 'a':
           this.ed.selectAll();

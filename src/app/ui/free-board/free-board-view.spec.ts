@@ -318,8 +318,39 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
       expect(el.querySelectorAll('.anel').length).toBe(1);
       expect(el.querySelectorAll('[data-alca]').length).toBe(8);
       const acoes = el.querySelector<HTMLElement>('.acoes')!;
-      expect([...acoes.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual(['Cor', 'Jeito do card: Nota', 'Trazer para frente', 'Mandar para trás', 'Duplicar', 'Apagar']);
+      expect([...acoes.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual(['Cor', 'Jeito do card: Nota', 'Tamanho da letra', 'Trazer para frente', 'Mandar para trás', 'Duplicar', 'Apagar']);
       expectEtiquetaPadrao(acoes);
+    });
+
+    it('o tamanho da letra: a etiqueta abre os degraus; a letra muda no card, que cresce até caber; Ctrl+Shift+. e , dão um passo', async () => {
+      await edit(MANSION);
+      ptr('pointerdown', 60, 110);
+      ptr('pointerup', 60, 110);
+      await settle();
+      const font = () => parseFloat(getComputedStyle(piece('senha')!.querySelector('.cartao')!).fontSize);
+      const base = font();
+      el.querySelector<HTMLButtonElement>('.acoes .letra')!.click();
+      await settle();
+      const items = [...el.querySelectorAll<HTMLElement>('app-context-menu [role="menuitem"]')];
+      expect(items.map((b) => b.querySelector('.nome')!.textContent!.trim())).toEqual(['Pequena', 'Média (a de sempre)', 'Grande', 'Bem grande', 'Enorme']);
+      expect(items.map((b) => !!b.querySelector('.marcada'))).toEqual([false, true, false, false, false]);
+      items[4].click();
+      await settle();
+      const saved = changes.at(-1)!.n.find((n) => n.i === 'senha')!;
+      expect(saved['fs']).toBe(3);
+      expect(font()).toBeCloseTo(base * 3, 0);
+      // o card cresceu (em furos) até o título caber, e a faixa enche o que ele pede
+      expect(saved.h).toBeGreaterThan(104);
+      expect(saved.h % 26).toBe(0);
+      key('.', { ctrlKey: true, shiftKey: true, code: 'Period' } as KeyboardEventInit);
+      await settle();
+      expect(changes.at(-1)!.n.find((n) => n.i === 'senha')!['fs']).toBe(3);
+      key(',', { ctrlKey: true, shiftKey: true, code: 'Comma' } as KeyboardEventInit);
+      key(',', { ctrlKey: true, shiftKey: true, code: 'Comma' } as KeyboardEventInit);
+      await settle();
+      expect(changes.at(-1)!.n.find((n) => n.i === 'senha')!['fs']).toBe(1.4);
+      // a letra menor não encolhe o card: só quem escolhe o tamanho dele
+      expect(changes.at(-1)!.n.find((n) => n.i === 'senha')!.h).toBe(saved.h);
     });
 
     it('arrastar move nos furos (uma mudança só), Delete apaga e Ctrl+Z desfaz', async () => {

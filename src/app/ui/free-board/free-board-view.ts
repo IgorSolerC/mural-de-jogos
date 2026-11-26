@@ -284,6 +284,10 @@ export class FreeBoardView implements RigHost {
     },
     say: (text) => this.notice.emit(text),
     dropArrow: (from, side, at, screen) => this.edits.dropArrow(from, side, at, screen),
+    cardHeight: (id, fs) => {
+      const el = this.front().nativeElement.querySelector<HTMLElement>(`app-free-board-piece[data-peca="${id}"]`);
+      return el ? cardNeed(el, fs) : null;
+    },
   });
   private readonly edits = new BoardEditing({
     editor: this.editor,
@@ -355,6 +359,7 @@ export class FreeBoardView implements RigHost {
     ['Ctrl+Z, Ctrl+Shift+Z', 'Desfazer, refazer'],
     ['Ctrl+G, Ctrl+Shift+G', 'Juntar, separar'],
     ['] e [', 'Trazer para frente, mandar para trás'],
+    ['Ctrl+Shift+> e Ctrl+Shift+<', 'A letra do texto maior e menor'],
     ['Setas', 'Andar a seleção um furo (Shift: 1 px)'],
     ['Alt arrastando', 'Sem encaixar nos furos'],
     ['Duplo clique', 'Escrever, renomear, editar; no fundo, um texto'],

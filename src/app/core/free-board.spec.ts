@@ -17,6 +17,10 @@ import {
   newNodeId,
   noteColor,
   noteLook,
+  FB_FONT_SIZES,
+  fontStep,
+  nextFont,
+  noteFont,
   noteParts,
   noteText,
   patchEdge,
@@ -282,6 +286,25 @@ describe('Quadro livre: a lista e os grupos', () => {
     expect(noteParts('- lupa\n- chave')).toEqual({ title: '', body: '- lupa\n- chave' });
     expect(noteParts('Só o título')).toEqual({ title: 'Só o título', body: '' });
     expect(noteParts('Título\n\nCorpo')).toEqual({ title: 'Título', body: 'Corpo' });
+  });
+
+  it('o tamanho da letra do card: preso ao degrau mais perto; a Média (1) e o que não é número não ficam', () => {
+    const b = board([
+      { ...note('a'), fs: 2 },
+      { ...note('b'), fs: 1.9 },
+      { ...note('c'), fs: 1 },
+      { ...note('d'), fs: 'grande' },
+      { ...note('e'), fs: 40 },
+      { ...note('f'), fs: -1 },
+    ]);
+    expect(b.n.map((n) => n['fs'])).toEqual([2, 2, undefined, undefined, 3, undefined]);
+    expect(FB_FONT_SIZES.map((s) => fontStep(s.fs))).toEqual(FB_FONT_SIZES.map((s) => s.fs));
+    expect(fontStep(0.1)).toBe(0.75);
+    expect(noteFont({})).toBe(1);
+    expect(nextFont(1, 1)).toBe(1.4);
+    expect(nextFont(1, -1)).toBe(0.75);
+    expect(nextFont(3, 1)).toBe(3);
+    expect(nextFont(0.75, -1)).toBe(0.75);
   });
 
   it('noteText junta o título e o corpo do jeito que o noteParts separa de volta', () => {

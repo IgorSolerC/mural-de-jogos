@@ -27,17 +27,18 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-26-fita-das-molduras',
+    id: '2026-11-26-tamanho-da-letra',
     version: '1.55.2',
     kind: 'ajustes',
     date: '2026-11-26',
-    title: 'O canvas mostra o que tem dentro, e morango no Dicionário Japonês',
+    title: 'O canvas mostra o que tem dentro, a letra das caixas de texto, e morango no Dicionário Japonês',
     melhorias: [
       'Uma palavra nova no Dicionário Japonês: いちご (morango), com as frases de exemplo, a origem e as palavras relacionadas.',
       'A miniatura do canvas no mural mostra o que tem dentro: as notas coladas na cor delas, os cards de texto com a faixa do jeito, o contador, a tabela e a pixel art como são, o título das peças onde ele cabe, o nome das molduras e as setas, tudo com os cantos arredondados. Quem usa leitor de tela ouve as regiões do canvas (as molduras) junto com o nome.',
       'Logo depois, a miniatura do canvas fica mais rica e mais leve: as fotos de verdade, as duas primeiras linhas dos cards de texto, quantos dias faltam no contador, o que está escrito na tabela, o giz e o feltro com textura, tudo numa imagem só, guardada no aparelho para abrir pronta da próxima vez.',
       'No canvas aberto, com pouco zoom, as peças ficam com as cores de verdade em vez de brancas e beges: as notas coladas na cor delas, os cards de texto com a faixa, o contador, a tabela e o vídeo nos jeitos deles e a pixel art com os pontos, igual à miniatura do mural.',
       'Bem de longe no canvas aberto, o nome das molduras fica legível: a fita encolhe a letra antes de cortar o nome (e nunca o corta em menos de três letras), todas na mesma letra, e não cobre mais a moldura de cima nem as peças (quando não há lugar em cima, vai para a borda de baixo). E o que está de longe ficou mais nítido.',
+      'As caixas de texto do canvas têm tamanho de letra: Pequena, Média, Grande, Bem grande ou Enorme, pelo botão "Tamanho da letra" da seleção, pelo botão direito ou por Ctrl+Shift+> e Ctrl+Shift+<. A caixa cresce para baixo até caber o que tem com a letra maior.',
     ],
   },
   {
