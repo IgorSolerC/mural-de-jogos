@@ -109,7 +109,16 @@ interface EdgeLabel {
       <div #farLayer class="mundo" aria-hidden="true"><canvas #far class="longe"></canvas></div>
       <div #front class="mundo">
         @for (p of pieces(); track p.node.i) {
-          <app-free-board-piece [node]="p.node" [info]="p.info" [level]="p.level" [thumb]="thumbOf(p.info.image, p.level)" [zoom]="z()" [links]="links()" (measured)="measured($event)" />
+          <app-free-board-piece
+            [class.escrevendo]="p.node.i === writingCard()?.id"
+            [node]="p.node"
+            [info]="p.info"
+            [level]="p.level"
+            [thumb]="thumbOf(p.info.image, p.level)"
+            [zoom]="z()"
+            [links]="links()"
+            (measured)="measured($event)"
+          />
         }
         <!-- o rótulo da seta é fita colada por cima de tudo: nunca some debaixo de uma foto -->
         @for (e of labels(); track e.id) {
@@ -189,6 +198,12 @@ interface EdgeLabel {
         }
       </section>
     }
+    @if (readingCard(); as c) {
+      <!-- o card aberto para ler: a mesma folha, sem escrever (o texto inteiro, o que o card esconde com o "…") -->
+      @defer (on immediate) {
+        <app-free-board-text-sheet class="folha-texto" [id]="c.id" [text]="c.txt" [look]="c.look" [color]="c.color" [ic]="c.ic" [links]="links()" [reading]="true" (done)="closeReading()" />
+      }
+    }
     @for (c of writingCards(); track c.id) {
       <!-- o texto do card: o editor das anotações numa folha ao lado do quadro (no celular, por cima dele), com o card
            mudando no quadro a cada letra. Uma folha nova para cada card (o desfazer do texto é daquele card) -->
@@ -199,8 +214,10 @@ interface EdgeLabel {
           [text]="c.txt"
           [look]="c.look"
           [color]="c.color"
+          [ic]="c.ic"
           [notes]="linkNotes()"
           (changed)="cardTyped(c.id, $event)"
+          (iconPick)="editor.setIcon(c.id, $event)"
           (done)="editor.flushWriting()"
         />
       }
@@ -284,9 +301,9 @@ export class FreeBoardView implements RigHost {
     },
     say: (text) => this.notice.emit(text),
     dropArrow: (from, side, at, screen) => this.edits.dropArrow(from, side, at, screen),
-    cardHeight: (id, fs) => {
+    cardHeight: (id, fs, w) => {
       const el = this.front().nativeElement.querySelector<HTMLElement>(`app-free-board-piece[data-peca="${id}"]`);
-      return el ? cardNeed(el, fs) : null;
+      return el ? cardNeed(el, fs, w) : null;
     },
   });
   private readonly edits = new BoardEditing({
@@ -308,6 +325,20 @@ export class FreeBoardView implements RigHost {
     showList: () => this.openList(),
     fitAll: () => this.fitAll(),
     goTo: (p) => this.goTo(p),
+    read: (id) => {
+      this.listOpen.set(false);
+      this.helpOpen.set(false);
+      this.reading.set(id);
+    },
+    hidesText: (id) => {
+      const el = this.front().nativeElement.querySelector<HTMLElement>(`app-free-board-piece[data-peca="${id}"]`);
+      // pequeno demais para ler (o desenho do meio, ou de longe), com o "…" no corpo, ou o título cortado (o de mais de
+      // três linhas, ou encolhido para o corpo caber, termina em "…" pela linha presa do CSS)
+      if (!el || el.dataset['nivel'] !== 'perto' || el.querySelector(':scope > .cartao.cortado, :scope > .cartao.sem-corpo')) return true;
+      const title = el.querySelector<HTMLElement>(':scope > .cartao .cartao-titulo');
+      // (meia linha de folga: a caixa das letras a pincel passa um pouco da linha, e isso não é linha escondida)
+      return !!title && title.scrollHeight > title.clientHeight + (parseFloat(getComputedStyle(title).lineHeight) || 20) / 2;
+    },
   });
   protected readonly scene = computed(() => {
     const preview = this.editor.preview();
@@ -320,11 +351,19 @@ export class FreeBoardView implements RigHost {
   protected readonly writingCard = computed(() => {
     const w = this.editor.writing();
     const n = w?.kind === 'bilhete' ? this.current().n.find((x): x is FbNote => x.i === w.id && x.t === 'x') : undefined;
-    return n ? { id: n.i, txt: n.txt, look: noteLook(n), color: noteColor(n) } : null;
+    return n ? { id: n.i, txt: n.txt, look: noteLook(n), color: noteColor(n), ic: n.ic } : null;
   });
   protected readonly writingCards = computed(() => {
     const c = this.writingCard();
     return c ? [c] : [];
+  });
+  /** O card do texto aberto para ler (no ver: o que tem "…" ou está pequeno demais), PLANO-CAIXAS-DE-TEXTO.md, E2. */
+  protected readonly reading = signal<string | null>(null);
+  protected readonly readingCard = computed(() => {
+    const id = this.reading();
+    if (!id || this.editing()) return null;
+    const n = this.current().n.find((x): x is FbNote => x.i === id && x.t === 'x');
+    return n ? { id: n.i, txt: n.txt, look: noteLook(n), color: noteColor(n), ic: n.ic } : null;
   });
   protected readonly linkNotes = computed(() => this.owner()?.linkNotes() ?? null);
   protected readonly menuCaption = signal('');
@@ -474,6 +513,10 @@ export class FreeBoardView implements RigHost {
         }
       });
     });
+    // entrando no editar, o card aberto para ler fecha (o duplo clique escreve)
+    effect(() => {
+      if (this.editing()) untracked(() => this.reading.set(null));
+    });
     // o card sendo escrito: a altura que o texto inteiro pede, medida no próprio card (ele cresce enquanto se escreve)
     afterRenderEffect(() => {
       const d = this.editor.drafted();
@@ -497,6 +540,19 @@ export class FreeBoardView implements RigHost {
       this.thumbs.version();
       untracked(() => this.paintFar());
     });
+  }
+
+  /** Fecha o card aberto para ler e devolve o foco ao quadro (à peça dele, se ainda está montada). */
+  protected closeReading(): void {
+    const id = this.reading();
+    this.reading.set(null);
+    afterNextRender(
+      () => {
+        const piece = id ? this.front().nativeElement.querySelector<HTMLElement>(`app-free-board-piece[data-peca="${id}"]`) : null;
+        (piece ?? this.visor().nativeElement).focus({ preventScroll: true });
+      },
+      { injector: this.injector },
+    );
   }
 
   // ===== o que o motor da câmera chama =====

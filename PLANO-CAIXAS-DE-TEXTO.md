@@ -95,5 +95,16 @@ o tamanho da letra (D1–D3). Para a rodada 4:
 - **E5. O card sendo escrito fica por cima** dos vizinhos enquanto cresce (só na tela; a ordem guardada não muda).
 - **E6. Conferir na folha** o cursor que cai no começo do texto ao abrir (devia ir para o fim).
 
+Pedido do dono em 26/nov/2026, junto da rodada 4 (com a foto da faixa da folha, o lápis da Nota):
+
+- **E7. O texto novo nasce sem ícone.** O desenho da faixa sai do jeito e vira um campo do card, `ic` (`FbNote`): um id
+  da cartela do site (shared/cartela-de-icones.ts) ou `''`, sem desenho. O texto novo (o T, o duplo clique, o "Texto
+  aqui" da seta, o colar e o da API) nasce com `ic: ''`. Sem o campo (os cards de antes), o desenho do jeito, como
+  sempre: nada muda sozinho. O título sem desenho começa no lado, de perto e no desenho em proporção.
+- **E8. O ícone da folha escolhe o ícone.** Na faixa da folha de escrever, o desenho é um botão que abre a cartela de
+  ícones do site (a mesma ficha dos grupos, das colunas e dos baralhos, com a busca e o "Sem ícone"); sem desenho, ele
+  é o recorte vazio tracejado com um "+", mais apagado até a mão chegar. Escolher é um passo do desfazer e a folha
+  continua aberta.
+
 Ficam de fora (ruído para este pedido): a régua de ferramentas com 10,88 px, o raio de 18 px do feltro, o título
 "skipped-heading" de outra página.

@@ -10,6 +10,7 @@ import {
   freeSpot,
   keepsHover,
   linkTarget,
+  newNode,
   fitMeasured,
   fitRatio,
   hitEdge,
@@ -42,6 +43,13 @@ describe('Quadro livre: a edição (funções puras)', () => {
     // de longe a borda é mais larga no mundo (a mesma na tela)
     expect(hitPiece(nodes, { x: 60, y: 500 }, 0.2)?.i).toBe('m');
     expect(hitPiece(nodes, { x: 2000, y: 2000 }, 1)).toBeNull();
+  });
+
+  it('o texto novo nasce sem desenho na faixa (ic vazio); a moldura e o widget não têm o campo', () => {
+    const b = { n: [] as FbNode[], e: [] };
+    expect(newNode(b, 'x', { x: 0, y: 0, w: 208, h: 104 })).toEqual(jasmine.objectContaining({ t: 'x', txt: '', ic: '' }));
+    expect('ic' in newNode(b, 'm', { x: 0, y: 0, w: 208, h: 104 })).toBeFalse();
+    expect('ic' in newNode(b, 'w', { x: 0, y: 0, w: 208, h: 104 }, { src: '{{contador: 1/1/2027}}' })).toBeFalse();
   });
 
   it('acerta a seta perto do ponteiro', () => {

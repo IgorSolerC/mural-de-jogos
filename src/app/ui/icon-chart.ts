@@ -16,12 +16,16 @@ let nextId = 0;
  * numa ficha por cima (os 110 desenhos à vista, separados por assunto, com a busca no alto, que acha
  * pelo nome e pelo que o desenho quer dizer). Tocar num desenho escolhe e fecha. Com `none`, o pé da
  * ficha oferece tirar o ícone ("Sem ícone"). Ela só escolhe (`pick`): quem usa guarda.
+ *
+ * Com `row` desligado, sem a linha: quem usa tem o seu botão (o desenho da faixa do card do texto, que é o próprio
+ * ícone) e abre a ficha por `openFrom`, que devolve o foco a ele.
  */
 @Component({
   selector: 'app-icon-chart',
   imports: [BackdropClose, IconModule, Pin],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    @if (row()) {
     <div class="linha">
       <span class="previa" [class.vazio]="!value()" aria-hidden="true">
         @if (value(); as v) {
@@ -46,6 +50,7 @@ let nextId = 0;
         {{ value() ? 'Trocar' : 'Escolher' }}
       </button>
     </div>
+    }
 
     @if (open()) {
       <dialog
@@ -120,6 +125,8 @@ export class IconChart {
   readonly none = input<string | null>(null);
   /** Uma linha embaixo do nome: onde o ícone aparece. */
   readonly hint = input('');
+  /** A linha com o escolhido e o "Trocar" (desligada, quem usa abre a ficha por `openFrom`). */
+  readonly row = input(true);
   /** O título da ficha da cartela ("Ícone da coluna Fazendo"). */
   readonly heading = input('Escolher o ícone');
   /** O desenho tocado (null: a opção vazia). */
@@ -137,7 +144,9 @@ export class IconChart {
   protected readonly query = signal('');
   private readonly injector = inject(Injector);
   private readonly dialog = viewChild<ElementRef<HTMLDialogElement>>('dialog');
-  private readonly trigger = viewChild.required<ElementRef<HTMLButtonElement>>('trigger');
+  private readonly trigger = viewChild<ElementRef<HTMLButtonElement>>('trigger');
+  /** O botão de quem abriu por `openFrom` (o foco volta para ele). */
+  private opener: HTMLElement | null = null;
 
   /** As gavetas da cartela, todas à vista; procurando, só o que bate em cada uma (e as vazias saem). */
   protected readonly sections = computed(() => {
@@ -145,6 +154,12 @@ export class IconChart {
     const hits = new Set<string>(procurarIcones(this.query(), fold));
     return GAVETAS_DE_ICONES.map((g) => ({ ...g, icones: g.icones.filter((i) => hits.has(i)) })).filter((g) => g.icones.length);
   });
+
+  /** Abre a ficha a partir do botão de quem usa (sem a linha): o foco volta a ele quando ela fecha. */
+  openFrom(opener: HTMLElement | null): void {
+    this.opener = opener;
+    this.openChart();
+  }
 
   /** O "Trocar": a ficha entra na página e, desenhada, vai para a camada de cima. */
   protected openChart(): void {
@@ -186,7 +201,9 @@ export class IconChart {
     if (!this.open()) return;
     this.open.set(false);
     this.query.set('');
-    this.trigger().nativeElement.focus();
+    const back = this.opener ?? this.trigger()?.nativeElement;
+    this.opener = null;
+    back?.focus();
   }
 
   /** Esc com algo escrito limpa a busca (e não fecha a ficha); vazia, o Esc fecha. */

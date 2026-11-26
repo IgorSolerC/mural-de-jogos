@@ -3,10 +3,14 @@ import { CalloutLook, calloutFallbackTitle, calloutPaper } from '../../core/call
 import { FB_TEXT_MAX, noteParts, noteText } from '../../core/free-board';
 import { plainText } from '../../core/rich-text';
 import { Review } from '../../core/review';
-import { CALLOUT_ICON } from '../callout-looks';
+import { noteIcon, noteIconChoice } from '../callout-looks';
+import { IconChart } from '../icon-chart';
+import { IconChoice } from '../../core/icon-choices';
 import { HeightVar } from '../height-var';
-import { IconModule } from '../icons';
+import { ICON, IconModule } from '../icons';
 import { RichEditor } from '../rich-editor';
+import { RichText } from '../rich-text';
+import { NoteLinks } from '../../core/note-links';
 import { modKey } from '../key-label';
 import { SAVE_KEY, SaveKey } from '../save-key';
 
@@ -23,10 +27,14 @@ const TITLE_MAX = 200;
  * Mora na tela, fora do mundo do quadro: nem escala com o zoom nem borra. Cada letra sobe em `changed` (o texto
  * inteiro, a primeira linha como título: `noteText`), e o quadro mostra o card mudando; o Pronto, Ctrl+Enter e o Esc
  * pedem para guardar (`done`). Quem guarda é o editor do quadro.
+ *
+ * Com `reading`, a mesma folha só para ler o card inteiro (o que ele esconde com o "…", PLANO-CAIXAS-DE-TEXTO.md, E2):
+ * o título escrito na faixa, o texto como o card o mostra (`app-rich-text`), e o Fechar no lugar do Pronto (o Esc
+ * também fecha). Na visita é a mesma, que lê o texto de agora.
  */
 @Component({
   selector: 'app-free-board-text-sheet',
-  imports: [SaveKey, HeightVar, IconModule, RichEditor],
+  imports: [SaveKey, HeightVar, IconModule, RichEditor, RichText, IconChart],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './text-sheet.scss',
   host: {
@@ -36,12 +44,40 @@ const TITLE_MAX = 200;
     '(keydown)': 'keys($event)',
   },
   template: `
+    @if (reading()) {
+      <header class="faixa" [attr.data-jeito]="paper()">
+        @if (icon(); as ic) {
+          <span class="icone" aria-hidden="true"><lucide-icon [img]="ic" [size]="26" /></span>
+        }
+        <h2 class="titulo lido" [id]="uid + '-nome'">{{ readTitle() }}</h2>
+        <button #fechar type="button" class="btn-ink pronto" title="Fechar (Esc)" aria-keyshortcuts="Escape" (click)="done.emit()">Fechar</button>
+      </header>
+      <div class="conteudo lido">
+        @if (readBody().trim()) {
+          <app-rich-text class="texto-lido" [text]="readBody()" [links]="links()" />
+        }
+      </div>
+    } @else {
     <h2 class="sr-only" [id]="uid + '-nome'">Escrever o card</h2>
-    <!-- a faixa: o alto do card, com o desenho do jeito e o título -->
+    <!-- a faixa: o alto do card, com o desenho e o título. O desenho é um botão: abre a cartela de ícones do site; sem
+         desenho, o recorte vazio com o "+" diz que dá para pôr um -->
     <header class="faixa" [attr.data-jeito]="paper()">
-      @if (icon(); as ic) {
-        <span class="icone" aria-hidden="true"><lucide-icon [img]="ic" [size]="26" /></span>
-      }
+      <button
+        #iconeBotao
+        type="button"
+        class="icone-botao"
+        [class.sem]="!icon()"
+        aria-haspopup="dialog"
+        [attr.aria-label]="icon() ? 'Trocar o ícone do card' : 'Pôr um ícone no card'"
+        [title]="icon() ? 'Trocar o ícone' : 'Pôr um ícone'"
+        (click)="chart()?.openFrom(iconeBotao)"
+      >
+        @if (icon(); as ic) {
+          <span class="icone" aria-hidden="true"><lucide-icon [img]="ic" [size]="26" /></span>
+        } @else {
+          <span class="icone vazio" aria-hidden="true"><lucide-icon [img]="Plus" [size]="16" /></span>
+        }
+      </button>
       <label class="sr-only" [for]="uid + '-titulo'">Título do card</label>
       <textarea
         #titulo
@@ -74,6 +110,8 @@ const TITLE_MAX = 200;
         (valueChange)="setBody($event)"
       />
     </div>
+    <app-icon-chart #cartela [row]="false" [value]="iconChoice()" none="Sem ícone" heading="Ícone do card" (pick)="iconPick.emit($event ?? '')" />
+    }
   `,
 })
 export class FreeBoardTextSheet {
@@ -88,15 +126,30 @@ export class FreeBoardTextSheet {
   readonly color = input('');
   /** As anotações que os links "[[Título]]" abrem; null, sem links. */
   readonly notes = input<readonly Review[] | null>(null);
+  /** O desenho escolhido para a faixa ('' sem desenho; omitido, o do jeito: os cards de antes). */
+  readonly ic = input<IconChoice | '' | undefined>(undefined);
+  /** Só para ler o card inteiro (no ver e na visita), sem escrever. */
+  readonly reading = input(false);
+  /** Os links do texto lido (os mesmos da peça). */
+  readonly links = input<NoteLinks | null>(null);
   /** O texto inteiro de agora (a cada letra). */
   readonly changed = output<string>();
   /** Pediu para guardar (o Pronto, Ctrl+Enter, o Esc). */
   readonly done = output<void>();
+  /** Escolheu o desenho da faixa na cartela ('' tirou). Quem guarda é o editor do quadro. */
+  readonly iconPick = output<IconChoice | ''>();
 
   protected readonly uid = `folha-card-${++uid}`;
   protected readonly titleMax = TITLE_MAX;
-  private readonly titleField = viewChild.required<ElementRef<HTMLTextAreaElement>>('titulo');
-  private readonly writer = viewChild.required<RichEditor>('texto');
+  private readonly titleField = viewChild<ElementRef<HTMLTextAreaElement>>('titulo');
+  private readonly writer = viewChild<RichEditor>('texto');
+  private readonly closer = viewChild<ElementRef<HTMLButtonElement>>('fechar');
+  protected readonly chart = viewChild<IconChart>('cartela');
+  protected readonly Plus = ICON.adicionar;
+  /** O card de agora, para ler (o de outra pessoa que muda no meio aparece mudado). */
+  private readonly readParts = computed(() => noteParts(this.text()));
+  protected readonly readTitle = computed(() => plainText(this.readParts().title).trim() || calloutFallbackTitle(this.look()));
+  protected readonly readBody = computed(() => this.readParts().body);
 
   /** O título e o corpo de quando abriu (o de outra aba chegando no meio não apaga o que se escreve). */
   private readonly start = computed(() => {
@@ -108,19 +161,25 @@ export class FreeBoardTextSheet {
   protected readonly body = linkedSignal(() => this.start().body);
 
   protected readonly paper = computed(() => calloutPaper(this.look(), this.color()));
-  protected readonly icon = computed(() => CALLOUT_ICON[this.look()]);
+  protected readonly icon = computed(() => noteIcon(this.look(), this.ic()));
+  protected readonly iconChoice = computed(() => noteIconChoice(this.look(), this.ic()));
   /** Vazio, o título diz o que o card mostra no lugar dele: o nome do jeito. */
   protected readonly titleHint = computed(() => calloutFallbackTitle(this.look()) || 'Título (opcional)');
   /** O que sobra para o corpo com o título mais longo (uma conta que não muda enquanto se escreve o título). */
   protected readonly bodyMax = FB_TEXT_MAX - TITLE_MAX - 1;
 
   constructor() {
-    // abre no título, se o card ainda não tem nada; senão, no fim do texto
+    // abre no título, se o card ainda não tem nada; senão, no fim do texto (para ler: no Fechar)
     afterNextRender(() => {
+      if (untracked(this.reading)) {
+        this.closer()?.nativeElement.focus({ preventScroll: true });
+        return;
+      }
+      const title = this.titleField()?.nativeElement;
       const empty = !untracked(this.title) && !untracked(this.body).trim();
-      if (empty) this.titleField().nativeElement.focus({ preventScroll: true });
-      else this.writer().focus();
-      this.fit(this.titleField().nativeElement);
+      if (empty) title?.focus({ preventScroll: true });
+      else this.writer()?.focusEnd();
+      if (title) this.fit(title);
     });
   }
 
@@ -143,7 +202,7 @@ export class FreeBoardTextSheet {
     const k = e as KeyboardEvent;
     if (k.isComposing || k.keyCode === 229 || k.ctrlKey || k.metaKey) return;
     k.preventDefault();
-    this.writer().focus();
+    this.writer()?.focus();
   }
 
   /** O Esc e o Ctrl+Enter guardam; os de dentro do editor (um menu, um painel, a tela cheia) são dele. */

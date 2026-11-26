@@ -94,6 +94,8 @@
 /* o rótulo: um pedaço de fita-crepe atravessado na seta, escrito à caneta */
 .fita {
   position: absolute;
+  /* por cima do card sendo escrito, que sobe acima dos vizinhos (app-free-board-piece.escrevendo) */
+  z-index: 2;
   /* no mundo (largura zero), sem isto a fita encolhia até uma palavra por linha */
   width: max-content;
   max-width: 240px;
@@ -412,4 +414,9 @@
   .vazio .dica-toque {
     display: inline;
   }
+}
+
+/* o card sendo escrito fica por cima dos vizinhos enquanto cresce (só na tela: a ordem guardada não muda) */
+app-free-board-piece.escrevendo {
+  z-index: 1;
 }

@@ -4,6 +4,7 @@ import { cleanCategory } from './note-labels';
 import { cleanLabel } from './text';
 import { newImageId } from './images';
 import { CALLOUTS, CALLOUT_PAPERS, CalloutLook } from './callouts';
+import { IconChoice, isIconChoice } from './icon-choices';
 
 /**
  * O Quadro livre (PLANO-QUADRO-LIVRE.md): um quadro infinito de um grupo das anotações, com molduras,
@@ -65,6 +66,11 @@ export interface FbNote extends FbBase {
   kc?: string;
   /** O tamanho da letra, um dos degraus de `FB_FONT_SIZES` (vezes a letra de sempre). Omitido, a Média (1). */
   fs?: number;
+  /**
+   * O desenho da faixa, da cartela do site (shared/cartela-de-icones.ts); '' é sem desenho, o do texto novo. Omitido
+   * (os cards de antes), o desenho do jeito (`noteHasIcon`).
+   */
+  ic?: IconChoice | '';
 }
 
 export interface FbWidget extends FbBase {
@@ -194,7 +200,7 @@ function extras(raw: Record<string, unknown>, known: ReadonlySet<string>): Recor
   return out;
 }
 
-const NODE_KEYS = new Set(['i', 't', 'x', 'y', 'w', 'h', 'c', 'g', 'nome', 'txt', 'src', 'k', 'kc', 'fs']);
+const NODE_KEYS = new Set(['i', 't', 'x', 'y', 'w', 'h', 'c', 'g', 'nome', 'txt', 'src', 'k', 'kc', 'fs', 'ic']);
 const EDGE_KEYS = new Set(['i', 'a', 'b', 'as', 'bs', 'fx', 'p', 'c', 'txt']);
 const BOARD_KEYS = new Set(['v', 'id', 'nome', 'grupo', 'em', 'publico', 'n', 'e']);
 
@@ -226,7 +232,8 @@ export function sanitizeNode(raw: unknown): FbNode | FbUnknownNode | null {
       const k = CALLOUTS.find((d) => d.look === r['k'])?.look;
       const kc = CALLOUT_PAPERS.find((d) => d.word === r['kc'])?.word;
       const fs = fontStep(r['fs']);
-      return { ...base, t: 'x', txt: text(r['txt'], FB_TEXT_MAX), ...(k ? { k } : {}), ...(kc ? { kc } : {}), ...(fs !== 1 ? { fs } : {}) };
+      const ic = r['ic'] === '' || isIconChoice(r['ic']) ? r['ic'] : undefined;
+      return { ...base, t: 'x', txt: text(r['txt'], FB_TEXT_MAX), ...(k ? { k } : {}), ...(kc ? { kc } : {}), ...(fs !== 1 ? { fs } : {}), ...(ic !== undefined ? { ic } : {}) };
     }
     case 'w': {
       const src = text(r['src'], FB_SRC_MAX).trim();
@@ -566,6 +573,12 @@ export function nextFont(fs: number, dir: 1 | -1): number {
 /** O jeito do card do texto (sem um, a Nota, como o card novo das anotações). */
 export function noteLook(n: Pick<FbNote, 'k'>): CalloutLook {
   return n.k ?? 'nota';
+}
+
+/** O card do texto tem desenho na faixa? O escolhido, nenhum ('') ou, nos cards de antes, o do jeito (o Vazio não tem). */
+export function noteHasIcon(n: Pick<FbNote, 'k' | 'ic'>): boolean {
+  if (n.ic !== undefined) return n.ic !== '';
+  return noteLook(n) !== 'vazio';
 }
 
 /**

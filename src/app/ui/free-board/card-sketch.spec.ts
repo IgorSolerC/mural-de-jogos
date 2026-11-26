@@ -85,6 +85,23 @@ describe('o card do texto em proporção (card-sketch.ts)', () => {
     expect(rects(sketch(low)).some((r) => r.fill === look.paper && r.w === 198)).toBeFalse();
   });
 
+  it('sem desenho na faixa (o texto novo, ou o Vazio), sem o quadradinho, e o título começa no lado, como na peça', async () => {
+    const node: FbNote = { i: 'sem', t: 'x', x: 0, y: 0, w: 320, h: 160, txt: 'Cuidado\num\ndois', ic: '' };
+    const card = await dom(node);
+    expect(card.querySelector('.cartao-icone')).toBeNull();
+    const box = card.getBoundingClientRect();
+    const titleEl = card.querySelector<HTMLElement>('.cartao-titulo')!.getBoundingClientRect();
+    const look = pieceLook(node, null);
+    const items = rects(sketch(node));
+    expect(items.some((r) => r.op === 0.35)).withContext('o quadradinho do desenho').toBeFalse();
+    const titleBar = items.find((r) => r.fill === look.ink && r.op === 0.72)!;
+    expect(Math.abs(titleBar.x - (titleEl.left - box.left))).toBeLessThan(2);
+    // com o desenho (o card de antes), o quadradinho volta e o título anda para a direita
+    const withIcon = rects(sketch({ ...node, i: 'com', ic: undefined }));
+    expect(withIcon.some((r) => r.op === 0.35)).toBeTrue();
+    expect(withIcon.find((r) => r.fill === look.ink && r.op === 0.72)!.x).toBeGreaterThan(titleBar.x + 10);
+  });
+
   it('a lista e a tarefa começam depois do marcador, como na peça', () => {
     const n: FbNote = { i: 'l', t: 'x', x: 0, y: 0, w: 320, h: 400, txt: 'Mala\nAntes de ir\n- [ ] Passaporte\n- Casaco\n1. Chave' };
     const xs = rects(sketch(n))

@@ -1,9 +1,14 @@
 import { computed, signal } from '@angular/core';
 import { CALLOUT_PAPERS } from '../../core/callouts';
-import { FB_MAX_NODES, FbColor, FbEdge, FbEnds, FbNode, FbNote, FbSide, FreeBoard, connect, fontStep, moveNodes, nextFont, noteFont, patchEdge, patchNodes, removePieces, shownNodes, withGroups } from '../../core/free-board';
+import { IconChoice } from '../../core/icon-choices';
+import { FB_MAX_NODES, FbColor, FbEdge, FbEnds, FbNode, FbNote, FbSide, FreeBoard, connect, fontStep, moveNodes, nextFont, noteFont, noteParts, patchEdge, patchNodes, removePieces, shownNodes, withGroups } from '../../core/free-board';
 import { HOLE, Point, Rect, autoSides, boundsOf, nearestSide, rectBetween } from '../../core/free-board-geometry';
 import { DRAG_SLOP } from './camera-rig';
 import { Handle, History, boxSelect, dragSet, hitEdge, hitPiece, keepsHover, linkTarget, newNode, resized, sizeRule, snappedDelta } from './edit-ops';
+
+/** A largura do card novo, e até onde ele alarga no primeiro guardar quando o texto não cabe (em furos: 8 e 12). */
+const NOTE_W = 208;
+const NOTE_WIDE = 312;
 
 /** As ferramentas da régua (seção 4.4): a seta não é ferramenta, sai das bolinhas da peça. */
 export type Tool = 'selecionar' | 'moldura' | 'texto';
@@ -40,10 +45,10 @@ export interface EditorHost {
   /** Soltou a seta no vazio: o menu "Texto aqui", "Anotação aqui"... (a seta liga na peça nova). */
   dropArrow(from: string, side: FbSide, at: Point, screen: Point): void;
   /**
-   * A altura (px do mundo) que o card do texto pede para mostrar tudo com a letra `fs`, medida nele por um instante;
-   * null se ele não está desenhado de perto.
+   * A altura (px do mundo) que o card do texto pede para mostrar tudo com a letra `fs` (e na largura `w`, se dada),
+   * medida nele por um instante; null se ele não está desenhado de perto.
    */
-  cardHeight?(id: string, fs: number): number | null;
+  cardHeight?(id: string, fs: number, w?: number): number | null;
 }
 
 /**
@@ -499,9 +504,56 @@ export class BoardEditor {
 
   /** Um bilhete novo no ponto, já escrevendo (o T, ou o duplo clique no fundo). */
   newNote(p: Point): FbNode | null {
-    const node = this.add(newNode(this.host.board(), 'x', snapRect({ x: p.x - 13, y: p.y - 13, w: 208, h: 104 })));
-    if (node) this.writing.set({ kind: 'bilhete', id: node.i });
+    const node = this.add(newNode(this.host.board(), 'x', snapRect({ x: p.x - 13, y: p.y - 13, w: NOTE_W, h: 104 })));
+    if (node) {
+      this.fresh = node.i;
+      this.writing.set({ kind: 'bilhete', id: node.i });
+    }
     return node;
+  }
+
+  /**
+   * O card que acabou de nascer (o T, o duplo clique no fundo), até o primeiro guardar: ele toma o tamanho do que se
+   * escreveu (PLANO-CAIXAS-DE-TEXTO.md, E4).
+   */
+  private fresh: string | null = null;
+
+  /**
+   * O tamanho do card novo no primeiro guardar: só com o título, a altura da faixa (sem a metade de papel vazio); com
+   * texto que não cabe, ele alarga até `NOTE_WIDE` antes de crescer para baixo (um parágrafo não vira fita).
+   */
+  private freshSize(n: FbNote, text: string): { w: number; h: number } | null {
+    const fs = noteFont(n);
+    const need = this.host.cardHeight?.(n.i, fs);
+    if (!need) return null;
+    const snap = (v: number) => Math.max(2 * HOLE, Math.ceil(v / HOLE) * HOLE);
+    if (!noteParts(text).body.trim() || need <= n.h) return { w: n.w, h: snap(need) };
+    const wide = Math.max(n.w, NOTE_WIDE);
+    const there = wide > n.w ? this.host.cardHeight?.(n.i, fs, wide) : need;
+    return { w: wide, h: snap(there ?? need) };
+  }
+
+  /** O desenho da faixa do card do texto (da cartela; '' tira), um passo do desfazer. */
+  setIcon(id: string, ic: IconChoice | ''): void {
+    const n = this.host.board().n.find((x): x is FbNote => x.i === id && x.t === 'x');
+    if (!n || n.ic === ic) return;
+    const patch = (b: FreeBoard) => patchNodes(b, new Set([id]), (x) => (x.t === 'x' ? { ...x, ic } : x), now());
+    if (this.fresh === id) {
+      // o card que acabou de nascer: o desenho vai junto do criar (sem passo a mais; se ele ficar vazio, some inteiro)
+      const b = this.host.board();
+      this.host.commit(patch(b), b);
+      return;
+    }
+    this.change(patch);
+  }
+
+  /** "Ajustar ao texto": a altura que o texto do card pede (maior ou menor), em furos. */
+  fitToText(id: string): void {
+    const n = this.host.board().n.find((x): x is FbNote => x.i === id && x.t === 'x');
+    const need = n ? this.host.cardHeight?.(id, noteFont(n)) : null;
+    if (!n || !need) return;
+    const h = Math.max(2 * HOLE, Math.ceil(need / HOLE) * HOLE);
+    if (h !== n.h) this.change((b) => patchNodes(b, new Set([id]), (x) => ({ ...x, h }), now()));
   }
 
   /** O texto de agora do que está sendo escrito (o do bilhete, o título da moldura, o rótulo da seta). */
@@ -546,6 +598,7 @@ export class BoardEditor {
     if (w.kind === 'bilhete') {
       if (!text.trim() && n.t === 'x' && !n.txt.trim()) {
         // o bilhete que nasceu e ficou vazio não fica (sem passo a mais no desfazer: some o de criar)
+        this.fresh = null;
         const gone = removePieces(b, new Set([n.i]), now());
         const last = this.history.last();
         if (last && !last.n.some((x) => x.i === n.i)) {
@@ -557,7 +610,12 @@ export class BoardEditor {
         return;
       }
       const need = height ? Math.ceil(height / 26) * 26 : 0;
-      this.change((x) => patchNodes(x, new Set([n.i]), (y) => (y.t === 'x' ? { ...y, txt: text.slice(0, 4000), ...(need > y.h ? { h: need } : {}) } : y), now()));
+      // o card que acabou de nascer toma o tamanho do que se escreveu; os outros só crescem
+      const size = this.fresh === n.i && n.t === 'x' ? this.freshSize(n, text) : null;
+      this.fresh = null;
+      this.change((x) =>
+        patchNodes(x, new Set([n.i]), (y) => (y.t === 'x' ? { ...y, txt: text.slice(0, 4000), ...(size ?? (need > y.h ? { h: need } : {})) } : y), now()),
+      );
       return;
     }
     this.change((x) =>

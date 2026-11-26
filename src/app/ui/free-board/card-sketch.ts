@@ -1,4 +1,4 @@
-import { FbNote, noteFont, noteParts } from '../../core/free-board';
+import { FbNote, noteFont, noteHasIcon, noteParts } from '../../core/free-board';
 import { plainText } from '../../core/rich-text';
 import { PieceLook } from './far-look';
 import { SketchItem, measure } from './sketch-model';
@@ -38,8 +38,10 @@ const TITLE_LINE = 1.5 * TOPO;
 const TOPO_PAD = (0.45 + 0.5) * TOPO;
 /** O título: a letra da cartolina (Caveat 700, 1,16 da letra da faixa). */
 const TITLE_SIZE = TOPO * 1.16;
-/** Onde o título começa: o lado de dentro (0,85 em da faixa), o desenho (1,02 em) e o vão (0,42 em). */
+/** Onde o título começa: o lado de dentro (0,85 em da faixa), o desenho (1,02 em) e o vão (0,42 em); sem desenho, no lado. */
 const TITLE_X = (0.85 + 1.02 + 0.42) * TOPO;
+const TITLE_X_BARE = 0.85 * TOPO;
+const titleX = (n: FbNote) => (noteHasIcon(n) ? TITLE_X : TITLE_X_BARE);
 /** A folha clara: a linha do texto (1,35 F), o respiro de cima (0,4 F) e de baixo (0,5 F), o lado (0,85 F). */
 const BODY_LINE = 1.35;
 const BODY_PAD = 0.4 + 0.5;
@@ -68,7 +70,7 @@ export function cardLayout(n: FbNote, title: string, fontsReady: boolean): CardL
   const F = CARD_FONT * noteFont(n);
   const titleFont = `700 ${TITLE_SIZE * F}px Caveat, Kalam`;
   const bodyFont = `400 ${F}px Kalam`;
-  const titleRoom = n.w - FRAME - TITLE_X * F - (BODY_X * TOPO * F - FRAME);
+  const titleRoom = n.w - FRAME - titleX(n) * F - (BODY_X * TOPO * F - FRAME);
   const bodyRoom = n.w - 2 * FRAME - 2 * (BODY_X * F - FRAME);
   // (até umas linhas a mais que cabem no card: o resto não aparece)
   const most = Math.ceil(n.h / (BODY_LINE * F)) + 1;
@@ -134,7 +136,7 @@ export function cardItems(items: SketchItem[], n: FbNote, look: PieceLook, k: nu
     if (!showBody) titleRows = fit(h);
   }
   const bandH = Math.min(h, TOPO_PAD * F + titleRows * titleLine);
-  // o desenho do jeito: um quadradinho da tinta da faixa, no meio da primeira linha
+  // o desenho da faixa (se tem): um quadradinho da tinta da faixa, no meio da primeira linha
   const icon = 1.02 * TOPO * F;
   const iconX = x + BODY_X * TOPO * F;
   const firstMid = y + 0.45 * TOPO * F + titleLine / 2;
@@ -143,9 +145,9 @@ export function cardItems(items: SketchItem[], n: FbNote, look: PieceLook, k: nu
     const hh = Math.max(bh, 0.6 / k);
     items.push({ t: 'r', x: bx, y: mid - hh / 2, w: bw, h: hh, rx: hh / 2, fill, op });
   };
-  if (icon * k >= 1.5) items.push({ t: 'r', x: iconX + icon * 0.1, y: firstMid - icon * 0.4, w: icon * 0.8, h: icon * 0.8, rx: icon * 0.3, fill: look.ink, op: 0.35 });
-  const titleX = x + TITLE_X * F;
-  lay.title.slice(0, titleRows).forEach((tw, i) => bar(titleX, firstMid + i * titleLine, Math.min(tw, x + w - FRAME - titleX), TITLE_SIZE * F * 0.42, look.ink, 0.72));
+  if (noteHasIcon(n) && icon * k >= 1.5) items.push({ t: 'r', x: iconX + icon * 0.1, y: firstMid - icon * 0.4, w: icon * 0.8, h: icon * 0.8, rx: icon * 0.3, fill: look.ink, op: 0.35 });
+  const tx = x + titleX(n) * F;
+  lay.title.slice(0, titleRows).forEach((tw, i) => bar(tx, firstMid + i * titleLine, Math.min(tw, x + w - FRAME - tx), TITLE_SIZE * F * 0.42, look.ink, 0.72));
   if (!showBody) return;
   // a folha clara, com a moldura do papel em volta, e as linhas que cabem nela
   const sheet = { x: x + FRAME, y: y + bandH, w: w - 2 * FRAME, h: h - bandH - FRAME };

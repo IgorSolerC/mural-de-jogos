@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterRender
 import { CardFinder } from '../../core/card-finder';
 import { FbNode, noteColor, noteFont, noteLook, noteParts } from '../../core/free-board';
 import { calloutFallbackTitle, calloutPaper } from '../../core/callouts';
-import { CALLOUT_ICON } from '../callout-looks';
+import { noteIcon } from '../callout-looks';
 import { NoteLinks } from '../../core/note-links';
 import { plainText } from '../../core/rich-text';
 import { parseWidgetLine, widgetDef, widgetSpoken } from '../../core/widgets';
@@ -170,7 +170,10 @@ export class FreeBoardPiece {
   });
   protected readonly parts = computed(() => noteParts(this.text()));
   protected readonly cardTitle2 = computed(() => plainText(this.parts().title).trim() || calloutFallbackTitle(this.look()));
-  protected readonly cardIcon = computed(() => CALLOUT_ICON[this.look()]);
+  protected readonly cardIcon = computed(() => {
+    const n = this.node();
+    return n.t === 'x' ? noteIcon(this.look(), n.ic) : null;
+  });
   private readonly cards = cardsFrom(inject(CardFinder));
   /** A foto que ainda não chegou: o mesmo escuro da camada de longe. */
   protected readonly photoWait = PHOTO_WAIT;
@@ -538,15 +541,18 @@ function linesIn(el: HTMLElement): { top: number; bottom: number; right: number 
  * mundo, medida no próprio card por um instante sem o corte embaixo (a classe `medindo`). Null se o card não está
  * desenhado com o texto (longe ou no meio, onde só o título aparece).
  */
-export function cardNeed(piece: HTMLElement, fs?: number): number | null {
+export function cardNeed(piece: HTMLElement, fs?: number, w?: number): number | null {
   const card = piece.querySelector<HTMLElement>(':scope > .cartao');
   if (!card || card.classList.contains('liso')) return null;
-  // com outra letra (a escolhida agora, antes de guardar): a mesma conta, com ela por um instante
+  // com outra letra (a escolhida agora, antes de guardar) ou outra largura: a mesma conta, com elas por um instante
   const was = piece.style.getPropertyValue('--fs');
+  const wasW = piece.style.width;
   if (fs !== undefined) piece.style.setProperty('--fs', String(fs));
+  if (w !== undefined) piece.style.width = `${w}px`;
   card.classList.add('medindo');
   const h = card.offsetHeight;
   card.classList.remove('medindo');
   if (fs !== undefined) piece.style.setProperty('--fs', was);
+  if (w !== undefined) piece.style.width = wasW;
   return h || null;
 }

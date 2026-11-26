@@ -44,6 +44,57 @@
   margin-top: 0.06em;
 }
 
+/* o desenho é o botão que escolhe outro (a cartela de ícones): cresce na mão, como os botões do site; sem desenho, o
+   recorte vazio tracejado com o "+", na tinta do jeito e mais apagado, até a mão chegar */
+.icone-botao {
+  flex: none;
+  display: inline-flex;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    scale var(--t-ui) var(--ease-ui),
+    opacity var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    scale: 1.06;
+  }
+
+  &:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 3px;
+  }
+
+  &.sem {
+    opacity: 0.55;
+
+    &:hover,
+    &:focus-visible {
+      opacity: 1;
+    }
+  }
+}
+
+.icone.vazio {
+  display: inline-grid;
+  place-items: center;
+  border: 1.5px dashed currentColor;
+  border-radius: 0.2em;
+  rotate: -4deg;
+
+  /* o "+" no meio do recorte (o lucide-icon é de linha: sem isso, ele senta na linha de base, no pé) */
+  lucide-icon {
+    display: grid;
+    width: 55%;
+    height: 55%;
+  }
+}
+
 .titulo {
   flex: 1;
   min-width: 0;
@@ -114,4 +165,18 @@ app-rich-editor {
   flex: none;
   align-self: flex-start;
   font-size: 1rem;
+}
+
+/* ===== Para ler (o card inteiro, no ver e na visita): o título escrito na faixa e o texto como o card o mostra ===== */
+
+.titulo.lido {
+  background: none;
+  padding-bottom: 0;
+  overflow-wrap: break-word;
+}
+
+.texto-lido {
+  margin-top: 16px;
+  font: 400 1.15rem / 1.5 var(--f-hand);
+  --line: 1.5em;
 }

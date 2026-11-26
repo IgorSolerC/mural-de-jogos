@@ -280,7 +280,8 @@ export function newNode(board: Pick<FreeBoard, 'n' | 'e'>, kind: 'm' | 'x' | 'w'
   const i = newNodeId(idsOf(board));
   const base = { i, x: Math.round(box.x), y: Math.round(box.y), w: Math.max(8, Math.round(box.w)), h: Math.max(8, Math.round(box.h)), ...(extra.c ? { c: extra.c } : {}) };
   if (kind === 'm') return { ...base, t: 'm', ...(extra.nome ? { nome: extra.nome } : {}) };
-  if (kind === 'x') return { ...base, t: 'x', txt: extra.txt ?? '' };
+  // o texto novo nasce sem desenho na faixa (o dono escolhe um na folha, se quiser)
+  if (kind === 'x') return { ...base, t: 'x', txt: extra.txt ?? '', ic: '' };
   return { ...base, t: 'w', src: extra.src ?? '' };
 }
 

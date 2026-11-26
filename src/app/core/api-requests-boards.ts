@@ -122,7 +122,7 @@ export function addToBoard(board: FreeBoard, d: AcrescentarNoQuadroV1, ctx: Boar
       node = { i, t: 'w', ...place(HOLE * 12, HOLE * 7, near), src: `{{nota: #${p.nota}${clean ? ` | ${clean}` : ''}}}` };
     } else {
       const lines = (p.bilhete ?? '').split('\n').length;
-      node = { i, t: 'x', ...place(HOLE * 8, snap(Math.max(HOLE * 4, Math.min(HOLE * 20, HOLE * (2 + lines)))), near), txt: p.bilhete ?? '' };
+      node = { i, t: 'x', ...place(HOLE * 8, snap(Math.max(HOLE * 4, Math.min(HOLE * 20, HOLE * (2 + lines)))), near), txt: p.bilhete ?? '', ic: '' };
     }
     nodes.push(node);
     byId.set(i, node);

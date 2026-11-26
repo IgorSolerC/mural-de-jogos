@@ -21,6 +21,7 @@ import {
   fontStep,
   nextFont,
   noteFont,
+  noteHasIcon,
   noteParts,
   noteText,
   patchEdge,
@@ -305,6 +306,20 @@ describe('Quadro livre: a lista e os grupos', () => {
     expect(nextFont(1, -1)).toBe(0.75);
     expect(nextFont(3, 1)).toBe(3);
     expect(nextFont(0.75, -1)).toBe(0.75);
+  });
+
+  it('o desenho da faixa do card do texto: um da cartela ou nenhum (vazio); o resto sai, e sem o campo vale o do jeito', () => {
+    const b = board([
+      { ...note('a'), ic: 'estrela' },
+      { ...note('b'), ic: '' },
+      { ...note('c'), ic: 'nao-existe' },
+      { ...note('d'), ic: 7 },
+      { ...note('e'), k: 'vazio' },
+    ]);
+    expect(b.n.map((n) => n['ic'])).toEqual(['estrela', '', undefined, undefined, undefined]);
+    expect(b.n.map((n) => noteHasIcon(n as Parameters<typeof noteHasIcon>[0]))).toEqual([true, false, true, true, false]);
+    // o escolhido vale também no Vazio
+    expect(noteHasIcon({ k: 'vazio', ic: 'lapis' })).toBeTrue();
   });
 
   it('noteText junta o título e o corpo do jeito que o noteParts separa de volta', () => {

@@ -248,6 +248,9 @@
   @include et.mostra;
 }
 
+.escrita {
+  @include et.cor-na-mao(var(--etiqueta-verde));
+}
 .cor {
   @include et.cor-na-mao(var(--etiqueta-amarelo));
 }

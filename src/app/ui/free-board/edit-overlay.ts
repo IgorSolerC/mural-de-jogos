@@ -1,13 +1,12 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, input, output, viewChild } from '@angular/core';
-import { FB_FRAME_TITLE_MAX, FB_LABEL_MAX, FbNode, FbSide, FB_SIDES, noteLook } from '../../core/free-board';
-import { CALLOUT_ICON } from '../callout-looks';
+import { FB_FRAME_TITLE_MAX, FB_LABEL_MAX, FbNode, FbSide, FB_SIDES } from '../../core/free-board';
 import { anchor, boundsOf, intersects, nearestSide } from '../../core/free-board-geometry';
 import { ICON, IconModule } from '../icons';
 import { BoardEditor, Writing } from './board-editor';
 import { ALL_HANDLES } from './edit-ops';
 
 /** O que a etiqueta da seleção pede (a peça do quadro faz). */
-export type SelectionAction = 'cor' | 'jeito' | 'letra' | 'rotulo' | 'cadeado' | 'frente' | 'tras' | 'duplicar' | 'apagar';
+export type SelectionAction = 'escrever' | 'cor' | 'jeito' | 'letra' | 'rotulo' | 'cadeado' | 'frente' | 'tras' | 'duplicar' | 'apagar';
 
 /**
  * A camada da edição do Quadro livre (PLANO-QUADRO-LIVRE.md, 4.4 e seção 11): no mundo, por cima das peças, o
@@ -85,6 +84,12 @@ export type SelectionAction = 'cor' | 'jeito' | 'letra' | 'rotulo' | 'cadeado' |
            seleção (não com a mão em cima), num tamanho de tela -->
       <div class="etiqueta-ancora" [style.left.px]="t.x" [style.top.px]="t.y">
         <div class="acoes" [class.embaixo]="t.below" role="toolbar" aria-label="O que fazer com a seleção">
+          @if (t.write) {
+            <!-- escrever o card (o mesmo do duplo clique e do Enter): o primeiro, à vista -->
+            <button type="button" class="botao escrita" aria-label="Escrever" title="Escrever (Enter ou duplo clique)" (pointerdown)="$event.stopPropagation()" (click)="act.emit('escrever')">
+              <lucide-icon [img]="Icons.escrever" [size]="16" aria-hidden="true" />
+            </button>
+          }
           @if (t.color) {
             <button type="button" class="botao cor" aria-label="Cor" title="Cor" (pointerdown)="$event.stopPropagation()" (click)="act.emit('cor')">
               <lucide-icon [img]="Icons.cor" [size]="16" aria-hidden="true" />
@@ -92,7 +97,7 @@ export type SelectionAction = 'cor' | 'jeito' | 'letra' | 'rotulo' | 'cadeado' |
           }
           @if (t.look) {
             <button type="button" class="botao jeito" [attr.aria-label]="t.look" [title]="t.look" (pointerdown)="$event.stopPropagation()" (click)="act.emit('jeito')">
-              <lucide-icon [img]="lookIcon() ?? Icons.jeito" [size]="16" aria-hidden="true" />
+              <lucide-icon [img]="lookIcon()" [size]="16" aria-hidden="true" />
             </button>
           }
           @if (t.font) {
@@ -151,14 +156,17 @@ export class FreeBoardEditOverlay {
   readonly edgeLocked = input(false);
   /** O nome do "Jeito da peça" da seleção (null: ela não tem). */
   readonly lookLabel = input<string | null>(null);
-  /** O desenho do botão do jeito: o do jeito do card, quando é um texto (null: o de sempre). */
+  /**
+   * O desenho do botão do jeito: o card, quando é um texto (o desenho do jeito dele, na Nota um lápis, parecia
+   * "escrever"; o nome do jeito fica no título do botão), senão o de sempre.
+   */
   protected readonly lookIcon = computed(() => {
     const sel = this.selectedNodes();
-    return sel.length === 1 && sel[0].t === 'x' ? (CALLOUT_ICON[noteLook(sel[0])] ?? null) : null;
+    return sel.length === 1 && sel[0].t === 'x' ? ICON.card : ICON.moldura;
   });
   readonly act = output<SelectionAction>();
 
-  protected readonly Icons = { cor: ICON.paleta, jeito: ICON.moldura, letra: ICON.tamanhoDaLetra, rotulo: ICON.etiqueta, presa: ICON.setaPresa, solta: ICON.setaSolta, frente: ICON.frente, tras: ICON.tras, duplicar: ICON.copiar, apagar: ICON.apagar };
+  protected readonly Icons = { escrever: ICON.editar, cor: ICON.paleta, jeito: ICON.moldura, letra: ICON.tamanhoDaLetra, rotulo: ICON.etiqueta, presa: ICON.setaPresa, solta: ICON.setaSolta, frente: ICON.frente, tras: ICON.tras, duplicar: ICON.copiar, apagar: ICON.apagar };
   protected readonly titleMax = FB_FRAME_TITLE_MAX;
   protected readonly labelMax = FB_LABEL_MAX;
 
@@ -248,13 +256,14 @@ export class FreeBoardEditOverlay {
         below,
         color: colorable,
         look: sel.length === 1 ? this.lookLabel() : null,
+        write: sel.length === 1 && sel[0].t === 'x',
         font: sel.every((n) => n.t === 'x'),
         label: false,
         stack: true,
       };
     }
     const m = ed.selectedEdge() ? this.edgeMid() : null;
-    if (m) return { x: m.x, y: m.y - 24, below: false, color: true, look: null, font: false, label: true, stack: false };
+    if (m) return { x: m.x, y: m.y - 24, below: false, color: true, look: null, write: false, font: false, label: true, stack: false };
     return null;
   });
 

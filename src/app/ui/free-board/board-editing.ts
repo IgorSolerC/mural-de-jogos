@@ -8,6 +8,7 @@ import { parseWidgetLine, widgetCycles, widgetDef, widgetLines, withChoice } fro
 import { ICON } from '../icons';
 import { MenuItem, MenuSections } from '../context-menu';
 import { BoardEditor, EdgeEnd } from './board-editor';
+import { DRAG_SLOP } from './camera-rig';
 import { CLIP_TYPE, Clip, classifyPaste, copyPieces, fitFrame, freeSpot, hitEdge, hitPiece, newNode, noteLine, pasteClip, placeGrid, readClip, sizeForLine } from './edit-ops';
 import { SelectionAction } from './edit-overlay';
 import { FreeBoardOwner } from './owner-tools';
@@ -34,6 +35,10 @@ export interface EditingHost {
   fitAll(): void;
   /** Leva a câmera até o ponto (o "Ir até aqui"). */
   goTo(p: Point): void;
+  /** Abre o card do texto inteiro para ler (a folha, sem escrever: PLANO-CAIXAS-DE-TEXTO.md, E2). */
+  read(id: string): void;
+  /** O card do texto esconde alguma coisa agora (o "…", ou desenhado pequeno demais para ler)? */
+  hidesText(id: string): boolean;
 }
 
 /** As cores das cartolinas, na ordem das escolhas do site. */
@@ -143,6 +148,7 @@ export class BoardEditing {
 
   private down(e: PointerEvent): void {
     this.lastPoint = this.world(e);
+    this.downAt = { x: e.clientX, y: e.clientY };
     if (e.pointerType === 'touch') this.startHold(e);
     if (!this.h.editing() || e.button !== 0 || this.own(e.target) || this.shouldPan(e)) return;
     // um gesto por vez: o segundo dedo não começa outro no meio do primeiro
@@ -187,9 +193,25 @@ export class BoardEditing {
     this.ed.up(this.world(e), { x: e.clientX - r.left, y: e.clientY - r.top });
   }
 
+  /** Onde o ponteiro desceu (na tela): o clique que andou mais que isso foi um arrasto da câmera. */
+  private downAt: { x: number; y: number } | null = null;
+
+  /**
+   * O clique no ver: o card do texto que esconde alguma coisa (o "…", ou pequeno demais para ler) abre inteiro para
+   * ler (PLANO-CAIXAS-DE-TEXTO.md, E2). Vale na visita, que monta a mesma peça.
+   */
+  private viewTap(e: MouseEvent): void {
+    const at = this.downAt;
+    if (this.own(e.target) || (at && Math.hypot(e.clientX - at.x, e.clientY - at.y) > DRAG_SLOP)) return;
+    if (e.target instanceof Element && e.target.closest('a, button, input, textarea, label, app-glued-media, app-zoom-knob')) return;
+    const hit = hitPiece(this.nodes(), this.world(e), this.h.camera().z);
+    if (hit?.t === 'x' && this.h.hidesText(hit.i)) this.h.read(hit.i);
+  }
+
   /** O toque curto no editar (a câmera ficou com ele, porque podia virar arrasto): seleciona o que tocou. */
   private tap(e: MouseEvent): void {
-    if (!this.h.editing() || this.own(e.target) || (e as PointerEvent).pointerType !== 'touch') return;
+    if (!this.h.editing()) return this.viewTap(e);
+    if (this.own(e.target) || (e as PointerEvent).pointerType !== 'touch') return;
     const hit = hitPiece(this.nodes(), this.world(e), this.h.camera().z);
     if (hit) this.ed.select([hit.i]);
     else if (!this.ed.multi()) this.ed.clearSelection();
@@ -362,6 +384,11 @@ export class BoardEditing {
   act(a: SelectionAction, anchor: { x: number; y: number }): void {
     const sel = this.ed.selected();
     switch (a) {
+      case 'escrever': {
+        const [node] = this.ed.selectedNodes();
+        if (node) this.edit(node);
+        return;
+      }
       case 'apagar':
         return this.ed.removeSelected();
       case 'duplicar':
@@ -646,6 +673,7 @@ export class BoardEditing {
         if (id && owner) first.push({ id: 'abrir', label: 'Abrir', icon: ICON.anotacoes, run: () => owner.openNote(id) });
       }
       if (parsed?.name === 'imagem') first.push({ id: 'ampliar', label: 'Ampliar', icon: ICON.aumentar, run: () => this.enlarge(hit.i) });
+      if (hit.t === 'x') first.push({ id: 'ler', label: 'Ler o texto inteiro', icon: ICON.card, keys: 'Enter', dialog: true, run: () => this.h.read(hit.i) });
       const text = copyPieces(this.h.board(), new Set([hit.i])).text;
       first.push({ id: 'copiar', label: 'Copiar', icon: ICON.copiar, run: () => void navigator.clipboard?.writeText(text).catch(() => undefined) });
       first.push({ id: 'ir', label: 'Ir até aqui', icon: ICON.alvo, run: () => this.h.goTo(center(hit)) });
@@ -690,7 +718,9 @@ export class BoardEditing {
         },
       });
     } else if (!many) {
-      first.push({ id: 'mexer', label: n.t === 'x' ? 'Escrever' : 'Editar', icon: ICON.editar, run: () => this.edit(n) });
+      first.push({ id: 'mexer', label: n.t === 'x' ? 'Escrever' : 'Editar', icon: ICON.editar, keys: 'Enter', run: () => this.edit(n) });
+      // a altura que o texto pede (maior ou menor), como o "Ajustar ao conteúdo" da moldura
+      if (n.t === 'x') first.push({ id: 'ajustar-texto', label: 'Ajustar ao texto', icon: ICON.card, run: () => this.ed.fitToText(n.i) });
     }
     if (n.t !== 'w' || many) first.push({ id: 'cor', label: 'Cor…', icon: ICON.paleta, dialog: true, run: () => this.reopenColors() });
     const look = !many ? this.lookLabel(n) : null;
@@ -831,6 +861,14 @@ export class BoardEditing {
       return true;
     }
     if (!this.h.editing()) {
+      if (e.key === 'Enter') {
+        const focused = (e.target as HTMLElement | null)?.closest<HTMLElement>('app-free-board-piece')?.dataset['peca'];
+        const n = focused ? this.nodes().find((x) => x.i === focused) : null;
+        if (n?.t === 'x') {
+          this.h.read(n.i);
+          return true;
+        }
+      }
       if ((e.key === 'e' || e.key === 'E') && !e.ctrlKey && !e.metaKey && !e.altKey && this.h.owner()) {
         this.h.toggleEdit(true);
         return true;

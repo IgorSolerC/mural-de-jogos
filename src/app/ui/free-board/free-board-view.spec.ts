@@ -326,8 +326,13 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
       expect(el.querySelectorAll('.anel').length).toBe(1);
       expect(el.querySelectorAll('[data-alca]').length).toBe(8);
       const acoes = el.querySelector<HTMLElement>('.acoes')!;
-      expect([...acoes.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual(['Cor', 'Jeito do card: Nota', 'Tamanho da letra', 'Trazer para frente', 'Mandar para trás', 'Duplicar', 'Apagar']);
+      expect([...acoes.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual(['Escrever', 'Cor', 'Jeito do card: Nota', 'Tamanho da letra', 'Trazer para frente', 'Mandar para trás', 'Duplicar', 'Apagar']);
       expectEtiquetaPadrao(acoes);
+      // o Jeito é o desenho do card (o lápis da Nota parecia "escrever"), e o Escrever abre a folha do card
+      expect(acoes.querySelector('.jeito lucide-icon')!.innerHTML).not.toBe(acoes.querySelector('.escrita lucide-icon')!.innerHTML);
+      acoes.querySelector<HTMLButtonElement>('.escrita')!.click();
+      await settle();
+      expect(fixture.componentInstance.editor.writing()).toEqual({ kind: 'bilhete', id: 'senha' });
     });
 
     it('o tamanho da letra: a etiqueta abre os degraus; a letra muda no card, que cresce até caber; Ctrl+Shift+. e , dão um passo', async () => {
@@ -534,6 +539,129 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
         expect(piece('email')!.getBoundingClientRect().width / 208).toBeCloseTo(0.5, 2);
       });
 
+      const LISBOA = 'O elétrico 28 lota às 10h; ir cedo, antes das 8h, e descer no Largo das Portas do Sol para ver o rio. Depois seguir a pé até a Sé e almoçar por ali.';
+      const dblAt = (x: number, y: number) => visor().dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
+      const nodeOf = (id: string) => changes.at(-1)!.n.find((n) => n.i === id)!;
+
+      it('o card novo nasce sem desenho; com um parágrafo, ele alarga até 312 antes de crescer para baixo, e mostra tudo', async () => {
+        await edit(MANSION);
+        dblAt(640, 560);
+        const s = await sheet();
+        const id = fixture.componentInstance.editor.writing()!.id;
+        expect(piece(id)!.querySelector('.cartao-icone')).toBeNull();
+        expect(s.querySelector('.icone-botao')!.classList).toContain('sem');
+        // o card escrito fica por cima dos vizinhos enquanto cresce (só na tela)
+        expect(piece(id)!.classList).toContain('escrevendo');
+        expect(getComputedStyle(piece(id)!).zIndex).toBe('1');
+        // (a fita do rótulo da seta continua por cima dele)
+        expect(Number(getComputedStyle(el.querySelector('.fita')!).zIndex)).toBeGreaterThan(1);
+        typeIn(s.querySelector<HTMLTextAreaElement>('textarea.titulo')!, 'Lisboa');
+        typeIn(s.querySelector<HTMLTextAreaElement>('app-rich-editor textarea')!, LISBOA);
+        await settle();
+        s.querySelector<HTMLButtonElement>('.faixa .pronto')!.click();
+        await settle();
+        await settle();
+        const n = nodeOf(id);
+        expect(n['ic']).toBe('');
+        expect(n.w).toBe(312);
+        expect(n.h % 26).toBe(0);
+        expect(piece(id)!.classList).not.toContain('escrevendo');
+        expect(piece(id)!.querySelector('.cartao.cortado')).toBeNull();
+      });
+
+      it('o card novo que ganha um desenho e fica vazio some inteiro: o desfazer não traz de volta um card vazio', async () => {
+        await edit(MANSION);
+        dblAt(640, 560);
+        const s = await sheet();
+        const id = fixture.componentInstance.editor.writing()!.id;
+        s.querySelector<HTMLButtonElement>('.icone-botao')!.click();
+        await settle();
+        s.querySelector<HTMLButtonElement>('dialog.cartela-de-icones .op[aria-label="Estrela"]')!.click();
+        await settle();
+        expect(piece(id)!.querySelector('.cartao-icone')).not.toBeNull();
+        s.querySelector<HTMLButtonElement>('.faixa .pronto')!.click();
+        await settle();
+        expect(changes.at(-1)!.n.some((n) => n.i === id)).toBeFalse();
+        key('z', { ctrlKey: true });
+        await settle();
+        expect(changes.at(-1)!.n.some((n) => n.i === id)).toBeFalse();
+      });
+
+      it('o card novo só com o título fica da altura da faixa (sem a metade de papel vazio); os de antes não mudam sozinhos', async () => {
+        await edit(MANSION);
+        dblAt(640, 560);
+        const s = await sheet();
+        const id = fixture.componentInstance.editor.writing()!.id;
+        typeIn(s.querySelector<HTMLTextAreaElement>('textarea.titulo')!, 'Só o título');
+        s.querySelector<HTMLButtonElement>('.faixa .pronto')!.click();
+        await settle();
+        const n = nodeOf(id);
+        expect(n.h).toBeLessThan(104);
+        expect(n.h % 26).toBe(0);
+        expect(n.w).toBe(208);
+        // o de antes, escrito de novo, fica do tamanho que tinha
+        fixture.componentInstance.editor.writing.set({ kind: 'bilhete', id: 'senha' });
+        const again = await sheet();
+        typeIn(again.querySelector<HTMLTextAreaElement>('textarea.titulo')!, 'Senha!');
+        again.querySelector<HTMLButtonElement>('.faixa .pronto')!.click();
+        await settle();
+        expect(nodeOf('senha')).toEqual(jasmine.objectContaining({ w: 182, h: 104 }));
+      });
+
+      it('aberto num card com texto, o cursor vai para o fim do texto', async () => {
+        await edit(board([{ i: 'mala', t: 'x', x: 0, y: 0, w: 208, h: 156, txt: 'Mala\n- passaporte\n- casaco' }]));
+        fixture.componentInstance.editor.writing.set({ kind: 'bilhete', id: 'mala' });
+        await sheet();
+        await settle();
+        const body = document.activeElement as HTMLTextAreaElement;
+        expect(body.matches('app-rich-editor textarea')).toBeTrue();
+        expect(body.value).toBe('- passaporte\n- casaco');
+        expect(body.selectionStart).toBe(body.value.length);
+      });
+
+      it('o desenho da faixa: na folha ele abre a cartela; o escolhido vai para o card (um passo no desfazer) e "Sem ícone" tira', async () => {
+        await edit(MANSION);
+        const ed = fixture.componentInstance.editor;
+        // o card de antes (sem o campo) mostra o desenho do jeito, e a cartela marca o mesmo (o lápis da Nota)
+        ed.writing.set({ kind: 'bilhete', id: 'senha' });
+        const s = await sheet();
+        const btn = () => s.querySelector<HTMLButtonElement>('.icone-botao')!;
+        const chart = () => s.querySelector<HTMLDialogElement>('dialog.cartela-de-icones');
+        expect(btn().classList).not.toContain('sem');
+        expect(btn().getAttribute('aria-label')).toBe('Trocar o ícone do card');
+        expect(piece('senha')!.querySelector('.cartao-icone')).not.toBeNull();
+        btn().click();
+        await settle();
+        expect(chart()!.open).toBeTrue();
+        expect(chart()!.querySelector('[aria-checked="true"]')!.getAttribute('aria-label')).toBe('Lápis');
+        chart()!.querySelector<HTMLButtonElement>('.foot .sem')!.click();
+        await settle();
+        expect(nodeOf('senha')['ic']).toBe('');
+        expect(piece('senha')!.querySelector('.cartao-icone')).toBeNull();
+        // sem desenho: o recorte vazio com o "+", e o foco volta para ele
+        expect(btn().classList).toContain('sem');
+        expect(btn().getAttribute('aria-label')).toBe('Pôr um ícone no card');
+        expect(document.activeElement).toBe(btn());
+        btn().click();
+        await settle();
+        chart()!.querySelector<HTMLButtonElement>('.op[aria-label="Estrela"]')!.click();
+        await settle();
+        expect(nodeOf('senha')['ic']).toBe('estrela');
+        expect(piece('senha')!.querySelector('.cartao-icone')).not.toBeNull();
+        expect(chart()).toBeNull();
+        // a folha continua aberta: o escrito vai junto no Pronto
+        typeIn(s.querySelector<HTMLTextAreaElement>('textarea.titulo')!, 'Senha do cofre');
+        s.querySelector<HTMLButtonElement>('.faixa .pronto')!.click();
+        await settle();
+        expect(nodeOf('senha')).toEqual(jasmine.objectContaining({ txt: 'Senha do cofre', ic: 'estrela' }));
+        key('z', { ctrlKey: true });
+        await settle();
+        expect(nodeOf('senha')).toEqual(jasmine.objectContaining({ txt: 'Senha?', ic: 'estrela' }));
+        key('z', { ctrlKey: true });
+        await settle();
+        expect(nodeOf('senha')['ic']).toBe('');
+      });
+
       it('sair do editar com a folha aberta guarda o que foi escrito', async () => {
         await edit(MANSION);
         fixture.componentInstance.editor.writing.set({ kind: 'bilhete', id: 'senha' });
@@ -544,6 +672,30 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
         expect(txtOf('senha')).toBe('Senha?!');
         expect(el.querySelector('app-free-board-text-sheet')).toBeNull();
       });
+    });
+
+    it('"Ajustar ao texto" no botão direito do card: a altura que o texto pede, em furos, maior ou menor', async () => {
+      await edit(
+        board([
+          { i: 'alto', t: 'x', x: 0, y: 0, w: 208, h: 312, txt: 'Só o título' },
+          { i: 'baixo', t: 'x', x: 260, y: 0, w: 208, h: 52, txt: 'Lista\n- um\n- dois\n- três\n- quatro' },
+        ]),
+      );
+      visor().dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 120, clientY: 40 }));
+      await settle();
+      const item = [...document.querySelectorAll<HTMLElement>('.menu-contexto [role="menuitem"]')].find((i) => i.textContent!.includes('Ajustar ao texto'));
+      expect(item).withContext('o item no menu').toBeDefined();
+      item!.click();
+      await settle();
+      const alto = changes.at(-1)!.n.find((n) => n.i === 'alto')!;
+      expect(alto.h).toBeLessThan(104);
+      expect(alto.h % 26).toBe(0);
+      fixture.componentInstance.editor.fitToText('baixo');
+      await settle();
+      const baixo = changes.at(-1)!.n.find((n) => n.i === 'baixo')!;
+      expect(baixo.h).toBeGreaterThan(52);
+      expect(baixo.h % 26).toBe(0);
+      expect(piece('baixo')!.querySelector('.cartao.cortado')).toBeNull();
     });
 
     it('a régua das ferramentas e o zoom são etiquetas de tinta separadas, em grupos tortos; a ligada é a amarela', async () => {
@@ -596,6 +748,61 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
       expect(items.some((t) => t.startsWith('Ver tudo'))).toBeTrue();
       expect(items.some((t) => t.startsWith('Editar o quadro'))).toBeTrue();
     });
+  });
+
+  it('no ver, o card com "…" abre inteiro para ler (o clique ou o Enter); o Fechar e o Esc fecham; o que mostra tudo não abre', async () => {
+    const long = 'O elétrico 28 lota às 10h; ir cedo, antes das 8h, e descer no Largo das Portas do Sol para ver o rio. Depois seguir a pé até a Sé.';
+    await open(
+      board([
+        { i: 'longo', t: 'x', x: 0, y: 0, w: 208, h: 104, txt: `Lisboa\n${long}` },
+        { i: 'curto', t: 'x', x: 260, y: 0, w: 208, h: 104, txt: 'Curto' },
+        { i: 'titulo', t: 'x', x: 520, y: 0, w: 130, h: 156, txt: 'Um título bem comprido que não cabe em três linhas desta caixa estreita de jeito nenhum\ncorpo' },
+      ]),
+    );
+    const visor = el.querySelector<HTMLElement>('.visor')!;
+    const tapAt = async (x: number, y: number) => {
+      for (const type of ['pointerdown', 'pointerup']) visor.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, clientX: x + 20, clientY: y + 20, pointerId: 4, pointerType: 'mouse', button: 0 }));
+      visor.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: x + 20, clientY: y + 20 }));
+      await fixture.whenStable();
+    };
+    const reader = async () => {
+      for (let i = 0; i < 100; i++) {
+        await fixture.whenStable();
+        const s = el.querySelector<HTMLElement>('app-free-board-text-sheet');
+        if (s?.querySelector('.titulo.lido')) return s;
+        await sleep(10);
+      }
+      return null;
+    };
+    expect(piece('longo')!.querySelector('.cartao.cortado')).not.toBeNull();
+    await tapAt(360, 50);
+    await sleep(50);
+    expect(el.querySelector('app-free-board-text-sheet')).toBeNull();
+    await tapAt(100, 50);
+    let s = (await reader())!;
+    expect(s).not.toBeNull();
+    // só para ler: o título, o texto inteiro (o que o card escondia), o Fechar no lugar do Pronto, sem campos
+    expect(s.querySelector('.titulo.lido')!.textContent!.trim()).toBe('Lisboa');
+    expect(s.querySelector('.texto-lido')!.textContent).toContain('até a Sé.');
+    expect(s.querySelector('textarea, app-rich-editor')).toBeNull();
+    expect(document.activeElement).toBe(s.querySelector('.pronto'));
+    s.querySelector<HTMLButtonElement>('.pronto')!.click();
+    await frames();
+    await fixture.whenStable();
+    expect(el.querySelector('app-free-board-text-sheet')).toBeNull();
+    expect(document.activeElement).toBe(piece('longo'));
+    // o Enter na peça com o foco abre; o Esc fecha
+    piece('longo')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    s = (await reader())!;
+    expect(s).not.toBeNull();
+    s.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    await fixture.whenStable();
+    expect(el.querySelector('app-free-board-text-sheet')).toBeNull();
+    // o título cortado pela linha presa (o corpo cabe) também esconde texto: abre
+    await tapAt(580, 20);
+    s = (await reader())!;
+    expect(s).not.toBeNull();
+    expect(s.querySelector('.titulo.lido')!.textContent).toContain('de jeito nenhum');
   });
 
   it('Ver em lista: o L abre o quadro em texto; tocar num item leva até a peça; o Esc fecha só a lista', async () => {
