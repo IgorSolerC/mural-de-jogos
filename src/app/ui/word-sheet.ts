@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, input, output, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, input, output, signal, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { DICTIONARY_PATH } from '../core/areas';
 import { Word } from '../core/dictionary/dictionary';
@@ -6,6 +6,8 @@ import { BackdropClose } from './backdrop-close';
 import { loadKleeOne } from './font-sheet';
 import { ICON, IconModule } from './icons';
 import { WordEntry } from './word-entry';
+import { WordConjugations } from './word-conjugations';
+import { FormId } from '../core/dictionary/conjugation';
 
 /**
  * "No dicionário" (PLANO-DICIONARIO.md, 4.3): a folhinha que a seleção de um trecho da leitura abre quando ele é uma
@@ -15,7 +17,7 @@ import { WordEntry } from './word-entry';
  */
 @Component({
   selector: 'app-word-sheet',
-  imports: [BackdropClose, IconModule, RouterLink, WordEntry],
+  imports: [BackdropClose, IconModule, RouterLink, WordConjugations, WordEntry],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet folha-palavra" aria-labelledby="ws-titulo" (close)="closed.emit()" (backdropClose)="close()">
@@ -31,7 +33,7 @@ import { WordEntry } from './word-entry';
         </header>
         <ul class="verbetes" role="list">
           @for (w of words(); track w.id) {
-            <li app-word-entry [word]="w"></li>
+            <li app-word-entry [word]="w" (conjugate)="conjugating.set($event)"></li>
           }
         </ul>
         <footer class="pe">
@@ -42,6 +44,10 @@ import { WordEntry } from './word-entry';
         </footer>
       </div>
     </dialog>
+    <!-- as conjugações do verbo, por cima da folhinha -->
+    @if (conjugating(); as c) {
+      <app-word-conjugations [word]="c.word" [form]="c.form" (closed)="conjugating.set(null)" />
+    }
   `,
   styles: `
     @use 'folha-arroz' as arroz;
@@ -117,6 +123,8 @@ export class WordSheet {
   protected readonly GoIcon = ICON.ir;
   protected readonly path = DICTIONARY_PATH;
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
+  /** O verbo com a folha de conjugações aberta por cima, e a forma em que ela abre. */
+  protected readonly conjugating = signal<{ word: Word; form: FormId | null } | null>(null);
 
   constructor() {
     loadKleeOne();

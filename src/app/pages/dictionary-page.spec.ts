@@ -186,6 +186,27 @@ describe('o Dicionário Japonês', () => {
     expect(dictionaryWords().words.find((w) => w.id === id)?.text).toBe('食べ物');
   });
 
+  it('o verbete de um verbo tem as Conjugações, que abrem a folha dele; o que não é verbo não tem (PLANO-CONJUGACOES.md)', async () => {
+    await open('/extras/dicionario?q=iku');
+    const iku = [...host.querySelectorAll('.verbete')].find((v) => v.querySelector('.romaji')?.textContent?.trim() === 'iku')!;
+    const noun = [...host.querySelectorAll('.verbete')].find((v) => v.getAttribute('data-familia') === 'nome');
+    expect(noun?.querySelector('.conjugar') ?? null).toBeNull();
+    iku.querySelector<HTMLButtonElement>('.conjugar')!.click();
+    for (let i = 0; i < 40 && !host.querySelector('app-word-conjugations dialog[open]'); i++) {
+      await new Promise((r) => setTimeout(r, 20));
+      await settle();
+    }
+    const sheet = host.querySelector('app-word-conjugations')!;
+    expect(sheet.querySelector('.verbo rt')!.textContent).toBe('いく');
+    expect(sheet.querySelectorAll('.forma').length).toBe(33);
+    sheet.querySelector<HTMLDialogElement>('dialog')!.close();
+    for (let i = 0; i < 40 && host.querySelector('app-word-conjugations'); i++) {
+      await new Promise((r) => setTimeout(r, 20));
+      await settle();
+    }
+    expect(host.querySelector('app-word-conjugations')).toBeNull();
+  });
+
   it('a busca que acha a palavra pelas ligadas marca o cartãozinho em que achou', async () => {
     await open('/extras/dicionario?q=これから');
     // o realce entra um quadro depois das fichas

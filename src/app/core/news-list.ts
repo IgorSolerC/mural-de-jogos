@@ -27,6 +27,18 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-26-conjugacoes',
+    version: '1.57.0',
+    kind: 'funcionalidade',
+    date: '2026-11-26',
+    title: 'As conjugações dos verbos no Dicionário Japonês',
+    notice: 'Novo: todas as conjugações de cada verbo do Dicionário Japonês, com o uso e um exemplo.',
+    until: '2026-12-10',
+    items: [
+      'Cada verbo do Dicionário Japonês tem o botão Conjugações (活), no verbete e na folhinha "No dicionário": uma tabela com as 33 formas, nos grupos Tempos básicos, Forma -te, Desejativa, Formas modais e vozes e Condicionais, com a informal e a polida lado a lado, a leitura embaixo e, em vermelho, o pedaço que muda. Tocar numa forma mostra para que ela serve e um exemplo com a tradução, e o ouvir dela.',
+    ],
+  },
+  {
     id: '2026-11-26-treino-dicionario',
     version: '1.56.0',
     kind: 'funcionalidade',

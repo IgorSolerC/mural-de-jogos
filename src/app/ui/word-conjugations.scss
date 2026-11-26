@@ -1,0 +1,413 @@
+@use 'folha-arroz' as arroz;
+@use 'paper-kit' as kit;
+
+/*
+ * As conjugações de um verbo (ui/word-conjugations.ts): a folhinha de papel de arroz do dicionário, o verbo na faixa
+ * vinho do verbete e a tabela consolidada: o radical a tinta e o que muda no tom dos verbos.
+ */
+
+:host {
+  /* os dois tons dos verbos no verbete (ui/word-entry.scss): a faixa e o da palavra nas frases */
+  --faixa: var(--stock-rosa-escuro);
+  --tom: #b42a20;
+  --creme: #f3ece0;
+  --creme-2: rgb(243 236 224 / 0.74);
+  --dic-letra: 'Klee One', var(--f-carta-palavra);
+  /* a coluna do nome das linhas */
+  --nome: 10.5rem;
+}
+
+.folha-conjugacoes {
+  width: min(720px, calc(100vw - 24px));
+  max-width: none;
+}
+.papel {
+  @include arroz.papel;
+}
+.cab {
+  @include arroz.cab;
+}
+.titulo {
+  @include arroz.titulo;
+}
+.hanko {
+  @include arroz.hanko;
+}
+.fechar {
+  @include arroz.fechar;
+}
+
+.corpo {
+  padding: 14px 22px 22px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  /* o índice fica em cima enquanto rola: o grupo não some debaixo dele */
+  scroll-padding-top: 72px;
+}
+
+/* ===== O verbo, na faixa do verbete ===== */
+
+.verbo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 10px 16px 11px;
+  border-radius: 5px;
+  background: var(--faixa);
+  color: var(--creme);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.18),
+    0 6px 14px -8px rgb(0 0 0 / 0.45);
+}
+.palavra {
+  font-family: var(--dic-letra);
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1.15;
+
+  rt {
+    font-size: 0.42em;
+    font-weight: 400;
+    color: var(--creme-2);
+  }
+}
+.romaji {
+  font-family: var(--f-label);
+  font-weight: 600;
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+  color: var(--creme-2);
+}
+.sobre {
+  display: grid;
+  margin-left: auto;
+  text-align: right;
+}
+.sentido {
+  font-family: var(--f-hand);
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+.grupo-verbo {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--creme-2);
+}
+
+/* ===== O índice dos grupos ===== */
+
+.indice {
+  position: sticky;
+  top: -14px;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 -22px;
+  padding: 12px 22px 10px;
+  background: #f6f0e1;
+  box-shadow: 0 1px 0 rgb(21 21 21 / 0.08);
+}
+.ir {
+  @include kit.adesivo-escolha;
+  min-height: 34px;
+  padding: 5px 10px 4px;
+  font-size: 0.74rem;
+}
+
+/* ===== Os grupos ===== */
+
+.grupo + .grupo {
+  margin-top: 20px;
+}
+.grupo-nome {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0 4px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--tom);
+
+  &::after {
+    content: '';
+    flex: 1;
+    border-top: 1px solid color-mix(in srgb, var(--tom) 30%, transparent);
+  }
+}
+
+.colunas,
+.linha {
+  display: grid;
+  grid-template-columns: var(--nome) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px 8px;
+}
+.colunas {
+  padding: 2px 0 4px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgb(21 21 21 / 0.56);
+
+  span {
+    padding-left: 10px;
+  }
+}
+.linha {
+  align-items: stretch;
+  padding: 5px 0;
+  border-top: 1px dashed rgb(21 21 21 / 0.14);
+}
+.nome {
+  display: grid;
+  align-content: center;
+  margin: 0;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.92rem;
+  line-height: 1.15;
+}
+.sub {
+  font-family: var(--f-hand);
+  font-weight: 400;
+  font-size: 0.86rem;
+  color: rgb(21 21 21 / 0.64);
+}
+
+/* cada forma: o cartãozinho das palavras ligadas do verbete; o radical a tinta, o que muda no tom */
+.forma {
+  display: grid;
+  align-content: center;
+  gap: 1px;
+  min-height: 48px;
+  padding: 5px 10px 6px;
+  border: 0;
+  border-top: 2px solid color-mix(in srgb, var(--tom) 55%, transparent);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--tom) 6%, transparent);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    color var(--t-ui) var(--ease-ui),
+    translate var(--t-ui) var(--ease-ui);
+
+  &:hover:not([aria-expanded='true']) {
+    background: color-mix(in srgb, var(--tom) 13%, transparent);
+    translate: 0 -1px;
+  }
+  &:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+  /* aberta: a faixa vinho do verbete, com o que muda no creme quente */
+  &[aria-expanded='true'] {
+    border-top-color: var(--faixa);
+    background: var(--faixa);
+    color: var(--creme);
+
+    b {
+      color: #ffd9a8;
+    }
+    .leitura,
+    .etiqueta {
+      color: var(--creme-2);
+    }
+  }
+}
+.escrita {
+  font-family: var(--dic-letra);
+  font-size: 1.2rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+
+  b {
+    font-weight: 600;
+    color: var(--tom);
+  }
+}
+.leitura {
+  font-family: var(--dic-letra);
+  font-size: 0.74rem;
+  line-height: 1.2;
+  color: rgb(21 21 21 / 0.6);
+  overflow-wrap: anywhere;
+}
+.etiqueta {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--tom);
+}
+.nao-usa {
+  display: grid;
+  align-items: center;
+  padding-left: 10px;
+  font-family: var(--dic-letra);
+  color: rgb(21 21 21 / 0.42);
+}
+
+/* ===== O uso e o exemplo ===== */
+
+.detalhe {
+  margin: 2px 0 8px calc(var(--nome) + 8px);
+  padding: 11px 14px 12px;
+  border: 1px solid color-mix(in srgb, var(--tom) 28%, transparent);
+  border-radius: 4px;
+  background: #fbf8ef;
+  box-shadow: 0 6px 14px -10px rgb(0 0 0 / 0.4);
+  animation: abre var(--t-ui) var(--ease-ui);
+}
+@keyframes abre {
+  from {
+    opacity: 0;
+    translate: 0 -4px;
+  }
+}
+.det-cab {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+.det-forma {
+  font-family: var(--dic-letra);
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.det-leitura {
+  font-family: var(--dic-letra);
+  font-size: 0.95rem;
+  color: rgb(21 21 21 / 0.64);
+}
+.det-tags {
+  margin: 4px 0 0;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--tom);
+}
+.det-uso {
+  margin: 6px 0 0;
+  font-family: var(--f-hand);
+  font-size: 1rem;
+  line-height: 1.38;
+  color: rgb(21 21 21 / 0.82);
+}
+/* o exemplo: a caixinha das frases do verbete */
+.det-ex {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0 8px;
+  margin: 10px 0 0;
+  padding: 7px 10px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--tom) 7%, transparent);
+}
+.ex-rotulo {
+  grid-row: span 2;
+  padding-top: 3px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.74rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tom);
+}
+.frase {
+  font-family: var(--dic-letra);
+  font-size: 1.04rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+
+  b {
+    font-weight: 600;
+    color: var(--tom);
+  }
+}
+.traducao {
+  font-family: var(--f-hand);
+  font-size: 0.94rem;
+  line-height: 1.25;
+  color: rgb(21 21 21 / 0.72);
+}
+
+/* ===== No celular: o nome da linha em cima, o par embaixo ===== */
+
+@media (max-width: 560px) {
+  .corpo {
+    padding-inline: 14px;
+  }
+  /* o índice numa linha só, que rola de lado: em duas, cobriria o nome do grupo ao pular */
+  .indice {
+    flex-wrap: nowrap;
+    margin-inline: -14px;
+    padding-inline: 14px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .ir {
+    flex: none;
+  }
+  .cab {
+    padding-left: 16px;
+  }
+  .colunas,
+  .linha {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .colunas span:first-child {
+    display: none;
+  }
+  .nome {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 6px;
+  }
+  .detalhe {
+    margin-left: 0;
+  }
+  /* as formas compridas (行きませんでした) cabem na metade da linha */
+  .forma {
+    padding-inline: 8px;
+  }
+  .escrita {
+    font-size: 1.06rem;
+  }
+  .sobre {
+    margin-left: 0;
+    text-align: left;
+    flex-basis: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .forma {
+    transition: none;
+
+    &:hover:not([aria-expanded='true']) {
+      translate: none;
+    }
+  }
+  .detalhe {
+    animation: none;
+  }
+}

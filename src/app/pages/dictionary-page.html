@@ -201,7 +201,7 @@
             @for (w of s.words; track w.id) {
               <li class="lugar-verbete" appPerto #perto="perto" appPertoMede="verbete" [appPertoId]="w.id">
                 @if (perto.near()) {
-                  <div class="verbete" app-word-entry [word]="w" [drawable]="true" (draw)="openBoard($event)"></div>
+                  <div class="verbete" app-word-entry [word]="w" [drawable]="true" (draw)="openBoard($event)" (conjugate)="conjugating.set($event)"></div>
                 } @else {
                   <div class="vaga-verbete" data-vaga tabindex="0" [style.height.px]="entryHeight(w)" (focus)="enterVaga(perto, $event)">
                     <span class="sr-only"><span lang="ja">{{ w.text }}</span>, {{ w.meaning }}</span>
@@ -224,6 +224,13 @@
 @if (boardWord(); as b) {
   @defer (on immediate) {
     <app-word-board [word]="b.word" [hasPrev]="b.index > 0" [hasNext]="b.index >= 0 && b.index < shown().length - 1" (step)="stepBoard($event)" (goto)="gotoBoard($event)" (closed)="closeBoard()" />
+  }
+}
+
+<!-- as conjugações de um verbo (num pedaço à parte, só quando abre) -->
+@if (conjugating(); as c) {
+  @defer (on immediate) {
+    <app-word-conjugations [word]="c.word" [form]="c.form" (closed)="closeConjugations()" />
   }
 }
 

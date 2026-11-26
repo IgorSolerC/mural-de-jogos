@@ -1,0 +1,107 @@
+<dialog #dialog class="sheet folha-conjugacoes" aria-labelledby="cj-titulo" (close)="closed.emit()" (backdropClose)="close()">
+  <div class="papel">
+    <header class="cab">
+      <p class="titulo" id="cj-titulo">
+        <span class="hanko" lang="ja" aria-hidden="true">活用</span>
+        <span>Conjugações</span><span class="sr-only"> de {{ word().text }}</span>
+      </p>
+      <button type="button" class="fechar" aria-label="Fechar" (click)="close()">
+        <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
+      </button>
+    </header>
+
+    <div class="corpo" #corpo>
+      <!-- o verbo na faixa vinho do verbete -->
+      <div class="verbo">
+        <span class="palavra" lang="ja">
+          @if (ruby()) {
+            <ruby>{{ word().text }}<rp>(</rp><rt>{{ word().reading }}</rt><rp>)</rp></ruby>
+          } @else {
+            {{ word().text }}
+          }
+        </span>
+        <span class="romaji">{{ word().romaji }}</span>
+        <app-word-voice [word]="word()" [dark]="true" />
+        <span class="sobre">
+          <span class="sentido">{{ word().meaning }}</span>
+          <span class="grupo-verbo">{{ group() }} · {{ count() }} formas</span>
+        </span>
+      </div>
+
+      <!-- os cinco grupos da nota: o índice rola até cada um -->
+      <nav class="indice" aria-label="Grupos de conjugação">
+        @for (g of table(); track g.id) {
+          <button type="button" class="ir" (click)="jump(g.id)">{{ g.short }}</button>
+        }
+      </nav>
+
+      @for (g of table(); track g.id) {
+        <section class="grupo" [id]="'cj-' + g.id" [attr.aria-labelledby]="'cj-nome-' + g.id">
+          <h3 class="grupo-nome" [id]="'cj-nome-' + g.id">{{ g.title }}</h3>
+          @if (g.cols.length) {
+            <div class="colunas" aria-hidden="true">
+              <span></span>
+              @for (c of g.cols; track c) {
+                <span>{{ c }}</span>
+              }
+            </div>
+          }
+          @for (r of g.rows; track $index) {
+            <div class="linha">
+              <p class="nome">
+                {{ r.label }}
+                @if (r.sub) {
+                  <span class="sub">{{ r.sub }}</span>
+                }
+              </p>
+              @for (c of r.cells; track $index) {
+                @if (!c) {
+                  <span class="vaga" aria-hidden="true"></span>
+                } @else if (!c.form) {
+                  <span class="nao-usa" title="Não se usa neste verbo"><span aria-hidden="true">—</span><span class="sr-only">{{ r.label }} {{ r.sub }}: não se usa neste verbo</span></span>
+                } @else {
+                  <button
+                    type="button"
+                    class="forma"
+                    [attr.data-forma]="c.id"
+                    [attr.aria-expanded]="open() === c.id"
+                    [attr.aria-controls]="open() === c.id ? 'cj-detalhe' : null"
+                    [attr.aria-label]="cellLabel(c)"
+                    (click)="toggle(c.id)"
+                  >
+                    <span class="escrita" lang="ja">{{ c.stem }}<b>{{ c.tail }}</b></span>
+                    @if (c.reading) {
+                      <span class="leitura" lang="ja">{{ c.reading }}</span>
+                    }
+                    @if (c.tag) {
+                      <span class="etiqueta">{{ c.tag }}</span>
+                    }
+                  </button>
+                }
+              }
+            </div>
+            <!-- o uso e o exemplo da forma aberta, logo embaixo da linha dela -->
+            @if (rowOpen(r) && detail(); as d) {
+              <div class="detalhe" id="cj-detalhe" role="region" [attr.aria-label]="d.text + ': uso e exemplo'">
+                <div class="det-cab">
+                  <span class="det-forma" lang="ja">{{ d.text }}</span>
+                  @if (d.reading) {
+                    <span class="det-leitura" lang="ja">{{ d.reading }}</span>
+                  }
+                  <app-word-voice [word]="d.voice" [small]="true" [label]="'Ouvir ' + d.text" />
+                </div>
+                <p class="det-tags">{{ d.tags }}</p>
+                <p class="det-uso">{{ d.use }}</p>
+                <p class="det-ex">
+                  <span class="ex-rotulo">Ex:</span>
+                  <span class="frase" lang="ja">@for (p of d.example; track $index) {@if (p.mark) {<b>{{ p.text }}</b>} @else {<ng-container>{{ p.text }}</ng-container>}}</span>
+                  <span class="traducao">{{ d.pt }}</span>
+                </p>
+              </div>
+            }
+          }
+        </section>
+      }
+    </div>
+  </div>
+</dialog>

@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, input, output, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { MONTHS_SHORT } from '../core/dates';
+import { Conjugated, FormId, isConjugable } from '../core/dictionary/conjugation';
 import { Word, classFamily, exampleParts, examplePlain, facetLabel, relatedWords } from '../core/dictionary/dictionary';
 import { hasKanji } from '../core/dictionary/kana';
 import { DictionaryMarks } from '../core/dictionary/marks-store';
@@ -38,7 +39,9 @@ export function entryHeightGuess(w: Word, width: number): number {
       (w.origin ? 22 + 202 * per(w.origin.length + 9) : 0) +
       155 * per(w.meaning.length) +
       (related ? 74 + 373 * per(related) : 0) +
-      162 * per(grammarOf(w).length + registers),
+      162 * per(grammarOf(w).length + registers) +
+      // o botão das conjugações dos verbos
+      (isConjugable(w) ? 50 : 0),
   );
 }
 
@@ -56,7 +59,7 @@ export function entryHeightGuess(w: Word, width: number): number {
   selector: '[app-word-entry]',
   imports: [NgTemplateOutlet, WordVoice],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { '[attr.data-familia]': 'family()' },
+  host: { '[attr.data-familia]': 'family()', '[attr.data-palavra]': 'word().id' },
   template: `
     @let w = word();
     <div class="faixa">
@@ -117,6 +120,13 @@ export function entryHeightGuess(w: Word, width: number): number {
       </button>
     </div>
     <div class="miolo">
+      <!-- achada por uma forma conjugada (a busca, a seleção): o porquê, e o caminho para as conjugações nela -->
+      @if (found(); as f) {
+        <button type="button" class="achada" [attr.aria-label]="'Achada por ' + f.text + ', ' + f.form.tags + ': ver nas conjugações'" (click)="conjugate.emit({ word: w, form: f.form.id })">
+          <span class="achada-forma" lang="ja">{{ f.text }}</span>
+          <span class="achada-tags">{{ f.form.tags }}</span>
+        </button>
+      }
       <p class="sentido">{{ w.meaning }}</p>
       <p class="gramatica">
         {{ grammar() }}
@@ -124,6 +134,13 @@ export function entryHeightGuess(w: Word, width: number): number {
           <span class="registro">· {{ r }}</span>
         }
       </p>
+      <!-- os verbos: a tabela de conjugações (活用, katsuyō) -->
+      @if (conjugable()) {
+        <button type="button" class="conjugar" [attr.aria-label]="'Conjugações de ' + w.text" (click)="conjugate.emit({ word: w, form: null })">
+          <span class="selo" lang="ja" aria-hidden="true">活</span>
+          Conjugações
+        </button>
+      }
       <!-- as frases, cada uma numa caixinha no tom da classe: o japonês a lápis com a palavra marcada e a tradução embaixo -->
       @if (w.examples.length) {
         <ol class="frases" aria-label="Exemplos">
@@ -191,6 +208,10 @@ export class WordEntry {
   /** A palavra é o botão que abre a lousa (na página do dicionário), e as ligadas que estão no dicionário também. */
   readonly drawable = input(false);
   readonly draw = output<Word>();
+  /** A forma conjugada que achou a palavra (a busca, a seleção da leitura): a tira no topo do papel. */
+  readonly found = input<Conjugated | null>(null);
+  /** As conjugações do verbo, abertas numa forma ou não: quem mostra o verbete abre a folha (ui/word-conjugations.ts). */
+  readonly conjugate = output<{ word: Word; form: FormId | null }>();
 
   /** A família de cor da classe, no `data-familia` do cartão (o SCSS dá a faixa e o tom de cada uma). */
   protected readonly family = computed(() => classFamily(this.word().wordClass));
@@ -198,6 +219,8 @@ export class WordEntry {
   protected readonly related = computed(() => relatedWords(this.word().composition, dictionaryWords().byText, this.word().id));
   /** As frases em pedaços, com a palavra marcada. */
   protected readonly examples = computed(() => this.word().examples.map((e) => ({ parts: exampleParts(e.ja), pt: e.pt })));
+  /** O verbo conjuga: o botão das conjugações. */
+  protected readonly conjugable = computed(() => isConjugable(this.word()));
   /** A leitura vai em furigana por cima só quando a palavra tem kanji. */
   protected readonly ruby = computed(() => hasKanji(this.word().text) && this.word().text !== this.word().reading);
   protected readonly jlpt = computed(() => facetLabel('jlpt', this.word().jlpt));

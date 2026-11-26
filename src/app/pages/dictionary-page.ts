@@ -41,6 +41,8 @@ import { NearPool, NearScreen } from '../ui/near-screen';
 import { ThumbIndex, ThumbRow } from '../ui/thumb-index';
 import { Toasts } from '../ui/toast';
 import { WordBoard } from '../ui/word-board';
+import { WordConjugations } from '../ui/word-conjugations';
+import { FormId } from '../core/dictionary/conjugation';
 import { WordDrill } from '../ui/word-drill';
 import { DrillStart, WordDrillSetup } from '../ui/word-drill-setup';
 import { DRILL_WAYS, DrillWay } from '../core/dictionary/drill';
@@ -120,7 +122,7 @@ function rowGuessOf(w: Word): number {
  */
 @Component({
   selector: 'app-dictionary-page',
-  imports: [FacetFilters, FilterTags, IconModule, NearScreen, Pin, SearchHighlight, SearchStrip, SectionHead, ThumbIndex, WordBoard, WordDrill, WordDrillSetup, WordEntry, WordSeals, WordVoice],
+  imports: [FacetFilters, FilterTags, IconModule, NearScreen, Pin, SearchHighlight, SearchStrip, SectionHead, ThumbIndex, WordBoard, WordConjugations, WordDrill, WordDrillSetup, WordEntry, WordSeals, WordVoice],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './dictionary-page.html',
   styleUrl: './dictionary-page.scss',
@@ -537,6 +539,22 @@ export class DictionaryPage {
     const b = this.boardWord();
     const next = b && b.index >= 0 ? this.shown()[b.index + delta] : undefined;
     if (next) this.go({ word: next.id });
+  }
+
+  /* ===== As conjugações (PLANO-CONJUGACOES.md) ===== */
+
+  /** O verbo com a folha de conjugações aberta, e a forma em que ela abre. */
+  protected readonly conjugating = signal<{ word: Word; form: FormId | null } | null>(null);
+
+  /**
+   * A folha fechou: o foco volta ao botão do verbete. A página por trás pode ter rolado com a folha aberta, e o verbete
+   * longe sai da tela (ui/near-screen.ts): aí o foco iria para o nada, e volta ao verbete montado, se ainda estiver.
+   */
+  protected closeConjugations(): void {
+    const id = this.conjugating()?.word.id;
+    this.conjugating.set(null);
+    const lost = !document.activeElement || document.activeElement === document.body || !document.activeElement.isConnected;
+    if (id && lost) this.host.nativeElement.querySelector<HTMLElement>(`[data-palavra="${id}"] .conjugar`)?.focus({ preventScroll: true });
   }
 
   /* ===== O Treino (PLANO-TREINO-DICIONARIO.md) ===== */
