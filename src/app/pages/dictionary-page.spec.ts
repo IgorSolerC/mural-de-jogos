@@ -37,9 +37,9 @@ describe('o Dicionário Japonês', () => {
   const heads = () => [...host.querySelectorAll('app-section-head .nome')].map((h) => h.textContent!.trim());
   const button = (label: string) => [...host.querySelectorAll<HTMLButtonElement>('button')].find((b) => (b.getAttribute('aria-label') ?? b.textContent!.trim()) === label)!;
 
-  it('mostra as 1449 palavras na ordem de estudo, em seções pela importância', async () => {
+  it('mostra as 1450 palavras na ordem de estudo, em seções pela importância', async () => {
     await open('/extras/dicionario');
-    expect(host.querySelectorAll('.verbete').length).toBe(1449);
+    expect(host.querySelectorAll('.verbete').length).toBe(1450);
     expect(words().slice(0, 3)).toEqual(['だ', '〜ます', '〜ない']);
     expect(heads()[0]).toBe('Importância 10');
     // a leitura vai em furigana só por cima de quem tem kanji
@@ -53,7 +53,7 @@ describe('o Dicionário Japonês', () => {
   it('busca pelo endereço, ordena por relevância e diz quantas achou', async () => {
     await open('/extras/dicionario?q=kuru');
     expect(words()[0]).toBe('来る');
-    expect(host.querySelector('.achados')!.textContent).toContain(`Mostrando ${words().length} de 1449 palavras`);
+    expect(host.querySelector('.achados')!.textContent).toContain(`Mostrando ${words().length} de 1450 palavras`);
     expect(host.querySelector('.campo-val')!.textContent!.trim()).toBe('Relevância');
     // a relevância não divide em seções
     expect(heads()).toEqual([]);
@@ -80,7 +80,7 @@ describe('o Dicionário Japonês', () => {
     button('Limpar a busca e os filtros').click();
     await settle();
     expect(query()).toEqual({});
-    expect(host.querySelectorAll('.verbete').length).toBe(1449);
+    expect(host.querySelectorAll('.verbete').length).toBe(1450);
     // apagar tudo na busca vale na hora
     input.value = 'kuru';
     input.dispatchEvent(new Event('input'));
@@ -91,7 +91,7 @@ describe('o Dicionário Japonês', () => {
     input.dispatchEvent(new Event('input'));
     await settle();
     expect(query()['q']).toBeUndefined();
-    expect(host.querySelectorAll('.verbete').length).toBe(1449);
+    expect(host.querySelectorAll('.verbete').length).toBe(1450);
   });
 
   it('filtra pela folha: liga um recorte, mostra o adesivo com X e conta', async () => {
@@ -140,7 +140,7 @@ describe('o Dicionário Japonês', () => {
     // com a conta do dono (ou da namorada), as que o CSV dá como aprendidas contam sem marca nenhuma
     account.set({ codigo: 'G11T-G00D', nome: 'Igor' });
     await settle();
-    expect(words().length).toBe(117);
+    expect(words().length).toBe(125);
     account.set(null);
     localStorage.removeItem(DICT_MARKS_KEY);
   });
@@ -309,7 +309,7 @@ describe('o Dicionário Japonês', () => {
   it('a Tabela tem todas as colunas, e a cabeça ordena', async () => {
     await open('/extras/dicionario?vista=tabela');
     expect(host.querySelector('.verbete')).toBeNull();
-    expect(host.querySelectorAll('tbody tr').length).toBe(1449);
+    expect(host.querySelectorAll('tbody tr').length).toBe(1450);
     expect([...host.querySelectorAll('thead th')].map((t) => t.textContent!.trim())).toEqual([
       'Nº', 'Marcas', 'Japonês', 'Romaji', 'Português', 'JLPT', 'Uso', 'Imp.', 'Classe', 'Tema', 'Escrita', 'Registro', 'Internet', 'Relacionadas', 'Descrição', 'Origem',
     ]);
@@ -345,7 +345,7 @@ describe('o Dicionário Japonês', () => {
 
     it('cada palavra tem o seu lugar na lista; as de longe são vagas da altura do cartão, com a palavra para o leitor de tela', async () => {
       await open('/extras/dicionario');
-      expect(places().length).toBe(1449);
+      expect(places().length).toBe(1450);
       // (a janela dos testes vem de outros testes em qualquer lugar: o começo da lista na tela)
       places()[0].scrollIntoView({ block: 'start' });
       await until(() => !!places()[0].querySelector('.verbete'), 'a primeira, na tela');
@@ -353,7 +353,7 @@ describe('o Dicionário Japonês', () => {
       const vaga = last.querySelector<HTMLElement>('.vaga-verbete')!;
       expect(vaga).withContext('a última, longe').not.toBeNull();
       expect(host.querySelectorAll('.verbete').length).toBeLessThan(200);
-      const w = dictionaryWords().words.find((x) => x.order === 1449)!;
+      const w = dictionaryWords().words.find((x) => x.order === 1450)!;
       expect(vaga.textContent!.replace(/\s+/g, ' ').trim()).toBe(`${w.text}, ${w.meaning}`);
       expect(vaga.querySelector('[lang="ja"]')!.textContent).toBe(w.text);
       expect(parseFloat(vaga.style.height)).toBeGreaterThan(300);
@@ -435,14 +435,14 @@ describe('o Dicionário Japonês', () => {
       await open('/extras/dicionario?vista=tabela');
       const box = host.querySelector<HTMLElement>('.razao')!;
       const rows = () => [...host.querySelectorAll<HTMLTableRowElement>('tbody tr')];
-      expect(rows().length).toBe(1449);
+      expect(rows().length).toBe(1450);
       box.scrollIntoView({ block: 'start' });
       await until(() => !!rows()[0].querySelector('.c-palavra'), 'a primeira, na caixa');
       const last = rows().at(-1)!;
       const vaga = last.querySelector<HTMLTableCellElement>('.linha-vaga')!;
       expect(vaga).withContext('a última, longe').not.toBeNull();
       expect(vaga.colSpan).toBe(16);
-      const w = dictionaryWords().words.find((x) => x.order === 1449)!;
+      const w = dictionaryWords().words.find((x) => x.order === 1450)!;
       expect(vaga.textContent!.replace(/\s+/g, ' ').trim()).toBe(`${w.text}, ${w.meaning}`);
       expect(Math.abs(last.getBoundingClientRect().height - tableRowGuess(w))).toBeLessThanOrEqual(1);
       expect(host.querySelectorAll('tbody .c-palavra').length).toBeLessThan(200);

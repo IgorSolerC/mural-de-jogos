@@ -199,13 +199,13 @@
 夏休みに国へ[帰った]。 → Nas férias de verão, voltei para o meu país.",,
 67,JP0249,聞く,きく,kiku,ouvir / escutar / perguntar,9,5,Altíssimo,N5,neutro,verbo,comunicação,kanji+kana,godan,1127,"聞こえる (ser audível), 聴く (ouvir com atenção)","Pede を para o que se ouve: 音楽を聞く. Para perguntar, に marca a pessoa: 先生に聞く (perguntar ao professor). Para ouvir com atenção, como música, também se escreve 聴く. O que chega aos ouvidos sem querer é 聞こえる (kikoeru).","毎日音楽を[聞きます]。 → Escuto música todo dia.
 駅までの道を[聞いた]。 → Perguntei o caminho até a estação.
-分からないときは、先生に[聞いて]ください。 → Quando não souber, pergunte ao professor.",,
+分からないときは、先生に[聞いて]ください。 → Quando não souber, pergunte ao professor.",,2026-11-26
 68,JP0250,話す,はなす,hanasu,falar / conversar / contar,9,5,Altíssimo,N5,neutro,verbo,comunicação,kanji+kana,godan,2157,"話 (conversa, história), 話せる (conseguir falar)","Pede を para a língua (日本語を話す); com 話せる (conseguir falar), também が. と marca com quem se conversa, e に, para quem se conta. 言う (iu) é dizer algo; 話す é falar, conversar.","日本語が[話せます]か。 → Você consegue falar japonês?
 友だちと電話で[話した]。 → Conversei com um amigo pelo telefone.
 母にそのことを[話しました]。 → Contei isso para minha mãe.",,
 69,JP0251,読む,よむ,yomu,ler,9,5,Altíssimo,N5,neutro,verbo,ações,kanji+kana,godan,693,"読める (conseguir ler), 読み方 (jeito de ler, leitura)","Pede を: 本を読む. A forma て é 読んで, e o passado, 読んだ. Também é ler em voz alta e dizer como se lê: この字は何と読みますか (como se lê esta letra?). 空気を読む é ""perceber o clima"" de uma situação.","毎晩、本を[読みます]。 → Leio livros toda noite.
 この漢字、[読める]？ → Você consegue ler este kanji?
-昨日、マンガを[読んだ]。 → Ontem li mangá.",,
+昨日、マンガを[読んだ]。 → Ontem li mangá.",,2026-11-26
 70,JP0512,大丈夫,だいじょうぶ,daijoubu,tudo bem / está bem / sem problema,9,5,Altíssimo,N5,neutro,adjetivo-na,emoções,kanji,-,1654,"丈夫 (robusto, resistente)","Pergunta ou responde se alguém está bem ou se algo serve. Muito usado para recusar com educação: 大丈夫です (não precisa, obrigado). Também diz que algo é seguro, que não vai quebrar ou falhar.","[大丈夫]？けがはない？ → Você está bem? Não se machucou?
 明日の三時、[大丈夫]？ → Amanhã às três, pode ser?
 「袋はいりますか。」「[大丈夫]です。」 → ""Precisa de sacola?"" ""Não precisa, obrigado.""",Do chinês 大丈夫 (homem de valor): 大 (grande) + 丈夫 (homem feito).,2026-11-25
@@ -416,7 +416,7 @@
 少々[お]待ちください。 → Aguarde um momento, por favor.",,
 139,JP0191,朝,あさ,asa,manhã,8,5,Altíssimo,N5,neutro,substantivo,tempo,kanji,-,597,"朝ごはん (café da manhã), 毎朝 (maiasa, toda manhã), 今朝 (kesa, hoje de manhã)","Muitas vezes vai sem partícula de tempo: 朝起きる (acordar de manhã). Hoje de manhã é 今朝 (kesa), com leitura própria; toda manhã, 毎朝 (maiasa).","[朝]は六時に起きます。 → De manhã, acordo às seis.
 [朝]ごはんを食べましたか。 → Você tomou café da manhã?
-日曜日の[朝]は静かです。 → A manhã de domingo é tranquila.",,
+日曜日の[朝]は静かです。 → A manhã de domingo é tranquila.",,2026-11-26
 140,JP0194,夜,よる,yoru,noite,8,5,Altíssimo,N5,neutro,substantivo,tempo,kanji,-,585,"今夜 (kon'ya, hoje à noite), 夜中 (yonaka, meio da noite), 夜ごはん (jantar)","Do anoitecer até a madrugada. 晩 (ban) é parecido, mas fala mais do começo da noite, como em 晩ごはん (jantar). Hoje à noite é 今夜 (kon'ya) ou 今晩 (konban).","[夜]は家で本を読みます。 → À noite, leio livros em casa.
 昨日の[夜]、雨が降った。 → Ontem à noite choveu.
 [夜]遅くまで仕事をした。 → Trabalhei até tarde da noite.",,
@@ -805,7 +805,7 @@
 お父さんは何[歳]ですか。 → Quantos anos tem seu pai?",,
 266,JP0193,昼ごはん,ひるごはん,hirugohan,almoço,7,4,Alto,N5,neutro,substantivo,comida,kanji+kana,-,,"朝ごはん (café da manhã), 晩ごはん (jantar), 昼食 (almoço, formal), お昼 (almoço)","Faz série com 朝ごはん (café da manhã) e 晩ごはん (jantar). Também se escreve 昼ご飯; mais formal é 昼食 (chuushoku), e na fala também se diz お昼.","[昼ごはん]、もう食べた？ → Já almoçou?
 今日の[昼ごはん]はラーメンです。 → O almoço de hoje é lámen.
-一緒に[昼ごはん]を食べませんか。 → Vamos almoçar juntos?","昼 (meio-dia, dia) + ご飯 (refeição, arroz cozido).",
+一緒に[昼ごはん]を食べませんか。 → Vamos almoçar juntos?","昼 (meio-dia, dia) + ご飯 (refeição, arroz cozido).",2026-11-26
 267,JP0661,日本語,にほんご,nihongo,língua japonesa / japonês (a língua),7,4,Alto,N5,neutro,substantivo,comunicação,kanji,-,754,"〜語 (língua), 英語 (inglês), ポルトガル語 (português), 日本人 (japonês, a pessoa)","O sufixo 〜語 forma o nome das línguas: 英語 (inglês), ポルトガル語 (português). A pessoa japonesa é 日本人 (nihonjin).","[日本語]を勉強しています。 → Estou estudando japonês.
 [日本語]は難しいですか。 → Japonês é difícil?
 この本は[日本語]で書いてあります。 → Este livro está escrito em japonês.",日本 (Japão) + 語 (língua).,
@@ -2516,7 +2516,7 @@
 旅行のお土産に[お菓子]を買った。 → Comprei doces de lembrança da viagem.",お (prefixo de cortesia) + 菓子 (doce).,
 834,JP0774,木,き,ki,árvore / madeira,4,3,Médio,N5,neutro,substantivo,natureza,kanji,-,770,"木曜日 (mokuyoubi, quinta-feira), 木の葉 (konoha, folhas de árvore)","Tanto a árvore viva quanto a madeira como material: 木の机 (mesa de madeira). Às vezes se lê こ, como em 木の葉 (konoha, folhas de árvore).","庭に大きい[木]があります。 → Tem uma árvore grande no jardim.
 この机は[木]でできている。 → Esta mesa é feita de madeira.
-猫が[木]に登った。 → O gato subiu na árvore.",,
+猫が[木]に登った。 → O gato subiu na árvore.",,2026-11-26
 835,JP0775,花,はな,hana,flor,4,3,Médio,N5,neutro,substantivo,natureza,kanji,-,999,"花見 (hanami, ver as cerejeiras em flor), 花屋 (hanaya, floricultura), 花火 (hanabi, fogos de artifício)","Em 花見 (hanami), a flor é a da cerejeira. Tem a mesma leitura de 鼻 (hana, nariz), com outra entonação.","母の日に[花]をあげました。 → Dei flores no Dia das Mães.
 春になると、[花]がたくさん咲く。 → Quando chega a primavera, muitas flores desabrocham.
 この[花]はいいにおいがする。 → Esta flor tem um cheiro bom.",,
@@ -2726,7 +2726,7 @@
 窓を開けると[風]が気持ちいい。 → Com a janela aberta, o vento é gostoso.",,
 904,JP0773,火,ひ,hi,fogo,4,3,Médio,N4,neutro,substantivo,natureza,kanji,-,947,"火事 (incêndio), 花火 (fogos de artifício), 火曜日 (terça-feira)","Acender é 火をつける e apagar, 火を消す. O incêndio é 火事 (kaji). É o 火 de 火曜日 (terça-feira).","ろうそくに[火]をつけた。 → Acendi a vela.
 ガスの[火]、消した？ → Desligou o fogo do gás?
-[火]に気をつけてください。 → Cuidado com o fogo.",,
+[火]に気をつけてください。 → Cuidado com o fogo.",,2026-11-26
 905,JP0849,パソコン,パソコン,pasokon,computador (PC),4,3,Médio,N4,neutro,substantivo,tecnologia,katakana,-,911,"ノートパソコン (notebook), コンピューター (computador)","Vale para o computador de mesa e para o notebook, que é ノートパソコン. コンピューター é a palavra geral para computador.","新しい[パソコン]を買いました。 → Comprei um computador novo.
 [パソコン]で仕事をする。 → Trabalho no computador.
 この[パソコン]は古くて遅い。 → Este computador é velho e lento.",Encurtamento de パーソナルコンピューター (do inglês personal computer).,
@@ -4234,7 +4234,7 @@
 ラーメンの[スープ]を全部飲んだ。 → Tomei todo o caldo do lámen.",Do inglês soup.,
 1406,JP1204,チョコレート,チョコレート,chokoreeto,chocolate,2,3,Médio,-,neutro,substantivo,comida,katakana,-,4907,"チョコ (choko, na fala), お菓子 (okashi, doces), バレンタイン (barentain, Dia dos Namorados)","O chocolate; na fala, チョコ. No Dia dos Namorados japonês (14 de fevereiro), as mulheres costumam dar chocolate aos homens, e eles retribuem em 14 de março.","[チョコレート]が大好きです。 → Adoro chocolate.
 バレンタインに[チョコレート]をもらった。 → Ganhei chocolate no Dia dos Namorados.
-この[チョコレート]は苦い。 → Este chocolate é amargo.",Do inglês chocolate.,
+この[チョコレート]は苦い。 → Este chocolate é amargo.",Do inglês chocolate.,2026-11-26
 1407,JP1205,馬,うま,uma,cavalo,2,3,Médio,N4,neutro,substantivo,natureza,kanji,-,1685,"乗る (noru, montar), 競馬 (keiba, corrida de cavalos), 牛 (ushi, vaca)",O cavalo. Montar a cavalo é 馬に乗る.,"[馬]に乗ったことがありますか。 → Você já andou a cavalo?
 [馬]が草を食べている。 → O cavalo está comendo capim.
 この[馬]はとても速い。 → Este cavalo é muito rápido.",,
@@ -4259,109 +4259,112 @@
 1414,JP1337,到着する,とうちゃくする,touchaku suru,chegar (ao destino),2,3,Médio,N3,neutro,verbo,transporte,kanji+kana,irregular (する),1829,"到着 (touchaku, chegada), 出発する (shuppatsu suru, partir), 着く (tsuku, chegar)","Chegar ao destino, num tom formal, de avisos e anúncios: 飛行機が到着しました. Na conversa, 着く (tsuku) é o comum.","飛行機は十時に[到着します]。 → O avião chega às dez.
 荷物はもう[到着しました]。 → O pacote já chegou.
 東京駅に[到着する]前に連絡します。 → Aviso antes de chegar à estação de Tóquio.",到着 (chegada) + する (fazer).,
-1415,JP0872,シャツ,シャツ,shatsu,camisa,1,3,Médio,N5,neutro,substantivo,objetos,katakana,-,5866,"Tシャツ (tiishatsu, camiseta), ワイシャツ (waishatsu, camisa social)","A camisa em geral, e também a camiseta de baixo da roupa. A camisa social é ワイシャツ (waishatsu) e a camiseta, Tシャツ (tiishatsu). Vestir é 着る: シャツを着る.","白い[シャツ]を着ています。 → Estou de camisa branca.
+1415,JP1450,いちご,いちご,ichigo,morango,2,3,Médio,-,neutro,substantivo,comida,kana,-,11223,"いちご大福 (ichigo daifuku, morango envolto em mochi), ショートケーキ (shootokeeki, bolo de chantili com morango), チョコレート (chokoreeto, chocolate)","O morango. No dia a dia se escreve em hiragana ou em katakana (イチゴ); a escrita em kanji, 苺, é pouco usada. No Japão, a ショートケーキ (shootokeeki) é o bolo de chantili com morango.","[いちご]のケーキが好きです。 → Gosto de bolo de morango.
+この[いちご]は甘いね。 → Este morango é doce, né?
+スーパーで[いちご]を買った。 → Comprei morango no supermercado.",Da forma antiga いちびこ (ichibiko).,2026-11-26
+1416,JP0872,シャツ,シャツ,shatsu,camisa,1,3,Médio,N5,neutro,substantivo,objetos,katakana,-,5866,"Tシャツ (tiishatsu, camiseta), ワイシャツ (waishatsu, camisa social)","A camisa em geral, e também a camiseta de baixo da roupa. A camisa social é ワイシャツ (waishatsu) e a camiseta, Tシャツ (tiishatsu). Vestir é 着る: シャツを着る.","白い[シャツ]を着ています。 → Estou de camisa branca.
 この[シャツ]、ちょっと大きい。 → Esta camisa está um pouco grande.
 [シャツ]にアイロンをかけた。 → Passei a camisa.",Do inglês shirt.,
-1416,JP0868,アイス,アイス,aisu,sorvete / gelo (em compostos),1,3,Médio,-,casual,substantivo,comida,katakana,-,7113,"アイスクリーム (sorvete, forma completa), アイスコーヒー (café gelado)","Sozinha, quase sempre é o sorvete ou o picolé. Junto de outra palavra, é gelo ou gelado: アイスコーヒー (café gelado), アイスホッケー (hóquei no gelo). O gelo comum é 氷 (koori).","暑いから[アイス]食べたい。 → Está calor, quero tomar um sorvete.
+1417,JP0868,アイス,アイス,aisu,sorvete / gelo (em compostos),1,3,Médio,-,casual,substantivo,comida,katakana,-,7113,"アイスクリーム (sorvete, forma completa), アイスコーヒー (café gelado)","Sozinha, quase sempre é o sorvete ou o picolé. Junto de outra palavra, é gelo ou gelado: アイスコーヒー (café gelado), アイスホッケー (hóquei no gelo). O gelo comum é 氷 (koori).","暑いから[アイス]食べたい。 → Está calor, quero tomar um sorvete.
 コンビニで[アイス]を買った。 → Comprei sorvete na loja de conveniência.
 [アイス]コーヒーをください。 → Um café gelado, por favor.","Do inglês ice; como sorvete, encurtamento de アイスクリーム (do inglês ice cream).",
-1417,JP0885,ストレス,ストレス,sutoresu,estresse,1,3,Médio,N3,neutro,substantivo,emoções,katakana,-,2548,"ストレス解消 (sutoresu kaishou, alívio do estresse)",O estresse acumula (ストレスがたまる) e se alivia (ストレスを解消する). Algo que estressa é ストレスになる.,"最近、[ストレス]がたまっている。 → Ultimamente o estresse está se acumulando.
+1418,JP0885,ストレス,ストレス,sutoresu,estresse,1,3,Médio,N3,neutro,substantivo,emoções,katakana,-,2548,"ストレス解消 (sutoresu kaishou, alívio do estresse)",O estresse acumula (ストレスがたまる) e se alivia (ストレスを解消する). Algo que estressa é ストレスになる.,"最近、[ストレス]がたまっている。 → Ultimamente o estresse está se acumulando.
 仕事の[ストレス]で眠れない。 → Não consigo dormir por causa do estresse do trabalho.
 カラオケで[ストレス]を解消した。 → Aliviei o estresse no karaokê.",Do inglês stress.,
-1418,JP0890,スタート,スタート,sutaato,início / largada,1,3,Médio,N3,neutro,substantivo,abstrato,katakana,-,1681,"スタートする (começar), 再スタート (recomeço)","O começo de algo e, na corrida, a largada. Com する, começar: 新しい生活がスタートする. Dar a largada é スタートを切る. Mais formal: 開始 (kaishi).","新しい生活が[スタート]した。 → Uma vida nova começou.
+1419,JP0890,スタート,スタート,sutaato,início / largada,1,3,Médio,N3,neutro,substantivo,abstrato,katakana,-,1681,"スタートする (começar), 再スタート (recomeço)","O começo de algo e, na corrida, a largada. Com する, começar: 新しい生活がスタートする. Dar a largada é スタートを切る. Mais formal: 開始 (kaishi).","新しい生活が[スタート]した。 → Uma vida nova começou.
 選手たちは[スタート]の合図を待っている。 → Os atletas esperam o sinal de largada.
 いい[スタート]を切った。 → Fizemos um bom começo.",Do inglês start.,
-1419,JP0892,サイズ,サイズ,saizu,tamanho,1,3,Médio,N3,neutro,substantivo,descrição,katakana,-,1693,"Mサイズ (tamanho M), フリーサイズ (tamanho único)","O tamanho de roupas, sapatos e objetos: Mサイズ (tamanho M), 靴のサイズ (número do sapato). Para o tamanho em geral, também 大きさ (ookisa).","もっと大きい[サイズ]はありますか。 → Tem um tamanho maior?
+1420,JP0892,サイズ,サイズ,saizu,tamanho,1,3,Médio,N3,neutro,substantivo,descrição,katakana,-,1693,"Mサイズ (tamanho M), フリーサイズ (tamanho único)","O tamanho de roupas, sapatos e objetos: Mサイズ (tamanho M), 靴のサイズ (número do sapato). Para o tamanho em geral, também 大きさ (ookisa).","もっと大きい[サイズ]はありますか。 → Tem um tamanho maior?
 靴の[サイズ]はいくつですか。 → Qual é o seu número de sapato?
 この[サイズ]でちょうどいい。 → Este tamanho está perfeito.",Do inglês size.,
-1420,JP0022,さえ,さえ,sae,até mesmo / nem (com negativo) / basta (com 〜ば),1,3,Médio,N2,neutro; escrito,partícula,gramática,kana,-,918,"でさえ (até mesmo), 〜さえ〜ば (basta que)","Destaca um caso extremo: 子どもでさえ知っている (até uma criança sabe). Com a forma ば, diz que uma coisa basta: お金さえあれば (basta ter dinheiro). Fica no lugar de が e を; com outras partículas, vem depois delas: 私にさえ. Mais escrito que まで e でも.","忙しくて、ご飯を食べる時間[さえ]ない。 → Estou tão ocupado que não tenho nem tempo de comer.
+1421,JP0022,さえ,さえ,sae,até mesmo / nem (com negativo) / basta (com 〜ば),1,3,Médio,N2,neutro; escrito,partícula,gramática,kana,-,918,"でさえ (até mesmo), 〜さえ〜ば (basta que)","Destaca um caso extremo: 子どもでさえ知っている (até uma criança sabe). Com a forma ば, diz que uma coisa basta: お金さえあれば (basta ter dinheiro). Fica no lugar de が e を; com outras partículas, vem depois delas: 私にさえ. Mais escrito que まで e でも.","忙しくて、ご飯を食べる時間[さえ]ない。 → Estou tão ocupado que não tenho nem tempo de comer.
 子どもで[さえ]知っている。 → Até uma criança sabe.
 時間[さえ]あれば、旅行に行きたい。 → Se ao menos eu tivesse tempo, queria viajar.",,
-1421,JP0983,バー,バー,baa,bar,1,3,Médio,N1,neutro,substantivo,lugares,katakana,-,1506,,"O bar de bebidas. Também é a barra, como a do salto em altura e a de menus do computador (メニューバー).","駅の近くに小さな[バー]がある。 → Há um bar pequeno perto da estação.
+1422,JP0983,バー,バー,baa,bar,1,3,Médio,N1,neutro,substantivo,lugares,katakana,-,1506,,"O bar de bebidas. Também é a barra, como a do salto em altura e a de menus do computador (メニューバー).","駅の近くに小さな[バー]がある。 → Há um bar pequeno perto da estação.
 仕事のあと、[バー]で一杯飲んだ。 → Depois do trabalho, tomei um drinque num bar.
 彼はホテルの[バー]で働いている。 → Ele trabalha no bar do hotel.",Do inglês bar.,2026-11-18
-1422,JP1030,ハンバーガー,ハンバーガー,hanbaagaa,hambúrguer (no pão),1,3,Médio,-,neutro,substantivo,comida,katakana,-,13275,"ハンバーグ (hanbaagu, o bife de hambúrguer, no prato), チーズバーガー (cheeseburger), バーガー (baagaa, a forma curta)","O sanduíche no pão; a carne sozinha, servida no prato, é ハンバーグ (hanbaagu). Encurta para バーガー (baagaa), também nos nomes: チーズバーガー.","[ハンバーガー]を二つください。 → Dois hambúrgueres, por favor.
+1423,JP1030,ハンバーガー,ハンバーガー,hanbaagaa,hambúrguer (no pão),1,3,Médio,-,neutro,substantivo,comida,katakana,-,13275,"ハンバーグ (hanbaagu, o bife de hambúrguer, no prato), チーズバーガー (cheeseburger), バーガー (baagaa, a forma curta)","O sanduíche no pão; a carne sozinha, servida no prato, é ハンバーグ (hanbaagu). Encurta para バーガー (baagaa), também nos nomes: チーズバーガー.","[ハンバーガー]を二つください。 → Dois hambúrgueres, por favor.
 お昼は[ハンバーガー]とポテトだった。 → O almoço foi hambúrguer com batata frita.
 この[ハンバーガー]は大きい！ → Este hambúrguer é grande!",Do inglês hamburger.,2026-11-23
-1423,JP1031,ポテト,ポテト,poteto,batata frita / batata,1,3,Médio,-,neutro,substantivo,comida,katakana,-,12471,"フライドポテト (furaido poteto, batata frita), ポテトサラダ (salada de batata), ポテトチップス (batata chips), じゃがいも (jagaimo, batata)","Sozinha, na lanchonete, é a batata frita; por extenso, フライドポテト (furaido poteto). Nos nomes de pratos é a batata: ポテトサラダ. A batata da feira e da cozinha é じゃがいも (jagaimo).","[ポテト]もください。 → A batata frita também, por favor.
+1424,JP1031,ポテト,ポテト,poteto,batata frita / batata,1,3,Médio,-,neutro,substantivo,comida,katakana,-,12471,"フライドポテト (furaido poteto, batata frita), ポテトサラダ (salada de batata), ポテトチップス (batata chips), じゃがいも (jagaimo, batata)","Sozinha, na lanchonete, é a batata frita; por extenso, フライドポテト (furaido poteto). Nos nomes de pratos é a batata: ポテトサラダ. A batata da feira e da cozinha é じゃがいも (jagaimo).","[ポテト]もください。 → A batata frita também, por favor.
 ハンバーガーと[ポテト]を食べた。 → Comi hambúrguer com batata frita.
 [ポテト]サラダを作った。 → Fiz salada de batata.",Do inglês potato.,2026-11-23
-1424,JP0306,閉まる,しまる,shimaru,"fechar-se (algo fecha) / fechar (loja, horário)",1,2,Baixo,N5,neutro,verbo,ações,kanji+kana,godan,26358,"閉める (shimeru, fechar algo), 開く (aku, abrir-se)","Intransitivo: o que fecha vem com が, ドアが閉まる (a porta fecha). O transitivo, fechar algo, é 閉める (shimeru): ドアを閉める. Também se diz da loja que encerra o dia: 店が閉まる.","ドアが[閉まります]。 → A porta vai fechar.
+1425,JP0306,閉まる,しまる,shimaru,"fechar-se (algo fecha) / fechar (loja, horário)",1,2,Baixo,N5,neutro,verbo,ações,kanji+kana,godan,26358,"閉める (shimeru, fechar algo), 開く (aku, abrir-se)","Intransitivo: o que fecha vem com が, ドアが閉まる (a porta fecha). O transitivo, fechar algo, é 閉める (shimeru): ドアを閉める. Também se diz da loja que encerra o dia: 店が閉まる.","ドアが[閉まります]。 → A porta vai fechar.
 あの店は八時に[閉まる]。 → Aquela loja fecha às oito.
 窓がちゃんと[閉まっていない]。 → A janela não está bem fechada.",,
-1425,JP0389,登る,のぼる,noboru,subir / escalar,1,2,Baixo,N5,neutro,verbo,movimento,kanji+kana,godan,10706,"山登り (yamanobori, montanhismo), 上る (noboru, subir escada ou ladeira), 昇る (noboru, nascer, o sol)","Subir com esforço, a pé ou agarrado: 山に登る (subir a montanha), 木に登る (subir na árvore). Pede に para onde se sobe. Com o mesmo som, 上る é o mais usado para escadas e ladeiras, e 昇る para o sol que nasce.","夏休みに富士山に[登った]。 → Nas férias de verão, subi o Monte Fuji.
+1426,JP0389,登る,のぼる,noboru,subir / escalar,1,2,Baixo,N5,neutro,verbo,movimento,kanji+kana,godan,10706,"山登り (yamanobori, montanhismo), 上る (noboru, subir escada ou ladeira), 昇る (noboru, nascer, o sol)","Subir com esforço, a pé ou agarrado: 山に登る (subir a montanha), 木に登る (subir na árvore). Pede に para onde se sobe. Com o mesmo som, 上る é o mais usado para escadas e ladeiras, e 昇る para o sol que nasce.","夏休みに富士山に[登った]。 → Nas férias de verão, subi o Monte Fuji.
 子どもが木に[登っている]。 → A criança está subindo na árvore.
 あの岩に[登って]みよう。 → Vamos tentar subir naquela pedra.",,
-1426,JP0391,晴れる,はれる,hareru,"abrir o tempo (fazer sol) / ficar leve (o ânimo) / dissipar-se (dúvida, suspeita)",1,2,Baixo,N5,neutro,verbo,natureza,kanji+kana,ichidan,20738,"晴れ (tempo bom), 晴らす (dissipar, desfazer)","Verbo intransitivo: o céu ou o tempo é o sujeito, com が (空が晴れる). Também diz o ânimo que melhora (気分が晴れる) e a suspeita que se desfaz (疑いが晴れる). O transitivo é 晴らす (harasu). O tempo bom é 晴れ (hare).","明日は[晴れる]でしょう。 → Amanhã deve fazer sol.
+1427,JP0391,晴れる,はれる,hareru,"abrir o tempo (fazer sol) / ficar leve (o ânimo) / dissipar-se (dúvida, suspeita)",1,2,Baixo,N5,neutro,verbo,natureza,kanji+kana,ichidan,20738,"晴れ (tempo bom), 晴らす (dissipar, desfazer)","Verbo intransitivo: o céu ou o tempo é o sujeito, com が (空が晴れる). Também diz o ânimo que melhora (気分が晴れる) e a suspeita que se desfaz (疑いが晴れる). O transitivo é 晴らす (harasu). O tempo bom é 晴れ (hare).","明日は[晴れる]でしょう。 → Amanhã deve fazer sol.
 雨がやんで、空が[晴れた]。 → A chuva parou e o céu abriu.
 友だちと話して、気分が[晴れた]。 → Conversei com um amigo e fiquei mais leve.",,
-1427,JP0409,洗濯する,せんたくする,sentaku suru,lavar roupa,1,2,Baixo,N5,neutro,verbo,cotidiano,kanji+kana,irregular (する),3704,"洗濯物 (roupa para lavar, roupa lavada), 洗濯機 (máquina de lavar)","Só para roupa e tecidos; para lavar as mãos, a louça ou o carro, o verbo é 洗う (arau). Também se diz 洗濯をする. A roupa que se lava (ou que acabou de ser lavada) é 洗濯物 (sentakumono).","週末にまとめて[洗濯します]。 → Lavo a roupa toda de uma vez no fim de semana.
+1428,JP0409,洗濯する,せんたくする,sentaku suru,lavar roupa,1,2,Baixo,N5,neutro,verbo,cotidiano,kanji+kana,irregular (する),3704,"洗濯物 (roupa para lavar, roupa lavada), 洗濯機 (máquina de lavar)","Só para roupa e tecidos; para lavar as mãos, a louça ou o carro, o verbo é 洗う (arau). Também se diz 洗濯をする. A roupa que se lava (ou que acabou de ser lavada) é 洗濯物 (sentakumono).","週末にまとめて[洗濯します]。 → Lavo a roupa toda de uma vez no fim de semana.
 このシャツはもう[洗濯した]。 → Já lavei esta camisa.
 雨の日は[洗濯しない]。 → Em dia de chuva, não lavo roupa.",洗濯 (lavagem de roupa) + する (fazer).,
-1428,JP0492,茶色い,ちゃいろい,chairoi,marrom,1,2,Baixo,N5,neutro,adjetivo-i,cores,kanji+kana,-,31138,"茶色 (chairo, marrom, substantivo)","Uma das poucas cores que viram adjetivo-i, como 赤い, 青い, 白い, 黒い e 黄色い. Também se diz 茶色の antes do substantivo: 茶色の靴 = 茶色い靴. Para cabelo e olhos, corresponde a castanho.","あの[茶色い]建物が駅です。 → Aquele prédio marrom é a estação.
+1429,JP0492,茶色い,ちゃいろい,chairoi,marrom,1,2,Baixo,N5,neutro,adjetivo-i,cores,kanji+kana,-,31138,"茶色 (chairo, marrom, substantivo)","Uma das poucas cores que viram adjetivo-i, como 赤い, 青い, 白い, 黒い e 黄色い. Também se diz 茶色の antes do substantivo: 茶色の靴 = 茶色い靴. Para cabelo e olhos, corresponde a castanho.","あの[茶色い]建物が駅です。 → Aquele prédio marrom é a estação.
 秋になると、葉が[茶色く]なる。 → No outono, as folhas ficam marrons.
 [茶色い]靴を買いました。 → Comprei um sapato marrom.",茶色 (marrom) + い (terminação de adjetivo).,
-1429,JP0345,踊る,おどる,odoru,dançar,1,2,Baixo,N4,neutro,verbo,lazer,kanji+kana,godan,6797,"踊り (dança), 盆踊り (bon-odori, dança do festival de Obon)",Serve para danças tradicionais e modernas; para as modernas também se diz ダンスする. A dança que se dança vai com を: ワルツを踊る. A dança (o substantivo) é 踊り (odori).,"音楽に合わせて[踊った]。 → Dancei acompanhando a música.
+1430,JP0345,踊る,おどる,odoru,dançar,1,2,Baixo,N4,neutro,verbo,lazer,kanji+kana,godan,6797,"踊り (dança), 盆踊り (bon-odori, dança do festival de Obon)",Serve para danças tradicionais e modernas; para as modernas também se diz ダンスする. A dança que se dança vai com を: ワルツを踊る. A dança (o substantivo) é 踊り (odori).,"音楽に合わせて[踊った]。 → Dancei acompanhando a música.
 みんなで[踊りましょう]。 → Vamos dançar todos juntos.
 お祭りで盆踊りを[踊ります]。 → No festival, dançamos o bon-odori.",,
-1430,JP0382,泊まる,とまる,tomaru,hospedar-se / pernoitar,1,2,Baixo,N4,neutro,verbo,ações,kanji+kana,godan,13091,"泊める (hospedar alguém), 一泊 (ippaku, uma noite de hospedagem)","O lugar onde se dorme vai com に: ホテルに泊まる. O transitivo é 泊める (tomeru, hospedar alguém). Não confundir com 止まる (tomaru, parar), de mesma leitura. As noites se contam com 〜泊: 一泊 (ippaku, uma noite).","今夜はホテルに[泊まります]。 → Hoje à noite vou ficar num hotel.
+1431,JP0382,泊まる,とまる,tomaru,hospedar-se / pernoitar,1,2,Baixo,N4,neutro,verbo,ações,kanji+kana,godan,13091,"泊める (hospedar alguém), 一泊 (ippaku, uma noite de hospedagem)","O lugar onde se dorme vai com に: ホテルに泊まる. O transitivo é 泊める (tomeru, hospedar alguém). Não confundir com 止まる (tomaru, parar), de mesma leitura. As noites se contam com 〜泊: 一泊 (ippaku, uma noite).","今夜はホテルに[泊まります]。 → Hoje à noite vou ficar num hotel.
 昨日は友だちの家に[泊まった]。 → Ontem dormi na casa de um amigo.
 旅行のとき、どこに[泊まりますか]。 → Onde você vai se hospedar na viagem?",,
-1431,JP0808,かしこまりました,かしこまりました,kashikomarimashita,entendido / pois não (atendente),1,2,Baixo,N4,serviço (keigo),expressão,cumprimentos,kana,-,,"分かりました (entendi), 承知しました (entendido, formal)","Forma humilde de 分かりました, usada por quem atende o cliente e no trabalho para aceitar um pedido. Mais formal que 分かりました; 承知しました (shouchi shimashita) é parecido.","はい、[かしこまりました]。 → Sim, entendido.
+1432,JP0808,かしこまりました,かしこまりました,kashikomarimashita,entendido / pois não (atendente),1,2,Baixo,N4,serviço (keigo),expressão,cumprimentos,kana,-,,"分かりました (entendi), 承知しました (entendido, formal)","Forma humilde de 分かりました, usada por quem atende o cliente e no trabalho para aceitar um pedido. Mais formal que 分かりました; 承知しました (shouchi shimashita) é parecido.","はい、[かしこまりました]。 → Sim, entendido.
 [かしこまりました]。少々お待ちください。 → Pois não. Aguarde um momento, por favor.
 [かしこまりました]、すぐにお持ちします。 → Entendido, já trago.","Do passado educado de 畏まる (kashikomaru, ""receber com respeito, obedecer"").",
-1432,JP0814,お邪魔します,おじゃまします,ojama shimasu,com licença (ao entrar na casa de alguém) / vou visitar (educado),1,2,Baixo,N4,educado,expressão,cumprimentos,kanji+kana,-,,"お邪魔しました (com licença, ao sair), 邪魔 (jama, estorvo)","Dita ao entrar na casa ou na sala de alguém; ao sair, se diz お邪魔しました. Também anuncia uma visita com educação: 明日お邪魔します. 邪魔 (jama) é estorvo: a frase diz, ao pé da letra, ""vou atrapalhar"".","「どうぞ、上がってください。」「[お邪魔します]。」 → ""Pode entrar, por favor."" ""Com licença.""
+1433,JP0814,お邪魔します,おじゃまします,ojama shimasu,com licença (ao entrar na casa de alguém) / vou visitar (educado),1,2,Baixo,N4,educado,expressão,cumprimentos,kanji+kana,-,,"お邪魔しました (com licença, ao sair), 邪魔 (jama, estorvo)","Dita ao entrar na casa ou na sala de alguém; ao sair, se diz お邪魔しました. Também anuncia uma visita com educação: 明日お邪魔します. 邪魔 (jama) é estorvo: a frase diz, ao pé da letra, ""vou atrapalhar"".","「どうぞ、上がってください。」「[お邪魔します]。」 → ""Pode entrar, por favor."" ""Com licença.""
 [お邪魔します]。これ、おみやげです。 → Com licença. Isto aqui é uma lembrancinha.
 では、明日の三時に[お邪魔します]。 → Então vou aí amanhã às três.","お (prefixo educado) + 邪魔 (estorvo) + します (fazer, forma educada).",
-1433,JP0663,外国語,がいこくご,gaikokugo,língua estrangeira,1,2,Baixo,N4,neutro,substantivo,comunicação,kanji,-,,"外国 (país estrangeiro), 外国人 (estrangeiro)","Qualquer língua que não é a do próprio país; no Japão, o inglês é o 外国語 mais estudado. Os nomes das línguas levam 〜語: 日本語, 英語, ポルトガル語.","[外国語]を勉強するのは楽しい。 → Estudar uma língua estrangeira é divertido.
+1434,JP0663,外国語,がいこくご,gaikokugo,língua estrangeira,1,2,Baixo,N4,neutro,substantivo,comunicação,kanji,-,,"外国 (país estrangeiro), 外国人 (estrangeiro)","Qualquer língua que não é a do próprio país; no Japão, o inglês é o 外国語 mais estudado. Os nomes das línguas levam 〜語: 日本語, 英語, ポルトガル語.","[外国語]を勉強するのは楽しい。 → Estudar uma língua estrangeira é divertido.
 何か[外国語]を話せますか。 → Você fala alguma língua estrangeira?
 英語は初めての[外国語]でした。 → O inglês foi minha primeira língua estrangeira.",外国 (país estrangeiro) + 語 (língua).,
-1434,JP0992,ベンチ,ベンチ,benchi,banco (de sentar) / banco de reservas (esporte),1,2,Baixo,N3,neutro,substantivo,objetos,katakana,-,6958,,"O banco comprido de praça, de estação ou de parque. No esporte, é o banco dos reservas e, no beisebol, o banco do time (o dugout).","公園の[ベンチ]に座った。 → Sentei num banco do parque.
+1435,JP0992,ベンチ,ベンチ,benchi,banco (de sentar) / banco de reservas (esporte),1,2,Baixo,N3,neutro,substantivo,objetos,katakana,-,6958,,"O banco comprido de praça, de estação ou de parque. No esporte, é o banco dos reservas e, no beisebol, o banco do time (o dugout).","公園の[ベンチ]に座った。 → Sentei num banco do parque.
 駅の[ベンチ]で電車を待つ。 → Espero o trem no banco da estação.
 今日の試合は[ベンチ]で見ていた。 → Assisti ao jogo de hoje do banco de reservas.",Do inglês bench.,2026-11-19
-1435,JP0392,吸う,すう,suu,inspirar (ar) / fumar / sugar / absorver,0,2,Baixo,N5,neutro,verbo,ações,kanji+kana,godan,10626,"吸い込む (inalar, aspirar), 吐く (soltar o ar)","Puxar algo para dentro: o ar (息を吸う), a fumaça (たばこを吸う), um líquido pelo canudo. Também diz o que absorve água, como uma toalha. Soltar o ar é 吐く (haku).","深く息を[吸って]ください。 → Inspire fundo, por favor.
+1436,JP0392,吸う,すう,suu,inspirar (ar) / fumar / sugar / absorver,0,2,Baixo,N5,neutro,verbo,ações,kanji+kana,godan,10626,"吸い込む (inalar, aspirar), 吐く (soltar o ar)","Puxar algo para dentro: o ar (息を吸う), a fumaça (たばこを吸う), um líquido pelo canudo. Também diz o que absorve água, como uma toalha. Soltar o ar é 吐く (haku).","深く息を[吸って]ください。 → Inspire fundo, por favor.
 ここでたばこを[吸わないで]ください。 → Não fume aqui, por favor.
 ストローでジュースを[吸う]。 → Tomo o suco pelo canudo.
 このタオルはよく水を[吸う]。 → Esta toalha absorve bem a água.",,
-1436,JP0488,丸い,まるい,marui,redondo,0,2,Baixo,N5,neutro,adjetivo-i,descrição,kanji+kana,-,9180,"丸 (círculo), 丸める (arredondar, enrolar), 四角い (quadrado)","Também se escreve 円い, mais raro. 丸くなる diz enrolar-se (um gato) e, de uma pessoa, ficar mais manso com o tempo. O círculo é 丸 (maru).","[丸い]テーブルを買いました。 → Comprei uma mesa redonda.
+1437,JP0488,丸い,まるい,marui,redondo,0,2,Baixo,N5,neutro,adjetivo-i,descrição,kanji+kana,-,9180,"丸 (círculo), 丸める (arredondar, enrolar), 四角い (quadrado)","Também se escreve 円い, mais raro. 丸くなる diz enrolar-se (um gato) e, de uma pessoa, ficar mais manso com o tempo. O círculo é 丸 (maru).","[丸い]テーブルを買いました。 → Comprei uma mesa redonda.
 今夜は月が[丸い]ね。 → A lua está redonda hoje, né.
 猫が[丸く]なって寝ている。 → O gato está dormindo enrolado.",,
-1437,JP0749,傘,かさ,kasa,guarda-chuva,0,2,Baixo,N5,neutro,substantivo,objetos,kanji,-,6023,"日傘 (higasa, guarda-sol), 折りたたみ傘 (guarda-chuva dobrável)",Abrir e usar o guarda-chuva é 傘をさす (também 傘を差す). Conta-se com 〜本: 傘が二本. O guarda-sol é 日傘 (higasa).,"雨だから、[傘]を持っていこう。 → Está chovendo, vamos levar o guarda-chuva.
+1438,JP0749,傘,かさ,kasa,guarda-chuva,0,2,Baixo,N5,neutro,substantivo,objetos,kanji,-,6023,"日傘 (higasa, guarda-sol), 折りたたみ傘 (guarda-chuva dobrável)",Abrir e usar o guarda-chuva é 傘をさす (também 傘を差す). Conta-se com 〜本: 傘が二本. O guarda-sol é 日傘 (higasa).,"雨だから、[傘]を持っていこう。 → Está chovendo, vamos levar o guarda-chuva.
 [傘]をさして歩く。 → Ando de guarda-chuva aberto.
 電車に[傘]を忘れた。 → Esqueci o guarda-chuva no trem.",,
-1438,JP0784,茶色,ちゃいろ,chairo,"marrom / castanho (cabelo, olhos)",0,2,Baixo,N5,neutro,substantivo,cores,kanji,-,11405,"茶色い (marrom, adjetivo), 茶 (cha, chá)","Antes de outro substantivo, vai com の: 茶色の靴 (sapato marrom). Também existe o adjetivo 茶色い (chairoi).","[茶色]のかばんを買った。 → Comprei uma bolsa marrom.
+1439,JP0784,茶色,ちゃいろ,chairo,"marrom / castanho (cabelo, olhos)",0,2,Baixo,N5,neutro,substantivo,cores,kanji,-,11405,"茶色い (marrom, adjetivo), 茶 (cha, chá)","Antes de outro substantivo, vai com の: 茶色の靴 (sapato marrom). Também existe o adjetivo 茶色い (chairoi).","[茶色]のかばんを買った。 → Comprei uma bolsa marrom.
 この犬は[茶色]です。 → Este cachorro é marrom.
 髪を[茶色]に染めた。 → Pintei o cabelo de castanho.",茶 (chá) + 色 (cor).,
-1439,JP0873,ズボン,ズボン,zubon,calça,0,2,Baixo,N5,neutro,substantivo,objetos,katakana,-,8856,,"A palavra comum para calças compridas; パンツ (pantsu) também se usa, sobretudo na moda. Vestir a calça é ズボンをはく.","新しい[ズボン]を買いました。 → Comprei uma calça nova.
+1440,JP0873,ズボン,ズボン,zubon,calça,0,2,Baixo,N5,neutro,substantivo,objetos,katakana,-,8856,,"A palavra comum para calças compridas; パンツ (pantsu) também se usa, sobretudo na moda. Vestir a calça é ズボンをはく.","新しい[ズボン]を買いました。 → Comprei uma calça nova.
 この[ズボン]はちょっと長い。 → Esta calça está um pouco comprida.
 [ズボン]をはいて出かける。 → Ponho a calça e saio.",Do francês jupon.,
-1440,JP0874,エレベーター,エレベーター,erebeetaa,elevador,0,2,Baixo,N5,neutro,substantivo,lugares,katakana,-,6977,エスカレーター (escada rolante),Também se escreve エレベータ. A escada rolante é エスカレーター (esukareetaa).,"[エレベーター]で五階に行きます。 → Vou ao quinto andar de elevador.
+1441,JP0874,エレベーター,エレベーター,erebeetaa,elevador,0,2,Baixo,N5,neutro,substantivo,lugares,katakana,-,6977,エスカレーター (escada rolante),Também se escreve エレベータ. A escada rolante é エスカレーター (esukareetaa).,"[エレベーター]で五階に行きます。 → Vou ao quinto andar de elevador.
 [エレベーター]がなかなか来ない。 → O elevador não chega nunca.
 階段より[エレベーター]のほうが速い。 → O elevador é mais rápido que a escada.",Do inglês elevator.,
-1441,JP0394,拾う,ひろう,hirou,pegar do chão / recolher / pegar (táxi na rua),0,2,Baixo,N4,neutro,verbo,ações,kanji+kana,godan,16309,"拾い物 (achado), 捨てる (jogar fora)","Pegar algo que estava caído ou largado, e também achar algo perdido. Com táxi, é pegar um na rua: タクシーを拾う. O oposto é 捨てる (suteru, jogar fora).","道で財布を[拾った]。 → Achei uma carteira na rua.
+1442,JP0394,拾う,ひろう,hirou,pegar do chão / recolher / pegar (táxi na rua),0,2,Baixo,N4,neutro,verbo,ações,kanji+kana,godan,16309,"拾い物 (achado), 捨てる (jogar fora)","Pegar algo que estava caído ou largado, e também achar algo perdido. Com táxi, é pegar um na rua: タクシーを拾う. O oposto é 捨てる (suteru, jogar fora).","道で財布を[拾った]。 → Achei uma carteira na rua.
 公園のごみを[拾いましょう]。 → Vamos recolher o lixo do parque.
 駅の前でタクシーを[拾った]。 → Peguei um táxi em frente à estação.",,
-1442,JP0025,かしら,かしら,kashira,"""será que...?"" (fim de frase)",0,2,Baixo,N3,feminino; anime/mangá,partícula,gramática,kana,-,3314,"かな (será que, neutro)","No fim da frase, mostra uma dúvida dita para si mesmo. Fala feminina e um pouco antiquada; o equivalente neutro é かな. Com negativo, vira desejo ou pedido delicado: 早く来ないかしら (será que não vem logo?).","明日は晴れる[かしら]。 → Será que amanhã vai fazer sol?
+1443,JP0025,かしら,かしら,kashira,"""será que...?"" (fim de frase)",0,2,Baixo,N3,feminino; anime/mangá,partícula,gramática,kana,-,3314,"かな (será que, neutro)","No fim da frase, mostra uma dúvida dita para si mesmo. Fala feminina e um pouco antiquada; o equivalente neutro é かな. Com negativo, vira desejo ou pedido delicado: 早く来ないかしら (será que não vem logo?).","明日は晴れる[かしら]。 → Será que amanhã vai fazer sol?
 これ、誰の傘[かしら]。 → De quem será este guarda-chuva?
 ちょっと手伝ってくれない[かしら]。 → Será que você não me ajudaria um pouco?","Encurtamento de かしらん (ka shiran), de か (partícula de pergunta) + 知らぬ (shiranu, não saber).",
-1443,JP0030,ぜ,ぜ,ze,ênfase amigável (fim de frase),0,2,Baixo,N3,muito casual; masculino; anime/mangá,partícula,gramática,kana,-,2316,"ぞ (ênfase forte, masculina), よ (ênfase)","No fim da frase, dá um tom confiante e camarada ao que se diz. Com a forma volitiva, anima um convite: 行こうぜ (vamos lá!). Fala masculina, só entre amigos. Mais leve que ぞ.","早く行こう[ぜ]！ → Vamos logo!
+1444,JP0030,ぜ,ぜ,ze,ênfase amigável (fim de frase),0,2,Baixo,N3,muito casual; masculino; anime/mangá,partícula,gramática,kana,-,2316,"ぞ (ênfase forte, masculina), よ (ênfase)","No fim da frase, dá um tom confiante e camarada ao que se diz. Com a forma volitiva, anima um convite: 行こうぜ (vamos lá!). Fala masculina, só entre amigos. Mais leve que ぞ.","早く行こう[ぜ]！ → Vamos logo!
 これ、うまい[ぜ]。 → Isso aqui é gostoso, viu.
 明日もがんばろう[ぜ]！ → Amanhã vamos dar o nosso melhor de novo!",,
-1444,JP0072,〜させられる,させられる,saserareru,ser obrigado a fazer (forma causativa-passiva),0,2,Baixo,N3,neutro,auxiliar,gramática,kana,-,,"〜させる (causativa, fazer fazer), 〜られる (passiva), 待たされる (ter de esperar)","Diz que alguém foi obrigado a fazer algo contra a vontade; quem obriga vai com に. Nos verbos godan, vai na forma em あ com せられる, que costuma encurtar (待たせられる → 待たされる), menos nos terminados em す (話させられる). Com 来る: 来させられる (kosaserareru).","母に野菜を食べ[させられた]。 → Minha mãe me fez comer verduras.
+1445,JP0072,〜させられる,させられる,saserareru,ser obrigado a fazer (forma causativa-passiva),0,2,Baixo,N3,neutro,auxiliar,gramática,kana,-,,"〜させる (causativa, fazer fazer), 〜られる (passiva), 待たされる (ter de esperar)","Diz que alguém foi obrigado a fazer algo contra a vontade; quem obriga vai com に. Nos verbos godan, vai na forma em あ com せられる, que costuma encurtar (待たせられる → 待たされる), menos nos terminados em す (話させられる). Com 来る: 来させられる (kosaserareru).","母に野菜を食べ[させられた]。 → Minha mãe me fez comer verduras.
 毎日部屋を掃除[させられる]。 → Sou obrigado a limpar o quarto todo dia.
 上司に夜遅くまで残業[させられた]。 → Fui obrigado pelo chefe a fazer hora extra até tarde.",,
-1445,JP0889,ヒーロー,ヒーロー,hiiroo,herói / protagonista (de uma história),0,2,Baixo,-,neutro; anime/mangá,substantivo,mídia,katakana,-,6907,ヒロイン (heroína),"Usado para os heróis da ficção (anime, mangá, filmes) e para quem se destaca, como o herói de uma partida. A heroína é ヒロイン (hiroin). Para os heróis históricos, a palavra é 英雄 (eiyuu).","子どものころ、[ヒーロー]になりたかった。 → Quando criança, eu queria ser um herói.
+1446,JP0889,ヒーロー,ヒーロー,hiiroo,herói / protagonista (de uma história),0,2,Baixo,-,neutro; anime/mangá,substantivo,mídia,katakana,-,6907,ヒロイン (heroína),"Usado para os heróis da ficção (anime, mangá, filmes) e para quem se destaca, como o herói de uma partida. A heroína é ヒロイン (hiroin). Para os heróis históricos, a palavra é 英雄 (eiyuu).","子どものころ、[ヒーロー]になりたかった。 → Quando criança, eu queria ser um herói.
 彼は今日の試合の[ヒーロー]だ。 → Ele é o herói da partida de hoje.
 この映画の[ヒーロー]はとても強い。 → O herói deste filme é muito forte.",Do inglês hero.,
-1446,JP0891,ゴール,ゴール,gooru,gol / linha de chegada / meta (objetivo),0,2,Baixo,N3,neutro,substantivo,abstrato,katakana,-,2496,ゴールキーパー (goleiro),"No futebol, é tanto o gol onde a bola entra quanto o gol marcado: ゴールを決める (fazer o gol). Numa corrida, é a chegada. Também se usa para o objetivo que se quer alcançar.","試合の最後に[ゴール]を決めた。 → Fez o gol no fim da partida.
+1447,JP0891,ゴール,ゴール,gooru,gol / linha de chegada / meta (objetivo),0,2,Baixo,N3,neutro,substantivo,abstrato,katakana,-,2496,ゴールキーパー (goleiro),"No futebol, é tanto o gol onde a bola entra quanto o gol marcado: ゴールを決める (fazer o gol). Numa corrida, é a chegada. Também se usa para o objetivo que se quer alcançar.","試合の最後に[ゴール]を決めた。 → Fez o gol no fim da partida.
 マラソンの[ゴール]はあの公園です。 → A chegada da maratona é naquele parque.
 今年の[ゴール]は日本語の試験に合格することだ。 → A meta deste ano é passar na prova de japonês.",Do inglês goal.,
-1447,JP0893,ピンク,ピンク,pinku,rosa (cor),0,2,Baixo,N3,neutro,substantivo,cores,katakana,-,5104,ピンク色 (cor-de-rosa),"Também se diz ピンク色. Em algumas expressões, como ピンク映画, indica conteúdo erótico.","[ピンク]のシャツを買った。 → Comprei uma camisa rosa.
+1448,JP0893,ピンク,ピンク,pinku,rosa (cor),0,2,Baixo,N3,neutro,substantivo,cores,katakana,-,5104,ピンク色 (cor-de-rosa),"Também se diz ピンク色. Em algumas expressões, como ピンク映画, indica conteúdo erótico.","[ピンク]のシャツを買った。 → Comprei uma camisa rosa.
 桜の花はきれいな[ピンク]色だ。 → As flores de cerejeira são de um rosa bonito.
 妹は[ピンク]が大好きです。 → Minha irmã mais nova adora rosa.",Do inglês pink.,
-1448,JP0894,オレンジ,オレンジ,orenji,laranja (fruta) / laranja (cor),0,2,Baixo,-,neutro,substantivo,cores,katakana,-,4945,"オレンジ色 (cor laranja), オレンジジュース (suco de laranja), みかん (tangerina)","A fruta é a laranja; a tangerina japonesa é みかん (mikan). Para a cor, também se diz オレンジ色.","[オレンジ]を一つ食べた。 → Comi uma laranja.
+1449,JP0894,オレンジ,オレンジ,orenji,laranja (fruta) / laranja (cor),0,2,Baixo,-,neutro,substantivo,cores,katakana,-,4945,"オレンジ色 (cor laranja), オレンジジュース (suco de laranja), みかん (tangerina)","A fruta é a laranja; a tangerina japonesa é みかん (mikan). Para a cor, também se diz オレンジ色.","[オレンジ]を一つ食べた。 → Comi uma laranja.
 毎朝[オレンジ]ジュースを飲む。 → Tomo suco de laranja toda manhã.
 夕方の空が[オレンジ]色になった。 → O céu do fim da tarde ficou laranja.",Do inglês orange.,
-1449,JP1032,ホットドッグ,ホットドッグ,hottodoggu,cachorro-quente,0,2,Baixo,-,neutro,substantivo,comida,katakana,-,26830,"ソーセージ (sooseeji, salsicha), パン (pan, pão)","A salsicha no pão comprido. Também aparece escrito ホットドック, com ク no fim, forma considerada irregular.","[ホットドッグ]を一つください。 → Um cachorro-quente, por favor.
+1450,JP1032,ホットドッグ,ホットドッグ,hottodoggu,cachorro-quente,0,2,Baixo,-,neutro,substantivo,comida,katakana,-,26830,"ソーセージ (sooseeji, salsicha), パン (pan, pão)","A salsicha no pão comprido. Também aparece escrito ホットドック, com ク no fim, forma considerada irregular.","[ホットドッグ]を一つください。 → Um cachorro-quente, por favor.
 公園で[ホットドッグ]を食べた。 → Comi um cachorro-quente no parque.
 この[ホットドッグ]、おいしいね。 → Este cachorro-quente é gostoso, né?",Do inglês hot dog.,2026-11-23

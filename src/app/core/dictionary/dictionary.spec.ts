@@ -187,18 +187,19 @@ sem seta nenhuma",Do inglês hero.
     expect([...classes].filter((c) => !(c in CLASS_FAMILIES))).toEqual([]);
   });
 
-  it('lê a lista inteira do dono: 1449 palavras, todas com id único', () => {
+  it('lê a lista inteira do dono: 1450 palavras, todas com id único', () => {
     const all = dictionaryWords().words;
-    expect(all.length).toBe(1449);
-    expect(new Set(all.map((w) => w.id)).size).toBe(1449);
+    expect(all.length).toBe(1450);
+    expect(new Set(all.map((w) => w.id)).size).toBe(1450);
     expect(all.every((w) => w.text && w.reading && w.meaning)).toBeTrue();
   });
 
   it('as 417 palavras de 25/nov entram por aprender, no fim do bloco delas, e as homógrafas novas são verbetes próprios', () => {
     const all = dictionaryWords().words;
-    const added = all.filter((w) => Number(w.id.slice(2)) > 1032);
+    const added = all.filter((w) => Number(w.id.slice(2)) > 1032 && Number(w.id.slice(2)) <= 1449);
     expect(added.length).toBe(417);
-    expect(added.every((w) => w.learnedOn === null)).toBeTrue();
+    // entraram por aprender; só a チョコレート o dono aprendeu depois, em 26/nov
+    expect(added.filter((w) => w.learnedOn).map((w) => w.text)).toEqual(['チョコレート']);
     // cada uma depois de todas as antigas do mesmo bloco (importância, frequência): a ordem de antes não muda
     for (const w of added) {
       const older = all.filter((o) => Number(o.id.slice(2)) <= 1032 && o.importance === w.importance && o.frequency === w.frequency);
@@ -217,10 +218,10 @@ sem seta nenhuma",Do inglês hero.
     expect(find('ポルトガル語').examples.length).toBe(3);
   });
 
-  it('as palavras que o dono já aprendeu (14 a 25/nov) vêm com o dia, e as homógrafas são verbetes próprios', () => {
+  it('as palavras que o dono já aprendeu (14 a 26/nov) vêm com o dia, e as homógrafas são verbetes próprios', () => {
     const all = dictionaryWords().words;
     const learned = all.filter((w) => w.learnedOn);
-    expect(learned.length).toBe(116);
+    expect(learned.length).toBe(124);
     const on = (text: string, meaning: string) => all.find((w) => w.text === text && w.meaning.startsWith(meaning))!;
     expect(on('です', 'é').learnedOn).toBe('2026-11-14');
     expect(on('好き', 'gostar').learnedOn).toBe('2026-11-23');
@@ -241,6 +242,15 @@ sem seta nenhuma",Do inglês hero.
     for (const text of ['それ', 'その', 'そこ', 'だ', 'でした', 'だった', '時々', '大丈夫']) {
       expect(all.find((w) => w.text === text)?.learnedOn).withContext(text).toBe('2026-11-25');
     }
+    // as de 26/nov: sete que já estavam no dicionário e いちご, que entrou no fim do bloco dela (importância 2, frequência 3)
+    for (const text of ['聞く', '読む', '昼ごはん', '朝', '火', '木', 'チョコレート', 'いちご']) {
+      expect(all.find((w) => w.text === text)?.learnedOn).withContext(text).toBe('2026-11-26');
+    }
+    const ichigo = all.find((w) => w.text === 'いちご')!;
+    expect(ichigo.meaning).toBe('morango');
+    expect(ichigo.examples.length).toBe(3);
+    const block = all.filter((w) => w.importance === ichigo.importance && w.frequency === ichigo.frequency);
+    expect(block.at(-1)).toBe(ichigo);
     // as prioridades seguem uma por uma, sem buraco nem repetição
     expect(all.map((w) => w.order)).toEqual(all.map((_, i) => i + 1));
   });

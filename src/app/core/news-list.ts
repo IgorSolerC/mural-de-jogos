@@ -27,6 +27,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-26-morango-no-dicionario',
+    version: '1.55.2',
+    kind: 'ajustes',
+    date: '2026-11-26',
+    title: 'Morango no Dicionário Japonês',
+    melhorias: ['Uma palavra nova no Dicionário Japonês: いちご (morango), com as frases de exemplo, a origem e as palavras relacionadas.'],
+  },
+  {
     id: '2026-11-25-granulado-pastel',
     version: '1.55.1',
     kind: 'ajustes',
