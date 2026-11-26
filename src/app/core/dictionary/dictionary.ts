@@ -449,19 +449,34 @@ export function searchedForm(w: Word, query: string): Conjugated | null {
 }
 
 /**
+ * O trecho selecionado sem a pontuação em volta (行かなかった。, 「食べよう」): quem seleciona com o dedo leva o
+ * ponto junto. A pontuação de dentro fica (本当？ é a palavra com o ？).
+ */
+export function bareSelection(text: string): string {
+  return text.trim().replace(/^[\s「『（(【〈《"'“‘]+|[\s。、，,.!?！？…」』）)】〉》"'”’]+$/g, '');
+}
+
+/**
  * As palavras que um trecho selecionado É (PLANO-DICIONARIO.md, 4.3): o trecho inteiro igual à palavra escrita, à
- * leitura (katakana = hiragana), ao romaji ou a um dos sentidos em português ("comer", "café da manhã"). Não acha
+ * leitura (katakana = hiragana), ao romaji, a um dos sentidos em português ("comer", "café da manhã") ou a uma forma
+ * conjugada de um verbo (行かなかった é 行く; PLANO-CONJUGACOES.md, 4). Com ou sem a pontuação em volta. Não acha
  * pedaço: "comer algo" não é "comer". Na ordem de estudo.
  */
 export function lookupWords(words: readonly Word[], keys: ReadonlyMap<string, WordKeys>, text: string): Word[] {
   const t = text.trim();
   if (!t || t.length > 40) return [];
-  const ja = foldJa(t.replace(/〜/g, ''));
-  const plain = fold(t).replace(/\s+/g, ' ');
+  const bare = bareSelection(t);
+  const ja = [...new Set([t, bare].filter(Boolean).map((x) => foldJa(x.replace(/〜/g, ''))))];
+  const plain = [...new Set([t, bare].filter(Boolean).map((x) => fold(x).replace(/\s+/g, ' ')))];
   return words.filter((w) => {
     const k = keys.get(w.id);
-    return !!k && (k.ja.includes(ja) || k.romaji === plain || k.senses.includes(plain));
+    return !!k && (ja.some((x) => k.ja.includes(x) || k.forms.has(x)) || plain.some((x) => k.romaji === x || k.senses.includes(x)));
   });
+}
+
+/** A forma conjugada que um trecho selecionado é, neste verbo (com ou sem a pontuação em volta), ou null. */
+export function selectionForm(w: Word, text: string): Conjugated | null {
+  return formOf(w, text) ?? formOf(w, bareSelection(text));
 }
 
 /* ===================== Os filtros ===================== */

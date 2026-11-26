@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, input, output, signal, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { DICTIONARY_PATH } from '../core/areas';
-import { Word } from '../core/dictionary/dictionary';
+import { Word, selectionForm } from '../core/dictionary/dictionary';
 import { BackdropClose } from './backdrop-close';
 import { loadKleeOne } from './font-sheet';
 import { ICON, IconModule } from './icons';
@@ -33,7 +33,7 @@ import { FormId } from '../core/dictionary/conjugation';
         </header>
         <ul class="verbetes" role="list">
           @for (w of words(); track w.id) {
-            <li app-word-entry [word]="w" (conjugate)="conjugating.set($event)"></li>
+            <li app-word-entry [word]="w" [found]="formIn(w)" (conjugate)="conjugating.set($event)"></li>
           }
         </ul>
         <footer class="pe">
@@ -125,6 +125,11 @@ export class WordSheet {
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   /** O verbo com a folha de conjugações aberta por cima, e a forma em que ela abre. */
   protected readonly conjugating = signal<{ word: Word; form: FormId | null } | null>(null);
+
+  /** O verbo achado por uma forma conjugada (o trecho é 行かなかった): a tira dela no verbete. */
+  protected formIn(w: Word) {
+    return selectionForm(w, this.query());
+  }
 
   constructor() {
     loadKleeOne();

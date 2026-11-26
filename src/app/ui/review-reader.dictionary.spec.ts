@@ -49,7 +49,7 @@ function note(id: string, name: string, text: string, extra: Partial<Review> = {
   };
 }
 
-const TEXT = ['Estudo de hoje', '- 来る quer dizer vir', '- 食べる é comer, e televisão é テレビ', '- uma frase comprida que não é palavra nenhuma'].join('\n');
+const TEXT = ['Estudo de hoje', '- 来る quer dizer vir', '- 昨日は学校に行かなかった。', '- 食べる é comer, e televisão é テレビ', '- uma frase comprida que não é palavra nenhuma'].join('\n');
 
 describe('O Dicionário Japonês na seleção da leitura (ReviewReader)', () => {
   comMarkdown();
@@ -147,6 +147,26 @@ describe('O Dicionário Japonês na seleção da leitura (ReviewReader)', () => 
     expect(sheet.querySelector('.palavra')!.textContent).toContain('来る');
     expect(sheet.querySelector('.sentido')!.textContent!.trim()).toBe('vir');
     expect(sheet.querySelector<HTMLAnchorElement>('a.abrir')!.getAttribute('href')).toContain('/extras/dicionario?q=');
+    sheet.close();
+    await settle();
+  });
+
+  it('um verbo conjugado selecionado acha a forma de dicionário, com a tira da forma e as conjugações nela (PLANO-CONJUGACOES.md, 4)', async () => {
+    await openNote(note('nestudo3', 'Japonês', TEXT));
+    await select('行かなかった。');
+    for (let i = 0; i < 20 && !q('.remendos .consultar'); i++) await settle();
+    q<HTMLButtonElement>('.remendos .consultar')!.click();
+    await settle();
+    const sheet = q<HTMLDialogElement>('app-word-sheet dialog')!;
+    expect(sheet.open).toBeTrue();
+    expect(sheet.querySelector('.palavra')!.textContent).toContain('行く');
+    expect(sheet.querySelector('.achada-forma')!.textContent).toBe('行かなかった');
+    sheet.querySelector<HTMLButtonElement>('.achada')!.click();
+    await settle();
+    const conj = q('app-word-conjugations dialog')!;
+    expect(conj.hasAttribute('open')).toBeTrue();
+    expect(conj.querySelector('.det-forma')!.textContent).toBe('行かなかった');
+    (conj as HTMLDialogElement).close();
     sheet.close();
     await settle();
   });

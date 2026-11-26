@@ -1,4 +1,4 @@
-import { searchedForm, DEFAULT_STATE, DictState, MarkLookup, effectiveSort, lookupWords, facetChips, facetGroups, keysOf, matchScore, FACETS, facetValues, SORTS, paramsOf, parseCsv, passes, readWords, sectionsOf, sortWords, spokenOf, stateFromParams, toggleFacet, compositionParts, relatedWords, classFamily, CLASS_FAMILIES, kanjiIn, wordsWithKanji, exampleParts, examplePlain, readExamples } from './dictionary';
+import { bareSelection, selectionForm, searchedForm, DEFAULT_STATE, DictState, MarkLookup, effectiveSort, lookupWords, facetChips, facetGroups, keysOf, matchScore, FACETS, facetValues, SORTS, paramsOf, parseCsv, passes, readWords, sectionsOf, sortWords, spokenOf, stateFromParams, toggleFacet, compositionParts, relatedWords, classFamily, CLASS_FAMILIES, kanjiIn, wordsWithKanji, exampleParts, examplePlain, readExamples } from './dictionary';
 import { foldJa, kanaRow, looseRomaji, romajiToKana } from './kana';
 import { dictionaryWords } from './words';
 
@@ -318,6 +318,23 @@ sem seta nenhuma",Do inglês hero.
     expect(is('来')).toEqual([]);
     expect(is('vir algo')).toEqual([]);
     expect(is('')).toEqual([]);
+  });
+
+  it('o trecho selecionado que é uma forma conjugada acha o verbo, com ou sem a pontuação em volta (PLANO-CONJUGACOES.md, 4)', () => {
+    const real = dictionaryWords();
+    const is = (t: string) => lookupWords(real.words, real.keys, t).map((w) => w.text);
+    expect(is('行かなかった')).toEqual(['行く']);
+    expect(is('行かなかった。')).toEqual(['行く']);
+    expect(is('「食べよう」')).toEqual(['食べる']);
+    expect(is('ikanakatta')).toEqual([]);
+    expect(is('行かなか')).toEqual([]);
+    // a pontuação de dentro da palavra fica: 本当？ continua sendo ela
+    expect(is('本当？')).toContain('本当？');
+    expect(bareSelection(' 行った！ ')).toBe('行った');
+    expect(bareSelection('本当？')).toBe('本当');
+    const iku = real.words.find((w) => w.text === '行く')!;
+    expect(selectionForm(iku, '行かなかった。')?.form.tags).toBe('Passado • Informal • Negativo');
+    expect(selectionForm(iku, '行く')).toBeNull();
   });
 
   it('acha na composição e nas notas, valendo menos', () => {
