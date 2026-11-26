@@ -2034,15 +2034,26 @@ img.revelada {
   (pergunta #fce782 #735400), (aviso #fcca9d #8d4208), (perigo #f4b9b2 #972118), (exemplo #dac9f7 #553594), (citacao #ddd8d2 #4b463e),
   (rosa #fcb9d1 #99214f)
 {
+  /* (a cor forte de cada jeito também em variáveis, para quem a usa fora da leitura: o card do texto do canvas) */
+  [data-jeito='#{$jeito}'] {
+    --c-forte: #{$fundo};
+    --c-tinta-forte: #{$tinta};
+  }
   app-review-reader .text [data-jeito='#{$jeito}']:not(app-review-card *) {
     --c-fundo: #{$fundo};
     --c-tinta: #{$tinta};
   }
 }
+[data-jeito='cartolina'] {
+  --c-forte: var(--cartolina-fundo, #ddd8d2);
+  --c-tinta-forte: var(--cartolina-tinta-forte, #4b463e);
+}
 app-review-reader .text [data-jeito='cartolina']:not(app-review-card *) {
   --c-fundo: var(--cartolina-fundo, #ddd8d2);
   --c-tinta: var(--cartolina-tinta-forte, #4b463e);
 }
+
+/* (o card do texto do canvas usa a cor forte também: ver free-board-piece.scss e text-sheet.scss) */
 
 /* O código na linha numa folha pautada (a folha diz o --cod-pauta-alfa da linha dela; ver ui/_formatado.scss):
    o fundo é a cor da linha no papel, opaca, e a letra é azul-marinho. Sem pauta, as duas ficam inválidas (o alfa

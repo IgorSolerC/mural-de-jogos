@@ -38,12 +38,17 @@ const TITLE_LINE = 1.5 * TOPO;
 const TOPO_PAD = (0.45 + 0.5) * TOPO;
 /** O título: a letra da cartolina (Caveat 700, 1,16 da letra da faixa). */
 const TITLE_SIZE = TOPO * 1.16;
-/** Onde o título começa: o lado de dentro (0,85 em da faixa), o desenho (1,02 em) e o vão (0,42 em); sem desenho, no lado. */
-const TITLE_X = (0.85 + 1.02 + 0.42) * TOPO;
-const TITLE_X_BARE = 0.85 * TOPO;
+/**
+ * Onde o título começa: o lado de dentro (0,74 em da faixa, a linha do texto de baixo, como no card das anotações), o
+ * desenho (0,92 em) e o vão (0,42 em); sem desenho, no lado (os mesmos 0,74 em).
+ */
+const TOPO_ICON_X = 0.74;
+const TOPO_ICON = 0.92;
+const TITLE_X = (TOPO_ICON_X + TOPO_ICON + 0.42) * TOPO;
+const TITLE_X_BARE = TOPO_ICON_X * TOPO;
 const titleX = (n: FbNote) => (noteHasIcon(n) ? TITLE_X : TITLE_X_BARE);
-/** A folha clara: a linha do texto (1,35 F), o respiro de cima (0,4 F) e de baixo (0,5 F), o lado (0,85 F). */
-const BODY_LINE = 1.35;
+/** A folha clara: a linha do texto (1,45 F), o respiro de cima (0,4 F) e de baixo (0,5 F), o lado (0,85 F). */
+const BODY_LINE = 1.45;
 const BODY_PAD = 0.4 + 0.5;
 const BODY_X = 0.85;
 
@@ -59,6 +64,16 @@ interface CardLayout {
 const MARKER = /^\s*(?:[-*+]\s+\[[ xX]?\]|[-*+]|\d+[.)])\s+/;
 /** Onde o texto da lista e da tarefa começa, depois do marcador (em F). */
 const LIST_X = 1.25;
+/**
+ * O recorte do desenho no card sem título (`.entalhe` da peça, em F): a folha com o respiro de cima de 0,15; o recorte de
+ * uma linha (1,45) por uma linha (do alto da folha até 0,15 acima da segunda linha, quadrado com a moldura); o vão de 0,4
+ * até a primeira letra; o desenho de 0,9 no meio do quadrado que se vê (até a beirada do card); o raio, o da folha (7 px).
+ */
+const ENT_TOP = 0.15;
+const ENT_W = 1.45;
+const ENT_H = ENT_TOP + BODY_LINE - 0.15;
+const ENT_GAP = 0.4;
+const ENT_ICON = 0.9;
 
 /** A conta das linhas de cada card (pelo objeto dele: no arrasto só os cards que andaram são objetos novos). */
 const layouts = new WeakMap<FbNote, CardLayout>();
@@ -75,14 +90,19 @@ export function cardLayout(n: FbNote, title: string, fontsReady: boolean): CardL
   // (até umas linhas a mais que cabem no card: o resto não aparece)
   const most = Math.ceil(n.h / (BODY_LINE * F)) + 1;
   const out: CardLayout = { title: wrapWidths(title, titleRoom, 3, (t) => measure(t, titleFont, 0)), body: [], indent: [] };
+  // sem título, o desenho fica no recorte do canto: a primeira linha começa depois dele (do lado de dentro da folha)
+  let iconRoom = !title && noteHasIcon(n) ? (ENT_W + ENT_GAP - BODY_X) * F + FRAME : 0;
   for (const raw of noteParts(n.txt).body.split('\n')) {
     if (out.body.length >= most) break;
     const para = plainText(raw).replace(/\s+/g, ' ').trim();
     // a lista e a tarefa começam depois do marcador
     const indent = MARKER.test(raw) ? LIST_X * F : 0;
-    const rows = para ? wrapWidths(para, bodyRoom - indent, most - out.body.length, (t) => measure(t, bodyFont, 0)) : [0];
+    // (o primeiro item de uma lista anda inteiro para depois do desenho, como na peça; o parágrafo, só a primeira linha)
+    const whole = indent && iconRoom ? iconRoom : 0;
+    const rows = para ? wrapWidths(para, bodyRoom - indent - whole, most - out.body.length, (t) => measure(t, bodyFont, 0), bodyRoom - indent - iconRoom) : [0];
     out.body.push(...rows);
-    out.indent.push(...rows.map(() => indent));
+    out.indent.push(...rows.map((_, i) => indent + (i === 0 || whole ? iconRoom : 0)));
+    iconRoom = 0;
   }
   while (out.body.length && !out.body[out.body.length - 1]) {
     out.body.pop();
@@ -93,21 +113,25 @@ export function cardLayout(n: FbNote, title: string, fontsReady: boolean): CardL
   return out;
 }
 
-/** As larguras das linhas do texto quebrado em `room`, até `rows` linhas (a última, até a ponta, se sobrou). */
-function wrapWidths(text: string, room: number, rows: number, width: (t: string) => number): number[] {
+/**
+ * As larguras das linhas do texto quebrado em `room`, até `rows` linhas (a última, até a ponta, se sobrou); a primeira
+ * linha em `first`, quando ela é mais curta (o desenho no começo do texto).
+ */
+function wrapWidths(text: string, room: number, rows: number, width: (t: string) => number, first = room): number[] {
   const out: number[] = [];
   let line = '';
+  const roomOf = () => (out.length ? room : first);
   for (const word of text.split(/\s+/).filter(Boolean)) {
     const next = line ? `${line} ${word}` : word;
-    if (!line || width(next) <= room) {
+    if (!line || width(next) <= roomOf()) {
       line = next;
       continue;
     }
-    out.push(Math.min(room, width(line)));
+    out.push(Math.min(roomOf(), width(line)));
     if (out.length >= rows) return out;
     line = word;
   }
-  if (line && out.length < rows) out.push(Math.min(room, width(line)));
+  if (line && out.length < rows) out.push(Math.min(roomOf(), width(line)));
   return out;
 }
 
@@ -121,11 +145,17 @@ export function cardItems(items: SketchItem[], n: FbNote, look: PieceLook, k: nu
   const { x, y, w, h } = n;
   const lay = cardLayout(n, look.title, fontsReady);
   const hasBody = lay.body.length > 0;
-  const paper = look.band?.color ?? look.paper;
+  const paper = look.band?.color ?? look.edge?.color ?? look.paper;
   items.push({ t: 'r', x, y, w, h, rx: Math.min(RADIUS, w / 4, h / 4), fill: paper });
   const titleLine = TITLE_LINE * F;
   const bodyLine = BODY_LINE * F;
   const oneBody = bodyLine + BODY_PAD * F + FRAME;
+  // sem título (o card novo pode não ter): só a folha clara, com a moldura em cima também
+  if (!lay.title.length) {
+    if (!hasBody) return;
+    noTitleItems(items, n, look, k, lay);
+    return;
+  }
   // as linhas do título que cabem (até 3; menos, para o corpo ter uma linha)
   const fit = (room: number) => Math.max(1, Math.min(lay.title.length, Math.floor((room - TOPO_PAD * F) / titleLine)));
   let titleRows = fit(h);
@@ -137,8 +167,8 @@ export function cardItems(items: SketchItem[], n: FbNote, look: PieceLook, k: nu
   }
   const bandH = Math.min(h, TOPO_PAD * F + titleRows * titleLine);
   // o desenho da faixa (se tem): um quadradinho da tinta da faixa, no meio da primeira linha
-  const icon = 1.02 * TOPO * F;
-  const iconX = x + BODY_X * TOPO * F;
+  const icon = TOPO_ICON * TOPO * F;
+  const iconX = x + TOPO_ICON_X * TOPO * F;
   const firstMid = y + 0.45 * TOPO * F + titleLine / 2;
   const bar = (bx: number, mid: number, bw: number, bh: number, fill: string, op: number) => {
     if (bw <= 0) return;
@@ -157,4 +187,37 @@ export function cardItems(items: SketchItem[], n: FbNote, look: PieceLook, k: nu
   const textX = x + BODY_X * F;
   const top = sheet.y + 0.4 * F;
   lay.body.slice(0, rows).forEach((bw, i) => bar(textX + lay.indent[i], top + (i + 0.5) * bodyLine, bw, F * 0.36, look.bodyInk, 0.32));
+}
+
+/** O card sem título: a folha clara com a moldura em volta, o desenho no começo do texto (se tem) e as linhas. */
+function noTitleItems(items: SketchItem[], n: FbNote, look: PieceLook, k: number, lay: CardLayout): void {
+  const F = CARD_FONT * noteFont(n);
+  const { x, y, w, h } = n;
+  const bodyLine = BODY_LINE * F;
+  const sheet = { x: x + FRAME, y: y + FRAME, w: w - 2 * FRAME, h: h - 2 * FRAME };
+  if (sheet.h <= 0 || sheet.w <= 0) return;
+  items.push({ t: 'r', ...sheet, rx: Math.min(SHEET_RADIUS, sheet.w / 4, sheet.h / 4), fill: look.paper });
+  const textX = x + BODY_X * F;
+  // (com o recorte, o respiro de cima da folha é menor: a primeira linha na altura do desenho)
+  const top = sheet.y + (noteHasIcon(n) ? ENT_TOP : 0.4) * F;
+  if (noteHasIcon(n)) {
+    // o recorte no papel colorido, com o canto de dentro redondo, e o desenho no meio da primeira linha
+    const ew = ENT_W * F;
+    const eh = ENT_H * F;
+    const r = Math.min(SHEET_RADIUS, ew / 2, eh / 2);
+    const paper = look.edge?.color ?? look.band?.color ?? look.paper;
+    items.push({ t: 'p', d: `M${sheet.x} ${sheet.y}H${sheet.x + ew}V${sheet.y + eh - r}Q${sheet.x + ew} ${sheet.y + eh} ${sheet.x + ew - r} ${sheet.y + eh}H${sheet.x}Z`, fill: paper });
+    const icon = ENT_ICON * F;
+    // no meio do quadrado que se vê, da beirada do card (a moldura) até a folha
+    const cx = sheet.x - FRAME + (ew + FRAME) / 2;
+    const cy = sheet.y - FRAME + (eh + FRAME) / 2;
+    if (icon * k >= 1.5) items.push({ t: 'r', x: cx - icon * 0.4, y: cy - icon * 0.4, w: icon * 0.8, h: icon * 0.8, rx: icon * 0.3, fill: look.ink, op: 0.35 });
+  }
+  const mid = (i: number) => top + (i + 0.5) * bodyLine;
+  const rows = Math.max(0, Math.floor((sheet.h - (noteHasIcon(n) ? ENT_TOP + 0.5 : BODY_PAD) * F + 0.3 * bodyLine) / bodyLine));
+  lay.body.slice(0, rows).forEach((bw, i) => {
+    if (bw <= 0) return;
+    const hh = Math.max(F * 0.36, 0.6 / k);
+    items.push({ t: 'r', x: textX + lay.indent[i], y: mid(i) - hh / 2, w: bw, h: hh, rx: hh / 2, fill: look.bodyInk, op: 0.32 });
+  });
 }

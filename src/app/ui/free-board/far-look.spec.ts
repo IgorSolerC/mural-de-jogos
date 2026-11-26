@@ -15,12 +15,13 @@ describe('as cores do quadro em ponto pequeno (far-palette.ts)', () => {
     expect(stockColor('azul')).toBe('#70cdff');
     expect(stockColor('marrom')).toBe('#b99372');
     const dica = jeitoInks('dica');
-    expect(dica.papel).toBe('#d6efe6');
+    // a faixa e a moldura na cor forte do jeito (a da anotação aberta, --c-forte), como o card de perto
+    expect(dica.papel).toBe('#ace7d8');
     expect(dica.tinta).toBe('#0f6658');
-    // a folha clara: 22% do papel no creme, como o cartao-miolo-cor de ui/_formatado.scss
+    // a folha clara: 22% do papel claro no creme, como o cartao-miolo-cor de ui/_formatado.scss
     expect(dica.miolo).toBe(mix('#d6efe6', '#fffdf8', 0.22));
     // a cartolina fora de uma ficha: o cinza
-    expect(jeitoInks('cartolina').papel).toBe('#e7e4de');
+    expect(jeitoInks('cartolina').papel).toBe('#ddd8d2');
   });
 
   it('mistura e mede a clareza', () => {
@@ -47,6 +48,8 @@ describe('a aparência de cada peça (far-look.ts)', () => {
     expect(one.band).toBeNull();
     expect(one.paper).toBe(jeitoInks('rosa').papel);
     expect(pieceLook({ i: 'x2', t: 'x', x: 0, y: 0, w: 300, h: 100, k: 'aviso', txt: '' }, null).title).toBe('Aviso');
+    // o texto novo (com o campo do desenho) fica sem título
+    expect(pieceLook({ i: 'x3', t: 'x', x: 0, y: 0, w: 300, h: 100, ic: '', txt: '\nSó o texto' }, null).title).toBe('');
   });
 
   it('a nota colada: a cartolina e o nome da ficha achada, a orelhinha da pasta, a tinta clara na escura', () => {

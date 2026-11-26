@@ -326,10 +326,9 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
       expect(el.querySelectorAll('.anel').length).toBe(1);
       expect(el.querySelectorAll('[data-alca]').length).toBe(8);
       const acoes = el.querySelector<HTMLElement>('.acoes')!;
-      expect([...acoes.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual(['Escrever', 'Cor', 'Jeito do card: Nota', 'Tamanho da letra', 'Trazer para frente', 'Mandar para trás', 'Duplicar', 'Apagar']);
+      // sem o Jeito: o desenho é o ícone (na folha) e o papel é a Cor
+      expect([...acoes.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual(['Escrever', 'Cor', 'Tamanho da letra', 'Trazer para frente', 'Mandar para trás', 'Duplicar', 'Apagar']);
       expectEtiquetaPadrao(acoes);
-      // o Jeito é o desenho do card (o lápis da Nota parecia "escrever"), e o Escrever abre a folha do card
-      expect(acoes.querySelector('.jeito lucide-icon')!.innerHTML).not.toBe(acoes.querySelector('.escrita lucide-icon')!.innerHTML);
       acoes.querySelector<HTMLButtonElement>('.escrita')!.click();
       await settle();
       expect(fixture.componentInstance.editor.writing()).toEqual({ kind: 'bilhete', id: 'senha' });
@@ -429,7 +428,7 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
     describe('o texto do card, na folha ao lado do quadro', () => {
       comMarkdown();
 
-      it('duplo clique no fundo é um card novo, com a folha aberta no título; o card muda a cada letra, e clicar no quadro guarda', async () => {
+      it('duplo clique no fundo é um card novo, com a folha aberta no texto (o título é opcional); o card muda a cada letra, e clicar no quadro guarda', async () => {
         await edit(MANSION);
         // embaixo da moldura, na tela (a peça é montada)
         visor().dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true, clientX: 640, clientY: 560 }));
@@ -437,8 +436,9 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
         // fora do mundo do quadro: não escala com o zoom
         expect(el.querySelector('.mundo app-free-board-text-sheet')).toBeNull();
         const title = s.querySelector<HTMLTextAreaElement>('textarea.titulo')!;
-        expect(document.activeElement).toBe(title);
-        expect(title.placeholder).toBe('Nota');
+        // a maioria dos textos não tem título: o cursor vai para o texto, e o título vazio não vira "Nota"
+        expect(document.activeElement).toBe(s.querySelector('app-rich-editor textarea'));
+        expect(title.placeholder).toBe('Título (opcional)');
         // o antigo campo no lugar do card não existe mais
         expect(el.querySelector('textarea.escrever')).toBeNull();
         typeIn(title, 'Senha nova');
@@ -604,7 +604,8 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
         await settle();
         s.querySelector<HTMLButtonElement>('dialog.cartela-de-icones .op[aria-label="Estrela"]')!.click();
         await settle();
-        expect(piece(id)!.querySelector('.cartao-icone')).not.toBeNull();
+        // (o card vazio não tem onde mostrar o desenho; ele está guardado no card que acabou de nascer)
+        expect(changes.at(-1)!.n.find((n) => n.i === id)!['ic']).toBe('estrela');
         s.querySelector<HTMLButtonElement>('.faixa .pronto')!.click();
         await settle();
         expect(changes.at(-1)!.n.some((n) => n.i === id)).toBeFalse();
@@ -688,6 +689,65 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
         expect(nodeOf('senha')['ic']).toBe('');
       });
 
+      it('o card novo sem título é só o texto; com o ícone, o ícone vai no começo do texto', async () => {
+        await edit(MANSION);
+        dblAt(640, 560);
+        const s = await sheet();
+        const id = fixture.componentInstance.editor.writing()!.id;
+        typeIn(s.querySelector<HTMLTextAreaElement>('app-rich-editor textarea')!, 'Comprar pão e leite');
+        await settle();
+        const card = () => piece(id)!.querySelector<HTMLElement>('.cartao')!;
+        expect(card().querySelector('.cartao-topo')).toBeNull();
+        expect(card().querySelector('.cartao-texto')!.textContent).toContain('Comprar pão e leite');
+        s.querySelector<HTMLButtonElement>('.icone-botao')!.click();
+        await settle();
+        s.querySelector<HTMLButtonElement>('dialog.cartela-de-icones .op[aria-label="Estrela"]')!.click();
+        await settle();
+        // sem título, o desenho mora num recorte no canto, no papel colorido; a primeira linha começa depois dele e a
+        // segunda volta à margem, embaixo dele
+        expect(card().querySelector('.cartao-topo')).toBeNull();
+        const notch = card().querySelector<HTMLElement>(':scope > .entalhe')!;
+        expect(notch).not.toBeNull();
+        expect(notch.querySelector('.cartao-icone lucide-icon')).not.toBeNull();
+        expect(getComputedStyle(notch).backgroundColor).toBe(getComputedStyle(card()).backgroundColor);
+        expect(getComputedStyle(card().querySelector('.entalhe-lugar')!).float).toBe('left');
+        s.querySelector<HTMLButtonElement>('.faixa .pronto')!.click();
+        await settle();
+        expect(nodeOf(id)).toEqual(jasmine.objectContaining({ txt: '\nComprar pão e leite', ic: 'estrela' }));
+      });
+
+      it('na folha, o que é do card: a letra em degraus, a cor nas amostras e "Ajustar ao texto"', async () => {
+        await edit(board([{ i: 'alto', t: 'x', x: 0, y: 0, w: 208, h: 312, txt: 'Mala\n- passaporte' }]));
+        fixture.componentInstance.editor.writing.set({ kind: 'bilhete', id: 'alto' });
+        const s = await sheet();
+        const aa = [...s.querySelectorAll<HTMLButtonElement>('.letras .aa')];
+        expect(aa.map((b) => b.getAttribute('aria-label'))).toEqual(['Letra Pequena', 'Letra Média', 'Letra Grande', 'Letra Bem grande', 'Letra Enorme']);
+        // cada "Aa" no tamanho dele, e o de agora marcado
+        const sizes = aa.map((b) => parseFloat(getComputedStyle(b).fontSize));
+        expect(sizes).toEqual([...sizes].sort((a, b) => a - b));
+        expect(aa.map((b) => b.getAttribute('aria-checked'))).toEqual(['false', 'true', 'false', 'false', 'false']);
+        // "Ajustar ao texto": a altura do que o card tem (aqui, menor)
+        s.querySelector<HTMLButtonElement>('.ajustar')!.click();
+        await settle();
+        expect(nodeOf('alto').h).toBeLessThan(312);
+        expect(nodeOf('alto').h % 26).toBe(0);
+        aa[3].click();
+        await settle();
+        expect(nodeOf('alto')['fs']).toBe(2);
+        expect(s.querySelectorAll<HTMLButtonElement>('.letras .aa')[3].getAttribute('aria-checked')).toBe('true');
+        // as cores: a de agora é a do jeito (o Pardo da Nota), que não se escreve
+        const cores = () => [...s.querySelectorAll<HTMLButtonElement>('.cores .amostra')];
+        expect(cores().length).toBe(10);
+        expect(cores().find((b) => b.getAttribute('aria-checked') === 'true')!.getAttribute('aria-label')).toBe('Pardo');
+        cores().find((b) => b.getAttribute('aria-label') === 'Azul')!.click();
+        await settle();
+        expect(nodeOf('alto')['kc']).toBe('azul');
+        expect(s.querySelector<HTMLElement>('.faixa')!.dataset['jeito']).toBe('info');
+        cores().find((b) => b.getAttribute('aria-label') === 'Pardo')!.click();
+        await settle();
+        expect(nodeOf('alto')['kc']).toBeUndefined();
+      });
+
       it('sair do editar com a folha aberta guarda o que foi escrito', async () => {
         await edit(MANSION);
         fixture.componentInstance.editor.writing.set({ kind: 'bilhete', id: 'senha' });
@@ -722,6 +782,24 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
       expect(baixo.h).toBeGreaterThan(52);
       expect(baixo.h % 26).toBe(0);
       expect(piece('baixo')!.querySelector('.cartao.cortado')).toBeNull();
+    });
+
+    it('o botão direito do texto não tem mais o Jeito; a Cor são as dez amostras na cor forte, a de agora marcada', async () => {
+      await edit(MANSION);
+      visor().dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 80, clientY: 130 }));
+      await settle();
+      const labels = [...document.querySelectorAll<HTMLElement>('.menu-contexto [role="menuitem"]')].map((i) => i.textContent!.replace(/\s+/g, ' ').trim());
+      expect(labels.some((t) => t.startsWith('Jeito'))).toBeFalse();
+      expect(labels.some((t) => t.startsWith('Cor'))).toBeTrue();
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await settle();
+      ptr('pointerdown', 60, 110);
+      ptr('pointerup', 60, 110);
+      await settle();
+      el.querySelector<HTMLButtonElement>('.acoes .cor')!.click();
+      await settle();
+      const items = [...document.querySelectorAll<HTMLElement>('app-context-menu [role="menuitem"], app-context-menu [role="menuitemradio"]')];
+      expect(items.length).toBe(10);
     });
 
     it('a régua das ferramentas e o zoom são etiquetas de tinta separadas, em grupos tortos; a ligada é a amarela', async () => {
@@ -871,6 +949,31 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
     fixture.detectChanges();
     expect(card.dataset['jeito']).toBe('feito');
     expect(card.querySelector('.cartao-titulo')?.textContent?.trim()).toBe('Nota');
+  });
+
+  it('o card na cor forte da anotação aberta, e o desenho do tamanho da letra (o novo, sem título, sem o nome do jeito)', async () => {
+    const fixture = TestBed.createComponent(FreeBoardPiece);
+    fixture.componentRef.setInput('node', { i: 'tx', t: 'x', x: 0, y: 0, w: 400, h: 156, txt: 'Partículas', ic: 'olho', kc: 'azul' });
+    fixture.componentRef.setInput('info', { kind: 'bilhete', image: null });
+    fixture.componentRef.setInput('level', 'perto');
+    const host = fixture.nativeElement as HTMLElement;
+    host.style.cssText = 'position:absolute;width:400px;height:156px';
+    document.body.appendChild(host);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const card = host.querySelector<HTMLElement>('.cartao')!;
+    expect(getComputedStyle(card).backgroundColor).toBe('rgb(182, 223, 250)');
+    const iconW = () => host.querySelector<HTMLElement>('.cartao-icone svg')!.getBoundingClientRect().width;
+    const small = iconW();
+    fixture.componentRef.setInput('node', { i: 'tx', t: 'x', x: 0, y: 0, w: 400, h: 156, txt: 'Partículas', ic: 'olho', kc: 'azul', fs: 3 });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(iconW()).toBeCloseTo(small * 3, -1);
+    // o novo sem título fica só com o texto (o de antes mostraria "Nota")
+    fixture.componentRef.setInput('node', { i: 'tx', t: 'x', x: 0, y: 0, w: 400, h: 156, txt: '\nSó o texto', ic: '' });
+    fixture.detectChanges();
+    expect(host.querySelector('.cartao-topo')).toBeNull();
+    host.remove();
   });
 });
 

@@ -16,7 +16,7 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { FbNode, FbNote, FreeBoard, noteColor, noteLook } from '../../core/free-board';
+import { FbNode, FbNote, FreeBoard, noteColor, noteFont, noteLook } from '../../core/free-board';
 import { boardOutline } from '../../core/free-board-text';
 import { ContextMenu, MenuSections } from '../context-menu';
 import { Camera, Point, Rect, contains, fitRect, framesOf, readingOrder, toWorld, viewRect, zoomAt } from '../../core/free-board-geometry';
@@ -216,9 +216,13 @@ interface EdgeLabel {
           [look]="c.look"
           [color]="c.color"
           [ic]="c.ic"
+          [fs]="c.fs"
           [notes]="linkNotes()"
           (changed)="cardTyped(c.id, $event)"
           (iconPick)="editor.setIcon(c.id, $event)"
+          (fontPick)="editor.setFont({ fs: $event }, c.id)"
+          (colorPick)="editor.paintCard($event, c.id)"
+          (fit)="editor.fitToText(c.id)"
           (done)="editor.flushWriting()"
         />
       }
@@ -348,7 +352,7 @@ export class FreeBoardView implements RigHost {
   protected readonly writingCard = computed(() => {
     const w = this.editor.writing();
     const n = w?.kind === 'bilhete' ? this.current().n.find((x): x is FbNote => x.i === w.id && x.t === 'x') : undefined;
-    return n ? { id: n.i, txt: n.txt, look: noteLook(n), color: noteColor(n), ic: n.ic } : null;
+    return n ? { id: n.i, txt: n.txt, look: noteLook(n), color: noteColor(n), ic: n.ic, fs: noteFont(n) } : null;
   });
   protected readonly writingCards = computed(() => {
     const c = this.writingCard();
@@ -360,7 +364,7 @@ export class FreeBoardView implements RigHost {
     const id = this.reading();
     if (!id || this.editing()) return null;
     const n = this.current().n.find((x): x is FbNote => x.i === id && x.t === 'x');
-    return n ? { id: n.i, txt: n.txt, look: noteLook(n), color: noteColor(n), ic: n.ic } : null;
+    return n ? { id: n.i, txt: n.txt, look: noteLook(n), color: noteColor(n), ic: n.ic, fs: noteFont(n) } : null;
   });
   protected readonly linkNotes = computed(() => this.owner()?.linkNotes() ?? null);
   protected readonly menuCaption = signal('');

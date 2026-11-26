@@ -1,5 +1,5 @@
-import { FbFrame, FbNode, noteColor, noteLook, noteParts } from '../../core/free-board';
-import { calloutFallbackTitle, calloutPaper } from '../../core/callouts';
+import { FbFrame, FbNode, noteColor, noteFallbackTitle, noteLook, noteParts } from '../../core/free-board';
+import { calloutPaper } from '../../core/callouts';
 import { PixelArt, readPixelArt } from '../../core/pixel-art';
 import { Stock, isDarkStock } from '../../core/review';
 import { plainText } from '../../core/rich-text';
@@ -152,9 +152,11 @@ function readLook(node: FbNode, found: CardInfo | null, info: PieceInfo): PieceL
     const look = noteLook(node);
     const inks = jeitoInks(calloutPaper(look, noteColor(node)));
     const parts = noteParts(node.txt);
-    const title = plain(parts.title, 120) || calloutFallbackTitle(look);
+    const title = plain(parts.title, 120) || noteFallbackTitle(node);
     const body = plain(parts.body, 160);
-    // só o título: a faixa enche o card, como na peça (o papel do jeito, sem a folha clara)
+    // só o título: a faixa enche o card, como na peça (o papel do jeito, sem a folha clara); sem título (o card novo
+    // pode não ter): a folha clara com a moldura do papel em volta, sem faixa
+    if (!title && body) return { ...base, paper: inks.miolo, edge: { color: inks.papel, frac: 0.03 }, ink: inks.tinta, bodyInk: INK, title, body };
     return { ...base, paper: body ? inks.miolo : inks.papel, band: body ? { color: inks.papel, frac: 0.24 } : null, ink: inks.tinta, bodyInk: INK, title, body };
   }
   if (node.t !== 'w') return base;

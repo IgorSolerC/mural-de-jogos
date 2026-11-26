@@ -3,7 +3,7 @@ import { groupKey } from './study';
 import { cleanCategory } from './note-labels';
 import { cleanLabel } from './text';
 import { newImageId } from './images';
-import { CALLOUTS, CALLOUT_PAPERS, CalloutLook } from './callouts';
+import { CALLOUTS, CALLOUT_PAPERS, CalloutLook, calloutFallbackTitle } from './callouts';
 import { IconChoice, isIconChoice } from './icon-choices';
 
 /**
@@ -573,6 +573,19 @@ export function nextFont(fs: number, dir: 1 | -1): number {
 /** O jeito do card do texto (sem um, a Nota, como o card novo das anotações). */
 export function noteLook(n: Pick<FbNote, 'k'>): CalloutLook {
   return n.k ?? 'nota';
+}
+
+/**
+ * O título que o card mostra quando não se escreveu um: nos cards de antes (sem `ic`), o nome do jeito ("Nota"); os
+ * novos ficam sem título, só com o texto (pedido do dono, 26/nov/2026: a maioria dos textos não tem título).
+ */
+export function noteFallbackTitle(n: Pick<FbNote, 'k' | 'ic'>): string {
+  return n.ic === undefined ? calloutFallbackTitle(noteLook(n)) : '';
+}
+
+/** O título do card como ele aparece: o escrito (sem as marcas) ou o reserva (`noteFallbackTitle`). */
+export function noteShownTitle(n: Pick<FbNote, 'k' | 'ic' | 'txt'>, plain: (s: string) => string): string {
+  return plain(noteParts(n.txt).title).trim() || noteFallbackTitle(n);
 }
 
 /** O card do texto tem desenho na faixa? O escolhido, nenhum ('') ou, nos cards de antes, o do jeito (o Vazio não tem). */

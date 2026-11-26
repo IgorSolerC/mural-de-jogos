@@ -252,6 +252,18 @@ export const CARTELA_DE_ICONES = [
   { id: 'planta', label: 'Planta', desenho: [['path', { d: 'M14 9.536V7a4 4 0 0 1 4-4h1.5a.5.5 0 0 1 .5.5V5a4 4 0 0 1-4 4 4 4 0 0 0-4 4c0 2 1 3 1 5a5 5 0 0 1-1 3', key: '139s4v' }], ['path', { d: 'M4 9a5 5 0 0 1 8 4 5 5 0 0 1-8-4', key: '1dlkgp' }], ['path', { d: 'M5 21h14', key: '11awu3' }]] },
   /** Lucide School. */
   { id: 'escola', label: 'Escola', desenho: [['path', { d: 'M14 21v-3a2 2 0 0 0-4 0v3', key: '1rgiei' }], ['path', { d: 'M18 4.933V21', key: 'tjwmp4' }], ['path', { d: 'm4 6 7.106-3.79a2 2 0 0 1 1.788 0L20 6', key: 'zywc2d' }], ['path', { d: 'm6 11-3.52 2.147a1 1 0 0 0-.48.854V19a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5a1 1 0 0 0-.48-.853L18 11', key: '1d4ql0' }], ['path', { d: 'M6 4.933V21', key: '1ufz1j' }], ['circle', { cx: '12', cy: '9', r: '2', key: '1092wv' }]] },
+  /** Lucide Info. Os seis seguintes eram os desenhos dos jeitos do card do texto do canvas (26/nov/2026): o jeito saiu e o desenho virou escolha da cartela. */
+  { id: 'informacao', label: 'Informação', desenho: [['circle', { cx: '12', cy: '12', r: '10', key: '1mglay' }], ['path', { d: 'M12 16v-4', key: '1dtifu' }], ['path', { d: 'M12 8h.01', key: 'e9boi3' }]] },
+  /** Lucide Check. */
+  { id: 'certo', label: 'Certo', desenho: [['path', { d: 'M20 6 9 17l-5-5', key: '1gmf2c' }]] },
+  /** Lucide CircleHelp. */
+  { id: 'pergunta', label: 'Pergunta', desenho: [['circle', { cx: '12', cy: '12', r: '10', key: '1mglay' }], ['path', { d: 'M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3', key: '1u773s' }], ['path', { d: 'M12 17h.01', key: 'p32p05' }]] },
+  /** Lucide TriangleAlert. */
+  { id: 'aviso', label: 'Aviso', desenho: [['path', { d: 'm21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3', key: 'wmoenq' }], ['path', { d: 'M12 9v4', key: 'juzpu7' }], ['path', { d: 'M12 17h.01', key: 'p32p05' }]] },
+  /** Lucide List. */
+  { id: 'itens', label: 'Lista', desenho: [['path', { d: 'M3 5h.01', key: '18ugdj' }], ['path', { d: 'M3 12h.01', key: 'nlz23k' }], ['path', { d: 'M3 19h.01', key: 'noohij' }], ['path', { d: 'M8 5h13', key: '1pao27' }], ['path', { d: 'M8 12h13', key: '1za7za' }], ['path', { d: 'M8 19h13', key: 'm83p4d' }]] },
+  /** Lucide Quote. */
+  { id: 'aspas', label: 'Citação', desenho: [['path', { d: 'M16 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z', key: 'rib7q0' }], ['path', { d: 'M5 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z', key: '1ymkrd' }]] },
 ] as const satisfies readonly { readonly id: string; readonly label: string; readonly desenho: readonly ElementoDoDesenho[] }[];
 
 export type IdDoIcone = (typeof CARTELA_DE_ICONES)[number]['id'];
@@ -303,9 +315,9 @@ export const GAVETAS_DE_ICONES = [
   {
     id: 'andamento',
     label: 'Andamento',
-    icones: ['circulo', 'lista', 'lapis', 'martelo', 'engrenagem', 'olho', 'ampulheta', 'pausa', 'bloqueio', 'check', 'bandeira', 'alvo', 'chama', 'raio', 'inseto', 'foguete', 'relogio', 'calendario', 'sino', 'megafone'],
+    icones: ['circulo', 'lista', 'lapis', 'martelo', 'engrenagem', 'olho', 'ampulheta', 'pausa', 'bloqueio', 'check', 'certo', 'informacao', 'pergunta', 'aviso', 'itens', 'bandeira', 'alvo', 'chama', 'raio', 'inseto', 'foguete', 'relogio', 'calendario', 'sino', 'megafone'],
   },
-  { id: 'destaques', label: 'Destaques', icones: ['estrela', 'coracao', 'trofeu', 'coroa', 'brilho', 'lampada', 'cerebro', 'quebra-cabeca', 'etiqueta', 'pasta', 'caixa'] },
+  { id: 'destaques', label: 'Destaques', icones: ['estrela', 'coracao', 'trofeu', 'coroa', 'brilho', 'lampada', 'aspas', 'cerebro', 'quebra-cabeca', 'etiqueta', 'pasta', 'caixa'] },
   { id: 'estudo', label: 'Estudo', icones: ['capelo', 'escola', 'caderno', 'livro', 'marcador', 'pena', 'microscopio', 'jornal'] },
   {
     id: 'tecnologia',
@@ -366,6 +378,12 @@ export const PALAVRAS_DOS_ICONES: { readonly [id in IdDoIcone]: string } = {
   caixa: 'pacote entrega encomenda produto',
   capelo: 'formatura faculdade universidade curso',
   escola: 'colegio aula ensino',
+  informacao: 'info informacao saber nota dica explicacao',
+  certo: 'certo correto ok sim feito marcado',
+  pergunta: 'pergunta duvida questao ajuda interrogacao',
+  aviso: 'aviso atencao alerta cuidado perigo importante',
+  itens: 'lista itens topicos enumeracao passos',
+  aspas: 'citacao aspas frase fala trecho',
   caderno: 'anotacoes notas diario',
   livro: 'leitura ler biblioteca',
   marcador: 'pagina salvo bookmark leitura',

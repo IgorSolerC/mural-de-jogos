@@ -1,10 +1,12 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, input, linkedSignal, output, untracked, viewChild } from '@angular/core';
-import { CalloutLook, calloutFallbackTitle, calloutPaper } from '../../core/callouts';
-import { FB_TEXT_MAX, noteParts, noteText } from '../../core/free-board';
+import { CALLOUT_PAPERS, CalloutLook, calloutColorWord, calloutPaper } from '../../core/callouts';
+import { FB_FONT_SIZES, FB_TEXT_MAX, noteFallbackTitle, noteParts, noteText } from '../../core/free-board';
 import { plainText } from '../../core/rich-text';
 import { Review } from '../../core/review';
 import { noteIcon, noteIconChoice } from '../callout-looks';
 import { IconChart } from '../icon-chart';
+import { roveRadios } from '../focus';
+import { CALLOUT_STRONG_HEX } from './far-palette';
 import { IconChoice } from '../../core/icon-choices';
 import { HeightVar } from '../height-var';
 import { ICON, IconModule } from '../icons';
@@ -49,7 +51,13 @@ const TITLE_MAX = 200;
         @if (icon(); as ic) {
           <span class="icone" aria-hidden="true"><lucide-icon [img]="ic" [size]="26" /></span>
         }
-        <h2 class="titulo lido" [id]="uid + '-nome'">{{ readTitle() }}</h2>
+        @if (readTitle(); as t) {
+          <h2 class="titulo lido" [id]="uid + '-nome'">{{ t }}</h2>
+        } @else {
+          <!-- (o card sem título: a faixa só com o desenho e o Fechar) -->
+          <h2 class="sr-only" [id]="uid + '-nome'">Texto do card</h2>
+          <span class="titulo-vazio"></span>
+        }
         <button #fechar type="button" class="btn-ink pronto" title="Fechar (Esc)" aria-keyshortcuts="Escape" (click)="done.emit()">Fechar</button>
       </header>
       <div class="conteudo lido">
@@ -95,6 +103,46 @@ const TITLE_MAX = 200;
       ></textarea>
       <button type="button" class="btn-ink pronto" [title]="'Guardar no card (' + saveKey + ', ' + enterKey + ' ou Esc também guardam)'" aria-keyshortcuts="Control+Enter Escape" appSaveKey (click)="done.emit()">Pronto</button>
     </header>
+    <!-- o que é do card, sem sair da folha (o mesmo da etiqueta e do botão direito do quadro): a letra, cada degrau
+         escrito no tamanho dele; a cor, nas amostras; e a altura do texto -->
+    <div class="ajustes-card" role="group" aria-label="O card">
+      <div class="letras" role="radiogroup" aria-label="Tamanho da letra" (keydown)="rove($event)">
+        @for (s of sizes; track s.fs) {
+          <button
+            type="button"
+            role="radio"
+            class="aa"
+            [attr.aria-checked]="fs() === s.fs"
+            [attr.tabindex]="fs() === s.fs ? 0 : -1"
+            [attr.aria-label]="'Letra ' + s.name"
+            [title]="'Letra ' + s.name"
+            [style.--aa]="s.px"
+            (click)="fontPick.emit(s.fs)"
+          >
+            Aa
+          </button>
+        }
+      </div>
+      <div class="cores" role="radiogroup" aria-label="Cor do card" (keydown)="rove($event)">
+        @for (c of colors; track c.word) {
+          <button
+            type="button"
+            role="radio"
+            class="amostra"
+            [attr.aria-checked]="colorWord() === c.word"
+            [attr.tabindex]="colorWord() === c.word ? 0 : -1"
+            [attr.aria-label]="c.name"
+            [title]="c.name"
+            [style.--amostra]="c.hex"
+            (click)="colorPick.emit(c.word)"
+          ></button>
+        }
+      </div>
+      <button type="button" class="ajustar" title="A altura do card do tamanho do texto" (click)="fit.emit()">
+        <lucide-icon [img]="Altura" [size]="16" aria-hidden="true" />
+        Ajustar ao texto
+      </button>
+    </div>
     <div class="conteudo" appHeightVar="--conteudo-h">
       <app-rich-editor
         #texto
@@ -128,6 +176,8 @@ export class FreeBoardTextSheet {
   readonly notes = input<readonly Review[] | null>(null);
   /** O desenho escolhido para a faixa ('' sem desenho; omitido, o do jeito: os cards de antes). */
   readonly ic = input<IconChoice | '' | undefined>(undefined);
+  /** O tamanho da letra do card (um degrau de `FB_FONT_SIZES`). */
+  readonly fs = input(1);
   /** Só para ler o card inteiro (no ver e na visita), sem escrever. */
   readonly reading = input(false);
   /** Os links do texto lido (os mesmos da peça). */
@@ -138,6 +188,19 @@ export class FreeBoardTextSheet {
   readonly done = output<void>();
   /** Escolheu o desenho da faixa na cartela ('' tirou). Quem guarda é o editor do quadro. */
   readonly iconPick = output<IconChoice | ''>();
+  /** Escolheu o tamanho da letra, a cor ou "Ajustar ao texto" (quem guarda é o editor do quadro). */
+  readonly fontPick = output<number>();
+  readonly colorPick = output<string>();
+  readonly fit = output<void>();
+
+  /** Os degraus da letra, cada "Aa" no tamanho dele (px na folha, do Pequena ao Enorme). */
+  protected readonly sizes = FB_FONT_SIZES.map((s, i) => ({ ...s, px: `${[12, 15, 18, 22, 27][i] ?? 15}px` }));
+  /** As cores do card, na cor forte (a da faixa). */
+  protected readonly colors = CALLOUT_PAPERS.map((c) => ({ word: c.word, name: c.name, hex: CALLOUT_STRONG_HEX[c.paper] }));
+  /** A cor de agora: a escolhida, ou a que o jeito dá (o Pardo da Nota). */
+  protected readonly colorWord = computed(() => this.color() || calloutColorWord(this.look()));
+  protected readonly rove = roveRadios;
+  protected readonly Altura = ICON.ajustarAoTexto;
 
   protected readonly uid = `folha-card-${++uid}`;
   protected readonly titleMax = TITLE_MAX;
@@ -148,7 +211,7 @@ export class FreeBoardTextSheet {
   protected readonly Plus = ICON.adicionar;
   /** O card de agora, para ler (o de outra pessoa que muda no meio aparece mudado). */
   private readonly readParts = computed(() => noteParts(this.text()));
-  protected readonly readTitle = computed(() => plainText(this.readParts().title).trim() || calloutFallbackTitle(this.look()));
+  protected readonly readTitle = computed(() => plainText(this.readParts().title).trim() || noteFallbackTitle({ k: this.look(), ic: this.ic() }));
   protected readonly readBody = computed(() => this.readParts().body);
 
   /** O título e o corpo de quando abriu (o de outra aba chegando no meio não apaga o que se escreve). */
@@ -163,23 +226,21 @@ export class FreeBoardTextSheet {
   protected readonly paper = computed(() => calloutPaper(this.look(), this.color()));
   protected readonly icon = computed(() => noteIcon(this.look(), this.ic()));
   protected readonly iconChoice = computed(() => noteIconChoice(this.look(), this.ic()));
-  /** Vazio, o título diz o que o card mostra no lugar dele: o nome do jeito. */
-  protected readonly titleHint = computed(() => calloutFallbackTitle(this.look()) || 'Título (opcional)');
+  /** Vazio, o título diz o que o card mostra no lugar dele: o nome do jeito, nos cards de antes; nos novos, nada. */
+  protected readonly titleHint = computed(() => noteFallbackTitle({ k: this.look(), ic: this.ic() }) || 'Título (opcional)');
   /** O que sobra para o corpo com o título mais longo (uma conta que não muda enquanto se escreve o título). */
   protected readonly bodyMax = FB_TEXT_MAX - TITLE_MAX - 1;
 
   constructor() {
-    // abre no título, se o card ainda não tem nada; senão, no fim do texto (para ler: no Fechar)
+    // abre no texto, no fim dele (a maioria dos textos não tem título: ele fica em cima, opcional); para ler, no Fechar
     afterNextRender(() => {
       if (untracked(this.reading)) {
         this.closer()?.nativeElement.focus({ preventScroll: true });
         return;
       }
+      this.writer()?.focusEnd();
       const title = this.titleField()?.nativeElement;
-      const empty = !untracked(this.title) && !untracked(this.body).trim();
-      if (empty) title?.focus({ preventScroll: true });
-      else this.writer()?.focusEnd();
-      if (title) this.fit(title);
+      if (title) this.fitTitle(title);
     });
   }
 
@@ -188,7 +249,7 @@ export class FreeBoardTextSheet {
     const one = el.value.replace(/\s*\n\s*/g, ' ');
     if (one !== el.value) el.value = one;
     this.title.set(one);
-    this.fit(el);
+    this.fitTitle(el);
     this.tell();
   }
 
@@ -226,7 +287,7 @@ export class FreeBoardTextSheet {
    * O título cresce com o que tem (quebra em mais linhas na faixa). Com o `field-sizing` (text-sheet.scss), o navegador
    * faz isso sozinho, também quando a letra a pincel chega depois: uma altura escrita aqui ficaria velha.
    */
-  private fit(el: HTMLTextAreaElement): void {
+  private fitTitle(el: HTMLTextAreaElement): void {
     if (typeof CSS !== 'undefined' && CSS.supports('field-sizing', 'content')) return;
     el.style.height = 'auto';
     el.style.height = `${el.scrollHeight}px`;

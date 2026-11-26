@@ -102,7 +102,7 @@ export type SelectionAction = 'escrever' | 'cor' | 'jeito' | 'letra' | 'rotulo' 
           }
           @if (t.look) {
             <button type="button" class="botao jeito" [attr.aria-label]="t.look" [title]="t.look" (pointerdown)="$event.stopPropagation()" (click)="act.emit('jeito')">
-              <lucide-icon [img]="lookIcon()" [size]="16" aria-hidden="true" />
+              <lucide-icon [img]="Icons.jeito" [size]="16" aria-hidden="true" />
             </button>
           }
           @if (t.font) {
@@ -161,14 +161,6 @@ export class FreeBoardEditOverlay {
   readonly edgeLocked = input(false);
   /** O nome do "Jeito da peça" da seleção (null: ela não tem). */
   readonly lookLabel = input<string | null>(null);
-  /**
-   * O desenho do botão do jeito: o card, quando é um texto (o desenho do jeito dele, na Nota um lápis, parecia
-   * "escrever"; o nome do jeito fica no título do botão), senão o de sempre.
-   */
-  protected readonly lookIcon = computed(() => {
-    const sel = this.selectedNodes();
-    return sel.length === 1 && sel[0].t === 'x' ? ICON.card : ICON.moldura;
-  });
   readonly act = output<SelectionAction>();
   /** A câmera parada (a última conta): mudou, a etiqueta é medida de novo na tela. */
   readonly camera = input<unknown>(null);

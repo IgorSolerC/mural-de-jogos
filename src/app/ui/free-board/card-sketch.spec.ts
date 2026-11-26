@@ -102,6 +102,31 @@ describe('o card do texto em proporção (card-sketch.ts)', () => {
     expect(withIcon.find((r) => r.fill === look.ink && r.op === 0.72)!.x).toBeGreaterThan(titleBar.x + 10);
   });
 
+  it('o card sem título: só a folha clara com a moldura em volta, e o ícone no recorte do canto, como na peça', async () => {
+    const node: FbNote = { i: 'st', t: 'x', x: 0, y: 0, w: 320, h: 130, ic: 'estrela', txt: '\num dois três' };
+    const card = await dom(node);
+    const box = card.getBoundingClientRect();
+    const sheetEl = card.querySelector<HTMLElement>('.cartao-corpo')!.getBoundingClientRect();
+    const iconEl = card.querySelector<HTMLElement>('.entalhe .cartao-icone')!.getBoundingClientRect();
+    const look = pieceLook(node, null);
+    const items = rects(sketch(node));
+    const sheet = items.find((r) => r.fill === look.paper && r.w === node.w - 10)!;
+    expect(Math.abs(sheet.y - (sheetEl.top - box.top))).toBeLessThan(2);
+    // nada da faixa: nenhum traço do título
+    expect(items.some((r) => r.op === 0.72)).toBeFalse();
+    const icon = items.find((r) => r.op === 0.35)!;
+    expect(Math.abs(icon.x + icon.w / 2 - (iconEl.left + iconEl.width / 2 - box.left))).toBeLessThan(3);
+    expect(Math.abs(icon.y + icon.h / 2 - (iconEl.top + iconEl.height / 2 - box.top))).toBeLessThan(3);
+    // as linhas do texto na mesma altura da peça
+    const textEl = card.querySelector<HTMLElement>('.cartao-texto')!;
+    const lh = parseFloat(getComputedStyle(textEl).lineHeight);
+    const bars = items.filter((r) => r.op === 0.32);
+    expect(Math.abs(bars[0].y + bars[0].h / 2 - (textEl.getBoundingClientRect().top - box.top + lh / 2))).toBeLessThan(3);
+    // a primeira linha começa depois do ícone
+    const first = items.find((r) => r.op === 0.32)!;
+    expect(first.x).toBeGreaterThan(icon.x + icon.w);
+  });
+
   it('a lista e a tarefa começam depois do marcador, como na peça', () => {
     const n: FbNote = { i: 'l', t: 'x', x: 0, y: 0, w: 320, h: 400, txt: 'Mala\nAntes de ir\n- [ ] Passaporte\n- Casaco\n1. Chave' };
     const xs = rects(sketch(n))

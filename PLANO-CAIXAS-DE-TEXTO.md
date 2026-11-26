@@ -127,5 +127,27 @@ Sugestões da crítica que esperam o dono (não são do pedido):
 - **"BILHETE" no Ver em lista** (o nome do tipo de dentro, `it.kind`) e o título emendado no corpo ali.
 - O card novo que nasce por cima do vizinho; o Esc da folha que guarda sem um "Descartar".
 
+## 6. Os ajustes do dono depois do fechamento (26/nov/2026, à tarde)
+
+Oito pedidos, com o Impeccable (`shape`) planejando o recorte do desenho:
+
+1. **Sem o Jeito** nos textos (o botão da etiqueta e o "Jeito do card…" do botão direito): ele não muda mais o desenho, e
+   o papel é a Cor. Os cards de antes guardam o jeito deles (o papel, o desenho sem `ic`, o título reserva).
+2. **Os desenhos dos jeitos na cartela do site** (a de todo o app): Informação, Certo, Pergunta, Aviso, Lista e Citação
+   (o lápis, a lâmpada, o raio e o livro já estavam). A cartela tem 116.
+3. **O desenho do tamanho da letra:** o svg do `lucide-icon` não pegava o estilo da peça (o encapsulamento) e ficava nos
+   18 px do `[size]` com qualquer letra.
+4. **O papel na cor forte** da anotação aberta (`--c-forte` e `--c-tinta-forte`, styles.scss): a faixa e a moldura do
+   card, a faixa da folha, o desenho de longe e as amostras de cor (`CALLOUT_STRONG_HEX`).
+5. **O texto novo sem título** (`noteFallbackTitle`: o nome do jeito só nos cards de antes, sem `ic`).
+6. **O desenho sem título**, no desenho do dono: um recorte no canto de cima à esquerda da folha clara, no papel colorido
+   (o mesmo da moldura, então os dois são uma peça só), com a folha contornando os cantos com o raio dela (7 px, fixo);
+   o desenho no meio do quadrado que se vê; a primeira linha começa depois do recorte e na altura do desenho, e as de
+   baixo voltam à margem, com a entrelinha de sempre. A entrelinha dos cards foi para 1,45 (com 1,35 as linhas se
+   apertavam e o recorte de uma linha não tinha respiro), em todo card.
+7. **O cursor no texto** ao abrir a folha (o título fica em cima, opcional).
+8. **O que é do card dentro da folha:** a letra (cinco "Aa", cada um no tamanho dele), a cor (as dez amostras) e
+   "Ajustar ao texto" (com o `ScanText`, as cantoneiras em volta das linhas).
+
 Ficam de fora (ruído para este pedido): a régua de ferramentas com 10,88 px, o raio de 18 px do feltro, o título
 "skipped-heading" de outra página.

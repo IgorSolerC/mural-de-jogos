@@ -105,6 +105,10 @@
    clara colada por cima, com a moldura da cor em volta. O papel enche a peça ===== */
 
 .cartao {
+  /* a cor forte do jeito (a da anotação aberta, --c-forte de styles.scss): o dono achou o papel claro apagado no feltro
+     escuro (26/nov/2026). O miolo claro fica o mesmo */
+  --c-fundo: var(--c-forte, var(--c-papel));
+  --c-tinta: var(--c-tinta-forte);
   @include formatado.cartao-folha;
   position: absolute;
   inset: 0;
@@ -114,7 +118,9 @@
   padding: 0 formatado.$cartao-moldura formatado.$cartao-moldura;
   /* o tamanho da letra do card (--fs, da peça): o título, os respiros e a faixa vão junto, em em; a moldura de papel
      fica nos 5 px (a beirada é do papel, não da letra) */
-  font: 400 calc(1.15rem * var(--fs, 1)) / 1.35 var(--f-hand);
+  /* a entrelinha de 1,45: o texto à mão com ar (com 1,35 as linhas se apertavam, e o recorte do desenho não cabia
+     direito numa linha); a mesma em todo card, com ou sem desenho */
+  font: 400 calc(1.15rem * var(--fs, 1)) / 1.45 var(--f-hand);
   --line: 1.5em;
 }
 
@@ -127,7 +133,9 @@
   @include formatado.cartao-topo;
   flex: none;
   align-items: flex-start;
-  padding: 0.45em calc(#{formatado.$cartao-lado} - #{formatado.$cartao-moldura}) 0.5em;
+  /* (do lado esquerdo, o desenho começa na mesma linha do texto de baixo, como no card das anotações: 0,74 da letra da
+     faixa é 0,83 da letra do texto) */
+  padding: 0.45em calc(#{formatado.$cartao-lado} - #{formatado.$cartao-moldura}) 0.5em calc(0.74em - #{formatado.$cartao-moldura});
   font-size: 1.12em;
 }
 
@@ -154,8 +162,99 @@
 
 .cartao-icone {
   @include formatado.cartao-icone;
-  /* no meio da primeira linha do título, que pode quebrar */
-  margin-top: calc((var(--line) - 1.02em) / 2);
+  /* o tamanho do desenho do card das anotações (1,03 da letra do texto: 0,92 da letra da faixa, que é maior), no meio
+     da primeira linha do título, que pode quebrar */
+  width: 0.92em;
+  height: 0.92em;
+  margin-top: calc((var(--line) - 0.92em) / 2);
+  color: var(--c-tinta);
+
+  /* o desenho do tamanho da letra (em), em qualquer tamanho dela: o svg é do lucide-icon, de fora deste estilo, e
+     sem isto ficava nos 18 px do [size] com a letra Enorme */
+  lucide-icon {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  ::ng-deep svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+}
+
+/* ===== Sem título, com desenho: o recorte ("entalhe") no canto de cima à esquerda da folha clara, no papel colorido
+   da moldura (o mesmo, então o recorte e a moldura são uma peça só). A folha contorna o recorte com o raio dela: o canto
+   de dentro do recorte e as duas quinas da folha em volta dele. As medidas (em em da letra do corpo) também são as do
+   desenho em proporção, ui/free-board/card-sketch.ts ===== */
+.cartao.com-entalhe {
+  /* as linhas na altura de sempre; o respiro de cima da folha menor (0,15), para a primeira linha ficar na altura do
+     desenho, que fica no meio do quadrado do recorte */
+  > .cartao-corpo {
+    padding-top: 0.15em;
+  }
+  /* o recorte: do alto do card até um pouco acima da segunda linha (a folga de 0,15, a mesma do respiro de cima): uma
+     linha de altura, quadrado com a moldura de cima e da esquerda; o desenho (0,9) no meio dele */
+  --ent-w: 1.45em;
+  --ent-h: 1.45em;
+  /* o raio é o da folha clara (7 px), em qualquer tamanho da letra: os cantos do recorte iguais aos outros */
+  --ent-r: 7px;
+  /* o vão do recorte até a primeira letra */
+  --ent-gap: 0.4em;
+}
+
+.entalhe {
+  position: absolute;
+  z-index: 1;
+  /* o quadrado que se vê vai da beirada do card (a moldura de cima e da esquerda é do mesmo papel) até a folha, e o
+     desenho fica no meio dele, nos dois sentidos. Por cima da folha (a sombra dela não aparece entre os dois papéis) */
+  top: 0;
+  left: 0;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: calc(var(--ent-w) + #{formatado.$cartao-moldura});
+  height: calc(var(--ent-h) + #{formatado.$cartao-moldura});
+  /* a quina de fora é a do card (10 px, a da folha do jeito): o recorte não a deixa pontuda */
+  border-top-left-radius: 10px;
+  border-bottom-right-radius: var(--ent-r);
+  background: var(--c-fundo, var(--c-papel));
+
+  /* as duas quinas da folha em volta do recorte, redondas: um quadradinho do papel colorido com um quarto de círculo
+     transparente, onde a folha aparece */
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    width: var(--ent-r);
+    height: var(--ent-r);
+    background: radial-gradient(circle at 100% 100%, transparent calc(var(--ent-r) - 0.5px), var(--c-fundo, var(--c-papel)) var(--ent-r));
+  }
+  /* (na beirada da folha, que fica a moldura para dentro do quadrado) */
+  &::before {
+    top: #{formatado.$cartao-moldura};
+    left: 100%;
+  }
+  &::after {
+    top: 100%;
+    left: #{formatado.$cartao-moldura};
+  }
+
+  .cartao-icone {
+    width: 0.9em;
+    height: 0.9em;
+    margin: 0;
+  }
+}
+
+/* o lugar do recorte no texto: a primeira linha começa depois dele (do recorte e do vão, menos o lado de dentro da
+   folha); as de baixo voltam à margem */
+.entalhe-lugar {
+  float: left;
+  width: calc(var(--ent-w) + var(--ent-gap) - (#{formatado.$cartao-lado} - #{formatado.$cartao-moldura}));
+  /* só a primeira linha: menos que ela (1 em), porque da altura exata dela um arredondamento de fração de pixel
+     deixava a segunda linha também ao lado do recorte */
+  height: 1em;
 }
 
 /* o texto na folha clara (sem título, a moldura em cima também) */
@@ -172,7 +271,13 @@
   font: inherit;
 }
 
-/* o texto: cortado entre duas linhas (a altura que cabe, de fitCard), nunca no meio da letra */
+/* o texto que começa com uma lista: o primeiro item anda inteiro para depois do recorte (o marcador ficaria nele) */
+.cartao-texto:has(> .entalhe-lugar) ::ng-deep .lista:first-child > li:first-child {
+  margin-left: calc(var(--ent-w) + var(--ent-gap) - (#{formatado.$cartao-lado} - #{formatado.$cartao-moldura}));
+}
+
+/* o texto: cortado entre duas linhas (a altura que cabe, de fitCard), nunca no meio da letra. Uma caixa só dele
+   (overflow: hidden), com o desenho que flutua e o texto dentro */
 .cartao-texto {
   display: block;
   flex: 0 1 auto;
@@ -205,6 +310,11 @@
 .reticencias.por-cima {
   padding-left: 0.9em;
   background: linear-gradient(to right, transparent, formatado.cartao-miolo-cor() 0.75em);
+}
+
+/* (sem a folha, o recorte também sai) */
+.cartao.sem-corpo:not(.medindo) > .entalhe {
+  display: none;
 }
 
 /* sem lugar para uma linha do corpo: a folha clara sai, a faixa enche o card (o "…" vai no título) */

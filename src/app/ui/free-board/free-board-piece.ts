@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterRenderEffect, computed, effect, inject, input, output, untracked, viewChild } from '@angular/core';
 import { CardFinder } from '../../core/card-finder';
-import { FbNode, noteColor, noteFont, noteLook, noteParts } from '../../core/free-board';
-import { calloutFallbackTitle, calloutPaper } from '../../core/callouts';
+import { FbNode, noteColor, noteFont, noteLook, noteParts, noteShownTitle } from '../../core/free-board';
+import { calloutPaper } from '../../core/callouts';
 import { noteIcon } from '../callout-looks';
 import { NoteLinks } from '../../core/note-links';
 import { plainText } from '../../core/rich-text';
@@ -74,7 +74,7 @@ export type PieceMeasured = PieceMeasure & { id: string; settled: boolean };
         } @else {
         <!-- o que não cabe (PLANO-CAIXAS-DE-TEXTO.md, D4): o corpo mostra as linhas inteiras que cabem e o "…" no fim
              da última; sem lugar para nenhuma, a folha clara sai e o "…" vai no fim do título (ver fitCard) -->
-        <div #cartao class="cartao" [attr.data-jeito]="paper()">
+        <div #cartao class="cartao" [attr.data-jeito]="paper()" [class.com-entalhe]="!!bodyIcon()">
           @if (cardTitle2(); as t) {
             <div class="cartao-topo">
               @if (cardIcon(); as ic) {
@@ -84,8 +84,20 @@ export type PieceMeasured = PieceMeasure & { id: string; settled: boolean };
             </div>
           }
           @if (parts().body.trim()) {
+            <!-- sem título, o desenho mora num recorte no canto da folha clara, sobre o papel colorido (o da moldura):
+                 a folha contorna o recorte com os cantos redondos; a primeira linha começa depois dele, e as de baixo
+                 voltam à margem (o lugar dele no texto é um vão que flutua). Fora da folha, por cima dela: cobre a
+                 sombra dela ali -->
+            @if (bodyIcon(); as ic) {
+              <span class="entalhe" aria-hidden="true"><span class="cartao-icone"><lucide-icon [img]="ic" [size]="18" /></span></span>
+            }
             <div class="cartao-corpo">
-              <app-rich-text class="cartao-texto" [text]="parts().body" [links]="links()" />
+              <div class="cartao-texto">
+                @if (bodyIcon()) {
+                  <span class="entalhe-lugar" aria-hidden="true"></span>
+                }
+                <app-rich-text [text]="parts().body" [links]="links()" />
+              </div>
               <span class="reticencias" aria-hidden="true">…</span>
             </div>
           }
@@ -169,11 +181,16 @@ export class FreeBoardPiece {
     return n.t === 'x' ? calloutPaper(this.look(), noteColor(n)) : null;
   });
   protected readonly parts = computed(() => noteParts(this.text()));
-  protected readonly cardTitle2 = computed(() => plainText(this.parts().title).trim() || calloutFallbackTitle(this.look()));
+  protected readonly cardTitle2 = computed(() => {
+    const n = this.node();
+    return n.t === 'x' ? noteShownTitle(n, plainText) : '';
+  });
   protected readonly cardIcon = computed(() => {
     const n = this.node();
     return n.t === 'x' ? noteIcon(this.look(), n.ic) : null;
   });
+  /** O desenho no começo do texto: o card sem título (o desenho não tem faixa onde morar). */
+  protected readonly bodyIcon = computed(() => (this.cardTitle2() ? null : this.cardIcon()));
   private readonly cards = cardsFrom(inject(CardFinder));
   /** A foto que ainda não chegou: o mesmo escuro da camada de longe. */
   protected readonly photoWait = PHOTO_WAIT;
@@ -518,7 +535,7 @@ function noBody(card: HTMLElement, title: HTMLElement | null, clampTitle: (room:
 function lineOf(el: HTMLElement): number {
   const cs = getComputedStyle(el);
   const lh = parseFloat(cs.lineHeight);
-  return Number.isFinite(lh) ? lh : parseFloat(cs.fontSize) * 1.35;
+  return Number.isFinite(lh) ? lh : parseFloat(cs.fontSize) * 1.45;
 }
 
 function padY(el: HTMLElement): number {

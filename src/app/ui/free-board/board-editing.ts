@@ -1,7 +1,7 @@
 import { FB_FONT_SIZES, FbColor, FbNode, FbNote, FbSide, FreeBoard, connect, groupPieces, noteColor, noteFont, noteLook, patchNodes, removePieces, restack, shownNodes, ungroupPieces } from '../../core/free-board';
-import { CALLOUTS, CALLOUT_DEFAULT_COLOR_NAME, CALLOUT_PAPERS, CalloutLook, calloutDef } from '../../core/callouts';
-import { CALLOUT_ICON } from '../callout-looks';
-import { CALLOUT_HEX, DEFAULT_FRAME, STOCK_HEX } from './far-layer';
+import { CALLOUT_PAPERS, calloutColorWord } from '../../core/callouts';
+import { DEFAULT_FRAME, STOCK_HEX } from './far-layer';
+import { CALLOUT_STRONG_HEX } from './far-palette';
 import { LIGHT_STOCKS } from '../../core/review';
 import { Camera, Point, Rect, center, insideFrame, toWorld } from '../../core/free-board-geometry';
 import { parseWidgetLine, widgetCycles, widgetDef, widgetLines, withChoice } from '../../core/widgets';
@@ -404,11 +404,8 @@ export class BoardEditing {
       }
       case 'cadeado':
         return this.ed.lockEdge();
-      case 'jeito': {
-        const [node] = this.ed.selectedNodes();
-        if (node?.t === 'x') return this.h.menu('jeito', 'Jeito do card', [this.cardLookItems(node)], anchor.x, anchor.y, 'mouse');
+      case 'jeito':
         return this.cycleLook();
-      }
       case 'cor':
         return this.h.menu('cor', 'Cor', [this.colorItems()], anchor.x, anchor.y, 'mouse');
       case 'letra':
@@ -440,14 +437,10 @@ export class BoardEditing {
     const nodes = this.ed.selectedNodes();
     const edge = this.ed.selectedEdge();
     if (nodes.length && !edge && nodes.every((n) => n.t === 'x')) {
-      const now = new Set(nodes.map((n) => (n.t === 'x' ? noteColor(n) : '')));
+      // a cor de cada um: a escolhida ou a que o jeito dá (o Pardo da Nota); as amostras na cor forte, a da faixa
+      const now = new Set(nodes.map((n) => (n.t === 'x' ? noteColor(n) || calloutColorWord(noteLook(n)) : '')));
       const one = now.size === 1 ? [...now][0] : null;
-      const first = nodes[0];
-      const own = first.t === 'x' ? CALLOUT_HEX[calloutDef(noteLook(first))?.paper ?? 'nota'] : CALLOUT_HEX.nota;
-      return [
-        { id: 'cor-padrao', label: `${CALLOUT_DEFAULT_COLOR_NAME} (a do jeito)`, icon: ICON.paleta, swatch: own, on: one === '', run: () => this.ed.paintCard('') },
-        ...CALLOUT_PAPERS.map((c): MenuItem => ({ id: `cor-${c.word}`, label: c.name, icon: ICON.paleta, swatch: CALLOUT_HEX[c.paper], on: one === c.word, run: () => this.ed.paintCard(c.word) })),
-      ];
+      return CALLOUT_PAPERS.map((c): MenuItem => ({ id: `cor-${c.word}`, label: c.name, icon: ICON.paleta, swatch: CALLOUT_STRONG_HEX[c.paper], on: one === c.word, run: () => this.ed.paintCard(c.word) }));
     }
     // só molduras: a de sempre é o Cinza (uma amostra só); a seta tem a sua, o giz
     const frames = !edge && nodes.length > 0 && nodes.every((n) => n.t === 'm');
@@ -457,39 +450,6 @@ export class BoardEditing {
       ...(frames ? [] : [{ id: 'cor-nenhuma', label: edge ? 'Giz (a de sempre)' : 'A de sempre', icon: ICON.paleta, swatch: edge ? '#f3efe6' : STOCK_HEX[DEFAULT_FRAME], on: one === null, run: () => this.ed.paint(null) }]),
       ...LIGHT_STOCKS.map((c): MenuItem => ({ id: `cor-${c}`, label: COLOR_NAMES[c], icon: ICON.paleta, swatch: STOCK_HEX[c], on: one === c, run: () => this.ed.paint(c) })),
     ];
-  }
-
-  /** Os jeitos do card (os mesmos das anotações), com o desenho de cada um; o de agora com o tique. */
-  private cardLookItems(node: FbNode): MenuItem[] {
-    const now = node.t === 'x' ? noteLook(node) : 'nota';
-    return CALLOUTS.map(
-      (d): MenuItem => ({
-        id: `jeito-${d.look}`,
-        label: d.name,
-        on: d.look === now,
-        icon: CALLOUT_ICON[d.look] ?? ICON.semDesenho,
-        hint: d.about,
-        run: () => this.setCardLook(d.look),
-      }),
-    );
-  }
-
-  /** O jeito do card nos textos selecionados (o da Nota não se escreve: é o de sempre). */
-  setCardLook(look: CalloutLook): void {
-    const ids = new Set(this.ed.selectedNodes().filter((n) => n.t === 'x').map((n) => n.i));
-    if (!ids.size) return;
-    this.ed.change((b) =>
-      patchNodes(
-        b,
-        ids,
-        (n) => {
-          if (n.t !== 'x') return n;
-          const { k: _, ...rest } = n;
-          return look === 'nota' ? rest : { ...rest, k: look };
-        },
-        now(),
-      ),
-    );
   }
 
   /** O "Jeito da peça": a próxima escolha de aparência do widget (a moldura da foto, o jeito da nota, do contador). */
@@ -509,7 +469,8 @@ export class BoardEditing {
 
   /** O nome do "Jeito da peça" da seleção, ou null. Na foto, "Jeito da foto" (Q1: "Moldura" é a do quadro). */
   lookLabel(node: FbNode | undefined): string | null {
-    if (node?.t === 'x') return `Jeito do card: ${calloutDef(noteLook(node))?.name ?? 'Nota'}`;
+    // o texto não tem mais jeito para escolher: o desenho é o ícone (a folha de escrever) e o papel é a Cor
+    if (node?.t === 'x') return null;
     if (!node || node.t !== 'w') return null;
     const parsed = parseWidgetLine(node.src.split('\n')[0]);
     if (!parsed) return null;
@@ -720,12 +681,11 @@ export class BoardEditing {
     } else if (!many) {
       first.push({ id: 'mexer', label: n.t === 'x' ? 'Escrever' : 'Editar', icon: ICON.editar, keys: 'Enter', run: () => this.edit(n) });
       // a altura que o texto pede (maior ou menor), como o "Ajustar ao conteúdo" da moldura
-      if (n.t === 'x') first.push({ id: 'ajustar-texto', label: 'Ajustar ao texto', icon: ICON.maiorOuMenor, run: () => this.ed.fitToText(n.i) });
+      if (n.t === 'x') first.push({ id: 'ajustar-texto', label: 'Ajustar ao texto', icon: ICON.ajustarAoTexto, run: () => this.ed.fitToText(n.i) });
     }
     if (n.t !== 'w' || many) first.push({ id: 'cor', label: 'Cor…', icon: ICON.paleta, dialog: true, run: () => this.reopenColors() });
     const look = !many ? this.lookLabel(n) : null;
-    if (look && n.t === 'x') first.push({ id: 'jeito', label: 'Jeito do card…', icon: ICON.card, dialog: true, run: () => this.reopenLooks(n) });
-    else if (look) first.push({ id: 'jeito', label: look, icon: ICON.moldura, run: () => this.cycleLook() });
+    if (look) first.push({ id: 'jeito', label: look, icon: ICON.moldura, run: () => this.cycleLook() });
     if (n.t === 'x' && this.ed.selectedNodes().every((x) => x.t === 'x')) first.push({ id: 'letra', label: 'Tamanho da letra…', icon: ICON.tamanhoDaLetra, dialog: true, run: () => this.reopenFonts() });
     const order: MenuItem[] = [
       { id: 'copiar', label: 'Copiar', icon: ICON.copiar, keys: 'Ctrl+C', run: () => this.copyToClipboard() },
@@ -749,11 +709,6 @@ export class BoardEditing {
           ]
         : [{ id: 'apagar', label: many ? `Apagar as ${ids.size}` : 'Apagar', icon: ICON.apagar, danger: true, keys: 'Delete', run: () => this.ed.removeSelected() }];
     return [first, order, gone];
-  }
-
-  private reopenLooks(n: FbNode): void {
-    const r = this.h.visor().getBoundingClientRect();
-    setTimeout(() => this.h.menu('jeito', 'Jeito do card', [this.cardLookItems(n)], r.left + r.width / 2, r.top + r.height / 2, 'teclado'));
   }
 
   private reopenFonts(): void {

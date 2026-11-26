@@ -13,7 +13,7 @@ let nextId = 0;
  * A escolha de um ícone da cartela (shared/cartela-de-icones.ts), a mesma em todo lugar que escolhe um:
  * o grupo das anotações, a coluna do Kanban, o baralho, o lembrete. Na folha, só uma linha: o escolhido
  * (o adesivo de tinta, ou o recorte vazio), o nome dele e "Trocar". O "Trocar" abre a cartela inteira
- * numa ficha por cima (os 110 desenhos à vista, separados por assunto, com a busca no alto, que acha
+ * numa ficha por cima (os 116 desenhos à vista, separados por assunto, com a busca no alto, que acha
  * pelo nome e pelo que o desenho quer dizer). Tocar num desenho escolhe e fecha. Com `none`, o pé da
  * ficha oferece tirar o ícone ("Sem ícone"). Ela só escolhe (`pick`): quem usa guarda.
  *

@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-26-caixas-fechamento',
+    id: '2026-11-26-caixas-sem-titulo',
     version: '1.55.2',
     kind: 'ajustes',
     date: '2026-11-26',
@@ -43,10 +43,13 @@ export const NEWS: NewsEntry[] = [
       'Tirando o zoom do canvas, as caixas de texto só ficam menores: a letra, a faixa, a borda e o respiro não pulam mais de tamanho no caminho, e quando a letra fica pequena demais para ler cada linha vira um traço no mesmo lugar.',
       'A caixa de texto do canvas com "…" (ou pequena demais para ler) abre inteira ao toque ou ao Enter, só para ler, também na visita (a lupa no ponteiro diz isso); o Esc fecha.',
       'Editando o canvas, a caixa de texto selecionada tem o botão Escrever primeiro; o botão direito tem "Ajustar ao texto" (a altura do que ela tem); a caixa nova fica do tamanho do que se escreveu (só o título, da altura da faixa; um parágrafo alarga antes de descer) e, enquanto se escreve, fica por cima das vizinhas.',
-      'As caixas de texto novas do canvas nascem sem ícone, e o ícone se escolhe tocando nele (ou no "+", quando não tem) na folha de escrever: a cartela de ícones do site, com a busca e o "Sem ícone".',
+      'As caixas de texto novas do canvas nascem sem ícone e sem título (a folha abre com o cursor no texto), e o ícone se escolhe tocando nele (ou no "+", quando não tem) na folha de escrever: a cartela de ícones do site, com a busca e o "Sem ícone". Sem título, o ícone fica num recorte no canto do card, com o texto contornando.',
+      'Na folha de escrever das caixas de texto do canvas, o tamanho da letra (cada "Aa" no tamanho dele), a cor e o "Ajustar ao texto", sem sair dela. O papel das caixas ficou na cor forte das anotações abertas, as linhas com um pouco mais de ar, e o botão Jeito saiu: o papel é a Cor e o desenho é o ícone.',
+      'Seis desenhos novos na cartela de ícones do site (Informação, Certo, Pergunta, Aviso, Lista e Citação), para grupos, colunas, baralhos, lembretes e o resto.',
     ],
     correcoes: [
       'No celular, a etiqueta da seleção do canvas não sai mais da tela nem cobre o topo do quadro: ela fica dentro dele, embaixo da seleção quando em cima não cabe.',
+      'O ícone das caixas de texto do canvas acompanha o tamanho da letra (com a letra grande ele ficava pequeno).',
     ],
   },
   {

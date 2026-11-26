@@ -39,7 +39,7 @@ export function manilha(): string {
 }
 
 export interface JeitoInks {
-  /** O papel do jeito: a faixa do título. */
+  /** O papel do jeito na cor forte (a da anotação aberta): a faixa do título e a moldura. */
   papel: string;
   /** A tinta do título. */
   tinta: string;
@@ -55,9 +55,13 @@ export function jeitoInks(paper: CalloutPaper): JeitoInks {
   const key = `jeito ${paper}`;
   let papel = memo.get(`${key} papel`);
   let tinta = memo.get(`${key} tinta`);
-  if (papel === undefined || tinta === undefined) {
+  let forte = memo.get(`${key} forte`);
+  let tintaForte = memo.get(`${key} tinta forte`);
+  if (papel === undefined || tinta === undefined || forte === undefined || tintaForte === undefined) {
     papel = '';
     tinta = '';
+    forte = '';
+    tintaForte = '';
     if (typeof document !== 'undefined' && document.body) {
       const probe = document.createElement('div');
       probe.setAttribute('data-jeito', paper);
@@ -66,13 +70,18 @@ export function jeitoInks(paper: CalloutPaper): JeitoInks {
       const cs = getComputedStyle(probe);
       papel = cs.getPropertyValue('--c-papel').trim();
       tinta = cs.getPropertyValue('--c-tinta').trim();
+      forte = cs.getPropertyValue('--c-forte').trim();
+      tintaForte = cs.getPropertyValue('--c-tinta-forte').trim();
       probe.remove();
     }
     memo.set(`${key} papel`, papel);
     memo.set(`${key} tinta`, tinta);
+    memo.set(`${key} forte`, forte);
+    memo.set(`${key} tinta forte`, tintaForte);
   }
   const p = papel || '#ecdcb3';
-  return { papel: p, tinta: tinta || '#6a4818', miolo: mix(p, '#fffdf8', 0.22) };
+  // a faixa e a moldura na cor forte do jeito (a do card de perto, styles.scss: --c-forte); a folha clara, do papel claro
+  return { papel: forte || p, tinta: tintaForte || tinta || '#6a4818', miolo: mix(p, '#fffdf8', 0.22) };
 }
 
 /** `a` misturado em `b`, `t` de `a` (as duas em `#rrggbb`; outra forma volta `b`). */
@@ -148,6 +157,21 @@ export const CALLOUT_HEX: Readonly<Record<CalloutPaper, string>> = {
   citacao: '#e7e4de',
   rosa: '#fadce7',
   cartolina: '#e7e4de',
+};
+
+/** A cor forte de cada papel (o `--c-forte` de styles.scss): a faixa do card do texto, e as amostras das cores dele. */
+export const CALLOUT_STRONG_HEX: Readonly<Record<CalloutPaper, string>> = {
+  nota: '#e5cd99',
+  info: '#b6dffa',
+  dica: '#ace7d8',
+  feito: '#c8e8b0',
+  pergunta: '#fce782',
+  aviso: '#fcca9d',
+  perigo: '#f4b9b2',
+  exemplo: '#dac9f7',
+  citacao: '#ddd8d2',
+  rosa: '#fcb9d1',
+  cartolina: '#ddd8d2',
 };
 
 /** A cor de cada peça quando não se escolhe uma (a moldura cinza). */

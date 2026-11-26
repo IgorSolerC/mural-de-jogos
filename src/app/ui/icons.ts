@@ -282,6 +282,7 @@ import {
   Grid2x2,
   Scan,
   Scaling,
+  ScanText,
   ZoomIn,
   ZoomOut,
   Slash,
@@ -442,6 +443,8 @@ export const ICON = {
   acima: ArrowUp,
   abaixo: ArrowDown,
   maiorOuMenor: ArrowUpDown,
+  /** A caixa do tamanho do texto (o "Ajustar ao texto" do card do canvas): as cantoneiras em volta das linhas. */
+  ajustarAoTexto: ScanText,
   fixar: Pin,
   desafixar: PinOff,
   ver: Eye,

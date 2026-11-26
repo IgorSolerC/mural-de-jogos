@@ -1,7 +1,7 @@
 import { computed, signal } from '@angular/core';
-import { CALLOUT_PAPERS } from '../../core/callouts';
+import { CALLOUTS, CALLOUT_PAPERS } from '../../core/callouts';
 import { IconChoice } from '../../core/icon-choices';
-import { FB_MAX_NODES, FbColor, FbEdge, FbEnds, FbNode, FbNote, FbSide, FreeBoard, connect, fontStep, moveNodes, nextFont, noteFont, noteParts, patchEdge, patchNodes, removePieces, shownNodes, withGroups } from '../../core/free-board';
+import { FB_MAX_NODES, FbColor, FbEdge, FbEnds, FbNode, FbNote, FbSide, FreeBoard, connect, fontStep, moveNodes, nextFont, noteFont, noteLook, noteParts, patchEdge, patchNodes, removePieces, shownNodes, withGroups } from '../../core/free-board';
 import { HOLE, Point, Rect, autoSides, boundsOf, nearestSide, rectBetween } from '../../core/free-board-geometry';
 import { DRAG_SLOP } from './camera-rig';
 import { Handle, History, boxSelect, dragSet, hitEdge, hitPiece, keepsHover, linkTarget, newNode, resized, sizeRule, snappedDelta } from './edit-ops';
@@ -199,18 +199,43 @@ export class BoardEditor {
     });
   }
 
-  /** A cor do card nos textos selecionados ("": a do jeito). */
-  paintCard(word: string): void {
-    const ids = new Set(this.selectedNodes().filter((n) => n.t === 'x').map((n) => n.i));
-    if (ids.size) this.change((b) => patchNodes(b, ids, (n) => (n.t === 'x' ? withCardColor(n, word) : n), now()));
+  /**
+   * A cor do card nos textos selecionados, ou só no card `id` (a folha de escrever). A cor que o jeito do card já dá
+   * não se escreve (o card fica com a do jeito, como antes).
+   */
+  paintCard(word: string, id?: string): void {
+    const ids = new Set(this.textsOf(id).map((n) => n.i));
+    if (!ids.size) return;
+    const own = (n: FbNote) => CALLOUT_PAPERS.find((c) => c.paper === (CALLOUTS.find((d) => d.look === noteLook(n))?.paper ?? 'nota'))?.word;
+    this.changeCards(ids, (b) => patchNodes(b, ids, (n) => (n.t === 'x' ? withCardColor(n, word && word === own(n) ? '' : word) : n), now()));
+  }
+
+  /** Os textos de uma mudança: o card `id`, ou os selecionados. */
+  private textsOf(id?: string): FbNote[] {
+    if (id === undefined) return this.selectedNodes().filter((n): n is FbNote => n.t === 'x');
+    return this.host.board().n.filter((n): n is FbNote => n.i === id && n.t === 'x');
+  }
+
+  /**
+   * Uma mudança dos cards: um passo do desfazer; no card que acabou de nascer (sendo escrito pela primeira vez), junto
+   * do criar, sem passo a mais (se ele ficar vazio, some inteiro, sem deixar o desfazer trazer um card vazio).
+   */
+  private changeCards(ids: ReadonlySet<string>, fn: (b: FreeBoard) => FreeBoard): void {
+    if (ids.size === 1 && this.fresh !== null && ids.has(this.fresh)) {
+      const b = this.host.board();
+      const next = fn(b);
+      if (next !== b) this.host.commit(next, b);
+      return;
+    }
+    this.change(fn);
   }
 
   /**
    * O tamanho da letra nos textos selecionados: um degrau (`fs`) ou um passo de cada um (`dir`). O card cresce até
    * caber o que tem com a letra nova (nunca encolhe sozinho), no mesmo passo do desfazer (PLANO-CAIXAS-DE-TEXTO.md, D3).
    */
-  setFont(to: { fs: number } | { dir: 1 | -1 }): void {
-    const texts = this.selectedNodes().filter((n): n is FbNote => n.t === 'x');
+  setFont(to: { fs: number } | { dir: 1 | -1 }, id?: string): void {
+    const texts = this.textsOf(id);
     const want = new Map<string, number>();
     const grow = new Map<string, number>();
     for (const n of texts) {
@@ -222,7 +247,7 @@ export class BoardEditor {
     }
     const ids = new Set(want.keys());
     if (!ids.size) return;
-    this.change((b) =>
+    this.changeCards(ids, (b) =>
       patchNodes(
         b,
         ids,
@@ -537,14 +562,7 @@ export class BoardEditor {
   setIcon(id: string, ic: IconChoice | ''): void {
     const n = this.host.board().n.find((x): x is FbNote => x.i === id && x.t === 'x');
     if (!n || n.ic === ic) return;
-    const patch = (b: FreeBoard) => patchNodes(b, new Set([id]), (x) => (x.t === 'x' ? { ...x, ic } : x), now());
-    if (this.fresh === id) {
-      // o card que acabou de nascer: o desenho vai junto do criar (sem passo a mais; se ele ficar vazio, some inteiro)
-      const b = this.host.board();
-      this.host.commit(patch(b), b);
-      return;
-    }
-    this.change(patch);
+    this.changeCards(new Set([id]), (b) => patchNodes(b, new Set([id]), (x) => (x.t === 'x' ? { ...x, ic } : x), now()));
   }
 
   /** "Ajustar ao texto": a altura que o texto do card pede (maior ou menor), em furos. */
@@ -553,7 +571,7 @@ export class BoardEditor {
     const need = n ? this.host.cardHeight?.(id, noteFont(n)) : null;
     if (!n || !need) return;
     const h = Math.max(2 * HOLE, Math.ceil(need / HOLE) * HOLE);
-    if (h !== n.h) this.change((b) => patchNodes(b, new Set([id]), (x) => ({ ...x, h }), now()));
+    if (h !== n.h) this.changeCards(new Set([id]), (b) => patchNodes(b, new Set([id]), (x) => ({ ...x, h }), now()));
   }
 
   /** O texto de agora do que está sendo escrito (o do bilhete, o título da moldura, o rótulo da seta). */

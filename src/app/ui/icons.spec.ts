@@ -5,7 +5,8 @@ import { ICON_CHOICES, isIconChoice } from '../core/icon-choices';
 import { COLUMN_ICONS, sanitizeBoard } from '../core/kanban';
 import { KIND_ICON } from './kind-switcher';
 import { categoryIcon } from './category-label';
-import { AtSign, Baby, BedDouble, Bike, Bus, Cake, Car, Cat, Cctv, ChartLine, Cloud, Code, Coffee, CreditCard, Database, Dices, Dog, Droplet, Dumbbell, FileText, FingerprintPattern, Gamepad2, Gift, Headphones, HeartPulse, House, IdCard, KeyRound, Laptop, Lock, Luggage, Mail, MapPin, MessageCircle, MonitorPlay, Newspaper, PartyPopper, Phone, PiggyBank, Pill, Plug, Printer, Receipt, School, Server, ShieldCheck, ShoppingBag, Smartphone, Sprout, SquareTerminal, Store, Ticket, TreePalm, Tv, UserRound, Utensils, Volleyball, Wallet, Wifi, Wrench } from 'lucide-angular';
+import { CALLOUT_ICON, noteIconChoice } from './callout-looks';
+import { AtSign, Baby, Check, CircleHelp, Info, List, Quote, TriangleAlert, BedDouble, Bike, Bus, Cake, Car, Cat, Cctv, ChartLine, Cloud, Code, Coffee, CreditCard, Database, Dices, Dog, Droplet, Dumbbell, FileText, FingerprintPattern, Gamepad2, Gift, Headphones, HeartPulse, House, IdCard, KeyRound, Laptop, Lock, Luggage, Mail, MapPin, MessageCircle, MonitorPlay, Newspaper, PartyPopper, Phone, PiggyBank, Pill, Plug, Printer, Receipt, School, Server, ShieldCheck, ShoppingBag, Smartphone, Sprout, SquareTerminal, Store, Ticket, TreePalm, Tv, UserRound, Utensils, Volleyball, Wallet, Wifi, Wrench } from 'lucide-angular';
 import { CARTELA_DE_ICONES, CORES_DA_CARTELA, CORES_SORTEAVEIS } from '../../../shared/cartela-de-icones';
 import { CATEGORY_COLORS } from '../core/category-looks';
 import { ICON, ICON_CHOICE, ICON_CHOICE_LABEL, ICONE_PADRAO, IconModule, TRACO_PADRAO, iconChoiceOf, iconMask, tracoNaGrade } from './icons';
@@ -40,7 +41,7 @@ describe('O acervo de ícones', () => {
     for (const id of [...OLD_CATEGORY_IDS, ...OLD_COLUMN_IDS]) expect(isIconChoice(id)).withContext(id).toBeTrue();
     // as de antes primeiro, os cenários novos no fim
     expect(ICON_CHOICES.slice(0, 50).every((id) => [...OLD_CATEGORY_IDS, ...OLD_COLUMN_IDS].includes(id))).toBeTrue();
-    expect(ICON_CHOICES.length as number).toBe(110);
+    expect(ICON_CHOICES.length as number).toBe(116);
     expect(isIconChoice('nave')).toBeFalse();
   });
 
@@ -58,7 +59,7 @@ describe('O acervo de ícones', () => {
     expect(CARTELA_DE_ICONES.slice(0, 50).map((i) => i.id)).toEqual(Object.keys(antes) as never);
     for (const i of CARTELA_DE_ICONES.slice(0, 50)) expect(i.desenho as unknown).withContext(i.id).toEqual(antes[i.id]);
     // os cenários que entraram depois, no fim: cada um com o desenho do Lucide
-    const depois: Record<string, unknown> = { email: Mail, arroba: AtSign, mensagem: MessageCircle, telefone: Phone, celular: Smartphone, computador: Laptop, wifi: Wifi, nuvem: Cloud, servidor: Server, codigo: Code, terminal: SquareTerminal, 'banco-de-dados': Database, impressora: Printer, chave: KeyRound, cadeado: Lock, escudo: ShieldCheck, digital: FingerprintPattern, documento: IdCard, arquivo: FileText, cartao: CreditCard, carteira: Wallet, cofrinho: PiggyBank, grafico: ChartLine, recibo: Receipt, loja: Store, sacola: ShoppingBag, jogos: Gamepad2, dados: Dices, festa: PartyPopper, bolo: Cake, presente: Gift, ingresso: Ticket, tv: Tv, streaming: MonitorPlay, fones: Headphones, jornal: Newspaper, esporte: Volleyball, casa: House, ferramenta: Wrench, energia: Plug, agua: Droplet, seguranca: Cctv, carro: Car, onibus: Bus, bicicleta: Bike, lugar: MapPin, mala: Luggage, hotel: BedDouble, praia: TreePalm, comida: Utensils, cafe: Coffee, saude: HeartPulse, remedio: Pill, academia: Dumbbell, pessoa: UserRound, bebe: Baby, cachorro: Dog, gato: Cat, planta: Sprout, escola: School };
+    const depois: Record<string, unknown> = { email: Mail, arroba: AtSign, mensagem: MessageCircle, telefone: Phone, celular: Smartphone, computador: Laptop, wifi: Wifi, nuvem: Cloud, servidor: Server, codigo: Code, terminal: SquareTerminal, 'banco-de-dados': Database, impressora: Printer, chave: KeyRound, cadeado: Lock, escudo: ShieldCheck, digital: FingerprintPattern, documento: IdCard, arquivo: FileText, cartao: CreditCard, carteira: Wallet, cofrinho: PiggyBank, grafico: ChartLine, recibo: Receipt, loja: Store, sacola: ShoppingBag, jogos: Gamepad2, dados: Dices, festa: PartyPopper, bolo: Cake, presente: Gift, ingresso: Ticket, tv: Tv, streaming: MonitorPlay, fones: Headphones, jornal: Newspaper, esporte: Volleyball, casa: House, ferramenta: Wrench, energia: Plug, agua: Droplet, seguranca: Cctv, carro: Car, onibus: Bus, bicicleta: Bike, lugar: MapPin, mala: Luggage, hotel: BedDouble, praia: TreePalm, comida: Utensils, cafe: Coffee, saude: HeartPulse, remedio: Pill, academia: Dumbbell, pessoa: UserRound, bebe: Baby, cachorro: Dog, gato: Cat, planta: Sprout, escola: School, informacao: Info, certo: Check, pergunta: CircleHelp, aviso: TriangleAlert, itens: List, aspas: Quote };
     expect(CARTELA_DE_ICONES.slice(50).map((i) => i.id)).toEqual(Object.keys(depois) as never);
     for (const i of CARTELA_DE_ICONES.slice(50)) expect(i.desenho as unknown).withContext(i.id).toEqual(depois[i.id]);
     expect(ICON_CHOICE_LABEL.email).toBe('E-mail');
@@ -68,6 +69,15 @@ describe('O acervo de ícones', () => {
     expect(CORES_SORTEAVEIS.map((c) => c.id)).toEqual(['vermelho', 'laranja', 'amarelo', 'verde', 'azul', 'roxo', 'rosa', 'vinho']);
     expect(iconChoiceOf(ICON.configurar)).toBe('engrenagem');
     expect(iconChoiceOf(ICON.fechar)).toBeNull();
+  });
+
+  it('os desenhos dos jeitos do card (o lápis, o aviso, a pergunta…) também se escolhem na cartela', () => {
+    for (const [look, icon] of Object.entries(CALLOUT_ICON)) {
+      if (!icon) continue;
+      const id = iconChoiceOf(icon);
+      expect(id).withContext(look).not.toBeNull();
+      expect(noteIconChoice(look as never, undefined)).withContext(look).toBe(id);
+    }
   });
 
   it('a escolha usa o desenho do acervo da mesma ideia (a engrenagem e as pessoas são as do site)', () => {
