@@ -135,7 +135,7 @@ describe('CardKit: várias manchas e decorações', () => {
     expect(el.querySelector('[id$="-aba-estrago"] .aba-conta')!.textContent!.trim()).toBe('2');
     // tirar o destrutivo: o estético sozinho volta para o damage, com o sorteio dele
     const seed = host.wearSeed();
-    (el.querySelectorAll<HTMLInputElement>('input[aria-label="Nenhum"]')[0]).click();
+    box('Nenhum destrutivo').click();
     fixture.detectChanges();
     expect([host.damage(), host.damageSeed(), host.wear(), host.wearSeed()]).toEqual(['amassado', seed, null, null]);
     // e o estético sozinho aparece marcado no bloco dele
@@ -193,7 +193,8 @@ describe('CardKit: várias manchas e decorações', () => {
     pick('Branca');
     expect(host.patternLook().tone).toBe('branco');
     expect(el.querySelector('.tinta .giz')!.textContent).toContain('Branca');
-    expect(tones()[2].getAttribute('aria-pressed')).toBe('true');
+    expect(tones()[2].getAttribute('aria-checked')).toBe('true');
+    expect(tones()[2].getAttribute('role')).toBe('radio');
     pick('Automática');
     expect('tone' in host.patternLook()).toBeFalse();
     await open('rabisco');

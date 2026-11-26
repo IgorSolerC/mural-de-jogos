@@ -85,6 +85,8 @@ interface Option {
   decor?: Decor;
   /** No Estrago: o bloco da opção (o Nenhum de cada bloco também tem o dele). */
   slot?: DamageSlot;
+  /** O nome lido pelo leitor de tela, quando o de ver se repete (os dois Nenhum do Estrago). */
+  ariaLabel?: string;
 }
 
 type DamageSlot = DamageGroup['id'];
@@ -224,11 +226,11 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
           }
           <!-- a cor da tinta (da estampa ou do lápis): a automática é a de sempre, preta na clara e branca na escura -->
           <ng-template #tinta let-tone let-set="set" let-off="off">
-            <div class="ajuste tinta" role="group" [attr.aria-labelledby]="uid + '-tinta-' + tab()">
+            <div class="ajuste tinta" role="radiogroup" [attr.aria-labelledby]="uid + '-tinta-' + tab()">
               <span class="giz" [id]="uid + '-tinta-' + tab()">Tinta <b>{{ toneName(tone) }}</b></span>
               <div class="tintas">
                 @for (t of toneOptions; track t.value) {
-                  <button type="button" class="assunto" [class.on]="tone === t.value" [attr.aria-pressed]="tone === t.value" [disabled]="off" (click)="set(t.value)">
+                  <button type="button" class="assunto" role="radio" [class.on]="tone === t.value" [attr.aria-checked]="tone === t.value" [disabled]="off" (click)="set(t.value)">
                     <span class="ponto" [attr.data-tinta]="t.value ?? 'auto'" aria-hidden="true"></span>
                     {{ t.label }}
                   </button>
@@ -257,7 +259,7 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
                   />
                 } @else {
                   <!-- no Estrago, um grupo de rádio por bloco: um destrutivo e um estético -->
-                  <input type="radio" [name]="uid + '-' + tab() + (o.slot ? '-' + o.slot : '')" [checked]="isOn(o)" (click)="pick(o)" [attr.aria-label]="o.label" />
+                  <input type="radio" [name]="uid + '-' + tab() + (o.slot ? '-' + o.slot : '')" [checked]="isOn(o)" (click)="pick(o)" [attr.aria-label]="o.ariaLabel ?? o.label" />
                 }
                 @if (iconOf(o); as icon) {
                   <span class="icone" [innerHTML]="icon"></span>
@@ -1227,7 +1229,7 @@ export class CardKit {
   protected readonly damageSections = DAMAGE_GROUPS.map((g) => ({
     id: g.id,
     label: g.label,
-    options: [{ value: null, label: 'Nenhum', slot: g.id } as Option, ...g.damages.map((d): Option => ({ value: d, label: DAMAGE_LABEL[d], damage: d, slot: g.id }))],
+    options: [{ value: null, label: 'Nenhum', ariaLabel: g.id === 'destrutivos' ? 'Nenhum destrutivo' : 'Nenhum estético', slot: g.id } as Option, ...g.damages.map((d): Option => ({ value: d, label: DAMAGE_LABEL[d], damage: d, slot: g.id }))],
   }));
   /** O destrutivo e o estético da ficha, lidos do par guardado. */
   private readonly damages = computed(() =>

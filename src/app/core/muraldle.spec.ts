@@ -60,6 +60,10 @@ describe('Muraldle', () => {
     expect(markOf(many, 'positivos')).toEqual(jasmine.objectContaining({ mark: 'errado', text: '0', arrow: 'up' }));
     expect(markOf(many, 'negativos')).toEqual(jasmine.objectContaining({ mark: 'errado', text: '4', arrow: 'down' }));
     expect(markOf(many, 'cartolina').mark).toBe('errado');
+    // as pastéis são da família da cor delas; o bege, do branco
+    expect(markOf(compare(review('rdddd1', { stock: 'azul-pastel' }), secret), 'cartolina').mark).toBe('perto');
+    expect(markOf(compare(review('reeee1', { stock: 'bege' }), review('rffff1', { stock: 'branco' })), 'cartolina').mark).toBe('perto');
+    expect(markOf(compare(review('rgggg1', { stock: 'marrom' }), secret), 'cartolina').mark).toBe('errado');
   });
 
   it('a ficha do dia é a mesma no mesmo dia, muda com o dia e evita as recentes', () => {

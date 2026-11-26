@@ -73,11 +73,14 @@ function yearOf(r: Review): number | null {
   return r.completedAt ? Number(r.completedAt.slice(0, 4)) : null;
 }
 
-/** A cor sem o tom: "azul-escuro" e "azul" são da mesma família; o preto é o escuro do branco. */
+/**
+ * A cor sem o tom: "azul-escuro", "azul-pastel" e "azul" são da mesma família; o preto é o escuro do
+ * branco, e o bege, o pastel dele (o marrom é família à parte).
+ */
 function hueOf(s: Stock | undefined): string | null {
   if (!s) return null;
-  if (s === 'preto') return 'branco';
-  return s.replace(/-escuro$/, '');
+  if (s === 'preto' || s === 'bege') return 'branco';
+  return s.replace(/-(escuro|pastel)$/, '');
 }
 
 /** Quantos bônus a favor (positivos) ou contra (negativos) a ficha tem. */

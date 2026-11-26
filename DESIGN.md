@@ -971,6 +971,22 @@ What shipped (`core/paper.ts` for the catalogue and textures, `core/paper-art.ts
   - What is written on the paper is in light ink (`--ink-claro: rgb(243 236 224 / 0.8)`, 20% transparent): the wall card and the swatches entirely; on the open sheet (cream paper) only the header stripe. The wall card's main title and score values use solid light ink (`--ink-claro-solido: #f3ece0`), including the score in compact cards; category names, dates and review text keep the transparency. The transparency belongs to the ink color, so the paper and pasted objects keep their opacity. The ordering pen turns coral, or light ink on the red, pink and orange darks. What is pasted on keeps its black ink: judgment label, cover and status band, bonus stickers and tally, the 10 seal, the 0 tape, the pick badge.
   - The pattern prints in white with screen instead of black with multiply (`lightPattern`, `--estampa-clara`); the motif holes stay holes.
   - The scribble is light pencil in its own screen layer (`paper-layer` `dark`); stains and damage stay in the multiply layer, so they read little on dark paper, as on real dark card.
+- **The kit tidied (2026-11-25, PLANO-CARTOLINAS.md).**
+  - **Pastel stocks:** a third row of pastels. The same hues at OKLCH L 0.875, C 0.055 (yellow 0.925/0.085). Beige and kraft brown take the white/black slots. All use dark ink (`PASTEL_STOCKS`, `isPastelStock`); none join the rotation or the light-only palettes.
+  - **Ink tone:** the pattern and scribble each get an ink tone (Automática, Preta, Branca: `patternTone`, `scribbleTone`). It is shown as a radiogroup row in the subject-strip style, under the sliders.
+    - The chosen tone puts the same tile in `--estampa` and `--estampa-clara`, with `--estampa-tom-mistura` overriding each stock's blend.
+    - The "contrary" ink (white on light, black on dark) prints two strength steps stronger (`inkStepFor`).
+  - **Aged papers are fixed and identical on every card:**
+    - Desbotada no sol is a vertical cream fade, 0.23 at the top and 0.55 at the foot.
+    - Carregou pela metade is a grey card in the stock's own lightness, capped at the grey stock's 0.82. Its top half is brush-painted in the stock colour, with dry-bristle gaps in the grey.
+  - **Aquarela** was removed and is read as Canson.
+  - **New stationery patterns:** Caligrafia, Xadrez escocês, Listrado, Zigue-zague, Losangos and Bolinhas. Each tile is seamless at every setting.
+  - **Decorations by subject:** they use the same subject strip and blocks as patterns (one component for both tabs).
+  - **Damage in two blocks:**
+    - Destrutivos and Estéticos, one of each.
+    - With only one damage, it stays in `damage`. With two, the aesthetic one goes in `wear` and is drawn first, underneath.
+    - Each cut keeps its own fill rule (`cutOther`). Text masking measures both cuts.
+    - A dog-ear paired with a destructive damage folds the photo and stickers with its own mask only.
   - Paper textures: soft-light is far too strong on dark (the user found it polluted), so the soft-light texture is dropped (`--textura-escura: none`) and comes back weak in hard-light over mid grey (`--realce-escuro`, 20%), with no extra fibre. None of this touches `paperStyle` or any drawing: frozen prints unchanged.
 - **Softer fibre (2026-09-29).** The user found the base cartolina fibre too strong on the light-accent stocks (yellow, green, blue; white shares the rule) and on every dark stock. The accent fibre (`cartolina-fibra-realce.png`) is now at 55% of its old contrast. Dark stocks swap the base fibre for `cartolina-fibra-escura.png` (the same photo at half contrast, 512px, still soft-light) through `--grao-escuro-img`; the procedural grain stays as the fallback until it loads.
 - **Texture accent bug (2026-09-29).** The wrapped texture (`accentStyle`) put the texture's data URI inside a single-quoted `href` without escaping the texture's own single quotes, so the whole SVG was invalid and the layer drew nothing. That is why every dark paper looked like plain cartolina, and it means the Round 9 texture accent on the light stocks never showed: what was approved there was the fibre alone. The quotes are now escaped (`%27`); the dead light-stock texture accent (`--realce-forte`, `--realce-leve`) was removed so the light stocks look exactly as before, and only the dark stocks use the wrapped texture.

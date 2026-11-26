@@ -461,6 +461,17 @@ export class PaperArtLayer {
     return { front: wrap(d.front), under: wrap(d.under) };
   });
 
+  /**
+   * A orelha que vem junto de um estrago destrutivo (ela no `wear`): só ela dobra a foto e os adesivos,
+   * que foram colados depois; o rasgo de cima passa por trás deles, como sempre. Sem os dois, null.
+   */
+  private readonly earMask = computed(() => {
+    const s = this.size();
+    if (!s || this.wear() !== 'orelha' || !this.damage()) return null;
+    const ear = this.memo('papel', paperArt, { id: this.id(), W: s.W, H: s.H, damage: 'orelha', seed: this.wearSeed() ?? undefined, uid: `${this.uid}o`, plain: this.plain() });
+    return cutMask(ear, s.W, s.H);
+  });
+
   /** A máscara da cor e do que está escrito: o papel que foi embora e a faixa em que a cor soltou. */
   protected readonly mask = computed(() => {
     const a = this.art(),
@@ -518,7 +529,7 @@ export class PaperArtLayer {
     });
     // as regras dos recortes em uso ficam seguras enquanto este papel as usar
     effect(() => {
-      const now = [this.mask(), this.burnMask(), this.outer()].filter((v): v is string => !!v);
+      const now = [this.mask(), this.burnMask(), this.outer(), this.earMask()].filter((v): v is string => !!v);
       untracked(() => {
         for (const v of now) holdMask(v);
         for (const v of this.held) dropMask(v);
@@ -1025,7 +1036,7 @@ export class PaperArtLayer {
   private caixasDoRasgo(): DOMRect[] {
     const art = this.art();
     if (!art) return [];
-    if (this.rasgosMedidos?.art !== art) this.rasgosMedidos = { art, caixas: [...art.cut, ...art.core].map(medirTraco) };
+    if (this.rasgosMedidos?.art !== art) this.rasgosMedidos = { art, caixas: [...art.cut, ...(art.cutOther?.cut ?? []), ...art.core].map(medirTraco) };
     return this.rasgosMedidos.caixas;
   }
 
@@ -1042,6 +1053,8 @@ export class PaperArtLayer {
     const mask = this.mask();
     const s = this.size();
     const next = new Set<HTMLElement>();
+    // a foto e os adesivos dobrados pela orelha: com outro estrago junto, levam só o recorte dela
+    const colados = new Set<HTMLElement>();
     if (mask && s) {
       const all = this.dogEar();
       const burn = (el: HTMLElement) => {
@@ -1057,7 +1070,12 @@ export class PaperArtLayer {
         return !glued || !paper.contains(glued);
       };
       paper.querySelectorAll<HTMLElement>('[data-queima]').forEach((el) => own(el) && burn(el));
-      if (all) paper.querySelectorAll<HTMLElement>('[data-colado]').forEach((el) => own(el) && next.add(el));
+      if (all)
+        paper.querySelectorAll<HTMLElement>('[data-colado]').forEach((el) => {
+          if (!own(el)) return;
+          next.add(el);
+          colados.add(el);
+        });
     }
     // primeiro só lê onde cada texto está; as escritas vêm depois, junto com as das outras fichas
     const at = new Map<HTMLElement, [number, number]>();
@@ -1095,12 +1113,14 @@ export class PaperArtLayer {
     const prev = this.burnt;
     this.burnt = next;
     const cls = mask ? maskClass(mask) : '';
+    const ear = this.earMask();
+    const earCls = ear ? maskClass(ear) : '';
     return () => {
       for (const el of prev) if (!next.has(el)) clearMask(el);
       for (const [el, [x, y]] of at) {
         const set = (p: string, v: string) => el.style.setProperty(p, v);
         // o recorte vem pela classe (ver ui/mask-rules.ts); aqui, só onde ele cai neste texto
-        setMaskClass(el, cls);
+        setMaskClass(el, earCls && colados.has(el) ? earCls : cls);
         set('mask-size', `${s!.W}px ${s!.H}px`);
         set('-webkit-mask-size', `${s!.W}px ${s!.H}px`);
         set('mask-position', `${-x}px ${-y}px`);
