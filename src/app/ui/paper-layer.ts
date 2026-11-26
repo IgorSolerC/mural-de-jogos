@@ -13,7 +13,7 @@ import {
   untracked,
 } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { Damage, DecorMark, Paper, Scribble, StainMark, isAgedPaper } from '../core/paper';
+import { DEFAULT_SCRIBBLE_INK, Damage, DecorMark, InkTone, Paper, SCRIBBLE_INK, Scribble, StainMark, inkStepFor, isAgedPaper, lightInk } from '../core/paper';
 import { DecorArt, decorArt } from '../core/decor-art';
 import { PaperArt as Art, cutMask, paperArt } from '../core/paper-art';
 import { budget, idleFits, perFrame, rest, spend, struggling, tick } from './pace';
@@ -351,6 +351,8 @@ export class PaperArtLayer {
   readonly plain = input(false);
   /** Cartolina escura: o rabisco sai em lápis claro. */
   readonly dark = input(false);
+  /** A cor do lápis do rabisco escolhida (Review.scribbleTone); sem ela, a automática: claro só na escura. */
+  readonly scribbleTone = input<InkTone | null | undefined>(undefined);
   /** Muda quando o que está escrito na ficha muda: hora de medir de novo onde cada texto está. */
   readonly content = input<unknown>(null);
   /**
@@ -425,19 +427,21 @@ export class PaperArtLayer {
     const holes = this.decorDrawing()?.cut ?? [];
     const stains = this.stains() ?? [];
     if (!s || (!this.scribble() && !this.aged() && !this.damage() && !stains.length && !holes.length)) return null;
-    const art = this.memo('papel', paperArt, { id: this.id(), W: s.W, H: s.H, scribble: this.scribble(), scribbleSeed: this.scribbleSeed() ?? undefined, scribbleInk: this.scribbleInk() ?? undefined, paper: this.aged(), damage: this.damage(), seed: this.seed() ?? undefined, stains, uid: this.uid, plain: this.plain() });
+    const art = this.memo('papel', paperArt, { id: this.id(), W: s.W, H: s.H, scribble: this.scribble(), scribbleSeed: this.scribbleSeed() ?? undefined, scribbleInk: this.scribbleTone() ? inkStepFor(this.scribbleInk() ?? DEFAULT_SCRIBBLE_INK, this.scribbleTone(), this.dark(), SCRIBBLE_INK.length) : (this.scribbleInk() ?? undefined), paper: this.aged(), damage: this.damage(), seed: this.seed() ?? undefined, stains, uid: this.uid, plain: this.plain() });
     return holes.length ? { ...art, cut: [...art.cut, ...holes] } : art;
   });
 
   /**
-   * O rabisco sozinho, para a camada do lápis claro da cartolina escura: o mesmo desenho (o sorteio é
+   * O rabisco sozinho, para a camada do lápis claro (o da cartolina escura, ou o escolhido): o mesmo desenho (o sorteio é
    * pelo id), desenhado sem o estrago e a mancha, que continuam no fundo, multiplicando.
    */
   protected readonly lapisHtml = computed(() => {
     const s = this.size(),
       scribble = this.scribble();
-    if (!this.dark() || !s || !scribble) return null;
-    const art = this.memo('papel', paperArt, { id: this.id(), W: s.W, H: s.H, scribble, scribbleSeed: this.scribbleSeed() ?? undefined, scribbleInk: this.scribbleInk() ?? undefined, uid: `${this.uid}l`, plain: this.plain() });
+    if (!lightInk(this.scribbleTone(), this.dark()) || !s || !scribble) return null;
+    // o lápis branco na cartolina clara (o contrário do de sempre) sai mais forte: ver inkStepFor
+    const ink = inkStepFor(this.scribbleInk() ?? DEFAULT_SCRIBBLE_INK, this.scribbleTone(), this.dark(), SCRIBBLE_INK.length);
+    const art = this.memo('papel', paperArt, { id: this.id(), W: s.W, H: s.H, scribble, scribbleSeed: this.scribbleSeed() ?? undefined, scribbleInk: ink, uid: `${this.uid}l`, plain: this.plain() });
     // só desenhos nossos e números: nada que a pessoa escreveu entra aqui
     return this.sanitizer.bypassSecurityTrustHtml(`${svgOpen(s)}${art.fundo}</svg>`);
   });

@@ -8,6 +8,9 @@ import {
   DECORS,
   DECOR_LABEL,
   DEFAULT_PATTERN_INK,
+  INK_TONES,
+  INK_TONE_LABEL,
+  InkTone,
   Damage,
   Decor,
   DecorMark,
@@ -180,6 +183,7 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
                   (input)="setPatternInk(+$any($event.target).value)"
                 />
               </label>
+              <ng-container *ngTemplateOutlet="tinta; context: { $implicit: patternLook().tone ?? null, set: setPatternTone, off: !pattern() }" />
             </div>
           }
           <!-- a força do lápis do rabisco, logo à vista; sem rabisco fica apagada, como os ajustes da estampa -->
@@ -198,8 +202,23 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
                   (input)="scribbleInk.set(+$any($event.target).value)"
                 />
               </label>
+              <ng-container *ngTemplateOutlet="tinta; context: { $implicit: scribbleTone(), set: setScribbleTone, off: !scribble() }" />
             </div>
           }
+          <!-- a cor da tinta (da estampa ou do lápis): a automática é a de sempre, preta na clara e branca na escura -->
+          <ng-template #tinta let-tone let-set="set" let-off="off">
+            <div class="ajuste tinta" role="group" [attr.aria-labelledby]="uid + '-tinta-' + tab()">
+              <span class="giz" [id]="uid + '-tinta-' + tab()">Tinta <b>{{ toneName(tone) }}</b></span>
+              <div class="tintas">
+                @for (t of toneOptions; track t.value) {
+                  <button type="button" class="assunto" [class.on]="tone === t.value" [attr.aria-pressed]="tone === t.value" [disabled]="off" (click)="set(t.value)">
+                    <span class="ponto" [attr.data-tinta]="t.value ?? 'auto'" aria-hidden="true"></span>
+                    {{ t.label }}
+                  </button>
+                }
+              </div>
+            </div>
+          </ng-template>
           @if (tab() !== 'papel') {
             <!-- são muitas: um desenho só de cada, sem o retalho de cartolina, para caberem à vista e se
                  lerem de longe; a ficha ao lado mostra como fica -->
@@ -781,23 +800,71 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
     /* ===== Assuntos das estampas: palavras a giz numa grade; o escolhido sublinhado em amarelo ===== */
     /* uma régua só, grudada no alto do painel: dá para trocar de assunto lá do meio da lista; o que não
        cabe corre para o lado, e a ponta direita some num degradê para mostrar que tem mais */
-    .assuntos {
-      position: sticky;
-      top: 0;
-      z-index: 2;
+    .assuntos,
+    .tintas {
       display: flex;
       gap: 3px;
-      margin: 0 0 14px;
-      padding: 4px 28px 4px 4px;
-      overflow-x: auto;
-      overscroll-behavior-x: contain;
-      scrollbar-width: none;
-      mask-image: linear-gradient(to right, #000 calc(100% - 30px), transparent);
+      padding: 4px;
       border-radius: 4px;
       background: rgb(16 14 13 / 0.94);
       box-shadow:
         inset 0 1px 0 rgb(255 255 255 / 0.06),
         0 6px 10px -6px rgb(0 0 0 / 0.8);
+    }
+    .assuntos {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      margin: 0 0 14px;
+      padding-right: 28px;
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scrollbar-width: none;
+      mask-image: linear-gradient(to right, #000 calc(100% - 30px), transparent);
+    }
+    /* ===== A tinta: a régua de assuntos em miniatura, com a cor de cada uma num pingo ===== */
+    /* o nome e a régua na mesma linha: a escolha cabe numa fileira só, embaixo das réguas */
+    .ajuste.tinta {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 14px;
+
+      .giz b {
+        display: inline;
+        margin-left: 4px;
+      }
+    }
+    .tintas {
+      align-self: start;
+      justify-self: start;
+      flex-wrap: wrap;
+
+      .assunto {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .assunto:disabled {
+        cursor: not-allowed;
+      }
+    }
+    .ponto {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      box-shadow: inset 0 0 0 1.5px rgb(241 241 236 / 0.55);
+    }
+    .ponto[data-tinta='preto'] {
+      background: #151515;
+    }
+    .ponto[data-tinta='branco'] {
+      background: #f3ece0;
+    }
+    /* a automática: metade de cada, como ela é */
+    .ponto[data-tinta='auto'] {
+      background: linear-gradient(135deg, #f3ece0 50%, #151515 50%);
     }
     .assuntos::-webkit-scrollbar {
       display: none;
@@ -1012,6 +1079,8 @@ export class CardKit {
   readonly scribbleSeed = model.required<number | null>();
   /** A força do lápis do rabisco, um degrau de SCRIBBLE_INK. */
   readonly scribbleInk = model.required<number>();
+  /** A cor do lápis do rabisco; null, a automática (preto na clara, branco na escura). */
+  readonly scribbleTone = model.required<InkTone | null>();
   /** O espaço, o tamanho e o alinhamento dos desenhos da estampa. */
   readonly patternLook = model.required<PatternLook>();
   /** O sorteio da estampa: cada clique nela desloca e bagunça de outro jeito. */
@@ -1046,6 +1115,12 @@ export class CardKit {
   protected readonly lookSteps = LOOK_STEP_LABEL;
   protected readonly inkSteps = SCRIBBLE_INK_LABEL;
   protected readonly patternInkSteps = PATTERN_INK_LABEL;
+  /** O nome da tinta (sem ela, a automática). */
+  protected toneName(tone: InkTone | null): string {
+    return tone ? INK_TONE_LABEL[tone] : 'Automática';
+  }
+  /** As tintas, a automática primeiro. */
+  protected readonly toneOptions: readonly { value: InkTone | null; label: string }[] = [{ value: null, label: 'Automática' }, ...INK_TONES.map((t) => ({ value: t, label: INK_TONE_LABEL[t] }))];
   /** A força da tinta da estampa; sem ela no ajuste, a Normal. */
   protected readonly patternInk = computed(() => this.patternLook().ink ?? DEFAULT_PATTERN_INK);
 
@@ -1273,6 +1348,11 @@ export class CardKit {
   protected setLook(k: LookKey, step: number): void {
     this.patternLook.update((cur) => ({ ...cur, [k]: step }));
   }
+
+  /** A tinta da estampa; a automática sai do ajuste (a estampa volta a ser a de sempre). */
+  protected readonly setPatternTone = (tone: InkTone | null): void =>
+    this.patternLook.update(({ tone: _, ...rest }) => (tone ? { ...rest, tone } : rest));
+  protected readonly setScribbleTone = (tone: InkTone | null): void => this.scribbleTone.set(tone);
 
   /** A Normal sai do ajuste: a estampa volta a ser exatamente a de antes. */
   protected setPatternInk(step: number): void {

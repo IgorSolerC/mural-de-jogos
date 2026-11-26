@@ -72,7 +72,7 @@ import { Cloud } from '../core/cloud-config';
 import { Mural } from '../core/mural';
 import { OriginalSwap, ReviewStore } from '../core/review-store';
 import { linkKey, linkableTitle, linkedNote, notesOf, relinkAfterRename, resolveNote } from '../core/note-links';
-import { DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, Damage, DecorMark, Paper, Pattern, PatternLook, Scribble, StainMark, isAgedPaper, lookOf } from '../core/paper';
+import { DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, Damage, DecorMark, InkTone, Paper, Pattern, PatternLook, Scribble, StainMark, isAgedPaper, lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
 import type { CardLook } from '../core/card-look';
 import { pinningFor } from '../core/wall-physics';
@@ -565,6 +565,9 @@ export class ReviewEditor {
     this.patternSeed.set(null);
     this.scribble.set(null);
     this.scribbleSeed.set(null);
+    // a tinta escolhida sai junto: a próxima estampa ou o próximo rabisco começam na automática
+    this.scribbleTone.set(null);
+    this.patternLook.update(({ tone: _, ...rest }) => rest);
     this.damage.set(null);
     this.damageSeed.set(null);
     this.stains.set([]);
@@ -876,6 +879,8 @@ export class ReviewEditor {
   protected readonly scribbleSeed = signal<number | null>(null);
   /** A força do lápis do rabisco, um degrau de SCRIBBLE_INK. */
   protected readonly scribbleInk = signal(DEFAULT_SCRIBBLE_INK);
+  /** A cor do lápis do rabisco; null, a automática. */
+  protected readonly scribbleTone = signal<InkTone | null>(null);
   protected readonly damage = signal<Damage | null>(null);
   /** O jeito do estrago que a pessoa sorteou (um clique a mais no estrago, outro jeito). */
   protected readonly damageSeed = signal<number | null>(null);
@@ -1125,6 +1130,7 @@ export class ReviewEditor {
     this.scribble.set(look.scribble ?? null);
     this.scribbleSeed.set(look.scribbleSeed ?? null);
     this.scribbleInk.set(look.scribbleInk ?? DEFAULT_SCRIBBLE_INK);
+    this.scribbleTone.set(look.scribbleTone ?? null);
     this.damage.set(look.damage ?? null);
     this.damageSeed.set(look.damageSeed ?? null);
     this.stains.set([...(look.stains ?? [])]);
@@ -1191,6 +1197,7 @@ export class ReviewEditor {
       scribble: this.scribble() ?? undefined,
       scribbleSeed: (this.scribble() && this.scribbleSeed()) || undefined,
       scribbleInk: this.scribbleInk(),
+      scribbleTone: (this.scribble() && this.scribbleTone()) || undefined,
       damage: this.damage() ?? undefined,
       damageSeed: (this.damage() && this.damageSeed()) || undefined,
       stains: this.stains().length ? this.stains() : undefined,
@@ -1586,6 +1593,7 @@ export class ReviewEditor {
       ...(this.scribble() ? { scribble: this.scribble()! } : {}),
       ...(this.scribble() && this.scribbleSeed() ? { scribbleSeed: this.scribbleSeed()! } : {}),
       ...(this.scribble() && this.scribbleInk() !== DEFAULT_SCRIBBLE_INK ? { scribbleInk: this.scribbleInk() } : {}),
+      ...(this.scribble() && this.scribbleTone() ? { scribbleTone: this.scribbleTone()! } : {}),
       ...(this.damage() ? { damage: this.damage()! } : {}),
       ...(this.damage() && this.damageSeed() ? { damageSeed: this.damageSeed()! } : {}),
       ...(this.stains().length ? { stains: this.stains() } : {}),
@@ -1656,6 +1664,7 @@ export class ReviewEditor {
       paper: this.paper() !== 'cartolina' ? this.paper() : undefined,
       paperSeed: isAgedPaper(this.paper()) ? (this.paperSeed() ?? undefined) : undefined,
       scribbleInk: this.scribble() && this.scribbleInk() !== DEFAULT_SCRIBBLE_INK ? this.scribbleInk() : undefined,
+      scribbleTone: (this.scribble() && this.scribbleTone()) || undefined,
       text: this.text().trim(),
       completedAt: this.dateValue(),
       ...audienceFields(audience, this.liveShared() ?? prev, now),
@@ -2070,6 +2079,7 @@ export class ReviewEditor {
       this.scribble(),
       this.scribbleSeed(),
       this.scribbleInk(),
+      this.scribbleTone(),
       this.damage(),
       this.damageSeed(),
       this.stains(),
@@ -2138,13 +2148,14 @@ export class ReviewEditor {
   }
 
   /** Os ajustes da estampa como vão para a ficha: o de sempre não vai. */
-  private lookFields(): Pick<Review, 'patternSpacing' | 'patternSize' | 'patternJitter' | 'patternInk'> {
+  private lookFields(): Pick<Review, 'patternSpacing' | 'patternSize' | 'patternJitter' | 'patternInk' | 'patternTone'> {
     const l = this.patternLook();
     return {
       ...(l.spacing !== DEFAULT_LOOK.spacing ? { patternSpacing: l.spacing } : {}),
       ...(l.size !== DEFAULT_LOOK.size ? { patternSize: l.size } : {}),
       ...(l.jitter !== DEFAULT_LOOK.jitter ? { patternJitter: l.jitter } : {}),
       ...(l.ink !== undefined && l.ink !== DEFAULT_PATTERN_INK ? { patternInk: l.ink } : {}),
+      ...(l.tone ? { patternTone: l.tone } : {}),
     };
   }
 

@@ -202,6 +202,28 @@ export interface PatternLook {
   jitter: number;
   /** A força da tinta (um degrau de PATTERN_INK); sem ela, o Normal, a tinta de sempre. */
   ink?: number;
+  /** A cor da tinta, preta ou branca; sem ela, a automática (preta na cartolina clara, branca na escura). */
+  tone?: InkTone;
+}
+
+/**
+ * A cor da tinta da estampa e do lápis do rabisco (25/nov/2026): a automática (sem o campo) é a de
+ * sempre, preta na cartolina clara e branca na escura; as outras valem em qualquer cartolina.
+ */
+export type InkTone = 'preto' | 'branco';
+export const INK_TONES: readonly InkTone[] = ['preto', 'branco'];
+export const INK_TONE_LABEL: Record<InkTone, string> = { preto: 'Preta', branco: 'Branca' };
+export const sanitizeInkTone = (raw: unknown): InkTone | undefined => (raw === 'preto' || raw === 'branco' ? raw : undefined);
+/** A tinta sai branca? A escolhida, ou a automática: branca só na cartolina escura. */
+export const lightInk = (tone: InkTone | null | undefined, dark: boolean): boolean => (tone ? tone === 'branco' : dark);
+
+/**
+ * A tinta contrária à de sempre (a branca na cartolina clara, a preta na escura) é tom sobre tom no
+ * mesmo sentido do papel e quase some: ela sai dois degraus mais forte (até o último), para aparecer já
+ * na Normal. Devolve o degrau de força que vale, de uma régua de `len` degraus.
+ */
+export function inkStepFor(step: number, tone: InkTone | null | undefined, dark: boolean, len: number): number {
+  return tone && lightInk(tone, dark) !== dark ? Math.min(step + 2, len - 1) : step;
 }
 
 /** Os ajustes de desenho da estampa (a força da tinta tem o seu próprio controle). */
@@ -241,12 +263,13 @@ export function sanitizeLookStep(raw: unknown, key: LookKey): number | undefined
 }
 
 /** Os ajustes de uma ficha, com o de sempre no lugar do que ela não tem (a tinta Normal nem entra). */
-export function lookOf(r: { patternSpacing?: number; patternSize?: number; patternJitter?: number; patternInk?: number }): PatternLook {
+export function lookOf(r: { patternSpacing?: number; patternSize?: number; patternJitter?: number; patternInk?: number; patternTone?: InkTone }): PatternLook {
   return {
     spacing: r.patternSpacing ?? DEFAULT_LOOK.spacing,
     size: r.patternSize ?? DEFAULT_LOOK.size,
     jitter: r.patternJitter ?? DEFAULT_LOOK.jitter,
     ...(r.patternInk !== undefined && r.patternInk !== DEFAULT_PATTERN_INK ? { ink: r.patternInk } : {}),
+    ...(r.patternTone ? { tone: r.patternTone } : {}),
   };
 }
 

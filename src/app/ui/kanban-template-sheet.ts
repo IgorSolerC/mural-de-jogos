@@ -3,7 +3,7 @@ import { ICON, IconModule } from './icons';
 import { CardLook, sampleNote, sanitizeLook } from '../core/card-look';
 import { updateColumn } from '../core/kanban';
 import { KanbanStore } from '../core/kanban-store';
-import { DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, Damage, DecorMark, Paper, Pattern, PatternLook, Scribble, StainMark, lookOf } from '../core/paper';
+import { DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, Damage, DecorMark, InkTone, Paper, Pattern, PatternLook, Scribble, StainMark, lookOf } from '../core/paper';
 import { Stock } from '../core/review';
 import { pinningFor } from '../core/wall-physics';
 import { BackdropClose } from './backdrop-close';
@@ -57,6 +57,7 @@ import { SaveKey } from './save-key';
                 [(scribble)]="scribble"
                 [(scribbleSeed)]="scribbleSeed"
                 [(scribbleInk)]="scribbleInk"
+                [(scribbleTone)]="scribbleTone"
                 [(damage)]="damage"
                 [(damageSeed)]="damageSeed"
                 [(stains)]="stains"
@@ -107,6 +108,7 @@ export class KanbanTemplateSheet {
   protected readonly scribble = signal<Scribble | null>(null);
   protected readonly scribbleSeed = signal<number | null>(null);
   protected readonly scribbleInk = signal(DEFAULT_SCRIBBLE_INK);
+  protected readonly scribbleTone = signal<InkTone | null>(null);
   protected readonly damage = signal<Damage | null>(null);
   protected readonly damageSeed = signal<number | null>(null);
   protected readonly stains = signal<StainMark[]>([]);
@@ -124,10 +126,12 @@ export class KanbanTemplateSheet {
       patternSize: l.size,
       patternJitter: l.jitter,
       patternInk: l.ink,
+      patternTone: l.tone,
       patternSeed: this.patternSeed() ?? undefined,
       scribble: this.scribble() ?? undefined,
       scribbleSeed: this.scribbleSeed() ?? undefined,
       scribbleInk: this.scribbleInk(),
+      scribbleTone: this.scribbleTone() ?? undefined,
       damage: this.damage() ?? undefined,
       damageSeed: this.damageSeed() ?? undefined,
       stains: this.stains(),
@@ -165,6 +169,7 @@ export class KanbanTemplateSheet {
     this.scribble.set(look.scribble ?? null);
     this.scribbleSeed.set(look.scribbleSeed ?? null);
     this.scribbleInk.set(look.scribbleInk ?? DEFAULT_SCRIBBLE_INK);
+    this.scribbleTone.set(look.scribbleTone ?? null);
     this.damage.set(look.damage ?? null);
     this.damageSeed.set(look.damageSeed ?? null);
     this.stains.set([...(look.stains ?? [])]);

@@ -358,8 +358,8 @@ export interface NoteMerge {
 const LOOK_GROUPS: readonly (readonly string[])[] = [
   ['stock'],
   ['paper', 'paperSeed'],
-  ['pattern', 'patternSpacing', 'patternSize', 'patternJitter', 'patternInk', 'patternSeed'],
-  ['scribble', 'scribbleSeed', 'scribbleInk'],
+  ['pattern', 'patternSpacing', 'patternSize', 'patternJitter', 'patternInk', 'patternSeed', 'patternTone'],
+  ['scribble', 'scribbleSeed', 'scribbleInk', 'scribbleTone'],
   ['damage', 'damageSeed'],
   ['stains'],
   ['decors'],

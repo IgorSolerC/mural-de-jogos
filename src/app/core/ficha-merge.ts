@@ -34,8 +34,8 @@ export interface FichaMerge {
 const GROUPS: readonly { keys: readonly string[]; part: FichaPart }[] = [
   { keys: ['stock'], part: 'aparencia' },
   { keys: ['paper', 'paperSeed'], part: 'aparencia' },
-  { keys: ['pattern', 'patternSpacing', 'patternSize', 'patternJitter', 'patternInk', 'patternSeed'], part: 'aparencia' },
-  { keys: ['scribble', 'scribbleSeed', 'scribbleInk'], part: 'aparencia' },
+  { keys: ['pattern', 'patternSpacing', 'patternSize', 'patternJitter', 'patternInk', 'patternSeed', 'patternTone'], part: 'aparencia' },
+  { keys: ['scribble', 'scribbleSeed', 'scribbleInk', 'scribbleTone'], part: 'aparencia' },
   { keys: ['damage', 'damageSeed'], part: 'aparencia' },
   { keys: ['stains'], part: 'aparencia' },
   { keys: ['decors'], part: 'aparencia' },

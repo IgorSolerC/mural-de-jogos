@@ -1265,7 +1265,7 @@ dialog.sheet {
   background-size: var(--textura-tam, auto), var(--textura-tam, auto), calc(var(--estampa-lado, 128px) * var(--estampa-zoom, 1)) auto, var(--grao-tam), var(--grao-tam);
   /* a estampa sai do meio: o desenho gigante fica na ficha, não num canto */
   background-position: var(--textura-x, 0px) var(--textura-y, 0px), 0 0, center, 0 0, 0 0;
-  background-blend-mode: var(--textura-mistura, normal), hard-light, var(--estampa-mistura, multiply), var(--grao-mistura), hard-light;
+  background-blend-mode: var(--textura-mistura, normal), hard-light, var(--estampa-tom-mistura, var(--estampa-mistura, multiply)), var(--grao-mistura), hard-light;
 }
 
 /* As cartolinas claras: no amarelo e no verde o soft-light quase não mexe (um canal já está no

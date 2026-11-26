@@ -5,7 +5,7 @@
  */
 import { MORE_MOTIFS, Motif, MotifDrawing } from './pattern-motifs';
 import { GRID_STYLE, GRID_TINT, GridPattern, gridIcon, gridTile, isGridPattern } from './pattern-grids';
-import { AgedPaper, DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, Damage, PATTERN_INK, Paper, Pattern, PatternLook, SCRIBBLE_INK, Scribble, Stain, StainMark, clamp, cont, darkGlitter, f1, glitterShift, hash, isAgedPaper, isStrip, poly, rng, svgUrl, textureOf } from './paper';
+import { AgedPaper, DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, Damage, PATTERN_INK, Paper, Pattern, PatternLook, SCRIBBLE_INK, Scribble, Stain, StainMark, clamp, cont, darkGlitter, f1, glitterShift, hash, inkStepFor, isAgedPaper, isStrip, poly, rng, svgUrl, textureOf } from './paper';
 
 // ===================== Desenhinhos a lápis =====================
 
@@ -6402,13 +6402,23 @@ export function ownPaperVars(paper: Paper | undefined, pattern: Pattern | undefi
 /**
  * As variáveis do papel, da estampa e do reforço das cartolinas claras, para o `[style]` das fichas.
  * Na cartolina escura (`dark`), a estampa também sai em branco (`--estampa-clara`) e o glitter troca
- * de ladrilho (`darkGlitterVars`), começando num lugar só da ficha do `id`.
+ * de ladrilho (`darkGlitterVars`), começando num lugar só da ficha do `id`. Com a tinta escolhida
+ * (`look.tone`), a estampa sai nela em qualquer cartolina: o mesmo ladrilho nas duas variáveis e a
+ * mistura dele (`--estampa-tom-mistura`, que vale antes da de cada cartolina, ver styles.scss).
  */
 export function paperVars(paper: Paper | undefined, pattern: Pattern | undefined, look?: PatternLook, seed?: number | null, dark = false, id?: string): Record<string, string | null> {
+  const style = paperStyle(paper, pattern, look, seed);
+  const tone = pattern ? look?.tone : undefined;
+  // a contrária sai mais forte (ver inkStepFor); o desenho e o lugar são os mesmos
+  const step = inkStepFor(look?.ink ?? DEFAULT_PATTERN_INK, tone, dark, PATTERN_INK.length);
+  const inked = look && step !== (look.ink ?? DEFAULT_PATTERN_INK) ? { ...look, ink: step } : look;
+  const toned = tone && pattern ? (tone === 'branco' ? lightPattern(pattern, inked, seed) : patternTile(pattern, inked, seed ?? undefined).url) : null;
   return {
-    ...paperStyle(paper, pattern, look, seed),
+    ...style,
     ...accentStyle(paper),
-    '--estampa-clara': dark && pattern ? lightPattern(pattern, look, seed) : null,
+    ...(toned ? { '--estampa': toned } : {}),
+    '--estampa-clara': toned ?? (dark && pattern ? lightPattern(pattern, look, seed) : null),
+    '--estampa-tom-mistura': toned ? (tone === 'branco' ? 'screen' : 'multiply') : null,
     '--textura-x': null,
     '--textura-y': null,
     '--faisca-pos': null,

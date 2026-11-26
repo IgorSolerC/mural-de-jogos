@@ -1,7 +1,7 @@
 import { KIND_PROFILES, Kind, isKind, isMusic, isNotes, profileOf } from './kinds';
 import { scoreDisplay } from './settings';
 import { cleanCategory, cleanSubject, sanitizeTags } from './note-labels';
-import { Damage, DecorMark, Paper, Pattern, Scribble, StainMark, isAgedPaper, sanitizeDamage, sanitizeDecors, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizePatternInk, sanitizeScribble, sanitizeScribbleInk, sanitizeSeed, sanitizeStains } from './paper';
+import { Damage, DecorMark, InkTone, Paper, Pattern, Scribble, StainMark, isAgedPaper, sanitizeDamage, sanitizeDecors, sanitizeInkTone, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizePatternInk, sanitizeScribble, sanitizeScribbleInk, sanitizeSeed, sanitizeStains } from './paper';
 import { BUILD } from './build';
 import { boardIdOfNote } from './canvas-id';
 import { migrateReview } from './migrations';
@@ -317,12 +317,16 @@ export interface Review {
   patternInk?: number;
   /** O sorteio da estampa (cada clique nela desloca e bagunça de outro jeito); sem ele, centrada. */
   patternSeed?: number;
+  /** A cor da tinta da estampa (preta ou branca); sem o campo, a automática (a de sempre). */
+  patternTone?: InkTone;
   /** O rabisco a lápis que toma a ficha inteira, atrás do que está escrito; sem o campo, nenhum. */
   scribble?: Scribble;
   /** O sorteio do rabisco que a pessoa escolheu (cada clique rabisca de outro jeito); sem ele, o jeito sai do id. */
   scribbleSeed?: number;
   /** A força do lápis do rabisco (um degrau de SCRIBBLE_INK); sem o campo, o Normal. */
   scribbleInk?: number;
+  /** A cor do lápis do rabisco (preto ou branco); sem o campo, o automático (o de sempre). */
+  scribbleTone?: InkTone;
   /** O estrago no papel (arrancada, queimada, amassada…): leva o que está escrito, não a foto nem os adesivos. */
   damage?: Damage;
   /** O sorteio do estrago que a pessoa escolheu (cada clique rasga de outro jeito); sem ele, o jeito sai do id. */
@@ -1273,9 +1277,11 @@ export function sanitizeReview(raw: unknown, from = 0): Review | null {
     ...optional('patternJitter', sanitizePattern(r['pattern']) ? sanitizeLookStep(r['patternJitter'], 'jitter') : undefined),
     ...optional('patternInk', sanitizePattern(r['pattern']) ? sanitizePatternInk(r['patternInk']) : undefined),
     ...optional('patternSeed', sanitizePattern(r['pattern']) ? sanitizeSeed(r['patternSeed']) : undefined),
+    ...optional('patternTone', sanitizePattern(r['pattern']) ? sanitizeInkTone(r['patternTone']) : undefined),
     ...optional('scribble', sanitizeScribble(r['scribble'])),
     ...optional('scribbleSeed', sanitizeScribble(r['scribble']) ? sanitizeSeed(r['scribbleSeed']) : undefined),
     ...optional('scribbleInk', sanitizeScribble(r['scribble']) ? sanitizeScribbleInk(r['scribbleInk']) : undefined),
+    ...optional('scribbleTone', sanitizeScribble(r['scribble']) ? sanitizeInkTone(r['scribbleTone']) : undefined),
     ...optional('damage', sanitizeDamage(r['damage'])),
     ...optional('damageSeed', sanitizeDamage(r['damage']) ? sanitizeSeed(r['damageSeed']) : undefined),
     ...optional('stains', sanitizeStains(r['stains'])),

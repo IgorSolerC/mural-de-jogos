@@ -1,6 +1,6 @@
 import { Component, provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, DecorMark, Paper, Pattern, PatternLook, Scribble, StainMark } from '../core/paper';
+import { DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, DecorMark, InkTone, Paper, Pattern, PatternLook, Scribble, StainMark } from '../core/paper';
 import type { Damage } from '../core/paper';
 import { Stock } from '../core/review';
 import { CardKit } from './card-kit';
@@ -19,6 +19,7 @@ import { CardKit } from './card-kit';
     [(scribble)]="scribble"
     [(scribbleSeed)]="scribbleSeed"
     [(scribbleInk)]="scribbleInk"
+    [(scribbleTone)]="scribbleTone"
     [(damage)]="damage"
     [(damageSeed)]="damageSeed"
     [(stains)]="stains"
@@ -35,6 +36,7 @@ class Host {
   scribble = signal<Scribble | null>(null);
   scribbleSeed = signal<number | null>(null);
   scribbleInk = signal(DEFAULT_SCRIBBLE_INK);
+  scribbleTone = signal<InkTone | null>(null);
   damage = signal<Damage | null>(null);
   damageSeed = signal<number | null>(null);
   stains = signal<StainMark[]>([]);
@@ -134,6 +136,32 @@ describe('CardKit: várias manchas e decorações', () => {
     expect([host.paper(), host.paperSeed()]).toEqual(['carregando', null]);
   });
 
+  it('a tinta da estampa e do lápis: Automática, Preta ou Branca; apagada sem a camada', async () => {
+    const tones = () => [...el.querySelectorAll<HTMLButtonElement>('.tinta .assunto')];
+    const pick = (label: string) => {
+      tones().find((b) => b.textContent!.trim() === label)!.click();
+      fixture.detectChanges();
+    };
+    await open('estampa');
+    expect(tones().map((b) => b.textContent!.trim())).toEqual(['Automática', 'Preta', 'Branca']);
+    expect(tones().every((b) => b.disabled)).toBeTrue();
+    host.pattern.set('gatinhos');
+    fixture.detectChanges();
+    pick('Branca');
+    expect(host.patternLook().tone).toBe('branco');
+    expect(el.querySelector('.tinta .giz')!.textContent).toContain('Branca');
+    expect(tones()[2].getAttribute('aria-pressed')).toBe('true');
+    pick('Automática');
+    expect('tone' in host.patternLook()).toBeFalse();
+    await open('rabisco');
+    host.scribble.set('novelo');
+    fixture.detectChanges();
+    pick('Preta');
+    expect(host.scribbleTone()).toBe('preto');
+    pick('Automática');
+    expect(host.scribbleTone()).toBeNull();
+  });
+
   it('com o botão solto fora da régua de assuntos, passar o mouse por cima não arrasta', async () => {
     await open('estampa');
     const strip = el.querySelector<HTMLElement>('.assuntos')!;
@@ -167,6 +195,7 @@ describe('CardKit: várias manchas e decorações', () => {
         [(scribble)]="scribble"
         [(scribbleSeed)]="scribbleSeed"
         [(scribbleInk)]="scribbleInk"
+        [(scribbleTone)]="scribbleTone"
         [(damage)]="damage"
         [(damageSeed)]="damageSeed"
         [(stains)]="stains"
@@ -186,6 +215,7 @@ class TwoKits {
   scribble = signal<Scribble | null>(null);
   scribbleSeed = signal<number | null>(null);
   scribbleInk = signal(DEFAULT_SCRIBBLE_INK);
+  scribbleTone = signal<InkTone | null>(null);
   damage = signal<Damage | null>(null);
   damageSeed = signal<number | null>(null);
   stains = signal<StainMark[]>([]);

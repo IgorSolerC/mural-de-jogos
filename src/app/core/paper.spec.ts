@@ -1,4 +1,4 @@
-import { DAMAGES, DAMAGE_LABEL, DECORS, DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, PATTERNS, PATTERN_GROUPS, PATTERN_LABEL, groupOfPattern, SCRIBBLES, STAINS, cutsPaper, lookOf, decorCuts, newSeed, sanitizeDamage, sanitizeDecor, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizePatternInk, sanitizeScribble, sanitizeSeed, darkGlitter, glitterShift, textureOf } from './paper';
+import { DAMAGES, DAMAGE_LABEL, DECORS, DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, PATTERNS, PATTERN_GROUPS, PATTERN_LABEL, groupOfPattern, SCRIBBLES, STAINS, cutsPaper, lookOf, decorCuts, newSeed, sanitizeDamage, sanitizeDecor, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizePatternInk, sanitizeScribble, sanitizeSeed, darkGlitter, glitterShift, textureOf, inkStepFor, lightInk, sanitizeInkTone } from './paper';
 import { GRID_PATTERNS } from './pattern-grids';
 import { TILE_CACHE, cutMask, lightPattern, motifIcon, ownPaperVars, paperArt, paperStyle, paperVars, patternTile, tileCacheSize } from './paper-art';
 import { decorArt } from './decor-art';
@@ -6,6 +6,48 @@ import { DAMAGE_ICON } from './kit-icons';
 import { sanitizeReview } from './review';
 
 describe('papel da ficha', () => {
+  describe('a tinta da estampa e do lápis (25/nov/2026)', () => {
+    it('a automática é a de sempre (branca só na escura); a escolhida vale em qualquer cartolina', () => {
+      expect([lightInk(null, false), lightInk(undefined, true)]).toEqual([false, true]);
+      expect([lightInk('branco', false), lightInk('preto', true)]).toEqual([true, false]);
+      expect([sanitizeInkTone('preto'), sanitizeInkTone('branco'), sanitizeInkTone('azul'), sanitizeInkTone(1)]).toEqual(['preto', 'branco', undefined, undefined]);
+    });
+
+    it('a estampa na tinta escolhida: o mesmo ladrilho nas duas variáveis, com a mistura dela', () => {
+      const look = { ...DEFAULT_LOOK };
+      const auto = paperVars('cartolina', 'gatinhos', look, 5, false);
+      expect(auto['--estampa-tom-mistura']).toBeNull();
+      expect(auto['--estampa-clara']).toBeNull();
+      // a branca na clara é a contrária: dois degraus mais forte (Normal, 3, vira 5)
+      const white = paperVars('cartolina', 'gatinhos', { ...look, tone: 'branco' }, 5, false);
+      expect(white['--estampa']).toBe(lightPattern('gatinhos', { ...look, ink: 5 }, 5));
+      expect(white['--estampa-clara']).toBe(white['--estampa']);
+      expect(white['--estampa-tom-mistura']).toBe('screen');
+      // a preta na escura também; a preta na clara é a de sempre, sem reforço
+      const black = paperVars('cartolina', 'gatinhos', { ...look, tone: 'preto' }, 5, true);
+      expect(black['--estampa']).toBe(patternTile('gatinhos', { ...look, ink: 5 }, 5).url);
+      expect(black['--estampa-clara']).toBe(black['--estampa']);
+      expect(black['--estampa-tom-mistura']).toBe('multiply');
+      expect(paperVars('cartolina', 'gatinhos', { ...look, tone: 'preto' }, 5, false)['--estampa']).toBe(auto['--estampa']);
+      expect(inkStepFor(6, 'branco', false, 7)).toBe(6);
+      expect(inkStepFor(3, 'branco', true, 7)).toBe(3);
+      // a tinta não muda o desenho: o mesmo lugar, o mesmo tamanho
+      expect(white['--estampa-lado']).toBe(auto['--estampa-lado']);
+      // sem estampa, a tinta não faz nada
+      expect(paperVars('cartolina', undefined, { ...look, tone: 'branco' })['--estampa-tom-mistura']).toBeNull();
+    });
+
+    it('a tinta só fica guardada com a camada dela', () => {
+      const base = { kind: 'anotacoes', game: { name: 'a' }, text: '' };
+      const r = sanitizeReview({ ...base, pattern: 'gatinhos', patternTone: 'branco', scribble: 'novelo', scribbleTone: 'preto' })!;
+      expect([r.patternTone, r.scribbleTone]).toEqual(['branco', 'preto']);
+      const none = sanitizeReview({ ...base, patternTone: 'branco', scribbleTone: 'preto' })!;
+      expect('patternTone' in none || 'scribbleTone' in none).toBeFalse();
+      expect('patternTone' in sanitizeReview({ ...base, pattern: 'gatinhos', patternTone: 'roxo' })!).toBeFalse();
+      expect(lookOf({ patternTone: 'branco' }).tone).toBe('branco');
+    });
+  });
+
   it('aceita só o que existe; a cartolina de sempre não vai para o armazenamento', () => {
     expect(sanitizePaper('canson')).toBe('canson');
     expect(sanitizePaper('cartolina')).toBeUndefined();
