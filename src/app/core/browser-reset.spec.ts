@@ -20,6 +20,7 @@ import { COLLEAGUES_DB, ColleagueStore } from './colleague-store';
 import { POMODORO_KEY, POMODORO_DEFAULT, start } from './pomodoro';
 import { TRACKS_KEY } from './pomodoro-tracks';
 import { VOZ_KEY } from './voz';
+import { DRILL_SETUP_KEY } from './dictionary/drill';
 import { DRAFTS_DB, PixelDrafts, STASH_PREFIX } from './pixel-drafts';
 
 function databases(): Promise<string[]> {
@@ -74,6 +75,13 @@ describe('limpar o navegador (sair da conta)', () => {
     signedInBrowser();
     await wipeBrowser();
     expect(localStorage.getItem('meu-mural:dicionario:v1')).toBeNull();
+  });
+
+  it('a montagem do Treino do dicionário sai na limpeza', async () => {
+    signedInBrowser();
+    localStorage.setItem(DRILL_SETUP_KEY, '{"ways":["pt-jp"],"source":"todas"}');
+    await wipeBrowser();
+    expect(localStorage.getItem(DRILL_SETUP_KEY)).toBeNull();
   });
 
   it('o último Quadros-Versao conferido (a nuvem do Quadro livre) sai na limpeza', async () => {

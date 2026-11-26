@@ -14,7 +14,7 @@ import { ICON, IconModule } from './icons';
   selector: 'app-word-voice',
   imports: [IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { '[class.miudo]': 'small()', '[class.escuro]': 'dark()' },
+  host: { '[class.miudo]': 'small()', '[class.grande]': 'big()', '[class.escuro]': 'dark()' },
   template: `
     @if (speaks()) {
       <button
@@ -22,11 +22,11 @@ import { ICON, IconModule } from './icons';
         class="ouvir-palavra"
         [class.ligado]="saying()"
         [attr.aria-pressed]="saying()"
-        [attr.aria-label]="'Ouvir ' + word().text"
+        [attr.aria-label]="label() ?? 'Ouvir ' + word().text"
         [title]="saying() ? 'Calar' : 'Ouvir a palavra'"
         (click)="toggle()"
       >
-        <lucide-icon [img]="Icon" [size]="small() ? 15 : 18" aria-hidden="true" />
+        <lucide-icon [img]="Icon" [size]="big() ? 38 : small() ? 15 : 18" aria-hidden="true" />
       </button>
     }
   `,
@@ -38,6 +38,16 @@ import { ICON, IconModule } from './icons';
     }
     :host(.miudo) {
       --tam: 26px;
+    }
+    /* a pergunta do Treino que só fala (o Japonês → português falado, o Som do Escrever): o botão é a pergunta */
+    :host(.grande) {
+      --tam: 92px;
+    }
+    :host(.grande) .ouvir-palavra.ligado::after {
+      right: 6px;
+      bottom: 6px;
+      width: 16px;
+      height: 16px;
     }
     .ouvir-palavra {
       position: relative;
@@ -118,6 +128,10 @@ export class WordVoice {
   readonly small = input(false);
   /** Sobre a faixa escura do verbete. */
   readonly dark = input(false);
+  /** O tamanho da pergunta do Treino (o botão é a pergunta). */
+  readonly big = input(false);
+  /** O nome para o leitor de tela, no lugar do "Ouvir 食べる" (no Treino, a palavra não pode aparecer). */
+  readonly label = input<string | null>(null);
 
   protected readonly Icon = ICON.fones;
   private readonly key = computed(() => `dicionario:${this.word().id}`);

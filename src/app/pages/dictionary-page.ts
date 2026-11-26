@@ -41,6 +41,9 @@ import { NearPool, NearScreen } from '../ui/near-screen';
 import { ThumbIndex, ThumbRow } from '../ui/thumb-index';
 import { Toasts } from '../ui/toast';
 import { WordBoard } from '../ui/word-board';
+import { WordDrill } from '../ui/word-drill';
+import { DrillStart, WordDrillSetup } from '../ui/word-drill-setup';
+import { DrillWay } from '../core/dictionary/drill';
 import { WordEntry, daySaid, entryHeightGuess } from '../ui/word-entry';
 import { markFavorite, markLearned } from '../ui/word-marking';
 import { WordSeals } from '../ui/word-seals';
@@ -117,7 +120,7 @@ function rowGuessOf(w: Word): number {
  */
 @Component({
   selector: 'app-dictionary-page',
-  imports: [FacetFilters, FilterTags, IconModule, NearScreen, Pin, SearchHighlight, SearchStrip, SectionHead, ThumbIndex, WordBoard, WordEntry, WordSeals, WordVoice],
+  imports: [FacetFilters, FilterTags, IconModule, NearScreen, Pin, SearchHighlight, SearchStrip, SectionHead, ThumbIndex, WordBoard, WordDrill, WordDrillSetup, WordEntry, WordSeals, WordVoice],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './dictionary-page.html',
   styleUrl: './dictionary-page.scss',
@@ -130,6 +133,7 @@ export class DictionaryPage {
   private readonly nearPool = inject(NearPool);
   private readonly injector = inject(Injector);
   protected readonly StarIcon = ICON.estrela;
+  protected readonly TrainIcon = ICON.alvo;
 
   protected readonly FilterIcon = ICON.filtrar;
   protected readonly ChevronIcon = ICON.abrir;
@@ -533,6 +537,24 @@ export class DictionaryPage {
     const b = this.boardWord();
     const next = b && b.index >= 0 ? this.shown()[b.index + delta] : undefined;
     if (next) this.go({ word: next.id });
+  }
+
+  /* ===== O Treino (PLANO-TREINO-DICIONARIO.md) ===== */
+
+  /** Os jeitos de treinar que a mesa já tem. */
+  protected readonly drillWays: readonly DrillWay[] = ['pt-jp', 'jp-pt'];
+  /** A folha de montar aberta. */
+  protected readonly drilling = signal<'montar' | null>(null);
+  /** O treino na mesa: a montagem e as palavras que combinam. */
+  protected readonly drillRun = signal<DrillStart | null>(null);
+
+  protected startDrill(run: DrillStart): void {
+    this.drillRun.set(run);
+  }
+
+  /** A folha fechou: o foco volta ao Treinar (quando não abriu a mesa). */
+  protected setupClosed(): void {
+    this.drilling.set(null);
   }
 
   protected toggleFavorites(): void {

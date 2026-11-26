@@ -35,6 +35,14 @@
         </button>
       </div>
 
+      <div class="pasta-grupo">
+        <!-- o Treino (PLANO-TREINO-DICIONARIO.md): montar e treinar escrever, traduzir e ler -->
+        <button type="button" class="tinta" aria-haspopup="dialog" (click)="drilling.set('montar')" title="Treinar as palavras: escrever, traduzir e ler">
+          <lucide-icon [img]="TrainIcon" [size]="18" aria-hidden="true" />
+          <span>Treinar</span>
+        </button>
+      </div>
+
       <div class="pasta-grupo" role="group" aria-label="Ordenar">
         <label class="tinta campo">
           <span class="campo-pre">Ordenar</span>
@@ -216,5 +224,17 @@
 @if (boardWord(); as b) {
   @defer (on immediate) {
     <app-word-board [word]="b.word" [hasPrev]="b.index > 0" [hasNext]="b.index >= 0 && b.index < shown().length - 1" (step)="stepBoard($event)" (goto)="gotoBoard($event)" (closed)="closeBoard()" />
+  }
+}
+
+<!-- o Treino: a folha de montar e, ao Começar, a mesa (as duas sob demanda) -->
+@if (drilling() === 'montar') {
+  @defer (on immediate) {
+    <app-word-drill-setup [ways]="drillWays" (started)="startDrill($event)" (closed)="setupClosed()" />
+  }
+}
+@if (drillRun(); as run) {
+  @defer (on immediate) {
+    <app-word-drill [setup]="run.setup" [pool]="run.pool" (closed)="drillRun.set(null)" />
   }
 }

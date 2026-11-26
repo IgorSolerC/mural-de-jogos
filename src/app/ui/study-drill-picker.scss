@@ -42,3 +42,28 @@
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+/* a palavra japonesa no lugar da cartolina pequena (o Treino do dicionário), na letra de lápis da lousa */
+.glifo {
+  display: grid;
+  place-items: center;
+  flex: none;
+  min-width: 52px;
+  min-height: 44px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: #f6f0e1;
+  box-shadow: inset 0 0 0 1px rgb(180 42 32 / 0.25);
+  font-family: 'Klee One', var(--f-carta-palavra);
+  font-weight: 600;
+  font-size: 1.15rem;
+  line-height: 1.15;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+/* com a palavra japonesa (o dicionário inteiro são ~1.300 linhas): o navegador só desenha as linhas perto da tela */
+.lista li:has(.glifo) {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 64px;
+}

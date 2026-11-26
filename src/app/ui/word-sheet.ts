@@ -44,72 +44,25 @@ import { WordEntry } from './word-entry';
     </dialog>
   `,
   styles: `
-    @use 'paper-kit' as kit;
+    @use 'folha-arroz' as arroz;
 
     .folha-palavra {
       max-width: min(560px, calc(100vw - 24px));
     }
     .papel {
-      @include kit.folha;
-      display: flex;
-      flex-direction: column;
-      max-height: calc(100dvh - 24px);
-      /* o papel de arroz do logo do dicionário */
-      background-color: #f6f0e1;
+      @include arroz.papel;
     }
     .cab {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 14px 16px 10px 22px;
-      border-bottom: 1px dashed rgb(21 21 21 / 0.2);
+      @include arroz.cab;
     }
     .titulo {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      margin: 0;
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 0.86rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
+      @include arroz.titulo;
     }
     .hanko {
-      display: grid;
-      place-items: center;
-      width: 24px;
-      height: 30px;
-      border-radius: 4px;
-      background: #b42a20;
-      color: #f6f0e1;
-      font-family: 'Klee One', 'Yu Mincho', serif;
-      font-size: 0.72rem;
-      letter-spacing: 0;
-      line-height: 1;
-      writing-mode: vertical-rl;
-      rotate: -4deg;
+      @include arroz.hanko;
     }
     .fechar {
-      display: grid;
-      place-items: center;
-      width: 44px;
-      height: 44px;
-      margin: -6px -8px -6px 0;
-      border: 0;
-      border-radius: 50%;
-      background: transparent;
-      color: var(--ink);
-      cursor: pointer;
-      transition: background-color var(--t-ui) var(--ease-ui);
-    }
-    .fechar:hover {
-      background: rgb(21 21 21 / 0.08);
-    }
-    .fechar:focus-visible {
-      outline: 2px solid var(--ink);
-      outline-offset: -2px;
+      @include arroz.fechar;
     }
     .verbetes {
       margin: 0;
@@ -119,10 +72,7 @@ import { WordEntry } from './word-entry';
       overscroll-behavior: contain;
     }
     .pe {
-      display: flex;
-      justify-content: flex-end;
-      padding: 10px 18px 14px;
-      border-top: 1px dashed rgb(21 21 21 / 0.2);
+      @include arroz.pe;
     }
     .abrir {
       display: inline-flex;

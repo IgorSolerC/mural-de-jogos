@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, input, output, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, input, linkedSignal, output, signal, viewChild } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
 import { fold, nameCollator } from '../core/text';
 import { BackdropClose } from './backdrop-close';
@@ -16,13 +16,19 @@ export interface DrillChoice {
   stock: string;
   /** O ícone do baralho, na cartolina pequena. */
   icon: LucideIconData | null;
+  /** A palavra japonesa, no lugar da cartolina pequena (o Treino do dicionário: o que importa é a palavra). */
+  glyph?: string;
+  /** O que mais a busca acha, além do nome, do subtítulo e do que vem embaixo (o romaji, a leitura em hiragana). */
+  search?: string;
 }
 
 /**
  * O "Escolher quais" do Treinar: a lista de todos os flashcards do baralho (ou do grupo, ou de tudo), para
  * marcar com quais treinar. É a mesma folha do "Escolher fichas" do perfil (profile-picker.scss): a busca em
  * cima, uma linha por flashcard com a marca redonda, e no pé quantos foram marcados. "Treinar" abre a mesa com
- * eles; nada da escolha fica guardado.
+ * eles; nada da escolha fica guardado. O Treino do dicionário (ui/word-drill-setup.ts) usa a mesma folha para
+ * escolher as palavras, com as palavras dele (`heading`, `lead`, `units`, `noun`, `action`) e a palavra japonesa na
+ * linha (`glyph`).
  */
 @Component({
   selector: 'app-study-drill-picker',
@@ -35,8 +41,8 @@ export interface DrillChoice {
         <app-pin class="pin" />
         <header class="head">
           <div>
-            <h2 id="treino-titulo">Escolher os flashcards</h2>
-            <p class="para">Para treinar em {{ place() }}. O treino não conta no progresso.</p>
+            <h2 id="treino-titulo">{{ heading() }}</h2>
+            <p class="para">{{ lead() ?? 'Para treinar em ' + place() + '. O treino não conta no progresso.' }}</p>
           </div>
           <button type="button" class="icon-btn" aria-label="Fechar" (click)="close()">
             <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
@@ -47,8 +53,8 @@ export interface DrillChoice {
           <div class="linha-busca">
             <label class="busca">
               <lucide-icon [img]="SearchIcon" [size]="18" aria-hidden="true" />
-              <span class="sr-only">Procurar pelo nome</span>
-              <input #search type="search" autocomplete="off" placeholder="Procurar pelo nome" [value]="query()" (input)="query.set($any($event.target).value)" />
+              <span class="sr-only">{{ searchLabel() }}</span>
+              <input #search type="search" autocomplete="off" [placeholder]="searchLabel()" [value]="query()" (input)="query.set($any($event.target).value)" />
             </label>
             @if (shown().length) {
               <!-- marcar ou desmarcar de uma vez o que a busca mostra -->
@@ -60,17 +66,21 @@ export interface DrillChoice {
         </div>
 
         <div class="body">
-          <ul class="lista" aria-label="Flashcards">
+          <ul class="lista" [attr.aria-label]="units()[3]">
             @for (c of shown(); track c.note) {
               @let on = picked().has(c.note);
               <li>
                 <label class="item" [class.on]="on">
                   <input type="checkbox" [checked]="on" (change)="toggle(c.note)" />
-                  <span class="capa folhinha" [style.--stock]="'var(--stock-' + c.stock + ')'" [attr.data-cor]="c.stock" aria-hidden="true">
-                    @if (c.icon) {
-                      <lucide-icon [img]="c.icon" [size]="18" aria-hidden="true" />
-                    }
-                  </span>
+                  @if (c.glyph) {
+                    <span class="glifo" lang="ja">{{ c.glyph }}</span>
+                  } @else {
+                    <span class="capa folhinha" [style.--stock]="'var(--stock-' + c.stock + ')'" [attr.data-cor]="c.stock" aria-hidden="true">
+                      @if (c.icon) {
+                        <lucide-icon [img]="c.icon" [size]="18" aria-hidden="true" />
+                      }
+                    </span>
+                  }
                   <span class="texto">
                     <span class="nome">
                       {{ c.title }}
@@ -86,18 +96,18 @@ export interface DrillChoice {
                 </label>
               </li>
             } @empty {
-              <li class="nada">Nenhum flashcard com “{{ query().trim() }}”.</li>
+              <li class="nada">{{ units()[2] }} com “{{ query().trim() }}”.</li>
             }
           </ul>
         </div>
 
         <footer class="foot">
-          <p class="conta" aria-live="polite">{{ picked().size }} {{ picked().size === 1 ? 'escolhido' : 'escolhidos' }}</p>
+          <p class="conta" aria-live="polite">{{ picked().size }} {{ picked().size === 1 ? units()[0] : units()[1] }}</p>
           <div class="actions">
             <button type="button" class="btn-quiet" (click)="close()">Cancelar</button>
-            <button type="button" class="btn-ink" [disabled]="!picked().size" (click)="start()">
+            <button type="button" class="btn-ink" [disabled]="!picked().size && !allowNone()" (click)="start()">
               <lucide-icon [img]="TrainIcon" [size]="18" aria-hidden="true" />
-              Treinar
+              {{ action() }}
             </button>
           </div>
         </footer>
@@ -110,7 +120,22 @@ export class StudyDrillPicker {
   /** Todos os flashcards do que se treina. */
   readonly cards = input.required<readonly DrillChoice[]>();
   /** O baralho, o grupo ou "todos os baralhos", na frase do alto. */
-  readonly place = input.required<string>();
+  readonly place = input('');
+  /** O título da folha. */
+  readonly heading = input('Escolher os flashcards');
+  /** A frase do alto, no lugar da do treino dos Flashcards (que diz o `place`). */
+  readonly lead = input<string | null>(null);
+  /** As palavras da folha: o escolhido e os escolhidos no pé, o "Nenhum … com" da busca e o nome da lista. */
+  readonly units = input<readonly [string, string, string, string]>(['escolhido', 'escolhidos', 'Nenhum flashcard', 'Flashcards']);
+  readonly searchLabel = input('Procurar pelo nome');
+  /** O nome do botão do pé. */
+  readonly action = input('Treinar');
+  /** Os já marcados ao abrir. */
+  readonly initial = input<readonly string[]>([]);
+  /** Ordenar de A a Z pelo nome (os flashcards); sem, fica a ordem de quem chama (as palavras, na do dicionário). */
+  readonly sorted = input(true);
+  /** Pode terminar sem nenhum marcado (o Treino do dicionário: desmarcar tudo é uma escolha). */
+  readonly allowNone = input(false);
   /** Os escolhidos, quando a pessoa aperta Treinar. */
   readonly chosen = output<string[]>();
   readonly closed = output<void>();
@@ -120,15 +145,16 @@ export class StudyDrillPicker {
   protected readonly CheckIcon = ICON.pronto;
   protected readonly TrainIcon = ICON.alvo;
   protected readonly query = signal('');
-  protected readonly picked = signal<ReadonlySet<string>>(new Set());
+  /** Os marcados: começa com os `initial`. */
+  protected readonly picked = linkedSignal<ReadonlySet<string>>(() => new Set(this.initial()));
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly search = viewChild.required<ElementRef<HTMLInputElement>>('search');
 
   /** De A a Z pela frente, filtrados pela busca (sem acento e sem caixa, no nome e no que vem embaixo). */
   protected readonly shown = computed(() => {
     const q = fold(this.query().trim());
-    const list = q ? this.cards().filter((c) => fold(`${c.title} ${c.subtitle ?? ''} ${c.meta}`).includes(q)) : [...this.cards()];
-    return list.sort((a, b) => nameCollator.compare(a.title, b.title));
+    const list = q ? this.cards().filter((c) => fold(`${c.title} ${c.subtitle ?? ''} ${c.meta} ${c.search ?? ''}`).includes(q)) : [...this.cards()];
+    return this.sorted() ? list.sort((a, b) => nameCollator.compare(a.title, b.title)) : list;
   });
   protected readonly allShown = computed(() => {
     const on = this.picked();
@@ -170,7 +196,7 @@ export class StudyDrillPicker {
 
   protected start(): void {
     const on = this.picked();
-    if (!on.size) return;
+    if (!on.size && !this.allowNone()) return;
     // na ordem da lista (o treino embaralha de qualquer jeito)
     this.chosen.emit(this.cards().filter((c) => on.has(c.note)).map((c) => c.note));
     this.close();

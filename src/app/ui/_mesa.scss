@@ -1,0 +1,372 @@
+@use '../../../shared/eucatex';
+
+/*
+ * A mesa de tela cheia dos treinos (a dos Flashcards, ui/study-session.ts, e a do Treino do dicionário,
+ * ui/word-drill.ts): a parede de eucatex, a linha de cima (Parar, o nome, os montes ou o placar e o Desfazer), os
+ * botões do pé (Mostrar a resposta, Errei, Acertei, com a tecla impressa) e a ficha creme do fim. Quem usa inclui e
+ * escreve o meio. Os nomes das classes são estes.
+ */
+
+/* O <dialog> e a linha de cima, com os montes e o placar */
+@mixin chrome {
+  dialog.sessao {
+    position: fixed;
+    inset: 0;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    overflow: hidden;
+    padding: 0;
+    border: 0;
+    color: var(--wall-ink);
+    @include eucatex.eucatex(var(--wall), var(--wall-hole));
+
+    &[open] {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+    }
+
+    &::backdrop {
+      background: rgb(0 0 0 / 0.6);
+    }
+  }
+
+  /* ===== Em cima: Parar, o baralho, os montes e o Desfazer ===== */
+  .topo {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+    padding: max(12px, env(safe-area-inset-top)) 18px 10px;
+  }
+
+  .parar,
+  .desfazer {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--wall-ink);
+    cursor: pointer;
+
+    lucide-icon {
+      display: inline-flex;
+    }
+
+    &:hover:not(:disabled) {
+      background: rgb(243 239 230 / 0.08);
+    }
+
+    &:focus-visible {
+      outline: 3px solid var(--focus);
+      outline-offset: 2px;
+    }
+
+    &:disabled {
+      opacity: 0.35;
+      cursor: default;
+    }
+  }
+
+  .desfazer {
+    margin-left: auto;
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.86rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+
+    @media (max-width: 520px) {
+      .desfazer-txt {
+        display: none;
+      }
+    }
+  }
+
+  .baralho {
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--f-marker);
+    font-weight: 400;
+    font-size: 1.35rem;
+    line-height: 1.1;
+  }
+
+  /* os três montes, os números escritos a giz com o selo da tinta deles; o da carta na mesa sublinhado */
+  .montes {
+    display: flex;
+    gap: 14px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .monte {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding-bottom: 2px;
+    border-bottom: 2px solid transparent;
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 1.05rem;
+    font-variant-numeric: tabular-nums;
+
+    &.vez {
+      border-bottom-color: var(--wall-ink);
+    }
+  }
+
+  .selo {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--monte);
+    box-shadow: 0 0 0 1.5px rgb(243 239 230 / 0.4);
+  }
+
+  [data-monte='novas'] {
+    --monte: #4f7ef0;
+  }
+
+  [data-monte='aprender'] {
+    --monte: #e27a2c;
+  }
+
+  [data-monte='revisar'] {
+    --monte: #3fae6f;
+  }
+
+  /* o placar do treino: o nome de cada número à mostra (não são os montes do Anki, que quem estuda já conhece);
+     no celular, só o selo e o número, com o nome na dica e no leitor de tela */
+  [data-monte='respostas'] {
+    --monte: var(--wall-ink);
+  }
+
+  [data-monte='acertos'] {
+    --monte: #3fae6f;
+  }
+
+  [data-monte='erros'] {
+    --monte: #f0645a;
+  }
+
+  @media (max-width: 640px) {
+    .treino-nome {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+  }
+
+  /* acertos e erros: o tique e o X na tinta deles, no lugar do selo (a forma diz o que a cor diz) */
+  .sinal {
+    display: inline-flex;
+    color: var(--monte);
+  }
+
+  .placar .monte {
+    gap: 5px;
+  }
+
+  .placar .monte-nome {
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.8;
+
+    @media (max-width: 640px) {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+  }
+}
+
+/* Os botões, no pé */
+@mixin botoes {
+  .botoes {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    padding: 10px 16px max(16px, env(safe-area-inset-bottom));
+  }
+
+  .mostrar,
+  .errei,
+  .acertei {
+    flex: 0 1 260px;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-height: 58px;
+    padding: 6px 16px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: var(--f-marker);
+    font-size: 1.2rem;
+    line-height: 1.1;
+
+    &:focus-visible {
+      outline: 3px solid var(--focus);
+      outline-offset: 3px;
+    }
+
+    @media (max-width: 520px) {
+      flex: 1 1 0;
+      min-width: 0;
+    }
+  }
+
+  .mostrar {
+    flex-basis: 340px;
+    flex-direction: row;
+    gap: 12px;
+    border: 0;
+    background: var(--paper-grain), var(--papel-ficha);
+    color: var(--ink);
+    box-shadow:
+      0 1px 1px rgb(0 0 0 / 0.35),
+      0 4px 8px rgb(0 0 0 / 0.35);
+
+    &:hover {
+      translate: 0 -1px;
+    }
+  }
+
+  /* Errei: papel, com o risco vermelho de caneta no pé */
+  .errei {
+    border: 0;
+    background:
+      linear-gradient(var(--red-deep), var(--red-deep)) 50% calc(100% - 7px) / 54% 3px no-repeat,
+      var(--paper-grain),
+      var(--papel-ficha);
+    color: var(--ink);
+    box-shadow:
+      0 1px 1px rgb(0 0 0 / 0.35),
+      0 4px 8px rgb(0 0 0 / 0.35);
+  }
+
+  /* Acertei: a tinta, como o botão principal do site */
+  .acertei {
+    border: 0;
+    background: #151515;
+    color: var(--hi, #ffe14a);
+    box-shadow:
+      0 1px 1px rgb(0 0 0 / 0.5),
+      0 4px 8px rgb(0 0 0 / 0.45);
+  }
+
+  .resposta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+
+    lucide-icon {
+      display: inline-flex;
+    }
+  }
+
+  /* quando volta, escrito a lápis embaixo; a tecla impressa ao lado */
+  .volta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--f-hand);
+    font-weight: 700;
+    font-size: 0.95rem;
+    opacity: 0.85;
+  }
+
+  .tecla {
+    display: inline-grid;
+    place-items: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border: 1.5px solid currentColor;
+    border-radius: 3px;
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.66rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.6;
+
+    @media (hover: none) {
+      display: none;
+    }
+  }
+}
+
+/* O fim: uma ficha creme com o que foi feito e o que vem */
+@mixin fim {
+  .fim {
+    max-width: 460px;
+    padding: 28px 26px 24px;
+    border-radius: 2px;
+    background: var(--paper-grain), var(--papel-ficha);
+    color: var(--ink);
+    box-shadow: var(--shadow-card);
+    rotate: -0.6deg;
+
+    h3 {
+      margin: 0;
+      font-family: var(--f-marker);
+      font-weight: 400;
+      font-size: 2rem;
+      line-height: 1.05;
+    }
+  }
+
+  .fim-conta {
+    margin: 14px 0 0;
+    font-family: var(--f-label);
+    font-weight: 700;
+    font-size: 0.95rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+
+    strong {
+      font-weight: 800;
+      font-style: italic;
+      font-size: 1.6rem;
+      letter-spacing: 0;
+    }
+  }
+
+  .fim-mao {
+    margin: 10px 0 0;
+    font-family: var(--f-hand);
+    font-size: 1.12rem;
+    line-height: 1.4;
+  }
+
+  .fim-acoes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 20px;
+  }
+}

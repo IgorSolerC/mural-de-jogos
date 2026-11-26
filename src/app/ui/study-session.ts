@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
-import { reducedMotion } from '../core/motion';
+import { BOUNCE_MS, reducedMotion } from '../core/motion';
 import { ReviewStore } from '../core/review-store';
 import { daysBetween, review, studyDay } from '../core/fsrs';
 import { fsrsConfig, frontTitle, inGroup, intervalLabel } from '../core/study';
@@ -14,12 +14,8 @@ import { StudyCardBack } from './study-card-back';
 
 /** Quanto a carta leva para desvirar (o `transition` do `.giro`, em study-session.scss). */
 export const TURN_MS = 460;
-/**
- * O clique do mouse ou do dedo que chega antes disto depois de os botões trocarem era para o botão de antes:
- * o segundo clique de um clique duplo cairia no que acabou de surgir no mesmo lugar, e viraria a próxima carta
- * sem mostrar a frente, ou responderia a carta sem mostrar a resposta.
- */
-export const BOUNCE_MS = 350;
+/** O clique que chega logo depois de os botões trocarem (ver core/motion.ts). */
+export { BOUNCE_MS } from '../core/motion';
 /** Quantas respostas do treino o Desfazer guarda (cada uma leva a rodada inteira de antes). */
 export const DRILL_UNDO_MAX = 100;
 

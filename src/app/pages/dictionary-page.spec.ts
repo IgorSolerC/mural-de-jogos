@@ -50,6 +50,31 @@ describe('o Dicionário Japonês', () => {
     expect(host.querySelector('.achados')).toBeNull();
   });
 
+  it('o Treinar abre a folha de montar e, ao Começar, a mesa do treino (PLANO-TREINO-DICIONARIO.md)', async () => {
+    localStorage.removeItem('meu-mural:dicionario:treino:v1');
+    await open('/extras/dicionario');
+    button('Treinar').click();
+    for (let i = 0; i < 40 && !host.querySelector('app-word-drill-setup dialog[open]'); i++) {
+      await new Promise((r) => setTimeout(r, 20));
+      await settle();
+    }
+    expect(host.querySelector('app-word-drill-setup dialog')!.hasAttribute('open')).toBeTrue();
+    host.querySelector<HTMLButtonElement>('app-word-drill-setup .comecar')!.click();
+    for (let i = 0; i < 40 && !host.querySelector('app-word-drill dialog[open] .folha'); i++) {
+      await new Promise((r) => setTimeout(r, 20));
+      await settle();
+    }
+    expect(host.querySelector('app-word-drill-setup')).toBeNull();
+    expect(host.querySelector('app-word-drill .baralho')!.textContent).toContain('1 de 20');
+    host.querySelector<HTMLDialogElement>('app-word-drill dialog')!.close();
+    for (let i = 0; i < 40 && host.querySelector('app-word-drill'); i++) {
+      await new Promise((r) => setTimeout(r, 20));
+      await settle();
+    }
+    expect(host.querySelector('app-word-drill')).toBeNull();
+    localStorage.removeItem('meu-mural:dicionario:treino:v1');
+  });
+
   it('busca pelo endereço, ordena por relevância e diz quantas achou', async () => {
     await open('/extras/dicionario?q=kuru');
     expect(words()[0]).toBe('来る');

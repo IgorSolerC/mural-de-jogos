@@ -1,0 +1,186 @@
+<dialog #dialog class="sheet montar" aria-labelledby="montar-titulo" (close)="closed.emit()" (backdropClose)="close()">
+  <form #papel class="papel" tabindex="-1" (submit)="$event.preventDefault(); start()">
+    <header class="cab">
+      <h2 class="titulo" id="montar-titulo">
+        <span class="hanko" lang="ja" aria-hidden="true">練習</span>
+        <span>Montar o treino</span>
+      </h2>
+      <button type="button" class="fechar" aria-label="Fechar" (click)="close()">
+        <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
+      </button>
+    </header>
+
+    <div class="corpo">
+      <!-- os jeitos: um ou mais; com mais de um, cada palavra sorteia o dela -->
+      <fieldset class="linha">
+        <legend class="sr-only">Treinar</legend>
+        <div class="linha-texto" aria-hidden="true">
+          <p class="linha-titulo">Treinar</p>
+          <p class="linha-desc">{{ chosenWays().length > 1 ? 'Cada palavra sorteia um destes.' : 'Marque um ou mais.' }}</p>
+        </div>
+        <div class="recortes jeitos">
+          @for (w of ways(); track w) {
+            <label class="recorte jeito">
+              <input type="checkbox" [checked]="chosenWays().includes(w)" (change)="toggleWay(w)" />
+              <span class="jeito-selo" lang="ja" aria-hidden="true">{{ WAY_INFO[w].seal }}</span>
+              <span class="jeito-texto">
+                <span class="recorte-nome">{{ WAY_INFO[w].label }}</span>
+                <span class="jeito-desc">{{ WAY_INFO[w].desc }}</span>
+              </span>
+            </label>
+          }
+        </div>
+      </fieldset>
+
+      <!-- com quais palavras: De onde × Quais (as seis escolhas do pedido, sem repetir) -->
+      <fieldset class="linha">
+        <legend class="sr-only">Com quais palavras</legend>
+        <div class="linha-texto" aria-hidden="true">
+          <p class="linha-titulo">Com quais palavras</p>
+          <p class="linha-desc">De onde vêm, e se são todas ou só as que você escolher.</p>
+        </div>
+        <div class="sub-linhas">
+          <div class="sub-linha" role="radiogroup" aria-label="De onde">
+            <span class="sub-nome" aria-hidden="true">De onde</span>
+            <div class="recortes">
+              @for (src of SOURCES; track src) {
+                @let empty = sourceEmpty(src);
+                <label class="recorte" [class.zero]="!sourceN()[src]" [title]="empty ?? ''">
+                  <input type="radio" name="dt-fonte" [checked]="setup().source === src" [disabled]="!!empty" (change)="setSource(src)" />
+                  <span class="recorte-nome">{{ SOURCE_LABEL[src] }}</span>
+                  <span class="recorte-n"><span class="sr-only">, </span>{{ sourceN()[src] }}</span>
+                </label>
+              }
+            </div>
+          </div>
+          @if (sourceEmpty('aprendidas') && setup().source !== 'aprendidas') {
+            <p class="nota">Nenhuma palavra aprendida ainda: marque com <span lang="ja">覚</span> nos verbetes.</p>
+          }
+          <div class="sub-linha" role="radiogroup" aria-label="Quais">
+            <span class="sub-nome" aria-hidden="true">Quais</span>
+            <div class="recortes">
+              <label class="recorte">
+                <input type="radio" name="dt-quais" [checked]="setup().pick === 'todas'" (change)="setPick('todas')" />
+                <span class="recorte-nome">Todas</span>
+              </label>
+              <label class="recorte">
+                <input type="radio" name="dt-quais" [checked]="setup().pick === 'escolher'" (change)="setPick('escolher')" />
+                <span class="recorte-nome">Escolher</span>
+              </label>
+              @if (setup().pick === 'escolher') {
+                <button type="button" class="papelzinho" (click)="choosing.set(true)">
+                  <lucide-icon [img]="PickIcon" [size]="16" aria-hidden="true" />
+                  {{ chosenN() ? (chosenN() === 1 ? '1 escolhida' : chosenN() + ' escolhidas') + ' · trocar' : 'Escolher as palavras' }}
+                </button>
+              }
+            </div>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- os três filtros simples da escrita -->
+      <fieldset class="linha">
+        <legend class="sr-only">Escrita</legend>
+        <div class="linha-texto" aria-hidden="true">
+          <p class="linha-titulo">Escrita</p>
+          <p class="linha-desc">O que a palavra precisa ter, pode ter ou não pode ter. Só katakana: kanji e hiragana não podem, katakana precisa.</p>
+        </div>
+        <div class="sub-linhas">
+          @for (sc of SCRIPTS; track sc) {
+            <div class="sub-linha" role="radiogroup" [attr.aria-label]="SCRIPT_INFO[sc].label">
+              <span class="sub-nome" aria-hidden="true"><span class="escrita-glifo" lang="ja">{{ SCRIPT_INFO[sc].glyph }}</span>{{ SCRIPT_INFO[sc].label }}</span>
+              <div class="recortes">
+                @for (nd of NEEDS; track nd) {
+                  <label class="recorte" [class.zero]="!needN()[sc][nd]">
+                    <input type="radio" [name]="'dt-' + sc" [checked]="setup().needs[sc] === nd" (change)="setNeed(sc, nd)" />
+                    <span class="recorte-nome">{{ NEED_LABEL[nd] }}</span>
+                    <span class="recorte-n"><span class="sr-only">, </span>{{ needN()[sc][nd] }}</span>
+                  </label>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      </fieldset>
+
+      @if (writes()) {
+        <fieldset class="linha">
+          <legend class="sr-only">Dicas da escrita</legend>
+          <div class="linha-texto" aria-hidden="true">
+            <p class="linha-titulo">Dica para escrever</p>
+            <p class="linha-desc">{{ setup().hints.length > 1 ? 'Cada palavra sorteia uma destas.' : 'O que aparece para você escrever a palavra.' }}</p>
+          </div>
+          <div class="recortes">
+            @for (h of HINTS; track h) {
+              <label class="recorte" [title]="h === 'som' && !voice() ? 'Este aparelho não tem voz japonesa' : ''">
+                <input type="checkbox" [checked]="hintOn(h)" [disabled]="h === 'som' && !voice()" (change)="toggleHint(h)" />
+                <span class="recorte-nome">{{ HINT_LABEL[h] }}</span>
+              </label>
+            }
+          </div>
+        </fieldset>
+      }
+
+      @if (reads()) {
+        <fieldset class="linha">
+          <legend class="sr-only">Como mostrar o japonês</legend>
+          <div class="linha-texto" aria-hidden="true">
+            <p class="linha-titulo">Como mostrar o japonês</p>
+            <p class="linha-desc">{{ setup().show.length > 1 ? 'Cada palavra sorteia um destes.' : 'Escrita na tela, ou só falada.' }}</p>
+          </div>
+          <div class="recortes">
+            @for (v of SHOWS; track v) {
+              <label class="recorte" [title]="v === 'falado' && !voice() ? 'Este aparelho não tem voz japonesa' : ''">
+                <input type="checkbox" [checked]="showOn(v)" [disabled]="v === 'falado' && !voice()" (change)="toggleShow(v)" />
+                <span class="recorte-nome">{{ SHOW_LABEL[v] }}</span>
+              </label>
+            }
+          </div>
+        </fieldset>
+      }
+
+      <fieldset class="linha">
+        <legend class="sr-only">Quantas palavras</legend>
+        <div class="linha-texto" aria-hidden="true">
+          <p class="linha-titulo">Quantas palavras</p>
+          <p class="linha-desc">Sorteadas entre as que combinam.</p>
+        </div>
+        <div class="recortes" role="radiogroup" aria-label="Quantas palavras">
+          @for (n of SIZES; track n) {
+            <label class="recorte">
+              <input type="radio" name="dt-quantas" [checked]="setup().size === n" (change)="setSize(n)" />
+              <span class="recorte-nome">{{ n ? n : 'Todas' }}</span>
+              @if (!n) {
+                <span class="recorte-n"><span class="sr-only">, </span>{{ pool().length }}</span>
+              }
+            </label>
+          }
+        </div>
+      </fieldset>
+    </div>
+
+    <footer class="pe">
+      <p class="conta" aria-live="polite">{{ blocked() ?? summary() }}</p>
+      <button #comecar type="submit" class="comecar" [disabled]="!!blocked()">
+        <lucide-icon [img]="StartIcon" [size]="18" aria-hidden="true" />
+        Começar
+      </button>
+    </footer>
+  </form>
+</dialog>
+
+@if (choosing()) {
+  <app-study-drill-picker
+    heading="Escolher as palavras"
+    [lead]="pickLead()"
+    [cards]="choices()"
+    [initial]="chosenNow()"
+    [units]="['escolhida', 'escolhidas', 'Nenhuma palavra', 'Palavras']"
+    searchLabel="Procurar: português, romaji ou かな"
+    action="Pronto"
+    [sorted]="false"
+    [allowNone]="true"
+    (chosen)="picked($event)"
+    (closed)="pickerClosed()"
+  />
+}

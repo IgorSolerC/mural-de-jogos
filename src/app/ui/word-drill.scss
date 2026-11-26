@@ -1,0 +1,251 @@
+@use 'mesa';
+@use 'paper-kit' as kit;
+
+/* A mesa do Treino do dicionário (ui/word-drill.ts): a mesa dos Flashcards (ui/_mesa.scss) com uma folha de papel de
+   arroz no meio, a do dicionário. O vermelho é o do carimbo (o 判子). */
+
+:host {
+  display: contents;
+  --shu: #b42a20;
+}
+
+@include mesa.chrome;
+@include mesa.botoes;
+@include mesa.fim;
+
+lucide-icon {
+  display: inline-flex;
+}
+
+.onde {
+  font-variant-numeric: tabular-nums;
+}
+
+.papel {
+  @include kit.botao-papel;
+}
+
+/* ===== O meio: a folha com a pergunta ===== */
+.mesa {
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  min-width: 0;
+  padding: 8px 16px;
+  overflow: auto;
+}
+
+.folha {
+  @include kit.folha;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(620px, 100%);
+  padding: 22px 28px 26px;
+  background:
+    repeating-linear-gradient(97deg, rgb(120 100 70 / 0.045) 0 1px, transparent 1px 7px),
+    var(--paper-grain),
+    #f6f0e1;
+  background-blend-mode: multiply;
+  text-align: center;
+}
+
+.pergunta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 18px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.jeito-selo {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 4px;
+  background: var(--shu);
+  color: #f6f0e1;
+  font-family: 'Klee One', 'Yu Mincho', serif;
+  font-weight: 600;
+  font-size: 1.02rem;
+  letter-spacing: 0;
+  line-height: 1;
+  rotate: -3deg;
+}
+
+/* a pergunta em português, na letra de quem escreve */
+.em-pt {
+  max-width: 24ch;
+  margin: 0;
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: clamp(1.6rem, 4.6vw, 2.3rem);
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+/* a pergunta em japonês, a letra de lápis grande (sem a leitura por cima: ler também é o treino) */
+.em-ja {
+  margin: 0;
+  font-family: 'Klee One', var(--f-carta-palavra);
+  font-weight: 600;
+  font-size: clamp(2.6rem, 9vw, 4.2rem);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.miudo {
+  margin: 6px 0 0;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.so-som {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+}
+
+/* ===== O campo da resposta ===== */
+.responder {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  width: min(420px, 100%);
+  margin-top: 22px;
+}
+
+.campo {
+  @include kit.campo;
+  & {
+    width: 100%;
+    padding: 0 14px;
+  }
+
+  input {
+    height: 54px;
+    font-family: 'Klee One', var(--f-hand);
+    font-weight: 600;
+    font-size: 1.4rem;
+    text-align: center;
+  }
+
+  /* conferido: o que se escreveu fica, como escrito a caneta, sem mais mudar */
+  &.conferido {
+    background: transparent;
+    box-shadow: inset 0 -2px 0 rgb(21 21 21 / 0.35);
+  }
+}
+
+.como-kana {
+  margin: 0;
+  font-family: 'Klee One', var(--f-hand);
+  font-size: 1.05rem;
+  color: var(--ink-2);
+}
+
+/* ===== A resposta certa ===== */
+.certa {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  width: 100%;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1.5px dashed rgb(21 21 21 / 0.2);
+  animation: aparece 220ms var(--ease-ui, ease-out);
+}
+
+@keyframes aparece {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .certa {
+    animation: none;
+  }
+}
+
+.bateu {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  padding: 4px 10px 3px;
+  border-radius: 3px;
+  background: #0d6b3c;
+  color: #f6f0e1;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  rotate: -1.5deg;
+
+  &.nao {
+    background: transparent;
+    color: var(--red-deep);
+    box-shadow: inset 0 0 0 1.5px var(--red-deep);
+  }
+}
+
+.certa-palavra {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.certa-ja {
+  margin: 0;
+  font-family: 'Klee One', var(--f-carta-palavra);
+  font-weight: 600;
+  font-size: 2.4rem;
+  line-height: 1.3;
+
+  rt {
+    font-size: 0.42em;
+    font-weight: 400;
+    color: var(--ink-2);
+  }
+}
+
+.certa-romaji {
+  margin: 0;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.06em;
+  color: var(--ink-2);
+}
+
+.certa-pt {
+  max-width: 34ch;
+  margin: 4px 0 0;
+  font-family: var(--f-hand);
+  font-size: 1.2rem;
+  line-height: 1.3;
+}
+
+/* as teclas impressas dentro da folha (o R da voz) seguem a tinta da folha */
+.folha .tecla {
+  margin-left: 4px;
+}
+
+@media (max-width: 520px) {
+  .folha {
+    padding: 18px 16px 20px;
+  }
+}

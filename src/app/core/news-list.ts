@@ -27,6 +27,20 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-26-treino-dicionario',
+    version: '1.56.0',
+    kind: 'funcionalidade',
+    date: '2026-11-26',
+    title: 'Treino no Dicionário Japonês',
+    notice: 'Novo: treinar as palavras do Dicionário Japonês. Botão Treinar, no alto do dicionário.',
+    until: '2026-12-10',
+    items: [
+      'O Treino no Dicionário Japonês: o botão Treinar, no alto do dicionário, abre a folha de montar, que já vem com o último treino (um Enter e começa). Escolha os jeitos de treinar (um ou mais: com mais de um, cada palavra sorteia o dela), com quais palavras (as aprendidas, as favoritas ou o dicionário inteiro, todas ou só as que você escolher numa lista com busca), o que a palavra precisa ter, pode ter ou não pode ter de kanji, hiragana e katakana (só katakana, por exemplo), e quantas. Cada escolha diz quantas palavras sobram.',
+      'Português → japonês: o sentido aparece e você digita em japonês, em kana, kanji ou romaji (o romaji aparece em kana enquanto você digita). Japonês → português: a palavra aparece escrita, ou só falada na voz japonesa do aparelho, e você digita o que quer dizer. No Conferir (Enter), a resposta certa aparece e o site diz se bateu, mas quem decide é você: Errei (1) ou Acertei (2).',
+      'O treino tem o placar de acertos e erros, o Desfazer (Z) e, no fim ou ao parar no meio, quantas você acertou. Nada do treino fica guardado: só a montagem, neste aparelho.',
+    ],
+  },
+  {
     id: '2026-11-26-caixas-sem-titulo',
     version: '1.55.2',
     kind: 'ajustes',

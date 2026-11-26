@@ -1,0 +1,136 @@
+<dialog #dialog class="sessao treino" aria-labelledby="treino-dic-titulo" (close)="closed.emit()" (cancel)="onCancel($event)">
+  <!-- a linha de cima da mesa dos Flashcards: Parar, onde está, o placar e o Desfazer -->
+  <header class="topo">
+    <button type="button" class="parar" [attr.aria-label]="answers().length && !finished() ? 'Parar o treino' : 'Fechar'" title="Parar (Esc)" (click)="stop()">
+      <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
+    </button>
+    <h2 id="treino-dic-titulo" class="baralho">
+      Treino@if (item()) {<span class="onde"> · {{ position() }}</span>}
+    </h2>
+    @if (answers().length) {
+      <ul class="montes placar" aria-label="No treino">
+        <li class="monte" data-monte="acertos" [title]="score().right + (score().right === 1 ? ' acerto' : ' acertos')">
+          <lucide-icon class="sinal" [img]="RightIcon" [size]="15" aria-hidden="true" />{{ score().right }}<span class="monte-nome"> {{ score().right === 1 ? 'acerto' : 'acertos' }}</span>
+        </li>
+        <li class="monte" data-monte="erros" [title]="score().total - score().right + (score().total - score().right === 1 ? ' erro' : ' erros')">
+          <lucide-icon class="sinal" [img]="WrongIcon" [size]="15" aria-hidden="true" />{{ score().total - score().right }}<span class="monte-nome"> {{ score().total - score().right === 1 ? 'erro' : 'erros' }}</span>
+        </li>
+      </ul>
+    }
+    <button type="button" class="desfazer" [disabled]="!answers().length" title="Desfazer a última resposta (Z)" (click)="undo()">
+      <lucide-icon [img]="UndoIcon" [size]="18" aria-hidden="true" />
+      <span class="desfazer-txt">Desfazer</span>
+    </button>
+  </header>
+
+  @if (item(); as it) {
+    <div class="mesa">
+      <!-- a folha de papel de arroz com a pergunta; conferida, a resposta certa embaixo -->
+      <article class="folha" [attr.aria-label]="QUESTION[it.way]">
+        <p class="pergunta">
+          <span class="jeito-selo" lang="ja" aria-hidden="true">{{ WAY_INFO[it.way].seal }}</span>
+          <span>{{ QUESTION[it.way] }}</span>
+        </p>
+
+        @switch (it.way) {
+          @case ('pt-jp') {
+            <p class="em-pt">{{ it.word.meaning }}</p>
+            <p class="miudo">{{ it.word.wordClass }}</p>
+          }
+          @case ('jp-pt') {
+            @if (it.show === 'falado') {
+              <div class="so-som">
+                <app-word-voice [word]="it.word" [big]="true" label="Ouvir a palavra de novo" />
+                <p class="miudo">Ouça a palavra <span class="tecla" aria-hidden="true">R</span></p>
+              </div>
+            } @else {
+              <p class="em-ja" lang="ja">{{ it.word.text }}</p>
+            }
+          }
+        }
+
+        <form class="responder" (submit)="$event.preventDefault(); check()">
+          <label class="campo" [class.conferido]="checked()">
+            <span class="sr-only">{{ it.way === 'pt-jp' ? 'Em japonês' : 'Em português' }}</span>
+            <input
+              #campo
+              type="text"
+              autocomplete="off"
+              autocapitalize="off"
+              spellcheck="false"
+              [attr.lang]="it.way === 'pt-jp' ? 'ja' : 'pt-BR'"
+              [placeholder]="it.way === 'pt-jp' ? 'Em japonês: かな, 漢字 ou romaji' : 'Em português'"
+              [value]="typed()"
+              [readOnly]="checked()"
+              (input)="typed.set($any($event.target).value)"
+              (keydown.enter)="enterInField($event)"
+            />
+          </label>
+          @if (asKana(); as k) {
+            <p class="como-kana" aria-live="polite"><span class="sr-only">Lido como </span><span lang="ja">{{ k }}</span></p>
+          }
+        </form>
+
+        @if (checked()) {
+          <!-- a resposta certa: a palavra com a leitura, o romaji, o sentido e ouvir; e se bateu -->
+          <section class="certa" aria-label="Resposta">
+            <p class="bateu" [class.nao]="!match()">
+              <lucide-icon [img]="match() ? RightIcon : WrongIcon" [size]="17" aria-hidden="true" />
+              {{ match() ?? 'Não bateu' }}
+            </p>
+            <div class="certa-palavra">
+              <p class="certa-ja" lang="ja">
+                @if (withKanji()) {
+                  <ruby>{{ it.word.text }}<rp>(</rp><rt>{{ it.word.reading }}</rt><rp>)</rp></ruby>
+                } @else {
+                  {{ it.word.text }}
+                }
+              </p>
+              <app-word-voice [word]="it.word" />
+            </div>
+            <p class="certa-romaji">{{ it.word.romaji }}</p>
+            @if (it.way !== 'pt-jp') {
+              <p class="certa-pt">{{ it.word.meaning }}</p>
+            }
+          </section>
+        }
+      </article>
+    </div>
+
+    <!-- os botões no pé (os da mesa dos Flashcards) -->
+    <div class="botoes">
+      @if (!checked()) {
+        <button type="button" class="mostrar" aria-keyshortcuts="Enter" (click)="press($event, 'conferir')">
+          Conferir
+          <span class="tecla" aria-hidden="true">Enter</span>
+        </button>
+      } @else {
+        <button type="button" class="errei" aria-keyshortcuts="1" (click)="press($event, 'errei')">
+          <span class="resposta"><lucide-icon [img]="WrongIcon" [size]="20" aria-hidden="true" />Errei</span>
+          <span class="volta"><span class="tecla" aria-hidden="true">1</span></span>
+        </button>
+        <button type="button" class="acertei" aria-keyshortcuts="2" (click)="press($event, 'acertei')">
+          <span class="resposta"><lucide-icon [img]="RightIcon" [size]="20" aria-hidden="true" />Acertei</span>
+          <span class="volta"><span class="tecla" aria-hidden="true">2</span></span>
+        </button>
+      }
+    </div>
+  } @else if (finished()) {
+    <div class="mesa">
+      <section class="fim" aria-labelledby="fim-titulo">
+        <h3 id="fim-titulo">{{ answers().length < items().length ? 'Treino parado.' : 'Treino completo.' }}</h3>
+        <p class="fim-conta"><strong>{{ score().right }}</strong> de {{ score().total }} {{ score().total === 1 ? 'acerto' : 'acertos' }} · {{ minutes() }}</p>
+        <p class="fim-mao">O treino não fica guardado: nada mudou no dicionário.</p>
+        <div class="fim-acoes">
+          <button type="button" class="btn-ink" (click)="again()">
+            <lucide-icon [img]="AgainIcon" [size]="16" aria-hidden="true" />
+            Outro treino
+          </button>
+          <button type="button" class="papel" (click)="close()">Voltar ao dicionário</button>
+        </div>
+      </section>
+    </div>
+  }
+
+  <p class="sr-only" aria-live="polite">{{ spoken() }}</p>
+</dialog>
