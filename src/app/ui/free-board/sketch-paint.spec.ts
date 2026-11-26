@@ -106,10 +106,11 @@ describe('a miniatura no card (BoardSketch com o assado)', () => {
     expect((await fornoGuardado()).imagens).toBe(before + 1);
     again.destroy();
     box.remove();
-  });
+  }, 15000);
 });
 
-async function waitFor<T>(get: () => T | null, ms = 4000): Promise<T> {
+// (a esteira do forno espera o navegador ficar à toa, até 3 s: com a máquina ocupada, a primeira fornada demora)
+async function waitFor<T>(get: () => T | null, ms = 12000): Promise<T> {
   const end = performance.now() + ms;
   for (;;) {
     const v = get();

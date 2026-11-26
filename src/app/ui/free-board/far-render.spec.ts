@@ -4,7 +4,7 @@ import { FbNode } from '../../core/free-board';
 import { ReviewStore } from '../../core/review-store';
 import { sanitizeReview } from '../../core/review';
 import { pinningFor } from '../../core/wall-physics';
-import { drawFar } from './far-layer';
+import { drawFar, placeLabels } from './far-layer';
 import { CardOf } from './far-look';
 import { stockColor } from './far-palette';
 import { FreeBoardPiece } from './free-board-piece';
@@ -86,4 +86,61 @@ describe('o editor de longe (rodada 3)', () => {
     // o alto da tabela: o cabeçalho escuro
     expect(px(150, 3)).toEqual(hex('#22201d'));
   });
+
+  describe('a fita das molduras de longe (placeLabels)', () => {
+    // meia letra por caractere: o "LISBOA" de 13 px mede 39 px, mais o espaçamento e o respiro
+    const width = (t: string, font: number) => t.length * font * 0.5;
+    const frame = (nome: string, x: number, y: number, w: number, h: number) => ({ node: { i: nome, t: 'm' as const, x, y, w, h, nome }, x, y, w, h });
+
+    it('a letra encolhe antes de cortar o nome; cortado, guarda pelo menos três letras; menos que isso, sem fita', () => {
+      expect(placeLabels([frame('Lisboa', 0, 100, 400, 200)], width)[0]).toEqual(jasmine.objectContaining({ text: 'LISBOA', font: 13 }));
+      // 64 px de moldura: o LISBOA inteiro só a 9 px
+      expect(placeLabels([frame('Lisboa', 0, 100, 64, 60)], width)[0]).toEqual(jasmine.objectContaining({ text: 'LISBOA', font: 9 }));
+      const cut = placeLabels([frame('Antes de ir para Portugal', 0, 100, 90, 60)], width)[0];
+      expect(cut.font).toBe(9);
+      expect(cut.text.endsWith('…')).toBeTrue();
+      expect(cut.text.length).toBeGreaterThanOrEqual(4);
+      expect(cut.w).toBeLessThanOrEqual(90 - 12);
+      // 40 px: nem "LIS…" cabe, e "LI…" não diz qual é
+      expect(placeLabels([frame('Lisboa', 0, 100, 40, 60)], width)).toEqual([]);
+    });
+
+    it('a fita que cobriria a moldura de cima vai para a borda de baixo (nunca para dentro, onde as peças a cobririam); a de dentro de outra moldura fica meio para fora', () => {
+      const top = frame('Lisboa', 0, 0, 300, 100);
+      const below = frame('Antes de ir', 0, 106, 300, 100);
+      const placed = placeLabels([top, below], width);
+      const fita = placed.find((l) => l.text === 'ANTES DE IR')!;
+      expect(fita.y).toBeGreaterThan(below.y + below.h - fita.h / 2);
+      expect(fita.y).toBeLessThan(below.y + below.h);
+      // tapada em cima e embaixo: sem fita nesta conta
+      expect(placeLabels([top, below, frame('Fim', 0, 212, 300, 100)], width).map((l) => l.text)).not.toContain('ANTES DE IR');
+      const lisboa = placed.find((l) => l.text === 'LISBOA')!;
+      expect(lisboa.y).toBeLessThan(top.y);
+      // dentro de uma moldura maior, a fita pode passar por cima dela (está dentro dela de qualquer jeito)
+      const nested = placeLabels([frame('Casa', 0, 0, 600, 400), frame('Sala', 50, 80, 300, 200)], width).find((l) => l.text === 'SALA')!;
+      expect(nested.y).toBeLessThan(80);
+    });
+
+    it('as fitas da mesma conta ficam na mesma letra: a da que mais precisou encolher', () => {
+      const placed = placeLabels([frame('Lisboa', 0, 0, 64, 60), frame('Antes de ir', 0, 200, 400, 100)], width);
+      expect(placed.map((l) => l.font)).toEqual([9, 9]);
+    });
+
+    it('a fita não vai para onde uma peça montada no DOM (por cima do canvas) a cobriria', () => {
+      const top = frame('Lisboa', 0, 0, 300, 100);
+      const below = frame('Antes de ir', 0, 106, 300, 100);
+      // a tabela do meio, montada, passando da borda de baixo da moldura
+      const table = { x: 20, y: 180, w: 200, h: 40 };
+      // (a que só chega perto da beirada não tapa a fita, que encosta por fora)
+      expect(placeLabels([top, below], width, [{ x: 20, y: 180, w: 200, h: 23 }]).map((l) => l.text)).toEqual(['LISBOA', 'ANTES DE IR']);
+      expect(placeLabels([top, below], width, [table]).map((l) => l.text)).toEqual(['LISBOA']);
+    });
+
+    it('as molduras maiores primeiro: a fita que bateria numa já posta fica de fora', () => {
+      // duas molduras sobrepostas (nenhuma dentro da outra): só a maior ganha a fita
+      const placed = placeLabels([frame('Pequena', 400, 60, 300, 120), frame('Grande', 80, 40, 500, 300)], width);
+      expect(placed.map((l) => l.text)).toEqual(['GRANDE']);
+    });
+  });
 });
+

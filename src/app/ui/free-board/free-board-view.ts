@@ -894,7 +894,7 @@ export class FreeBoardView implements RigHost {
     style.top = `${area.y}px`;
     style.width = `${area.w}px`;
     style.height = `${area.h}px`;
-    drawFar(ctx, { area, k, z: camera.z, far: v.far, edges: v.edges, labels, thumb: (id) => this.thumbs.get(id)?.bitmap ?? null, cards: this.cards });
+    drawFar(ctx, { area, k, z: camera.z, far: v.far, edges: v.edges, labels, thumb: (id) => this.thumbs.get(id)?.bitmap ?? null, cards: this.cards, blockers: v.pieces.map((p) => p.node) });
   }
 
   /** No meio do gesto: as camadas viram textura (rápido), sem hover nem toque nas peças; parou, nítido de novo. */

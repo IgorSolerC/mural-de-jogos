@@ -36,16 +36,23 @@ export interface FarFrame {
   thumb: (id: string) => ImageBitmap | null;
   /** Acha as fichas coladas (a cor e o nome); sem ele, a nota colada fica no papel de ficha. */
   cards?: CardOf | null;
+  /**
+   * As peças montadas no DOM (o nível meio e perto), que ficam por cima do canvas: a fita das molduras não vai para
+   * onde uma delas a cobriria.
+   */
+  blockers?: readonly Rect[];
 }
 
 /** O maior lado do canvas da camada de longe, em px (acima disso ele perde resolução, não memória). */
-export const FAR_MAX_PX = 4096;
+export const FAR_MAX_PX = 6144;
 /**
  * Quantos pixels o canvas pode ter: a área da conta é a tela com meia tela de folga para cada lado (quatro
- * telas); acima disso ele fica um pouco mais macio (o giz e os retângulos de longe não sentem), e redesenhá-lo
- * a cada conta da cena cabe num quadro.
+ * telas); acima disso ele fica mais macio. Eram 4 milhões quando as peças de longe eram retângulos lisos; com a
+ * aparência delas (a faixa, os pontos, a fita), a metade da resolução numa tela de densidade 2 borrava, ao lado das
+ * peças do meio, nítidas no DOM (26/nov). Com 8 milhões, 2000 peças redesenham em ~17 ms (eram ~13), só na conta da
+ * cena, nunca a cada quadro.
  */
-export const FAR_MAX_PIXELS = 4_000_000;
+export const FAR_MAX_PIXELS = 8_000_000;
 
 /** A densidade do canvas para cobrir `area` com o zoom `z` numa tela de densidade `dpr`. */
 export function farDensity(area: Rect, z: number, dpr: number): number {
@@ -125,40 +132,112 @@ function arrowHead(ctx: CanvasRenderingContext2D, tip: { x: number; y: number },
   ctx.lineTo(tip.x + Math.cos(a2) * size, tip.y + Math.sin(a2) * size);
 }
 
-/** O título da moldura numa fita Dymo do tamanho da tela, colada no canto de cima, meio para fora da borda. */
+/** Uma fita com o nome de uma moldura, já posta (em px da tela, a partir do canto da área). */
+export interface PlacedLabel {
+  node: FbNode;
+  text: string;
+  font: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** Os tamanhos da letra da fita, do maior: ela encolhe antes de cortar o nome. */
+export const LABEL_FONTS = [13, 11, 9] as const;
+/** O nome cortado mostra pelo menos isto de letras (menos que isso, "LI…", não diz qual é a região). */
+const LABEL_MIN_CHARS = 3;
+
+const labelH = (font: number) => Math.round(font * 1.55);
+const labelPad = (font: number) => font * 0.55;
+const labelTrack = (font: number) => font * 0.12;
+
+/**
+ * Onde vai a fita de cada moldura, na tela (pura, para os testes): as molduras maiores primeiro; a letra encolhe
+ * (13, 11, 9 px) antes de cortar o nome, e cortado ele guarda pelo menos três letras; todas as fitas da conta ficam
+ * na mesma letra. A fita vai meio para fora da borda de cima (dentro, as peças do alto a cobririam); se ali ela
+ * cobriria outra moldura (a de cima, perto), outra fita ou uma peça montada no DOM, vai para a borda de baixo,
+ * encostada por fora (dentro do feltro não: o canvas fica por baixo das peças, que a cobririam, e ela cobriria o que
+ * está desenhado); se nem ali cabe, a moldura fica sem nome nesta conta. `width` mede o texto com a letra pedida, sem
+ * o espaçamento.
+ */
+export function placeLabels(
+  frames: readonly { node: FbNode; x: number; y: number; w: number; h: number }[],
+  width: (text: string, font: number) => number,
+  blockers: readonly Rect[] = [],
+): PlacedLabel[] {
+  const spaced = (t: string, font: number) => width(t, font) + t.length * labelTrack(font);
+  const tape = (t: string, font: number) => spaced(t, font) + 2 * labelPad(font);
+  const placed: PlacedLabel[] = [];
+  const hits = (r: { x: number; y: number; w: number; h: number }, a: { x: number; y: number; w: number; h: number }) =>
+    r.x < a.x + a.w && a.x < r.x + r.w && r.y < a.y + a.h && a.y < r.y + r.h;
+  const inside = (a: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }) =>
+    a.x >= b.x && a.y >= b.y && a.x + a.w <= b.x + b.w && a.y + a.h <= b.y + b.h;
+  const nameOf = (f: { node: FbNode }) => (typeof f.node['nome'] === 'string' ? (f.node['nome'] as string).trim().toUpperCase() : '');
+  const shown = (f: { node: FbNode; w: number; h: number }) => !!nameOf(f) && f.w >= 40 && f.h >= 16;
+  // uma letra só para as fitas da conta: a maior em que todos os nomes inteiros cabem (fitas lado a lado de
+  // tamanhos diferentes parecem de quadros diferentes); o nome que não cabe inteiro nem na menor é cortado nela
+  const fits = (f: { node: FbNode; w: number }, size: number) => tape(nameOf(f), size) <= f.w - 12;
+  const whole = frames.filter(shown).filter((f) => fits(f, LABEL_FONTS[LABEL_FONTS.length - 1]));
+  const common = LABEL_FONTS.find((size) => whole.every((f) => fits(f, size))) ?? LABEL_FONTS[LABEL_FONTS.length - 1];
+  for (const f of [...frames].sort((a, b) => b.w * b.h - a.w * a.h)) {
+    if (!shown(f)) continue;
+    const name = nameOf(f);
+    const room = f.w - 12;
+    // as escolhas, da melhor: o nome inteiro na letra da conta; senão, cortado na menor
+    const options: { text: string; font: number }[] = LABEL_FONTS.filter((size) => size <= common && tape(name, size) <= room).map((font) => ({ text: name, font }));
+    const small = LABEL_FONTS[LABEL_FONTS.length - 1];
+    if (!options.some((o) => o.font === small)) {
+      let n = name.length - 1;
+      while (n >= LABEL_MIN_CHARS && tape(name.slice(0, n).trimEnd() + '…', small) > room) n--;
+      if (n >= LABEL_MIN_CHARS) options.push({ text: name.slice(0, n).trimEnd() + '…', font: small });
+    }
+    if (!options.length) continue;
+    // as outras molduras que a fita não pode cobrir: as que não contêm esta (a de dentro de outra fica nela)
+    const others = frames.filter((o) => o !== f && !inside(f, o));
+    // (nem as peças montadas no DOM, que ficam por cima do canvas e a cobririam)
+    const free = (r: { x: number; y: number; w: number; h: number }) => !others.some((o) => hits(r, o)) && !placed.some((p) => hits(r, p)) && !blockers.some((b) => hits(r, b));
+    const rect = (o: { text: string; font: number }, edge: 'cima' | 'baixo') => {
+      const w = tape(o.text, o.font);
+      const h = labelH(o.font);
+      // (embaixo, encostada por fora: as peças do pé da moldura não a tapam)
+      return { x: f.x + 6, y: edge === 'cima' ? f.y - h * 0.7 : f.y + f.h - 2, w, h };
+    };
+    // meio para fora da borda de cima, na melhor letra; tapada, da de baixo
+    const first = options[0];
+    const spot = (['cima', 'baixo'] as const).map((edge) => rect(first, edge)).find(free);
+    if (spot) placed.push({ node: f.node, ...first, ...spot });
+  }
+  return placed;
+}
+
+/** O título da moldura numa fita Dymo do tamanho da tela (ver `placeLabels`): a fita preta, as letras da cor dela. */
 function drawLabels(ctx: CanvasRenderingContext2D, f: FarFrame): void {
   const { area, k, z } = f;
   // em px da tela: s px do canvas por px da tela
   const s = k / z;
   ctx.setTransform(s, 0, 0, s, 0, 0);
-  ctx.font = '800 13px "Barlow Condensed", "Arial Narrow", sans-serif';
   ctx.textBaseline = 'middle';
-  for (const node of f.labels) {
-    const name = typeof node['nome'] === 'string' ? (node['nome'] as string).toUpperCase() : '';
-    const sx = (node.x - area.x) * z;
-    const sy = (node.y - area.y) * z;
-    const sw = node.w * z;
-    if (!name || sw < 48 || node.h * z < 16) continue;
-    const room = Math.max(0, sw - 16);
-    let text = name;
-    const spaced = (t: string) => ctx.measureText(t).width + t.length * 1.6;
-    while (text.length > 1 && spaced(text) + 14 > room) text = text.slice(0, -2) + '…';
-    const tw = spaced(text) + 14;
-    if (tw > room) continue;
-    // meio para fora da borda de cima: dentro da moldura, as peças do alto a cobriam (o canvas fica por baixo delas)
-    const x = sx + 8;
-    const y = sy - 14;
+  const fontOf = (size: number) => `800 ${size}px "Barlow Condensed", "Arial Narrow", sans-serif`;
+  const width = (t: string, size: number) => {
+    ctx.font = fontOf(size);
+    return ctx.measureText(t).width;
+  };
+  const frames = f.labels.map((node) => ({ node, x: (node.x - area.x) * z, y: (node.y - area.y) * z, w: node.w * z, h: node.h * z }));
+  const blockers = (f.blockers ?? []).map((b) => ({ x: (b.x - area.x) * z, y: (b.y - area.y) * z, w: b.w * z, h: b.h * z }));
+  for (const l of placeLabels(frames, width, blockers)) {
     ctx.fillStyle = '#121212';
     ctx.beginPath();
-    ctx.roundRect(x, y, tw, 20, 2);
+    ctx.roundRect(l.x, l.y, l.w, l.h, 2);
     ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,0.08)';
-    ctx.fillRect(x, y, tw, 7);
-    ctx.fillStyle = STOCK_HEX[node.c ?? DEFAULT_FRAME];
-    let cx = x + 7;
-    for (const ch of text) {
-      ctx.fillText(ch, cx, y + 10.5);
-      cx += ctx.measureText(ch).width + 1.6;
+    ctx.fillRect(l.x, l.y, l.w, l.h * 0.35);
+    ctx.fillStyle = STOCK_HEX[l.node.c ?? DEFAULT_FRAME];
+    ctx.font = fontOf(l.font);
+    let cx = l.x + labelPad(l.font);
+    for (const ch of l.text) {
+      ctx.fillText(ch, cx, l.y + l.h / 2 + 0.5);
+      cx += ctx.measureText(ch).width + labelTrack(l.font);
     }
   }
 }
