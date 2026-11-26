@@ -416,6 +416,22 @@
   }
 }
 
+/* no ver, o card que esconde texto (o "…", ou desenhado pequeno demais para ler) abre inteiro ao toque: a lupa diz isso */
+.visor:not(.editando) app-free-board-piece[data-tipo='bilhete']:is([data-nivel='meio'], :has(> .cartao:is(.cortado, .sem-corpo, .titulo-cortado))) {
+  cursor: zoom-in;
+}
+
+/* a folha de ler fica do tamanho do texto (até o espaço da folha de escrever), não uma página vazia */
+.folha-texto.lendo {
+  bottom: auto;
+  max-height: calc(100% - 72px - 84px);
+
+  @media (max-width: 860px) {
+    bottom: auto;
+    max-height: calc(100% - 16px);
+  }
+}
+
 /* o card sendo escrito fica por cima dos vizinhos enquanto cresce (só na tela: a ordem guardada não muda) */
 app-free-board-piece.escrevendo {
   z-index: 1;

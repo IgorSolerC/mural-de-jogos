@@ -1,9 +1,14 @@
-import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, input, output, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, input, output, signal, viewChild } from '@angular/core';
 import { FB_FRAME_TITLE_MAX, FB_LABEL_MAX, FbNode, FbSide, FB_SIDES } from '../../core/free-board';
 import { anchor, boundsOf, intersects, nearestSide } from '../../core/free-board-geometry';
 import { ICON, IconModule } from '../icons';
 import { BoardEditor, Writing } from './board-editor';
 import { ALL_HANDLES } from './edit-ops';
+
+/** A etiqueta da seleção na tela: o vão até a seleção (o `bottom` de `.acoes`), o topo do quadro e a folga dos lados. */
+const TAG_GAP = 38;
+const TAG_TOP = 64;
+const TAG_SIDE = 8;
 
 /** O que a etiqueta da seleção pede (a peça do quadro faz). */
 export type SelectionAction = 'escrever' | 'cor' | 'jeito' | 'letra' | 'rotulo' | 'cadeado' | 'frente' | 'tras' | 'duplicar' | 'apagar';
@@ -83,7 +88,7 @@ export type SelectionAction = 'escrever' | 'cor' | 'jeito' | 'letra' | 'rotulo' 
       <!-- a etiqueta da seleção: a peça única dos botões dos cards (ui/_etiqueta-acoes.scss), à vista enquanto há
            seleção (não com a mão em cima), num tamanho de tela -->
       <div class="etiqueta-ancora" [style.left.px]="t.x" [style.top.px]="t.y">
-        <div class="acoes" [class.embaixo]="t.below" role="toolbar" aria-label="O que fazer com a seleção">
+        <div #acoes class="acoes" [class.embaixo]="t.below" [style.translate]="nudge().dx + 'px ' + nudge().dy + 'px'" role="toolbar" aria-label="O que fazer com a seleção">
           @if (t.write) {
             <!-- escrever o card (o mesmo do duplo clique e do Enter): o primeiro, à vista -->
             <button type="button" class="botao escrita" aria-label="Escrever" title="Escrever (Enter ou duplo clique)" (pointerdown)="$event.stopPropagation()" (click)="act.emit('escrever')">
@@ -165,6 +170,16 @@ export class FreeBoardEditOverlay {
     return sel.length === 1 && sel[0].t === 'x' ? ICON.card : ICON.moldura;
   });
   readonly act = output<SelectionAction>();
+  /** A câmera parada (a última conta): mudou, a etiqueta é medida de novo na tela. */
+  readonly camera = input<unknown>(null);
+  private readonly acoes = viewChild<ElementRef<HTMLElement>>('acoes');
+  /**
+   * A etiqueta dentro do quadro (no celular, a seleção na direita a jogava para fora da tela, e em cima ela cobria o
+   * topo do quadro): `dx` a empurra para dentro dos lados; `flip` a leva para baixo da seleção quando em cima ela
+   * ficaria sob o topo e embaixo ela cabe; sem lugar nos dois (a seleção maior que a tela), `dy` a desce até ficar à vista.
+ * Medido depois de desenhar, em px da tela.
+   */
+  protected readonly nudge = signal({ dx: 0, dy: 0, flip: false });
 
   protected readonly Icons = { escrever: ICON.editar, cor: ICON.paleta, jeito: ICON.moldura, letra: ICON.tamanhoDaLetra, rotulo: ICON.etiqueta, presa: ICON.setaPresa, solta: ICON.setaSolta, frente: ICON.frente, tras: ICON.tras, duplicar: ICON.copiar, apagar: ICON.apagar };
   protected readonly titleMax = FB_FRAME_TITLE_MAX;
@@ -250,10 +265,12 @@ export class FreeBoardEditOverlay {
       const below = [...this.nodes().values()].some(
         (n) => n.t === 'm' && !ids.has(n.i) && !!n.nome && intersects(over, { x: n.x + 26, y: n.y + 22, w: Math.min(n.w - 52, 28 + n.nome.length * 16), h: 30 }),
       );
+      const down = below || this.nudge().flip;
       return {
         x: box.x,
-        y: below ? box.y + box.h : box.y,
-        below,
+        y: down ? box.y + box.h : box.y,
+        h: box.h,
+        below: down,
         color: colorable,
         look: sel.length === 1 ? this.lookLabel() : null,
         write: sel.length === 1 && sel[0].t === 'x',
@@ -263,7 +280,7 @@ export class FreeBoardEditOverlay {
       };
     }
     const m = ed.selectedEdge() ? this.edgeMid() : null;
-    if (m) return { x: m.x, y: m.y - 24, below: false, color: true, look: null, write: false, font: false, label: true, stack: false };
+    if (m) return { x: m.x, y: m.y - 24, h: 0, below: false, color: true, look: null, write: false, font: false, label: true, stack: false };
     return null;
   });
 
@@ -274,6 +291,27 @@ export class FreeBoardEditOverlay {
       if (!el || el === document.activeElement) return;
       el.focus({ preventScroll: true });
       el.select();
+    });
+    afterRenderEffect(() => {
+      this.camera();
+      const t = this.tag();
+      const el = this.acoes()?.nativeElement;
+      const visor = el?.closest<HTMLElement>('.visor');
+      if (!t || !el || !visor || !el.parentElement) return;
+      const v = visor.getBoundingClientRect();
+      const at = el.parentElement.getBoundingClientRect();
+      const z = this.editor().zoom();
+      // o alto da seleção na tela (a âncora fica no pé dela quando a etiqueta está embaixo)
+      const top = t.below ? at.top - t.h * z : at.top;
+      // em cima não cabe (o topo do quadro): desce, se embaixo cabe; a seleção mais alta que a tela fica com ela em cima
+      const bottom = top + t.h * z;
+      const flip = t.stack && top - TAG_GAP - el.offsetHeight < v.top + TAG_TOP && bottom + TAG_GAP + el.offsetHeight <= v.bottom - TAG_SIDE;
+      const left = at.left;
+      const dx = Math.round(Math.max(v.left + TAG_SIDE - left, Math.min(0, v.right - TAG_SIDE - (left + el.offsetWidth))));
+      // nem em cima nem embaixo (a seleção maior que a tela): em cima, descida até ficar à vista sob o topo
+      const dy = t.stack && !flip && !t.below ? Math.round(Math.max(0, v.top + TAG_TOP - (top - TAG_GAP - el.offsetHeight))) : 0;
+      const was = this.nudge();
+      if (was.dx !== dx || was.dy !== dy || was.flip !== flip) this.nudge.set({ dx, dy, flip });
     });
   }
 

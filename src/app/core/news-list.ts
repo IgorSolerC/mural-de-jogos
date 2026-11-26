@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-26-caixas-sem-icone',
+    id: '2026-11-26-caixas-fechamento',
     version: '1.55.2',
     kind: 'ajustes',
     date: '2026-11-26',
@@ -41,9 +41,12 @@ export const NEWS: NewsEntry[] = [
       'As caixas de texto do canvas têm tamanho de letra: Pequena, Média, Grande, Bem grande ou Enorme, pelo botão "Tamanho da letra" da seleção, pelo botão direito ou por Ctrl+Shift+> e Ctrl+Shift+<. A caixa cresce para baixo até caber o que tem com a letra maior.',
       'O que não cabe numa caixa de texto do canvas termina em "…", no fim da última linha inteira (antes a linha era cortada no meio das letras); o título comprido encolhe para o texto ter pelo menos uma linha, e as palavras não se partem mais no meio.',
       'Tirando o zoom do canvas, as caixas de texto só ficam menores: a letra, a faixa, a borda e o respiro não pulam mais de tamanho no caminho, e quando a letra fica pequena demais para ler cada linha vira um traço no mesmo lugar.',
-      'A caixa de texto do canvas com "…" (ou pequena demais para ler) abre inteira ao toque ou ao Enter, só para ler, também na visita; o Esc fecha.',
+      'A caixa de texto do canvas com "…" (ou pequena demais para ler) abre inteira ao toque ou ao Enter, só para ler, também na visita (a lupa no ponteiro diz isso); o Esc fecha.',
       'Editando o canvas, a caixa de texto selecionada tem o botão Escrever primeiro; o botão direito tem "Ajustar ao texto" (a altura do que ela tem); a caixa nova fica do tamanho do que se escreveu (só o título, da altura da faixa; um parágrafo alarga antes de descer) e, enquanto se escreve, fica por cima das vizinhas.',
       'As caixas de texto novas do canvas nascem sem ícone, e o ícone se escolhe tocando nele (ou no "+", quando não tem) na folha de escrever: a cartela de ícones do site, com a busca e o "Sem ícone".',
+    ],
+    correcoes: [
+      'No celular, a etiqueta da seleção do canvas não sai mais da tela nem cobre o topo do quadro: ela fica dentro dele, embaixo da seleção quando em cima não cabe.',
     ],
   },
   {

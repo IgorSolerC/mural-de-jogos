@@ -673,7 +673,7 @@ export class BoardEditing {
         if (id && owner) first.push({ id: 'abrir', label: 'Abrir', icon: ICON.anotacoes, run: () => owner.openNote(id) });
       }
       if (parsed?.name === 'imagem') first.push({ id: 'ampliar', label: 'Ampliar', icon: ICON.aumentar, run: () => this.enlarge(hit.i) });
-      if (hit.t === 'x') first.push({ id: 'ler', label: 'Ler o texto inteiro', icon: ICON.card, keys: 'Enter', dialog: true, run: () => this.h.read(hit.i) });
+      if (hit.t === 'x') first.push({ id: 'ler', label: 'Ler o texto inteiro', icon: ICON.ver, keys: 'Enter', dialog: true, run: () => this.h.read(hit.i) });
       const text = copyPieces(this.h.board(), new Set([hit.i])).text;
       first.push({ id: 'copiar', label: 'Copiar', icon: ICON.copiar, run: () => void navigator.clipboard?.writeText(text).catch(() => undefined) });
       first.push({ id: 'ir', label: 'Ir até aqui', icon: ICON.alvo, run: () => this.h.goTo(center(hit)) });
@@ -720,11 +720,11 @@ export class BoardEditing {
     } else if (!many) {
       first.push({ id: 'mexer', label: n.t === 'x' ? 'Escrever' : 'Editar', icon: ICON.editar, keys: 'Enter', run: () => this.edit(n) });
       // a altura que o texto pede (maior ou menor), como o "Ajustar ao conteúdo" da moldura
-      if (n.t === 'x') first.push({ id: 'ajustar-texto', label: 'Ajustar ao texto', icon: ICON.card, run: () => this.ed.fitToText(n.i) });
+      if (n.t === 'x') first.push({ id: 'ajustar-texto', label: 'Ajustar ao texto', icon: ICON.maiorOuMenor, run: () => this.ed.fitToText(n.i) });
     }
     if (n.t !== 'w' || many) first.push({ id: 'cor', label: 'Cor…', icon: ICON.paleta, dialog: true, run: () => this.reopenColors() });
     const look = !many ? this.lookLabel(n) : null;
-    if (look && n.t === 'x') first.push({ id: 'jeito', label: 'Jeito do card…', icon: CALLOUT_ICON[noteLook(n)] ?? ICON.moldura, dialog: true, run: () => this.reopenLooks(n) });
+    if (look && n.t === 'x') first.push({ id: 'jeito', label: 'Jeito do card…', icon: ICON.card, dialog: true, run: () => this.reopenLooks(n) });
     else if (look) first.push({ id: 'jeito', label: look, icon: ICON.moldura, run: () => this.cycleLook() });
     if (n.t === 'x' && this.ed.selectedNodes().every((x) => x.t === 'x')) first.push({ id: 'letra', label: 'Tamanho da letra…', icon: ICON.tamanhoDaLetra, dialog: true, run: () => this.reopenFonts() });
     const order: MenuItem[] = [

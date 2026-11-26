@@ -106,5 +106,26 @@ Pedido do dono em 26/nov/2026, junto da rodada 4 (com a foto da faixa da folha, 
   é o recorte vazio tracejado com um "+", mais apagado até a mão chegar. Escolher é um passo do desfazer e a folha
   continua aberta.
 
+## 5. O fechamento (26/nov/2026)
+
+Feitas as rodadas 1–4 (BUILD 1085–1088). A crítica do fim (duas avaliações isoladas,
+`.impeccable/critique/2026-11-26T17-14-11Z__src-app-ui-free-board-free-board-piece-ts.md`) deu **29/40** (era 25): o
+pulo de perto para meio acabou, o corte é em linhas inteiras com "…", o ícone na faixa é fácil de achar. Consertados
+no fechamento: a etiqueta da seleção que saía da tela no celular (agora presa dentro do quadro: empurrada dos lados,
+embaixo da seleção sem lugar em cima, à vista sob o topo quando a seleção é maior que a tela), a lupa no ponteiro sobre o
+card que esconde texto (o "…", o título cortado, `titulo-cortado`, ou desenhado pequeno), a folha de ler do tamanho do
+texto, e os desenhos dos menus (Ler com o olho, Ajustar ao texto com as setas de altura, Jeito do card… com o card).
+/code-review high: a etiqueta que descia para fora da tela com a seleção alta, o título cortado sem a lupa e o teste
+na visita (consertados). DESIGN.md: "Text cards in the open canvas".
+
+Sugestões da crítica que esperam o dono (não são do pedido):
+
+- **O título legível de longe:** a 24% e a 12% todo título vira traço (as molduras ganham a fita). Escrever o título do
+  card em proporção com a letra de verdade enquanto ele tiver ~6 px na tela.
+- **O menu do tamanho com o "Aa" em cada tamanho** (o D2 prometia; o menu é a peça comum do botão direito, que não
+  desenha a letra de cada item) e Frente/Trás juntos num "Ordem" (a etiqueta de texto tem 8 botões).
+- **"BILHETE" no Ver em lista** (o nome do tipo de dentro, `it.kind`) e o título emendado no corpo ali.
+- O card novo que nasce por cima do vizinho; o Esc da folha que guarda sem um "Descartar".
+
 Ficam de fora (ruído para este pedido): a régua de ferramentas com 10,88 px, o raio de 18 px do feltro, o título
 "skipped-heading" de outra página.

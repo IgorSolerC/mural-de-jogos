@@ -137,6 +137,7 @@ interface EdgeLabel {
             [edgeEnds]="edgeOn()?.ends ?? null"
             [edgeLocked]="!!edgeOn()?.fx"
             [lookLabel]="lookLabel()"
+            [camera]="view()?.camera ?? null"
             (act)="selectionAct($event)"
           />
         }
@@ -201,7 +202,7 @@ interface EdgeLabel {
     @if (readingCard(); as c) {
       <!-- o card aberto para ler: a mesma folha, sem escrever (o texto inteiro, o que o card esconde com o "…") -->
       @defer (on immediate) {
-        <app-free-board-text-sheet class="folha-texto" [id]="c.id" [text]="c.txt" [look]="c.look" [color]="c.color" [ic]="c.ic" [links]="links()" [reading]="true" (done)="closeReading()" />
+        <app-free-board-text-sheet class="folha-texto lendo" [id]="c.id" [text]="c.txt" [look]="c.look" [color]="c.color" [ic]="c.ic" [links]="links()" [reading]="true" (done)="closeReading()" />
       }
     }
     @for (c of writingCards(); track c.id) {
@@ -332,12 +333,8 @@ export class FreeBoardView implements RigHost {
     },
     hidesText: (id) => {
       const el = this.front().nativeElement.querySelector<HTMLElement>(`app-free-board-piece[data-peca="${id}"]`);
-      // pequeno demais para ler (o desenho do meio, ou de longe), com o "…" no corpo, ou o título cortado (o de mais de
-      // três linhas, ou encolhido para o corpo caber, termina em "…" pela linha presa do CSS)
-      if (!el || el.dataset['nivel'] !== 'perto' || el.querySelector(':scope > .cartao.cortado, :scope > .cartao.sem-corpo')) return true;
-      const title = el.querySelector<HTMLElement>(':scope > .cartao .cartao-titulo');
-      // (meia linha de folga: a caixa das letras a pincel passa um pouco da linha, e isso não é linha escondida)
-      return !!title && title.scrollHeight > title.clientHeight + (parseFloat(getComputedStyle(title).lineHeight) || 20) / 2;
+      // pequeno demais para ler (o desenho do meio, ou de longe), com o "…" no corpo ou o título cortado (fitCard)
+      return !el || el.dataset['nivel'] !== 'perto' || !!el.querySelector(':scope > .cartao:is(.cortado, .sem-corpo, .titulo-cortado)');
     },
   });
   protected readonly scene = computed(() => {
@@ -409,7 +406,7 @@ export class FreeBoardView implements RigHost {
     ['L', 'Ver o quadro em lista'],
   ];
   /** O que está montado agora (a última conta da cena). */
-  private readonly view = signal<SceneFrame | null>(null);
+  protected readonly view = signal<SceneFrame | null>(null);
   /** O zoom da última conta (as setas e a porcentagem mudam por ele, não a cada quadro). */
   protected readonly z = signal(1);
   /** As fichas coladas (a cor e o nome delas), para a camada de longe. */

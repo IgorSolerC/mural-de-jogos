@@ -419,8 +419,18 @@ function watchDrawing(box: HTMLElement, measure: (again: () => void) => void): (
  *
  * As linhas são as caixas do texto de verdade (um Range em cada pedaço de texto), então valem a lista, a tarefa e o
  * negrito. Na escala da câmera as caixas vêm em px da tela: divididas pela escala do card.
+ *
+ * No fim, o card com o título cortado pela linha presa do CSS (o de mais de três linhas, ou encolhido para o corpo
+ * caber) ganha `titulo-cortado`: ele também esconde texto (abre para ler no ver, com a lupa).
  */
 export function fitCard(card: HTMLElement): void {
+  fitLines(card);
+  const title = card.querySelector<HTMLElement>('.cartao-titulo');
+  // (meia linha de folga: a caixa das letras a pincel passa um pouco da linha, e isso não é linha escondida)
+  card.classList.toggle('titulo-cortado', !!title && title.scrollHeight > title.clientHeight + lineOf(title) / 2);
+}
+
+function fitLines(card: HTMLElement): void {
   const title = card.querySelector<HTMLElement>('.cartao-titulo');
   const topo = title?.parentElement ?? null;
   const sheet = card.querySelector<HTMLElement>(':scope > .cartao-corpo');

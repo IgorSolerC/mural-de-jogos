@@ -15,6 +15,15 @@ const BOARD = sanitizeFreeBoard({
   n: [
     { i: 'm', t: 'm', x: 0, y: 0, w: 780, h: 520, nome: 'Roxo' },
     { i: 'a', t: 'x', x: 52, y: 104, w: 182, h: 104, txt: 'Senha?' },
+    {
+      i: 'b',
+      t: 'x',
+      x: 260,
+      y: 104,
+      w: 182,
+      h: 104,
+      txt: 'Lisboa\nO elétrico 28 lota às 10h; ir cedo, antes das 8h, e descer no Largo das Portas do Sol para ver o rio. Depois seguir a pé até a Sé.',
+    },
   ],
   e: [],
 })!;
@@ -72,6 +81,35 @@ describe('o canvas aberto na visita (as mesmas peças do dono, PLANO-CANVAS.md r
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
     await settle();
     expect(router.url).toBe('/comparar/mural');
+    f.nativeElement.remove();
+  });
+
+  it('o card com "…" abre inteiro para ler na visita, como no ver do dono: a folha sem campos, e o Fechar', async () => {
+    const f = TestBed.createComponent(Host);
+    f.nativeElement.style.cssText = 'display:block;width:900px;height:600px';
+    document.body.appendChild(f.nativeElement);
+    await settle();
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await settle();
+    const el = f.nativeElement as HTMLElement;
+    const card = el.querySelector<HTMLElement>('[data-peca="b"]')!;
+    const box = card.getBoundingClientRect();
+    const at = { clientX: box.left + box.width / 2, clientY: box.top + box.height / 2, bubbles: true, cancelable: true };
+    const visor = el.querySelector<HTMLElement>('.visor')!;
+    visor.dispatchEvent(new PointerEvent('pointerdown', { ...at, pointerId: 5, pointerType: 'mouse', button: 0 }));
+    visor.dispatchEvent(new PointerEvent('pointerup', { ...at, pointerId: 5, pointerType: 'mouse', button: 0 }));
+    visor.dispatchEvent(new MouseEvent('click', at));
+    let sheet: HTMLElement | null = null;
+    for (let k = 0; k < 100 && !sheet?.querySelector('.titulo.lido'); k++) {
+      await settle();
+      sheet = el.querySelector<HTMLElement>('app-free-board-text-sheet');
+    }
+    expect(sheet?.querySelector('.titulo.lido')?.textContent?.trim()).toBe('Lisboa');
+    expect(sheet!.querySelector('.texto-lido')!.textContent).toContain('até a Sé.');
+    expect(sheet!.querySelector('textarea, app-rich-editor, .icone-botao')).toBeNull();
+    sheet!.querySelector<HTMLButtonElement>('.pronto')!.click();
+    await settle();
+    expect(el.querySelector('app-free-board-text-sheet')).toBeNull();
     f.nativeElement.remove();
   });
 

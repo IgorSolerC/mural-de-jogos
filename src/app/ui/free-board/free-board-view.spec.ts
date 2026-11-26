@@ -335,6 +335,32 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
       expect(fixture.componentInstance.editor.writing()).toEqual({ kind: 'bilhete', id: 'senha' });
     });
 
+    it('a etiqueta fica dentro do quadro: perto da borda da direita ela entra, e sem lugar em cima (o topo do quadro) vai para baixo da seleção', async () => {
+      await edit(board([{ i: 'canto', t: 'x', x: 720, y: 0, w: 208, h: 104, txt: 'No canto' }]));
+      ptr('pointerdown', 740, 30);
+      ptr('pointerup', 740, 30);
+      await settle();
+      await settle();
+      const tag = el.querySelector<HTMLElement>('.acoes')!.getBoundingClientRect();
+      const visorBox = visor().getBoundingClientRect();
+      const card = piece('canto')!.getBoundingClientRect();
+      expect(tag.right).toBeLessThanOrEqual(visorBox.right);
+      expect(tag.left).toBeGreaterThanOrEqual(visorBox.left);
+      expect(tag.top).toBeGreaterThan(card.bottom);
+    });
+
+    it('a seleção mais alta que a tela: a etiqueta fica em cima, à vista sob o topo do quadro', async () => {
+      await edit(board([{ i: 'alto', t: 'x', x: 0, y: 0, w: 208, h: 1300, txt: 'Comprido' }]));
+      ptr('pointerdown', 60, 30);
+      ptr('pointerup', 60, 30);
+      await settle();
+      await settle();
+      const tag = el.querySelector<HTMLElement>('.acoes')!.getBoundingClientRect();
+      const visorBox = visor().getBoundingClientRect();
+      expect(tag.top).toBeGreaterThanOrEqual(visorBox.top);
+      expect(tag.bottom).toBeLessThanOrEqual(visorBox.bottom);
+    });
+
     it('o tamanho da letra: a etiqueta abre os degraus; a letra muda no card, que cresce até caber; Ctrl+Shift+. e , dão um passo', async () => {
       await edit(MANSION);
       ptr('pointerdown', 60, 110);
@@ -775,6 +801,10 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
       return null;
     };
     expect(piece('longo')!.querySelector('.cartao.cortado')).not.toBeNull();
+    // a lupa diz que ele abre; o que mostra tudo fica com a mão de arrastar
+    expect(getComputedStyle(piece('longo')!).cursor).toBe('zoom-in');
+    expect(getComputedStyle(piece('curto')!).cursor).not.toBe('zoom-in');
+    expect(getComputedStyle(piece('titulo')!).cursor).toBe('zoom-in');
     await tapAt(360, 50);
     await sleep(50);
     expect(el.querySelector('app-free-board-text-sheet')).toBeNull();

@@ -175,6 +175,10 @@ app-rich-editor {
   overflow-wrap: break-word;
 }
 
+.conteudo.lido {
+  flex: 0 1 auto;
+}
+
 .texto-lido {
   margin-top: 16px;
   font: 400 1.15rem / 1.5 var(--f-hand);
