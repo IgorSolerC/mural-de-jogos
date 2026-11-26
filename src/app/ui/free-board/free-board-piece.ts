@@ -15,6 +15,7 @@ import { PieceInfo } from './scene';
 import { SketchItem, pieceItems, sketchFontsReady } from './sketch-model';
 import { PHOTO_WAIT, cardsFrom, pieceLook } from './far-look';
 import { SketchShapes } from './sketch-shapes';
+import { cardItems } from './card-sketch';
 import { PieceMeasure, sameMeasure } from './edit-ops';
 
 /**
@@ -184,8 +185,10 @@ export class FreeBoardPiece {
     sketchFontsReady();
     const items: SketchItem[] = [];
     const n = this.node();
-    // o modo rico, como o assado da miniatura: quanto falta no contador, as fileiras da tabela, o começo do texto
-    pieceItems(items, n, pieceLook(n, this.cards, this.info()), this.zoom(), { now: Date.now() });
+    // o card do texto em proporção (o mesmo da peça de perto, menor: PLANO-CAIXAS-DE-TEXTO.md, D5); os outros no modo
+    // rico, como o assado da miniatura: quanto falta no contador, as fileiras da tabela
+    if (n.t === 'x') cardItems(items, n, pieceLook(n, this.cards, this.info()), this.zoom(), sketchFontsReady());
+    else pieceItems(items, n, pieceLook(n, this.cards, this.info()), this.zoom(), { now: Date.now() });
     return items;
   });
 

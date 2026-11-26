@@ -281,8 +281,8 @@ function topRounded(x: number, y: number, w: number, h: number, r: number): stri
   return `M${r2(x)} ${r2(y + h)}V${r2(y + rr)}Q${r2(x)} ${r2(y)} ${r2(x + rr)} ${r2(y)}H${r2(x + w - rr)}Q${r2(x + w)} ${r2(y)} ${r2(x + w)} ${r2(y + rr)}V${r2(y + h)}Z`;
 }
 
-/** As letras que o desenho mede e escreve (a caneta dos títulos e a fita das molduras). */
-export const SKETCH_FONTS = ['700 9px Kalam', '800 9px "Barlow Condensed"'];
+/** As letras que o desenho mede e escreve (a caneta dos títulos, a fita das molduras e as linhas do card do texto). */
+export const SKETCH_FONTS = ['700 9px Kalam', '400 9px Kalam', '700 9px Caveat', '800 9px "Barlow Condensed"'];
 
 const fonts = signal(false);
 let asked = false;

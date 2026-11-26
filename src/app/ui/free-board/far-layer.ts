@@ -3,7 +3,8 @@ import { Rect } from '../../core/free-board-geometry';
 import { PieceInfo, SceneEdge } from './scene';
 import { CALLOUT_HEX, DEFAULT_FRAME, FELT_HEX, STOCK_HEX } from './far-palette';
 import { CardOf, pieceLook } from './far-look';
-import { SketchItem, frameItems, pieceItems } from './sketch-model';
+import { SketchItem, frameItems, pieceItems, sketchFontsReady } from './sketch-model';
+import { cardItems } from './card-sketch';
 import { chalkPattern, paintItems } from './sketch-paint';
 
 // (as tabelas de cor moram em far-palette.ts; daqui, para quem já as lia)
@@ -78,6 +79,8 @@ export function drawFar(ctx: CanvasRenderingContext2D, f: FarFrame): void {
   for (const { node, info } of f.far) {
     // (sem a fita do desenho: o nome das molduras daqui é a fita do tamanho da tela, `drawLabels`)
     if (node.t === 'm') frameItems(items, node, z, false);
+    // (o card do texto em proporção, como no meio: PLANO-CAIXAS-DE-TEXTO.md, D5)
+    else if (node.t === 'x') cardItems(items, node, pieceLook(node, null, info), z, sketchFontsReady());
     else pieceItems(items, node, pieceLook(node, f.cards ?? null, info), z, null);
     const bmp = info.image ? f.thumb(info.image) : null;
     if (bmp) photos.set(info.image!, bmp);

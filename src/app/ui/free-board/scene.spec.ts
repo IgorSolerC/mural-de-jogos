@@ -1,4 +1,5 @@
 import { FbNode, FreeBoard, sanitizeFreeBoard } from '../../core/free-board';
+import { CARD_FONT, cardTextNearPx } from './card-sketch';
 import { FAR_PX, MAX_MOUNTED, NEAR_IMAGE_PX, NEAR_PX, Scene, levelOf, needsRecount, pieceInfo } from './scene';
 
 const IMG = 'kkdxDJwYDycpsMExjuKjNQ';
@@ -21,7 +22,7 @@ describe('Quadro livre: a cena', () => {
   });
 
   it('o nível sai do tamanho na tela: perto, meio, longe; a imagem só vem inteira quando aparece grande', () => {
-    const n = note('a', 0, 0, 100, 100);
+    const n: FbNode = { i: 'w', t: 'w', x: 0, y: 0, w: 100, h: 100, src: '{{contador: 24/12/2026}}' };
     expect(levelOf(n, pieceInfo(n), NEAR_PX / 100)).toBe('perto');
     expect(levelOf(n, pieceInfo(n), (NEAR_PX - 1) / 100)).toBe('meio');
     expect(levelOf(n, pieceInfo(n), FAR_PX / 100)).toBe('meio');
@@ -29,6 +30,19 @@ describe('Quadro livre: a cena', () => {
     const img = { ...image('i', 0, 0), w: 100, h: 100 };
     expect(levelOf(img, pieceInfo(img), NEAR_PX / 100)).toBe('meio');
     expect(levelOf(img, pieceInfo(img), NEAR_IMAGE_PX / 100)).toBe('perto');
+  });
+
+  it('o card do texto fica de perto enquanto a letra dele se lê, até mais longe com a letra maior', () => {
+    const t = note('t', 0, 0, 300, 160);
+    const near = cardTextNearPx() / CARD_FONT;
+    expect(levelOf(t, pieceInfo(t), near)).toBe('perto');
+    expect(levelOf(t, pieceInfo(t), near * 0.95)).toBe('meio');
+    // com a letra Enorme, o card fica de perto até um terço daquele zoom
+    const big = { ...t, fs: 3 } as FbNode;
+    expect(levelOf(big, pieceInfo(big), near / 3)).toBe('perto');
+    expect(levelOf(big, pieceInfo(big), (near / 3) * 0.95)).toBe('meio');
+    // pequeno demais na tela, vai para a camada de longe com qualquer letra
+    expect(levelOf(big, pieceInfo(big), (FAR_PX - 1) / Math.sqrt(300 * 160))).toBe('longe');
   });
 
   it('monta só o que está perto da tela (a tela e meia tela de folga), na ordem de desenhar', () => {

@@ -1,4 +1,5 @@
-import { FbEdge, FbNode, FbSide, FreeBoard, shownEdges, shownNodes } from '../../core/free-board';
+import { FbEdge, FbNode, FbSide, FreeBoard, noteFont, shownEdges, shownNodes } from '../../core/free-board';
+import { CARD_FONT, cardTextNearPx } from './card-sketch';
 import { Camera, EdgePath, GridIndex, Point, Rect, grow, intersects, paintOrder, routedEdgePath, viewRect } from '../../core/free-board-geometry';
 import { localImageId } from '../../core/images';
 import { parseWidgetLine, readMedia } from '../../core/widgets';
@@ -59,6 +60,9 @@ const side = (r: Rect) => Math.sqrt(Math.max(1, r.w) * Math.max(1, r.h));
 export function levelOf(node: FbNode, info: PieceInfo, z: number): Level {
   const s = side(node) * z;
   if (s < FAR_PX) return 'longe';
+  // o card do texto fica de perto enquanto a letra dele se vê (o desenho do meio é o mesmo card em proporção, e a
+  // troca não aparece: PLANO-CAIXAS-DE-TEXTO.md, D5)
+  if (node.t === 'x') return CARD_FONT * noteFont(node) * z >= cardTextNearPx() ? 'perto' : 'meio';
   return s >= (info.kind === 'imagem' ? NEAR_IMAGE_PX : NEAR_PX) ? 'perto' : 'meio';
 }
 

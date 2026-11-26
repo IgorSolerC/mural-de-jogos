@@ -4,6 +4,7 @@ import { FbEdge, FbNode, FreeBoard, sanitizeFreeBoard } from '../../core/free-bo
 import { Camera } from '../../core/free-board-geometry';
 import { FreeBoardView } from './free-board-view';
 import { FreeBoardPiece, cardNeed, drawingIn } from './free-board-piece';
+import { CARD_FONT, cardTextNearPx } from './card-sketch';
 import { expectEtiquetaPadrao } from '../../testing/etiqueta-acoes.spec';
 import { comMarkdown } from '../../testing/writing-mode.spec';
 
@@ -165,11 +166,18 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
   });
 
   it('afastando, as peças viram a versão leve, e de longe saem do DOM (vão para o canvas)', async () => {
-    await open(MANSION, { x: -20, y: -20, z: 0.4 });
+    // o card do texto fica de perto enquanto a letra dele se lê (PLANO-CAIXAS-DE-TEXTO.md, D5); o widget já é o leve
+    await open(MANSION, { x: -20, y: -20, z: 0.3 });
+    expect(piece('senha')!.dataset['nivel']).toBe('perto');
+    expect(piece('conta')!.dataset['nivel']).toBe('meio');
+    fixture.destroy();
+    el.remove();
+    // com a letra pequena demais, o card no meio é o desenho dele em proporção: o papel, a faixa e a folha clara
+    const z = (cardTextNearPx() / CARD_FONT) * 0.8;
+    await open(MANSION, { x: -20, y: -20, z });
     expect(piece('senha')!.dataset['nivel']).toBe('meio');
-    // no meio, a aparência de longe (PLANO-MINIATURA-CANVAS.md, rodada 3): o desenho do card, não o card com a sombra
     expect(piece('senha')!.querySelector('.cartao')).toBeNull();
-    expect(piece('senha')!.querySelector('svg.de-longe g rect')).not.toBeNull();
+    expect(piece('senha')!.querySelectorAll('svg.de-longe g rect').length).toBeGreaterThan(1);
     // de longe, o título da moldura vai para o canvas (o Dymo some) e o bilhete sai do DOM
     expect(el.querySelector('.visor')!.classList).toContain('rotulos-na-tela');
     fixture.destroy();

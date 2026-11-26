@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-26-reticencias',
+    id: '2026-11-26-caixas-em-proporcao',
     version: '1.55.2',
     kind: 'ajustes',
     date: '2026-11-26',
@@ -40,6 +40,7 @@ export const NEWS: NewsEntry[] = [
       'Bem de longe no canvas aberto, o nome das molduras fica legível: a fita encolhe a letra antes de cortar o nome (e nunca o corta em menos de três letras), todas na mesma letra, e não cobre mais a moldura de cima nem as peças (quando não há lugar em cima, vai para a borda de baixo). E o que está de longe ficou mais nítido.',
       'As caixas de texto do canvas têm tamanho de letra: Pequena, Média, Grande, Bem grande ou Enorme, pelo botão "Tamanho da letra" da seleção, pelo botão direito ou por Ctrl+Shift+> e Ctrl+Shift+<. A caixa cresce para baixo até caber o que tem com a letra maior.',
       'O que não cabe numa caixa de texto do canvas termina em "…", no fim da última linha inteira (antes a linha era cortada no meio das letras); o título comprido encolhe para o texto ter pelo menos uma linha, e as palavras não se partem mais no meio.',
+      'Tirando o zoom do canvas, as caixas de texto só ficam menores: a letra, a faixa, a borda e o respiro não pulam mais de tamanho no caminho, e quando a letra fica pequena demais para ler cada linha vira um traço no mesmo lugar.',
     ],
   },
   {
