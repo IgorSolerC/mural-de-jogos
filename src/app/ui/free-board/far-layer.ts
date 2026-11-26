@@ -1,82 +1,25 @@
-import { FbColor, FbNode, noteColor, noteLook } from '../../core/free-board';
-import { CalloutPaper, calloutPaper } from '../../core/callouts';
+import { FbNode } from '../../core/free-board';
 import { Rect } from '../../core/free-board-geometry';
 import { PieceInfo, SceneEdge } from './scene';
+import { CALLOUT_HEX, DEFAULT_FRAME, FELT_HEX, STOCK_HEX } from './far-palette';
+import { CardOf, pieceLook } from './far-look';
+import { SketchItem, frameItems, pieceItems } from './sketch-model';
+import { chalkPattern, paintItems } from './sketch-paint';
+
+// (as tabelas de cor moram em far-palette.ts; daqui, para quem já as lia)
+export { CALLOUT_HEX, DEFAULT_FRAME, FELT_HEX, STOCK_HEX };
 
 /**
  * A camada de longe do Quadro livre (PLANO-QUADRO-LIVRE.md, seção 9.3): o que aparece pequeno demais para
- * valer o DOM vira um retângulo da cor da peça num canvas 2D que desenha todas de uma vez (a imagem, a
- * miniatura dela, se já está pronta), e as molduras ganham o nome numa fita Dymo do tamanho da tela, para a
- * região ser achada de longe. O canvas mora no mundo (cobre a área da última conta da cena) e anda com a
+ * valer o DOM vai para um canvas 2D que desenha todas de uma vez, cada peça na aparência dela de longe
+ * (far-look.ts, a mesma da miniatura do canvas no mural: a nota colada na cor dela, o card com a faixa do jeito,
+ * os pontos da pixel art, a miniatura da imagem, se já está pronta), e as molduras ganham o nome numa fita Dymo
+ * do tamanho da tela, para a região ser achada de longe. O canvas mora no mundo (cobre a área da última conta da cena) e anda com a
  * câmera como as peças: é redesenhado só quando a cena é recontada, nunca a cada quadro.
  */
 
-/** As cartolinas (as mesmas variáveis `--stock-*` de styles.scss), para o canvas, que não lê CSS. */
-export const STOCK_HEX: Readonly<Record<FbColor, string>> = {
-  vermelho: '#ef7d73',
-  laranja: '#ffa358',
-  amarelo: '#ffda42',
-  verde: '#7be986',
-  azul: '#70cdff',
-  lilas: '#c4a5fb',
-  rosa: '#ff79a8',
-  cinza: '#c9c3bc',
-  branco: '#f6f1e7',
-};
-
-/**
- * O feltro da moldura: a cartolina escura do mesmo matiz (`--stock-*-escuro`); a branca, que não tem
- * escura, é um feltro cinza claro de parede.
- */
-export const FELT_HEX: Readonly<Record<FbColor, string>> = {
-  vermelho: '#511d19',
-  laranja: '#4a2603',
-  amarelo: '#3a2f03',
-  verde: '#083b14',
-  azul: '#0a334b',
-  lilas: '#36264e',
-  rosa: '#54162e',
-  cinza: '#403c38',
-  branco: '#57534c',
-};
-
-/** Os papéis do card do texto (os `[data-jeito]` de styles.scss), para o canvas; o da cartolina, fora dela, é o cinza. */
-export const CALLOUT_HEX: Readonly<Record<CalloutPaper, string>> = {
-  nota: '#ecdcb3',
-  info: '#dce8f7',
-  dica: '#d6efe6',
-  feito: '#deefd3',
-  pergunta: '#faeea4',
-  aviso: '#fbdfc2',
-  perigo: '#f7d9d4',
-  exemplo: '#e6dcf5',
-  citacao: '#e7e4de',
-  rosa: '#fadce7',
-  cartolina: '#e7e4de',
-};
-
-/** A cor de cada peça quando não se escolhe uma (a moldura cinza). */
-export const DEFAULT_FRAME: FbColor = 'cinza';
-const INDEX_CARD = '#fbf9f2';
-const WIDGET = '#e4ddcf';
-const PHOTO = '#5d5954';
 /** O giz branco: a tinta da parede (`--wall-ink`). */
 const CHALK = '#f3efe6';
-
-export function farColor(node: FbNode, info: PieceInfo): string {
-  switch (info.kind) {
-    case 'moldura':
-      return FELT_HEX[node.c ?? DEFAULT_FRAME];
-    case 'bilhete':
-      return node.t === 'x' ? CALLOUT_HEX[calloutPaper(noteLook(node), noteColor(node))] : CALLOUT_HEX.nota;
-    case 'nota':
-      return INDEX_CARD;
-    case 'imagem':
-      return PHOTO;
-    default:
-      return WIDGET;
-  }
-}
 
 export interface FarFrame {
   /** A parte do mundo que o canvas cobre (ele mora no mundo e anda com a câmera). */
@@ -91,6 +34,8 @@ export interface FarFrame {
   /** As molduras com o nome na tela (as montadas cujo título ficou pequeno demais, e as de longe). */
   labels: readonly FbNode[];
   thumb: (id: string) => ImageBitmap | null;
+  /** Acha as fichas coladas (a cor e o nome); sem ele, a nota colada fica no papel de ficha. */
+  cards?: CardOf | null;
 }
 
 /** O maior lado do canvas da camada de longe, em px (acima disso ele perde resolução, não memória). */
@@ -118,27 +63,20 @@ export function drawFar(ctx: CanvasRenderingContext2D, f: FarFrame): void {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   if (!f.far.length && !f.edges.length && !f.labels.length) return;
-  ctx.setTransform(k, 0, 0, k, -area.x * k, -area.y * k);
-  // um preenchimento por cor (de longe, a ordem entre peças da mesma cor não aparece), e as fotos por cima
-  const byColor = new Map<string, FbNode[]>();
-  const photos: { node: FbNode; bmp: ImageBitmap }[] = [];
+  const base = new DOMMatrix([k, 0, 0, k, -area.x * k, -area.y * k]);
+  ctx.setTransform(base);
+  // cada peça na aparência dela de longe, na escala da tela (z): os cantos, a faixa, a beirada e os pontos
+  const items: SketchItem[] = [];
+  const photos = new Map<string, ImageBitmap>();
   for (const { node, info } of f.far) {
+    // (sem a fita do desenho: o nome das molduras daqui é a fita do tamanho da tela, `drawLabels`)
+    if (node.t === 'm') frameItems(items, node, z, false);
+    else pieceItems(items, node, pieceLook(node, f.cards ?? null, info), z, null);
     const bmp = info.image ? f.thumb(info.image) : null;
-    if (bmp) photos.push({ node, bmp });
-    else {
-      const c = farColor(node, info);
-      const list = byColor.get(c);
-      if (list) list.push(node);
-      else byColor.set(c, [node]);
-    }
+    if (bmp) photos.set(info.image!, bmp);
   }
-  for (const [c, list] of byColor) {
-    ctx.fillStyle = c;
-    ctx.beginPath();
-    for (const n of list) ctx.rect(n.x, n.y, n.w, n.h);
-    ctx.fill();
-  }
-  for (const { node, bmp } of photos) ctx.drawImage(bmp, node.x, node.y, node.w, node.h);
+  paintItems(ctx, items, base, k, photos);
+  ctx.setTransform(base);
   if (f.edges.length) drawEdges(ctx, f.edges, k, z);
   if (f.labels.length) drawLabels(ctx, f);
 }
@@ -185,33 +123,6 @@ function arrowHead(ctx: CanvasRenderingContext2D, tip: { x: number; y: number },
   ctx.moveTo(tip.x + Math.cos(a1) * size, tip.y + Math.sin(a1) * size);
   ctx.lineTo(tip.x, tip.y);
   ctx.lineTo(tip.x + Math.cos(a2) * size, tip.y + Math.sin(a2) * size);
-}
-
-/** O pó de giz de uma cor: um ladrilho de 64 px com cada pixel de uma força, e uns furos onde o giz não pegou. */
-const patterns = new WeakMap<CanvasRenderingContext2D, Map<string, CanvasPattern | null>>();
-function chalkPattern(ctx: CanvasRenderingContext2D, color: string): CanvasPattern | null {
-  let mine = patterns.get(ctx);
-  if (!mine) patterns.set(ctx, (mine = new Map()));
-  if (mine.has(color)) return mine.get(color)!;
-  const size = 64;
-  const tile = new OffscreenCanvas(size, size);
-  const t = tile.getContext('2d');
-  let pattern: CanvasPattern | null = null;
-  if (t) {
-    t.fillStyle = color;
-    t.fillRect(0, 0, size, size);
-    const img = t.getImageData(0, 0, size, size);
-    let seed = 7;
-    for (let i = 3; i < img.data.length; i += 4) {
-      seed = (seed * 1664525 + 1013904223) >>> 0;
-      const r = seed / 2 ** 32;
-      img.data[i] = Math.round(255 * (r < 0.14 ? 0.12 : 0.5 + r * 0.42));
-    }
-    t.putImageData(img, 0, 0);
-    pattern = ctx.createPattern(tile, 'repeat');
-  }
-  mine.set(color, pattern);
-  return pattern;
 }
 
 /** O título da moldura numa fita Dymo do tamanho da tela, colada no canto de cima, meio para fora da borda. */

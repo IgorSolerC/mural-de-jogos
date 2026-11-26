@@ -167,7 +167,9 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
   it('afastando, as peças viram a versão leve, e de longe saem do DOM (vão para o canvas)', async () => {
     await open(MANSION, { x: -20, y: -20, z: 0.4 });
     expect(piece('senha')!.dataset['nivel']).toBe('meio');
-    expect(piece('senha')!.querySelector('.cartao.liso .cartao-titulo')!.textContent).toBe('Senha?');
+    // no meio, a aparência de longe (PLANO-MINIATURA-CANVAS.md, rodada 3): o desenho do card, não o card com a sombra
+    expect(piece('senha')!.querySelector('.cartao')).toBeNull();
+    expect(piece('senha')!.querySelector('svg.de-longe g rect')).not.toBeNull();
     // de longe, o título da moldura vai para o canvas (o Dymo some) e o bilhete sai do DOM
     expect(el.querySelector('.visor')!.classList).toContain('rotulos-na-tela');
     fixture.destroy();

@@ -1,16 +1,20 @@
-import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, input, output, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, output, untracked, viewChild } from '@angular/core';
+import { CardFinder } from '../../core/card-finder';
 import { FbNode, noteColor, noteLook, noteParts } from '../../core/free-board';
 import { calloutFallbackTitle, calloutPaper } from '../../core/callouts';
 import { CALLOUT_ICON } from '../callout-looks';
 import { NoteLinks } from '../../core/note-links';
 import { plainText } from '../../core/rich-text';
-import { parseWidgetLine, readCardRef, widgetDef, widgetSpoken } from '../../core/widgets';
+import { parseWidgetLine, widgetDef, widgetSpoken } from '../../core/widgets';
 import { HOLE } from '../../core/free-board-geometry';
-import { ICON, IconModule } from '../icons';
+import { IconModule } from '../icons';
 import { NoteWidget } from '../note-widget';
 import { CODE_COPY, RichText } from '../rich-text';
 import { DEFAULT_FRAME } from './far-layer';
 import { PieceInfo } from './scene';
+import { SketchItem, pieceItems, sketchFontsReady } from './sketch-model';
+import { PHOTO_WAIT, cardsFrom, pieceLook } from './far-look';
+import { SketchShapes } from './sketch-shapes';
 import { PieceMeasure, sameMeasure } from './edit-ops';
 
 /**
@@ -33,7 +37,7 @@ export type PieceMeasured = PieceMeasure & { id: string; settled: boolean };
  */
 @Component({
   selector: 'app-free-board-piece',
-  imports: [NoteWidget, RichText, IconModule],
+  imports: [NoteWidget, RichText, IconModule, SketchShapes],
   // a peça se pega e se arrasta pelo texto: o código na linha não copia aqui (nem no dos widgets dela)
   providers: [{ provide: CODE_COPY, useValue: false }],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -62,7 +66,10 @@ export type PieceMeasured = PieceMeasure & { id: string; settled: boolean };
       @case ('bilhete') {
         <!-- o texto é o card das anotações (core/callouts.ts): o papel do jeito ou da cor, o desenho e o título em
              cima (a primeira linha), o resto embaixo, na folha clara. No meio, só o papel e o título -->
-        <div class="cartao" [attr.data-jeito]="paper()" [class.liso]="level() === 'meio'">
+        @if (level() === 'meio') {
+          <svg class="de-longe" [attr.viewBox]="box()" preserveAspectRatio="none" aria-hidden="true"><g appSketchShapes [items]="far()"></g></svg>
+        } @else {
+        <div class="cartao" [attr.data-jeito]="paper()">
           @if (cardTitle2(); as t) {
             <div class="cartao-topo">
               @if (cardIcon(); as ic) {
@@ -71,10 +78,11 @@ export type PieceMeasured = PieceMeasure & { id: string; settled: boolean };
               <span class="cartao-titulo">{{ t }}</span>
             </div>
           }
-          @if (level() === 'perto' && parts().body.trim()) {
+          @if (parts().body.trim()) {
             <app-rich-text class="cartao-corpo" [text]="parts().body" [links]="links()" />
           }
         </div>
+        }
       }
       @default {
         @if (level() === 'perto') {
@@ -93,15 +101,11 @@ export type PieceMeasured = PieceMeasure & { id: string; settled: boolean };
           @if (thumb(); as url) {
             <img class="miniatura" [src]="url" alt="" decoding="async" draggable="false" />
           } @else {
-            <div class="esperando"></div>
+            <div class="esperando" [style.background]="photoWait"></div>
           }
-        } @else if (info().kind === 'nota') {
-          <div class="tira"><span>{{ cardTitle() }}</span></div>
         } @else {
-          <div class="leve">
-            <lucide-icon [img]="icon()" [size]="20" aria-hidden="true" />
-            <span>{{ widgetName() }}</span>
-          </div>
+          <!-- no meio: a aparência de longe (far-look.ts), a mesma da miniatura do canvas e da camada de longe -->
+          <svg class="de-longe" [attr.viewBox]="box()" preserveAspectRatio="none" aria-hidden="true"><g appSketchShapes [items]="far()"></g></svg>
         }
       }
     }
@@ -113,6 +117,8 @@ export class FreeBoardPiece {
   readonly level = input.required<'perto' | 'meio'>();
   /** A miniatura pronta da imagem (para o meio), ou null. */
   readonly thumb = input<string | null>(null);
+  /** O zoom da última conta da cena: o texto do nível meio se mede em px da tela. */
+  readonly zoom = input(1);
   /** Quantas peças a moldura tem dentro (para o nome falado). */
   readonly count = input(0);
   readonly links = input<NoteLinks | null>(null);
@@ -153,26 +159,23 @@ export class FreeBoardPiece {
   protected readonly parts = computed(() => noteParts(this.text()));
   protected readonly cardTitle2 = computed(() => plainText(this.parts().title).trim() || calloutFallbackTitle(this.look()));
   protected readonly cardIcon = computed(() => CALLOUT_ICON[this.look()]);
-  protected readonly cardTitle = computed(() => {
-    const w = this.widget();
-    return w ? readCardRef(w.args).title || 'Anotação' : 'Anotação';
+  private readonly cards = cardsFrom(inject(CardFinder));
+  /** A foto que ainda não chegou: o mesmo escuro da camada de longe. */
+  protected readonly photoWait = PHOTO_WAIT;
+  /** A caixa do desenho do meio: a peça no mundo. */
+  protected readonly box = computed(() => {
+    const n = this.node();
+    return `${n.x} ${n.y} ${n.w} ${n.h}`;
   });
-  protected readonly widgetName = computed(() => widgetDef(this.widget()?.name ?? '')?.label ?? 'Widget');
-  protected readonly icon = computed(() => {
-    switch (this.widget()?.name) {
-      case 'contador':
-        return ICON.ampulheta;
-      case 'video':
-        return ICON.video;
-      case 'audio':
-        return ICON.som;
-      case 'tabela':
-        return ICON.tabela;
-      case 'pixel':
-        return ICON.pixelArt;
-      default:
-        return ICON.imagem;
-    }
+  /** O desenho do meio: a aparência de longe da peça, com o texto em px da tela (o zoom da conta). */
+  protected readonly far = computed<SketchItem[]>(() => {
+    if (this.level() !== 'meio') return [];
+    sketchFontsReady();
+    const items: SketchItem[] = [];
+    const n = this.node();
+    // o modo rico, como o assado da miniatura: quanto falta no contador, as fileiras da tabela, o começo do texto
+    pieceItems(items, n, pieceLook(n, this.cards, this.info()), this.zoom(), { now: Date.now() });
+    return items;
   });
 
   /** O nome falado (seção 4.9): "Moldura Roxo (Quartos), 12 peças", "Texto: Senha?", "Imagem". */

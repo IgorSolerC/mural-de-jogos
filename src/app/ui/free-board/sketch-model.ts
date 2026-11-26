@@ -1,9 +1,10 @@
+import { signal } from '@angular/core';
 import { FbFrame, FbNode, shownEdges } from '../../core/free-board';
 import { Rect } from '../../core/free-board-geometry';
 import { inkOf, inkPaths } from '../../core/pixel-art';
 import { remaining, targetOf } from '../../core/widgets';
 import { STOCK_HEX } from './far-palette';
-import { CardOf, FarInner, PieceLook, frameLook, pieceLook } from './far-look';
+import { CardOf, FarInner, PHOTO_WAIT, PieceLook, frameLook, pieceLook } from './far-look';
 import { Scene } from './scene';
 
 /**
@@ -72,7 +73,7 @@ export function sketchModel(scene: Scene, nodes: readonly FbNode[], box: Rect, c
 const r2 = (v: number) => Math.round(v * 100) / 100;
 
 /** A moldura: o feltro de cantos macios, o pesponto por dentro e o nome numa fita no canto de cima. */
-export function frameItems(items: SketchItem[], f: FbFrame, k: number): void {
+export function frameItems(items: SketchItem[], f: FbFrame, k: number, tape = true): void {
   const look = frameLook(f);
   const rx = Math.min(4 / k, Math.min(f.w, f.h) / 5);
   items.push({ t: 'r', x: f.x, y: f.y, w: f.w, h: f.h, rx, fill: look.felt, role: 'feltro' });
@@ -92,7 +93,7 @@ export function frameItems(items: SketchItem[], f: FbFrame, k: number): void {
       op: 0.7,
     });
   }
-  if (!look.name || f.w * k < SKETCH_TAPE_W || f.h * k < 22) return;
+  if (!tape || !look.name || f.w * k < SKETCH_TAPE_W || f.h * k < 22) return;
   const font = 7;
   const padX = 3.5 / k;
   const room = f.w - 2 * (inset + 3 / k);
@@ -206,7 +207,7 @@ function innerItems(items: SketchItem[], inner: FarInner | null, r: Rect, bandH:
       const inks = inkOf(art.palette, art.colors);
       if (art.w * art.h > MAX_PIXEL_CELLS) {
         const first = inks.find((c, i) => i > 0 && c);
-        items.push({ t: 'r', x: ox, y: oy, w: art.w * s, h: art.h * s, rx: 0, fill: first ?? '#7d776d' });
+        items.push({ t: 'r', x: ox, y: oy, w: art.w * s, h: art.h * s, rx: 0, fill: first ?? PHOTO_WAIT });
         return;
       }
       const tr = `translate(${r2(ox)} ${r2(oy)}) scale(${s})`;
@@ -278,6 +279,25 @@ function innerItems(items: SketchItem[], inner: FarInner | null, r: Rect, bandH:
 function topRounded(x: number, y: number, w: number, h: number, r: number): string {
   const rr = Math.max(0, Math.min(r, w / 2, h));
   return `M${r2(x)} ${r2(y + h)}V${r2(y + rr)}Q${r2(x)} ${r2(y)} ${r2(x + rr)} ${r2(y)}H${r2(x + w - rr)}Q${r2(x + w)} ${r2(y)} ${r2(x + w)} ${r2(y + rr)}V${r2(y + h)}Z`;
+}
+
+/** As letras que o desenho mede e escreve (a caneta dos títulos e a fita das molduras). */
+export const SKETCH_FONTS = ['700 9px Kalam', '800 9px "Barlow Condensed"'];
+
+const fonts = signal(false);
+let asked = false;
+
+/**
+ * As letras do desenho já chegaram? Lido dentro de um computed, ele volta a medir quando elas chegam: antes disso o
+ * canvas mede com a letra de reserva, e o título caberia errado (passando da peça, ou cortado à toa).
+ */
+export function sketchFontsReady(): boolean {
+  if (!asked) {
+    asked = true;
+    if (typeof document === 'undefined' || !document.fonts) fonts.set(true);
+    else void Promise.all(SKETCH_FONTS.map((f) => document.fonts.load(f).catch(() => null))).then(() => fonts.set(true));
+  }
+  return fonts();
 }
 
 let ruler: CanvasRenderingContext2D | null | undefined;

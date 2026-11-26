@@ -29,6 +29,8 @@ import { FreeBoardEditOverlay, SelectionAction } from './edit-overlay';
 import { FreeBoardOwner } from './owner-tools';
 import { FreeBoardTools, RulerAsk } from './tool-ruler';
 import { drawFar, farDensity } from './far-layer';
+import { cardsFrom } from './far-look';
+import { CardFinder } from '../../core/card-finder';
 import { FreeBoardPiece, PieceMeasured, cardNeed } from './free-board-piece';
 import { FreeBoardTextSheet } from './text-sheet';
 import { modKey } from '../key-label';
@@ -107,7 +109,7 @@ interface EdgeLabel {
       <div #farLayer class="mundo" aria-hidden="true"><canvas #far class="longe"></canvas></div>
       <div #front class="mundo">
         @for (p of pieces(); track p.node.i) {
-          <app-free-board-piece [node]="p.node" [info]="p.info" [level]="p.level" [thumb]="thumbOf(p.info.image, p.level)" [links]="links()" (measured)="measured($event)" />
+          <app-free-board-piece [node]="p.node" [info]="p.info" [level]="p.level" [thumb]="thumbOf(p.info.image, p.level)" [zoom]="z()" [links]="links()" (measured)="measured($event)" />
         }
         <!-- o rótulo da seta é fita colada por cima de tudo: nunca some debaixo de uma foto -->
         @for (e of labels(); track e.id) {
@@ -365,7 +367,9 @@ export class FreeBoardView implements RigHost {
   /** O que está montado agora (a última conta da cena). */
   private readonly view = signal<SceneFrame | null>(null);
   /** O zoom da última conta (as setas e a porcentagem mudam por ele, não a cada quadro). */
-  private readonly z = signal(1);
+  protected readonly z = signal(1);
+  /** As fichas coladas (a cor e o nome delas), para a camada de longe. */
+  private readonly cards = cardsFrom(inject(CardFinder));
 
   protected readonly frames = computed(() => this.view()?.frames ?? []);
   protected readonly pieces = computed(() => this.view()?.pieces ?? []);
@@ -890,7 +894,7 @@ export class FreeBoardView implements RigHost {
     style.top = `${area.y}px`;
     style.width = `${area.w}px`;
     style.height = `${area.h}px`;
-    drawFar(ctx, { area, k, z: camera.z, far: v.far, edges: v.edges, labels, thumb: (id) => this.thumbs.get(id)?.bitmap ?? null });
+    drawFar(ctx, { area, k, z: camera.z, far: v.far, edges: v.edges, labels, thumb: (id) => this.thumbs.get(id)?.bitmap ?? null, cards: this.cards });
   }
 
   /** No meio do gesto: as camadas viram textura (rápido), sem hover nem toque nas peças; parou, nítido de novo. */

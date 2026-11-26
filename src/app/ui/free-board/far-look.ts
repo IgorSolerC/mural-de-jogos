@@ -123,8 +123,29 @@ export function frameLook(node: FbFrame): FrameLook {
 
 const plain = (s: string, max: number) => plainText(s).replace(/\s+/g, ' ').trim().slice(0, max);
 
+/**
+ * A aparência guardada de cada peça (pelo objeto dela, como `pieceInfo`: no arrasto só as peças que andaram são
+ * objetos novos). A nota colada guarda também a ficha que achou: outra cor ou outro nome, outra aparência.
+ */
+const looks = new WeakMap<FbNode, { look: PieceLook; cardId: string; card: CardInfo | null }>();
+
+const sameCard = (a: CardInfo | null, b: CardInfo | null) => a === b || (!!a && !!b && a.stock === b.stock && a.name === b.name && a.folder === b.folder);
+
 /** Uma peça que não é moldura. */
 export function pieceLook(node: FbNode, cards: CardOf | null, info: PieceInfo = pieceInfo(node)): PieceLook {
+  const kept = looks.get(node);
+  if (kept) {
+    const card = kept.cardId && cards ? cards(kept.cardId) : null;
+    if (sameCard(card, kept.card)) return kept.look;
+  }
+  const cardId = node.t === 'w' && info.kind === 'nota' ? readCardRef(parseWidgetLine(node.src.split('\n')[0])?.args ?? []).id : '';
+  const card = cardId && cards ? cards(cardId) : null;
+  const look = readLook(node, card, info);
+  looks.set(node, { look, cardId, card });
+  return look;
+}
+
+function readLook(node: FbNode, found: CardInfo | null, info: PieceInfo): PieceLook {
   const base: PieceLook = { paper: cardPaper(), band: null, ink: INK, bodyInk: INK, title: '', body: '', edge: null, inner: null, tab: null };
   if (node.t === 'x') {
     // o card do texto: a faixa do jeito (o título) e a folha clara (o resto)
@@ -141,8 +162,7 @@ export function pieceLook(node: FbNode, cards: CardOf | null, info: PieceInfo = 
   const args = parsed?.args ?? [];
   switch (info.kind === 'widget' ? (parsed?.name ?? 'tabela') : info.kind) {
     case 'nota': {
-      const ref = readCardRef(args);
-      const card = ref.id && cards ? cards(ref.id) : null;
+      const card = found;
       if (!card) return { ...base, paper: cardPaper(), ink: '#6d675d', title: '' };
       const paper = stockColor(card.stock);
       const ink = isDarkStock(card.stock) || lightness(paper) < 0.18 ? INK_LIGHT : INK;

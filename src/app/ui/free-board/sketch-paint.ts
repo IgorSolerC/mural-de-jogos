@@ -8,8 +8,7 @@ import { SketchItem, SketchModel } from './sketch-model';
 
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
-/** As letras que o assado usa (espera que estejam prontas antes de medir e pintar). */
-export const SKETCH_FONTS = ['700 9px Kalam', '800 9px "Barlow Condensed"'];
+// (as letras: SKETCH_FONTS, em sketch-model.ts)
 
 /** A caixa do mundo (`x y w h`) no canvas de `w` × `h` px, como o `preserveAspectRatio="xMidYMid meet"` do SVG. */
 export function fitBox(box: string, w: number, h: number): { s: number; ox: number; oy: number } {
@@ -38,12 +37,34 @@ export function paintSketch(ctx: Ctx, model: SketchModel, w: number, h: number, 
 export function paintItems(ctx: Ctx, items: readonly SketchItem[], base: DOMMatrix, k: number, photos: ReadonlyMap<string, ImageBitmap>): void {
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  for (const it of items) {
-    ctx.save();
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
     ctx.globalAlpha = 'op' in it && it.op !== undefined ? it.op : 1;
+    // os retângulos lisos seguidos da mesma cor viram um preenchimento só (a camada de longe tem milhares)
+    if (it.t === 'r' && !it.stroke && !it.role && it.fill !== 'none') {
+      ctx.beginPath();
+      ctx.roundRect(it.x, it.y, it.w, it.h, it.rx);
+      while (i + 1 < items.length) {
+        const n = items[i + 1];
+        if (n.t !== 'r' || n.stroke || n.role || n.fill !== it.fill || n.op !== it.op) break;
+        ctx.roundRect(n.x, n.y, n.w, n.h, n.rx);
+        i++;
+      }
+      ctx.fillStyle = it.fill;
+      ctx.fill();
+      continue;
+    }
+    // o retângulo e o caminho lisos (quase tudo) não mexem no estado: sem o save/restore, que pesa com milhares
+    const plain = (it.t === 'r' && !it.dash && !it.role) || (it.t === 'p' && !it.tr && !it.role);
+    if (plain) {
+      paintItem(ctx, it, base, k, photos);
+      continue;
+    }
+    ctx.save();
     paintItem(ctx, it, base, k, photos);
     ctx.restore();
   }
+  ctx.globalAlpha = 1;
 }
 
 function paintItem(ctx: Ctx, it: SketchItem, base: DOMMatrix, k: number, photos: ReadonlyMap<string, ImageBitmap>): void {

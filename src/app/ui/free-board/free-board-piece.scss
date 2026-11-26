@@ -116,14 +116,9 @@
   --line: 1.5em;
 }
 
-/* só o título (ou no meio): a faixa enche a peça, sem a moldura do pé */
+/* só o título: a faixa enche a peça, sem a moldura do pé */
 .cartao:not(:has(> .cartao-corpo)) {
   padding-bottom: 0;
-}
-
-/* no meio, sem a sombra (são muitas peças pequenas na tela) */
-.cartao.liso {
-  box-shadow: none;
 }
 
 .cartao-topo {
@@ -150,11 +145,6 @@
   @include formatado.cartao-icone;
   /* no meio da primeira linha do título, que pode quebrar */
   margin-top: calc((var(--line) - 1.02em) / 2);
-}
-
-/* no meio, o título numa linha só (a peça está pequena na tela) */
-.cartao.liso .cartao-titulo {
-  -webkit-line-clamp: 1;
 }
 
 /* o texto na folha clara (sem título, a moldura em cima também) */
@@ -222,39 +212,11 @@ app-note-widget,
   filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.5));
 }
 
-.esperando {
-  background: #5d5954;
-}
-
-/* a nota no meio: a tira do "Só o título", o papel de ficha com o título a caneta */
-.tira {
+/* no meio (o texto, a nota colada, os widgets menos a foto): a aparência de longe (far-look.ts), a mesma da miniatura
+   do canvas e da camada de longe, desenhada num SVG do tamanho da peça. A orelhinha da pasta passa da beirada */
+.de-longe {
+  display: block;
+  width: 100%;
   height: 100%;
-  box-sizing: border-box;
-  padding: 0 14px;
-  display: flex;
-  align-items: center;
-  background: var(--papel-ficha);
-  font: 700 1.2rem / 1.2 var(--f-hand);
-
-  span {
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-}
-
-/* o widget no meio: o ícone e o nome, impressos */
-.leve {
-  height: 100%;
-  box-sizing: border-box;
-  padding: 0 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background: #e4ddcf;
-  color: var(--ink-2);
-  font: 800 1rem / 1 var(--f-label);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  overflow: visible;
 }

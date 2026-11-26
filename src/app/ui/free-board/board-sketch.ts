@@ -7,8 +7,8 @@ import { parseWidgetLine, readCardRef } from '../../core/widgets';
 import { Fornada, desenfornar, enfornar, fornoEpoca, fornoLigado, resumoDe } from '../forno';
 import { CardInfo, CardOf } from './far-look';
 import { Scene, pieceInfo } from './scene';
-import { SketchModel, sketchModel } from './sketch-model';
-import { SKETCH_FONTS, fitBox, paintSketch } from './sketch-paint';
+import { SKETCH_FONTS, SketchModel, sketchFontsReady, sketchModel } from './sketch-model';
+import { fitBox, paintSketch } from './sketch-paint';
 import { SketchShapes } from './sketch-shapes';
 
 /** Muda quando o desenho do assado muda (as chaves antigas deixam de valer). */
@@ -173,7 +173,10 @@ export class BoardSketch {
       distancia: () => this.distance(),
       assar: async () => {
         try {
-          if (this.bakingKey !== key) return;
+          if (this.bakingKey !== key) {
+            for (const b of photos.values()) b.close();
+            return;
+          }
           const canvas = new OffscreenCanvas(Math.round(w * dpr), Math.round(h * dpr));
           const ctx = canvas.getContext('2d');
           if (!ctx) return;
@@ -181,9 +184,13 @@ export class BoardSketch {
           const blob = await canvas.convertToBlob({ type: 'image/png' });
           await guardarNoForno(key, blob);
           if (this.bakingKey === key) this.show(blob);
-        } finally {
+          // deu certo: as fotos não servem mais (numa falha elas ficam, porque a esteira tenta de novo com o mesmo)
           for (const b of photos.values()) b.close();
           if (this.waiting?.job === job) this.waiting = null;
+        } catch (err) {
+          // a que não é mais a de agora não vai ser tentada de novo por ninguém que a queira
+          if (this.bakingKey !== key) for (const b of photos.values()) b.close();
+          throw err;
         }
       },
     };
@@ -233,6 +240,7 @@ export class BoardSketch {
     // a que esperava na esteira sai dela, com as fotos que tinha aberto
     if (this.waiting) {
       desenfornar(this.waiting.job);
+      // (fechar duas vezes não faz mal: a que já assou fechou as dela)
       for (const b of this.waiting.photos.values()) b.close();
     }
     this.waiting = null;
@@ -268,6 +276,8 @@ export class BoardSketch {
     if (!s) return null;
     const found = this.found();
     const { w, h } = this.size();
+    // (as letras que chegaram depois: mede de novo)
+    sketchFontsReady();
     return sketchModel(s.scene, s.nodes, s.box, (id) => found.get(id) ?? null, w || GUESS_PX, h || (GUESS_PX * 2) / 3);
   });
 }
