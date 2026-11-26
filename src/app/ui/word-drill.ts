@@ -1,15 +1,16 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
 import { Word, spokenOf } from '../core/dictionary/dictionary';
-import { BrushStroke, DrillAnswer, DrillItem, DrillSetup, JaMatch, WAY_INFO, checkJa, checkPt, drawDrill, drillScore, drillText } from '../core/dictionary/drill';
+import { BrushStroke, DrillAnswer, DrillItem, DrillSetup, JaMatch, WAY_INFO, checkJa, checkPt, drawDrill, drillScore, drillText, redrawDrill } from '../core/dictionary/drill';
 import { hasKanji, romajiToKana } from '../core/dictionary/kana';
 import { BOUNCE_MS, reducedMotion } from '../core/motion';
 import { Voz } from '../core/voz';
 import { loadKleeOne } from './font-sheet';
 import { ICON, IconModule } from './icons';
 import { WordVoice } from './word-voice';
-import { BrushPad } from './brush-pad';
+import { BrushPad, BrushView } from './brush-pad';
+import { WordBoard, boardChars } from './word-board';
 import { StrokeReplay, Strokes, Tianzige } from './stroke-order';
-import { boardChars } from './word-board';
 
 /** A pergunta de cada jeito, em uma frase. */
 const QUESTION: Record<DrillItem['way'], string> = {
@@ -34,7 +35,7 @@ const JA_MATCH_SAID: Record<Exclude<JaMatch, null>, string> = {
  */
 @Component({
   selector: 'app-word-drill',
-  imports: [BrushPad, IconModule, StrokeReplay, Tianzige, WordVoice],
+  imports: [BrushPad, BrushView, DecimalPipe, IconModule, StrokeReplay, Tianzige, WordBoard, WordVoice],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './word-drill.html',
   styleUrl: './word-drill.scss',
@@ -54,7 +55,10 @@ export class WordDrill {
   protected readonly UndoIcon = ICON.desfazer;
   protected readonly AgainIcon = ICON.recomecar;
   protected readonly ClearIcon = ICON.borracha;
+  protected readonly RetryIcon = ICON.alvo;
   protected readonly WAY_INFO = WAY_INFO;
+  /** Sem traços (um só, para o quadro não achar que mudou a cada desenho da tela). */
+  protected readonly NONE: BrushStroke[] = [];
   protected readonly QUESTION = QUESTION;
   protected readonly calm = reducedMotion();
 
@@ -75,6 +79,8 @@ export class WordDrill {
   protected readonly strokes = signal<Record<string, Strokes> | null>(null);
   /** Depois de conferir: o quadrado certo que está se desenhando (um depois do outro). */
   protected readonly replayAt = signal(-1);
+  /** A palavra aberta na lousa, por cima do boletim. */
+  protected readonly boardWord = signal<Word | null>(null);
   /** O que o leitor de tela diz (conferiu, respondeu). */
   protected readonly spoken = signal('');
   private started = Date.now();
@@ -90,6 +96,13 @@ export class WordDrill {
     const it = this.item();
     return !!it && hasKanji(it.word.text) && it.word.reading !== it.word.text;
   });
+
+  /** O boletim: as erradas primeiro (é o que ensina), depois as certas, cada uma com o que a pessoa fez. */
+  protected readonly report = computed(() => {
+    const list = this.answers().map((a) => ({ ...a, chars: a.item.way === 'escrever' ? boardChars(drillText(a.item.word)) : [] }));
+    return { wrong: list.filter((a) => !a.ok), right: list.filter((a) => a.ok) };
+  });
+  protected readonly HINT_SAID: Record<string, string> = { som: 'Dica: o som', romaji: 'Dica: o romaji', traducao: 'Dica: a tradução', escrito: 'Japonês escrito', falado: 'Japonês falado' };
 
   /** Os caracteres da palavra da vez, cada um no seu quadrado (o Escrever à mão). */
   protected readonly chars = computed(() => {
@@ -139,9 +152,10 @@ export class WordDrill {
   }
 
   /** Um treino novo com estas palavras (o primeiro, ou o Outro treino do fim). */
-  private begin(words: readonly Word[]): void {
+  private begin(words: readonly Word[], all = false): void {
     const voice = this.voz.voicesOf('ja').length > 0;
-    this.items.set(drawDrill(words, this.setup(), `${Date.now()}:${this.rounds++}`, voice));
+    const seed = `${Date.now()}:${this.rounds++}`;
+    this.items.set(all ? redrawDrill(words, this.setup(), seed, voice) : drawDrill(words, this.setup(), seed, voice));
     if (!this.strokes() && this.items().some((i) => i.way === 'escrever'))
       import('../core/dictionary/strokes').then((m) => this.strokes.set(m.STROKES)).catch(() => undefined);
     this.answers.set([]);
@@ -160,8 +174,8 @@ export class WordDrill {
     this.swappedAt = performance.now();
     const it = this.item();
     if (!it) {
-      this.spoken.set('Treino completo.');
-      this.focusLater('.fim .btn-ink');
+      this.spoken.set(`Treino completo. Acertou ${this.score().right} de ${this.score().total}.`);
+      this.focusLater('.boletim .btn-ink');
       return;
     }
     if (this.spokenQuestion(it)) this.say(it.word);
@@ -187,8 +201,8 @@ export class WordDrill {
     if (this.answers().length && !this.finished()) {
       this.voz.hushTitle();
       this.finished.set(true);
-      this.spoken.set('Treino parado.');
-      this.focusLater('.fim .btn-ink');
+      this.spoken.set(`Treino parado. Acertou ${this.score().right} de ${this.score().total}.`);
+      this.focusLater('.boletim .btn-ink');
     } else this.close();
   }
 
@@ -276,11 +290,30 @@ export class WordDrill {
     this.begin(this.pool());
   }
 
+  /** Treinar as que errei: só as erradas deste treino, todas, cada uma com um jeito (e uma dica) sorteado de novo. */
+  protected retryWrong(): void {
+    const wrong = this.report().wrong.map((a) => a.item.word);
+    if (wrong.length) this.begin(wrong, true);
+  }
+
+  /** A palavra do boletim na lousa (por cima); fechando, o foco volta para ela. */
+  protected openBoard(w: Word): void {
+    this.boardWord.set(w);
+  }
+
+  protected closeBoard(): void {
+    const w = this.boardWord();
+    this.boardWord.set(null);
+    if (w) this.focusLater(`.boletim [data-palavra="${w.id}"]`);
+  }
+
   protected onKey(e: KeyboardEvent): void {
     const inField = e.target instanceof HTMLElement && !!e.target.closest('input, textarea');
     const key = e.key.toLowerCase();
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (inField && !this.checked()) return;
+    // a lousa aberta por cima do boletim tem as teclas dela
+    if (this.boardWord()) return;
     const onButton = e.target instanceof Element && !!e.target.closest('button, a[href]');
     // no Escrever, o Enter confere de qualquer lugar (o quadro de traçar não é um campo)
     if (key === 'enter' && !onButton && !this.checked() && this.item()?.way === 'escrever') {

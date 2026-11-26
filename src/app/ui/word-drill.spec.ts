@@ -194,8 +194,8 @@ describe('Treino do dicionário', () => {
       await wait(10);
       expect(document.activeElement).toBe(el.querySelector('.acertei'));
       await key('2');
-      expect(el.querySelector('.fim h3')!.textContent).toContain('Treino completo.');
-      expect(el.querySelector('.fim-conta')!.textContent).toContain('1');
+      expect(el.querySelector('.boletim h3')!.textContent).toContain('Treino completo.');
+      expect(el.querySelector('.boletim-conta')!.textContent).toContain('1');
     });
 
     it('Japonês → português: o que não bate diz, o 1 erra, e o Desfazer volta com o que se escreveu', async () => {
@@ -294,15 +294,57 @@ describe('Treino do dicionário', () => {
       expect(el.querySelector('.so-som app-word-voice')).toBeTruthy();
     });
 
+    it('o boletim: as erradas primeiro, os desenhos e o que se escreveu, por jeito; Treinar as que errei e a lousa', async () => {
+      await open(['食べる', 'テレビ'], { ways: ['escrever', 'jp-pt'], hints: ['romaji'], show: ['escrito'] });
+      for (let k = 0; k < 2; k++) {
+        if (el.querySelector('.quadros')) {
+          await drawIn(0);
+          await key('Enter');
+          await key('1');
+        } else {
+          await type('qualquer');
+          await key('2');
+        }
+      }
+      // pode ter saído o mesmo jeito para as duas: o boletim conta o que saiu
+      const boletim = el.querySelector('.boletim')!;
+      expect(boletim.querySelector('h3')!.textContent).toContain('Treino completo.');
+      const groups = [...boletim.querySelectorAll('.boletim-grupo')].map((g) => g.textContent!.replace(/\s+/g, ' ').trim());
+      const comp = fixture.componentInstance as unknown as { report(): { wrong: { item: { way: string } }[]; right: unknown[] } };
+      const { wrong, right } = comp.report();
+      expect(groups[0]).toContain(wrong.length ? 'Errou' : 'Acertou');
+      expect(boletim.querySelectorAll('.resposta-linha').length).toBe(2);
+      // o desenho de quem escreveu, com o certo ao lado de cada caractere
+      const drawn = [...boletim.querySelectorAll('.resposta-linha')].find((l) => l.querySelector('.desenhos'));
+      if (drawn) {
+        expect(drawn.querySelectorAll('app-brush-view').length).toBe(drawn.querySelectorAll('.mini-quadro.certo').length);
+      }
+      const typed = [...boletim.querySelectorAll('.resposta-linha')].find((l) => l.querySelector('.escreveu'));
+      if (typed) expect(typed.querySelector('.escreveu')!.textContent).toContain('qualquer');
+      expect(wrong.length + right.length).toBe(2);
+      // a lousa abre por cima, e fecha de volta para o boletim
+      boletim.querySelector<HTMLButtonElement>('.palavra-boletim')!.click();
+      await settle(fixture);
+      expect(el.querySelector('app-word-board')).toBeTruthy();
+      el.querySelector<HTMLDialogElement>('app-word-board dialog')!.close();
+      for (let i = 0; i < 20 && el.querySelector('app-word-board'); i++) await settle(fixture);
+      expect(el.querySelector('app-word-board')).toBeNull();
+      if (wrong.length) {
+        el.querySelector<HTMLButtonElement>('.boletim .btn-ink')!.click();
+        await settle(fixture);
+        expect(el.querySelector('.baralho')!.textContent).toContain(`1 de ${wrong.length}`);
+      }
+    });
+
     it('Parar depois de uma resposta mostra o fim com o que já foi feito; Outro treino recomeça', async () => {
       await open(['テレビ', '来る', '食べる'], { ways: ['pt-jp'] });
       await type('xx');
       await key('2');
       el.querySelector<HTMLButtonElement>('.parar')!.click();
       await settle(fixture);
-      expect(el.querySelector('.fim h3')!.textContent).toContain('Treino parado.');
-      expect(el.querySelector('.fim-conta')!.textContent).toContain('1 de 1');
-      el.querySelector<HTMLButtonElement>('.fim .btn-ink')!.click();
+      expect(el.querySelector('.boletim h3')!.textContent).toContain('Treino parado.');
+      expect(el.querySelector('.boletim-conta')!.textContent!.replace(/\s+/g, ' ')).toContain('1 de 1');
+      el.querySelector<HTMLButtonElement>('.boletim .btn-ink')!.click();
       await settle(fixture);
       expect(el.querySelector('.baralho')!.textContent).toContain('1 de 3');
       expect(el.querySelector('.placar')).toBeNull();

@@ -74,7 +74,7 @@
               <div class="par">
                 <div class="quadro">
                   <app-tianzige class="grade" />
-                  <app-brush-pad class="pincel" [strokes]="drawings()[i] ?? []" (strokesChange)="setDrawing(i, $event)" [label]="'Quadrado ' + (i + 1) + ' de ' + chars().length + ': ' + (drawings()[i]?.length ?? 0) + ' traços'" [attr.inert]="checked() ? '' : null" />
+                  <app-brush-pad class="pincel" [strokes]="drawings()[i] ?? NONE" (strokesChange)="setDrawing(i, $event)" [label]="'Quadrado ' + (i + 1) + ' de ' + chars().length + ': ' + (drawings()[i]?.length ?? 0) + ' traços'" [attr.inert]="checked() ? '' : null" />
                 </div>
                 @if (!checked()) {
                   <button type="button" class="desfazer-quadro" [disabled]="!drawings()[i]?.length" (click)="undoIn(i)" [attr.aria-label]="'Desfazer o último traço do quadrado ' + (i + 1)">
@@ -170,20 +170,100 @@
       }
     </div>
   } @else if (finished()) {
+    <!-- o boletim: a conta, o que errou (primeiro: é o que ensina) e o que acertou, com tudo o que foi feito -->
     <div class="mesa">
-      <section class="fim" aria-labelledby="fim-titulo">
-        <h3 id="fim-titulo">{{ answers().length < items().length ? 'Treino parado.' : 'Treino completo.' }}</h3>
-        <p class="fim-conta"><strong>{{ score().right }}</strong> de {{ score().total }} {{ score().total === 1 ? 'acerto' : 'acertos' }} · {{ minutes() }}</p>
-        <p class="fim-mao">O treino não fica guardado: nada mudou no dicionário.</p>
-        <div class="fim-acoes">
-          <button type="button" class="btn-ink" (click)="again()">
-            <lucide-icon [img]="AgainIcon" [size]="16" aria-hidden="true" />
-            Outro treino
-          </button>
-          <button type="button" class="papel" (click)="close()">Voltar ao dicionário</button>
-        </div>
+      <section class="folha boletim" aria-labelledby="fim-titulo">
+        <header class="boletim-cab">
+          <h3 id="fim-titulo">{{ answers().length < items().length ? 'Treino parado.' : 'Treino completo.' }}</h3>
+          <p class="boletim-conta">
+            Acertou <strong>{{ score().right }}</strong> de {{ score().total }}
+            @if (score().total) {
+              <span class="pct">({{ (score().right * 100) / score().total | number: '1.0-0' }}%)</span>
+            }
+            · {{ minutes() }}
+          </p>
+          @if (score().byWay.length > 1) {
+            <ul class="por-jeito" aria-label="Por jeito">
+              @for (w of score().byWay; track w.way) {
+                <li><span class="jeito-selo mini" lang="ja" aria-hidden="true">{{ WAY_INFO[w.way].seal }}</span><span class="sr-only">{{ WAY_INFO[w.way].label }}: </span>{{ w.right }} de {{ w.total }}</li>
+              }
+            </ul>
+          }
+          <div class="fim-acoes">
+            @if (report().wrong.length) {
+              <button type="button" class="btn-ink" (click)="retryWrong()">
+                <lucide-icon [img]="RetryIcon" [size]="16" aria-hidden="true" />
+                Treinar as que errei
+              </button>
+              <button type="button" class="papel" (click)="again()">
+                <lucide-icon [img]="AgainIcon" [size]="16" aria-hidden="true" />
+                Outro treino
+              </button>
+            } @else {
+              <button type="button" class="btn-ink" (click)="again()">
+                <lucide-icon [img]="AgainIcon" [size]="16" aria-hidden="true" />
+                Outro treino
+              </button>
+            }
+            <button type="button" class="papel" (click)="close()">Voltar ao dicionário</button>
+          </div>
+        </header>
+
+        @for (group of [{ name: 'Errou', list: report().wrong, ok: false }, { name: 'Acertou', list: report().right, ok: true }]; track group.name) {
+          @if (group.list.length) {
+            <h4 class="boletim-grupo" [class.certas]="group.ok">
+              <lucide-icon [img]="group.ok ? RightIcon : WrongIcon" [size]="17" aria-hidden="true" />
+              {{ group.name }} <span class="grupo-n">{{ group.list.length }}</span>
+            </h4>
+            <ul class="boletim-lista" role="list">
+              @for (a of group.list; track $index) {
+                <li class="resposta-linha">
+                  <span class="jeito-selo mini" lang="ja" [title]="WAY_INFO[a.item.way].label" aria-hidden="true">{{ WAY_INFO[a.item.way].seal }}</span>
+                  <button type="button" class="palavra-boletim" [attr.data-palavra]="a.item.word.id" [title]="'Abrir ' + a.item.word.text + ' na lousa'" (click)="openBoard(a.item.word)">
+                    <span class="pb-ja" lang="ja">{{ a.item.word.text }}</span>
+                    @if (a.item.word.reading !== a.item.word.text) {
+                      <span class="pb-leitura" lang="ja">{{ a.item.word.reading }}</span>
+                    }
+                    <span class="pb-pt">{{ a.item.word.meaning }}</span>
+                  </button>
+                  <div class="feito">
+                    <p class="pb-meta">
+                      {{ WAY_INFO[a.item.way].label }}
+                      @if (a.item.hint ?? a.item.show; as h) {
+                        · {{ HINT_SAID[h] }}
+                      }
+                    </p>
+                    @if (a.item.way === 'escrever') {
+                      <!-- o desenho da pessoa em cima e o certo embaixo, caractere por caractere -->
+                      <div class="desenhos" role="group" [attr.aria-label]="'Seu desenho e o certo de ' + a.item.word.text">
+                        @for (c of a.chars; track $index; let i = $index) {
+                          <div class="desenho-par">
+                            <div class="mini-quadro">
+                              <app-tianzige class="grade" />
+                              <app-brush-view class="pincel" [strokes]="a.drawing?.[i] ?? NONE" [label]="'Seu ' + (i + 1) + 'º caractere'" />
+                            </div>
+                            <div class="mini-quadro certo">
+                              <app-tianzige class="grade" />
+                              <span class="no-pincel" lang="ja" aria-hidden="true">{{ c }}</span>
+                            </div>
+                          </div>
+                        }
+                      </div>
+                    } @else {
+                      <p class="escreveu">Você escreveu: <span [attr.lang]="a.item.way === 'pt-jp' ? 'ja' : null">{{ a.typed?.trim() || '(nada)' }}</span></p>
+                    }
+                  </div>
+                </li>
+              }
+            </ul>
+          }
+        }
       </section>
     </div>
+  }
+
+  @if (boardWord(); as bw) {
+    <app-word-board [word]="bw" (goto)="boardWord.set($event)" (closed)="closeBoard()" />
   }
 
   <p class="sr-only" aria-live="polite">{{ spoken() }}</p>

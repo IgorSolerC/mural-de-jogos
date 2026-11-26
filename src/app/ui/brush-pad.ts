@@ -166,3 +166,58 @@ export function paintStrokes(ctx: CanvasRenderingContext2D, strokes: readonly Br
     }
   }
 }
+
+/**
+ * Os traços do pincel só para ver, pequenos (o boletim do Treino: os desenhos que a pessoa fez), redesenhados nítidos
+ * quando o tamanho muda.
+ */
+@Component({
+  selector: 'app-brush-view',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { role: 'img', '[attr.aria-label]': 'label()' },
+  template: `<canvas #tela></canvas>`,
+  styles: `
+    :host {
+      display: block;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  `,
+})
+export class BrushView {
+  readonly strokes = input.required<readonly BrushStroke[]>();
+  readonly label = input('');
+  private readonly destroy = inject(DestroyRef);
+  private readonly canvas = viewChild.required<ElementRef<HTMLCanvasElement>>('tela');
+
+  constructor() {
+    effect(() => {
+      this.strokes();
+      untracked(() => this.paint());
+    });
+    afterNextRender(() => {
+      this.paint();
+      if (typeof ResizeObserver !== 'undefined') {
+        const watch = new ResizeObserver(() => this.paint());
+        watch.observe(this.canvas().nativeElement);
+        this.destroy.onDestroy(() => watch.disconnect());
+      }
+    });
+  }
+
+  private paint(): void {
+    const canvas = this.canvas().nativeElement;
+    const box = canvas.getBoundingClientRect();
+    if (!box.width) return;
+    const size = Math.round(box.width * (window.devicePixelRatio || 1));
+    if (canvas.width !== size) {
+      canvas.width = size;
+      canvas.height = size;
+    }
+    const ctx = canvas.getContext('2d');
+    if (ctx) paintStrokes(ctx, this.strokes(), size);
+  }
+}
