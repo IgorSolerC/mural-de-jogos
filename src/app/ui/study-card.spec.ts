@@ -241,6 +241,18 @@ describe('a frente da carta (ui/study-card.ts)', () => {
     expect($('.bolinha')).toBeNull();
   });
 
+  it('as pastéis fazem os fios na clara do mesmo matiz, e a bege em sépia, como a branca (sumiriam no creme)', () => {
+    host.stock.set('azul-pastel');
+    show('classica', LEARNING);
+    expect($('.carta')!.style.getPropertyValue('--fio')).toBe('var(--stock-azul)');
+    host.stock.set('bege');
+    show('classica', LEARNING);
+    expect($('.carta')!.style.getPropertyValue('--fio')).toBe('#9a7b55');
+    host.stock.set('marrom');
+    show('classica', LEARNING);
+    expect($('.carta')!.style.getPropertyValue('--fio')).toBe('var(--stock-marrom)');
+  });
+
   it('a cartolina escura: a tinta clara onde o desenho imprime na cor dela', () => {
     host.stock.set('verde-escuro');
     show('cartolina', LEARNING);

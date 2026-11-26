@@ -418,8 +418,8 @@ describe('Gastos: revisão (28/out)', () => {
     expect(ids.has('novo1') && ids.has('novo2')).toBeTrue();
   });
 
-  it('a cor de uma categoria nova é a menos usada, nunca preto nem branco', () => {
-    const others = STOCKS.filter((s) => s !== 'preto' && s !== 'branco');
+  it('a cor de uma categoria nova é a menos usada, nunca preto nem branco (nem pastel)', () => {
+    const others = STOCKS.filter((s) => s !== 'preto' && s !== 'branco' && !s.endsWith('-pastel') && s !== 'bege' && s !== 'marrom');
     const all = others.map((color, i) => ({ id: `c${i}`, name: `C${i}`, flow: 'saida' as const, color, at: '2026-10-01T00:00:00.000Z' }));
     // todas as outras já usadas uma vez, e uma delas duas: a nova é uma das usadas só uma vez
     const used = [...all, { ...all[0], id: 'dup' }];
@@ -427,6 +427,7 @@ describe('Gastos: revisão (28/out)', () => {
       const c = drawCategoryColor(used, 'saida', () => r);
       expect(c).not.toBe('preto');
       expect(c).not.toBe('branco');
+      expect(others).toContain(c);
       expect(c).not.toBe(others[0]);
     }
   });

@@ -22,6 +22,10 @@ import {
   initialOf,
   DARK_STOCKS,
   LIGHT_STOCKS,
+  PASTEL_STOCKS,
+  STOCKS,
+  STOCK_LABEL,
+  isPastelStock,
   ROTATION_STOCKS,
   isDarkStock,
   originalsOf,
@@ -167,6 +171,21 @@ describe('sanitizeReview', () => {
     for (const stock of LIGHT_STOCKS) expect(isDarkStock(stock)).toBeFalse();
     // as fichas antigas sem cor continuam no rodízio de sempre
     expect(ROTATION_STOCKS.some((s) => isDarkStock(s) || s === 'branco')).toBeFalse();
+  });
+
+  it('guarda as pastéis (com o bege e o marrom), a terceira fileira, de tinta escura', () => {
+    expect(PASTEL_STOCKS.length).toBe(9);
+    expect(STOCKS.slice(18)).toEqual([...PASTEL_STOCKS]);
+    for (const stock of PASTEL_STOCKS) {
+      expect(sanitizeReview({ ...base, stock })!.stock).toBe(stock);
+      expect(isDarkStock(stock)).toBeFalse();
+      expect(isPastelStock(stock)).toBeTrue();
+      expect(STOCK_LABEL[stock]).toBeTruthy();
+    }
+    expect(PASTEL_STOCKS.slice(7)).toEqual(['bege', 'marrom']);
+    for (const stock of [...LIGHT_STOCKS, ...DARK_STOCKS]) expect(isPastelStock(stock)).toBeFalse();
+    // as fichas antigas sem cor continuam no rodízio de sempre
+    expect(ROTATION_STOCKS.some(isPastelStock)).toBeFalse();
   });
 
   it('zera a nota da categoria que o jogo não tem', () => {

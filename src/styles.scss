@@ -42,6 +42,18 @@
   --stock-rosa-escuro: #54162e;
   --stock-cinza-escuro: #403c38;
   --stock-preto: #100f0e;
+  /* As pastéis (25/nov/2026): o matiz de cada clara (OKLCH), com a luz em 0,875 e o croma baixo (0,055; o
+     amarelo, para não virar bege, 0,925 e 0,085); no lugar do branco e do preto, o bege e o marrom do papel
+     kraft. Todas com a tinta escura (12:1; o marrom, 6,5:1). */
+  --stock-vermelho-pastel: #f8c9c3;
+  --stock-laranja-pastel: #f3ceb3;
+  --stock-amarelo-pastel: #f6e7a5;
+  --stock-verde-pastel: #c0e0c1;
+  --stock-azul-pastel: #b3ddf5;
+  --stock-lilas-pastel: #dbcef5;
+  --stock-rosa-pastel: #f6c7d4;
+  --stock-bege: #e7d9c1;
+  --stock-marrom: #b99372;
 
   /* Tintas */
   --ink: #151515;
@@ -1259,8 +1271,8 @@ dialog.sheet {
 /* As cartolinas claras: no amarelo e no verde o soft-light quase não mexe (um canal já está no
    máximo) e o papel sumia (no branco, então, nem se fala). Ganham a fibra suave de reforço, em
    hard-light (a Lisa, que não tem fibra, fica sem). */
-:is([data-cor='amarelo'], [data-cor='verde'], [data-cor='azul'], [data-cor='branco']) :is(.cartolina, .papel, .head),
-:is([data-cor='amarelo'], [data-cor='verde'], [data-cor='azul'], [data-cor='branco']):is(.cartolina, .papel) {
+:is([data-cor='amarelo'], [data-cor='verde'], [data-cor='azul'], [data-cor='branco'], [data-cor$='-pastel'], [data-cor='bege']) :is(.cartolina, .papel, .head),
+:is([data-cor='amarelo'], [data-cor='verde'], [data-cor='azul'], [data-cor='branco'], [data-cor$='-pastel'], [data-cor='bege']):is(.cartolina, .papel) {
   --realce-grao: var(--grao-realce, var(--grao-realce-img, none));
 }
 
@@ -1988,11 +2000,12 @@ img.revelada {
   --c-tinta: var(--cartolina-tinta, #4b463e);
 }
 /* (e o fundo forte e a tinta dele, para a anotação aberta: ver abaixo) */
-@each $cores, $papel, $tinta, $fundo, $tinta-forte in ((vermelho vermelho-escuro) #f7d9d4 #9d2118 #f4b9b2 #972118),
-  ((laranja laranja-escuro) #fbdfc2 #934407 #fcca9d #8d4208), ((amarelo amarelo-escuro) #faeea4 #735400 #fce782 #735400),
-  ((verde verde-escuro) #d8f0db #1f6a2c #b7eebd #1f6a2c), ((azul azul-escuro) #dce8f7 #1e4f8e #b6dffa #1e4f8e),
-  ((lilas lilas-escuro) #e6dcf5 #553594 #dac9f7 #553594), ((rosa rosa-escuro) #fadce7 #99214f #fcb9d1 #99214f),
-  ((cinza cinza-escuro branco preto) #e7e4de #4b463e #ddd8d2 #4b463e)
+@each $cores, $papel, $tinta, $fundo, $tinta-forte in ((vermelho vermelho-escuro vermelho-pastel) #f7d9d4 #9d2118 #f4b9b2 #972118),
+  ((laranja laranja-escuro laranja-pastel) #fbdfc2 #934407 #fcca9d #8d4208), ((amarelo amarelo-escuro amarelo-pastel) #faeea4 #735400 #fce782 #735400),
+  ((verde verde-escuro verde-pastel) #d8f0db #1f6a2c #b7eebd #1f6a2c), ((azul azul-escuro azul-pastel) #dce8f7 #1e4f8e #b6dffa #1e4f8e),
+  ((lilas lilas-escuro lilas-pastel) #e6dcf5 #553594 #dac9f7 #553594), ((rosa rosa-escuro rosa-pastel) #fadce7 #99214f #fcb9d1 #99214f),
+  ((cinza cinza-escuro branco preto) #e7e4de #4b463e #ddd8d2 #4b463e),
+  ((bege marrom) #f1e8d8 #6a4818 #e5cd99 #6a4818)
 {
   @each $cor in $cores {
     [data-cor='#{$cor}'],

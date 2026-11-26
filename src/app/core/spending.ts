@@ -1,5 +1,5 @@
 import { MONTHS_LONG, MONTHS_SHORT } from './dates';
-import { STOCKS, Stock } from './review';
+import { STOCKS, Stock, isPastelStock } from './review';
 import { cleanLabel, fold } from './text';
 
 /**
@@ -858,8 +858,8 @@ export function spendingToSync(state: SpendingState): SpendingState | null {
 
 /** A cor de uma categoria nova: a cartolina menos usada pelas outras da mesma direção. */
 export function drawCategoryColor(categories: readonly SpendingCategory[], flow: Flow, random = Math.random): Stock {
-  // preto e branco nunca: a menos usada é a das outras cartolinas
-  const stocks = STOCKS.filter((s) => s !== 'preto' && s !== 'branco');
+  // preto e branco nunca, nem as pastéis (as cores dos Gastos são as de antes): a menos usada é a das outras cartolinas
+  const stocks = STOCKS.filter((s) => s !== 'preto' && s !== 'branco' && !isPastelStock(s));
   const used = new Map<Stock, number>(stocks.map((s) => [s, 0]));
   for (const c of categories) if (c.flow === flow && used.has(c.color)) used.set(c.color, used.get(c.color)! + 1);
   const least = Math.min(...used.values());

@@ -390,9 +390,15 @@ export class StudyCard {
   /** O teto da letra do título, em fração da altura da área (ver TITLE_MAX). */
   protected readonly titleMax = computed(() => TITLE_MAX[this.shown()] ?? TITLE_MAX_DEFAULT);
 
-  /** A cor dos fios e das molduras: a cartolina da anotação; a branca e a cinza, uma tinta sépia (sumiriam no creme). */
-  protected readonly fio = computed(() => (this.neutral() ? '#9a7b55' : `var(--stock-${this.stock() ?? 'amarelo'})`));
-  protected readonly neutral = computed(() => this.stock() === 'branco' || this.stock() === 'cinza');
+  /**
+   * A cor dos fios e das molduras: a cartolina da anotação; a branca, a cinza e a bege, uma tinta sépia
+   * (sumiriam no creme); as pastéis, a clara do mesmo matiz (a pastel também some no creme).
+   */
+  protected readonly fio = computed(() => {
+    const s = this.stock() ?? 'amarelo';
+    return this.neutral() ? '#9a7b55' : `var(--stock-${s.replace(/-pastel$/, '')})`;
+  });
+  protected readonly neutral = computed(() => this.stock() === 'branco' || this.stock() === 'cinza' || this.stock() === 'bege');
   /** A cartolina escura: a tinta clara onde o desenho imprime na cor da cartolina. */
   protected readonly dark = computed(() => isDarkStock(this.stock()));
 

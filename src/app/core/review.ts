@@ -38,14 +38,35 @@ export type DarkStock =
   | 'rosa-escuro'
   | 'cinza-escuro'
   | 'preto';
-export type Stock = LightStock | DarkStock;
+/**
+ * As pastéis (25/nov/2026): cada cor das claras, dessaturada e clara, e no lugar do branco e do preto o
+ * bege e o marrom (o papel kraft). Claras: a tinta é escura, como nas claras.
+ */
+export type PastelStock =
+  | 'vermelho-pastel'
+  | 'laranja-pastel'
+  | 'amarelo-pastel'
+  | 'verde-pastel'
+  | 'azul-pastel'
+  | 'lilas-pastel'
+  | 'rosa-pastel'
+  | 'bege'
+  | 'marrom';
+export type Stock = LightStock | DarkStock | PastelStock;
 
 /** As cartolinas claras, na volta do círculo de cores, o cinza e o branco no fim. */
 export const LIGHT_STOCKS: readonly LightStock[] = ['vermelho', 'laranja', 'amarelo', 'verde', 'azul', 'lilas', 'rosa', 'cinza', 'branco'];
 /** As escuras, na mesma ordem: cada uma embaixo da clara dela, no editor. */
 export const DARK_STOCKS: readonly DarkStock[] = ['vermelho-escuro', 'laranja-escuro', 'amarelo-escuro', 'verde-escuro', 'azul-escuro', 'lilas-escuro', 'rosa-escuro', 'cinza-escuro', 'preto'];
-/** Todas: a ordem das amostras no editor, as claras numa fileira e as escuras na de baixo. */
-export const STOCKS: readonly Stock[] = [...LIGHT_STOCKS, ...DARK_STOCKS];
+/** As pastéis, na mesma ordem: a terceira fileira do editor, com o bege e o marrom nas duas últimas. */
+export const PASTEL_STOCKS: readonly PastelStock[] = ['vermelho-pastel', 'laranja-pastel', 'amarelo-pastel', 'verde-pastel', 'azul-pastel', 'lilas-pastel', 'rosa-pastel', 'bege', 'marrom'];
+/** Todas: a ordem das amostras no editor, as claras numa fileira, as escuras na de baixo e as pastéis na última. */
+export const STOCKS: readonly Stock[] = [...LIGHT_STOCKS, ...DARK_STOCKS, ...PASTEL_STOCKS];
+
+/** Uma das pastéis (o bege e o marrom também). */
+export function isPastelStock(s: Stock | undefined): s is PastelStock {
+  return !!s && (PASTEL_STOCKS as readonly string[]).includes(s);
+}
 
 /** Na cartolina escura a tinta é clara: o que está escrito nela, o lápis do rabisco e a estampa. */
 export function isDarkStock(s: Stock | undefined): s is DarkStock {
@@ -77,6 +98,15 @@ export const STOCK_LABEL: Record<Stock, string> = {
   'rosa-escuro': 'Rosa escuro',
   'cinza-escuro': 'Cinza escuro',
   preto: 'Preto',
+  'vermelho-pastel': 'Vermelho pastel',
+  'laranja-pastel': 'Laranja pastel',
+  'amarelo-pastel': 'Amarelo pastel',
+  'verde-pastel': 'Verde pastel',
+  'azul-pastel': 'Azul pastel',
+  'lilas-pastel': 'Lilás pastel',
+  'rosa-pastel': 'Rosa pastel',
+  bege: 'Bege',
+  marrom: 'Marrom',
 };
 
 /**

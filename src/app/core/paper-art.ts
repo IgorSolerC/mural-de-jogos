@@ -4951,14 +4951,15 @@ function crumbling(W: number, H: number, k: number, sw: number, r: () => number,
 // ----- Desbotada no sol -----
 
 /**
- * Ficou anos no sol, pendurada: a cor desbotou de cima para baixo, já lavada no alto e mais ainda no pé,
- * no creme de sempre e na força de antes (o lado fraco de antes no alto, o forte no pé). Igual em toda
+ * Ficou anos no sol, pendurada: a cor desbotou de cima para baixo, um pouco lavada no alto e mais no pé,
+ * no creme de sempre (o dono pediu um meio termo entre a força de antes, mais clara, e a primeira versão
+ * fixa, escura demais). Igual em toda
  * ficha (desde a build 1071, a pedido do dono: antes cada clique sorteava de onde vinha a luz e, metade
  * das vezes, o pedaço que algo cobria, com a cor de antes): só o degradê, sem sorteio.
  */
 function sunFaded(W: number, H: number, uid: string, out: PaperArt): void {
   out.clareia +=
-    `<defs><linearGradient id='${uid}-sol' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='rgb(242 236 222)' stop-opacity='.34'/><stop offset='1' stop-color='rgb(246 240 226)' stop-opacity='.64'/></linearGradient></defs>` +
+    `<defs><linearGradient id='${uid}-sol' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='rgb(242 236 222)' stop-opacity='.23'/><stop offset='1' stop-color='rgb(246 240 226)' stop-opacity='.55'/></linearGradient></defs>` +
     `<path d='M-6 -6H${f1(W + 6)}V${f1(H + 6)}H-6Z' fill='url(#${uid}-sol)'/>`;
 }
 

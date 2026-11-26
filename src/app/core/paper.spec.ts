@@ -485,12 +485,12 @@ describe('papel da ficha', () => {
       const { clareia } = paperArt({ ...base, paper: 'desbotado' });
       expect(clareia).toContain("x1='0' y1='0' x2='0' y2='1'");
       const ops = [...clareia.matchAll(/stop-opacity='([\d.]+)'/g)].map((m) => +m[1]);
-      // o creme de antes, na força de antes: o lado fraco (0,3 a 0,4) no alto, o forte (0,58 a 0,7) no pé
+      // o creme de antes, um pouco mais leve que a força de antes (0,3 a 0,4 no alto, 0,58 a 0,7 no pé)
       expect(ops.length).toBe(2);
-      expect(ops[0]).toBeGreaterThanOrEqual(0.3);
-      expect(ops[0]).toBeLessThanOrEqual(0.4);
-      expect(ops[1]).toBeGreaterThanOrEqual(0.58);
-      expect(ops[1]).toBeLessThanOrEqual(0.7);
+      expect(ops[0]).toBeGreaterThan(0.15);
+      expect(ops[0]).toBeLessThan(0.3);
+      expect(ops[1]).toBeGreaterThan(0.45);
+      expect(ops[1]).toBeLessThan(0.58);
       // um caminho só, a ficha inteira, sem buraco no meio
       expect(clareia.match(/<path /g)?.length).toBe(1);
       expect(clareia.match(/Z/g)?.length).toBe(1);
