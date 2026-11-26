@@ -1,8 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { FreeBoard, shownNodes } from '../core/free-board';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import { CardFinder } from '../core/card-finder';
+import { FbFrame, FreeBoard, shownNodes } from '../core/free-board';
 import { PickedGame } from '../core/review';
+import { pinningFor } from '../core/wall-physics';
 import { CoverSleeve } from './cover-sleeve';
 import { BoardSketch } from './free-board/board-sketch';
+import { CardOf } from './free-board/far-look';
 
 /**
  * O canvas na parede (PLANO-CANVAS.md, 2): um pedaço de eucatex numa moldura de alumínio, com o quadro desenhado em
@@ -25,7 +28,7 @@ import { BoardSketch } from './free-board/board-sketch';
           <app-cover-sleeve class="capa" [game]="game" [decorative]="true" />
         } @else if (board(); as b) {
           @if (pieces()) {
-            <app-board-sketch [board]="b" />
+            <app-board-sketch [board]="b" [cards]="cards" />
           } @else {
             <span class="vazio">Canvas vazio</span>
           }
@@ -50,10 +53,35 @@ export class CanvasCard {
 
   protected readonly pieces = computed(() => canvasPieces(this.board()) ?? 0);
 
+  private readonly finder = inject(CardFinder);
+  /**
+   * As fichas coladas no quadro (o widget Nota), pelo id, como o widget as acha: as suas e as do mural aberto de outra
+   * pessoa. Na visita, a privada não vem (a miniatura a deixa sem nome, nunca com o título escrito na linha).
+   */
+  protected readonly cards: CardOf = (id) => {
+    const r = this.finder.find(id)?.review;
+    return r ? { stock: pinningFor(r.id, r.stock).stock, name: r.game.name, folder: !!r.category } : null;
+  };
+
   protected readonly cover = computed(() => {
     const g = this.game();
     return g?.coverUrl ? g : null;
   });
+}
+
+/**
+ * As regiões do quadro (as molduras com nome, de cima para baixo e da esquerda para a direita), para o leitor de tela
+ * dizer o que tem dentro, como o desenho diz a quem vê: "3 regiões: Lisboa, Porto, Antes de ir".
+ */
+export function canvasRegions(board: FreeBoard | null): string {
+  if (!board) return '';
+  const names = shownNodes(board)
+    .filter((n): n is FbFrame => n.t === 'm' && !!n.nome?.trim())
+    .sort((a, b) => a.y - b.y || a.x - b.x)
+    .map((n) => n.nome!.trim());
+  if (!names.length) return '';
+  const shown = names.slice(0, 6).join(', ') + (names.length > 6 ? ' e outras' : '');
+  return `${names.length} ${names.length === 1 ? 'região' : 'regiões'}: ${shown}`;
 }
 
 /** Quantas peças o quadro tem (as que este site mostra), para o leitor de tela e a Lista. */

@@ -27,12 +27,15 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-26-morango-no-dicionario',
+    id: '2026-11-26-miniatura-do-canvas',
     version: '1.55.2',
     kind: 'ajustes',
     date: '2026-11-26',
-    title: 'Morango no Dicionário Japonês',
-    melhorias: ['Uma palavra nova no Dicionário Japonês: いちご (morango), com as frases de exemplo, a origem e as palavras relacionadas.'],
+    title: 'O canvas mostra o que tem dentro, e morango no Dicionário Japonês',
+    melhorias: [
+      'Uma palavra nova no Dicionário Japonês: いちご (morango), com as frases de exemplo, a origem e as palavras relacionadas.',
+      'A miniatura do canvas no mural mostra o que tem dentro: as notas coladas na cor delas, os cards de texto com a faixa do jeito, o contador, a tabela e a pixel art como são, o título das peças onde ele cabe, o nome das molduras e as setas, tudo com os cantos arredondados. Quem usa leitor de tela ouve as regiões do canvas (as molduras) junto com o nome.',
+    ],
   },
   {
     id: '2026-11-25-granulado-pastel',

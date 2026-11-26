@@ -123,6 +123,22 @@ describe('o canvas na parede (PLANO-CANVAS.md, 2)', () => {
     expect(late.querySelector('button.hit')!.getAttribute('aria-label')).toBe('Abrir canvas: Mapa da viagem, 20 de nov de 2026, público');
   });
 
+  it('a miniatura mostra o que tem dentro: as regiões no nome do botão, a nota colada na cartolina e com o nome dela (PLANO-MINIATURA-CANVAS.md)', async () => {
+    const colada = sanitizeReview({ ...tallest(), id: 'colada-porto', game: { name: 'Porto: o que não perder', coverUrl: null, source: 'manual' }, stock: 'azul' })!;
+    TestBed.inject(ReviewStore).reviews.update((list) => [...list, colada]);
+    const b = board([
+      { i: 'm1', t: 'm', x: 0, y: 0, w: 1200, h: 800, c: 'verde', nome: 'Porto' },
+      { i: 'm0', t: 'm', x: 0, y: -900, w: 1200, h: 800, nome: 'Lisboa' },
+      { i: 'w1', t: 'w', x: 60, y: 110, w: 520, h: 360, src: '{{nota: #colada-porto | Porto}}' },
+    ]);
+    const el = await show(canvas(), { canvasBoard: b });
+    expect(el.querySelector('button.hit')!.getAttribute('aria-label')).toContain('3 peças, 2 regiões: Lisboa, Porto,');
+    const svg = el.querySelector('app-canvas-card app-board-sketch svg')!;
+    expect([...svg.querySelectorAll('rect')].some((r) => r.getAttribute('fill') === '#70cdff')).toBeTrue();
+    expect([...svg.querySelectorAll('text')].map((t) => t.textContent)).toContain('PORTO');
+    expect([...svg.querySelectorAll('text')].some((t) => t.textContent!.startsWith('Porto:'))).toBeTrue();
+  });
+
   it('com capa: a foto encapada no plástico, no lugar da miniatura', async () => {
     const com = await show(canvas({ game: { name: 'Mapa', coverUrl: 'https://example.com/capa.jpg', source: 'manual' } }), { canvasBoard: board() });
     expect(com.querySelector('.eucatex app-cover-sleeve')).not.toBeNull();

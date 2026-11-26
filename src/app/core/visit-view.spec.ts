@@ -9,6 +9,8 @@ import { VisitBoards } from './visit-boards';
 import { canvasNoteId } from './canvas-id';
 import type { FreeBoard } from './free-board';
 import { ReviewCard } from '../ui/review-card';
+import { stockColor } from '../ui/free-board/far-palette';
+import { pinningFor } from './wall-physics';
 import { VISIT_KEY, WallState, WallView } from './wall-view';
 
 const note = (id: string, title: string, category: string | null): Review =>
@@ -129,7 +131,7 @@ describe('VisitView: o canvas de quem você visita', () => {
       providers: [
         provideZonelessChangeDetection(),
         VisitView,
-        { provide: ColleagueStore, useValue: { selected: signal<Colleague | null>(marina) } },
+        { provide: ColleagueStore, useValue: { selected: signal<Colleague | null>(marina), colleagues: signal<Colleague[]>([marina]) } },
         { provide: VisitBoards, useValue: { boards, load: async (code: string | null | undefined) => (loads.push(code), boards.set([board])) } },
       ],
     });
@@ -162,6 +164,22 @@ describe('VisitView: o canvas de quem você visita', () => {
     expect(el.querySelector('button.hit')!.getAttribute('aria-label')).toContain('Abrir canvas: Mapa da viagem, 1 peça');
     // o que é do dono (o Finalizar e o Fixar) fica de fora: a visita não marca nada
     expect(el.querySelector('.acoes')).toBeNull();
+    fixture.destroy();
+  });
+
+  it('a miniatura na visita mostra o que a do dono mostra: a nota colada pública na cartolina e com o nome; a privada sem nome', async () => {
+    // (o id curto da semente é trocado ao limpar a ficha: a colada aponta para o que ela ganhou)
+    const daily = marina.reviews.find((r) => r.game.name === 'Daily')!;
+    const pasted = { ...board, n: [{ i: 'w1', t: 'w', x: 0, y: 0, w: 520, h: 360, src: `{{nota: #${daily.id} | Daily}}` }, { i: 'w2', t: 'w', x: 600, y: 0, w: 520, h: 360, src: '{{nota: #nota0privada | Meu segredo}}' }] } as unknown as FreeBoard;
+    const fixture = TestBed.createComponent(ReviewCard);
+    fixture.componentRef.setInput('review', canvas);
+    fixture.componentRef.setInput('canvasBoard', pasted);
+    await fixture.whenStable();
+    const svg = (fixture.nativeElement as HTMLElement).querySelector('app-canvas-card app-board-sketch svg')!;
+    expect([...svg.querySelectorAll('rect')].some((r) => r.getAttribute('fill') === stockColor(pinningFor(daily.id, daily.stock).stock))).toBeTrue();
+    const texts = [...svg.querySelectorAll('text')].map((t) => t.textContent);
+    expect(texts).toContain('Daily');
+    expect(texts.some((t) => /segredo/i.test(t ?? ''))).toBeFalse();
     fixture.destroy();
   });
 });

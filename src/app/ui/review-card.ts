@@ -32,7 +32,7 @@ import {
   isCanvas,
 } from '../core/review';
 import type { FreeBoard } from '../core/free-board';
-import { canvasPieces } from './canvas-card';
+import { canvasPieces, canvasRegions } from './canvas-card';
 import { cutsPaper, decorCuts, lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
@@ -2175,12 +2175,13 @@ export class ReviewCard {
       // o card não mostra tags nem data (o dono achou poluído): tudo vem aqui, para quem lê a tela
       const n = canvasPieces(this.canvasBoard());
       const pieces = n === null ? '' : n === 1 ? '1 peça' : `${n} peças`;
+      const regions = canvasRegions(this.canvasBoard());
       const cats = [r.category ? `grupo ${r.category}` : '', this.folderName() ? `pasta ${this.folderName()}` : '', ...(r.tags ?? []).map((t) => `tag ${t}`)].filter(Boolean).join(', ');
       const when = r.completedAt === null ? NO_DAY_LABEL.toLowerCase() : formatReviewDate(r.completedAt);
       const rank = r.noteRank === 'fixada' ? 'fixado' : '';
       const done = r.doneAt ? `finalizado em ${doneDayLong(r.doneAt)}` : '';
       const who = this.shared.get(r.id) ? 'compartilhado' : isPrivate(r) ? 'privado' : 'público';
-      return `Abrir canvas: ${[r.game.name, pieces, rank, done, cats, when, who].filter(Boolean).join(', ')}`;
+      return `Abrir canvas: ${[r.game.name, pieces, regions, rank, done, cats, when, who].filter(Boolean).join(', ')}`;
     }
     if (isNote(r)) {
       const cats = [r.category ? `grupo ${r.category}` : '', this.folderName() ? `pasta ${this.folderName()}` : '', ...(r.tags ?? []).map((t) => `tag ${t}`)].filter(Boolean).join(', ');
