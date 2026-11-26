@@ -10,7 +10,8 @@
  */
 import { clamp, f1 } from './paper';
 
-export const GRID_PATTERNS = ['pautado', 'quadriculado', 'pontilhado', 'milimetrado', 'vichy', 'meiotom'] as const;
+/** Na ordem do estojo: as de linha, as de faixa e as de ponto (25/nov/2026: caligrafia, escocês, listrado, zigue-zague, losangos e bolinhas). */
+export const GRID_PATTERNS = ['pautado', 'quadriculado', 'pontilhado', 'milimetrado', 'caligrafia', 'vichy', 'escoces', 'listrado', 'ziguezague', 'losangos', 'bolinhas', 'meiotom'] as const;
 
 export type GridPattern = (typeof GRID_PATTERNS)[number];
 
@@ -29,6 +30,13 @@ export const GRID_TINT: Record<GridPattern, number> = {
   milimetrado: 1.2,
   vichy: 1,
   meiotom: 1.1,
+  // 25/nov/2026: a caligrafia e o zigue-zague são traço, mais carregados; o resto é faixa ou ponto cheio
+  caligrafia: 1.6,
+  listrado: 1,
+  escoces: 1,
+  ziguezague: 1.3,
+  bolinhas: 1.05,
+  losangos: 1,
 };
 
 export const isGridPattern = (p: string): p is GridPattern => Object.hasOwn(GRID_TINT, p);
@@ -227,6 +235,167 @@ export function gridTile(p: GridPattern, z: number, spacing: number, mess: numbe
         }
       return { side, body: dots(wrapDots(list, side)) };
     }
+    case 'caligrafia': {
+      // a pauta do caderno de caligrafia: de três em três linhas (a de cima, a do meio tracejada e a de
+      // base, mais grossa), com um vão entre as fileiras
+      const u = 7.5 * z * k;
+      const { n, side, pitch: period } = grid(u * 4.2, 14, 224, 1, 8);
+      const off = seeded ? r() * period : 0;
+      const amp = waveOf(mess, period / 3);
+      const solid = new Map<number, string>();
+      let dashed = '';
+      for (let i = 0; i < n; i++) {
+        const top = i * period + off + pm(r) * mess * 0.08 * period;
+        const lines: [number, number, boolean][] = [
+          [top, 0.95, false],
+          [top + period * 0.24, 0.8, true],
+          [top + period * 0.48, 1.45, false],
+        ];
+        for (const [at0, weight, dash] of lines) {
+          const draws = [r(), r(), r()];
+          const w = Math.max(0.1, Math.round(weight * sw * (1 + pm(r) * mess * 0.3) * 20) / 20);
+          const at = wrap(at0, side);
+          for (const copy of [at, at - side, at + side]) {
+            if (copy !== at && (copy < -w - amp - 1 || copy > side + w + amp + 1)) continue;
+            if (dash) dashed += rule(copy, side, 'x', amp, draws);
+            else solid.set(w, (solid.get(w) ?? '') + rule(copy, side, 'x', amp, draws));
+          }
+        }
+      }
+      // o tracejado em passos que fecham no lado do ladrilho (a emenda não aparece)
+      const dashes = Math.max(4, Math.round(side / (6 * z)));
+      const d = side / dashes;
+      return {
+        side,
+        body:
+          [...solid].map(([w, path]) => `<path class='a' stroke-width='${w}' d='${path}'/>`).join('') +
+          (dashed ? `<path class='a' stroke-width='${f1(0.8 * sw)}' stroke-dasharray='${(d * 0.55).toFixed(3)} ${(d * 0.45).toFixed(3)}' d='${dashed}'/>` : ''),
+      };
+    }
+    case 'listrado': {
+      // as listras inclinadas do papel de presente: faixas cheias a 45°, metade do passo cada. O que cada
+      // uma sai do lugar é sorteado uma vez por listra (a que sai do ladrilho de um lado é a mesma que
+      // entra do outro, n listras adiante): a emenda não aparece
+      const { n, side, pitch } = grid(15 * z * k, 7, 210, 3, 16);
+      const off = seeded ? r() * pitch : 0;
+      const jit = Array.from({ length: n }, () => [pm(r) * mess * 0.08 * pitch, (pitch / 2) * (1 + pm(r) * mess * 0.25)]);
+      let body = '';
+      for (let i = -1; i <= 2 * n; i++) {
+        const [shift, w] = jit[((i % n) + n) % n];
+        const c = i * pitch + off + shift;
+        // a faixa entre x + y = c e x + y = c + w, de uma beirada à outra do ladrilho
+        body += `<path class='b' fill-opacity='.5' d='M${f1(c)} 0L${f1(c + w)} 0L${f1(c + w - side)} ${side}L${f1(c - side)} ${side}Z'/>`;
+      }
+      return { side, body };
+    }
+    case 'escoces': {
+      // o xadrez escocês: em cada passo, uma faixa larga, uma estreita e um fio, deitados e em pé; onde
+      // se cruzam, a cor dobra (como o vichy, mas de larguras diferentes)
+      const { n, side, pitch: period } = grid(34 * z * k, 16, 204, 1, 6);
+      const ox = seeded ? r() * period : 0,
+        oy = seeded ? r() * period : 0;
+      let body = '';
+      const sett: [number, number, number][] = [
+        // onde começa (no passo), a largura (no passo) e a tinta
+        [0, 0.34, 0.34],
+        [0.5, 0.1, 0.5],
+        [0.72, 0.025, 0.85],
+        [0.8, 0.025, 0.85],
+      ];
+      for (const along of ['x', 'y'] as const)
+        for (let i = 0; i < n; i++)
+          for (const [at0, w0, op] of sett) {
+            const band = Math.max(0.6, w0 * period * (1 + pm(r) * mess * 0.2));
+            const at = wrap(i * period + at0 * period + (along === 'x' ? oy : ox) + pm(r) * mess * 0.04 * period, side);
+            for (const copy of [at, at - side]) {
+              if (copy + band < 0) continue;
+              body +=
+                along === 'x'
+                  ? `<rect class='b' fill-opacity='${op}' x='0' y='${f1(copy)}' width='${side}' height='${f1(band)}'/>`
+                  : `<rect class='b' fill-opacity='${op}' x='${f1(copy)}' y='0' width='${f1(band)}' height='${side}'/>`;
+            }
+          }
+      return { side, body };
+    }
+    case 'ziguezague': {
+      // o zigue-zague: linhas deitadas em dentes, com um número inteiro de dentes no ladrilho
+      const { n, side, pitch } = grid(16 * z * k, 8, 208, 2, 14);
+      const teeth = Math.max(2, Math.round(side / (pitch * 1.1)));
+      const tw = side / teeth,
+        h = pitch * 0.32;
+      const off = seeded ? r() * pitch : 0;
+      const paths = new Map<string, string>();
+      for (let i = 0; i < n; i++) {
+        const y = (i + 0.5) * pitch + off + pm(r) * mess * 0.1 * pitch;
+        const w = Math.max(0.1, Math.round(1.2 * sw * (1 + pm(r) * mess * 0.3) * 20) / 20);
+        const jag: number[] = [];
+        for (let t = 0; t <= teeth * 2; t++) jag.push((t % 2 ? -h : h) / 2 + (t % (teeth * 2) ? pm(r) * mess * 0.18 * h : 0));
+        jag[teeth * 2] = jag[0];
+        for (const yy of [wrap(y, side), wrap(y, side) - side, wrap(y, side) + side]) {
+          if (yy < -h - w || yy > side + h + w) continue;
+          let d = '';
+          for (let t = 0; t <= teeth * 2; t++) d += `${t ? 'L' : 'M'}${f1((t * tw) / 2)} ${f1(yy + jag[t])}`;
+          paths.set(String(w), (paths.get(String(w)) ?? '') + d);
+        }
+      }
+      return { side, body: [...paths].map(([w, d]) => `<path class='a' stroke-linejoin='round' stroke-width='${w}' d='${d}'/>`).join('') };
+    }
+    case 'bolinhas': {
+      // o poá: bolinhas cheias, maiores que o pontilhado, desencontradas de uma fileira para a outra
+      const { n: n0, side } = grid(22 * z * k, 10, 220, 2, 12);
+      const n = n0 % 2 ? n0 + 1 : n0;
+      const p = side / n;
+      const ox = seeded ? r() * p : 0,
+        oy = seeded ? r() * p : 0;
+      const rad = p * 0.2;
+      let body = '';
+      for (let j = 0; j < n; j++)
+        for (let i = 0; i < n; i++) {
+          const x = wrap((i + 0.5 + (j % 2) * 0.5) * p + ox + pm(r) * mess * 0.1 * p, side),
+            y = wrap((j + 0.5) * p + oy + pm(r) * mess * 0.1 * p, side),
+            rr = rad * (1 + pm(r) * mess * 0.25);
+          for (const dx of [-side, 0, side])
+            for (const dy of [-side, 0, side]) {
+              const cx = x + dx,
+                cy = y + dy;
+              if (cx + rr < 0 || cx - rr > side || cy + rr < 0 || cy - rr > side) continue;
+              body += `<circle class='b' cx='${f1(cx)}' cy='${f1(cy)}' r='${f1(rr)}'/>`;
+            }
+        }
+      return { side, body };
+    }
+    case 'losangos': {
+      // o argyle: losangos cheios encostando as pontas, um mais carregado e um mais leve, com os fios
+      // tracejados cruzando por cima. O claro e o escuro só se repetem de quatro em quatro casas: o
+      // ladrilho tem um múltiplo de quatro. O que cada losango sai do lugar é sorteado pela casa dele no
+      // ladrilho (a cópia do outro lado da beirada sai igual)
+      // o bloco das quatro casas tem teto: o ladrilho gigante não passa de uns 1200 px
+      const g = grid(Math.min(4 * 26 * z * k, 1200), 48, 208, 1, 3);
+      const n = g.n * 4,
+        p = g.side / n,
+        side = g.side;
+      const off = seeded ? r() * 2 * p : 0;
+      const jit = Array.from({ length: n * n }, () => [pm(r) * mess * 0.06 * p, pm(r) * mess * 0.06 * p]);
+      let body = '';
+      for (let j = -1; j <= n; j++)
+        for (let i = -3; i <= n; i++) {
+          if ((((i + j) % 2) + 2) % 2) continue;
+          const [dx, dy] = jit[(((j % n) + n) % n) * n + (((i % n) + n) % n)];
+          const cx = (i + 0.5) * p + off + dx,
+            cy = (j + 0.5) * p + dy;
+          if (cx + p / 2 < 0 || cx - p / 2 > side) continue;
+          const op = (((i + j) / 2) % 2 + 2) % 2 ? 0.28 : 0.5;
+          body += `<path class='b' fill-opacity='${op}' d='M${f1(cx - p / 2)} ${f1(cy)}L${f1(cx)} ${f1(cy - p / 2)}L${f1(cx + p / 2)} ${f1(cy)}L${f1(cx)} ${f1(cy + p / 2)}Z'/>`;
+        }
+      // os fios: as diagonais pelo meio das casas vazias, tracejados
+      let lines = '';
+      for (let i = -n; i <= 2 * n; i++) {
+        const c = i * p + off;
+        lines += `M${f1(c)} 0L${f1(c + side)} ${side}M${f1(c)} 0L${f1(c - side)} ${side}`;
+      }
+      const dash = (p * Math.SQRT2) / 6;
+      return { side, body: body + `<path class='a' stroke-width='${f1(0.7 * sw)}' stroke-dasharray='${(dash * 0.6).toFixed(3)} ${(dash * 0.4).toFixed(3)}' d='${lines}'/>` };
+    }
   }
 }
 
@@ -268,6 +437,38 @@ export function gridIcon(p: GridPattern): string {
         [0, 1, 2, 3]
           .flatMap((i) => [0, 1, 2, 3, 4].map((j) => `<circle class='f' cx='${f1(11 + i * 6)}' cy='${f1(8 + j * 6)}' r='${f1(Math.max(0.5, 2.5 - (i + j) * 0.3))}'/>`))
           .join('')
+      );
+    case 'caligrafia':
+      return (
+        SHEET +
+        [8, 22].map((y) => `<path d='M7 ${y}H33' style='stroke-width:1.1'/><path d='M7 ${y + 4}H33' style='stroke-width:1;stroke-dasharray:2 1.6'/><path d='M7 ${y + 8}H33' style='stroke-width:1.7'/>`).join('')
+      );
+    case 'listrado':
+      return `<clipPath id='icone-listrado'><path d='M7 4H33V36H7Z'/></clipPath>${SHEET}<g clip-path='url(#icone-listrado)'>${[10, 19, 28, 37, 46, 55, 64]
+        .map((x) => `<path class='f' style='opacity:.5' d='M${x} 4H${x + 4.5}L${x - 27.5} 36H${x - 32}Z'/>`)
+        .join('')}</g>`;
+    case 'escoces':
+      return (
+        SHEET +
+        `<path class='f' style='opacity:.4' d='M7 9H33V16H7Z'/><path class='f' style='opacity:.4' d='M12 4H19V36H12Z'/>` +
+        `<path class='f' style='opacity:.55' d='M7 22H33V24.5H7Z'/><path class='f' style='opacity:.55' d='M24 4H26.5V36H24Z'/>` +
+        `<path d='M7 29H33M7 31H33M29.5 4V36' style='stroke-width:.7'/>`
+      );
+    case 'ziguezague':
+      return SHEET + [10, 18, 26, 34].map((y) => `<path d='M7 ${y}L10.25 ${y - 3}L13.5 ${y}L16.75 ${y - 3}L20 ${y}L23.25 ${y - 3}L26.5 ${y}L29.75 ${y - 3}L33 ${y}' style='stroke-width:1.4'/>`).join('');
+    case 'bolinhas':
+      return (
+        SHEET +
+        [0, 1, 2, 3, 4]
+          .flatMap((j) => [0, 1, 2].map((i) => `<circle class='f' cx='${f1(11.5 + i * 8.5 + (j % 2) * 4.25)}' cy='${f1(8.5 + j * 6.4)}' r='1.9'/>`))
+          .filter((c) => !c.includes("cx='36"))
+          .join('')
+      );
+    case 'losangos':
+      return (
+        SHEET +
+        `<path class='f' style='opacity:.5' d='M20 6L27 14L20 22L13 14Z'/><path class='f' style='opacity:.3' d='M20 22L27 30L20 36L13 30Z'/>` +
+        `<path d='M7 9L33 35M7 35L33 9' style='stroke-width:.8;stroke-dasharray:2 1.5'/>`
       );
   }
 }

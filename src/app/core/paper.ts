@@ -88,7 +88,7 @@ export interface PatternGroup {
 /** As estampas por assunto, na ordem do editor. */
 export const PATTERN_GROUPS: readonly PatternGroup[] = [
   // as de papelaria sem desenho (pauta, grade, pontos, faixas), logo depois da Lisa
-  { id: 'papelaria', label: 'Papelaria', patterns: ['pautado', 'quadriculado', 'pontilhado', 'milimetrado', 'vichy', 'meiotom'] },
+  { id: 'papelaria', label: 'Papelaria', patterns: ['pautado', 'quadriculado', 'pontilhado', 'milimetrado', 'caligrafia', 'vichy', 'escoces', 'listrado', 'ziguezague', 'losangos', 'bolinhas', 'meiotom'] },
   // as coisas do dia a dia das anotações (dinheiro, compras, trabalho, saúde, viagem)
   { id: 'dia', label: 'Dia a dia', patterns: ['dinheiro', 'compras', 'escritorio', 'saude', 'viagem'] },
   { id: 'bichos', label: 'Bichos', patterns: ['gatinhos', 'cachorros', 'corujas', 'aranhas', 'borboletas', 'abelhas', 'peixes', 'dinossauros'] },
@@ -184,6 +184,12 @@ export const PATTERN_LABEL: Record<Pattern, string> = {
   milimetrado: 'Milimetrado',
   vichy: 'Vichy',
   meiotom: 'Meio-tom',
+  caligrafia: 'Caligrafia',
+  listrado: 'Listrado',
+  escoces: 'Xadrez escocês',
+  ziguezague: 'Zigue-zague',
+  bolinhas: 'Bolinhas',
+  losangos: 'Losangos',
   dinheiro: 'Dinheiro',
   compras: 'Compras',
   escritorio: 'Escritório',

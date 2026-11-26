@@ -224,7 +224,7 @@ describe('papel da ficha', () => {
       expect([...PATTERN_GROUPS[0].patterns]).toEqual([...plain]);
       expect(PATTERN_GROUPS[1].id).toBe('dia');
       expect([...PATTERN_GROUPS[1].patterns]).toEqual(['dinheiro', 'compras', 'escritorio', 'saude', 'viagem']);
-      const names = ['Pautado', 'Quadriculado', 'Pontilhado', 'Milimetrado', 'Vichy', 'Meio-tom', 'Dinheiro', 'Compras', 'Escritório', 'Saúde', 'Viagem'];
+      const names = ['Pautado', 'Quadriculado', 'Pontilhado', 'Milimetrado', 'Caligrafia', 'Vichy', 'Xadrez escocês', 'Listrado', 'Zigue-zague', 'Losangos', 'Bolinhas', 'Meio-tom', 'Dinheiro', 'Compras', 'Escritório', 'Saúde', 'Viagem'];
       expect([...plain, 'dinheiro', 'compras', 'escritorio', 'saude', 'viagem'].map((p) => PATTERN_LABEL[p as keyof typeof PATTERN_LABEL])).toEqual(names);
       // cada desenho do estojo é outro (a folha da papelaria muda por dentro)
       const icons = PATTERNS.map((p) => motifIcon(p));
@@ -278,6 +278,40 @@ describe('papel da ficha', () => {
           const wavy = lines.filter((l) => l.includes('L')).length;
           expect(wavy === 0 || wavy === lines.length).withContext(`${jitter} ${seed}`).toBeTrue();
         }
+    });
+
+    it('as de 25/nov emendam nas beiradas: o zigue-zague fecha os dentes no lado, e o tracejado da caligrafia também', () => {
+      const zz = patternTile('ziguezague', { ...DEFAULT_LOOK, jitter: 0 });
+      for (const line of linesOf(svgOf(zz.url))) {
+        const pts = line.split('L').map((pt) => pt.split(' ').map(Number));
+        expect(pts[0][0]).toBe(0);
+        expect(pts.at(-1)![0]).toBeCloseTo(zz.side, 0);
+        expect(pts.at(-1)![1]).toBeCloseTo(pts[0][1], 1);
+      }
+      const cal = patternTile('caligrafia', { ...DEFAULT_LOOK, jitter: 0 });
+      const dash = /stroke-dasharray='([\d.]+) ([\d.]+)'/.exec(svgOf(cal.url))!;
+      const turns = cal.side / (Number(dash[1]) + Number(dash[2]));
+      expect(Math.abs(turns - Math.round(turns))).toBeLessThan(0.05);
+      // três linhas por fileira: duas cheias e a do meio tracejada
+      expect(svgOf(cal.url).match(/stroke-dasharray/g)!.length).toBe(1);
+      expect(svgOf(patternTile('bolinhas').url)).toContain('<circle');
+      // os losangos: um múltiplo de quatro casas, para o claro e o escuro emendarem; e nenhuma faixa sem losango
+      for (const seed of [undefined, 3, 11, 29])
+        for (const size of [0, 2, 8]) {
+          const t = patternTile('losangos', { ...DEFAULT_LOOK, size, jitter: 4 }, seed);
+          const xs = [...svgOf(t.url).matchAll(/<path class='b' fill-opacity='[\d.]+' d='M(-?[\d.]+) /g)].map((m) => Number(m[1]));
+          expect(Math.min(...xs)).withContext(`${seed} ${size}`).toBeLessThanOrEqual(0);
+        }
+    });
+
+    it('com o Alinhamento bagunçado, a listra que sai de um lado do ladrilho é a que entra do outro', () => {
+      const t = patternTile('listrado', { ...DEFAULT_LOOK, jitter: 4 }, 9);
+      const bands = [...svgOf(t.url).matchAll(/d='M(-?[\d.]+) 0L(-?[\d.]+) 0/g)].map((m) => [Number(m[1]), Number(m[2])]);
+      // cada faixa tem a cópia um lado de ladrilho adiante, com a mesma largura
+      for (const [a, b] of bands.filter(([a]) => a < t.side - 1)) {
+        const copy = bands.find(([c]) => Math.abs(c - (a + t.side)) < 0.2);
+        if (copy) expect(copy[1] - copy[0]).toBeCloseTo(b - a, 0);
+      }
     });
 
     it('no vichy fora do lugar, uma faixa nunca encosta na vizinha do mesmo sentido', () => {

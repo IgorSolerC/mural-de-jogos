@@ -36,6 +36,8 @@ export const FROZEN_PATTERNS: readonly Pattern[] = [
   'cemiterio', 'esportes', 'escola', 'carinhas',
   // 2026-11-02, a papelaria sem desenho e o dia a dia
   'pautado', 'quadriculado', 'pontilhado', 'milimetrado', 'vichy', 'meiotom', 'dinheiro', 'compras', 'escritorio', 'saude', 'viagem',
+  // 2026-11-25, mais papelaria sem desenho
+  'caligrafia', 'listrado', 'escoces', 'ziguezague', 'bolinhas', 'losangos',
 ];
 // Espirais e Teste de caneta saíram em 2026-09-29, a pedido; o Terço, em 2026-10-05
 export const FROZEN_SCRIBBLES: readonly Scribble[] = [
