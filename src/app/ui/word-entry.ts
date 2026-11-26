@@ -123,6 +123,7 @@ export function entryHeightGuess(w: Word, width: number): number {
       <!-- achada por uma forma conjugada (a busca, a seleção): o porquê, e o caminho para as conjugações nela -->
       @if (found(); as f) {
         <button type="button" class="achada" [attr.aria-label]="'Achada por ' + f.text + ', ' + f.form.tags + ': ver nas conjugações'" (click)="conjugate.emit({ word: w, form: f.form.id })">
+          <span class="achada-como" aria-hidden="true">achada como</span>
           <span class="achada-forma" lang="ja">{{ f.text }}</span>
           <span class="achada-tags">{{ f.form.tags }}</span>
         </button>

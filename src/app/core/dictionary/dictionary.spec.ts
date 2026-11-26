@@ -1,4 +1,4 @@
-import { DEFAULT_STATE, DictState, MarkLookup, effectiveSort, lookupWords, facetChips, facetGroups, keysOf, matchScore, FACETS, facetValues, SORTS, paramsOf, parseCsv, passes, readWords, sectionsOf, sortWords, spokenOf, stateFromParams, toggleFacet, compositionParts, relatedWords, classFamily, CLASS_FAMILIES, kanjiIn, wordsWithKanji, exampleParts, examplePlain, readExamples } from './dictionary';
+import { searchedForm, DEFAULT_STATE, DictState, MarkLookup, effectiveSort, lookupWords, facetChips, facetGroups, keysOf, matchScore, FACETS, facetValues, SORTS, paramsOf, parseCsv, passes, readWords, sectionsOf, sortWords, spokenOf, stateFromParams, toggleFacet, compositionParts, relatedWords, classFamily, CLASS_FAMILIES, kanjiIn, wordsWithKanji, exampleParts, examplePlain, readExamples } from './dictionary';
 import { foldJa, kanaRow, looseRomaji, romajiToKana } from './kana';
 import { dictionaryWords } from './words';
 
@@ -78,6 +78,31 @@ sem seta nenhuma",Do inglês hero.
     expect(sushi).not.toContain('靴');
     // o japonês nas notas continua achando em qualquer lugar
     expect(hits('靴下')).toContain('下');
+  });
+
+  it('a forma conjugada inteira acha o verbo, em kanji, kana, katakana ou romaji (PLANO-CONJUGACOES.md, 3)', () => {
+    const all = dictionaryWords().words;
+    const best = (q: string) =>
+      all
+        .map((w) => ({ w, s: matchScore(keysOf(w), q) }))
+        .filter((x) => x.s > 0)
+        .sort((a, b) => b.s - a.s)
+        .map((x) => x.w.text);
+    for (const q of ['行かなかった', 'いかなかった', 'イカナカッタ', 'ikanakatta', '行きませんでした']) expect(best(q)[0]).withContext(q).toBe('行く');
+    expect(best('食べられる')[0]).toBe('食べる');
+    expect(best('benkyou shinai')).toContain('勉強する');
+    expect(best('来なかった')[0]).toBe('来る');
+    // a palavra escrita igual vale mais que a forma de outro verbo (できる é o potencial de する, e é ela mesma)
+    expect(best('できる')[0]).toBe('できる');
+    // pedaço de forma não acha
+    expect(best('行かなか')).not.toContain('行く');
+    // e diz por qual forma achou
+    const iku = all.find((w) => w.text === '行く')!;
+    expect(searchedForm(iku, 'ikanakatta')?.text).toBe('行かなかった');
+    expect(searchedForm(iku, 'ikanakatta')?.form.tags).toBe('Passado • Informal • Negativo');
+    expect(searchedForm(all.find((w) => w.text === '勉強する')!, 'benkyou shinai')?.text).toBe('勉強しない');
+    expect(searchedForm(iku, 'iku')).toBeNull();
+    expect(searchedForm(iku, 'ir')).toBeNull();
   });
 
   it('a frase em pedaços: a palavra entre colchetes vem marcada', () => {

@@ -36,6 +36,7 @@ export const NEWS: NewsEntry[] = [
     until: '2026-12-10',
     items: [
       'Cada verbo do Dicionário Japonês tem o botão Conjugações (活), no verbete e na folhinha "No dicionário": uma tabela com as 33 formas, nos grupos Tempos básicos, Forma -te, Desejativa, Formas modais e vozes e Condicionais, com a informal e a polida lado a lado, a leitura embaixo e, em vermelho, o pedaço que muda. Tocar numa forma mostra para que ela serve e um exemplo com a tradução, e o ouvir dela.',
+      'A busca do dicionário acha o verbo pela forma conjugada, em kanji, kana ou romaji (行かなかった, ikanakatta ou benkyou shinai): o verbete diz por qual forma achou ("achada como 行かなかった · Passado • Informal • Negativo"), e tocar ali abre as conjugações nela.',
     ],
   },
   {

@@ -1,5 +1,5 @@
 import type { Word, WordExample } from './dictionary';
-import { foldJa } from './kana';
+import { foldJa, toHiragana } from './kana';
 
 /**
  * As conjugações dos verbos do Dicionário Japonês (PLANO-CONJUGACOES.md): as formas da nota 行く→ Ir do dono, nos
@@ -694,8 +694,10 @@ export function conjugatedKeys(w: Word): string[] {
   const keys = new Set<string>();
   for (const f of c.values()) {
     if (!f || f.form.id === 'dic') continue;
-    keys.add(foldJa(f.text));
-    keys.add(foldJa(f.reading));
+    // as formas já são kana e kanji, sem acento nem maiúscula: dobrar é só o katakana (o foldJa inteiro custaria
+    // um normalize por forma, ~19 mil quando o dicionário abre)
+    keys.add(toHiragana(f.text));
+    keys.add(toHiragana(f.reading));
   }
   return [...keys];
 }
@@ -709,7 +711,7 @@ export function formOf(w: Word, raw: string): Conjugated | null {
   const c = conjugate(w);
   const t = foldJa(raw.trim());
   if (!c || !t) return null;
-  for (const f of c.values()) if (f && f.form.id !== 'dic' && (foldJa(f.text) === t || foldJa(f.reading) === t)) return f;
+  for (const f of c.values()) if (f && f.form.id !== 'dic' && (toHiragana(f.text) === t || toHiragana(f.reading) === t)) return f;
   return null;
 }
 

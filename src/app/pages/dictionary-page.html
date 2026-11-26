@@ -201,7 +201,7 @@
             @for (w of s.words; track w.id) {
               <li class="lugar-verbete" appPerto #perto="perto" appPertoMede="verbete" [appPertoId]="w.id">
                 @if (perto.near()) {
-                  <div class="verbete" app-word-entry [word]="w" [drawable]="true" (draw)="openBoard($event)" (conjugate)="conjugating.set($event)"></div>
+                  <div class="verbete" app-word-entry [word]="w" [drawable]="true" [found]="foundForm(w)" (draw)="openBoard($event)" (conjugate)="conjugating.set($event)"></div>
                 } @else {
                   <div class="vaga-verbete" data-vaga tabindex="0" [style.height.px]="entryHeight(w)" (focus)="enterVaga(perto, $event)">
                     <span class="sr-only"><span lang="ja">{{ w.text }}</span>, {{ w.meaning }}</span>

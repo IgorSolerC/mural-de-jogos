@@ -19,6 +19,7 @@ import {
   matcher,
   paramsOf,
   passes,
+  searchedForm,
   sectionsOf,
   sortWords,
   stateFromParams,
@@ -42,7 +43,7 @@ import { ThumbIndex, ThumbRow } from '../ui/thumb-index';
 import { Toasts } from '../ui/toast';
 import { WordBoard } from '../ui/word-board';
 import { WordConjugations } from '../ui/word-conjugations';
-import { FormId } from '../core/dictionary/conjugation';
+import { Conjugated, FormId } from '../core/dictionary/conjugation';
 import { WordDrill } from '../ui/word-drill';
 import { DrillStart, WordDrillSetup } from '../ui/word-drill-setup';
 import { DRILL_WAYS, DrillWay } from '../core/dictionary/drill';
@@ -283,6 +284,26 @@ export class DictionaryPage {
   });
   protected readonly sections = computed(() => sectionsOf(this.shown(), this.sort()));
 
+  /**
+   * Os verbos que a busca achou por uma forma conjugada (行かなかった → 行く) e a forma: o verbete mostra a tira com
+   * ela (PLANO-CONJUGACOES.md, 3). Só com busca, e só nos verbos achados.
+   */
+  private readonly conjugatedHits = computed(() => {
+    const q = this.searched();
+    const hits = new Map<string, Conjugated>();
+    const scores = this.found().scores;
+    if (!q.trim() || !scores) return hits;
+    for (const w of this.all) {
+      if (!scores.has(w.id) || !this.data.keys.get(w.id)?.forms.size) continue;
+      const f = searchedForm(w, q);
+      if (f) hits.set(w.id, f);
+    }
+    return hits;
+  });
+  protected foundForm(w: Word): Conjugated | null {
+    return this.conjugatedHits().get(w.id) ?? null;
+  }
+
   /* ===== Só o que está perto da tela (PLANO-DICIONARIO.md, 8.2) ===== */
 
   /** A largura de uma coluna dos Verbetes (0 antes de medir): o palpite da altura das vagas depende dela. */
@@ -462,7 +483,7 @@ export class DictionaryPage {
   protected readonly noneTitle = computed(() => (this.searching() && !this.filtered() ? `Nada com “${this.searched().trim()}”` : 'Nenhuma palavra com esse filtro'));
   protected readonly noneText = computed(() =>
     this.searching()
-      ? 'Procure em português, em romaji (kuru), em kana (くる) ou em kanji (来る). Os filtros ligados também valem para a busca.'
+      ? 'Procure em português, em romaji (kuru), em kana (くる), em kanji (来る) ou por um verbo conjugado (来なかった). Os filtros ligados também valem para a busca.'
       : 'Os filtros ligados juntos não deixam nenhuma palavra. Tire um deles para ver mais.',
   );
 

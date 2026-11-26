@@ -207,6 +207,28 @@ describe('o Dicionário Japonês', () => {
     expect(host.querySelector('app-word-conjugations')).toBeNull();
   });
 
+  it('buscar uma forma conjugada acha o verbo, com a tira da forma, que abre as conjugações nela (PLANO-CONJUGACOES.md, 3)', async () => {
+    await open('/extras/dicionario?q=ikanakatta');
+    expect(words()[0]).toBe('行く');
+    const iku = host.querySelector('.verbete')!;
+    const strip = iku.querySelector<HTMLButtonElement>('.achada')!;
+    expect(strip.querySelector('.achada-forma')!.textContent).toBe('行かなかった');
+    expect(strip.querySelector('.achada-tags')!.textContent).toBe('Passado • Informal • Negativo');
+    host.querySelector<HTMLButtonElement>('.verbete .achada')!.click();
+    for (let i = 0; i < 40 && !host.querySelector('app-word-conjugations dialog[open] .detalhe'); i++) {
+      await new Promise((r) => setTimeout(r, 20));
+      await settle();
+    }
+    expect(host.querySelector('app-word-conjugations .det-forma')!.textContent).toBe('行かなかった');
+    host.querySelector<HTMLDialogElement>('app-word-conjugations dialog')!.close();
+    await settle();
+    // o que foi achado por ele mesmo não tem tira
+    await harness.navigateByUrl('/extras/dicionario?q=iku', DictionaryPage);
+    await settle();
+    expect(words()[0]).toBe('行く');
+    expect(host.querySelector('.verbete')!.querySelector('.achada')).toBeNull();
+  });
+
   it('a busca que acha a palavra pelas ligadas marca o cartãozinho em que achou', async () => {
     await open('/extras/dicionario?q=これから');
     // o realce entra um quadro depois das fichas

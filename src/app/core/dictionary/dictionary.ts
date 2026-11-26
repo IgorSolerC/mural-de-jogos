@@ -1,5 +1,6 @@
 import { FacetGroup } from '../facets';
 import { fold, nameCollator as nameColl } from '../text';
+import { Conjugated, conjugatedKeys, formOf } from './conjugation';
 import { foldJa, hasKanji, kanaRow, looseRomaji, romajiToKana } from './kana';
 
 /**
@@ -178,6 +179,8 @@ export interface WordKeys {
   senses: string[];
   /** A composição, as notas, a classe e o tema: acha, mas vale pouco. */
   extra: string;
+  /** As formas conjugadas dos verbos (行かない, いかない), dobradas; vazio no que não é verbo (PLANO-CONJUGACOES.md, 3). */
+  forms: ReadonlySet<string>;
 }
 
 /**
@@ -313,6 +316,7 @@ export function keysOf(w: Word): WordKeys {
       .map((s) => s.replace(/\.\.\.|…/g, '').trim())
       .filter(Boolean),
     extra: foldJa([w.composition, w.notes, w.wordClass, w.theme].join(' ')),
+    forms: new Set(conjugatedKeys(w)),
   };
 }
 
@@ -374,6 +378,8 @@ function termScore(k: WordKeys, t: Term): number {
   best = Math.max(best, tier(k.romaji, t.plain, [98, 78, 45]));
   if (t.loose.length >= 2) best = Math.max(best, tier(k.romajiLoose, t.loose, [94, 72, 40]));
   for (const s of k.senses) best = Math.max(best, tier(s, t.plain, [90, 68, 0]));
+  // uma forma conjugada inteira acha o verbo (行かなかった, ikanakatta → 行く): menos que a palavra escrita igual
+  if (k.forms.size && formHit(k, t)) best = Math.max(best, 86);
   // dentro do português, só a partir do começo de uma palavra ("comer" acha "comer algo", não "começo")
   if (!best && t.wordStart?.test(k.meaning)) best = 42;
   // na composição, nas notas, na classe e no tema, só a partir de duas letras (uma letra está em quase tudo); em
@@ -381,6 +387,16 @@ function termScore(k: WordKeys, t: Term): number {
   // o 下 pelo "kutsushita" de 靴下
   if (!best && (t.ja.length >= 2 || hasKanji(t.ja)) && (inExtra(k.extra, t) || (t.kana && k.extra.includes(t.kana)))) best = 10;
   return best;
+}
+
+/** O pedaço é, inteiro, uma forma conjugada do verbo. */
+function formHit(k: WordKeys, t: Term): boolean {
+  return k.forms.has(t.ja) || (!!t.kana && k.forms.has(t.kana));
+}
+
+/** A busca inteira como um pedaço só, sem os espaços (o romaji de uma forma escrito separado). */
+function joinedTerm(query: string): Term | null {
+  return termsOf(query.replace(/\s+/g, ''))[0] ?? null;
 }
 
 /** O pedaço está no texto: o japonês em qualquer lugar; o latino, do começo de uma palavra. */
@@ -404,7 +420,10 @@ export function matchScore(k: WordKeys, query: string): number {
 export function matcher(query: string): (k: WordKeys) => number {
   const terms = termsOf(query);
   if (!terms.length) return () => 1;
+  // a busca em pedaços pode ser uma forma conjugada inteira (benkyou shinai = 勉強しない): ela junta, vale como uma
+  const whole = terms.length > 1 ? joinedTerm(query) : null;
   return (k) => {
+    if (whole && k.forms.size && formHit(k, whole)) return 86 * terms.length;
     let total = 0;
     for (const t of terms) {
       const s = termScore(k, t);
@@ -413,6 +432,20 @@ export function matcher(query: string): (k: WordKeys) => number {
     }
     return total;
   };
+}
+
+/**
+ * A forma conjugada pela qual a busca achou o verbo (PLANO-CONJUGACOES.md, 3): o primeiro pedaço da busca que é,
+ * inteiro, uma forma dele (行かなかった, ikanakatta). Null quando nenhum é: a palavra foi achada por ela mesma.
+ */
+export function searchedForm(w: Word, query: string): Conjugated | null {
+  const terms = termsOf(query);
+  const whole = terms.length > 1 ? joinedTerm(query) : null;
+  for (const t of whole ? [whole, ...terms] : terms) {
+    const f = formOf(w, t.ja) ?? (t.kana ? formOf(w, t.kana) : null);
+    if (f) return f;
+  }
+  return null;
 }
 
 /**
