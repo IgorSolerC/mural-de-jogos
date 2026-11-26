@@ -17,8 +17,9 @@ import { cutMask, paperArt, paperStyle, patternTile } from './paper-art';
 import { snipFor, stickerEdge, stripFor, tearFor } from './tear';
 import { coverFor } from './wish-cover-look';
 
+// a Aquarela saiu em 25/nov/2026, a pedido (quem a tinha fica com o Canson)
 export const FROZEN_PAPERS: readonly Paper[] = [
-  'cartolina', 'lisa', 'canson', 'linho', 'verge', 'reciclado', 'glitter', 'aquarela', 'feltro', 'arroz', 'ondulado', 'metalizado', 'perolado',
+  'cartolina', 'lisa', 'canson', 'linho', 'verge', 'reciclado', 'glitter', 'feltro', 'arroz', 'ondulado', 'metalizado', 'perolado',
   // build 301, os que eram estragos (o desenho deles está nas digitais `damage:desbotado` e `damage:carregando`)
   'desbotado', 'carregando',
 ];

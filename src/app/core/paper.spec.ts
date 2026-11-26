@@ -10,6 +10,9 @@ describe('papel da ficha', () => {
     expect(sanitizePaper('canson')).toBe('canson');
     expect(sanitizePaper('cartolina')).toBeUndefined();
     expect(sanitizePaper('amassada')).toBeUndefined();
+    // a Aquarela saiu (25/nov/2026): quem a tinha fica com o Canson, na ficha e no card padrão do Kanban
+    expect(sanitizePaper('aquarela')).toBe('canson');
+    expect(sanitizeReview({ kind: 'anotacoes', game: { name: 'a' }, text: '', paper: 'aquarela' })!.paper).toBe('canson');
     expect(sanitizePattern('gatinhos')).toBe('gatinhos');
     expect(sanitizePattern('unicornios')).toBeUndefined();
     expect(sanitizeScribble('novelo')).toBe('novelo');
@@ -478,13 +481,16 @@ describe('papel da ficha', () => {
       }
     });
 
-    it('a Desbotada no sol é só o degradê, viva em cima e lavada embaixo, sem o pedaço que algo cobria', () => {
+    it('a Desbotada no sol é só o degradê, menos lavada em cima e mais embaixo, sem o pedaço que algo cobria', () => {
       const { clareia } = paperArt({ ...base, paper: 'desbotado' });
       expect(clareia).toContain("x1='0' y1='0' x2='0' y2='1'");
       const ops = [...clareia.matchAll(/stop-opacity='([\d.]+)'/g)].map((m) => +m[1]);
-      expect(ops.length).toBe(3);
-      expect(ops[0]).toBeLessThan(ops[1]);
-      expect(ops[1]).toBeLessThan(ops[2]);
+      // o creme de antes, na força de antes: o lado fraco (0,3 a 0,4) no alto, o forte (0,58 a 0,7) no pé
+      expect(ops.length).toBe(2);
+      expect(ops[0]).toBeGreaterThanOrEqual(0.3);
+      expect(ops[0]).toBeLessThanOrEqual(0.4);
+      expect(ops[1]).toBeGreaterThanOrEqual(0.58);
+      expect(ops[1]).toBeLessThanOrEqual(0.7);
       // um caminho só, a ficha inteira, sem buraco no meio
       expect(clareia.match(/<path /g)?.length).toBe(1);
       expect(clareia.match(/Z/g)?.length).toBe(1);

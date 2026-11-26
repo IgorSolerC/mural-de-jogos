@@ -4951,18 +4951,14 @@ function crumbling(W: number, H: number, k: number, sw: number, r: () => number,
 // ----- Desbotada no sol -----
 
 /**
- * Ficou anos no sol, pendurada: a cor desbotou de cima para baixo, viva no alto e lavada no pé. Igual em
- * toda ficha (desde a build 1071, a pedido do dono: antes cada clique sorteava de onde vinha a luz e,
- * metade das vezes, o pedaço que algo cobria, com a cor de antes): só o degradê, sem sorteio. A cor
- * lavada é a da própria cartolina, mais clara e sem croma; na escura ela clareia menos (a conta usa a
- * luz da cartolina), para a tinta clara do que está escrito continuar lida no pé.
+ * Ficou anos no sol, pendurada: a cor desbotou de cima para baixo, já lavada no alto e mais ainda no pé,
+ * no creme de sempre e na força de antes (o lado fraco de antes no alto, o forte no pé). Igual em toda
+ * ficha (desde a build 1071, a pedido do dono: antes cada clique sorteava de onde vinha a luz e, metade
+ * das vezes, o pedaço que algo cobria, com a cor de antes): só o degradê, sem sorteio.
  */
 function sunFaded(W: number, H: number, uid: string, out: PaperArt): void {
-  const lavada = 'oklch(from var(--stock) calc(l + (0.95 - l) * (0.25 + 0.75 * l)) calc(c * 0.3) h)';
-  // a cor no atributo é a de reserva, para o navegador que não conhece a cor relativa (o style manda onde ela vale)
-  const stop = (at: number, op: number) => `<stop offset='${at}' stop-color='rgb(245 239 225)' style='stop-color:${lavada}' stop-opacity='${op}'/>`;
   out.clareia +=
-    `<defs><linearGradient id='${uid}-sol' x1='0' y1='0' x2='0' y2='1'>${stop(0, 0.12)}${stop(0.5, 0.4)}${stop(1, 0.72)}</linearGradient></defs>` +
+    `<defs><linearGradient id='${uid}-sol' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='rgb(242 236 222)' stop-opacity='.34'/><stop offset='1' stop-color='rgb(246 240 226)' stop-opacity='.64'/></linearGradient></defs>` +
     `<path d='M-6 -6H${f1(W + 6)}V${f1(H + 6)}H-6Z' fill='url(#${uid}-sol)'/>`;
 }
 

@@ -39,6 +39,7 @@ describe('o visual de uma ficha (card-look)', () => {
     // o de sempre não fica; valores desconhecidos saem
     expect(sanitizeLook({ stock: 'azul', paper: 'cartolina', pattern: 'nada-disso', scribble: 'moldura', scribbleSeed: 3, x: 1 })).toEqual({ stock: 'azul', scribble: 'moldura', scribbleSeed: 3 });
     expect(sanitizeLook('lixo')).toEqual({});
+    expect(sanitizeLook({ stock: 'rosa', paper: 'aquarela' })).toEqual({ stock: 'rosa', paper: 'canson' });
     expect(withLook<CardLook>({ stock: 'azul', pattern: 'gatinhos', scribble: 'moldura' }, { stock: 'verde' })).toEqual({ stock: 'verde' });
     expect(sameLook({ stock: 'verde' }, { stock: 'verde' })).toBeTrue();
     expect(sameLook({ stock: 'verde' }, { stock: 'verde', pattern: 'gatinhos' })).toBeFalse();

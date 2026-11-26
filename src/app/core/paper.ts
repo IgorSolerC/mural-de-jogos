@@ -20,7 +20,6 @@ export type Paper =
   | 'verge'
   | 'reciclado'
   | 'glitter'
-  | 'aquarela'
   | 'feltro'
   | 'arroz'
   | 'ondulado'
@@ -39,7 +38,7 @@ export const AGED_PAPERS: readonly AgedPaper[] = ['desbotado', 'carregando'];
 export const isAgedPaper = (p: Paper | null | undefined): p is AgedPaper => p === 'desbotado' || p === 'carregando';
 
 /** Na ordem do estojo: dos lisos aos de relevo, os de fibra, os que brilham e, por último, os marcados pelo tempo. */
-export const PAPERS: readonly Paper[] = ['cartolina', 'lisa', 'canson', 'aquarela', 'linho', 'feltro', 'verge', 'arroz', 'reciclado', 'ondulado', 'metalizado', 'perolado', 'glitter', 'desbotado', 'carregando'];
+export const PAPERS: readonly Paper[] = ['cartolina', 'lisa', 'canson', 'linho', 'feltro', 'verge', 'arroz', 'reciclado', 'ondulado', 'metalizado', 'perolado', 'glitter', 'desbotado', 'carregando'];
 
 export const PAPER_LABEL: Record<Paper, string> = {
   cartolina: 'Cartolina',
@@ -49,7 +48,6 @@ export const PAPER_LABEL: Record<Paper, string> = {
   verge: 'Vergê',
   reciclado: 'Reciclado',
   glitter: 'Glitter',
-  aquarela: 'Aquarela',
   feltro: 'Feltro',
   arroz: 'Papel de arroz',
   ondulado: 'Ondulado',
@@ -719,8 +717,12 @@ function oneOf<T extends string>(list: readonly T[], fallback?: T) {
   return (raw: unknown): T | undefined => ((list as readonly unknown[]).includes(raw) && raw !== fallback ? (raw as T) : undefined);
 }
 
-/** Só o que existe; a cartolina de sempre (e "nenhum") não vai para o armazenamento. */
-export const sanitizePaper = oneOf(PAPERS, 'cartolina');
+const currentPaper = oneOf(PAPERS, 'cartolina');
+/**
+ * Só o que existe; a cartolina de sempre (e "nenhum") não vai para o armazenamento. A Aquarela saiu em
+ * 25/nov/2026 (a pedido do dono: era parecida demais com o Canson), e quem a tinha fica com o Canson.
+ */
+export const sanitizePaper = (raw: unknown): Paper | undefined => (raw === 'aquarela' ? 'canson' : currentPaper(raw));
 export const sanitizePattern = oneOf(PATTERNS);
 export const sanitizeScribble = oneOf(SCRIBBLES);
 export const sanitizeDecor = oneOf(DECORS);
@@ -826,16 +828,6 @@ const TEXTURES: Partial<Record<Paper, Texture>> = {
       `<defs><filter ${SRGB} id='w'><feTurbulence type='fractalNoise' baseFrequency='.02 .3' numOctaves='2' seed='2' stitchTiles='stitch'/><feDisplacementMap in='SourceGraphic' scale='1.8'/></filter><pattern id='l' width='240' height='3' patternUnits='userSpaceOnUse'><rect width='240' height='1.2' fill='#000' fill-opacity='.42'/><rect y='1.7' width='240' height='1' fill='#fff' fill-opacity='.55'/></pattern></defs><rect width='240' height='240' fill='#808080'/><g filter='url(#w)'><rect width='240' height='240' fill='url(#l)'/></g>`,
     ),
     size: '240px 240px',
-    blend: 'soft-light',
-  },
-  aquarela: {
-    // o grão graúdo do papel de aquarela: montes e covinhas largos, com luz de lado
-    img: svgUrl(
-      300,
-      300,
-      `<filter ${SRGB} id='f' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.024' numOctaves='5' seed='11' stitchTiles='stitch'/><feColorMatrix type='luminanceToAlpha'/><feDiffuseLighting surfaceScale='11' lighting-color='#fff' diffuseConstant='.62'><feDistantLight azimuth='225' elevation='42'/></feDiffuseLighting></filter><rect width='100%' height='100%' filter='url(#f)'/>`,
-    ),
-    size: '300px 300px',
     blend: 'soft-light',
   },
   feltro: {
