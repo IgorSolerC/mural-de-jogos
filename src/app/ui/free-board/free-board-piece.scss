@@ -139,8 +139,17 @@
   min-width: 0;
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  /* até 3 linhas; menos quando falta lugar para o corpo (fitCard) */
+  -webkit-line-clamp: var(--titulo-linhas, 3);
   overflow: hidden;
+  /* quebra entre as palavras (com hífen, em português); só a palavra maior que a linha quebra no meio */
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+/* o corpo não coube: o título termina em "…" */
+.cartao-titulo.com-mais::after {
+  content: ' …';
 }
 
 .cartao-icone {
@@ -152,13 +161,59 @@
 /* o texto na folha clara (sem título, a moldura em cima também) */
 .cartao-corpo {
   @include formatado.cartao-miolo;
-  display: block;
+  position: relative;
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
   overflow: hidden;
   box-sizing: border-box;
   padding: 0.4em calc(#{formatado.$cartao-lado} - #{formatado.$cartao-moldura}) 0.5em;
   font: inherit;
+}
+
+/* o texto: cortado entre duas linhas (a altura que cabe, de fitCard), nunca no meio da letra */
+.cartao-texto {
+  display: block;
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  font: inherit;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+/* o "…" do que ficou escondido: no fim da última linha que aparece, na tinta do texto. Quando a linha enche a largura,
+   ele fica na ponta, por cima das últimas letras, com a folha clara se desfazendo nelas */
+.reticencias {
+  position: absolute;
+  display: none;
+  align-items: center;
+  padding-left: 0.1em;
+  line-height: 1;
+  pointer-events: none;
+}
+.cartao.cortado {
+  .reticencias {
+    display: flex;
+  }
+  /* cortado numa linha: o texto fica da altura dela, mesmo passando um pouco da folga de baixo da folha */
+  .cartao-texto {
+    flex-shrink: 0;
+  }
+}
+.reticencias.por-cima {
+  padding-left: 0.9em;
+  background: linear-gradient(to right, transparent, formatado.cartao-miolo-cor() 0.75em);
+}
+
+/* sem lugar para uma linha do corpo: a folha clara sai, a faixa enche o card (o "…" vai no título) */
+.cartao.sem-corpo:not(.medindo) {
+  padding-bottom: 0;
+
+  > .cartao-corpo {
+    display: none;
+  }
 }
 
 .cartao:not(:has(> .cartao-topo)) {
@@ -169,9 +224,18 @@
 .cartao.medindo {
   bottom: auto;
 
-  .cartao-corpo {
+  .cartao-titulo {
+    -webkit-line-clamp: 3;
+  }
+
+  .cartao-corpo,
+  .cartao-texto {
     flex: none;
     overflow: visible;
+    max-height: none !important;
+  }
+  .reticencias {
+    display: none;
   }
 }
 

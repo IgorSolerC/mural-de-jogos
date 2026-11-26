@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, output, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterRenderEffect, computed, effect, inject, input, output, untracked, viewChild } from '@angular/core';
 import { CardFinder } from '../../core/card-finder';
 import { FbNode, noteColor, noteFont, noteLook, noteParts } from '../../core/free-board';
 import { calloutFallbackTitle, calloutPaper } from '../../core/callouts';
@@ -71,7 +71,9 @@ export type PieceMeasured = PieceMeasure & { id: string; settled: boolean };
         @if (level() === 'meio') {
           <svg class="de-longe" [attr.viewBox]="box()" preserveAspectRatio="none" aria-hidden="true"><g appSketchShapes [items]="far()"></g></svg>
         } @else {
-        <div class="cartao" [attr.data-jeito]="paper()">
+        <!-- o que não cabe (PLANO-CAIXAS-DE-TEXTO.md, D4): o corpo mostra as linhas inteiras que cabem e o "…" no fim
+             da última; sem lugar para nenhuma, a folha clara sai e o "…" vai no fim do título (ver fitCard) -->
+        <div #cartao class="cartao" [attr.data-jeito]="paper()">
           @if (cardTitle2(); as t) {
             <div class="cartao-topo">
               @if (cardIcon(); as ic) {
@@ -81,7 +83,10 @@ export type PieceMeasured = PieceMeasure & { id: string; settled: boolean };
             </div>
           }
           @if (parts().body.trim()) {
-            <app-rich-text class="cartao-corpo" [text]="parts().body" [links]="links()" />
+            <div class="cartao-corpo">
+              <app-rich-text class="cartao-texto" [text]="parts().body" [links]="links()" />
+              <span class="reticencias" aria-hidden="true">…</span>
+            </div>
           }
         </div>
         }
@@ -206,6 +211,7 @@ export class FreeBoardPiece {
   protected readonly baseLine = WIDGET_BASE_LINE;
 
   private readonly escala = viewChild<ElementRef<HTMLElement>>('escala');
+  private readonly cartao = viewChild<ElementRef<HTMLElement>>('cartao');
   private readonly table = viewChild('tabela', { read: ElementRef<HTMLElement> });
   /** O desenho medido: o tamanho dele e onde ele começa dentro da escala (o widget tem respiro em volta). */
   private drawn: { w: number; h: number; x: number; y: number } | null = null;
@@ -233,6 +239,35 @@ export class FreeBoardPiece {
       if (!host) return;
       onCleanup(watchDrawing(host, () => this.measureTable(host)));
     });
+    // o card do texto de perto: o que não cabe vira "…", a cada mudança do texto, do tamanho ou da letra, e quando a
+    // letra a pincel chega (ela quebra as linhas em outro lugar)
+    afterRenderEffect((onCleanup) => {
+      this.node();
+      const card = this.cartao()?.nativeElement;
+      if (!card) return;
+      fitCard(card);
+      // ... e quando o que tem dentro muda de tamanho sozinho (a foto de um widget no texto que chega depois)
+      const text = card.querySelector<HTMLElement>('.cartao-texto');
+      if (!text) return;
+      let frame = 0;
+      const ro = new ResizeObserver(() => {
+        if (!frame) frame = requestAnimationFrame(() => ((frame = 0), fitCard(card)));
+      });
+      for (const kid of text.children) ro.observe(kid);
+      onCleanup(() => {
+        cancelAnimationFrame(frame);
+        ro.disconnect();
+      });
+    });
+    const fonts = typeof document !== 'undefined' ? document.fonts : null;
+    if (fonts) {
+      const again = () => {
+        const card = this.cartao()?.nativeElement;
+        if (card) fitCard(card);
+      };
+      fonts.addEventListener('loadingdone', again);
+      inject(DestroyRef).onDestroy(() => fonts.removeEventListener('loadingdone', again));
+    }
     // a caixa mudou (o tamanho, a proporção acertada): a mesma medida, na escala nova
     effect(() => {
       this.node();
@@ -366,6 +401,133 @@ function watchDrawing(box: HTMLElement, measure: (again: () => void) => void): (
     ro.disconnect();
     mo.disconnect();
   };
+}
+
+/**
+ * O que não cabe no card do texto vira "…" (PLANO-CAIXAS-DE-TEXTO.md, D4), medido no próprio card, em px do mundo:
+ *
+ * - o título quebra em até 3 linhas, menos se faltar lugar para uma linha do corpo embaixo;
+ * - o corpo mostra as linhas inteiras que cabem (cortado entre duas linhas, nunca no meio da letra) e, se sobrou texto,
+ *   o "…" vai no fim da última que aparece (ou na ponta dela, por cima das últimas letras, quando ela enche a largura);
+ * - sem lugar para nenhuma linha do corpo, a folha clara sai e o "…" vai no fim do título.
+ *
+ * As linhas são as caixas do texto de verdade (um Range em cada pedaço de texto), então valem a lista, a tarefa e o
+ * negrito. Na escala da câmera as caixas vêm em px da tela: divididas pela escala do card.
+ */
+export function fitCard(card: HTMLElement): void {
+  const title = card.querySelector<HTMLElement>('.cartao-titulo');
+  const topo = title?.parentElement ?? null;
+  const sheet = card.querySelector<HTMLElement>(':scope > .cartao-corpo');
+  const text = sheet?.querySelector<HTMLElement>('.cartao-texto') ?? null;
+  const dots = sheet?.querySelector<HTMLElement>('.reticencias') ?? null;
+  // do zero: o título de até 3 linhas, a folha à mostra, o texto inteiro
+  card.style.removeProperty('--titulo-linhas');
+  card.classList.remove('sem-corpo', 'cortado');
+  title?.classList.remove('com-mais');
+  text?.style.removeProperty('max-height');
+  if (!card.offsetHeight) return;
+  const titleLine = title ? lineOf(title) : 0;
+  // o que a faixa ocupa além das linhas do título (os respiros dela)
+  const topoPad = topo && title ? topo.offsetHeight - title.offsetHeight : 0;
+  const titleLines = title && titleLine ? Math.round(title.offsetHeight / titleLine) : 0;
+  const clampTitle = (room: number) => {
+    if (!titleLine) return;
+    const n = Math.max(1, Math.min(3, Math.floor((room - topoPad + 0.5) / titleLine)));
+    if (n < titleLines) card.style.setProperty('--titulo-linhas', String(n));
+  };
+  if (!sheet || !text) {
+    // só o título: ele enche o card
+    clampTitle(card.clientHeight);
+    return;
+  }
+  const bodyLine = lineOf(text);
+  // o lugar de uma linha do corpo: a linha, os respiros da folha e a moldura do pé
+  const oneLine = bodyLine + padY(sheet) + (parseFloat(getComputedStyle(card).paddingBottom) || 0);
+  if (topo && topo.offsetHeight + oneLine > card.clientHeight + 0.5) clampTitle(card.clientHeight - oneLine);
+  if ((topo?.offsetHeight ?? 0) + oneLine > card.clientHeight + 0.5) {
+    // nem uma linha do corpo cabe: a folha sai e o título diz que tem mais
+    noBody(card, title, clampTitle);
+    return;
+  }
+  if (text.scrollHeight <= text.clientHeight + 1) return;
+  // (a letra desce um pouco na linha, `--texto-desce` de ui/rich-text.ts: a caixa dela passa do fim por isso, e não é
+  // linha escondida; a tolerância é uma fração da linha)
+  const room = text.clientHeight + bodyLine * 0.3;
+  // a linha de cada pedaço de texto: a caixa da letra (a do Kalam é mais alta que a linha e passa para a vizinha) com
+  // a altura da linha, no meio dela
+  const lines = linesIn(text).map((l) => {
+    const mid = (l.top + l.bottom) / 2;
+    return { top: mid - bodyLine / 2, bottom: mid + bodyLine / 2, right: l.right };
+  });
+  const seen = lines.filter((l) => l.bottom <= room);
+  if (!lines.length) {
+    // sem texto (só um widget, uma foto): o "…" no canto de baixo, por cima do que foi cortado
+    card.classList.add('cortado');
+    if (!dots) return;
+    dots.classList.add('por-cima');
+    dots.style.left = `${text.offsetLeft + text.clientWidth - dots.offsetWidth}px`;
+    dots.style.top = `${text.offsetTop + text.clientHeight - bodyLine}px`;
+    dots.style.height = `${bodyLine}px`;
+    return;
+  }
+  if (seen.length === lines.length) return;
+  if (!seen.length) {
+    noBody(card, title, clampTitle);
+    return;
+  }
+  const bottom = Math.max(...seen.map((l) => l.bottom));
+  text.style.maxHeight = `${bottom}px`;
+  card.classList.add('cortado');
+  if (!dots) return;
+  // o "…" no fim da última linha que aparece; sem lugar depois dela, na ponta, por cima das últimas letras
+  const last = seen.filter((l) => l.bottom > bottom - bodyLine / 2);
+  const right = Math.max(...last.map((l) => l.right));
+  const top = Math.min(...last.map((l) => l.top));
+  dots.classList.toggle('por-cima', right + dots.offsetWidth > text.clientWidth + 0.5);
+  const left = Math.min(right, text.clientWidth - dots.offsetWidth);
+  dots.style.left = `${text.offsetLeft + left}px`;
+  dots.style.top = `${text.offsetTop + top}px`;
+  dots.style.height = `${bottom - top}px`;
+}
+
+/** Nem uma linha do corpo cabe: a folha clara sai, o título enche o card e termina em "…". */
+function noBody(card: HTMLElement, title: HTMLElement | null, clampTitle: (room: number) => void): void {
+  card.classList.add('sem-corpo');
+  card.style.removeProperty('--titulo-linhas');
+  clampTitle(card.clientHeight - (parseFloat(getComputedStyle(card).paddingBottom) || 0));
+  title?.classList.add('com-mais');
+}
+
+/** A altura de uma linha do elemento (o line-height dele, em px). */
+function lineOf(el: HTMLElement): number {
+  const cs = getComputedStyle(el);
+  const lh = parseFloat(cs.lineHeight);
+  return Number.isFinite(lh) ? lh : parseFloat(cs.fontSize) * 1.35;
+}
+
+function padY(el: HTMLElement): number {
+  const cs = getComputedStyle(el);
+  return (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+}
+
+/** As linhas do texto (as caixas de cada pedaço de texto), em px do elemento, a partir do canto de cima dele. */
+function linesIn(el: HTMLElement): { top: number; bottom: number; right: number }[] {
+  const box = el.getBoundingClientRect();
+  const scale = el.offsetWidth ? box.width / el.offsetWidth : 0;
+  if (!scale) return [];
+  const out: { top: number; bottom: number; right: number }[] = [];
+  const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  const range = document.createRange();
+  for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+    // (o texto só do leitor de tela, escondido, não é linha)
+    if (!n.textContent?.trim() || n.parentElement?.closest('.sr-only')) continue;
+    range.selectNodeContents(n);
+    for (const r of range.getClientRects()) {
+      if (!r.width || !r.height) continue;
+      out.push({ top: (r.top - box.top) / scale, bottom: (r.bottom - box.top) / scale, right: (r.right - box.left) / scale });
+    }
+  }
+  return out;
 }
 
 /**

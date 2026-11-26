@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FbEdge, FbNode, FreeBoard, sanitizeFreeBoard } from '../../core/free-board';
 import { Camera } from '../../core/free-board-geometry';
 import { FreeBoardView } from './free-board-view';
-import { FreeBoardPiece, drawingIn } from './free-board-piece';
+import { FreeBoardPiece, cardNeed, drawingIn } from './free-board-piece';
 import { expectEtiquetaPadrao } from '../../testing/etiqueta-acoes.spec';
 import { comMarkdown } from '../../testing/writing-mode.spec';
 
@@ -463,7 +463,7 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
         expect(grown).toBeGreaterThan(104);
         expect(grown % 26).toBe(0);
         // o texto inteiro cabe no card
-        const body = piece('senha')!.querySelector<HTMLElement>('.cartao-corpo')!;
+        const body = piece('senha')!.querySelector<HTMLElement>('.cartao-texto')!;
         expect(body.scrollHeight).toBeLessThanOrEqual(body.clientHeight + 1);
         s.querySelector<HTMLButtonElement>('.faixa .pronto')!.click();
         await settle();
@@ -626,6 +626,92 @@ describe('Quadro livre: a tela (o motor de ver)', () => {
     fixture.detectChanges();
     expect(card.dataset['jeito']).toBe('feito');
     expect(card.querySelector('.cartao-titulo')?.textContent?.trim()).toBe('Nota');
+  });
+});
+
+describe('Quadro livre: o que não cabe no card do texto vira "…" (fitCard)', () => {
+  let host: HTMLElement | null = null;
+  beforeEach(() => TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] }));
+  afterEach(() => host?.remove());
+
+  const LONG = 'O elétrico 28 lota às 10h; ir cedo, antes das 8h, e descer no Largo das Portas do Sol para ver o rio. Depois seguir a pé até a Sé e almoçar na Baixa, perto da Rua Augusta.';
+
+  async function card(txt: string, w: number, h: number): Promise<HTMLElement> {
+    const fixture = TestBed.createComponent(FreeBoardPiece);
+    fixture.componentRef.setInput('node', { i: 'tx', t: 'x', x: 0, y: 0, w, h, txt });
+    fixture.componentRef.setInput('info', { kind: 'bilhete', image: null });
+    fixture.componentRef.setInput('level', 'perto');
+    host = fixture.nativeElement as HTMLElement;
+    host.style.position = 'absolute';
+    document.body.appendChild(host);
+    await document.fonts.ready;
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await frames(2);
+    return host.querySelector<HTMLElement>('.cartao')!;
+  }
+
+  /** Nenhuma linha do texto passa do corte pela metade: ou aparece inteira, ou fica toda escondida. */
+  function noHalfLines(text: HTMLElement): void {
+    const box = text.getBoundingClientRect();
+    const lh = parseFloat(getComputedStyle(text).lineHeight);
+    const range = document.createRange();
+    const walk = document.createTreeWalker(text, NodeFilter.SHOW_TEXT);
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+      range.selectNodeContents(n);
+      for (const r of range.getClientRects()) {
+        if (!r.height) continue;
+        // a linha (a caixa da letra do Kalam passa da linha: o meio dela, com a altura da linha)
+        const mid = (r.top + r.bottom) / 2;
+        const cut = mid - lh / 2 < box.bottom - 1 && mid + lh / 2 > box.bottom + lh * 0.3;
+        expect(cut).withContext(`a linha em ${mid - box.top} passa do corte em ${box.height}`).toBeFalse();
+      }
+    }
+  }
+
+  it('o corpo comprido mostra as linhas inteiras que cabem e o "…" no fim da última; o curto não ganha "…"', async () => {
+    const c = await card(`Cuidado com o elétrico\n${LONG}`, 300, 182);
+    expect(c.classList).toContain('cortado');
+    const text = c.querySelector<HTMLElement>('.cartao-texto')!;
+    const dots = c.querySelector<HTMLElement>('.reticencias')!;
+    expect(getComputedStyle(dots).display).not.toBe('none');
+    noHalfLines(text);
+    // o "…" fica dentro da folha clara, na altura da última linha que aparece
+    const sheet = c.querySelector<HTMLElement>('.cartao-corpo')!.getBoundingClientRect();
+    const d = dots.getBoundingClientRect();
+    expect(d.right).toBeLessThanOrEqual(sheet.right + 0.5);
+    expect(d.bottom).toBeLessThanOrEqual(text.getBoundingClientRect().bottom + 1);
+    host!.remove();
+    const short = await card('Dia 1\nMetrô vermelho até a Alameda.', 300, 182);
+    expect(short.classList).not.toContain('cortado');
+    expect(getComputedStyle(short.querySelector('.reticencias')!).display).toBe('none');
+  });
+
+  it('sem lugar para uma linha do corpo, a folha clara sai e o título termina em "…"; o título encolhe antes disso', async () => {
+    const tiny = await card(`Título\n${LONG}`, 208, 78);
+    expect(tiny.classList).toContain('sem-corpo');
+    expect(getComputedStyle(tiny.querySelector('.cartao-corpo')!).display).toBe('none');
+    const title = tiny.querySelector<HTMLElement>('.cartao-titulo')!;
+    expect(title.classList).toContain('com-mais');
+    expect(getComputedStyle(title, '::after').content).toContain('…');
+    host!.remove();
+    // estreito: o título comprido fica com menos linhas para o corpo ter a dele
+    const narrow = await card('Título bem comprido que não cabe numa linha só\ncorpo', 150, 130);
+    expect(narrow.classList).not.toContain('sem-corpo');
+    const t = narrow.querySelector<HTMLElement>('.cartao-titulo')!;
+    const lh = parseFloat(getComputedStyle(t).lineHeight);
+    expect(Math.round(t.offsetHeight / lh)).toBeLessThan(3);
+    const sheet = narrow.querySelector<HTMLElement>('.cartao-corpo')!;
+    expect(sheet.offsetHeight).toBeGreaterThanOrEqual(lh * 0.9);
+    // a palavra não se parte no meio (só a maior que a linha)
+    expect(getComputedStyle(t).overflowWrap).toBe('break-word');
+  });
+
+  it('a medida do que o texto pede (cardNeed) não conta o corte: o card cresce até mostrar tudo', async () => {
+    const c = await card(`Cuidado\n${LONG}`, 300, 130);
+    expect(c.classList).toContain('cortado');
+    const need = cardNeed(host!)!;
+    expect(need).toBeGreaterThan(130 + 26);
   });
 });
 
