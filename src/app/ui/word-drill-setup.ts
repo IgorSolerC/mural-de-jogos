@@ -229,7 +229,15 @@ export class WordDrillSetup {
   protected setPick(pick: 'todas' | 'escolher'): void {
     this.patch({ pick });
     // escolher sem nenhuma escolhida: a lista abre na hora
-    if (pick === 'escolher' && !this.chosenNow().length) this.choosing.set(true);
+    if (pick === 'escolher' && !this.chosenNow().length) this.openPicker();
+  }
+
+  /** As marcadas ao abrir a lista: tiradas uma vez (as marcas mudando por outra aba não desfazem o que se marca nela). */
+  protected readonly pickerInitial = signal<string[]>([]);
+
+  protected openPicker(): void {
+    this.pickerInitial.set(this.chosenNow());
+    this.choosing.set(true);
   }
 
   protected setNeed(sc: Script, n: Need): void {

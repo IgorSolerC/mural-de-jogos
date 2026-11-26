@@ -287,6 +287,33 @@ describe('Treino do dicionário', () => {
       expect(el.querySelector('.quadro.certo')).toBeNull();
     });
 
+    it('a lupa: ampliar um quadrado, escrever nele grande, andar com as setas e voltar com o Esc', async () => {
+      await open(['食べる'], { ways: ['escrever'], hints: ['romaji'] });
+      el.querySelectorAll<HTMLButtonElement>('.ampliar')[1].click();
+      await settle(fixture);
+      expect(el.querySelector('.lupa')).toBeTruthy();
+      expect(el.querySelector('.quadros')).toBeNull();
+      expect(el.querySelector('.lupa-onde')!.textContent!.trim()).toBe('2 de 3');
+      // o que se escreve no grande vai para o quadrado dele
+      const canvas = el.querySelector<HTMLCanvasElement>('.quadro.grande canvas')!;
+      const r = canvas.getBoundingClientRect();
+      const at = (x: number, y: number) => ({ clientX: r.left + (x * r.width) / 109, clientY: r.top + (y * r.height) / 109, pointerId: 1, pointerType: 'mouse', button: 0, buttons: 1, bubbles: true });
+      canvas.dispatchEvent(new PointerEvent('pointerdown', at(20, 30)));
+      canvas.dispatchEvent(new PointerEvent('pointermove', at(60, 30)));
+      canvas.dispatchEvent(new PointerEvent('pointerup', at(60, 30)));
+      await settle(fixture);
+      const comp = fixture.componentInstance as unknown as { drawings(): unknown[][] };
+      expect(comp.drawings().map((d) => d.length)).toEqual([0, 1, 0]);
+      await key('ArrowRight');
+      expect(el.querySelector('.lupa-onde')!.textContent!.trim()).toBe('3 de 3');
+      el.querySelector('dialog')!.dispatchEvent(new Event('cancel', { cancelable: true }));
+      await settle(fixture);
+      expect(el.querySelector('.lupa')).toBeNull();
+      expect(el.querySelector('.quadros')).toBeTruthy();
+      // o Esc com a lupa fechada não parou o treino
+      expect(el.querySelector('dialog')!.open).toBeTrue();
+    });
+
     it('Escrever com a dica do som: a voz diz a palavra ao chegar', async () => {
       await open(['食べる'], { ways: ['escrever'], hints: ['som'] });
       fake.begin();

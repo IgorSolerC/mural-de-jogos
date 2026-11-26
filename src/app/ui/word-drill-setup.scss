@@ -171,10 +171,15 @@ fieldset.linha {
   color: var(--ink-2);
 }
 
+.nota.sem-voz {
+  flex-basis: 100%;
+  margin: 2px 0 0;
+}
+
 .papelzinho {
   @include kit.botao-papel;
   & {
-    min-height: 40px;
+    min-height: 44px;
     font-size: 0.82rem;
   }
 }

@@ -187,3 +187,10 @@ Novidades, BUILD + 1, commit e push.
   por caractere, traçar, desfazer num só), a comparação; o boletim (errou primeiro, os desenhos, as que errei).
 - `ui/word-board.spec.ts` continua passando inteira (a lousa com as peças novas).
 - `browser-reset.spec.ts`: a montagem sai na limpeza.
+
+## 8. Fechamento (26/nov)
+
+- **Crítica do Impeccable** (duas avaliações isoladas): 32/40. Consertados: no celular, palavra de 3 ou mais caracteres tem dois quadrados por linha enquanto se escreve (e o mesmo tamanho conferidos, sem pulo); o boletim diz "em cima o seu, embaixo o certo" e o nome de cada jeito na conta; sem voz japonesa, uma linha diz por que o Som e o Falado estão apagados; o Desfazer de cada quadrado, o Limpar tudo e o botão do Escolher com 44 px; o fio vermelho dobrado entre o quadrado e o certo saiu; a busca do Escolher com um nome curto.
+- **Pedido do dono no meio**: a lupa. Cada quadrado tem o botão de ampliar: o quadrado fica grande, com as setas (← →) para os outros, Desfazer, "Ver todos" (ou Esc) e a fileira dos quadrados embaixo para pular.
+- **Para o dono decidir** (sugestões da crítica fora do pedido): escolher escrever a leitura em kana nas palavras com kanji (hoje vale a escrita); um "mostrar o primeiro traço" como dica no meio do Escrever; desfazer um traço pelo teclado.
+- `/code-review high`: a lista do Escolher perdia o que se marcava quando as marcas mudavam por outra aba (as marcadas ao abrir são tiradas uma vez).

@@ -56,6 +56,10 @@ export class WordDrill {
   protected readonly AgainIcon = ICON.recomecar;
   protected readonly ClearIcon = ICON.borracha;
   protected readonly RetryIcon = ICON.alvo;
+  protected readonly ZoomIcon = ICON.aproximar;
+  protected readonly UnzoomIcon = ICON.diminuir;
+  protected readonly PrevIcon = ICON.anterior;
+  protected readonly NextIcon = ICON.proximo;
   protected readonly WAY_INFO = WAY_INFO;
   /** Sem traços (um só, para o quadro não achar que mudou a cada desenho da tela). */
   protected readonly NONE: BrushStroke[] = [];
@@ -63,7 +67,6 @@ export class WordDrill {
   protected readonly calm = reducedMotion();
 
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
-  private readonly field = viewChild<ElementRef<HTMLInputElement>>('campo');
 
   /** As palavras sorteadas, na ordem do treino. */
   protected readonly items = signal<DrillItem[]>([]);
@@ -79,6 +82,8 @@ export class WordDrill {
   protected readonly strokes = signal<Record<string, Strokes> | null>(null);
   /** Depois de conferir: o quadrado certo que está se desenhando (um depois do outro). */
   protected readonly replayAt = signal(-1);
+  /** O quadrado ampliado (a lupa do Escrever), ou null: todos lado a lado. */
+  protected readonly zoomAt = signal<number | null>(null);
   /** A palavra aberta na lousa, por cima do boletim. */
   protected readonly boardWord = signal<Word | null>(null);
   /** O que o leitor de tela diz (conferiu, respondeu). */
@@ -170,6 +175,7 @@ export class WordDrill {
     this.typed.set(typed);
     this.checked.set(false);
     this.replayAt.set(-1);
+    this.zoomAt.set(null);
     this.drawings.set(this.chars().map((_, i) => drawing[i] ?? []));
     this.swappedAt = performance.now();
     const it = this.item();
@@ -208,7 +214,28 @@ export class WordDrill {
 
   protected onCancel(e: Event): void {
     e.preventDefault();
-    this.stop();
+    // com a lupa, o Esc volta aos quadrados lado a lado
+    if (this.zoomAt() !== null) this.unzoom();
+    else this.stop();
+  }
+
+  /** A lupa: o quadrado `i` grande, para escrever com calma (as palavras compridas têm quadrados pequenos). */
+  protected zoom(i: number): void {
+    this.zoomAt.set(i);
+    this.spoken.set(`Quadrado ${i + 1} de ${this.chars().length}, ampliado.`);
+  }
+
+  protected zoomStep(d: -1 | 1): void {
+    const z = this.zoomAt();
+    if (z === null) return;
+    const next = Math.max(0, Math.min(this.chars().length - 1, z + d));
+    if (next !== z) this.zoom(next);
+  }
+
+  protected unzoom(): void {
+    const z = this.zoomAt();
+    this.zoomAt.set(null);
+    if (z !== null) this.focusLater(`.quadros .ampliar[data-i="${z}"]`);
   }
 
   /** O Enter que confirma a conversão do teclado japonês (kana → kanji) não confere: a pessoa ainda está escrevendo. */
@@ -223,6 +250,7 @@ export class WordDrill {
     this.checked.set(true);
     this.swappedAt = performance.now();
     if (this.item()?.way === 'escrever') {
+      this.zoomAt.set(null);
       // os quadrados certos se desenham um depois do outro, embaixo dos da pessoa; quem decide é ela
       this.nextReplay(-1);
       this.spoken.set('A palavra certa está embaixo de cada quadrado. Acertou?');
@@ -325,7 +353,10 @@ export class WordDrill {
       e.preventDefault();
       return;
     }
-    if (key === 'z') {
+    if (this.zoomAt() !== null && (key === 'arrowleft' || key === 'arrowright') && !onButton) {
+      e.preventDefault();
+      this.zoomStep(key === 'arrowleft' ? -1 : 1);
+    } else if (key === 'z') {
       e.preventDefault();
       this.undo();
     } else if (key === 'r') {

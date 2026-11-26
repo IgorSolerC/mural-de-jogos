@@ -68,7 +68,7 @@
                 <span class="recorte-nome">Escolher</span>
               </label>
               @if (setup().pick === 'escolher') {
-                <button type="button" class="papelzinho" (click)="choosing.set(true)">
+                <button type="button" class="papelzinho" (click)="openPicker()">
                   <lucide-icon [img]="PickIcon" [size]="16" aria-hidden="true" />
                   {{ chosenN() ? (chosenN() === 1 ? '1 escolhida' : chosenN() + ' escolhidas') + ' · trocar' : 'Escolher as palavras' }}
                 </button>
@@ -117,6 +117,9 @@
                 <span class="recorte-nome">{{ HINT_LABEL[h] }}</span>
               </label>
             }
+            @if (!voice()) {
+              <p class="nota sem-voz">O som precisa de uma voz japonesa neste aparelho.</p>
+            }
           </div>
         </fieldset>
       }
@@ -134,6 +137,9 @@
                 <input type="checkbox" [checked]="showOn(v)" [disabled]="v === 'falado' && !voice()" (change)="toggleShow(v)" />
                 <span class="recorte-nome">{{ SHOW_LABEL[v] }}</span>
               </label>
+            }
+            @if (!voice()) {
+              <p class="nota sem-voz">O falado precisa de uma voz japonesa neste aparelho.</p>
             }
           </div>
         </fieldset>
@@ -174,9 +180,9 @@
     heading="Escolher as palavras"
     [lead]="pickLead()"
     [cards]="choices()"
-    [initial]="chosenNow()"
+    [initial]="pickerInitial()"
     [units]="['escolhida', 'escolhidas', 'Nenhuma palavra', 'Palavras']"
-    searchLabel="Procurar: português, romaji ou かな"
+    searchLabel="Procurar palavra"
     action="Pronto"
     [sorted]="false"
     [allowNone]="true"

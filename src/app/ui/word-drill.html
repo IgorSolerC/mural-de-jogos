@@ -68,8 +68,47 @@
         }
 
         @if (it.way === 'escrever') {
+          @if (zoomAt() !== null && !checked()) {
+            <!-- a lupa: o quadrado grande, as setas para os outros, e a fileira deles embaixo para pular -->
+            @let z = zoomAt()!;
+            <div class="lupa" role="group" [attr.aria-label]="'Quadrado ' + (z + 1) + ' de ' + chars().length + ', ampliado'">
+              <div class="lupa-linha">
+                <button type="button" class="redondo" [disabled]="z === 0" (click)="zoomStep(-1)" aria-label="Quadrado anterior" title="Quadrado anterior (←)">
+                  <lucide-icon [img]="PrevIcon" [size]="22" aria-hidden="true" />
+                </button>
+                <div class="quadro grande">
+                  <app-tianzige class="grade" />
+                  <app-brush-pad class="pincel" [strokes]="drawings()[z] ?? NONE" (strokesChange)="setDrawing(z, $event)" [label]="'Quadrado ' + (z + 1) + ' de ' + chars().length + ', ampliado: ' + (drawings()[z]?.length ?? 0) + ' traços'" />
+                </div>
+                <button type="button" class="redondo" [disabled]="z === chars().length - 1" (click)="zoomStep(1)" aria-label="Próximo quadrado" title="Próximo quadrado (→)">
+                  <lucide-icon [img]="NextIcon" [size]="22" aria-hidden="true" />
+                </button>
+              </div>
+              <div class="lupa-acoes">
+                <button type="button" class="desfazer-quadro com-nome" [disabled]="!drawings()[z]?.length" (click)="undoIn(z)">
+                  <lucide-icon [img]="UndoIcon" [size]="15" aria-hidden="true" />
+                  Desfazer
+                </button>
+                <span class="lupa-onde" aria-hidden="true">{{ z + 1 }} de {{ chars().length }}</span>
+                <button type="button" class="desfazer-quadro com-nome" (click)="unzoom()" title="Ver todos os quadrados (Esc)">
+                  <lucide-icon [img]="UnzoomIcon" [size]="15" aria-hidden="true" />
+                  Ver todos
+                </button>
+              </div>
+              <ol class="tira" aria-label="Os quadrados">
+                @for (c of chars(); track $index; let i = $index) {
+                  <li>
+                    <button type="button" class="mini-quadro tira-quadro" [class.aqui]="i === z" [attr.aria-current]="i === z ? 'true' : null" [attr.aria-label]="'Quadrado ' + (i + 1)" (click)="zoom(i)">
+                      <app-tianzige class="grade" />
+                      <app-brush-view class="pincel" [strokes]="drawings()[i] ?? NONE" />
+                    </button>
+                  </li>
+                }
+              </ol>
+            </div>
+          } @else {
           <!-- um quadrado por caractere para escrever com o pincel; conferido, o certo embaixo de cada um -->
-          <div class="quadros" [style.--n]="chars().length" [class.conferidos]="checked()">
+          <div class="quadros" [style.--n]="chars().length" [class.conferidos]="checked()" [class.muitos]="chars().length > 2">
             @for (c of chars(); track $index; let i = $index) {
               <div class="par">
                 <div class="quadro">
@@ -77,9 +116,14 @@
                   <app-brush-pad class="pincel" [strokes]="drawings()[i] ?? NONE" (strokesChange)="setDrawing(i, $event)" [label]="'Quadrado ' + (i + 1) + ' de ' + chars().length + ': ' + (drawings()[i]?.length ?? 0) + ' traços'" [attr.inert]="checked() ? '' : null" />
                 </div>
                 @if (!checked()) {
-                  <button type="button" class="desfazer-quadro" [disabled]="!drawings()[i]?.length" (click)="undoIn(i)" [attr.aria-label]="'Desfazer o último traço do quadrado ' + (i + 1)">
-                    <lucide-icon [img]="UndoIcon" [size]="15" aria-hidden="true" />
-                  </button>
+                  <div class="quadro-acoes">
+                    <button type="button" class="desfazer-quadro" [disabled]="!drawings()[i]?.length" (click)="undoIn(i)" [attr.aria-label]="'Desfazer o último traço do quadrado ' + (i + 1)" title="Desfazer o último traço">
+                      <lucide-icon [img]="UndoIcon" [size]="15" aria-hidden="true" />
+                    </button>
+                    <button type="button" class="desfazer-quadro ampliar" [attr.data-i]="i" (click)="zoom(i)" [attr.aria-label]="'Ampliar o quadrado ' + (i + 1)" title="Ampliar para escrever">
+                      <lucide-icon [img]="ZoomIcon" [size]="15" aria-hidden="true" />
+                    </button>
+                  </div>
                 } @else {
                   <div class="quadro certo">
                     <app-tianzige class="grade" />
@@ -93,6 +137,7 @@
               </div>
             }
           </div>
+          }
           @if (!checked()) {
             <button type="button" class="limpar" [disabled]="!anyDrawn()" (click)="clearAll()">
               <lucide-icon [img]="ClearIcon" [size]="15" aria-hidden="true" />
@@ -185,7 +230,7 @@
           @if (score().byWay.length > 1) {
             <ul class="por-jeito" aria-label="Por jeito">
               @for (w of score().byWay; track w.way) {
-                <li><span class="jeito-selo mini" lang="ja" aria-hidden="true">{{ WAY_INFO[w.way].seal }}</span><span class="sr-only">{{ WAY_INFO[w.way].label }}: </span>{{ w.right }} de {{ w.total }}</li>
+                <li><span class="jeito-selo mini" lang="ja" aria-hidden="true">{{ WAY_INFO[w.way].seal }}</span><span class="jeito-nome">{{ WAY_INFO[w.way].label }}</span> {{ w.right }} de {{ w.total }}</li>
               }
             </ul>
           }
@@ -231,6 +276,9 @@
                       {{ WAY_INFO[a.item.way].label }}
                       @if (a.item.hint ?? a.item.show; as h) {
                         · {{ HINT_SAID[h] }}
+                      }
+                      @if (a.item.way === 'escrever') {
+                        · em cima o seu, embaixo o certo
                       }
                     </p>
                     @if (a.item.way === 'escrever') {

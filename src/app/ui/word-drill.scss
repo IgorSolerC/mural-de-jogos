@@ -275,7 +275,14 @@ lucide-icon {
   justify-items: center;
   align-content: start;
   gap: 8px;
-  width: clamp(84px, calc((100% - (var(--n) - 1) * 12px) / var(--n)), 200px);
+  width: clamp(84px, calc((100% - (var(--n) - 1) * 12px) / var(--n)), 168px);
+}
+
+/* no celular, palavra de 3 ou mais: dois quadrados por linha, grandes para o dedo (e do mesmo tamanho conferidos) */
+@media (max-width: 520px) {
+  .quadros.muitos .par {
+    width: calc((100% - 12px) / 2);
+  }
 }
 
 .quadro {
@@ -299,23 +306,14 @@ lucide-icon {
   height: 100%;
 }
 
-/* conferido: os pares ficam menores (dois quadrados em pé cabem na tela) */
-.conferidos .par {
-  width: clamp(84px, calc((100% - (var(--n) - 1) * 12px) / var(--n)), 160px);
-}
-
 /* conferido: o da pessoa fica como está, sem mais traçar */
 .conferidos .pincel {
   cursor: default;
 }
 
-/* o certo: um fio vermelho em cima diz que é a resposta */
+/* o certo: o papel mais claro (a moldura vermelha do 田字格 já o separa do de cima) */
 .quadro.certo {
   background: #fffdf6;
-  box-shadow:
-    inset 0 0 0 1px rgb(21 21 21 / 0.08),
-    0 -3px 0 -1px var(--shu),
-    0 1px 2px rgb(0 0 0 / 0.12);
   animation: aparece 220ms var(--ease-ui, ease-out);
 }
 
@@ -333,8 +331,9 @@ lucide-icon {
 .desfazer-quadro {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
+  margin-top: -4px;
   border: 0;
   border-radius: 4px;
   background: rgb(21 21 21 / 0.06);
@@ -361,7 +360,7 @@ lucide-icon {
 .limpar {
   @include kit.botao-papel;
   & {
-    min-height: 38px;
+    min-height: 44px;
     margin-top: 14px;
     font-size: 0.8rem;
   }
@@ -437,6 +436,14 @@ lucide-icon {
   }
 }
 
+.jeito-nome {
+  font-weight: 600;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
 .jeito-selo.mini {
   flex: none;
   width: 24px;
@@ -492,6 +499,7 @@ lucide-icon {
 /* a palavra abre na lousa: o traço de pincel vermelho embaixo, sob a mão (como no verbete) */
 .palavra-boletim {
   display: grid;
+  justify-self: start;
   justify-items: start;
   gap: 1px;
   min-width: 0;
@@ -586,9 +594,6 @@ lucide-icon {
 
   &.certo {
     background: #fffdf6;
-    box-shadow:
-      inset 0 0 0 1px rgb(21 21 21 / 0.08),
-      0 -2px 0 -1px var(--shu);
   }
 }
 
@@ -604,5 +609,132 @@ lucide-icon {
   }
   .desenho-par {
     width: 56px;
+  }
+}
+
+/* ===== A lupa: um quadrado grande para escrever com calma ===== */
+.quadro-acoes {
+  display: flex;
+  gap: 6px;
+}
+
+.lupa {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 16px;
+}
+
+.lupa-linha {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.quadro.grande {
+  flex: none;
+  width: min(400px, calc(100% - 104px), calc(100dvh - 400px));
+  min-width: 200px;
+}
+
+.redondo {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    scale var(--t-ui) var(--ease-ui);
+
+  &:hover:not(:disabled) {
+    background: rgb(21 21 21 / 0.08);
+    scale: 1.06;
+  }
+  &:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+  &:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+}
+
+.lupa-acoes {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.desfazer-quadro.com-nome {
+  display: inline-flex;
+  gap: 6px;
+  width: auto;
+  margin-top: 0;
+  padding: 0 12px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.lupa-onde {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+
+/* a fileira dos quadrados: o ampliado com o fio vermelho embaixo; tocar pula para ele */
+.tira {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tira-quadro {
+  display: block;
+  width: 44px;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  transition: scale var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    scale: 1.06;
+  }
+  &.aqui {
+    box-shadow:
+      inset 0 0 0 1px rgb(21 21 21 / 0.08),
+      0 3px 0 -1px var(--shu);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+}
+
+@media (max-width: 520px) {
+  .quadro.grande {
+    width: calc(100% - 96px);
+    min-width: 0;
+  }
+  .lupa-linha {
+    gap: 4px;
   }
 }
