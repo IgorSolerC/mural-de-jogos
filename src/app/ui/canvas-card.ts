@@ -2,10 +2,9 @@ import { ChangeDetectionStrategy, Component, computed, inject, input } from '@an
 import { CardFinder } from '../core/card-finder';
 import { FbFrame, FreeBoard, shownNodes } from '../core/free-board';
 import { PickedGame } from '../core/review';
-import { pinningFor } from '../core/wall-physics';
 import { CoverSleeve } from './cover-sleeve';
 import { BoardSketch } from './free-board/board-sketch';
-import { CardOf } from './free-board/far-look';
+import { CardOf, cardsFrom } from './free-board/far-look';
 
 /**
  * O canvas na parede (PLANO-CANVAS.md, 2): um pedaço de eucatex numa moldura de alumínio, com o quadro desenhado em
@@ -28,7 +27,7 @@ import { CardOf } from './free-board/far-look';
           <app-cover-sleeve class="capa" [game]="game" [decorative]="true" />
         } @else if (board(); as b) {
           @if (pieces()) {
-            <app-board-sketch [board]="b" [cards]="cards" />
+            <app-board-sketch [board]="b" [cards]="cards" [bake]="true" />
           } @else {
             <span class="vazio">Canvas vazio</span>
           }
@@ -58,10 +57,7 @@ export class CanvasCard {
    * As fichas coladas no quadro (o widget Nota), pelo id, como o widget as acha: as suas e as do mural aberto de outra
    * pessoa. Na visita, a privada não vem (a miniatura a deixa sem nome, nunca com o título escrito na linha).
    */
-  protected readonly cards: CardOf = (id) => {
-    const r = this.finder.find(id)?.review;
-    return r ? { stock: pinningFor(r.id, r.stock).stock, name: r.game.name, folder: !!r.category } : null;
-  };
+  protected readonly cards: CardOf = cardsFrom(this.finder);
 
   protected readonly cover = computed(() => {
     const g = this.game();

@@ -79,6 +79,9 @@ describe('a aparência de cada peça (far-look.ts)', () => {
     const t = pieceLook(w('{{tabela: listrada}}\n| Dia | Cidade |\n| - | - |\n| 1 | Lisboa |\n| 2 | Sintra |'), null);
     expect(t.inner).toEqual(jasmine.objectContaining({ kind: 'rows', look: 'listrada', rows: 2, cols: 2, head: '#22201d' }));
     expect(t.title).toBe('Dia · Cidade');
+    // o cabeçalho escuro da listrada pede a tinta clara; as fileiras vão para o assado
+    expect(lightness(t.ink)).toBeGreaterThan(0.8);
+    if (t.inner?.kind === 'rows') expect(t.inner.cells).toEqual(['1 · Lisboa', '2 · Sintra']);
     expect(pieceLook(w('{{tabela: caneta}}\n| a |\n| - |\n| 1 |'), null).paper).toBe('');
   });
 

@@ -1,6 +1,6 @@
 import { FbNode, FreeBoard, newBoardId } from '../../core/free-board';
 import { boundsOf, paintOrder } from '../../core/free-board-geometry';
-import { SketchItem, fit, sketchModel } from './board-sketch';
+import { SketchItem, fit, sketchModel } from './sketch-model';
 import { CardOf } from './far-look';
 import { stockColor } from './far-palette';
 import { Scene } from './scene';

@@ -6,8 +6,9 @@ import { plainText } from '../../core/rich-text';
 import { TableLook, parseTableText, tableLookOf } from '../../core/tables';
 import { Frame, When, parseWidgetLine, readAudio, readCardRef, readCountdown, readMedia } from '../../core/widgets';
 import { localImageId } from '../../core/images';
-import { DEFAULT_FRAME, FELT_HEX, STOCK_HEX } from './far-layer';
-import { cardPaper, jeitoInks, lightness, manilha, rootColor, stockColor } from './far-palette';
+import type { CardFinder } from '../../core/card-finder';
+import { pinningFor } from '../../core/wall-physics';
+import { DEFAULT_FRAME, FELT_HEX, STOCK_HEX, cardPaper, jeitoInks, lightness, manilha, rootColor, stockColor } from './far-palette';
 import { PieceInfo, pieceInfo } from './scene';
 
 /**
@@ -32,13 +33,24 @@ export interface CardInfo {
 /** Acha a ficha colada pelo id (null: não está aqui, ou não é desta pessoa ver). */
 export type CardOf = (id: string) => CardInfo | null;
 
+/**
+ * As fichas coladas pelo id, como o widget Nota as acha (`CardFinder`: as suas e as do mural aberto de outra pessoa),
+ * com a cartolina que a ficha tem no mural. Na visita, a privada não vem.
+ */
+export function cardsFrom(finder: Pick<CardFinder, 'find'>): CardOf {
+  return (id) => {
+    const r = finder.find(id)?.review;
+    return r ? { stock: pinningFor(r.id, r.stock).stock, name: r.game.name, folder: !!r.category } : null;
+  };
+}
+
 export type FarInner =
   /** Os pontos do desenho. */
   | { kind: 'pixels'; art: PixelArt }
   /** A foto guardada no Murall (o id), ou null (a de fora, que não vem). */
   | { kind: 'image'; id: string | null; frame: Frame }
   /** As fileiras da tabela: o cabeçalho, as listras, os fios. */
-  | { kind: 'rows'; look: TableLook; rows: number; cols: number; head: string | null; stripe: string | null; rule: string }
+  | { kind: 'rows'; look: TableLook; rows: number; cols: number; head: string | null; stripe: string | null; rule: string; cells: string[] }
   /** O contador: o dia que ele conta (o assado escreve quanto falta). */
   | { kind: 'days'; when: When | null }
   /** O vídeo e o som: o ícone claro no escuro. */
@@ -173,10 +185,21 @@ export function pieceLook(node: FbNode, cards: CardOf | null, info: PieceInfo = 
       return {
         ...base,
         paper: t.paper,
-        ink: t.ink,
+        // o título é o cabeçalho: claro sobre o cabeçalho escuro da listrada
+        ink: t.head ? '#fffdf8' : t.ink,
         bodyInk: t.ink,
         title: table.head.map((h) => plain(h, 40)).filter(Boolean).join(' · '),
-        inner: { kind: 'rows', look, rows: table.rows.length, cols, head: t.head, stripe: t.stripe, rule: t.rule },
+        inner: {
+          kind: 'rows',
+          look,
+          rows: table.rows.length,
+          cols,
+          head: t.head,
+          stripe: t.stripe,
+          rule: t.rule,
+          // as fileiras como se leem, para o assado (as primeiras; o desenho mostra até 12)
+          cells: table.rows.slice(0, 11).map((r) => r.map((c) => plain(c, 40)).filter(Boolean).join(' · ')),
+        },
       };
     }
     default:

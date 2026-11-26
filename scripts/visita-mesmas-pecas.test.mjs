@@ -88,7 +88,7 @@ const PECAS = [
   {
     peca: 'src/app/ui/canvas-card.ts',
     usa: 'app-canvas-card',
-    marcas: [/<app-board-sketch \[board\]="b" \[cards\]="cards" \/>/, /<span class="dymo" aria-hidden="true">\{\{ name\(\) \}\}/],
+    marcas: [/<app-board-sketch \[board\]="b" \[cards\]="cards" \[bake\]="true" \/>/, /<span class="dymo" aria-hidden="true">\{\{ name\(\) \}\}/],
     o: 'o canvas na parede (PLANO-CANVAS.md): o eucatex na moldura, com a miniatura do quadro e a fita Dymo',
   },
   {

@@ -1,5 +1,6 @@
 import { Stock } from '../../core/review';
 import { CalloutPaper } from '../../core/callouts';
+import type { FbColor } from '../../core/free-board';
 
 /**
  * As cores do quadro em ponto pequeno (PLANO-MINIATURA-CANVAS.md, D2), lidas do CSS: `styles.scss` é a verdade
@@ -104,3 +105,50 @@ function rgb(hex: string): [number, number, number] | null {
 export function resetFarPalette(): void {
   memo.clear();
 }
+
+/** As cartolinas (as mesmas variáveis `--stock-*` de styles.scss), para o canvas, que não lê CSS. */
+export const STOCK_HEX: Readonly<Record<FbColor, string>> = {
+  vermelho: '#ef7d73',
+  laranja: '#ffa358',
+  amarelo: '#ffda42',
+  verde: '#7be986',
+  azul: '#70cdff',
+  lilas: '#c4a5fb',
+  rosa: '#ff79a8',
+  cinza: '#c9c3bc',
+  branco: '#f6f1e7',
+};
+
+/**
+ * O feltro da moldura: a cartolina escura do mesmo matiz (`--stock-*-escuro`); a branca, que não tem
+ * escura, é um feltro cinza claro de parede.
+ */
+export const FELT_HEX: Readonly<Record<FbColor, string>> = {
+  vermelho: '#511d19',
+  laranja: '#4a2603',
+  amarelo: '#3a2f03',
+  verde: '#083b14',
+  azul: '#0a334b',
+  lilas: '#36264e',
+  rosa: '#54162e',
+  cinza: '#403c38',
+  branco: '#57534c',
+};
+
+/** Os papéis do card do texto (os `[data-jeito]` de styles.scss), para o canvas; o da cartolina, fora dela, é o cinza. */
+export const CALLOUT_HEX: Readonly<Record<CalloutPaper, string>> = {
+  nota: '#ecdcb3',
+  info: '#dce8f7',
+  dica: '#d6efe6',
+  feito: '#deefd3',
+  pergunta: '#faeea4',
+  aviso: '#fbdfc2',
+  perigo: '#f7d9d4',
+  exemplo: '#e6dcf5',
+  citacao: '#e7e4de',
+  rosa: '#fadce7',
+  cartolina: '#e7e4de',
+};
+
+/** A cor de cada peça quando não se escolhe uma (a moldura cinza). */
+export const DEFAULT_FRAME: FbColor = 'cinza';

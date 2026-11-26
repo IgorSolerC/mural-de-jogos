@@ -121,4 +121,4 @@ chave da miniatura. Nenhuma chave nova de localStorage.
 
 ## 7. A crítica do começo
 
-Ver `.impeccable/critique/2026-11-26T11-33-49Z__src-app-ui-canvas-card-ts.md` (13/28). Rodada 1 feita: BUILD 1081.
+Ver `.impeccable/critique/2026-11-26T11-33-49Z__src-app-ui-canvas-card-ts.md` (13/28). Rodada 1 feita: BUILD 1081. Rodada 2 feita: BUILD 1082 (o assado pinta o mesmo modelo do SVG, no modo rico, em `sketch-paint.ts`).

@@ -442,6 +442,8 @@ describe('limpar o navegador (sair da conta)', () => {
   it('as imagens assadas do forno (o banco delas, PLANO-FORNO.md) saem junto, mesmo com a conexão aberta nesta aba', async () => {
     signedInBrowser();
     await guardarNoForno('1|papel-da-conta', new Blob(['png'], { type: 'image/png' }));
+    // a miniatura assada do canvas (PLANO-MINIATURA-CANVAS.md, rodada 2) mora no mesmo banco
+    await guardarNoForno('canvas:miniatura-da-conta', new Blob(['png'], { type: 'image/png' }));
     expect(await lerDoForno('1|papel-da-conta')).not.toBeNull();
     expect(await databases()).toContain(FORNO_DB);
     localStorage.removeItem(SESSION_KEY);
@@ -449,6 +451,7 @@ describe('limpar o navegador (sair da conta)', () => {
     expect(await resetOnBoot()).toBeTrue();
     expect(await databases()).not.toContain(FORNO_DB);
     expect(await lerDoForno('1|papel-da-conta')).toBeNull();
+    expect(await lerDoForno('canvas:miniatura-da-conta')).toBeNull();
     expect((await fornoGuardado()).imagens).toBe(0);
   });
 
