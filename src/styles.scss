@@ -1271,9 +1271,16 @@ dialog.sheet {
 /* As cartolinas claras: no amarelo e no verde o soft-light quase não mexe (um canal já está no
    máximo) e o papel sumia (no branco, então, nem se fala). Ganham a fibra suave de reforço, em
    hard-light (a Lisa, que não tem fibra, fica sem). */
-:is([data-cor='amarelo'], [data-cor='verde'], [data-cor='azul'], [data-cor='branco'], [data-cor$='-pastel'], [data-cor='bege']) :is(.cartolina, .papel, .head),
-:is([data-cor='amarelo'], [data-cor='verde'], [data-cor='azul'], [data-cor='branco'], [data-cor$='-pastel'], [data-cor='bege']):is(.cartolina, .papel) {
+:is([data-cor='amarelo'], [data-cor='verde'], [data-cor='azul'], [data-cor='branco']) :is(.cartolina, .papel, .head),
+:is([data-cor='amarelo'], [data-cor='verde'], [data-cor='azul'], [data-cor='branco']):is(.cartolina, .papel) {
   --realce-grao: var(--grao-realce, var(--grao-realce-img, none));
+}
+
+/* As pastéis e o bege (25/nov/2026, pedido do dono): o granulado mais fraco, a fibra de metade do
+   contraste (a mesma das escuras) e sem o reforço das claras. O marrom, mais escurinho, fica com a de sempre. */
+:is([data-cor$='-pastel'], [data-cor='bege']) :is(.cartolina, .papel, .head),
+:is([data-cor$='-pastel'], [data-cor='bege']):is(.cartolina, .papel) {
+  --grao-img: var(--grao-escuro-img, var(--paper-grain));
 }
 
 /* As cartolinas escuras. No escuro o soft-light pesa demais (clareia a sombra com raiz quadrada) e o
