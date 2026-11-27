@@ -7,6 +7,7 @@ import { loadKleeOne } from './font-sheet';
 import { ICON, IconModule } from './icons';
 import { WordEntry } from './word-entry';
 import { WordConjugations } from './word-conjugations';
+import { ROOM } from './room';
 import { FormId } from '../core/dictionary/conjugation';
 
 /**
@@ -18,6 +19,8 @@ import { FormId } from '../core/dictionary/conjugation';
 @Component({
   selector: 'app-word-sheet',
   imports: [BackdropClose, IconModule, RouterLink, WordConjugations, WordEntry],
+  // ela é um modal da tela inteira: as conjugações que ela abre ficam por cima dela, e não no lado da leitura (ui/room.ts)
+  providers: [{ provide: ROOM, useValue: { room: () => null } }],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet folha-palavra" aria-labelledby="ws-titulo" (close)="closed.emit()" (backdropClose)="close()">

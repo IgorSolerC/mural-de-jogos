@@ -86,7 +86,7 @@ import { LinkSheet } from './link-sheet';
 import { CardConfig } from './card-config';
 import { VozFita } from './voz-fita';
 import { Voz } from '../core/voz';
-import { CALENDAR_PATH, canvasPath, studyPath, wallPath } from '../core/areas';
+import { CALENDAR_PATH, DICTIONARY_PATH, canvasPath, studyPath, wallPath } from '../core/areas';
 import { FreeBoardStore } from '../core/free-board-store';
 import type { FreeBoard } from '../core/free-board';
 import { boardIdOfNote } from '../core/canvas-id';
@@ -963,6 +963,8 @@ export class ReviewReader implements Room {
   room(): HTMLElement | null {
     if (!this.split()) return null;
     const dialog = this.dialog().nativeElement;
+    // (editando, a ficha está escondida: o lado é o do editor)
+    if (this.editingHere()) return dialog.querySelector<HTMLElement>(':scope > app-review-editor');
     return dialog.querySelector<HTMLElement>(':scope > .na-parede') ?? dialog.querySelector<HTMLElement>(':scope > .par');
   }
   // ===== O canvas na leitura (PLANO-LADO-A-LADO.md, D4) =====
@@ -1067,7 +1069,8 @@ export class ReviewReader implements Room {
     this.watchShared(null);
     const el = this.dialog().nativeElement;
     if (!el.open) el.show();
-    afterNextRender(() => el.querySelector<HTMLElement>('#leitura-titulo-2')?.focus({ preventScroll: true }), { injector: this.injector });
+    // a consulta começa na busca (o dicionário, chegando depois, também a foca); sem ela ainda, o nome
+    afterNextRender(() => (el.querySelector<HTMLElement>('app-dictionary-view app-search-strip input') ?? el.querySelector<HTMLElement>('#leitura-titulo-2'))?.focus({ preventScroll: true }), { injector: this.injector });
   }
   /** (Ao lado, sozinho) O Ao lado do dicionário: o seletor é o da leitura de fora. */
   protected askBeside(): void {
@@ -1077,6 +1080,14 @@ export class ReviewReader implements Room {
   protected pickedDictionary(): void {
     const a = this.review();
     if (!a || this.segunda() === 'dicionario' || this.vista() !== 'leitura' || this.solta()) return;
+    // a tela estreitou com o seletor aberto: não cabem duas, e o dicionário abre na página dele
+    if (!this.fitsBeside()) {
+      this.whenFree(() => {
+        this.close();
+        void this.router.navigateByUrl(DICTIONARY_PATH);
+      });
+      return;
+    }
     this.commentsOpen.set(false);
     this.detailsOpen.set(false);
     this.picked.set(null);

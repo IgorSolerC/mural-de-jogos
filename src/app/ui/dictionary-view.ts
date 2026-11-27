@@ -251,6 +251,23 @@ export class DictionaryView {
       clearTimeout(this.conjBack);
       this.stopJump?.(false);
     });
+    // ao lado, outra busca, outro filtro, outra ordem ou outra vista começam do alto da caixa (o resultado não fica
+    // debaixo da pasta presa); na página, a janela fica onde está, como sempre
+    afterRenderEffect(() => {
+      this.searched();
+      this.state().filter;
+      this.sort();
+      this.state().dir;
+      this.state().view;
+      untracked(() => {
+        const rolo = this.local() ? this.rolo()?.nativeElement : null;
+        if (rolo) rolo.scrollTop = 0;
+      });
+    });
+    // ao lado, a consulta começa na busca (é para isso que ele abre)
+    afterNextRender(() => {
+      if (this.local()) this.host.nativeElement.querySelector<HTMLInputElement>('app-search-strip input')?.focus({ preventScroll: true });
+    });
     // a folha de conjugações fechou (o X ou o voltar): o foco volta ao verbete
     let conjOpen: string | null = null;
     effect(() => {

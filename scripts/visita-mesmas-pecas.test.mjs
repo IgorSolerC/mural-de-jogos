@@ -20,6 +20,12 @@ const app = join(root, 'src/app');
  */
 const PECAS = [
   {
+    peca: 'src/app/ui/dictionary-view.html',
+    usa: 'app-dictionary-view',
+    marcas: [/class="dic-topo"/, /class="verbete" app-word-entry/],
+    o: 'o Dicionário Japonês (a pasta com a busca e os filtros, os verbetes; a página e o lado da leitura, também na visita)',
+  },
+  {
     peca: 'src/app/ui/study-card-wall.html',
     usa: 'app-study-card-wall',
     marcas: [/<ul\b[^>]*class="cartas[\s"]/, /class="carta-btn"/],

@@ -131,6 +131,9 @@ describe('O Dicionário Japonês ao lado (ReviewReader, PLANO-LADO-A-LADO.md, D5
     expect(view!.querySelector('app-search-strip')).not.toBeNull();
     expect(view!.querySelector('button[aria-controls="cartela-dicionario"]')).not.toBeNull();
     expect(view!.querySelectorAll('.verbete').length).toBeGreaterThan(0);
+    // as vagas das palavras longe não entram no Tab (o Tab chega ao outro lado); a caixa rola pelo teclado
+    expect(view!.querySelector('[data-vaga][tabindex="0"]')).toBeNull();
+    expect(view!.querySelector('.dic-rolo')!.getAttribute('tabindex')).toBe('0');
     // ao lado, sem o Treinar
     expect([...view!.querySelectorAll('.pasta button')].some((b) => b.textContent?.includes('Treinar'))).toBeFalse();
   });
@@ -140,10 +143,16 @@ describe('O Dicionário Japonês ao lado (ReviewReader, PLANO-LADO-A-LADO.md, D5
     const router = TestBed.inject(Router);
     const before = router.url;
     const input = beside()!.querySelector<HTMLInputElement>('app-search-strip input')!;
+    // a consulta começa na busca
+    expect(document.activeElement).withContext('o foco na busca').toBe(input);
+    // rolada, a caixa volta ao alto com a busca nova (o resultado não fica debaixo da pasta presa)
+    const rolo = beside()!.querySelector<HTMLElement>('.dic-rolo')!;
+    rolo.scrollTop = 500;
     input.value = 'taberu';
     input.dispatchEvent(new Event('input', { bubbles: true }));
     await settle(250);
     expect(router.url).toBe(before);
+    expect(rolo.scrollTop).toBe(0);
     const words = [...beside()!.querySelectorAll('.verbete .palavra')].map((x) => x.textContent?.trim());
     expect(words.length).toBeGreaterThan(0);
     expect(words.some((w) => w?.includes('食べる'))).toBeTrue();

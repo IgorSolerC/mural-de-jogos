@@ -113,7 +113,9 @@
 </div>
 
 <!-- as palavras (ao lado, a caixa que rola; na página, a página) -->
-<div #rolo class="dic-rolo" (scroll)="onRoloScroll()">
+<!-- ao lado, as vagas das palavras longe saem do Tab (com 1.450 delas, o Tab nunca chegaria ao outro lado): a caixa
+     rola pelo teclado, e as palavras perto dela se montam e entram no Tab -->
+<div #rolo class="dic-rolo" [attr.tabindex]="local() ? 0 : null" [attr.role]="local() ? 'region' : null" [attr.aria-label]="local() ? 'Palavras do dicionário' : null" (scroll)="onRoloScroll()">
 @if (!shown().length) {
   <!-- a busca e os filtros não acharam nada: o cartão das Anotações -->
   <section class="no-results cartolina" aria-live="polite">
@@ -181,7 +183,7 @@
             <td class="c-notas">{{ w.notes }}</td>
             <td class="c-origem">{{ w.origin }}</td>
             } @else {
-              <td class="linha-vaga" data-vaga tabindex="0" [attr.colspan]="columns.length" [style.height.px]="rowHeight(w)" (focus)="enterVaga(perto, $event)">
+              <td class="linha-vaga" data-vaga [attr.tabindex]="local() ? -1 : 0" [attr.colspan]="columns.length" [style.height.px]="rowHeight(w)" (focus)="enterVaga(perto, $event)">
                 <span class="sr-only"><span lang="ja">{{ w.text }}</span>, {{ w.meaning }}</span>
               </td>
             }
@@ -209,7 +211,7 @@
                 @if (perto.near()) {
                   <div class="verbete" app-word-entry [word]="w" [drawable]="true" [found]="foundForm(w)" (draw)="openBoard($event)" (conjugate)="openConjugations($event)"></div>
                 } @else {
-                  <div class="vaga-verbete" data-vaga tabindex="0" [style.height.px]="entryHeight(w)" (focus)="enterVaga(perto, $event)">
+                  <div class="vaga-verbete" data-vaga [attr.tabindex]="local() ? -1 : 0" [style.height.px]="entryHeight(w)" (focus)="enterVaga(perto, $event)">
                     <span class="sr-only"><span lang="ja">{{ w.text }}</span>, {{ w.meaning }}</span>
                   </div>
                 }

@@ -314,3 +314,9 @@ thead .num {
 :host(.no-lado) .vista-txt {
   display: none;
 }
+
+/* ao lado, a caixa das palavras recebe o foco para rolar pelo teclado: o anel de sempre */
+:host(.no-lado) .dic-rolo:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: -3px;
+}

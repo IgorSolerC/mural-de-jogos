@@ -311,6 +311,15 @@ describe('Editar ao lado (ReviewReader, PLANO-LADO-A-LADO.md, D7 e D8)', () => {
     expect(removed).toEqual(['nota-a']);
   });
 
+  it('editando ao lado, a sala das peças ampliadas é o editor (a ficha está escondida)', async () => {
+    await both();
+    await edit(beside()!);
+    const inner = (reader as unknown as { ladoB(): { room(): HTMLElement | null } }).ladoB();
+    const room = inner.room();
+    expect(room?.tagName.toLowerCase()).toBe('app-review-editor');
+    expect(room!.getBoundingClientRect().width).toBeGreaterThan(0);
+  });
+
   it('sozinha, o Editar continua pedindo o editor de sempre', async () => {
     reader.open(store.get('nota-a')!);
     await settle();
