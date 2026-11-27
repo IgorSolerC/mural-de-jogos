@@ -27,12 +27,15 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-26-lado-a-lado-analises-canvas',
+    id: '2026-11-26-lado-a-lado-dicionario',
     version: '1.58.0',
     kind: 'funcionalidade',
     date: '2026-11-26',
-    title: 'Lado a lado com análises e canvas, cada lado por si',
+    title: 'Lado a lado com tudo: análises, canvas e o Dicionário Japonês',
+    notice: 'Novo: o Ao lado da leitura abre análises, canvas e o Dicionário Japonês, e dá para editar as duas anotações ao mesmo tempo.',
+    until: '2026-12-11',
     items: [
+      'O Dicionário Japonês ao lado: ele aparece no alto do Escolher a nota do Ao lado e abre ao lado da anotação, com a busca e os filtros presos em cima enquanto as palavras rolam; a lousa da escrita dos kanji e as conjugações abrem só no lado dele, e a anotação continua à vista. Fechando a anotação, o dicionário fica sozinho, com o Ao lado para escolher outra coisa, que entra à direita dele.',
       'O Ao lado da leitura abre também análises e canvas: o Escolher a nota mostra as anotações, as análises de todos os murais e os canvas, separados pelo Onde. O canvas aberto na leitura mostra o quadro dele para ver (arrastar, dar zoom, Ver tudo), e o Abrir o canvas leva à página dele, onde ele se edita. A análise e o canvas abertos sozinhos também têm o Ao lado.',
       'Com duas anotações abertas lado a lado, cada uma é um lugar: os Detalhes, os Comentários e o Citar de uma abrem por cima dela (com o "Voltar para a ficha"), e Só a cartolina mostra a ficha do mural no lado dela; a outra continua à vista, para ler e mexer. O X de cada uma fecha só ela: a que fica passa a ser a leitura de sempre, no mesmo trecho, com os Detalhes, os Comentários e o Ao lado de volta. O Esc e o toque fora fecham as duas.',
       'O zoom também fica no lado: a imagem, a tabela e os widgets ampliados numa das duas anotações crescem só até o tamanho dela, com o fundo escuro só nela, e a outra continua à vista, para ler, rolar e mexer. Dá para ampliar uma peça em cada lado ao mesmo tempo; o Esc desce a do lado onde você está.',

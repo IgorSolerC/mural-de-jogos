@@ -91,6 +91,7 @@ import { FreeBoardStore } from '../core/free-board-store';
 import type { FreeBoard } from '../core/free-board';
 import { boardIdOfNote } from '../core/canvas-id';
 import { FreeBoardView } from './free-board/free-board-view';
+import { DictionaryView } from './dictionary-view';
 import { LEVEL_LABEL, cardDecks, levelOf, studyGroupId, whenLabel } from '../core/study';
 import { StudyStore } from '../core/study-store';
 import { FichaLinks } from '../core/ficha-link';
@@ -196,7 +197,7 @@ interface Handover {
 
 @Component({
   selector: 'app-review-reader',
-  imports: [BackdropClose, CardConfig, CardPicker, FreeBoardView, ReviewEditor, QuickNoteSheet, WordSheet, CommentsPanel, ReaderDetails, ConflictSheet, LinkSheet, ShareSheet, OrganizeSheet, IconModule, KanbanDepsBadge, MoreMenu, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, ReviewCard, Skulls, StatusLabel, VozFita],
+  imports: [BackdropClose, CardConfig, CardPicker, DictionaryView, FreeBoardView, ReviewEditor, QuickNoteSheet, WordSheet, CommentsPanel, ReaderDetails, ConflictSheet, LinkSheet, ShareSheet, OrganizeSheet, IconModule, KanbanDepsBadge, MoreMenu, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, ReviewCard, Skulls, StatusLabel, VozFita],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // cada leitura é a sala das peças ampliadas dela (ui/room.ts): com duas abertas, o zoom fica no lado dela
   providers: [{ provide: ROOM, useExisting: forwardRef(() => ReviewReader) }],
@@ -210,10 +211,12 @@ interface Handover {
       [class.so-a-cartolina]="vista() === 'cartolina'"
       [class.dupla]="!!segunda() && !!review()"
       [class.so-o-lado]="!!segunda() && !review()"
+      [class.lado-primeiro]="sideFirst() && !!segunda() && !!review()"
+      [class.e-dicionario]="dictionary()"
       [class.editando]="editingHere()"
       [class.ao-lado]="aoLado()"
-      [attr.aria-labelledby]="review() ? 'leitura-titulo' + sufixo() : null"
-      [attr.aria-label]="review() ? null : 'Lado a lado'"
+      [attr.aria-labelledby]="review() || dictionary() ? 'leitura-titulo' + sufixo() : null"
+      [attr.aria-label]="review() || dictionary() ? null : 'Lado a lado'"
       (backdropClose)="solta() || aoLado() || close()"
       (cancel)="onCancel($event)"
       (keydown)="onKey($event)"
@@ -683,25 +686,6 @@ interface Handover {
           }
         }
 
-        <!-- o "Escolher a nota" do "+": as anotações de quem é a ficha (as suas, ou as que a pessoa visitada
-             publicou), sem a aberta; a escolhida abre ao lado -->
-        @if (pickBeside()) {
-          @defer (on immediate) {
-            <app-card-picker
-              [(open)]="pickBeside"
-              [withCanvas]="true"
-              [selfId]="r.id"
-              [source]="owner() === null ? null : pool()"
-              [folderTree]="owner() === null ? null : folderTree()"
-              heading="Abrir ao lado"
-              hint="Uma anotação, análise ou canvas, para ver ao lado desta."
-              footHint="Toque numa para abrir ao lado."
-              [emptyText]="owner() === null ? 'Você ainda não tem outras fichas.' : 'Não há outras fichas à mostra aqui.'"
-              (picked)="pickedBeside($event)"
-            />
-          }
-        }
-
         <!-- as configurações da ficha (os comentários), num pedaço à parte, só quando abre -->
         @if (configOpen()) {
           @defer (on immediate) {
@@ -725,7 +709,59 @@ interface Handover {
             <app-organize-sheet [noteId]="r.id" (closed)="closeOrganize()" />
           }
         }
+      } @else if (dictionary()) {
+        <!-- o Dicionário Japonês ao lado (PLANO-LADO-A-LADO.md, D5): a ficha de fichário dele, com a faixa (o nome e o X),
+             e a mesma peça da página, com o estado só dela; sozinho (a primeira saiu), o trilho com o Ao lado -->
+        <div class="par">
+          <article class="ficha cartolina dicionario-lado" style="--stock: var(--stock-rosa-escuro)" data-cor="rosa-escuro">
+            <app-pin class="pin" color="#f4f4f0" />
+            <header class="head faixa-nome">
+              <h2 [id]="'leitura-titulo' + sufixo()" class="title" tabindex="-1"><span class="selo-dic" lang="ja" aria-hidden="true">辞</span>Dicionário Japonês</h2>
+              <button type="button" class="icon-btn fecha" (click)="closeOwn()" [attr.aria-label]="dictionaryAlone() ? 'Fechar' : 'Fechar só esta'" [attr.title]="dictionaryAlone() ? null : 'Fechar só esta'">
+                <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
+              </button>
+            </header>
+            <div class="body corpo-dicionario">
+              @defer (on immediate) {
+                <app-dictionary-view [local]="true" />
+              } @placeholder {
+                <p class="abrindo" role="status"><span class="carregando" aria-hidden="true"></span>Abrindo o dicionário…</p>
+              }
+            </div>
+            @if (dictionaryAlone()) {
+              <footer class="foot">
+                <nav class="trilho" aria-label="Mais do dicionário">
+                  <button type="button" class="etq-trilho" data-trilho="ao-lado" aria-haspopup="dialog" aria-label="Abrir outra coisa ao lado" (click)="askBeside()">
+                    <lucide-icon [img]="AddIcon" [size]="18" aria-hidden="true" />
+                    <span class="etq-nome" aria-hidden="true">Ao lado</span>
+                  </button>
+                </nav>
+              </footer>
+            }
+          </article>
+        </div>
       }
+        <!-- o "Escolher a nota" do Ao lado (PLANO-LADO-A-LADO.md, D3): as fichas de quem é a leitura (as suas, ou as que
+             a pessoa visitada publicou), sem a aberta, e, em cima, o Dicionário Japonês (quando ele ainda não está
+             aberto). Fora da ficha: com o dicionário sozinho (a primeira saiu), é ele quem o abre -->
+        @if (pickBeside()) {
+          @defer (on immediate) {
+            <app-card-picker
+              [(open)]="pickBeside"
+              [withCanvas]="true"
+              [selfId]="review()?.id ?? null"
+              [source]="owner() === null ? null : pool()"
+              [folderTree]="owner() === null ? null : folderTree()"
+              [extra]="segunda() === 'dicionario' ? null : dictionaryRow"
+              heading="Abrir ao lado"
+              [hint]="segunda() === 'dicionario' ? 'Uma anotação, análise ou canvas, para ver ao lado do dicionário.' : 'Uma anotação, análise, canvas ou o dicionário, para ver ao lado desta.'"
+              footHint="Toque numa para abrir ao lado."
+              [emptyText]="owner() === null ? 'Você ainda não tem outras fichas.' : 'Não há outras fichas à mostra aqui.'"
+              (picked)="pickedBeside($event)"
+              (extraPicked)="pickedDictionary()"
+            />
+          }
+        }
         <!-- a segunda anotação, lado a lado (PLANO-DUAS-NOTAS.md): a mesma leitura, no modo ao lado, dentro
              desta. O que ela faz que é da página (o editor, apagar) passa por aqui; as folhas, a cartolina e o
              zoom dela ficam nela (PLANO-LADO-A-LADO.md, D1). Fora da ficha desta: se esta sai com a segunda editando
@@ -910,7 +946,8 @@ export class ReviewReader implements Room {
 
   /** Sozinha com a segunda (ver `stepAside`): o editor dela fechou, e ela vira a leitura de sempre, aqui. */
   private readonly adoptWhenSettled = effect(() => {
-    if (this.review() || !this.segunda()) return;
+    // (o dicionário fica sozinho como está: ele não vira uma ficha)
+    if (this.review() || !this.segunda() || this.segunda() === 'dicionario') return;
     const b = this.ladoB();
     if (!b || b.editingHere()) return;
     untracked(() => {
@@ -973,11 +1010,8 @@ export class ReviewReader implements Room {
    * com ela sozinha, fora da ficha aberta pelo link. A largura (onde cabem as duas) fica no CSS.
    */
   protected readonly canBeside = computed(() => {
-    // (a análise e o canvas também: PLANO-LADO-A-LADO.md, D3)
-    if (!this.lendo() || this.aoLado() || this.segunda() || this.solta()) return false;
-    // a de outra pessoa: só com outra ficha dela à mostra (sem nenhuma, o seletor abriria vazio)
-    const id = this.review()?.id;
-    return this.owner() === null || this.pool().some((n) => n.id !== id);
+    // (a análise e o canvas também, e há sempre o dicionário para abrir: PLANO-LADO-A-LADO.md, D3)
+    return this.lendo() && !this.aoLado() && !this.segunda() && !this.solta();
   });
   /** As pastas de quem é a ficha: as suas, ou as de quem você visita. */
   protected readonly folderTree = computed(() => (this.owner() === null ? this.ownFolders.tree() : (this.visitFolders?.folders() ?? NO_FOLDERS)));
@@ -987,13 +1021,70 @@ export class ReviewReader implements Room {
   }
   /** Escolheu no seletor do "+": abre ao lado, se ainda couber; senão, abre no lugar desta. */
   protected pickedBeside(r: Review): void {
+    // o dicionário sozinho: a escolhida entra à direita dele (D6)
+    if (!this.review() && this.segunda() === 'dicionario') return this.adoptBesideDictionary(r);
     if (this.fitsBeside()) this.openBeside(r);
     else this.followCard(r);
   }
+
+  /** Com o dicionário sozinho, a escolhida vira a leitura desta, à direita dele. */
+  private adoptBesideDictionary(r: Review): void {
+    const owner = this.owner();
+    this.forceMask.set(owner !== null && this.shield.hiddenIn([r]).has(r.id));
+    this.revealed.set(false);
+    this.trail.set([]);
+    this.vista.set('leitura');
+    this.place = null;
+    this.sideFirst.set(true);
+    this.review.set(r);
+    this.stampedNow.set(false);
+    this.watchShared(owner === null ? r.id : null);
+    afterNextRender(() => this.focusName(), { injector: this.injector });
+  }
   /** Os ids da página: os da segunda ganham o "-2" (o nome dela é quem a anuncia). */
   protected readonly sufixo = computed(() => (this.aoLado() ? '-2' : ''));
-  /** A anotação aberta ao lado desta (só na de fora), ou null. */
-  protected readonly segunda = signal<Review | null>(null);
+  /** O que está aberto ao lado desta (só na de fora): uma ficha, o Dicionário Japonês, ou nada. */
+  protected readonly segunda = signal<Review | 'dicionario' | null>(null);
+  /**
+   * O lado de dentro vem antes, à esquerda (PLANO-LADO-A-LADO.md, D6): o dicionário ficou sozinho e a escolhida entrou
+   * à direita dele (a ficha desta leitura, desenhada depois dele).
+   */
+  protected readonly sideFirst = signal(false);
+
+  // ===== O Dicionário Japonês ao lado (PLANO-LADO-A-LADO.md, D5) =====
+  /** (Ao lado) Esta mostra o dicionário, e não uma ficha. */
+  protected readonly dictionary = signal(false);
+  /** A linha do dicionário no seletor do Ao lado. */
+  protected readonly dictionaryRow = { label: 'Dicionário Japonês', hint: 'Procurar palavras, filtrar e ver a escrita dos kanji ao lado', seal: '辞' };
+  /** (Ao lado) O dicionário está sozinho (a primeira saiu da frente dele): tem o Ao lado para escolher outra coisa. */
+  protected readonly dictionaryAlone = computed(() => this.dictionary() && !!this.outer && !this.outer.review());
+  /** (Ao lado) Abre o dicionário aqui (no lugar de uma ficha). */
+  openDictionary(): void {
+    this.review.set(null);
+    this.dictionary.set(true);
+    this.vista.set('leitura');
+    this.trail.set([]);
+    this.watchShared(null);
+    const el = this.dialog().nativeElement;
+    if (!el.open) el.show();
+    afterNextRender(() => el.querySelector<HTMLElement>('#leitura-titulo-2')?.focus({ preventScroll: true }), { injector: this.injector });
+  }
+  /** (Ao lado, sozinho) O Ao lado do dicionário: o seletor é o da leitura de fora. */
+  protected askBeside(): void {
+    this.outer?.pickBeside.set(true);
+  }
+  /** Escolheu o dicionário no seletor: ele abre ao lado desta. */
+  protected pickedDictionary(): void {
+    const a = this.review();
+    if (!a || this.segunda() === 'dicionario' || this.vista() !== 'leitura' || this.solta()) return;
+    this.commentsOpen.set(false);
+    this.detailsOpen.set(false);
+    this.picked.set(null);
+    this.quote.set(null);
+    this.sideFirst.set(false);
+    this.segunda.set('dicionario');
+    afterNextRender(() => this.ladoB()?.openDictionary(), { injector: this.injector });
+  }
   private readonly ladoB = viewChild<ReviewReader>('ladoB');
 
   protected readonly side = inject(SideBySide);
@@ -1960,6 +2051,8 @@ export class ReviewReader implements Room {
     this.closing = false;
     this.fita()?.stop();
     this.editingHere.set(false);
+    this.dictionary.set(false);
+    this.sideFirst.set(false);
     this.segunda.set(null);
     this.pickBeside.set(false);
     this.solta.set(null);
@@ -2400,6 +2493,8 @@ export class ReviewReader implements Room {
     // abrir de novo (a mesma, ou outra) é com uma só, e lendo
     this.segunda.set(null);
     this.editingHere.set(false);
+    this.dictionary.set(false);
+    this.sideFirst.set(false);
     // toda ficha abre na leitura de sempre
     this.vista.set('leitura');
     this.place = null;
@@ -2464,6 +2559,7 @@ export class ReviewReader implements Room {
     const code = this.ownerCode();
     // a análise de outra pessoa sobre o que você ainda não avaliou abre em segredo, como no mural dela
     const masked = owner !== null && this.shield.hiddenIn([review]).has(review.id);
+    this.sideFirst.set(false);
     this.segunda.set(review);
     afterNextRender(() => this.ladoB()?.open(review, owner, pool, masked, code), { injector: this.injector });
   }
@@ -2491,8 +2587,8 @@ export class ReviewReader implements Room {
   protected closeOwn(): void {
     if (this.aoLado()) return this.leave();
     if (!this.segunda()) return this.close();
-    // a segunda está editando: ela fica, com o editor, e esta sai da frente (D8)
-    if (this.ladoB()?.editingHere()) return this.stepAside();
+    // a segunda está editando, ou é o dicionário: ela fica, e esta sai da frente (D8, D5)
+    if (this.ladoB()?.editingHere() || this.segunda() === 'dicionario') return this.stepAside();
     const other = this.ladoB()?.handOver();
     // (a segunda ainda nem se desenhou: ela só sai, e esta fica)
     if (other) this.takeOver(other);

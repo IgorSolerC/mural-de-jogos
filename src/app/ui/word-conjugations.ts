@@ -1,9 +1,10 @@
-import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, input, output, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { CONJ_TABLE, ConjGroupId, Conjugated, FORMS, FormId, conjugate, formParts, groupSaid } from '../core/dictionary/conjugation';
 import { Word, exampleParts } from '../core/dictionary/dictionary';
 import { hasKanji } from '../core/dictionary/kana';
 import { reducedMotion } from '../core/motion';
 import { BackdropClose } from './backdrop-close';
+import { ROOM, showInRoom } from './room';
 import { loadKleeOne } from './font-sheet';
 import { ICON, IconModule } from './icons';
 import { WordVoice } from './word-voice';
@@ -54,6 +55,12 @@ export class WordConjugations {
   /** A forma que a busca ou a seleção acharam: a folha abre nela. */
   readonly form = input<FormId | null>(null);
   readonly closed = output<void>();
+  /** O lado da leitura onde o dicionário está (ui/room.ts): a folha abre nele, e não na tela inteira. */
+  private readonly rooms = inject(ROOM, { optional: true });
+  /** Esconde a folha aberta no lado (ou null: aberta como modal, ou fechada). */
+  private hideRoom: (() => void) | null = null;
+  /** A folha que sai de cena aberta no lado (o lado fechou) leva o véu e o ouvinte do Esc junto. */
+  private readonly unroom = inject(DestroyRef).onDestroy(() => this.hideRoom?.());
 
   protected readonly CloseIcon = ICON.fechar;
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
@@ -125,7 +132,10 @@ export class WordConjugations {
     afterNextRender(() => {
       const first = this.form();
       if (first && conjugate(this.word())?.get(first)) this.open.set(first);
-      this.dialog().nativeElement.showModal();
+      // no lado da leitura (PLANO-LADO-A-LADO.md, D5), a folha cobre só o lado; sem lado, a tela inteira
+      const room = this.rooms?.room() ?? null;
+      if (room) this.hideRoom = showInRoom(this.dialog().nativeElement, room, () => this.close());
+      else this.dialog().nativeElement.showModal();
       if (this.open()) {
         // a forma achada à vista, com o foco nela (o detalhe embaixo já aberto)
         requestAnimationFrame(() => {
@@ -138,6 +148,14 @@ export class WordConjugations {
   }
 
   close(): void {
+    // no lado, ela não é um diálogo aberto: esconde e avisa (o `close` do diálogo não vem)
+    if (this.hideRoom) {
+      const hide = this.hideRoom;
+      this.hideRoom = null;
+      hide();
+      this.closed.emit();
+      return;
+    }
     const el = this.dialog().nativeElement;
     if (el.open) el.close();
   }

@@ -1,5 +1,6 @@
-@use '../ui/paper-kit' as kit;
-@use '../ui/sem-resultados' as sem;
+@use 'paper-kit' as kit;
+@use 'sem-resultados' as sem;
+@use '../../../shared/eucatex';
 
 /* O Dicionário Japonês (PLANO-DICIONARIO.md): a pasta da Wishlist e das Pixel arts em cima e, embaixo, a página
    do dicionário (os verbetes em duas colunas, no papel de ficha) ou o livro-razão da Tabela. */
@@ -8,6 +9,52 @@
   display: block;
   --dic-letra: 'Klee One', var(--f-carta-palavra);
 }
+
+/* na página, o alto e as palavras são da página (as caixas não existem para o layout) */
+.dic-topo,
+.dic-rolo {
+  display: contents;
+}
+
+/* ===== Ao lado da leitura (PLANO-LADO-A-LADO.md, D5) =====
+   O dicionário enche o lado: a pasta (a busca, o Filtrar, as Favoritas, a ordem e a vista) fica presa em cima, e as
+   palavras rolam na caixa embaixo dela; a medida das colunas é a do lado (o contêiner `dicionario`). */
+:host(.no-lado) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  container: dicionario / inline-size;
+}
+
+:host(.no-lado) .dic-topo {
+  display: block;
+  @include eucatex.eucatex(var(--wall), var(--wall-hole));
+  flex: none;
+  max-height: 62%;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 16px 16px 0;
+}
+
+:host(.no-lado) .dic-rolo {
+  display: block;
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 18px 16px 24px;
+  /* as palavras ficam na parede, como na página (os títulos das seções e as sombras dos cartões são de parede); a luz
+     do tubo é a do alto, na pasta */
+  @include eucatex.eucatex(var(--wall), var(--wall-hole), false);
+  color: var(--wall-ink);
+}
+
+:host(.no-lado) .pasta {
+  margin-bottom: 14px;
+}
+
 
 /* o nome das vistas só quando a barra cabe numa linha com ele (como nas Pixel arts) */
 .vista-txt {
@@ -251,4 +298,19 @@ thead .num {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+
+/* ao lado, a medida das colunas é a do lado (no fim: vence a das duas colunas, mais acima) */
+@container dicionario (max-width: 900px) {
+  .folha {
+    columns: 1;
+  }
+  .lugar-verbete {
+    margin-bottom: 20px;
+  }
+}
+
+/* ao lado, as vistas só com o desenho (como na tela estreita): a pasta ocupa menos do lado */
+:host(.no-lado) .vista-txt {
+  display: none;
 }

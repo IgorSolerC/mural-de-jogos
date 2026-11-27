@@ -540,7 +540,7 @@ describe('Duas anotações lado a lado (ReviewReader, PLANO-DUAS-NOTAS.md)', () 
     await wait(50);
     await settle();
     expect(document.querySelector('app-card-picker h2')?.textContent?.trim()).toBe('Abrir ao lado');
-    const names = [...document.querySelectorAll('app-card-picker .escolha .nome')].map((n) => n.textContent!.trim()).sort();
+    const names = [...document.querySelectorAll('app-card-picker .escolha:not(.extra) .nome')].map((n) => n.textContent!.trim()).sort();
     expect(names).toEqual(['Cronograma', 'Curta', 'Hollow Knight']);
     const item = [...document.querySelectorAll<HTMLButtonElement>('app-card-picker .escolha')].find((b) => b.textContent?.includes('Curta'))!;
     item.click();
@@ -623,11 +623,11 @@ describe('Duas anotações lado a lado (ReviewReader, PLANO-DUAS-NOTAS.md)', () 
     expect(outer().querySelector('.voltar-elo')).not.toBeNull();
   });
 
-  it('na de outra pessoa sem outra anotação à mostra, o "+" não aparece (o seletor abriria vazio)', async () => {
+  it('na de outra pessoa sem outra anotação à mostra, o Ao lado aparece mesmo assim: há o dicionário (PLANO-LADO-A-LADO.md, D3)', async () => {
     const sozinha = note('dela-9', 'Só esta');
     reader.open(sozinha, 'Ana', [sozinha], false, 'ANA123');
     await settle();
-    expect(ear()).toBeNull();
+    expect(ear()).not.toBeNull();
   });
 
   it('na visita, o "+" mostra as anotações que a pessoa publicou (não as suas), e a segunda é dela', async () => {
@@ -639,7 +639,7 @@ describe('Duas anotações lado a lado (ReviewReader, PLANO-DUAS-NOTAS.md)', () 
     await settle();
     await wait(50);
     await settle();
-    const names = [...document.querySelectorAll('app-card-picker .escolha .nome')].map((n) => n.textContent!.trim()).sort();
+    const names = [...document.querySelectorAll('app-card-picker .escolha:not(.extra) .nome')].map((n) => n.textContent!.trim()).sort();
     expect(names).toEqual(['Lista de malas', 'Roteiro do Japão']);
     [...document.querySelectorAll<HTMLButtonElement>('app-card-picker .escolha')].find((b) => b.textContent?.includes('Roteiro'))!.click();
     await settle();

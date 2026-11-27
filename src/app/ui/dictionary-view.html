@@ -1,8 +1,7 @@
-<!-- o nome está na barra embaixo do topo (ui/area-bar.ts), com a volta para Outros -->
-<h1 class="sr-only">Dicionário Japonês</h1>
-
 <!-- a pasta, como na Wishlist e nas Pixel arts: a busca, o Filtrar, a ordem e a vista em tinta e, depois do picote,
      o que a busca e os filtros acharam -->
+<!-- o alto: a pasta e a folha dos filtros (ao lado, presos em cima enquanto as palavras rolam; na página, como sempre) -->
+<div class="dic-topo">
 <div class="pasta solta">
   <div class="pasta-linha">
     <app-search-strip
@@ -35,13 +34,16 @@
         </button>
       </div>
 
-      <div class="pasta-grupo">
-        <!-- o Treino (PLANO-TREINO-DICIONARIO.md): montar e treinar escrever, traduzir e ler -->
-        <button type="button" class="tinta" aria-haspopup="dialog" (click)="drilling.set('montar')" title="Treinar as palavras: escrever, traduzir e ler">
-          <lucide-icon [img]="TrainIcon" [size]="18" aria-hidden="true" />
-          <span>Treinar</span>
-        </button>
-      </div>
+      <!-- o Treino (PLANO-TREINO-DICIONARIO.md): montar e treinar escrever, traduzir e ler (ao lado, não: é uma sessão de
+           estudo, não uma consulta) -->
+      @if (!local()) {
+        <div class="pasta-grupo">
+          <button type="button" class="tinta" aria-haspopup="dialog" (click)="drilling.set('montar')" title="Treinar as palavras: escrever, traduzir e ler">
+            <lucide-icon [img]="TrainIcon" [size]="18" aria-hidden="true" />
+            <span>Treinar</span>
+          </button>
+        </div>
+      }
 
       <div class="pasta-grupo" role="group" aria-label="Ordenar">
         <label class="tinta campo">
@@ -108,6 +110,10 @@
   />
 }
 
+</div>
+
+<!-- as palavras (ao lado, a caixa que rola; na página, a página) -->
+<div #rolo class="dic-rolo" (scroll)="onRoloScroll()">
 @if (!shown().length) {
   <!-- a busca e os filtros não acharam nada: o cartão das Anotações -->
   <section class="no-results cartolina" aria-live="polite">
@@ -199,7 +205,7 @@
                chega nela monta o cartão e entra nele -->
           <ol class="folha" role="list">
             @for (w of s.words; track w.id) {
-              <li class="lugar-verbete" appPerto #perto="perto" appPertoMede="verbete" [appPertoId]="w.id">
+              <li class="lugar-verbete" [appPerto]="nearBox()" #perto="perto" appPertoMede="verbete" [appPertoId]="w.id">
                 @if (perto.near()) {
                   <div class="verbete" app-word-entry [word]="w" [drawable]="true" [found]="foundForm(w)" (draw)="openBoard($event)" (conjugate)="openConjugations($event)"></div>
                 } @else {
@@ -219,6 +225,8 @@
     }
   </div>
 }
+
+</div>
 
 <!-- a lousa da palavra aberta (num pedaço à parte, com os traços e a letra de pincel só quando abre) -->
 @if (boardWord(); as b) {

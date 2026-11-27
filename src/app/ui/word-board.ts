@@ -4,6 +4,7 @@ import { hasKanji } from '../core/dictionary/kana';
 import { dictionaryWords } from '../core/dictionary/words';
 import { reducedMotion } from '../core/motion';
 import { BackdropClose } from './backdrop-close';
+import { ROOM, showInRoom } from './room';
 import { loadKleeOne, loadYujiSyuku } from './font-sheet';
 import { ICON, IconModule } from './icons';
 import { WordVoice } from './word-voice';
@@ -52,6 +53,12 @@ export class WordBoard {
   /** Outra palavra (da composição ou das que usam o mesmo kanji): a página abre a lousa dela. */
   readonly goto = output<Word>();
   readonly closed = output<void>();
+  /** O lado da leitura onde o dicionário está (ui/room.ts): a folha abre nele, e não na tela inteira. */
+  private readonly rooms = inject(ROOM, { optional: true });
+  /** Esconde a folha aberta no lado (ou null: aberta como modal, ou fechada). */
+  private hideRoom: (() => void) | null = null;
+  /** A folha que sai de cena aberta no lado (o lado fechou) leva o véu e o ouvinte do Esc junto. */
+  private readonly unroom = inject(DestroyRef).onDestroy(() => this.hideRoom?.());
 
   protected readonly CloseIcon = ICON.fechar;
   protected readonly PrevIcon = ICON.anterior;
@@ -134,7 +141,12 @@ export class WordBoard {
     import('../core/dictionary/strokes')
       .then((m) => this.strokes.set(m.STROKES))
       .catch(() => this.failed.set(true));
-    afterNextRender(() => this.dialog().nativeElement.showModal());
+    // no lado da leitura (PLANO-LADO-A-LADO.md, D5), a lousa cobre só o lado; sem lado, a tela inteira
+    afterNextRender(() => {
+      const room = this.rooms?.room() ?? null;
+      if (room) this.hideRoom = showInRoom(this.dialog().nativeElement, room, () => this.close());
+      else this.dialog().nativeElement.showModal();
+    });
 
     // outra palavra (as setas), ou a escrita/leitura trocada: volta ao primeiro caractere que tem traços. Os traços
     // que chegam depois (o pedaço ainda baixava) mantêm o caractere já escolhido, se ele tem traços
@@ -174,6 +186,14 @@ export class WordBoard {
 
   close(): void {
     this.stop();
+    // no lado, ela não é um diálogo aberto: esconde e avisa (o `close` do diálogo não vem)
+    if (this.hideRoom) {
+      const hide = this.hideRoom;
+      this.hideRoom = null;
+      hide();
+      this.closed.emit();
+      return;
+    }
     const el = this.dialog().nativeElement;
     if (el.open) el.close();
   }

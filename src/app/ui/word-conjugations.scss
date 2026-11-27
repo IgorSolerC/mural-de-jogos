@@ -434,3 +434,11 @@
     animation: none;
   }
 }
+
+/* no lado da leitura (PLANO-LADO-A-LADO.md, D5): a folha cabe no lado, e não na tela */
+.folha-conjugacoes.na-sala {
+  width: min(720px, calc(var(--sala-w) - 24px));
+}
+.na-sala .papel {
+  max-height: calc(var(--sala-h) - 24px);
+}

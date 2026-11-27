@@ -64,6 +64,18 @@ const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anota
             </label>
             <div class="body">
               <ul #lista class="lista" aria-label="Suas fichas" (keydown)="onListKey($event)">
+                @if (extraShown(); as x) {
+                  <li>
+                    <button type="button" class="item escolha extra" (click)="pickExtra()">
+                      <span class="capa selo" lang="ja" aria-hidden="true">{{ x.seal }}</span>
+                      <span class="texto">
+                        <span class="nome">{{ x.label }}</span>
+                        <span class="meta">{{ x.hint }}</span>
+                      </span>
+                      <span class="marca" aria-hidden="true"></span>
+                    </button>
+                  </li>
+                }
                 @for (r of shown(); track r.id) {
                   @let on = r.id === chosen();
                   <li>
@@ -97,6 +109,7 @@ const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anota
                     </button>
                   </li>
                 } @empty {
+                  @if (!extraShown()) {
                   <li class="nada">
                     @if (!cards().length) {
                       {{ emptyText() }}
@@ -115,6 +128,7 @@ const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anota
                       {{ emptyText() }}
                     }
                   </li>
+                  }
                 }
               </ul>
             </div>
@@ -178,6 +192,18 @@ export class CardPicker {
    * no Kanban, nos Flashcards, no widget Nota e no Calendário.
    */
   readonly withCanvas = input(false);
+  /**
+   * Uma linha a mais, no alto da lista, para o que não é uma ficha (o Dicionário Japonês do Ao lado): o nome, o que ela
+   * faz e o carimbo. Some quando a busca não a acha. Tocada, `extraPicked` e a folha fecha.
+   */
+  readonly extra = input<{ label: string; hint: string; seal: string } | null>(null);
+  readonly extraPicked = output<void>();
+  /** A linha a mais, se a busca de agora a acha (sem busca, sempre). */
+  protected readonly extraShown = computed(() => {
+    const x = this.extra();
+    const q = this.query().trim().toLocaleLowerCase('pt-BR');
+    return x && (!q || `${x.label} ${x.hint}`.toLocaleLowerCase('pt-BR').includes(q)) ? x : null;
+  });
 
   protected readonly CloseIcon = ICON.fechar;
   protected readonly SearchIcon = ICON.buscar;
@@ -245,6 +271,11 @@ export class CardPicker {
       }
       wasOpen = open;
     });
+  }
+
+  protected pickExtra(): void {
+    this.extraPicked.emit();
+    this.open.set(false);
   }
 
   protected pick(r: Review): void {

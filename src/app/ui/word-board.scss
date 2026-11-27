@@ -657,3 +657,11 @@ li:last-child .outra {
     transition: none;
   }
 }
+
+/* no lado da leitura (PLANO-LADO-A-LADO.md, D5): a lousa cabe no lado, e não na tela */
+.lousa.na-sala {
+  max-width: min(1000px, calc(var(--sala-w) - 24px));
+}
+.na-sala .papel {
+  max-height: calc(var(--sala-h) - 24px);
+}

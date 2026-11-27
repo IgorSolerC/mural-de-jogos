@@ -1212,6 +1212,26 @@ dialog.sheet {
 .erguida.erguida-na-sala {
   min-width: 0 !important;
 }
+/* uma folha (a lousa, as conjugações) aberta no lado (ui/room.ts, showInRoom): centrada nele, e o véu só nele */
+dialog.na-sala:popover-open {
+  position: fixed;
+  inset: var(--sala-top) auto auto var(--sala-left);
+  margin: 0;
+  translate: calc((var(--sala-w) - 100%) / 2) calc((var(--sala-h) - 100%) / 2);
+}
+dialog.na-sala::backdrop {
+  background: transparent;
+}
+.sala-veu {
+  position: fixed;
+  inset: var(--sala-top) auto auto var(--sala-left);
+  width: var(--sala-w);
+  height: var(--sala-h);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: rgb(8 8 10 / 0.72);
+}
 .erguida-veu {
   position: fixed;
   inset: auto;

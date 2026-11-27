@@ -1756,3 +1756,91 @@ dialog.reader.so-a-cartolina:not(.dupla, .ao-lado) {
   position: absolute;
   inset: 0;
 }
+
+/* ===== O Dicionário Japonês ao lado (PLANO-LADO-A-LADO.md, D5) =====
+   A ficha de fichário do dicionário, na cartolina vinho do verbete, da altura da leitura; o corpo é o dicionário, que
+   prende a pasta em cima e rola as palavras embaixo. */
+.lendo .par > .ficha.dicionario-lado {
+  height: calc(100dvh - 48px);
+}
+
+.ficha.dicionario-lado > .body {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.ficha.dicionario-lado app-dictionary-view {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.dicionario-lado .faixa-nome .title {
+  color: var(--ink-claro-solido);
+}
+
+.selo-dic {
+  display: inline-grid;
+  place-items: center;
+  width: 1.15em;
+  height: 1.15em;
+  margin-right: 10px;
+  border-radius: 3px;
+  background: #b42a20;
+  color: #f6f0e1;
+  font-family: 'Klee One', var(--f-carta-palavra);
+  font-size: 0.82em;
+  vertical-align: 0.06em;
+  rotate: -3deg;
+}
+
+/* o dicionário sozinho tem o Ao lado de pé na beirada direita, como a leitura sozinha */
+@media (min-width: 900px) {
+  .so-o-lado .dicionario-lado .trilho {
+    position: absolute;
+    top: 74px;
+    left: calc(100% + 12px);
+    z-index: 0;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .so-o-lado .dicionario-lado .etq-trilho {
+    flex-direction: column;
+    gap: 5px;
+    width: 86px;
+    height: auto;
+    padding: 10px 4px 8px;
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.76rem;
+    line-height: 1;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .so-o-lado .dicionario-lado .etq-nome {
+    display: block;
+  }
+}
+
+/* o pé do dicionário só tem o trilho (no celular, deitado nele) */
+.dicionario-lado > .foot {
+  justify-content: flex-start;
+}
+
+/* D6: o dicionário ficou sozinho e a escolhida entrou à direita dele: ele vem primeiro (e no Tab, reading-flow) */
+dialog.reader.lado-primeiro {
+  reading-flow: flex-visual;
+}
+
+.lado-primeiro > :is(.par, app-review-editor, .na-parede) {
+  order: 2;
+}
+
+.lado-primeiro dialog.reader.ao-lado {
+  order: 1;
+  padding-left: 0;
+  padding-right: 28px;
+}
