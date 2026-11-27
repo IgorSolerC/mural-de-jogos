@@ -75,6 +75,48 @@ describe('Toasts.copy', () => {
     }
   });
 
+  it('com uma peça ampliada no lado (um véu na camada de cima, dentro da folha), o bilhete fica por cima do véu', async () => {
+    const fixture = TestBed.createComponent(Toast);
+    document.body.appendChild(fixture.nativeElement);
+    const toasts = TestBed.inject(Toasts);
+    document.querySelectorAll('dialog[open]').forEach((d) => (d as HTMLDialogElement).close());
+    const sheet = document.createElement('dialog');
+    document.body.appendChild(sheet);
+    sheet.showModal();
+    // o véu da peça ampliada: um popover dentro da folha, da tela inteira (no app, só do lado)
+    const veil = document.createElement('div');
+    veil.setAttribute('popover', 'manual');
+    veil.style.cssText = 'inset: 0; width: 100vw; height: 100vh; margin: 0; border: 0; background: rgb(0 0 0 / 0.6)';
+    sheet.append(veil);
+    veil.showPopover();
+    try {
+      let undone = false;
+      toasts.show('Anotação atualizada', { label: 'Desfazer', run: () => (undone = true) });
+      await fixture.whenStable();
+      const live = sheet.querySelector<HTMLElement>('.live')!;
+      await Promise.all(live.querySelector('.bilhete')!.getAnimations().map((a) => a.finished));
+      const undo = live.querySelector('button')!;
+      const r = undo.getBoundingClientRect();
+      const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+      expect(live.contains(hit)).withContext('o véu cobria o bilhete').toBeTrue();
+      undo.click();
+      expect(undone).toBeTrue();
+      // a peça ampliada de novo depois do bilhete: o próximo aviso sobe por cima dela também
+      veil.hidePopover();
+      veil.showPopover();
+      toasts.show('De novo');
+      await fixture.whenStable();
+      await Promise.all(live.querySelector('.bilhete')!.getAnimations().map((a) => a.finished));
+      const p = live.querySelector('p')!.getBoundingClientRect();
+      expect(live.contains(document.elementFromPoint(p.x + p.width / 2, p.y + p.height / 2))).toBeTrue();
+    } finally {
+      toasts.dismiss();
+      veil.remove();
+      sheet.remove();
+      fixture.destroy();
+    }
+  });
+
   it('sem folha aberta, fica no lugar dele', async () => {
     const fixture = TestBed.createComponent(Toast);
     document.body.appendChild(fixture.nativeElement);

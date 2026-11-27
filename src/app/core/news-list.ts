@@ -27,6 +27,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-27-aviso-sobre-o-zoom',
+    version: '1.58.1',
+    kind: 'ajustes',
+    date: '2026-11-27',
+    title: 'Os avisos por cima do zoom no lado a lado',
+    correcoes: [
+      'Com duas anotações lado a lado e uma imagem, tabela ou widget ampliado num dos lados, os avisos do rodapé (como o "Anotação atualizada") não aparecem mais por baixo do fundo escuro do zoom.',
+    ],
+  },
+  {
     id: '2026-11-26-lado-a-lado-dicionario',
     version: '1.58.0',
     kind: 'funcionalidade',

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, Injectable, effect, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, Injectable, afterNextRender, effect, inject, signal, viewChild } from '@angular/core';
 
 export interface ToastMsg {
   id: number;
@@ -56,7 +56,7 @@ export class Toasts {
   selector: 'app-toast',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div #live class="live" role="status" aria-live="polite">
+    <div #live class="live" role="status" aria-live="polite" popover="manual">
       @if (toasts.current(); as t) {
         <div
           class="bilhete"
@@ -85,6 +85,18 @@ export class Toasts {
       z-index: 50;
       width: max-content;
       max-width: calc(100vw - 32px);
+    }
+    /* na camada de cima (o popover): sem o jeito de caixa que o navegador dá a ele */
+    .live[popover] {
+      top: auto;
+      right: auto;
+      height: auto;
+      margin: 0;
+      border: 0;
+      padding: 0;
+      overflow: visible;
+      background: none;
+      color: inherit;
     }
     /* com a tira de marcação no pé da tela, o bilhete sai por cima dela */
     :host-context(body.has-tray) .live {
@@ -149,21 +161,45 @@ export class Toast {
     // Com uma folha aberta (um <dialog> modal), o resto da página fica por baixo dela e não responde:
     // o bilhete e o Desfazer iam para trás da folha. Ele aparece dentro da folha de cima, no mesmo
     // lugar da tela (as folhas paradas não têm transform), e volta para cá quando some ou ela fecha.
+    //
+    // E o bilhete mora na camada de cima do navegador (um popover sempre aberto, vazio e sem tamanho
+    // quando não há aviso): o que sobe para ela, como a peça ampliada num lado da leitura e o véu dela,
+    // ficaria por cima de tudo o que está só na folha, o bilhete junto. A cada aviso ele sobe de novo,
+    // para ficar por último, por cima do que abriu antes dele.
+    afterNextRender(() => raise(this.live().nativeElement));
     effect((onCleanup) => {
       const live = this.live().nativeElement;
       const home = this.host.nativeElement;
       if (!this.toasts.current()) {
-        if (live.parentElement !== home) home.append(live);
+        if (live.parentElement !== home) {
+          home.append(live);
+          raise(live);
+        }
         return;
       }
       const sheet = topModal();
       const into = sheet ?? home;
       if (live.parentElement !== into) into.append(live);
+      raise(live);
       if (!sheet) return;
-      const back = () => home.append(live);
+      const back = () => {
+        home.append(live);
+        raise(live);
+      };
       sheet.addEventListener('close', back);
       onCleanup(() => sheet.removeEventListener('close', back));
     });
+  }
+}
+
+/** Põe o bilhete por último na camada de cima (sair do lugar no DOM o tira de lá). */
+function raise(live: HTMLElement): void {
+  if (typeof live.showPopover !== 'function' || !live.isConnected) return;
+  try {
+    if (live.matches(':popover-open')) live.hidePopover();
+    live.showPopover();
+  } catch {
+    // (um navegador sem popover fica com o z-index de sempre)
   }
 }
 
