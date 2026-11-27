@@ -31,7 +31,7 @@
 その歌が好きに[なった]。 → Passei a gostar dessa música.",,
 11,JP0242,来る,くる,kuru,vir,10,5,Altíssimo,N5,neutro,verbo,ações,kanji+kana,irregular,879,"来ます (kimasu, forma educada), 来ない (konai, não vir), 来た (kita, veio), 来週 (raishuu, semana que vem)","Irregular, como する: 来ます (kimasu), 来ない (konai), 来た (kita), 来て (kite). Pede に ou へ para o lugar: 日本に来る. Para ir a um lugar longe de quem fala, o verbo é 行く (iku).","明日、友だちが家に[来ます]。 → Amanhã um amigo vem aqui em casa.
 バスが[来た]！ → O ônibus chegou!
-彼はまだ[来ない]。 → Ele ainda não chegou.",,
+彼はまだ[来ない]。 → Ele ainda não chegou.",,2026-11-27
 12,JP0243,言う,いう,iu,dizer,10,5,Altíssimo,N5,neutro,verbo,comunicação,kanji+kana,godan,222,"〜と言う (dizer que ...), という (chamado ...)","Pede と para o que se diz: 「はい」と言う. 〜という liga um nome ao que ele é: 田中という人 (uma pessoa chamada Tanaka). Na fala soa ""yuu"", mas se escreve いう. Diferente de 話す (hanasu), que é falar, conversar.","先生は明日休みだと[言いました]。 → O professor disse que amanhã é folga.
 日本語で何と[言います]か。 → Como se diz em japonês?
 本当のことを[言って]。 → Diga a verdade.",,
@@ -353,10 +353,10 @@
 [悪い]、遅れた。 → Foi mal, me atrasei.",,
 118,JP0427,大きい,おおきい,ookii,grande,8,5,Altíssimo,N5,neutro,adjetivo-i,descrição,kanji+kana,-,1124,"大きな (grande, antes do substantivo), 大きさ (tamanho), 小さい (pequeno)",O oposto de 小さい. Antes de substantivo também se usa 大きな: 大きな家 (casa grande). Serve para tamanho e também para som: 大きい声 (voz alta).,"この犬はとても[大きい]。 → Este cachorro é muito grande.
 もっと[大きい]声で話してください。 → Fale mais alto, por favor.
-[大きく]なったね！ → Como você cresceu!",,
+[大きく]なったね！ → Como você cresceu!",,2026-11-27
 119,JP0428,小さい,ちいさい,chiisai,pequeno,8,5,Altíssimo,N5,neutro,adjetivo-i,descrição,kanji+kana,-,1645,"小さな (pequeno, antes do substantivo), 小さいころ (na infância), 大きい (grande)","O oposto de 大きい. Antes de substantivo também se usa 小さな. Serve para tamanho, para a infância (小さいころ, quando era pequeno) e para som baixo: 小さい声 (voz baixa).","この部屋は[小さい]です。 → Este quarto é pequeno.
 [小さい]ころ、よく海に行った。 → Quando era pequeno, eu ia muito à praia.
-音を[小さく]してください。 → Abaixe o volume, por favor.",,
+音を[小さく]してください。 → Abaixe o volume, por favor.",,2026-11-27
 120,JP0459,美味しい,おいしい,oishii,gostoso / delicioso,8,5,Altíssimo,N5,neutro,adjetivo-i,comida,ambos,-,2378,"うまい (gostoso, casual), まずい (ruim de gosto)",Mais escrito em hiragana: おいしい. Diz que a comida ou a bebida tem gosto bom; うまい diz o mesmo de um jeito mais casual. O oposto é まずい.,"このラーメン、すごく[美味しい]！ → Este lámen é muito gostoso!
 母の料理はとても[美味しい]です。 → A comida da minha mãe é muito gostosa.
 [美味しかった]。ごちそうさま。 → Estava delicioso. Obrigado pela comida.","De お (prefixo de cortesia) + いし (美し, adjetivo antigo, ""bom""); o sentido de gostoso veio da fala das damas da corte (女房詞).",
@@ -603,7 +603,7 @@
 明日、[ご]連絡します。 → Amanhã entro em contato.",,
 200,JP0212,日,ひ,hi,dia / sol,7,5,Altíssimo,N5,neutro,substantivo,tempo,kanji,-,54,"その日 (aquele dia), 毎日 (mainichi, todo dia), 日曜日 (domingo), 休みの日 (dia de folga)","Sozinho se lê ひ (hi): その日 (aquele dia), 日が強い (o sol está forte). Em compostos se lê にち ou び: 毎日 (mainichi), 日曜日 (nichiyoubi). Os dias do mês têm leituras próprias: 一日 (tsuitachi), 二日 (futsuka).","その[日]は雨だった。 → Naquele dia choveu.
 [日]が長くなりましたね。 → Os dias ficaram mais longos, né?
-夏は[日]が強い。 → No verão o sol é forte.",,
+夏は[日]が強い。 → No verão o sol é forte.",,2026-11-27
 201,JP0624,話,はなし,hanashi,conversa / história / assunto,7,5,Altíssimo,N5,neutro,substantivo,comunicação,kanji,-,184,"話す (falar), 話し合う (conversar para resolver), 昔話 (mukashibanashi, conto antigo)","Com する vira ""conversar"": 話をする. 話がある é ""ter algo para falar"". Em muitos compostos, o som muda para ばなし: 昔話 (mukashibanashi, conto antigo).","友達と[話]をしました。 → Conversei com um amigo.
 おもしろい[話]を聞いた。 → Ouvi uma história interessante.
 ちょっと[話]があるんだけど。 → Tenho uma coisa para falar com você.","Do verbo 話す (hanasu, falar).",
@@ -763,7 +763,7 @@
 勉強は[嫌いじゃない]。 → Não odeio estudar.","Do verbo 嫌う (kirau, detestar).",
 253,JP0500,大好き,だいすき,daisuki,adorar / amar muito,7,4,Alto,N5,neutro,adjetivo-na,emoções,kanji+kana,-,1616,"好き (gostar), 大嫌い (detestar)","Adjetivo-na, como 好き: o que se adora vem com が (猫が大好き). 大好きな人 é uma pessoa muito querida. Mais forte que 好き e comum entre amigos e família.","私は猫が[大好き]です。 → Eu adoro gatos.
 [大好きな]歌を聞いた。 → Ouvi uma música que eu adoro.
-お母さん、[大好き]！ → Mãe, eu te adoro!","大 (grande, muito) + 好き (gostar).",
+お母さん、[大好き]！ → Mãe, eu te adoro!","大 (grande, muito) + 好き (gostar).",2026-11-27
 254,JP0504,元気,げんき,genki,"animado / com saúde / ânimo, energia",7,4,Alto,N5,neutro,adjetivo-na,emoções,kanji,-,1398,"元気な (animado), 元気づける (animar alguém)","お元気ですか (como vai?) pergunta como a pessoa está; responde-se 元気です. 元気がない é estar desanimado ou abatido. A saúde em si, no sentido médico, é 健康 (kenkou).","お[元気]ですか。 → Como vai?
 子どもたちはみんな[元気]です。 → As crianças estão todas bem.
 今日は[元気]がないね。 → Você está sem ânimo hoje, né?","元 (origem) + 気 (espírito, energia).",
@@ -3147,10 +3147,10 @@
 誰かが[ドア]をノックした。 → Alguém bateu na porta.",Do inglês door.,
 1044,JP0856,バス,バス,basu,ônibus,3,3,Médio,N5,neutro,substantivo,transporte,katakana,-,1128,"バス停 (basutei, ponto de ônibus)","Pegar o ônibus é バスに乗る (noru); descer, バスを降りる (oriru). A バス de バスタオル (toalha de banho) é outra palavra, do inglês bath.","[バス]で駅まで行きます。 → Vou de ônibus até a estação.
 次の[バス]は何時ですか。 → A que horas é o próximo ônibus?
-[バス]を降りて、少し歩いた。 → Desci do ônibus e andei um pouco.",Do inglês bus.,
+[バス]を降りて、少し歩いた。 → Desci do ônibus e andei um pouco.",Do inglês bus.,2026-11-27
 1045,JP0857,タクシー,タクシー,takushii,táxi,3,3,Médio,N5,neutro,substantivo,transporte,katakana,-,2873,タクシー乗り場 (ponto de táxi),"Pegar um táxi é タクシーに乗る (noru); chamar, タクシーを呼ぶ (yobu). O ponto de táxi é タクシー乗り場 (takushii noriba).","駅から[タクシー]に乗った。 → Peguei um táxi na estação.
 [タクシー]を呼んでください。 → Chame um táxi, por favor.
-雨だから、[タクシー]で帰ろう。 → Está chovendo, vamos voltar de táxi.",Do inglês taxi.,
+雨だから、[タクシー]で帰ろう。 → Está chovendo, vamos voltar de táxi.",Do inglês taxi.,2026-11-27
 1046,JP0859,クラス,クラス,kurasu,"turma / classe (nível, categoria)",3,3,Médio,N5,neutro,substantivo,escola,katakana,-,1292,クラスメート (colega de turma),"Na escola, a turma de alunos, e também a turma de um curso: 英語のクラス. Em outros usos, o nível ou a categoria: トップクラス (o melhor nível), ファーストクラス (primeira classe).","田中さんとは同じ[クラス]です。 → Estou na mesma turma que o Tanaka.
 この[クラス]には学生が二十人いる。 → Esta turma tem vinte alunos.
 彼は世界トップ[クラス]の選手だ。 → Ele é um atleta do mais alto nível mundial.",Do inglês class.,

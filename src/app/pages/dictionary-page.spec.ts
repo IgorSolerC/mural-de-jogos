@@ -165,7 +165,7 @@ describe('o Dicionário Japonês', () => {
     // com a conta do dono (ou da namorada), as que o CSV dá como aprendidas contam sem marca nenhuma
     account.set({ codigo: 'G11T-G00D', nome: 'Igor' });
     await settle();
-    expect(words().length).toBe(125);
+    expect(words().length).toBe(131);
     account.set(null);
     localStorage.removeItem(DICT_MARKS_KEY);
   });

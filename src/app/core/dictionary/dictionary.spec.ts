@@ -243,10 +243,10 @@ sem seta nenhuma",Do inglês hero.
     expect(find('ポルトガル語').examples.length).toBe(3);
   });
 
-  it('as palavras que o dono já aprendeu (14 a 26/nov) vêm com o dia, e as homógrafas são verbetes próprios', () => {
+  it('as palavras que o dono já aprendeu (14 a 27/nov) vêm com o dia, e as homógrafas são verbetes próprios', () => {
     const all = dictionaryWords().words;
     const learned = all.filter((w) => w.learnedOn);
-    expect(learned.length).toBe(124);
+    expect(learned.length).toBe(131);
     const on = (text: string, meaning: string) => all.find((w) => w.text === text && w.meaning.startsWith(meaning))!;
     expect(on('です', 'é').learnedOn).toBe('2026-11-14');
     expect(on('好き', 'gostar').learnedOn).toBe('2026-11-23');
@@ -271,6 +271,13 @@ sem seta nenhuma",Do inglês hero.
     for (const text of ['聞く', '読む', '昼ごはん', '朝', '火', '木', 'チョコレート', 'いちご']) {
       expect(all.find((w) => w.text === text)?.learnedOn).withContext(text).toBe('2026-11-26');
     }
+    // as de 27/nov já estavam todas no dicionário e só ganham o dia
+    for (const text of ['大好き', '大きい', '小さい', '来る', 'タクシー', 'バス', '日']) {
+      expect(all.find((w) => w.text === text)?.learnedOn).withContext(text).toBe('2026-11-27');
+    }
+    // o 日 aprendido é o de "dia / sol" (ひ); o 〜日 de contar os dias é outro verbete, que continua por aprender
+    expect(on('日', 'dia / sol').learnedOn).toBe('2026-11-27');
+    expect(on('〜日', 'dia (do mês)').learnedOn).toBeNull();
     const ichigo = all.find((w) => w.text === 'いちご')!;
     expect(ichigo.meaning).toBe('morango');
     expect(ichigo.examples.length).toBe(3);
