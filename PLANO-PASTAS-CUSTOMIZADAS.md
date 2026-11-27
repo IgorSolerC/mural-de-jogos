@@ -166,4 +166,8 @@ que cresce), commit em nome do dono, push.
 
 ## 8. Andamento
 
-- [ ] Rodada 1 · [ ] Rodada 2 · [ ] Rodada 3 · [ ] Rodada 4 · [ ] Rodada 5
+- [x] Rodada 1 (b27e6ac0, BUILD 1107): os dados e a sincronização.
+- [x] Rodada 2 (8f13f549, BUILD 1108): o desenho na pasta.
+- [x] Rodada 3 (79f9083d, BUILD 1109): a folha Customizar.
+- [x] Rodada 4 (0b3f236f, BUILD 1110): a vista padrão.
+- [x] Rodada 5 (BUILD 1111): a crítica do Impeccable (32/40) e o /code-review high, consertados; DESIGN.md.

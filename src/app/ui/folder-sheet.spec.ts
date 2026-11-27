@@ -54,7 +54,8 @@ describe('a folha Customizar (FolderSheet)', () => {
     await stable();
   }
   async function sticker(label: string): Promise<void> {
-    Array.from(el().querySelectorAll<HTMLButtonElement>('.adesivo-op')).find((b) => b.getAttribute('aria-label') === label)!.click();
+    // (o colado diz a ordem: "Dado, colado em 2º")
+    Array.from(el().querySelectorAll<HTMLButtonElement>('.adesivo-op')).find((b) => b.getAttribute('aria-label')!.split(',')[0] === label)!.click();
     await stable();
   }
   async function typeName(v: string): Promise<void> {
@@ -124,6 +125,7 @@ describe('a folha Customizar (FolderSheet)', () => {
     await sticker('Gatinho');
     await sticker('Dado');
     await sticker('Raio');
+    expect(q('.adesivo-op[aria-label="Dado, colado em 2º"]')).not.toBeNull();
     expect(q<HTMLButtonElement>('.adesivo-op[aria-label="Coração"]').disabled).toBeTrue();
     // a ordem de cada um: o raio (3º colado) vem antes na cartela, depois o gatinho (1º) e o dado (2º)
     expect(Array.from(el().querySelectorAll('.adesivo-n')).map((n) => n.textContent!.trim())).toEqual(['3', '1', '2']);

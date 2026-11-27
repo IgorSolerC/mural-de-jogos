@@ -249,11 +249,8 @@ dialog.pasta-custom {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
   gap: 6px 10px;
-  max-height: min(430px, 52dvh);
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  /* sem rolagem própria: a folha rola uma vez só (a fileira de baixo nunca fica cortada) */
   padding: 14px 4px 6px;
-  scrollbar-color: rgb(21 21 21 / 0.35) transparent;
 }
 
 .enfeite-op {

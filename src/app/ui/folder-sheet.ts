@@ -128,9 +128,12 @@ export class FolderSheet {
     const f = this.ctx()?.folder;
     if (!f) return [];
     const color = this.color();
+    // a opção dos adesivos mostra os colados (sem nenhum ainda, o coração)
+    const stickers = this.stickers().length ? this.stickers() : ['coracao'];
     const base = (decor: FolderDecor | null, name: string): NoteFolder => {
-      const look = sanitizeFolderLook({ color, ...(decor ? { decor } : {}), ...(decor === 'adesivos' ? { stickers: ['coracao'] } : {}) }, f.group);
-      return { id: f.id, group: f.group, name, parent: null, ...(look ? { look } : {}) };
+      const look = sanitizeFolderLook({ color, ...(decor ? { decor } : {}), ...(decor === 'adesivos' ? { stickers } : {}) }, f.group);
+      // um id só da opção: o da pasta de verdade fica só na parede (e na mesa)
+      return { id: `${f.id}-${decor ?? 'nenhum'}`, group: f.group, name, parent: null, ...(look ? { look } : {}) };
     };
     return [{ id: null as FolderDecor | null, label: 'Nenhum', folder: base(null, 'Nenhum') }, ...FOLDER_DECORS.map((d) => ({ id: d.id as FolderDecor | null, label: d.label, folder: base(d.id, d.label) }))];
   });
@@ -166,8 +169,8 @@ export class FolderSheet {
         id: 'enfeite',
         name: 'Enfeite',
         icon: decor === 'adesivos' ? ICON.adesivo : ICON.brilho,
-        value: decorLabel ? (decor === 'adesivos' ? `Adesivos: ${stickers}` : decorLabel) : 'Enfeite',
-        spoken: decorLabel ? (decor === 'adesivos' ? `adesivos, ${stickers}` : decorLabel) : 'nenhum',
+        value: decorLabel ? (decor === 'adesivos' && stickers ? `Adesivos: ${stickers}` : decorLabel) : 'Enfeite',
+        spoken: decorLabel ? (decor === 'adesivos' ? `adesivos, ${stickers || 'nenhum colado'}` : decorLabel) : 'nenhum',
         filled: !!decorLabel,
       },
     ];
@@ -213,7 +216,15 @@ export class FolderSheet {
 
   /** Fechou (o evento chega depois do close): esvazia, a não ser que ela já tenha aberto de novo nesse meio-tempo. */
   protected closed(): void {
-    if (!this.dialog().nativeElement.open) this.ctx.set(null);
+    const dialog = this.dialog().nativeElement;
+    if (dialog.open) return;
+    const id = this.ctx()?.folder.id;
+    this.ctx.set(null);
+    // o foco volta para a pasta na parede (o item do menu que abriu a folha já não existe)
+    if (id) {
+      const card = Array.from(document.querySelectorAll<HTMLElement>(`app-folder-card[data-pasta="${CSS.escape(id)}"]`)).find((el) => !dialog.contains(el));
+      card?.querySelector<HTMLElement>('button')?.focus({ preventScroll: true });
+    }
   }
 
   protected pickColor(c: FolderColor): void {
@@ -306,6 +317,11 @@ export class FolderSheet {
       return;
     }
     const name = cleanFolderName(this.name());
+    if (!c.current()) {
+      this.close();
+      this.toasts.show(`A pasta ${c.folder.name} foi desfeita noutro lugar: o que você mudou não foi salvo.`);
+      return;
+    }
     // só o que a pessoa mexeu na folha vai por cima do visual de agora (o resto que mudou no meio fica)
     const was = lookOf(c.folder.look);
     const mine = lookOf(this.look());

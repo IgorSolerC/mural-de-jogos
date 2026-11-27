@@ -139,6 +139,30 @@ describe('as pastas na parede de quem você visita', () => {
     expect(document.activeElement).toBe(folderButton('Programação'));
   });
 
+  it('a pasta customizada da pessoa: quem visita vê a cor e o enfeite dela e, dentro, a vista dela (PLANO-PASTAS-CUSTOMIZADAS.md)', async () => {
+    const store = TestBed.inject(ColleagueStore) as unknown as { selected: ReturnType<typeof signal<Colleague | null>> };
+    store.selected.set({
+      ...MARINA,
+      folders: [{ ...f('pprog000001', 'Programação'), look: { color: 'azul', decor: 'costura', view: 'lista' } }, f('pfunc000001', 'Funcional', 'pprog000001'), f('pscri000001', 'Scripts', 'pprog000001'), f('pvazi000001', 'Vazia')],
+    } as Colleague);
+    await settle();
+    // (outra pessoa aberta: a aba volta ao começo)
+    visit.setNoteTab('c:estudos');
+    await settle();
+    const card = folderButton('Programação').closest('app-folder-card')!;
+    expect(card.getAttribute('data-cor')).toBe('azul');
+    expect(card.getAttribute('data-enfeite')).toBe('costura');
+    expect(card.querySelector('.frente > .enfeite')).not.toBeNull();
+    expect(visit.density()).not.toBe('lista');
+    folderButton('Programação').click();
+    await settle();
+    expect(visit.density()).toBe('lista');
+    // a de dentro, sem vista: a do grupo
+    folderButton('Funcional').click();
+    await settle();
+    expect(visit.density()).not.toBe('lista');
+  });
+
   it('a pasta vazia diz que está vazia; na visita, sem o botão de escrever', async () => {
     folderButton('Vazia').click();
     await settle();

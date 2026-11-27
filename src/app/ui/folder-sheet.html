@@ -121,7 +121,7 @@
                           @if (stickers().length) {
                             {{ stickers().length }} de {{ maxStickers }} adesivos · toque de novo para descolar
                           } @else {
-                            Escolha de 1 a {{ maxStickers }} adesivos
+                            Escolha de 1 a {{ maxStickers }} adesivos: toque para colar, de novo para descolar
                           }
                         </p>
                         <div class="adesivos">
@@ -130,7 +130,7 @@
                               type="button"
                               class="adesivo-op"
                               [attr.aria-pressed]="stickers().includes(s.id)"
-                              [attr.aria-label]="s.label"
+                              [attr.aria-label]="s.label + (order(s.id) ? ', colado em ' + order(s.id) + 'º' : '')"
                               [disabled]="!stickers().includes(s.id) && stickers().length >= maxStickers"
                               (click)="toggleSticker(s.id)"
                             >
