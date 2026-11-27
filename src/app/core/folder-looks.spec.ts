@@ -32,20 +32,27 @@ describe('o visual das pastas (core/folder-looks.ts)', () => {
     expect(sanitizeFolderLook({ view: 'lista' }, lookKey(PIXEL_FOLDER_GROUP))).toBeUndefined();
   });
 
-  it('os adesivos: só com o enfeite deles, de 1 a 3, conhecidos e sem repetir, na ordem em que foram colados', () => {
-    expect(sanitizeFolderLook({ decor: 'adesivos', stickers: ['gatinho', 'coracao', 'gatinho', 'foguete', 'dado', 'raio'] }, 'estudos')).toEqual({
-      decor: 'adesivos',
+  it('os adesivos: de 1 a 3, conhecidos e sem repetir, na ordem em que foram colados, junto de qualquer enfeite', () => {
+    expect(sanitizeFolderLook({ stickers: ['gatinho', 'coracao', 'gatinho', 'foguete', 'dado', 'raio'] }, 'estudos')).toEqual({
       stickers: ['gatinho', 'coracao', 'dado'],
     });
-    // sem nenhum adesivo, os adesivos não enfeitam nada
-    expect(sanitizeFolderLook({ decor: 'adesivos', stickers: [] }, 'estudos')).toBeUndefined();
-    expect(sanitizeFolderLook({ decor: 'costura', stickers: ['gatinho'] }, 'estudos')).toEqual({ decor: 'costura' });
+    expect(sanitizeFolderLook({ color: 'azul', decor: 'estrelas', stickers: ['gatinho'] }, 'estudos')).toEqual({ color: 'azul', decor: 'estrelas', stickers: ['gatinho'] });
+    // nenhum adesivo: o campo não fica
+    expect(sanitizeFolderLook({ decor: 'costura', stickers: [] }, 'estudos')).toEqual({ decor: 'costura' });
+    expect(sanitizeFolderLook({ stickers: 'gatinho' }, 'estudos')).toBeUndefined();
   });
 
-  it('são 14 enfeites e os adesivos, e o mesmo visual compara igual com ou sem a manilha escrita', () => {
-    expect(FOLDER_DECORS.length).toBe(15);
+  it('o guardado quando os adesivos eram um enfeite vira só os adesivos (seção 9)', () => {
+    expect(sanitizeFolderLook({ color: 'verde', decor: 'adesivos', stickers: ['dado', 'raio'] }, 'estudos')).toEqual({ color: 'verde', stickers: ['dado', 'raio'] });
+    expect(sanitizeFolderLook({ decor: 'adesivos', stickers: [] }, 'estudos')).toBeUndefined();
+  });
+
+  it('são 14 enfeites (os adesivos à parte), e o mesmo visual compara igual com ou sem a manilha escrita', () => {
+    expect(FOLDER_DECORS.length).toBe(14);
+    expect(FOLDER_DECORS.some((d) => (d.id as string) === 'adesivos')).toBeFalse();
     expect(sameFolderLook(undefined, { color: 'manilha' })).toBeTrue();
-    expect(sameFolderLook({ decor: 'adesivos', stickers: ['raio', 'dado'] }, { decor: 'adesivos', stickers: ['dado', 'raio'] })).toBeFalse();
+    expect(sameFolderLook({ stickers: ['raio', 'dado'] }, { stickers: ['dado', 'raio'] })).toBeFalse();
+    expect(sameFolderLook({ decor: 'costura', stickers: ['raio'] }, { decor: 'costura' })).toBeFalse();
     expect(sameFolderLook({ color: 'azul' }, { color: 'azul', view: 'lista' })).toBeFalse();
   });
 });

@@ -3,8 +3,9 @@ import { FolderColor, FolderLook, FolderSticker, lookOf } from './folder-looks';
 import { f1, hash } from './paper';
 
 /**
- * O que o enfeite de uma pasta desenha em SVG (PLANO-PASTAS-CUSTOMIZADAS.md, 3): as estrelinhas laminadas, a
- * costura da meia-lua e os adesivos de vinil. O resto dos enfeites é CSS (ui/_pasta-enfeites.scss). Os desenhos
+ * O que a pasta desenha em SVG (PLANO-PASTAS-CUSTOMIZADAS.md, 3): as estrelinhas laminadas e a costura da
+ * meia-lua (do enfeite) e os adesivos de vinil (uma camada à parte, com qualquer enfeite, seção 9). O resto dos
+ * enfeites é CSS (ui/_pasta-enfeites.scss). Os desenhos
  * são os das cartolinas (core/decor-art.ts: o laminado `FOIL`, a estrela, os adesivos `PUFFY` e `GAMER`), sem
  * mudar nada neles; só a posição é da pasta, fixa e torta pelo id dela (a mesma em todo aparelho).
  *
@@ -42,18 +43,21 @@ const STICKER_ART: Record<FolderSticker, { sil: string; art: string }> = {
   cartucho: GAMER[5],
 };
 
-/** Onde cada adesivo vai, pela quantidade: o 1º no canto de cima, meio para fora da boca; os outros descendo. */
+/**
+ * Onde cada adesivo vai, pela quantidade: o 1º no canto de cima à direita, os outros ao lado e descendo pela direita.
+ * Sempre dentro da frente, com folga para o torto (pedido do dono: nunca para fora da pasta).
+ */
 const STICKER_SLOTS: readonly (readonly { top: number; right: number; size: number }[])[] = [
   [],
-  [{ top: -9, right: 8, size: 30 }],
+  [{ top: 5, right: 6, size: 28 }],
   [
-    { top: -7, right: 18, size: 30 },
-    { top: 9, right: 3, size: 22 },
+    { top: 4, right: 24, size: 26 },
+    { top: 17, right: 5, size: 22 },
   ],
   [
-    { top: -8, right: 30, size: 26 },
-    { top: -4, right: 4, size: 24 },
-    { top: 16, right: 6, size: 20 },
+    { top: 4, right: 33, size: 24 },
+    { top: 5, right: 9, size: 23 },
+    { top: 25, right: 5, size: 20 },
   ],
 ];
 
@@ -142,13 +146,17 @@ export function stickerIcon(id: FolderSticker): string {
 const HALF_MOON = `<svg class='meia-lua' viewBox='0 0 38 20'><path d='M1.5 0 A17.5 17.5 0 0 0 36.5 0' fill='none' stroke='var(--sutil)' stroke-width='1.4' stroke-dasharray='4 3'/></svg>`;
 
 /**
- * O SVG do enfeite da pasta, ou '' para o que é só CSS. `id` (o da pasta) dá o torto dos adesivos; `uid`, os ids
- * dos gradientes, únicos na página (a mesma pasta pode estar duas vezes: na parede e na folha de customizar).
+ * O SVG do enfeite da pasta, ou '' para o que é só CSS. `uid` dá os ids dos gradientes, únicos na página (a mesma
+ * pasta pode estar duas vezes: na parede e na folha de customizar).
  */
-export function folderDecorSvg(look: FolderLook | undefined, id: string, uid = id): string {
+export function folderDecorSvg(look: FolderLook | undefined, uid: string): string {
   const l = lookOf(look);
   if (l.decor === 'estrelas') return starsSvg(l.color, `pasta-${uid}`);
   if (l.decor === 'meia-lua') return HALF_MOON;
-  if (l.decor === 'adesivos') return stickersSvg(l.stickers ?? [], id);
   return '';
+}
+
+/** Os adesivos colados na pasta (com qualquer enfeite), ou ''. `id` (o da pasta) dá o torto de cada um. */
+export function folderStickersSvg(look: FolderLook | undefined, id: string): string {
+  return look?.stickers?.length ? stickersSvg(look.stickers, id) : '';
 }

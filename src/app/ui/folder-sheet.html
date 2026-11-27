@@ -102,6 +102,35 @@
                       }
                     </div>
                   }
+                  @case ('adesivos') {
+                    <!-- a cartela dos adesivos: até três, na ordem em que foram colados -->
+                    <div class="cartela" role="group" aria-labelledby="pasta-cartela-txt">
+                      <p class="cartela-txt" id="pasta-cartela-txt">
+                        @if (stickers().length) {
+                          {{ stickers().length }} de {{ maxStickers }} adesivos · toque de novo para descolar
+                        } @else {
+                          Cole até {{ maxStickers }} adesivos, junto do enfeite: toque para colar, de novo para descolar
+                        }
+                      </p>
+                      <div class="adesivos">
+                        @for (s of stickerOptions; track s.id) {
+                          <button
+                            type="button"
+                            class="adesivo-op"
+                            [attr.aria-pressed]="stickers().includes(s.id)"
+                            [attr.aria-label]="s.label + (order(s.id) ? ', colado em ' + order(s.id) + 'º' : '')"
+                            [disabled]="!stickers().includes(s.id) && stickers().length >= maxStickers"
+                            (click)="toggleSticker(s.id)"
+                          >
+                            <span class="adesivo-desenho" [innerHTML]="s.art" aria-hidden="true"></span>
+                            @if (order(s.id); as n) {
+                              <span class="adesivo-n" aria-hidden="true">{{ n }}</span>
+                            }
+                          </button>
+                        }
+                      </div>
+                    </div>
+                  }
                   @case ('enfeite') {
                     <!-- cada enfeite numa pasta com o nome dele, na cor escolhida; o escolhido sai do monte -->
                     <div class="enfeites" role="radiogroup" aria-label="Enfeite da pasta">
@@ -114,35 +143,6 @@
                         </label>
                       }
                     </div>
-                    @if (decor() === 'adesivos') {
-                      <!-- a cartela dos adesivos: até três, na ordem em que foram colados -->
-                      <div class="cartela" role="group" aria-labelledby="pasta-cartela-txt">
-                        <p class="cartela-txt" id="pasta-cartela-txt" [class.forte]="attempted() && noStickers()">
-                          @if (stickers().length) {
-                            {{ stickers().length }} de {{ maxStickers }} adesivos · toque de novo para descolar
-                          } @else {
-                            Escolha de 1 a {{ maxStickers }} adesivos: toque para colar, de novo para descolar
-                          }
-                        </p>
-                        <div class="adesivos">
-                          @for (s of stickerOptions; track s.id) {
-                            <button
-                              type="button"
-                              class="adesivo-op"
-                              [attr.aria-pressed]="stickers().includes(s.id)"
-                              [attr.aria-label]="s.label + (order(s.id) ? ', colado em ' + order(s.id) + 'º' : '')"
-                              [disabled]="!stickers().includes(s.id) && stickers().length >= maxStickers"
-                              (click)="toggleSticker(s.id)"
-                            >
-                              <span class="adesivo-desenho" [innerHTML]="s.art" aria-hidden="true"></span>
-                              @if (order(s.id); as n) {
-                                <span class="adesivo-n" aria-hidden="true">{{ n }}</span>
-                              }
-                            </button>
-                          }
-                        </div>
-                      </div>
-                    }
                   }
                 }
                 <button type="button" class="parte-pronto" (click)="closeProp()">

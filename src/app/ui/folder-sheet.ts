@@ -26,7 +26,7 @@ import { SaveKey } from './save-key';
 import { Toasts } from './toast';
 
 /** As etiquetas da folha. */
-export type FolderSheetProp = 'cor' | 'enfeite' | 'vista';
+export type FolderSheetProp = 'cor' | 'enfeite' | 'adesivos' | 'vista';
 
 /** Uma vista do que está dentro da pasta (a do mural dela). */
 export interface FolderSheetView {
@@ -60,8 +60,9 @@ export interface FolderSheetOpen {
  * Customizar uma pasta (PLANO-PASTAS-CUSTOMIZADAS.md, 4): o Customizar… do menu da pasta nos três murais que têm
  * pastas. O leiaute da folha do recorte da Wishlist e da pixel art (o mesmo arquivo, `wish-adder.scss`), com a faixa
  * de cima no papel da pasta e, na mesa, a pasta ao vivo como ela fica na parede. Nos campos: o Nome e a fileira de
- * etiquetas do editor das anotações (Cor e Enfeite), cada uma abrindo a parte dela embaixo; o enfeite se escolhe
- * pelas próprias pastas desenhadas (como os jeitos da pixel art), e os Adesivos abrem a cartela com os doze.
+ * etiquetas do editor das anotações (Cor, Enfeite, Adesivos e Vista), cada uma abrindo a parte dela embaixo; o
+ * enfeite se escolhe pelas próprias pastas desenhadas (como os jeitos da pixel art), e os Adesivos (com qualquer
+ * enfeite, PLANO-PASTAS-CUSTOMIZADAS.md, 9) na cartela com os doze.
  *
  * A folha só escolhe: quem abre grava (`apply`, da página do dono: a parede é a mesma da visita e não importa nada
  * que escreve). Salvar grava só o que mudou, com o Desfazer; fechar com algo mudado pergunta antes.
@@ -100,7 +101,7 @@ export class FolderSheet {
   protected readonly stickers = signal<FolderSticker[]>([]);
   /** A etiqueta aberta (a parte dela logo embaixo da fileira), ou nenhuma. */
   protected readonly prop = signal<FolderSheetProp | null>(null);
-  /** Tentou salvar com um problema (o nome de uma irmã, os adesivos sem nenhum). */
+  /** Tentou salvar com o nome de uma irmã. */
   protected readonly attempted = signal(false);
   private askingDiscard = false;
 
@@ -110,7 +111,7 @@ export class FolderSheet {
     if (!f) return undefined;
     const decor = this.decor();
     const view = this.view();
-    const raw: FolderLook = { color: this.color(), ...(decor ? { decor } : {}), ...(decor === 'adesivos' ? { stickers: this.stickers() } : {}), ...(view ? { view } : {}) };
+    const raw: FolderLook = { color: this.color(), ...(decor ? { decor } : {}), stickers: this.stickers(), ...(view ? { view } : {}) };
     return sanitizeFolderLook(raw, f.group);
   });
 
@@ -123,15 +124,14 @@ export class FolderSheet {
     return { ...rest, name: cleanFolderName(this.name()) || f.name, ...(look ? { look } : {}) };
   });
 
-  /** Cada enfeite desenhado numa pasta com o nome dele, na cor escolhida (a primeira, sem enfeite). */
+  /** Cada enfeite desenhado numa pasta com o nome dele, na cor escolhida (a primeira, sem enfeite); os adesivos
+   *  colados ficam só na pasta da mesa, para o enfeite aparecer inteiro na opção. */
   protected readonly decorOptions = computed(() => {
     const f = this.ctx()?.folder;
     if (!f) return [];
     const color = this.color();
-    // a opção dos adesivos mostra os colados (sem nenhum ainda, o coração)
-    const stickers = this.stickers().length ? this.stickers() : ['coracao'];
     const base = (decor: FolderDecor | null, name: string): NoteFolder => {
-      const look = sanitizeFolderLook({ color, ...(decor ? { decor } : {}), ...(decor === 'adesivos' ? { stickers } : {}) }, f.group);
+      const look = sanitizeFolderLook({ color, ...(decor ? { decor } : {}) }, f.group);
       // um id só da opção: o da pasta de verdade fica só na parede (e na mesa)
       return { id: `${f.id}-${decor ?? 'nenhum'}`, group: f.group, name, parent: null, ...(look ? { look } : {}) };
     };
@@ -155,23 +155,28 @@ export class FolderSheet {
     return c.clash(clean);
   });
 
-  /** Os adesivos escolhidos sem nenhum adesivo: o enfeite não enfeitaria nada. */
-  protected readonly noStickers = computed(() => this.decor() === 'adesivos' && !this.stickers().length);
-
   protected readonly props = computed(() => {
     const color = FOLDER_COLORS.find((c) => c.id === this.color())?.label ?? 'Manilha';
     const decor = this.decor();
     const decorLabel = decor ? (FOLDER_DECORS.find((d) => d.id === decor)?.label ?? 'Enfeite') : null;
-    const stickers = decor === 'adesivos' ? this.stickers().length : 0;
+    const stickers = this.stickers().length;
     const out: { id: FolderSheetProp; name: string; icon: LucideIconData; value: string; spoken: string; filled: boolean }[] = [
       { id: 'cor', name: 'Cor', icon: ICON.paleta, value: `Cor: ${color}`, spoken: color, filled: true },
       {
         id: 'enfeite',
         name: 'Enfeite',
-        icon: decor === 'adesivos' ? ICON.adesivo : ICON.brilho,
-        value: decorLabel ? (decor === 'adesivos' && stickers ? `Adesivos: ${stickers}` : decorLabel) : 'Enfeite',
-        spoken: decorLabel ? (decor === 'adesivos' ? `adesivos, ${stickers || 'nenhum colado'}` : decorLabel) : 'nenhum',
+        icon: ICON.brilho,
+        value: decorLabel ?? 'Enfeite',
+        spoken: decorLabel ?? 'nenhum',
         filled: !!decorLabel,
+      },
+      {
+        id: 'adesivos',
+        name: 'Adesivos',
+        icon: ICON.adesivo,
+        value: stickers ? `Adesivos: ${stickers}` : 'Adesivos',
+        spoken: stickers ? `${stickers} colado${stickers > 1 ? 's' : ''}` : 'nenhum',
+        filled: !!stickers,
       },
     ];
     const views = this.ctx()?.views;
@@ -189,7 +194,7 @@ export class FolderSheet {
     }
     return out;
   });
-  protected readonly propNames: Record<FolderSheetProp, string> = { cor: 'Cor', enfeite: 'Enfeite', vista: 'Vista' };
+  protected readonly propNames: Record<FolderSheetProp, string> = { cor: 'Cor', enfeite: 'Enfeite', adesivos: 'Adesivos', vista: 'Vista' };
 
   private trust(svg: string): SafeHtml {
     return this.sanitizer.bypassSecurityTrustHtml(svg);
@@ -233,7 +238,6 @@ export class FolderSheet {
 
   protected pickDecor(d: FolderDecor | null): void {
     this.decor.set(d);
-    this.attempted.set(false);
   }
 
   protected pickView(v: string | null): void {
@@ -243,7 +247,6 @@ export class FolderSheet {
   /** Cola ou descola um adesivo (até três, na ordem em que foram colados). */
   protected toggleSticker(id: FolderSticker): void {
     this.stickers.update((list) => (list.includes(id) ? list.filter((s) => s !== id) : list.length < MAX_FOLDER_STICKERS ? [...list, id] : list));
-    this.attempted.set(false);
   }
 
   /** A ordem do adesivo colado (1 a 3), ou 0. */
@@ -258,7 +261,8 @@ export class FolderSheet {
       return;
     }
     this.prop.set(id);
-    setTimeout(() => this.dialog().nativeElement.querySelector<HTMLElement>('#pasta-parte input:checked')?.focus());
+    // a escolhida (nos adesivos, o primeiro que dá para tocar)
+    setTimeout(() => this.dialog().nativeElement.querySelector<HTMLElement>('#pasta-parte input:checked, #pasta-parte .adesivo-op:not(:disabled)')?.focus());
   }
 
   protected closeProp(e?: Event): void {
@@ -275,7 +279,7 @@ export class FolderSheet {
     const f = this.ctx()?.folder;
     if (!f) return false;
     const name = cleanFolderName(this.name());
-    return (!!name && name !== f.name) || !sameFolderLook(f.look, this.look()) || this.noStickers();
+    return (!!name && name !== f.name) || !sameFolderLook(f.look, this.look());
   }
 
   /** Fechar (X, Cancelar, Esc, o fundo): com algo mudado, a pergunta de descartar antes. */
@@ -310,10 +314,9 @@ export class FolderSheet {
     e.preventDefault();
     const c = this.ctx();
     if (!c) return;
-    if (this.clash() || this.noStickers()) {
+    if (this.clash()) {
       this.attempted.set(true);
-      if (this.noStickers()) this.prop.set('enfeite');
-      this.dialog().nativeElement.querySelector<HTMLElement>(this.clash() ? '#pasta-nome' : '.adesivo-op')?.focus();
+      this.dialog().nativeElement.querySelector<HTMLElement>('#pasta-nome')?.focus();
       return;
     }
     const name = cleanFolderName(this.name());
@@ -322,15 +325,18 @@ export class FolderSheet {
       this.toasts.show(`A pasta ${c.folder.name} foi desfeita noutro lugar: o que você mudou não foi salvo.`);
       return;
     }
-    // só o que a pessoa mexeu na folha vai por cima do visual de agora (o resto que mudou no meio fica)
+    // só o que a pessoa mexeu na folha vai por cima do visual de agora (o resto que mudou no meio fica); o enfeite e
+    // os adesivos, cada um por si
     const was = lookOf(c.folder.look);
     const mine = lookOf(this.look());
     const now: FolderLook = { ...(c.current()?.look ?? c.folder.look) };
     if (mine.color !== was.color) now.color = mine.color;
-    if (mine.decor !== was.decor || (mine.stickers ?? []).join() !== (was.stickers ?? []).join()) {
+    if (mine.decor !== was.decor) {
       delete now.decor;
-      delete now.stickers;
       if (mine.decor) now.decor = mine.decor;
+    }
+    if ((mine.stickers ?? []).join() !== (was.stickers ?? []).join()) {
+      delete now.stickers;
       if (mine.stickers) now.stickers = mine.stickers;
     }
     if (mine.view !== was.view) {

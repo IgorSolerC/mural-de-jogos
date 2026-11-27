@@ -23,6 +23,8 @@
   --frente-pe: 0px;
   --frente-esq: 12px;
   --frente-dir: 12px;
+  /* a altura da frente (a de um nome em duas linhas e a conta), a mesma da camada dos adesivos */
+  --frente-alto: calc(19px + var(--frente-topo) + var(--frente-pe) + 2 * var(--nome-tam) * var(--nome-alt) + 2px + var(--qtd-tam) * var(--qtd-alt));
   /* a frente clara do movimento reduzido, na cor da pasta */
   --pasta-clara: #e0cea0;
   position: relative;
@@ -138,7 +140,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  height: calc(19px + var(--frente-topo) + var(--frente-pe) + 2 * var(--nome-tam) * var(--nome-alt) + 2px + var(--qtd-tam) * var(--qtd-alt));
+  height: var(--frente-alto);
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -157,12 +159,29 @@
     background-color var(--t-ui) var(--ease-ui);
 }
 
+/* os adesivos colados (o desenho em ui/_pasta-enfeites.scss): uma camada do tamanho da frente, por cima dela, que
+   abre junto; fica fora da frente para pintar acima de tudo o que o enfeite pinta nela, menos o que o dono quis por
+   cima dos adesivos (a fita do canto e a ponta dobrada, redesenhadas na .por-cima) */
+.adesivos {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--frente-alto);
+  /* acima de tudo o que o enfeite pinta na frente (até o z 3 das cantoneiras, das estrelas e do canto dobrado) */
+  z-index: 4;
+  pointer-events: none;
+  transform-origin: 50% 100%;
+  transition: transform 220ms var(--ease-ui);
+}
+
 /* com o mouse: a pasta sobe e se endireita, a frente abre e as miniaturas sobem, uma depois da outra */
 .pasta:not(.nomeando):hover {
   translate: 0 -2px;
   rotate: calc(var(--tilt, -0.6deg) * 0.35);
 
-  .frente {
+  .frente,
+  .adesivos {
     transform: perspective(620px) rotateX(-16deg);
   }
 
@@ -207,6 +226,10 @@
     transition: background-color var(--t-ui) var(--ease-ui);
   }
 
+  .adesivos {
+    transition: none;
+  }
+
   .pasta:not(.nomeando):hover {
     translate: none;
     rotate: var(--tilt, -0.6deg);
@@ -214,6 +237,10 @@
     .frente {
       transform: none;
       background-color: var(--pasta-clara);
+    }
+
+    .adesivos {
+      transform: none;
     }
 
     .espia {
@@ -231,7 +258,13 @@
   /* o aviso de nome repetido pode tomar mais linhas: a frente cresce para cima */
   .frente {
     height: auto;
-    min-height: calc(19px + var(--frente-topo) + var(--frente-pe) + 2 * var(--nome-tam) * var(--nome-alt) + 2px + var(--qtd-tam) * var(--qtd-alt));
+    min-height: var(--frente-alto);
+  }
+
+  /* os adesivos dentro da frente (que não abre enquanto se escreve), presos ao topo dela */
+  .adesivos {
+    top: 0;
+    height: auto;
   }
 }
 

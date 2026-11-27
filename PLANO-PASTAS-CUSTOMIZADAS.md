@@ -162,7 +162,7 @@ que cresce), commit em nome do dono, push.
 
 - A cor no caminho (breadcrumb), no Escolher a pasta e no filtro "Onde": não foi pedido; fica como sugestão.
 - As mini-pastas dos templates do texto (não são o card de pasta).
-- Dois enfeites na mesma pasta.
+- Dois enfeites na mesma pasta (os adesivos, desde a seção 9, não contam: são uma camada à parte).
 
 ## 8. Andamento
 
@@ -171,3 +171,24 @@ que cresce), commit em nome do dono, push.
 - [x] Rodada 3 (79f9083d, BUILD 1109): a folha Customizar.
 - [x] Rodada 4 (0b3f236f, BUILD 1110): a vista padrão.
 - [x] Rodada 5 (BUILD 1111): a crítica do Impeccable (32/40) e o /code-review high, consertados; DESIGN.md.
+- [x] Rodada 6 (BUILD 1112): os adesivos junto de qualquer enfeite (seção 9).
+
+## 9. Adesivos junto do enfeite (27/nov, depois da entrega)
+
+Pedido do dono: "poder usar os adesivos E também as customizações da pasta; hoje é um ou outro". Os adesivos deixam
+de ser um dos enfeites e viram uma camada à parte: a pasta tem uma cor, um enfeite (ou nenhum) e de 0 a 3 adesivos.
+
+1. **Os dados:** `FOLDER_DECORS` fica com os 14; `FolderLook.stickers` vale sozinho (sem o enfeite `adesivos`).
+   O guardado antes (`decor: 'adesivos'` com os adesivos) vira só os adesivos, no saneamento (sem migração: quem
+   lê saneia). Na junção campo a campo, o enfeite e os adesivos são campos diferentes: uma pessoa troca o enfeite e
+   a outra cola um adesivo, ficam os dois.
+2. **O desenho:** os adesivos numa camada própria por cima da frente (`.adesivos`, irmã dela, que abre junto com o
+   mouse), fora das máscaras da Meia-lua e do Canto dobrado; o enfeite continua igual. Ajustes do dono vendo as
+   fotos: os adesivos **nunca saem da frente** (os lugares deles ficaram todos dentro, com folga para o torto); a fita
+   da Faixa no canto e a ponta do Canto dobrado ficam **por cima** dos adesivos (`.por-cima`); nos outros enfeites,
+   os adesivos por cima. Com Estrelinhas, as estrelas descem para o canto de baixo.
+3. **A folha:** a etiqueta Adesivos ao lado de Cor e Enfeite (Cor · Enfeite · Adesivos · Vista), abrindo a cartela
+   dos doze; o Enfeite perde a opção Adesivos. Nenhum adesivo é o normal (não trava mais o Salvar). Salvar grava o
+   enfeite e os adesivos cada um por si, por cima do visual de agora.
+
+Fechamento: crítica do Impeccable, `/code-review high`, DESIGN.md, Novidades (ajustes de hoje), BUILD +1.

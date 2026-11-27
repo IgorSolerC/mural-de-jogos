@@ -265,9 +265,9 @@ dialog.pasta-custom {
   pointer-events: none;
 }
 
-/* ===== A cartela dos adesivos: os doze de vinil numa folha de adesivos, até três colados ===== */
+/* ===== A cartela dos adesivos: os doze de vinil numa folha de adesivos, até três colados (a parte da etiqueta
+   Adesivos, com qualquer enfeite) ===== */
 .cartela {
-  margin-top: 14px;
   padding: 12px 14px 14px;
   border-radius: 8px;
   background:
@@ -284,10 +284,6 @@ dialog.pasta-custom {
   font-size: 1rem;
   line-height: 1.3;
   color: var(--ink-2);
-
-  &.forte {
-    color: var(--red-deep);
-  }
 }
 
 .adesivos {

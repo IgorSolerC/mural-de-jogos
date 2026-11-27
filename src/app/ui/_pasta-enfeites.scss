@@ -42,6 +42,43 @@ $papeis: (
   }
 }
 
+// O que passa por cima dos adesivos (pedido do dono): a fita da Faixa no canto e a ponta do Canto dobrado. Sem
+// adesivos, desenhados no enfeite; com adesivos, os mesmos na camada deles, por cima (`.por-cima`).
+
+// a fita da Faixa no canto
+@mixin faixa-do-canto {
+  content: '';
+  position: absolute;
+  top: 8px;
+  right: -19px;
+  width: 64px;
+  height: 9px;
+  rotate: 40deg;
+  background-color: var(--fio);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  box-shadow: 0 1px 1.5px rgb(0 0 0 / 0.3);
+}
+
+// a ponta dobrada do Canto dobrado, o avesso do papel (a sombra é de quem a segura: o clip-path cortaria a dela)
+@mixin dobra-da-orelha {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 19px;
+  height: 19px;
+  clip-path: polygon(0 0, 100% 100%, 0 100%);
+  border-bottom-left-radius: 2px;
+  background-image:
+    linear-gradient(45deg, color-mix(in oklab, var(--pasta) 88%, white), color-mix(in oklab, var(--pasta) 62%, white) 70%, color-mix(in oklab, var(--pasta) 90%, black) 100%),
+    var(--paper-grain);
+  background-blend-mode: normal, multiply;
+}
+
+// o recorte da frente que a ponta dobrada deixa (o canto de cima à direita)
+$recorte-da-orelha: linear-gradient(225deg, transparent 13.4px, #000 13.5px);
+
 @mixin enfeites {
   :host {
     --tom: color-mix(in oklab, var(--pasta) 52%, #3b2716);
@@ -123,7 +160,6 @@ $papeis: (
 
   :host([data-enfeite='cantoneiras']),
   :host([data-enfeite='estrelas']),
-  :host([data-enfeite='adesivos']),
   :host([data-enfeite='orelha']) {
     .enfeite {
       z-index: 3;
@@ -190,17 +226,24 @@ $papeis: (
     }
 
     .enfeite::before {
-      content: '';
-      position: absolute;
-      top: 8px;
-      right: -19px;
-      width: 64px;
-      height: 9px;
-      rotate: 40deg;
-      background-color: var(--fio);
-      background-image: var(--paper-grain);
-      background-blend-mode: multiply;
-      box-shadow: 0 1px 1.5px rgb(0 0 0 / 0.3);
+      @include faixa-do-canto;
+    }
+  }
+
+  // com adesivos, a fita passa por cima deles (aprovado pelo dono): a mesma fita, na camada dos adesivos, cortada
+  // pela frente como a de baixo
+  :host([data-enfeite='canto'][data-adesivos]) {
+    .enfeite::before {
+      content: none;
+    }
+
+    .por-cima {
+      overflow: hidden;
+      border-radius: 3px 3px 6px 6px;
+    }
+
+    .por-cima::before {
+      @include faixa-do-canto;
     }
   }
 
@@ -315,6 +358,21 @@ $papeis: (
       width: 30px;
       height: 40px;
     }
+  }
+
+  // com adesivos, que ficam no canto de cima: as estrelas descem para o canto de baixo, um pouco menores
+  :host([data-enfeite='estrelas'][data-adesivos]) .enfeite ::ng-deep .estrelas {
+    top: auto;
+    bottom: 5px;
+    right: 6px;
+    width: 22px;
+    height: 29px;
+  }
+
+  // com dois ou três, o último desce pela direita: as estrelas ficam ao lado dele
+  :host([data-enfeite='estrelas'][data-adesivos='2']) .enfeite ::ng-deep .estrelas,
+  :host([data-enfeite='estrelas'][data-adesivos='3']) .enfeite ::ng-deep .estrelas {
+    right: 28px;
   }
 
   // 19 · Lombada de pano: a beirada da esquerda encapada de pano, com a costura
@@ -472,8 +530,8 @@ $papeis: (
     --nome-dir: 14px;
 
     .frente {
-      -webkit-mask: linear-gradient(225deg, transparent 13.4px, #000 13.5px);
-      mask: linear-gradient(225deg, transparent 13.4px, #000 13.5px);
+      -webkit-mask: $recorte-da-orelha;
+      mask: $recorte-da-orelha;
     }
 
     .enfeite {
@@ -481,23 +539,54 @@ $papeis: (
     }
 
     .enfeite::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      right: 0;
-      width: 19px;
-      height: 19px;
-      clip-path: polygon(0 0, 100% 100%, 0 100%);
-      border-bottom-left-radius: 2px;
-      background-image:
-        linear-gradient(45deg, color-mix(in oklab, var(--pasta) 88%, white), color-mix(in oklab, var(--pasta) 62%, white) 70%, color-mix(in oklab, var(--pasta) 90%, black) 100%),
-        var(--paper-grain);
-      background-blend-mode: normal, multiply;
+      @include dobra-da-orelha;
     }
   }
 
-  // Adesivos: os de vinil das cartolinas, colados pelo canto de cima à direita (core/folder-art.ts)
-  :host([data-enfeite='adesivos']) {
+  // com adesivos, a ponta dobrada fica por cima deles (pedido do dono), e o que cairia no canto recortado não aparece
+  :host([data-enfeite='orelha'][data-adesivos]) {
+    .enfeite::before {
+      content: none;
+    }
+
+    .adesivos-desenho {
+      -webkit-mask: $recorte-da-orelha;
+      mask: $recorte-da-orelha;
+    }
+
+    .por-cima {
+      filter: drop-shadow(-1px 1.2px 1px rgb(0 0 0 / 0.28));
+    }
+
+    .por-cima::before {
+      @include dobra-da-orelha;
+    }
+  }
+
+  // Adesivos: os de vinil das cartolinas, colados pelo canto de cima à direita (core/folder-art.ts), com qualquer
+  // enfeite (PLANO-PASTAS-CUSTOMIZADAS.md, 9): numa camada à parte, por cima da frente (ver .adesivos no
+  // folder-card.scss); o nome dá lugar a eles (o mesmo com um, dois ou três: mais que isso cortaria nomes de duas
+  // linhas, e a fileira de cima fica acima da primeira linha)
+  :host([data-adesivos]) {
     --nome-dir: 30px;
+
+    // dando nome, o que se escreve (e o aviso) também dá lugar a eles
+    .nome-campo,
+    .qtd.aviso {
+      padding-right: var(--nome-dir);
+    }
+
+    // o desenho dos adesivos e, por cima dele, o que o enfeite passa por cima (a fita do canto, a ponta dobrada)
+    .adesivos-desenho,
+    .por-cima {
+      position: absolute;
+      inset: 0;
+    }
+
+    .adesivos ::ng-deep svg {
+      position: absolute;
+      display: block;
+      overflow: visible;
+    }
   }
 }

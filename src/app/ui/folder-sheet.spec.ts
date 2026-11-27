@@ -9,7 +9,7 @@ import { Toasts } from './toast';
 
 /**
  * A folha Customizar (PLANO-PASTAS-CUSTOMIZADAS.md, 4): o nome, a cor e o enfeite, a pasta ao vivo na mesa, os
- * adesivos (até três), o nome de uma irmã, e salvar só o que mudou, com o Desfazer.
+ * adesivos (até três, junto de qualquer enfeite: seção 9), o nome de uma irmã, e salvar só o que mudou, com o Desfazer.
  */
 
 @Component({ imports: [FolderSheet], template: `<app-folder-sheet />` })
@@ -44,7 +44,7 @@ describe('a folha Customizar (FolderSheet)', () => {
     });
     await stable();
   }
-  async function pickProp(id: 'cor' | 'enfeite' | 'vista'): Promise<void> {
+  async function pickProp(id: 'cor' | 'enfeite' | 'adesivos' | 'vista'): Promise<void> {
     q<HTMLButtonElement>(`.prop[data-prop="${id}"]`).click();
     await stable();
   }
@@ -111,17 +111,18 @@ describe('a folha Customizar (FolderSheet)', () => {
     const names = Array.from(el().querySelectorAll('.enfeite-op .nome')).map((n) => n.textContent!.trim());
     expect(names[0]).toBe('Nenhum');
     expect(names).toContain('Borda picotada');
-    expect(names.length).toBe(16);
+    // os 14 e o Nenhum (os adesivos têm a etiqueta deles)
+    expect(names.length).toBe(15);
+    expect(names).not.toContain('Adesivos');
     expect(Array.from(el().querySelectorAll('.enfeite-op app-folder-card')).every((c) => c.getAttribute('data-cor') === 'verde')).toBeTrue();
   });
 
-  it('os adesivos: até três, na ordem em que foram colados; sem nenhum, não salva e avisa', async () => {
+  it('os adesivos: a etiqueta deles, até três, na ordem em que foram colados, junto do enfeite', async () => {
     await open();
+    expect(q('.prop[data-prop="adesivos"]').getAttribute('aria-label')).toBe('Adesivos: nenhum');
     await pickProp('enfeite');
-    await radio('Adesivos');
-    await save();
-    expect(applied).toEqual([]);
-    expect(q('.cartela-txt').classList).toContain('forte');
+    await radio('Estrelinhas');
+    await pickProp('adesivos');
     await sticker('Gatinho');
     await sticker('Dado');
     await sticker('Raio');
@@ -131,8 +132,32 @@ describe('a folha Customizar (FolderSheet)', () => {
     expect(Array.from(el().querySelectorAll('.adesivo-n')).map((n) => n.textContent!.trim())).toEqual(['3', '1', '2']);
     await sticker('Dado');
     expect(q<HTMLButtonElement>('.adesivo-op[aria-label="Coração"]').disabled).toBeFalse();
+    expect(q('.prop[data-prop="adesivos"]').textContent).toContain('Adesivos: 2');
+    expect(q('.prop[data-prop="enfeite"]').textContent).toContain('Estrelinhas');
+    // a pasta da mesa com os dois: o enfeite e os adesivos
+    expect(preview().getAttribute('data-enfeite')).toBe('estrelas');
+    expect(preview().querySelectorAll('.adesivos svg.adesivo').length).toBe(2);
     await save();
-    expect(applied).toEqual([{ look: { color: 'verde', decor: 'adesivos', stickers: ['gatinho', 'raio'], view: 'lista' } }]);
+    expect(applied).toEqual([{ look: { color: 'verde', decor: 'estrelas', stickers: ['gatinho', 'raio'], view: 'lista' } }]);
+  });
+
+  it('descolar todos os adesivos tira os adesivos e deixa o enfeite', async () => {
+    live = { ...FOLDER, look: { color: 'verde', decor: 'costura', stickers: ['dado'] } };
+    await open({ folder: live });
+    expect(q('.prop[data-prop="adesivos"]').getAttribute('aria-label')).toBe('Adesivos: 1 colado');
+    await pickProp('adesivos');
+    await sticker('Dado');
+    await save();
+    expect(applied).toEqual([{ look: { color: 'verde', decor: 'costura' } }]);
+  });
+
+  it('o enfeite e os adesivos são salvos cada um por si: o adesivo que outra pessoa colou fica quando este troca o enfeite', async () => {
+    await open();
+    live = { ...FOLDER, look: { color: 'verde', stickers: ['coracao'], view: 'lista' } };
+    await pickProp('enfeite');
+    await radio('Pesponto');
+    await save();
+    expect(applied).toEqual([{ look: { color: 'verde', stickers: ['coracao'], view: 'lista', decor: 'pesponto' } }]);
   });
 
   it('o nome de uma irmã avisa e para o Salvar; outro nome vai junto, com o Desfazer no bilhete', async () => {

@@ -237,6 +237,16 @@ describe('as pastas das anotações (core/folders.ts)', () => {
       const both = [f('pprog000001', 'Programação', null, 'estudos', { look: { color: 'rosa', decor: 'costura' } })];
       expect(mergeFolders(o, both, mine)).toEqual([f('pprog000001', 'Programação', null, 'estudos', { look: { color: 'azul', decor: 'costura' } })]);
     });
+
+    it('a junção: uma pessoa troca o enfeite e a outra cola adesivos na mesma pasta, ficam os dois (seção 9)', () => {
+      const o = [f('pprog000001', 'Programação', null, 'estudos', { look: { decor: 'costura', stickers: ['dado'] } })];
+      const theirs = [f('pprog000001', 'Programação', null, 'estudos', { look: { decor: 'estrelas', stickers: ['dado'] } })];
+      const mine = [f('pprog000001', 'Programação', null, 'estudos', { look: { decor: 'costura', stickers: ['dado', 'gatinho'] } })];
+      expect(mergeFolders(o, theirs, mine)).toEqual([f('pprog000001', 'Programação', null, 'estudos', { look: { decor: 'estrelas', stickers: ['dado', 'gatinho'] } })]);
+      // a outra tirou o enfeite (o campo some) e esta trocou os adesivos: sem enfeite, com os adesivos daqui
+      const plain = [f('pprog000001', 'Programação', null, 'estudos', { look: { stickers: ['dado'] } })];
+      expect(mergeFolders(o, plain, mine)).toEqual([f('pprog000001', 'Programação', null, 'estudos', { look: { stickers: ['dado', 'gatinho'] } })]);
+    });
   });
 
   describe('o mural público', () => {
@@ -253,9 +263,9 @@ describe('as pastas das anotações (core/folders.ts)', () => {
     });
 
     it('a pasta vai com o visual dela: quem visita vê a cor, o enfeite e a vista (PLANO-PASTAS-CUSTOMIZADAS.md, 2.1)', () => {
-      const tree = folderTree(withFolderLook(BASE, 'pprog000001', { color: 'azul', decor: 'adesivos', stickers: ['dado'], view: 'lista' }));
+      const tree = folderTree(withFolderLook(BASE, 'pprog000001', { color: 'azul', decor: 'estrelas', stickers: ['dado'], view: 'lista' }));
       const out = publicFolders(tree, [{ category: 'Estudos', folder: 'pfunc000001' }]);
-      expect(out.find((x) => x.id === 'pprog000001')?.look).toEqual({ color: 'azul', decor: 'adesivos', stickers: ['dado'], view: 'lista' });
+      expect(out.find((x) => x.id === 'pprog000001')?.look).toEqual({ color: 'azul', decor: 'estrelas', stickers: ['dado'], view: 'lista' });
       expect(out.find((x) => x.id === 'pfunc000001')?.look).toBeUndefined();
     });
   });

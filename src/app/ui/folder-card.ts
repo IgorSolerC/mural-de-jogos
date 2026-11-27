@@ -3,7 +3,8 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { NgTemplateOutlet } from '@angular/common';
 import { LABEL_MAX } from '../core/note-labels';
 import type { NoteFolder } from '../core/folders';
-import { folderDecorSvg } from '../core/folder-art';
+import { folderDecorSvg, folderStickersSvg } from '../core/folder-art';
+import { FOLDER_STICKERS, MAX_FOLDER_STICKERS } from '../core/folder-looks';
 import { plural } from '../core/text';
 import type { FolderInfo } from '../core/wall-view';
 import type { Review } from '../core/review';
@@ -42,6 +43,8 @@ let cards = 0;
     // a cor e o enfeite da pasta customizada (PLANO-PASTAS-CUSTOMIZADAS.md, 3; o desenho em ui/_pasta-enfeites.scss)
     '[attr.data-cor]': 'folder().look?.color ?? null',
     '[attr.data-enfeite]': 'folder().look?.decor ?? null',
+    // os adesivos, com qualquer enfeite (seção 9): quantos, para o nome dar lugar a eles
+    '[attr.data-adesivos]': 'stickerCount() || null',
   },
   template: `
     @if (naming()) {
@@ -70,6 +73,8 @@ let cards = 0;
           } @else {
             <span class="qtd">{{ countLine() }}</span>
           }
+          <!-- dando nome, os adesivos vão dentro da frente: ela cresce para cima com o aviso, e eles junto -->
+          <ng-container [ngTemplateOutlet]="adesivos" />
         </span>
       </div>
     } @else {
@@ -80,6 +85,7 @@ let cards = 0;
           <span class="nome">{{ folder().name }}</span>
           <span class="qtd">{{ countLine() }}</span>
         </span>
+        <ng-container [ngTemplateOutlet]="adesivos" />
       </button>
     }
 
@@ -87,6 +93,17 @@ let cards = 0;
     <ng-template #enfeite>
       @if (folder().look?.decor) {
         <span class="enfeite" aria-hidden="true" [innerHTML]="decorArt()"></span>
+      }
+    </ng-template>
+
+    <!-- os adesivos colados (sempre dentro da frente): uma camada por cima dela, do mesmo tamanho e abrindo junto -->
+    <ng-template #adesivos>
+      @if (stickerCount()) {
+        <span class="adesivos" aria-hidden="true">
+          <span class="adesivos-desenho" [innerHTML]="stickerArt()"></span>
+          <!-- o que o enfeite passa por cima deles (a fita do canto, a ponta dobrada: ui/_pasta-enfeites.scss) -->
+          <span class="por-cima"></span>
+        </span>
       }
     </ng-template>
 
@@ -133,10 +150,17 @@ export class FolderCard {
   protected readonly hintId = `pasta-aviso-${++hints}`;
   private readonly sanitizer = inject(DomSanitizer);
   private readonly uid = `p${++cards}`;
-  /** O desenho do enfeite (as estrelas, a costura da meia-lua, os adesivos): texto montado só com o catálogo. */
+  /** O desenho do enfeite (as estrelas, a costura da meia-lua): texto montado só com o catálogo. */
   protected readonly decorArt = computed<SafeHtml>(() => {
     const f = this.folder();
-    return this.sanitizer.bypassSecurityTrustHtml(folderDecorSvg(f.look, f.id, `${f.id}-${this.uid}`));
+    return this.sanitizer.bypassSecurityTrustHtml(folderDecorSvg(f.look, `${f.id}-${this.uid}`));
+  });
+  /** Quantos adesivos a pasta desenha (os do catálogo, até três), para o lugar das estrelas e do nome. */
+  protected readonly stickerCount = computed(() => this.folder().look?.stickers?.filter((s) => FOLDER_STICKERS.some((x) => x.id === s)).slice(0, MAX_FOLDER_STICKERS).length ?? 0);
+  /** Os adesivos colados, tortos pelo id da pasta: texto montado só com o catálogo. */
+  protected readonly stickerArt = computed<SafeHtml>(() => {
+    const f = this.folder();
+    return this.sanitizer.bypassSecurityTrustHtml(folderStickersSvg(f.look, f.id));
   });
   private readonly field = viewChild<ElementRef<HTMLInputElement>>('campo');
   /** O nome já foi dado (o Enter e o foco que sai logo depois não dão duas vezes). */
