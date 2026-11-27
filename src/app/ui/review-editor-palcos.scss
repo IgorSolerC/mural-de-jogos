@@ -15,7 +15,7 @@ app-kanban-preview {
 }
 
 /* ===== Estreito: o palco em cima, sempre à vista de quem escolhe embaixo ===== */
-@media (max-width: 1023px) {
+@container editor (max-width: 1023px) {
   dialog.editor:is(.na-flashcard, .na-kanban) .body {
     grid-template-rows: auto minmax(0, 1fr);
   }
@@ -37,9 +37,11 @@ app-kanban-preview {
 }
 
 /* tela baixa (o celular deitado): o palco tomaria quase toda a folha */
-@media (max-width: 1023px) and (max-height: 560px) {
-  dialog.editor:is(.na-flashcard, .na-kanban) .palco {
-    display: none;
+@media (max-height: 560px) {
+  @container editor (max-width: 1023px) {
+    dialog.editor:is(.na-flashcard, .na-kanban) .palco {
+      display: none;
+    }
   }
 }
 
@@ -51,7 +53,7 @@ app-kanban-preview {
 }
 
 /* ===== Largo: metade para cada lado na Flashcard, para os dois lados caberem e darem para ler ===== */
-@media (min-width: 1024px) {
+@container editor (min-width: 1024px) {
   dialog.editor.na-flashcard .body {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }

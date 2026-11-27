@@ -984,6 +984,28 @@ dialog.reader.ao-lado {
   }
 }
 
+/* ===== Editar ao lado (PLANO-LADO-A-LADO.md, D7) =====
+   O editor abre no lugar da ficha daquele lado, da altura da leitura; a outra continua. Sozinha com a segunda (a
+   primeira saiu da frente da segunda que editava, D8), a leitura é só ela, do tamanho da leitura sozinha. */
+.editando > .par {
+  display: none;
+}
+
+dialog.reader > app-review-editor {
+  display: block;
+  height: calc(100dvh - 48px);
+}
+
+.dupla > app-review-editor {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+dialog.reader.so-o-lado dialog.reader.ao-lado {
+  padding-left: 0;
+  animation: none;
+}
+
 /* a ficha em segredo: antes da conversa, o aviso */
 .guarda {
   display: grid;

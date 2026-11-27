@@ -5,10 +5,12 @@
   [class.na-cartolina]="mode() === 'cartolina'"
   [class.na-flashcard]="mode() === 'flashcard'"
   [class.na-kanban]="mode() === 'kanban'"
-  aria-labelledby="editor-titulo"
+  [attr.aria-labelledby]="'editor-titulo' + sx()"
   (cancel)="requestClose($event)"
   (close)="onClose()"
-  (backdropClose)="requestClose()"
+  [class.no-lado]="embedded()"
+  (backdropClose)="embedded() || requestClose()"
+  (keydown.escape)="embedded() && onEscape($event)"
   (focusin)="focusMoved($event)"
 >
   <form
@@ -24,13 +26,13 @@
          beirada de baixo, as abas recortadas no papel: o que se escreve, a cartolina e, na anotação,
          o Kanban e o Flashcard -->
     <header class="head" [style]="headPaper()">
-      <h2 id="editor-titulo" class="sr-only">{{ title() }}</h2>
+      <h2 [id]="'editor-titulo' + sx()" class="sr-only">{{ title() }}</h2>
       <div class="faixa-linha">
         @if (notes()) {
           <div class="nome-faixa" [class.errada]="attempted() && !noteTitle().trim()">
-            <label class="sr-only" for="editor-titulo-nota">Título</label>
+            <label class="sr-only" [attr.for]="'editor-titulo-nota' + sx()">Título</label>
             <textarea
-              id="editor-titulo-nota"
+              [id]="'editor-titulo-nota' + sx()"
               rows="1"
               autocomplete="off"
               maxlength="200"
@@ -40,7 +42,7 @@
               [attr.tabindex]="readOnly() ? -1 : null"
               [value]="noteTitle()"
               [attr.aria-invalid]="attempted() && !noteTitle().trim()"
-              [attr.aria-describedby]="(attempted() && !noteTitle().trim()) || bracketTitle() || titleTwin() ? 'editor-titulo-dica' : null"
+              [attr.aria-describedby]="(attempted() && !noteTitle().trim()) || bracketTitle() || titleTwin() ? 'editor-titulo-dica' + sx() : null"
               (input)="setNoteTitle($any($event.target).value); fitTitle($any($event.target))"
               (keydown.enter)="$event.preventDefault(); toText()"
             ></textarea>
@@ -80,8 +82,8 @@
           type="button"
           role="tab"
           class="modo"
-          id="editor-modo-escrever"
-          aria-controls="editor-conteudo"
+          [id]="'editor-modo-escrever' + sx()"
+          [attr.aria-controls]="'editor-conteudo' + sx()"
           [attr.aria-selected]="mode() === 'escrever'"
           [attr.tabindex]="mode() === 'escrever' ? 0 : -1"
           (click)="setMode('escrever')"
@@ -95,8 +97,8 @@
           type="button"
           role="tab"
           class="modo"
-          id="editor-modo-cartolina"
-          aria-controls="editor-conteudo"
+          [id]="'editor-modo-cartolina' + sx()"
+          [attr.aria-controls]="'editor-conteudo' + sx()"
           [attr.aria-selected]="mode() === 'cartolina'"
           [attr.tabindex]="mode() === 'cartolina' ? 0 : -1"
           (click)="setMode('cartolina')"
@@ -113,8 +115,8 @@
             type="button"
             role="tab"
             class="modo"
-            id="editor-modo-kanban"
-            aria-controls="editor-conteudo"
+            [id]="'editor-modo-kanban' + sx()"
+            [attr.aria-controls]="'editor-conteudo' + sx()"
             [attr.aria-label]="kbTabLabel()"
             [attr.title]="kbColumnNow()?.name ?? null"
             [attr.aria-selected]="mode() === 'kanban'"
@@ -132,8 +134,8 @@
             type="button"
             role="tab"
             class="modo"
-            id="editor-modo-flashcard"
-            aria-controls="editor-conteudo"
+            [id]="'editor-modo-flashcard' + sx()"
+            [attr.aria-controls]="'editor-conteudo' + sx()"
             [attr.aria-label]="flashcard().on() ? 'Flashcard: esta anotação é um flashcard' : 'Flashcard: ainda não é um flashcard'"
             [attr.aria-selected]="mode() === 'flashcard'"
             [attr.tabindex]="mode() === 'flashcard' ? 0 : -1"
@@ -150,20 +152,20 @@
     </header>
 
     <div class="body">
-      <div class="conteudo" [class.enche]="notes()" appHeightVar="--conteudo-h" id="editor-conteudo" role="tabpanel" [attr.aria-labelledby]="'editor-modo-' + mode()">
+      <div class="conteudo" [class.enche]="notes()" appHeightVar="--conteudo-h" [id]="'editor-conteudo' + sx()" role="tabpanel" [attr.aria-labelledby]="'editor-modo-' + mode() + sx()">
         <!-- ===== Escrever ===== -->
         <div class="escrever" [hidden]="mode() !== 'escrever'">
           @if (notes()) {
             @if (attempted() && !noteTitle().trim()) {
-              <p class="field-error aviso-nome" id="editor-titulo-dica">Dê um nome para a anotação, lá em cima.</p>
+              <p class="field-error aviso-nome" [id]="'editor-titulo-dica' + sx()">Dê um nome para a anotação, lá em cima.</p>
             } @else if (bracketTitle()) {
-              <p class="hint gemea" id="editor-titulo-dica">Com colchetes no nome, um link [[…]] não consegue apontar para esta anotação.</p>
+              <p class="hint gemea" [id]="'editor-titulo-dica' + sx()">Com colchetes no nome, um link [[…]] não consegue apontar para esta anotação.</p>
             } @else if (titleTwin(); as t) {
               <!-- dois títulos iguais: o link abre a mais antiga (ver core/note-links.ts) -->
               @if (t.mine) {
-                <p class="hint gemea" id="editor-titulo-dica">Já existe uma anotação “{{ t.twin.game.name }}”, mais nova que esta. Os links para esse nome vão abrir esta, a mais antiga.</p>
+                <p class="hint gemea" [id]="'editor-titulo-dica' + sx()">Já existe uma anotação “{{ t.twin.game.name }}”, mais nova que esta. Os links para esse nome vão abrir esta, a mais antiga.</p>
               } @else {
-                <p class="hint gemea" id="editor-titulo-dica">Já existe uma anotação “{{ t.twin.game.name }}”. Os links para esse nome continuam abrindo aquela, a mais antiga.</p>
+                <p class="hint gemea" [id]="'editor-titulo-dica' + sx()">Já existe uma anotação “{{ t.twin.game.name }}”. Os links para esse nome continuam abrindo aquela, a mais antiga.</p>
               }
             }
           } @else {
@@ -214,7 +216,7 @@
                 [class.errada]="p.error"
                 [attr.data-prop]="p.id"
                 [attr.aria-expanded]="prop() === p.id"
-                aria-controls="editor-parte"
+                [attr.aria-controls]="'editor-parte' + sx()"
                 [attr.aria-label]="p.name + ': ' + p.spoken"
                 (click)="toggleProp(p.id)"
               >
@@ -267,7 +269,7 @@
 
           <!-- a parte aberta: logo embaixo da fileira, um papel solto; Esc ou a etiqueta de novo fecham -->
           @if (prop(); as p) {
-            <div class="parte" id="editor-parte" role="group" [attr.aria-label]="propName(p)" (keydown.escape)="closeProp($event)">
+            <div class="parte" [id]="'editor-parte' + sx()" role="group" [attr.aria-label]="propName(p)" (keydown.escape)="closeProp($event)">
               @switch (p) {
                 @case ('grupo') {
                   @if (lockedGroup(); as locked) {
@@ -298,10 +300,10 @@
                 @case ('horas') {
                   @if (profile().amount; as a) {
                     <div class="campo campo-horas">
-                      <label for="editor-horas" class="rotulo">{{ a.label }}</label>
+                      <label [attr.for]="'editor-horas' + sx()" class="rotulo">{{ a.label }}</label>
                       <div class="tira hours" [class.errada]="!hoursValid()">
                         <input
-                          id="editor-horas"
+                          [id]="'editor-horas' + sx()"
                           type="text"
                           [attr.inputmode]="a.decimals ? 'decimal' : 'numeric'"
                           autocomplete="off"
@@ -339,17 +341,17 @@
           </div>
 
           @if (!notes()) {
-            <section class="bloco como" aria-labelledby="editor-como">
-              <h3 class="pergunta" id="editor-como">Como foi?</h3>
+            <section class="bloco como" [attr.aria-labelledby]="'editor-como' + sx()">
+              <h3 class="pergunta" [id]="'editor-como' + sx()">Como foi?</h3>
               <app-status-picker [kind]="kind()" [(value)]="status" />
               @if (attempted() && !status()) {
                 <p class="field-error">Marque {{ profile().status.incompleto }}, {{ profile().status.finalizado }} ou {{ profile().status.platinado }}.</p>
               }
             </section>
 
-            <section class="bloco notas" aria-labelledby="editor-notas">
+            <section class="bloco notas" [attr.aria-labelledby]="'editor-notas' + sx()">
               <div class="pergunta-linha">
-                <h3 class="pergunta" id="editor-notas">Que nota?</h3>
+                <h3 class="pergunta" [id]="'editor-notas' + sx()">Que nota?</h3>
                 <!-- no celular a ficha não está à vista: a Média viaja junto, ao lado da pergunta -->
                 <div class="media-ao-vivo">
                   <span class="rotulo">{{ overrideOn() ? 'Nota final' : 'Média' }}</span>
@@ -379,10 +381,10 @@
               <!-- a nota final na mão: fechada, vale a média; aberta, a nota escrita vai no lugar dela -->
               <div class="campo nota-mao">
                 @if (overrideOn()) {
-                  <label for="editor-nota-final" class="rotulo">Nota final na mão</label>
+                  <label [attr.for]="'editor-nota-final' + sx()" class="rotulo">Nota final na mão</label>
                   <div class="tira hours">
                     <input
-                      id="editor-nota-final"
+                      [id]="'editor-nota-final' + sx()"
                       type="text"
                       inputmode="decimal"
                       autocomplete="off"
@@ -391,7 +393,7 @@
                       [value]="overrideText()"
                       (input)="overrideText.set($any($event.target).value)"
                       [attr.aria-invalid]="attempted() && overrideValue() === null"
-                      aria-describedby="editor-nota-final-media"
+                      [attr.aria-describedby]="'editor-nota-final-media' + sx()"
                     />
                     <span class="unit" aria-hidden="true">até 11</span>
                     <button type="button" class="acao-caneta" (click)="setOverride(false)">Usar a média</button>
@@ -399,7 +401,7 @@
                   @if (attempted() && overrideValue() === null) {
                     <p class="field-error">Escreva uma nota de 0 a 11, como 7,5 ou 11.</p>
                   } @else if (final() !== null) {
-                    <p class="nota-mao-media" id="editor-nota-final-media">A média das notas daria {{ formatScore(final()) }}.</p>
+                    <p class="nota-mao-media" [id]="'editor-nota-final-media' + sx()">A média das notas daria {{ formatScore(final()) }}.</p>
                   }
                 } @else {
                   <button type="button" class="acao-caneta" (click)="setOverride(true)">Dar a nota final na mão</button>
@@ -466,7 +468,7 @@
 
         <!-- ===== Flashcard: os baralhos, a frente e o mural (ui/flashcard-tab.ts); frente e verso ficam no palco ===== -->
         <div class="flashcard-modo" [hidden]="mode() !== 'flashcard'">
-          <app-flashcard-tab [noteTitle]="noteTitle()" [group]="noteCategory()" [readOnly]="readOnly()" (chooseGroup)="chooseGroup()" (editBack)="setMode('escrever')" />
+          <app-flashcard-tab [idSuffix]="sx()" [noteTitle]="noteTitle()" [group]="noteCategory()" [readOnly]="readOnly()" (chooseGroup)="chooseGroup()" (editBack)="setMode('escrever')" />
         </div>
 
         <!-- ===== Cartolina: o estojo inteiro, com o que já está na ficha em etiquetas no alto ===== -->
@@ -591,12 +593,12 @@
               <lucide-icon [img]="isPrivate() ? PrivateIcon : EveryoneIcon" [size]="16" aria-hidden="true" />
               {{ isPrivate() ? 'Privado' : 'Público' }}
             </span>
-            <button type="button" class="quem-tag quem-mudar" aria-haspopup="dialog" aria-describedby="editor-quem-dica" (click)="shareOpen.set(true)">
+            <button type="button" class="quem-tag quem-mudar" aria-haspopup="dialog" [attr.aria-describedby]="'editor-quem-dica' + sx()" (click)="shareOpen.set(true)">
               <lucide-icon [img]="SharedIcon" [size]="16" aria-hidden="true" />
               {{ structureLocked() ? 'Ver em Compartilhar' : 'Mudar em Compartilhar' }}
             </button>
           </div>
-          <p class="quem-dica" id="editor-quem-dica">
+          <p class="quem-dica" [id]="'editor-quem-dica' + sx()">
             {{ sharedSummary()?.line ?? (isPrivate() ? 'Só quem está na anotação vê.' : 'Aparece também no mural de quem está nela.') }}
             @if (structureLocked()) {
               Só o dono e os gestores mudam isso.
@@ -609,7 +611,7 @@
           <div class="quem-opts">
             @for (o of visibilities; track o.value) {
               <label class="quem">
-                <input type="radio" name="editor-quem" [checked]="visibility() === o.value" (change)="pickVisibility(o.value)" aria-describedby="editor-quem-dica" />
+                <input type="radio" name="editor-quem" [checked]="visibility() === o.value" (change)="pickVisibility(o.value)" [attr.aria-describedby]="'editor-quem-dica' + sx()" />
                 <span class="quem-tag">
                   <lucide-icon [img]="o.icon" [size]="16" aria-hidden="true" />
                   {{ o.label }}
@@ -617,7 +619,7 @@
               </label>
             }
           </div>
-          <p class="quem-dica" id="editor-quem-dica">
+          <p class="quem-dica" [id]="'editor-quem-dica' + sx()">
             @if (isPrivate()) {
               Só você vê. Ninguém é avisado.
             } @else if (!announces() && !editing()) {
@@ -636,8 +638,8 @@
 
     <!-- a data em três partes: a mesma na resenha e na anotação -->
     <ng-template #dataCampo>
-      <div class="campo campo-data" role="group" aria-labelledby="editor-data-rotulo" aria-describedby="editor-data-leitura">
-        <span class="rotulo" id="editor-data-rotulo">{{ dateLabel() }}</span>
+      <div class="campo campo-data" role="group" [attr.aria-labelledby]="'editor-data-rotulo' + sx()" [attr.aria-describedby]="'editor-data-leitura' + sx()">
+        <span class="rotulo" [id]="'editor-data-rotulo' + sx()">{{ dateLabel() }}</span>
         <div class="data-atalhos">
           <button type="button" class="data-atalho" [disabled]="isToday()" (click)="setToday()">Hoje</button>
           <button type="button" class="data-atalho" [disabled]="dateUnknown()" (click)="clearDate()">Não lembro</button>
@@ -647,7 +649,7 @@
           <label class="parte-data parte-dia">
             <span class="parte-rotulo">Dia</span>
             <input
-              id="editor-data"
+              [id]="'editor-data' + sx()"
               type="text"
               inputmode="numeric"
               maxlength="2"
@@ -661,7 +663,7 @@
           <span class="barra" aria-hidden="true">/</span>
           <label class="parte-data parte-mes">
             <span class="parte-rotulo">Mês</span>
-            <select id="editor-data-mes" [value]="dateMonth()" (change)="dateMonth.set($any($event.target).value)">
+            <select [id]="'editor-data-mes' + sx()" [value]="dateMonth()" (change)="dateMonth.set($any($event.target).value)">
               <option value="" [selected]="!dateMonth()">–</option>
               @for (m of months; track m; let i = $index) {
                 <option [value]="(i + 1 < 10 ? '0' : '') + (i + 1)" [selected]="+dateMonth() === i + 1">{{ m }}</option>
@@ -685,7 +687,7 @@
             />
           </label>
         </div>
-        <p class="data-leitura" id="editor-data-leitura" [class.problema]="dateProblem()" [class.erro]="attempted() && dateProblem()" aria-live="polite">
+        <p class="data-leitura" [id]="'editor-data-leitura' + sx()" [class.problema]="dateProblem()" [class.erro]="attempted() && dateProblem()" aria-live="polite">
           {{ dateProblem() || dateReading() }}
         </p>
       </div>

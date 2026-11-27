@@ -38,6 +38,8 @@ import { Toasts } from './toast';
 export class FlashcardTab {
   /** O nome da anotação (a frente sem título próprio usa ele). */
   readonly noteTitle = input('');
+  /** O sufixo dos ids (o editor ao lado tem os seus; ver ReviewEditor.embedded). */
+  readonly idSuffix = input('');
   /** O grupo da anotação, como está no editor agora. */
   readonly group = input<string | null>(null);
   /** Quem só lê a compartilhada: não tem a aba Anotação, e o grupo dela se escolhe em "Grupo e tags", na leitura. */

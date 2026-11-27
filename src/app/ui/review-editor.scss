@@ -3,6 +3,43 @@
 @use 'paper-kit' as kit;
 @use 'props-editor' as props;
 
+/* ===== O contêiner das regras de largura (PLANO-LADO-A-LADO.md, D7) =====
+   As regras de "largo", "estreito" e "celular" perguntam a largura do contêiner `editor`, não a da janela. No editor de
+   sempre, ele é o hospedeiro, com a largura da janela (100vw, a mesma da media query de antes, e sem altura: a folha
+   modal mora na camada de cima); ao lado, ele é o lado: a folha enche o lado, e o jeito vem da largura dele (a
+   cartolina em cima do estojo até 1024px, ao lado do texto só num lado largo). */
+:host {
+  position: fixed;
+  top: 0;
+  left: 0;
+  display: block;
+  width: 100vw;
+  height: 0;
+  container: editor / inline-size;
+}
+
+:host(.no-lado) {
+  position: relative;
+  width: auto;
+  height: 100%;
+  min-width: 0;
+}
+
+:host(.no-lado) dialog.editor {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+}
+
+:host(.no-lado) dialog.editor > .ficha {
+  height: 100%;
+  max-height: none;
+}
+
 /* ===== A ficha em branco, como uma página =====
    No alto, a faixa da cartolina com o nome escrito nela (como na ficha aberta) e, na beirada de
    baixo, duas abas recortadas no papel: o que se escreve e a cartolina. Embaixo, a folha: uma
@@ -937,7 +974,7 @@ fieldset.quem-ve {
 }
 
 /* ===== Estreito: a aba da cartolina põe a ficha em cima do estojo ===== */
-@media (max-width: 1023px) {
+@container editor (max-width: 1023px) {
   dialog.editor.na-cartolina .body {
     grid-template-rows: auto minmax(0, 1fr);
   }
@@ -959,7 +996,7 @@ fieldset.quem-ve {
   }
 }
 
-@media (max-width: 560px) {
+@container editor (max-width: 560px) {
   .head {
     padding: 22px 16px 0;
   }
@@ -1061,7 +1098,7 @@ fieldset.quem-ve {
 }
 
 /* ===== Largo: a folha à esquerda, a ficha pregada na parede à direita, nas duas abas ===== */
-@media (min-width: 1024px) {
+@container editor (min-width: 1024px) {
   /* a prévia tem a largura da ficha no mural (a mesma conta), para o canhoto caber igual */
   dialog.editor {
     --previa-w: var(--ficha-w);

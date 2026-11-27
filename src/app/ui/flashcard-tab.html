@@ -26,8 +26,8 @@
       <p class="bloco grupo-so-le">{{ lockedText() }}</p>
     } @else {
     <!-- o baralho vem primeiro: é o único que falta decidir para o flashcard existir -->
-    <section class="bloco" [class.errada]="missingDeck()" aria-labelledby="fc-baralho-nome">
-      <h3 class="nome" id="fc-baralho-nome">
+    <section class="bloco" [class.errada]="missingDeck()" [attr.aria-labelledby]="'fc-baralho-nome' + idSuffix()">
+      <h3 class="nome" [id]="'fc-baralho-nome' + idSuffix()">
         Baralho
         @if (deckHint(); as h) {
           <span class="falta">{{ h }}</span>
@@ -55,8 +55,8 @@
     </section>
 
     <!-- a frente: colar uma imagem em qualquer campo dela vale -->
-    <section class="bloco" aria-labelledby="fc-frente-nome" (paste)="onPaste($event)">
-      <h3 class="nome" id="fc-frente-nome">Frente</h3>
+    <section class="bloco" [attr.aria-labelledby]="'fc-frente-nome' + idSuffix()" (paste)="onPaste($event)">
+      <h3 class="nome" [id]="'fc-frente-nome' + idSuffix()">Frente</h3>
       <div class="frente">
         <div class="foto" [class.ocupado]="busy()">
           @if (image()) {
@@ -79,11 +79,11 @@
         <div class="textos">
           <label class="campo titulo">
             <span class="sr-only">Título da frente</span>
-            <input #tituloCampo id="fc-titulo" type="text" autocomplete="off" [maxLength]="titleMax" [placeholder]="noteTitle() || 'O que lembrar'" [value]="title()" (input)="setTitle($any($event.target).value)" />
+            <input #tituloCampo [id]="'fc-titulo' + idSuffix()" type="text" autocomplete="off" [maxLength]="titleMax" [placeholder]="noteTitle() || 'O que lembrar'" [value]="title()" (input)="setTitle($any($event.target).value)" />
           </label>
           <label class="campo subtitulo">
             <span class="sr-only">Subtítulo da frente</span>
-            <input id="fc-subtitulo" type="text" autocomplete="off" [maxLength]="subtitleMax" placeholder="Subtítulo" [value]="subtitle()" (input)="setSubtitle($any($event.target).value)" />
+            <input [id]="'fc-subtitulo' + idSuffix()" type="text" autocomplete="off" [maxLength]="subtitleMax" placeholder="Subtítulo" [value]="subtitle()" (input)="setSubtitle($any($event.target).value)" />
           </label>
         </div>
       </div>
@@ -111,8 +111,8 @@
     </div>
 
     <div class="bloco linha-so">
-      <span class="nome" id="fc-mural">Mostrar no mural</span>
-      <button type="button" class="interruptor" role="switch" [attr.aria-checked]="wall()" aria-labelledby="fc-mural" (click)="setWall(!wall())">
+      <span class="nome" [id]="'fc-mural' + idSuffix()">Mostrar no mural</span>
+      <button type="button" class="interruptor" role="switch" [attr.aria-checked]="wall()" [attr.aria-labelledby]="'fc-mural' + idSuffix()" (click)="setWall(!wall())">
         <span class="bolinha"></span>
       </button>
     </div>

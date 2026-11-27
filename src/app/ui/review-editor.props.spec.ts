@@ -218,13 +218,14 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
     fixture.componentInstance.openNote('Ideias');
     await fixture.whenStable();
     await openPart('assunto');
-    // as regras da página, também as de dentro dos @media: a janela do teste é estreita, e é no largo que a
+    // as regras da página, também as de dentro dos @media e dos @container: a janela do teste é estreita, e é no largo que a
     // parte cai por cima do texto (no estreito ela empurra o texto para baixo, sem cobrir nada)
     const rules: { sel: string; style: CSSStyleDeclaration; media: string }[] = [];
     const walk = (list: CSSRuleList, media: string) => {
       for (const r of Array.from(list)) {
         if (r instanceof CSSStyleRule) rules.push({ sel: r.selectorText, style: r.style, media });
-        if (r instanceof CSSMediaRule) walk(r.cssRules, media + r.conditionText);
+        // (as de largura perguntam ao contêiner do editor: a janela, no de sempre, ou o lado, PLANO-LADO-A-LADO.md)
+        if (r instanceof CSSMediaRule || r instanceof CSSContainerRule) walk(r.cssRules, media + r.conditionText);
         else if ('cssRules' in r) walk((r as CSSGroupingRule).cssRules, media);
       }
     };

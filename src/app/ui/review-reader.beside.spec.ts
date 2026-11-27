@@ -293,14 +293,17 @@ describe('Duas anotações lado a lado (ReviewReader, PLANO-DUAS-NOTAS.md)', () 
     expect(outer().querySelector('#leitura-detalhes')).not.toBeNull();
   });
 
-  it('Editar na segunda pede o editor dela (quem usa fecha a leitura)', async () => {
+  it('Editar na segunda abre o editor no lado dela, sem pedir o de sempre (PLANO-LADO-A-LADO.md, D7)', async () => {
     await both();
     const asked: string[] = [];
     reader.edit.subscribe((id) => asked.push(id));
     const edit = [...beside()!.querySelectorAll<HTMLButtonElement>('.foot .btn-ink')].find((x) => x.textContent?.includes('Editar'))!;
     edit.click();
     await settle();
-    expect(asked).toEqual(['nota-b']);
+    await wait(30);
+    await settle();
+    expect(asked).toEqual([]);
+    expect(beside()!.querySelector('app-review-editor dialog.editor')?.hasAttribute('open')).toBeTrue();
   });
 
   it('os Detalhes na segunda cobrem a ficha dela, e a primeira fica (PLANO-LADO-A-LADO.md, D1)', async () => {

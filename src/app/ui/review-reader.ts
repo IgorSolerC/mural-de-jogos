@@ -91,6 +91,7 @@ import { LEVEL_LABEL, cardDecks, levelOf, studyGroupId, whenLabel } from '../cor
 import { StudyStore } from '../core/study-store';
 import { FichaLinks } from '../core/ficha-link';
 import { OrganizeSheet } from './organize-sheet';
+import { ReviewEditor, SavedEvent } from './review-editor';
 import { SharedStore } from '../core/shared-store';
 import { SyncConflicts } from '../core/sync-conflicts';
 import { accessSummary, namesOf } from '../core/access';
@@ -191,7 +192,7 @@ interface Handover {
 
 @Component({
   selector: 'app-review-reader',
-  imports: [BackdropClose, CardConfig, CardPicker, QuickNoteSheet, WordSheet, CommentsPanel, ReaderDetails, ConflictSheet, LinkSheet, ShareSheet, OrganizeSheet, IconModule, KanbanDepsBadge, MoreMenu, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, ReviewCard, Skulls, StatusLabel, VozFita],
+  imports: [BackdropClose, CardConfig, CardPicker, ReviewEditor, QuickNoteSheet, WordSheet, CommentsPanel, ReaderDetails, ConflictSheet, LinkSheet, ShareSheet, OrganizeSheet, IconModule, KanbanDepsBadge, MoreMenu, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, ReviewCard, Skulls, StatusLabel, VozFita],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // cada leitura é a sala das peças ampliadas dela (ui/room.ts): com duas abertas, o zoom fica no lado dela
   providers: [{ provide: ROOM, useExisting: forwardRef(() => ReviewReader) }],
@@ -203,9 +204,12 @@ interface Handover {
       [class.solta]="!!solta()"
       [class.lendo]="lendo()"
       [class.so-a-cartolina]="vista() === 'cartolina'"
-      [class.dupla]="!!segunda()"
+      [class.dupla]="!!segunda() && !!review()"
+      [class.so-o-lado]="!!segunda() && !review()"
+      [class.editando]="editingHere()"
       [class.ao-lado]="aoLado()"
-      [attr.aria-labelledby]="'leitura-titulo' + sufixo()"
+      [attr.aria-labelledby]="review() ? 'leitura-titulo' + sufixo() : null"
+      [attr.aria-label]="review() ? null : 'Lado a lado'"
       (backdropClose)="solta() || aoLado() || close()"
       (cancel)="onCancel($event)"
       (keydown)="onKey($event)"
@@ -401,7 +405,7 @@ interface Handover {
               } @else {
                 <!-- com a formatação do editor; as tarefas se marcam aqui mesmo, na sua ficha. As feitas viram
                      uma conta, como no mural, e tocar nela mostra a sequência -->
-                <div #textoFicha class="text" data-citavel><app-rich-text [text]="r.text" [fold]="true" [foldKey]="r.id" [checkable]="owner() === null && writable()" [links]="noteLinks()" [anchors]="true" (toggled)="toggleTask($event)" /></div>
+                <div #textoFicha class="text" data-citavel><app-rich-text [text]="r.text" [fold]="true" [foldKey]="r.id" [checkable]="owner() === null && writable() && !editedAside()" [links]="noteLinks()" [anchors]="true" (toggled)="toggleTask($event)" /></div>
               }
             } @else if (!note()) {
               <!-- a anotação pode ser só o título: sem aviso de texto em branco -->
@@ -478,7 +482,7 @@ interface Handover {
                 </button>
               }
               @if (writable()) {
-                <button type="button" class="btn-ink" (click)="edit.emit(r.id)">
+                <button type="button" class="btn-ink" (click)="editHere()">
                   <lucide-icon [img]="EditIcon" [size]="20" aria-hidden="true" />
                   Editar
                 </button>
@@ -517,7 +521,7 @@ interface Handover {
             >
               @if (board(); as b) {
                 @if (b.deps; as deps) {
-                  <app-kanban-deps detalhes-deps class="dependencias" [noteId]="r.id" [owner]="r.game.name" [deps]="deps" (opened)="openDep($event)" (edit)="editBoard.emit(r.id)" />
+                  <app-kanban-deps detalhes-deps class="dependencias" [noteId]="r.id" [owner]="r.game.name" [deps]="deps" (opened)="openDep($event)" (edit)="editHere('kanban')" />
                 }
               }
             </app-reader-details>
@@ -600,6 +604,12 @@ interface Handover {
         }
         </div>
 
+        <!-- com duas abertas, o Editar abre o editor aqui, no lugar da ficha (PLANO-LADO-A-LADO.md, D7): o mesmo
+             editor, sem o modal, com o jeito pela largura do lado; salvar ou fechar volta à leitura -->
+        @if (editingHere()) {
+          <app-review-editor #editorLado class="editor-lado" [embedded]="true" (saved)="editorSaved($event)" (closed)="editorClosed()" />
+        }
+
         <!-- só a cartolina: a ficha como fica pregada no mural, grande, no meio da tela, com os mesmos
              botões da faixa em cima dela (o primeiro volta à leitura). Um toque na ficha também volta, e
              o toque no escuro em volta fecha, como na leitura. Com duas abertas, ela fica no lado dela (PLANO-LADO-A-LADO.md,
@@ -630,24 +640,6 @@ interface Handover {
         }
         <!-- o que a nota nova fez, para o leitor de tela (os olhos veem o link aparecer no texto) -->
         <p class="sr-only" role="status">{{ said() }}</p>
-
-        <!-- a segunda anotação, lado a lado (PLANO-DUAS-NOTAS.md): a mesma leitura, no modo ao lado, dentro
-             desta. O que ela faz que é da página (o editor, apagar) passa por aqui; as folhas, a cartolina e o
-             zoom dela ficam nela (PLANO-LADO-A-LADO.md, D1) -->
-        @if (segunda()) {
-          <app-review-reader
-            #ladoB
-            [aoLado]="true"
-            (edit)="edit.emit($event)"
-            (editBoard)="editBoard.emit($event)"
-            (remove)="remove.emit($event)"
-            (revisit)="revisit.emit($event)"
-            (createNote)="createNote.emit($event)"
-            (revealedChange)="revealedChange.emit($event)"
-            (closeAll)="close()"
-            (left)="closeBeside()"
-          />
-        }
 
         <!-- a ficha aberta pelo link: a assinatura do site, a giz na parede, embaixo dela -->
         @if (solta() && vista() === 'leitura') {
@@ -712,6 +704,26 @@ interface Handover {
           }
         }
       }
+        <!-- a segunda anotação, lado a lado (PLANO-DUAS-NOTAS.md): a mesma leitura, no modo ao lado, dentro
+             desta. O que ela faz que é da página (o editor, apagar) passa por aqui; as folhas, a cartolina e o
+             zoom dela ficam nela (PLANO-LADO-A-LADO.md, D1). Fora da ficha desta: se esta sai com a segunda editando
+             (D8), a segunda fica, sozinha, sem perder o que se escreve -->
+        @if (segunda()) {
+          <app-review-reader
+            #ladoB
+            [aoLado]="true"
+            (edit)="edit.emit($event)"
+            (editBoard)="editBoard.emit($event)"
+            (saved)="sideSaved($event)"
+            (remove)="sideRemove($event)"
+            (revisit)="sideRevisit($event)"
+            (createNote)="sideCreate($event)"
+            (revealedChange)="revealedChange.emit($event)"
+            (closeAll)="close()"
+            (left)="closeBeside()"
+          />
+        }
+
     </dialog>
   `,
   styleUrl: './review-reader.scss',
@@ -743,6 +755,148 @@ export class ReviewReader implements Room {
    * cartolina, o zoom) fica no lado dela; o X dela fecha só ela.
    */
   protected readonly split = computed(() => this.aoLado() || !!this.segunda());
+
+  // ===== Editar ao lado (PLANO-LADO-A-LADO.md, D7 e D8) =====
+  /** Salvou no editor ao lado: quem usa faz o que faz com o editor de sempre (a ficha cai no mural, o aviso). */
+  readonly saved = output<SavedEvent>();
+  /** O editor está aberto aqui, no lugar da ficha (só com duas abertas). */
+  protected readonly editingHere = signal(false);
+  private readonly editorRef = viewChild<ReviewEditor>('editorLado');
+  /** (Ao lado) A leitura de fora, onde esta mora. */
+  private readonly outer = inject(ReviewReader, { skipSelf: true, optional: true });
+  /** A anotação aberta no editor daqui, ou null. */
+  editingId(): string | null {
+    return this.editingHere() ? (this.editorRef()?.openId() ?? this.review()?.id ?? null) : null;
+  }
+  /** A outra das duas: a de fora (desta, ao lado) ou a de dentro (da de fora). */
+  private other(): ReviewReader | null {
+    return this.aoLado() ? this.outer : (this.ladoB() ?? null);
+  }
+
+  /**
+   * O Editar: sozinha, o editor de sempre (quem usa fecha a leitura e abre o editor); com duas abertas, o editor aqui,
+   * no lugar da ficha, e a outra continua. A mesma anotação não se edita nos dois lados: o foco vai para o editor que
+   * já está aberto, com o aviso.
+   */
+  protected editHere(tab?: 'kanban'): void {
+    const r = this.review();
+    if (!r) return;
+    if (!this.split()) return tab ? this.editBoard.emit(r.id) : this.edit.emit(r.id);
+    const other = this.other();
+    if (other?.editingId() === r.id) {
+      other.focusEditor();
+      this.toasts.show('Esta anotação já está aberta para editar no outro lado.');
+      return;
+    }
+    this.fita()?.stop();
+    this.picked.set(null);
+    this.commentsOpen.set(false);
+    this.detailsOpen.set(false);
+    this.quickNote.set(null);
+    this.editingHere.set(true);
+    afterNextRender(() => this.editorRef()?.openAt(this.store.get(r.id) ?? r, tab), { injector: this.injector });
+  }
+
+  /** O foco no editor aberto aqui. */
+  focusEditor(): void {
+    this.editorRef()?.focusSheet();
+  }
+
+  /** Salvou aqui: a leitura e a outra mostram a anotação de agora; quem usa ouve como no editor de sempre. */
+  protected editorSaved(e: SavedEvent): void {
+    if (this.aoLado()) this.saved.emit(e);
+    else this.sideSaved(e);
+  }
+
+  /** Um dos editores ao lado salvou: as duas leituras mostram a de agora (a que lê a mesma, também). */
+  protected sideSaved(e: SavedEvent): void {
+    this.refreshFrom(e.id);
+    this.ladoB()?.refreshFrom(e.id);
+    this.saved.emit(e);
+  }
+
+  /** A anotação `id` mudou (salva no editor do lado): se é a aberta aqui, só lendo, ela passa a ser a de agora. */
+  refreshFrom(id: string): void {
+    const r = this.review();
+    if (!r || r.id !== id || this.owner() !== null || this.editingHere()) return;
+    const now = this.store.get(id);
+    if (now && now !== r) this.review.set(now);
+  }
+
+  /**
+   * O editor daqui fechou (salvou, descartou, o X): a ficha volta à leitura, com a anotação de agora e o foco no nome.
+   * Se ela foi apagada, este lado sai.
+   */
+  protected editorClosed(): void {
+    this.editingHere.set(false);
+    const r = this.review();
+    const now = r && this.store.get(r.id);
+    if (!now) return this.closeOwn();
+    this.review.set(now);
+    afterNextRender(() => this.focusName(), { injector: this.injector });
+  }
+
+  /** Os editores abertos ao lado (este e o da outra), para perguntar antes de fechar a leitura inteira. */
+  private openEditors(): ReviewEditor[] {
+    return [this.editorRef(), this.ladoB()?.editorRef()].filter((e): e is ReviewEditor => !!e);
+  }
+
+  /**
+   * Faz `then` (fechar a leitura, abrir outro editor por cima) depois de perguntar a cada editor ao lado com coisa
+   * por salvar (D8); sem nenhum, na hora. Da segunda, quem pergunta é a de fora.
+   */
+  protected whenFree(then: () => void): void {
+    if (this.aoLado() && this.outer) return this.outer.whenFree(then);
+    const editors = this.openEditors();
+    if (!editors.length) return then();
+    void (async () => {
+      for (const e of editors) if (!(await e.canLeave())) return;
+      then();
+    })();
+  }
+
+  /** O que a segunda pede e fecha a leitura (apagar, escrever outra vez, criar a nota do link), depois de perguntar. */
+  protected sideRemove(id: string): void {
+    this.whenFree(() => this.remove.emit(id));
+  }
+  protected sideRevisit(id: string): void {
+    this.whenFree(() => this.revisit.emit(id));
+  }
+  protected sideCreate(e: { title: string; from: string }): void {
+    this.whenFree(() => this.createNote.emit(e));
+  }
+
+  /**
+   * A primeira sai da frente da segunda que está editando (o X dela, a tela que estreitou): a segunda fica sozinha,
+   * com o editor e o que se escrevia; quando ele fechar, ela vira a leitura de sempre (ver `adoptWhenSettled`).
+   */
+  private stepAside(): void {
+    this.fita()?.stop();
+    this.commentsOpen.set(false);
+    this.detailsOpen.set(false);
+    this.quote.set(null);
+    this.picked.set(null);
+    this.quickNote.set(null);
+    this.editingHere.set(false);
+    this.vista.set('leitura');
+    this.place = null;
+    this.trail.set([]);
+    this.review.set(null);
+    this.watchShared(null);
+    afterNextRender(() => this.ladoB()?.focusEditor(), { injector: this.injector });
+  }
+
+  /** Sozinha com a segunda (ver `stepAside`): o editor dela fechou, e ela vira a leitura de sempre, aqui. */
+  private readonly adoptWhenSettled = effect(() => {
+    if (this.review() || !this.segunda()) return;
+    const b = this.ladoB();
+    if (!b || b.editingHere()) return;
+    untracked(() => {
+      const other = b.handOver();
+      if (other) this.takeOver(other);
+      else this.close();
+    });
+  });
   /**
    * A sala desta anotação (ui/room.ts): com duas abertas, o lado dela (a ficha, ou a parede da cartolina), onde a peça
    * e a foto ampliadas ficam (PLANO-LADO-A-LADO.md, D9); sozinha, nenhuma (o zoom vai para o meio da tela).
@@ -1032,9 +1186,9 @@ export class ReviewReader implements Room {
     else if (id === 'compartilhar') this.openShare();
     else if (id === 'link') this.linkOpen.set(true);
     else if (id === 'organizar') this.organizeOpen.set(true);
-    else if (id === 'outra-vez') this.revisit.emit(r.id);
+    else if (id === 'outra-vez') this.whenFree(() => this.revisit.emit(r.id));
     else if (id === 'lado-a-lado') this.side.toggle(r.id);
-    else if (id === 'remover') this.remove.emit(r.id);
+    else if (id === 'remover') this.whenFree(() => this.remove.emit(r.id));
     else if (id === 'pdf') void this.savePdf();
     else if (id === 'configurar') this.configOpen.set(true);
   }
@@ -1745,6 +1899,7 @@ export class ReviewReader implements Room {
     }
     this.closing = false;
     this.fita()?.stop();
+    this.editingHere.set(false);
     this.segunda.set(null);
     this.pickBeside.set(false);
     this.solta.set(null);
@@ -1765,7 +1920,26 @@ export class ReviewReader implements Room {
   });
 
   /** Marcou uma tarefa do texto na leitura: a ficha (sua) é salva com ela marcada, sem abrir o editor. */
+  /**
+   * A anotação daqui está aberta no editor do outro lado (D8): daqui ela só se lê. Marcar uma tarefa, fixar ou finalizar
+   * gravaria por baixo do editor, e o Salvar dele gravaria por cima, com a versão que ele abriu.
+   */
+  protected readonly editedAside = computed(() => {
+    const id = this.review()?.id;
+    if (!id) return false;
+    const other = this.aoLado() ? this.outer : this.ladoB();
+    return !!other && other.editingHere() && other.editingId() === id;
+  });
+
+  /** Fixar ou finalizar com a anotação no editor do outro lado: o aviso, e nada muda. */
+  private blockedAside(): boolean {
+    if (!this.editedAside()) return false;
+    this.toasts.show('Esta anotação está aberta para editar no outro lado: salve ou feche o editor antes.');
+    return true;
+  }
+
   protected toggleTask(line: number): void {
+    if (this.editedAside()) return;
     const shown = this.review();
     // a anotação como está agora (a nuvem pode ter trazido uma versão mais nova com a leitura aberta)
     const r = shown && (this.store.get(shown.id) ?? shown);
@@ -1788,6 +1962,7 @@ export class ReviewReader implements Room {
   private readonly notePin = inject(NotePin);
   /** Fixa (ou desafixa) a sua anotação no topo do mural; a leitura continua aberta. */
   protected togglePin(): void {
+    if (this.blockedAside()) return;
     const r = this.review();
     if (!r || this.owner() !== null || !this.note()) return;
     // o bilhete com Desfazer ficaria por baixo da leitura: o próprio botão desfaz
@@ -1799,6 +1974,7 @@ export class ReviewReader implements Room {
    * dele (ver ReviewCard). Abrir de novo fica aqui, com a anotação sem o carimbo.
    */
   protected finish(): void {
+    if (this.blockedAside()) return;
     const r = this.review();
     if (!r || this.owner() !== null || !this.note() || !this.writable()) return;
     const done = !r.doneAt;
@@ -1866,7 +2042,7 @@ export class ReviewReader implements Room {
       // a ficha colada no texto (o widget Nota), de qualquer mural: abre aqui mesmo, com o "Voltar"
       openCard: (card) => this.followCard(card),
       // a anotação aberta é de onde o link veio: depois de criar a nova, a leitura volta para ela
-      ...(mine ? { create: (title: string) => this.createNote.emit({ title, from: this.review()!.id }) } : {}),
+      ...(mine ? { create: (title: string) => this.whenFree(() => this.createNote.emit({ title, from: this.review()!.id })) } : {}),
       // o link de lembrete (só no seu mural: o Calendário é seu): a leitura fecha e o dia dele abre
       ...(mine ? { reminder: (id: string) => this.reminderLinks.info(id), openReminder: (id: string) => this.openReminder(id) } : {}),
     };
@@ -2161,8 +2337,9 @@ export class ReviewReader implements Room {
     solta: 'conta' | 'visita' | null = null,
   ): void {
     this.solta.set(solta);
-    // abrir de novo (a mesma, ou outra) é com uma só
+    // abrir de novo (a mesma, ou outra) é com uma só, e lendo
     this.segunda.set(null);
+    this.editingHere.set(false);
     // toda ficha abre na leitura de sempre
     this.vista.set('leitura');
     this.place = null;
@@ -2233,6 +2410,8 @@ export class ReviewReader implements Room {
   protected closeBeside(): void {
     if (!this.segunda()) return;
     this.segunda.set(null);
+    // sozinha (a primeira saiu da frente dela): sem ela, a leitura fecha
+    if (!this.review()) return this.close();
     afterNextRender(() => this.focusName(), { injector: this.injector });
   }
 
@@ -2250,6 +2429,8 @@ export class ReviewReader implements Room {
   protected closeOwn(): void {
     if (this.aoLado()) return this.leave();
     if (!this.segunda()) return this.close();
+    // a segunda está editando: ela fica, com o editor, e esta sai da frente (D8)
+    if (this.ladoB()?.editingHere()) return this.stepAside();
     const other = this.ladoB()?.handOver();
     // (a segunda ainda nem se desenhou: ela só sai, e esta fica)
     if (other) this.takeOver(other);
@@ -2324,8 +2505,12 @@ export class ReviewReader implements Room {
   private readonly narrowCloses = effect((onCleanup) => {
     if (!this.segunda() || typeof matchMedia === 'undefined') return;
     const mq = matchMedia(BESIDE_MEDIA);
+    // (o lado que está editando não fecha: D8)
     const check = () => {
-      if (!mq.matches) this.closeBeside();
+      if (mq.matches || !this.review()) return;
+      const sideEdits = !!this.ladoB()?.editingHere();
+      if (sideEdits && !this.editingHere()) this.stepAside();
+      else if (!sideEdits) this.closeBeside();
     };
     mq.addEventListener('change', check);
     onCleanup(() => mq.removeEventListener('change', check));
@@ -2336,9 +2521,23 @@ export class ReviewReader implements Room {
     if (this.aoLado()) return this.closeAll.emit();
     const el = this.dialog().nativeElement;
     if (!el.open) return;
+    // um editor ao lado com coisa por salvar pergunta antes (D8)
+    if (!this.leaving && this.openEditors().length) {
+      this.whenFree(() => {
+        this.leaving = true;
+        try {
+          this.close();
+        } finally {
+          this.leaving = false;
+        }
+      });
+      return;
+    }
     this.closing = true;
     el.close();
   }
+  /** Já perguntou aos editores ao lado: fecha de vez. */
+  private leaving = false;
   /** Quem fechou foi o site (`close`), não o Esc nem o voltar: a ficha aberta pelo link pode sair. */
   private closing = false;
 
@@ -2361,6 +2560,12 @@ export class ReviewReader implements Room {
 
   /** O Esc não fecha a ficha aberta pelo link (só as folhas e os menus de cima dela). */
   protected onCancel(e: Event): void {
+    // com um editor ao lado, o Esc fecha a leitura só depois de perguntar (D8)
+    if (!this.solta() && this.openEditors().length) {
+      e.preventDefault();
+      this.close();
+      return;
+    }
     if (!this.solta()) return;
     e.preventDefault();
     // a que não fecha: o Esc sai de só a cartolina, de volta à leitura

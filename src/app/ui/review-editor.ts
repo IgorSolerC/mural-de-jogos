@@ -9,6 +9,7 @@ import {
   linkedSignal,
   effect,
   inject,
+  input,
   output,
   signal,
   untracked,
@@ -172,6 +173,8 @@ interface PropView {
 
 /** O ano mais antigo aceito na data (o mesmo limite da validação dos backups). */
 const MIN_YEAR = 1971;
+/** Conta os editores ao lado, para os ids de cada um (ver `ReviewEditor.embedded`). */
+let editorSeq = 0;
 
 
 @Component({
@@ -213,6 +216,7 @@ const MIN_YEAR = 1971;
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './review-editor.html',
   styleUrls: ['./review-editor.scss', './review-editor-palcos.scss'],
+  host: { '[class.no-lado]': 'embedded()' },
 })
 export class ReviewEditor {
   protected readonly store = inject(ReviewStore);
@@ -222,6 +226,16 @@ export class ReviewEditor {
   /** "Publicar ou manter privado?" só aparece quando o site tem nuvem: sem ela, ninguém vê o mural mesmo. */
   protected readonly cloud = inject(Cloud);
   readonly saved = output<SavedEvent>();
+  /**
+   * O editor ao lado (PLANO-LADO-A-LADO.md, D7): dentro de um lado da leitura com duas coisas abertas, no lugar da
+   * ficha, sem o modal (o outro lado continua vivo, e pode ter outro editor). O jeito vem da largura do lado, com as
+   * mesmas regras que o modal tira da largura da janela (o contêiner `editor`, ver review-editor.scss); os ids ganham
+   * um sufixo só dele.
+   */
+  readonly embedded = input(false);
+  /** O sufixo dos ids: nenhum no editor de sempre (os ids de sempre); um só deste, ao lado. */
+  private readonly uid = `-lado${++editorSeq}`;
+  protected readonly sx = computed(() => (this.embedded() ? this.uid : ''));
   /** O editor fechou (salvando ou não). */
   readonly closed = output<void>();
   /** Guardou só o jogo (nome e capa) para resenhar depois. */
@@ -287,7 +301,7 @@ export class ReviewEditor {
     const next = e.key === 'Home' ? 0 : e.key === 'End' ? order.length - 1 : (at + (e.key === 'ArrowRight' ? 1 : order.length - 1)) % order.length;
     e.preventDefault();
     this.setMode(order[next]);
-    this.dialog().nativeElement.querySelector<HTMLElement>(`#editor-modo-${order[next]}`)?.focus();
+    this.dialog().nativeElement.querySelector<HTMLElement>(`#editor-modo-${order[next]}${this.sx()}`)?.focus();
   }
 
   /**
@@ -310,7 +324,7 @@ export class ReviewEditor {
       if (id === 'grupo') this.groupPicker()?.focus();
       else if (id === 'assunto') this.folderPicker()?.focus();
       else if (id === 'tags') this.tagPicker()?.focus();
-      else this.dialog().nativeElement.querySelector<HTMLElement>('#editor-parte :is(input:checked, input:not([type=radio]), select, button)')?.focus();
+      else this.dialog().nativeElement.querySelector<HTMLElement>(`#editor-parte${this.sx()} :is(input:checked, input:not([type=radio]), select, button)`)?.focus();
     });
   }
 
@@ -1227,6 +1241,8 @@ export class ReviewEditor {
     const mq = matchMedia('(max-width: 699px)');
     const wq = matchMedia('(min-width: 1024px)');
     const sync = () => {
+      // ao lado, quem diz é a largura do lado (ver `sideWidth`)
+      if (untracked(this.embedded)) return;
       this.phone.set(mq.matches);
       this.wide.set(wq.matches);
     };
@@ -1240,6 +1256,34 @@ export class ReviewEditor {
       cancelAnimationFrame(this.followFrame);
     });
   }
+
+  /** Ao lado: o jeito pela largura do lado (as mesmas medidas que o modal tira da janela). */
+  private readonly sideWidth = effect((onCleanup) => {
+    if (!this.embedded() || typeof ResizeObserver === 'undefined') return;
+    const host = this.host.nativeElement;
+    const watcher = new ResizeObserver(() => {
+      const w = host.clientWidth;
+      this.phone.set(w < 700);
+      this.wide.set(w >= 1024);
+    });
+    watcher.observe(host);
+    onCleanup(() => watcher.disconnect());
+  });
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+
+  /**
+   * Ao lado, a anotação apagada (no Apagar daqui, em outro aparelho, por quem divide a compartilhada) fecha o editor,
+   * sem a pergunta de descartar: não há mais onde salvar.
+   */
+  private readonly goneWhileOpen = effect(() => {
+    const e = this.editing();
+    if (!this.embedded() || !e || this.store.get(e.id)) return;
+    untracked(() => {
+      if (!this.dialog().nativeElement.open) return;
+      this.snapshot = this.serialize();
+      this.shut();
+    });
+  });
 
   /**
    * A ficha cabe no palco: no largo, na altura que a coluna dá; no estreito, em até 40% da tela (o
@@ -1466,15 +1510,15 @@ export class ReviewEditor {
     // e de novo depois que o conteúdo da resenha nova desenhar (e o foco ir para a busca)
     requestAnimationFrame(toTop);
     // o nome na faixa cresce com ele (depois de desenhar: o campo pode ainda não existir)
-    setTimeout(() => this.fitTitle(this.dialog().nativeElement.querySelector<HTMLTextAreaElement>('#editor-titulo-nota')));
+    setTimeout(() => this.fitTitle(this.dialog().nativeElement.querySelector<HTMLTextAreaElement>(`#editor-titulo-nota${this.sx()}`)));
     if (review && tab) {
       // de novo depois de desenhar: vindo de outro mural, as abas da anotação ainda não existiam ao abrir
-      setTimeout(() => dialog.querySelector<HTMLElement>(`#editor-modo-${tab}`)?.focus());
+      setTimeout(() => dialog.querySelector<HTMLElement>(`#editor-modo-${tab}${this.sx()}`)?.focus());
     }
     if (!review && !draft && !root) {
       // depois de desenhar: trocando de mural, o campo do título ainda não existe neste instante
       setTimeout(() =>
-        isNotes(kind) ? this.dialog().nativeElement.querySelector<HTMLTextAreaElement>('#editor-titulo-nota')?.focus() : this.search()?.focus(),
+        isNotes(kind) ? this.dialog().nativeElement.querySelector<HTMLTextAreaElement>(`#editor-titulo-nota${this.sx()}`)?.focus() : this.search()?.focus(),
       );
     }
   }
@@ -1903,7 +1947,7 @@ export class ReviewEditor {
 
   protected clearDate(): void {
     this.setDateParts(null);
-    document.getElementById('editor-data')?.focus();
+    this.dialog().nativeElement.querySelector<HTMLElement>(`#editor-data${this.sx()}`)?.focus();
   }
 
   /** Só algarismos nos campos de dia e ano; o dia completo passa a vez para o mês. */
@@ -1911,7 +1955,7 @@ export class ReviewEditor {
     const v = el.value.replace(/\D/g, '').slice(0, part === 'day' ? 2 : 4);
     if (el.value !== v) el.value = v;
     (part === 'day' ? this.dateDay : this.dateYear).set(v);
-    if (part === 'day' && (v.length === 2 || Number(v) > 3)) document.getElementById('editor-data-mes')?.focus();
+    if (part === 'day' && (v.length === 2 || Number(v) > 3)) this.dialog().nativeElement.querySelector<HTMLElement>(`#editor-data-mes${this.sx()}`)?.focus();
   }
 
   protected stepYear(delta: number): void {
@@ -2004,6 +2048,52 @@ export class ReviewEditor {
     }
   }
 
+  /** (Ao lado) O Esc fecha o editor, perguntando antes se tem coisa por salvar; a leitura por baixo não ouve. */
+  protected onEscape(e: Event): void {
+    if (e.defaultPrevented) return;
+    e.preventDefault();
+    e.stopPropagation();
+    this.requestClose(e);
+  }
+
+  /**
+   * (Ao lado) A leitura vai fechar inteira (o Esc, o fundo, um caminho para fora): com coisa por salvar, pergunta antes,
+   * como o X. Sim: devolve true, e o que não foi salvo fica para trás.
+   */
+  async canLeave(): Promise<boolean> {
+    if (!this.dialog().nativeElement.open) return true;
+    this.kanbanProps()?.flush();
+    if (!this.isDirty()) return true;
+    if (this.askingDiscard) return false;
+    this.askingDiscard = true;
+    try {
+      const adjusted = !!this.editing() && this.noteUnchanged();
+      const sure = await this.confirm.ask({
+        title: adjusted ? 'Descartar os ajustes?' : 'Descartar o que você escreveu?',
+        text: `${adjusted ? 'Os ajustes de' : 'O que você escreveu em'} “${this.editing()?.game.name || this.noteTitle().trim() || this.game()?.name || 'esta ficha'}” ainda não foi salvo. Fechando agora, se perde.`,
+        confirm: 'Descartar',
+        cancel: adjusted ? 'Continuar ajustando' : 'Continuar escrevendo',
+      });
+      if (sure) this.snapshot = this.serialize();
+      return sure;
+    } finally {
+      this.askingDiscard = false;
+    }
+  }
+
+  /** (Ao lado) O foco no editor (o Editar do outro lado pediu a mesma anotação). */
+  focusSheet(): void {
+    const dialog = this.dialog().nativeElement;
+    if (!dialog.open) return;
+    dialog.scrollIntoView({ block: 'nearest' });
+    (dialog.querySelector<HTMLElement>(`#editor-titulo-nota${this.sx()}`) ?? dialog).focus({ preventScroll: true });
+  }
+
+  /** O id da ficha aberta (ao lado, para o outro lado saber qual se edita aqui), ou null. */
+  openId(): string | null {
+    return this.dialog().nativeElement.open ? this.id() : null;
+  }
+
   /** Saiu da anotação compartilhada pelo Compartilhar: ela sumiu do mural, e o editor fecha sem salvar. */
   protected leftShared(): void {
     this.shareOpen.set(false);
@@ -2018,9 +2108,11 @@ export class ReviewEditor {
   private showDialog(tab: EditorTab | null): void {
     const dialog = this.dialog().nativeElement;
     dialog.autofocus = !!tab;
-    dialog.showModal();
+    // ao lado, sem o modal: o outro lado continua vivo
+    if (this.embedded()) dialog.show();
+    else dialog.showModal();
     dialog.autofocus = false;
-    if (tab) dialog.querySelector<HTMLElement>(`#editor-modo-${tab}`)?.focus();
+    if (tab) dialog.querySelector<HTMLElement>(`#editor-modo-${tab}${this.sx()}`)?.focus();
   }
 
   private shut(): void {
@@ -2138,8 +2230,8 @@ export class ReviewEditor {
     else if (!this.hoursValid()) this.openProp('horas', false);
     if (this.notes()) {
       setTimeout(() => {
-        if (!this.noteTitle().trim()) root.querySelector<HTMLTextAreaElement>('#editor-titulo-nota')?.focus();
-        else if (!this.dateValid()) root.querySelector<HTMLInputElement>('#editor-data')?.focus();
+        if (!this.noteTitle().trim()) root.querySelector<HTMLTextAreaElement>(`#editor-titulo-nota${this.sx()}`)?.focus();
+        else if (!this.dateValid()) root.querySelector<HTMLInputElement>(`#editor-data${this.sx()}`)?.focus();
         else this.writer()?.focus();
       });
       return;
@@ -2149,13 +2241,13 @@ export class ReviewEditor {
       if (!this.game()) this.search()?.focus();
       else if (this.soundProblem()) root.querySelector<HTMLInputElement>('app-music-fields input.link')?.focus();
       else if (!this.status()) root.querySelector<HTMLInputElement>('app-status-picker input')?.focus();
-      else if (!this.dateValid()) root.querySelector<HTMLInputElement>('#editor-data')?.focus();
-      else if (!this.hoursValid()) root.querySelector<HTMLInputElement>('#editor-horas')?.focus();
+      else if (!this.dateValid()) root.querySelector<HTMLInputElement>(`#editor-data${this.sx()}`)?.focus();
+      else if (!this.hoursValid()) root.querySelector<HTMLInputElement>(`#editor-horas${this.sx()}`)?.focus();
       else if (this.missingScores().length)
         root.querySelector<HTMLInputElement>(`[data-nota="${this.missingScores()[0]}"] input`)?.focus();
       else if (this.noneCounts()) root.querySelector<HTMLSelectElement>('.subs select')?.focus();
       else if (this.textTooLong()) this.writer()?.focus();
-      else root.querySelector<HTMLInputElement>('#editor-nota-final')?.focus();
+      else root.querySelector<HTMLInputElement>(`#editor-nota-final${this.sx()}`)?.focus();
     });
   }
 
@@ -2175,7 +2267,7 @@ export class ReviewEditor {
   protected setOverride(on: boolean): void {
     this.overrideOn.set(on);
     if (on && !this.overrideText().trim() && this.final() !== null) this.overrideText.set(formatRawScore(this.final()!));
-    if (on) setTimeout(() => this.dialog().nativeElement.querySelector<HTMLInputElement>('#editor-nota-final')?.select());
+    if (on) setTimeout(() => this.dialog().nativeElement.querySelector<HTMLInputElement>(`#editor-nota-final${this.sx()}`)?.select());
   }
 
   protected scoreOf(k: RatedKey): number | null {
