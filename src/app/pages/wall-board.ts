@@ -23,6 +23,7 @@ import { Toasts } from '../ui/toast';
 import { FolderActions, WallDrag, WallDragItem, WallDrop, grabOf } from './wall-drag';
 import { MarksMoved, joinMarked, markedTops, marksLabel, moveMarked, movedText } from '../core/folder-marks';
 import { FolderMoveSheet } from '../ui/folder-move-sheet';
+import { FolderSheet } from '../ui/folder-sheet';
 import { lookKey } from '../core/category-looks';
 import { NoteSelection, copyMarkedItem } from '../ui/note-selection';
 import { Pin } from '../ui/pin';
@@ -64,7 +65,7 @@ export type WallAccess = Pick<WallCardProps, 'landingId' | 'picking' | 'picked' 
  */
 @Component({
   selector: 'app-wall-board',
-  imports: [ContextMenu, DoneStamp, FolderCard, FolderMoveSheet, IconModule, NoteIndex, NoteMenu, Pin, RouterLink, SearchHighlight, SectionHead, WallCards],
+  imports: [ContextMenu, DoneStamp, FolderCard, FolderMoveSheet, FolderSheet, IconModule, NoteIndex, NoteMenu, Pin, RouterLink, SearchHighlight, SectionHead, WallCards],
   providers: [WallCardPool],
   host: { '(keydown)': 'onKey($event)' },
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -376,6 +377,30 @@ export class WallBoard {
     this.undoToast(`A pasta ${f.name} foi desfeita.`, undo);
   }
 
+  private readonly folderSheet = viewChild(FolderSheet);
+
+  /** O Customizar… da pasta (PLANO-PASTAS-CUSTOMIZADAS.md, 4): a folha só escolhe; grava pelas ações da página do dono. */
+  private customize(f: NoteFolder): void {
+    const fa = this.folderActions();
+    const live = this.view.folders().live(f.id);
+    if (!fa || !live) return;
+    this.folderSheet()?.open({
+      folder: live,
+      info: this.info(f.id) ?? { notes: 0, folders: 0, peek: [] },
+      clash: (name) => {
+        const tree = this.view.folders();
+        return siblingNamed(tree, live.group, tree.parentOf(live.id), name, live.id)?.name ?? null;
+      },
+      current: () => this.view.folders().live(f.id),
+      apply: (change) => {
+        let undo: (() => void) | null = null;
+        this.motion.run(() => (undo = fa.customize(f.id, change)));
+        return undo;
+      },
+      note: 'A pasta fica assim para todos que a veem.',
+    });
+  }
+
   /** As opções do menu de uma pasta da parede. */
   private folderSections(f: NoteFolder): MenuSections {
     return [
@@ -403,6 +428,8 @@ export class WallBoard {
         },
         { id: 'nova-pasta', label: 'Nova pasta dentro', icon: ICON.novaPasta, run: () => this.newFolder(f.id) },
         { id: 'renomear', label: 'Renomear', icon: ICON.editar, run: () => this.naming.set(f.id) },
+        // a pasta de um grupo em que você só lê não se customiza
+        ...(this.folderActions()?.movable().has(f.id) ? [{ id: 'customizar', label: 'Customizar…', icon: ICON.paleta, dialog: true, run: () => this.customize(f) }] : []),
         {
           id: 'mover',
           label: 'Mover para…',

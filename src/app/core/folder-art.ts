@@ -126,6 +126,18 @@ function stickersSvg(stickers: readonly FolderSticker[], seed: string): string {
     .join('');
 }
 
+/** Um adesivo sozinho, para a cartela da folha Customizar (o mesmo vinil da pasta, sem o torto). */
+export function stickerIcon(id: FolderSticker): string {
+  const art = STICKER_ART[id];
+  if (!art) return '';
+  return (
+    `<svg viewBox='-3 -3 46 46' aria-hidden='true'>` +
+    `<g transform='translate(0.7 1.4)'><g fill='#000' stroke='#000' stroke-width='5' stroke-linejoin='round' opacity='.22'>${art.sil}</g></g>` +
+    `<g fill='#fff' stroke='#fff' stroke-width='5' stroke-linejoin='round'>${art.sil}</g>${art.art}` +
+    `<ellipse cx='14' cy='12' rx='5' ry='2.6' transform='rotate(-30 14 12)' fill='#fff' fill-opacity='.45'/></svg>`
+  );
+}
+
 /** A costura que acompanha o recorte da meia-lua (a cor é a `--sutil` da pasta, pelo CSS). */
 const HALF_MOON = `<svg class='meia-lua' viewBox='0 0 38 20'><path d='M1.5 0 A17.5 17.5 0 0 0 36.5 0' fill='none' stroke='var(--sutil)' stroke-width='1.4' stroke-dasharray='4 3'/></svg>`;
 

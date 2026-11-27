@@ -27,11 +27,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-27-aviso-sobre-o-zoom',
+    id: '2026-11-27-pastas-customizadas',
     version: '1.58.1',
     kind: 'ajustes',
     date: '2026-11-27',
-    title: 'Os avisos por cima do zoom no lado a lado',
+    title: 'Pastas customizadas e os avisos por cima do zoom',
+    melhorias: [
+      'Customizar… no botão direito das pastas (nas Anotações, na Wishlist e na galeria de pixel arts): o nome, a cor do papel (onze) e um enfeite (a costura, a etiqueta, as faixas, as cantoneiras, as estrelinhas, o canto dobrado e mais, ou de um a três adesivos), com a pasta ao vivo enquanto se escolhe. Quem visita o seu mural e quem divide o grupo com você vê a pasta do mesmo jeito.',
+    ],
     correcoes: [
       'Com duas anotações lado a lado e uma imagem, tabela ou widget ampliado num dos lados, os avisos do rodapé (como o "Anotação atualizada") não aparecem mais por baixo do fundo escuro do zoom.',
     ],

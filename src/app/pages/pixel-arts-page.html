@@ -308,6 +308,9 @@
 
 <!-- mover sem arrastar: a folha com a árvore das pastas da galeria -->
 @if (moveSheet(); as m) {
+  <!-- o Customizar… de uma pasta (PLANO-PASTAS-CUSTOMIZADAS.md, 4) -->
+  <app-folder-sheet />
+
   <app-folder-move-sheet
     [title]="m.title"
     [sub]="m.sub"

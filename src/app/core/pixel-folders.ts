@@ -1,6 +1,7 @@
 import { Injectable, computed, inject } from '@angular/core';
 import { FolderTree, NoteFolder } from './folders';
 import { NoteFolders } from './note-folders';
+import type { FolderLook } from './folder-looks';
 import { PIXEL_FOLDER_GROUP, PixelPiece } from './pixel-gallery';
 import { PixelGallery } from './pixel-gallery-store';
 
@@ -82,6 +83,11 @@ export class PixelFolders {
 
   rename(id: string, name: string): () => void {
     return this.folders.rename(id, name);
+  }
+
+  /** O Customizar… (PLANO-PASTAS-CUSTOMIZADAS.md): o nome e o visual, com o Desfazer; null se nada mudou. */
+  customize(id: string, change: { name?: string; look: FolderLook | undefined }): (() => void) | null {
+    return this.folders.customize(id, change);
   }
 
   move(id: string, parent: string | null): (() => void) | null {

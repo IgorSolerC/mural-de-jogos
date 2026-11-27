@@ -227,7 +227,7 @@ describe('arrastar para organizar as pastas', () => {
     button.dispatchEvent(new MouseEvent('contextmenu', { clientX: at.x, clientY: at.y, bubbles: true, cancelable: true }));
     await settle();
     const items = Array.from(el.querySelectorAll('.menu-contexto:popover-open .escolha .nome')).map((n) => n.textContent!.trim());
-    expect(items).toEqual(['Abrir', 'Marcar', 'Nova anotação aqui', 'Novo canvas aqui', 'Nova pasta dentro', 'Renomear', 'Mover para…', 'Desfazer a pasta']);
+    expect(items).toEqual(['Abrir', 'Marcar', 'Nova anotação aqui', 'Novo canvas aqui', 'Nova pasta dentro', 'Renomear', 'Customizar…', 'Mover para…', 'Desfazer a pasta']);
   });
 
   it('"Mover para pasta…" no menu da anotação abre a folha com a árvore, e escolher move', async () => {

@@ -12,6 +12,36 @@
 //
 // A pasta de sempre (manilha, sem enfeite) não muda nada: as folgas da frente valem o de antes por padrão.
 
+@use 'sass:map';
+
+// O papel de cada cor de pasta: a frente, o fundo (um tom mais escuro), o acento (o fio da Etiqueta) e o fio (a
+// linha de outra cor do Pesponto e da Faixa no canto). A manilha é a de sempre (core/folder-looks.ts).
+$papeis: (
+  'manilha': ('frente': #d6c391, 'fundo': #bea873, 'acento': #b8402f, 'fio': #8f3a1e),
+  'kraft': ('frente': #c09a72, 'fundo': #a27d58, 'acento': #f2e6cc, 'fio': #22385e),
+  'vermelho': ('frente': #e5a092, 'fundo': #c98273, 'acento': #f7eedd, 'fio': #6a1d18),
+  'laranja': ('frente': #ebb487, 'fundo': #cf9569, 'acento': #6b3b16, 'fio': #5c2d0d),
+  'amarelo': ('frente': #ecd27a, 'fundo': #d0b55c, 'acento': #2f5d8a, 'fio': #24476b),
+  'verde': ('frente': #a9cf9f, 'fundo': #8bb281, 'acento': #f6efdf, 'fio': #27502a),
+  'azul': ('frente': #9fc7e3, 'fundo': #80a8c5, 'acento': #f6efdf, 'fio': #874610),
+  'lilas': ('frente': #c6b4e6, 'fundo': #a895c8, 'acento': #5d3593, 'fio': #452676),
+  'rosa': ('frente': #ebafc3, 'fundo': #ce90a5, 'acento': #9d2a52, 'fio': #7c1c41),
+  'cinza': ('frente': #c5bfb6, 'fundo': #a8a198, 'acento': #c8412f, 'fio': #932f25),
+  'grafite': ('frente': #4b4541, 'fundo': #35302d, 'acento': #e4bd55, 'fio': #dcae4c),
+);
+
+// O papel de cada cor em outro lugar (as amostras da folha Customizar, a faixa dela): `--pasta`, `--pasta-fundo` e
+// a tinta que escreve nele (`--tinta-papel`: branca só na grafite), em `#{$base}[data-cor='…']`.
+@mixin papeis($base) {
+  @each $id, $p in $papeis {
+    #{$base}[data-cor='#{$id}'] {
+      --pasta: #{map.get($p, 'frente')};
+      --pasta-fundo: #{map.get($p, 'fundo')};
+      --tinta-papel: #{if($id == 'grafite', #f3efe6, #151515)};
+    }
+  }
+}
+
 @mixin enfeites {
   :host {
     --tom: color-mix(in oklab, var(--pasta) 52%, #3b2716);
@@ -27,22 +57,18 @@
     --rebite: #3f2c0e;
   }
 
-  // ===== As cores: a frente, o fundo, o acento e o fio de cada papel =====
+  // ===== As cores: a frente, o fundo, o acento e o fio de cada papel (o mapa `$papeis`) =====
   :host([data-cor]) { --pasta-clara: color-mix(in oklab, var(--pasta) 80%, white); }
-  :host([data-cor='kraft']) { --pasta: #c09a72; --pasta-fundo: #a27d58; --acento: #f2e6cc; --fio: #22385e; }
-  :host([data-cor='vermelho']) { --pasta: #e5a092; --pasta-fundo: #c98273; --acento: #f7eedd; --fio: #6a1d18; }
-  :host([data-cor='laranja']) { --pasta: #ebb487; --pasta-fundo: #cf9569; --acento: #6b3b16; --fio: #5c2d0d; }
-  :host([data-cor='amarelo']) { --pasta: #ecd27a; --pasta-fundo: #d0b55c; --acento: #2f5d8a; --fio: #24476b; }
-  :host([data-cor='verde']) { --pasta: #a9cf9f; --pasta-fundo: #8bb281; --acento: #f6efdf; --fio: #27502a; }
-  :host([data-cor='azul']) { --pasta: #9fc7e3; --pasta-fundo: #80a8c5; --acento: #f6efdf; --fio: #874610; }
-  :host([data-cor='lilas']) { --pasta: #c6b4e6; --pasta-fundo: #a895c8; --acento: #5d3593; --fio: #452676; }
-  :host([data-cor='rosa']) { --pasta: #ebafc3; --pasta-fundo: #ce90a5; --acento: #9d2a52; --fio: #7c1c41; }
-  :host([data-cor='cinza']) { --pasta: #c5bfb6; --pasta-fundo: #a8a198; --acento: #c8412f; --fio: #932f25; }
+  @each $id, $p in $papeis {
+    @if $id != 'grafite' {
+      :host([data-cor='#{$id}']) { --pasta: #{map.get($p, 'frente')}; --pasta-fundo: #{map.get($p, 'fundo')}; --acento: #{map.get($p, 'acento')}; --fio: #{map.get($p, 'fio')}; }
+    }
+  }
   :host([data-cor='grafite']) {
-    --pasta: #4b4541;
-    --pasta-fundo: #35302d;
-    --acento: #e4bd55;
-    --fio: #dcae4c;
+    --pasta: #{map.get($papeis, 'grafite', 'frente')};
+    --pasta-fundo: #{map.get($papeis, 'grafite', 'fundo')};
+    --acento: #{map.get($papeis, 'grafite', 'acento')};
+    --fio: #{map.get($papeis, 'grafite', 'fio')};
     --tom: color-mix(in oklab, var(--pasta) 50%, #f3efe6);
     --forte: color-mix(in oklch, var(--pasta) 38%, white);
     --faixa: oklch(from var(--pasta) calc(l + 0.1) c h);

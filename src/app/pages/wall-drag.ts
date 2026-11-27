@@ -1,3 +1,4 @@
+import type { FolderLook } from '../core/folder-looks';
 import type { NoteFolder } from '../core/folders';
 import { DragHold, DragStart, edgeSpeed } from '../ui/drag-hold';
 import { dragGroup, dragPile, scopeOf } from '../ui/drag-pile';
@@ -21,6 +22,8 @@ export interface FolderActions {
   create(category: string | null | undefined, parent: string | null, name: string): NoteFolder | null;
   move(id: string, parent: string | null): (() => void) | null;
   rename(id: string, name: string): () => void;
+  /** O Customizar… (PLANO-PASTAS-CUSTOMIZADAS.md): o nome e o visual; null se nada mudou ou não pode. */
+  customize(id: string, change: { name?: string; look: FolderLook | undefined }): (() => void) | null;
   join(from: string, into: string): () => void;
   dissolve(id: string): () => void;
   contentsOf(id: string): { notes: number; folders: number };

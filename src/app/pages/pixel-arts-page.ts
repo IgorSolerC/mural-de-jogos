@@ -3,6 +3,7 @@ import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, a
 import { ActivatedRoute, Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NoteFolder, siblingNamed } from '../core/folders';
+import { FolderSheet } from '../ui/folder-sheet';
 import { PixelFolders } from '../core/pixel-folders';
 import { plural } from '../core/text';
 import { FolderAsking, PIXEL_UNITS } from '../ui/folder-asking';
@@ -146,7 +147,7 @@ export function droppedText(made: readonly Pick<PixelPiece, 'title'>[], where: s
  */
 @Component({
   selector: 'app-pixel-arts-page',
-  imports: [NgTemplateOutlet, PixelDraftTile, ContextMenu, FilterCard, FilterTags, FolderCard, FolderMoveSheet, FolderPath, IconModule, Pin, PixelBulkTags, PixelDropSheet, PixelImportSheet, SelectionTray, PixelPieceCard, PixelSheet, PixelStudio, PixelTile, SearchHighlight, SearchStrip],
+  imports: [NgTemplateOutlet, PixelDraftTile, ContextMenu, FilterCard, FilterTags, FolderCard, FolderMoveSheet, FolderSheet, FolderPath, IconModule, Pin, PixelBulkTags, PixelDropSheet, PixelImportSheet, SelectionTray, PixelPieceCard, PixelSheet, PixelStudio, PixelTile, SearchHighlight, SearchStrip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class.com-tira]': 'marking()' },
   templateUrl: './pixel-arts-page.html',
@@ -1222,6 +1223,31 @@ export class PixelArtsPage {
     this.transitions.run(() => this.undoToast(`A pasta ${f.name} foi desfeita.`, this.folders.dissolve(f.id)));
   }
 
+
+  private readonly folderSheet = viewChild(FolderSheet);
+
+  /** O Customizar… da pasta (PLANO-PASTAS-CUSTOMIZADAS.md, 4): o nome, a cor e o enfeite, com o Desfazer. */
+  private customize(f: NoteFolder): void {
+    const live = this.folderTree().live(f.id);
+    if (!live) return;
+    this.folderSheet()?.open({
+      folder: live,
+      info: this.folderInfo().get(f.id) ?? { notes: 0, folders: 0, peek: [] },
+      units: ['pixel art', 'pixel arts'],
+      clash: (name) => {
+        const tree = this.folderTree();
+        return siblingNamed(tree, live.group, tree.parentOf(live.id), name, live.id)?.name ?? null;
+      },
+      current: () => this.folderTree().live(f.id),
+      apply: (change) => {
+        let undo: (() => void) | null = null;
+        this.transitions.run(() => (undo = this.folders.customize(f.id, change)));
+        return undo;
+      },
+      note: 'A pasta fica assim para todos que a veem.',
+    });
+  }
+
   /** As opções do menu de uma pasta da parede. */
   private folderSections(f: NoteFolder): MenuSections {
     return [
@@ -1241,6 +1267,7 @@ export class PixelArtsPage {
         { id: 'trazer-imagens', label: 'Trazer imagens do computador…', icon: ICON.imagem, dialog: true, run: () => this.pickFiles(f.id) },
         { id: 'nova-pasta', label: 'Nova pasta dentro', icon: ICON.novaPasta, run: () => this.newFolder(f.id) },
         { id: 'renomear', label: 'Renomear', icon: ICON.editar, run: () => this.naming.set(f.id) },
+        { id: 'customizar', label: 'Customizar…', icon: ICON.paleta, dialog: true, run: () => this.customize(f) },
         { id: 'mover', label: 'Mover para…', icon: ICON.guardarNaPasta, dialog: true, run: () => this.moving.set({ kind: 'pasta', id: f.id, name: f.name, from: this.folderTree().parentOf(f.id) }) },
       ],
       [{ id: 'desfazer', label: 'Desfazer a pasta', icon: ICON.desfazerPasta, danger: true, hint: 'O que tem dentro sobe; nenhuma pixel art é apagada', run: () => void this.dissolve(f) }],

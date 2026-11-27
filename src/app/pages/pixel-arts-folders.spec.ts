@@ -218,7 +218,7 @@ describe('as pastas da galeria de pixel arts', () => {
     document.querySelectorAll<HTMLElement>('.menu-contexto').forEach((m) => m.hidePopover?.());
     await settle();
     await rightClick(() => host.querySelector(`app-folder-card[data-pasta="${bichos}"]`)!);
-    expect(labels()).toEqual(['Abrir', 'Marcar', 'Nova pixel art aqui', 'Trazer imagens do computador…', 'Nova pasta dentro', 'Renomear', 'Mover para…', 'Desfazer a pasta']);
+    expect(labels()).toEqual(['Abrir', 'Marcar', 'Nova pixel art aqui', 'Trazer imagens do computador…', 'Nova pasta dentro', 'Renomear', 'Customizar…', 'Mover para…', 'Desfazer a pasta']);
     option('Desfazer a pasta').click();
     await settle();
     const q = TestBed.inject(Confirm).current()!;

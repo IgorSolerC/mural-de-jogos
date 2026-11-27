@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, a
 import { ActivatedRoute, Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NoteFolder, siblingNamed } from '../core/folders';
+import { FolderSheet } from '../ui/folder-sheet';
 import type { FolderInfo } from '../core/wall-view';
 import { WishFolders } from '../core/wish-folders';
 import { plural } from '../core/text';
@@ -82,7 +83,7 @@ const WISH_WORDS = ['recorte', 'recortes'] as const;
  */
 @Component({
   selector: 'app-wishlist-page',
-  imports: [ContextMenu, Pin, FilterCard, FilterTags, FolderCard, FolderMoveSheet, FolderPath, IconModule, SearchHighlight, SearchStrip, SelectionTray, WishActions, WishClip, WishCover, WishNote, WishTags],
+  imports: [ContextMenu, Pin, FilterCard, FilterTags, FolderCard, FolderMoveSheet, FolderSheet, FolderPath, IconModule, SearchHighlight, SearchStrip, SelectionTray, WishActions, WishClip, WishCover, WishNote, WishTags],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '(document:keydown.escape)': 'onEscape()', '[class.com-sorteio]': 'winner()', '[class.com-tira]': 'marking()' },
   template: `
@@ -414,6 +415,9 @@ const WISH_WORDS = ['recorte', 'recortes'] as const;
 
     <!-- mover sem arrastar: a folha com a árvore da Wishlist do mural -->
     @if (moveSheet(); as m) {
+      <!-- o Customizar… de uma pasta (PLANO-PASTAS-CUSTOMIZADAS.md, 4) -->
+      <app-folder-sheet />
+
       <app-folder-move-sheet
         [title]="m.title"
         [sub]="m.sub"
@@ -1495,10 +1499,35 @@ export class WishlistPage {
         },
         { id: 'nova-pasta', label: 'Nova pasta dentro', icon: ICON.novaPasta, run: () => this.newFolder(f.id) },
         { id: 'renomear', label: 'Renomear', icon: ICON.editar, run: () => this.naming.set(f.id) },
+        { id: 'customizar', label: 'Customizar…', icon: ICON.paleta, dialog: true, run: () => this.customize(f) },
         { id: 'mover', label: 'Mover para…', icon: ICON.guardarNaPasta, dialog: true, run: () => this.moving.set({ kind: 'pasta', id: f.id, name: f.name, from: this.folderTree().parentOf(f.id) }) },
       ],
       [{ id: 'desfazer', label: 'Desfazer a pasta', icon: ICON.desfazerPasta, danger: true, hint: 'O que tem dentro sobe; nenhum recorte sai da wishlist', run: () => void this.dissolve(f) }],
     ];
+  }
+
+  private readonly folderSheet = viewChild(FolderSheet);
+
+  /** O Customizar… da pasta (PLANO-PASTAS-CUSTOMIZADAS.md, 4): o nome, a cor e o enfeite, com o Desfazer. */
+  private customize(f: NoteFolder): void {
+    const live = this.folderTree().live(f.id);
+    if (!live) return;
+    this.folderSheet()?.open({
+      folder: live,
+      info: this.folderInfo().get(f.id) ?? { notes: 0, folders: 0, peek: [] },
+      units: ['recorte', 'recortes'],
+      clash: (name) => {
+        const tree = this.folderTree();
+        return siblingNamed(tree, live.group, tree.parentOf(live.id), name, live.id)?.name ?? null;
+      },
+      current: () => this.folderTree().live(f.id),
+      apply: (change) => {
+        let undo: (() => void) | null = null;
+        this.transitions.run(() => (undo = this.folders.customize(f.id, change)));
+        return undo;
+      },
+      note: 'A pasta fica assim para todos que a veem.',
+    });
   }
 
   /** Marcar ou desmarcar a pasta, no menu dela (no toque, o jeito de marcar sem o Ctrl). */
