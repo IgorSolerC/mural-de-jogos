@@ -684,6 +684,34 @@ describe('o texto formatado na leitura', () => {
       expect(q.textUnderlineOffset).toBe(s.textUnderlineOffset);
     });
   });
+
+  it('todo texto fica numa camada própria, o dos títulos também (na ficha girada, os títulos sumiam), e o título não desce', async () => {
+    const el = await render(
+      'texto antes\n# Copos\n### Gosto de ter um copo pra cada coisa...\n- [ ] Copo Stanley\n  o corpo\n---\n' +
+        '> [!nota] O card\n> dentro\n\n> uma citação\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\n```js\nconst a = 1\n```\n\n1. um\ntexto depois',
+    );
+    el.style.setProperty('--texto-desce', '5px');
+    // pintado direto na caixa do texto, o que não tem camada própria some quando o Chrome erra o recorte da ficha
+    // girada; dentro de algo com posição (ou máscara, giro, filtro, opacidade, que também dão a camada), não
+    const camada = (e: HTMLElement) => {
+      const s = getComputedStyle(e);
+      return s.position !== 'static' || s.maskImage !== 'none' || s.webkitMaskImage !== 'none' || s.transform !== 'none' || s.filter !== 'none' || s.opacity !== '1';
+    };
+    const soltos: string[] = [];
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (!n.textContent!.trim()) continue;
+      let e = n.parentElement;
+      while (e && e !== el && !camada(e)) e = e.parentElement;
+      if (e === el) soltos.push(n.textContent!.trim());
+    }
+    expect(soltos).toEqual([]);
+    const titulos = Array.from(el.querySelectorAll<HTMLElement>('.titulo'));
+    expect(titulos.length).toBe(2);
+    for (const t of titulos) expect(getComputedStyle(t).top).withContext(t.textContent!).toBe('0px');
+    // o texto comum continua descendo o que quem usa pede
+    expect(getComputedStyle(el.querySelector('.linha.paragrafo')!).top).toBe('5px');
+  });
 });
 
 const DONE_TEXT = 'Compras\n- [ ] pão\n- [x] leite\n- [x] café\nResto\n- [x] ovos';

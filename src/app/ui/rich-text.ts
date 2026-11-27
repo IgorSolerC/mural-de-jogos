@@ -273,6 +273,18 @@ const FOLD_WAIT = 260;
       position: relative;
       top: var(--texto-desce, 0px);
     }
+    /* O título também é uma camada própria, como toda linha (a divisória já é, pela máscara), só que sem
+       descer. Era a única linha pintada direto na caixa do texto, e era o que sumia na ficha girada do
+       mural (num giro sim, noutro não): o parágrafo de cima e a tarefa de baixo, com camada, ficavam.
+       Daqui não se reproduziu; essa era a única diferença do título para as linhas que não sumiam */
+    .titulo {
+      position: relative;
+    }
+    /* a linha de cima desce para dentro do alto do título (a leitura, --texto-desce): ela continua por cima
+       dele, como era com o título sem camada, e o link ou o spoiler no pé dela segue pegando o toque ali */
+    .linha:where(:not(.titulo, .divisoria, .cartao-topo)):has(+ .titulo) {
+      z-index: 1;
+    }
     .corpo {
       position: relative;
       top: calc(var(--texto-desce, 0px) * -1);
