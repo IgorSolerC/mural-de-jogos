@@ -5,6 +5,7 @@ import {
   folderTree,
   foldersOfGroupMoved,
   isFolderId,
+  mergeFolders,
   newFolderId,
   prunedFolders,
   publicFolders,
@@ -14,6 +15,7 @@ import {
   withCategory,
   withDissolvedFolder,
   withFolder,
+  withFolderLook,
   withGoneGroup,
   withJoinedFolder,
   withLiveFolder,
@@ -212,6 +214,31 @@ describe('as pastas das anotações (core/folders.ts)', () => {
     });
   });
 
+  describe('o visual (PLANO-PASTAS-CUSTOMIZADAS.md)', () => {
+    it('o guardado volta com o visual que este site conhece; o resto sai', () => {
+      const [x] = sanitizeFolders([{ ...f('pprog000001', 'Programação'), look: { color: 'grafite', decor: 'estrelas', view: 'inteira', brilho: true } }]);
+      expect(x.look).toEqual({ color: 'grafite', decor: 'estrelas', view: 'inteira' });
+      expect(sanitizeFolders([{ ...f('pprog000001', 'Programação'), look: { color: 'manilha' } }])[0]).toEqual(f('pprog000001', 'Programação'));
+    });
+
+    it('trocar o visual muda só a pasta viva; o vazio tira o campo', () => {
+      const dead = withDissolvedFolder(BASE, 'phist000001', AT);
+      const out = withFolderLook(dead, 'pprog000001', { color: 'verde' });
+      expect(out.find((x) => x.id === 'pprog000001')?.look).toEqual({ color: 'verde' });
+      expect(withFolderLook(dead, 'phist000001', { color: 'verde' }).find((x) => x.id === 'phist000001')?.look).toBeUndefined();
+      expect('look' in withFolderLook(out, 'pprog000001', {}).find((x) => x.id === 'pprog000001')!).toBeFalse();
+    });
+
+    it('a junção de um grupo compartilhado: cada um mexeu num campo da mesma pasta, ficam os dois; no mesmo campo, vale o daqui', () => {
+      const o = [f('pprog000001', 'Programação')];
+      const theirs = [f('pprog000001', 'Código')];
+      const mine = [f('pprog000001', 'Programação', null, 'estudos', { look: { color: 'azul' } })];
+      expect(mergeFolders(o, theirs, mine)).toEqual([f('pprog000001', 'Código', null, 'estudos', { look: { color: 'azul' } })]);
+      const both = [f('pprog000001', 'Programação', null, 'estudos', { look: { color: 'rosa', decor: 'costura' } })];
+      expect(mergeFolders(o, both, mine)).toEqual([f('pprog000001', 'Programação', null, 'estudos', { look: { color: 'azul', decor: 'costura' } })]);
+    });
+  });
+
   describe('o mural público', () => {
     it('só as pastas com alguma anotação à mostra (e as de cima dela), com a lápide resolvida', () => {
       const dead = withDissolvedFolder(BASE, 'pscri000001', AT);
@@ -223,6 +250,13 @@ describe('as pastas das anotações (core/folders.ts)', () => {
       expect(publicFolders(tree, shown).map((x) => x.name).sort()).toEqual(['Funcional', 'Programação']);
       expect(withLiveFolder(tree, shown[1])).toEqual({ category: 'Estudos', folder: 'pprog000001' });
       expect(withLiveFolder(tree, { category: 'Trabalho', folder: 'pfunc000001' } as { category?: string; folder?: string })).toEqual({ category: 'Trabalho' });
+    });
+
+    it('a pasta vai com o visual dela: quem visita vê a cor, o enfeite e a vista (PLANO-PASTAS-CUSTOMIZADAS.md, 2.1)', () => {
+      const tree = folderTree(withFolderLook(BASE, 'pprog000001', { color: 'azul', decor: 'adesivos', stickers: ['dado'], view: 'lista' }));
+      const out = publicFolders(tree, [{ category: 'Estudos', folder: 'pfunc000001' }]);
+      expect(out.find((x) => x.id === 'pprog000001')?.look).toEqual({ color: 'azul', decor: 'adesivos', stickers: ['dado'], view: 'lista' });
+      expect(out.find((x) => x.id === 'pfunc000001')?.look).toBeUndefined();
     });
   });
 });

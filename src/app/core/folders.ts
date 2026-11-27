@@ -1,5 +1,7 @@
 import { PASTA_ID_RE } from '../../../contrato/api-v1/notas';
 import { lookKey } from './category-looks';
+import { FolderLook, sanitizeFolderLook } from './folder-looks';
+import { mergeJson } from './merge-json';
 import { LABEL_MAX } from './note-labels';
 import { Review } from './review';
 import { cleanLabel } from './text';
@@ -30,6 +32,11 @@ export interface NoteFolder {
    * pela regra da leitura; ela sai de vez depois de `TOMBSTONE_DAYS` sem ninguém apontando.
    */
   gone?: string;
+  /**
+   * O visual (a cor, o enfeite, a vista do que está dentro; PLANO-PASTAS-CUSTOMIZADAS.md), só com o que foi escolhido.
+   * Sem: a manilha de sempre.
+   */
+  look?: FolderLook;
 }
 
 /** Teto técnico (PLANO-PASTAS.md, P10): pastas por conta, contando as lápides. */
@@ -93,8 +100,9 @@ export function sanitizeFolders(raw: unknown): NoteFolder[] {
     const group = typeof r['group'] === 'string' ? lookKey(r['group']).slice(0, 64) : '';
     const parent = isFolderId(r['parent']) && r['parent'] !== id ? r['parent'] : null;
     const gone = typeof r['gone'] === 'string' && !Number.isNaN(Date.parse(r['gone'])) ? r['gone'] : undefined;
+    const look = sanitizeFolderLook(r['look'], group);
     seen.add(id);
-    list.push({ id, group, name, parent, ...(gone ? { gone } : {}) });
+    list.push({ id, group, name, parent, ...(gone ? { gone } : {}), ...(look ? { look } : {}) });
   }
   const byId = new Map(list.map((f) => [f.id, f]));
   // o pai precisa existir, ser do mesmo grupo, não fazer ciclo e não passar do teto de níveis
@@ -309,6 +317,16 @@ export function withRenamedFolder(folders: readonly NoteFolder[], id: string, na
   return folders.map((f) => (f.id === id && !f.gone ? { ...f, name: clean } : f));
 }
 
+/** A pasta viva com o visual dado (o vazio volta ao de sempre, sem o campo). */
+export function withFolderLook(folders: readonly NoteFolder[], id: string, look: FolderLook | undefined): NoteFolder[] {
+  return folders.map((f) => {
+    if (f.id !== id || f.gone) return f;
+    const clean = sanitizeFolderLook(look, f.group);
+    const { look: _was, ...rest } = f;
+    return clean ? { ...rest, look: clean } : rest;
+  });
+}
+
 /** A pasta dentro de `parent` (null: a raiz). Nunca dentro dela mesma, de uma de dentro dela ou de outro grupo. */
 export function withMovedFolder(folders: readonly NoteFolder[], id: string, parent: string | null): NoteFolder[] {
   const tree = folderTree(folders);
@@ -465,7 +483,8 @@ export function toDocFolders(folders: readonly NoteFolder[], group: string): Gro
 
 /**
  * As pastas de um grupo compartilhado juntadas pasta a pasta, quando duas pessoas mexeram ao mesmo tempo a partir
- * de `o`: cada pasta fica com o que mudou nela (as duas mudaram: vale `mine`, a daqui, a que a pessoa acabou de
+ * de `o`: cada pasta fica com o que mudou nela; as duas mudaram a mesma pasta, campo a campo (uma renomeia e a
+ * outra troca a cor: ficam as duas mudanças; no mesmo campo, vale `mine`, a daqui, a que a pessoa acabou de
  * fazer); a criada de um lado entra; a que só um lado ainda tem e o outro não mexeu desde `o` fica com o lado que
  * mexeu (desfazer é uma lápide, `gone`: é mudança como as outras). Funciona com a chave do grupo ou sem ela.
  */
@@ -479,7 +498,7 @@ export function mergeFolders<T extends GroupDocFolder>(o: readonly T[], theirs: 
     const was = base.get(id);
     const x = a.get(id);
     const y = b.get(id);
-    if (x && y) out.push(same(y, was) ? x : y);
+    if (x && y) out.push(same(y, was) ? x : same(x, was) || !was ? y : (mergeJson(was, x, y).b as T));
     // só de um lado: a nova desse lado entra; a que o outro tirou de vez sai, a não ser que este lado a mudou
     else if (x) {
       if (!was || !same(x, was)) out.push(x);
@@ -499,7 +518,8 @@ export function publicFolders(tree: FolderTree, shown: readonly Pick<Review, 'fo
   for (const n of shown) {
     for (const f of tree.path(tree.of(n))) {
       if (out.has(f.id)) continue;
-      out.set(f.id, { id: f.id, group: f.group, name: f.name, parent: tree.parentOf(f.id) });
+      // o visual vai junto: quem visita vê a pasta como ela é (PLANO-PASTAS-CUSTOMIZADAS.md, 2.1)
+      out.set(f.id, { id: f.id, group: f.group, name: f.name, parent: tree.parentOf(f.id), ...(f.look ? { look: f.look } : {}) });
     }
   }
   return [...out.values()];

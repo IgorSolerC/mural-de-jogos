@@ -364,6 +364,22 @@ describe('sincronização: a junção de três vias de dois aparelhos da mesma c
     }
   });
 
+  it('a mesma pasta customizada nos dois aparelhos, cada um num pedaço do visual: ficam os dois (PLANO-PASTAS-CUSTOMIZADAS.md, 2.1)', async () => {
+    const { a, b } = await twoDevices();
+    const pasta = { id: 'pcasa0000001', group: 'casa', name: 'Mercado', parent: null };
+    a.settings.setNotesConfig({ folders: [pasta] });
+    await settle(a, b);
+    a.settings.setNotesConfig({ folders: [{ ...pasta, look: { color: 'azul' } }] });
+    await a.sync.syncNow();
+    await tick();
+    b.settings.setNotesConfig({ folders: [{ ...pasta, look: { decor: 'costura', view: 'lista' } }] });
+    await settle(b, a);
+    for (const d of [a, b]) {
+      expect(d.settings.notesConfig().folders).toEqual([{ ...pasta, look: { color: 'azul', decor: 'costura', view: 'lista' } }]);
+      expect(d.conflicts.pending()).toEqual([]);
+    }
+  });
+
   it('a mesma configuração mudada de jeitos diferentes pergunta, e a escolha vale nos dois', async () => {
     const { a, b } = await twoDevices();
     a.settings.setCategoryPrefs('Casa', { audience: 'publicar' });

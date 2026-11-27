@@ -564,9 +564,10 @@ export function boardOnlyNotes(notes: unknown, boardOnly: ReadonlySet<string>): 
  * também no "Sobre mim" do perfil. 5: os baralhos públicos dos Estudos (`estudos`, ver core/public-study.ts).
  * 6: as pastas das anotações (`pastas`, só as com alguma anotação à mostra; PLANO-PASTAS.md, 3.8).
  * 7: as anotações dos grupos compartilhados nunca vão no público de cada um; as dos seus grupos públicos entram
- * nas fichas à mostra (PLANO-COMPARTILHAR.md, 4.6).
+ * nas fichas à mostra (PLANO-COMPARTILHAR.md, 4.6). 8: o visual das pastas (`pastas[].look`: a cor, o enfeite e a
+ * vista; PLANO-PASTAS-CUSTOMIZADAS.md, 2.1).
  */
-export const PUBLIC_RULES = 7;
+export const PUBLIC_RULES = 8;
 
 /**
  * A impressão do público que foi junto com este mural privado (`sync.publico`, ver `publicPrint`):

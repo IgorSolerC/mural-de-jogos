@@ -55,6 +55,49 @@ describe('organizar as pastas (NoteFolders)', () => {
     expect(at('n1')).toBeNull();
   });
 
+  describe('customizar (PLANO-PASTAS-CUSTOMIZADAS.md)', () => {
+    const live = (id: string) => folders.tree().live(id)!;
+
+    it('o nome e o visual de uma vez, com o Desfazer que volta os dois', () => {
+      const undo = folders.customize('phist000001', { name: 'História do Brasil', look: { color: 'azul', decor: 'costura' } })!;
+      expect(live('phist000001').name).toBe('História do Brasil');
+      expect(live('phist000001').look).toEqual({ color: 'azul', decor: 'costura' });
+      undo();
+      expect(live('phist000001').name).toBe('História');
+      expect(live('phist000001').look).toBeUndefined();
+    });
+
+    it('nada mudou: não grava e não há o que desfazer', () => {
+      folders.customize('phist000001', { look: { color: 'verde' } });
+      const before = settings.notesConfig().folders;
+      expect(folders.customize('phist000001', { name: 'História', look: { color: 'verde' } })).toBeNull();
+      expect(settings.notesConfig().folders).toBe(before);
+    });
+
+    it('o Desfazer volta só o que ninguém mudou no meio', () => {
+      const undo = folders.customize('phist000001', { name: 'Hist', look: { color: 'azul' } })!;
+      // noutro aparelho (ou no Renomear), o nome mudou de novo
+      folders.rename('phist000001', 'Histórias');
+      undo();
+      expect(live('phist000001').name).toBe('Histórias');
+      expect(live('phist000001').look).toBeUndefined();
+    });
+
+    it('o nome de uma irmã não passa (nada muda)', () => {
+      expect(folders.customize('phist000001', { name: 'programação', look: { color: 'azul' } })).toBeNull();
+      expect(live('phist000001').name).toBe('História');
+      expect(live('phist000001').look).toBeUndefined();
+    });
+
+    it('o visual vazio volta a pasta de sempre; a desfeita não se customiza', () => {
+      folders.customize('phist000001', { look: { color: 'azul' } });
+      folders.customize('phist000001', { look: undefined });
+      expect('look' in live('phist000001')).toBeFalse();
+      folders.dissolve('pfunc000001');
+      expect(folders.customize('pfunc000001', { look: { color: 'azul' } })).toBeNull();
+    });
+  });
+
   it('tirar das pastas: a raiz do grupo', () => {
     folders.place(['n3'], null);
     expect(at('n3')).toBeNull();

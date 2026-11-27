@@ -6,6 +6,7 @@ import {
   FolderTree,
   MAX_FOLDERS,
   NoteFolder,
+  cleanFolderName,
   convertSubjects,
   folderTree,
   foldersOfGroupMoved,
@@ -20,8 +21,10 @@ import {
   withMovedFolder,
   withNewFolder,
   withFolder,
+  withFolderLook,
   withRenamedFolder,
 } from './folders';
+import { FolderLook, sameFolderLook, sanitizeFolderLook } from './folder-looks';
 import { Review, isNote } from './review';
 import { ReviewStore } from './review-store';
 import { Settings } from './settings';
@@ -282,6 +285,40 @@ export class NoteFolders {
     const now = this.tree().live(id)?.name;
     if (was === undefined || now === was) return () => undefined;
     return this.undoWith((f) => (f.id === id && !f.gone && f.name === now ? { ...f, name: was } : f));
+  }
+
+  /**
+   * Customiza a pasta (PLANO-PASTAS-CUSTOMIZADAS.md): o nome (a mesma regra do Renomear) e o visual por inteiro
+   * (o que não vier volta ao de sempre). Grava só o que mudou. Devolve como desfazer, campo a campo: o nome e o
+   * visual de antes voltam, cada um só se ninguém o mudou no meio (aqui ou noutro aparelho); null, se nada mudou
+   * (ou se não pode: a pasta de um grupo só de ler, ou o nome de uma irmã).
+   */
+  customize(id: string, change: { name?: string; look: FolderLook | undefined }): (() => void) | null {
+    const was = this.tree().live(id);
+    // a pasta de um grupo em que você só lê não se customiza
+    if (!was || !this.movable().has(id)) return null;
+    let next = this.folders;
+    const name = change.name !== undefined ? cleanFolderName(change.name) : '';
+    if (name && name !== was.name) {
+      // nunca duas irmãs com o mesmo nome (a folha avisa antes; o Renomear na pasta junta as duas)
+      if (siblingNamed(this.tree(), was.group, this.tree().parentOf(id), name, id)) return null;
+      next = withRenamedFolder(next, id, name);
+    }
+    if (!sameFolderLook(was.look, sanitizeFolderLook(change.look, was.group))) next = withFolderLook(next, id, change.look);
+    if (next.every((f, i) => f === this.folders[i])) return null;
+    this.save(next);
+    const now = this.tree().live(id);
+    if (!now) return () => undefined;
+    return this.undoWith((f) => {
+      if (f.id !== id || f.gone) return f;
+      let back = f;
+      if (now.name !== was.name && f.name === now.name) back = { ...back, name: was.name };
+      if (!sameFolderLook(now.look, was.look) && sameFolderLook(f.look, now.look)) {
+        const { look: _l, ...rest } = back;
+        back = was.look ? { ...rest, look: was.look } : rest;
+      }
+      return back;
+    });
   }
 
   /**

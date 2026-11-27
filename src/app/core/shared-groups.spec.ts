@@ -684,6 +684,37 @@ describe('grupos compartilhados: as pastas do grupo (PLANO-CONSERTO-GRUPOS.md, r
     expect((server.dados['pastas'] as { name: string }[]).map((f) => f.name).sort()).toEqual(['Dela', 'Minha']);
   });
 
+  it('duas pessoas customizando a mesma pasta ao mesmo tempo: uma renomeia, a outra troca a cor e o enfeite, ficam as duas (PLANO-PASTAS-CUSTOMIZADAS.md, 2.1)', async () => {
+    const { groups, folders } = setup('editor', { nome: 'Trabalho', pastas: [{ id: 'pkana0000001', name: 'Kana', parent: null }] });
+    await groups.sync();
+    folders.customize('pkana0000001', { look: { color: 'azul', decor: 'costura' } });
+    // a Ana renomeou enquanto isso (rev 2 na nuvem)
+    server = { ...server, rev: 2, dados: { ...server.dados, pastas: [{ id: 'pkana0000001', name: 'Kana e Kanji', parent: null }] } };
+    await groups.pushAll();
+    expect(server.dados['pastas']).toEqual([{ id: 'pkana0000001', name: 'Kana e Kanji', parent: null, look: { color: 'azul', decor: 'costura' } }]);
+    expect(folders.tree().live('pkana0000001')?.look).toEqual({ color: 'azul', decor: 'costura' });
+    expect(folders.tree().live('pkana0000001')?.name).toBe('Kana e Kanji');
+  });
+
+  it('duas pessoas mexendo em partes diferentes do visual da mesma pasta: a cor de uma e a vista da outra ficam', async () => {
+    const { groups, folders } = setup('editor', { nome: 'Trabalho', pastas: [{ id: 'pkana0000001', name: 'Kana', parent: null, look: { color: 'verde' } }] });
+    await groups.sync();
+    folders.customize('pkana0000001', { look: { color: 'rosa' } });
+    server = { ...server, rev: 2, dados: { ...server.dados, pastas: [{ id: 'pkana0000001', name: 'Kana', parent: null, look: { color: 'verde', view: 'lista' } }] } };
+    await groups.pushAll();
+    expect((server.dados['pastas'] as { look: unknown }[])[0].look).toEqual({ color: 'rosa', view: 'lista' });
+  });
+
+  it('quem só lê não customiza as pastas do grupo', async () => {
+    const { groups, folders } = setup('leitor', { nome: 'Trabalho', pastas: [{ id: 'pkana0000001', name: 'Kana', parent: null }] });
+    await groups.sync();
+    expect(folders.movable().has('pkana0000001')).toBeFalse();
+    folders.customize('pkana0000001', { look: { color: 'azul' } });
+    await groups.pushAll();
+    expect(puts.length).toBe(0);
+    expect(folders.tree().live('pkana0000001')?.look).toBeUndefined();
+  });
+
   it('quem só lê não muda as pastas do grupo', async () => {
     const { groups, folders } = setup('leitor', { nome: 'Trabalho', pastas: [{ id: 'pkana0000001', name: 'Kana', parent: null }] });
     await groups.sync();

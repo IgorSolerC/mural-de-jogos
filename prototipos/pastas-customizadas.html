@@ -1,0 +1,955 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pastas com a sua cara · versões para escolher</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=Caveat:wght@700&family=Kalam:wght@400;700&family=Permanent+Marker&display=swap" rel="stylesheet">
+<style>
+/* Os mesmos tokens do site (src/styles.scss) e a mesma pasta (src/app/ui/folder-card.scss): o protótipo mede
+   o que a pasta de verdade mede, na largura que ela tem na parede de 1440px (8 por fileira). */
+:root {
+  --wall: #1f1c1a;
+  --wall-hole: #0b0908;
+  --wall-ink: #f3efe6;
+  --wall-ink-2: #bdb5a8;
+  --ink: #151515;
+  --ink-2: rgb(21 21 21 / 0.78);
+  --hi: #ffda42;
+  --shadow-card: 0 1px 1px rgb(0 0 0 / 0.35), 0 10px 18px -6px rgb(0 0 0 / 0.55), 0 22px 40px -18px rgb(0 0 0 / 0.6);
+  --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.45 0 0 0 0 0.4 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --f-caneta: 'Caveat', 'Segoe Print', cursive;
+  --f-label: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --f-marker: 'Permanent Marker', 'Comic Sans MS', cursive;
+  --f-mao: 'Kalam', cursive;
+  --ease-physical: cubic-bezier(0.16, 1, 0.3, 1);
+  --t-physical: 380ms;
+  --ease-ui: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --t-ui: 160ms;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { background: var(--wall); }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--wall);
+  background-image: radial-gradient(circle, var(--wall-hole) 2px, transparent 2.6px);
+  background-size: 26px 26px;
+  color: var(--wall-ink);
+  font-family: var(--f-label);
+}
+::selection { background: var(--hi); color: var(--ink); }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--hi); outline-offset: 3px; }
+
+.pagina { max-width: 1240px; margin: 0 auto; padding: 34px 22px 96px; }
+
+h1 {
+  margin: 0;
+  font: 400 clamp(2rem, 4vw, 2.7rem)/1.05 var(--f-marker);
+  letter-spacing: 0.01em;
+  text-wrap: balance;
+}
+.como {
+  max-width: 64ch;
+  margin: 12px 0 0;
+  font: 400 1.14rem/1.45 var(--f-mao);
+  color: var(--wall-ink-2);
+}
+.como b { color: var(--wall-ink); font-weight: 700; }
+
+h2 {
+  margin: 58px 0 6px;
+  font: 400 1.6rem/1.1 var(--f-marker);
+}
+.h2-nota { margin: 0 0 26px; max-width: 70ch; font: 400 1.05rem/1.4 var(--f-mao); color: var(--wall-ink-2); }
+
+/* ===== As cores das amostras (o seletor do alto) ===== */
+.cores-barra {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin: 26px -22px 0;
+  padding: 12px 22px;
+  background: rgb(31 28 26 / 0.94);
+  box-shadow: 0 8px 16px -10px rgb(0 0 0 / 0.8);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+.cores-barra .rot {
+  font: 700 0.86rem/1 var(--f-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wall-ink-2);
+  margin-right: 4px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 4px 11px 4px 6px;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.06);
+  cursor: pointer;
+  font: 500 1rem/1 var(--f-label);
+  color: var(--wall-ink);
+  transition: background-color var(--t-ui) var(--ease-ui);
+}
+.chip:hover { background: rgb(255 255 255 / 0.12); }
+.chip[aria-pressed='true'] { background: var(--hi); color: var(--ink); }
+.chip .bola {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--pasta); background-image: var(--paper-grain); background-blend-mode: multiply;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.25);
+}
+.chip .bola.sugerida {
+  background: conic-gradient(#d6c391 0 25%, #9fc8e4 0 50%, #e8a597 0 75%, #a9cfa0 0);
+}
+
+/* ===== A grade das amostras ===== */
+.amostras {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
+  gap: 40px 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.amostra { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.amostra .pasta-caixa { width: 144px; }
+.legenda { width: 100%; max-width: 196px; margin: 0; text-align: center; }
+.legenda .n {
+  display: inline-block;
+  min-width: 1.7em;
+  margin-right: 5px;
+  padding: 2px 5px 1px;
+  background: var(--hi);
+  color: var(--ink);
+  font: 700 0.95rem/1.1 var(--f-label);
+  font-variant-numeric: tabular-nums;
+  clip-path: polygon(2% 8%, 100% 0, 97% 96%, 0 100%);
+}
+.legenda .t { font: 700 1.12rem/1.1 var(--f-label); letter-spacing: 0.02em; }
+.legenda .d { display: block; margin-top: 5px; font: 400 0.98rem/1.3 var(--f-mao); color: var(--wall-ink-2); text-wrap: balance; }
+.amostra.hoje .legenda .n { background: var(--wall-ink-2); }
+
+/* ===== As cores sozinhas ===== */
+.cores { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 36px 22px; margin: 0; padding: 0; list-style: none; }
+.cores .amostra .pasta-caixa { width: 144px; }
+
+/* ===== Na parede de verdade: 8 por fileira ===== */
+.parede {
+  --pastas-vao: 22px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(max(128px, calc((100% - 7 * var(--pastas-vao)) / 8)), 1fr));
+  gap: 26px var(--pastas-vao);
+  margin: 0 0 18px;
+  padding: 4px 0 0;
+  list-style: none;
+}
+.parede > li:nth-child(2n) { --tilt: 0.5deg; }
+.parede > li:nth-child(3n) { --tilt: -0.3deg; }
+.parede-rot { margin: 30px 0 14px; font: 700 0.86rem/1 var(--f-label); letter-spacing: 0.08em; text-transform: uppercase; color: var(--wall-ink-2); }
+.parede-rot:first-of-type { margin-top: 0; }
+
+/* =======================================================================================================
+   A PASTA (cópia de src/app/ui/folder-card.scss, com a cor e o enfeite por cima)
+   ======================================================================================================= */
+.pasta-caixa {
+  --pasta: #d6c391;
+  --pasta-fundo: #bea873;
+  --tom: color-mix(in oklab, var(--pasta) 52%, #3b2716);
+  --acento: #b8402f;
+  --tinta: var(--ink);
+  --tinta-2: var(--ink-2);
+  --pasta-alto: 116px;
+  --nome-tam: calc(0.98rem * 1.1);
+  --nome-alt: 1.08;
+  --qtd-tam: 0.74rem;
+  --qtd-alt: 1.25;
+  /* o enfeite pode pedir mais frente (em cima: --frente-topo; embaixo: --frente-pe) e espaço à direita do nome */
+  --frente-topo: 0px;
+  --frente-pe: 0px;
+  --frente-dir: 12px;
+  --frente-esq: 12px;
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+.pasta {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: var(--pasta-alto);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--tinta);
+  text-align: left;
+  cursor: pointer;
+  rotate: var(--tilt, -0.6deg);
+  transition: translate var(--t-physical) var(--ease-physical), rotate var(--t-physical) var(--ease-physical);
+}
+.pasta:focus-visible { outline: 3px solid var(--hi); outline-offset: 6px; border-radius: 8px; }
+.fundo {
+  position: absolute;
+  inset: 14px 0 0 0;
+  border-radius: 4px 6px 6px 6px;
+  background-color: var(--pasta-fundo);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  box-shadow: var(--shadow-card);
+}
+.fundo::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -13px;
+  width: 42%;
+  height: 15px;
+  border-radius: 6px 6px 0 0;
+  background: inherit;
+}
+.boca { --capa-w: 50px; position: absolute; top: 6px; left: 10px; right: 10px; pointer-events: none; }
+.espia {
+  --passo: min(calc((100% - var(--capa-w)) / max(var(--vistas) - 1, 1)), calc(var(--capa-w) + 8px));
+  position: absolute;
+  top: 0;
+  left: calc(var(--j) * var(--passo));
+  width: var(--capa-w);
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: 1px;
+  background: var(--c, #f6f1e7);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+  transition: translate var(--t-physical) var(--ease-physical);
+  transition-delay: calc(var(--j) * 25ms);
+  padding: 5px 4px;
+  font: 700 0.62rem/1 var(--f-caneta);
+  color: var(--ink);
+}
+.espia:nth-child(1) { top: 4px; rotate: -4deg; }
+.espia:nth-child(2) { top: -1px; rotate: 2deg; }
+.espia:nth-child(3) { top: 3px; rotate: -2deg; }
+.espia i { display: block; height: 2px; margin-top: 4px; background: rgb(21 21 21 / 0.16); border-radius: 2px; }
+.espia i + i { width: 70%; }
+
+.frente {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(19px + var(--frente-topo) + var(--frente-pe) + 2 * var(--nome-tam) * var(--nome-alt) + 2px + var(--qtd-tam) * var(--qtd-alt));
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 2px;
+  padding: calc(9px + var(--frente-topo)) var(--frente-dir) calc(10px + var(--frente-pe)) var(--frente-esq);
+  border-radius: 3px 3px 6px 6px;
+  background-color: var(--pasta);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35), 0 -2px 4px rgb(0 0 0 / 0.2);
+  transform-origin: 50% 100%;
+  transition: transform 220ms var(--ease-ui);
+}
+.pasta:hover { translate: 0 -2px; rotate: calc(var(--tilt, -0.6deg) * 0.35); }
+.pasta:hover .frente { transform: perspective(620px) rotateX(-16deg); }
+.pasta:hover .espia { translate: 0 -9px; }
+
+.nome {
+  position: relative;
+  z-index: 2;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-family: var(--f-caneta);
+  font-weight: 700;
+  font-size: var(--nome-tam);
+  line-height: var(--nome-alt);
+  /* o enfeite do canto de cima pede espaço só ao nome; a conta, embaixo, continua com a frente inteira */
+  padding-right: max(0.14em, var(--nome-dir, 0px));
+  overflow-wrap: break-word;
+  color: var(--tinta);
+}
+.qtd {
+  position: relative;
+  z-index: 2;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: var(--qtd-tam);
+  line-height: var(--qtd-alt);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tinta-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* o enfeite mora na frente (abre com ela): debaixo da escrita (z 1), menos o que fica por cima do papel
+   (o remendo, o canto dobrado: z 3). */
+.enfeite { position: absolute; inset: 0; pointer-events: none; border-radius: inherit; z-index: 1; }
+.enfeite svg { position: absolute; display: block; overflow: visible; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pasta, .espia, .frente { transition: none; }
+  .pasta:hover { translate: none; rotate: var(--tilt, -0.6deg); }
+  .pasta:hover .frente { transform: none; }
+  .pasta:hover .espia { translate: none; }
+}
+
+/* =======================================================================================================
+   AS CORES: a frente, o fundo (mais escuro, como a pasta de hoje), o tom do próprio papel para os impressos
+   e um acento que conversa com ele para as fitas e as faixas
+   ======================================================================================================= */
+[data-cor='manilha'] { --pasta: #d6c391; --pasta-fundo: #bea873; --acento: #b8402f; }
+[data-cor='kraft']   { --pasta: #c09a72; --pasta-fundo: #a27d58; --acento: #f2e6cc; }
+[data-cor='vermelho']{ --pasta: #e5a092; --pasta-fundo: #c98273; --acento: #f7eedd; }
+[data-cor='laranja'] { --pasta: #ebb487; --pasta-fundo: #cf9569; --acento: #6b3b16; }
+[data-cor='amarelo'] { --pasta: #ecd27a; --pasta-fundo: #d0b55c; --acento: #2f5d8a; }
+[data-cor='verde']   { --pasta: #a9cf9f; --pasta-fundo: #8bb281; --acento: #f6efdf; }
+[data-cor='azul']    { --pasta: #9fc7e3; --pasta-fundo: #80a8c5; --acento: #f6efdf; }
+[data-cor='lilas']   { --pasta: #c6b4e6; --pasta-fundo: #a895c8; --acento: #5d3593; }
+[data-cor='rosa']    { --pasta: #ebafc3; --pasta-fundo: #ce90a5; --acento: #9d2a52; }
+[data-cor='cinza']   { --pasta: #c5bfb6; --pasta-fundo: #a8a198; --acento: #c8412f; }
+[data-cor='grafite'] {
+  --pasta: #4b4541; --pasta-fundo: #35302d; --acento: #e4bd55;
+  --tom: color-mix(in oklab, var(--pasta) 50%, #f3efe6);
+  --tinta: #f3efe6; --tinta-2: rgb(243 239 230 / 0.8);
+}
+
+
+/* o que os detalhes usam, tirado da cor da pasta: o --forte é o próprio matiz bem mais fundo (contraste de sobra
+   com o papel claro); o --fio é uma linha de outra cor, funda, que conversa com o papel (a do pesponto, a tinta do
+   carimbo); o --metal, o das cantoneiras (latão onde o papel é frio, ferro onde é quente e claro) */
+.pasta-caixa {
+  --forte: color-mix(in oklch, var(--pasta) 50%, black);
+  /* as linhas que não precisam gritar (a moldura gravada, as costuras do recorte): meio caminho do papel ao --forte */
+  --sutil: color-mix(in oklch, var(--forte) 52%, var(--pasta));
+  /* a faixa do 2: o próprio papel, mais fundo e mais vivo */
+  --faixa: oklch(from var(--pasta) calc(l - 0.15) calc(c * 1.7 + 0.015) h);
+  --fio: #8f3a1e;
+  --metal: linear-gradient(135deg, #f6e29d 0%, #c99a3a 46%, #8a6420 62%, #e3c06a 100%);
+  --rebite: #6b5320;
+}
+[data-cor='manilha']  { --fio: #8f3a1e; }
+[data-cor='kraft']    { --fio: #22385e; }
+[data-cor='vermelho'] { --fio: #6a1d18; }
+[data-cor='laranja']  { --fio: #5c2d0d; }
+[data-cor='amarelo']  { --fio: #24476b; }
+[data-cor='verde']    { --fio: #27502a; }
+[data-cor='azul']     { --fio: #874610; }
+[data-cor='lilas']    { --fio: #452676; }
+[data-cor='rosa']     { --fio: #7c1c41; }
+[data-cor='cinza']    { --fio: #932f25; }
+[data-cor='grafite']  { --fio: #dcae4c; --forte: color-mix(in oklch, var(--pasta) 38%, white); --faixa: oklch(from var(--pasta) calc(l + 0.1) c h); }
+/* o metal das cantoneiras, um para cada papel (o --metal de antes era um só) */
+[data-cor='manilha'], [data-cor='laranja'] { --metal: linear-gradient(135deg, #ecd2a0 0%, #a9803f 46%, #5e4319 62%, #cfa865 100%); --rebite: #3f2c0e; }
+[data-cor='kraft'], [data-cor='verde'] { --metal: linear-gradient(135deg, #f7c9a6 0%, #c7764a 46%, #7f3f1f 62%, #e3a07a 100%); --rebite: #4d230f; }
+[data-cor='vermelho'], [data-cor='rosa'] { --metal: linear-gradient(135deg, #fde3db 0%, #d39488 46%, #8c4d45 62%, #f0bdb2 100%); --rebite: #5a2b25; }
+[data-cor='azul'], [data-cor='lilas'] { --metal: linear-gradient(135deg, #ffffff 0%, #b9bfc7 46%, #6d747e 62%, #e1e5ea 100%); --rebite: #3e444c; }
+[data-cor='amarelo'], [data-cor='cinza'] { --metal: linear-gradient(135deg, #a7aab0 0%, #5d6168 46%, #2c2f33 62%, #8a8e95 100%); --rebite: #16181a; }
+[data-cor='grafite'] { --metal: linear-gradient(135deg, #f6e29d 0%, #c99a3a 46%, #8a6420 62%, #e3c06a 100%); --rebite: #6b5320; }
+
+/* =======================================================================================================
+   OS ENFEITES
+   ======================================================================================================= */
+
+/* 1 · Pontilhado: a costura em volta da frente, como couro costurado */
+[data-enfeite='costura'] .enfeite::before {
+  content: '';
+  position: absolute;
+  inset: 5px 5px 5px 5px;
+  border: 1.6px dashed color-mix(in oklab, var(--tom) 92%, transparent);
+  border-radius: 3px 3px 5px 5px;
+}
+[data-enfeite='costura'] .fundo::after {
+  content: '';
+  position: absolute;
+  left: 5px; top: -8px; width: calc(42% - 10px); height: 0;
+  border-top: 1.6px dashed color-mix(in oklab, var(--tom) 80%, transparent);
+}
+[data-enfeite='costura'] { --frente-esq: 14px; --frente-dir: 14px; --frente-pe: 2px; }
+
+/* 9 · Etiqueta: o nome numa etiqueta branca colada, com o fio de cor */
+[data-enfeite='etiqueta'] { --frente-esq: 12px; --frente-dir: 9px; --frente-topo: 2px; --frente-pe: 3px; }
+[data-enfeite='etiqueta'] .enfeite::before {
+  content: '';
+  position: absolute;
+  inset: 6px 5px 6px 5px;
+  border-radius: 4px;
+  background: #fbf8ef;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  box-shadow: 0 0.5px 1px rgb(0 0 0 / 0.25), 0 1px 3px rgb(0 0 0 / 0.12);
+}
+[data-enfeite='etiqueta'] .enfeite::after {
+  content: '';
+  position: absolute;
+  inset: 8.5px 7.5px 8.5px 7.5px;
+  border: 1.3px solid color-mix(in oklab, var(--acento) 85%, transparent);
+  border-radius: 2.5px;
+}
+[data-enfeite='etiqueta'] .nome, [data-enfeite='etiqueta'] .qtd { color: var(--ink); }
+[data-enfeite='etiqueta'] .qtd { color: var(--ink-2); }
+[data-cor='kraft'][data-enfeite='etiqueta'] .enfeite::after,
+[data-cor='vermelho'][data-enfeite='etiqueta'] .enfeite::after,
+[data-cor='verde'][data-enfeite='etiqueta'] .enfeite::after,
+[data-cor='azul'][data-enfeite='etiqueta'] .enfeite::after { border-color: var(--pasta-fundo); }
+
+/* ===== AS ESCOLHIDAS DA 2ª LEVA: o enfeite é parte de como a pasta foi feita (costura, pano, recorte,
+   gravação). Os detalhes sempre saem da cor da pasta, com contraste (o --forte e o --fio de cada cor). ===== */
+
+/* a linha de costura, a do Pontilhado */
+.pasta-caixa {
+  --linha: color-mix(in oklab, var(--tom) 92%, transparent);
+  /* o pano das faixas e da lombada: o mesmo matiz do papel, mais fundo (o --tom puxa para o marrom e acinzenta o azul) */
+  --pano: color-mix(in oklch, var(--pasta) 58%, black);
+  --fio-pano: color-mix(in oklch, var(--pano) 55%, white);
+}
+[data-cor='grafite'] { --pano: color-mix(in oklch, var(--pasta) 55%, white); --fio-pano: color-mix(in oklch, var(--pano) 60%, black); }
+
+/* 19 · Lombada de pano: a beirada da esquerda encapada de pano, como um caderno de capa dura, com a costura */
+[data-enfeite='lombada'] { --frente-esq: 25px; }
+[data-enfeite='lombada'] .enfeite::before {
+  content: '';
+  position: absolute;
+  left: -2px; top: 0; bottom: 0;
+  width: 16px;
+  border-radius: 3px 1px 1px 6px;
+  box-shadow: 1px 0 1.5px rgb(0 0 0 / 0.3);
+  background:
+    repeating-linear-gradient(0deg, var(--fio-pano) 0 3px, transparent 3px 5.5px) calc(100% - 4px) 0 / 1.1px 100% no-repeat,
+    linear-gradient(90deg, rgb(0 0 0 / 0.3) 0 2px, transparent 2px),
+    repeating-linear-gradient(0deg, rgb(255 255 255 / 0.08) 0 1px, transparent 1px 2px),
+    repeating-linear-gradient(90deg, rgb(0 0 0 / 0.09) 0 1px, transparent 1px 2px),
+    linear-gradient(90deg, color-mix(in oklab, var(--pano) 88%, black), var(--pano) 40%, color-mix(in oklab, var(--pano) 85%, white));
+}
+
+/* 21 · Pesponto: a costura dupla de linha de outra cor (o --fio, funda, escolhida para cada papel), na frente e na aba */
+[data-enfeite='pesponto'] { --frente-esq: 15px; --frente-dir: 14px; --frente-pe: 3px; }
+[data-enfeite='pesponto'] .enfeite { filter: drop-shadow(0 0.6px 0 rgb(0 0 0 / 0.28)); }
+[data-enfeite='pesponto'] .enfeite::before,
+[data-enfeite='pesponto'] .enfeite::after {
+  content: '';
+  position: absolute;
+  border: 1.5px dashed var(--fio);
+}
+[data-enfeite='pesponto'] .enfeite::before { inset: 4px; border-radius: 3px 3px 5px 5px; }
+[data-enfeite='pesponto'] .enfeite::after { inset: 7.5px; border-radius: 2px 2px 3px 3px; }
+[data-enfeite='pesponto'] .fundo::after {
+  content: '';
+  position: absolute;
+  left: 5px; top: -9px; width: calc(42% - 10px); height: 3.5px;
+  border-top: 1.5px dashed var(--fio);
+  border-bottom: 1.5px dashed var(--fio);
+}
+
+/* 22 · Filete gravado: a moldura dupla gravada no papel, com os losangos nos cantos, como capa de livro antigo */
+[data-enfeite='gravado'] { --frente-esq: 15px; --frente-dir: 14px; --frente-pe: 3px; --filete: var(--sutil); }
+[data-enfeite='gravado'] .enfeite { filter: drop-shadow(0 0.8px 0 rgb(255 255 255 / 0.32)); }
+[data-cor='grafite'][data-enfeite='gravado'] .enfeite { filter: drop-shadow(0 0.8px 0 rgb(0 0 0 / 0.4)); }
+[data-enfeite='gravado'] .enfeite::before {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border: 1.3px solid var(--filete);
+  border-radius: 2px 2px 4px 4px;
+}
+[data-enfeite='gravado'] .enfeite::after {
+  content: '';
+  position: absolute;
+  inset: 8.5px;
+  border: 0.8px solid var(--filete);
+  --l: conic-gradient(from 45deg, var(--filete) 25%, transparent 0);
+  background:
+    linear-gradient(45deg, transparent 35%, var(--filete) 35% 65%, transparent 65%) -3.5px -3.5px / 7px 7px no-repeat,
+    linear-gradient(45deg, transparent 35%, var(--filete) 35% 65%, transparent 65%) calc(100% + 3.5px) -3.5px / 7px 7px no-repeat,
+    linear-gradient(45deg, transparent 35%, var(--filete) 35% 65%, transparent 65%) -3.5px calc(100% + 3.5px) / 7px 7px no-repeat,
+    linear-gradient(45deg, transparent 35%, var(--filete) 35% 65%, transparent 65%) calc(100% + 3.5px) calc(100% + 3.5px) / 7px 7px no-repeat;
+  background-origin: border-box;
+}
+
+/* 25 · Meia-lua: o recorte de pegar com o dedão no meio da boca, com a costura acompanhando */
+[data-enfeite='meia-lua'] { --frente-topo: 7px; }
+[data-enfeite='meia-lua'] .frente {
+  -webkit-mask: radial-gradient(circle 13px at 50% 0, transparent 12.4px, #000 13px);
+  mask: radial-gradient(circle 13px at 50% 0, transparent 12.4px, #000 13px);
+}
+[data-enfeite='meia-lua'] .enfeite::before {
+  content: '';
+  position: absolute;
+  left: calc(50% - 16px); top: 0;
+  width: 32px; height: 16px;
+  background: radial-gradient(circle 16px at 50% 0, transparent 12.6px, rgb(0 0 0 / 0.2) 13px, rgb(255 255 255 / 0.22) 14.2px, transparent 15.5px);
+}
+[data-enfeite='meia-lua'] svg { left: calc(50% - 19px); top: 0; width: 38px; height: 20px; }
+
+/* 26 · Borda picotada: a boca cortada com a tesoura de picotar (os dentes passam da beirada, com sombra no
+   que está dentro), e uma costura logo abaixo */
+[data-enfeite='picotada'] { --frente-topo: 5px; }
+[data-enfeite='picotada'] .enfeite::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: -5px; height: 6px;
+  background: conic-gradient(from 135deg at 50% 0, var(--pasta) 90deg, transparent 0) 0 0 / 8px 6px repeat-x;
+  filter: drop-shadow(0 -1px 0.8px rgb(0 0 0 / 0.3));
+}
+[data-enfeite='picotada'] .enfeite::before {
+  content: '';
+  position: absolute;
+  left: 6px; right: 6px; top: 8px;
+  border-top: 1.4px dashed var(--sutil);
+}
+
+/* 27 · Canto dobrado: o canto de cima da frente dobrado para dentro, mostrando o avesso do papel */
+[data-enfeite='orelha'] { --nome-dir: 14px; }
+[data-enfeite='orelha'] .frente {
+  -webkit-mask: linear-gradient(225deg, transparent 13.4px, #000 13.5px);
+  mask: linear-gradient(225deg, transparent 13.4px, #000 13.5px);
+}
+[data-enfeite='orelha'] .enfeite { z-index: 3; filter: drop-shadow(-1px 1.2px 1px rgb(0 0 0 / 0.28)); }
+[data-enfeite='orelha'] .enfeite::before {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 19px; height: 19px;
+  clip-path: polygon(0 0, 100% 100%, 0 100%);
+  border-bottom-left-radius: 2px;
+  background:
+    linear-gradient(225deg, color-mix(in oklab, var(--pasta) 78%, black) 0 46%, color-mix(in oklab, var(--pasta) 70%, white) 52%, color-mix(in oklab, var(--pasta) 82%, white) 100%);
+  background-image: linear-gradient(45deg, color-mix(in oklab, var(--pasta) 88%, white), color-mix(in oklab, var(--pasta) 62%, white) 70%, color-mix(in oklab, var(--pasta) 90%, black) 100%), var(--paper-grain);
+  background-blend-mode: normal, multiply;
+}
+
+
+/* ===== AS ESCOLHIDAS DA PRIMEIRA LEVA (com os mesmos números) ===== */
+.enfeite.sobre { z-index: 3; }
+.enfeite.corta { overflow: hidden; }
+
+/* 2 · Duas faixas */
+[data-enfeite='faixas'] { --frente-topo: 7px; }
+[data-enfeite='faixas'] .enfeite::before,
+[data-enfeite='faixas'] .enfeite::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  background: var(--tom);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  opacity: 0.9;
+}
+[data-enfeite='faixas'] .enfeite::before { top: 5px; height: 5px; }
+[data-enfeite='faixas'] .enfeite::after { top: 13px; height: 2px; }
+
+/* 3 · Faixa no canto */
+[data-enfeite='canto'] { --nome-dir: 12px; }
+[data-enfeite='canto'] .enfeite::before {
+  content: '';
+  position: absolute;
+  top: 8px; right: -19px;
+  width: 64px; height: 9px;
+  rotate: 40deg;
+  background: var(--fio);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  box-shadow: 0 1px 1.5px rgb(0 0 0 / 0.3);
+}
+
+/* 6 · Cantoneiras (o metal que combina com o papel: bronze, cobre, ouro rosé, prata, ferro; dourado na grafite) */
+[data-enfeite='cantoneiras'] { --frente-esq: 17px; --frente-pe: 2px; }
+[data-enfeite='cantoneiras'] .enfeite::before,
+[data-enfeite='cantoneiras'] .enfeite::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  width: 21px; height: 21px;
+  background:
+    radial-gradient(circle at var(--rx) 14px, var(--rebite) 0 1.5px, rgb(255 255 255 / 0.75) 1.6px 2.1px, transparent 2.2px),
+    var(--metal);
+  filter: drop-shadow(0 -0.5px 0.5px rgb(0 0 0 / 0.35));
+}
+[data-enfeite='cantoneiras'] .enfeite::before { --rx: 6.5px; left: 0; clip-path: polygon(0 0, 100% 100%, 0 100%); border-bottom-left-radius: 6px; }
+[data-enfeite='cantoneiras'] .enfeite::after { --rx: 14.5px; right: 0; clip-path: polygon(100% 0, 100% 100%, 0 100%); border-bottom-right-radius: 6px; }
+
+/* 8 · Xadrez */
+[data-enfeite='xadrez'] .enfeite::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  --q: color-mix(in oklab, var(--tom) 30%, transparent);
+  background:
+    linear-gradient(90deg, var(--q) 50%, transparent 50%) 0 0 / 12px 12px,
+    linear-gradient(0deg, var(--q) 50%, transparent 50%) 0 0 / 12px 12px;
+}
+
+/* 13 · Estrelinhas */
+[data-enfeite='estrelas'] { --nome-dir: 18px; }
+[data-enfeite='estrelas'] svg { top: 5px; right: 4px; width: 30px; height: 40px; }
+
+/* 16 · Bolinhas */
+[data-enfeite='bolinhas'] .enfeite::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  --b: color-mix(in oklab, var(--tom) 42%, transparent);
+  background:
+    radial-gradient(circle, var(--b) 0 2.2px, transparent 2.5px) 0 0 / 14px 14px,
+    radial-gradient(circle, var(--b) 0 2.2px, transparent 2.5px) 7px 7px / 14px 14px;
+}
+
+/* ===== A matriz: cada escolhida nas onze cores, lado a lado (rola para o lado) ===== */
+/* o 2 com a faixa do papel, mais funda e mais viva */
+[data-enfeite='faixas'] .enfeite::before,
+[data-enfeite='faixas'] .enfeite::after { background-color: var(--faixa); opacity: 1; }
+
+/* ===== Os adesivos: os de vinil do site (os das cartolinas, core/decor-art.ts), colados na frente ===== */
+.adesivos { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.adesivos svg { position: absolute; overflow: visible; }
+
+.matriz { margin: 0; padding: 0; list-style: none; display: grid; gap: 22px; }
+.matriz-linha { display: grid; grid-template-columns: 150px 1fr; align-items: center; gap: 18px; }
+.matriz-linha .legenda { text-align: left; max-width: none; }
+.matriz-trilho { display: flex; gap: 16px; overflow-x: auto; padding: 22px 6px 14px; scrollbar-color: var(--wall-ink-2) transparent; }
+.matriz-trilho .pasta-caixa { flex: none; width: 144px; }
+@media (max-width: 559px) {
+  .matriz-linha { grid-template-columns: 1fr; gap: 4px; }
+}
+
+/* a fala do fim */
+.fim {
+  margin-top: 64px;
+  padding: 18px 22px 20px;
+  max-width: 720px;
+  background: #f6f1e7;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  box-shadow: var(--shadow-card);
+  rotate: -0.5deg;
+}
+.fim h2 { margin: 0 0 8px; font-size: 1.35rem; }
+.fim p { margin: 0 0 8px; font: 400 1.06rem/1.45 var(--f-mao); }
+.fim p:last-child { margin-bottom: 0; }
+
+@media (max-width: 559px) {
+  .pagina { padding: 22px 14px 72px; }
+  .cores-barra { margin: 20px -14px 0; padding: 10px 14px; }
+  .amostras { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 34px 14px; }
+  .cores { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .amostra .pasta-caixa, .cores .amostra .pasta-caixa { width: min(160px, 100%); }
+  .parede { --pastas-vao: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+</style>
+</head>
+<body>
+<main class="pagina">
+  <h1>Pastas com a sua cara</h1>
+  <p class="como">
+    Quarta leva. As <b>escolhidas</b> no alto, com os ajustes: as linhas do 22, do 25 e do 26 mais quietas, as
+    faixas do 2 na cor da pasta (mais funda e mais viva), as estrelas do 13 todas de uma cor e as cantoneiras do
+    6 num metal para cada papel (o dourado fica na grafite). Embaixo, cada escolhida nas onze cores e as pastas
+    com <b>adesivos</b>: os mesmos de vinil das cartolinas do site.
+  </p>
+
+  <div class="cores-barra" role="group" aria-label="Cor das amostras">
+    <span class="rot">Cor das amostras</span>
+    <span id="chips" style="display:contents"></span>
+  </div>
+
+  <h2>As escolhidas</h2>
+  <p class="h2-nota">Passe o mouse para a pasta abrir.</p>
+  <ul class="amostras" id="escolhidas"></ul>
+
+  <h2>Com adesivos</h2>
+  <p class="h2-nota">Os adesivos de vinil das cartolinas (coração, carinha, arco-íris, raio, nuvem, gatinho) e os gamer (controle, cogumelo, fantasminha, estrela, dado, cartucho), com a borda branca do corte e o brilho. Na tela de customizar, a pessoa escolheria quais colar (um a três).</p>
+  <ul class="amostras" id="adesivos"></ul>
+
+  <h2>Cada escolhida nas onze cores</h2>
+  <p class="h2-nota">Para ver o contraste dos detalhes em todo papel. Cada fileira rola para o lado.</p>
+  <ul class="matriz" id="matriz"></ul>
+
+  <h2>As cores</h2>
+  <p class="h2-nota">Papel de pasta de arquivo, sem neon: a frente e o fundo um tom mais escuro, como a manilha de hoje. A grafite escreve em branco.</p>
+  <ul class="cores" id="cores"></ul>
+
+  <h2>Na parede</h2>
+  <p class="h2-nota">Oito por fileira, como no mural de 1440px: veja se ainda dá para achar as pastas pelo nome.</p>
+  <p class="parede-rot">Cada pasta com a sua</p>
+  <ul class="parede" id="parede-mista"></ul>
+  <p class="parede-rot">Manilha, enfeites diferentes</p>
+  <ul class="parede" id="parede-tom"></ul>
+
+  <section class="fim">
+    <h2>Depois de escolher</h2>
+    <p>Com a lista fechada eu escrevo o plano e faço a tela de customizar (no botão direito da pasta, “Customizar”), no jeito da folha de editar a anotação: a pasta ao vivo do lado, o nome, a cor, o enfeite e a vista das notas de dentro.</p>
+  </section>
+</main>
+
+<script>
+const CORES = [
+  ['manilha', 'Manilha'], ['kraft', 'Kraft'], ['vermelho', 'Vermelho'], ['laranja', 'Laranja'],
+  ['amarelo', 'Amarelo'], ['verde', 'Verde'], ['azul', 'Azul'], ['lilas', 'Lilás'],
+  ['rosa', 'Rosa'], ['cinza', 'Cinza'], ['grafite', 'Grafite'],
+];
+
+const ESTOQUE = ['#ff79a8', '#ffda42', '#7be986', '#ffa358', '#70cdff', '#c4a5fb', '#f6f1e7', '#ef7d73', '#f6e7a5', '#b3ddf5', '#c0e0c1'];
+
+const ESCOLHIDAS = [
+  { n: 1, id: 'costura', t: 'Pontilhado', d: 'costura em volta da frente e na aba, como couro', cor: 'kraft', nome: 'Viagem pro Japão', qtd: '8 notas', espia: 3 },
+  { n: 2, id: 'faixas', t: 'Duas faixas', d: 'duas listras na cor da pasta, mais funda e mais viva', cor: 'azul', nome: 'Trabalho', qtd: '23 notas · 4 pastas', espia: 3 },
+  { n: 3, id: 'canto', t: 'Faixa no canto', d: 'a fita dobrada no canto de cima', cor: 'manilha', nome: 'Leituras de 2026', qtd: '6 notas', espia: 2 },
+  { n: 6, id: 'cantoneiras', t: 'Cantoneiras', d: 'os cantos de metal, um metal para cada papel', cor: 'grafite', nome: 'Projetos', qtd: '9 notas · 1 pasta', espia: 3 },
+  { n: 8, id: 'xadrez', t: 'Xadrez', d: 'vichy impresso na frente, debaixo do nome', cor: 'verde', nome: 'Jardim', qtd: '7 notas', espia: 2 },
+  { n: 9, id: 'etiqueta', t: 'Etiqueta', d: 'o nome numa etiqueta branca colada, com o fio de cor', cor: 'lilas', nome: 'Kanji', qtd: '120 notas · 3 pastas', espia: 3 },
+  { n: 13, id: 'estrelas', t: 'Estrelinhas', d: 'três estrelas laminadas da mesma cor, a que combina com o papel', cor: 'azul', nome: 'Jogos zerados', qtd: '27 notas · 2 pastas', espia: 3 },
+  { n: 16, id: 'bolinhas', t: 'Bolinhas', d: 'poá impresso na frente, do próprio tom', cor: 'lilas', nome: 'Música', qtd: '15 notas', espia: 2 },
+  { n: 19, id: 'lombada', t: 'Lombada de pano', d: 'a beirada encapada de pano, como caderno de capa dura', cor: 'verde', nome: 'Receitas', qtd: '31 notas', espia: 3 },
+  { n: 21, id: 'pesponto', t: 'Pesponto', d: 'a costura dupla de linha de outra cor, que muda com o papel', cor: 'kraft', nome: 'Contas da casa', qtd: '14 notas', espia: 2 },
+  { n: 22, id: 'gravado', t: 'Filete gravado', d: 'a moldura dupla gravada no papel, como capa de livro antigo', cor: 'vermelho', nome: 'Livros', qtd: '6 notas', espia: 2 },
+  { n: 25, id: 'meia-lua', t: 'Meia-lua', d: 'o recorte de puxar com o dedo, com a costura em volta', cor: 'manilha', nome: 'Ideias soltas', qtd: '52 notas', espia: 3 },
+  { n: 26, id: 'picotada', t: 'Borda picotada', d: 'a boca cortada com a tesoura de picotar, costurada embaixo', cor: 'amarelo', nome: 'Treinos', qtd: '18 notas', espia: 3 },
+  { n: 27, id: 'orelha', t: 'Canto dobrado', d: 'a ponta de cima dobrada, mostrando o avesso do papel', cor: 'rosa', nome: 'Presentes', qtd: '5 notas', espia: 3 },
+];
+
+// ===== desenhos =====
+const f1 = (v) => (Math.round(v * 10) / 10).toString();
+function estrelaPath(cx, cy, R, ri, rot) {
+  let d = '';
+  for (let i = 0; i < 10; i++) {
+    const a = ((rot - 90 + i * 36) * Math.PI) / 180, rr = i % 2 ? ri : R;
+    d += `${i ? 'L' : 'M'}${f1(cx + rr * Math.cos(a))} ${f1(cy + rr * Math.sin(a))}`;
+  }
+  return d + 'Z';
+}
+function mix(a, b, t) {
+  const c = (h, i) => parseInt(h.slice(1 + i * 2, 3 + i * 2), 16);
+  return '#' + [0, 1, 2].map((i) => Math.round(c(a, i) + (c(b, i) - c(a, i)) * Math.min(1, Math.max(0, t))).toString(16).padStart(2, '0')).join('');
+}
+
+// o laminado das estrelinhas do site (core/decor-art.ts, FOIL): [claro, meio, escuro]
+const FOIL = {
+  ouro: ['#fff1a6', '#f2c230', '#9c6a08'],
+  prata: ['#ffffff', '#c9cfd6', '#747d88'],
+  vermelho: ['#ffb0b0', '#e8323f', '#8e1119'],
+  azul: ['#b3dcff', '#2f7de0', '#123f86'],
+  verde: ['#b5f3bd', '#2fae4e', '#115f27'],
+};
+// a cor das estrelas que combina com cada papel
+const ESTRELA_DA_COR = {
+  manilha: 'vermelho', kraft: 'ouro', vermelho: 'ouro', laranja: 'azul', amarelo: 'azul', verde: 'ouro',
+  azul: 'ouro', lilas: 'prata', rosa: 'prata', cinza: 'vermelho', grafite: 'ouro',
+};
+
+let uidN = 0;
+// as estrelinhas de professora do site: cada ponta com duas facetas, uma na luz e outra na sombra
+function estrelas(cor) {
+  const [hi, mid, lo] = FOIL[ESTRELA_DA_COR[cor]];
+  const uid = `est${++uidN}`;
+  const luz = (-135 * Math.PI) / 180;
+  let sombra = '', corpo = '';
+  for (const [x, y, R, rot, brilho] of [[20, 9.5, 8.2, 12, true], [8.5, 18, 5.8, -18, false], [21, 28, 6.4, 30, true]]) {
+    const at = (deg, rr) => [x + Math.cos((deg * Math.PI) / 180) * rr, y + Math.sin((deg * Math.PI) / 180) * rr];
+    const ri = R * 0.46;
+    const contorno = estrelaPath(x, y, R, ri, rot);
+    let facetas = '';
+    for (let j = 0; j < 5; j++) {
+      const ponta = rot - 90 + j * 72;
+      const T = at(ponta, R);
+      for (const [lado, P] of [[-1, at(ponta - 36, ri)], [1, at(ponta + 36, ri)]]) {
+        const face = ((ponta + lado * 54) * Math.PI) / 180;
+        const lit = (Math.cos(face - luz) + 1) / 2;
+        const col = lit > 0.5 ? mix(mid, hi, (lit - 0.5) * 2) : mix(lo, mid, lit * 2);
+        facetas += `<path d='M${f1(x)} ${f1(y)}L${f1(P[0])} ${f1(P[1])}L${f1(T[0])} ${f1(T[1])}Z' fill='${col}'/>`;
+      }
+    }
+    sombra += `<path d='${contorno}' transform='translate(0.6 1.1)'/>`;
+    corpo += `<path d='${contorno}' fill='${mid}' stroke='${mid}' stroke-width='1' stroke-linejoin='round'/>` + facetas +
+      `<path d='${contorno}' fill='url(#${uid}-folha)' stroke='${lo}' stroke-opacity='.5' stroke-width='.35' stroke-linejoin='round'/>`;
+    if (brilho) {
+      const [gx, gy] = at(rot - 90 - 72, R * 0.62), g = R * 0.28;
+      corpo += `<path d='M${f1(gx)} ${f1(gy - g)}Q${f1(gx)} ${f1(gy)} ${f1(gx + g)} ${f1(gy)}Q${f1(gx)} ${f1(gy)} ${f1(gx)} ${f1(gy + g)}Q${f1(gx)} ${f1(gy)} ${f1(gx - g)} ${f1(gy)}Q${f1(gx)} ${f1(gy)} ${f1(gx)} ${f1(gy - g)}Z' fill='#fff' fill-opacity='.9'/>`;
+    }
+  }
+  return `<svg viewBox="0 0 30 40" aria-hidden="true">
+    <defs><linearGradient id='${uid}-folha' x1='0' y1='0' x2='1' y2='1'><stop offset='.2' stop-color='#fff' stop-opacity='0'/><stop offset='.42' stop-color='#fff' stop-opacity='.28'/><stop offset='.55' stop-color='#fff' stop-opacity='0'/></linearGradient>
+    <filter id='${uid}-sombra' x='-30%' y='-30%' width='160%' height='160%'><feGaussianBlur stdDeviation='.7'/></filter></defs>
+    <g fill='#000' opacity='.35' filter='url(#${uid}-sombra)'>${sombra}</g>${corpo}</svg>`;
+}
+
+// os adesivos de vinil do site (core/decor-art.ts, PUFFY e GAMER), num quadro de 40×40: a silhueta e o desenho
+const ADESIVO = {
+  coracao: { sil: `<path d='M20 34C12 27.4 6 22.4 6 15.6C6 11 9.4 8 13 8C16 8 18.6 10 20 13C21.4 10 24 8 27 8C30.6 8 34 11 34 15.6C34 22.4 28 27.4 20 34Z'/>`, art: `<path d='M20 34C12 27.4 6 22.4 6 15.6C6 11 9.4 8 13 8C16 8 18.6 10 20 13C21.4 10 24 8 27 8C30.6 8 34 11 34 15.6C34 22.4 28 27.4 20 34Z' fill='#ff5c7a'/><path d='M20 31C13.5 25.6 9 21.6 9 16.2' fill='none' stroke='#d93a5a' stroke-width='1.2' stroke-linecap='round' opacity='.5'/>` },
+  carinha: { sil: `<circle cx='20' cy='20' r='14'/>`, art: `<circle cx='20' cy='20' r='14' fill='#ffd23f'/><ellipse cx='15.2' cy='17' rx='1.6' ry='2.4' fill='#4a3410'/><ellipse cx='24.8' cy='17' rx='1.6' ry='2.4' fill='#4a3410'/><path d='M13.4 22.6Q20 29.6 26.6 22.6' fill='none' stroke='#4a3410' stroke-width='1.8' stroke-linecap='round'/><circle cx='11.6' cy='22.4' r='2.1' fill='#ff8a5c' fill-opacity='.55'/><circle cx='28.4' cy='22.4' r='2.1' fill='#ff8a5c' fill-opacity='.55'/>` },
+  arcoiris: { sil: `<path d='M5 29A15 15 0 0 1 35 29' fill='none' stroke-width='13'/><circle cx='7' cy='30' r='5.4'/><circle cx='33' cy='30' r='5.4'/>`, art: `<g fill='none' stroke-width='2.7'><path d='M5 29A15 15 0 0 1 35 29' stroke='#ff5d5d'/><path d='M7.6 29A12.4 12.4 0 0 1 32.4 29' stroke='#ffa53d'/><path d='M10.2 29A9.8 9.8 0 0 1 29.8 29' stroke='#ffd93d'/><path d='M12.8 29A7.2 7.2 0 0 1 27.2 29' stroke='#5ccf7a'/><path d='M15.4 29A4.6 4.6 0 0 1 24.6 29' stroke='#4d96ff'/></g><g fill='#fff'><circle cx='5' cy='31' r='3.4'/><circle cx='8.6' cy='29.4' r='3.8'/><circle cx='10.6' cy='32' r='2.8'/><circle cx='35' cy='31' r='3.4'/><circle cx='31.4' cy='29.4' r='3.8'/><circle cx='29.4' cy='32' r='2.8'/></g>` },
+  raio: { sil: `<path d='M23.5 3.5L10.5 22.4H19L14.6 36.5L29.5 15.8H21.2Z' stroke-linejoin='round'/>`, art: `<path d='M23.5 3.5L10.5 22.4H19L14.6 36.5L29.5 15.8H21.2Z' fill='#ffcf2e' stroke='#e79c00' stroke-width='1' stroke-linejoin='round'/>` },
+  nuvem: { sil: `<path d='M10.4 29C5.6 29 4 22.2 9.2 20.8C8.8 15 15.6 12.8 19 16.8C21.2 11.6 30.4 11.6 31.6 18.4C37.2 18.6 38.6 28 32.8 29Z'/>`, art: `<path d='M10.4 29C5.6 29 4 22.2 9.2 20.8C8.8 15 15.6 12.8 19 16.8C21.2 11.6 30.4 11.6 31.6 18.4C37.2 18.6 38.6 28 32.8 29Z' fill='#bfe3ff'/><circle cx='17' cy='23' r='1.2' fill='#3b4a66'/><circle cx='25' cy='23' r='1.2' fill='#3b4a66'/><path d='M19.4 25.2q1.6 1.4 3.2 0' fill='none' stroke='#3b4a66' stroke-width='1' stroke-linecap='round'/><circle cx='14.2' cy='25.6' r='1.6' fill='#ff8fb1' fill-opacity='.6'/><circle cx='27.8' cy='25.6' r='1.6' fill='#ff8fb1' fill-opacity='.6'/>` },
+  gatinho: { sil: `<path d='M8 13L9.5 4.5Q10 3 11.3 4L17 9Q20 8.3 23 9L28.7 4Q30 3 30.5 4.5L32 13Q35 18 34 24Q32 34 20 34.5Q8 34 6 24Q5 18 8 13Z'/>`, art: `<path d='M8 13L9.5 4.5Q10 3 11.3 4L17 9Q20 8.3 23 9L28.7 4Q30 3 30.5 4.5L32 13Q35 18 34 24Q32 34 20 34.5Q8 34 6 24Q5 18 8 13Z' fill='#ffb067'/><path d='M11 7.6L12.2 12.4L15.2 9.8ZM29 7.6L27.8 12.4L24.8 9.8Z' fill='#ff8a8a'/><path d='M13 20q2-2.2 4 0M23 20q2-2.2 4 0' fill='none' stroke='#4a2c14' stroke-width='1.5' stroke-linecap='round'/><path d='M18.6 23.4h2.8l-1.4 1.4z' fill='#4a2c14'/><path d='M20 24.8q-1.2 1.6-2.8.8M20 24.8q1.2 1.6 2.8.8' fill='none' stroke='#4a2c14' stroke-width='1' stroke-linecap='round'/>` },
+  controle: { sil: `<path d='M9 13H31C36 13 38.5 18 38.5 23.5C38.5 29 36 31.5 33 31.5C30.5 31.5 29 29.5 27.5 27.5H12.5C11 29.5 9.5 31.5 7 31.5C4 31.5 1.5 29 1.5 23.5C1.5 18 4 13 9 13Z'/>`, art: `<path d='M9 13H31C36 13 38.5 18 38.5 23.5C38.5 29 36 31.5 33 31.5C30.5 31.5 29 29.5 27.5 27.5H12.5C11 29.5 9.5 31.5 7 31.5C4 31.5 1.5 29 1.5 23.5C1.5 18 4 13 9 13Z' fill='#4a4f5c'/><path d='M8.2 17.6h3.6v2.6h2.6v3.6h-2.6v2.6H8.2v-2.6H5.6v-3.6h2.6Z' fill='#1f2229'/><circle cx='28.5' cy='18.6' r='1.8' fill='#ff5c5c'/><circle cx='32.4' cy='22' r='1.8' fill='#ffd23f'/><circle cx='28.5' cy='25.4' r='1.8' fill='#5ee07a'/><circle cx='24.6' cy='22' r='1.8' fill='#4dc3ff'/><path d='M17 20.6h2.4M21 20.6h2.4' stroke='#1f2229' stroke-width='1.2' stroke-linecap='round'/>` },
+  cogumelo: { sil: `<path d='M5 22C5 12 12 6 20 6C28 6 35 12 35 22C33 23 30 23.4 28 23.4C28.4 27.4 27.8 31 26 34H14C12.2 31 11.6 27.4 12 23.4C10 23.4 7 23 5 22Z'/>`, art: `<path d='M12 22.5C11.5 27 12 31 14 34H26C28 31 28.5 27 28 22.5Z' fill='#fbe9c8'/><path d='M5 22C5 12 12 6 20 6C28 6 35 12 35 22C30 24 10 24 5 22Z' fill='#3ec45a'/><circle cx='20' cy='11.4' r='3.6' fill='#fff'/><circle cx='10.6' cy='17.2' r='2.6' fill='#fff'/><circle cx='29.4' cy='17.2' r='2.6' fill='#fff'/><ellipse cx='17' cy='27.6' rx='1.2' ry='2.2' fill='#2b2b2b'/><ellipse cx='23' cy='27.6' rx='1.2' ry='2.2' fill='#2b2b2b'/>` },
+  fantasma: { sil: `<path d='M8 34V18C8 11 13.5 6 20 6C26.5 6 32 11 32 18V34L28 30L24 34L20 30L16 34L12 30Z' stroke-linejoin='round'/>`, art: `<path d='M8 34V18C8 11 13.5 6 20 6C26.5 6 32 11 32 18V34L28 30L24 34L20 30L16 34L12 30Z' fill='#ff4d4d'/><ellipse cx='15.4' cy='18' rx='3' ry='3.6' fill='#fff'/><ellipse cx='24.6' cy='18' rx='3' ry='3.6' fill='#fff'/><circle cx='16.6' cy='19' r='1.6' fill='#2d58b8'/><circle cx='25.8' cy='19' r='1.6' fill='#2d58b8'/>` },
+  estrela: { sil: `<path d='${estrelaPath(20, 21, 17, 8, 0)}' stroke-linejoin='round'/>`, art: `<path d='${estrelaPath(20, 21, 17, 8, 0)}' fill='#ffd23f' stroke='#e8a600' stroke-width='1' stroke-linejoin='round'/><ellipse cx='17' cy='20' rx='1.3' ry='2.6' fill='#2b2b2b'/><ellipse cx='23' cy='20' rx='1.3' ry='2.6' fill='#2b2b2b'/>` },
+  dado: { sil: `<path d='M20 3.5L34.5 11.8V28.2L20 36.5L5.5 28.2V11.8Z' stroke-linejoin='round'/>`, art: `<path d='M20 3.5L34.5 11.8V28.2L20 36.5L5.5 28.2V11.8Z' fill='#7a5cff'/><path d='M20 10.5L29 26H11Z' fill='#9d88ff'/><path d='M20 3.5V10.5M34.5 11.8L29 26M5.5 11.8L11 26M20 36.5L29 26M20 36.5L11 26M34.5 28.2L29 26M5.5 28.2L11 26M5.5 11.8L20 10.5L34.5 11.8' stroke='#5a3fd6' stroke-width='.9' fill='none'/><text x='20' y='23.4' text-anchor='middle' fill='#fff' style='font:800 7px var(--f-label, sans-serif)'>20</text>` },
+  cartucho: { sil: `<path d='M9 5H31V11H33V35H7V11H9Z' stroke-linejoin='round'/>`, art: `<path d='M9 5H31V11H33V35H7V11H9Z' fill='#9aa0a8'/><path d='M12 5.5V9.5M15 5.5V9.5M18 5.5V9.5M21 5.5V9.5M24 5.5V9.5M27 5.5V9.5' stroke='#747a83' stroke-width='1'/><rect x='10.5' y='14' width='19' height='15' rx='1.4' fill='#ff5c8a'/><path d='M20 26C16.8 23.4 14.4 21.4 14.4 19C14.4 17.4 15.6 16.4 16.8 16.4C18 16.4 19.2 17.2 20 18.4C20.8 17.2 22 16.4 23.2 16.4C24.4 16.4 25.6 17.4 25.6 19C25.6 21.4 23.2 23.4 20 26Z' fill='#fff'/>` },
+};
+
+// um adesivo: a sombra, a borda branca do corte, o desenho e o brilho do vinil (como puffyStickers)
+function adesivo({ a, tam, top, right, bottom, rot }) {
+  const s = ADESIVO[a];
+  const onde = [top !== undefined ? `top:${top}px` : '', bottom !== undefined ? `bottom:${bottom}px` : '', `right:${right}px`].filter(Boolean).join(';');
+  return `<svg viewBox="0 0 40 40" style="${onde};width:${tam}px;height:${tam}px;rotate:${rot}deg" aria-hidden="true">
+    <g transform="translate(0.7 1.4)"><g fill="#000" stroke="#000" stroke-width="5" stroke-linejoin="round" opacity=".22">${s.sil}</g></g>
+    <g fill="#fff" stroke="#fff" stroke-width="5" stroke-linejoin="round">${s.sil}</g>${s.art}
+    <ellipse cx="14" cy="12" rx="5" ry="2.6" transform="rotate(-30 14 12)" fill="#fff" fill-opacity=".45"/></svg>`;
+}
+
+const COM_ADESIVOS = [
+  { cor: 'rosa', nome: 'Presentes', qtd: '5 notas', espia: 3, ad: [{ a: 'coracao', tam: 30, top: -9, right: 8, rot: -12 }] },
+  { cor: 'amarelo', nome: 'Ideias soltas', qtd: '52 notas', espia: 3, ad: [{ a: 'carinha', tam: 28, top: 2, right: 7, rot: 8 }, { a: 'raio', tam: 22, bottom: 5, right: 6, rot: 14 }] },
+  { cor: 'laranja', nome: 'Gatos', qtd: '9 notas', espia: 2, ad: [{ a: 'gatinho', tam: 32, top: -10, right: 9, rot: -6 }] },
+  { cor: 'azul', nome: 'Viagens', qtd: '17 notas · 3 pastas', espia: 3, ad: [{ a: 'arcoiris', tam: 34, top: -6, right: 6, rot: 7 }] },
+  { cor: 'lilas', nome: 'Sonhos', qtd: '4 notas', espia: 2, ad: [{ a: 'nuvem', tam: 34, top: 0, right: 4, rot: -8 }] },
+  { cor: 'grafite', nome: 'Jogos zerados', qtd: '27 notas · 2 pastas', espia: 3, ad: [{ a: 'controle', tam: 32, top: -7, right: 18, rot: -10 }, { a: 'cogumelo', tam: 22, top: 8, right: 3, rot: 12 }] },
+  { cor: 'verde', nome: 'Labirintos', qtd: '6 notas', espia: 2, ad: [{ a: 'fantasma', tam: 27, top: 1, right: 10, rot: 8 }] },
+  { cor: 'manilha', nome: 'RPG de mesa', qtd: '21 notas', espia: 3, ad: [{ a: 'dado', tam: 30, top: -6, right: 8, rot: -14 }] },
+  { cor: 'kraft', nome: 'Retrô', qtd: '12 notas', espia: 3, ad: [{ a: 'cartucho', tam: 28, top: 0, right: 10, rot: 10 }] },
+  { cor: 'vermelho', nome: 'Favoritos', qtd: '33 notas', espia: 3, ad: [{ a: 'estrela', tam: 30, top: -5, right: 8, rot: 10 }] },
+  { cor: 'cinza', nome: 'Pendências', qtd: '8 notas', espia: 2, ad: [{ a: 'raio', tam: 24, top: 1, right: 22, rot: -10 }, { a: 'carinha', tam: 22, top: 18, right: 5, rot: 12 }] },
+];
+
+const SVG = {
+  'meia-lua': () => `
+    <svg viewBox="0 0 38 20" aria-hidden="true">
+      <path d="M1.5 0 A17.5 17.5 0 0 0 36.5 0" fill="none" stroke="var(--sutil)" stroke-width="1.4" stroke-dasharray="4 3"/>
+    </svg>`,
+  estrelas: (cor) => estrelas(cor),
+};
+const SOBRE = new Set(['cantoneiras', 'estrelas']);
+const CORTA = new Set(['canto']);
+
+function pasta({ id = '', cor = 'manilha', nome, qtd, espia = 3, ad }, n = 0) {
+  const caixa = document.createElement('div');
+  caixa.className = 'pasta-caixa';
+  caixa.dataset.cor = cor;
+  caixa.dataset.sugerida = cor;
+  if (id) caixa.dataset.enfeite = id;
+  if (ad) caixa.style.setProperty('--nome-dir', '30px');
+  const espias = Array.from({ length: espia }, (_, j) =>
+    `<span class="espia" style="--j:${j};--c:${ESTOQUE[(n * 3 + j * 4) % ESTOQUE.length]}">${['Bolo de cenoura', 'Lista', 'Ideia'][j]}<i></i><i></i></span>`).join('');
+  const classes = ['enfeite', SOBRE.has(id) ? 'sobre' : '', CORTA.has(id) ? 'corta' : ''].filter(Boolean).join(' ');
+  caixa.innerHTML = `
+    <button type="button" class="pasta" aria-label="Pasta ${nome}, ${qtd.replace(' · ', ' e ')}">
+      <span class="fundo" aria-hidden="true"></span>
+      <span class="boca" aria-hidden="true" style="--vistas:${espia}">${espias}</span>
+      <span class="frente">
+        ${id ? `<span class="${classes}" aria-hidden="true">${SVG[id] ? SVG[id](cor) : ''}</span>` : ''}
+        ${ad ? `<span class="adesivos" aria-hidden="true">${ad.map(adesivo).join('')}</span>` : ''}
+        <span class="nome">${nome}</span>
+        <span class="qtd">${qtd}</span>
+      </span>
+    </button>`;
+  return caixa;
+}
+
+// a cor mudou: o que é desenhado com a cor (as estrelas) se refaz
+function pintar(caixa, cor) {
+  caixa.dataset.cor = cor;
+  if (caixa.dataset.enfeite === 'estrelas') caixa.querySelector('.enfeite').innerHTML = estrelas(cor);
+}
+
+const legenda = (e) => {
+  const p = document.createElement('p');
+  p.className = 'legenda';
+  p.innerHTML = e.n !== undefined
+    ? `<span class="n">${e.n}</span><span class="t">${e.t}</span><span class="d">${e.d}</span>`
+    : `<span class="t">${e.nome}</span><span class="d">${e.ad.map((x) => ({ coracao: 'coração', arcoiris: 'arco-íris', fantasma: 'fantasminha' }[x.a] ?? x.a)).join(' e ')}</span>`;
+  return p;
+};
+
+const amostras = (alvo, itens, desvio) => {
+  const ul = document.getElementById(alvo);
+  itens.forEach((e, i) => {
+    const li = document.createElement('li');
+    li.className = 'amostra';
+    li.append(pasta(e, i + desvio), legenda(e));
+    ul.append(li);
+  });
+};
+amostras('escolhidas', ESCOLHIDAS, 7);
+amostras('adesivos', COM_ADESIVOS, 3);
+
+const matriz = document.getElementById('matriz');
+ESCOLHIDAS.forEach((e, i) => {
+  const li = document.createElement('li');
+  li.className = 'matriz-linha';
+  const trilho = document.createElement('div');
+  trilho.className = 'matriz-trilho';
+  CORES.forEach(([cor], j) => trilho.append(pasta({ ...e, cor }, i * 11 + j)));
+  li.append(legenda(e), trilho);
+  matriz.append(li);
+});
+
+const cores = document.getElementById('cores');
+CORES.forEach(([id, nome], i) => {
+  const li = document.createElement('li');
+  li.className = 'amostra';
+  li.append(pasta({ cor: id, nome, qtd: `${4 + i * 3} notas`, espia: 3 }, i + 2));
+  const p = document.createElement('p');
+  p.className = 'legenda';
+  p.innerHTML = `<span class="t">${nome}</span>`;
+  li.append(p);
+  cores.append(li);
+});
+
+const fileira = (id, itens) => {
+  const ul = document.getElementById(id);
+  itens.forEach((e, i) => { const li = document.createElement('li'); li.append(pasta(e, i + 5)); ul.append(li); });
+};
+const por = (ns) => ns.map((n) => ESCOLHIDAS.find((e) => e.n === n));
+fileira('parede-mista', [...por([1, 2, 9, 21, 6]), COM_ADESIVOS[0], ...por([22, 13])]);
+fileira('parede-tom', por([1, 3, 8, 16, 19, 25, 26, 27]).map((e) => ({ ...e, cor: 'manilha' })));
+
+const chips = document.getElementById('chips');
+[['', 'Sugerida'], ...CORES].forEach(([id, nome]) => {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'chip';
+  b.setAttribute('aria-pressed', String(!id));
+  b.dataset.cor = id || 'manilha';
+  b.innerHTML = `<span class="bola${id ? '' : ' sugerida'}" aria-hidden="true"></span>${nome}`;
+  b.addEventListener('click', () => {
+    chips.querySelectorAll('.chip').forEach((c) => c.setAttribute('aria-pressed', String(c === b)));
+    document.querySelectorAll('#escolhidas .pasta-caixa').forEach((caixa) => pintar(caixa, id || caixa.dataset.sugerida));
+  });
+  chips.append(b);
+});
+</script>
+
+<!-- os filtros e gradientes de uso comum -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="tinta-falhada" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="2" seed="7" result="ruido"/>
+      <feColorMatrix in="ruido" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.5 1.45" result="falha"/>
+      <feComposite in="SourceGraphic" in2="falha" operator="in" result="tinta"/>
+      <feTurbulence type="fractalNoise" baseFrequency="0.6" numOctaves="1" seed="3" result="torto"/>
+      <feDisplacementMap in="tinta" in2="torto" scale="1.2"/>
+    </filter>
+    <radialGradient id="grao-botao" cx=".35" cy=".3" r=".8">
+      <stop offset="0" stop-color="rgb(255 255 255 / .28)"/><stop offset="1" stop-color="rgb(0 0 0 / .22)"/>
+    </radialGradient>
+  </defs>
+</svg>
+</body>
+</html>

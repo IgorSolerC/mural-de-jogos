@@ -197,6 +197,11 @@ const KEY_LABEL: Record<string, string> = {
   color: 'cor',
   none: 'sem cor',
   hidden: 'só no Mais',
+  // o visual de uma pasta (PLANO-PASTAS-CUSTOMIZADAS.md)
+  look: 'visual',
+  decor: 'enfeite',
+  stickers: 'adesivos',
+  view: 'vista',
 };
 
 /** Os valores das configurações nas palavras da tela. */
