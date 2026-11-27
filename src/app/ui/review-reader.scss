@@ -856,32 +856,35 @@ app-judge-label {
   display: none;
 }
 
-/* com a folha por cima, a ficha sai do caminho do teclado e do leitor de tela (o tamanho dela fica) */
-.com-lado .par {
+/* com a folha por cima, a ficha sai do caminho do teclado e do leitor de tela (o tamanho dela fica). Só a ficha da
+   própria leitura (`>`): com duas abertas, a folha de uma não esconde a outra (PLANO-LADO-A-LADO.md, D1) */
+.com-lado > .par {
   min-height: min(600px, calc(100dvh - 24px));
 }
 
-.com-lado .par > article {
+.com-lado > .par > article {
   visibility: hidden;
 }
 
+/* a folha ao lado, de 1180px, só com a leitura sozinha: com duas abertas, cada folha cobre a ficha do lado dela, como
+   no celular, com o "Voltar para a ficha" (PLANO-LADO-A-LADO.md, D1) */
 @media (min-width: 1180px) {
   /* lado a lado: a leitura mantém a largura dela e ganha a da folha (e a margem da orelha) */
-  dialog.reader.com-lado {
+  dialog.reader.com-lado:not(.dupla, .ao-lado) {
     max-width: min(1190px, calc(100vw - 112px));
   }
 
-  .com-lado .par > article {
+  .reader.com-lado:not(.dupla, .ao-lado) > .par > article {
     visibility: visible;
   }
 
   /* lado a lado, nada de altura mínima: a altura é a da maior das duas (os 600px de cima são do celular, em que a
      folha cobre a ficha) — sem isso, a anotação curta e os Detalhes esticavam juntos até 600px */
-  .com-lado .par {
+  .reader.com-lado:not(.dupla, .ao-lado) > .par {
     min-height: 0;
   }
 
-  .lado {
+  .reader:not(.dupla, .ao-lado) .lado {
     position: relative;
     inset: auto;
     z-index: 0;
@@ -891,7 +894,7 @@ app-judge-label {
   }
 
   /* a ficha fica por cima da folha e faz sombra nela */
-  .lado::before {
+  .reader:not(.dupla, .ao-lado) .lado::before {
     content: '';
     position: absolute;
     inset: 0 auto 0 0;
@@ -904,23 +907,23 @@ app-judge-label {
   /* lado a lado, a faixa da folha é a mesma da ficha, na mesma altura: a emenda das duas não tem degrau.
      A faixa de uma ficha comprida encolhe 4px (ela é um item flexível da ficha); com a folha ao lado,
      nenhuma das duas encolhe. Fechada, a leitura continua exatamente como era. */
-  .lado .head {
+  .reader:not(.dupla, .ao-lado) .lado .head {
     justify-content: flex-end;
     align-items: flex-start;
     min-height: var(--faixa-h, 46px);
     padding-left: 14px;
   }
 
-  .lado .head,
-  .com-lado .par > article > .head {
+  .reader:not(.dupla, .ao-lado) .lado .head,
+  .reader.com-lado:not(.dupla, .ao-lado) > .par > article > .head {
     flex-shrink: 0;
   }
 
-  .volta-ficha {
+  .reader:not(.dupla, .ao-lado) .volta-ficha {
     display: none;
   }
 
-  .fecha-lado {
+  .reader:not(.dupla, .ao-lado) .fecha-lado {
     display: grid;
   }
 }
@@ -1385,12 +1388,12 @@ dialog.reader.lendo {
 
 /* com a folha ao lado (os Detalhes, os comentários), a leitura ganha a largura dela */
 @media (min-width: 1180px) {
-  dialog.reader.lendo.com-lado:not(.dupla) {
+  dialog.reader.lendo.com-lado:not(.dupla, .ao-lado) {
     width: min(calc(100vw - 2 * 122px), calc(var(--medida) + 2 * var(--margem) + var(--lado-w)));
   }
 
-  /* duas anotações dividem a largura (cada trilho deita no pé da sua) */
-  dialog.reader.lendo.dupla {
+  /* duas abertas dividem a largura (cada trilho deita no pé da sua), também com uma delas na cartolina */
+  dialog.reader.dupla {
     width: min(calc(100vw - 112px), 1548px);
   }
 }
@@ -1563,7 +1566,7 @@ dialog.reader.lendo.ao-lado {
    A leitura fica guardada (escondida, com o lugar onde se lia); no escuro do véu, a ficha do mural
    (a mesma, com o papel, a estampa e o estrago), do maior tamanho que cabe inteira (o zoom vem medido),
    e em cima dela, encostados na beirada da direita, os mesmos três botões, a giz. */
-dialog.reader.so-a-cartolina {
+dialog.reader.so-a-cartolina:not(.dupla, .ao-lado) {
   width: 100vw;
   max-width: 100vw;
   height: 100dvh;
@@ -1573,7 +1576,7 @@ dialog.reader.so-a-cartolina {
   overscroll-behavior: contain;
 }
 
-.so-a-cartolina .par {
+.so-a-cartolina > .par {
   display: none;
 }
 
@@ -1582,6 +1585,19 @@ dialog.reader.so-a-cartolina {
   place-items: center;
   min-height: 100%;
   padding: 24px 32px;
+}
+
+/* com duas abertas, a cartolina de uma fica no lado dela (PLANO-LADO-A-LADO.md, D1): o lugar da ficha, da altura da
+   leitura, e a ficha do mural do maior tamanho que cabe nele (o zoom é medido nele, ver fitCardNow) */
+.dupla > .na-parede,
+.ao-lado > .na-parede {
+  flex: 1 1 0;
+  min-width: 0;
+  height: calc(100dvh - 48px);
+  min-height: 0;
+  padding: 16px;
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .em-pe {

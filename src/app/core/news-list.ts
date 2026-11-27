@@ -27,6 +27,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-26-lado-a-lado-cada-lado',
+    version: '1.58.0',
+    kind: 'funcionalidade',
+    date: '2026-11-26',
+    title: 'Lado a lado: cada lado por si',
+    items: [
+      'Com duas anotações abertas lado a lado, cada uma é um lugar: os Detalhes, os Comentários e o Citar de uma abrem por cima dela (com o "Voltar para a ficha"), e Só a cartolina mostra a ficha do mural no lado dela; a outra continua à vista, para ler e mexer. O X de cada uma fecha só ela: a que fica passa a ser a leitura de sempre, no mesmo trecho, com os Detalhes, os Comentários e o Ao lado de volta. O Esc e o toque fora fecham as duas.',
+    ],
+  },
+  {
     id: '2026-11-26-conjugacoes',
     version: '1.57.0',
     kind: 'funcionalidade',

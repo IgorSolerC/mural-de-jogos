@@ -12,9 +12,8 @@ import { ReviewReader } from './review-reader';
 import { Toasts } from './toast';
 
 /**
- * Duas anotações lado a lado (PLANO-DUAS-NOTAS.md): a segunda é a mesma leitura, no modo ao lado, dentro da
- * primeira. Editar, fechar, só a cartolina ou a tela cheia de uma fecha a outra; finalizar a segunda (ela sai
- * do mural) fecha só ela.
+ * Duas anotações lado a lado (PLANO-DUAS-NOTAS.md, PLANO-LADO-A-LADO.md): a segunda é a mesma leitura, no modo ao
+ * lado, dentro da primeira. Cada uma é um lugar: as folhas, a cartolina e o X de uma ficam nela, e a outra fica.
  */
 
 class MemoryData {
@@ -149,7 +148,7 @@ describe('Duas anotações lado a lado (ReviewReader, PLANO-DUAS-NOTAS.md)', () 
     await both();
     // o X diz o que faz, nas duas
     expect(beside()!.querySelector('.faixa-nome .fecha')!.getAttribute('aria-label')).toBe('Fechar só esta');
-    expect(outer().querySelector(':scope > .par .faixa-nome .fecha')!.getAttribute('title')).toBe('Fechar as duas');
+    expect(outer().querySelector(':scope > .par .faixa-nome .fecha')!.getAttribute('aria-label')).toBe('Fechar só esta');
     await click('.faixa-nome .fecha', beside()!);
     expect(beside()).toBeNull();
     expect(outer().open).toBeTrue();
@@ -178,25 +177,52 @@ describe('Duas anotações lado a lado (ReviewReader, PLANO-DUAS-NOTAS.md)', () 
       account.account.set({ id: 'u1', codigo: 'ABCDEF', nome: 'Eu' });
     });
 
-    it('abrir os comentários na segunda: ela fica sozinha, com a folha aberta', async () => {
+    it('abrir os comentários na segunda: a folha cobre a ficha dela, e a primeira fica à vista (PLANO-LADO-A-LADO.md, D1)', async () => {
       await both();
       (reader as unknown as Outer).ladoB()!.toggleComments(true);
       await settle();
-      expect(beside()).toBeNull();
-      expect(nameOf(outer())).toBe('Cronograma');
-      expect((reader as unknown as Outer).commentsOpen()).toBeTrue();
+      expect(beside()?.open).toBeTrue();
+      expect(nameOf(outer())).toBe('Receita de pão');
+      expect(beside()!.querySelector('#leitura-comentarios-2')).not.toBeNull();
+      expect((reader as unknown as Outer).commentsOpen()).toBeFalse();
+      // a folha cobre a ficha do lado dela (com o "Voltar para a ficha"), e a primeira continua à vista
+      expect(getComputedStyle(beside()!.querySelector('#leitura-comentarios-2')!).position).toBe('absolute');
+      expect(getComputedStyle(outer().querySelector(':scope > .par > article')!).visibility).toBe('visible');
     });
 
-    it('citar um trecho da segunda: ela fica sozinha, com o trecho na folha de comentários', async () => {
+    it('citar um trecho da segunda: o trecho vai para a folha de comentários dela, e a primeira fica', async () => {
       await both();
       const inner = (reader as unknown as Outer).ladoB()!;
       inner.picked.set({ text: 'Linha 3 do texto comprido.', left: 0, top: 0 });
       inner.quoteSelection();
       await settle();
+      expect(beside()?.open).toBeTrue();
+      expect(nameOf(outer())).toBe('Receita de pão');
+      expect((inner as unknown as Outer).commentsOpen()).toBeTrue();
+      expect((inner as unknown as Outer).quote()?.text).toBe('Linha 3 do texto comprido.');
+    });
+
+    it('a primeira fechando com um trecho citado na segunda: ela fica sozinha com a folha e o trecho', async () => {
+      await both();
+      const inner = (reader as unknown as Outer).ladoB()!;
+      inner.picked.set({ text: 'Linha 5 do texto comprido.', left: 0, top: 0 });
+      inner.quoteSelection();
+      await settle();
+      await click(':scope > .par .faixa-nome .fecha', outer());
+      await settle();
       expect(beside()).toBeNull();
       expect(nameOf(outer())).toBe('Cronograma');
       expect((reader as unknown as Outer).commentsOpen()).toBeTrue();
-      expect((reader as unknown as Outer).quote()?.text).toBe('Linha 3 do texto comprido.');
+      expect((reader as unknown as Outer).quote()?.text).toBe('Linha 5 do texto comprido.');
+    });
+
+    it('os comentários abertos na primeira não escondem a segunda', async () => {
+      await both();
+      (reader as unknown as { toggleComments(open?: boolean): void }).toggleComments(true);
+      await settle();
+      expect(beside()?.open).toBeTrue();
+      expect(getComputedStyle(beside()!.querySelector('.par > article')!).visibility).toBe('visible');
+      expect(getComputedStyle(outer().querySelector('#leitura-comentarios')!).position).toBe('absolute');
     });
   });
 
@@ -218,14 +244,53 @@ describe('Duas anotações lado a lado (ReviewReader, PLANO-DUAS-NOTAS.md)', () 
     expect(shown).not.toHaveBeenCalled();
   });
 
-  it('o X da primeira também fecha as duas, e abrir de novo é com uma só', async () => {
+  it('o X da primeira fecha só ela: a segunda fica sozinha, no lugar dela, com o trilho de pé e o Ao lado (PLANO-LADO-A-LADO.md, D2)', async () => {
     await both();
     await click(':scope > .par .faixa-nome .fecha', outer());
+    await settle();
+    expect(outer().open).toBeTrue();
+    expect(beside()).toBeNull();
+    expect(outer().classList).not.toContain('dupla');
+    expect(nameOf(outer())).toBe('Cronograma');
+    expect(document.activeElement?.id).toBe('leitura-titulo');
+    expect(ear()).not.toBeNull();
+    expect(outer().querySelector(':scope > .par .faixa-nome .fecha')!.getAttribute('aria-label')).toBe('Fechar');
+    // e o X dela agora fecha a leitura
+    await click(':scope > .par .faixa-nome .fecha', outer());
+    expect(outer().open).toBeFalse();
+  });
+
+  it('o Esc fecha a leitura inteira, as duas, e abrir de novo é com uma só', async () => {
+    await both();
+    outer().dispatchEvent(new Event('cancel', { cancelable: true }));
+    outer().close();
+    await settle();
     expect(outer().open).toBeFalse();
     reader.open(store.get('nota-c')!);
     await settle();
     expect(beside()).toBeNull();
     expect(outer().classList).not.toContain('dupla');
+  });
+
+  it('a primeira fechando com a segunda na cartolina: ela fica sozinha, na cartolina', async () => {
+    await both();
+    await click('.faixa-nome .ver-cartolina', beside()!);
+    await click(':scope > .par .faixa-nome .fecha', outer());
+    await settle();
+    expect(beside()).toBeNull();
+    expect(outer().classList).toContain('so-a-cartolina');
+    expect(outer().querySelector(':scope > .na-parede app-review-card')?.textContent).toContain('Cronograma');
+  });
+
+  it('a primeira fechando com os Detalhes abertos na segunda: ela fica sozinha, com os Detalhes ao lado', async () => {
+    await both();
+    await click('.etq-trilho[data-trilho="detalhes"]', beside()!);
+    await click(':scope > .par .faixa-nome .fecha', outer());
+    await wait(30);
+    await settle();
+    expect(beside()).toBeNull();
+    expect(nameOf(outer())).toBe('Cronograma');
+    expect(outer().querySelector('#leitura-detalhes')).not.toBeNull();
   });
 
   it('Editar na segunda pede o editor dela (quem usa fecha a leitura)', async () => {
@@ -238,20 +303,33 @@ describe('Duas anotações lado a lado (ReviewReader, PLANO-DUAS-NOTAS.md)', () 
     expect(asked).toEqual(['nota-b']);
   });
 
-  it('os Detalhes na segunda: ela fica sozinha, com os Detalhes abertos, no mesmo trecho (PLANO-LEITURA-UNIFICADA.md, D6)', async () => {
+  it('os Detalhes na segunda cobrem a ficha dela, e a primeira fica (PLANO-LADO-A-LADO.md, D1)', async () => {
+    await both();
+    await click('.etq-trilho[data-trilho="detalhes"]', beside()!);
+    expect(beside()?.open).toBeTrue();
+    expect(nameOf(outer())).toBe('Receita de pão');
+    const sheet = beside()!.querySelector<HTMLElement>('#leitura-detalhes-2')!;
+    expect(sheet).not.toBeNull();
+    expect(getComputedStyle(sheet).position).toBe('absolute');
+    // o caminho de volta escrito, como no celular
+    expect(getComputedStyle(sheet.querySelector('.volta-ficha')!).display).not.toBe('none');
+    await click('.volta-ficha', sheet);
+    expect(beside()!.querySelector('#leitura-detalhes-2')).toBeNull();
+  });
+
+  it('a primeira fechando: a segunda fica no mesmo trecho em que se lia (PLANO-LADO-A-LADO.md, D2)', async () => {
     await both();
     const bodyB = beside()!.querySelector<HTMLElement>('.par > article > .body')!;
     bodyB.scrollTop = 600;
     const top = bodyB.getBoundingClientRect().top;
     const atTop = [...bodyB.querySelectorAll<HTMLElement>('.text .linha')].find((x) => x.textContent?.trim() && x.getBoundingClientRect().bottom > top + 1)!.textContent;
-    await click('.etq-trilho[data-trilho="detalhes"]', beside()!);
+    await click(':scope > .par .faixa-nome .fecha', outer());
     await wait(50);
     fixture.detectChanges();
     await settle();
     expect(beside()).toBeNull();
     expect(outer().classList).not.toContain('dupla');
     expect(nameOf(outer())).toBe('Cronograma');
-    expect(outer().querySelector('#leitura-detalhes')).not.toBeNull();
     const body = outer().querySelector<HTMLElement>('.par > article > .body')!;
     // a mesma linha no alto da folha (na outra largura, a conta das linhas inteiras pode cair uma acima)
     const t = body.getBoundingClientRect().top;
@@ -261,25 +339,59 @@ describe('Duas anotações lado a lado (ReviewReader, PLANO-DUAS-NOTAS.md)', () 
     expect(Math.abs(same.getBoundingClientRect().top - t)).toBeLessThan(2.5 * line);
   });
 
-  it('só a cartolina na segunda: ela fica sozinha, na cartolina', async () => {
+  it('só a cartolina na segunda: a ficha do mural no lado dela, e a primeira fica lendo (PLANO-LADO-A-LADO.md, D1)', async () => {
     await both();
     await click('.faixa-nome .ver-cartolina', beside()!);
+    await wait(30);
+    expect(beside()?.open).toBeTrue();
+    expect(beside()!.classList).toContain('so-a-cartolina');
+    expect(outer().classList).not.toContain('so-a-cartolina');
+    expect(nameOf(outer())).toBe('Receita de pão');
+    const wall = beside()!.querySelector<HTMLElement>(':scope > .na-parede')!;
+    expect(wall.querySelector('app-review-card')?.textContent).toContain('Cronograma');
+    // a ficha cabe no lado dela, não na tela inteira
+    const card = wall.querySelector<HTMLElement>('.cartolina-grande')!;
+    expect(card.getBoundingClientRect().right).toBeLessThanOrEqual(wall.getBoundingClientRect().right + 1);
+    // o X da cartolina dela fecha só ela
+    const x = wall.querySelector<HTMLElement>('.giz-btn.fecha')!;
+    expect(x.getAttribute('aria-label')).toBe('Fechar só esta');
+    await click('.giz-btn.fecha', wall);
     expect(beside()).toBeNull();
-    expect(outer().classList).toContain('so-a-cartolina');
-    expect(outer().querySelector('.cartolina-grande app-review-card')?.textContent).toContain('Cronograma');
+    expect(nameOf(outer())).toBe('Receita de pão');
   });
 
-  it('a primeira mudando de jeito (a cartolina) ou abrindo os Detalhes fecha a segunda', async () => {
+  it('a cartolina da primeira cresce para a tela inteira quando a segunda fecha', async () => {
     await both();
     await click(':scope > .par .faixa-nome .ver-cartolina', outer());
-    expect(beside()).toBeNull();
-    expect(outer().classList).toContain('so-a-cartolina');
-    expect(nameOf(outer())).toBe('Receita de pão');
-    await click('.na-parede .ver-cartolina');
-    reader.openBeside(store.get('nota-b')!);
+    await wait(60);
+    const zoom = () => Number((outer().querySelector<HTMLElement>(':scope > .na-parede .cartolina-grande')!.style.zoom || '1'));
+    const before = zoom();
+    await click('.faixa-nome .fecha', beside()!);
+    await wait(60);
+    fixture.detectChanges();
     await settle();
-    await click(':scope > .par .etq-trilho[data-trilho="detalhes"]', outer());
     expect(beside()).toBeNull();
+    expect(zoom()).toBeGreaterThan(before);
+  });
+
+  it('a primeira mudando de jeito (a cartolina) ou abrindo os Detalhes não fecha a segunda', async () => {
+    await both();
+    await click(':scope > .par .faixa-nome .ver-cartolina', outer());
+    expect(beside()?.open).toBeTrue();
+    expect(outer().classList).toContain('so-a-cartolina');
+    expect(outer().querySelector(':scope > .na-parede app-review-card')?.textContent).toContain('Receita de pão');
+    // o lado da cartolina vem antes do da segunda (o da esquerda primeiro no Tab)
+    const wall = outer().querySelector(':scope > .na-parede')!;
+    expect(wall.compareDocumentPosition(beside()!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // o toque no vazio em volta da cartolina não fecha a leitura
+    wall.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    wall.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await settle();
+    expect(outer().open).toBeTrue();
+    await click(':scope > .na-parede .ver-cartolina', outer());
+    expect(beside()?.open).toBeTrue();
+    await click(':scope > .par .etq-trilho[data-trilho="detalhes"]', outer());
+    expect(beside()?.open).toBeTrue();
     expect(outer().querySelector('#leitura-detalhes')).not.toBeNull();
   });
 

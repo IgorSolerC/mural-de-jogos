@@ -171,18 +171,20 @@ interface QuickNoteAsk {
 }
 
 /**
- * A segunda anotação pediu a leitura inteira (só a cartolina, os Detalhes, os comentários): ela, o caminho dos
- * links por onde chegou, o jeito pedido, o trecho onde se lia e, abrindo os comentários, o que mandou citar.
+ * A segunda anotação como está, para ficar sozinha no lugar da primeira que fechou (PLANO-LADO-A-LADO.md, D2): ela, o
+ * caminho dos links por onde chegou, o jeito, o trecho onde se lia, a folha aberta e o segredo da nota.
  */
-interface AlonePlea {
+interface Handover {
   review: Review;
   trail: readonly TrailStop[];
   view: ReaderView;
   place: ReadingPlace | null;
   comments: boolean;
+  /** O trecho que ela mandou citar, ainda na folha de comentários. */
   quote: string | null;
-  /** Pediu os Detalhes (a folha ao lado precisa do lado direito). */
-  details?: boolean;
+  details: boolean;
+  masked: boolean;
+  revealed: boolean;
 }
 
 @Component({
@@ -248,10 +250,9 @@ interface AlonePlea {
               }
             </div>
             @if (!solta()) {
-              <!-- com duas abertas, o X diz o que faz: o da primeira fecha as duas; o da segunda, só ela (pedido do
-                   dono, 18/nov), e a primeira fica -->
-              @let rotulo = aoLado() ? 'Fechar só esta' : segunda() ? 'Fechar as duas' : 'Fechar';
-              <button type="button" class="icon-btn fecha" (click)="aoLado() ? leave() : close()" [attr.aria-label]="rotulo" [attr.title]="aoLado() || segunda() ? rotulo : null">
+              <!-- com duas abertas, o X de cada uma fecha só ela, e a outra fica sozinha (PLANO-LADO-A-LADO.md, D2) -->
+              @let rotulo = split() ? 'Fechar só esta' : 'Fechar';
+              <button type="button" class="icon-btn fecha" (click)="closeOwn()" [attr.aria-label]="rotulo" [attr.title]="split() ? rotulo : null">
                 <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
               </button>
             }
@@ -458,7 +459,7 @@ interface AlonePlea {
                 <p>{{ (note() ? 'Anotação de ' : 'Resenha de ') + name }}</p>
               }
               @if (!solta()) {
-                <button type="button" class="btn-ink" (click)="close()">Fechar</button>
+                <button type="button" class="btn-ink" (click)="closeOwn()">Fechar</button>
               }
             } @else {
             <!-- o que se faz de vez em quando (fixar, compartilhar, escrever outra vez, lado a lado, apagar)
@@ -595,6 +596,28 @@ interface AlonePlea {
         }
         </div>
 
+        <!-- só a cartolina: a ficha como fica pregada no mural, grande, no meio da tela, com os mesmos
+             botões da faixa em cima dela (o primeiro volta à leitura). Um toque na ficha também volta, e
+             o toque no escuro em volta fecha, como na leitura. Com duas abertas, ela fica no lado dela (PLANO-LADO-A-LADO.md,
+             D1), e o toque no vazio em volta não fecha nada -->
+        @if (vista() === 'cartolina') {
+          <div class="na-parede" (backdropClose)="split() || close()">
+            <div class="em-pe">
+              <div class="vistas vistas-giz" role="group" aria-label="Jeito de ver a ficha">
+                <button type="button" class="giz-btn ver-cartolina" (click)="setView('leitura')" aria-label="Voltar à leitura" title="Voltar à leitura">
+                  <lucide-icon [img]="ReadIcon" [size]="20" aria-hidden="true" />
+                </button>
+                <button type="button" class="giz-btn fecha" (click)="closeOwn()" [attr.aria-label]="split() ? 'Fechar só esta' : 'Fechar'" [title]="split() ? 'Fechar só esta' : 'Fechar'">
+                  <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
+                </button>
+              </div>
+              <div class="cartolina-grande" [style.zoom]="cardZoom()">
+                <app-review-card [review]="r" [preview]="true" [masked]="masked()" [looks]="cardLooks()" [times]="r.revisitOf ? 1 : times().length || 1" (opened)="setView('leitura')" />
+              </div>
+            </div>
+          </div>
+        }
+
         <!-- a folhinha da nota nova (o trecho é o título), num pedaço à parte, só quando abre -->
         @if (quickNote(); as qn) {
           @defer (on immediate) {
@@ -605,8 +628,8 @@ interface AlonePlea {
         <p class="sr-only" role="status">{{ said() }}</p>
 
         <!-- a segunda anotação, lado a lado (PLANO-DUAS-NOTAS.md): a mesma leitura, no modo ao lado, dentro
-             desta. O que ela faz que é da página (o editor, apagar) passa por aqui; o que pede a leitura
-             inteira (só a cartolina, os Detalhes, os comentários) a deixa sozinha, no lugar desta -->
+             desta. O que ela faz que é da página (o editor, apagar) passa por aqui; as folhas, a cartolina e o
+             zoom dela ficam nela (PLANO-LADO-A-LADO.md, D1) -->
         @if (segunda()) {
           <app-review-reader
             #ladoB
@@ -619,29 +642,7 @@ interface AlonePlea {
             (revealedChange)="revealedChange.emit($event)"
             (closeAll)="close()"
             (left)="closeBeside()"
-            (alone)="takeOver($event)"
           />
-        }
-
-        <!-- só a cartolina: a ficha como fica pregada no mural, grande, no meio da tela, com os mesmos
-             botões da faixa em cima dela (o primeiro volta à leitura). Um toque na ficha também volta, e
-             o toque no escuro em volta fecha, como na leitura -->
-        @if (vista() === 'cartolina') {
-          <div class="na-parede" (backdropClose)="close()">
-            <div class="em-pe">
-              <div class="vistas vistas-giz" role="group" aria-label="Jeito de ver a ficha">
-                <button type="button" class="giz-btn ver-cartolina" (click)="setView('leitura')" aria-label="Voltar à leitura" title="Voltar à leitura">
-                  <lucide-icon [img]="ReadIcon" [size]="20" aria-hidden="true" />
-                </button>
-                <button type="button" class="giz-btn fecha" (click)="close()" aria-label="Fechar" title="Fechar">
-                  <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
-                </button>
-              </div>
-              <div class="cartolina-grande" [style.zoom]="cardZoom()">
-                <app-review-card [review]="r" [preview]="true" [masked]="masked()" [looks]="cardLooks()" [times]="r.revisitOf ? 1 : times().length || 1" (opened)="setView('leitura')" />
-              </div>
-            </div>
-          </div>
         }
 
         <!-- a ficha aberta pelo link: a assinatura do site, a giz na parede, embaixo dela -->
@@ -733,8 +734,11 @@ export class ReviewReader {
   readonly closeAll = output<void>();
   /** (Ao lado) Só ela sai (o X dela, finalizada, saiu do mural, a pessoa saiu da compartilhada): a primeira fica. */
   readonly left = output<void>();
-  /** (Ao lado) Pediu a leitura inteira: ela fica sozinha, no lugar da primeira. */
-  readonly alone = output<AlonePlea>();
+  /**
+   * Há duas abertas e esta é uma delas (PLANO-LADO-A-LADO.md): cada uma é um lugar, e o que ela abre (as folhas, a
+   * cartolina, o zoom) fica no lado dela; o X dela fecha só ela.
+   */
+  protected readonly split = computed(() => this.aoLado() || !!this.segunda());
   /** O "Escolher a nota" do "+" está aberto. */
   protected readonly pickBeside = signal(false);
   protected readonly AddIcon = ICON.adicionar;
@@ -1319,7 +1323,8 @@ export class ReviewReader {
    */
   private canQuote(): boolean {
     if (!this.lendo() || !this.commentable() || this.commentsClosed() || !this.comments.myCode() || this.masked()) return false;
-    return this.fitsBeside() ? this.sideShown() === 'comentarios' : !this.sideOpen();
+    // com duas abertas, a folha cobre a ficha do lado dela, como na tela estreita
+    return this.fitsBeside() && !this.split() ? this.sideShown() === 'comentarios' : !this.sideOpen();
   }
   /**
    * Dá para criar uma nota a partir do trecho (PLANO-NOTA-DE-REFERENCIA.md, D1): na leitura de uma
@@ -1386,16 +1391,8 @@ export class ReviewReader {
 
   /** Abre ou fecha a folha dos Detalhes (fecha a dos comentários): o foco vai para ela e, fechando, volta à etiqueta. */
   protected toggleDetails(open = !this.detailsOpen()): void {
-    // a folha precisa do lado direito: a segunda fica sozinha com ela, como com os comentários
-    if (open && this.aoLado()) {
-      const r = this.review();
-      if (!r) return;
-      this.fita()?.stop();
-      this.alone.emit({ review: r, trail: this.trail(), view: 'leitura', place: this.readingPlace(), comments: false, quote: null, details: true });
-      return;
-    }
+    // (com duas abertas, a folha cobre a ficha do lado dela, e a outra fica: PLANO-LADO-A-LADO.md, D1)
     if (open) {
-      this.segunda.set(null);
       this.commentsOpen.set(false);
       this.quote.set(null);
     }
@@ -1467,12 +1464,8 @@ export class ReviewReader {
    * quem a abriu, sempre sem rolar a ficha: ela fica onde a pessoa estava lendo.
    */
   protected toggleComments(open = !this.commentsOpen()): void {
-    // a folha de comentários precisa do lado direito: a anotação fica sozinha com ela (PLANO-DUAS-NOTAS.md, D5)
-    if (open && this.aoLado()) return this.askAlone('leitura', true);
-    if (open) {
-      this.segunda.set(null);
-      this.detailsOpen.set(false);
-    }
+    // (com duas abertas, a folha cobre a ficha do lado dela, e a outra fica: PLANO-LADO-A-LADO.md, D1)
+    if (open) this.detailsOpen.set(false);
     const dialog = this.dialog().nativeElement;
     const active = document.activeElement instanceof HTMLElement && dialog.contains(document.activeElement) ? document.activeElement : null;
     if (open) this.commentsOpener = active?.matches('.etq-trilho') ? active : null;
@@ -1715,8 +1708,7 @@ export class ReviewReader {
     if (!p) return;
     this.picked.set(null);
     document.getSelection()?.removeAllRanges();
-    if (this.aoLado()) return this.askAlone('leitura', true, p.text);
-    this.segunda.set(null);
+    this.detailsOpen.set(false);
     this.commentsOpen.set(true);
     this.quote.set({ text: p.text, n: ++this.quoteCount });
   }
@@ -1957,7 +1949,7 @@ export class ReviewReader {
     dialog.scrollTop = 0;
     // a seta da ponta some de uso: o foco fica na outra, para seguir virando pelo teclado
     setTimeout(() => {
-      const arrows = dialog.querySelectorAll<HTMLButtonElement>('.vez-seta');
+      const arrows = dialog.querySelectorAll<HTMLButtonElement>(':scope > .par .vez-seta');
       if (document.activeElement instanceof HTMLButtonElement && document.activeElement.disabled) arrows[step < 0 ? 1 : 0]?.focus();
     });
   }
@@ -1999,10 +1991,7 @@ export class ReviewReader {
   protected setView(next: ReaderView, given?: ReadingPlace | null): void {
     const now = this.vista();
     if (next === now || !this.review()) return;
-    // a segunda anotação não muda de jeito ao lado da outra: ela fica sozinha naquele jeito (PLANO-DUAS-NOTAS.md, D5)
-    if (this.aoLado()) return this.askAlone(next);
-    // e a primeira, mudando de jeito, fecha a segunda
-    this.segunda.set(null);
+    // (com duas abertas, cada uma muda de jeito no lado dela, e a outra fica: PLANO-LADO-A-LADO.md, D1)
     if (now !== 'cartolina') this.place = given !== undefined ? given : this.readingPlace();
     // os remendos do trecho ficariam no lugar de antes (o texto quebra em outras linhas)
     this.picked.set(null);
@@ -2100,6 +2089,8 @@ export class ReviewReader {
    */
   private readonly fitCard = effect((onCleanup) => {
     if (this.vista() !== 'cartolina' || !this.review()) return;
+    // com a outra chegando ou saindo, o lugar muda (o lado, ou a tela inteira): mede de novo
+    this.split();
     const dialog = this.dialog().nativeElement;
     let frame = 0;
     const fit = () => {
@@ -2109,7 +2100,7 @@ export class ReviewReader {
     const watcher = new ResizeObserver(fit);
     // a ficha só existe depois do desenho
     const timer = setTimeout(() => {
-      const card = dialog.querySelector('.cartolina-grande app-review-card');
+      const card = dialog.querySelector(':scope > .na-parede .cartolina-grande app-review-card');
       if (card) watcher.observe(card);
       fit();
     });
@@ -2125,16 +2116,18 @@ export class ReviewReader {
   /** Mede a ficha do mural e põe o zoom que a faz caber inteira na tela (ver cardZoomFor). */
   private fitCardNow(): void {
     const dialog = this.dialog().nativeElement;
-    const box = dialog.querySelector<HTMLElement>('.cartolina-grande');
-    const bar = dialog.querySelector<HTMLElement>('.na-parede .vistas-giz');
+    const box = dialog.querySelector<HTMLElement>(':scope > .na-parede .cartolina-grande');
+    const bar = dialog.querySelector<HTMLElement>(':scope > .na-parede .vistas-giz');
     if (!box) return;
     // a medida da ficha na parede: a da caixa sem o zoom dela e sem a escala da entrada (o offset* é
     // o do layout, antes de um e de outra)
     const zoom = untracked(this.cardZoom);
+    // com duas abertas, o lugar é o do lado dela (PLANO-LADO-A-LADO.md, D1); sozinha, a tela
+    const wall = this.split() ? dialog.querySelector<HTMLElement>(':scope > .na-parede') : null;
     // (no celular, a folga leva em conta o giro da ficha, que põe um canto para fora)
-    const gutter = innerWidth < 600 ? 20 : 32;
-    const roomW = document.documentElement.clientWidth - 2 * gutter;
-    const roomH = innerHeight - (bar?.offsetHeight ?? 44) - 2 * gutter - 16;
+    const gutter = wall ? 16 : innerWidth < 600 ? 20 : 32;
+    const roomW = (wall?.clientWidth ?? document.documentElement.clientWidth) - 2 * gutter;
+    const roomH = (wall?.clientHeight ?? innerHeight) - (bar?.offsetHeight ?? 44) - 2 * gutter - 16;
     const next = cardZoomFor(box.offsetWidth, box.offsetHeight, roomW, roomH);
     if (Math.abs(next - zoom) >= 0.01) this.cardZoom.set(next);
   }
@@ -2227,7 +2220,46 @@ export class ReviewReader {
   protected closeBeside(): void {
     if (!this.segunda()) return;
     this.segunda.set(null);
-    afterNextRender(() => this.dialog().nativeElement.querySelector<HTMLElement>('#leitura-titulo')?.focus({ preventScroll: true }), { injector: this.injector });
+    afterNextRender(() => this.focusName(), { injector: this.injector });
+  }
+
+  /** O foco no nome da anotação (na cartolina, no "Voltar à leitura"), sem rolar a folha. */
+  private focusName(): void {
+    const dialog = this.dialog().nativeElement;
+    const target = this.vista() === 'cartolina' ? ':scope > .na-parede .ver-cartolina' : `#leitura-titulo${this.sufixo()}`;
+    dialog.querySelector<HTMLElement>(target)?.focus({ preventScroll: true });
+  }
+
+  /**
+   * O X desta anotação (PLANO-LADO-A-LADO.md, D2): sozinha, fecha a leitura; com duas, fecha só esta. A segunda sai
+   * (`left`); a primeira dá o lugar à segunda, que fica sozinha como estava (o jeito, o trecho, a folha aberta).
+   */
+  protected closeOwn(): void {
+    if (this.aoLado()) return this.leave();
+    if (!this.segunda()) return this.close();
+    const other = this.ladoB()?.handOver();
+    // (a segunda ainda nem se desenhou: ela só sai, e esta fica)
+    if (other) this.takeOver(other);
+    else this.closeBeside();
+  }
+
+  /** (Ao lado) Como esta anotação está, para ficar sozinha no lugar da primeira (ver `closeOwn`). */
+  handOver(): Handover | null {
+    const r = this.review();
+    if (!r) return null;
+    this.fita()?.stop();
+    const cartolina = this.vista() === 'cartolina';
+    return {
+      review: r,
+      trail: this.trail(),
+      view: this.vista(),
+      place: cartolina ? this.place : this.readingPlace(),
+      comments: this.commentsOpen(),
+      quote: this.quote()?.text ?? null,
+      details: this.detailsOpen(),
+      masked: this.forceMask(),
+      revealed: this.revealed(),
+    };
   }
 
   /** Esta anotação sai da leitura sem fechar a outra (a segunda: o X dela, finalizada), ou fecha a leitura (a primeira). */
@@ -2236,37 +2268,36 @@ export class ReviewReader {
     else this.close();
   }
 
-  /** (Ao lado) Pede a leitura inteira, no jeito `view`, com o trecho onde se lia. */
-  private askAlone(view: ReaderView, comments = false, quote: string | null = null): void {
-    const r = this.review();
-    if (!r) return;
-    this.fita()?.stop();
-    this.alone.emit({ review: r, trail: this.trail(), view, place: this.readingPlace(), comments, quote });
-  }
-
   /**
-   * A segunda pediu a leitura inteira: ela fica sozinha, aqui, no lugar da primeira (que fecha), no jeito
-   * pedido e no mesmo trecho; com os comentários, abertos (e com o que mandou citar).
+   * A primeira fechou com a segunda aberta: a segunda fica sozinha, aqui, no lugar dela (PLANO-LADO-A-LADO.md, D2), no
+   * jeito e no trecho em que estava, com a folha que estava aberta.
    */
-  protected takeOver(p: AlonePlea): void {
+  private takeOver(p: Handover): void {
+    this.fita()?.stop();
     this.segunda.set(null);
     this.trail.set(p.trail);
+    this.forceMask.set(p.masked);
+    this.revealed.set(p.revealed);
     this.review.set(p.review);
     this.stampedNow.set(false);
     this.watchShared(this.owner() === null ? p.review.id : null);
     this.picked.set(null);
+    this.quickNote.set(null);
+    // começa da leitura (a primeira podia estar na cartolina) e vai para o jeito em que a segunda estava
+    this.vista.set('leitura');
+    this.place = null;
     if (p.view !== 'leitura') {
       this.setView(p.view, p.place);
       return;
     }
-    // (os sinais ligados à anotação são lidos antes, para a troca dela não os desligar de novo)
-    this.commentsOpen();
-    this.detailsOpen();
-    this.quote();
+    // as folhas são as da segunda (com a mesma anotação nas duas, as desta não se desligariam sozinhas)
+    this.commentsOpen.set(false);
+    this.detailsOpen.set(false);
+    this.quote.set(null);
     afterNextRender(
       () => {
         this.restorePlace(p.place);
-        if (!p.comments && !p.details) this.dialog().nativeElement.querySelector<HTMLElement>('#leitura-titulo')?.focus({ preventScroll: true });
+        if (!p.comments && !p.details) this.focusName();
       },
       { injector: this.injector },
     );
