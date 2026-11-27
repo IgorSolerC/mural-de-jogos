@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-27-donata-no-dicionario',
+    id: '2026-11-27-aba-da-pasta',
     version: '1.58.1',
     kind: 'ajustes',
     date: '2026-11-27',
@@ -38,6 +38,7 @@ export const NEWS: NewsEntry[] = [
     ],
     correcoes: [
       'Com duas anotações lado a lado e uma imagem, tabela ou widget ampliado num dos lados, os avisos do rodapé (como o "Anotação atualizada") não aparecem mais por baixo do fundo escuro do zoom.',
+      'A aba de cima das pastas tem agora a mesma cor do resto do fundo da pasta (antes saía de um tom diferente).',
     ],
   },
   {

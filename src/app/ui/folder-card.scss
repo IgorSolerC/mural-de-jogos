@@ -85,7 +85,9 @@
     width: 42%;
     height: 15px;
     border-radius: 6px 6px 0 0;
+    /* o atalho `background` não leva o blend: sem ele o grão cobre a cor e a aba sai de outro tom */
     background: inherit;
+    background-blend-mode: multiply;
   }
 }
 
