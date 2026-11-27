@@ -12,6 +12,7 @@ import {
   afterNextRender,
   computed,
   effect,
+  forwardRef,
   inject,
   input,
   linkedSignal,
@@ -21,6 +22,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { BackdropClose } from './backdrop-close';
+import { ROOM, Room } from './room';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, ICON_CHOICE, IconModule } from './icons';
 import { NOTES, cap, g, profileOf } from '../core/kinds';
@@ -191,6 +193,8 @@ interface Handover {
   selector: 'app-review-reader',
   imports: [BackdropClose, CardConfig, CardPicker, QuickNoteSheet, WordSheet, CommentsPanel, ReaderDetails, ConflictSheet, LinkSheet, ShareSheet, OrganizeSheet, IconModule, KanbanDepsBadge, MoreMenu, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, ReviewCard, Skulls, StatusLabel, VozFita],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  // cada leitura é a sala das peças ampliadas dela (ui/room.ts): com duas abertas, o zoom fica no lado dela
+  providers: [{ provide: ROOM, useExisting: forwardRef(() => ReviewReader) }],
   template: `
     <dialog
       #dialog
@@ -712,7 +716,7 @@ interface Handover {
   `,
   styleUrl: './review-reader.scss',
 })
-export class ReviewReader {
+export class ReviewReader implements Room {
   readonly edit = output<string>();
   /** "Mudar as dependências": o editor da anotação, na aba Kanban. */
   readonly editBoard = output<string>();
@@ -739,6 +743,15 @@ export class ReviewReader {
    * cartolina, o zoom) fica no lado dela; o X dela fecha só ela.
    */
   protected readonly split = computed(() => this.aoLado() || !!this.segunda());
+  /**
+   * A sala desta anotação (ui/room.ts): com duas abertas, o lado dela (a ficha, ou a parede da cartolina), onde a peça
+   * e a foto ampliadas ficam (PLANO-LADO-A-LADO.md, D9); sozinha, nenhuma (o zoom vai para o meio da tela).
+   */
+  room(): HTMLElement | null {
+    if (!this.split()) return null;
+    const dialog = this.dialog().nativeElement;
+    return dialog.querySelector<HTMLElement>(':scope > .na-parede') ?? dialog.querySelector<HTMLElement>(':scope > .par');
+  }
   /** O "Escolher a nota" do "+" está aberto. */
   protected readonly pickBeside = signal(false);
   protected readonly AddIcon = ICON.adicionar;

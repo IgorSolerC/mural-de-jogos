@@ -17,6 +17,7 @@ import { CodePaper } from './code-paper';
 import { Toasts } from './toast';
 import { NoteWidget } from './note-widget';
 import { PieceLift } from './piece-lift';
+import { ROOM } from './room';
 import { ZoomKnob } from './zoom-knob';
 
 /**
@@ -840,6 +841,8 @@ export class RichText {
   private readonly destroyRef = inject(DestroyRef);
   private readonly settings = inject(Settings);
   private readonly toasts = inject(Toasts);
+  /** O lado do texto, com duas coisas abertas lado a lado (ui/room.ts): a tabela ampliada fica nele. */
+  private readonly rooms = inject(ROOM, { optional: true });
 
   /**
    * Copiar o código na linha (só as letras) e dizer no bilhete. Quem arrastou para selecionar um pedaço dele
@@ -856,7 +859,7 @@ export class RichText {
   }
   protected liftTable(peca: HTMLElement): void {
     if (!this.lift) {
-      const lift = (this.lift = new PieceLift());
+      const lift = (this.lift = new PieceLift(this.rooms));
       this.destroyRef.onDestroy(() => lift.close(true));
     }
     // sobe com a largura do que ela desenha, também a parte que rola: o papel (ele começa no canto

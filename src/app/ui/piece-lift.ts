@@ -1,5 +1,6 @@
 import { DestroyRef, inject, signal } from '@angular/core';
 import { reducedMotion } from '../core/motion';
+import { ROOM, Room, roomBox } from './room';
 
 const DURATION = 380;
 const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
@@ -40,7 +41,7 @@ export interface LiftOptions {
 
 /** Sobe uma peça do texto para o meio da tela; uma por widget (ver `PieceLift`). */
 export function pieceLift(): PieceLift {
-  const lift = new PieceLift();
+  const lift = new PieceLift(inject(ROOM, { optional: true }));
   inject(DestroyRef).onDestroy(() => lift.close(true));
   return lift;
 }
@@ -69,6 +70,18 @@ export function pieceLift(): PieceLift {
 export class PieceLift {
   /** A peça está no meio da tela. */
   readonly open = signal(false);
+  /**
+   * `rooms`: quem diz o lado onde a peça está, com duas coisas abertas lado a lado (ui/room.ts). Com um lado, a
+   * peça sobe só até o tamanho dele, o véu cobre só ele, e o outro lado continua vivo: o toque nele não desce a
+   * peça, o Tab não fica preso, e o Esc só desce a peça do lado onde está o foco (PLANO-LADO-A-LADO.md, D9).
+   */
+  constructor(private readonly rooms: Room | null = null) {}
+  /** O lado da peça no alto (lido ao subir), ou null: a tela inteira. */
+  private room: HTMLElement | null = null;
+  /** O véu do lado (só com `room`: o `::backdrop` cobriria a tela inteira). */
+  private veil: HTMLElement | null = null;
+  /** Mede de novo quando o lado muda de tamanho (a outra coisa fechou, a janela mudou). */
+  private roomWatch: ResizeObserver | null = null;
   private piece: HTMLElement | null = null;
   private back: HTMLElement | null = null;
   private shut: HTMLButtonElement | null = null;
@@ -98,6 +111,7 @@ export class PieceLift {
     this.flyW = null;
     this.back = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     this.closing = false;
+    this.room = this.rooms?.room() ?? null;
 
     // onde ela está: o tamanho de verdade (o do layout, sem o giro) e o canto, em relação ao lugar
     const from = piece.getBoundingClientRect();
@@ -123,6 +137,24 @@ export class PieceLift {
       piece.classList.add('erguida-papel');
     }
     this.fit();
+    // no lado: o véu dele primeiro (a camada de cima empilha na ordem em que abre), ao lado da peça, dentro do lado
+    if (this.room) {
+      const veil = document.createElement('div');
+      veil.className = 'erguida-veu';
+      veil.setAttribute('popover', 'manual');
+      veil.setAttribute('aria-hidden', 'true');
+      piece.before(veil);
+      veil.showPopover();
+      this.veil = veil;
+      this.placeVeil();
+      piece.classList.add('erguida-na-sala');
+      if (typeof ResizeObserver !== 'undefined') {
+        this.roomWatch = new ResizeObserver(this.onResize);
+        this.roomWatch.observe(this.room);
+        // (e a peça: se o bloco dela sai do texto, ela desce, sem deixar o véu e o X para trás)
+        this.roomWatch.observe(piece);
+      }
+    }
     piece.classList.add('erguida');
     piece.setAttribute('popover', 'manual');
     piece.showPopover();
@@ -167,12 +199,18 @@ export class PieceLift {
     document.removeEventListener('click', this.onOutside, true);
     piece.removeEventListener('click', this.onInside);
     window.removeEventListener('resize', this.onResize);
+    this.roomWatch?.disconnect();
+    this.roomWatch = null;
     const done = (): void => {
       this.shut?.remove();
       this.shut = null;
+      this.veil?.remove();
+      this.veil = null;
+      this.room = null;
       if (piece.matches(':popover-open')) piece.hidePopover();
       piece.removeAttribute('popover');
-      piece.classList.remove('erguida', 'erguida-papel', 'erguida-estreita');
+      piece.classList.remove('erguida', 'erguida-papel', 'erguida-estreita', 'erguida-na-sala');
+      piece.style.removeProperty('--erguida-sala');
       for (const undo of this.restore.splice(0).reverse()) undo();
       this.piece = null;
       this.open.set(false);
@@ -210,9 +248,11 @@ export class PieceLift {
   private fit(): void {
     const piece = this.piece!;
     const { w, h } = this.size;
-    const m = innerWidth <= 600 ? MARGIN_PHONE : MARGIN;
-    const roomW = innerWidth - 2 * m;
-    const roomH = innerHeight - 2 * m;
+    // no lado, o lugar é o dele (com a folga do celular, que é a de um lugar estreito); sem, a tela
+    const box = this.room ? roomBox(this.room) : null;
+    const m = box || innerWidth <= 600 ? MARGIN_PHONE : MARGIN;
+    const roomW = (box?.width ?? innerWidth) - 2 * m;
+    const roomH = (box?.height ?? innerHeight) - 2 * m;
     const tall = h > roomH;
     const most = Math.min(MAX_ZOOM, Number(piece.dataset['zoomMax']) || MAX_ZOOM);
     const least = Number(piece.dataset['zoomMin']) || 0;
@@ -230,6 +270,19 @@ export class PieceLift {
     piece.style.setProperty('--erguida-zoom', String(z));
     piece.style.setProperty('--erguida-alto', tall ? `${Math.floor(roomH / z)}px` : 'none');
     piece.classList.toggle('erguida-rola', tall);
+    // no meio do lado: o `inset` da peça é o do lado (em pixels dela, que o zoom multiplica)
+    if (box) piece.style.setProperty('--erguida-sala', [box.top, box.right, box.bottom, box.left].map((v) => `${v / z}px`).join(' '));
+  }
+
+  /** O véu em cima do lado, do tamanho dele. */
+  private placeVeil(): void {
+    const veil = this.veil;
+    if (!veil || !this.room) return;
+    const box = roomBox(this.room);
+    veil.style.top = `${box.top}px`;
+    veil.style.left = `${box.left}px`;
+    veil.style.width = `${box.width}px`;
+    veil.style.height = `${box.height}px`;
   }
 
   /** O X no canto de cima da peça (ou do filho que ela marca com `data-ergue-canto`), metade para fora. */
@@ -237,6 +290,12 @@ export class PieceLift {
     const piece = this.piece;
     const shut = this.shut;
     if (!piece || !shut) return;
+    // no meio do voo, a caixa é a de passagem (o lado medido de novo chega a qualquer hora): o X espera ela chegar
+    const flying = piece.getAnimations().filter((a) => a.playState === 'running');
+    if (flying.length) {
+      void Promise.all(flying.map((a) => a.finished)).then(() => !this.closing && this.pinShut(), () => {});
+      return;
+    }
     const r = (piece.querySelector<HTMLElement>('[data-ergue-canto]') ?? piece).getBoundingClientRect();
     shut.style.top = `${Math.round(r.top - KNOB_OUT)}px`;
     shut.style.left = `${Math.round(r.right + KNOB_OUT - KNOB)}px`;
@@ -262,6 +321,11 @@ export class PieceLift {
   }
 
   private fadeBackdrop(start: number, end: number, delay = 0): void {
+    // (no lado, o véu é o dele)
+    if (this.veil) {
+      this.veil.animate([{ opacity: start }, { opacity: end }], { duration: FADE, delay, easing: 'linear', fill: 'both' });
+      return;
+    }
     try {
       this.piece?.animate([{ opacity: start }, { opacity: end }], { duration: FADE, delay, easing: 'linear', fill: 'both', pseudoElement: '::backdrop' });
     } catch {
@@ -295,6 +359,9 @@ export class PieceLift {
   };
 
   private readonly onKey = (e: KeyboardEvent): void => {
+    // no lado, o outro lado continua vivo: o Tab anda por tudo, e o Esc é desta peça só com o foco neste lado
+    const room = this.room;
+    if (room && (e.key === 'Tab' || !room.contains(document.activeElement))) return;
     if (e.key === 'Tab') return this.trap(e);
     if (e.key !== 'Escape') return;
     // o Esc é da peça: a leitura por baixo não fecha
@@ -323,6 +390,8 @@ export class PieceLift {
     if (!piece) return;
     const at = e.target as Node | null;
     if (at === this.shut || (at && this.shut?.contains(at))) return;
+    // no lado, o toque no outro lado é dele (o véu está dentro deste lado, e o toque nele desce a peça)
+    if (this.room && !(at && this.room.contains(at))) return;
     const r = piece.getBoundingClientRect();
     const inPiece = !!at && piece.contains(at) && (at !== piece || (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom));
     if (inPiece) return;
@@ -335,8 +404,10 @@ export class PieceLift {
   private readonly onInside = (e: Event): void => e.stopPropagation();
 
   private readonly onResize = (): void => {
-    if (!this.piece) return;
+    if (!this.piece || this.closing) return;
+    if (!this.piece.isConnected) return this.close(true);
     this.fit();
+    this.placeVeil();
     this.pinShut();
   };
 }

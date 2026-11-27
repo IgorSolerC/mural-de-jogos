@@ -11,6 +11,7 @@ import { snapToLines } from './line-snap';
 import { VolumeKnob } from './volume-knob';
 import { ZoomKnob } from './zoom-knob';
 import { pieceLift } from './piece-lift';
+import { ROOM } from './room';
 import { cutSticker, letterScale } from './sticker-edge';
 
 /**
@@ -501,6 +502,11 @@ export class GluedMedia {
   private readonly sanitizer = inject(DomSanitizer);
   private readonly env = inject(EnvironmentInjector);
   private readonly app = inject(ApplicationRef);
+  /** O lado em que a foto está, com duas coisas abertas lado a lado (ui/room.ts): a ampliada fica nele. */
+  private readonly rooms = inject(ROOM, { optional: true });
+  /** Fecha a foto ampliada sem o voo (quando o widget sai de cena), ou null. */
+  private closeZoom: (() => void) | null = null;
+  private gone = false;
 
   protected readonly media = computed(() => readMedia(this.args()));
   /** A imagem guardada pelo Murall (`murall://imagem/ID`, ver core/images.ts), ou null (um link comum). */
@@ -605,7 +611,12 @@ export class GluedMedia {
         if (this.bridge?.isReady) this.bridge.send({ do: 'volume', v });
       });
     });
-    inject(DestroyRef).onDestroy(() => this.bridge?.destroy());
+    inject(DestroyRef).onDestroy(() => {
+      this.bridge?.destroy();
+      // a foto ampliada no lado que fechou (ou no texto que mudou) sai junto
+      this.gone = true;
+      this.closeZoom?.();
+    });
   }
 
   protected onLoad(e: Event): void {
@@ -626,7 +637,10 @@ export class GluedMedia {
     const natural = file && Math.max(file, from.offsetWidth * 1.5);
     // o adesivo ampliado corta com o mesmo sorteio do colado: o link escrito (o murall:// da guardada,
     // não o endereço blob: desta aba)
-    void import('./image-viewer').then((m) => m.showImage({ url, seed: this.media().url, caption, frame, ratio, natural, from }, this.env, this.app));
+    void import('./image-viewer').then((m) => {
+      if (this.gone) return;
+      this.closeZoom = m.showImage({ url, seed: this.media().url, caption, frame, ratio, natural, from, room: this.rooms?.room() ?? null }, this.env, this.app);
+    });
   }
 
   protected play(e: Event): void {

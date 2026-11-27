@@ -360,6 +360,60 @@ describe('Duas anotações lado a lado (ReviewReader, PLANO-DUAS-NOTAS.md)', () 
     expect(nameOf(outer())).toBe('Receita de pão');
   });
 
+  it('ampliar a tabela de um lado: ela fica no lado dela, e o outro lado se toca (PLANO-LADO-A-LADO.md, D9)', async () => {
+    const table = ['| Hora | Etapa |', '| --- | --- |', '| 08:00 | Autólise |', '| 09:00 | Levain |'].join(N);
+    store.add(note('nota-t', 'Com tabela', { text: table + N + N + 'Depois da tabela.' }));
+    await both('nota-c', 'nota-t');
+    const piece = beside()!.querySelector<HTMLElement>('.tabela-peca')!;
+    expect(piece).withContext('a tabela na segunda').not.toBeNull();
+    // (a segunda chega deslizando: o toque vem depois que ela para)
+    await wait(400);
+    piece.querySelector<HTMLButtonElement>('app-zoom-knob button')!.click();
+    await settle();
+    await Promise.all(piece.getAnimations().map((a) => a.finished));
+    expect(piece.matches(':popover-open')).toBeTrue();
+    const room = beside()!.querySelector<HTMLElement>(':scope > .par')!.getBoundingClientRect();
+    const p = piece.getBoundingClientRect();
+    expect(p.left).toBeGreaterThanOrEqual(room.left - 1);
+    expect(p.right).toBeLessThanOrEqual(room.right + 1);
+    expect(beside()!.querySelector('.erguida-veu')).not.toBeNull();
+    // o outro lado continua vivo: tocar numa tarefa da primeira marca, e a tabela continua ampliada
+    const task = outer().querySelector<HTMLElement>(':scope > .par .text input[type=checkbox]');
+    expect(task).withContext('uma tarefa da primeira').not.toBeNull();
+    task!.click();
+    await settle();
+    expect(piece.matches(':popover-open')).toBeTrue();
+    // o toque no próprio lado (o X dela está debaixo do véu) desce a peça, e não fecha a segunda
+    beside()!.querySelector<HTMLElement>('.faixa-nome .fecha')!.click();
+    await settle();
+    expect(beside()?.open).toBeTrue();
+    await wait(450);
+    expect(piece.matches(':popover-open')).toBeFalse();
+    // ampliada de novo, a segunda saindo (finalizada, um caminho dela) leva a peça junto
+    piece.querySelector<HTMLButtonElement>('app-zoom-knob button')!.click();
+    await settle();
+    expect(piece.matches(':popover-open')).toBeTrue();
+    (reader as unknown as { closeBeside(): void }).closeBeside();
+    await settle();
+    expect(document.querySelector('.erguida-veu')).toBeNull();
+    expect(document.querySelector('.erguida-fechar')).toBeNull();
+  });
+
+  it('com uma só aberta, ampliar a tabela é como sempre (o meio da tela)', async () => {
+    const table = ['| Hora | Etapa |', '| --- | --- |', '| 08:00 | Autólise |'].join(N);
+    store.add(note('nota-t', 'Com tabela', { text: table }));
+    reader.open(store.get('nota-t')!);
+    await settle();
+    const piece = outer().querySelector<HTMLElement>('.tabela-peca')!;
+    piece.querySelector<HTMLButtonElement>('app-zoom-knob button')!.click();
+    await settle();
+    expect(piece.matches(':popover-open')).toBeTrue();
+    expect(piece.classList).not.toContain('erguida-na-sala');
+    expect(document.querySelector('.erguida-veu')).toBeNull();
+    document.querySelector<HTMLElement>('.erguida-fechar')!.click();
+    await wait(450);
+  });
+
   it('a cartolina da primeira cresce para a tela inteira quando a segunda fecha', async () => {
     await both();
     await click(':scope > .par .faixa-nome .ver-cartolina', outer());

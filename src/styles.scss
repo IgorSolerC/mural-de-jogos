@@ -1171,7 +1171,8 @@ dialog.sheet {
 }
 .erguida {
   position: fixed !important;
-  inset: 0 !important;
+  /* no meio da tela; com duas coisas lado a lado, no meio do lado dela (o inset vem de ui/piece-lift.ts) */
+  inset: var(--erguida-sala, 0) !important;
   margin: auto !important;
   max-width: none !important;
   max-height: none !important;
@@ -1200,6 +1201,24 @@ dialog.sheet {
     rotate: 0deg !important;
     transition: none !important;
   }
+}
+/* com duas coisas lado a lado, o véu é só o do lado da peça (PLANO-LADO-A-LADO.md, D9): o da tela inteira some, e o
+   do lado é outro popover, do tamanho dele (o lugar vem de ui/piece-lift.ts) */
+.erguida.erguida-na-sala::backdrop {
+  background: transparent;
+}
+/* no lado, a largura é a que ui/piece-lift.ts mede para caber nele: o mínimo da peça no texto (a tabela, 16em) não a
+   empurra para fora (o que não cabe rola dentro dela) */
+.erguida.erguida-na-sala {
+  min-width: 0 !important;
+}
+.erguida-veu {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: rgb(8 8 10 / 0.72);
 }
 /* a peça sem papel próprio (o contador, a fita, a ficha colada) fica numa folha creme, a da leitura,
    com a margem em volta (a letra dela é tinta no papel, e não pode ficar no escuro) */

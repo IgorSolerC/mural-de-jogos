@@ -4,6 +4,7 @@ import { BackdropClose } from './backdrop-close';
 import { reducedMotion } from '../core/motion';
 import type { Frame } from '../core/widgets';
 import { cutSticker, letterScale } from './sticker-edge';
+import { roomBox } from './room';
 
 /** A foto a ampliar, como está colada no texto. */
 export interface ImageView {
@@ -21,6 +22,11 @@ export interface ImageView {
   natural: number;
   /** A foto colada (o papel inteiro, `.foto`): a ampliada sai dela e volta para ela. */
   from: HTMLElement;
+  /**
+   * O lado onde a foto está, com duas coisas abertas lado a lado (ui/room.ts): a ampliada fica nele, com o véu só
+   * nele, e o outro lado continua vivo (PLANO-LADO-A-LADO.md, D9). Sem ele, a tela inteira.
+   */
+  room?: HTMLElement | null;
 }
 
 const DURATION = 380;
@@ -104,6 +110,23 @@ const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
         --margem: 22px;
       }
     }
+    /* no lado (PLANO-LADO-A-LADO.md, D9): o diálogo é o lado, no lugar dele (ver placeInRoom), e o fundo dele é o véu;
+       o véu da tela inteira some */
+    .ampliada.na-sala {
+      --margem: 22px;
+      position: fixed;
+      inset: auto;
+      width: var(--sala-w);
+      height: var(--sala-h);
+      background: rgb(8 8 10 / 0.72);
+    }
+    .ampliada.na-sala:popover-open {
+      display: grid;
+      place-items: center;
+    }
+    .ampliada.na-sala::backdrop {
+      background: transparent;
+    }
 
     /* ===== A foto, como a colada (ui/glued-media.ts), no tamanho da tela =====
        --pad: a borda dos dois lados; --reserva: o que a moldura e a etiqueta tomam da altura */
@@ -117,7 +140,7 @@ const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
     }
     .colagem.moldura-polaroid {
       --pad: 36px;
-      --reserva: calc(18px + clamp(48px, 9dvh, 76px));
+      --reserva: calc(18px + clamp(48px, calc(var(--sala-h, 100dvh) * 0.09), 76px));
     }
     .colagem.moldura-recorte,
     .colagem.moldura-adesivo {
@@ -135,7 +158,7 @@ const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
       position: relative;
       display: grid;
       box-sizing: border-box;
-      width: min(calc(100vw - 2 * var(--margem)), calc((100dvh - 2 * var(--margem) - var(--reserva)) * var(--prop, 1.333) + var(--pad)), calc(var(--nat, 100vw) + var(--pad)));
+      width: min(calc(var(--sala-w, 100vw) - 2 * var(--margem)), calc((var(--sala-h, 100dvh) - 2 * var(--margem) - var(--reserva)) * var(--prop, 1.333) + var(--pad)), calc(var(--nat, 100vw) + var(--pad)));
       padding: 11px;
       background: #fbfaf6;
       border-radius: 2px;
@@ -166,7 +189,7 @@ const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
        2 vezes no computador, para a ampliada não ter os dentes miúdos nem os de selo de correio); o
        fio do corte e a sombra de quem está no alto, seguindo os dentes */
     .moldura-adesivo .foto {
-      font-size: clamp(19px, 3.8vw, 32px);
+      font-size: clamp(19px, calc(var(--sala-w, 100vw) * 0.038), 32px);
       @include meio-tom.adesivo-foto;
     }
     .moldura-adesivo .impressao {
@@ -197,10 +220,10 @@ const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: clamp(48px, 9dvh, 76px);
+      min-height: clamp(48px, calc(var(--sala-h, 100dvh) * 0.09), 76px);
       padding: 0 12px;
       font-family: var(--f-hand);
-      font-size: clamp(1.1rem, 2.6dvh, 1.5rem);
+      font-size: clamp(1.1rem, calc(var(--sala-h, 100dvh) * 0.026), 1.5rem);
       line-height: 1.15;
       text-align: center;
       overflow-wrap: anywhere;
@@ -263,9 +286,25 @@ export class ImageViewer {
   /** Desliga o corte do adesivo (nada, nas outras molduras). */
   private uncut = (): void => {};
 
+  /** O lado (ver ImageView.room), ou null. */
+  private room: HTMLElement | null = null;
+  private roomWatch: ResizeObserver | null = null;
+
   open(): void {
     const dialog = this.dialog().nativeElement;
-    dialog.showModal();
+    this.room = this.view().room ?? null;
+    if (this.room) {
+      // no lado: um popover do tamanho dele (sem ser modal, o outro lado continua vivo)
+      dialog.setAttribute('popover', 'manual');
+      dialog.classList.add('na-sala');
+      this.placeInRoom();
+      dialog.showPopover();
+      if (typeof ResizeObserver !== 'undefined') {
+        this.roomWatch = new ResizeObserver(() => this.placeInRoom());
+        this.roomWatch.observe(this.room);
+      }
+      document.addEventListener('keydown', this.onKey, true);
+    } else dialog.showModal();
     // o adesivo: a foto cortada no tamanho da ampliada, com os dentes pela letra dela
     if (this.view().frame === 'adesivo') {
       const photo = this.photo().nativeElement;
@@ -285,14 +324,31 @@ export class ImageViewer {
     this.fadeBackdrop(0, 1);
   }
 
+  /** Fecha sem o voo (a foto colada saiu de cena: o lado fechou). */
+  closeNow(): void {
+    this.closing = true;
+    document.removeEventListener('keydown', this.onKey, true);
+    this.roomWatch?.disconnect();
+    this.roomWatch = null;
+    this.uncut();
+    this.glued(this.view().from).style.removeProperty('opacity');
+    this.onClosed();
+  }
+
   close(): void {
     if (this.closing) return;
     this.closing = true;
     const from = this.view().from;
+    document.removeEventListener('keydown', this.onKey, true);
+    this.roomWatch?.disconnect();
+    this.roomWatch = null;
     const done = (): void => {
       this.uncut();
       this.glued(from).style.removeProperty('opacity');
-      this.dialog().nativeElement.close();
+      const dialog = this.dialog().nativeElement;
+      if (this.room) {
+        if (dialog.matches(':popover-open')) dialog.hidePopover();
+      } else dialog.close();
       this.onClosed();
     };
     // de volta para o lugar dela, se ele ainda está na tela; senão, só some
@@ -334,8 +390,34 @@ export class ImageViewer {
     return `translate(${dx}px, ${dy}px) rotate(${tilt === 'none' ? '0deg' : tilt}) scale(${s})`;
   }
 
+  /** O lugar do lado na tela (o diálogo é ele). */
+  private placeInRoom(): void {
+    const room = this.room;
+    if (!room) return;
+    const box = roomBox(room);
+    const style = this.dialog().nativeElement.style;
+    style.top = `${box.top}px`;
+    style.left = `${box.left}px`;
+    style.setProperty('--sala-w', `${box.width}px`);
+    style.setProperty('--sala-h', `${box.height}px`);
+  }
+
+  /** No lado, o Esc é da foto só com o foco neste lado (o outro lado é dele). */
+  private readonly onKey = (e: KeyboardEvent): void => {
+    if (e.key !== 'Escape' || !this.room?.contains(document.activeElement)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    this.close();
+  };
+
   /** O véu entra e sai como o das folhas (160 ms). */
   private fadeBackdrop(start: number, end: number, delay = 0): void {
+    // no lado, o véu é o fundo do próprio diálogo
+    if (this.room) {
+      const veil = (o: number) => ({ backgroundColor: `rgb(8 8 10 / ${0.72 * o})` });
+      this.dialog().nativeElement.animate([veil(start), veil(end)], { duration: FADE, delay, easing: 'linear', fill: 'both' });
+      return;
+    }
     try {
       this.dialog().nativeElement.animate([{ opacity: start }, { opacity: end }], { duration: FADE, delay, easing: 'linear', fill: 'both', pseudoElement: '::backdrop' });
     } catch {
@@ -344,16 +426,26 @@ export class ImageViewer {
   }
 }
 
-/** Amplia a foto colada: monta o visor no `body`, abre, e desmonta quando ele fecha. */
-export function showImage(view: ImageView, env: EnvironmentInjector, app: ApplicationRef): void {
+/**
+ * Amplia a foto colada: monta o visor no `body` (no lado, dentro dele: fora, ele ficaria por baixo da leitura, que é
+ * modal), abre, e desmonta quando ele fecha. Devolve o fechar sem o voo, para quem colou a foto sair antes dele.
+ */
+export function showImage(view: ImageView, env: EnvironmentInjector, app: ApplicationRef): () => void {
   const ref = createComponent(ImageViewer, { environmentInjector: env });
   ref.setInput('view', view);
+  let gone = false;
   ref.instance.onClosed = () => {
+    if (gone) return;
+    gone = true;
     app.detachView(ref.hostView);
     ref.destroy();
   };
   app.attachView(ref.hostView);
-  document.body.appendChild(ref.location.nativeElement);
+  (view.room ?? document.body).appendChild(ref.location.nativeElement);
   ref.changeDetectorRef.detectChanges();
   ref.instance.open();
+  return () => {
+    if (gone) return;
+    ref.instance.closeNow();
+  };
 }
