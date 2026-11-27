@@ -191,7 +191,7 @@ $recorte-da-orelha: linear-gradient(225deg, transparent 13.4px, #000 13.5px);
     }
   }
 
-  // 2 · Duas faixas: duas listras do papel, mais fundo e mais vivo, na boca
+  // 2 · Duas faixas: duas listras do papel, um tico mais fundas, na boca
   :host([data-enfeite='faixas']) {
     --frente-topo: 7px;
 
@@ -201,7 +201,8 @@ $recorte-da-orelha: linear-gradient(225deg, transparent 13.4px, #000 13.5px);
       position: absolute;
       left: 0;
       right: 0;
-      background-color: var(--faixa);
+      /* sutis (pedido do dono): o tom da faixa puxado para o do papel */
+      background-color: color-mix(in oklab, var(--faixa) 40%, var(--pasta));
       background-image: var(--paper-grain);
       background-blend-mode: multiply;
     }
