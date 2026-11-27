@@ -353,6 +353,8 @@ export abstract class WallState {
    * não é guardada (ao voltar para ele, o grupo abre na dele de novo).
    */
   protected readonly passingDensity = signal<{ tab: string; density: Density } | null>(null);
+  /** A trocada na régua dentro de uma pasta com a vista dela (à parte da do grupo: uma não apaga a outra). */
+  protected readonly passingFolderDensity = signal<{ tab: string; folder: string; density: Density } | null>(null);
   /**
    * A ordem com que cada grupo abre, escolhida nas configurações do mural (pela chave da aba). Como a
    * visualização: o grupo que tem uma esquece a última escolhida na régua. Só o seu mural de anotações.
@@ -598,10 +600,27 @@ export abstract class WallState {
    */
   readonly density = computed<Density>(() => {
     if (!isNotes(this.mural.kind())) return this.reviewDensity();
+    // a pasta aberta com a vista dela (PLANO-PASTAS-CUSTOMIZADAS.md, 5): ela vale dentro da pasta, ou a trocada na
+    // régua enquanto a pasta fica aberta; a pasta sem vista usa a do grupo
+    const own = this.folderDensity();
+    if (own) {
+      const p = this.passingFolderDensity();
+      return p && p.tab === this.activeTab() && p.folder === this.openFolder() ? p.density : own;
+    }
+    return this.groupLevelDensity();
+  });
+  /** A vista do grupo aberto, sem a da pasta: a dele (ou a trocada na régua), ou a última usada. */
+  readonly groupLevelDensity = computed<Density>(() => {
     const fixed = this.groupDensity();
     if (!fixed) return this.noteView().density;
     const passing = this.passingDensity();
     return passing && passing.tab === this.activeTab() ? passing.density : fixed;
+  });
+  /** A vista escolhida na pasta aberta (Customizar…), ou null (a do grupo). */
+  readonly folderDensity = computed<Density | null>(() => {
+    if (!this.notes()) return null;
+    const view = this.folders().live(this.openFolder())?.look?.view;
+    return view && (NOTE_DENSITIES as readonly string[]).includes(view) ? (view as Density) : null;
   });
 
   protected inTab(r: Review): boolean {
@@ -1072,6 +1091,7 @@ export abstract class WallState {
     this.allAsked.set(key === ALL_TAB);
     if (tab() === key && this.activeTab() === key) return;
     this.passingDensity.set(null);
+    this.passingFolderDensity.set(null);
     this.passingSort.set(null);
     tab.set(key);
     this.filter.set(NO_FILTER);
@@ -1121,8 +1141,10 @@ export abstract class WallState {
   setDensity(density: Density): void {
     if (isNotes(this.mural.kind())) {
       if (!NOTE_DENSITIES.includes(density)) return;
-      // o grupo com a visualização dele: a trocada na régua vale só enquanto ele está aberto
-      if (this.groupDensity()) this.passingDensity.set({ tab: this.activeTab(), density });
+      // a pasta (ou o grupo) com a visualização dela: a trocada na régua vale só enquanto ela está aberta
+      const folder = this.folderDensity() ? this.openFolder() : null;
+      if (folder) this.passingFolderDensity.set({ tab: this.activeTab(), density, folder });
+      else if (this.groupDensity()) this.passingDensity.set({ tab: this.activeTab(), density });
       else if (this.noteView().density !== density) this.patchNoteView({ density });
     } else if (REVIEW_DENSITIES.includes(density)) {
       this.reviewDensity.set(density);
@@ -1193,6 +1215,7 @@ export abstract class WallState {
     this.allAsked.set(false);
     this.collapsed.set(new Set());
     this.passingDensity.set(null);
+    this.passingFolderDensity.set(null);
     this.passingSort.set(null);
     this.applyTabShows();
     this.openFolders.set(new Map());
@@ -1273,6 +1296,7 @@ export class WallView extends WallState {
     this.allAsked.set(false);
     if (this.noteTab() === key) return;
     this.passingDensity.set(null);
+    this.passingFolderDensity.set(null);
     this.passingSort.set(null);
     this.noteTab.set(key);
     this.filter.set(NO_FILTER);

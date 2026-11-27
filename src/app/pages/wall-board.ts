@@ -23,7 +23,7 @@ import { Toasts } from '../ui/toast';
 import { FolderActions, WallDrag, WallDragItem, WallDrop, grabOf } from './wall-drag';
 import { MarksMoved, joinMarked, markedTops, marksLabel, moveMarked, movedText } from '../core/folder-marks';
 import { FolderMoveSheet } from '../ui/folder-move-sheet';
-import { FolderSheet } from '../ui/folder-sheet';
+import { FolderSheet, FolderSheetView } from '../ui/folder-sheet';
 import { lookKey } from '../core/category-looks';
 import { NoteSelection, copyMarkedItem } from '../ui/note-selection';
 import { Pin } from '../ui/pin';
@@ -63,6 +63,14 @@ export type WallAccess = Pick<WallCardProps, 'landingId' | 'picking' | 'picked' 
  * (`WallState`): o seu mural e o de outra pessoa são a mesma parede, só muda `access` (o que o dono
  * pode fazer nas fichas) e o texto, que fala da pessoa quando o mural é dela.
  */
+/** As vistas das anotações que uma pasta pode ter (as da régua, PLANO-PASTAS-CUSTOMIZADAS.md, 5). */
+const NOTE_VIEWS: readonly FolderSheetView[] = [
+  { value: 'completa', label: 'Fichas comuns', icon: ICON.completas },
+  { value: 'inteira', label: 'Fichas inteiras', icon: ICON.painel },
+  { value: 'simples', label: 'Visão geral', icon: ICON.simples },
+  { value: 'lista', label: 'Lista', icon: ICON.lista },
+];
+
 @Component({
   selector: 'app-wall-board',
   imports: [ContextMenu, DoneStamp, FolderCard, FolderMoveSheet, FolderSheet, IconModule, NoteIndex, NoteMenu, Pin, RouterLink, SearchHighlight, SectionHead, WallCards],
@@ -397,6 +405,8 @@ export class WallBoard {
         this.motion.run(() => (undo = fa.customize(f.id, change)));
         return undo;
       },
+      views: NOTE_VIEWS,
+      inherited: NOTE_VIEWS.find((v) => v.value === this.view.groupLevelDensity())?.label,
       note: 'A pasta fica assim para todos que a veem.',
     });
   }

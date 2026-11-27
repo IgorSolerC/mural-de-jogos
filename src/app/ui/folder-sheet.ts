@@ -26,7 +26,14 @@ import { SaveKey } from './save-key';
 import { Toasts } from './toast';
 
 /** As etiquetas da folha. */
-export type FolderSheetProp = 'cor' | 'enfeite';
+export type FolderSheetProp = 'cor' | 'enfeite' | 'vista';
+
+/** Uma vista do que está dentro da pasta (a do mural dela). */
+export interface FolderSheetView {
+  value: string;
+  label: string;
+  icon: LucideIconData;
+}
 
 /** O que a página entrega ao abrir: a pasta, o que ela mostra e como gravar. */
 export interface FolderSheetOpen {
@@ -41,6 +48,10 @@ export interface FolderSheetOpen {
   current: () => NoteFolder | undefined;
   /** Grava (o nome e o visual): devolve o Desfazer, ou null se nada mudou (ou não pode). */
   apply: (change: { name?: string; look: FolderLook | undefined }) => (() => void) | null;
+  /** As vistas do mural da pasta (sem: a folha não tem a etiqueta Vista). */
+  views?: readonly FolderSheetView[];
+  /** O nome da vista que vale sem escolher (a do grupo, ou a do mural). */
+  inherited?: string;
   /** A linha do pé (quem vê a pasta assim). */
   note?: string;
 }
@@ -83,6 +94,8 @@ export class FolderSheet {
   protected readonly color = signal<FolderColor>(DEFAULT_FOLDER_COLOR);
   /** O enfeite (null: nenhum). */
   protected readonly decor = signal<FolderDecor | null>(null);
+  /** A vista do que está dentro (null: a do grupo). */
+  protected readonly view = signal<string | null>(null);
   /** Os adesivos colados, na ordem em que foram escolhidos. */
   protected readonly stickers = signal<FolderSticker[]>([]);
   /** A etiqueta aberta (a parte dela logo embaixo da fileira), ou nenhuma. */
@@ -96,7 +109,8 @@ export class FolderSheet {
     const f = this.ctx()?.folder;
     if (!f) return undefined;
     const decor = this.decor();
-    const raw: FolderLook = { color: this.color(), ...(decor ? { decor } : {}), ...(decor === 'adesivos' ? { stickers: this.stickers() } : {}), ...(f.look?.view ? { view: f.look.view } : {}) };
+    const view = this.view();
+    const raw: FolderLook = { color: this.color(), ...(decor ? { decor } : {}), ...(decor === 'adesivos' ? { stickers: this.stickers() } : {}), ...(view ? { view } : {}) };
     return sanitizeFolderLook(raw, f.group);
   });
 
@@ -157,9 +171,22 @@ export class FolderSheet {
         filled: !!decorLabel,
       },
     ];
+    const views = this.ctx()?.views;
+    if (views?.length) {
+      const v = views.find((x) => x.value === this.view());
+      const inherited = this.ctx()?.inherited;
+      out.push({
+        id: 'vista',
+        name: 'Vista',
+        icon: v?.icon ?? ICON.completas,
+        value: v ? `Vista: ${v.label}` : 'Vista',
+        spoken: v ? v.label : `como o grupo${inherited ? `, ${inherited}` : ''}`,
+        filled: !!v,
+      });
+    }
     return out;
   });
-  protected readonly propNames: Record<FolderSheetProp, string> = { cor: 'Cor', enfeite: 'Enfeite' };
+  protected readonly propNames: Record<FolderSheetProp, string> = { cor: 'Cor', enfeite: 'Enfeite', vista: 'Vista' };
 
   private trust(svg: string): SafeHtml {
     return this.sanitizer.bypassSecurityTrustHtml(svg);
@@ -173,6 +200,7 @@ export class FolderSheet {
     this.color.set(look?.color ?? DEFAULT_FOLDER_COLOR);
     this.decor.set(look?.decor ?? null);
     this.stickers.set([...(look?.stickers ?? [])]);
+    this.view.set(look?.view ?? null);
     this.prop.set(null);
     this.attempted.set(false);
     this.dialog().nativeElement.showModal();
@@ -195,6 +223,10 @@ export class FolderSheet {
   protected pickDecor(d: FolderDecor | null): void {
     this.decor.set(d);
     this.attempted.set(false);
+  }
+
+  protected pickView(v: string | null): void {
+    this.view.set(v);
   }
 
   /** Cola ou descola um adesivo (até três, na ordem em que foram colados). */
@@ -284,6 +316,10 @@ export class FolderSheet {
       delete now.stickers;
       if (mine.decor) now.decor = mine.decor;
       if (mine.stickers) now.stickers = mine.stickers;
+    }
+    if (mine.view !== was.view) {
+      delete now.view;
+      if (mine.view) now.view = mine.view;
     }
     const undo = c.apply({ ...(name && name !== c.folder.name ? { name } : {}), look: now });
     this.close();

@@ -160,7 +160,7 @@ const WISH_WORDS = ['recorte', 'recortes'] as const;
                 <button
                   type="button"
                   class="tinta so-icone"
-                  [attr.aria-pressed]="prefs().vista === v.value"
+                  [attr.aria-pressed]="shownView() === v.value"
                   [attr.aria-label]="v.label"
                   [title]="v.hint"
                   (click)="setView(v.value)"
@@ -309,7 +309,7 @@ const WISH_WORDS = ['recorte', 'recortes'] as const;
         </section>
       }
 
-      @if (prefs().vista === 'grade') {
+      @if (shownView() === 'grade') {
         <!-- a Grade: muitas capas de uma vez, todas do mesmo tamanho -->
         <h2 class="sr-only">Capas</h2>
         <ul class="grade" [appRealceBusca]="filter().query" realceEm=".nome">
@@ -1016,7 +1016,7 @@ export class WishlistPage {
       notes: () => this.wishById(),
       // outro mural: os marcados eram de outra Wishlist
       reset: () => this.mural.kind(),
-      layout: () => [this.visible(), this.prefs().vista, this.folderKids()],
+      layout: () => [this.visible(), this.shownView(), this.folderKids()],
       drags: true,
       mode: this.marking,
       folders: {
@@ -1223,9 +1223,28 @@ export class WishlistPage {
     this.transitions.run(() => this.prefs.update((p) => ({ ...p, vontadePrimeiro: !p.vontadePrimeiro })));
   }
 
+  /**
+   * A vista trocada na régua dentro de uma pasta que tem a dela (PLANO-PASTAS-CUSTOMIZADAS.md, 5): vale enquanto a
+   * pasta fica aberta e não é guardada.
+   */
+  private readonly passingView = signal<{ folder: string; vista: WishView } | null>(null);
+  /** A vista da pasta aberta (Customizar…), ou a trocada nela; fora (ou na pasta sem vista), a do aparelho. */
+  protected readonly shownView = computed<WishView>(() => {
+    const open = this.openFolder();
+    const own = open ? this.folderTree().live(open)?.look?.view : undefined;
+    if (open && (own === 'recortes' || own === 'grade')) {
+      const p = this.passingView();
+      return p && p.folder === open ? p.vista : own;
+    }
+    return this.prefs().vista;
+  });
+
   protected setView(v: WishView): void {
-    if (v === this.prefs().vista) return;
-    this.prefs.update((p) => ({ ...p, vista: v }));
+    if (v === this.shownView()) return;
+    const open = this.openFolder();
+    // na pasta com a vista dela, a trocada vale só enquanto ela está aberta
+    if (open && this.folderTree().live(open)?.look?.view) this.passingView.set({ folder: open, vista: v });
+    else this.prefs.update((p) => ({ ...p, vista: v }));
   }
 
   /** O Vontade da etiqueta: o menu com as três vontades, embaixo do botão. */
@@ -1526,6 +1545,8 @@ export class WishlistPage {
         this.transitions.run(() => (undo = this.folders.customize(f.id, change)));
         return undo;
       },
+      views: this.views,
+      inherited: this.views.find((v) => v.value === this.prefs().vista)?.label,
       note: 'A pasta fica assim para todos que a veem.',
     });
   }

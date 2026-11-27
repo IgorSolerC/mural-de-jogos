@@ -99,6 +99,20 @@ describe('as pastas na Wishlist', () => {
     expect(indies.querySelector('.qtd')!.textContent).toContain('2 recortes · 1 pasta');
   });
 
+  it('a pasta com a vista dela (Customizar…): Recortes dentro dela, a Grade do aparelho fora; trocar dentro não muda a guardada', async () => {
+    folders.customize(coop, { look: { view: 'recortes' } });
+    await mount();
+    const pressed = () => host.querySelector('.pasta-grupo[aria-label="Vista"] [aria-pressed="true"]')?.getAttribute('aria-label') === 'Recortes';
+    expect(pressed()).toBeFalse();
+    await open(coop);
+    expect(pressed()).toBeTrue();
+    // trocar na régua dentro da pasta vale só nela
+    host.querySelector<HTMLButtonElement>('.pasta-grupo[aria-label="Vista"] [aria-label="Grade"]')!.click();
+    await settle();
+    expect(pressed()).toBeFalse();
+    expect(JSON.parse(localStorage.getItem(WISHLIST_PREFS_KEY)!).vista).toBe('grade');
+  });
+
   it('entrar: o caminho na pasta da barra, a pasta no endereço, as de dentro; o caminho volta', async () => {
     await mount();
     await open(indie);

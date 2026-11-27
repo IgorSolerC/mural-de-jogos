@@ -71,6 +71,25 @@
             @if (prop(); as p) {
               <div class="parte" id="pasta-parte" role="group" [attr.aria-label]="propNames[p]" (keydown.escape)="closeProp($event)">
                 @switch (p) {
+                  @case ('vista') {
+                    <!-- a vista do que está dentro: a do grupo primeiro, depois as do mural -->
+                    <div class="vistas" role="radiogroup" aria-label="Vista do que está dentro da pasta">
+                      <label class="vista-op" [class.on]="view() === null">
+                        <input type="radio" name="pasta-vista" class="sr-only" [checked]="view() === null" (change)="pickView(null)" />
+                        <span class="vista-nome">Como o grupo</span>
+                        @if (c.inherited) {
+                          <span class="vista-dica">{{ c.inherited }}</span>
+                        }
+                      </label>
+                      @for (v of c.views ?? []; track v.value) {
+                        <label class="vista-op" [class.on]="view() === v.value">
+                          <input type="radio" name="pasta-vista" class="sr-only" [checked]="view() === v.value" (change)="pickView(v.value)" />
+                          <lucide-icon [img]="v.icon" [size]="18" aria-hidden="true" />
+                          <span class="vista-nome">{{ v.label }}</span>
+                        </label>
+                      }
+                    </div>
+                  }
                   @case ('cor') {
                     <!-- as onze cores de papel de pasta, cada uma como uma pastinha -->
                     <div class="cores" role="radiogroup" aria-label="Cor da pasta">

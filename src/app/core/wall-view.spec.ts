@@ -253,6 +253,50 @@ describe('WallView', () => {
       expect(view.density()).toBe('completa');
     });
 
+    it('a trocada na pasta não apaga a trocada no grupo (um grupo com padrão)', () => {
+      settings.setCategoryPrefs('Casa', { view: 'completa' });
+      settings.setNotesConfig({ folders: [{ id: 'preceitas0001', group: 'casa', name: 'Receitas', parent: null, look: { view: 'lista' } }] });
+      view.setNoteTab('c:casa');
+      view.setDensity('inteira');
+      view.enterFolder('preceitas0001');
+      view.setDensity('simples');
+      view.enterFolder(null);
+      expect(view.density()).toBe('inteira');
+    });
+
+    it('a pasta com a vista dela (Customizar…): vale dentro dela; trocar na régua vale só nela; fora, a do grupo (PLANO-PASTAS-CUSTOMIZADAS.md, 5)', () => {
+      settings.setNotesConfig({
+        folders: [
+          { id: 'preceitas0001', group: 'casa', name: 'Receitas', parent: null, look: { view: 'lista' } },
+          { id: 'pcontas00001', group: 'casa', name: 'Contas', parent: null },
+        ],
+      });
+      view.setNoteTab('c:casa');
+      view.setDensity('inteira');
+      view.enterFolder('preceitas0001');
+      expect(view.folderDensity()).toBe('lista');
+      expect(view.density()).toBe('lista');
+      expect(view.groupLevelDensity()).toBe('inteira');
+      // trocar na régua dentro da pasta não muda a do grupo, nem a guardada
+      view.setDensity('simples');
+      expect(view.density()).toBe('simples');
+      expect(view.noteViews()['c:casa'].density).toBe('inteira');
+      // voltar à pasta: a trocada nela continua
+      view.enterFolder(null);
+      view.enterFolder('preceitas0001');
+      expect(view.density()).toBe('simples');
+      // a pasta sem vista: a do grupo
+      view.enterFolder('pcontas00001');
+      expect(view.density()).toBe('inteira');
+      view.enterFolder(null);
+      expect(view.density()).toBe('inteira');
+      // trocar de aba esquece a trocada na pasta
+      view.setNoteTab('c:trabalho');
+      view.setNoteTab('c:casa');
+      view.enterFolder('preceitas0001');
+      expect(view.density()).toBe('lista');
+    });
+
     it('nos murais de análises, o padrão dos grupos não vale', () => {
       settings.setCategoryPrefs('Trabalho', { view: 'lista' });
       view.setNoteTab('c:trabalho');

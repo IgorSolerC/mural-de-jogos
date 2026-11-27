@@ -3,6 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import type { FolderLook } from '../core/folder-looks';
 import type { NoteFolder } from '../core/folders';
 import { Confirm } from './confirm';
+import { ICON } from './icons';
 import { FolderSheet, FolderSheetOpen } from './folder-sheet';
 import { Toasts } from './toast';
 
@@ -43,7 +44,7 @@ describe('a folha Customizar (FolderSheet)', () => {
     });
     await stable();
   }
-  async function pickProp(id: 'cor' | 'enfeite'): Promise<void> {
+  async function pickProp(id: 'cor' | 'enfeite' | 'vista'): Promise<void> {
     q<HTMLButtonElement>(`.prop[data-prop="${id}"]`).click();
     await stable();
   }
@@ -155,6 +156,24 @@ describe('a folha Customizar (FolderSheet)', () => {
     await radio('Azul');
     await save();
     expect(applied).toEqual([{ look: { color: 'azul', decor: 'costura', view: 'inteira' } }]);
+  });
+
+  it('a vista do que está dentro: Como o grupo (com o nome dela) ou uma do mural; sem as vistas, sem a etiqueta', async () => {
+    const views = [
+      { value: 'completa', label: 'Fichas comuns', icon: ICON.completas },
+      { value: 'lista', label: 'Lista', icon: ICON.lista },
+    ];
+    await open({ views, inherited: 'Fichas comuns' });
+    expect(q('.prop[data-prop="vista"]').textContent).toContain('Vista: Lista');
+    await pickProp('vista');
+    expect(q('.vista-op .vista-dica').textContent).toContain('Fichas comuns');
+    q<HTMLInputElement>('input[name="pasta-vista"]').click();
+    await fixture.whenStable();
+    await save();
+    expect(applied).toEqual([{ look: { color: 'verde' } }]);
+    el().close();
+    await open();
+    expect(el().querySelector('.prop[data-prop="vista"]')).toBeNull();
   });
 
   it('fechar sem mudar nada fecha; com algo mudado, pergunta antes de descartar', async () => {
