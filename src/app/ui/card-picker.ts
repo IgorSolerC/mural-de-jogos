@@ -73,7 +73,7 @@ const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anota
                       } @else {
                         <!-- a anotação sem capa: um pedacinho da cartolina dela, na cor do mural -->
                         <span class="capa folhinha" [style.--stock]="'var(--stock-' + stockOf(r) + ')'" [attr.data-cor]="stockOf(r)" aria-hidden="true">
-                          <lucide-icon [img]="NoteIcon" [size]="18" aria-hidden="true" />
+                          <lucide-icon [img]="isCanvas(r) ? CanvasIcon : NoteIcon" [size]="18" aria-hidden="true" />
                         </span>
                       }
                       <span class="texto">
@@ -173,6 +173,11 @@ export class CardPicker {
   readonly source = input<readonly Review[] | null>(null);
   /** As pastas de quem são as fichas de `source` (as da pessoa visitada); null: as suas. */
   readonly folderTree = input<FolderTree | null>(null);
+  /**
+   * Os canvas também (o "Ao lado" da leitura, PLANO-LADO-A-LADO.md, D3: lá eles se veem); sem isto, ficam de fora, como
+   * no Kanban, nos Flashcards, no widget Nota e no Calendário.
+   */
+  readonly withCanvas = input(false);
 
   protected readonly CloseIcon = ICON.fechar;
   protected readonly SearchIcon = ICON.buscar;
@@ -181,6 +186,8 @@ export class CardPicker {
   protected readonly LockIcon = ICON.privada;
   protected readonly NoteIcon = KIND_ICON.anotacoes;
   protected readonly isNote = isNote;
+  protected readonly isCanvas = isCanvas;
+  protected readonly CanvasIcon = ICON.canvas;
   protected readonly isPrivate = isPrivate;
   protected readonly query = signal('');
   protected readonly kind = signal<Kind | null>(null);
@@ -199,7 +206,7 @@ export class CardPicker {
     const out = new Set(this.exclude());
     const cat = this.onlyCategory();
     return (this.source() ?? this.store.reviews()).filter(
-      (r) => r.id !== self && !out.has(r.id) && !isCanvas(r) && (!only || r.kind === only) && (!cat || belongs({ category: cat }, r)),
+      (r) => r.id !== self && !out.has(r.id) && (!isCanvas(r) || this.withCanvas()) && (!only || r.kind === only) && (!cat || belongs({ category: cat }, r)),
     );
   });
   /** O mural da lista: o escolhido no "Onde", ou o único (o "Buscar nota" do Kanban). */
@@ -303,7 +310,7 @@ export class CardPicker {
 
   /** O mural e o que diz dela: o grupo, a pasta e a data da anotação; a média da resenha. */
   protected metaOf(r: Review): string {
-    const kind = cap(profileOf(r.kind).singular);
+    const kind = isCanvas(r) ? 'Canvas' : cap(profileOf(r.kind).singular);
     if (isNote(r)) {
       const tree = this.tree();
       const where = [r.category, ...tree.path(tree.of(r)).map((f) => f.name)].filter(Boolean).join(' › ');

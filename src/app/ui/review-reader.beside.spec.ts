@@ -9,6 +9,9 @@ import { Review, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { SHARED_AUTO } from '../core/shared-store';
 import { ReviewReader } from './review-reader';
+import { SpoilerShield } from '../core/spoiler-shield';
+import { FreeBoardStore } from '../core/free-board-store';
+import type { FreeBoard } from '../core/free-board';
 import { Toasts } from './toast';
 
 /**
@@ -503,7 +506,7 @@ describe('Duas anotações lado a lado (ReviewReader, PLANO-DUAS-NOTAS.md)', () 
     reader.open(store.get('nota-a')!);
     await settle();
     expect(ear()).not.toBeNull();
-    expect(ear()!.getAttribute('aria-label')).toBe('Abrir outra anotação ao lado');
+    expect(ear()!.getAttribute('aria-label')).toBe('Abrir outra coisa ao lado');
     expect(ear()!.getAttribute('aria-haspopup')).toBe('dialog');
     // uma etiqueta do trilho (PLANO-LEITURA-UNIFICADA.md, D5)
     expect(ear()!.closest('.trilho')).not.toBeNull();
@@ -516,14 +519,18 @@ describe('Duas anotações lado a lado (ReviewReader, PLANO-DUAS-NOTAS.md)', () 
     expect(beside()!.querySelector('.etq-trilho[data-trilho="ao-lado"]')).toBeNull();
   });
 
-  it('a resenha não tem o "+" (ela tem o Lado a lado dela)', async () => {
+  it('a análise também tem o Ao lado (PLANO-LADO-A-LADO.md, D3), e abre uma anotação ao lado dela', async () => {
+    fits(true);
     store.add(sanitizeReview({ id: 'jogo-1', kind: 'jogos', game: { name: 'Hollow Knight', coverUrl: null, source: 'manual' }, scores: { diversao: 9, historia: 8, jogabilidade: 9, visual: 8 }, status: 'finalizado', text: 'Bom.', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' })!);
     reader.open(store.get('jogo-1')!);
     await settle();
-    expect(ear()).toBeNull();
+    expect(ear()).not.toBeNull();
+    await pickFromEar('Curta');
+    expect(nameOf(beside())).toBe('Curta');
+    expect(nameOf(outer())).toBe('Hollow Knight');
   });
 
-  it('o "+" abre o Escolher a nota de sempre, só com as outras anotações, e a escolhida abre ao lado', async () => {
+  it('o "+" abre o Escolher a nota de sempre, com as anotações, as análises e os canvas, e a escolhida abre ao lado', async () => {
     fits(true);
     store.add(sanitizeReview({ id: 'jogo-1', kind: 'jogos', game: { name: 'Hollow Knight', coverUrl: null, source: 'manual' }, scores: { diversao: 9, historia: 8, jogabilidade: 9, visual: 8 }, status: 'finalizado', text: 'Bom.', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' })!);
     reader.open(store.get('nota-a')!);
@@ -534,12 +541,76 @@ describe('Duas anotações lado a lado (ReviewReader, PLANO-DUAS-NOTAS.md)', () 
     await settle();
     expect(document.querySelector('app-card-picker h2')?.textContent?.trim()).toBe('Abrir ao lado');
     const names = [...document.querySelectorAll('app-card-picker .escolha .nome')].map((n) => n.textContent!.trim()).sort();
-    expect(names).toEqual(['Cronograma', 'Curta']);
+    expect(names).toEqual(['Cronograma', 'Curta', 'Hollow Knight']);
     const item = [...document.querySelectorAll<HTMLButtonElement>('app-card-picker .escolha')].find((b) => b.textContent?.includes('Curta'))!;
     item.click();
     await settle();
     expect(nameOf(beside())).toBe('Curta');
     expect(nameOf(outer())).toBe('Receita de pão');
+  });
+
+  it('uma análise escolhida abre ao lado, com as notas dela', async () => {
+    fits(true);
+    store.add(sanitizeReview({ id: 'jogo-1', kind: 'jogos', game: { name: 'Hollow Knight', coverUrl: null, source: 'manual' }, scores: { diversao: 9, historia: 8, jogabilidade: 9, visual: 8 }, status: 'finalizado', text: 'Bom demais.', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' })!);
+    reader.open(store.get('nota-a')!);
+    await settle();
+    await pickFromEar('Hollow Knight');
+    expect(nameOf(beside())).toBe('Hollow Knight');
+    expect(beside()!.querySelector('app-boletim')).withContext('as notas da análise').not.toBeNull();
+    expect(beside()!.textContent).toContain('Bom demais.');
+  });
+
+  it('na visita, a análise dela sobre o que você não avaliou abre ao lado em segredo, como no mural dela', async () => {
+    const jogo = sanitizeReview({ id: 'dela-jogo', kind: 'jogos', game: { name: 'Celeste', coverUrl: null, source: 'manual' }, scores: { diversao: 9, historia: 8, jogabilidade: 9, visual: 8 }, status: 'finalizado', text: 'O final é lindo.', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' })!;
+    spyOn(TestBed.inject(SpoilerShield), 'hiddenIn').and.callFake((list: readonly Review[]) => new Set(list.filter((r) => r.id === 'dela-jogo').map((r) => r.id)));
+    const dela = [note('dela-1', 'Diário da viagem'), jogo];
+    reader.open(dela[0], 'Ana', dela, false, 'ANA123');
+    await settle();
+    reader.openBeside(jogo);
+    await settle();
+    expect(nameOf(beside())).toBe('Celeste');
+    expect(beside()!.querySelector('app-rabisco')).withContext('o texto riscado').not.toBeNull();
+    expect(beside()!.textContent).not.toContain('O final é lindo.');
+  });
+
+  describe('o canvas ao lado (PLANO-LADO-A-LADO.md, D4)', () => {
+    const BOARD = 'quadroDaCozinha0123456';
+    const canvasNote = () =>
+      sanitizeReview({ id: 'cv-' + BOARD, kind: 'anotacoes', canvas: BOARD, game: { name: 'Planta da cozinha', coverUrl: null, source: 'manual' }, scores: { final: 0 }, status: 'finalizado', text: '', completedAt: '2026-01-01', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' })!;
+
+    it('o seletor mostra o canvas, como canvas', async () => {
+      fits(true);
+      store.add(canvasNote());
+      reader.open(store.get('nota-a')!);
+      await settle();
+      ear()!.click();
+      await settle();
+      await wait(50);
+      await settle();
+      const item = [...document.querySelectorAll<HTMLElement>('app-card-picker .escolha')].find((b) => b.textContent?.includes('Planta da cozinha'));
+      expect(item).withContext('o canvas no seletor').toBeDefined();
+      expect(item!.querySelector('.meta')!.textContent).toContain('Canvas');
+    });
+
+    it('ao lado, o canvas mostra o quadro só de ver, e o pé leva à página dele', async () => {
+      const store2 = TestBed.inject(FreeBoardStore);
+      spyOn(store2, 'get').and.callFake((id: string) => (id === BOARD ? ({ v: 1, id: BOARD, nome: 'Planta', grupo: '', em: '2026-01-01T00:00:00.000Z', n: [], e: [] } as FreeBoard) : null));
+      store.add(canvasNote());
+      reader.open(store.get('nota-a')!);
+      await settle();
+      reader.openBeside(store.get('cv-' + BOARD)!);
+      await settle();
+      await wait(80);
+      await settle();
+      expect(nameOf(beside())).toBe('Planta da cozinha');
+      const board = beside()!.querySelector('.canvas-leitura app-free-board');
+      expect(board).withContext('o quadro na leitura').not.toBeNull();
+      // só de ver: sem o editar
+      expect(beside()!.querySelector('.canvas-leitura .edit-overlay, .canvas-leitura app-board-editor')).toBeNull();
+      const foot = [...beside()!.querySelectorAll<HTMLButtonElement>('.foot .btn-ink')].map((b) => b.textContent?.trim());
+      expect(foot).toContain('Abrir o canvas');
+      expect(foot).not.toContain('Editar');
+    });
   });
 
   it('escolhida quando já não cabem duas (a tela estreitou), ela abre no lugar desta, com o Voltar', async () => {

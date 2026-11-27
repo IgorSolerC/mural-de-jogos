@@ -1731,3 +1731,28 @@ dialog.reader.so-a-cartolina:not(.dupla, .ao-lado) {
     overflow: hidden;
   }
 }
+
+/* ===== O canvas na leitura (PLANO-LADO-A-LADO.md, D4) =====
+   O quadro do canvas no lugar do texto, só de ver (o arrastar, o zoom, o Ver tudo), enchendo a folha: a ficha fica da
+   altura da leitura, e o eucatex vai de beirada a beirada, sem a margem do papel. */
+.lendo .par > .ficha.e-canvas {
+  height: calc(100dvh - 48px);
+}
+
+.ficha.e-canvas > .body {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.canvas-leitura {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 320px;
+}
+
+.quadro-leitura {
+  position: absolute;
+  inset: 0;
+}

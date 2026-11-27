@@ -26,7 +26,7 @@ import { ROOM, Room } from './room';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, ICON_CHOICE, IconModule } from './icons';
 import { NOTES, cap, g, profileOf } from '../core/kinds';
-import { BONUS_KIND_LABEL, MUSIC_FORM_LABEL, NO_DAY_LABEL, Review, SCORE_LABEL, VERDICT_LABEL, ratedKeys, scoreOf, weightOf, isMusicReview, isNote, musicFormOf, dayLabel, formatAmount, formatReviewDate, formatReviewDateLong, formatScore, isDarkStock, isPrivate, sortBonuses, timesOf } from '../core/review';
+import { BONUS_KIND_LABEL, MUSIC_FORM_LABEL, NO_DAY_LABEL, Review, SCORE_LABEL, VERDICT_LABEL, ratedKeys, scoreOf, weightOf, isCanvas, isMusicReview, isNote, musicFormOf, dayLabel, formatAmount, formatReviewDate, formatReviewDateLong, formatScore, isDarkStock, isPrivate, sortBonuses, timesOf } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { SideBySide } from '../core/side-by-side';
 import { lookOf } from '../core/paper';
@@ -86,7 +86,11 @@ import { LinkSheet } from './link-sheet';
 import { CardConfig } from './card-config';
 import { VozFita } from './voz-fita';
 import { Voz } from '../core/voz';
-import { CALENDAR_PATH, studyPath, wallPath } from '../core/areas';
+import { CALENDAR_PATH, canvasPath, studyPath, wallPath } from '../core/areas';
+import { FreeBoardStore } from '../core/free-board-store';
+import type { FreeBoard } from '../core/free-board';
+import { boardIdOfNote } from '../core/canvas-id';
+import { FreeBoardView } from './free-board/free-board-view';
 import { LEVEL_LABEL, cardDecks, levelOf, studyGroupId, whenLabel } from '../core/study';
 import { StudyStore } from '../core/study-store';
 import { FichaLinks } from '../core/ficha-link';
@@ -192,7 +196,7 @@ interface Handover {
 
 @Component({
   selector: 'app-review-reader',
-  imports: [BackdropClose, CardConfig, CardPicker, ReviewEditor, QuickNoteSheet, WordSheet, CommentsPanel, ReaderDetails, ConflictSheet, LinkSheet, ShareSheet, OrganizeSheet, IconModule, KanbanDepsBadge, MoreMenu, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, ReviewCard, Skulls, StatusLabel, VozFita],
+  imports: [BackdropClose, CardConfig, CardPicker, FreeBoardView, ReviewEditor, QuickNoteSheet, WordSheet, CommentsPanel, ReaderDetails, ConflictSheet, LinkSheet, ShareSheet, OrganizeSheet, IconModule, KanbanDepsBadge, MoreMenu, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, ReviewCard, Skulls, StatusLabel, VozFita],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // cada leitura é a sala das peças ampliadas dela (ui/room.ts): com duas abertas, o zoom fica no lado dela
   providers: [{ provide: ROOM, useExisting: forwardRef(() => ReviewReader) }],
@@ -219,7 +223,7 @@ interface Handover {
         <!-- a ficha e, puxada de baixo dela pela orelha, a folha de comentários (só a cartolina: a dupla
              fica guardada, escondida, com o lugar onde se lia) -->
         <div class="par">
-        <article class="ficha cartolina" [style.--stock]="'var(--stock-' + pin().stock + ')'" [attr.data-cor]="pin().stock">
+        <article class="ficha cartolina" [class.e-canvas]="!!canvasBoard() && lendo()" [style.--stock]="'var(--stock-' + pin().stock + ')'" [attr.data-cor]="pin().stock">
           <app-pin class="pin" [color]="pin().pinColor" />
           <!-- a faixa da cartolina é a orelha da ficha de fichário: o nome vai escrito nela, a pincel, e
                o resto da folha fica para o que se lê -->
@@ -399,7 +403,19 @@ interface Handover {
             }
             }
 
-            @if (r.text.trim()) {
+            @if (canvasBoard(); as board) {
+              <!-- o canvas: o quadro dele, só de ver (o arrastar, o zoom e o Ver tudo; editar é na página dele), do
+                   tamanho da folha (PLANO-LADO-A-LADO.md, D4) -->
+              <div class="canvas-leitura">
+                @defer (on immediate) {
+                  <app-free-board #quadroLeitura class="quadro-leitura" [board]="board" [links]="noteLinks()" />
+                } @placeholder {
+                  <p class="abrindo" role="status"><span class="carregando" aria-hidden="true"></span>Abrindo o canvas…</p>
+                }
+              </div>
+            } @else if (canvas()) {
+              <p class="no-text">O quadro deste canvas ainda não chegou.</p>
+            } @else if (r.text.trim()) {
               @if (masked()) {
                 <div class="text"><app-rabisco [text]="text()" /><span class="sr-only">Texto escondido</span></div>
               } @else {
@@ -481,7 +497,13 @@ interface Handover {
                   <span class="nome-acao">{{ r.doneAt ? 'Abrir de novo' : 'Finalizar' }}</span>
                 </button>
               }
-              @if (writable()) {
+              @if (canvas()) {
+                <!-- o canvas se edita na página dele (aqui ele só se vê) -->
+                <button type="button" class="btn-ink" (click)="openCanvas()">
+                  <lucide-icon [img]="CanvasIcon" [size]="20" aria-hidden="true" />
+                  Abrir o canvas
+                </button>
+              } @else if (writable()) {
                 <button type="button" class="btn-ink" (click)="editHere()">
                   <lucide-icon [img]="EditIcon" [size]="20" aria-hidden="true" />
                   Editar
@@ -626,7 +648,7 @@ interface Handover {
                 </button>
               </div>
               <div class="cartolina-grande" [style.zoom]="cardZoom()">
-                <app-review-card [review]="r" [preview]="true" [masked]="masked()" [looks]="cardLooks()" [times]="r.revisitOf ? 1 : times().length || 1" (opened)="setView('leitura')" />
+                <app-review-card [review]="r" [canvasBoard]="canvasBoard()" [preview]="true" [masked]="masked()" [looks]="cardLooks()" [times]="r.revisitOf ? 1 : times().length || 1" (opened)="setView('leitura')" />
               </div>
             </div>
           </div>
@@ -667,14 +689,14 @@ interface Handover {
           @defer (on immediate) {
             <app-card-picker
               [(open)]="pickBeside"
-              onlyKind="anotacoes"
+              [withCanvas]="true"
               [selfId]="r.id"
               [source]="owner() === null ? null : pool()"
               [folderTree]="owner() === null ? null : folderTree()"
               heading="Abrir ao lado"
-              hint="Uma anotação para ler ao lado desta."
-              footHint="Toque numa anotação para abrir ao lado."
-              [emptyText]="owner() === null ? 'Você ainda não tem outras anotações.' : 'Não há outras anotações à mostra aqui.'"
+              hint="Uma anotação, análise ou canvas, para ver ao lado desta."
+              footHint="Toque numa para abrir ao lado."
+              [emptyText]="owner() === null ? 'Você ainda não tem outras fichas.' : 'Não há outras fichas à mostra aqui.'"
               (picked)="pickedBeside($event)"
             />
           }
@@ -906,6 +928,43 @@ export class ReviewReader implements Room {
     const dialog = this.dialog().nativeElement;
     return dialog.querySelector<HTMLElement>(':scope > .na-parede') ?? dialog.querySelector<HTMLElement>(':scope > .par');
   }
+  // ===== O canvas na leitura (PLANO-LADO-A-LADO.md, D4) =====
+  /** A ficha aberta é um canvas. */
+  protected readonly canvas = computed(() => isCanvas(this.review()));
+  private readonly freeBoards = inject(FreeBoardStore);
+  /** O quadro do canvas aberto: o seu (FreeBoardStore), ou o público de quem você visita (a vista da visita). */
+  protected readonly canvasBoard = computed<FreeBoard | null>(() => {
+    const r = this.review();
+    if (!r || !isCanvas(r)) return null;
+    const id = r.canvas ?? boardIdOfNote(r.id);
+    if (!id) return null;
+    if (this.owner() !== null) return this.visitFolders?.canvasBoard()(id) ?? null;
+    this.freeBoards.boards();
+    return this.freeBoards.get(id);
+  });
+  protected readonly CanvasIcon = ICON.canvas;
+  private readonly boardView = viewChild<FreeBoardView>('quadroLeitura');
+  /**
+   * A outra abrindo ou fechando muda a largura do lado: depois que ela assenta (a leitura anda 320 ms), o quadro volta ao
+   * Ver tudo, para o canvas inteiro caber no lugar novo.
+   */
+  private readonly refitBoard = effect((onCleanup) => {
+    this.split();
+    const view = untracked(this.boardView);
+    if (!view) return;
+    const timer = setTimeout(() => this.boardView()?.fitAll(), 360);
+    onCleanup(() => clearTimeout(timer));
+  });
+  /** "Abrir o canvas": a leitura fecha e a página do canvas abre (onde ele se edita); fechar ali volta para cá. */
+  protected openCanvas(): void {
+    const r = this.review();
+    if (!r) return;
+    const back = this.router.url;
+    this.whenFree(() => {
+      this.close();
+      void this.router.navigateByUrl(canvasPath(r.id), { state: { voltar: back } });
+    });
+  }
   /** O "Escolher a nota" do "+" está aberto. */
   protected readonly pickBeside = signal(false);
   protected readonly AddIcon = ICON.adicionar;
@@ -914,10 +973,11 @@ export class ReviewReader implements Room {
    * com ela sozinha, fora da ficha aberta pelo link. A largura (onde cabem as duas) fica no CSS.
    */
   protected readonly canBeside = computed(() => {
-    if (!this.lendo() || !this.note() || this.aoLado() || this.segunda() || this.solta()) return false;
-    // a de outra pessoa: só com outra anotação dela à mostra (sem nenhuma, o seletor abriria vazio)
+    // (a análise e o canvas também: PLANO-LADO-A-LADO.md, D3)
+    if (!this.lendo() || this.aoLado() || this.segunda() || this.solta()) return false;
+    // a de outra pessoa: só com outra ficha dela à mostra (sem nenhuma, o seletor abriria vazio)
     const id = this.review()?.id;
-    return this.owner() === null || this.pool().some((n) => isNote(n) && n.id !== id);
+    return this.owner() === null || this.pool().some((n) => n.id !== id);
   });
   /** As pastas de quem é a ficha: as suas, ou as de quem você visita. */
   protected readonly folderTree = computed(() => (this.owner() === null ? this.ownFolders.tree() : (this.visitFolders?.folders() ?? NO_FOLDERS)));
@@ -928,7 +988,7 @@ export class ReviewReader implements Room {
   /** Escolheu no seletor do "+": abre ao lado, se ainda couber; senão, abre no lugar desta. */
   protected pickedBeside(r: Review): void {
     if (this.fitsBeside()) this.openBeside(r);
-    else this.follow(r);
+    else this.followCard(r);
   }
   /** Os ids da página: os da segunda ganham o "-2" (o nome dela é quem a anuncia). */
   protected readonly sufixo = computed(() => (this.aoLado() ? '-2' : ''));
@@ -1546,7 +1606,7 @@ export class ReviewReader implements Room {
       const n = this.commentCount();
       out.push({ id: 'comentarios', label: n ? `Comentários: ${n}` : 'Comentários', name: 'Comentários', icon: this.CommentIcon, count: n });
     }
-    if (this.canBeside()) out.push({ id: 'ao-lado', label: 'Abrir outra anotação ao lado', name: 'Ao lado', icon: this.AddIcon, count: 0 });
+    if (this.canBeside()) out.push({ id: 'ao-lado', label: 'Abrir outra coisa ao lado', name: 'Ao lado', icon: this.AddIcon, count: 0 });
     return out;
   });
 
@@ -2402,8 +2462,10 @@ export class ReviewReader implements Room {
     const owner = this.owner();
     const pool = this.pool();
     const code = this.ownerCode();
+    // a análise de outra pessoa sobre o que você ainda não avaliou abre em segredo, como no mural dela
+    const masked = owner !== null && this.shield.hiddenIn([review]).has(review.id);
     this.segunda.set(review);
-    afterNextRender(() => this.ladoB()?.open(review, owner, pool, false, code), { injector: this.injector });
+    afterNextRender(() => this.ladoB()?.open(review, owner, pool, masked, code), { injector: this.injector });
   }
 
   /** Só a segunda sai (ela pediu, ou a tela estreitou): a primeira fica, com o foco nela. */

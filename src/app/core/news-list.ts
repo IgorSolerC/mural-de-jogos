@@ -27,12 +27,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-26-lado-a-lado-editar',
+    id: '2026-11-26-lado-a-lado-analises-canvas',
     version: '1.58.0',
     kind: 'funcionalidade',
     date: '2026-11-26',
-    title: 'Lado a lado: cada lado por si',
+    title: 'Lado a lado com análises e canvas, cada lado por si',
     items: [
+      'O Ao lado da leitura abre também análises e canvas: o Escolher a nota mostra as anotações, as análises de todos os murais e os canvas, separados pelo Onde. O canvas aberto na leitura mostra o quadro dele para ver (arrastar, dar zoom, Ver tudo), e o Abrir o canvas leva à página dele, onde ele se edita. A análise e o canvas abertos sozinhos também têm o Ao lado.',
       'Com duas anotações abertas lado a lado, cada uma é um lugar: os Detalhes, os Comentários e o Citar de uma abrem por cima dela (com o "Voltar para a ficha"), e Só a cartolina mostra a ficha do mural no lado dela; a outra continua à vista, para ler e mexer. O X de cada uma fecha só ela: a que fica passa a ser a leitura de sempre, no mesmo trecho, com os Detalhes, os Comentários e o Ao lado de volta. O Esc e o toque fora fecham as duas.',
       'O zoom também fica no lado: a imagem, a tabela e os widgets ampliados numa das duas anotações crescem só até o tamanho dela, com o fundo escuro só nela, e a outra continua à vista, para ler, rolar e mexer. Dá para ampliar uma peça em cada lado ao mesmo tempo; o Esc desce a do lado onde você está.',
       'Editar ao lado: com duas anotações abertas, o Editar de uma abre o editor no lugar dela, e a outra continua à vista; dá para editar as duas ao mesmo tempo (o Ctrl+S salva a do lado onde você está). No lado, o editor fica como numa janela estreita, com a cartolina em cima do texto, na aba dela. Salvar ou fechar volta à leitura. A mesma anotação não abre para editar nos dois lados, e fechar a leitura com algo por salvar pergunta antes.',
