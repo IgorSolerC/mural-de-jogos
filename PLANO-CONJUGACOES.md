@@ -105,3 +105,19 @@ com testes, `/code-review medium`, commit e push; no fim, a crítica do Impeccab
 - A folha: abre pelo verbete, a tabela por grupos, tocar abre o uso e o exemplo, aberta por uma forma.
 - A busca: 行かなかった, ikanakatta, たべられる acham o verbo, com a tira; o latim não acha forma.
 - A seleção: selecionar 行かなかった abre a folhinha com 行く e a tira.
+
+## 7. Fechamento (26/nov)
+
+A crítica do Impeccable da entrega inteira (duas avaliações isoladas) deu 27/40. Consertado o que era do pedido:
+
+- A folha mora no endereço (`?conjugar=&forma=`), como a lousa: o voltar do celular fecha a folha em vez de sair do
+  dicionário; o X e o Esc voltam quando foi a página que abriu. Só verbo que conjuga, e nunca por cima da lousa.
+- O exemplo vem de uma frase do próprio verbete quando ela marca a forma; senão, o da forma, com "com outro verbo, na
+  mesma forma".
+- Uma linha diz que a forma se toca; o nome das colunas fica embaixo do índice enquanto o grupo rola; os grupos são
+  h2; o contraste das colunas e das leituras subiu; "21 de 33 formas" quando algumas não se usam; a tira "achada
+  como" diz "ver nas conjugações".
+
+Ficam para o dono as sugestões fora do pedido: caber a tabela inteira numa tela do computador (grupos em duas
+colunas), um jeito de esconder as formas para estudar, a regra de cada grupo escrita uma vez, setas do teclado entre
+as formas, o índice que acende o grupo em que se está.

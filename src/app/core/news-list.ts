@@ -35,7 +35,7 @@ export const NEWS: NewsEntry[] = [
     notice: 'Novo: todas as conjugações de cada verbo do Dicionário Japonês, com o uso e um exemplo.',
     until: '2026-12-10',
     items: [
-      'Cada verbo do Dicionário Japonês tem o botão Conjugações (活), no verbete e na folhinha "No dicionário": uma tabela com as 33 formas, nos grupos Tempos básicos, Forma -te, Desejativa, Formas modais e vozes e Condicionais, com a informal e a polida lado a lado, a leitura embaixo e, em vermelho, o pedaço que muda. Tocar numa forma mostra para que ela serve e um exemplo com a tradução, e o ouvir dela.',
+      'Cada verbo do Dicionário Japonês tem o botão Conjugações (活), no verbete e na folhinha "No dicionário": uma tabela com as 33 formas, nos grupos Tempos básicos, Forma -te, Desejativa, Formas modais e vozes e Condicionais, com a informal e a polida lado a lado, a leitura embaixo e, em vermelho, o pedaço que muda. Tocar numa forma mostra para que ela serve e um exemplo com a tradução (do próprio verbo, quando o verbete tem um), e o ouvir dela; o voltar do celular fecha a folha.',
       'A busca do dicionário acha o verbo pela forma conjugada, em kanji, kana ou romaji (行かなかった, ikanakatta ou benkyou shinai): o verbete diz por qual forma achou ("achada como 行かなかった · Passado • Informal • Negativo"), e tocar ali abre as conjugações nela.',
       'Selecionar um verbo conjugado numa anotação (行かなかった, com ou sem o ponto) também mostra o "No dicionário": a folhinha abre no verbete da forma de dicionário (行く), com a mesma tira da forma, e o "Aprendida" marca o verbo.',
     ],

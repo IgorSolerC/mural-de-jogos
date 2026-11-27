@@ -76,6 +76,8 @@ describe('A folha de conjugações do Dicionário Japonês', () => {
     expect(detail.querySelector('.frase')!.textContent).toBe('みんな、食べよう！');
     expect(detail.querySelector('.frase b')!.textContent).toBe('食べよう');
     expect(detail.querySelector('.traducao')!.textContent).toBe('Pessoal, vamos comer!');
+    // o exemplo é de 食べる mesmo: sem o aviso de outro verbo
+    expect(detail.querySelector('.ex-outro')).toBeNull();
     // uma de cada vez
     cell('ta').click();
     await settle();
@@ -87,6 +89,21 @@ describe('A folha de conjugações do Dicionário Japonês', () => {
     expect(q('.detalhe')).toBeNull();
   });
 
+  it('o exemplo vem das frases do próprio verbete quando uma tem a forma; senão, o da forma, dito como de outro verbo', async () => {
+    await open('行く');
+    cell('ta').click();
+    await settle();
+    expect(q('.frase b')!.textContent).toBe('行った');
+    expect(q('.frase')!.textContent).toBe('昨日、どこに行ったの？');
+    expect(q('.ex-outro')).toBeNull();
+    cell('nakereba').click();
+    await settle();
+    expect(q('.frase b')!.textContent).toBe('起きなければ');
+    expect(q('.ex-outro')!.textContent).toContain('outro verbo');
+    // a dica de que a forma se toca
+    expect(q('.dica')!.textContent).toContain('Toque numa forma');
+  });
+
   it('aberta por uma forma, ela já vem escolhida, com o foco nela', async () => {
     await open('行く', 'nakatta');
     expect(cell('nakatta').getAttribute('aria-expanded')).toBe('true');
@@ -96,6 +113,7 @@ describe('A folha de conjugações do Dicionário Japonês', () => {
 
   it('o que não se usa aparece como um traço, dito ao leitor de tela', async () => {
     await open('ある');
+    expect(q('.grupo-verbo')!.textContent).toContain('21 de 33 formas');
     expect(cell('nai').querySelector('.escrita')!.textContent).toBe('ない');
     expect(cell('eru')).toBeNull();
     const none = [...el.querySelectorAll('.nao-usa')];

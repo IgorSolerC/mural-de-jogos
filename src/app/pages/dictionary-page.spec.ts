@@ -198,12 +198,19 @@ describe('o Dicionário Japonês', () => {
     }
     const sheet = host.querySelector('app-word-conjugations')!;
     expect(sheet.querySelector('.verbo rt')!.textContent).toBe('いく');
+    // mora no endereço, como a lousa: o voltar do celular fecha a folha
+    expect(query()['conjugar']).toMatch(/^JP\d+$/);
     expect(sheet.querySelectorAll('.forma').length).toBe(33);
     sheet.querySelector<HTMLDialogElement>('dialog')!.close();
     for (let i = 0; i < 40 && host.querySelector('app-word-conjugations'); i++) {
       await new Promise((r) => setTimeout(r, 20));
       await settle();
     }
+    expect(host.querySelector('app-word-conjugations')).toBeNull();
+    expect(query()['conjugar']).toBeUndefined();
+    // um endereço com uma palavra que não é verbo não abre a folha
+    await harness.navigateByUrl('/extras/dicionario?conjugar=JP0037', DictionaryPage);
+    await settle();
     expect(host.querySelector('app-word-conjugations')).toBeNull();
   });
 
@@ -220,6 +227,7 @@ describe('o Dicionário Japonês', () => {
       await settle();
     }
     expect(host.querySelector('app-word-conjugations .det-forma')!.textContent).toBe('行かなかった');
+    expect(query()['forma']).toBe('nakatta');
     host.querySelector<HTMLDialogElement>('app-word-conjugations dialog')!.close();
     await settle();
     // o que foi achado por ele mesmo não tem tira

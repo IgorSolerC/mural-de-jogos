@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, afterNextRender, afterRenderEffect, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { Location } from '@angular/common';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { map } from 'rxjs';
@@ -43,7 +44,7 @@ import { ThumbIndex, ThumbRow } from '../ui/thumb-index';
 import { Toasts } from '../ui/toast';
 import { WordBoard } from '../ui/word-board';
 import { WordConjugations } from '../ui/word-conjugations';
-import { Conjugated, FormId } from '../core/dictionary/conjugation';
+import { Conjugated, FormId, isConjugable } from '../core/dictionary/conjugation';
 import { WordDrill } from '../ui/word-drill';
 import { DrillStart, WordDrillSetup } from '../ui/word-drill-setup';
 import { DRILL_WAYS, DrillWay } from '../core/dictionary/drill';
@@ -59,6 +60,9 @@ type View = DictState['view'];
  * e só a última procura nas 1.449 palavras (PLANO-DICIONARIO.md, 8.4).
  */
 export const SEARCH_PAUSE_MS = 150;
+
+/** Quanto o fechar das conjugações espera o voltar do histórico tirar a folha do endereço antes de tirar ele mesmo. */
+const CONJ_BACK_MS = 150;
 
 /** Uma coluna da Tabela: o nome, a ordem que o clique na cabeça escolhe (sem, a coluna não ordena) e a largura. */
 interface Column {
@@ -130,6 +134,7 @@ function rowGuessOf(w: Word): number {
 })
 export class DictionaryPage {
   private readonly router = inject(Router);
+  private readonly location = inject(Location);
   private readonly route = inject(ActivatedRoute);
   private readonly marks = inject(DictionaryMarks);
   private readonly toasts = inject(Toasts);
@@ -226,7 +231,19 @@ export class DictionaryPage {
       window.removeEventListener('resize', onResize);
       cancelAnimationFrame(resizing);
       clearTimeout(this.typing);
+      clearTimeout(this.conjBack);
       this.stopJump?.(false);
+    });
+    // a folha de conjugações fechou (o X ou o voltar): o foco volta ao verbete
+    let conjOpen: string | null = null;
+    effect(() => {
+      const id = this.state().conj;
+      if (conjOpen && !id)
+        untracked(() => {
+          this.conjPushed = false;
+          this.refocusConjugated(conjOpen!);
+        });
+      conjOpen = id;
     });
     effect(() => {
       const fromUrl = this.state().query;
@@ -564,18 +581,53 @@ export class DictionaryPage {
 
   /* ===== As conjugações (PLANO-CONJUGACOES.md) ===== */
 
-  /** O verbo com a folha de conjugações aberta, e a forma em que ela abre. */
-  protected readonly conjugating = signal<{ word: Word; form: FormId | null } | null>(null);
+  /**
+   * O verbo com a folha de conjugações aberta, e a forma em que ela abre. Mora no endereço (`?conjugar=JP0046&forma=`),
+   * como a lousa: abrir é uma entrada nova no histórico, e o voltar do celular fecha a folha em vez de sair da página.
+   */
+  protected readonly conjugating = computed(() => {
+    const { conj, form, word: board } = this.state();
+    // só verbo que conjuga (um endereço feito à mão pode trazer outra palavra), e nunca por cima da lousa
+    const word = conj && !board ? this.all.find((w) => w.id === conj) : undefined;
+    return word && isConjugable(word) ? { word, form } : null;
+  });
+
+  /** A página pôs a folha no histórico (não chegou por link): fechar volta, sem deixar uma entrada igual para trás. */
+  private conjPushed = false;
+  private conjBack: ReturnType<typeof setTimeout> | undefined;
+
+  protected openConjugations(e: { word: Word; form: FormId | null }): void {
+    this.conjPushed = !this.state().conj;
+    this.go({ conj: e.word.id, form: e.form }, this.conjPushed);
+  }
+
+  /** O X, o Esc ou o toque fora: tira do endereço (o voltar já tirou, e a folha só some). */
+  protected closeConjugations(): void {
+    const id = this.state().conj;
+    if (!id) return;
+    if (!this.conjPushed) return this.go({ conj: null, form: null });
+    this.conjPushed = false;
+    this.location.back();
+    // sem a entrada para voltar (o histórico de antes sumiu), tira do endereço do jeito de sempre
+    clearTimeout(this.conjBack);
+    this.conjBack = setTimeout(() => {
+      if (this.state().conj === id) this.go({ conj: null, form: null });
+    }, CONJ_BACK_MS);
+  }
 
   /**
-   * A folha fechou: o foco volta ao botão do verbete. A página por trás pode ter rolado com a folha aberta, e o verbete
-   * longe sai da tela (ui/near-screen.ts): aí o foco iria para o nada, e volta ao verbete montado, se ainda estiver.
+   * A folha sumiu: o foco volta ao botão do verbete. A página por trás pode ter rolado com a folha aberta, e o verbete
+   * longe sai da tela (ui/near-screen.ts): aí o foco iria para o nada; volta ao verbete montado, se ainda estiver.
    */
-  protected closeConjugations(): void {
-    const id = this.conjugating()?.word.id;
-    this.conjugating.set(null);
-    const lost = !document.activeElement || document.activeElement === document.body || !document.activeElement.isConnected;
-    if (id && lost) this.host.nativeElement.querySelector<HTMLElement>(`[data-palavra="${id}"] .conjugar`)?.focus({ preventScroll: true });
+  private refocusConjugated(id: string): void {
+    afterNextRender(
+      () => {
+        const now = document.activeElement;
+        const lost = !now || now === document.body || !now.isConnected;
+        if (lost) this.host.nativeElement.querySelector<HTMLElement>(`[data-palavra="${id}"] .conjugar`)?.focus({ preventScroll: true });
+      },
+      { injector: this.injector },
+    );
   }
 
   /* ===== O Treino (PLANO-TREINO-DICIONARIO.md) ===== */

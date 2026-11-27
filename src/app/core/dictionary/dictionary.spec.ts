@@ -448,12 +448,13 @@ sem seta nenhuma",Do inglês hero.
   });
 
   it('guarda tudo no endereço, só o que não é o padrão', () => {
-    const s: DictState = { query: 'kuru', filter: { jlpt: ['N5', 'N4'], register: ['anime/mangá'] }, sort: 'reading', dir: 'desc', view: 'tabela', word: 'JP0242' };
+    const s: DictState = { query: 'kuru', filter: { jlpt: ['N5', 'N4'], register: ['anime/mangá'] }, sort: 'reading', dir: 'desc', view: 'tabela', word: 'JP0242', conj: 'JP0046', form: 'nakatta' };
     const p = paramsOf(s);
-    expect(p).toEqual(jasmine.objectContaining({ q: 'kuru', ordem: 'leitura', dir: 'desc', vista: 'tabela', palavra: 'JP0242', jlpt: 'N5,N4', registro: 'anime/mangá', tema: null }));
+    expect(p).toEqual(jasmine.objectContaining({ q: 'kuru', ordem: 'leitura', dir: 'desc', vista: 'tabela', palavra: 'JP0242', conjugar: 'JP0046', forma: 'nakatta', jlpt: 'N5,N4', registro: 'anime/mangá', tema: null }));
     const back = stateFromParams(Object.fromEntries(Object.entries(p).filter(([, v]) => v !== null)) as Record<string, string>);
     expect(back).toEqual(s);
-    expect(stateFromParams({ ordem: 'nada', dir: 'x', vista: 'y' })).toEqual(DEFAULT_STATE);
+    expect(stateFromParams({ ordem: 'nada', dir: 'x', vista: 'y', forma: 'nakatta' })).toEqual(DEFAULT_STATE);
+    expect(stateFromParams({ conjugar: 'JP0046', forma: 'inventada' }).form).toBeNull();
     expect(Object.values(paramsOf(DEFAULT_STATE)).every((v) => v === null)).toBeTrue();
   });
 

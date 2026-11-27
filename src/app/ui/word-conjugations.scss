@@ -119,6 +119,14 @@
   font-size: 0.74rem;
 }
 
+/* a dica de que a forma se toca: uma linha de lápis embaixo do índice */
+.dica {
+  margin: 10px 0 0;
+  font-family: var(--f-hand);
+  font-size: 0.95rem;
+  color: rgb(21 21 21 / 0.7);
+}
+
 /* ===== Os grupos ===== */
 
 .grupo + .grupo {
@@ -150,13 +158,18 @@
   gap: 6px 8px;
 }
 .colunas {
-  padding: 2px 0 4px;
+  /* o nome das colunas fica embaixo do índice enquanto o grupo rola (no Modais e vozes, são oito linhas) */
+  position: sticky;
+  top: 42px;
+  z-index: 1;
+  padding: 6px 0 4px;
+  background: #f6f0e1;
   font-family: var(--f-label);
   font-weight: 800;
   font-size: 0.66rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgb(21 21 21 / 0.56);
+  color: rgb(21 21 21 / 0.7);
 
   span {
     padding-left: 10px;
@@ -239,15 +252,15 @@
 }
 .leitura {
   font-family: var(--dic-letra);
-  font-size: 0.74rem;
+  font-size: 0.78rem;
   line-height: 1.2;
-  color: rgb(21 21 21 / 0.6);
+  color: rgb(21 21 21 / 0.68);
   overflow-wrap: anywhere;
 }
 .etiqueta {
   font-family: var(--f-label);
   font-weight: 800;
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--tom);
@@ -346,6 +359,16 @@
   font-size: 0.94rem;
   line-height: 1.25;
   color: rgb(21 21 21 / 0.72);
+}
+.ex-outro {
+  grid-column: 2;
+  margin-top: 3px;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgb(21 21 21 / 0.62);
 }
 
 /* ===== No celular: o nome da linha em cima, o par embaixo ===== */

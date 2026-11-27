@@ -126,6 +126,7 @@ export function entryHeightGuess(w: Word, width: number): number {
           <span class="achada-como" aria-hidden="true">achada como</span>
           <span class="achada-forma" lang="ja">{{ f.text }}</span>
           <span class="achada-tags">{{ f.form.tags }}</span>
+          <span class="achada-ir" aria-hidden="true">ver nas conjugações</span>
         </button>
       }
       <p class="sentido">{{ w.meaning }}</p>

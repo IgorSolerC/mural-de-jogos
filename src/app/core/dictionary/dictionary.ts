@@ -1,6 +1,6 @@
 import { FacetGroup } from '../facets';
 import { fold, nameCollator as nameColl } from '../text';
-import { Conjugated, conjugatedKeys, formOf } from './conjugation';
+import { Conjugated, FORM_BY_ID, FormId, conjugatedKeys, formOf } from './conjugation';
 import { foldJa, hasKanji, kanaRow, looseRomaji, romajiToKana } from './kana';
 
 /**
@@ -836,9 +836,12 @@ export interface DictState {
   view: 'verbetes' | 'tabela';
   /** A palavra aberta na lousa (o id), ou null. */
   word: string | null;
+  /** O verbo com as conjugações abertas (o id), e a forma em que elas abrem (PLANO-CONJUGACOES.md). */
+  conj: string | null;
+  form: FormId | null;
 }
 
-export const DEFAULT_STATE: DictState = { query: '', filter: {}, sort: null, dir: 'asc', view: 'verbetes', word: null };
+export const DEFAULT_STATE: DictState = { query: '', filter: {}, sort: null, dir: 'asc', view: 'verbetes', word: null, conj: null, form: null };
 
 /** A ordem que vale: a escolhida, ou a padrão (Relevância enquanto busca, Prioridade sem busca). */
 export function effectiveSort(s: DictState): SortKey {
@@ -862,6 +865,8 @@ export function stateFromParams(p: Record<string, string | undefined>): DictStat
     dir: p['dir'] === 'desc' ? 'desc' : 'asc',
     view: p['vista'] === 'tabela' ? 'tabela' : 'verbetes',
     word: p['palavra'] && /^[\w-]{1,64}$/.test(p['palavra']) ? p['palavra'] : null,
+    conj: p['conjugar'] && /^[\w-]{1,64}$/.test(p['conjugar']) ? p['conjugar'] : null,
+    form: p['conjugar'] && FORM_BY_ID.has(p['forma'] as FormId) ? (p['forma'] as FormId) : null,
   };
 }
 
@@ -873,6 +878,8 @@ export function paramsOf(s: DictState): Record<string, string | null> {
     dir: s.dir === 'desc' ? 'desc' : null,
     vista: s.view === 'tabela' ? 'tabela' : null,
     palavra: s.word,
+    conjugar: s.conj,
+    forma: s.conj ? s.form : null,
   };
   for (const facet of FACETS) out[facet.param] = s.filter[facet.key]?.length ? s.filter[facet.key]!.join(',') : null;
   return out;

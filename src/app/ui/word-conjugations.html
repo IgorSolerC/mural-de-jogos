@@ -24,7 +24,7 @@
         <app-word-voice [word]="word()" [dark]="true" />
         <span class="sobre">
           <span class="sentido">{{ word().meaning }}</span>
-          <span class="grupo-verbo">{{ group() }} · {{ count() }} formas</span>
+          <span class="grupo-verbo">{{ group() }} · {{ countSaid() }}</span>
         </span>
       </div>
 
@@ -34,10 +34,11 @@
           <button type="button" class="ir" (click)="jump(g.id)">{{ g.short }}</button>
         }
       </nav>
+      <p class="dica">Toque numa forma para ver para que ela serve e um exemplo.</p>
 
       @for (g of table(); track g.id) {
         <section class="grupo" [id]="'cj-' + g.id" [attr.aria-labelledby]="'cj-nome-' + g.id">
-          <h3 class="grupo-nome" [id]="'cj-nome-' + g.id">{{ g.title }}</h3>
+          <h2 class="grupo-nome" [id]="'cj-nome-' + g.id">{{ g.title }}</h2>
           @if (g.cols.length) {
             <div class="colunas" aria-hidden="true">
               <span></span>
@@ -96,6 +97,9 @@
                   <span class="ex-rotulo">Ex:</span>
                   <span class="frase" lang="ja">@for (p of d.example; track $index) {@if (p.mark) {<b>{{ p.text }}</b>} @else {<ng-container>{{ p.text }}</ng-container>}}</span>
                   <span class="traducao">{{ d.pt }}</span>
+                  @if (d.other) {
+                    <span class="ex-outro">Com outro verbo, na mesma forma.</span>
+                  }
                 </p>
               </div>
             }

@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, input, output, signal, viewChild } from '@angular/core';
-import { CONJ_TABLE, ConjGroupId, Conjugated, FormId, conjugate, formParts, groupSaid } from '../core/dictionary/conjugation';
+import { CONJ_TABLE, ConjGroupId, Conjugated, FORMS, FormId, conjugate, formParts, groupSaid } from '../core/dictionary/conjugation';
 import { Word, exampleParts } from '../core/dictionary/dictionary';
 import { hasKanji } from '../core/dictionary/kana';
 import { reducedMotion } from '../core/motion';
@@ -90,22 +90,31 @@ export class WordConjugations {
     }));
   });
 
-  /** Quantas formas o verbo tem (as que se usam). */
-  protected readonly count = computed(() => [...(conjugate(this.word())?.values() ?? [])].filter(Boolean).length);
+  /** Quantas formas o verbo tem (as que se usam): "33 formas", ou "21 de 33 formas" quando algumas não se usam. */
+  protected readonly countSaid = computed(() => {
+    const n = [...(conjugate(this.word())?.values() ?? [])].filter(Boolean).length;
+    return n === FORMS.length ? `${n} formas` : `${n} de ${FORMS.length} formas`;
+  });
 
   /** A forma aberta: o que o detalhe mostra (o exemplo em pedaços, e a forma como uma palavra para a voz). */
   protected readonly detail = computed(() => {
     const id = this.open();
     const f = id ? conjugate(this.word())?.get(id) : null;
     if (!f) return null;
+    // o exemplo do próprio verbete, quando uma das frases dele tem a forma marcada; senão, o da forma (outro verbo)
+    const marked = (ja: string) => ja.match(/\[([^\]]+)\]/)?.[1];
+    const own = this.word().examples.find((e) => marked(e.ja) === f.text);
+    const example = own ?? f.form.example;
     return {
       id: f.form.id,
       text: f.text,
       reading: hasKanji(f.text) ? f.reading : null,
       tags: f.form.tags,
       use: f.form.use,
-      example: exampleParts(f.form.example.ja),
-      pt: f.form.example.pt,
+      example: exampleParts(example.ja),
+      pt: example.pt,
+      /** O exemplo é de outro verbo (a forma é a mesma): a folha diz, para não parecer que é deste. */
+      other: marked(example.ja) !== f.text,
       // a voz lê a leitura; a chave dela é a da forma, para não acender o ouvir do verbo
       voice: { ...this.word(), id: `${this.word().id}:${f.form.id}`, text: f.text, reading: f.reading } satisfies Word,
     };
