@@ -212,10 +212,10 @@ sem seta nenhuma",Do inglês hero.
     expect([...classes].filter((c) => !(c in CLASS_FAMILIES))).toEqual([]);
   });
 
-  it('lê a lista inteira do dono: 1450 palavras, todas com id único', () => {
+  it('lê a lista inteira do dono: 1451 palavras, todas com id único', () => {
     const all = dictionaryWords().words;
-    expect(all.length).toBe(1450);
-    expect(new Set(all.map((w) => w.id)).size).toBe(1450);
+    expect(all.length).toBe(1451);
+    expect(new Set(all.map((w) => w.id)).size).toBe(1451);
     expect(all.every((w) => w.text && w.reading && w.meaning)).toBeTrue();
   });
 
@@ -243,10 +243,10 @@ sem seta nenhuma",Do inglês hero.
     expect(find('ポルトガル語').examples.length).toBe(3);
   });
 
-  it('as palavras que o dono já aprendeu (14 a 27/nov) vêm com o dia, e as homógrafas são verbetes próprios', () => {
+  it('as palavras que o dono já aprendeu (14 a 29/nov) vêm com o dia, e as homógrafas são verbetes próprios', () => {
     const all = dictionaryWords().words;
     const learned = all.filter((w) => w.learnedOn);
-    expect(learned.length).toBe(131);
+    expect(learned.length).toBe(140);
     const on = (text: string, meaning: string) => all.find((w) => w.text === text && w.meaning.startsWith(meaning))!;
     expect(on('です', 'é').learnedOn).toBe('2026-11-14');
     expect(on('好き', 'gostar').learnedOn).toBe('2026-11-23');
@@ -278,6 +278,19 @@ sem seta nenhuma",Do inglês hero.
     // o 日 aprendido é o de "dia / sol" (ひ); o 〜日 de contar os dias é outro verbete, que continua por aprender
     expect(on('日', 'dia / sol').learnedOn).toBe('2026-11-27');
     expect(on('〜日', 'dia (do mês)').learnedOn).toBeNull();
+    // as de 28/nov: 誰, いつも e おいしい já estavam; どなた entrou no fim do bloco dela (importância 5, frequência 3)
+    for (const text of ['誰', 'いつも', '美味しい', 'どなた']) {
+      expect(all.find((w) => w.text === text)?.learnedOn).withContext(text).toBe('2026-11-28');
+    }
+    const donata = all.find((w) => w.text === 'どなた')!;
+    expect(donata.id).toBe('JP1451');
+    expect(donata.meaning).toBe('quem (educado)');
+    expect(donata.examples.length).toBe(3);
+    expect(all.filter((w) => w.importance === donata.importance && w.frequency === donata.frequency).at(-1)).toBe(donata);
+    // as de 29/nov já estavam todas no dicionário e só ganham o dia
+    for (const text of ['綺麗', 'トイレ', 'アニメ', '可愛い', 'もう']) {
+      expect(all.find((w) => w.text === text)?.learnedOn).withContext(text).toBe('2026-11-29');
+    }
     const ichigo = all.find((w) => w.text === 'いちご')!;
     expect(ichigo.meaning).toBe('morango');
     expect(ichigo.examples.length).toBe(3);
