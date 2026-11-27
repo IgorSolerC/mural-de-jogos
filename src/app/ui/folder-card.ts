@@ -1,7 +1,9 @@
-import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, input, output, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, inject, input, output, signal, viewChild } from '@angular/core';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { NgTemplateOutlet } from '@angular/common';
 import { LABEL_MAX } from '../core/note-labels';
 import type { NoteFolder } from '../core/folders';
+import { folderDecorSvg } from '../core/folder-art';
 import { plural } from '../core/text';
 import type { FolderInfo } from '../core/wall-view';
 import type { Review } from '../core/review';
@@ -20,6 +22,8 @@ export type FolderCardInfo = Omit<FolderInfo, 'peek'> & { peek: readonly (Folder
 
 /** Quantos avisos de nome repetido já nasceram (o id de cada um). */
 let hints = 0;
+/** Quantas pastas já nasceram (os ids dos gradientes de cada uma, únicos na página). */
+let cards = 0;
 
 /**
  * Uma pasta das anotações na parede (PLANO-PASTAS.md, 4.2): uma pasta manilha em pé, com até três das
@@ -33,13 +37,19 @@ let hints = 0;
   selector: 'app-folder-card',
   imports: [MiniCartolina, NearScreen, NgTemplateOutlet, PixelThumb, MuralSrc],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { '[attr.data-pasta]': 'folder().id' },
+  host: {
+    '[attr.data-pasta]': 'folder().id',
+    // a cor e o enfeite da pasta customizada (PLANO-PASTAS-CUSTOMIZADAS.md, 3; o desenho em ui/_pasta-enfeites.scss)
+    '[attr.data-cor]': 'folder().look?.color ?? null',
+    '[attr.data-enfeite]': 'folder().look?.decor ?? null',
+  },
   template: `
     @if (naming()) {
       <!-- dando nome: o campo na própria pasta, já escrito e selecionado (PLANO-PASTAS.md, 4.6) -->
       <div class="pasta nomeando">
         <ng-container [ngTemplateOutlet]="papel" />
         <span class="frente">
+          <ng-container [ngTemplateOutlet]="enfeite" />
           <input
             #campo
             class="nome-campo"
@@ -66,11 +76,19 @@ let hints = 0;
       <button type="button" class="pasta" [attr.aria-label]="spoken()" (click)="opened.emit(folder().id)">
         <ng-container [ngTemplateOutlet]="papel" />
         <span class="frente">
+          <ng-container [ngTemplateOutlet]="enfeite" />
           <span class="nome">{{ folder().name }}</span>
           <span class="qtd">{{ countLine() }}</span>
         </span>
       </button>
     }
+
+    <!-- o enfeite da pasta customizada, na frente (abre com ela); o que é desenho vem de core/folder-art.ts -->
+    <ng-template #enfeite>
+      @if (folder().look?.decor) {
+        <span class="enfeite" aria-hidden="true" [innerHTML]="decorArt()"></span>
+      }
+    </ng-template>
 
     <!-- o fundo da pasta com a aba, e as anotações de dentro espiando pela boca -->
     <ng-template #papel>
@@ -113,6 +131,13 @@ export class FolderCard {
 
   protected readonly max = LABEL_MAX;
   protected readonly hintId = `pasta-aviso-${++hints}`;
+  private readonly sanitizer = inject(DomSanitizer);
+  private readonly uid = `p${++cards}`;
+  /** O desenho do enfeite (as estrelas, a costura da meia-lua, os adesivos): texto montado só com o catálogo. */
+  protected readonly decorArt = computed<SafeHtml>(() => {
+    const f = this.folder();
+    return this.sanitizer.bypassSecurityTrustHtml(folderDecorSvg(f.look, f.id, `${f.id}-${this.uid}`));
+  });
   private readonly field = viewChild<ElementRef<HTMLInputElement>>('campo');
   /** O nome já foi dado (o Enter e o foco que sai logo depois não dão duas vezes). */
   private done = false;

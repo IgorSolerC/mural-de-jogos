@@ -4,6 +4,7 @@
    decide a largura é a grade das pastas (ver .pastas-lista em pages/wall-board.scss). */
 @use 'capas-na-boca' as boca;
 @use 'marcada' as marca;
+@use 'pasta-enfeites' as enfeites;
 
 :host {
   --pasta: #d6c391;
@@ -15,6 +16,15 @@
   --nome-alt: 1.08;
   --qtd-tam: 0.74rem;
   --qtd-alt: 1.25;
+  /* o que o enfeite da pasta pede à frente (ui/_pasta-enfeites.scss): mais alto em cima (--frente-topo) ou
+     embaixo (--frente-pe), as folgas dos lados e, só para o nome, a do canto de cima (--nome-dir); sem
+     enfeite, a frente de sempre */
+  --frente-topo: 0px;
+  --frente-pe: 0px;
+  --frente-esq: 12px;
+  --frente-dir: 12px;
+  /* a frente clara do movimento reduzido, na cor da pasta */
+  --pasta-clara: #e0cea0;
   position: relative;
   display: block;
   min-width: 0;
@@ -128,12 +138,12 @@
   left: 0;
   right: 0;
   bottom: 0;
-  height: calc(19px + 2 * var(--nome-tam) * var(--nome-alt) + 2px + var(--qtd-tam) * var(--qtd-alt));
+  height: calc(19px + var(--frente-topo) + var(--frente-pe) + 2 * var(--nome-tam) * var(--nome-alt) + 2px + var(--qtd-tam) * var(--qtd-alt));
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
   gap: 2px;
-  padding: 9px 12px 10px;
+  padding: calc(9px + var(--frente-topo)) var(--frente-dir) calc(10px + var(--frente-pe)) var(--frente-esq);
   border-radius: 3px 3px 6px 6px;
   background-color: var(--pasta);
   background-image: var(--paper-grain);
@@ -171,7 +181,7 @@
   font-size: var(--nome-tam);
   line-height: var(--nome-alt);
   /* a caneta passa da caixa à direita: a folga para a última letra não perder a ponta no corte */
-  padding-right: var(--caneta-folga);
+  padding-right: max(var(--caneta-folga), var(--nome-dir, 0px));
   /* a palavra comprida desce inteira (e a segunda linha termina em reticências) */
   overflow-wrap: break-word;
 }
@@ -203,7 +213,7 @@
 
     .frente {
       transform: none;
-      background-color: #e0cea0;
+      background-color: var(--pasta-clara);
     }
 
     .espia {
@@ -221,7 +231,7 @@
   /* o aviso de nome repetido pode tomar mais linhas: a frente cresce para cima */
   .frente {
     height: auto;
-    min-height: calc(19px + 2 * var(--nome-tam) * var(--nome-alt) + 2px + var(--qtd-tam) * var(--qtd-alt));
+    min-height: calc(19px + var(--frente-topo) + var(--frente-pe) + 2 * var(--nome-tam) * var(--nome-alt) + 2px + var(--qtd-tam) * var(--qtd-alt));
   }
 }
 
@@ -291,3 +301,6 @@
     }
   }
 }
+
+/* ===== A cor e o enfeite da pasta customizada (PLANO-PASTAS-CUSTOMIZADAS.md, 3) ===== */
+@include enfeites.enfeites;

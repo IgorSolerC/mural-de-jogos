@@ -1,0 +1,477 @@
+// A cor e o enfeite de uma pasta (PLANO-PASTAS-CUSTOMIZADAS.md, 3), para o ui/folder-card.scss, que inclui
+// `enfeites` no nível de cima: tudo pelo host (`data-cor`, `data-enfeite`), sobre as peças da pasta (.pasta, .fundo,
+// .frente, .nome, .qtd) e o `.enfeite` dentro da frente (abre com ela). Vindo do protótipo aprovado pelo dono
+// (prototipos/pastas-customizadas.html, quatro levas). Os detalhes sempre saem da cor da pasta, com contraste:
+//
+// - `--tom`: o papel puxado para o marrom (a costura do Pontilhado, o xadrez, as bolinhas);
+// - `--forte`: o próprio matiz bem mais fundo (na grafite, mais claro); `--sutil`: meio caminho do papel a ele
+//   (as linhas do Filete gravado, da Meia-lua e da Borda picotada, que não precisam gritar);
+// - `--faixa`: o papel mais fundo e mais vivo (as Duas faixas); `--pano` e `--fio-pano`: a Lombada;
+// - `--fio`: uma linha funda de outra cor, escolhida para cada papel (o Pesponto, a Faixa no canto);
+// - `--acento`: o fio da Etiqueta; `--metal` e `--rebite`: as Cantoneiras (dourado só na grafite).
+//
+// A pasta de sempre (manilha, sem enfeite) não muda nada: as folgas da frente valem o de antes por padrão.
+
+@mixin enfeites {
+  :host {
+    --tom: color-mix(in oklab, var(--pasta) 52%, #3b2716);
+    --forte: color-mix(in oklch, var(--pasta) 50%, black);
+    --sutil: color-mix(in oklch, var(--forte) 52%, var(--pasta));
+    --faixa: oklch(from var(--pasta) calc(l - 0.15) calc(c * 1.7 + 0.015) h);
+    --pano: color-mix(in oklch, var(--pasta) 58%, black);
+    --fio-pano: color-mix(in oklch, var(--pano) 55%, white);
+    --linha: color-mix(in oklab, var(--tom) 92%, transparent);
+    --acento: #b8402f;
+    --fio: #8f3a1e;
+    --metal: linear-gradient(135deg, #ecd2a0 0%, #a9803f 46%, #5e4319 62%, #cfa865 100%);
+    --rebite: #3f2c0e;
+  }
+
+  // ===== As cores: a frente, o fundo, o acento e o fio de cada papel =====
+  :host([data-cor]) { --pasta-clara: color-mix(in oklab, var(--pasta) 80%, white); }
+  :host([data-cor='kraft']) { --pasta: #c09a72; --pasta-fundo: #a27d58; --acento: #f2e6cc; --fio: #22385e; }
+  :host([data-cor='vermelho']) { --pasta: #e5a092; --pasta-fundo: #c98273; --acento: #f7eedd; --fio: #6a1d18; }
+  :host([data-cor='laranja']) { --pasta: #ebb487; --pasta-fundo: #cf9569; --acento: #6b3b16; --fio: #5c2d0d; }
+  :host([data-cor='amarelo']) { --pasta: #ecd27a; --pasta-fundo: #d0b55c; --acento: #2f5d8a; --fio: #24476b; }
+  :host([data-cor='verde']) { --pasta: #a9cf9f; --pasta-fundo: #8bb281; --acento: #f6efdf; --fio: #27502a; }
+  :host([data-cor='azul']) { --pasta: #9fc7e3; --pasta-fundo: #80a8c5; --acento: #f6efdf; --fio: #874610; }
+  :host([data-cor='lilas']) { --pasta: #c6b4e6; --pasta-fundo: #a895c8; --acento: #5d3593; --fio: #452676; }
+  :host([data-cor='rosa']) { --pasta: #ebafc3; --pasta-fundo: #ce90a5; --acento: #9d2a52; --fio: #7c1c41; }
+  :host([data-cor='cinza']) { --pasta: #c5bfb6; --pasta-fundo: #a8a198; --acento: #c8412f; --fio: #932f25; }
+  :host([data-cor='grafite']) {
+    --pasta: #4b4541;
+    --pasta-fundo: #35302d;
+    --acento: #e4bd55;
+    --fio: #dcae4c;
+    --tom: color-mix(in oklab, var(--pasta) 50%, #f3efe6);
+    --forte: color-mix(in oklch, var(--pasta) 38%, white);
+    --faixa: oklch(from var(--pasta) calc(l + 0.1) c h);
+    --pano: color-mix(in oklch, var(--pasta) 55%, white);
+    --fio-pano: color-mix(in oklch, var(--pano) 60%, black);
+  }
+
+  // a grafite escreve em branco (só na frente: as miniaturas de dentro continuam com a tinta delas)
+  :host([data-cor='grafite']) .frente {
+    --ink: #f3efe6;
+    --ink-2: rgb(243 239 230 / 0.8);
+    /* o nome herda a cor do botão, que se resolve fora da frente: ela é dada de novo aqui */
+    color: var(--ink);
+
+    .nome-campo {
+      border-bottom-color: rgb(243 239 230 / 0.5);
+    }
+  }
+
+  // o metal das cantoneiras, o que combina com o papel
+  :host([data-cor='kraft']),
+  :host([data-cor='verde']) { --metal: linear-gradient(135deg, #f7c9a6 0%, #c7764a 46%, #7f3f1f 62%, #e3a07a 100%); --rebite: #4d230f; }
+  :host([data-cor='vermelho']),
+  :host([data-cor='rosa']) { --metal: linear-gradient(135deg, #fde3db 0%, #d39488 46%, #8c4d45 62%, #f0bdb2 100%); --rebite: #5a2b25; }
+  :host([data-cor='azul']),
+  :host([data-cor='lilas']) { --metal: linear-gradient(135deg, #ffffff 0%, #b9bfc7 46%, #6d747e 62%, #e1e5ea 100%); --rebite: #3e444c; }
+  :host([data-cor='amarelo']),
+  :host([data-cor='cinza']) { --metal: linear-gradient(135deg, #a7aab0 0%, #5d6168 46%, #2c2f33 62%, #8a8e95 100%); --rebite: #16181a; }
+  :host([data-cor='grafite']) { --metal: linear-gradient(135deg, #f6e29d 0%, #c99a3a 46%, #8a6420 62%, #e3c06a 100%); --rebite: #6b5320; }
+
+  // ===== O enfeite: debaixo da escrita (z 1), menos o que fica por cima do papel (z 3) =====
+  .enfeite {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    border-radius: inherit;
+
+    ::ng-deep svg {
+      position: absolute;
+      display: block;
+      overflow: visible;
+    }
+  }
+
+  .nome,
+  .qtd,
+  .nome-campo {
+    position: relative;
+    z-index: 2;
+  }
+
+  :host([data-enfeite='cantoneiras']),
+  :host([data-enfeite='estrelas']),
+  :host([data-enfeite='adesivos']),
+  :host([data-enfeite='orelha']) {
+    .enfeite {
+      z-index: 3;
+    }
+  }
+
+  // 1 · Pontilhado: a costura em volta da frente e na aba, como couro costurado
+  :host([data-enfeite='costura']) {
+    --frente-esq: 14px;
+    --frente-dir: 14px;
+    --frente-pe: 2px;
+
+    .enfeite::before {
+      content: '';
+      position: absolute;
+      inset: 5px;
+      border: 1.6px dashed color-mix(in oklab, var(--tom) 92%, transparent);
+      border-radius: 3px 3px 5px 5px;
+    }
+
+    .fundo::after {
+      content: '';
+      position: absolute;
+      left: 5px;
+      top: -8px;
+      width: calc(42% - 10px);
+      height: 0;
+      border-top: 1.6px dashed color-mix(in oklab, var(--tom) 80%, transparent);
+    }
+  }
+
+  // 2 · Duas faixas: duas listras do papel, mais fundo e mais vivo, na boca
+  :host([data-enfeite='faixas']) {
+    --frente-topo: 7px;
+
+    .enfeite::before,
+    .enfeite::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      background-color: var(--faixa);
+      background-image: var(--paper-grain);
+      background-blend-mode: multiply;
+    }
+
+    .enfeite::before {
+      top: 5px;
+      height: 5px;
+    }
+
+    .enfeite::after {
+      top: 13px;
+      height: 2px;
+    }
+  }
+
+  // 3 · Faixa no canto: a fita dobrada no canto de cima, no fio da cor
+  :host([data-enfeite='canto']) {
+    --nome-dir: 12px;
+
+    .enfeite {
+      overflow: hidden;
+    }
+
+    .enfeite::before {
+      content: '';
+      position: absolute;
+      top: 8px;
+      right: -19px;
+      width: 64px;
+      height: 9px;
+      rotate: 40deg;
+      background-color: var(--fio);
+      background-image: var(--paper-grain);
+      background-blend-mode: multiply;
+      box-shadow: 0 1px 1.5px rgb(0 0 0 / 0.3);
+    }
+  }
+
+  // 6 · Cantoneiras: os cantos de metal com o rebite, no metal da cor
+  :host([data-enfeite='cantoneiras']) {
+    --frente-esq: 17px;
+    --frente-pe: 2px;
+
+    .enfeite::before,
+    .enfeite::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      width: 21px;
+      height: 21px;
+      background:
+        radial-gradient(circle at var(--rx) 14px, var(--rebite) 0 1.5px, rgb(255 255 255 / 0.75) 1.6px 2.1px, transparent 2.2px),
+        var(--metal);
+      filter: drop-shadow(0 -0.5px 0.5px rgb(0 0 0 / 0.35));
+    }
+
+    .enfeite::before {
+      --rx: 6.5px;
+      left: 0;
+      clip-path: polygon(0 0, 100% 100%, 0 100%);
+      border-bottom-left-radius: 6px;
+    }
+
+    .enfeite::after {
+      --rx: 14.5px;
+      right: 0;
+      clip-path: polygon(100% 0, 100% 100%, 0 100%);
+      border-bottom-right-radius: 6px;
+    }
+  }
+
+  // 8 · Xadrez e 16 · Bolinhas: impressos na frente, do tom, debaixo do nome
+  :host([data-enfeite='xadrez']) .enfeite::before {
+    --q: color-mix(in oklab, var(--tom) 30%, transparent);
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background:
+      linear-gradient(90deg, var(--q) 50%, transparent 50%) 0 0 / 12px 12px,
+      linear-gradient(0deg, var(--q) 50%, transparent 50%) 0 0 / 12px 12px;
+  }
+
+  :host([data-enfeite='bolinhas']) .enfeite::before {
+    --b: color-mix(in oklab, var(--tom) 42%, transparent);
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background:
+      radial-gradient(circle, var(--b) 0 2.2px, transparent 2.5px) 0 0 / 14px 14px,
+      radial-gradient(circle, var(--b) 0 2.2px, transparent 2.5px) 7px 7px / 14px 14px;
+  }
+
+  // 9 · Etiqueta: o nome numa etiqueta branca colada, com o fio de cor (escreve sempre em preto)
+  :host([data-enfeite='etiqueta']) {
+    --frente-esq: 12px;
+    --frente-dir: 9px;
+    --frente-topo: 2px;
+    --frente-pe: 3px;
+
+    .frente {
+      --ink: #151515;
+      --ink-2: rgb(21 21 21 / 0.78);
+      color: var(--ink);
+    }
+
+    .enfeite::before {
+      content: '';
+      position: absolute;
+      inset: 6px 5px;
+      border-radius: 4px;
+      background-color: #fbf8ef;
+      background-image: var(--paper-grain);
+      background-blend-mode: multiply;
+      box-shadow:
+        0 0.5px 1px rgb(0 0 0 / 0.25),
+        0 1px 3px rgb(0 0 0 / 0.12);
+    }
+
+    .enfeite::after {
+      content: '';
+      position: absolute;
+      inset: 8.5px 7.5px;
+      border: 1.3px solid color-mix(in oklab, var(--acento) 85%, transparent);
+      border-radius: 2.5px;
+    }
+  }
+
+  // nos papéis de acento claro, o fio da etiqueta é o fundo da pasta
+  :host([data-enfeite='etiqueta'][data-cor='kraft']),
+  :host([data-enfeite='etiqueta'][data-cor='vermelho']),
+  :host([data-enfeite='etiqueta'][data-cor='verde']),
+  :host([data-enfeite='etiqueta'][data-cor='azul']) {
+    .enfeite::after {
+      border-color: var(--pasta-fundo);
+    }
+  }
+
+  // 13 · Estrelinhas: o desenho vem pronto (core/folder-art.ts)
+  :host([data-enfeite='estrelas']) {
+    --nome-dir: 18px;
+
+    .enfeite ::ng-deep .estrelas {
+      top: 5px;
+      right: 4px;
+      width: 30px;
+      height: 40px;
+    }
+  }
+
+  // 19 · Lombada de pano: a beirada da esquerda encapada de pano, com a costura
+  :host([data-enfeite='lombada']) {
+    --frente-esq: 25px;
+
+    .enfeite::before {
+      content: '';
+      position: absolute;
+      left: -2px;
+      top: 0;
+      bottom: 0;
+      width: 16px;
+      border-radius: 3px 1px 1px 6px;
+      box-shadow: 1px 0 1.5px rgb(0 0 0 / 0.3);
+      background:
+        repeating-linear-gradient(0deg, var(--fio-pano) 0 3px, transparent 3px 5.5px) calc(100% - 4px) 0 / 1.1px 100% no-repeat,
+        linear-gradient(90deg, rgb(0 0 0 / 0.3) 0 2px, transparent 2px),
+        repeating-linear-gradient(0deg, rgb(255 255 255 / 0.08) 0 1px, transparent 1px 2px),
+        repeating-linear-gradient(90deg, rgb(0 0 0 / 0.09) 0 1px, transparent 1px 2px),
+        linear-gradient(90deg, color-mix(in oklab, var(--pano) 88%, black), var(--pano) 40%, color-mix(in oklab, var(--pano) 85%, white));
+    }
+  }
+
+  // 21 · Pesponto: a costura dupla do fio da cor, na frente e na aba
+  :host([data-enfeite='pesponto']) {
+    --frente-esq: 15px;
+    --frente-dir: 14px;
+    --frente-pe: 3px;
+
+    .enfeite {
+      filter: drop-shadow(0 0.6px 0 rgb(0 0 0 / 0.28));
+    }
+
+    .enfeite::before,
+    .enfeite::after {
+      content: '';
+      position: absolute;
+      border: 1.5px dashed var(--fio);
+    }
+
+    .enfeite::before {
+      inset: 4px;
+      border-radius: 3px 3px 5px 5px;
+    }
+
+    .enfeite::after {
+      inset: 7.5px;
+      border-radius: 2px 2px 3px 3px;
+    }
+
+    .fundo::after {
+      content: '';
+      position: absolute;
+      left: 5px;
+      top: -9px;
+      width: calc(42% - 10px);
+      height: 3.5px;
+      border-top: 1.5px dashed var(--fio);
+      border-bottom: 1.5px dashed var(--fio);
+    }
+  }
+
+  // 22 · Filete gravado: a moldura dupla gravada, com os losangos nos cantos
+  :host([data-enfeite='gravado']) {
+    --frente-esq: 15px;
+    --frente-dir: 14px;
+    --frente-pe: 3px;
+
+    .enfeite {
+      filter: drop-shadow(0 0.8px 0 rgb(255 255 255 / 0.32));
+    }
+
+    .enfeite::before {
+      content: '';
+      position: absolute;
+      inset: 5px;
+      border: 1.3px solid var(--sutil);
+      border-radius: 2px 2px 4px 4px;
+    }
+
+    .enfeite::after {
+      --losango: linear-gradient(45deg, transparent 35%, var(--sutil) 35% 65%, transparent 65%);
+      content: '';
+      position: absolute;
+      inset: 8.5px;
+      border: 0.8px solid var(--sutil);
+      background:
+        var(--losango) -3.5px -3.5px / 7px 7px no-repeat,
+        var(--losango) calc(100% + 3.5px) -3.5px / 7px 7px no-repeat,
+        var(--losango) -3.5px calc(100% + 3.5px) / 7px 7px no-repeat,
+        var(--losango) calc(100% + 3.5px) calc(100% + 3.5px) / 7px 7px no-repeat;
+      background-origin: border-box;
+    }
+  }
+
+  :host([data-enfeite='gravado'][data-cor='grafite']) .enfeite {
+    filter: drop-shadow(0 0.8px 0 rgb(0 0 0 / 0.4));
+  }
+
+  // 25 · Meia-lua: o recorte de puxar com o dedo, com a costura acompanhando (o arco vem de core/folder-art.ts)
+  :host([data-enfeite='meia-lua']) {
+    --frente-topo: 7px;
+
+    .frente {
+      -webkit-mask: radial-gradient(circle 13px at 50% 0, transparent 12.4px, #000 13px);
+      mask: radial-gradient(circle 13px at 50% 0, transparent 12.4px, #000 13px);
+    }
+
+    .enfeite::before {
+      content: '';
+      position: absolute;
+      left: calc(50% - 16px);
+      top: 0;
+      width: 32px;
+      height: 16px;
+      background: radial-gradient(circle 16px at 50% 0, transparent 12.6px, rgb(0 0 0 / 0.2) 13px, rgb(255 255 255 / 0.22) 14.2px, transparent 15.5px);
+    }
+
+    .enfeite ::ng-deep .meia-lua {
+      left: calc(50% - 19px);
+      top: 0;
+      width: 38px;
+      height: 20px;
+    }
+  }
+
+  // 26 · Borda picotada: os dentes da tesoura de picotar passam da boca, com a costura logo abaixo
+  :host([data-enfeite='picotada']) {
+    --frente-topo: 5px;
+
+    .enfeite::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: -5px;
+      height: 6px;
+      background: conic-gradient(from 135deg at 50% 0, var(--pasta) 90deg, transparent 0) 0 0 / 8px 6px repeat-x;
+      filter: drop-shadow(0 -1px 0.8px rgb(0 0 0 / 0.3));
+    }
+
+    .enfeite::before {
+      content: '';
+      position: absolute;
+      left: 6px;
+      right: 6px;
+      top: 8px;
+      border-top: 1.4px dashed var(--sutil);
+    }
+  }
+
+  // 27 · Canto dobrado: a ponta de cima dobrada para dentro, mostrando o avesso do papel
+  :host([data-enfeite='orelha']) {
+    --nome-dir: 14px;
+
+    .frente {
+      -webkit-mask: linear-gradient(225deg, transparent 13.4px, #000 13.5px);
+      mask: linear-gradient(225deg, transparent 13.4px, #000 13.5px);
+    }
+
+    .enfeite {
+      filter: drop-shadow(-1px 1.2px 1px rgb(0 0 0 / 0.28));
+    }
+
+    .enfeite::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 19px;
+      height: 19px;
+      clip-path: polygon(0 0, 100% 100%, 0 100%);
+      border-bottom-left-radius: 2px;
+      background-image:
+        linear-gradient(45deg, color-mix(in oklab, var(--pasta) 88%, white), color-mix(in oklab, var(--pasta) 62%, white) 70%, color-mix(in oklab, var(--pasta) 90%, black) 100%),
+        var(--paper-grain);
+      background-blend-mode: normal, multiply;
+    }
+  }
+
+  // Adesivos: os de vinil das cartolinas, colados pelo canto de cima à direita (core/folder-art.ts)
+  :host([data-enfeite='adesivos']) {
+    --nome-dir: 30px;
+  }
+}

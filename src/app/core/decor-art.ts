@@ -174,7 +174,7 @@ export function decorArt(input: DecorInput): DecorArt {
 
 
 /** A cor entre `a` e `b` (hex de seis dígitos), `t` de 0 a 1. */
-function mix(a: string, b: string, t: number): string {
+export function mix(a: string, b: string, t: number): string {
   const c = (h: string, i: number) => parseInt(h.slice(1 + i * 2, 3 + i * 2), 16);
   return `#${[0, 1, 2].map((i) => Math.round(c(a, i) + (c(b, i) - c(a, i)) * clamp(t, 0, 1)).toString(16).padStart(2, '0')).join('')}`;
 }
@@ -202,7 +202,7 @@ function spot(W: number, H: number, r: () => number, taken: { p: Pt; R: number }
   return p;
 }
 
-function star(cx: number, cy: number, R: number, ri: number, rot: number): string {
+export function star(cx: number, cy: number, R: number, ri: number, rot: number): string {
   let d = '';
   for (let i = 0; i < 10; i++) {
     const a = ((rot - 90 + i * 36) * Math.PI) / 180,
@@ -276,7 +276,7 @@ function glitter(W: number, H: number, k: number, r: () => number, out: DecorArt
 // ===================== Estrelinhas douradas =====================
 
 /** O laminado das estrelinhas: [claro, meio, escuro]. Quase sempre ouro; às vezes prata ou uma cor. */
-const FOIL: readonly (readonly [string, string, string])[] = [
+export const FOIL: readonly (readonly [string, string, string])[] = [
   ['#fff1a6', '#f2c230', '#9c6a08'],
   ['#ffffff', '#c9cfd6', '#747d88'],
   ['#ffb0b0', '#e8323f', '#8e1119'],
@@ -343,7 +343,7 @@ function goldStars(W: number, H: number, k: number, r: () => number, uid: string
 // ===================== Adesivos fofos =====================
 
 /** Cada adesivo num quadro de 40×40: a silhueta (a borda branca do corte) e o desenho. */
-const PUFFY: readonly { sil: string; art: string }[] = [
+export const PUFFY: readonly { sil: string; art: string }[] = [
   {
     // coração
     sil: `<path d='M20 34C12 27.4 6 22.4 6 15.6C6 11 9.4 8 13 8C16 8 18.6 10 20 13C21.4 10 24 8 27 8C30.6 8 34 11 34 15.6C34 22.4 28 27.4 20 34Z'/>`,
@@ -665,7 +665,7 @@ function neon(W: number, H: number, k: number, r: () => number, uid: string, out
 
 // ----- Adesivos gamer -----
 
-const GAMER: readonly { sil: string; art: string }[] = [
+export const GAMER: readonly { sil: string; art: string }[] = [
   {
     // controle
     sil: `<path d='M9 13H31C36 13 38.5 18 38.5 23.5C38.5 29 36 31.5 33 31.5C30.5 31.5 29 29.5 27.5 27.5H12.5C11 29.5 9.5 31.5 7 31.5C4 31.5 1.5 29 1.5 23.5C1.5 18 4 13 9 13Z'/>`,
