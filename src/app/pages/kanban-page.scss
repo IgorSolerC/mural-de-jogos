@@ -511,8 +511,8 @@ $folga-sombra: 30px;
   /* embaixo, a folga da sombra da última ficha (e do selo da importância, que sai pela beirada dela): o
      rolo corta o que passa dele, e com a beirada logo embaixo da ficha a sombra saía picotada; assim ela
      se apaga inteira no papel pardo antes do pé (o Adicionar sobe o mesmo tanto, ver .adicionar) */
-  padding: 22px 12px $folga-sombra;
-  scrollbar-gutter: stable both-edges;
+  /* sem a barra à mostra (a roda, o dedo e o teclado continuam rolando): as fichas ficam no meio da coluna */
+  padding: 22px 20px $folga-sombra;
   overflow-x: hidden;
   overflow-y: auto;
   /* a roda do mouse (ou o dedo) numa coluna rola só a coluna: chegando no alto ou no pé dela, para ali,
@@ -521,8 +521,11 @@ $folga-sombra: 30px;
   overscroll-behavior-y: contain;
   /* a rolagem numa camada própria, como a do quadro: desliza o que já está desenhado */
   will-change: scroll-position;
-  scrollbar-width: thin;
-  scrollbar-color: rgb(243 239 230 / 0.3) transparent;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
   /* o foco do teclado e a ficha que chegou não param embaixo da sombra */
   scroll-padding-block: 22px 12px;
 }
