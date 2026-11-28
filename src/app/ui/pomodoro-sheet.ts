@@ -139,7 +139,7 @@ export class PomodoroSheet {
   protected readonly PARTS = [
     { id: 'tempo' as const, label: 'Tempo', icon: ICON.cronometro },
     { id: 'musica' as const, label: 'Música', icon: ICON.musica },
-    { id: 'relogio' as const, label: 'Relógio', icon: ICON.relogio },
+    { id: 'relogio' as const, label: 'Relógio', icon: ICON.paleta },
   ];
 
   protected readonly part = linkedSignal(() => this.start());

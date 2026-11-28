@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-27-titulos-na-ficha-girada',
+    id: '2026-11-27-paleta-do-relogio',
     version: '1.58.1',
     kind: 'ajustes',
     date: '2026-11-27',
@@ -36,6 +36,7 @@ export const NEWS: NewsEntry[] = [
       'Customizar… no botão direito das pastas (nas Anotações, na Wishlist e na galeria de pixel arts): o nome, a cor do papel (onze) um enfeite (a costura, a etiqueta, as faixas, as cantoneiras, as estrelinhas, o canto dobrado e mais) e, junto de qualquer enfeite, até três adesivos, com a pasta ao vivo enquanto se escolhe, e a vista do que está dentro (sem escolher, a do grupo; trocada na régua, vale só enquanto a pasta está aberta). Quem visita o seu mural e quem divide o grupo com você vê a pasta do mesmo jeito.',
       'O enfeite Duas faixas das pastas ficou mais sutil: as listras num tom mais perto do papel.',
       'Uma palavra nova no Dicionário Japonês: どなた (quem, educado), com as frases de exemplo e as palavras relacionadas.',
+      'No Pomodoro, a fita e a parte Relógio, onde se escolhe o estilo do relógio, têm agora o desenho de uma paleta de pintura.',
     ],
     correcoes: [
       'Com duas anotações lado a lado e uma imagem, tabela ou widget ampliado num dos lados, os avisos do rodapé (como o "Anotação atualizada") não aparecem mais por baixo do fundo escuro do zoom.',

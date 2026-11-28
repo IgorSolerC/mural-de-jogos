@@ -1,10 +1,12 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
 import { POMODORO_KEY } from '../core/pomodoro';
 import { PomodoroStore } from '../core/pomodoro-store';
 import { TRACKS_KEY, trackName } from '../core/pomodoro-tracks';
 import { PomodoroTracks } from '../core/pomodoro-tracks-store';
+import { ICON } from '../ui/icons';
 import { Toasts } from '../ui/toast';
 import { PomodoroPage } from './pomodoro-page';
 
@@ -101,6 +103,15 @@ describe('a página do Pomodoro', () => {
     await fired;
     await f.whenStable();
     expect(host.querySelector('app-pomodoro-sheet')).toBeNull();
+  });
+
+  it('o estilo do relógio é uma paleta de pintura, na fita e na parte da folha', async () => {
+    const { f } = await open('relogio');
+    const img = (css: string) => f.debugElement.query(By.css(css)).componentInstance.img;
+    expect(img('.fita:nth-child(3) lucide-icon:not(.lapis)')).toBe(ICON.paleta);
+    const parts = f.debugElement.queryAll(By.css('app-pomodoro-sheet .parte'));
+    const relogio = parts.find((p) => p.nativeElement.textContent.includes('Relógio'))!;
+    expect(relogio.query(By.css('lucide-icon')).componentInstance.img).toBe(ICON.paleta);
   });
 
   it('a fita da música diz a que vai tocar: a do sorteio do próximo estudo, e a deste estudo ligado', async () => {
