@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-28-kanban-prendedor-fino',
+    id: '2026-11-28-kanban-revisao',
     version: '1.58.2',
     kind: 'ajustes',
     date: '2026-11-28',
@@ -36,7 +36,7 @@ export const NEWS: NewsEntry[] = [
       'As colunas do Kanban viraram pranchetas de feltro, retas, costuradas na cor da coluna, com o nome preso num prendedor de metal.',
     ],
     correcoes: [
-      'Nas pranchetas do Kanban, o vazio e o Adicionar nota em letra clara, as fichas no meio da coluna, a etiqueta cobrindo a costura e o Adicionar mais longe das fichas, sem a barra de rolagem à mostra, e o prendedor mais fino, rente à etiqueta.',
+      'Nas pranchetas do Kanban, o vazio e o Adicionar nota em letra clara, as fichas no meio da coluna, a etiqueta cobrindo a costura e o Adicionar mais longe das fichas, sem a barra de rolagem à mostra, o prendedor mais fino, rente à etiqueta, e a coluna sob a anotação arrastada clareando no tom do feltro (ficava parda).',
     ],
   },
   {

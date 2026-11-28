@@ -210,7 +210,8 @@ $folga-sombra: 30px;
   /* da beirada da página até a da tela, dos dois lados (os % são da largura da página) */
   margin-inline: calc(50% - 50vw);
   /* em cima e embaixo, a folga das sombras (e da tira torta); dos lados, a volta até a linha da pasta */
-  padding: 26px calc(50vw - 50%) $folga-pe;
+  /* em cima, a folga do prendedor das pranchetas, que sai pelo alto delas */
+  padding: 14px calc(50vw - 50%) $folga-pe;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   /* a rolagem de lado numa camada própria, como a da página: sem isso, numa tela sem zoom o Chrome
@@ -455,9 +456,9 @@ $folga-sombra: 30px;
   z-index: 1;
 }
 
-/* arrastando: a coluna embaixo do ponteiro clareia um pouco, como papel sob a luz */
+/* arrastando: a coluna embaixo do ponteiro clareia um pouco, como feltro sob a luz */
 .quadro.arrastando .coluna.alvo {
-  background-color: #d1b07a;
+  background-color: #4a4541;
 }
 
 /* a etiqueta da coluna mora na peça ui/kanban-column-head.ts (a mesma da visita) */

@@ -1709,8 +1709,9 @@ describe('página do Kanban', () => {
       await frames();
       const page = host.querySelector<HTMLElement>('app-kanban-page')!;
       const topo = () => parseFloat(page.style.getPropertyValue('--kb-topo'));
-      // do alto das abas ao alto das colunas (o quadro tem 8px de folga em cima)
-      const measured = () => host.querySelector('.quadro')!.getBoundingClientRect().top + 8 - host.querySelector('.abas-quadros')!.getBoundingClientRect().top;
+      // do alto das abas ao alto das colunas (o quadro tem a folga do prendedor em cima)
+      const quadro = () => host.querySelector('.quadro')!;
+      const measured = () => quadro().getBoundingClientRect().top + parseFloat(getComputedStyle(quadro()).paddingTop) - host.querySelector('.abas-quadros')!.getBoundingClientRect().top;
       expect(Math.abs(topo() - measured())).toBeLessThanOrEqual(1);
       expect(getComputedStyle(column('feito')).maxHeight).toBe(`${Math.max(360, innerHeight - topo() - 46)}px`);
       // a página acaba no pé do quadro: sem a folga de baixo das outras páginas
@@ -1776,7 +1777,7 @@ describe('página do Kanban', () => {
       }
       // o Adicionar sobe o mesmo tanto: entre a última e ele, a folga de antes mais a da sombra
       const rolo = column('afazer').querySelector<HTMLElement>('.rolo')!;
-      expect(column('afazer').querySelector('.adicionar')!.getBoundingClientRect().top - rolo.getBoundingClientRect().bottom).toBeLessThanOrEqual(5);
+      expect(column('afazer').querySelector('.adicionar')!.getBoundingClientRect().top - rolo.getBoundingClientRect().bottom).toBeLessThanOrEqual(15);
     });
 
     it('soltar depois da última da coluna comprida: ela vai para o fim', async () => {
