@@ -26,7 +26,7 @@ import { StudyGroupTabs, StudyTab } from './study-group-tabs';
       <div class="quadro-moldura">
         <div class="quadro" [attr.aria-label]="'Kanban de ' + g.nome + ', só para ler'">
           @for (v of view(); track v.col.id) {
-            <section class="coluna" [class.finaliza]="v.col.finishes" [attr.aria-labelledby]="'col-' + v.col.id">
+            <section class="coluna" [attr.data-cor]="v.col.color" [class.finaliza]="v.col.finishes" [attr.aria-labelledby]="'col-' + v.col.id">
               <app-kanban-column-head [col]="v.col" [total]="v.items.length" />
               <div class="caixa">
                 <div class="rolo">

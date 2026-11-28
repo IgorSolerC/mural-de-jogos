@@ -304,17 +304,34 @@
 /* o papel pardo das colunas */
 $kraft: #a08361;
 
+/* A coluna é uma prancheta de feltro grafite, reta, pespontada em volta na cor da coluna (pedido do dono em
+   28/nov, a versão 25 de prototipos/kanban-colunas.html); quem usa põe `data-cor` nela */
 @mixin coluna-papel {
-  padding: 0 14px 14px;
-  border-radius: 2px;
-  background-color: var(--kraft, #{$kraft});
+  @include coluna-cores;
+  --tinta-col: rgb(243 239 230 / 0.55);
+  isolation: isolate;
+  padding: 0 18px 18px;
+  border-radius: 12px;
+  background-color: #3a3633;
   background-image:
-    repeating-linear-gradient(91deg, rgb(255 255 255 / 0.035) 0 2px, transparent 2px 7px),
-    var(--paper-grain);
-  background-blend-mode: normal, multiply;
+    var(--paper-grain),
+    radial-gradient(circle at 50% 50%, rgb(255 255 255 / 0.05) 0.6px, transparent 1px);
+  background-size: auto, 3px 3px;
+  background-blend-mode: overlay, normal;
   color: var(--ink);
   box-shadow: var(--shadow-card);
-  rotate: -0.35deg;
+
+  /* a costura tracejada, na cor da coluna */
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 7px;
+    z-index: -1;
+    border: 2px dashed var(--col-cor);
+    border-radius: 8px;
+    opacity: 0.9;
+    pointer-events: none;
+  }
 }
 
 /* O cabeçalho da coluna, no alto dela: o nome entre o desenho e a conta (ver `cabecalho`) */
@@ -328,9 +345,25 @@ $kraft: #a08361;
   gap: 8px;
   flex: none;
   /* embaixo, a etiqueta encosta na caixa das anotações, que leva a folga dela por dentro (ver .rolo) */
-  margin: 20px -6px 0;
+  margin: 8px -10px 0;
   padding: 11px 9px 10px 15px;
-  rotate: -0.8deg;
+
+  /* o prendedor de metal, meio para fora do alto da prancheta */
+  &::after {
+    content: '';
+    position: absolute;
+    top: -24px;
+    left: calc(50% - 54px);
+    z-index: 3;
+    width: 108px;
+    height: 30px;
+    border-radius: 7px 7px 12px 12px;
+    background:
+      linear-gradient(#4d4c48, #4d4c48) 50% 7px / 30px 7px no-repeat,
+      linear-gradient(#f0efe9, #b7b6b0 45%, #8e8d88 55%, #d6d5cf);
+    box-shadow: inset 0 1px 0 #fff, inset 0 -2px 0 rgb(0 0 0 / 0.2), 0 3px 5px rgb(0 0 0 / 0.45);
+    pointer-events: none;
+  }
 }
 
 @mixin etiqueta-icone {

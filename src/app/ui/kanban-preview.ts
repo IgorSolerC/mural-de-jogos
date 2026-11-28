@@ -32,7 +32,7 @@ export interface KanbanPlace {
   host: { '[class.ainda-nao]': '!on()', '[class.titulos]': 'dense()', '[class.continua]': 'more()' },
   template: `
     @if (column(); as col) {
-      <section class="coluna" [class.finaliza]="col.finishes" [attr.aria-label]="'Coluna ' + col.name" inert>
+      <section class="coluna" [attr.data-cor]="col.color" [class.finaliza]="col.finishes" [attr.aria-label]="'Coluna ' + col.name" inert>
         <!-- a mesma etiqueta da coluna do quadro (a peça do quadro e da visita) -->
         <app-kanban-column-head [col]="col" [total]="items().length" [ids]="false" />
         <ol class="fichas">

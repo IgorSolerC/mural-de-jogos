@@ -210,7 +210,7 @@ $folga-sombra: 30px;
   /* da beirada da página até a da tela, dos dois lados (os % são da largura da página) */
   margin-inline: calc(50% - 50vw);
   /* em cima e embaixo, a folga das sombras (e da tira torta); dos lados, a volta até a linha da pasta */
-  padding: 8px calc(50vw - 50%) $folga-pe;
+  padding: 26px calc(50vw - 50%) $folga-pe;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   /* a rolagem de lado numa camada própria, como a da página: sem isso, numa tela sem zoom o Chrome
@@ -446,12 +446,6 @@ $folga-sombra: 30px;
   @include kk.coluna-papel;
   transition: background-color var(--t-ui) var(--ease-ui);
 
-  &:nth-child(even) {
-    rotate: 0.4deg;
-  }
-  &:nth-child(3n) {
-    rotate: -0.15deg;
-  }
 }
 
 /* a coluna com a mão (ou o foco) fica por cima das vizinhas: a etiqueta das ações de uma tira, que
@@ -479,7 +473,7 @@ $folga-sombra: 30px;
   flex: 0 1 auto;
   flex-direction: column;
   min-height: 0;
-  margin-inline: -14px;
+  margin-inline: -18px;
 
   /* a sombra do papel: embaixo da etiqueta quando rolou para baixo, em cima do pé quando há mais
      embaixo; ligada só pela opacidade (a página troca a classe, ver `shade`) */

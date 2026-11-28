@@ -291,6 +291,7 @@
           appPertoLados
           #colunaPerto="perto"
           [attr.data-coluna]="v.col.id"
+          [attr.data-cor]="v.col.color"
           [class.finaliza]="v.col.finishes"
           [class.alvo]="drag()?.over === v.col.id"
           [attr.aria-labelledby]="'col-' + v.col.id"

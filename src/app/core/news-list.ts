@@ -27,6 +27,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-28-kanban-prancheta',
+    version: '1.58.2',
+    kind: 'ajustes',
+    date: '2026-11-28',
+    title: 'Colunas do Kanban de prancheta',
+    melhorias: [
+      'As colunas do Kanban viraram pranchetas de feltro, retas, costuradas na cor da coluna, com o nome preso num prendedor de metal.',
+    ],
+  },
+  {
     id: '2026-11-27-paleta-do-relogio',
     version: '1.58.1',
     kind: 'ajustes',

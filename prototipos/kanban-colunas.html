@@ -1,0 +1,996 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Colunas do Kanban · versões retas para escolher</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700;800&family=Caveat:wght@700&family=Kalam:wght@400;700&family=Permanent+Marker&display=swap" rel="stylesheet">
+<style>
+/* Os mesmos tokens do site (src/styles.scss) e a mesma coluna (src/app/ui/_kanban-kit.scss e
+   src/app/pages/kanban-page.scss): 296px de largura, a etiqueta da coluna com o contorno da cor dela, as
+   fichas e a etiqueta de importância. Toda versão é RETA: nenhuma coluna nem etiqueta gira. */
+:root {
+  --wall: #1f1c1a;
+  --wall-hole: #0b0908;
+  --wall-ink: #f3efe6;
+  --wall-ink-2: #bdb5a8;
+  --ink: #151515;
+  --ink-2: rgb(21 21 21 / 0.78);
+  --hi: #ffda42;
+  --paper: #f7f4ec;
+  --papel-orelha: #fffcf2;
+  --shadow-card: 0 1px 1px rgb(0 0 0 / 0.35), 0 10px 18px -6px rgb(0 0 0 / 0.55), 0 22px 40px -18px rgb(0 0 0 / 0.6);
+  --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.45 0 0 0 0 0.4 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --f-caneta: 'Caveat', 'Segoe Print', cursive;
+  --f-label: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --f-marker: 'Permanent Marker', 'Comic Sans MS', cursive;
+  --f-mao: 'Kalam', cursive;
+  --kraft: #a08361;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { background: var(--wall); }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--wall);
+  background-image: radial-gradient(circle, var(--wall-hole) 2px, transparent 2.6px);
+  background-size: 26px 26px;
+  color: var(--wall-ink);
+  font-family: var(--f-label);
+}
+::selection { background: var(--hi); color: var(--ink); }
+.pagina { max-width: 1400px; margin: 0 auto; padding: 34px 22px 96px; }
+h1 { margin: 0; font: 400 clamp(2rem, 4vw, 2.7rem)/1.05 var(--f-marker); text-wrap: balance; }
+.como { max-width: 68ch; margin: 12px 0 0; font: 400 1.14rem/1.45 var(--f-mao); color: var(--wall-ink-2); }
+.como b { color: var(--wall-ink); }
+
+.versao { margin-top: 64px; }
+.bloco { margin: 56px 0 -24px; padding-top: 18px; border-top: 2px dashed rgb(243 239 230 / 0.2); font: 400 2rem/1.1 var(--f-marker); }
+.versao-cab { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+.versao-cab .n {
+  display: inline-block;
+  min-width: 1.8em;
+  padding: 2px 6px 1px;
+  background: var(--hi);
+  color: var(--ink);
+  font: 700 1.1rem/1.1 var(--f-label);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  clip-path: polygon(2% 8%, 100% 0, 97% 96%, 0 100%);
+}
+.versao-cab h2 { margin: 0; font: 400 1.6rem/1.1 var(--f-marker); }
+.versao .d { margin: 0 0 24px; max-width: 76ch; font: 400 1.05rem/1.4 var(--f-mao); color: var(--wall-ink-2); }
+
+/* ===== O quadro: as colunas lado a lado; rola de lado no celular ===== */
+.quadro {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  padding: 14px 4px 30px;
+  overflow-x: auto;
+}
+
+/* ===== A coluna de hoje (kanban-kit coluna-papel), sem o giro ===== */
+.coluna {
+  --col-cor: #8a837b;
+  --tinta-col: rgb(21 21 21 / 0.62);
+  position: relative;
+  flex: 0 0 296px;
+  display: flex;
+  flex-direction: column;
+  height: 486px;
+  padding: 0 14px 14px;
+  border-radius: 2px;
+  background-color: var(--kraft);
+  background-image:
+    repeating-linear-gradient(91deg, rgb(255 255 255 / 0.035) 0 2px, transparent 2px 7px),
+    var(--paper-grain);
+  background-blend-mode: normal, multiply;
+  color: var(--ink);
+  box-shadow: var(--shadow-card);
+}
+.coluna[data-cor='rosa'] { --col-cor: #e2579f; }
+.coluna[data-cor='amarelo'] { --col-cor: #b88a00; }
+.coluna[data-cor='verde'] { --col-cor: #5e9c1c; }
+.coluna[data-cor='azul'] { --col-cor: #2d8bd6; }
+.coluna[data-cor='vermelho'] { --col-cor: #d63a2f; }
+
+/* a etiqueta da coluna (kanban-kit cabecalho + etiqueta-coluna) */
+.etiqueta {
+  position: relative;
+  z-index: 2;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  margin: 20px -6px 0;
+  padding: 11px 9px 10px 15px;
+  border-radius: 9px;
+  background-color: var(--papel-orelha);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: #151515;
+  box-shadow:
+    inset 0 -1px 0 rgb(255 255 255 / 0.35),
+    0 1px 1px rgb(0 0 0 / 0.25),
+    0 3px 7px -2px rgb(0 0 0 / 0.45);
+}
+.etiqueta::before {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  z-index: -1;
+  border: 3px solid var(--col-cor);
+  border-radius: 6px;
+  pointer-events: none;
+}
+.etiqueta-icone { display: inline-flex; color: var(--col-cor); }
+.etiqueta-nome {
+  min-width: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font: 700 calc(1.3rem * 1.2)/1.05 var(--f-caneta);
+  overflow-wrap: anywhere;
+}
+.etiqueta-n {
+  flex: none;
+  font: 700 0.92rem/1 var(--f-label);
+  letter-spacing: 0.04em;
+  opacity: 0.68;
+  font-variant-numeric: tabular-nums;
+}
+.etiqueta-btn { display: grid; place-items: center; width: 30px; height: 30px; margin: -8px 0 -8px -4px; opacity: 0.55; }
+.etiqueta-ordem {
+  grid-column: 2 / 4;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: -5px 0 0;
+  font: 800 0.7rem/1.15 var(--f-label);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: rgb(21 21 21 / 0.68);
+}
+.etiqueta-ordem svg { color: var(--col-cor); }
+.carimbo {
+  position: absolute;
+  right: 12px;
+  bottom: -12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px 2px 6px;
+  border-radius: 2px;
+  background: var(--paper);
+  color: var(--ink);
+  font: 800 0.7rem/1.2 var(--f-label);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  box-shadow: inset 0 0 0 1.5px var(--ink), 0 1px 1px rgb(0 0 0 / 0.3), 0 3px 4px -2px rgb(0 0 0 / 0.3);
+}
+.coluna.finaliza .etiqueta-ordem { margin-right: 78px; }
+/* as peças de enfeite que só algumas versões mostram */
+.prego, .grampo { display: none; }
+
+/* ===== As fichas (iguais em toda versão: a mudança é só a coluna) ===== */
+.rolo {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-inline: -14px;
+  padding: 22px 14px 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.ficha {
+  position: relative;
+  flex: none;
+  margin-bottom: 16px;
+  padding: 13px 14px 26px;
+  background-color: var(--fc, #f6dc4c);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  box-shadow: var(--shadow-card);
+  color: var(--ink);
+}
+.ficha.amarela { --fc: #f8de4a; }
+.ficha.rosa { --fc: #f57bb6; }
+.ficha.salmao { --fc: #ee7a6c; }
+.ficha h3 {
+  margin: 0;
+  font: 700 1.5rem/1.08 var(--f-caneta);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.ficha.feita h3 { text-decoration: line-through; text-decoration-thickness: 2px; opacity: 0.82; }
+.ficha .meta {
+  margin: 6px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font: 800 0.72rem/1.2 var(--f-label);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.ficha .tags { display: flex; gap: 6px; margin-top: 8px; }
+.ficha .tag {
+  padding: 2px 6px 1px 9px;
+  border-radius: 2px;
+  background: var(--paper);
+  box-shadow: inset 0 0 0 1.5px var(--tg, #d4472f), 0 1px 1px rgb(0 0 0 / 0.25);
+  font: 800 0.7rem/1.3 var(--f-label);
+  letter-spacing: 0.04em;
+  clip-path: polygon(6px 0, 100% 0, 100% 100%, 6px 100%, 0 50%);
+}
+.imp {
+  --imp: #7d5c00;
+  position: absolute;
+  top: calc(100% - 12px);
+  left: 10px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 7px 3px 6px;
+  border-radius: 2px;
+  background:
+    linear-gradient(var(--imp), var(--imp)) 0 2px / 100% 1.5px no-repeat,
+    linear-gradient(var(--imp), var(--imp)) 0 calc(100% - 2px) / 100% 1.5px no-repeat,
+    var(--paper);
+  color: var(--imp);
+  font: 800 0.7rem/1 var(--f-label);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3)) drop-shadow(0 3px 3px rgb(0 0 0 / 0.18));
+}
+.imp[data-imp='critico'] {
+  --imp: #b81d1c;
+  background:
+    linear-gradient(rgb(255 255 255 / 0.7), rgb(255 255 255 / 0.7)) 0 2px / 100% 1.5px no-repeat,
+    linear-gradient(rgb(255 255 255 / 0.7), rgb(255 255 255 / 0.7)) 0 calc(100% - 2px) / 100% 1.5px no-repeat,
+    var(--imp);
+  color: var(--paper);
+}
+.imp[data-imp='baixo'] { --imp: #1f4fc4; }
+.imp i { display: inline-flex; align-items: flex-end; gap: 1.5px; height: 10px; }
+.imp i b { display: block; width: 2.5px; background: currentColor; opacity: 0.25; }
+.imp i b:nth-child(1) { height: 3px; } .imp i b:nth-child(2) { height: 4.75px; } .imp i b:nth-child(3) { height: 6.5px; }
+.imp i b:nth-child(4) { height: 8.25px; } .imp i b:nth-child(5) { height: 10px; }
+.imp i b.on { opacity: 1; }
+.selo-feito {
+  position: absolute;
+  right: 12px;
+  bottom: 14px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: 2.5px solid #2f7a1c;
+  box-shadow: inset 0 0 0 3px transparent, inset 0 0 0 4.5px #2f7a1c;
+  color: #2f7a1c;
+  display: grid;
+  place-items: center;
+  opacity: 0.85;
+}
+
+/* a coluna sem anotações */
+.vazia {
+  margin: 18px 0 0;
+  padding: 18px 10px;
+  border: 1.5px dashed var(--tinta-col);
+  border-radius: 3px;
+  text-align: center;
+  font: 400 1.02rem/1.3 var(--f-mao);
+  color: var(--tinta-col);
+}
+.adicionar {
+  margin-top: 14px;
+  padding: 12px 10px;
+  border: 1.5px dashed var(--tinta-col);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font: 800 0.92rem/1 var(--f-label);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tinta-col);
+}
+.coluna.sem-fichas .rolo { display: none; }
+
+/* =====================================================================================================
+   As versões. Cada uma muda só a coluna (o papel e onde a etiqueta mora); as fichas são as mesmas.
+   ===================================================================================================== */
+
+/* 1 · A de hoje, reta: a mesma tira de papel pardo, sem girar */
+.v1 .coluna {}
+
+/* 2 · Etiqueta encaixada: a etiqueta vira o topo da tira, de beirada a beirada, com a cor numa faixa embaixo */
+.v2 .coluna { padding-top: 0; border-radius: 3px; }
+.v2 .etiqueta {
+  margin: 0 -14px;
+  padding: 14px 12px 15px 16px;
+  border-radius: 3px 3px 0 0;
+  box-shadow: 0 1px 0 rgb(0 0 0 / 0.18), 0 4px 6px -3px rgb(0 0 0 / 0.35);
+}
+.v2 .etiqueta::before { inset: auto 0 0 0; height: 6px; border: 0; border-radius: 0; background: var(--col-cor); }
+.v2 .carimbo { bottom: -10px; }
+
+/* 3 · Lombada de pano: a tira encadernada do lado esquerdo com um pano da cor da coluna, pespontado */
+.v3 .coluna { padding-left: 30px; }
+.v3 .coluna::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 16px;
+  border-radius: 2px 0 0 2px;
+  background-color: var(--col-cor);
+  background-image:
+    repeating-linear-gradient(0deg, rgb(255 255 255 / 0.09) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgb(0 0 0 / 0.1) 0 1px, transparent 1px 3px),
+    var(--paper-grain);
+  background-blend-mode: normal, normal, multiply;
+  box-shadow: inset -2px 0 0 rgb(0 0 0 / 0.22), 2px 0 3px rgb(0 0 0 / 0.18);
+}
+.v3 .coluna::after {
+  content: '';
+  position: absolute;
+  inset: 6px auto 6px 7px;
+  border-left: 1.5px dashed rgb(255 255 255 / 0.75);
+}
+.v3 .etiqueta { margin-left: -4px; }
+.v3 .rolo { margin-left: -14px; padding-left: 14px; }
+
+/* 4 · Papelão ondulado: a tira de papelão com o ondulado à mostra na beirada de cima e as ondas de leve */
+.v4 .coluna {
+  background-color: #c29b67;
+  background-image:
+    repeating-linear-gradient(90deg, rgb(70 44 14 / 0.07) 0 2px, transparent 2px 10px),
+    var(--paper-grain);
+  border-radius: 1px;
+}
+.v4 .coluna::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 10px;
+  background:
+    radial-gradient(circle at 5px 10px, #7d582c 3.4px, transparent 4px) 0 0 / 10px 10px repeat-x,
+    linear-gradient(#e0c28f, #d2b07a);
+  box-shadow: 0 1px 0 rgb(70 44 14 / 0.35);
+}
+.v4 .etiqueta { margin-top: 26px; }
+
+/* 5 · Cortiça com moldura: um painel de cortiça na moldura de madeira; a etiqueta presa numa tachinha da cor */
+.v5 .coluna {
+  padding: 0 20px 20px;
+  border-radius: 4px;
+  background-color: #b78a57;
+  background-image:
+    radial-gradient(circle at 20% 30%, rgb(90 55 20 / 0.35) 0.9px, transparent 1.4px),
+    radial-gradient(circle at 70% 60%, rgb(255 230 190 / 0.3) 0.8px, transparent 1.3px),
+    radial-gradient(circle at 45% 85%, rgb(90 55 20 / 0.28) 1.2px, transparent 1.8px),
+    var(--paper-grain);
+  background-size: 7px 7px, 9px 9px, 13px 13px, auto;
+  background-blend-mode: normal, normal, normal, multiply;
+  box-shadow:
+    inset 0 0 0 8px #6b4527,
+    inset 0 0 0 9px rgb(0 0 0 / 0.35),
+    inset 1px 1px 0 9px rgb(255 220 170 / 0.12),
+    var(--shadow-card);
+}
+.v5 .etiqueta { margin: 26px 0 0; }
+.v5 .etiqueta .prego.c {
+  display: block;
+  position: absolute;
+  top: -8px;
+  left: calc(50% - 8px);
+  z-index: 3;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgb(255 255 255 / 0.75) 0 2px, transparent 3px), var(--col-cor);
+  box-shadow: inset 0 -2px 2px rgb(0 0 0 / 0.3), 0 2px 3px rgb(0 0 0 / 0.45);
+}
+.v5 .rolo { margin-inline: -20px; padding-inline: 20px; }
+.v5 .ficha { --tinta: 0; }
+
+/* 6 · Prancheta: a placa de eucatex liso de cantos redondos e o prendedor de metal segurando a etiqueta */
+.v6 .coluna {
+  --tinta-col: rgb(255 244 225 / 0.6);
+  padding: 0 16px 16px;
+  border-radius: 12px;
+  background-color: #7b5537;
+  background-image: linear-gradient(170deg, rgb(255 255 255 / 0.06), transparent 40%), var(--paper-grain);
+  background-blend-mode: normal, multiply;
+}
+.v6 .etiqueta { margin: 30px -2px 0; }
+:is(.v6, .m) .etiqueta .grampo {
+  display: block;
+  position: absolute;
+  top: -22px;
+  left: calc(50% - 54px);
+  z-index: 3;
+  width: 108px;
+  height: 30px;
+  border-radius: 7px 7px 12px 12px;
+  background: linear-gradient(#f0efe9, #b7b6b0 45%, #8e8d88 55%, #d6d5cf);
+  box-shadow: inset 0 1px 0 #fff, inset 0 -2px 0 rgb(0 0 0 / 0.2), 0 3px 5px rgb(0 0 0 / 0.45);
+}
+:is(.v6, .m) .etiqueta .grampo::after {
+  content: '';
+  position: absolute;
+  top: 7px;
+  left: calc(50% - 15px);
+  width: 30px;
+  height: 7px;
+  border-radius: 4px;
+  background: #4d4c48;
+  box-shadow: inset 0 2px 2px rgb(0 0 0 / 0.5);
+}
+.v6 .rolo { margin-inline: -16px; padding-inline: 16px; }
+
+/* 7 · Feltro pespontado: a tira de feltro grafite com a costura da cor da coluna em volta */
+.v7 .coluna {
+  --tinta-col: rgb(243 239 230 / 0.55);
+  border-radius: 5px;
+  background-color: #3a3633;
+  background-image:
+    var(--paper-grain),
+    radial-gradient(circle at 50% 50%, rgb(255 255 255 / 0.05) 0.6px, transparent 1px);
+  background-size: auto, 3px 3px;
+  background-blend-mode: overlay, normal;
+}
+.v7 .coluna::before {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border: 2px dashed var(--col-cor);
+  border-radius: 3px;
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+/* 8 · Eucatex furado: a placa de furinhos do cofre; a etiqueta parafusada nas duas pontas */
+.v8 .coluna {
+  --tinta-col: rgb(30 20 10 / 0.6);
+  border-radius: 3px;
+  background-color: #a4794b;
+  background-image:
+    radial-gradient(circle, #24180e 2.1px, rgb(255 230 190 / 0.2) 2.7px, transparent 3.2px),
+    var(--paper-grain);
+  background-size: 22px 22px, auto;
+  background-position: 11px 11px, 0 0;
+  background-blend-mode: normal, multiply;
+}
+.v8 .etiqueta { margin-inline: -4px; padding-inline: 22px 14px; }
+.v8 .vazia, .v8 .adicionar { background: #a4794b; background-image: var(--paper-grain); background-blend-mode: multiply; }
+.v8 .etiqueta .prego.e, .v8 .etiqueta .prego.d {
+  display: block;
+  position: absolute;
+  top: calc(50% - 5px);
+  z-index: 3;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background:
+    linear-gradient(45deg, transparent 44%, rgb(0 0 0 / 0.5) 44% 56%, transparent 56%),
+    radial-gradient(circle at 35% 30%, #fafaf6, #a3a29c 70%);
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.5);
+}
+.v8 .etiqueta .prego.e { left: 8px; }
+.v8 .etiqueta .prego.d { right: 6px; }
+.v8 .etiqueta .etiqueta-btn { margin-right: 4px; }
+
+/* 9 · Raia a giz: sem papel nenhum; a raia tracejada a giz na parede e as fichas direto nela */
+.v9 .coluna {
+  --tinta-col: rgb(243 239 230 / 0.45);
+  background: none;
+  box-shadow: none;
+  border-radius: 6px;
+  outline: 2px dashed rgb(243 239 230 / 0.3);
+  outline-offset: -2px;
+}
+
+/* 10 · Envelope: a tira é um envelope pardo de aba aberta; a etiqueta colada na aba */
+.v10 .coluna { background-color: #b18d62; }
+.v10 .coluna > * { position: relative; z-index: 1; }
+.v10 .coluna > .etiqueta { z-index: 2; }
+/* a sombra da aba, um pouco abaixo dela */
+.v10 .coluna::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 142px;
+  background: rgb(55 34 10 / 0.32);
+  clip-path: polygon(0 0, 100% 0, 100% 44%, 50% 100%, 0 44%);
+}
+/* a aba, um tom mais fundo, com a dobra clarinha na beirada */
+.v10 .coluna::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 136px;
+  background-color: #8f6c44;
+  background-image: linear-gradient(rgb(255 235 200 / 0.12), transparent 30%), var(--paper-grain);
+  background-blend-mode: normal, multiply;
+  clip-path: polygon(0 0, 100% 0, 100% 44%, 50% 100%, 0 44%);
+}
+.v10 .etiqueta { margin-top: 22px; }
+
+/* 11 · Bandeja de arquivo: uma bandeja de madeira funda, com a borda levantada em volta */
+.v11 .coluna {
+  border-radius: 6px;
+  background-color: #8a6642;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  box-shadow:
+    inset 0 14px 14px -8px rgb(0 0 0 / 0.45),
+    inset 8px 0 10px -8px rgb(0 0 0 / 0.35),
+    inset -8px 0 10px -8px rgb(0 0 0 / 0.35),
+    inset 0 -3px 6px -3px rgb(0 0 0 / 0.3),
+    0 0 0 5px #b68b5d,
+    0 0 0 6px rgb(0 0 0 / 0.35),
+    0 1px 0 6px rgb(255 225 185 / 0.15),
+    var(--shadow-card);
+}
+.v11 .quadro { gap: 34px; padding-inline: 10px; }
+.v11 .etiqueta { margin: 18px -2px 0; }
+
+/* 12 · Papel quadriculado: uma tira de papel de caderno quadriculado, clara */
+.v12 .coluna {
+  --tinta-col: rgb(21 21 21 / 0.5);
+  background-color: #f1ede1;
+  background-image:
+    linear-gradient(rgb(64 112 176 / 0.17) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(64 112 176 / 0.17) 1px, transparent 1px),
+    var(--paper-grain);
+  background-size: 16px 16px, 16px 16px, auto;
+  background-blend-mode: normal, normal, multiply;
+}
+
+/* 13 · Pardo tingido: o mesmo papel pardo, puxado para a cor de cada coluna */
+.v13 .coluna {
+  background-color: var(--kraft-tom, var(--kraft));
+}
+/* o tom de cada cor escolhido à mão: misturado direto, o azul com o pardo dá cinza ou verde */
+.v13 .coluna[data-cor='vermelho'] { --kraft-tom: #ab6c52; }
+.v13 .coluna[data-cor='rosa'] { --kraft-tom: #a8707c; }
+.v13 .coluna[data-cor='azul'] { --kraft-tom: #7d879a; }
+.v13 .coluna[data-cor='verde'] { --kraft-tom: #8b8c58; }
+.v13 .coluna[data-cor='amarelo'] { --kraft-tom: #ad8b48; }
+
+/* 14 · Pasta manilha: cada coluna uma pasta manilha em pé; o nome na orelha redonda, a cor numa faixa nela */
+.v14 .quadro { padding-top: 54px; }
+.v14 .coluna {
+  background-color: #e0c48c;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  border-radius: 0 6px 4px 4px;
+  padding-top: 0;
+}
+.v14 .etiqueta {
+  margin: -46px auto 0 -14px;
+  width: calc(100% - 18px);
+  padding: 15px 8px 12px 14px;
+  border-radius: 10px 10px 0 0;
+  background-color: #e0c48c;
+  box-shadow: none;
+  z-index: 1;
+}
+.v14 .etiqueta::before { inset: 6px 12px auto; height: 4px; border: 0; border-radius: 2px; background: var(--col-cor); }
+.v14 .etiqueta::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  border-radius: inherit;
+  box-shadow: 0 -2px 6px -2px rgb(0 0 0 / 0.35);
+  clip-path: inset(-10px -10px 0 -10px);
+}
+.v14 .carimbo { bottom: -14px; right: -4px; }
+.v14 .rolo { padding-top: 22px; }
+
+/* 15 · Lousa: uma lousa de giz na moldura de madeira; o nome escrito a giz, sublinhado na cor da coluna */
+.v15 .coluna {
+  --tinta-col: rgb(243 239 230 / 0.5);
+  padding: 0 18px 18px;
+  border-radius: 4px;
+  background-color: #2e3c35;
+  background-image:
+    radial-gradient(ellipse at 30% 20%, rgb(255 255 255 / 0.06), transparent 55%),
+    radial-gradient(ellipse at 70% 75%, rgb(255 255 255 / 0.04), transparent 50%),
+    var(--paper-grain);
+  background-blend-mode: normal, normal, overlay;
+  box-shadow: inset 0 0 0 8px #7a5333, inset 0 0 0 9px rgb(0 0 0 / 0.4), var(--shadow-card);
+}
+.v15 .etiqueta {
+  margin: 22px 0 0;
+  background: none;
+  box-shadow: none;
+  color: #f1eee4;
+  padding-bottom: 14px;
+}
+.v15 .etiqueta::before {
+  inset: auto 12px 4px 12px;
+  height: 3px;
+  border: 0;
+  border-radius: 2px;
+  background: var(--col-cor);
+  filter: brightness(1.35) saturate(0.8);
+  opacity: 0.9;
+}
+.v15 .etiqueta-icone { color: color-mix(in oklab, var(--col-cor) 70%, white); }
+.v15 .etiqueta-ordem { color: rgb(241 238 228 / 0.62); }
+.v15 .etiqueta-ordem svg { color: color-mix(in oklab, var(--col-cor) 70%, white); }
+.v15 .etiqueta-btn { color: #f1eee4; }
+.v15 .rolo { margin-inline: -18px; padding-inline: 18px; }
+
+/* ===== Misturas do 6 (Prancheta) e do 7 (Feltro pespontado): o prendedor de metal segurando a etiqueta
+   e a costura tracejada da cor da coluna, em quatro jeitos ===== */
+.m .coluna {
+  padding: 0 18px 18px;
+  border-radius: 12px;
+}
+.m .coluna > * { position: relative; z-index: 1; }
+.m .coluna > .etiqueta { z-index: 2; }
+.m .etiqueta { margin: 32px -4px 0; }
+.m .rolo { margin-inline: -18px; padding-inline: 18px; }
+/* a costura: tracejada, na cor da coluna */
+.m .coluna::after {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  border: 2px dashed var(--col-cor);
+  border-radius: 8px;
+  opacity: 0.9;
+  pointer-events: none;
+}
+/* o feltro grafite do 7 */
+.m .coluna, .m17 .coluna::before {
+  --feltro:
+    var(--paper-grain),
+    radial-gradient(circle at 50% 50%, rgb(255 255 255 / 0.05) 0.6px, transparent 1px);
+}
+
+/* 16 · Prancheta de feltro: a prancheta inteira de feltro grafite, pespontada em volta, com o prendedor */
+.m16 .coluna {
+  --tinta-col: rgb(243 239 230 / 0.55);
+  background-color: #3a3633;
+  background-image: var(--feltro);
+  background-size: auto, 3px 3px;
+  background-blend-mode: overlay, normal;
+}
+
+/* 17 · Prancheta forrada: a placa de madeira do 6 com uma folha de feltro colada por dentro, pespontada */
+.m17 .coluna {
+  --tinta-col: rgb(243 239 230 / 0.55);
+  background-color: #7b5537;
+  background-image: linear-gradient(170deg, rgb(255 255 255 / 0.06), transparent 40%), var(--paper-grain);
+  background-blend-mode: normal, multiply;
+}
+.m17 .coluna::before {
+  content: '';
+  position: absolute;
+  inset: 9px;
+  border-radius: 7px;
+  background-color: #3a3633;
+  background-image: var(--feltro);
+  background-size: auto, 3px 3px;
+  background-blend-mode: overlay, normal;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.35), inset 0 2px 4px rgb(0 0 0 / 0.4);
+}
+.m17 .coluna::after { inset: 14px; border-radius: 4px; }
+.m17 .etiqueta { margin-top: 36px; }
+.m17 .rolo { padding-inline: 22px; }
+.m17 .vazia, .m17 .adicionar { margin-inline: 6px; }
+
+/* 18 · Prancheta pespontada: a placa de madeira do 6, sem feltro, só com a costura da cor em volta */
+.m18 .coluna {
+  --tinta-col: rgb(255 244 225 / 0.6);
+  background-color: #7b5537;
+  background-image: linear-gradient(170deg, rgb(255 255 255 / 0.06), transparent 40%), var(--paper-grain);
+  background-blend-mode: normal, multiply;
+}
+
+/* 19 · Feltro com prendedor: a tira reta de feltro do 7 (cantos quase retos), só ganhando o prendedor */
+.m19 .coluna {
+  --tinta-col: rgb(243 239 230 / 0.55);
+  border-radius: 5px;
+  background-color: #3a3633;
+  background-image: var(--feltro);
+  background-size: auto, 3px 3px;
+  background-blend-mode: overlay, normal;
+}
+.m19 .coluna::after { inset: 6px; border-radius: 3px; }
+.m19 .grampo { width: 92px !important; left: calc(50% - 46px) !important; }
+
+/* ===== A parte de cima da 16: cinco jeitos de pôr o nome na prancheta de feltro (o resto igual) ===== */
+.t .etiqueta .grampo { display: none; }
+
+/* 20 · Prendedor de prancheta: o prendedor largo de verdade, com a alavanca de arame, mordendo o alto de uma
+   folha de papel com o nome */
+.t20 .etiqueta { margin-top: 40px; border-radius: 3px; padding-top: 16px; }
+.t20 .etiqueta::before { border-radius: 2px; }
+.t20 .etiqueta .grampo {
+  display: block;
+  position: absolute;
+  top: -24px;
+  left: calc(50% - 82px);
+  z-index: 3;
+  width: 164px;
+  height: 32px;
+  border-radius: 6px 6px 3px 3px;
+  background: linear-gradient(#f3f2ec, #c4c3bd 40%, #8f8e89 62%, #cfcec8);
+  box-shadow: inset 0 1px 0 #fff, inset 0 -2px 0 rgb(0 0 0 / 0.22), 0 3px 5px rgb(0 0 0 / 0.5);
+}
+/* a alavanca de arame, deitada sobre o prendedor */
+.t20 .etiqueta .grampo::before {
+  content: '';
+  position: absolute;
+  top: -11px;
+  left: calc(50% - 40px);
+  width: 80px;
+  height: 22px;
+  border: 3px solid #a9a8a2;
+  border-bottom: 0;
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 -1px 0 rgb(255 255 255 / 0.5), inset 0 1px 0 rgb(0 0 0 / 0.25);
+}
+/* os dois rebites */
+.t20 .etiqueta .grampo::after {
+  top: 12px;
+  left: 14px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff, #8c8b86 70%);
+  box-shadow: 128px 0 0 0 #a3a29c;
+}
+
+/* 21 · Etiqueta costurada: sem prendedor; o nome numa etiqueta de pano costurada no feltro, com o ponto
+   tracejado da cor da coluna em volta */
+.t21 .etiqueta {
+  margin-top: 24px;
+  border-radius: 3px;
+  background-image:
+    repeating-linear-gradient(0deg, rgb(0 0 0 / 0.025) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgb(0 0 0 / 0.025) 0 1px, transparent 1px 3px),
+    var(--paper-grain);
+  background-blend-mode: normal, normal, multiply;
+}
+.t21 .etiqueta::before { inset: 5px; border-width: 2px; border-style: dashed; border-radius: 1px; }
+
+/* 22 · Prendedor de pressão: o clipe preto de escritório, de alças de arame, segurando o nome */
+.t22 .etiqueta { margin-top: 38px; }
+.t22 .etiqueta .grampo {
+  display: block;
+  position: absolute;
+  top: -16px;
+  left: calc(50% - 34px);
+  z-index: 3;
+  width: 68px;
+  height: 26px;
+  border-radius: 3px 3px 7px 7px;
+  background: linear-gradient(#4a4845, #1d1c1b 55%, #2b2a28);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.22), 0 3px 5px rgb(0 0 0 / 0.5);
+}
+/* as duas alças de arame, de pé atrás do clipe */
+.t22 .etiqueta .grampo::before {
+  content: '';
+  position: absolute;
+  bottom: 18px;
+  left: 9px;
+  z-index: -1;
+  width: 50px;
+  height: 22px;
+  border: 2.5px solid #c9c8c2;
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+  box-shadow: inset 2px 0 0 rgb(0 0 0 / 0.15);
+}
+.t22 .etiqueta .grampo::after {
+  top: 7px;
+  left: 8px;
+  width: calc(100% - 16px);
+  height: 2px;
+  border-radius: 1px;
+  background: rgb(255 255 255 / 0.14);
+  box-shadow: none;
+}
+
+/* 23 · Faixa de feltro da cor: o nome numa faixa de feltro da cor da coluna, pespontada em creme, por cima
+   do feltro grafite */
+.t23 .etiqueta {
+  margin-top: 22px;
+  border-radius: 6px;
+  background-color: color-mix(in oklab, var(--col-cor) 82%, black);
+  background-image:
+    var(--paper-grain),
+    radial-gradient(circle at 50% 50%, rgb(255 255 255 / 0.07) 0.6px, transparent 1px);
+  background-size: auto, 3px 3px;
+  background-blend-mode: overlay, normal;
+  color: #fdf8ee;
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.35), 0 3px 6px -2px rgb(0 0 0 / 0.5);
+}
+.t23 .etiqueta::before { inset: 5px; border: 2px dashed rgb(253 248 238 / 0.8); border-radius: 3px; }
+.t23 .etiqueta-icone, .t23 .etiqueta-ordem svg, .t23 .etiqueta-btn { color: #fdf8ee; }
+.t23 .etiqueta-n { opacity: 0.85; }
+.t23 .etiqueta-ordem { color: rgb(253 248 238 / 0.82); }
+.t23 .etiqueta-btn { opacity: 0.8; }
+.t23 .coluna[data-cor='amarelo'] .etiqueta { background-color: #8a6a00; }
+
+/* 24 · Porta-etiqueta de latão: a moldurinha de latão rebitada no feltro, com o cartão do nome dentro e a cor
+   numa listra na ponta do cartão */
+.t24 .etiqueta {
+  margin-top: 24px;
+  padding: 13px 10px 12px 21px;
+  border-radius: 4px;
+  box-shadow:
+    inset 0 0 0 1px #6b4f17,
+    inset 0 0 0 5px #c49c45,
+    inset 1px 1px 0 5px #f2dc93,
+    inset 0 0 0 6px rgb(60 40 5 / 0.45),
+    0 1px 1px rgb(0 0 0 / 0.4),
+    0 3px 6px -2px rgb(0 0 0 / 0.5);
+}
+.t24 .etiqueta::before { inset: 6px auto 6px 6px; width: 6px; border: 0; border-radius: 0; background: var(--col-cor); }
+.t24 .etiqueta .prego.e, .t24 .etiqueta .prego.d {
+  display: block;
+  position: absolute;
+  top: calc(50% - 5px);
+  z-index: 3;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff4c4, #b88f35 60%, #7d5d1c);
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.55);
+}
+.t24 .etiqueta .prego.e { left: -3px; }
+.t24 .etiqueta .prego.d { right: -3px; }
+
+/* 25 · Prendedor na beirada: o prendedor da 16 meio para fora do alto da prancheta, e a etiqueta larga logo
+   embaixo dele, cobrindo o alto da costura */
+.t25 .etiqueta { margin: 8px -10px 0; }
+.t25 .etiqueta .grampo { display: block; top: -24px; }
+
+@media (max-width: 700px) {
+  .pagina { padding-inline: 14px; }
+  .coluna { flex-basis: min(84vw, 320px); }
+}
+</style>
+</head>
+<body>
+<main class="pagina">
+  <h1>Colunas do Kanban, retas</h1>
+  <p class="como">
+    Quinze jeitos de fazer as colunas, <b>todos retos</b>: nenhuma coluna nem etiqueta gira. As fichas são as mesmas em
+    todas as versões (só a coluna muda), na largura de verdade (296px), com as quatro colunas do seu quadro.
+    Diga os números de que gostou, e o que mudar neles.
+  </p>
+  <div id="versoes"></div>
+</main>
+
+<script>
+const IC = {
+  ampulheta: '<path d="M5 22h14M5 2h14M17 22v-4.17a2 2 0 0 0-.59-1.42L12 12l-4.41 4.41A2 2 0 0 0 7 17.83V22M7 2v4.17a2 2 0 0 0 .59 1.42L12 12l4.41-4.41A2 2 0 0 0 17 6.17V2"/>',
+  caixa: '<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>',
+  lapisLinha: '<path d="M13 21h8"/><path d="M17.4 3.6a2 2 0 0 1 2.9 2.9L7 19.8 3 21l1.2-4Z"/>',
+  feito: '<path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/>',
+  lapis: '<path d="M17.4 3.6a2 2 0 0 1 2.9 2.9L7 19.8 3 21l1.2-4Z"/>',
+  ordem: '<path d="m3 16 4 4 4-4M7 20V4M11 4h10M11 8h7M11 12h4"/>',
+  pasta: '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+  mais: '<path d="M5 12h14M12 5v14"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+};
+const svg = (k, s = 20) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[k]}</svg>`;
+const escala = (n) => `<i>${[1, 2, 3, 4, 5].map((k) => `<b class="${k <= n ? 'on' : ''}"></b>`).join('')}</i>`;
+const IMP = { critico: ['Crítico', 5], medio: ['Médio', 3], baixo: ['Baixo', 2] };
+
+const COLUNAS = [
+  { nome: 'TODO: Varredura', cor: 'vermelho', icone: 'ampulheta', n: 5, fichas: [
+    ['salmao', 'Varrer informações armazenadas no browser e limpar o que sobrou', 'Geral', '24 de nov de 2026', [['Performance', '#2d8bd6'], ['Planejamento', '#b88a00']], 'critico'],
+    ['salmao', 'Varrer testes procurando por inconsistências e erros', 'Geral', '13 de nov de 2026', [['Correção', '#d4472f']], 'medio'],
+    ['salmao', 'Remover pop-ins de imagens e adicionar skeletons', 'Geral', '12 de out de 2026', [['Melhoria', '#b88a00'], ['Estético', '#2d8bd6']], 'baixo'],
+  ] },
+  { nome: 'TODO: Feature', cor: 'rosa', icone: 'caixa', n: 5, fichas: [
+    ['rosa', 'Possibilitar abrir anotações lado-a-lado quando estiver no editor', 'Anotações', '27 de nov de 2026', [['Feature', '#d4472f']], 'medio'],
+    ['rosa', 'Darkmode para anotações e análises maximizadas', 'Murais', '25 de nov de 2026', [['Estético', '#2d8bd6'], ['QoL', '#b88a00']], null],
+    ['rosa', 'Criar widget que é um card do dicionário', 'Widget', '26 de nov de 2026', [['Feature', '#d4472f']], null],
+  ] },
+  { nome: 'Fazendo', cor: 'azul', icone: 'lapisLinha', n: 0, fichas: [] },
+  { nome: 'Feito', cor: 'verde', icone: 'feito', n: 349, finaliza: true, fichas: [
+    ['amarela', 'Melhorar ícone de mudar estilo do relógio', 'Pomodoro', '25 de nov de 2026', [['Estético', '#2d8bd6'], ['Padronização', '#e2579f']], 'baixo', true],
+    ['amarela', 'Corrigir bug com texto sumindo', 'Anotações', '27 de nov de 2026', [['Correção', '#d4472f']], 'medio', true],
+    ['rosa', 'Customização estética de pastas', 'Anotações', '25 de nov de 2026', [['Estético', '#2d8bd6']], 'baixo', true],
+  ] },
+];
+
+const ficha = ([cor, titulo, pasta, data, tags, imp, feita]) => `
+  <article class="ficha ${cor}${feita ? ' feita' : ''}">
+    <h3>${titulo}</h3>
+    <p class="meta">${svg('pasta', 12)} ${pasta} · ${data}</p>
+    <div class="tags">${tags.map(([t, c]) => `<span class="tag" style="--tg:${c}">${t}</span>`).join('')}</div>
+    ${feita ? `<span class="selo-feito">${svg('check', 26)}</span>` : ''}
+    ${imp ? `<span class="imp" data-imp="${imp}">${escala(IMP[imp][1])} ${IMP[imp][0]}</span>` : ''}
+  </article>`;
+
+const coluna = (c) => `
+  <section class="coluna${c.finaliza ? ' finaliza' : ''}${c.fichas.length ? '' : ' sem-fichas'}" data-cor="${c.cor}">
+    <header class="etiqueta">
+      <i class="prego e"></i><i class="prego d"></i><i class="prego c"></i><i class="grampo"></i>
+      <span class="etiqueta-icone">${svg(c.icone)}</span>
+      <h2 class="etiqueta-nome">${c.nome} <span class="etiqueta-n">${c.n}</span></h2>
+      <span class="etiqueta-btn">${svg('lapis', 16)}</span>
+      <p class="etiqueta-ordem">${svg('ordem', 13)} Por importância e tag</p>
+      ${c.finaliza ? `<span class="carimbo">${svg('check', 12)} Finaliza</span>` : ''}
+    </header>
+    ${c.fichas.length
+      ? `<div class="rolo">${c.fichas.map(ficha).join('')}</div>`
+      : `<p class="vazia">Nenhuma anotação ainda</p><p class="adicionar">${svg('mais', 16)} Adicionar nota</p>`}
+  </section>`;
+
+const TOPOS = [
+  [25, 'Prendedor na beirada', 'O prendedor meio para fora do alto da prancheta, e a etiqueta larga logo embaixo dele, de uma costura à outra.'],
+  [20, 'Prendedor de prancheta', 'O prendedor largo de prancheta de verdade, com a alavanca de arame e os dois rebites, mordendo o alto de uma folha com o nome.'],
+  [21, 'Etiqueta costurada', 'Sem prendedor: o nome numa etiqueta de pano costurada no feltro, com o ponto tracejado da cor da coluna em volta.'],
+  [22, 'Prendedor de pressão', 'O clipe preto de escritório, com as duas alças de arame em pé, segurando o nome no meio.'],
+  [23, 'Faixa de feltro da cor', 'O nome numa faixa de feltro da cor da coluna, pespontada em creme, por cima do feltro grafite.'],
+  [24, 'Porta-etiqueta de latão', 'Uma moldurinha de latão rebitada no feltro, com o cartão do nome dentro e a cor numa listra na ponta.'],
+];
+const MISTURAS = [
+  [16, 'Prancheta de feltro', 'A prancheta inteira de feltro grafite, de cantos redondos, pespontada em volta na cor da coluna; o prendedor de metal segura a etiqueta.'],
+  [17, 'Prancheta forrada de feltro', 'A placa de madeira do 6 com uma folha de feltro colada por dentro, pespontada na cor da coluna; a madeira vira a moldura.'],
+  [18, 'Prancheta pespontada', 'A placa de madeira do 6, sem feltro: só a costura tracejada da cor da coluna em volta, e o prendedor.'],
+  [19, 'Feltro com prendedor', 'A tira de feltro do 7 como está (cantos quase retos), só ganhando o prendedor de metal na etiqueta.'],
+];
+const VERSOES = [
+  ['A de hoje, reta', 'A mesma tira de papel pardo e a mesma etiqueta de hoje, só que sem girar nada. Para comparar com as outras.'],
+  ['Etiqueta encaixada', 'A etiqueta deixa de ser colada por cima e vira o topo da tira, de uma beirada à outra, com a cor da coluna numa faixa embaixo.'],
+  ['Lombada de pano', 'A tira encadernada do lado esquerdo com um pano da cor da coluna, pespontado em branco, como a lombada das pastas.'],
+  ['Papelão ondulado', 'Uma tira de papelão, com o ondulado à mostra na beirada de cima e as ondas aparecendo de leve no papel.'],
+  ['Cortiça com moldura', 'Um painel de cortiça na moldura de madeira; a etiqueta presa no meio com uma tachinha da cor da coluna.'],
+  ['Prancheta', 'Uma prancheta de eucatex liso, de cantos redondos; o prendedor de metal segura a etiqueta no alto.'],
+  ['Feltro pespontado', 'Uma tira de feltro grafite com a costura tracejada da cor da coluna em volta. As fichas saltam do fundo escuro.'],
+  ['Eucatex furado', 'A placa de furinhos do cofre; a etiqueta parafusada nas duas pontas.'],
+  ['Raia a giz', 'Sem papel nenhum: só a raia tracejada a giz na parede, e as fichas direto nela. A mais leve de todas.'],
+  ['Envelope', 'A tira é um envelope pardo com a aba aberta, um tom mais fundo; a etiqueta colada na aba.'],
+  ['Bandeja de arquivo', 'Uma bandeja de madeira funda, com a borda levantada em volta: as fichas ficam dentro dela.'],
+  ['Papel quadriculado', 'Uma tira clara de papel de caderno quadriculado. Mais leve que o pardo, e as cores das fichas ficam mais vivas.'],
+  ['Pardo tingido', 'O mesmo papel pardo de hoje, puxado para a cor de cada coluna: dá para achar a coluna pela cor de longe.'],
+  ['Pasta manilha', 'Cada coluna uma pasta manilha em pé: o nome na orelha redonda (nada de trapézio), a cor numa faixa na boca da orelha.'],
+  ['Lousa', 'Uma lousa de giz na moldura de madeira; o nome escrito a giz, sem etiqueta de papel, sublinhado na cor da coluna.'],
+];
+
+const misturas = MISTURAS.map(([n, t, d]) => `
+  <section class="versao m m${n}" id="v${n}">
+    <div class="versao-cab"><span class="n">${n}</span><h2>${t}</h2></div>
+    <p class="d">${d}</p>
+    <div class="quadro">${COLUNAS.map(coluna).join('')}</div>
+  </section>`).join('');
+const topos = TOPOS.map(([n, t, d]) => `
+  <section class="versao m m16 t t${n}" id="v${n}">
+    <div class="versao-cab"><span class="n">${n}</span><h2>${t}</h2></div>
+    <p class="d">${d}</p>
+    <div class="quadro">${COLUNAS.map(coluna).join('')}</div>
+  </section>`).join('');
+document.getElementById('versoes').innerHTML = `<h2 class="bloco">A parte de cima, na 16</h2>` + topos + `<h2 class="bloco">Misturas do 6 e do 7</h2>` + misturas + `<h2 class="bloco">As quinze de antes</h2>` + VERSOES.map(([t, d], i) => `
+  <section class="versao v${i + 1}" id="v${i + 1}">
+    <div class="versao-cab"><span class="n">${i + 1}</span><h2>${t}</h2></div>
+    <p class="d">${d}</p>
+    <div class="quadro">${COLUNAS.map(coluna).join('')}</div>
+  </section>`).join('');
+</script>
+</body>
+</html>

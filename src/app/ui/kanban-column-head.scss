@@ -12,9 +12,6 @@
   @include kk.etiqueta-coluna;
 }
 
-:host-context(.coluna:nth-child(even)) .etiqueta {
-  rotate: 0.6deg;
-}
 
 .etiqueta-icone {
   @include kk.etiqueta-icone;
